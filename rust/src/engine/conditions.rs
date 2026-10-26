@@ -264,9 +264,17 @@ pub async fn evaluate_side<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, 
 /// The shared decorator chain, outermost first. Unmet and settled failed flip reads
 /// pass to the inner rules; rejected keys and raised exceptions retain the failure path.
 pub async fn gate<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<(Rule, Evaluated), EngineError> {
+    gate_after(c, venue, bot, selling, clock, prices, version, None).await
+}
+
+/// Continue inside a refused flip, preserving the decorator order without reading the outer rules again.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn gate_after<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, after: Option<Rule>) -> Result<(Rule, Evaluated), EngineError> {
     let venue = crate::venue::Handle::for_bot(venue, c, bot)?;
     let mut refreshed = None;
-    for kind in [Rule::Indicator, Rule::MovingAverage, Rule::PriceDrop, Rule::Price] {
+    let chain = [Rule::Indicator, Rule::MovingAverage, Rule::PriceDrop, Rule::Price];
+    let start = after.and_then(|rule| chain.iter().position(|r| *r == rule)).map_or(0, |i| i + 1);
+    for &kind in &chain[start..] {
         let current = refreshed.as_deref().unwrap_or(bot);
         let flip = current.condition_rule(kind, selling).map_err(EngineError::Data)?
             .is_some_and(|r| matches!(r.common.action.as_str(), "start_selling" | "start_buying"));
@@ -364,12 +372,14 @@ pub async fn evaluate_rule<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, 
     if rule.met_at_us.is_some() {
         model::run_credential_write(c, bot, &origin, |tx| {
             let current = model::load_bot(tx, bot.id)?;
+            let mut cleared = current.clone();
+            cleared.transient[&key] = Value::Null;
             if current.bot_type == model::SIGNAL_TYPE {
                 model::update_transient(tx, bot.id, &[(key.as_str(), Value::Null)], now)?;
-            } else if current.condition_started_us()?.is_none() {
-                // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): the clear leaves the carry window where it
-                // was (another enabled rule, or no start, already keeps the decorated started_at nil), so the capture is taken
-                // back: the carry as stored before it (nil when absent), and the marker nil.
+            } else if current.condition_started_us()? == cleared.condition_started_us()? {
+                // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): settings_changed_at is unchanged,
+                // and clearing this latch leaves the decorated started_at unchanged too. Flip rules never move that mark.
+                // Keep the stored carry (nil when absent), and clear the capture marker.
                 let before = current.transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null);
                 model::update_transient(tx, bot.id, &[("missed_quote_amount", before), ("missed_quote_amount_was_set", Value::Null), (key.as_str(), Value::Null)], now)?;
             } else {

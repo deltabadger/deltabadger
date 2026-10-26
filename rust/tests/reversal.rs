@@ -526,3 +526,70 @@ async fn an_inner_price_pause_rearms_then_the_outer_ma_trigger_flips() {
     assert!(model::condition_paused_type(&e.primary, &b).unwrap().is_none());
     assert!(v.sent().is_empty());
 }
+
+fn foreign_history(c: &rusqlite::Connection, s: &seed::Seeded, id: i64) {
+    let row = seed::insert_row(c, s, id, s.btc, &json!({"status":0,"external_status":2,"side":0,
+        "amount":"0.0012","amount_exec":"0.0012","quote_amount_exec":"60","created_at":"2026-09-02 10:00:00"}));
+    c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("UPDATE transactions SET exchange_id=last_insert_rowid() WHERE id=?1", [row]).unwrap();
+    c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',?1) WHERE id=?2", [row, id]).unwrap();
+}
+
+#[test]
+fn flip_admission_refuses_an_ineligible_opposite_direction() {
+    use deltabadger::engine::eligibility;
+    let (_d, e, id, s) = engine(trigger(buyer(), false), priced());
+    foreign_history(&e.primary, &s, id);
+    let reason = "selling with 1 order(s) placed on another venue";
+    let refused = eligibility::guard(&e.primary, &seed::cipher(), Some(id));
+    assert!(refused.is_err(), "admission must check the flip target");
+    assert!(refused.unwrap_err().reason().contains(reason));
+    let report = eligibility::check_install_at(&e.primary, t("2026-09-08T10:00:01Z")).unwrap();
+    assert!(report.problems.iter().any(|r| r.contains(reason)), "{:?}", report.problems);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_ineligible_trigger_flip_keeps_buying_and_the_engine_running() {
+    use deltabadger::engine::eligibility;
+    let v = priced();
+    let (_d, mut e, id, s) = engine(trigger(buyer(), false), v.clone());
+    foreign_history(&e.primary, &s, id);
+    run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap();
+    let b = bot(&e.primary, id);
+    assert!(!b.selling(), "the refused target must never commit");
+    assert_eq!(b.started_at_us().unwrap(), Some(t("2026-09-01T10:00:00Z").timestamp_micros()));
+    assert!(b.rust_defer_until_us().unwrap().is_none());
+    assert_eq!(v.sent().len(), 1, "a refused flip passes through to buying");
+    assert!(eligibility::check_install(&e.primary).unwrap().problems.is_empty());
+    run::step(&mut e, &at("2026-09-08T10:00:02Z")).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_ineligible_outer_flip_still_reads_the_inner_pause() {
+    use deltabadger::engine::candles::Candle;
+    use deltabadger::ruby::BigDec;
+    let candles = (1..=30).rev().map(|day| Candle {
+        at: t("2026-09-08T00:00:00Z") - chrono::Duration::days(day),
+        open: BigDec::from_i64(60000), high: BigDec::from_i64(60000), low: BigDec::from_i64(60000),
+        close: BigDec::from_i64(60000), volume: BigDec::from_i64(1),
+    }).collect();
+    let v = priced().candles_answer(Ok(candles));
+    let spec = trigger(buyer(), false).with("price_limit_action", json!("pause")).with("price_limit", json!(40000))
+        .with("moving_average_limited", json!(true)).with("moving_average_limit_action", json!("start_selling"));
+    let (_d, mut e, id, s) = engine(spec, v.clone());
+    foreign_history(&e.primary, &s, id);
+    run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap();
+    let b = bot(&e.primary, id);
+    assert!(!b.selling());
+    assert_eq!(b.status, BotStatus::Waiting);
+    assert_eq!(model::condition_paused_type(&e.primary, &b).unwrap(), Some(deltabadger::engine::conditions::Rule::Price));
+    assert!(v.sent().is_empty());
+}
+
+#[test]
+fn flip_admission_does_not_validate_unrelated_pause_settings_on_a_stopped_bot() {
+    let mut spec = buyer().with("price_limited", json!(true)).with("price_limit", json!("unreadable"));
+    spec.status = BotStatus::Stopped as i64;
+    let (_d, e, id, _) = engine(spec, priced());
+    deltabadger::engine::eligibility::guard(&e.primary, &seed::cipher(), Some(id)).unwrap();
+}

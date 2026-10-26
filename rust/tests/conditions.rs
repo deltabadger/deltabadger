@@ -382,3 +382,23 @@ fn the_started_at_decorator_reads_the_active_sides_pause_rules_only() {
         assert_eq!(accounting::condition_started_at(Kind::Index, &settings, &serde_json::Map::new(), Some(us(started)), selling).unwrap(), if selling { Some(us(started)) } else { None });
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn clearing_an_unmet_flip_latch_keeps_pending_at_120() {
+    let (_d, o, s) = common::install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("price_limited", json!(true)).with("price_limit", json!(40000))
+        .with("price_limit_value_condition", json!("below")).with("price_limit_timing_condition", json!("while"))
+        .with("price_limit_action", json!("start_selling"))
+        .transient("price_limit_condition_met_at", json!("2026-08-31T10:00:00Z")));
+    let now = FixedClock("2026-09-08T10:00:01Z".parse().unwrap());
+    let b = model::load_bot(&o.primary, id).unwrap();
+    let pending = |b: &model::Bot| accounting::pending_quote_amount(&o.primary, b, now.now().timestamp_micros()).unwrap();
+    assert_eq!(pending(&b), BigDec::from_i64(120));
+    let v = FakeVenue::new().ticker("XXBTZEUR", "50000", "50000", "50000");
+    assert!(matches!(conditions::gate(&o.primary, &v, &b, false, &now, &PriceCache::default(), &None).await.unwrap(), (_, conditions::Evaluated::Met { .. })));
+    let b = model::load_bot(&o.primary, id).unwrap();
+    assert!(b.transient["price_limit_condition_met_at"].is_null());
+    assert_eq!(pending(&b), BigDec::from_i64(120));
+    assert!(b.transient["missed_quote_amount"].is_null());
+}

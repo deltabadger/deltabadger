@@ -751,3 +751,56 @@ async fn a_follow_up_of_an_order_of_a_foreign_identity_is_excluded_before_it_is_
     assert_eq!(one::<i64>(&o, "SELECT external_status FROM transactions WHERE external_id = 'OFOREIGN'"), 1, "the row is untouched");
     assert_eq!(t.requests().len(), 1, "one GET, as Exchange#get_order");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_post_flip_balance_failure_waits_for_the_persisted_checkpoint() {
+    use deltabadger::engine::run::{self, Engine};
+    let spec = || weekly().with("direction", json!("selling")).with("sell_denomination", json!("quote"))
+        .with("sell_quote_amount", json!(60)).with("sell_price_limited", json!(true))
+        .with("sell_price_limit", json!(70000)).with("sell_price_limit_value_condition", json!("below"))
+        .with("sell_price_limit_action", json!("start_buying"));
+    for restart in [false, true] {
+        let (d, o, id, _) = setup(spec());
+        let transport = script(json!({"GET /v2/account": [{"network":"post_send","message":POST_SEND}]}));
+        let now = at(T0);
+        if restart {
+            let mut attempts = Attempts::default();
+            let out = tick::tick(&o.primary, &venue(&transport), id, &FixedClock(now), &mut attempts).await.unwrap();
+            assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
+            assert_eq!(attempts.transient, 0);
+        }
+        let paths = store::Paths::from_env(&|_| None, d.path());
+        let lock = deltabadger::lease::lock(&paths, now).unwrap();
+        let mut e = Engine::new(o.primary, ScriptedFactory(transport.clone()), seed::cipher(), lock);
+        if !restart {
+            let wake = run::step(&mut e, &FixedClock(now)).await.unwrap();
+            assert_eq!(wake, (now + Duration::seconds(60)).timestamp_micros(), "only the idle wake, no retry timer");
+        }
+        let b = model::load_bot(&e.primary, id).unwrap();
+        assert!(!b.selling());
+        assert_eq!(b.last_failure_kind().as_deref(), Some("transient"));
+        let checkpoint = at("2026-09-08T10:00:00.5Z");
+        assert_eq!(b.rust_defer_until_us().unwrap(), Some(checkpoint.timestamp_micros()));
+        assert_eq!(b.transient["rust_defer_until"]["origin"], "local");
+        let wake = run::step(&mut e, &FixedClock(checkpoint - Duration::seconds(30))).await.unwrap();
+        assert_eq!(wake, checkpoint.timestamp_micros() + 1000);
+        assert!(transport.posted_orders().is_empty());
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_persisted_deferral_blocks_an_existing_retry_timer_in_the_wake_calculation() {
+    use deltabadger::engine::run::{self, Engine};
+    let (d, o, id, _) = setup(weekly());
+    let transport = script(json!({"GET /v1beta3/crypto/us/latest/quotes": [{"network":"pre_send","message":PRE_SEND}]}));
+    let paths = store::Paths::from_env(&|_| None, d.path());
+    let lock = deltabadger::lease::lock(&paths, at(T0)).unwrap();
+    let mut e = Engine::new(o.primary, ScriptedFactory(transport), seed::cipher(), lock);
+    run::step(&mut e, &FixedClock(at(T0))).await.unwrap();
+    let b = model::load_bot(&e.primary, id).unwrap();
+    assert_eq!(b.status, BotStatus::Retrying);
+    assert!(b.rust_defer_until_us().unwrap().is_none(), "the first failure creates an in-memory retry");
+    model::run_write(&e.primary, &b, |tx| placement::defer_to_next_checkpoint(tx, &b, at(T0))).unwrap();
+    let wake = run::step(&mut e, &FixedClock(at("2026-09-08T09:59:30Z"))).await.unwrap();
+    assert_eq!(wake, at("2026-09-08T10:00:00.001Z").timestamp_micros());
+}

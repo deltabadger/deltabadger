@@ -110,6 +110,22 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     bot_reasons_with(c, bot, &mut SplitRows::new())
 }
 
+/// Admission checks the opposite direction before accepting an active flip rule. Runtime install checks
+/// only require the current direction: the tick refuses an ineligible target without stopping the engine.
+fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    for (kind, _) in conditions::TRIGGERS {
+        let prefix = kind.prefix(bot.selling());
+        if bot.settings.get(format!("{prefix}ed")) != Some(&Value::Bool(true)) || bot.support(kind, bot.selling()) != Support::Implemented { continue; }
+        let action = conditions::action(&bot.settings, prefix);
+        if matches!(action.as_str(), "start_selling" | "start_buying") {
+            let mut target = bot.clone();
+            target.settings["direction"] = Value::String(if bot.selling() { "buying" } else { "selling" }.into());
+            return bot_reasons(c, &target);
+        }
+    }
+    Ok(vec![])
+}
+
 /// The split rows of one user on one venue (base_asset_id, base_currency), read once per check: a guarded write must stay
 /// short, and the ledger holds every activity of the account with no index on its entry type.
 type SplitRows = std::collections::HashMap<(i64, i64), Vec<(Option<i64>, String)>>;
@@ -579,6 +595,11 @@ pub fn check_install_at(c: &Connection, now: DateTime<Utc>) -> Result<Report, En
     let mut fresh = vec![];
     for id in std::mem::take(&mut report.eligible) {
         let bot = model::load_bot(c, id)?;
+        let reasons = flip_rule_reasons(c, &bot)?;
+        if !reasons.is_empty() {
+            report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), reasons.join(", ")));
+            continue;
+        }
         match verdict(c, &bot, now)? {
             Verdict::Stale(s) => { report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), s.message)); continue; }
             Verdict::Unknown(s) => {
@@ -656,6 +677,13 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
     };
     super::provider::bind_cipher(tx,cipher).map_err(failed)?;
     let eligible = check_install(tx).map_err(failed)?.refusal()?;
+    let mut candidates = eligible.clone();
+    if let Some(id) = bot_id.filter(|id| !candidates.contains(id)) { candidates.push(id); }
+    for id in candidates {
+        let bot = model::load_bot(tx, id).map_err(failed)?;
+        let reasons = flip_rule_reasons(tx, &bot).map_err(failed)?;
+        if !reasons.is_empty() { return Err(Refusal::Ineligible(reasons)); }
+    }
     reconciling(tx).map_err(failed)??;
     crate::venue::alpaca::preflight_after(tx, cipher, eligible, vec![]).map(|_| ()).map_err(Refusal::Untradable)
 }
