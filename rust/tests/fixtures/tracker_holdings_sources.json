@@ -18,5 +18,5 @@
   "app/views/tracker/_exchange_filters.html.erb": "bec921817fac730eafde80f6b61c55297b76aa276e65b09c25b1c2dabdde481f",
   "app/views/tracker/_chart.html.erb": "f8fee631a922978db0dde35455c9ccda0f6d5d5e8761398cf977ccee49441448",
   "app/views/bots/_metrics_item.html.erb": "bcf755c106a064f3eca6e5cd0d4a0607d2b2e74d4f64f5fc5fba5f97520cb3d8",
-  "Gemfile.lock": "b51f3db1a960a0968b70bf816f6ab904cb1e84fca948429dddd4c20968245b39"
+  "Gemfile.lock": "03c1db4ed0232d3532d1272aa0af49039b5628be9b2d4006c90e67882d8c3cee"
 }

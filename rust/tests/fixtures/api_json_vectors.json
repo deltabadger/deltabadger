@@ -1,5 +1,5 @@
 {
-  "sources": {"Gemfile.lock":"b51f3db1a960a0968b70bf816f6ab904cb1e84fca948429dddd4c20968245b39",".ruby-version":"f6b1c526e9020e3805af187b44a8f2d22b9e21fe9f02a50cbaa8368f8faaf189","config/initializers/oj.rb":"01c260f1223bb1faed8f1ab6cef59268017b1f070341f76df9a6e3fceb49ce90","app/controllers/api/v1/base_controller.rb":"637aadb3f545093534127302989c060b11120f3413af85b68e032e133da04c58"},
+  "sources": {"Gemfile.lock":"03c1db4ed0232d3532d1272aa0af49039b5628be9b2d4006c90e67882d8c3cee",".ruby-version":"f6b1c526e9020e3805af187b44a8f2d22b9e21fe9f02a50cbaa8368f8faaf189","config/initializers/oj.rb":"01c260f1223bb1faed8f1ab6cef59268017b1f070341f76df9a6e3fceb49ce90","app/controllers/api/v1/base_controller.rb":"637aadb3f545093534127302989c060b11120f3413af85b68e032e133da04c58"},
   "vectors": [
     ["float","0000000000000000","{\"data\":0.0,\"error\":null}"],
     ["float","8000000000000000","{\"data\":0.0,\"error\":null}"],
