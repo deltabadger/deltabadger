@@ -200,6 +200,36 @@ async fn handback_waits_for_a_reserve_still_waiting_for_its_buy() {
     assert!(matches!(r, Err(deltabadger::engine::EngineError::Unresolved(ref ids)) if ids == &vec![id]), "{r:?}");
 }
 
+/// A final sell can still have a deferred rotation decision after its cancel was recorded. Rails cannot settle it.
+#[tokio::test(flavor = "current_thread")]
+async fn handback_waits_for_a_deferred_rotation_decision_until_settled() {
+    use deltabadger::engine::{amount_limit, handover, notice, EngineError};
+    let spec = buyer().with("direction", json!("selling")).with("sell_denomination", json!("base")).with("sell_amount", json!(0.001))
+        .with("base_amount_limited", json!(true)).with("base_amount_limit", json!(0.01))
+        .transient("base_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z"));
+    let (dir, e, id, s) = engine(spec, priced());
+    let order = seed::insert_row(&e.primary, &s, id, s.btc, &json!({ "external_id": "OSELL", "external_status": 2, "side": 1,
+        "order_type": 1, "price": "50000", "amount": "0.01", "amount_exec": "0.01", "created_at": "2026-09-01 10:00:01" }));
+    e.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
+        rusqlite::params![format!("$.{}", amount_limit::ROTATION_PENDING), json!([order]).to_string(), id]).unwrap();
+    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![], vec![]), "only the rotation decision remains");
+    drop(e);
+    let p = Paths::from_env(&|_| None, dir.path());
+    let o = store::open(&p).unwrap();
+    let lock = lease::lock(&p, t("2026-09-03T12:00:00Z")).unwrap();
+    lease::claim(&lock, &o.primary, &seed::cipher(), "test", t("2026-09-03T12:00:00Z")).unwrap();
+    let result = handover::hand_back(&lock, &o, &FakeFactory(priced()), &seed::cipher(), &at("2026-09-03T12:00:01Z")).await;
+    assert!(matches!(&result, Err(EngineError::Ineligible(reasons)) if reasons.iter().any(|reason|
+        reason.contains(&format!("bot {id}:")) && reason.contains(amount_limit::ROTATION_PENDING))), "{result:?}");
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust");
+    reversal::scan(&o.primary, t("2026-09-03T12:00:02Z")).unwrap();
+    assert!(bot(&o.primary, id).transient.get(amount_limit::ROTATION_PENDING).is_none());
+    assert_eq!(bot(&o.primary, id).status, BotStatus::Stopped);
+    assert_eq!(notice::all_pending(&o.primary).unwrap().len(), 1);
+    handover::hand_back(&lock, &o, &FakeFactory(priced()), &seed::cipher(), &at("2026-09-03T12:00:03Z")).await.unwrap();
+    assert_eq!(bot(&o.primary, id).status, BotStatus::Stopped, "handback preserves the settled stop");
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_selling_bots_frozen_carry_survives_a_settings_edit_and_the_reversal_back_to_buying() {
     let spec = buyer().with("direction", json!("selling")).with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(30))

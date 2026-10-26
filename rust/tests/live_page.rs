@@ -84,6 +84,35 @@ async fn a_follow_up_fill_that_stops_the_bot_redraws_its_status_and_unlocks_its_
         pair("replace", dom("status_button")), pair("replace", dom("tile_status_button")), pair("remove_class", dom("columns"))]);
 }
 
+/// A final sell left for the settlement scan stops the bot without a poll or tick to announce the change.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rotation_settlement_stop_reaches_the_page_stream() {
+    use deltabadger::engine::{amount_limit, model};
+    use deltabadger::enums::BotStatus;
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling")).with("sell_denomination", json!("base"))
+        .with("sell_amount", json!(0.001)).with("base_amount_limited", json!(true)).with("base_amount_limit", json!(0.01))
+        .transient("base_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z")).transient("last_action_job_at", json!(STAMPED)));
+    let order = seed::insert_row(&r.c(), &r.s, r.id, r.s.btc, &json!({ "external_id": "OS", "external_status": 2, "side": 1,
+        "order_type": 1, "price": "64000", "amount": "0.01", "amount_exec": "0.01", "created_at": IN }));
+    r.c().execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
+        rusqlite::params![format!("$.{}", amount_limit::ROTATION_PENDING), json!([order]).to_string(), r.id]).unwrap();
+    let t = script(json!({}));
+    let mut e = r.engine(&t, "2026-09-01T10:00:06Z");
+    let mut rx = e.subscribe_to(EngineEvent::is_live);
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:06Z"))).await.unwrap();
+    assert_eq!(model::load_bot(&r.c(), r.id).unwrap().status, BotStatus::Stopped);
+    let events = heard(&mut rx);
+    assert_eq!(events, [EngineEvent::StatusChanged { bot_id: r.id }]);
+    let messages = r.render(&events[0]);
+    assert!(messages.iter().all(|(stream, _)| *stream == format!("user_{}:bot_updates", r.s.user_id)));
+    let dom = |name: &str| format!("{name}_bots_dca_multi_asset_{}", r.id);
+    let pair = |action: &str, target: String| (action.to_string(), target);
+    assert_eq!(shape(&messages), [pair("replace", dom("status_bar")), pair("replace", dom("progress_bar")),
+        pair("replace", dom("status_button")), pair("replace", dom("tile_status_button")), pair("remove_class", dom("columns"))]);
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:11:06Z"))).await.unwrap();
+    assert!(heard(&mut rx).is_empty(), "a settled decision is not announced again");
+}
+
 /// FetchAndUpdateOpenOrdersJob in the tick (polling::sweep) writes a resting order: its rows are replaced as the follow-up's
 /// are (Transaction after_update_commit → Bot#broadcast_updated_order), announced before the tick's end.
 #[tokio::test(flavor = "current_thread")]
