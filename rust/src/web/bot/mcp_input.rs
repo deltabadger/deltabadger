@@ -65,8 +65,29 @@ fn blank(v: &Value) -> bool { v.is_null() || v.as_str().is_some_and(|s| strip(s)
 /// The automation dialect, turned into exactly what the settings page would post; the page's own parser
 /// (`Draft::parse`) then reads it. No setting is written here.
 pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now: chrono::DateTime<chrono::Utc>) -> Result<InputOutcome, WebError> {
+    let form = match posted(draft, fields) { Ok(form) => form, Err(refused) => return Ok(refused) };
+    let accepted: Map<String, Value> = form.keys().map(|k| (k.clone(), Value::Null)).collect();
+    draft.callback_zone = Some(zone.to_owned());
+    match draft.parse(c, &Value::Object(form), zone, now) {
+        Ok(()) | Err(super::draft::ParseError::Invalid(_)) => {},
+        Err(super::draft::ParseError::Database(e)) => return Err(e),
+    }
+    // The answer lists the accepted settings, in catalogue order, never a transport argument.
+    draft.submitted = accepted;
+    Ok(InputOutcome::Parsed)
+}
+
+/// Which bots a setting no rule names applies to, as BotApi::Bots::SettingsFields' `applies` words them for a signal bot.
+fn applies(name: &str) -> &'static str {
+    if name.starts_with("rebalance_") { "basket and index" }
+    else if super::draft::field_rule(name).is_none() && super::draft::form_field(Kind::Index, name) { "DCA" } else { "basket" }
+}
+
+/// What the settings page would post for `fields` (the automation dialect), in catalogue order, or the service's refusal
+/// (already on `draft.errors`). Every kind's settings writer reads this one form: a signal bot's too (signal_write).
+pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, InputOutcome> {
     if draft.original.working() {
-        return Ok(fail(draft, ("bot_running", format!("Bot must be stopped before updating settings. Current status: {}.", draft.original.status.label()))));
+        return Err(fail(draft, ("bot_running", format!("Bot must be stopped before updating settings. Current status: {}.", draft.original.status.label()))));
     }
     let kind = draft.original.kind;
     let mut form = Map::new();
@@ -78,21 +99,28 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
             continue;
         }
         let index_only = matches!(name, "num_coins" | "allocation_flattening");
-        if index_only && kind != Kind::Index { return Ok(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
+        if index_only && kind != Kind::Index { return Err(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
+        // A signal bot takes its name, its venue and the rules this build runs on it (D-SIG-CONDITIONS, D-SIG-CAP), never a
+        // subject (it watches its own pair).
+        if kind == Kind::Signal && !matches!(name, "label" | "exchange_id") && (super::draft::field_rule(name).is_none() || name.ends_with("_in_ticker_id")) {
+            return Err(fail(draft, unsupported(name, applies(name))));
+        }
         // D-IDX-CONDITIONS / D-IDX-CAP: a rule's field is taken where this build runs the rule (conditions::support). One
         // with nothing to act on there (an index bot's sell side, a flip) is refused by name; one not built yet for this
         // kind is the write guard's refusal.
         if let Some((rule, selling)) = super::draft::field_rule(name).filter(|_| kind != Kind::Basket) {
             let flip = name.ends_with("_mode") && value.as_str() == Some("flip");
             let action = if flip { if selling { "start_buying" } else { "start_selling" } } else { "pause" };
+            let bot = if kind == Kind::Signal { "a signal bot" } else { "an index bot" };
             match support(kind, rule, selling, action) {
-                Support::Inapplicable => return Ok(fail(draft, unsupported(if flip && !selling { "flip" } else { name }, "basket"))),
-                Support::NotImplemented => return Ok(fail(draft, ("write_refused", crate::web::bot_api::refused(&format!("{name} on an index bot"))))),
+                // The flip by name where the field itself applies (a signal bot's sell side), else the field.
+                Support::Inapplicable => return Err(fail(draft, unsupported(if flip && support(kind, rule, selling, "pause") != Support::Inapplicable { "flip" } else { name }, "basket"))),
+                Support::NotImplemented => return Err(fail(draft, ("write_refused", crate::web::bot_api::refused(&format!("{name} on {bot}"))))),
                 Support::Implemented => {}
             }
         } else {
             let shared = index_only || super::draft::form_field(Kind::Index, name) || matches!(name, "label" | "exchange_id");
-            if !shared && kind != Kind::Basket { return Ok(fail(draft, unsupported(name, "basket"))); }
+            if !shared && kind != Kind::Basket { return Err(fail(draft, unsupported(name, "basket"))); }
         }
         let posted = match name {
             "label" => value.clone(),
@@ -104,16 +132,16 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
                     let alias = message.strip_suffix(" is not in this basket; add it with add_asset_id first.")
                         .is_some_and(|name| unicode_ascii_alias(draft, name));
                     let refused = fail(draft, (code, message));
-                    return Ok(if alias { InputOutcome::AsciiAliasRefused } else { refused });
+                    return Err(if alias { InputOutcome::AsciiAliasRefused } else { refused });
                 }
             },
             "quote_amount" => match number(value).filter(|n| n > &BigDec::zero()) {
                 Some(n) => json!(n.to_s_f()),
-                None => return Ok(fail(draft, invalid(name))),
+                None => return Err(fail(draft, invalid(name))),
             },
             "allocation_flattening" => match in_range(value, 1) {
                 Some(n) => json!(n.to_s_f()),
-                None => return Ok(fail(draft, invalid(name))),
+                None => return Err(fail(draft, invalid(name))),
             },
             _ => match schema["type"].as_str().or_else(|| schema["type"][0].as_str()) {
                 // A page switch posts "1" or "0"; a bare false would be blank to the page's parser. Anything else (REST's
@@ -124,12 +152,12 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
                     let whole = value.as_f64().is_none_or(|n| n.fract() == 0.0);
                     match number(value).filter(|n| whole && n.to_s_f().ends_with(".0")) {
                         Some(n) => json!(n.to_s_f().trim_end_matches(".0")),
-                        None => return Ok(fail(draft, invalid(name))),
+                        None => return Err(fail(draft, invalid(name))),
                     }
                 },
                 Some("number") => match number(value) {
                     Some(n) => json!(n.to_s_f()),
-                    None => return Ok(fail(draft, invalid(name))),
+                    None => return Err(fail(draft, invalid(name))),
                 },
                 // `value.to_s`.
                 _ => json!(ruby_s(value)),
@@ -137,16 +165,8 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
         };
         form.insert(name.into(), posted);
     }
-    if form.is_empty() { return Ok(fail(draft, ("no_updates_provided", "No settings provided to update.".into()))); }
-    let accepted: Map<String, Value> = form.keys().map(|k| (k.clone(), Value::Null)).collect();
-    draft.callback_zone = Some(zone.to_owned());
-    match draft.parse(c, &Value::Object(form), zone, now) {
-        Ok(()) | Err(super::draft::ParseError::Invalid(_)) => {},
-        Err(super::draft::ParseError::Database(e)) => return Err(e),
-    }
-    // The answer lists the accepted settings, in catalogue order, never a transport argument.
-    draft.submitted = accepted;
-    Ok(InputOutcome::Parsed)
+    if form.is_empty() { return Err(fail(draft, ("no_updates_provided", "No settings provided to update.".into()))); }
+    Ok(form)
 }
 
 /// Unicode aliases of an ASCII symbol affect refusal classification, never lookup.

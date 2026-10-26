@@ -144,45 +144,9 @@ impl Draft {
         let fields = params.as_object().ok_or_else(|| failure("settings parameters are not an object"))?;
         let basket = self.candidate.kind == Kind::Basket;
         self.parsed.clear();
-        // Actual parse_params output, deliberately narrower than stored_attributes / strong params.
-        for (key, value) in fields {
-            if !form_field(self.candidate.kind, key) { continue; }
-            let explicit_null = matches!(key.as_str(), "start_at" | "rebalance_threshold" | "sell_amount" | "sell_quote_amount");
-            if key == "rebalance_enabled" { self.parsed.insert(key.clone(), json!(value.as_str().is_some_and(|s| matches!(s, "1" | "true")))); continue; }
-            if key == "start_time_enabled" {
-                if !value.is_null() && value.as_str() != Some("") { self.parsed.insert(key.clone(), json!(super::cast_boolean(Some(value)))); }
-                continue;
-            }
-            if key == "start_at" { self.parsed.insert(key.clone(), crate::codec::parse_form_time(value, zone, now)?); continue; }
-            if !present(value) {
-                if explicit_null { self.parsed.insert(key.clone(), Value::Null); }
-                continue;
-            }
-            let result = if key.ends_with("_mode") && trigger_field(key) {
-                let Some(prefix) = key.strip_suffix("_mode") else { continue };
-                let action = if value == "flip" { if prefix.starts_with("sell_") { "start_buying" } else { "start_selling" } } else { "pause" };
-                self.parsed.insert(format!("{prefix}_action"), json!(action));
-                if !prefix.ends_with("price_drop_limit") { self.parsed.insert(format!("{prefix}_timing_condition"), json!(if value == "restrict" { "while" } else { "after" })); }
-                continue;
-            } else if key.ends_with("ed") {
-                Ok(json!(value.as_str().is_some_and(|s| matches!(s, "1" | "true"))))
-            } else if key.ends_with("_id") || key.ends_with("_period") { numeric(value, true) }
-            else if matches!(key.as_str(), "limit_order_pcnt_distance" | "price_drop_limit" | "sell_price_drop_limit" | "rebalance_threshold") { percentage(value) }
-            else if matches!(key.as_str(), "quote_amount" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "sell_amount" | "sell_quote_amount" | "quote_amount_limit" | "base_amount_limit") {
-                action_params::accounting_numeric(value).map_err(|_| failure("accounting magnitude exceeds 2^53"))
-            }
-            else if matches!(key.as_str(), "quote_amount" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "sell_amount" | "sell_quote_amount" | "quote_amount_limit" | "base_amount_limit" | "allocation_flattening")
-                || key.ends_with("_range_lower_bound") || key.ends_with("_range_upper_bound") || matches!(key.as_str(), "price_limit" | "sell_price_limit" | "indicator_limit" | "sell_indicator_limit") { numeric(value, false) }
-            else { Ok(value.clone()) };
-            match result {
-                Ok(value) => { self.parsed.insert(key.clone(), value); }
-                Err(e) => {
-                    self.parse_errors.push(FieldError { field: key.clone(), message: "is outside the supported numeric range or shape".into() });
-                    let _ = e;
-                    self.parsed.insert(key.clone(), value.clone());
-                }
-            }
-        }
+        let (parsed, errors) = parse_fields(self.candidate.kind, fields, zone, now)?;
+        self.parsed = parsed;
+        self.parse_errors.extend(errors);
         if basket { self.parse_allocations(fields)?; }
         else if let Some(coins) = fields.get("num_coins").filter(|v| present(v)) {
             let count = numeric(coins, true)?;
@@ -274,9 +238,57 @@ impl Draft {
     }
 }
 
+/// Bot#parse_params of the settings form (and of what BotApi posts for it): the fields `form_field` admits for `kind`, cast
+/// as the page's parser casts them; what does not cast is kept as posted with its error. One parser for every kind: the
+/// signal bot's rule fields go through it too (D-SIG-CONDITIONS).
+pub(super) fn parse_fields(kind: Kind, fields: &Map<String, Value>, zone: &str, now: DateTime<Utc>) -> Result<(Map<String, Value>, Vec<FieldError>), WebError> {
+    let (mut parsed, mut errors) = (Map::new(), vec![]);
+    // Actual parse_params output, deliberately narrower than stored_attributes / strong params.
+    for (key, value) in fields {
+        if !form_field(kind, key) { continue; }
+        let explicit_null = matches!(key.as_str(), "start_at" | "rebalance_threshold" | "sell_amount" | "sell_quote_amount");
+        if key == "rebalance_enabled" { parsed.insert(key.clone(), json!(value.as_str().is_some_and(|s| matches!(s, "1" | "true")))); continue; }
+        if key == "start_time_enabled" {
+            if !value.is_null() && value.as_str() != Some("") { parsed.insert(key.clone(), json!(super::cast_boolean(Some(value)))); }
+            continue;
+        }
+        if key == "start_at" { parsed.insert(key.clone(), crate::codec::parse_form_time(value, zone, now)?); continue; }
+        if !present(value) {
+            if explicit_null { parsed.insert(key.clone(), Value::Null); }
+            continue;
+        }
+        let result = if key.ends_with("_mode") && trigger_field(key) {
+            let Some(prefix) = key.strip_suffix("_mode") else { continue };
+            let action = if value == "flip" { if prefix.starts_with("sell_") { "start_buying" } else { "start_selling" } } else { "pause" };
+            parsed.insert(format!("{prefix}_action"), json!(action));
+            if !prefix.ends_with("price_drop_limit") { parsed.insert(format!("{prefix}_timing_condition"), json!(if value == "restrict" { "while" } else { "after" })); }
+            continue;
+        } else if key.ends_with("ed") {
+            Ok(json!(value.as_str().is_some_and(|s| matches!(s, "1" | "true"))))
+        } else if key.ends_with("_id") || key.ends_with("_period") { numeric(value, true) }
+        else if matches!(key.as_str(), "limit_order_pcnt_distance" | "price_drop_limit" | "sell_price_drop_limit" | "rebalance_threshold") { percentage(value) }
+        else if matches!(key.as_str(), "quote_amount" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "sell_amount" | "sell_quote_amount" | "quote_amount_limit" | "base_amount_limit") {
+            action_params::accounting_numeric(value).map_err(|_| failure("accounting magnitude exceeds 2^53"))
+        }
+        else if matches!(key.as_str(), "quote_amount" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "sell_amount" | "sell_quote_amount" | "quote_amount_limit" | "base_amount_limit" | "allocation_flattening")
+            || key.ends_with("_range_lower_bound") || key.ends_with("_range_upper_bound") || matches!(key.as_str(), "price_limit" | "sell_price_limit" | "indicator_limit" | "sell_indicator_limit") { numeric(value, false) }
+        else { Ok(value.clone()) };
+        match result {
+            Ok(value) => { parsed.insert(key.clone(), value); }
+            Err(e) => {
+                errors.push(FieldError { field: key.clone(), message: "is outside the supported numeric range or shape".into() });
+                let _ = e;
+                parsed.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    Ok((parsed, errors))
+}
+
 /// The scalar settings one bot kind's `parse_params` reads (deliberately narrower than stored_attributes /
 /// strong params). The settings form and the MCP adapter both ask this, so their field sets cannot drift.
 pub(super) fn form_field(kind: Kind, key: &str) -> bool {
+    if kind == Kind::Signal { return signal_rule_field(key); }
     let common = matches!(key, "quote_asset_id" | "quote_amount" | "interval" | "smart_intervaled" | "smart_interval_quote_amount" | "smart_interval_base_amount" |
         "limit_ordered" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "start_time_of_day" | "start_at" | "rebalance_enabled" | "rebalance_threshold");
     let basket_field = matches!(key, "weighting" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "quote_amount_limited" | "quote_amount_limit" | "base_amount_limited" | "base_amount_limit")
@@ -288,6 +300,12 @@ pub(super) fn form_field(kind: Kind, key: &str) -> bool {
 /// (`conditions::support`): the cap and the buy side's price rule. Rails' index bot has none.
 fn index_rule_field(key: &str) -> bool {
     field_rule(key).is_some_and(|(rule, selling)| support(Kind::Index, rule, selling, "pause") == Support::Implemented)
+}
+
+/// D-SIG-CONDITIONS / D-SIG-CAP: a signal bot's page and API take the fields of the rules this build runs on it
+/// (`conditions::support`), on both sides, without a subject: its rules watch its own pair.
+pub(super) fn signal_rule_field(key: &str) -> bool {
+    !key.ends_with("_in_ticker_id") && field_rule(key).is_some_and(|(rule, selling)| support(Kind::Signal, rule, selling, "pause") == Support::Implemented)
 }
 
 /// The rule a settings field belongs to, and whether it is the sell side's: the cap's two fields and every trigger field.
@@ -396,7 +414,7 @@ impl Draft {
         if self.error_codes.contains(&code_key) { return; }
         self.error_codes.push(code_key);
         let args = count.as_deref().map(|c| vec![("count", i18n::Arg::Text(c))]).unwrap_or_default();
-        let kind = if self.candidate.kind == Kind::Basket { "bots/dca_multi_asset" } else { "bots/dca_index" };
+        let kind = match self.candidate.kind { Kind::Basket => "bots/dca_multi_asset", Kind::Index => "bots/dca_index", Kind::Signal => "bots/signal" };
         let keys = vec![format!("activerecord.errors.models.{kind}.attributes.{field}.{code}"), format!("activerecord.errors.models.{kind}.{code}"), format!("activerecord.errors.models.bot.attributes.{field}.{code}"), format!("activerecord.errors.models.bot.{code}"),
             format!("activerecord.errors.messages.{code}"), format!("errors.attributes.{field}.{code}"), format!("errors.messages.{code}")];
         let mut message = None;
@@ -417,7 +435,7 @@ impl Draft {
         }
         if field == "rebalance_threshold" { return value.filter(|v| present(v)).map(|v| numeric(v, false).unwrap_or(Value::Null)).unwrap_or(json!(0.05)); }
         if let Some(value) = value.filter(|v| !v.is_null()) { return value.clone(); }
-        if self.candidate.kind == Kind::Index {
+        if matches!(self.candidate.kind, Kind::Index | Kind::Signal) {
             if let Some((_, value)) = index_defaults().into_iter().find(|(key, _)| *key == field) { return value; }
         }
         sell_default(field)
@@ -699,6 +717,40 @@ impl Draft {
                 // On a new venue or quote the stored subject is no former member there; only the destination's subjects are.
                 if !member && (id.is_none() || id != stored || self.moved().is_some()) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
             }
+        }
+        Ok(())
+    }
+
+    /// D-SIG-CONDITIONS / D-SIG-CAP: a signal bot's rule fields as its settings form (or BotApi, in the page's dialect)
+    /// posts them, through the one settings parser (`parse_fields`), onto the candidate.
+    pub(super) fn parse_signal(&mut self, fields: &Map<String, Value>, now: DateTime<Utc>) -> Result<(), WebError> {
+        self.submitted = fields.clone();
+        let (parsed, errors) = parse_fields(Kind::Signal, fields, self.callback_zone.as_deref().unwrap_or("UTC"), now)?;
+        self.candidate.settings.extend(parsed.clone());
+        self.parsed = parsed;
+        self.parse_errors = errors;
+        Ok(())
+    }
+
+    /// A signal bot's rules, validated as a basket's are (Bot::QuoteAmountLimitable; Bot::PriceLimitable on each side,
+    /// without a subject). A flip has no direction to act on there (conditions::support) and is refused by name.
+    pub(super) fn validate_signal(&mut self, c: &Connection, locale: &str) -> Result<(), WebError> {
+        crate::engine::accounting::validate_stored_amounts(&Value::Object(self.candidate.settings.clone()), &Value::Object(self.candidate.transient.clone()))?;
+        self.errors = self.parse_errors.clone();
+        self.error_codes.clear();
+        if support(Kind::Signal, Rule::Cap, false, "pause") == Support::Implemented { self.cap(c, false, locale)?; }
+        for selling in [false, true] {
+            if support(Kind::Signal, Rule::Price, selling, "pause") != Support::Implemented { continue; }
+            let prefix = if selling { "sell_price_limit" } else { "price_limit" };
+            self.boolean(locale, &format!("{prefix}ed"));
+            if self.read(&format!("{prefix}ed")) == json!(true) {
+                for suffix in ["", "_range_lower_bound", "_range_upper_bound"] { self.number(locale, &format!("{prefix}{suffix}"), Some((0.0, true)), None, false); }
+            }
+            self.inclusion(locale, &format!("{prefix}_timing_condition"), &["while", "after"]);
+            self.inclusion(locale, &format!("{prefix}_value_condition"), &["above", "below", "between"]);
+            let action = text(&self.read(&format!("{prefix}_action")));
+            if support(Kind::Signal, Rule::Price, selling, &action) == Support::Inapplicable { self.add("base", i18n::text(locale, "engine.flip_basket_only", &[])); }
+            else { self.inclusion(locale, &format!("{prefix}_action"), &["pause"]); }
         }
         Ok(())
     }

@@ -337,6 +337,9 @@ impl<'a> Rows<'a> {
             }
             "split" => event("split", &[("label", Arg::Text(&detail("source_label")))]),
             "limit_paused" => event("limit_paused", &[("limit", Arg::Text(&detail("limit_type").replace('_', " ")))]),
+            // D-SIG-COND-LINE / D-SIG-CAP: this engine's own signal lines (locale data under `engine.`).
+            "signal_condition_unmet" => i18n::text(self.ctx.locale, "engine.signal_condition_unmet", &[("limit", Arg::Text(&detail("limit_type").replace('_', " ")))]),
+            "signal_quote_amount_limit_reached" => i18n::text(self.ctx.locale, "engine.signal_quote_amount_limit_reached", &[]),
             "execution_failed" => match humanized_error(self.bot, &[detail("error")], self.ctx.locale) {
                 Some(error) => event("execution_failed_with_error", &[("error", Arg::Text(&error))]),
                 None => event("execution_failed", &[]),

@@ -125,7 +125,64 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
             super::clock::Gate::Retry(m) | super::clock::Gate::InvalidKey(m) => return fail_unsized(c, &bot, &ticker, rule.side, &call, vec![m], &cx.credential_version, now),
         }
     }
+    if let Some(step) = gate(c, venue, &bot, &rule, &ticker, &call, clock, cx).await? { return Ok(step); }
     execute(c, venue, &bot, &rule, &ticker, &call, clock, cx).await
+}
+
+/// D-SIG-CONDITIONS / D-SIG-COND-LINE: a call that a rule of its side does not let through, consumed with this line
+/// (`{signal_id, limit_type}`): no row, no order, the bot's status unchanged.
+pub const CONDITION_UNMET: &str = "signal_condition_unmet";
+/// D-SIG-CAP: a buy call the spent spending cap leaves nothing for, consumed with this line (`{signal_id}`). Sells keep working.
+pub const CAP_REACHED: &str = "signal_quote_amount_limit_reached";
+
+/// PLAN-conditions-every-bot §2c: the rules of the call's side (a buy call the plain keys, a sell call the `sell_` ones), in
+/// the order Indicator, Moving average, Price drop, Price; this build runs the price rule (conditions::support). The first
+/// unmet consumes the call with its line. A failed read is unmet; a rejected key is the failed row. Only this gate writes the
+/// rule's met_at (stamped when met, cleared when unmet after it); there is no carry, no status and no check job. None: let
+/// the call through.
+#[allow(clippy::too_many_arguments)]
+async fn gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &SignalRule, ticker: &model::Ticker, call: &SignalCall, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Option<Step>, EngineError> {
+    use super::conditions::{self, Evaluated};
+    let evaluated = match conditions::evaluate_side(c, venue, bot, rule.side == Side::Sell, clock, cx.prices, &cx.credential_version).await {
+        Ok(evaluated) => evaluated,
+        // Stopped, or its key replaced, while the price was read: nothing was written, and the call runs again.
+        Err(EngineError::RunFenced | EngineError::CredentialsChanged) => return Ok(Some(Step::Again)),
+        Err(e) => return Err(e),
+    };
+    let rules = venue.rules();
+    let rejected = |e: &[String]| format!("{} rejected the API key: {}", rules.name, to_sentence(e));
+    let key = match &evaluated {
+        Evaluated::Off | Evaluated::Met { .. } => return Ok(None),
+        Evaluated::Failed(VenueError::Unauthorized(e)) => Some(rejected(e)),
+        Evaluated::Failed(VenueError::Rejected(e) | VenueError::Coded { errors: e, .. }) if rules.failure_kind(e) == Some("invalid_key") => Some(rejected(e)),
+        Evaluated::Unmet | Evaluated::Unavailable | Evaluated::Failed(_) => None,
+    };
+    if let Some(m) = key { return fail_unsized(c, bot, ticker, rule.side, call, vec![m], &cx.credential_version, clock.now()).map(Some); }
+    let now = clock.now();
+    model::locked(c, |tx| {
+        model::remove_signal_call(tx, bot.id, &call.source)?;
+        model::log_activity(tx, bot.id, CONDITION_UNMET, Level::Info, json!({ "signal_id": call.signal_id, "limit_type": "price" }), now)
+    })?;
+    Ok(Some(Step::Ran))
+}
+
+/// D-SIG-CAP's fast path (§2b step 1): whether the stored amounts alone prove the cap is spent, at any price: nothing left;
+/// less than the quote's precision floor (`1/10^quote_decimals`); or, where the venue's market minimum is at least the quote
+/// minimum at every price (Quote, BaseOrQuote, BaseAndQuoteInBase), less than `minimum_quote_size`. Under Base logic only
+/// nothing left qualifies: the price decides.
+pub fn cap_spent_unpriced(left: &BigDec, ticker: &model::Ticker, logic: super::venue_rules::AmountLogic) -> Result<bool, EngineError> {
+    use super::venue_rules::AmountLogic;
+    if !left.is_positive() { return Ok(true); }
+    let (_, quote, _) = ticker.scales().map_err(EngineError::Data)?;
+    if left < &BigDec::parse(&format!("1e-{quote}")).map_err(|e| EngineError::Data(format!("{e:?}")))? { return Ok(true); }
+    Ok(logic != AmountLogic::Base && ticker.minimum_quote_size.is_positive() && left < &ticker.minimum_quote_size)
+}
+
+/// The buy call the spent cap leaves nothing for, consumed with its line.
+fn cap_line(c: &Connection, bot: &Bot, call: &SignalCall, now: DateTime<Utc>) -> Result<Step, EngineError> {
+    super::log(&format!("execute_signal bot={} event=quote_amount_limit_reached", bot.id));
+    model::locked(c, |tx| consume(tx, bot.id, call, Some(CAP_REACHED), now))?;
+    Ok(Step::Ran)
 }
 
 
@@ -140,6 +197,19 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
         model::locked(c, |tx| consume(tx, bot.id, call, None, now))?;
         return Ok(Step::Ran);
     }
+    // D-SIG-CAP (§2b): what the spending cap leaves for a buy, exactly; spent by the stored amounts alone, the call is
+    // consumed with the cap line before any venue read. A closed buy that never reported its cost: the failed row.
+    let cap = if side == Side::Buy {
+        match super::accounting::exact_cap_available(c, bot) {
+            Ok(cap) => cap,
+            Err(EngineError::Data(m)) if m.contains(crate::figures::fill::VALUE_UNAVAILABLE) => {
+                let text = crate::web::i18n::text("en", "activerecord.errors.models.bot.attributes.settings.quote_amount_spent_unknown", &[]);
+                return fail_unsized(c, bot, ticker, side, call, vec![text], version, clock.now());
+            }
+            Err(e) => return Err(e),
+        }
+    } else { None };
+    if let Some(left) = &cap { if cap_spent_unpriced(left, ticker, venue.rules().minimum_logic.market)? { return cap_line(c, bot, call, clock.now()); } }
     // #signal_order_data: every read retried in place; what still fails is a failed row.
     let price = match retrying(venue, || super::tick::market_price_read(venue, bot, ticker, side, clock, cx)).await? {
         Ok(p) => p,
@@ -156,9 +226,16 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
     let held = match held.transpose() { Ok(h) => h, Err(e) => return fail_unsized(c, bot, ticker, side, call, vec![message(e)], version, clock.now()) };
     // A price that floored to zero: BigDecimal raises ZeroDivisionError in the sizing, or in #checked_amount_info.
     let sized = if price.is_zero() { None } else { size(rule, &price, held.as_ref()) };
-    let Some((amount, quote)) = sized else { return fail_unsized(c, bot, ticker, side, call, vec!["divided by 0".into()], version, clock.now()) };
-    // #checked_amount_info: under the venue's minimum, a skipped row and its line.
+    let Some((mut amount, mut quote)) = sized else { return fail_unsized(c, bot, ticker, side, call, vec!["divided by 0".into()], version, clock.now()) };
+    // D-SIG-CAP: a buy is clamped to what the cap leaves, its base at the same price.
+    let bound = cap.as_ref().is_some_and(|left| &quote > left);
+    if let Some(left) = cap.filter(|_| bound) {
+        amount = left.div(&price).ok_or_else(|| EngineError::Data("divided by 0".into()))?;
+        quote = left;
+    }
+    // #checked_amount_info: under the venue's minimum, a skipped row and its line; a clamped buy under it, the cap line.
     let (plan, below) = amount::size_order(ticker, side, &price, &amount, &quote, venue.rules().minimum_logic, TxKind::Regular)?;
+    if below && bound { return cap_line(c, bot, call, clock.now()); }
     // Path 2 (plan VB §1.5): Exchange#market_price_for's price, crossed already where the venue crosses; sent as it is.
     let plan = plan.with_wire_price(venue.rules(), &price, true)?;
     if below {
@@ -242,7 +319,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
     loop {
         let intent = match placement::begin_signal(c, bot, plan, call, &cx.credential_version, venue.placement_identity(), clock)? {
             SignalClaim::Intent(intent) => intent,
-            SignalClaim::Stopped | SignalClaim::Disabled | SignalClaim::Locked => return Ok(Step::Ran),
+            SignalClaim::Stopped | SignalClaim::Disabled | SignalClaim::Locked | SignalClaim::BelowMinimum => return Ok(Step::Ran),
             // The barrier rose between the check and the claim (it cannot in one loop, but the claim decides).
             SignalClaim::Blocked => return Ok(match call { Some(call) => Step::Waiting(expires_at(call)), None => Step::Ran }),
             SignalClaim::Gone | SignalClaim::Changed | SignalClaim::CredentialsChanged => return Ok(if call.is_some() { Step::Again } else { Step::Ran }),

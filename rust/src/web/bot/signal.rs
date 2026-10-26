@@ -136,6 +136,8 @@ struct Settings<'a> {
     hide_money: bool,
     base_url: &'a str,
     api_hint: String,
+    /// D-COND-FORMS-SIGNAL: settings::signal_rules.
+    conditions: String,
 }
 
 /// `signal.amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1')`.
@@ -177,7 +179,7 @@ pub fn unresolved_broadcast(ctx: &Ctx, bot: &Bot) -> String {
 
 /// The settings column of a saved signal bot. `base_url`: the request's (`request.base_url`), which the webhook URL
 /// starts with.
-pub fn column(ctx: &Ctx, csrf: &str, bot: &Bot, hide_money: bool, base_url: &str) -> Result<String, WebError> {
+pub fn column(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, hide_money: bool, base_url: &str) -> Result<String, WebError> {
     let base = bot.base_asset();
     let quote = bot.quote_asset.as_ref();
     let color = colors::pill_color(base.and_then(|asset| asset.color.as_deref()))
@@ -199,6 +201,7 @@ pub fn column(ctx: &Ctx, csrf: &str, bot: &Bot, hide_money: bool, base_url: &str
         quote_symbol: bot.quote_symbol().unwrap_or("").to_string(),
         unresolved: unresolved(ctx, csrf, bot), rules, several: bot.signals.len() > 1, working: bot.working(), hide_money, base_url,
         api_hint: i18n::text(ctx.locale, "bot.signal.api_hint", &[("id", Arg::Text(&bot.id.to_string()))]),
+        conditions: super::settings::signal_rules(c, ctx, csrf, bot, hide_money)?,
     }.render()?)
 }
 

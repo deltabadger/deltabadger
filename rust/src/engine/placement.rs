@@ -363,7 +363,9 @@ pub const SIGNAL_SOURCE: &str = "signal";
 /// call with its `signal_ignored` line, `Locked` (a buy of an asset the account locked since the call was sized) with
 /// none; the others changed nothing, and the call stays for the next pass.
 #[derive(Debug)]
-pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged, Locked }
+/// `BelowMinimum` (D-SIG-CAP): the exact cap guard reduced a buy below the venue's minimum; its skipped row, its line and the
+/// consumed call were written in the claim's transaction.
+pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged, Locked, BelowMinimum }
 
 /// A signal bot's intent (plan 8a §R4, §R10): `run: None`, `source: "signal"`. In its own immediate transaction:
 /// - the barrier (engine::signal::blocked: Rails' unresolved marker or an unresolved intent) stands → `Blocked`;
@@ -411,6 +413,24 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
         super::log(&format!("[engine] bot {}: credentials changed; order not placed; retry with fresh credentials", sized_from.id));
         return Ok(SignalClaim::CredentialsChanged);
     }
+    // D-SIG-CAP: the exact cap bounds a buy under the intent lock, on the call and on the one more attempt alike. A reduction
+    // under the venue's minimum is the skipped row Rails writes for an order under it, with the call consumed.
+    let guarded;
+    let plan = if plan.side == Side::Buy {
+        match super::amount::guard_exact_cap(&tx, &current, plan)? {
+            super::amount::CapGuard::Place(safe) => { guarded = safe; &guarded }
+            super::amount::CapGuard::BelowMinimum(skipped) => {
+                super::log(&format!("execute_signal bot={} event=order_skipped base={} quote={}", current.id, skipped.ticker.base_symbol, skipped.ticker.quote_symbol));
+                let fenced = model::check_credential_result(&tx, version)?;
+                model::log_activity(&tx, current.id, "order_skipped", Level::Warning, skipped.log_details(), now)?;
+                write_order_row(&fenced, &current, &skipped, RowKind::Skipped, now)?;
+                drop(fenced);
+                if let Some(call) = call { super::signal::consume(&tx, current.id, call, None, now)?; }
+                tx.commit()?;
+                return Ok(SignalClaim::BelowMinimum);
+            }
+        }
+    } else { plan };
     let intent = Intent { wash_claim: None, source: Some(SIGNAL_SOURCE.into()), symbol: plan.ticker.ticker.clone(), bot_id: current.id, run: None, credential_version: version.clone(),
                           cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?,
                           at: now, plan: plan.clone() };
