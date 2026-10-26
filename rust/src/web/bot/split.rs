@@ -10,7 +10,8 @@
 //! `unavailable` (Rails splits it and the credit stays on the deleted source). D-SPLIT-LEGACY-SHADOW: a row recorded without
 //! its asset goes by figures::walk::listing_names over every asset of the source's history (Rails matches symbols exactly);
 //! one that names assets bound for different children refuses the split instead of guessing. A redeploy in progress (a
-//! waiting REDEPLOY row, or a Bot::RedeployJob Rails still holds) is not served: this build runs no redeploy.
+//! waiting REDEPLOY row, or a Bot::RedeployJob Rails still holds) is not served: this build runs no redeploy. A job queue it
+//! can't read is refused the same way, never read as "no job".
 use super::{index_switch, merge, write, Bot, For, Kind};
 use crate::engine::{eligibility, model};
 use crate::enums::BotStatus;
@@ -60,20 +61,24 @@ pub struct Split {
 /// What loading the selection found.
 pub enum Loaded { Split(Box<Split>), Unported(&'static str) }
 
-/// Bots::RedeployJob still held by Solid Queue for this bot (Bot::Split#reinvesting?'s `active_job?`).
-fn queued_redeploy(app: &App, class: &str, id: i64) -> Result<bool, WebError> {
-    if !app.queue_path.is_file() { return Ok(false); }
-    let queue = Connection::open_with_flags(&app.queue_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    let tables: i64 = queue.query_row("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'solid_queue_%'", [], |r| r.get(0))?;
-    if tables < 5 { return Ok(false); }
-    Ok(crate::engine::handover::active_job(&queue, "Bot::RedeployJob", &format!("gid://deltabadger/{class}/{id}"))?)
+/// Bots::RedeployJob still held by Solid Queue for this bot (Bot::Split#reinvesting?'s `active_job?`). None: the queue
+/// can't be read (missing, unopenable, not Solid Queue's), which is never "no job".
+fn queued_redeploy(app: &App, class: &str, id: i64) -> Option<bool> {
+    let path = app.queue_path.as_deref().filter(|p| p.is_file())?;
+    let queue = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).ok()?;
+    crate::engine::handover::active_job(&queue, "Bot::RedeployJob", &format!("gid://deltabadger/{class}/{id}")).ok()
 }
 
-/// `bot.redeploy_in_flight?` past the pending flag `refusal` already refuses, or a Yes Rails still holds: not served.
-fn redeploying(c: &Connection, app: &App, source: &model::Bot, class: &str) -> Result<bool, WebError> {
+/// `bot.redeploy_in_flight?` past the pending flag `refusal` already refuses, or a Yes Rails still holds: why it is not served.
+fn redeploying(c: &Connection, app: &App, source: &model::Bot, class: &str) -> Result<Option<&'static str>, WebError> {
     let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REDEPLOY' AND status = 0 AND external_status IN (0, 1))",
                                     [source.id], |r| r.get(0))?;
-    Ok(waiting || queued_redeploy(app, class, source.id)?)
+    if waiting { return Ok(Some("a redeploy in progress")); }
+    Ok(match queued_redeploy(app, class, source.id) {
+        None => Some("the job queue can't be read"),
+        Some(true) => Some("a redeploy in progress"),
+        Some(false) => None,
+    })
 }
 
 /// Bot::Split#members.
@@ -117,7 +122,7 @@ impl Split {
             if let Some(reason) = bot.unrendered() { return Ok(Loaded::Unported(reason)); }
             let class = class.unwrap_or_default();
             let engine = model::load_bot(c, id)?;
-            if redeploying(c, &ctx.app, &engine, &class)? { return Ok(Loaded::Unported("a redeploy in progress")); }
+            if let Some(why) = redeploying(c, &ctx.app, &engine, &class)? { return Ok(Loaded::Unported(why)); }
             let members = members(c, &bot)?;
             split.bots.push(Source { bot, engine, class, position, members, books: None, offer: None, legacy: vec![] });
         }

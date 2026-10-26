@@ -2955,6 +2955,36 @@ mod split {
         Ok(())
     }
 
+    /// The queue startup resolved (storage's, with DATABASE_PATH elsewhere and no QUEUE_DATABASE_PATH) is the one asked: a
+    /// job held there is a redeploy in progress, though nothing sits beside the primary.
+    #[test]
+    fn the_queue_startup_resolved_is_asked() -> Result {
+        let mut f = Fixture::index(&[0.6, 0.4])?;
+        queue_job(&f, "ready")?;
+        let (install, storage) = (f._dir.path().to_path_buf(), tempfile::tempdir()?);
+        let primary = install.join("production.sqlite3").display().to_string();
+        let env = |name: &str| match name { "SECRET_KEY_BASE" => Some("engine-test-secret".to_string()), "DATABASE_PATH" => Some(primary.clone()), _ => None };
+        let paths = deltabadger::store::Paths::from_env(&env, storage.path());
+        assert_eq!(paths.primary, install.join("production.sqlite3"));
+        f.queue.execute("VACUUM INTO ?1", [paths.queue.display().to_string()])?;
+        for file in ["production_queue.sqlite3", "production_queue.sqlite3-wal", "production_queue.sqlite3-shm"] { let _ = std::fs::remove_file(install.join(file)); }
+        f.ctx.app = web::App::new(web::Config::from_env(&env).map_err(|e| format!("{e:?}"))?, &env, Connection::open(&primary)?, harness::TestClock::at(NOW))
+            .and_then(|app| app.with_queue_path(paths.queue)).and_then(|app| app.with_figure_source(web::figure::loading::Source::Disabled)).map_err(|e| format!("{e:?}"))?;
+        assert_eq!(f.page()?, Err("load: unported"));
+        assert_eq!(f.unported_unchanged()?, "a redeploy in progress");
+        Ok(())
+    }
+
+    /// A queue database that isn't there is never "no job": the split is refused and writes nothing.
+    #[test]
+    fn a_missing_queue_is_refused() -> Result {
+        let f = Fixture::index(&[0.6, 0.4])?;
+        for file in ["production_queue.sqlite3", "production_queue.sqlite3-wal", "production_queue.sqlite3-shm"] { let _ = std::fs::remove_file(f._dir.path().join(file)); }
+        assert_eq!(f.page()?, Err("load: unported"));
+        assert_eq!(f.unported_unchanged()?, "the job queue can't be read");
+        Ok(())
+    }
+
     /// A Bot::RedeployJob that failed is over (Automation::Schedulable#active_job?): the modal asks, and a kept answer splits.
     #[test]
     fn a_failed_redeploy_job_is_over() -> Result {

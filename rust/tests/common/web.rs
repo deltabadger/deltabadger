@@ -50,7 +50,8 @@ pub fn app_allowing(dir: &Path, secret: &str, allowed_hosts: Option<&str>, clock
 
 /// `app_allowing` in a process environment that also holds `extra` (a page scenario's `env`: MARKET_DATA_URL for a hosted container).
 pub fn app_in(dir: &Path, secret: &str, allowed_hosts: Option<&str>, extra: &serde_json::Map<String, serde_json::Value>, clock: Arc<TestClock>) -> App {
-    let opened = store::open(&Paths::from_env(&|_| None, dir)).expect("the install passes store::check");
+    let paths = Paths::from_env(&|_| None, dir);
+    let opened = store::open(&paths).expect("the install passes store::check");
     // Uploads parked for a question (the tracker import) go under the install, not the working directory.
     let tmp = dir.join("tmp").display().to_string();
     let env = |name: &str| match name {
@@ -59,7 +60,7 @@ pub fn app_in(dir: &Path, secret: &str, allowed_hosts: Option<&str>, extra: &ser
         "APP_TMP_DIR" => Some(tmp.clone()),
         other => extra.get(other).and_then(|v| v.as_str()).map(str::to_string),
     };
-    App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap().with_figure_source(web::figure::loading::Source::Disabled).unwrap()
+    App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap().with_queue_path(paths.queue).unwrap().with_figure_source(web::figure::loading::Source::Disabled).unwrap()
 }
 
 pub struct Answer {
