@@ -567,6 +567,87 @@ fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
     }
 }
 
+/// Named divergence D-SPLIT-BOT-MENU: a splittable bot's menu has a Split item (the split modal for that bot), which Rails'
+/// menu does not. Only that item, with the whitespace before it, is taken out of this crate's page; returns how many.
+fn without_split_item(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 0);
+    while i < lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        let split = line.trim_start().starts_with("<a ") && attr(line, "class").as_deref() == Some("dropdown__item") && attr(line, "data-turbo-frame").as_deref() == Some("modal")
+            && attr(line, "href").is_some_and(|href| href.split_once("/bots/split/new?ids%5B%5D=").is_some_and(|(locale, id)| locale.len() <= 3 && !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit())));
+        if !split { i += 1; continue; }
+        let end = subtree_end(lines, i);
+        let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+        lines.drain(start..end);
+        taken += 1;
+        i = start;
+    }
+    taken
+}
+
+/// Named divergence D-SPLIT-API in Settings: the split_bots switch under Control (this build's own tool) is taken out of this
+/// crate's page with the whitespace before it, and its entry out of the rows a write stored (the owner's switches, a
+/// client's grant). Returns how many switches were taken.
+fn without_split_tool(answer: &mut Value) -> usize {
+    let mut taken = 0;
+    if let Some(Value::Array(lines)) = answer.get_mut("body") {
+        let mut i = 0;
+        while i < lines.len() {
+            let line = lines[i].as_str().unwrap_or_default();
+            if !(line.trim_start().starts_with("<div ") && attr(line, "data-tool").as_deref() == Some("split_bots")) { i += 1; continue; }
+            let end = subtree_end(lines, i);
+            let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+            lines.drain(start..end);
+            taken += 1;
+            i = start;
+        }
+    }
+    for row in answer.get_mut("settings_rows").and_then(|rows| rows.get_mut("users")).and_then(Value::as_array_mut).into_iter().flatten() {
+        for column in ["mcp_settings", "rest_settings"] {
+            if let Some(tools) = row.get_mut(column).and_then(|v| v.get_mut("tool_permissions")).and_then(Value::as_object_mut) { tools.shift_remove("split_bots"); }
+        }
+    }
+    for row in answer.get_mut("settings_rows").and_then(|rows| rows.get_mut("connected_clients")).and_then(Value::as_array_mut).into_iter().flatten() {
+        for column in ["mcp_tools", "rest_tools"] {
+            if let Some(tools) = row.get_mut(column).and_then(Value::as_array_mut) { tools.retain(|tool| tool != "split_bots"); }
+        }
+    }
+    taken
+}
+
+#[test]
+fn only_the_split_tool_switch_and_its_stored_entry_are_left_out() {
+    let row = |tool: &str| vec![json!("      \" \""), json!(format!("      <div class=\"srow srow--tool\" data-surface=\"mcp\" data-tool=\"{tool}\">")), json!("        \"x\""), json!("      </div>")];
+    let rails: Vec<Value> = [row("unarchive_bot"), row("sync_tracker")].concat();
+    let ours_body: Vec<Value> = [row("unarchive_bot"), row("split_bots"), row("sync_tracker")].concat();
+    let mut ours = json!({ "body": ours_body,
+        "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true, "split_bots": true } }, "rest_settings": null }],
+                           "connected_clients": [{ "mcp_tools": ["delete_bot", "split_bots"], "rest_tools": null }] } });
+    assert_eq!(without_split_tool(&mut ours), 1);
+    assert_eq!(ours, json!({ "body": rails, "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true } }, "rest_settings": null }],
+                                                              "connected_clients": [{ "mcp_tools": ["delete_bot"], "rest_tools": null }] } }));
+}
+
+#[test]
+fn only_the_menus_split_item_is_left_out() {
+    let item = |href: &str| json!(["      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/edit\">", "        \"Rename\"", "      </a>", "      \" \"",
+        format!("      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"{href}\">"), "        \"Split\"", "      </a>", "      \" \"",
+        "      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/archive/edit\">", "        \"Archive\"", "      </a>"]);
+    let rails = json!(["      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/edit\">", "        \"Rename\"", "      </a>", "      \" \"",
+        "      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/archive/edit\">", "        \"Archive\"", "      </a>"]);
+    for href in ["/bots/split/new?ids%5B%5D=7", "/de/bots/split/new?ids%5B%5D=7"] {
+        let mut ours = item(href);
+        assert_eq!((without_split_item(&mut ours), &ours), (1, &rails), "{href}");
+    }
+    // Any other link, a split of several bots or one outside the menu, is still compared.
+    for href in ["/bots/split/new?ids%5B%5D=7&ids%5B%5D=8", "/bots/split/new", "/bots/7/split/new?ids%5B%5D=7"] {
+        let mut ours = item(href);
+        let before = ours.clone();
+        assert_eq!((without_split_item(&mut ours), &ours), (0, &before), "{href}");
+    }
+}
+
 /// Named divergences D-PENDING-MARKET-HIDDEN and D-PENDING-MARKET-SETTING: a market order the venue has not finished
 /// (unknown or open) is no row of this crate's log until it is final, and a scheduled or retrying bot holding one says
 /// "Setting orders…" where Rails shows its schedule. The grid seeds such rows (pages_bots.rb `history`, `engine_legs`,
@@ -689,6 +770,30 @@ fn index_rules(body: &mut Value) -> Vec<Vec<Value>> {
     taken
 }
 
+/// D-COND-FORMS-SIGNAL (strip): a signal bot's rule forms (settings::signal_rules), which Rails' signal bot does not have:
+/// every `#signal-conditions` block taken out of a normalized page with the whitespace before it. Returns the first block's
+/// forms in page order (the headings left out), None when the page has none. The rest of the page is Rails'; what was
+/// taken is held to the basket twins' forms (a_signal_bots_rule_forms_are_its_basket_twins).
+fn signal_rules(body: &mut Value) -> Option<Vec<Vec<Value>>> {
+    let Value::Array(lines) = body else { return None };
+    let mut first = None;
+    while let Some(at) = lines.iter().position(|l| l.as_str().is_some_and(|l| { let l = l.trim_start(); l.starts_with("<div ") && l.contains(" id=\"signal-conditions\"") })) {
+        let end = subtree_end(lines, at);
+        let start = if at > 0 && is_space(&lines[at - 1]) { at - 1 } else { at };
+        let block: Vec<Value> = lines.drain(start..end).collect();
+        if first.is_some() { continue; }
+        let (mut forms, mut i) = (vec![], 0);
+        while i < block.len() {
+            if !block[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form ")) { i += 1; continue; }
+            let end = subtree_end(&block, i);
+            forms.push(block[i..end].iter().filter(|l| !is_space(l)).cloned().collect());
+            i = end;
+        }
+        first = Some(forms);
+    }
+    first
+}
+
 /// D-COND-FORMS-INDEX (twin): an index bot's rule forms are its basket twin's (the same members, the same rules, as Rails
 /// draws them) with the index bot's parameter key, and without the flip, which an index bot has no direction for
 /// (conditions::support). The subject select offers the members, and a former member it still watches by its name; with
@@ -747,6 +852,60 @@ async fn an_index_bots_rule_forms_are_its_basket_twins() {
     let btc: i64 = rusqlite::Connection::open(btc).unwrap().query_row("SELECT t.id FROM tickers t JOIN assets a ON a.id = t.base_asset_id JOIN assets q ON q.id = t.quote_asset_id JOIN exchanges e ON e.id = t.exchange_id \
                                                                        WHERE a.symbol = 'BTC' AND q.symbol = 'EUR' AND e.name = 'Kraken'", [], |r| r.get(0)).unwrap();
     assert!(selected.iter().any(|l| l.contains(&format!("value=\"{btc}\""))), "{selected:?}");
+}
+
+/// D-COND-FORMS-SIGNAL (twin): a signal bot's rule forms are its one-asset basket twins' on the same pair (as Rails draws
+/// them): the buy side's price rule and the cap of the buying twin, the sell side's price rule of the selling twin, with the
+/// signal bot's parameter key and without the flip (a signal bot has no direction to flip). The sell side's status line is
+/// its own (D-INFO-SIDE: `settings-sell-price-limit-info`, the request naming the side). The rest of the page is Rails'.
+#[tokio::test(flavor = "current_thread")]
+async fn a_signal_bots_rule_forms_are_its_basket_twins() {
+    let (_recording, rust_root, dirs) = recorded_grid();
+    if !dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_signal_rules")) { return; }
+    let last = |v: &Value| v["responses"].as_array().unwrap().last().unwrap()["body"].clone();
+    let rails_body = |name: &str| {
+        let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).unwrap();
+        let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let steps = scenario(dir)["steps"].clone();
+        rails_answer(recorded["responses"].as_array().unwrap().last().unwrap(), steps.as_array().unwrap().last().unwrap())["body"].clone()
+    };
+    // The twins' forms of `switches`, keyed for a signal bot, the flip option gone.
+    let twin = |name: &str, switches: &[&str]| -> Vec<Vec<Value>> {
+        let Value::Array(lines) = rails_body(name) else { panic!("the twin page is HTML") };
+        let (mut out, mut i) = (vec![], 0);
+        while i < lines.len() {
+            let form = lines[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form "));
+            let end = if form { subtree_end(&lines, i) } else { i + 1 };
+            if form && lines[i..end].iter().any(|l| l.as_str().is_some_and(|l| switches.iter().any(|s| l.contains(&format!("[{s}]\""))))) {
+                let mut block = vec![];
+                let mut j = i;
+                while j < end {
+                    let line = lines[j].as_str().unwrap_or_default();
+                    if line.trim_start().starts_with("<option") && line.contains("value=\"flip\"") { j = subtree_end(&lines, j); continue; }
+                    if !is_space(&lines[j]) { block.push(json!(line.replace("bots_dca_multi_asset", "bots_signal"))); }
+                    j += 1;
+                }
+                out.push(block);
+            }
+            i = end;
+        }
+        out
+    };
+    let mut expected = twin("twin_signal_basket_buy", &["price_limited", "quote_amount_limited"]);
+    assert_eq!(expected.len(), 2, "the buying twin draws a price rule and a spending cap");
+    let sell = twin("twin_signal_basket_sell", &["sell_price_limited"]);
+    assert_eq!(sell.len(), 1, "the selling twin draws its sell side's price rule");
+    expected.extend(sell.into_iter().map(|form| form.into_iter().map(|l| json!(l.as_str().unwrap_or_default()
+        .replace("id=\"settings-price-limit-info\"", "id=\"settings-sell-price-limit-info\"")
+        .replace(r#"{\"bot_id\":1}"#, r#"{\"bot_id\":1,\"side\":\"selling\"}"#))).collect()));
+    let mut body = last(&run(&rust_root.path().join("twin_signal_rules")).await);
+    // Compared line by line, without the indent: the forms sit one level deeper here, inside their block.
+    let trimmed = |forms: Vec<Vec<Value>>| -> Vec<Vec<String>> { forms.into_iter().map(|f| f.iter().map(|l| l.as_str().unwrap_or_default().trim().to_string()).collect()).collect() };
+    let expected = trimmed(expected);
+    let forms = trimmed(signal_rules(&mut body).expect("the signal page draws its rule forms"));
+    assert_eq!(forms, expected, "a signal bot's rule forms are its basket twins'");
+    let text = forms.concat().join("\n");
+    assert!(!text.contains("value=\"flip\"") && !text.contains("_in_ticker_id"), "no flip, no subject: {text}");
 }
 
 /// The `id` of a `<tr>` line.
@@ -1232,6 +1391,11 @@ fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
             c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.quote_amount_limited', json('true')) \
                        WHERE type = 'Bots::DcaIndex' AND json_extract(settings, '$.price_limit') = 2500", []).unwrap();
         }
+        // CE-4's twin_signal_rules: a signal bot whose owner switched its rules on here since.
+        if scenario.file_name().is_some_and(|n| n == "twin_signal_rules") {
+            c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.sell_price_limited', json('true'), \
+                       '$.quote_amount_limited', json('true')) WHERE type = 'Bots::Signal'", []).unwrap();
+        }
     }
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(recording.path.join("rails")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
@@ -1705,7 +1869,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
         assert_eq!(dirs.len(), 254 + 2 + 6, "all action scenarios must remain selected, with two amounts typed key by key and six settings metrics cases");
     }
-    let (mut failures, mut countdown_pages, mut broker_gate_pages, mut index_rule_pages) = (vec![], 0, 0, 0);
+    let (mut failures, mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages) = (vec![], 0, 0, 0, 0, 0);
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
@@ -1739,7 +1903,12 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
-        for answer in rust["responses"].as_array_mut().unwrap() { without_low_funds(&mut answer["body"]); index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty()); }
+        for answer in rust["responses"].as_array_mut().unwrap() {
+            without_low_funds(&mut answer["body"]);
+            split_menu_pages += without_split_item(&mut answer["body"]);
+            index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
+            signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
+        }
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
             // Rails knows a time on every page of these scenarios, and this build must not claim the same one.
@@ -1752,6 +1921,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         let mut rails = rails;
         if name.starts_with("settings_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
+            for answer in rust["responses"].as_array_mut().unwrap() { without_split_tool(answer); }
         }
         if name.starts_with("hook_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_router_bad_request(answer); }
@@ -1834,15 +2004,17 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next; {index_rule_pages} index bot pages with their rule forms", dirs.len());
+    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next; {index_rule_pages} index bot pages with their rule forms; {signal_rule_pages} signal bot pages with theirs", dirs.len());
     if dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_index_member")) { assert!(index_rule_pages > 0, "D-COND-FORMS-INDEX: no index bot page drew its rule forms"); }
+    if std::env::var("PAGES").is_err() { assert!(split_menu_pages > 0, "D-SPLIT-BOT-MENU: no bot page offered Split in its menu"); }
+    if dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_signal_rules")) { assert!(signal_rule_pages > 0, "D-COND-FORMS-SIGNAL: no signal bot page drew its rule forms"); }
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read)");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins')");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, and the empty bots page for a member (twice) and on the first visit");
     }

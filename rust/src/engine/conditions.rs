@@ -45,7 +45,8 @@ pub enum Support {
 }
 
 /// The (kind, rule) pairs the engine runs, with the `pause` action. Each slice adds its own with that rule's engine.
-pub const IMPLEMENTED: &[(Kind, Rule)] = &[(Kind::Basket, Rule::Cap), (Kind::Basket, Rule::Price), (Kind::Index, Rule::Cap), (Kind::Index, Rule::Price)];
+pub const IMPLEMENTED: &[(Kind, Rule)] = &[(Kind::Basket, Rule::Cap), (Kind::Basket, Rule::Price), (Kind::Index, Rule::Cap), (Kind::Index, Rule::Price),
+                                          (Kind::Signal, Rule::Cap), (Kind::Signal, Rule::Price)];
 
 /// D-IDX-CONDITIONS / D-IDX-CAP: one rule set for every bot kind, Rails' class gap fixed (only DcaMultiAsset includes the
 /// concerns in Rails). `selling`: the rule's sell side; `action`: its `*_action` (the cap has none: "pause").
@@ -70,9 +71,9 @@ pub fn action(settings: &Value, prefix: &str) -> String {
 
 /// Whether a rule that is on decorates the carry window's `started_at`: where Rails reads it (a basket, whatever this build
 /// runs: eligibility refuses what it does not) or where this engine runs it (Implemented). An index or signal bot's rule this
-/// build does not run stays inert there, as in Rails.
+/// build does not run stays inert there, as in Rails. A signal bot has no carry window: its rules gate each call (§2c).
 pub fn decorates(kind: Kind, support: Support) -> bool {
-    support == Support::Implemented || (kind == Kind::Basket && support == Support::NotImplemented)
+    kind != Kind::Signal && (support == Support::Implemented || (kind == Kind::Basket && support == Support::NotImplemented))
 }
 
 /// `support` for the rule as `bot_type`'s stored settings hold it.
@@ -151,7 +152,9 @@ fn rule_ticker_quoted(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<(Op
     }
     tickers.sort_by_key(|t| t.id); // the relation's own order
     let decimals = tickers.iter().map(|t| t.quote_decimals).min();
-    let id = match rule.ticker_id { Some(id) => Some(id), None => tickers.iter().min_by(|a, b| a.base_code.cmp(&b.base_code)).map(|t| t.id) };
+    // D-SIG-CONDITIONS: a signal bot's rule watches its own pair (it has no subject to choose); a stored id is not read.
+    let stored = rule.ticker_id.filter(|_| bot.bot_type != model::SIGNAL_TYPE);
+    let id = match stored { Some(id) => Some(id), None => tickers.iter().min_by(|a, b| a.base_code.cmp(&b.base_code)).map(|t| t.id) };
     Ok((id.and_then(|id| tickers.into_iter().find(|t| t.id == id)), decimals))
 }
 
@@ -175,14 +178,20 @@ async fn last_price<V: Attributed>(venue: &V, bot: &Bot, ticker: &Ticker, now: D
 /// not stamp, or capture the carry at, the instant before it. Each write also broadcasts the status line from inside it, as
 /// Rails does (broadcast_price_limit_info_update: its Rails.cache.fetch, stored in `INFO_KEY`).
 pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
+    evaluate_side(c, venue, bot, bot.selling(), clock, prices, version).await
+}
+
+/// `evaluate` for the rule of one side, `selling` (a signal bot's call names its side; a DCA bot's is its direction). A signal
+/// bot has no carry (D-SIG-CONDITIONS, §2c): unmet after a met_at only clears it.
+pub async fn evaluate_side<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
     let now = clock.now();
-    let Some(rule) = bot.price_rule(bot.selling()).map_err(EngineError::Data)? else { return Ok(Evaluated::Off) };
+    let Some(rule) = bot.price_rule(selling).map_err(EngineError::Data)? else { return Ok(Evaluated::Off) };
     if rule.after && rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
     let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, &rule)? else { return Ok(Evaluated::Unavailable) };
     let (price, origin) = match last_price(venue, bot, &ticker, now, prices, version).await { Ok(read) => read, Err(e) => return Ok(Evaluated::Failed(e)) };
     let now = clock.now();
     let key = format!("{}_condition_met_at", rule.prefix);
-    let side = side_of(bot.selling());
+    let side = side_of(selling);
     if price_met(&rule, &price)? {
         if rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
         let refreshed = model::run_credential_write(c, bot, &origin, |tx| {
@@ -195,7 +204,9 @@ pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock
     if rule.met_at_us.is_some() {
         model::run_credential_write(c, bot, &origin, |tx| {
             let current = model::load_bot(tx, bot.id)?;
-            if current.condition_started_us()?.is_none() {
+            if current.bot_type == model::SIGNAL_TYPE {
+                model::update_transient(tx, bot.id, &[(key.as_str(), Value::Null)], now)?;
+            } else if current.condition_started_us()?.is_none() {
                 // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): the clear leaves the carry window where it
                 // was (another enabled rule, or no start, already keeps the decorated started_at nil), so the capture is taken
                 // back: the carry as stored before it (nil when absent), and the marker nil.

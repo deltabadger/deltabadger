@@ -35,6 +35,8 @@ pub struct Forms<'a> {
     /// bots/settings/_rebalance_info as the figures render it (`figure::rebalance`), or None while they are not ready: the
     /// note alone, and the readout follows on the figures' stream (D-REB-DRIFT-LATE).
     pub rebalance_info: Option<&'a str>,
+    /// The side the rule forms are drawn for, when it is not the bot's own direction: a signal bot draws both (D-INFO-SIDE).
+    pub selling: Option<bool>,
 }
 
 /// bots/settings/_amount_limit_info of a seller: what is left of "Don't sell more than N BASE", or nothing (balances hidden,
@@ -108,6 +110,11 @@ impl Forms<'_> {
 
     fn locked(&self) -> bool {
         self.bot.working()
+    }
+
+    /// The side these forms are for: the explicit one, else the bot's direction.
+    fn selling(&self) -> bool {
+        self.selling.unwrap_or_else(|| self.bot.selling())
     }
 
     /// `form_with model: bot, url: path, method: :patch, class: "widget rule …"` with the class-toggle wiring.
@@ -396,20 +403,20 @@ impl Forms<'_> {
     /// BotHelper#trigger_mode_select_options and #trigger_mode_for, buying: "Buy only", "Start buying", and for a basket the flip.
     /// BotHelper#trigger_prefix: a condition's keys, or their sell-side mirror while selling.
     fn k(&self, name: &str) -> String {
-        if self.bot.selling() { format!("sell_{name}") } else { name.to_string() }
+        if self.selling() { format!("sell_{name}") } else { name.to_string() }
     }
 
     fn side(&self) -> &'static str {
-        if self.bot.selling() { "selling" } else { "buying" }
+        if self.selling() { "selling" } else { "buying" }
     }
 
     /// BotHelper#trigger_mode_select_options and #trigger_mode_for, on the active side: "Buy only"/"Sell only", "Start buying"/"Start selling", and for a basket the flip.
     fn trigger_mode(&self, rule: &str) -> (Vec<(String, String)>, &'static str) {
         let tokens: &[&str] = if rule == "price_drop_limit" { &["start", "flip"] } else { &["restrict", "start", "flip"] };
         // D-COND-FORMS-INDEX: no flip where the bot has no direction to flip (conditions::support).
-        let flip = if self.bot.selling() { "start_buying" } else { "start_selling" };
+        let flip = if self.selling() { "start_buying" } else { "start_selling" };
         let flips = crate::engine::conditions::TRIGGERS.iter().find(|(_, prefix)| *prefix == rule)
-            .is_none_or(|(r, _)| crate::engine::conditions::support(self.bot.kind, *r, self.bot.selling(), flip) != crate::engine::conditions::Support::Inapplicable);
+            .is_none_or(|(r, _)| crate::engine::conditions::support(self.bot.kind, *r, self.selling(), flip) != crate::engine::conditions::Support::Inapplicable);
         let side = self.side();
         let options = tokens.iter().filter(|token| flips || **token != "flip").map(|token| (i18n::text(self.ctx.locale, &format!("bot.settings.trigger_mode.{token}_{side}"), &[]), token.to_string())).collect();
         let keys = self.k(rule);
@@ -444,15 +451,17 @@ impl Forms<'_> {
     /// The loader an active condition shows until its reading arrives (`bots/settings/_*_info`, cold); the price rule's
     /// reading once the engine has one for the active side within its 20 s (`bot.price_limit_info_from_cache`).
     fn info_loader(&self, rule: &str) -> String {
-        let side = crate::engine::conditions::side_of(self.bot.selling());
+        let side = crate::engine::conditions::side_of(self.selling());
         let target = info_target(self.bot, rule, side).unwrap_or_default();
         if rule == crate::engine::conditions::PRICE {
             if let Some(info) = crate::engine::conditions::live_info(self.bot.transient.get(crate::engine::conditions::INFO_KEY), rule, side, self.ctx.now) {
                 return price_limit_info(self.ctx.locale, info, &target);
             }
         }
+        // D-INFO-SIDE: a side that is not the bot's active one is named in the request.
+        let named = if side == crate::engine::conditions::side_of(self.bot.selling()) { String::new() } else { format!(",&quot;side&quot;:&quot;{side}&quot;") };
         format!("<small id=\"{target}\" class=\"small-info\">\n      <div data-controller=\"broadcast--on-connect\" data-broadcast--on-connect-method-value=\"{rule}_info_update\" \
-                 data-broadcast--on-connect-method-args-value=\"{{&quot;bot_id&quot;:{}}}\" class=\"loader--small\" style=\"position: unset; float: left; margin-top: 1rem;\"></div>\n  </small>",
+                 data-broadcast--on-connect-method-args-value=\"{{&quot;bot_id&quot;:{}{named}}}\" class=\"loader--small\" style=\"position: unset; float: left; margin-top: 1rem;\"></div>\n  </small>",
                 self.bot.id)
     }
 
@@ -466,7 +475,7 @@ impl Forms<'_> {
     pub fn price_limit(&self, members: &[(String, String)]) -> String {
         let (bot, locale) = (self.bot, self.ctx.locale);
         // BotHelper#trigger_prefix: the sell side's mirror of every key while selling.
-        let k = |name: &str| if bot.selling() { format!("sell_{name}") } else { name.to_string() };
+        let k = |name: &str| self.k(name);
         let quote = bot.quote_symbol().unwrap_or("");
         let words = |key: String| i18n::text(locale, &key, &[]);
         let boxed = |field: String| format!("<div>            {field}\n</div>");
@@ -494,15 +503,15 @@ impl Forms<'_> {
     /// The rest of a basket's conditions, after its price rule (`out`).
     fn other_conditions(&self, pairs: &[(String, String)], mut out: String, members: &[(String, String)]) -> String {
         let (bot, locale) = (self.bot, self.ctx.locale);
-        let k = |name: &str| if bot.selling() { format!("sell_{name}") } else { name.to_string() };
-        let side = if bot.selling() { "selling" } else { "buying" };
+        let k = |name: &str| self.k(name);
+        let side = self.side();
         let words = |key: String| i18n::text(locale, &key, &[]);
         let boxed = |field: String| format!("<div>            {field}\n</div>");
 
         // Price drop limit.
         let window = bot.text(&k("price_drop_limit_time_window_condition")).unwrap_or("");
         // BotHelper#price_drop_limit_time_window_condition_select_options: a high to fall from while buying, a low to rise from while selling.
-        let (window_names, namespace): (&[&str], &str) = if bot.selling() { (&["twenty_four_hours", "seven_days"], "sell_time_window_condition") } else { (&["ath", "twenty_four_hours"], "time_window_condition") };
+        let (window_names, namespace): (&[&str], &str) = if self.selling() { (&["twenty_four_hours", "seven_days"], "sell_time_window_condition") } else { (&["ath", "twenty_four_hours"], "time_window_condition") };
         let windows: Vec<(String, String)> = window_names.iter().map(|name| (words(format!("bot.settings.extra_price_drop_limit.{namespace}.{name}")), name.to_string())).collect();
         let window_pill = self.pill(&words(format!("bot.settings.extra_price_drop_limit.{namespace}.{window}")), &self.select(&k("price_drop_limit_time_window_condition"), &windows, window));
         let drop = bot.number(&k("price_drop_limit")).and_then(|share| share.to_d()).and_then(|share| input_value(&Num::Dec(&share * &BigDec::from_i64(100))));
@@ -510,7 +519,7 @@ impl Forms<'_> {
         let (mode_options, mode) = self.trigger_mode("price_drop_limit");
         let mode_pill = format!("<div class=\"sinput sinput--select {}\">              {}\n              {}\n</div>", if self.locked() { "sinput--disabled" } else { "" },
                                 escape(&words(format!("bot.settings.trigger_mode.{mode}_{side}"))), self.select(&k("price_drop_limit_mode"), &mode_options, mode));
-        let sentence = self.t(if bot.selling() { "bot.settings.extra_price_drop_limit.sell_mode_sentence_html" } else { "bot.settings.extra_price_drop_limit.mode_sentence_html" }, &[
+        let sentence = self.t(if self.selling() { "bot.settings.extra_price_drop_limit.sell_mode_sentence_html" } else { "bot.settings.extra_price_drop_limit.mode_sentence_html" }, &[
             ("mode_html", Arg::Html(&mode_pill)), ("base_html", Arg::Html(&self.subject("price_drop_limit", members))),
             ("value_html", Arg::Html(&boxed(self.number(&k("price_drop_limit"), drop.as_deref(), "any", "", self.locked())))),
             ("time_window_condition_html", Arg::Html(&window_pill)), ("count", Arg::Count(members.len() as i64)),
@@ -839,12 +848,31 @@ fn index_rules(c: &Connection, forms: &Forms) -> Result<String, WebError> {
         }
         let price = match &shown {
             Some(preselected) => Forms { ctx: forms.ctx, csrf: forms.csrf, bot: preselected, path: forms.path.clone(), hide_balances: forms.hide_balances,
-                                         time_zone: forms.time_zone, check: forms.check, rebalance_info: forms.rebalance_info }.price_limit(&members),
+                                         time_zone: forms.time_zone, check: forms.check, rebalance_info: forms.rebalance_info, selling: None }.price_limit(&members),
             None => forms.price_limit(&members),
         };
         out.push_str(&price);
     }
     if support(Kind::Index, Rule::Cap, false, "pause") == Support::Implemented { out.push_str(&format!("    {}\n", forms.amount_limit(c)?)); }
+    Ok(out)
+}
+
+/// D-COND-FORMS-SIGNAL: the rule forms a signal bot runs (conditions::support), after its rules: the price rule for its buy
+/// calls and for its sell calls, each a basket's form on that side over the bot's own pair (no subject to choose, no flip),
+/// and the spending cap with the buy calls. Locked while the bot works, as a basket's are.
+pub fn signal_rules(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, hide_balances: bool) -> Result<String, WebError> {
+    use crate::engine::conditions::{support, Rule, Support};
+    let path = ctx.path(&format!("/bots/{}", bot.id));
+    let forms = |selling| Forms { ctx, csrf, bot, path: path.clone(), hide_balances, time_zone: "", check: None, rebalance_info: None, selling: Some(selling) };
+    let pair: Vec<(String, String)> = bot.tickers.first().map(|t| (t.base_symbol.clone().unwrap_or_default(), t.id.to_string())).into_iter().collect();
+    let mut out = String::from("<div id=\"signal-conditions\" class=\"column gap-1\">\n");
+    for (selling, heading) in [(false, "engine.signal_buy_calls"), (true, "engine.signal_sell_calls")] {
+        if support(Kind::Signal, Rule::Price, selling, "pause") != Support::Implemented { continue; }
+        out.push_str(&format!("  <p class=\"text-inactive\">{}</p>\n", escape(&i18n::text(ctx.locale, heading, &[]))));
+        out.push_str(&forms(selling).price_limit(&pair));
+        if !selling && support(Kind::Signal, Rule::Cap, false, "pause") == Support::Implemented { out.push_str(&format!("    {}\n", forms(false).amount_limit(c)?)); }
+    }
+    out.push_str("</div>\n");
     Ok(out)
 }
 
@@ -870,7 +898,7 @@ pub fn draft_column(c: &Connection, ctx: &Ctx, csrf: &str, draft: &super::draft:
     let check = draft.check();
     let info = saved_rebalance_info(c, ctx, draft);
     let forms = Forms { ctx, csrf, bot: &draft.candidate, path: crate::web::locale::path(ctx.locale, &format!("/bots/{}", draft.candidate.id)),
-        hide_balances, time_zone, check: Some(&check), rebalance_info: info.as_deref() };
+        hide_balances, time_zone, check: Some(&check), rebalance_info: info.as_deref(), selling: None };
     let mut html = column(c, &forms)?;
     for field in ["quote_asset_id", "exchange"] {
         if let Some(error) = forms.field_error(field) {

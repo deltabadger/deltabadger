@@ -145,7 +145,8 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     // whose executed quote changed to a positive value re-checks the cap; reached, Rails enqueues Bot::StopJob, which runs after
     // the job that committed the fill.
     // `return if selling?` (quote_amount_limitable.rb:106): a buy that still fills after a flip never stops the seller.
-    if exec_changed && side == 0 && !bot.selling() && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)? {
+    // D-SIG-CAP: a spent cap never stops a signal bot (its sells keep working; buy calls get the cap line).
+    if exec_changed && side == 0 && !bot.selling() && bot.bot_type != model::SIGNAL_TYPE && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)? {
         return Ok(Some(Cap::Quote));
     }
     // Its sell-side mirror (transaction.rb:34-36 → Bot::BaseAmountLimitable#handle_base_amount_limit_update): a sell of any

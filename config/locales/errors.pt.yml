@@ -20,6 +20,7 @@ pt:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "O montante gasto até agora é desconhecido: uma ordem foi fechada sem indicar o seu custo."
+                            quote_amount_limit_reached: "O montante total foi investido: aumente o limite ou desative-o para iniciar o bot."
                         smart_interval_quote_amount:
                             not_a_number: "Tem de especificar um montante para os Smart Intervals"
                             greater_than_or_equal_to: "Para este cronograma, o montante dos Smart Intervals não pode ser inferior a %{count}"

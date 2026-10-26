@@ -496,8 +496,19 @@ mod action_draft {
             let errors = draft.errors.iter().map(|e| json!({"field":e.field,"message":e.message})).collect::<Vec<_>>();
             let mut expected_errors = field(case, "errors").as_array().ok_or("errors")?.clone();
             if let Some(lock) = case.get("rust_lock_error") { expected_errors.push(lock.clone()); }
+            // D-START-CAP-COPY: Rails has no text for a start refused with the cap spent (its missing-translation text);
+            // this one gives the refusal its message, and nothing else moves.
+            let mut sentence = case.get("rust_sentence").unwrap_or(field(case, "sentence")).as_str().ok_or("sentence")?.to_string();
+            for e in &mut expected_errors {
+                let missing = e["message"].as_str().filter(|m| m.starts_with("Translation missing.") && m.contains(".attributes.settings.quote_amount_limit_reached")).map(str::to_string);
+                if let Some(missing) = missing {
+                    let copy = deltabadger::web::i18n::text("en", "activerecord.errors.models.bot.attributes.settings.quote_amount_limit_reached", &[]);
+                    sentence = sentence.replace(&missing, &copy);
+                    e["message"] = json!(copy);
+                }
+            }
             compare!(json!(errors), json!(expected_errors), "{name}: ordered errors");
-            compare!(draft.error_sentence("en"), case.get("rust_sentence").unwrap_or(field(case, "sentence")).as_str().ok_or("sentence")?, "{name}: sentence");
+            compare!(draft.error_sentence("en"), sentence.as_str(), "{name}: sentence");
             compare!(draft.errors.is_empty(), field(case, "valid").as_bool().ok_or("valid")? && case.get("rust_lock_error").is_none(), "{name}: valid");
             if name == "1/quote_asset_id/upper/update" || name == "1/exchange_id/upper/update" {
                 let html = deltabadger::web::bot::settings::draft_column(&c, &ctx, "csrf", &draft, "UTC", false).map_err(|e| format!("{e:?}"))?;
@@ -635,7 +646,7 @@ mod action_write {
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',50,'$.smart_intervaled',json('true'),'$.smart_interval_quote_amount',5) WHERE id=?1", [f.id])?;
             let before = f.snapshot()?;
             let render = |bot: &Bot| Forms { ctx: &f.ctx, csrf: "token", bot, path: format!("/bots/{}", f.id),
-                hide_balances: false, time_zone: "UTC", check: None, rebalance_info: None }.smart_intervals();
+                hide_balances: false, time_zone: "UTC", check: None, rebalance_info: None, selling: None }.smart_intervals();
             let bot = Bot::find(&f.c, f.seed.user_id, f.id, For::Page, "en").map_err(|e| format!("{e:?}"))?.unwrap();
             let quote = bot.quote_symbol().unwrap();
             assert!(render(&bot).contains(&format!("50 {quote}")), "an untouched Integer stays an Integer");

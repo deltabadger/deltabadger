@@ -2,7 +2,7 @@
 //! (Bots::SignalResolutionsController), its settings (BotsController#update) and its own thin lifecycle (Bots::Signal#start,
 //! #stop, #delete; Bot#archive, #unarchive; Automation::Executable#destroy), for the browser and for BotApi's services.
 //! Each is one immediate transaction, judged by the engine's guard before it commits, as every other writer is.
-use super::{action_params::ActionParams, action_view, draft::FieldError, page, signal, status, write::{self, Action, Failure, Outcome}, Bot, For, Kind};
+use super::{action_params::ActionParams, action_view, draft::{Draft, FieldError}, page, signal, status, write::{self, Action, Failure, Outcome}, Bot, For, Kind};
 use crate::engine::{eligibility, model::{self, Level, SIGNAL_TYPE}};
 use crate::enums::BotStatus;
 use crate::ruby::BigDec;
@@ -106,9 +106,9 @@ pub(crate) fn refused_after(c: &Connection, app: &App, owner: i64, id: i64) -> R
 }
 
 /// bots/signals/_settings, as a stream replacing the column.
-fn settings_stream(ctx: &Ctx, csrf: &str, bot: &Bot, base_url: &str) -> Result<String, WebError> {
+fn settings_stream(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, base_url: &str) -> Result<String, WebError> {
     let hide = ctx.user().is_some_and(|user| user.hide_balances);
-    Ok(turbo::stream("replace", "settings", &format!("{}\n", signal::column(ctx, csrf, bot, hide, base_url)?)))
+    Ok(turbo::stream("replace", "settings", &format!("{}\n", signal::column(c, ctx, csrf, bot, hide, base_url)?)))
 }
 
 /// `request.base_url`, which a rule's webhook URL starts with.
@@ -180,7 +180,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
     let csrf = ctx.csrf_token();
     // refuse_while_running (Rails R8b): a stale tab's rule write on a running bot changes nothing.
     if bot.working() {
-        let body = alert(i18n::text(ctx.locale, "errors.bots.signal_locked_while_running", &[]))? + &settings_stream(&ctx, &csrf, &bot, base_url)?;
+        let body = alert(i18n::text(ctx.locale, "errors.bots.signal_locked_while_running", &[]))? + &settings_stream(&tx, &ctx, &csrf, &bot, base_url)?;
         return Ok(Answer::Done(action_view::response(body, true)));
     }
     let now = crate::codec::format_time(ctx.now);
@@ -261,7 +261,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
     }
     let response = if settings_answer {
         let bot = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or(WebError::Config("the rule's bot disappeared".into()))?;
-        action_view::response(settings_stream(&ctx, &csrf, &bot, base_url)?, false)
+        action_view::response(settings_stream(&tx, &ctx, &csrf, &bot, base_url)?, false)
     } else { head_ok() };
     // Nothing to wake the engine for: a call names its rule, and the engine reads the rule when it runs the call.
     tx.commit()?;
@@ -359,50 +359,62 @@ fn update_streams(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, flash: &str,
     let (_, configured) = bots::market_data(c, &ctx.app)?;
     let state = status::render(c, ctx, csrf, bot, configured)?;
     Ok(turbo::stream("update", &bot.dom_id("label"), &i18n::escape(&bot.label))
-        + "\n" + &settings_stream(ctx, csrf, bot, base_url)?
+        + "\n" + &settings_stream(c, ctx, csrf, bot, base_url)?
         + "\n" + &turbo::stream("replace", "exchange_select", page::exchange_select(c, ctx, csrf, bot, owner)?.trim_end())
         + "\n" + &action_view::bar_streams(bot, &state)
         + "\n" + &action_view::button_streams(bot, &state)
         + "\n" + flash + "\n")
 }
 
-fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &ActionParams, base_url: &str) -> Result<Answer, WebError> {
-    let tx = model::immediate(c)?;
-    let mut ctx = ctx.clone();
-    ctx.now = ctx.app.now();
-    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, None)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
-    let Ok(Value::Object(fields)) = params.permitted(Kind::Signal) else { return Ok(Answer::BadRequest) };
-    let csrf = ctx.csrf_token();
+/// What the settings writer decided. Its rows are written in the caller's transaction, which commits only `Saved`.
+enum Core {
+    Answer(Answer),
+    /// The model's errors, and the bot to draw: as assigned (from the rows the write would leave), or as stored.
+    Invalid { errors: Vec<FieldError>, shown: Bot },
+    /// The engine's guard refused the save: its reason, and the bot as assigned.
+    Refused { reason: String, shown: Bot },
+    Saved { bot: Bot, changed: bool },
+}
+
+/// The settings a signal bot's rules keep in its row: the PATCH writes these keys only.
+fn rule_key(key: &str) -> bool { key.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') }
+
+/// Bot::SettingsForm.save on a signal bot, for the page (`fields`: what its forms post) and for BotApi (what it turns its
+/// dialect into): `label.presence`, `exchange_id`, Bots::Signal#parse_params (`presence&.to_i`, nils dropped), and the rules
+/// this build runs on it (D-SIG-CONDITIONS, D-SIG-CAP) through the settings form's parser and its save callbacks
+/// (draft::parse_fields, Draft::save_effects). `zone`: the caller's, which the rules' *_enabled_at are stamped in (UTC on
+/// the web).
+fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map<String, Value>, zone: Option<&str>) -> Result<Core, WebError> {
+    let id = bot.id;
     let text = |key: &str| fields.get(key).map(|v| match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() });
-    // Bot::SettingsForm.save: `label.presence`, `exchange_id`, and Bots::Signal#parse_params (`presence&.to_i`), nils dropped.
     let label = text("label").filter(|l| !l.trim().is_empty());
     let exchange_id = match text("exchange_id") {
         None => None,
-        Some(t) => match t.trim().parse::<i64>() { Ok(e) => Some(e), Err(_) => return Ok(Answer::Unported("an exchange id this build does not read")) },
+        Some(t) => match t.trim().parse::<i64>() { Ok(e) => Some(e), Err(_) => return Ok(Core::Answer(Answer::Unported("an exchange id this build does not read"))) },
     };
     let mut assets = Map::new();
     for key in ["base_asset_id", "quote_asset_id"] {
         if let Some(value) = fields.get(key).filter(|v| crate::web::bot_api::present(v)) {
-            let Some(n) = crate::web::bot_api::to_i(value) else { return Ok(Answer::Unported("an asset id this build does not read")) };
+            let Some(n) = crate::web::bot_api::to_i(value) else { return Ok(Core::Answer(Answer::Unported("an asset id this build does not read"))) };
             assets.insert(key.into(), json!(n));
         }
     }
     let new_exchange = match exchange_id {
         Some(e) if e != bot.exchange.id => {
             let name: Option<Option<String>> = tx.query_row("SELECT name FROM exchanges WHERE id = ?1", [e], |r| r.get(0)).optional()?;
-            let Some(name) = name else { return Ok(Answer::Unported("an exchange that does not exist")) };
+            let Some(name) = name else { return Ok(Core::Answer(Answer::Unported("an exchange that does not exist"))) };
             Some((e, name.unwrap_or_default()))
         }
         _ => None,
     };
     let asset_changed = |key: &str| assets.get(key).is_some_and(|v| bot.settings.get(key) != Some(v));
-    let settings_changed = asset_changed("base_asset_id") || asset_changed("quote_asset_id");
+    let assets_changed = asset_changed("base_asset_id") || asset_changed("quote_asset_id");
     let label_changed = label.as_ref().is_some_and(|l| *l != bot.label || bot.label_unsaved);
     let id_of = |key: &str| assets.get(key).or(bot.settings.get(key)).and_then(Value::as_i64);
     let exchange = new_exchange.as_ref().map_or((bot.exchange.id, bot.exchange.name.clone()), |e| e.clone());
     // The :update validations, in Rails' order.
     let mut errors = vec![];
-    if !matches!(bot.status, BotStatus::Stopped | BotStatus::Deleted | BotStatus::Archived) && (new_exchange.is_some() || settings_changed) && !listed(&tx, exchange.0, id_of("base_asset_id"), id_of("quote_asset_id"))? {
+    if !matches!(bot.status, BotStatus::Stopped | BotStatus::Deleted | BotStatus::Archived) && (new_exchange.is_some() || assets_changed) && !listed(tx, exchange.0, id_of("base_asset_id"), id_of("quote_asset_id"))? {
         errors.push(error("exchange", i18n::text(ctx.locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", Arg::Text(&exchange.1))])));
     }
     let mut unknown_quote = false;
@@ -410,12 +422,25 @@ fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &Actio
         let exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE id IS ?1)", [id_of(key)], |r| r.get(0))?;
         if !exists { errors.push(error(key, model_message(ctx.locale, key, "invalid"))); if key == "quote_asset_id" { unknown_quote = true; } }
     }
-    if settings_changed && bot.has_orders {
+    if assets_changed && bot.has_orders {
         for key in ["base_asset_id", "quote_asset_id"].into_iter().filter(|key| asset_changed(key)) { errors.push(error(key, model_message(ctx.locale, key, "unchangeable"))); }
     }
     if new_exchange.is_some() && bot.has_waiting_orders {
         errors.push(error("exchange", i18n::text(ctx.locale, "errors.bots.exchange_change_while_open_orders", &[("exchange_name", Arg::Text(&exchange.1))])));
     }
+    // D-SIG-CONDITIONS / D-SIG-CAP: the rules, parsed, validated and called back as a basket's are.
+    let (raw, raw_transient): (String, String) = tx.query_row("SELECT settings, transient_data FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let mut draft = Draft::from_bot(bot.clone());
+    draft.raw_settings = super::object(&raw, "bots.settings")?;
+    draft.raw_transient = super::object(&raw_transient, "bots.transient_data")?;
+    draft.candidate.settings.clone_from(&draft.raw_settings);
+    draft.callback_zone = zone.map(str::to_string);
+    draft.parse_signal(fields, ctx.now)?;
+    draft.validate_signal(tx, ctx.locale)?;
+    errors.extend(draft.errors.iter().cloned());
+    let effects = draft.save_effects(tx, ctx.now)?;
+    let settings_changed = assets_changed || !effects.settings.set.is_empty() || !effects.settings.remove.is_empty();
+    let transient_changed = !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
     let now = crate::codec::format_time(ctx.now);
     let write = |tx: &Connection| -> Result<(), WebError> {
         if let Some(label) = label.as_ref().filter(|_| label_changed) { tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2", (label, id))?; }
@@ -423,8 +448,23 @@ fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &Actio
         for (key, value) in assets.iter().filter(|(key, _)| asset_changed(key)) {
             tx.execute("UPDATE bots SET settings = json_set(settings, ?1, json(?2)) WHERE id = ?3", (format!("$.{key}"), value.to_string(), id))?;
         }
+        for (column, changes) in [("settings", &effects.settings), ("transient_data", &effects.transient)] {
+            for (key, value) in changes.set.iter().filter(|(key, _)| rule_key(key)) {
+                tx.execute(&format!("UPDATE bots SET {column} = json_set({column}, ?1, json(?2)) WHERE id = ?3"), (format!("$.{key}"), value.to_string(), id))?;
+            }
+            for key in changes.remove.iter().filter(|key| rule_key(key)) {
+                tx.execute(&format!("UPDATE bots SET {column} = json_remove({column}, ?1) WHERE id = ?2"), (format!("$.{key}"), id))?;
+            }
+        }
+        // D-INFO-SIDE: the status line of a side whose price rule changed is drawn afresh.
+        for selling in [false, true] {
+            let prefix = if selling { "sell_price_limit" } else { "price_limit" };
+            if effects.settings.set.keys().any(|key| key.strip_prefix(prefix).is_some_and(|rest| matches!(rest, "" | "_value_condition" | "_range_lower_bound" | "_range_upper_bound"))) {
+                crate::engine::conditions::forget_info(tx, id, crate::engine::conditions::PRICE, crate::engine::conditions::side_of(selling))?;
+            }
+        }
         if settings_changed { tx.execute("UPDATE bots SET settings_changed_at = ?1 WHERE id = ?2", (&now, id))?; }
-        if label_changed || new_exchange.is_some() || settings_changed { tx.execute("UPDATE bots SET updated_at = ?1 WHERE id = ?2", (&now, id))?; }
+        if label_changed || new_exchange.is_some() || settings_changed || transient_changed { tx.execute("UPDATE bots SET updated_at = ?1 WHERE id = ?2", (&now, id))?; }
         Ok(())
     };
     let shown = |tx: &Connection| -> Result<Bot, WebError> {
@@ -435,28 +475,81 @@ fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &Actio
     if !errors.is_empty() {
         // An exchange or quote that does not exist cannot be drawn: the bot as stored, with the refusal in the flash.
         // Otherwise the bot as assigned, drawn from the rows the write would have left (rolled back).
-        let shown = if unknown_quote { bot.clone() } else { write(&tx)?; shown(&tx)? };
-        let body = update_streams(&tx, &ctx, &csrf, &shown, &alert(sentence(&errors))?, base_url, owner)?;
-        tx.rollback()?;
-        return Ok(Answer::Done(action_view::response(body, true)));
+        let shown = if unknown_quote { bot.clone() } else { write(tx)?; shown(tx)? };
+        return Ok(Core::Invalid { errors, shown });
     }
-    write(&tx)?;
-    let changed = label_changed || new_exchange.is_some() || settings_changed;
+    write(tx)?;
+    let changed = label_changed || new_exchange.is_some() || settings_changed || transient_changed;
     if changed {
-        if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, Some(id)) {
-            let shown = shown(&tx)?;
-            let flash = alert(i18n::text(ctx.locale, "engine.write_refused", &[("reason", Arg::Text(&refusal.reason()))]))?;
-            let body = update_streams(&tx, &ctx, &csrf, &shown, &flash, base_url, owner)?;
-            tx.rollback()?;
-            return Ok(Answer::Done(action_view::response(body, true)));
-        }
-        if let Some(reason) = refused_after(&tx, &ctx.app, owner, id)? { return Ok(Answer::Unported(reason)); }
+        if let Err(refusal) = eligibility::guard(tx, &ctx.app.cipher, Some(id)) { return Ok(Core::Refused { reason: refusal.reason(), shown: shown(tx)? }); }
+        if let Some(reason) = refused_after(tx, &ctx.app, owner, id)? { return Ok(Core::Answer(Answer::Unported(reason))); }
     }
-    let bot = shown(&tx)?;
-    let body = update_streams(&tx, &ctx, &csrf, &bot, &turbo::prepend_flash(flash::render(&[])?.trim_end()), base_url, owner)?;
-    tx.commit()?;
-    if changed { ctx.app.wake_engine(); }
-    Ok(Answer::Done(action_view::response(body, false)))
+    Ok(Core::Saved { bot: shown(tx)?, changed })
+}
+
+fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &ActionParams, base_url: &str) -> Result<Answer, WebError> {
+    let tx = model::immediate(c)?;
+    let mut ctx = ctx.clone();
+    ctx.now = ctx.app.now();
+    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, None)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
+    let Ok(Value::Object(fields)) = params.permitted(Kind::Signal) else { return Ok(Answer::BadRequest) };
+    let csrf = ctx.csrf_token();
+    let refused = |tx: rusqlite::Transaction<'_>, shown: &Bot, flash: String| -> Result<Answer, WebError> {
+        let body = update_streams(&tx, &ctx, &csrf, shown, &flash, base_url, owner)?;
+        tx.rollback()?;
+        Ok(Answer::Done(action_view::response(body, true)))
+    };
+    match settings_core(&tx, &ctx, owner, &bot, &fields, None)? {
+        Core::Answer(answer) => Ok(answer),
+        Core::Invalid { errors, shown } => refused(tx, &shown, alert(sentence(&errors))?),
+        Core::Refused { reason, shown } => refused(tx, &shown, alert(i18n::text(ctx.locale, "engine.write_refused", &[("reason", Arg::Text(&reason))]))?),
+        Core::Saved { bot, changed } => {
+            let body = update_streams(&tx, &ctx, &csrf, &bot, &turbo::prepend_flash(flash::render(&[])?.trim_end()), base_url, owner)?;
+            tx.commit()?;
+            if changed { ctx.app.wake_engine(); }
+            Ok(Answer::Done(action_view::response(body, false)))
+        }
+    }
+}
+
+/// BotApi::Bots::UpdateSettings on a signal bot (MCP's update_bot_settings, REST's PATCH): its dialect turned into what the
+/// page posts (mcp_input::posted), then the page's own writer (settings_core). Rails' signal bot takes its name and its
+/// venue; here also the rules this build runs on it.
+pub fn settings_service(c: &Connection, ctx: &Ctx, owner: i64, id: i64, submitted: &ActionParams) -> Result<Outcome<Shown>, WebError> {
+    let tx = model::immediate(c)?;
+    let mut ctx = ctx.clone();
+    ctx.now = ctx.app.now();
+    let failed = |failure: Failure| Ok(Outcome::Invalid(Shown { data: Value::Null, text: failure.message.clone() }, failure));
+    let (provider, _) = bots::market_data(&tx, &ctx.app)?;
+    if let Some(reason) = super::refusal(&tx, id, wash_gate(&tx, owner, None)?, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
+    let Some(bot) = Bot::find(&tx, owner, id, For::Page, ctx.locale)? else { return Ok(Outcome::Missing) };
+    let zone: String = tx.query_row("SELECT time_zone FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
+    let Ok(arguments) = submitted.permitted(Kind::Signal) else { return Ok(Outcome::Missing) };
+    let mut draft = super::draft::Draft::from_bot(bot.clone());
+    let form = match super::mcp_input::posted(&mut draft, &arguments) {
+        Ok(form) => form,
+        Err(super::mcp_input::InputOutcome::Refused(failure)) => return failed(failure),
+        Err(_) => return failed(Failure::invalid("bot_save_failed", super::mcp_input::full_messages(&draft.errors))),
+    };
+    let updated: Vec<String> = form.keys().cloned().collect();
+    match settings_core(&tx, &ctx, owner, &bot, &form, Some(&zone))? {
+        Core::Answer(Answer::Unported(reason)) => Ok(Outcome::Unported(reason)),
+        Core::Answer(_) => Ok(Outcome::Missing),
+        Core::Invalid { errors, .. } => {
+            tx.rollback()?;
+            let message = format!("Failed to update bot: {}", super::mcp_input::full_messages(&errors));
+            let text = if errors.first().is_some_and(|e| e.field == "base") { super::mcp_input::full_messages(&errors) } else { message.clone() };
+            Ok(Outcome::Invalid(Shown { data: Value::Null, text }, Failure::invalid("bot_save_failed", message)))
+        }
+        Core::Refused { reason, .. } => { tx.rollback()?; Ok(Outcome::GuardRefused(Shown { data: Value::Null, text: crate::web::bot_api::refused(&reason) })) }
+        Core::Saved { bot, changed } => {
+            let shown = Shown { data: json!({ "id": id, "label": bot.label, "updated": updated }), text: format!("Bot '{}' settings updated: {}.", bot.label, updated.join(", ")) };
+            tx.commit()?;
+            if !changed { return Ok(Outcome::NoChange(shown)); }
+            ctx.app.wake_engine();
+            Ok(Outcome::Committed(shown))
+        }
+    }
 }
 
 /// `exchange.tickers.available.trading_enabled.exists?(base_asset:, quote_asset:)`.
@@ -480,6 +573,12 @@ fn start_errors(c: &Connection, locale: &str, bot: &Bot) -> Result<Vec<FieldErro
     }
     if signal::start_blocked(bot) {
         for key in ["base_asset_id", "quote_asset_id"] { errors.push(error(key, model_message(locale, key, "invalid"))); }
+    }
+    // D-SIG-CAP: Bot::QuoteAmountLimitable#validate_quote_amount_limit_not_reached, as a basket's start runs it.
+    match super::start::amount_limit(c, bot)? {
+        Some(limit) if limit.left.is_none() => errors.push(error("settings", model_message(locale, "settings", "quote_amount_spent_unknown"))),
+        Some(limit) if limit.reached => errors.push(error("settings", model_message(locale, "settings", "quote_amount_limit_reached"))),
+        _ => {}
     }
     Ok(errors)
 }
@@ -619,7 +718,7 @@ fn web_lifecycle(c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action,
             // A Stop always commits (as action_view::lifecycle_response): a fragment that cannot be drawn, this bot's or another
             // bot's button, becomes a refresh, never an error that rolls the Stop back.
             let drawn = (|| -> Result<Option<String>, WebError> {
-                let body = settings_stream(&ctx, &csrf, &after, base_url)? + "\n"
+                let body = settings_stream(&tx, &ctx, &csrf, &after, base_url)? + "\n"
                     + &turbo::stream("replace", "exchange_select", page::exchange_select(&tx, &ctx, &csrf, &after, owner)?.trim_end());
                 if action == Action::Stop { return Ok(action_view::all_buttons(&tx, &ctx, &csrf, owner, configured)?.map(|buttons| body + &buttons)); }
                 Ok(Some(body))

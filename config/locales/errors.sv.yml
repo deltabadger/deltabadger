@@ -20,6 +20,7 @@ sv:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "Det belopp som hittills spenderats är okänt: en order stängdes utan att rapportera sin kostnad."
+                            quote_amount_limit_reached: "Hela beloppet har investerats: höj gränsen eller stäng av den för att starta boten."
                         smart_interval_quote_amount:
                             not_a_number: "Du måste ange ett belopp för smarta intervall"
                             greater_than_or_equal_to: "Med detta schema kan smarta intervall-beloppet inte vara lägre än %{count}"

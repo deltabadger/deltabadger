@@ -322,6 +322,24 @@ module Pages
       'twin_basket_member' => venue.([stopped('kraken_basket', 'settings' => rules, 'subject' => 'ETH', 'transient' => capped)], signed_in(get('/bots/1'))),
       'twin_index_departed' => venue.([stopped('kraken_index', 'settings' => rules, 'subject' => 'SOL', 'transient' => capped)], signed_in(get('/bots/1'))),
       'twin_index_off' => venue.([stopped('kraken_index')], signed_in(get('/bots/1')))
+    }.merge(signal_twin_scenarios(venue))
+  end
+
+  # CE-4 (D-COND-FORMS-SIGNAL): a stopped Kraken signal bot (BTC/EUR) with both sides' price rules and the spending cap on, as
+  # Rails draws its page (it has none of them), and its one-asset basket twins on the same pair, as Rails draws their rule
+  # forms: buying with the buy side's rule and the cap, selling with the sell side's rule.
+  def signal_twin_scenarios(venue)
+    buy = { 'price_limited' => true, 'price_limit' => 45_000, 'price_limit_value_condition' => 'below', 'price_limit_timing_condition' => 'while',
+            'quote_amount_limited' => true, 'quote_amount_limit' => 500 }
+    sell = { 'sell_price_limited' => true, 'sell_price_limit' => 60_000, 'sell_price_limit_value_condition' => 'above', 'sell_price_limit_timing_condition' => 'after' }
+    capped = { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z' }
+    selling = { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 40 }
+    signal = { 'kind' => 'signal', 'exchange' => 'Kraken', 'pair' => %w[BTC EUR], 'columns' => { 'status' => 2 }, 'settings' => buy.merge(sell),
+               'transient' => capped, 'signals' => [{ 'token' => 'twin-signal-buy', 'direction' => 'buy', 'amount_type' => 'fixed', 'amount' => 25 }] }
+    {
+      'twin_signal_rules' => venue.([signal], signed_in(get('/bots/1'))),
+      'twin_signal_basket_buy' => venue.([stopped('kraken', 'settings' => buy, 'transient' => capped)], signed_in(get('/bots/1'))),
+      'twin_signal_basket_sell' => venue.([stopped('kraken', 'settings' => selling.merge(sell))], signed_in(get('/bots/1')))
     }
   end
 

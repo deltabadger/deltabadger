@@ -370,6 +370,9 @@ pt:
                 unarchive_bot:
                     label: 'Reativar bot'
                     description: 'Repor um bot arquivado'
+                split_bots:
+                    label: 'Dividir bots'
+                    description: 'Transformar um bot com vários ativos num bot por ativo'
                 liquidate_exited_asset:
                     label: 'Vender ativo removido'
                     description: 'Vender um ativo que um bot de índice ou de cabaz removeu'
@@ -921,3 +924,7 @@ pt:
         flip_basket_only: "flip só se aplica a bots de carteira."
         condition_no_subject: "ainda não tem nenhum ativo para acompanhar"
         condition_subject_departed: "%{symbol} (fora do índice)"
+        signal_condition_unmet: "Sinal ignorado — limite %{limit} não atingido"
+        signal_quote_amount_limit_reached: "Sinal de compra ignorado — o montante total foi investido"
+        signal_buy_calls: "Quando chega um sinal de compra"
+        signal_sell_calls: "Quando chega um sinal de venda"

@@ -258,6 +258,11 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
             if let Some((rule, selling)) = Rule::of_flag(k) { r.extend(rule_reason(bot, k, v, rule, selling)); }
         }
     }
+    // D-SIG-CAP: the cap a signal bot runs reads as a basket's does.
+    if bot.quote_amount_limited() {
+        if let Err(e) = bot.quote_amount_limit() { r.push(e); }
+        if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
+    }
     // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
     if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push("user not found".into()); }
     history_reasons(c, bot, alpaca, &[base], splits, r)?;

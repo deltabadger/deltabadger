@@ -352,6 +352,9 @@ en:
                 unarchive_bot:
                     label: 'Reactivate bot'
                     description: 'Bring an archived bot back'
+                split_bots:
+                    label: 'Split bots'
+                    description: 'Turn a multi-asset bot into one bot per asset'
                 liquidate_exited_asset:
                     label: 'Sell exited holding'
                     description: 'Sell a holding an index or basket bot has dropped'

@@ -352,6 +352,9 @@ da:
                 unarchive_bot:
                     label: 'Genaktivér bot'
                     description: 'Hent en arkiveret bot tilbage'
+                split_bots:
+                    label: 'Opdel bots'
+                    description: 'Gør en bot med flere aktiver til én bot pr. aktiv'
                 liquidate_exited_asset:
                     label: 'Sælg fjernet aktiv'
                     description: 'Sælg et aktiv, som en indeks- eller kurvbot har fjernet'
@@ -948,3 +951,7 @@ da:
         flip_basket_only: "flip gælder kun for porteføljebots."
         condition_no_subject: "har endnu intet aktiv at overvåge"
         condition_subject_departed: "%{symbol} (ikke i indekset)"
+        signal_condition_unmet: "Signal ignoreret — grænsen for %{limit} er ikke nået"
+        signal_quote_amount_limit_reached: "Købssignal ignoreret — hele beløbet er investeret"
+        signal_buy_calls: "Ved et købssignal"
+        signal_sell_calls: "Ved et salgssignal"

@@ -362,6 +362,8 @@ module Pages
       columns = spec.fetch('columns', {}).to_h { |name, value| [name, name.end_with?('_at') && value ? Time.iso8601(value) : value] }
       record.update_columns(columns) unless columns.empty?
       record.update_columns(transient_data: record.transient_data.merge(spec['transient'])) if spec['transient']
+      # Settings Rails' signal bot does not read (CE-4's twin_ pages: the rules this build runs on it), written past the model.
+      record.update_columns(settings: record.settings.merge(spec['settings'])) if spec['settings']
       signal_orders(record, settled: spec['orders'] == 'settled') if %w[traded settled].include?(spec['orders'])
       logs(record, SIGNAL_LOGS) if spec['logs'] == 'signal_history'
       Ticker.where(exchange:, base: spec['delist']).update_all(available: false) if spec['delist']

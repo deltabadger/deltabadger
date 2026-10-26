@@ -22,6 +22,7 @@ pub mod mexc;
 pub mod bitrue;
 pub mod bingx;
 pub mod registry;
+pub mod withdrawal;
 pub mod sign;
 pub mod signers;
 pub(crate) mod json;
@@ -224,6 +225,9 @@ impl<V:Venue> Venue for &V {
     async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{(*self).tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{(*self).cancel(txid).await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{(*self).candles(t,start_at,tf).await}
+    async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{(*self).withdrawal_addresses(coin).await}
+    async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{(*self).withdrawal_networks(coin).await}
+    async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{(*self).withdrawal_fee(d,amount).await}
 }
 impl<V:Venue> Venue for Handle<V> {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
@@ -246,6 +250,9 @@ impl<V:Venue> Venue for Handle<V> {
     async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{self.venue.tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.venue.cancel(txid).await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.venue.candles(t,start_at,tf).await}
+    async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.venue.withdrawal_addresses(coin).await}
+    async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.venue.withdrawal_networks(coin).await}
+    async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{self.venue.withdrawal_fee(d,amount).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
@@ -332,6 +339,13 @@ pub trait Venue {
     async fn candles(&self, _ticker: &Ticker, _start_at: DateTime<Utc>, _timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         Err(VenueError::Rejected(vec!["candles are not connected for this venue".into()]))
     }
+    /// The venue's withdrawal address book for `coin` (its own code), every entry with why the contract refuses it, if
+    /// it does (plan V1, `withdrawal`). The rule's withdrawal key reads it.
+    async fn withdrawal_addresses(&self, _coin: &str) -> Result<Vec<withdrawal::Entry>, VenueError> { Err(withdrawal::not_connected()) }
+    /// capital/config/getall's networks for `coin` (Binance, MEXC); None when the coin is not listed.
+    async fn withdrawal_networks(&self, _coin: &str) -> Result<Option<withdrawal::Coin>, VenueError> { Err(withdrawal::not_connected()) }
+    /// The fee for sending `amount` to `destination` (§6): None when it is unknown.
+    async fn withdrawal_fee(&self, _destination: &withdrawal::Destination, _amount: &BigDec) -> Result<Option<BigDec>, VenueError> { Err(withdrawal::not_connected()) }
 }
 
 pub trait VenueFactory {

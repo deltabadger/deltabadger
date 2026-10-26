@@ -47,3 +47,8 @@ en:
     flip_basket_only: "flip applies to basket bots only."
     condition_no_subject: "has no member to watch yet"
     condition_subject_departed: "%{symbol} (not in the index)"
+    # Rust only (CE-4): a signal bot's rules. Its activity lines, and the headings of its buy-call and sell-call rules.
+    signal_condition_unmet: "Signal ignored — %{limit} limit not met"
+    signal_quote_amount_limit_reached: "Buy signal ignored — the whole amount has been invested"
+    signal_buy_calls: "When a buy signal arrives"
+    signal_sell_calls: "When a sell signal arrives"

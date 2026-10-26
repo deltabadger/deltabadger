@@ -271,10 +271,10 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         // A signal bot has its own settings column, and its own panel while its figures load (dca_single_assets/_metrics).
         let settings = if bot.kind == Kind::Signal {
             if metrics.is_none() { metrics = Some(super::signal::loading_metrics(c, ctx, &bot, hide_money)?); }
-            super::signal::column(ctx, csrf, &bot, hide_money, &base_url)?
+            super::signal::column(c, ctx, csrf, &bot, hide_money, &base_url)?
         } else {
             let rebalance_info = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["rebalance_info"].as_str());
-            settings::column(c, &settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref(), rebalance_info })?
+            settings::column(c, &settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref(), rebalance_info, selling: None })?
         };
         let activities = c.query_row("SELECT EXISTS(SELECT 1 FROM bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored'))", [bot.id], |r| r.get::<_, bool>(0))?;
         // D-PENDING-MARKET-HIDDEN: a market order still pending is no row of the log (orders::PENDING_MARKET).
@@ -378,6 +378,9 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
 </div>{% else if follow_index %}
           <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/index/new">{{ v.t("bot.index_switch.follow_index")|safe }}</a>
 {% endif %}
+{% if split %}
+        <a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/bots/split/new") }}?ids%5B%5D={{ id }}">{{ v.t("button.split")|safe }}</a>
+{% endif %}
         <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/archive/edit">{{ v.t("button.archive")|safe }}</a>
 {% endif %}
       <div class="dropdown__item dropdown__item--divider"></div>
@@ -385,9 +388,12 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
     </div>
   </div>
 </div>"##, ext = "html")]
-struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, archived: bool, index: bool, follow_index: bool }
+struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, archived: bool, index: bool, follow_index: bool, id: i64, split: bool }
 
+/// bots/_menu. D-SPLIT-BOT-MENU: Split, where the dashboard's tile would offer it (`Bot::Split.splittable?`), opens the split
+/// modal for this one bot in the confirmation frame; Rails' menu has no Split.
 pub(super) fn menu(ctx: &Ctx, csrf: &str, bot: &Bot, configured: bool) -> Result<String, WebError> {
-    Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"),
+    Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"), id: bot.id,
+        split: bot.kind != Kind::Signal && crate::web::bots::mergeable(bot).1,
         archived: bot.status == BotStatus::Archived, index: bot.kind == Kind::Index, follow_index: bot.kind == Kind::Basket && !bot.selling() && configured }.render()?)
 }

@@ -372,6 +372,9 @@ fr:
                 unarchive_bot:
                     label: 'Réactiver le bot'
                     description: 'Restaurer un bot archivé'
+                split_bots:
+                    label: 'Diviser des bots'
+                    description: 'Transformer un bot multi-actifs en un bot par actif'
                 liquidate_exited_asset:
                     label: 'Vendre un actif retiré'
                     description: "Vendre un actif qu'un bot d'indice ou de panier a retiré"
@@ -925,3 +928,7 @@ fr:
         flip_basket_only: "flip ne s'applique qu'aux bots de portefeuille."
         condition_no_subject: "n'a encore aucun actif à surveiller"
         condition_subject_departed: "%{symbol} (hors de l'indice)"
+        signal_condition_unmet: "Signal ignoré — limite %{limit} non atteinte"
+        signal_quote_amount_limit_reached: "Signal d'achat ignoré — le montant total a été investi"
+        signal_buy_calls: "À l'arrivée d'un signal d'achat"
+        signal_sell_calls: "À l'arrivée d'un signal de vente"

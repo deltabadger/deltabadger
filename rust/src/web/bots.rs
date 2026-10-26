@@ -153,7 +153,7 @@ pub fn market_data(c: &Connection, app: &App) -> Result<(bool, bool), WebError> 
 
 /// `Bot::Merge.mergeable?` and `Bot::Split.splittable?` for a bot `bot::refusal` has let through: neither while a
 /// rebalance swap is pending (bot/merge.rb, bot/split.rb); a liquidation or redeploy in flight is refused before.
-fn mergeable(bot: &Bot) -> (bool, bool) {
+pub(crate) fn mergeable(bot: &Bot) -> (bool, bool) {
     let members = bot.memberships.iter().filter(|m| m.in_index).count();
     let eligible = !matches!(bot.status, BotStatus::Archived | BotStatus::Deleted | BotStatus::Executing) && !bot.rebalance_pending();
     (eligible && members >= 1, eligible && members >= 2)

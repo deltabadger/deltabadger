@@ -63,4 +63,4 @@
       <form class="button_to" method="post" action="{{ path }}/bot_signals"><button class="sbutton sbutton--sky" type="submit">{{ v.t("bot.signal.add_signal")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
     </div>
 {% endif %}
-</div>
+{{ conditions|safe }}</div>

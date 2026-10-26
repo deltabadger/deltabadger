@@ -68,31 +68,54 @@ fn shown_label(c: &Connection, user: i64, id: i64, stored: &Value) -> Value {
     generated.map_or_else(|_| stored.clone(), Value::from) // allow-swallow: the label is display only; the committed write stands.
 }
 
+/// The request a service runs under: the owner signed in, English.
+fn service_ctx(app: &App, owner: &super::auth::User) -> Ctx {
+    Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
+            query: vec![], form: vec![], json: None, upload: None }),
+        session: super::session::Session::new(Default::default()), current: super::auth::Current::SignedIn(Arc::new(owner.clone())),
+        method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None, stream: false }
+}
+
+/// D-SPLIT-API: POST /api/v1/bots/split and split_bots, the web's split (bot::split::perform, then split::complete in this same
+/// App::db job). `bot_ids` and `keep_proceeds_for` are read as the web reads `ids[]` and `keep_ids[]`. Success is the children
+/// and the deleted sources; a refusal is ValidationFailed with its stable code, the message, and `{offers: [{bot_id, offer}]}`
+/// as its data (the bots whose proceeds still wait for an answer); a split this build does not serve is NotPorted.
+pub fn split(c: &Connection, app: &App, user: i64, bot_ids: Option<&Value>, keep: Option<&Value>) -> Result<Res, WebError> {
+    use super::bot::split::{complete, params, perform, Performed};
+    let Some(owner) = super::auth::User::find(c, user)? else { return Ok(Res::failure(Domain::NotFound, "missing", "Bot not found.".into())) };
+    let (ids, keep) = params(&json!({ "ids": bot_ids, "keep_ids": keep }));
+    Ok(match perform(c, &service_ctx(app, &owner), user, ids, keep)? {
+        Performed::Done(done) => {
+            complete(app, user, &done);
+            Res::success(json!({ "bots": done.children.iter().map(|child| json!({ "id": child.id, "label": child.label, "asset_id": child.asset })).collect::<Vec<_>>(),
+                                 "source_ids": done.sources }))
+        }
+        Performed::Refused(refusal) => Res { data: json!({ "offers": refusal.offers.iter().map(|(bot, offer)| json!({ "bot_id": bot, "offer": offer.to_s_f() })).collect::<Vec<_>>() }),
+                                             ..Res::failure(Domain::ValidationFailed, refusal.code, refusal.reason) },
+        Performed::Unported(reason) => Res::failure(Domain::NotPorted, "not_ported", refused(reason)),
+    })
+}
+
 /// One bot write through bot::write, as the service does it: `submitted` holds the service's arguments (MCP's as sent,
 /// REST's as its strong parameters permit them). English is the services' locale. A class this build does not write
 /// is refused under the engine's guard, never a second mutation path.
 pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, submitted: &ActionParams) -> Result<Outcome<Shown>, WebError> {
     let owner = super::auth::User::find(c, user)?;
-    let ctx = Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
-            query: vec![], form: vec![], json: None, upload: None }),
-        session: super::session::Session::new(Default::default()), current: match &owner {
-            Some(owner) => super::auth::Current::SignedIn(Arc::new(owner.clone())), None => return Ok(Outcome::Missing) },
-        method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None, stream: false };
+    let Some(ctx) = owner.as_ref().map(|owner| service_ctx(app, owner)) else { return Ok(Outcome::Missing) };
     // Bot#with_user_locale: what the owner's open pages hear is in the owner's language; the answer stays English.
     let mut heard = ctx.clone();
     heard.locale = owner.as_ref().and_then(|o| o.locale.as_deref()).and_then(super::locale::known).unwrap_or("en");
     let deferred = std::cell::Cell::new(None);
     let class: Option<String> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, user), |r| r.get(0)).optional()?;
     let Some(class) = class else { return Ok(Outcome::Missing) };
-    // A signal bot's lifecycle (bot::signal_write).
+    // A signal bot's settings and lifecycle (bot::signal_write).
     let signal = class == crate::engine::model::SIGNAL_TYPE;
-    if !(["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) || signal && matches!(write, Write::Lifecycle(_))) {
+    if !(["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) || signal) {
         let tx = crate::engine::model::immediate(c)?;
         let reason = match crate::engine::eligibility::guard(&tx, &app.cipher, Some(id)) {
             Err(refusal) => refusal.reason(),
             Ok(()) => match crate::engine::eligibility::bot_reasons(&tx, &crate::engine::model::load_bot(&tx, id)?)?.join("; ") {
-                // An admitted signal bot: only its settings through the API are not served yet.
-                reasons if reasons.is_empty() => "a signal bot's settings through the API".to_string(),
+                reasons if reasons.is_empty() => format!("a {class} through the API"),
                 reasons => reasons,
             },
         };
@@ -102,6 +125,8 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
     }
     let out = match write {
         Write::Lifecycle(action) if signal => super::bot::signal_write::service(c, &ctx, &heard, user, id, action, submitted),
+        // D-SIG-CONDITIONS / D-SIG-CAP: a signal bot's settings through its own writer, the page's.
+        Write::Settings if signal => super::bot::signal_write::settings_service(c, &ctx, user, id, submitted),
         Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
             let updated: Vec<&String> = draft.submitted.keys().collect();
             let text = if draft.errors.is_empty() {
