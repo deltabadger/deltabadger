@@ -278,6 +278,76 @@ module Withdrawal
       ).merge(send_ok.('mexc')), rule: { network: nil, address_tag: 'memo-1' }, setup: ->(_) { fee('mexc', '0.0001') })
     }.map { |name, v| { 'case' => name }.merge(v) }
   end
+
+  # The reads PLAN V1 ports, called as the pages and the rule call them: #list_withdrawal_addresses (for BTC) and
+  # #fetch_withdrawal_fees!, with what each returned or raised and the venue's exchange_assets afterwards.
+  def read(venue, call, replies, setup: nil)
+    out = nil
+    ActiveRecord::Base.transaction do
+      setup&.call
+      Script.replies = replies.transform_values { |q| q.map(&:dup) }
+      Script.requests = []
+      ex = exchange(venue)
+      # RulesController#index's client: the user's withdrawal key (the fee read builds its own from the FeeApiKey).
+      ex.set_client(api_key: ApiKey.find_by!(exchange: ex, key_type: :withdrawal))
+      value = begin
+        r = call == :list ? ex.list_withdrawal_addresses(asset: @btc) : ex.fetch_withdrawal_fees!
+        r.is_a?(Result) ? { 'success' => r.success?, 'data' => r.data, 'errors' => r.errors } : { 'returned' => r }
+      rescue StandardError => e
+        { 'raised' => e.class.name, 'message' => e.message }
+      end
+      assets = ExchangeAsset.where(exchange: ex).includes(:asset).order(:id).map do |ea|
+        { 'asset' => ea.asset.symbol, 'withdrawal_fee' => ea.withdrawal_fee, 'withdrawal_fee_updated_at' => ea.withdrawal_fee_updated_at&.utc&.iso8601,
+          'withdrawal_chains' => ea.withdrawal_chains }
+      end
+      out = { 'venue' => venue, 'call' => call.to_s, 'replies' => replies, 'requests' => Script.requests, 'value' => value,
+              'exchange_assets' => assets }
+      raise ActiveRecord::Rollback
+    end
+    out
+  ensure
+    Script.replies = nil
+  end
+
+  def reads
+    fee_key = ->(venue) { -> { FeeApiKey.create!(exchange: exchange(venue), key: "x0-#{venue}-fee-key", secret: "x0-#{venue}-fee-secret") } }
+    coins = ->(btc_fee) { [{ 'coin' => 'BTC', 'networkList' => [
+      { 'network' => 'BTC', 'netWork' => 'BTC', 'isDefault' => true, 'withdrawEnable' => true, 'withdrawTag' => false,
+        'withdrawFee' => btc_fee, 'withdrawIntegerMultiple' => '0.00000001' }.compact,
+      { 'network' => 'LIGHTNING', 'netWork' => 'LIGHTNING', 'isDefault' => false, 'withdrawEnable' => true, 'withdrawTag' => false,
+        'withdrawFee' => '0.00001', 'withdrawIntegerMultiple' => '0.00000001' }
+    ] }, { 'coin' => 'USDT', 'networkList' => [{ 'network' => 'ETH', 'isDefault' => true, 'withdrawFee' => '4' }] },
+                           { 'coin' => 'ETH', 'networkList' => [{ 'network' => 'ETH', 'isDefault' => true, 'withdrawFee' => '0.001' }] }] }
+    {
+      'binance_listing' => read('binance', :list, { 'GET /sapi/v1/capital/withdraw/address/list' => [{ 'body' => [
+        { 'coin' => 'BTC', 'address' => ADDRESS, 'name' => 'cold', 'network' => 'BTC', 'addressTag' => '' },
+        { 'coin' => 'BTC', 'address' => 'bc1qx0tagged', 'name' => 'tagged', 'network' => 'BTC', 'addressTag' => 't-1' },
+        { 'coin' => 'ETH', 'address' => '0xx0', 'name' => 'eth', 'network' => 'ETH', 'addressTag' => '' }
+      ] }] }),
+      'kraken_listing' => read('kraken', :list, { 'POST /0/private/WithdrawAddresses' => [{ 'body' => { 'error' => [], 'result' => [
+        { 'address' => ADDRESS, 'asset' => 'XBT', 'method' => 'Bitcoin', 'key' => 'x0 cold', 'verified' => true },
+        { 'address' => 'bc1qx0unverified', 'asset' => 'XBT', 'method' => 'Bitcoin', 'key' => 'x0 new', 'verified' => false }
+      ] } }] }),
+      'gemini_listing' => read('gemini', :list, { 'POST /v1/approvedAddresses/account/bitcoin' => [{ 'body' => { 'approvedAddresses' => [
+        { 'network' => 'bitcoin', 'scope' => 'account', 'address' => ADDRESS, 'label' => 'cold', 'status' => 'active' },
+        { 'network' => 'bitcoin', 'scope' => 'group', 'address' => ADDRESS, 'label' => 'cold', 'status' => 'active' },
+        { 'network' => 'bitcoin', 'scope' => 'account', 'address' => 'bc1qx0pending', 'label' => 'new', 'status' => 'pending-time' }
+      ] } }] }),
+      # MEXC's documented answer is a page object ({ data, totalRecords, page, totalPageNum }), not an array.
+      'mexc_listing_paginated' => read('mexc', :list, { 'GET /api/v3/capital/withdraw/address' => [{ 'body' => {
+        'data' => [{ 'coin' => 'BTC', 'network' => 'BTC', 'address' => ADDRESS, 'addressTag' => '', 'memo' => '' }],
+        'totalRecords' => 1, 'page' => 1, 'totalPageNum' => 1
+      } }] }),
+      'binance_fees_fee_key' => read('binance', :fees, { 'GET /sapi/v1/capital/config/getall' => [{ 'body' => coins.('0.0002') }] },
+                                     setup: fee_key.('binance')),
+      'binance_fees_no_fee_key' => read('binance', :fees, {}),
+      'binance_fees_unreadable_fee' => read('binance', :fees, { 'GET /sapi/v1/capital/config/getall' => [{ 'body' => coins.(nil) }] },
+                                            setup: fee_key.('binance')),
+      'mexc_fees_fee_key' => read('mexc', :fees, { 'GET /api/v3/capital/config/getall' => [{ 'body' => coins.('0.0002') }] },
+                                  setup: fee_key.('mexc')),
+      'mexc_fees_no_fee_key' => read('mexc', :fees, {})
+    }.map { |name, v| { 'case' => name }.merge(v) }
+  end
 end
 
 # The rules surfaces: REST (Api::V1::RulesController), MCP (the six rule tools) and the web pages, one install per cell.
@@ -453,7 +523,7 @@ out = { 'sources' => SOURCES.to_h { |f| [f, Digest::SHA256.file(Rails.root.join(
         'gems' => { 'honeymaker' => Honeymaker::VERSION } }
 Withdrawal.travel_to(Time.iso8601(Withdrawal::AT)) do
   Withdrawal.seed
-  out.merge!('at' => Withdrawal::AT, 'classifier' => Withdrawal.classifier, 'execute' => Withdrawal.execute,
+  out.merge!('at' => Withdrawal::AT, 'classifier' => Withdrawal.classifier, 'execute' => Withdrawal.execute, 'reads' => Withdrawal.reads,
              'api' => Surfaces.api, 'pages' => Surfaces.pages)
 end
 # One case per line: the file stays reviewable in a diff.

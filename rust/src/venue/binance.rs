@@ -408,6 +408,28 @@ impl<T: Transport> BinanceVenue<T> {
 
 impl<T: Transport> super::Venue for BinanceVenue<T> {
     fn rules(&self) -> &'static VenueRules { self.rules }
+
+    /// Exchanges::Binance#list_withdrawal_addresses' read: GET capital/withdraw/address/list (the gem's recvWindow), the
+    /// rows for `coin` with their network and addressTag (`withdrawal::binance_entries`). Binance.US lists none
+    /// (D-RULE-BINANCE-US-UNSUPPORTED).
+    async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, super::VenueError> {
+        if self.rules.exchange_type != BINANCE { return Err(super::withdrawal::not_connected()); }
+        let r = self.signed_now("GET", super::withdrawal::BINANCE_ADDRESSES, vec![("recvWindow", super::withdrawal::RECV_WINDOW.into())]);
+        super::withdrawal::binance_entries(&self.call(&r, false).await.map_err(super::withdrawal::scrub)?, coin)
+    }
+
+    /// Exchanges::Binance#fetch_withdrawal_fees!' read: GET capital/config/getall, `coin`'s networks.
+    async fn withdrawal_networks(&self, coin: &str) -> Result<Option<super::withdrawal::Coin>, super::VenueError> {
+        if self.rules.exchange_type != BINANCE { return Err(super::withdrawal::not_connected()); }
+        let r = self.signed_now("GET", super::withdrawal::BINANCE_COINS, vec![("recvWindow", super::withdrawal::RECV_WINDOW.into())]);
+        super::withdrawal::coin_networks(&self.call(&r, false).await.map_err(super::withdrawal::scrub)?, coin, "Binance")
+    }
+
+    /// The selected network's flat withdrawFee (D-RULE-CHAIN-FEE), whatever the amount.
+    async fn withdrawal_fee(&self, destination: &super::withdrawal::Destination, _amount: &BigDec) -> Result<Option<BigDec>, super::VenueError> {
+        let super::withdrawal::Destination::Binance { coin, network, .. } = destination else { return Err(super::withdrawal::not_connected()) };
+        Ok(self.withdrawal_networks(coin).await?.and_then(|c| super::withdrawal::network_fee(&c, network)))
+    }
     fn placement_identity(&self) -> Option<serde_json::Value> { self.identity.clone() }
 
     /// Exchanges::Binance#get_ask_price / #get_bid_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
