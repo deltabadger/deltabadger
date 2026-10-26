@@ -1,0 +1,15 @@
+<div class="conversational conversational--bot-setup" data-controller="conversational-sentence" data-action="click-&gt;conversational-sentence#activate input-&gt;conversational-sentence#updateFilled">
+ {{ v.t("rules.withdrawals.sentence.withdraw_all") }}
+ {% if search %}
+ <form data-controller="form--submit-after-delay" data-turbo-frame="asset-picker" class="ticker active" action="{{ asset_url }}" accept-charset="UTF-8" method="get">
+ <input autofocus="autofocus" autocomplete="off" placeholder="…" data-action="input-&gt;form--submit-after-delay#submit" type="text" name="query" id="query" />
+ </form>
+ {% else if let Some(asset) = asset %}
+ <a data-turbo-frame="modal_content" data-ticker-symbol="{{ asset.symbol() }}" data-ticker-asset-id="{{ asset.id }}" class="ticker" style="background: {{ color }}" href="{{ asset_url }}">{{ asset.symbol() }}</a>
+ {% endif %}
+ {{ v.t("rules.withdrawals.sentence.from") }}
+ <form class="conversational__link filled" data-turbo-frame="modal_content" data-wizard-dir="back" action="{{ exchange_url }}" accept-charset="UTF-8" method="get">
+ <input value="{{ exchange }}" readonly tabindex="-1">
+ </form>
+ {% if address %}{{ v.t("rules.withdrawals.sentence.to") }} …{% endif %}
+</div>

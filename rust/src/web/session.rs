@@ -43,6 +43,8 @@ pub struct SessionData {
     /// The new-bot wizard's `session[:bot_config]`, string keys as Rails' JSON cookie serializer holds them.
     /// `None` (never set) and `{}` (BotsController#new) are different sessions.
     pub bot_config: Option<Value>,
+    /// The withdrawal wizard, independent of the bot wizard.
+    pub withdrawal_rule_config: Option<Value>,
     /// Who is signed in, with Devise's salt check: the first 29 characters of `encrypted_password`,
     /// so a password change ends every other session.
     pub user: Option<(i64, String)>,
@@ -82,6 +84,7 @@ impl SessionData {
             "setup_token": self.setup_token,
             "platform_identity": self.platform_identity.as_ref().map(|(name, email)| json!([name, email])),
             "bot_config": self.bot_config,
+            "withdrawal_rule_config": self.withdrawal_rule_config,
             "import_offsets": self.import_offsets,
         })
     }
@@ -99,6 +102,7 @@ impl SessionData {
             setup_token: text(&v["setup_token"]),
             platform_identity: v["platform_identity"].as_array().map(|a| (a.first().and_then(text), a.get(1).and_then(text))),
             bot_config: v.get("bot_config").filter(|config| !config.is_null()).cloned(),
+            withdrawal_rule_config: v.get("withdrawal_rule_config").filter(|config| !config.is_null()).cloned(),
             import_offsets: v["import_offsets"].as_object().map(|o| o.iter().filter_map(|(k, v)| Some((k.clone(), text(v)?))).collect()).unwrap_or_default(),
         }
     }
@@ -202,6 +206,17 @@ mod tests {
             assert_eq!(open(&key, &seal(&key, &data, now), now).unwrap().bot_config, config);
         }
         assert_ne!(SessionData::default(), SessionData { bot_config: Some(json!({})), ..SessionData::default() }, "nil -> {{}} is a change");
+    }
+
+    #[test]
+    fn withdrawal_wizard_is_independent_and_round_trips() {
+        let key = [3u8; 32];
+        let now = Utc::now();
+        for config in [None, Some(json!({})), Some(json!({"exchange_id":"3","asset_id":"1","address":"wallet","address_tag":"memo"}))] {
+            let data = SessionData { withdrawal_rule_config: config.clone(), bot_config: Some(json!({"exchange_id":7})), ..SessionData::default() };
+            let opened = open(&key, &seal(&key, &data, now), now).unwrap();
+            assert_eq!(opened, data);
+        }
     }
 
     #[test]

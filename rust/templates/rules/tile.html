@@ -1,0 +1,71 @@
+<form id="rules_withdrawal_{{ r.id }}" class="widget rule {% if r.status == 1 %}rule--active{% else %}rule--inactive{% endif %}" data-controller="class-toggle form--submit form--submit-after-delay form--move-cursor-to-end rule-toggle" data-class-toggle-target="togglable" data-class-toggle-toggle-classes-value='["rule--active","rule--inactive"]' data-turbo-stream="true" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+<div class="toggle-group">
+ <div class="toggle-group__controls">
+  <div class="toggle">
+   <input name="rules_withdrawal[status]" type="hidden" value="stopped" /><input data-rule-toggle-target="checkbox" data-action="change-&gt;form--submit#submit change-&gt;class-toggle#toggle change-&gt;rule-toggle#disable" type="checkbox" value="scheduled" {% if r.status == 1 %}checked="checked"{% endif %} name="rules_withdrawal[status]" id="rules_withdrawal_status" />
+   <div class="toggle__style"></div>
+  </div>
+  {% if r.status == 2 %}
+  <a data-turbo-frame="modal" class="sbutton sbutton--danger sbutton--small" href="{{ action }}/confirm_destroy">
+ {% include "svg/_24x24_close_small.html" %}
+</a>
+  {% endif %}
+ </div>
+ <div class="toggle-group__info">
+  <div class="toggle-group__info__label">
+   <div class="conversational conversational--small">
+    <span>{{ v.t("rules.withdrawals.sentence.withdraw_all") }}</span>
+    {{ percentage_input|safe }}
+    <span>{{ v.t("rules.withdrawals.sentence.of_the_amount") }}</span>
+    <span>{{ v.t("rules.withdrawals.sentence.of") }}</span>
+    <span class="ticker" style="background: {{ color }}" data-ticker-symbol="{{ r.asset.symbol() }}" data-ticker-asset-id="{{ r.asset.id }}">{{ r.asset.symbol() }}</span>
+    <span>{{ v.t("rules.withdrawals.sentence.from") }}</span>
+    <span class="rule__exchange">{{ r.exchange.name }}</span>
+    <span>{{ v.t("rules.withdrawals.sentence.to") }}</span>
+    {{ address|safe }}
+    <div data-controller="form--select-toggle" style="display: contents">
+     <span>{{ v.t("rules.withdrawals.sentence.when") }}</span>
+     {% if r.fee.is_some() %}
+     <div class="sinput sinput--select {% if r.status == 1 %}sinput--disabled{% endif %}">
+      {% if threshold == "fee_percentage" %}{{ v.t("rules.withdrawals.sentence.fee_less_than") }}{% else %}{{ v.t("rules.withdrawals.sentence.amount_crosses") }}{% endif %}
+      <select {% if r.status == 1 %}disabled="disabled"{% endif %} data-action="change-&gt;form--select-toggle#toggle change-&gt;form--submit#submit" name="rules_withdrawal[threshold_type]" id="rules_withdrawal_threshold_type"><option {% if threshold == "fee_percentage" %}selected="selected"{% endif %} value="fee_percentage">{{ v.t("rules.withdrawals.sentence.fee_less_than") }}</option>
+       <option {% if threshold == "min_amount" %}selected="selected"{% endif %} value="min_amount">{{ v.t("rules.withdrawals.sentence.amount_crosses") }}</option></select>
+     </div>
+     {% else %}
+     <input value="min_amount" type="hidden" name="rules_withdrawal[threshold_type]" id="rules_withdrawal_threshold_type" />
+     <span>{{ v.t("rules.withdrawals.sentence.amount_crosses") }}</span>
+     {% endif %}
+     <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="{% if threshold != "fee_percentage" %}display:none{% endif %}">
+      {{ fee_input|safe }}
+<span>{{ v.t("rules.withdrawals.sentence.of_the_amount") }}</span>
+     </span>
+     <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="{% if threshold != "min_amount" %}display:none{% endif %}">
+      {{ min_input|safe }}
+<span>{{ r.asset.symbol() }}</span>
+     </span>
+    </div>
+    {% if interval %}
+    <span>{{ v.t("rules.withdrawals.sentence.or_at_least_every") }}</span>
+    {{ interval_input|safe }}
+    <span>{{ v.t("rules.withdrawals.sentence.days") }}</span>
+    {% endif %}
+   </div>
+  </div>
+  {{ info|safe }}
+  {% if empty_addresses %}<div class="small-info text-danger">{{ no_wallet|safe }}</div>{% endif %}
+  {{ status_line|safe }}
+ </div>
+</div>
+{% if let Some(progress) = progress %}
+<div class="slider-group">
+ <div class="label">{{ progress }}%</div>
+ <div class="slider">
+<div class="slider__style">
+<div class="slider__style__track" style="grid-template-columns: {{ progress }}% auto">
+<div class="slider__style__progress"></div>
+</div>
+</div>
+</div>
+</div>
+{% endif %}
+</form>

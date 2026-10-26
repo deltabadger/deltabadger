@@ -1,0 +1,13 @@
+<div class="bot-creation-layout">
+ {{ progress|safe }}
+ <form class="bot-creation-preview" data-controller="form--html5-validations form--submit" data-turbo-stream="true" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+ <div class="flex-row">
+<div id="create-bot-button">
+<input type="submit" name="commit" value="{{ v.t("rules.withdrawals.form.submit") }}" class="sbutton button--success" data-disable-with="{{ v.t("rules.withdrawals.form.submit") }}" />
+</div>
+</div>
+ <button type="submit" formaction="{{ action }}/preview" formnovalidate hidden data-form--submit-target="trigger">
+</button>
+ {{ preview|safe }}
+ </form>
+</div>

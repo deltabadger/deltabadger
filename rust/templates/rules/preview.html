@@ -1,0 +1,57 @@
+
+<div id="rule-preview">
+ <div class="widget main-rule">
+  <div class="conversational flex-justify-center">
+   {{ v.t("rules.withdrawals.sentence.withdraw_all") }}
+   <input type="number" name="withdrawal_percentage" value="{{ r.percentage() }}" class="sinput numeric-input" step="any" min="0.01" max="100" size="2" required data-controller="autowidth-input" data-action="input-&gt;autowidth-input#resize input-&gt;form--submit#submit" style="width: 50px;">
+   {{ v.t("rules.withdrawals.sentence.of_the_amount") }} {{ v.t("rules.withdrawals.sentence.of") }}
+   <a data-turbo-frame="modal_content" data-ticker-symbol="{{ r.asset.symbol() }}" data-ticker-asset-id="{{ r.asset.id }}" class="ticker" style="background: {{ color }}" href="{{ asset_url }}">{{ r.asset.symbol() }}</a>
+   {{ v.t("rules.withdrawals.sentence.from") }}
+   <a data-turbo-frame="modal_content" class="conversational__link conversational__link--text" href="{{ exchange_url }}">{{ r.exchange.name }}</a>
+   {{ v.t("rules.withdrawals.sentence.to") }}
+   {% if listed %}
+   <div class="tag tag--address" data-controller="form--select-display">
+    {% include "svg/_16x16_wallet.html" %}
+    <span data-form--select-display-target="label">{{ display }}</span>
+    <select name="address" data-action="change-&gt;form--select-display#update change-&gt;form--submit#submit">
+{{ options|safe }}
+</select>
+   </div>
+   {% else %}
+   <a data-turbo-frame="modal_content" class="tag tag--address" href="{{ address_url }}">{% include "svg/_16x16_wallet.html" %}{{ truncated }}</a>
+   {% endif %}
+   {{ networks|safe }}
+   <div data-controller="form--select-toggle" style="display: contents">
+    {{ v.t("rules.withdrawals.sentence.when") }}
+    {% if r.fee.is_some() %}
+    <div class="sinput sinput--select" data-controller="form--select-display">
+     <span data-form--select-display-target="label">{% if threshold == "fee_percentage" %}{{ v.t("rules.withdrawals.sentence.fee_less_than") }}{% else %}{{ v.t("rules.withdrawals.sentence.amount_crosses") }}{% endif %}</span>
+     <select name="threshold_type" data-action="change-&gt;form--select-display#update change-&gt;form--select-toggle#toggle change-&gt;form--submit#submit">
+      <option value="fee_percentage" {% if threshold == "fee_percentage" %}selected{% endif %}>{{ v.t("rules.withdrawals.sentence.fee_less_than") }}</option>
+      <option value="min_amount" {% if threshold == "min_amount" %}selected{% endif %}>{{ v.t("rules.withdrawals.sentence.amount_crosses") }}</option>
+     </select>
+    </div>
+    {% else %}
+    <input type="hidden" name="threshold_type" value="min_amount">
+    {{ v.t("rules.withdrawals.sentence.amount_crosses") }}
+    {% endif %}
+    <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="{% if threshold != "fee_percentage" %}display:none{% endif %}">
+     <input type="number" name="max_fee_percentage" value="{{ r.text("max_fee_percentage") }}" class="sinput numeric-input" step="any" min="0.01" max="100" size="2" {% if threshold == "fee_percentage" %}required{% endif %} placeholder="0.5" data-controller="autowidth-input" data-action="input-&gt;autowidth-input#resize input-&gt;form--submit#submit" style="width: 50px;">
+     {{ v.t("rules.withdrawals.sentence.of_the_amount") }}
+    </span>
+    <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="{% if threshold != "min_amount" %}display:none{% endif %}">
+     <input type="number" name="min_amount" value="{{ r.text("min_amount") }}" class="sinput numeric-input" step="any" min="0.00000001" size="2" {% if threshold == "min_amount" %}required{% endif %} placeholder="0.1" data-controller="autowidth-input" data-action="input-&gt;autowidth-input#resize input-&gt;form--submit#submit" style="width: 70px;">
+     {{ r.asset.symbol() }}
+    </span>
+   </div>
+   {{ v.t("rules.withdrawals.sentence.or_at_least_every") }}
+   <input type="number" name="max_interval" value="" class="sinput numeric-input" step="1" min="1" max="365" size="2" placeholder="30" data-controller="autowidth-input" data-action="input-&gt;autowidth-input#resize input-&gt;form--submit#submit" style="width: 50px;">
+   {{ v.t("rules.withdrawals.sentence.days") }}
+  </div>
+  {% for (visible,text) in infos %}
+  <div class="small-info" style="{% if !visible %}display:none{% endif %}">
+{{ text|safe }}
+</div>
+  {% endfor %}
+ </div>
+</div>

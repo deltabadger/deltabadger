@@ -31,6 +31,7 @@ pub mod oauth;
 pub mod rate_limit;
 pub mod rest;
 pub mod ring;
+pub mod rules;
 pub mod server;
 pub mod session;
 pub mod settings;
@@ -655,6 +656,22 @@ fn routes(app: App) -> Router {
         // `/setup.<format>` reaches the setup action in Rails; any other single segment is this build's refusal.
         .route("/{page}", any(setup::formatted))
         .route("/bots", only(get(bots::index)))
+        .route("/rules", only(get(rules::index)))
+        .route("/rules/withdrawals", only(post(rules::missing)))
+        .route("/rules/withdrawals/{id}", only(patch(rules::tile).delete(rules::tile)))
+        .route("/rules/withdrawals/{id}/confirm_destroy", only(get(rules::confirm_destroy)))
+        .route("/rules/withdrawals/pick_exchange/new", only(get(rules::step)))
+        .route("/rules/withdrawals/pick_exchange", only(post(rules::step)))
+        .route("/rules/withdrawals/pick_asset/new", only(get(rules::step)))
+        .route("/rules/withdrawals/pick_asset", only(post(rules::step)))
+        .route("/rules/withdrawals/add_api_key/new", only(get(rules::step)))
+        .route("/rules/withdrawals/add_api_key", only(post(rules::step)))
+        .route("/rules/withdrawals/add_address/new", only(get(rules::step)))
+        .route("/rules/withdrawals/add_address", only(post(rules::step)))
+        .route("/rules/withdrawals/confirm_settings/new", only(get(rules::step)))
+        .route("/rules/withdrawals/confirm_settings", only(post(rules::step)))
+        .route("/rules/withdrawals/confirm_settings/preview", only(post(rules::step)))
+
         .route("/api/api_keys",only(post(settings::keys::legacy)))
         .route("/bots/{id}/add_api_key",only(post(settings::keys::save)))
         .route("/bots/{id}/add_api_key/new",only(get(settings::keys::bot_form)))
