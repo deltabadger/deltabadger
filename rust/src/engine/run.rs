@@ -21,7 +21,7 @@ const IDLE_US: i64 = 60_000_000;
 const AFTER_CHECKPOINT_US: i64 = 1_000;
 const POLL_AFTER_US: i64 = 5_000_000;
 const RECONCILE_EVERY_US: i64 = 30_000_000;
-/// How often registered reversal reserves are scanned for a final row (reversal::scan), beside every engine start.
+/// How often reversal reserves and liquidation orders are scanned, beside every engine start.
 const SETTLE_SCAN_EVERY_US: i64 = 600_000_000;
 /// How long a bot refused for stale reference data waits before it is ticked again. Rails' catalog sync runs once a day and the
 /// bound is 49 h, so 5 minutes delays the first tick after a refresh by at most 5 minutes for 12 staleness reads an hour.
@@ -61,7 +61,7 @@ pub struct Engine<F: VenueFactory> {
     defer_refused: HashSet<i64>,
     /// Told after each tick what it recorded, never called into.
     events: EngineEvents,
-    /// When reversal::scan runs next (0: at the first pass).
+    /// When the reversal and composition settle scans run next (0: at the first pass).
     settle_scan_at: i64,
     /// Bot::EvaluateRebalancersJob's next fire (`30 */4 * * *`), in memory: set at the first pass to the first fire after it,
     /// so a fire missed while the engine was down is not run late (Solid Queue does not backfill a recurring task either).
@@ -302,6 +302,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
 
     let mut wake = clock.now().timestamp_micros() + IDLE_US;
     run_reversals(e, clock).await?;
+    run_commands(e, clock).await?;
     run_polls(e, clock, &mut wake).await;
     run_rebalances(e, &report.unreadable, clock, &mut wake).await?;
     reconcile_idle_intents(e, clock, &mut wake).await?;
@@ -369,6 +370,26 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
             Err(err) => { super::log(&format!("[engine] reversal reserves could not be scanned: {err:?}; retried in 10 minutes")); super::reversal::Scan::default() }
         };
+        let composition = super::composition::scan(&e.primary,clock.now())?;
+        for (bot,tx) in composition.waiting {
+            if e.polls.contains_key(&tx) { continue; }
+            let producer=model::load_bot(&e.primary,bot).and_then(|b|e.venue_for(&b)).map(|(_,p)|p).unwrap_or(None);
+            e.polls.insert(tx,model::Produced::new((bot,now_us,Attempts::default()),producer));
+        }
+        for (bot,tx) in composition.late {
+            let result=match model::load_bot(&e.primary,bot).and_then(|b|e.venue_for(&b)) {
+                Ok((venue,_))=>polling::refresh_terminal(&e.primary,&venue,bot,tx,clock.now()).await.map_err(|err|EngineError::Data(format!("{err:?}"))),
+                Err(err)=>Err(err),
+            };
+            match result {
+                Ok(())=>{
+                    e.events.send(EngineEvent::OrderUpdated {bot_id:bot});
+                    e.events.send(EngineEvent::OrderWritten {bot_id:bot,transaction_id:tx});
+                }
+                Err(err @ (EngineError::Lease(_) | EngineError::Store(_)))=>return Err(err),
+                Err(err)=>super::log(&format!("[engine] liquidation late proceeds bot={bot} transaction={tx}: {err:?}")),
+            }
+        }
         for bot_id in scan.status_changed { e.events.send(EngineEvent::StatusChanged { bot_id }); }
         for (bot, tx) in scan.waiting {
             if e.polls.contains_key(&tx) { continue; }
@@ -641,6 +662,7 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         let status_of = |c: &Connection| c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get::<_, i64>(0)).optional();
         let status_before = status_of(&e.primary);
         let mut announce_retry=true;
+        let watched=super::composition::waiting_liquidations(&e.primary,Some(id)).unwrap_or_default().into_iter().filter(|(_,row)|*row==tx).collect::<Vec<_>>();
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(polling::FollowUp::Done) => None,
             // A Merge or Split moved the row while this poll ran: nothing was written; it is polled again at once, under its owner.
@@ -662,6 +684,9 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
             Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }
         };
+        if let Err(err)=super::composition::halt_abandoned(&e.primary,&watched,clock.now()) {
+            super::log(&format!("[engine] liquidation abandoned halt bot={id}: {err:?}"));
+        }
         // Whatever the poll wrote, on success or on error, the bot is announced; nothing is read to decide.
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
@@ -966,6 +991,63 @@ pub async fn reconcile_idle_intents<F: VenueFactory>(e: &mut Engine<F>, clock: &
             let at = clock.now().timestamp_micros() + delay;
             e.reconcile_at.insert(id, model::Produced::new(at,None));
             *wake = (*wake).min(at);
+        }
+    }
+    Ok(())
+}
+
+
+/// A one-shot request is taken under the claim's lock. A surviving taken request belongs to a
+/// previous process: discard it, leaving any durable placement to the normal recovery loop.
+pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(),EngineError> {
+    use super::liquidation::{self,REQUEST_KEY};
+    let mut s=e.primary.prepare("SELECT id FROM bots WHERE json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL ORDER BY id")?;
+    let ids=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+    drop(s);
+    for id in ids {
+        if e.stopping() { break; }
+        let request=model::locked(&e.primary,|c|{
+            let bot=model::load_bot(c,id)?;
+            let mut request=bot.transient[REQUEST_KEY].clone();
+            if request.get("holdings").is_none() {return Ok(None);}
+            if request.get("taken_at").is_some() {
+                liquidation::clear(c,id,&request)?;
+                return Ok(None);
+            }
+            request["taken_at"]=serde_json::json!(clock.now().timestamp());
+            model::merge_transient_compact(c,id,&[(REQUEST_KEY,request.clone())])?;
+            Ok(Some(request))
+        })?;
+        let Some(request)=request else {continue};
+        let start=crate::codec::format_time(clock.now());
+        let last_tx=e.primary.query_row("SELECT COALESCE(max(id),0) FROM transactions",[],|r|r.get(0));
+        let mut producer=None;
+        let outcome=async {
+            let last_tx=last_tx?;
+            let bot=model::load_bot(&e.primary,id)?;
+            // These refusals must land even when credentials cannot construct a venue.
+            if matches!(bot.status,crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) {
+                return liquidation::refuse(&e.primary,id,serde_json::json!("archived"),clock);
+            }
+            if model::key_pending(&e.primary,&bot)? {
+                return liquidation::refuse(&e.primary,id,serde_json::json!("api_key_pending"),clock);
+            }
+            let (venue,version)=e.venue_for(&bot)?;
+            producer=version.clone();
+            let stop=e.stop.clone();
+            let stopping=move || stop.load(Ordering::SeqCst);
+            let cx=TickContext {credential_version:version,prices:&e.prices,process_start:e.process_start.unwrap_or(clock.now()),stopping:&stopping,below_minimum:&|_,_|{},claimed:&|_|{}};
+            let result=liquidation::run(&e.primary,&venue,id,&request["holdings"],clock,&cx).await;
+            after_tick(e,id,&start,last_tx,None,clock,&producer)?;
+            result
+        }.await;
+        // Compare-clear precedes propagation, including SQL, credential, and lease failures.
+        liquidation::clear(&e.primary,id,&request)?;
+        e.events.send(EngineEvent::OrderUpdated {bot_id:id});
+        if let Err(err)=outcome {
+            model::log_activity(&e.primary,id,"liquidation_failed",model::Level::Error,serde_json::json!({"reason":format!("{err:?}")}),clock.now())?;
+            if matches!(err,EngineError::Lease(_) | EngineError::Store(_)) {return Err(err);}
+            super::log(&format!("[engine] liquidation bot={id}: {err:?}"));
         }
     }
     Ok(())

@@ -86,4 +86,5 @@ pub mod conditions;
 pub mod candles;
 
 pub mod composition;
+pub mod liquidation;
 pub mod technical;

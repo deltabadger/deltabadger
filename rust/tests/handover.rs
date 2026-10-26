@@ -814,3 +814,42 @@ async fn a_cap_switched_on_during_the_handback_is_caught_inside_the_ownership_tr
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "the lease never moved");
     assert_eq!(model::load_bot(&o.primary, b).unwrap().status, status, "the transaction's status writes rolled back");
 }
+
+#[test]
+fn composition_jobs_on_any_bot_refuse_takeover_before_claim() {
+    for class in ["LiquidateExited", "Redeploy", "DeclineRedeploy", "ResolveLiquidation", "ResolveRedeploy"] {
+        for status in [deltabadger::enums::BotStatus::Stopped, deltabadger::enums::BotStatus::Archived] {
+            let dir=common::rails_install();
+            let p=Paths::from_env(&|_|None,dir.path());
+            let l=lease::lock(&p,now()).unwrap();
+            let o=store::open(&p).unwrap();
+            let s=seed::seed_kraken(&o.primary,&seed::cipher());
+            let id=seed::insert_bot(&o.primary,&s,&BotSpec{status:status as i64,..BotSpec::weekly(60.0,"2026-09-01 10:00:00")});
+            let class=format!("Bot::{class}Job");
+            job(&o.queue,&class,&format!("gid://deltabadger/Bots::DcaMultiAsset/{id}"));
+            let result=handover::take_over(&l,&o,&seed::cipher(),"test",now());
+            assert!(matches!(result,Err(EngineError::Ineligible(ref reasons)) if reasons.iter().any(|r|r.contains(&class))),"{class} {status:?}");
+            assert!(lease::read(&o.primary,&seed::cipher()).unwrap().is_none());
+            assert_eq!(count(&o.queue,"SELECT count(*) FROM solid_queue_jobs"),1);
+        }
+    }
+}
+
+#[test]
+fn finished_or_failed_composition_jobs_do_not_block_takeover() {
+    for failed in [false,true] {
+        let dir=common::rails_install();
+        let p=Paths::from_env(&|_|None,dir.path());
+        let l=lease::lock(&p,now()).unwrap();
+        let o=store::open(&p).unwrap();
+        let s=seed::seed_kraken(&o.primary,&seed::cipher());
+        let id=seed::insert_bot(&o.primary,&s,&BotSpec {status:2,..BotSpec::weekly(60.0,"2026-09-01 10:00:00")});
+        job(&o.queue,"Bot::ResolveLiquidationJob",&format!("gid://deltabadger/Bots::DcaMultiAsset/{id}"));
+        if failed {
+            o.queue.execute("INSERT INTO solid_queue_failed_executions(job_id,error,created_at) SELECT id,'failed','2026-09-30 11:00:00' FROM solid_queue_jobs",[]).unwrap();
+        } else {
+            o.queue.execute("UPDATE solid_queue_jobs SET finished_at='2026-09-30 11:00:00'",[]).unwrap();
+        }
+        assert!(handover::take_over(&l,&o,&seed::cipher(),"test",now()).is_ok());
+    }
+}

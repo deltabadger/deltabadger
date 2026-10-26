@@ -1854,21 +1854,20 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
     store(&settings);
     order(1, "REGULAR");
-    // A settled REBALANCE sell on an Alpaca basket is read by the engine's walk since 6b T8: the settings serve it, and the page
-    // refuses it as it refuses any sale.
-    order(1, "REBALANCE");
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
-    c.execute("DELETE FROM transactions WHERE transaction_type = 'REBALANCE'", []).unwrap();
-    // A basket's LIQUIDATION and REDEPLOY rows are still refused, by the page and the settings; the feed does not ask.
-    for (side, kind) in [(1, "LIQUIDATION"), (0, "REDEPLOY")] {
-        order(side, kind);
-        for asked in [bot::For::Page, bot::For::Settings] {
-            assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), Some(bot::UNREAD_ORDERS), "{kind}");
-        }
-        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None, "{kind}");
+    // The engine reads settled REBALANCE and LIQUIDATION sells. Settings serve them; pages need their realised figures.
+    for kind in ["REBALANCE","LIQUIDATION"] {
+        order(1, kind);
+        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
         c.execute("DELETE FROM transactions WHERE transaction_type = ?1", [kind]).unwrap();
     }
+    // A basket's REDEPLOY rows remain refused by the page and settings; the feed does not ask.
+    order(0, "REDEPLOY");
+    for asked in [bot::For::Page, bot::For::Settings] {
+        assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), Some(bot::UNREAD_ORDERS));
+    }
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None);
+    c.execute("DELETE FROM transactions WHERE transaction_type = 'REDEPLOY'", []).unwrap();
     // An order whose asset is not recorded is not a special row: the settings serve it, and the engine's guard refuses its start.
     c.execute("UPDATE transactions SET base_asset_id = NULL WHERE side = 1", []).unwrap();
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
