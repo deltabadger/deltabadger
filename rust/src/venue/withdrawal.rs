@@ -294,7 +294,9 @@ fn destination(kind: Kind, coin: &str, stored: &Stored, e: &Entry, networks: Opt
             // The stored network, by any of the listing's aliases, is checked before anything that refuses the entry.
             let on_stored = |n: Option<&Network>, code: Option<&str>| stored.network.as_ref().is_none_or(|s| *s == listed || n.is_some_and(|n| *s == n.network) || code == Some(s.as_str()));
             let [code] = codes.as_slice() else {
-                return Err(if on_stored(None, None) { Refusal::Inadmissible("the entry's network maps to no single netWork") } else { Refusal::NotListed });
+                // Unresolved: it is another network's entry only when none of its candidate aliases is the stored one.
+                let may_be_stored = on_stored(None, None) || candidates.iter().any(|n| on_stored(Some(n), n.net_work.as_deref()));
+                return Err(if may_be_stored { Refusal::Inadmissible("the entry's network maps to no single netWork") } else { Refusal::NotListed });
             };
             let n = candidates.iter().find(|n| n.net_work.as_deref() == Some(*code)).expect("a candidate names the code");
             if !on_stored(Some(n), Some(code)) { return Err(Refusal::NotListed); }

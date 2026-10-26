@@ -301,6 +301,13 @@ fn ambiguous_entries_are_refused() {
     assert_eq!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", Some("BNB Smart Chain(BEP20)"), None, None), &eth_bsc, Some(&usdt)), bsc);
     assert_eq!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", None, None, None), &eth_bsc, Some(&usdt)), Err(Refusal::Ambiguous));
     assert_eq!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", Some("TRX"), None, None), &eth_bsc, Some(&usdt)), Err(Refusal::NotListed));
+    // A label that maps to two codes, C1 among them, is not dropped as another network's entry when C1 is stored: refused.
+    let mut l_entry = on("L");
+    l_entry.tag = Some("memo1".into());
+    let mut c1_entry = on("C1");
+    c1_entry.tag = Some("memo2".into());
+    let l_two = withdrawal::Coin { networks: vec![network("L", Some("C1"), false), network("L", Some("C2"), false)] };
+    assert!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", Some("C1"), None, None), &[l_entry, c1_entry], Some(&l_two)).is_err());
 
     // An address nobody lists, and an unverified one.
     assert_eq!(withdrawal::select(Kind::Kraken, "XBT", &Stored::new("z", None, None, None), &two, None), Err(Refusal::NotListed));
