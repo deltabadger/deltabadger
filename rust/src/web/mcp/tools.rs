@@ -3,7 +3,8 @@ use super::reads;
 use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
-pub const NAMES: [&str;14] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot"];
+/// D-SPLIT-API: split_bots is this build's own, after the recorded tools.
+pub const NAMES: [&str;15] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot","split_bots"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -84,6 +85,10 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
     let schema=metadata()["tools"].as_array().into_iter().flatten().find(|t|t["name"]==name).map(|t|&t["inputSchema"]).unwrap_or(&Value::Null);
     let errors=validate(args,schema,"");
     if !errors.is_empty(){return Ok(Called::Done(tool_text(&format!("Invalid input: {}",errors.join(", ")),true)));}
+    if name=="split_bots"{return Ok(Called::Done(super::control::split(c,app,who.user_id,args).unwrap_or_else(|_|{
+        crate::engine::log("MCP split_bots failed");
+        tool_text("An unexpected error occurred.",true)
+    })));}
     if reads::NAMES.contains(&name){return Ok(reads::plan(c,app,who.user_id,name,args).unwrap_or_else(|_|Called::Done(tool_text("An unexpected error occurred.",true))));}
     use crate::web::bot_api;
     let text=match name {

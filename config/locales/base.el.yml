@@ -352,6 +352,9 @@ el:
                 unarchive_bot:
                     label: 'Επαναφορά bot'
                     description: 'Επιστροφή ενός αρχειοθετημένου bot'
+                split_bots:
+                    label: 'Διαχωρισμός bots'
+                    description: 'Μετατροπή ενός bot πολλών στοιχείων σε ένα bot ανά στοιχείο'
                 liquidate_exited_asset:
                     label: 'Πώληση αφαιρεμένου στοιχείου'
                     description: 'Πώληση ενός περιουσιακού στοιχείου που αφαίρεσε ένα bot δείκτη ή καλαθιού'

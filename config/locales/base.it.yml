@@ -371,6 +371,9 @@ it:
                 unarchive_bot:
                     label: 'Riattiva bot'
                     description: 'Riporta indietro un bot archiviato'
+                split_bots:
+                    label: 'Dividi bot'
+                    description: 'Trasforma un bot multi-asset in un bot per ogni asset'
                 liquidate_exited_asset:
                     label: 'Vendi asset rimosso'
                     description: 'Vendi un asset che un bot indice o paniere ha rimosso'

@@ -37,7 +37,10 @@ fn m3_reads_remain_registered_at_every_m4_task_boundary(){
 /// the buy side's price rule, and a signal bot's sell side's) say so; nothing else of the recorded schemas changes.
 #[test]
 fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
-    let (mut recorded,ours)=(protocol::recorded(),protocol::metadata().clone());
+    let (mut recorded,mut ours)=(protocol::recorded(),protocol::metadata().clone());
+    // D-SPLIT-API: split_bots, this build's own, is listed after the recorded tools (pinned below).
+    let split=ours["tools"].as_array_mut().unwrap().pop().unwrap();
+    assert_eq!(split["name"],"split_bots");
     let settings=|v:&Value|v["tools"].as_array().unwrap().iter().position(|t|t["name"]=="update_bot_settings").unwrap();
     let at=settings(&ours);
     let wanted=ours["tools"][at]["inputSchema"]["properties"].clone();
@@ -54,4 +57,22 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     assert!(field("sell_price_limit_mode").ends_with(" Basket and signal bots; flip is for basket bots only."),"{}",field("sell_price_limit_mode"));
     let ticker=&ours["tools"].as_array().unwrap().iter().find(|t|t["name"]=="update_bot_settings").unwrap()["inputSchema"]["properties"]["price_limit_in_ticker_id"]["description"];
     assert_eq!(ticker,"Price condition while buying. Basket and index bots: the ticker id of the member it watches (get_bot_details lists them); an index bot's may be a former member.");
+}
+
+/// D-SPLIT-API: split_bots' schema, the one addition to the recorded catalogue: the bots to split, and the bots whose money from
+/// past sales stays as it is.
+#[test]
+fn split_bots_schema_is_pinned(){
+    let tools=protocol::metadata()["tools"].as_array().unwrap();
+    assert_eq!(tools.last().unwrap()["name"],"split_bots");
+    assert_eq!(tools.len(),protocol::recorded()["tools"].as_array().unwrap().len()+1);
+    assert_eq!(tools.last().unwrap()["inputSchema"],serde_json::json!({
+        "$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
+        "properties":{
+            "bot_ids":{"type":"array","items":{"type":"integer"},"description":"The IDs of the bots to split"},
+            "keep_proceeds_for":{"type":"array","items":{"type":"integer"},"description":"The IDs of the bots whose money from past sales stays as it is (No to the redeploy offer)"}
+        },
+        "required":["bot_ids"],"additionalProperties":false
+    }));
+    assert!(tools.last().unwrap()["description"].as_str().unwrap().contains("proceeds_unanswered"));
 }

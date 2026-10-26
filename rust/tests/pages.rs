@@ -567,6 +567,87 @@ fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
     }
 }
 
+/// Named divergence D-SPLIT-BOT-MENU: a splittable bot's menu has a Split item (the split modal for that bot), which Rails'
+/// menu does not. Only that item, with the whitespace before it, is taken out of this crate's page; returns how many.
+fn without_split_item(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 0);
+    while i < lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        let split = line.trim_start().starts_with("<a ") && attr(line, "class").as_deref() == Some("dropdown__item") && attr(line, "data-turbo-frame").as_deref() == Some("modal")
+            && attr(line, "href").is_some_and(|href| href.split_once("/bots/split/new?ids%5B%5D=").is_some_and(|(locale, id)| locale.len() <= 3 && !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit())));
+        if !split { i += 1; continue; }
+        let end = subtree_end(lines, i);
+        let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+        lines.drain(start..end);
+        taken += 1;
+        i = start;
+    }
+    taken
+}
+
+/// Named divergence D-SPLIT-API in Settings: the split_bots switch under Control (this build's own tool) is taken out of this
+/// crate's page with the whitespace before it, and its entry out of the rows a write stored (the owner's switches, a
+/// client's grant). Returns how many switches were taken.
+fn without_split_tool(answer: &mut Value) -> usize {
+    let mut taken = 0;
+    if let Some(Value::Array(lines)) = answer.get_mut("body") {
+        let mut i = 0;
+        while i < lines.len() {
+            let line = lines[i].as_str().unwrap_or_default();
+            if !(line.trim_start().starts_with("<div ") && attr(line, "data-tool").as_deref() == Some("split_bots")) { i += 1; continue; }
+            let end = subtree_end(lines, i);
+            let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+            lines.drain(start..end);
+            taken += 1;
+            i = start;
+        }
+    }
+    for row in answer.get_mut("settings_rows").and_then(|rows| rows.get_mut("users")).and_then(Value::as_array_mut).into_iter().flatten() {
+        for column in ["mcp_settings", "rest_settings"] {
+            if let Some(tools) = row.get_mut(column).and_then(|v| v.get_mut("tool_permissions")).and_then(Value::as_object_mut) { tools.shift_remove("split_bots"); }
+        }
+    }
+    for row in answer.get_mut("settings_rows").and_then(|rows| rows.get_mut("connected_clients")).and_then(Value::as_array_mut).into_iter().flatten() {
+        for column in ["mcp_tools", "rest_tools"] {
+            if let Some(tools) = row.get_mut(column).and_then(Value::as_array_mut) { tools.retain(|tool| tool != "split_bots"); }
+        }
+    }
+    taken
+}
+
+#[test]
+fn only_the_split_tool_switch_and_its_stored_entry_are_left_out() {
+    let row = |tool: &str| vec![json!("      \" \""), json!(format!("      <div class=\"srow srow--tool\" data-surface=\"mcp\" data-tool=\"{tool}\">")), json!("        \"x\""), json!("      </div>")];
+    let rails: Vec<Value> = [row("unarchive_bot"), row("sync_tracker")].concat();
+    let ours_body: Vec<Value> = [row("unarchive_bot"), row("split_bots"), row("sync_tracker")].concat();
+    let mut ours = json!({ "body": ours_body,
+        "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true, "split_bots": true } }, "rest_settings": null }],
+                           "connected_clients": [{ "mcp_tools": ["delete_bot", "split_bots"], "rest_tools": null }] } });
+    assert_eq!(without_split_tool(&mut ours), 1);
+    assert_eq!(ours, json!({ "body": rails, "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true } }, "rest_settings": null }],
+                                                              "connected_clients": [{ "mcp_tools": ["delete_bot"], "rest_tools": null }] } }));
+}
+
+#[test]
+fn only_the_menus_split_item_is_left_out() {
+    let item = |href: &str| json!(["      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/edit\">", "        \"Rename\"", "      </a>", "      \" \"",
+        format!("      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"{href}\">"), "        \"Split\"", "      </a>", "      \" \"",
+        "      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/archive/edit\">", "        \"Archive\"", "      </a>"]);
+    let rails = json!(["      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/edit\">", "        \"Rename\"", "      </a>", "      \" \"",
+        "      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/archive/edit\">", "        \"Archive\"", "      </a>"]);
+    for href in ["/bots/split/new?ids%5B%5D=7", "/de/bots/split/new?ids%5B%5D=7"] {
+        let mut ours = item(href);
+        assert_eq!((without_split_item(&mut ours), &ours), (1, &rails), "{href}");
+    }
+    // Any other link, a split of several bots or one outside the menu, is still compared.
+    for href in ["/bots/split/new?ids%5B%5D=7&ids%5B%5D=8", "/bots/split/new", "/bots/7/split/new?ids%5B%5D=7"] {
+        let mut ours = item(href);
+        let before = ours.clone();
+        assert_eq!((without_split_item(&mut ours), &ours), (0, &before), "{href}");
+    }
+}
+
 /// Named divergences D-PENDING-MARKET-HIDDEN and D-PENDING-MARKET-SETTING: a market order the venue has not finished
 /// (unknown or open) is no row of this crate's log until it is final, and a scheduled or retrying bot holding one says
 /// "Setting orders…" where Rails shows its schedule. The grid seeds such rows (pages_bots.rb `history`, `engine_legs`,
@@ -1788,7 +1869,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
         assert_eq!(dirs.len(), 254 + 2 + 6, "all action scenarios must remain selected, with two amounts typed key by key and six settings metrics cases");
     }
-    let (mut failures, mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages) = (vec![], 0, 0, 0, 0);
+    let (mut failures, mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages) = (vec![], 0, 0, 0, 0, 0);
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
@@ -1824,6 +1905,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         }
         for answer in rust["responses"].as_array_mut().unwrap() {
             without_low_funds(&mut answer["body"]);
+            split_menu_pages += without_split_item(&mut answer["body"]);
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
@@ -1839,6 +1921,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         let mut rails = rails;
         if name.starts_with("settings_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
+            for answer in rust["responses"].as_array_mut().unwrap() { without_split_tool(answer); }
         }
         if name.starts_with("hook_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_router_bad_request(answer); }
@@ -1923,6 +2006,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next; {index_rule_pages} index bot pages with their rule forms; {signal_rule_pages} signal bot pages with theirs", dirs.len());
     if dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_index_member")) { assert!(index_rule_pages > 0, "D-COND-FORMS-INDEX: no index bot page drew its rule forms"); }
+    if std::env::var("PAGES").is_err() { assert!(split_menu_pages > 0, "D-SPLIT-BOT-MENU: no bot page offered Split in its menu"); }
     if dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_signal_rules")) { assert!(signal_rule_pages > 0, "D-COND-FORMS-SIGNAL: no signal bot page drew its rule forms"); }
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));

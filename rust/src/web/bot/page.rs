@@ -378,6 +378,9 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
 </div>{% else if follow_index %}
           <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/index/new">{{ v.t("bot.index_switch.follow_index")|safe }}</a>
 {% endif %}
+{% if split %}
+        <a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/bots/split/new") }}?ids%5B%5D={{ id }}">{{ v.t("button.split")|safe }}</a>
+{% endif %}
         <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/archive/edit">{{ v.t("button.archive")|safe }}</a>
 {% endif %}
       <div class="dropdown__item dropdown__item--divider"></div>
@@ -385,9 +388,12 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
     </div>
   </div>
 </div>"##, ext = "html")]
-struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, archived: bool, index: bool, follow_index: bool }
+struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, archived: bool, index: bool, follow_index: bool, id: i64, split: bool }
 
+/// bots/_menu. D-SPLIT-BOT-MENU: Split, where the dashboard's tile would offer it (`Bot::Split.splittable?`), opens the split
+/// modal for this one bot in the confirmation frame; Rails' menu has no Split.
 pub(super) fn menu(ctx: &Ctx, csrf: &str, bot: &Bot, configured: bool) -> Result<String, WebError> {
-    Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"),
+    Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"), id: bot.id,
+        split: bot.kind != Kind::Signal && crate::web::bots::mergeable(bot).1,
         archived: bot.status == BotStatus::Archived, index: bot.kind == Kind::Index, follow_index: bot.kind == Kind::Basket && !bot.selling() && configured }.render()?)
 }

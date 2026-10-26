@@ -353,6 +353,9 @@ cs:
                 unarchive_bot:
                     label: 'Obnovit bota'
                     description: 'Vrátit archivovaného bota zpět'
+                split_bots:
+                    label: 'Rozdělit boty'
+                    description: 'Rozdělit bota s více aktivy na samostatného bota pro každé aktivum'
                 liquidate_exited_asset:
                     label: 'Prodat odebrané aktivum'
                     description: 'Prodat aktivum, které bot odebral ze svého indexu nebo koše'

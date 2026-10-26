@@ -370,6 +370,9 @@ pt:
                 unarchive_bot:
                     label: 'Reativar bot'
                     description: 'Repor um bot arquivado'
+                split_bots:
+                    label: 'Dividir bots'
+                    description: 'Transformar um bot com vários ativos num bot por ativo'
                 liquidate_exited_asset:
                     label: 'Vender ativo removido'
                     description: 'Vender um ativo que um bot de índice ou de cabaz removeu'

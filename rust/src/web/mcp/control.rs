@@ -33,3 +33,12 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Val
     let write=Write::tool(name).ok_or_else(||WebError::Config("unknown control tool".into()))?;
     Ok(finish(bot_api::bot_write(c,app,who.user_id,id,write,&submitted)?))
 }
+/// D-SPLIT-API: split_bots, the web's split through bot_api::split. Success is the data as JSON text; a refusal (and a split
+/// this build does not serve) is an error whose JSON text holds the stable code, the message and the unanswered offers.
+pub fn split(c:&Connection,app:&App,user:i64,args:&Value)->Result<Value,WebError>{
+    let res=bot_api::split(c,app,user,args.get("bot_ids"),args.get("keep_proceeds_for"))?;
+    Ok(match res.code {
+        None=>tool_text(&crate::web::rest::encode(&res.data),false),
+        Some(code)=>tool_text(&crate::web::rest::encode(&serde_json::json!({"code":code,"message":res.message,"offers":res.data.get("offers").cloned().unwrap_or(serde_json::json!([]))})),true),
+    })
+}

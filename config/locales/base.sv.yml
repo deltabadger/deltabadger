@@ -352,6 +352,9 @@ sv:
                 unarchive_bot:
                     label: 'Återaktivera bot'
                     description: 'Hämta tillbaka en arkiverad bot'
+                split_bots:
+                    label: 'Dela upp botar'
+                    description: 'Gör en bot med flera tillgångar till en bot per tillgång'
                 liquidate_exited_asset:
                     label: 'Sälj borttagen tillgång'
                     description: 'Sälj en tillgång som en index- eller korgbot har tagit bort'

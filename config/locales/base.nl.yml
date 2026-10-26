@@ -371,6 +371,9 @@ nl:
                 unarchive_bot:
                     label: 'Bot heractiveren'
                     description: 'Een gearchiveerde bot terughalen'
+                split_bots:
+                    label: 'Bots splitsen'
+                    description: 'Een bot met meerdere assets opsplitsen in één bot per asset'
                 liquidate_exited_asset:
                     label: 'Verwijderde asset verkopen'
                     description: 'Een asset verkopen die de bot uit zijn index of mand heeft verwijderd'

@@ -40,6 +40,7 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 | POST | `/bots/:id/stop` | Stop bot | `409` if not running |
 | POST | `/bots/:id/archive` | Archive bot | Stops the bot first |
 | DELETE | `/bots/:id/archive` | Reactivate bot | Returns the bot stopped |
+| POST | `/bots/split` | Split bots | Body `bot_ids` (basket or index bots) and optional `keep_proceeds_for`. Each bot becomes one stopped bot per asset it still trades, with that asset's share of the amount and its history; the split bots are deleted. `data` lists the new `bots` (`id`, `label`, `asset_id`) and the `source_ids`. A refusal is `422` with a code (`missing`, `none`, `unavailable`, `external_sales`, `unpriced_sales`, `nothing_to_buy`, `busy`, `write_refused`, `proceeds_unanswered`); `proceeds_unanswered` lists each bot's waiting money in `error.details.offers` (`bot_id`, `offer`): answer it with `POST /bots/:id/redeploy`, or pass the bot id in `keep_proceeds_for` to keep the money as it is |
 | DELETE | `/bots/:id` | Delete bot | Any status; the schedule is cancelled and the history hidden |
 | POST | `/bots/:id/liquidations` | Sell exited holdings | Body `symbol`, or `symbol[]` repeated to close several positions in one call; index and basket bots only; irreversible market sale; needs `Idempotency-Key` (see below) |
 | POST | `/bots/:id/redeploy` | Answer redeploy offer | Body `accept: true\|false`; needs `Idempotency-Key` |

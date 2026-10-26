@@ -3,7 +3,26 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); split_bots(&mut data); data })
+}
+/// D-SPLIT-API: the split_bots tool, this build's own (Rails has no such tool), after the recorded ones.
+fn split_bots(data: &mut Value) {
+    let ids = |description: &str| json!({"type": "array", "items": {"type": "integer"}, "description": description});
+    let Some(tools) = data["tools"].as_array_mut() else { return };
+    tools.push(json!({
+        "name": "split_bots",
+        "description": "Split basket or index bots: each becomes one stopped bot per asset it still trades on its exchange, buying that asset with its share of the amount at the same interval and keeping that asset's history. The split bots are deleted. If a bot has money from past sales waiting for an answer, the call is refused with code proceeds_unanswered and each such bot's offer: answer it with answer_redeploy_offer, or pass the bot's id in keep_proceeds_for to keep the money as it is.",
+        "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {
+                "bot_ids": ids("The IDs of the bots to split"),
+                "keep_proceeds_for": ids("The IDs of the bots whose money from past sales stays as it is (No to the redeploy offer)")
+            },
+            "required": ["bot_ids"],
+            "additionalProperties": false
+        }
+    }));
 }
 /// The schemas as recorded from Rails, before `rule_kinds`.
 pub fn recorded() -> Value { serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null) }
