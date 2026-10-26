@@ -200,6 +200,34 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
     }
 
     fn rules(&self) -> &'static VenueRules { &RULES }
+
+    /// D-RULE-MEXC-LISTING: GET capital/withdraw/address for `coin`, every page (`page`, `limit`) until `totalPageNum`,
+    /// each read as `data[]` (`withdrawal::mexc_page`); more than MEXC_MAX_PAGES pages is refused, never cut short.
+    async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, VenueError> {
+        use super::withdrawal::{mexc_page, scrub, MEXC_ADDRESSES, MEXC_MAX_PAGES, MEXC_PAGE};
+        let mut out = vec![];
+        let mut page = 1i64;
+        loop {
+            let r = self.signed_now("GET", MEXC_ADDRESSES, vec![("coin", coin.to_string()), ("page", page.to_string()), ("limit", MEXC_PAGE.to_string())]);
+            let (entries, pages) = mexc_page(&self.call(&r, false).await.map_err(scrub)?, coin)?;
+            out.extend(entries);
+            if page >= pages { return Ok(out); }
+            if page >= MEXC_MAX_PAGES { return Err(VenueError::Rejected(vec![format!("MEXC lists more than {MEXC_MAX_PAGES} pages of {coin} withdrawal addresses")])); }
+            page += 1;
+        }
+    }
+
+    /// Exchanges::Mexc#fetch_withdrawal_fees!' read: GET capital/config/getall, `coin`'s networks.
+    async fn withdrawal_networks(&self, coin: &str) -> Result<Option<super::withdrawal::Coin>, VenueError> {
+        let r = self.signed_now("GET", super::withdrawal::MEXC_COINS, vec![]);
+        super::withdrawal::coin_networks(&self.call(&r, false).await.map_err(super::withdrawal::scrub)?, coin, "MEXC")
+    }
+
+    /// The selected network's flat withdrawFee (D-RULE-CHAIN-FEE).
+    async fn withdrawal_fee(&self, destination: &super::withdrawal::Destination, _amount: &BigDec) -> Result<Option<BigDec>, VenueError> {
+        let super::withdrawal::Destination::Mexc { coin, network, .. } = destination else { return Err(super::withdrawal::not_connected()) };
+        Ok(self.withdrawal_networks(coin).await?.and_then(|c| super::withdrawal::network_fee(&c, network)))
+    }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
     /// #get_ask_price / #get_bid_price through #get_bid_ask_price (bookTicker: bidPrice, bidQty, askPrice and askQty, each
