@@ -913,7 +913,7 @@ fn begin_loss_sell(o: &store::Opened, id: i64, s: &seed::Seeded) -> placement::I
     let plan = amount::size_order(&ticker, deltabadger::venue::Side::Sell, &BigDec::from_i64(64000), &BigDec::parse("0.00421875").unwrap(), &BigDec::from_i64(270),
                                   ALPACA.minimum_logic, amount::TxKind::Rebalance).unwrap().0;
     let selling = rebalance::Pending { phase: rebalance::PHASE_SELLING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
-    placement::begin_unfenced(c, &bot, &plan, Some(&selling), true, &FixedClock(at(T0))).unwrap()
+    placement::begin_unfenced(c, &bot, &plan, Some(placement::Op::Rebalance(&selling)), true, &FixedClock(at(T0))).unwrap()
 }
 async fn send(o: &store::Opened, t: &ScriptedTransport, id: i64, intent: &placement::Intent) -> placement::Sent {
     placement::send_recorded(&o.primary, &venue(t), &model::load_bot(&o.primary, id).unwrap(), intent, &FixedClock(at(T0))).await.unwrap()

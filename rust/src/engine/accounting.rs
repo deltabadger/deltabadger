@@ -236,7 +236,7 @@ fn rails_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec
 fn buy_intent_quote(bot: &Bot) -> Result<Option<BigDec>, EngineError> {
     let Some(intent) = bot.rust_placement() else { return Ok(None) };
     if intent.get("side").is_some_and(|s| s == "sell") { return Ok(None); }
-    if intent.get("transaction_type").is_some_and(|k| k == "REBALANCE") { return Ok(None); }
+    if intent.get("transaction_type").is_some_and(|k| !k.is_null() && k != "REGULAR") { return Ok(None); }
     let quote = intent["quote_amount"].as_str().ok_or_else(||data("unreadable intent quote"))?;
     BigDec::parse(quote).map(Some).map_err(data)
 }
@@ -352,7 +352,7 @@ pub enum CapGuard { Place(OrderPlan), BelowMinimum(OrderPlan) }
 /// At most four venue increments may be removed; a larger change refuses with a reason, under the intent lock.
 /// Only a REGULAR buy spends the DCA cap: a REBALANCE buy (an owed swap leg, even on a stopped bot whose cap is spent) passes.
 pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<CapGuard, EngineError> {
-    if plan.kind != super::amount::TxKind::Regular { return Ok(CapGuard::Place(plan.clone())); }
+    match plan.kind { super::amount::TxKind::Regular => {}, super::amount::TxKind::Rebalance | super::amount::TxKind::Liquidation | super::amount::TxKind::Redeploy => return Ok(CapGuard::Place(plan.clone())) }
     let Some(exact) = exact_cap_available(c, bot)? else { return Ok(CapGuard::Place(plan.clone())); };
     let (base, quote, price_scale) = plan.ticker.scales().map_err(EngineError::Data)?;
     let rules = || -> Result<&'static super::venue_rules::VenueRules, EngineError> {

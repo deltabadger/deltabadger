@@ -324,7 +324,12 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
     let checkpoint_after_recovery = placement::pending_requires_checkpoint(bot)?;
     let settled = match placement::recover_since(c, venue, bot, clock, cx.process_start).await? {
-        Recovery::Pending => return Ok(TickOutcome::AwaitingReconciliation),
+        Recovery::Pending => {
+            if let Some(kind) = bot.rust_placement().and_then(|v| v["transaction_type"].as_str().and_then(super::amount::TxKind::parse)) {
+                placement::halt_unknown(c, bot_id, kind, venue.rules(), clock.now())?;
+            }
+            return Ok(TickOutcome::AwaitingReconciliation);
+        },
         Recovery::Recorded(tx) => { *recovered = Some(tx); true }
         Recovery::NotPlaced => true,
         Recovery::NoIntent => false,
@@ -430,6 +435,18 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
         let now = clock.now();
         model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_rebalance_pending", Level::Info, json!({}), now))?;
         return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false }));
+    }
+    for kind in [super::amount::TxKind::Liquidation, super::amount::TxKind::Redeploy] {
+        super::composition::promote_orphan(c, bot_id, kind, clock.now())?;
+        let (blocked, event) = match kind {
+            super::amount::TxKind::Liquidation => (super::composition::liquidation_in_flight(c, bot, clock.now())?, "dca_skipped_liquidation_pending"),
+            super::amount::TxKind::Redeploy => (super::composition::redeploy_in_flight(c, bot)?, "dca_skipped_redeploy_pending"),
+            super::amount::TxKind::Regular | super::amount::TxKind::Rebalance => unreachable!(),
+        };
+        if blocked {
+            model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, event, Level::Info, json!({}), clock.now()))?;
+            return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false }));
+        }
     }
     // Bot::Rebalanceable's stand-down, the outermost decorator of execute_action (rebalanceable.rb:75-82): a restatement the
     // market has not priced yet, or a split the bot cannot size. No sweep, no order, no balance read; success, so the bot goes

@@ -85,6 +85,15 @@ impl Intent {
     }
 }
 
+/// Context committed with a composition operation's intent.
+#[derive(Clone, Copy)]
+pub enum Op<'a> { Rebalance(&'a super::rebalance::Pending), Liquidation { symbol: &'a str }, Redeploy }
+
+/// Tests only: rehydrate a committed intent to exercise the commit/send boundary. Production recovery never resubmits it.
+pub fn load_intent(c: &Connection, bot: &Bot, producer: Option<model::CredentialVersion>) -> Result<Option<Intent>, EngineError> {
+    bot.rust_placement().map(|v| Intent::from_json(c, bot, &v, producer)).transpose()
+}
+
 /// Bots whose unresolved order (`rust_placement`) was sent under another composition, asset, exchange or quote than the
 /// row holds now. `eligibility::guard` refuses ANY such change while the order is unresolved. Recovery would cope, since
 /// `Intent::from_json` finds the order's ticker by its id whatever the bot's settings, but Rails freezes a working bot's
@@ -187,10 +196,9 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
     begin_unfenced(c, bot, plan, None, false, clock)
 }
 
-/// Tests only: `begin` for a REBALANCE intent (`rebalance`: the phase it writes) and with a sale's `loss` verdict, so a claim
-/// and its settlement can be driven without the fence (PLAN-wash-sale WS-2).
-pub fn begin_unfenced(c: &Connection, bot: &Bot, plan: &OrderPlan, rebalance: Option<&super::rebalance::Pending>, loss: bool, clock: &dyn Clock) -> Result<Intent, EngineError> {
-    match begin_checked(c, bot, plan, clock, None, None, None, rebalance, loss, None)? {
+/// Tests only: an operation context and a sale's loss verdict, driven without the sizing fence.
+pub fn begin_unfenced(c: &Connection, bot: &Bot, plan: &OrderPlan, op: Option<Op<'_>>, loss: bool, clock: &dyn Clock) -> Result<Intent, EngineError> {
+    match begin_checked(c, bot, plan, clock, None, None, None, op, loss, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
         Begun::Refused(why) => Err(EngineError::Data(why)),
@@ -246,10 +254,19 @@ pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, ticke
 #[allow(clippy::too_many_arguments)]
 /// A sell's `loss` claims the lock and rewrites Rails' three keys in the same transaction (rebalancer.rb:59-69).
 pub fn begin_rebalance(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, state: &super::rebalance::Pending, loss: bool, hold: Option<&crate::venue::PlacementHold>, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,Some(state),loss,hold)
+    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,Some(Op::Rebalance(state)),loss,hold)
+}
+/// A composition operation's intent, with the same snapshot, credential and reversal fences as rebalance.
+#[allow(clippy::too_many_arguments)]
+pub fn begin_operation(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, op: Op<'_>, loss: bool, hold: Option<&crate::venue::PlacementHold>, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c, bot, plan, clock, Some((tickers, composition, reconciled)), Some(version), identity, Some(op), loss, hold)
 }
 #[allow(clippy::too_many_arguments)]
-fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>, identity: Option<Value>, rebalance: Option<&super::rebalance::Pending>, loss: bool, hold: Option<&crate::venue::PlacementHold>) -> Result<Begun, EngineError> {
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>, identity: Option<Value>, op: Option<Op<'_>>, loss: bool, hold: Option<&crate::venue::PlacementHold>) -> Result<Begun, EngineError> {
+    let context_matches = matches!((plan.kind, op),
+        (TxKind::Regular, None) | (TxKind::Rebalance, Some(Op::Rebalance(_))) |
+        (TxKind::Liquidation, Some(Op::Liquidation { .. })) | (TxKind::Redeploy, Some(Op::Redeploy)));
+    if !context_matches { return Err(EngineError::Data("order kind does not match its operation context".into())); }
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
@@ -280,10 +297,9 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         }
         // Still the run that sized it: a stop and a start put the row back to working, so it must still be the claim this tick
         // took (Automation::Statusable#stopped_mid_tick?): executing, with the same started_at and last_action_job_at.
-        let same_run = if rebalance.is_some() {
-            !matches!(current.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived)
-        } else {
-            current.status == crate::enums::BotStatus::Executing && current.run_identity()? == bot.run_identity()?
+        let same_run = match plan.kind {
+            TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => !matches!(current.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived),
+            TxKind::Regular => current.status == crate::enums::BotStatus::Executing && current.run_identity()? == bot.run_identity()?,
         };
         if !same_run {
             super::log(&format!("[engine] bot {}: {} order not placed: it was stopped after it was sized", bot.id, plan.ticker.ticker));
@@ -300,7 +316,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 return Ok(Begun::LedgerStale(Box::new(stale)));
             }
             else if ticker_changed || tickers.iter().any(|t| !t.available || !t.trading_enabled) { Some("its ticker data changed or is unavailable") }
-            else if !(if rebalance.is_some() { super::eligibility::rebalance_reasons(&tx, &current)? } else { super::eligibility::bot_reasons(&tx, &current)? }).is_empty() {
+            else if !(match plan.kind { TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => super::eligibility::rebalance_reasons(&tx, &current)?, TxKind::Regular => super::eligibility::bot_reasons(&tx, &current)? }).is_empty() {
                 Some("its members or provider are no longer eligible")
             }
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
@@ -322,7 +338,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         &guarded
     } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let mut intent = Intent { wash_claim: None, source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: if rebalance.is_some() { None } else { Some(bot.run_identity()?) }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let mut intent = Intent { wash_claim: None, source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: match plan.kind { TxKind::Regular => Some(bot.run_identity()?), TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => None }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -342,16 +358,28 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     if let Some(Value::Object(identity)) = identity { for (k, value) in identity { v[k] = value; } }
     // The sale's wash-sale claim, after every fence (as Rails claims after #stopped_mid_tick?), with the intent.
     let asset = plan.ticker.base_asset_id;
-    if plan.side == Side::Sell && rebalance.is_some() { super::wash::claim_rebalance_sell(&tx, &current, asset, loss, now)?; }
-    else if plan.side == Side::Sell && loss {
-        if let Some(claim) = super::wash::claim(&tx, current.user_id, asset, now.date_naive(), now)? {
-            let held = super::wash::Held { asset_id: asset, claim };
-            v["wash_claim"] = held.to_json();
-            intent.wash_claim = Some(held);
+    if plan.side == Side::Sell {
+        match plan.kind {
+            TxKind::Rebalance => super::wash::claim_rebalance_sell(&tx, &current, asset, loss, now)?,
+            TxKind::Regular | TxKind::Liquidation => {
+                if loss {
+                    if let Some(claim) = super::wash::claim(&tx, current.user_id, asset, now.date_naive(), now)? {
+                        let held = super::wash::Held { asset_id: asset, claim };
+                        v["wash_claim"] = held.to_json();
+                        intent.wash_claim = Some(held);
+                    }
+                }
+            }
+            TxKind::Redeploy => {}
         }
     }
     set_intent(&tx, bot.id, Some(&v))?;
-    if let Some(state) = rebalance { super::rebalance::set_pending(&tx, bot.id, state)?; }
+    match op {
+        Some(Op::Rebalance(state)) => super::rebalance::set_pending(&tx, bot.id, state)?,
+        Some(Op::Liquidation { symbol }) => super::composition::start(&tx, bot.id, plan.kind, &intent.cl_ord_id, Some(symbol))?,
+        Some(Op::Redeploy) => super::composition::start(&tx, bot.id, plan.kind, &intent.cl_ord_id, None)?,
+        None => {}
+    }
     tx.commit()?; // durable before the send
     Ok(Begun::Intent(Box::new(intent)))
 }
@@ -496,7 +524,10 @@ pub fn below_minimum(exchange_type: &str, code: Option<&str>, errors: &[String])
 /// signal orders (their own consumed-call lifecycle, engine::signal) and REBALANCE legs (a below-minimum rebalance buy
 /// abandons its dust, rebalance.rs).
 fn skips_below_minimum(intent: &Intent) -> bool {
-    intent.plan.side == Side::Buy && intent.plan.kind == TxKind::Regular && intent.run.is_some() && !intent.signal()
+    match intent.plan.kind {
+        TxKind::Regular => intent.plan.side == Side::Buy && intent.run.is_some() && !intent.signal(),
+        TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => false,
+    }
 }
 
 /// Acquire the dispatch write lock before rechecking the captured generation. The crypto adapters and Alpaca have no
@@ -534,9 +565,18 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
     match &sent {
         Sent::Accepted(id) => { record_accepted_in(&tx, bot, intent, id, clock.now())?; }
         Sent::Rejected(errors) => { record_rejected_in(&tx, bot, intent, errors, clock.now())?; }
-        Sent::NotSent(_) => {
+        Sent::NotSent(message) => {
+            if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
             set_intent(&tx, bot.id, None)?;
             settle(&tx, bot.id, intent, Settlement::NotPlaced(Reason::PreTransmission), clock.now())?;
+            match intent.plan.kind {
+                TxKind::Liquidation | TxKind::Redeploy => {
+                    let name = super::composition::name(intent.plan.kind).expect("composition kind");
+                    model::log_activity(&tx, bot.id, &format!("{name}_skipped"), Level::Info,
+                        json!({"base":match intent.plan.kind { TxKind::Liquidation => &intent.plan.ticker.base_code, TxKind::Redeploy => &intent.plan.ticker.base_symbol, TxKind::Regular | TxKind::Rebalance => unreachable!() },"reason":format!("transient: {message}")}), clock.now())?;
+                }
+                TxKind::Regular | TxKind::Rebalance => {}
+            }
         }
         // No failed row: the leg is the tick's to report as skipped. The intent goes in the same checks a rejection's row does.
         Sent::BelowMinimum(_) => {
@@ -544,16 +584,28 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
             set_intent(&tx, bot.id, None)?;
         }
-        Sent::Ambiguous(_) | Sent::Fenced => {}
+        Sent::Ambiguous(message) => match intent.plan.kind {
+            TxKind::Liquidation | TxKind::Redeploy => {
+                if still_pending(&tx, bot.id, &intent.cl_ord_id)? {
+                    settle(&tx, bot.id, intent, Settlement::Halt(format!("placement outcome unknown: {message}")), clock.now())?;
+                }
+            }
+            TxKind::Regular | TxKind::Rebalance => {}
+        },
+        Sent::Fenced => {}
     }
     tx.commit()?;
     Ok(sent)
 }
 
 fn intent_owned(c: &Connection, intent: &Intent) -> Result<bool, EngineError> {
-    if intent.plan.kind == TxKind::Rebalance { return rebalance_claim_holds(c, intent.bot_id); }
-    if intent.signal() { return signal_claim_holds(c, intent.bot_id); }
-    match &intent.run { Some(run) => model::owns_identity(c, intent.bot_id, run), None => Ok(false) }
+    match intent.plan.kind {
+        TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => rebalance_claim_holds(c, intent.bot_id),
+        TxKind::Regular => {
+            if intent.signal() { return signal_claim_holds(c, intent.bot_id); }
+            match &intent.run { Some(run) => model::owns_identity(c, intent.bot_id, run), None => Ok(false) }
+        }
+    }
 }
 
 /// A signal bot's intent (`begin_signal`) is owned while the bot is not deleted or archived and no reversal bars it, as a
@@ -621,9 +673,31 @@ fn record_accepted_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent
 /// What the intent settles beside its row, in the transaction that removes it: a REBALANCE intent's pending phase (with its
 /// sell's wash-sale claim, rebalance::settle), else a composition sale's claim (wash::settle_claim, the one owner).
 fn settle(tx: &Connection, bot_id: i64, intent: &Intent, settlement: Settlement, now: DateTime<Utc>) -> Result<(), EngineError> {
-    if intent.plan.kind == TxKind::Rebalance { return super::rebalance::settle(tx, bot_id, &intent.plan, settlement, now); }
-    let reason = match settlement { Settlement::Accepted(_) => Reason::Accepted, Settlement::NotPlaced(reason) => reason, Settlement::Halt(_) => Reason::Ambiguous };
-    super::wash::settle_claim(tx, bot_id, super::wash::Holder::Composition(intent.wash_claim.as_ref()), reason, now)
+    let reason = match &settlement { Settlement::Accepted(_) => Reason::Accepted, Settlement::NotPlaced(reason) => *reason, Settlement::Halt(_) => Reason::Ambiguous };
+    match intent.plan.kind {
+        TxKind::Regular => super::wash::settle_claim(tx, bot_id, super::wash::Holder::Composition(intent.wash_claim.as_ref()), reason, now),
+        TxKind::Rebalance => super::rebalance::settle(tx, bot_id, &intent.plan, settlement, now),
+        TxKind::Liquidation | TxKind::Redeploy => {
+            let name = super::composition::name(intent.plan.kind).expect("composition kind");
+            match settlement {
+                Settlement::Accepted(_) => {
+                    model::merge_transient_compact(tx, bot_id, &[(&format!("{name}_pending"), Value::Null)])?;
+                    model::log_activity(tx, bot_id, &format!("{name}_placed"), Level::Info, intent.plan.log_details(), now)?;
+                }
+                Settlement::NotPlaced(Reason::Rejected { safe: true, .. } | Reason::PreTransmission) => {
+                    model::merge_transient_compact(tx, bot_id, &[(&format!("{name}_pending"), Value::Null)])?;
+                }
+                Settlement::Halt(message) => { super::composition::halt(tx, bot_id, intent.plan.kind, &message, intent.plan.log_details(), now)?; }
+                Settlement::NotPlaced(_) => { super::composition::halt(tx, bot_id, intent.plan.kind, "placement intent survived its worker", intent.plan.log_details(), now)?; }
+            }
+            let holder = match intent.plan.kind {
+                TxKind::Liquidation => super::wash::Holder::Liquidation(intent.wash_claim.as_ref()),
+                TxKind::Redeploy => super::wash::Holder::None,
+                TxKind::Regular | TxKind::Rebalance => unreachable!(),
+            };
+            super::wash::settle_claim(tx, bot_id, holder, reason, now)
+        }
+    }
 }
 
 pub fn safe_rejection(errors: &[String]) -> bool {
@@ -641,13 +715,24 @@ fn record_rejected_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent
     let safe = safe_rejection(errors);
     // Bot::Rebalancer#handle_placement_failure: only placement_transient_error? proves a pre-trade rejection, which writes the
     // failed REBALANCE row and undoes the attempt; any other failure halts the swap as ambiguous, with no row.
-    if intent.plan.kind == TxKind::Rebalance {
+    match intent.plan.kind {
+      TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => {
         if safe { write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
-        set_intent(tx, bot.id, None)?;
+        match intent.plan.kind {
+            TxKind::Rebalance => set_intent(tx, bot.id, None)?,
+            TxKind::Liquidation | TxKind::Redeploy => { if safe { set_intent(tx, bot.id, None)?; } }
+            TxKind::Regular => unreachable!(),
+        }
         let settlement = if safe { Settlement::NotPlaced(Reason::Rejected { safe, unknown: false }) }
-            else { Settlement::Halt(format!("{} placement failed: {}", intent.plan.side.as_str(), crate::ruby::to_sentence(errors))) };
+            else { Settlement::Halt(match intent.plan.kind {
+                TxKind::Rebalance => format!("{} placement failed: {}", intent.plan.side.as_str(), crate::ruby::to_sentence(errors)),
+                TxKind::Liquidation | TxKind::Redeploy => format!("placement failed: {}", crate::ruby::to_sentence(errors)),
+                TxKind::Regular => unreachable!(),
+            }) };
         settle(tx, bot.id, intent, settlement, now)?;
         return Ok(safe);
+      }
+      TxKind::Regular => {}
     }
     // Rails restores a composition sale's claim unless Exchange#ambiguous_placement_error? (order_setter.rb:83); its
     // HTTP/acknowledgement half is already Sent::Ambiguous here (add_outcome_unknown), its text half is #transient_error?.
@@ -673,7 +758,10 @@ pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
 pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
     let Some(raw) = bot.rust_placement() else { return Ok(false) };
     // A REBALANCE order belongs to no DCA run (begin_rebalance).
-    if raw["transaction_type"].as_str() == Some(TxKind::Rebalance.as_str()) { return Ok(false); }
+    match raw.get("transaction_type").and_then(Value::as_str).and_then(TxKind::parse) {
+        Some(TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy) => return Ok(false),
+        Some(TxKind::Regular) | None => {}
+    }
     let Some(run) = raw.get("run_identity").filter(|v| !v.is_null()) else { return Ok(true) };
     let run = model::RunIdentity::from_json(run).ok_or_else(||EngineError::Data("unreadable intent run identity".into()))?;
     Ok(run == bot.run_identity()?)
@@ -746,7 +834,6 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             // The intent goes before the fill is applied: the amount cap counts an unresolved intent as spent, and this one is
             // now its row, which polling's stop trigger must not count twice.
             set_intent(&tx, bot.id, None)?;
-            let rebalance = intent.plan.kind == TxKind::Rebalance;
             settle(&tx, bot.id, &intent, Settlement::Accepted(id), now)?;
             // As FetchAndUpdateOrderJob would, after placement; its amount-limit stop lands with the fill (the tick ends here).
             // The base cap's too: a recovered sell fill that uses it up stops the bot (amount_sold) and owes its mail.
@@ -755,8 +842,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
                 super::tick::stop_for_amount_limit(&tx, bot.id, cap, now)?;
             }
             // A REBALANCE order belongs to no DCA run, and a signal bot has no schedule: neither is deferred.
-            if intent.signal() { super::signal::clear_marker(&tx, bot.id, &intent.cl_ord_id)?; }
-            else if !rebalance && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, now)?; }
+            defer_recovered(&fenced, &intent, now)?;
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
@@ -767,9 +853,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             set_intent(&tx, bot.id, None)?;
             // Absence proven: the claim stays, as a Rails worker crash leaves it.
             settle(&tx, bot.id, &intent, Settlement::NotPlaced(Reason::Absent), started)?;
-            let rebalance = intent.plan.kind == TxKind::Rebalance;
-            if !rebalance && intent.signal() { super::signal::clear_marker(&tx, bot.id, &intent.cl_ord_id)?; }
-            else if !rebalance && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, started)?; }
+            defer_recovered(&fenced, &intent, started)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
@@ -802,7 +886,10 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
     set_intent(&tx, bot_id, None)?;
     settle(&tx, bot_id, &intent, settlement, now)?;
     // A signal bot has no schedule to defer; its marker is the user's to resolve (the bot page).
-    if intent.plan.kind != TxKind::Rebalance && !intent.signal() && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_to_next_checkpoint(&tx, &bot, now)?; }
+    match intent.plan.kind {
+        TxKind::Regular => { if !intent.signal() && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_to_next_checkpoint(&tx, &bot, now)?; } }
+        TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => {}
+    }
     model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;
@@ -814,4 +901,42 @@ pub fn composition_snapshot(c: &Connection, bot: &Bot) -> Result<Value, EngineEr
     let members: String = c.query_row("SELECT json_group_array(json_array(asset_id,ticker_id,target_allocation,in_index)) FROM (SELECT asset_id,ticker_id,target_allocation,in_index FROM bot_index_assets WHERE bot_id=?1 ORDER BY id)", [bot.id], |r| r.get(0))?;
     let members: Value = serde_json::from_str(&members).map_err(|_| EngineError::Data("unreadable composition".into()))?;
     Ok(json!({"type":bot.bot_type,"exchange":bot.exchange_id,"settings":bot.settings,"members":members}))
+}
+
+fn defer_recovered(c: &model::FencedTransaction<'_>, intent: &Intent, now: DateTime<Utc>) -> Result<(), EngineError> {
+    match intent.plan.kind {
+        TxKind::Regular => {
+            if intent.signal() { super::signal::clear_marker(c, intent.bot_id, &intent.cl_ord_id)?; }
+            else if intent.run.is_none() || intent_owned(c, intent)? { defer_failure(c, &model::load_bot(c, intent.bot_id)?, now)?; }
+        }
+        TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => {}
+    }
+    Ok(())
+}
+
+/// A still-unanswered composition order becomes clearable after the venue's absence margin.
+/// The comparison and state transition share a write lock; a recovered or cleared intent wins exclusively.
+pub fn halt_unknown(c: &Connection, bot_id: i64, kind: TxKind, rules: &super::venue_rules::VenueRules, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    match kind {
+        TxKind::Regular => return Ok(false),
+        TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => {}
+    }
+    model::locked(c, |c| {
+        let bot = model::load_bot(c, bot_id)?;
+        let Some(raw) = bot.rust_placement() else { return Ok(false) };
+        if raw["transaction_type"].as_str() != Some(kind.as_str()) { return Ok(false); }
+        let at = crate::codec::optional_time(raw.get("at")).map_err(|_| EngineError::Data("rust_placement.at is unreadable".into()))?;
+        let margin = Duration::seconds(rules.absence_margin_secs.max(DEADLINE_SECONDS + ABSENCE_AFTER_SECONDS));
+        if at.is_none_or(|at| now < at + margin) { return Ok(false); }
+        let reason = format!("{} placement outcome unknown: the venue has not answered for order {}", raw["side"].as_str().unwrap_or("buy"), raw["cl_ord_id"].as_str().unwrap_or_default());
+        match kind {
+            TxKind::Regular => Ok(false),
+            TxKind::Rebalance => {
+                if super::rebalance::pending(&bot.transient)?.is_some_and(|p| p.phase == super::rebalance::PHASE_AMBIGUOUS) { return Ok(false); }
+                super::rebalance::halt(c, bot_id, &reason, now)?;
+                Ok(true)
+            }
+            TxKind::Liquidation | TxKind::Redeploy => super::composition::halt(c, bot_id, kind, &reason, json!({}), now),
+        }
+    })
 }

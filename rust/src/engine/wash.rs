@@ -178,7 +178,7 @@ pub fn claim_rebalance_sell(c: &Connection, bot: &Bot, asset_id: i64, loss: bool
 
 /// Whose claim a settlement settles: a composition sale's (from its intent), a rebalance sell's (from the bot's keys, Rails'
 /// own included), or none (a buy, a signal order).
-pub enum Holder<'a> { None, Composition(Option<&'a Held>), RebalanceSell }
+pub enum Holder<'a> { None, Composition(Option<&'a Held>), Liquidation(Option<&'a Held>), RebalanceSell }
 
 /// Why a placement that may hold a claim settled.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -209,6 +209,7 @@ pub enum Reason {
 /// |---|---|---|
 /// | composition | Rejected, not `unknown` (Rails' `Failure`, order_setter.rb:83) | restore |
 /// | composition | PreTransmission (Rails re-raises; the composition does not rescue) | keep |
+/// | liquidation | Rejected `safe`, PreTransmission | restore |
 /// | rebalance sell | Rejected `safe`, PreTransmission, BelowMinimum (rebalancer.rb:239-247,282-301,307-319) | restore, clear the keys |
 /// | rebalance sell | Rejected unsafe (the halt) | keep, keys stay |
 /// | any | Absent, Fenced, Ambiguous | keep |
@@ -217,10 +218,15 @@ pub enum Reason {
 /// Accepted is settled once: every accepted path removes the intent in the transaction that calls this.
 pub fn settle_claim(c: &Connection, bot_id: i64, holder: Holder<'_>, reason: Reason, now: DateTime<Utc>) -> Result<(), EngineError> {
     match holder {
-        Holder::None | Holder::Composition(None) => Ok(()),
+        Holder::None | Holder::Composition(None) | Holder::Liquidation(None) => Ok(()),
         Holder::Composition(Some(held)) => match reason {
             Reason::Accepted => log_locked(c, &model::load_bot(c, bot_id)?, held.asset_id, now),
             Reason::Rejected { unknown: false, .. } => restore(c, model::load_bot(c, bot_id)?.user_id, held.asset_id, &held.claim),
+            _ => Ok(()),
+        },
+        Holder::Liquidation(Some(held)) => match reason {
+            Reason::Accepted => log_locked(c, &model::load_bot(c, bot_id)?, held.asset_id, now),
+            Reason::Rejected { safe: true, .. } | Reason::PreTransmission => restore(c, model::load_bot(c, bot_id)?.user_id, held.asset_id, &held.claim),
             _ => Ok(()),
         },
         Holder::RebalanceSell => {
