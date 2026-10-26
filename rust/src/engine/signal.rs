@@ -143,7 +143,7 @@ pub const CAP_REACHED: &str = "signal_quote_amount_limit_reached";
 #[allow(clippy::too_many_arguments)]
 async fn gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &SignalRule, ticker: &model::Ticker, call: &SignalCall, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Option<Step>, EngineError> {
     use super::conditions::{self, Evaluated};
-    let evaluated = match conditions::evaluate_side(c, venue, bot, rule.side == Side::Sell, clock, cx.prices, &cx.credential_version).await {
+    let (kind, evaluated) = match conditions::gate(c, venue, bot, rule.side == Side::Sell, clock, cx.prices, &cx.credential_version).await {
         Ok(evaluated) => evaluated,
         // Stopped, or its key replaced, while the price was read: nothing was written, and the call runs again.
         Err(EngineError::RunFenced | EngineError::CredentialsChanged) => return Ok(Some(Step::Again)),
@@ -162,7 +162,7 @@ async fn gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule:
     // Fenced as the gate's met_at writes are: stopped, or its key replaced, while the price was read keeps the call.
     match model::run_credential_write(c, bot, &cx.credential_version, |tx| {
         model::remove_signal_call(tx, bot.id, &call.source)?;
-        model::log_activity(tx, bot.id, CONDITION_UNMET, Level::Info, json!({ "signal_id": call.signal_id, "limit_type": "price" }), now)
+        model::log_activity(tx, bot.id, CONDITION_UNMET, Level::Info, json!({ "signal_id": call.signal_id, "limit_type": kind.limit_type() }), now)
     }) {
         Ok(()) => Ok(Some(Step::Ran)),
         Err(EngineError::RunFenced | EngineError::CredentialsChanged) => Ok(Some(Step::Again)),

@@ -65,7 +65,7 @@ pub fn orders_may_execute(c: &Connection, id: i64) -> rusqlite::Result<bool> {
 /// waits for any job holding the venue (D-FENCE-PER-BOT).
 pub fn engine_holds(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> {
     use crate::enums::BotStatus;
-    Ok(bot.status == BotStatus::Executing || (bot.status == BotStatus::Waiting && !model::price_paused(c, bot)?) || bot.rust_placement().is_some())
+    Ok(bot.status == BotStatus::Executing || (bot.status == BotStatus::Waiting && model::condition_paused_type(c, bot)?.is_none()) || bot.rust_placement().is_some())
 }
 
 const SET_SETTING: &str = "UPDATE bots
@@ -218,16 +218,22 @@ fn settings_inner<T>(
     // Bot::PriceLimitable#reset_price_limit_info_cache (before_save, when the settings are written): a price-rule field changed
     // on either side drops the status line's info of the side the bot is saved on, as Rails does; D-INFO-SIDE: and the info of
     // the side whose rule changed (each side has its own line).
-    const PRICE_INFO_FIELDS: [&str; 5] = ["price_limit", "price_limit_value_condition", "price_limit_in_ticker_id", "price_limit_range_lower_bound", "price_limit_range_upper_bound"];
     if !effects.settings.set.is_empty() {
-        use crate::engine::conditions::{forget_info, side_of, PRICE};
-        let changed = |selling: bool| PRICE_INFO_FIELDS.iter().map(|k| if selling { format!("sell_{k}") } else { k.to_string() })
-            .any(|key| !super::draft::equal(draft.raw_settings.get(&key).unwrap_or(&Value::Null), final_settings.get(&key).unwrap_or(&Value::Null)));
-        let (buy, sell) = (changed(false), changed(true));
-        let active = final_settings.get("direction").and_then(Value::as_str) == Some("selling");
-        for selling in [false, true] {
-            if (buy || sell) && (selling == active || if selling { sell } else { buy }) {
-                forget_info(&tx, id, PRICE, side_of(selling)).map_err(|e| error(&format!("{e:?}")))?;
+        use crate::engine::conditions::{forget_info, side_of};
+        for (rule, fields) in [
+            ("price_limit", &["", "_value_condition", "_in_ticker_id", "_range_lower_bound", "_range_upper_bound"][..]),
+            ("price_drop_limit", &["", "_time_window_condition", "_in_ticker_id"][..]),
+            ("moving_average_limit", &["_value_condition", "_in_ticker_id", "_in_ma_type", "_in_timeframe", "_in_period"][..]),
+            ("indicator_limit", &["ed", "_value_condition", "_in_ticker_id", "_in_indicator", "_in_timeframe"][..]),
+        ] {
+            let changed = |selling: bool| fields.iter().map(|suffix| format!("{}{rule}{suffix}", if selling { "sell_" } else { "" }))
+                .any(|key| !super::draft::equal(draft.raw_settings.get(&key).unwrap_or(&Value::Null), final_settings.get(&key).unwrap_or(&Value::Null)));
+            let (buy, sell) = (changed(false), changed(true));
+            let active = final_settings.get("direction").and_then(Value::as_str) == Some("selling");
+            for selling in [false, true] {
+                if (buy || sell) && (selling == active || if selling { sell } else { buy }) {
+                    forget_info(&tx, id, rule, side_of(selling)).map_err(|e| error(&format!("{e:?}")))?;
+                }
             }
         }
     }
@@ -698,7 +704,7 @@ pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i
     let bot = model::load_bot(&tx, id)?;
     // A bot resting on its price rule is not mid-tick: Rails flips it (flip_direction! sets it `scheduled` and cancels its
     // check jobs, reversible.rb:188-191). The generation bump below fences a check whose price read is in flight.
-    let paused = model::price_paused(&tx, &bot)?;
+    let paused = model::condition_paused_type(&tx, &bot)?.is_some();
     if engine_holds(&tx, &bot)? { return Ok(Reversal::InProgress); }
     let Some(mut draft) = Draft::load(&tx, owner, id, "en")? else { return Ok(Reversal::Missing) };
     let carry = pending(&tx, &draft.original, now)?;

@@ -1,0 +1,23 @@
+{{ source|safe }}
+{% if empty %}
+  <div class="welcome-screen">
+    <p>{{ v.t("rules.index.welcome.keep_coins_safe") }}</p>
+    <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ add }}">
+      {% include "svg/_24x24_plus.html" %}
+</a>  </div>
+{% else %}
+  <div class="page-head">
+    <div></div>
+    <div>
+      <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ add }}">
+        <span class="d-none d-sm-inline">{{ v.t("button.add") }}</span>
+        {% include "svg/_24x24_plus.html" %}
+</a>    </div>
+  </div>
+  <div class="rules">
+    <div class="rules-list">
+      {{ tiles|safe }}
+    </div>
+    {{ logs|safe }}
+  </div>
+{% endif %}

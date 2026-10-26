@@ -79,12 +79,10 @@ pub async fn price_limit_info_update(State(app): State<App>, Extension(ctx): Ext
     info_update(app, ctx, Some(crate::engine::conditions::PRICE)).await
 }
 
-/// The other three rules' lines (`price_drop_limit_info_update`, `moving_average_limit_info_update`,
-/// `indicator_limit_info_update`): answered as Rails answers, but nothing computes their values until slice 7b-3, so their
-/// pages keep the loader.
-pub async fn price_drop_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, None).await }
-pub async fn moving_average_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, None).await }
-pub async fn indicator_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, None).await }
+/// The candle rules' status lines request an engine reading for the selected side.
+pub async fn price_drop_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, Some("price_drop_limit")).await }
+pub async fn moving_average_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, Some("moving_average_limit")).await }
+pub async fn indicator_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, Some("indicator_limit")).await }
 
 /// A bot that is not the user's is "not found"; a deleted one is found (`current_user.bots.find_by(id:)`). No eligibility
 /// guard: the request is a Rust-only key that nothing eligibility reads.

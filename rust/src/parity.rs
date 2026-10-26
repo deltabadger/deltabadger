@@ -259,7 +259,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let transport = ScriptedTransport::from_script(&scenario["script"]["alpaca"]);
         let posted = || transport.posted_orders().len();
         let venue = AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper")));
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         // A raised follow-up is reported like Rails' job raise; a throttle or transient failure is a retry Rails enqueues.
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
@@ -279,7 +279,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let rules = row.rules.ok_or_else(|| EngineError::Data(format!("{} does not trade", row.name)))?;
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), row.base, "s").with_pairs(pairs).with_rules(rules);
         let posted = || binance_sent(&transport).len();
-        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": binance_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -295,7 +295,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::kucoin::KucoinVenue::new(transport.clone(), crate::venue::kucoin::URL).with_pairs(pairs);
         let posted = || kucoin_sent(&transport).len();
-        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": kucoin_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -311,7 +311,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::bitget::BitgetVenue::new(transport.clone(), crate::venue::bitget::URL).with_pairs(pairs);
         let posted = || bitget_sent(&transport).len();
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": bitget_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -329,7 +329,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let venue = crate::venue::bybit::BybitVenue::new(transport.clone(), crate::venue::bybit::URL).with_pairs(pairs)
             .with_history_db(o.primary.path().expect("the scenario's install database").into(), start);
         let posted = || bybit_sent(&transport).len();
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": bybit_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -346,7 +346,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::coinbase::CoinbaseVenue::new(transport.clone(), crate::venue::coinbase::URL).with_pairs(pairs);
         let posted = || coinbase_sent(&transport).len();
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": coinbase_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -363,7 +363,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::gemini::GeminiVenue::new(transport.clone(), crate::venue::gemini::URL).with_pairs(pairs);
         let posted = || gemini_sent(&transport).len();
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": gemini_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -386,7 +386,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let wire = HyperliquidScript { scripted: transport.clone(), invalid_key };
         let venue = crate::venue::hyperliquid::HyperliquidVenue::new(wire, base, HYPERLIQUID_HARNESS_ADDRESS).with_pairs(pairs);
         let posted = || hyperliquid_sent(&transport).len();
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": hyperliquid_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -403,7 +403,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::bitvavo::BitvavoVenue::new(transport.clone(), crate::venue::bitvavo::URL).with_pairs(pairs);
         let posted = || bitvavo_sent(&transport).len();
-        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": bitvavo_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -419,7 +419,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::mexc::MexcVenue::new(transport.clone(), crate::venue::mexc::URL, "s").with_pairs(pairs);
         let posted = || mexc_sent(&transport).len();
-        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": mexc_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -435,7 +435,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::bitrue::BitrueVenue::new(transport.clone(), crate::venue::bitrue::URL, "s").with_pairs(pairs);
         let posted = || query_sent(&transport, crate::venue::bitrue::ORDER_PATH).len();
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": query_sent(&transport, crate::venue::bitrue::ORDER_PATH), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -452,7 +452,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::bingx::BingxVenue::new(transport.clone(), crate::venue::bingx::URL, "s").with_pairs(pairs);
         let posted = || query_sent(&transport, crate::venue::bingx::ORDER_PATH).len();
-        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": query_sent(&transport, crate::venue::bingx::ORDER_PATH), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
@@ -467,7 +467,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     let transport = ScriptedTransport::from_script(&script);
     let posted = || kraken_sent(&transport).len();
     let venue = KrakenVenue::new(transport.clone());
-    let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+    let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
     let sent = kraken_sent(&transport);
     let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)? });
     if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
@@ -481,8 +481,9 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
 /// one order, 5 s after it; the SQL a scenario runs `between` the ticks on both sides; the engine's own reconciliation tick at
 /// `recover_at` (Rust only: Rails has no job then, its next run is at next_interval_checkpoint_at); the next checkpoint's tick
 /// at `next_at` (both). Returns how the poll failed and, when there is a reconciliation tick, how many orders it sent.
-async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, posted: &dyn Fn() -> usize)
+async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, posted: &dyn Fn() -> usize, transport: &ScriptedTransport)
     -> Result<(Option<polling::PollFailure>, Option<usize>, Option<Value>), EngineError> {
+    transport.set_now(start);
     // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
     // Slice L: the first tick's below-minimum warning, as how many rows it names (Rails' broadcast_below_minimums_warning).
@@ -507,6 +508,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         let mut state = crate::engine::run::Resyncs::default();
         let mut now = when;
         for _ in 0..3 {
+            transport.set_now(now);
             let Some((_, marker)) = crate::engine::index::resync_marked(&o.primary)?.into_iter().find(|(id, _)| *id == bot_id) else { break };
             let handle = |bot: &model::Bot| { let h = crate::venue::Handle::for_bot(venue, &o.primary, bot)?; let version = h.producer(); Ok((h, version)) };
             let mut wake = i64::MAX;
@@ -525,8 +527,8 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
             _ => return Err(EngineError::Data("reverse: the bot was not reversed".into())),
         }
     }
-    if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx).await? { checks.push(queued(crate::engine::conditions::end_of_minute(t))); } }
-    if scenario["signals"].is_array() { signal_calls(o, venue, scenario, bot_id, start, &cx).await?; }
+    if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx, transport).await? { checks.push(queued(condition_next(&o.primary, bot_id, t)?)); } }
+    if scenario["signals"].is_array() { signal_calls(o, venue, scenario, bot_id, start, &cx, transport).await?; }
     // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
     let mut poll = None;
     if let Some(ext) = scenario["poll"].as_str() {
@@ -539,16 +541,18 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     }
     let mut recover_sent = None;
     if let Some(when) = at("recover_at")? {
+        transport.set_now(when);
         let before = posted();
         tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(when), &mut Attempts::default(), &mut None, &cx).await?;
         recover_sent = Some(posted() - before);
     }
     // Bot::PriceLimitCheckJob at `check_at`: met, the Bot::ActionJob it enqueues runs at once.
     if let Some(when) = at("check_at")? {
+        transport.set_now(when);
         use crate::engine::conditions::{self, Checked};
         let bot = model::load_bot(&o.primary, bot_id)?;
         match conditions::check(&o.primary, venue, &bot, &FixedClock(when), &prices, &cx.credential_version).await {
-            Ok(Checked::Rearmed) => { if let Some(t) = ticks(o, venue, bot_id, when, &cx).await? { checks.push(queued(conditions::end_of_minute(t))); } }
+            Ok(Checked::Rearmed) => { if let Some(t) = ticks(o, venue, bot_id, when, &cx, transport).await? { checks.push(queued(condition_next(&o.primary, bot_id, t)?)); } }
             Ok(Checked::Next(t)) => checks.push(queued(t)),
             Ok(Checked::Gone) => {}
             // The job raised: no successor (the chain waits for Repair).
@@ -564,23 +568,37 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
             o.primary.execute_batch(sql.as_str().ok_or_else(|| EngineError::Data(format!("scenario.info.sql: {sql}")))?)?;
         }
         let when: DateTime<Utc> = phase["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.info: {phase}")))?;
+        transport.set_now(when);
         use crate::engine::conditions;
-        conditions::want_info(&o.primary, bot_id, None, conditions::PRICE, None, "en")?;
+        let kind = match scenario["info_job"].as_str() {
+            Some("Bot::BroadcastIndicatorLimitInfoUpdateJob") => conditions::Rule::Indicator,
+            Some("Bot::BroadcastMovingAverageLimitInfoUpdateJob") => conditions::Rule::MovingAverage,
+            Some("Bot::BroadcastPriceDropLimitInfoUpdateJob") => conditions::Rule::PriceDrop,
+            _ => conditions::Rule::Price,
+        };
+        let name = kind.prefix(false);
+        let target = format!("settings-{}-info", name.replace('_', "-"));
+        conditions::want_info(&o.primary, bot_id, None, name, None, "en")?;
         let mut shown = vec![];
-        for claim in conditions::info_claims(&o.primary, conditions::PRICE)?.into_iter().filter(|c| c.bot.id == bot_id) {
-            if conditions::info(&o.primary, venue, &claim, &FixedClock(when), &prices, &cx.credential_version).await?.is_some() {
+        for claim in conditions::info_claims(&o.primary, name)?.into_iter().filter(|c| c.bot.id == bot_id) {
+            if conditions::info_rule(&o.primary, venue, &claim, kind, &FixedClock(when), &prices, &cx.credential_version).await?.is_some() {
                 let bot = model::load_bot(&o.primary, bot_id)?;
-                let info = &bot.transient[conditions::INFO_KEY][conditions::PRICE][claim.side];
-                let html = crate::web::bot::settings::price_limit_info("en", info, "settings-price-limit-info");
-                shown.push(json!({ "target": "settings-price-limit-info", "html": html.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n") }));
+                let info = &bot.transient[conditions::INFO_KEY][name][claim.side];
+                let html = if kind == conditions::Rule::Price { crate::web::bot::settings::price_limit_info("en", info, &target) } else {
+                    let shown = crate::web::bot::Bot::find(&o.primary, bot.user_id, bot_id, crate::web::bot::For::Page, "en")
+                        .map_err(|e| EngineError::Data(format!("condition info bot: {e:?}")))?.ok_or_else(|| EngineError::Data("condition info bot missing".into()))?;
+                    crate::web::bot::settings::condition_info("en", &shown, name, claim.side == conditions::SELLING, info, &target)
+                };
+                shown.push(json!({ "target": target, "html": html.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n") }));
             }
         }
         infos.push(Value::Array(shown));
     }
-    if let Some(when) = at("next_at")? { ticks(o, venue, bot_id, when, &cx).await?; }
+    if let Some(when) = at("next_at")? { ticks(o, venue, bot_id, when, &cx, transport).await?; }
     // Bot::EvaluateRebalancersJob's fires: one Bot::RebalanceJob each.
     for when in scenario["rebalance_at"].as_array().into_iter().flatten() {
         let when: DateTime<Utc> = when.as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.rebalance_at: {when}")))?;
+        transport.set_now(when);
         crate::engine::rebalance::run(&o.primary, venue, bot_id, &FixedClock(when), &cx).await?;
     }
     if let Some(command)=scenario.get("liquidation") {
@@ -598,7 +616,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
 /// call after call; a call held by the barrier is tried again every 30 s, Bot::SignalJob's own retry cadence, until it
 /// expires (the engine itself wakes at the expiry instead: tests/signal.rs). `before_signal` is the SQL Rails' side ran after
 /// enqueueing (a rule removed).
-async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>) -> Result<(), EngineError> {
+async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<(), EngineError> {
     use crate::engine::signal::{run_next, Step};
     for (i, c) in scenario["signals"].as_array().into_iter().flatten().enumerate() {
         let triggered_at = c["triggered_at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.signals: {c}")))?;
@@ -610,6 +628,7 @@ async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id:
     }
     let mut at = start;
     for _ in 0..40 {
+        transport.set_now(at);
         match run_next(&o.primary, venue, bot_id, &FixedClock(at), cx).await? {
             Step::Idle => break,
             Step::Ran => {}
@@ -620,9 +639,10 @@ async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id:
 }
 
 /// One Bot::ActionJob run at `start` and the retries it enqueues for itself. Some(at): the run at `at` paused the bot.
-async fn ticks<V: Venue>(o: &Opened, venue: &V, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>) -> Result<Option<DateTime<Utc>>, EngineError> {
+async fn ticks<V: Venue>(o: &Opened, venue: &V, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Option<DateTime<Utc>>, EngineError> {
     let (mut at, mut attempts) = (start, Attempts::default());
     for _ in 0..MAX_ATTEMPTS {
+        transport.set_now(at);
         match tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(at), &mut attempts, &mut None, cx).await? {
             TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
             outcome => return Ok(matches!(outcome, TickOutcome::Paused).then_some(at)),
@@ -848,4 +868,10 @@ pub async fn resync_marked(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) 
         crate::engine::run::resync_bot(c, id, &marker, &FixedClock(now), &prices, &mut state, handle, &mut wake).await?;
     }
     Ok(())
+}
+
+fn condition_next(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<DateTime<Utc>, EngineError> {
+    let bot = model::load_bot(c, id)?;
+    let kind = model::condition_paused_type(c, &bot)?.unwrap_or(crate::engine::conditions::Rule::Price);
+    crate::engine::conditions::next_at(&bot, kind, now)
 }

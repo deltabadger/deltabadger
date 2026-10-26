@@ -167,7 +167,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let ids = s.query_map([scheduled], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
     for id in ids {
-        if model::price_paused(&tx, &model::load_bot(&tx, id)?)? { continue; }
+        if model::condition_paused_type(&tx, &model::load_bot(&tx, id)?)?.is_some() { continue; }
         tx.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3", params![scheduled, crate::codec::format_time(now), id])?;
     }
     // The check's death marker, and the status line's stored info and waiting requests (Rails' own cache starts empty).

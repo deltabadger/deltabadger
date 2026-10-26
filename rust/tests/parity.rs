@@ -2135,6 +2135,83 @@ async fn rails_and_rust_decide_identically_across_the_condition_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
+/// 7b-3: price-drop, MA and RSI use Rails' rows, logs, sent orders and check schedules on all three reference venues.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_indicator_condition_grid() {
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-conditions-indicators", rails_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 180, "three rules × three venues × two sides × ten cases");
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy();
+        let rails: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust = deltabadger::parity::decide(&rust_root.path().join(name.as_ref())).await.unwrap();
+        let expected = r5_cleanup_expected(&rails, &rust);
+        if expected != rust { failures.push(format!("{name}\nRails: {expected}\nRust: {rust}")); }
+        if name.ends_with("-unmet") || name.ends_with("-empty") || name.ends_with("-failed_read") {
+            assert!(rails["sent"].as_array().unwrap().is_empty(), "{name}: an unmet rule must send nothing");
+        }
+        if name.ends_with("-met") || name.ends_with("-latch") {
+            assert_eq!(rails["sent"].as_array().unwrap().len(), 1, "{name}: a met gate passes");
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// D-COND-RSI-DEGENERATE: Rails' NaN is an unmet Success (and clears a prior latch); Rust returns a settled Failure,
+/// preserves trading state and retries the check in one minute. All finite and too-short series retain full parity.
+#[tokio::test(flavor = "current_thread")]
+async fn degenerate_pause_rules_match_rails_except_the_named_nan_failure() {
+    use serde_json::{json, Value};
+    let built = tempfile::tempdir().unwrap();
+    built_grid("grid-conditions-degenerate", built.path());
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    let mut names = vec![];
+    for entry in std::fs::read_dir(built.path()).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_str().unwrap();
+        if name.ends_with("_flip") || name.contains("-ath_") { continue; }
+        for root in [rails_root.path(), rust_root.path()] {
+            let into = root.join(name);
+            copy_dir(&path, &into);
+        }
+        names.push(name.to_string());
+    }
+    assert_eq!(names.len(), 48);
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for name in names {
+        let rails: Value = serde_json::from_str(&std::fs::read_to_string(rails_root.path().join(&name).join("rails.json")).unwrap()).unwrap();
+        let rust = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
+        let mut expected = r5_cleanup_expected(&rails, &rust);
+        if name.ends_with("rsi_flat") || name.ends_with("rsi_flat_stored") {
+            assert_eq!(expected["checks"], json!(["2026-09-02T23:59:59.999999Z", "2026-09-02T23:59:59.999999Z"]), "{name}: Rails' NaN Success cadence");
+            expected["checks"][1] = json!("2026-09-02T10:04:01.123456Z");
+            assert!(expected["infos"][0][0]["html"].as_str().unwrap().contains("NaN"), "{name}: Rails displays NaN");
+            expected["infos"] = json!([[]]);
+            if name.ends_with("_stored") {
+                let key = if name.contains("-sell-") { "sell_indicator_limit_condition_met_at" } else { "indicator_limit_condition_met_at" };
+                let bot = expected["changes"]["bots"].as_array_mut().unwrap().iter_mut().find(|b| b["id"] == 1).unwrap();
+                assert!(bot["after"]["transient_data"][key].is_null());
+                assert_eq!(bot["after"]["transient_data"]["missed_quote_amount_was_set"], json!(true));
+                for field in [key, "missed_quote_amount", "missed_quote_amount_was_set"] {
+                    let before = bot["before"]["transient_data"].get(field).cloned();
+                    let after = bot["after"]["transient_data"].as_object_mut().unwrap();
+                    match before { Some(value) => { after.insert(field.into(), value); }, None => { after.remove(field); } }
+                }
+            }
+        }
+        if expected != rust { failures.push(format!("{name}\nExpected: {expected}\nRust: {rust}")); }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 /// D-KRAKEN-LIMIT-COSTMIN: the 20-coin Kraken index's smallest limit leg (AVAX, about 0.30 EUR) clears ordermin, which is all
 /// Rails' :base limit logic checks, and Rails sends it; Rust also checks costmin (0.5 EUR, script/rust/decisions.rb's Kraken
 /// pair) and skips it. Everything else is Rails' decision: the same orders and rows less that leg, plus Rust's one

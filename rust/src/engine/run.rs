@@ -432,10 +432,12 @@ async fn signal_call<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Cl
     let cx = TickContext { credential_version: producer.clone(), prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
                            stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
     let marker = signal_marker(&e.primary, id)?;
+    let info_before = info_marker(&e.primary, id)?;
     let step = super::signal::run_next(&e.primary, &venue, id, clock, &cx).await;
     e.events.send(EngineEvent::OrderUpdated { bot_id: id });
     if signal_marker(&e.primary, id)? != marker { e.events.send(EngineEvent::SignalMarkerChanged { bot_id: id }); }
     after_tick(e, id, &start, last_tx, None, clock, &producer)?;
+    announce_condition_infos(e, id, info_before)?;
     step
 }
 
@@ -588,37 +590,53 @@ fn info_marker(c: &Connection, id: i64) -> Result<Option<String>, EngineError> {
     Ok(c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", super::conditions::INFO_KEY), [id], |r| r.get(0)).optional()?.flatten())
 }
 
+fn announce_condition_infos<F: VenueFactory>(e: &Engine<F>, id: i64, before: Option<String>) -> Result<(), EngineError> {
+    let after = info_marker(&e.primary, id)?;
+    if before == after { return Ok(()); }
+    let parse = |s: Option<String>| s.and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok()).unwrap_or_default();
+    let (before, after) = (parse(before), parse(after));
+    for (_, rule) in super::conditions::TRIGGERS {
+        for side in [super::conditions::BUYING, super::conditions::SELLING] {
+            if !after[rule][side].is_null() && before[rule][side] != after[rule][side] {
+                e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule, side, locale: None });
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The status-line requests the web left (BroadcastsController#price_limit_info_update → Bot::BroadcastPriceLimitInfoUpdateJob),
 /// for any bot whatever its status. Each is claimed with its version and served once (conditions::info); a request whose bot
-/// changed meanwhile, or whose key changed during the read, stays for the next pass. Only the price rule is served until 7b-3:
-/// the other three routes answer and keep their loader.
+/// changed meanwhile, or whose key changed during the read, stays for the next pass.
 async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
-    use super::conditions::{self, PRICE};
-    let claims = match conditions::info_claims(&e.primary, PRICE) {
-        Ok(claims) => claims,
-        Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
-        // A status line never stops trading: the requests wait for the next pass.
-        Err(err) => { super::log(&format!("[engine] the status-line requests could not be read: {err:?}")); return Ok(()) }
-    };
-    for claim in claims {
-        if e.stopping() { break; }
-        let id = claim.bot.id;
-        if unreadable.iter().any(|(u, _)| *u == id) { continue; }
-        let result = match e.venue_for(&claim.bot) {
-            Ok((venue, version)) => conditions::info(&e.primary, &venue, &claim, clock, &e.prices, &version).await,
-            Err(err) => Err(err),
-        };
-        match result {
-            Ok(Some(_)) => e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: PRICE, side: claim.side, locale: claim.locale.clone() }),
-            Ok(None) => {}
+    use super::conditions;
+    for (kind, name) in conditions::TRIGGERS {
+        let claims = match conditions::info_claims(&e.primary, name) {
+            Ok(claims) => claims,
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
-            // Changed since the claim: served again, on the bot as it is now.
-            Err(EngineError::RunFenced | EngineError::CredentialsChanged) => *wake = (*wake).min(clock.now().timestamp_micros()),
-            Err(err) => {
-                super::log(&format!("[engine] bot {id}: its price status line could not be computed: {err:?}"));
-                let tx = model::immediate(&e.primary)?;
-                conditions::ack_info(&tx, id, PRICE, claim.side, claim.version)?;
-                tx.commit()?;
+            // A status line never stops trading: the requests wait for the next pass.
+            Err(err) => { super::log(&format!("[engine] the status-line requests could not be read: {err:?}")); return Ok(()) }
+        };
+        for claim in claims {
+            if e.stopping() { break; }
+            let id = claim.bot.id;
+            if unreadable.iter().any(|(u, _)| *u == id) { continue; }
+            let result = match e.venue_for(&claim.bot) {
+                Ok((venue, version)) => conditions::info_rule(&e.primary, &venue, &claim, kind, clock, &e.prices, &version).await,
+                Err(err) => Err(err),
+            };
+            match result {
+                Ok(Some(_)) => e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: name, side: claim.side, locale: claim.locale.clone() }),
+                Ok(None) => {}
+                Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+                // Changed since the claim: served again, on the bot as it is now.
+                Err(EngineError::RunFenced | EngineError::CredentialsChanged) => *wake = (*wake).min(clock.now().timestamp_micros()),
+                Err(err) => {
+                    super::log(&format!("[engine] bot {id}: its condition status line could not be computed: {err:?}"));
+                    let tx = model::immediate(&e.primary)?;
+                    conditions::ack_info(&tx, id, name, claim.side, claim.version)?;
+                    tx.commit()?;
+                }
             }
         }
     }
@@ -768,14 +786,15 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
     }
 
-    // Paused by its price rule: only the check runs until it re-arms the bot, which then ticks at once (its run-now wait).
-    if model::price_paused(&e.primary, &bot)? {
+    // Paused by a condition: only the check runs until it re-arms the bot, which then ticks at once (its run-now wait).
+    if let Some(kind) = model::condition_paused_type(&e.primary, &bot)? {
         let dead = bot.transient.get(super::conditions::DEAD).is_some();
-        let at = *e.condition_at.entry(id).or_insert_with(|| if dead { super::conditions::repair_at(clock.now()).timestamp_micros() } else { now_us });
+        let initial = if dead { super::conditions::repair_at(&bot, kind, clock.now())?.timestamp_micros() } else { now_us };
+        let at = *e.condition_at.entry(id).or_insert(initial);
         if at > now_us { *wake = (*wake).min(at); return Ok(()); }
         let info_before = info_marker(&e.primary, id)?;
         let checked = super::conditions::check(&e.primary, &venue, &bot, clock, &e.prices, &credential_version).await;
-        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, side: super::conditions::side_of(bot.selling()), locale: None }); }
+        announce_condition_infos(e, id, info_before)?;
         match checked {
             Ok(super::conditions::Checked::Rearmed) => { e.condition_at.remove(&id); bot = model::load_bot(&e.primary, id)?; }
             Ok(super::conditions::Checked::Next(next)) => { e.condition_at.insert(id, next.timestamp_micros()); *wake = (*wake).min(next.timestamp_micros()); return Ok(()); }
@@ -792,10 +811,10 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             Err(err) => {
                 // The check raised: Rails' job dies, and Bot::RepairOrphanedBotsJob restarts the chain on its next pass. Marked,
                 // so a restart waits for that pass too.
-                super::log(&format!("[engine] bot {id}: its price check failed: {err:?}; checked again at Repair's next pass"));
+                super::log(&format!("[engine] bot {id}: its condition check failed: {err:?}; checked again at Repair's next pass"));
                 let mark = model::run_write(&e.primary, &bot, |tx| model::merge_transient_compact(tx, id, &[(super::conditions::DEAD, serde_json::json!(true))]));
                 if let Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) = mark { return Err(err); }
-                let next = super::conditions::repair_at(clock.now()).timestamp_micros();
+                let next = super::conditions::repair_at(&bot, kind, clock.now())?.timestamp_micros();
                 e.condition_at.insert(id, next);
                 *wake = (*wake).min(next);
                 return Ok(());
@@ -886,7 +905,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only; the tick's own outcome follows
         // After its rows are announced, so the page shows the failed order its status bar names.
         e.events.send(EngineEvent::TickEnded { bot_id: id });
-        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, side: super::conditions::side_of(bot.selling()), locale: None }); }
+        announce_condition_infos(e, id, info_before)?;
         let outcome = ticked?;
         e.run_keys.insert(id, bot.run_identity()?);
         committed?;
@@ -923,7 +942,9 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             // Bot::PriceLimitCheckJob.set(wait_until: Time.now.utc.end_of_minute).
             TickOutcome::Paused => {
                 e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id);
-                let at = super::conditions::end_of_minute(clock.now()).timestamp_micros();
+                let paused = model::load_bot(&e.primary, id)?;
+                let kind = model::condition_paused_type(&e.primary, &paused)?.unwrap_or(super::conditions::Rule::Price);
+                let at = super::conditions::next_at(&paused, kind, clock.now())?.timestamp_micros();
                 e.condition_at.insert(id, at);
                 *wake = (*wake).min(at);
                 return Ok(());

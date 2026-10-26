@@ -129,7 +129,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
             let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled");
             if !flag || !set(v) || SUPPORTED_FLAGS.contains(&k.as_str()) { continue; }
             match Rule::of_flag(k) {
-                Some((rule, selling)) => r.extend(rule_reason(bot, k, v, rule, selling)),
+                Some((rule, selling)) => r.extend(rule_reason(c, bot, k, v, rule, selling)),
                 None => r.push(k.clone()),
             }
         }
@@ -177,16 +177,24 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
 /// inapplicable is inert (an index bot's sell side and flips, a signal bot's flips); not implemented is refused by name, a flip
 /// action naming its slice; implemented runs with the `pause` action and values Rails compares. A trigger switch set to
 /// anything but `true` (which Rails reads as off) is refused, as every flag outside the slice. The cap's own checks follow.
-fn rule_reason(bot: &Bot, key: &str, value: &Value, rule: Rule, selling: bool) -> Option<String> {
+fn rule_reason(c: &Connection, bot: &Bot, key: &str, value: &Value, rule: Rule, selling: bool) -> Option<String> {
     let support = bot.support(rule, selling);
     if support == Support::Inapplicable { return None; }
     if rule == Rule::Cap { return (support == Support::NotImplemented).then(|| key.to_string()); }
     if value != &Value::Bool(true) { return Some(key.to_string()); }
     let action = conditions::action(&bot.settings, key.strip_suffix("ed").unwrap_or(key));
     match support {
-        Support::NotImplemented if rule == Rule::Price && action != "pause" => Some(format!("{key} with the {action} action (the flip actions come with slice 7c)")),
+        Support::NotImplemented if action != "pause" => Some(format!("{key} with the {action} action (the flip actions come with slice 7c)")),
         Support::NotImplemented => Some(key.to_string()),
-        _ => bot.price_rule(selling).err(),
+        _ => {
+            if rule != Rule::Price {
+                let exchange = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get::<_, String>(0)).ok();
+                if !exchange.as_deref().and_then(crate::venue::registry::row).is_some_and(|r| r.condition_candles) {
+                    return Some(format!("{key}: condition candles are not supported on this exchange"));
+                }
+            }
+            bot.condition_rule(rule, selling).err()
+        },
     }
 }
 
@@ -246,7 +254,7 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
             if !set(v) { continue; }
-            if let Some((rule, selling)) = Rule::of_flag(k) { r.extend(rule_reason(bot, k, v, rule, selling)); }
+            if let Some((rule, selling)) = Rule::of_flag(k) { r.extend(rule_reason(c, bot, k, v, rule, selling)); }
         }
     }
     // D-SIG-CAP: the cap a signal bot runs reads as a basket's does.

@@ -1,11 +1,12 @@
-//! Bot::PriceLimitable's gate (slice 7a: `price_limit` / `sell_price_limit` with the `pause` action) and the minute check
-//! that re-arms a paused bot (Bot::PriceLimitCheckJob on Bot::LimitCheckJobBase).
+//! Price, price-drop, moving-average and RSI gates, their paused-type checks and read-only status lines.
+//! The tick and signal calls share the same ordered gate and credential-fenced latch writes.
 use super::model::{self, Bot, PriceRule, Ticker};
 use super::tick::PriceCache;
-use super::{accounting, placement, Clock, EngineError};
+use super::{accounting, placement, technical, Clock, EngineError};
+use super::candles::Timeframe;
 use crate::enums::BotStatus;
 use crate::ruby::{iso8601_ms, BigDec, Num};
-use crate::venue::{Attributed, PriceSide, VenueError};
+use crate::venue::{Attributed, PriceSide, Venue, VenueError};
 use crate::web::bot::Kind;
 use chrono::{DateTime, Duration, Timelike, Utc};
 use rusqlite::Connection;
@@ -21,6 +22,17 @@ pub const TRIGGERS: [(Rule, &str); 4] = [(Rule::Price, "price_limit"), (Rule::Pr
                                           (Rule::MovingAverage, "moving_average_limit"), (Rule::Indicator, "indicator_limit")];
 
 impl Rule {
+    pub fn limit_type(self) -> &'static str {
+        match self { Self::Cap => "cap", Self::Price => "price", Self::PriceDrop => "price_drop", Self::MovingAverage => "moving_average", Self::Indicator => "indicator" }
+    }
+    pub fn prefix(self, selling: bool) -> &'static str {
+        match (self, selling) {
+            (Self::Price, false) => "price_limit", (Self::Price, true) => "sell_price_limit",
+            (Self::PriceDrop, false) => "price_drop_limit", (Self::PriceDrop, true) => "sell_price_drop_limit",
+            (Self::MovingAverage, false) => "moving_average_limit", (Self::MovingAverage, true) => "sell_moving_average_limit",
+            (Self::Indicator, false) => "indicator_limit", (Self::Indicator, true) => "sell_indicator_limit", (Self::Cap, _) => "quote_amount_limit",
+        }
+    }
     /// The rule a switch names, and whether it is the sell side's: `quote_amount_limited`, `base_amount_limited` (the cap's
     /// sell side, slice 6d), `[sell_]<prefix>ed`.
     pub fn of_flag(key: &str) -> Option<(Rule, bool)> {
@@ -46,7 +58,67 @@ pub enum Support {
 
 /// The (kind, rule) pairs the engine runs, with the `pause` action. Each slice adds its own with that rule's engine.
 pub const IMPLEMENTED: &[(Kind, Rule)] = &[(Kind::Basket, Rule::Cap), (Kind::Basket, Rule::Price), (Kind::Index, Rule::Cap), (Kind::Index, Rule::Price),
-                                          (Kind::Signal, Rule::Cap), (Kind::Signal, Rule::Price)];
+    (Kind::Signal, Rule::Cap), (Kind::Signal, Rule::Price),
+    (Kind::Basket, Rule::PriceDrop), (Kind::Basket, Rule::MovingAverage), (Kind::Basket, Rule::Indicator),
+    (Kind::Index, Rule::PriceDrop), (Kind::Index, Rule::MovingAverage), (Kind::Index, Rule::Indicator),
+    (Kind::Signal, Rule::PriceDrop), (Kind::Signal, Rule::MovingAverage), (Kind::Signal, Rule::Indicator)];
+
+#[derive(Debug, Clone)]
+pub enum Reading { Price, Drop(technical::Window), Ma(Timeframe, usize, technical::MaType), Rsi(Timeframe) }
+#[derive(Debug, Clone)]
+pub struct ConditionRule { pub common: PriceRule, pub reading: Reading }
+
+/// Rails' initialized buy defaults and nil-only sell defaults. Invalid stored values are named at admission.
+pub fn read_rule(bot: &Bot, kind: Rule, selling: bool) -> Result<Option<ConditionRule>, String> {
+    if kind == Rule::Price { return bot.price_rule(selling).map(|r| r.map(|common| ConditionRule { common, reading: Reading::Price })); }
+    if kind == Rule::Cap || bot.support(kind, selling) != Support::Implemented { return Ok(None); }
+    let prefix = kind.prefix(selling);
+    if bot.settings.get(format!("{prefix}ed").as_str()) != Some(&json!(true)) { return Ok(None); }
+    let get = |suffix: &str| bot.settings.get(format!("{prefix}{suffix}").as_str()).filter(|v| !v.is_null() && (selling || **v != Value::Bool(false)));
+    let bad = |suffix: &str| format!("{prefix}{suffix}: invalid value {}", get(suffix).unwrap_or(&Value::Null));
+    let text = |suffix: &str, default: &str, allowed: &[&str]| -> Result<String, String> {
+        let v = match get(suffix) { None => default, Some(v) => v.as_str().ok_or_else(|| bad(suffix))? };
+        if !allowed.contains(&v) { return Err(bad(suffix)); }
+        Ok(v.into())
+    };
+    let number = |default: Num| -> Result<Num, String> {
+        match get("") { None => Ok(default), Some(Value::Number(n)) => n.as_i64().map(Num::Int).or_else(|| n.as_f64().filter(|n| n.is_finite()).map(Num::Float)).ok_or_else(|| bad("")), _ => Err(bad("")) }
+    };
+    let timeframe = || -> Result<Timeframe, String> {
+        Ok(match text("_in_timeframe", "one_day", &["one_hour", "four_hours", "one_day", "three_days", "one_week", "one_month"])?.as_str() {
+            "one_hour" => Timeframe::Hour, "four_hours" => Timeframe::FourHours, "three_days" => Timeframe::ThreeDays,
+            "one_week" => Timeframe::Week, "one_month" => Timeframe::Month, _ => Timeframe::Day,
+        })
+    };
+    let reading = match kind {
+        Rule::PriceDrop => {
+            let window = if selling && get("_time_window_condition") == Some(&json!("ath")) { "twenty_four_hours".into() }
+                else { text("_time_window_condition", if selling { "twenty_four_hours" } else { "ath" },
+                    if selling { &["twenty_four_hours", "seven_days"] } else { &["ath", "twenty_four_hours"] })? };
+            Reading::Drop(technical::Window::of(&window).expect("validated window"))
+        }
+        Rule::MovingAverage => {
+            let ma = text("_in_ma_type", "sma", &["sma", "ema"])?;
+            let period = match get("_in_period") { None => 9, Some(v) => v.as_u64().and_then(|n| usize::try_from(n).ok()).filter(|n| *n > 0).ok_or_else(|| bad("_in_period"))? };
+            Reading::Ma(timeframe()?, period, if ma == "sma" { technical::MaType::Sma } else { technical::MaType::Ema })
+        }
+        Rule::Indicator => { text("_in_indicator", "rsi", &["rsi"])?; Reading::Rsi(timeframe()?) }
+        _ => unreachable!(),
+    };
+    let limit = if kind == Rule::PriceDrop { number(Num::Float(0.2))? } else if kind == Rule::Indicator { number(Num::Int(if selling { 70 } else { 30 }))? } else { Num::Int(0) };
+    if kind == Rule::PriceDrop && !(0.0..=1.0).contains(&num_f(&limit)) { return Err(bad("")); }
+    let after = kind == Rule::PriceDrop || text("_timing_condition", "while", &["while", "after"])? == "after";
+    let value_condition = if kind == Rule::PriceDrop { if selling { "above" } else { "below" }.into() }
+        else { text("_value_condition", if selling { "above" } else { "below" }, &["above", "below"])? };
+    let ticker_id = match get("_in_ticker_id") {
+        None | Some(Value::Bool(false)) => None, Some(Value::String(s)) if s.trim().is_empty() => None,
+        Some(Value::String(s)) => Some(s.trim().parse().unwrap_or(0)), Some(v) => Some(v.as_i64().unwrap_or(0)),
+    };
+    let met_at_us = crate::codec::optional_time(bot.transient.get(format!("{prefix}_condition_met_at").as_str()))
+        .map_err(|e| format!("{prefix}_condition_met_at: {e:?}"))?.map(|t| t.timestamp_micros());
+    Ok(Some(ConditionRule { common: PriceRule { prefix, limit, lower: Num::Int(0), upper: Num::Int(0), after,
+        value_condition: Some(value_condition), ticker_id, action: action(&bot.settings, prefix), met_at_us }, reading }))
+}
 
 /// D-IDX-CONDITIONS / D-IDX-CAP: one rule set for every bot kind, Rails' class gap fixed (only DcaMultiAsset includes the
 /// concerns in Rails). `selling`: the rule's sell side; `action`: its `*_action` (the cap has none: "pause").
@@ -184,19 +256,80 @@ pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock
 /// `evaluate` for the rule of one side, `selling` (a signal bot's call names its side; a DCA bot's is its direction). A signal
 /// bot has no carry (D-SIG-CONDITIONS, §2c): unmet after a met_at only clears it.
 pub async fn evaluate_side<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
+    evaluate_rule(c, venue, bot, Rule::Price, selling, clock, prices, version).await
+}
+
+/// The shared decorator chain, outermost first. An unmet or failed rule prevents all inner reads.
+pub async fn gate<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<(Rule, Evaluated), EngineError> {
+    let venue = crate::venue::Handle::for_bot(venue, c, bot)?;
+    let mut refreshed = None;
+    for kind in [Rule::Indicator, Rule::MovingAverage, Rule::PriceDrop, Rule::Price] {
+        let current = refreshed.as_deref().unwrap_or(bot);
+        match evaluate_rule(c, &venue, current, kind, selling, clock, prices, version).await? {
+            Evaluated::Off | Evaluated::Met { refreshed: None } => {},
+            Evaluated::Met { refreshed: Some(b) } => refreshed = Some(b),
+            other => return Ok((kind, other)),
+        }
+    }
+    Ok((Rule::Price, Evaluated::Met { refreshed }))
+}
+
+/// Read a rule without changing its latch or carry. The info worker uses this same comparison.
+#[allow(clippy::too_many_arguments)]
+async fn reading<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &ConditionRule, selling: bool, ticker: &Ticker, decimals: Option<i64>, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(bool, Option<Value>), VenueError>, EngineError> {
+    let common = &rule.common;
+    let origin = venue.producer();
+    let cache = prices.technical(&origin);
+    let latched = common.after && common.met_at_us.is_some();
+    let price = if matches!(rule.reading, Reading::Rsi(_)) || (latched && !matches!(rule.reading, Reading::Price)) { None } else {
+        match last_price(venue, bot, ticker, clock.now(), prices, version).await { Ok((p, _)) => Some(p), Err(e) => return Ok(Err(e)) }
+    };
     let now = clock.now();
-    let Some(rule) = bot.price_rule(selling).map_err(EngineError::Data)? else { return Ok(Evaluated::Off) };
+    let value = match rule.reading {
+        Reading::Price => {
+            let price = price.as_ref().expect("price read");
+            let met = judge(common, price)?;
+            return Ok(Ok((met, info_value(ticker, decimals, price, met))));
+        }
+        Reading::Drop(window) => {
+            let reference = if selling { technical::low_of_last(venue, &cache, ticker, window, now).await }
+                else { technical::high_of_last(c, venue, &cache, ticker, window, now).await? };
+            let reference = match reference { Ok(Some(p)) => p, Ok(None) => return Ok(Ok((false, None))), Err(e) => return Ok(Err(e)) };
+            let factor = if selling { Num::Int(1).add(&common.limit) } else { Num::Int(1).sub(&common.limit) }.map_err(EngineError::Arithmetic)?;
+            let threshold = &factor.to_dec().map_err(EngineError::Arithmetic)? * &reference;
+            let met = latched || price.as_ref().is_some_and(|price| if selling { price > &threshold } else { price < &threshold });
+            return Ok(Ok((met, Some(json!({"base": ticker.base_symbol, "quote": ticker.quote_symbol, "reference": reference.to_s_f(), "condition_met": met})))));
+        }
+        Reading::Ma(tf, period, kind) => technical::moving_average(venue, &cache, ticker, tf, period, kind, now).await,
+        Reading::Rsi(tf) => technical::rsi(venue, &cache, ticker, tf, 14, now).await,
+    };
+    let value = match value { Ok(v) => v, Err(e) => return Ok(Err(e)) };
+    let comparison = if latched { Ordering::Equal } else { match price { Some(price) => cmp(&price, &value)?, None => num_cmp(&value, &common.limit)? } };
+    let met = latched || match common.value_condition.as_deref() {
+        Some("below") => comparison == Ordering::Less, Some("above") => comparison == Ordering::Greater, _ => false,
+    };
+    let value = match value { Num::Int(i) => i.to_string(), Num::Float(f) => crate::ruby::float_to_s(f), Num::Dec(d) => d.to_s_f() };
+    Ok(Ok((met, Some(json!({"value": value, "condition_met": met})))))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn evaluate_rule<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, kind: Rule, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
+    let Some(condition) = bot.condition_rule(kind, selling).map_err(EngineError::Data)? else { return Ok(Evaluated::Off) };
+    let rule = &condition.common;
     if rule.after && rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
-    let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, &rule)? else { return Ok(Evaluated::Unavailable) };
-    let (price, origin) = match last_price(venue, bot, &ticker, now, prices, version).await { Ok(read) => read, Err(e) => return Ok(Evaluated::Failed(e)) };
+    let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, rule)? else { return Ok(Evaluated::Unavailable) };
+    let origin = venue.producer();
+    let (met, info) = match reading(c, venue, bot, &condition, selling, &ticker, decimals, clock, prices, version).await? {
+        Ok(read) => read, Err(e) => return Ok(Evaluated::Failed(e)),
+    };
     let now = clock.now();
     let key = format!("{}_condition_met_at", rule.prefix);
     let side = side_of(selling);
-    if price_met(&rule, &price)? {
+    if met {
         if rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
         let refreshed = model::run_credential_write(c, bot, &origin, |tx| {
             model::update_transient(tx, bot.id, &[(key.as_str(), json!(iso8601_ms(now)))], now)?;
-            if let Some(info) = info_value(&ticker, decimals, &price, true) { fetch_info(tx, bot.id, PRICE, side, now, info)?; }
+            if let Some(info) = info.clone() { fetch_info(tx, bot.id, kind.prefix(false), side, now, info)?; }
             model::load_bot(tx, bot.id)
         })?;
         return Ok(Evaluated::Met { refreshed: Some(Box::new(refreshed)) });
@@ -219,7 +352,7 @@ pub async fn evaluate_side<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, 
                 model::update_transient(tx, bot.id, &[("missed_quote_amount", accounting::serialized(owed)?), ("missed_quote_amount_was_set", json!(true)),
                                                       (key.as_str(), Value::Null)], now)?;
             }
-            if let Some(info) = info_value(&ticker, decimals, &price, false) { fetch_info(tx, bot.id, PRICE, side, now, info)?; }
+            if let Some(info) = info.clone() { fetch_info(tx, bot.id, kind.prefix(false), side, now, info)?; }
             Ok(())
         })?;
     }
@@ -352,25 +485,31 @@ pub fn judge(rule: &PriceRule, price: &BigDec) -> Result<bool, EngineError> {
 /// Err(RunFenced): the bot's configuration changed since the claim; nothing is kept and the request stays.
 /// Err(CredentialsChanged): the key changed during the read; the request stays.
 pub async fn info<V: crate::venue::Venue>(c: &Connection, venue: &V, claim: &InfoClaim, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Option<Value>, EngineError> {
+    info_rule(c, venue, claim, Rule::Price, clock, prices, version).await
+}
+
+pub async fn info_rule<V: crate::venue::Venue>(c: &Connection, venue: &V, claim: &InfoClaim, kind: Rule, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Option<Value>, EngineError> {
+    let name = kind.prefix(false);
     let (bot, side) = (&claim.bot, claim.side);
     let venue = &crate::venue::Handle::for_bot(venue, c, bot)?;
     let served = |c: &Connection| -> Result<Option<Value>, EngineError> {
-        let tx = model::immediate(c)?; ack_info(&tx, bot.id, PRICE, side, claim.version)?; tx.commit()?; Ok(None)
+        let tx = model::immediate(c)?; ack_info(&tx, bot.id, name, side, claim.version)?; tx.commit()?; Ok(None)
     };
     // A rule that is off, or one this build does not run on the bot's kind (support), renders nothing (the partial's own
     // guard), so no info is kept for it.
-    let Some(rule) = bot.price_rule(side == SELLING).map_err(EngineError::Data)? else { return served(c) };
-    let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, &rule)? else { return served(c) };
-    let Ok((price, origin)) = last_price(venue, bot, &ticker, clock.now(), prices, version).await else { return served(c) };
-    let Some(info) = info_value(&ticker, decimals, &price, judge(&rule, &price)?) else { return served(c) };
+    let Some(condition) = bot.condition_rule(kind, side == SELLING).map_err(EngineError::Data)? else { return served(c) };
+    let rule = &condition.common;
+    let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, rule)? else { return served(c) };
+    let origin = venue.producer();
+    let Ok((_, Some(info))) = reading(c, venue, bot, &condition, side == SELLING, &ticker, decimals, clock, prices, version).await? else { return served(c) };
     let now = clock.now();
     model::credential_write(c, &origin, |tx| {
         let current = model::load_bot(tx, bot.id)?;
         // Settings, direction or the rule's met_at changed since the claim: the answer is for a rule that no longer is.
         let met_at = |b: &Bot| b.transient.get(format!("{}_condition_met_at", rule.prefix).as_str()).cloned();
         if (&current.bot_type, current.exchange_id, &current.settings, met_at(&current)) != (&bot.bot_type, bot.exchange_id, &bot.settings, met_at(bot)) { return Err(EngineError::RunFenced); }
-        let shown = fetch_info(tx, bot.id, PRICE, side, now, info)?;
-        ack_info(tx, bot.id, PRICE, side, claim.version)?;
+        let shown = fetch_info(tx, bot.id, name, side, now, info)?;
+        ack_info(tx, bot.id, name, side, claim.version)?;
         Ok(Some(shown))
     })
 }
@@ -380,12 +519,24 @@ pub fn end_of_minute(now: DateTime<Utc>) -> DateTime<Utc> {
     now.with_second(59).and_then(|t| t.with_nanosecond(999_999_000)).unwrap_or(now)
 }
 
+/// The paused rule's own next check, including calendar week and month boundaries.
+pub fn next_at(bot: &Bot, kind: Rule, now: DateTime<Utc>) -> Result<DateTime<Utc>, EngineError> {
+    // A rule switched off while paused still owns this check chain until the next action; its timeframe remains in use.
+    let mut enabled = bot.clone();
+    enabled.settings[format!("{}ed", kind.prefix(bot.selling()))] = json!(true);
+    let rule = enabled.condition_rule(kind, bot.selling()).map_err(EngineError::Data)?;
+    Ok(match rule.map(|r| r.reading) {
+        Some(Reading::Ma(tf, ..) | Reading::Rsi(tf)) => technical::next_check(now, tf),
+        _ => end_of_minute(now),
+    })
+}
+
 /// Bot::RepairOrphanedBotsJob (every 15 minutes) restarting a dead check chain at the check's own next time
 /// (Bot::LimitCheckable#enqueue_limit_check_job): the end of the minute of the next quarter hour.
-pub fn repair_at(now: DateTime<Utc>) -> DateTime<Utc> {
+pub fn repair_at(bot: &Bot, kind: Rule, now: DateTime<Utc>) -> Result<DateTime<Utc>, EngineError> {
     let minute = now.minute() - now.minute() % 15;
     let quarter = now.with_minute(minute).and_then(|t| t.with_second(0)).and_then(|t| t.with_nanosecond(0)).unwrap_or(now) + Duration::minutes(15);
-    end_of_minute(quarter)
+    next_at(bot, kind, quarter)
 }
 
 /// What a check decided.
@@ -411,11 +562,11 @@ pub fn raised(e: &VenueError) -> Option<String> {
 /// Rust-only marker of a check that raised (Bot::LimitCheckJobBase lets the job die): the chain waits for Repair.
 pub const DEAD: &str = "rust_condition_check_dead";
 
-/// Bot::LimitCheckJobBase#perform with Bot::PriceLimitCheckJob's condition, on a bot paused by its price rule.
+/// Bot::LimitCheckJobBase#perform: only the condition named by the live pause is checked.
 pub async fn check<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Checked, EngineError> {
-    if bot.status != BotStatus::Waiting { return Ok(Checked::Gone); }
+    let Some(kind) = model::condition_paused_type(c, bot)? else { return Ok(Checked::Gone) };
     let venue = crate::venue::Handle::for_bot(venue, c, bot)?;
-    let evaluated = evaluate(c, &venue, bot, clock, prices, version).await?;
+    let evaluated = evaluate_rule(c, &venue, bot, kind, bot.selling(), clock, prices, version).await?;
     let now = clock.now(); // after the price read: next_check_at and 1.minute.from_now are read there
     let revive = |tx: &Connection| -> Result<(), EngineError> {
         tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{DEAD}') WHERE id = ?1 AND json_type(transient_data, '$.{DEAD}') IS NOT NULL"), [bot.id])?;
@@ -432,7 +583,7 @@ pub async fn check<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot,
             })?;
             Ok(if rearmed { Checked::Rearmed } else { Checked::Gone })
         }
-        Evaluated::Off | Evaluated::Unmet | Evaluated::Unavailable => { model::run_write(c, bot, revive)?; Ok(Checked::Next(end_of_minute(now))) }
+        Evaluated::Off | Evaluated::Unmet | Evaluated::Unavailable => { model::run_write(c, bot, revive)?; Ok(Checked::Next(next_at(bot, kind, now)?)) }
         Evaluated::Failed(e) => match raised(&e) {
             Some(m) => Err(EngineError::Data(m)),
             // A failed Result, a rejected key included, or a rescued transport raise: again in a minute (limit_check_job_base.rb:11, :52-55).

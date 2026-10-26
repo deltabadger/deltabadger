@@ -456,11 +456,18 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
                 tx.execute(&format!("UPDATE bots SET {column} = json_remove({column}, ?1) WHERE id = ?2"), (format!("$.{key}"), id))?;
             }
         }
-        // D-INFO-SIDE: the status line of a side whose price rule changed is drawn afresh.
-        for selling in [false, true] {
-            let prefix = if selling { "sell_price_limit" } else { "price_limit" };
-            if effects.settings.set.keys().any(|key| key.strip_prefix(prefix).is_some_and(|rest| matches!(rest, "" | "_value_condition" | "_range_lower_bound" | "_range_upper_bound"))) {
-                crate::engine::conditions::forget_info(tx, id, crate::engine::conditions::PRICE, crate::engine::conditions::side_of(selling))?;
+        // D-INFO-SIDE: refresh the status line of each rule and side whose inputs changed.
+        for (rule, fields) in [
+            ("price_limit", &["", "_value_condition", "_range_lower_bound", "_range_upper_bound"][..]),
+            ("price_drop_limit", &["", "_time_window_condition"][..]),
+            ("moving_average_limit", &["_value_condition", "_in_ma_type", "_in_timeframe", "_in_period"][..]),
+            ("indicator_limit", &["ed", "_value_condition", "_in_indicator", "_in_timeframe"][..]),
+        ] {
+            for selling in [false, true] {
+                let prefix = format!("{}{rule}", if selling { "sell_" } else { "" });
+                if effects.settings.set.keys().any(|key| key.strip_prefix(&prefix).is_some_and(|rest| fields.contains(&rest))) {
+                    crate::engine::conditions::forget_info(tx, id, rule, crate::engine::conditions::side_of(selling))?;
+                }
             }
         }
         if settings_changed { tx.execute("UPDATE bots SET settings_changed_at = ?1 WHERE id = ?2", (&now, id))?; }

@@ -45,7 +45,7 @@ fn an_ineligible_install_is_refused_before_anything_is_written() {
     let l = lease::lock(&p, now()).unwrap();
     let o = store::open(&p).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
-    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_drop_limited", json!(true)));
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("future_price_drop_limited", json!(true)));
     job(&o.queue, "Bot::ActionJob", &format!("gid://deltabadger/Bots::DcaMultiAsset/{b}"));
     assert!(matches!(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()), Err(EngineError::Ineligible(_))));
     assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none(), "no claim");
@@ -415,7 +415,7 @@ fn stale_catalog_refuses_rails_takeover_but_allows_an_engine_owned_restart() -> 
     assert_eq!(takeover.eligible, vec![bot]);
     assert!(staleness::stale(&o.primary, &model::load_bot(&o.primary, bot).map_err(|e| format!("{e:?}"))?, now()).map_err(|e| format!("{e:?}"))?.is_some(), "restart cannot make stale data fresh");
     assert!(!eligibility::check_install_at(&o.primary, now()).map_err(|e| format!("{e:?}"))?.problems.is_empty(), "check continues reporting staleness");
-    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_drop_limited', 1)", [])?;
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', 1)", [])?;
     assert!(matches!(handover::take_over(&lock, &o, &seed::cipher(), "test", now()), Err(EngineError::Ineligible(_))), "restart still refuses unsupported work");
     Ok(())
 }
