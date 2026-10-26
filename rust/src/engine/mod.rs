@@ -83,3 +83,5 @@ pub mod wash;
 pub mod reversal;
 pub mod conditions;
 pub mod candles;
+
+pub mod composition;
