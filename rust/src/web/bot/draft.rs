@@ -24,7 +24,9 @@ pub struct SaveEffects {
 }
 
 use super::{action_params, start, Asset, Bot, Exchange, For, Kind, Ticker};
+use crate::engine::conditions::{support, Rule, Support, TRIGGERS};
 use crate::enums::BotStatus;
+use crate::ruby::BigDec;
 use crate::web::{format, i18n, WebError};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
@@ -206,6 +208,19 @@ impl Draft {
             self.candidate.exchange = found.unwrap_or(Exchange { id, name: String::new(), class: String::new(), maker_fee: None });
         }
         self.refresh(c)?;
+        // D-IDX-SUBJECT-DEFAULT: a rule an index bot's save switches on with no subject posted is given the default one.
+        if self.candidate.kind == Kind::Index {
+            for (rule, prefix) in TRIGGERS {
+                let (switch, subject) = (format!("{prefix}ed"), format!("{prefix}_in_ticker_id"));
+                if support(Kind::Index, rule, false, "pause") != Support::Implemented || self.parsed.contains_key(&subject) { continue; }
+                if self.raw_settings.get(&switch) != Some(&json!(true)) && self.candidate.settings.get(&switch) == Some(&json!(true)) {
+                    match default_subject(c, &self.candidate)? {
+                        Some(id) => { self.candidate.settings.insert(subject, json!(id)); }
+                        None => { self.candidate.settings.shift_remove(&subject); }
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -266,7 +281,56 @@ pub(super) fn form_field(kind: Kind, key: &str) -> bool {
         "limit_ordered" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "start_time_of_day" | "start_at" | "rebalance_enabled" | "rebalance_threshold");
     let basket_field = matches!(key, "weighting" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "quote_amount_limited" | "quote_amount_limit" | "base_amount_limited" | "base_amount_limit")
         || trigger_field(key);
-    common || (kind == Kind::Basket && basket_field) || (kind == Kind::Index && key == "allocation_flattening")
+    common || (kind == Kind::Basket && basket_field) || (kind == Kind::Index && (key == "allocation_flattening" || index_rule_field(key)))
+}
+
+/// D-IDX-CONDITIONS / D-IDX-CAP: an index bot's page and API take the fields of the rules this build runs on it
+/// (`conditions::support`): the cap and the buy side's price rule. Rails' index bot has none.
+fn index_rule_field(key: &str) -> bool {
+    field_rule(key).is_some_and(|(rule, selling)| support(Kind::Index, rule, selling, "pause") == Support::Implemented)
+}
+
+/// The rule a settings field belongs to, and whether it is the sell side's: the cap's two fields and every trigger field.
+pub fn field_rule(key: &str) -> Option<(Rule, bool)> {
+    if matches!(key, "quote_amount_limited" | "quote_amount_limit") { return Some((Rule::Cap, false)); }
+    if !trigger_field(key) { return None; }
+    let (selling, rest) = match key.strip_prefix("sell_") { Some(rest) => (true, rest), None => (false, key) };
+    TRIGGERS.iter().filter(|(_, prefix)| rest.starts_with(prefix)).max_by_key(|(_, prefix)| prefix.len()).map(|(rule, _)| (*rule, selling))
+}
+
+/// What an index bot reads for a rule field its row lacks: a basket's `after_initialize` defaults
+/// (Bot::QuoteAmountLimitable, Bot::PriceLimitable), read, never written; an index bot persists only its subject.
+pub(super) fn index_defaults() -> [(&'static str, Value); 8] {
+    [("quote_amount_limited", json!(false)), ("quote_amount_limit", json!(1000)), ("price_limited", json!(false)), ("price_limit", json!(1_000_000)),
+     ("price_limit_range_lower_bound", json!(0)), ("price_limit_range_upper_bound", json!(1_000_000)), ("price_limit_timing_condition", json!("while")),
+     ("price_limit_value_condition", json!("below"))]
+}
+
+/// D-IDX-SUBJECT-DEFAULT: the ticker an index bot's rule watches when it is switched on with none named: of the members in
+/// the index with a pair here (`bot.tickers`), the one with the highest target, ties in the index's order, then the lower
+/// ticker id; with no member rows, the first coin `index_preview` shows. None when there is no such pair.
+pub(super) fn default_subject(c: &Connection, bot: &Bot) -> Result<Option<i64>, WebError> {
+    let pair = |asset: i64| bot.tickers.iter().filter(|t| t.base_asset_id == asset).map(|t| t.id).min();
+    let order = |external_id: &str| bot.index.as_ref().and_then(|index| index.top_coins.iter().position(|id| id == external_id)).unwrap_or(usize::MAX);
+    let mut members: Vec<(Option<BigDec>, usize, i64)> = bot.memberships.iter().filter(|m| m.in_index)
+        .filter_map(|m| pair(m.asset.id).map(|ticker| (m.target_allocation.clone(), order(&m.asset.external_id), ticker))).collect();
+    members.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+    if let Some((_, _, ticker)) = members.first() { return Ok(Some(*ticker)); }
+    if !bot.memberships.is_empty() { return Ok(None); }
+    Ok(subject_tickers(c, bot)?.first().map(|t| t.id))
+}
+
+/// The tickers an index bot's rule may watch: its members' (composition_tickers), each a member's pair here when its row
+/// holds another venue's or quote's (a save moving the bot); with no member rows yet (before the first composition), the
+/// pairs here of the coins `index_preview` shows.
+pub(super) fn subject_tickers(c: &Connection, bot: &Bot) -> Result<Vec<Ticker>, WebError> {
+    let pair = |asset: i64| bot.tickers.iter().filter(|t| t.base_asset_id == asset).min_by_key(|t| t.id).cloned();
+    if !bot.memberships.is_empty() {
+        let quote = bot.settings.get("quote_asset_id").and_then(Value::as_i64);
+        let here = |t: &Ticker| t.exchange_id == bot.exchange.id && Some(t.quote_asset_id) == quote;
+        return Ok(bot.composition_tickers().into_iter().filter_map(|t| if here(t) { Some(t.clone()) } else { pair(t.base_asset_id) }).collect());
+    }
+    Ok(super::settings::index_preview(c, bot)?.iter().filter(|coin| coin.visible).filter_map(|coin| pair(coin.asset_id)).collect())
 }
 
 fn trigger_field(key: &str) -> bool {
@@ -353,6 +417,9 @@ impl Draft {
         }
         if field == "rebalance_threshold" { return value.filter(|v| present(v)).map(|v| numeric(v, false).unwrap_or(Value::Null)).unwrap_or(json!(0.05)); }
         if let Some(value) = value.filter(|v| !v.is_null()) { return value.clone(); }
+        if self.candidate.kind == Kind::Index {
+            if let Some((_, value)) = index_defaults().into_iter().find(|(key, _)| *key == field) { return value; }
+        }
         sell_default(field)
     }
     fn inclusion(&mut self, locale: &str, field: &str, allowed: &[&str]) {
@@ -509,18 +576,13 @@ impl Draft {
         if self.candidate.exchange.class == "Exchanges::Hyperliquid" && self.read("limit_ordered") == json!(false) {
             self.error(locale, "limit_ordered", "inclusion", None);
         }
+        if self.candidate.kind == Kind::Index {
+            // D-IDX-CAP / D-IDX-CONDITIONS: a basket's validations of the rules an index bot runs, in its concerns' order.
+            self.cap(c, starting, locale)?;
+            self.index_conditions(c, locale)?;
+        }
         if self.candidate.kind == Kind::Basket {
-            self.boolean(locale, "quote_amount_limited");
-            if self.read("quote_amount_limited") == json!(true) {
-                self.number(locale, "quote_amount_limit", Some((start::minimum_quote_amount_limit(&self.candidate), true)), None, false);
-                if starting && self.read("direction") != "selling" {
-                    match start::amount_limit(c, &self.candidate)? {
-                        Some(limit) if limit.left.is_none() => self.error(locale, "settings", "quote_amount_spent_unknown", None),
-                        Some(limit) if limit.reached => self.error(locale, "settings", "quote_amount_limit_reached", None),
-                        _ => {}
-                    }
-                }
-            }
+            self.cap(c, starting, locale)?;
             self.boolean(locale, "base_amount_limited");
             if self.candidate.one_asset() && self.read("base_amount_limited") == json!(true) && self.read("direction") == "selling" {
                 self.number(locale, "base_amount_limit", Some((0.0, false)), None, false);
@@ -588,6 +650,84 @@ impl Draft {
     fn base_cap_reached(&self, c: &Connection) -> Result<bool, WebError> {
         numeric(&self.read("base_amount_limit"), false)?;
         crate::engine::accounting::web_base_cap_reached(c, &self.candidate)
+    }
+
+    /// Bot::QuoteAmountLimitable's validations: the cap at no less than the quote's smallest amount, and a start refused
+    /// with the cap spent or its spend unknown.
+    fn cap(&mut self, c: &Connection, starting: bool, locale: &str) -> Result<(), WebError> {
+        self.boolean(locale, "quote_amount_limited");
+        if self.read("quote_amount_limited") == json!(true) {
+            self.number(locale, "quote_amount_limit", Some((start::minimum_quote_amount_limit(&self.candidate), true)), None, false);
+            if starting && self.read("direction") != "selling" {
+                match start::amount_limit(c, &self.candidate)? {
+                    Some(limit) if limit.left.is_none() => self.error(locale, "settings", "quote_amount_spent_unknown", None),
+                    Some(limit) if limit.reached => self.error(locale, "settings", "quote_amount_limit_reached", None),
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// An index bot's price rule, buy side (Bot::PriceLimitable's buy-side validations). Its flip has nothing to act on there
+    /// (conditions::support) and is refused by name. The subject is one of the members, or the one it watches now (a former
+    /// member); a rule switched on with no member to watch is refused (D-IDX-SUBJECT-DEFAULT).
+    fn index_conditions(&mut self, c: &Connection, locale: &str) -> Result<(), WebError> {
+        if support(Kind::Index, Rule::Price, false, "pause") != Support::Implemented { return Ok(()); }
+        self.boolean(locale, "price_limited");
+        let on = self.read("price_limited") == json!(true);
+        if on { for suffix in ["", "_range_lower_bound", "_range_upper_bound"] { self.number(locale, &format!("price_limit{suffix}"), Some((0.0, true)), None, false); } }
+        self.inclusion(locale, "price_limit_timing_condition", &["while", "after"]);
+        self.inclusion(locale, "price_limit_value_condition", &["above", "below", "between"]);
+        let action = text(&self.read("price_limit_action"));
+        if support(Kind::Index, Rule::Price, false, &action) == Support::Inapplicable { self.add("base", i18n::text(locale, "engine.flip_basket_only", &[])); }
+        else { self.inclusion(locale, "price_limit_action", &["pause"]); }
+        if !on { return Ok(()); }
+        match self.remapped_subject(c)? {
+            Some(subject) if subject.is_null() => { self.add("price_limit_in_ticker_id", i18n::text(locale, "engine.condition_no_subject", &[])); return Ok(()); }
+            // The save writes the remapped subject, the same asset's pair at the destination.
+            Some(_) => return Ok(()),
+            None => {}
+        }
+        match self.candidate.settings.get("price_limit_in_ticker_id").filter(|v| present(v)).map(|v| numeric(v, true).ok().and_then(|n| n.as_i64())) {
+            None => self.add("price_limit_in_ticker_id", i18n::text(locale, "engine.condition_no_subject", &[])),
+            // A subject the save gave it (D-IDX-SUBJECT-DEFAULT) is one by construction; a posted one is checked.
+            Some(_) if !self.parsed.contains_key("price_limit_in_ticker_id") => {}
+            Some(id) => {
+                let stored = self.raw_settings.get("price_limit_in_ticker_id").and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
+                let member = subject_tickers(c, &self.candidate)?.iter().any(|t| Some(t.id) == id);
+                // On a new venue or quote the stored subject is no former member there; only the destination's subjects are.
+                if !member && (id.is_none() || id != stored || self.moved().is_some()) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether this save moves the bot to another venue or quote: Some(requoted).
+    fn moved(&self) -> Option<bool> {
+        let quote = |settings: &Map<String, Value>| settings.get("quote_asset_id").and_then(Value::as_i64);
+        let requoted = quote(&self.candidate.settings) != quote(&self.raw_settings);
+        (self.candidate.exchange.id != self.original.exchange.id || requoted).then_some(requoted)
+    }
+
+    /// D-IDX-SUBJECT: what an index bot's price-rule subject becomes when a save moves it to another venue or quote and posts
+    /// no subject: the same asset's pair there; else, on a new venue, the default subject; on a new quote, none (null). A
+    /// posted subject that is the stored one and no subject at the destination is remapped too, with no default (null).
+    fn remapped_subject(&self, c: &Connection) -> Result<Option<Value>, WebError> {
+        const KEY: &str = "price_limit_in_ticker_id";
+        if self.candidate.kind != Kind::Index { return Ok(None); }
+        let Some(requoted) = self.moved() else { return Ok(None) };
+        let Some(old) = self.raw_settings.get(KEY).filter(|v| present(v)) else { return Ok(None) };
+        let id = numeric(old, true)?.as_i64().unwrap_or(0);
+        let posted = self.parsed.contains_key(KEY);
+        if posted {
+            let posted_id = self.candidate.settings.get(KEY).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
+            if posted_id != Some(id) || subject_tickers(c, &self.candidate)?.iter().any(|t| t.id == id) { return Ok(None); }
+        }
+        let old = Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next();
+        // The candidate's tickers are its venue's at its quote.
+        let mapped = old.and_then(|old| self.candidate.tickers.iter().find(|t| t.base_asset_id == old.base_asset_id).map(|t| t.id));
+        Ok(Some(json!(match mapped { Some(id) => Some(id), None if requoted || posted => None, None => default_subject(c, &self.candidate)? })))
     }
 
     fn conditions(&mut self, locale: &str) {
@@ -694,7 +834,8 @@ impl Draft {
     pub fn save_effects(&self, c: &Connection, now: DateTime<Utc>) -> Result<SaveEffects, WebError> {
         let mut settings = self.candidate.settings.clone();
         let mut transient = self.candidate.transient.clone();
-        if self.candidate.kind == Kind::Basket && !equal(&json!(settings), &json!(self.raw_settings)) {
+        // D-IDX-CONDITIONS: an index bot's rules take a basket's callbacks (its row holds only the rules it runs).
+        if !equal(&json!(settings), &json!(self.raw_settings)) {
             for prefix in ["quote_amount_limit", "base_amount_limit"].into_iter().chain(trigger_prefixes()) {
                 let key = format!("{prefix}ed");
                 let current = self.read(&key);
@@ -733,6 +874,14 @@ impl Draft {
                 callback_set(&mut settings, key, json!(buy));
                 callback_set(&mut settings, sell_key, json!(sell));
             }
+        }
+        // D-IDX-SUBJECT: on a new venue or quote the rule watches the same asset there.
+        if let Some(subject) = self.remapped_subject(c)? { callback_set(&mut settings, "price_limit_in_ticker_id".into(), subject); }
+        // D-SUBJECT-CHANGE-CLEARS-LATCH: a rule whose subject the save changes forgets what the old one latched.
+        for prefix in trigger_prefixes() {
+            let key = format!("{prefix}_in_ticker_id");
+            let Some(before) = self.raw_settings.get(&key).filter(|v| present(v)) else { continue };
+            if !equal(before, settings.get(&key).unwrap_or(&Value::Null)) { callback_set(&mut transient, format!("{prefix}_condition_met_at"), Value::Null); }
         }
         Ok(SaveEffects { settings: changes(&self.raw_settings, &settings), transient: changes(&self.raw_transient, &transient),
             settings_changed: !equal(&Value::Object(self.candidate.settings.clone()), &Value::Object(self.baseline.clone())), composition_changed: self.composition_changed() })

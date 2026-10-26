@@ -170,6 +170,13 @@ async fn control_transcripts() {
             continue;
         }
         if name=="registry" {
+            for response in got["responses"].as_array_mut().unwrap() {
+                let body=common::recorded_rule_kinds(response["body"].as_str().unwrap());
+                response["body"]=json!(body);
+            }
+            for message in got["rows"]["action_mcp_session_messages"].as_array_mut().unwrap() {
+                if let Some(text)=message["message_json"].as_str().map(common::recorded_rule_kinds) { message["message_json"]=json!(text); }
+            }
             let body:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let names:Vec<_>=body["result"]["tools"].as_array().unwrap().iter().map(|t|t["name"].as_str().unwrap()).collect();
             assert_eq!(names,deltabadger::web::mcp::tools::NAMES,"complete registry without a cursor");
@@ -223,6 +230,34 @@ async fn control_transcripts() {
             // index bot (6b T8), stopped ones included, so the engine guard refuses it only on a bot otherwise
             // outside the slice: the Index bot (2), whose stock members name no instrument. A market-cap basket's derived
             // composition (Plan CB T5) is compared in full, bot_index_assets included.
+            // D-IDX-CONDITIONS / D-IDX-CAP over BotApi: Rails' index bot (2) has no rules, so it refuses every rule field as a
+            // basket's. Here the cap and the buy-side price rule save on it; a flip is refused by name; a rule not built for it
+            // yet is the write guard's refusal; its sell side stays refused as in Rails (compared whole below).
+            if let Some((field,(rule,selling)))=name.strip_prefix("settings_form_").and_then(|n|n.strip_suffix("_2")).and_then(|f|deltabadger::web::bot::draft::field_rule(f).map(|r|(f,r))) {
+                use deltabadger::engine::conditions::{support,Support};
+                let flip=field.ends_with("_mode") && !selling;
+                let support=support(deltabadger::web::bot::Kind::Index,rule,selling,if flip {"start_selling"} else {"pause"});
+                if !selling {
+                    let text=|t:&Value|->String{let r:Value=serde_json::from_str(t["responses"][2]["body"].as_str().unwrap()).unwrap();r["result"]["content"][0]["text"].as_str().unwrap().to_string()};
+                    assert_eq!(text(&want),format!("{field} applies to basket bots only."),"Rails refuses {name}");
+                    let got_text=text(&got);
+                    match support {
+                        Support::Implemented => {
+                            assert!(got_text.ends_with(&format!("settings updated: {field}.")),"{name}: {got_text}");
+                            let bot=got["rows"]["bots"].as_array().unwrap().iter().find(|b|b["id"]==json!(2)).unwrap();
+                            assert!(bot["settings"].get(field).is_some(),"{name}: {bot}");
+                        }
+                        refused => {
+                            let expected=if refused==Support::Inapplicable {"flip applies to basket bots only.".to_string()} else {format!("This app can't run that yet: {field} on an index bot")};
+                            assert_eq!(got_text,expected,"{name}");
+                            for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
+                                assert_eq!(got["rows"][table],got["before_business"][table],"{name} refusal writes nothing: {table}");
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
             let rebalancing=want["rows"]["bots"].as_array().unwrap().iter().any(|b|b["id"]==json!(2)&&b["settings"]["rebalance_enabled"]==json!(true));
             // Plan CB T5: Rails' save derived the members from the caps (BTC 1.3e12 of 1.7e12), or back from the sliders.
             if name.starts_with("settings_form_case_market_cap_") {

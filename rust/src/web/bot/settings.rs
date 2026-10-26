@@ -5,7 +5,7 @@
 //! Each rule is a sentence from the locale file with form controls in its placeholders, so the
 //! controls are built here as markup, the way Rails' form helpers build them, and handed to the
 //! translation as already-safe arguments.
-use super::{start, Asset, Bot, Kind, MIN_COINS};
+use super::{start, Asset, Bot, Kind, Ticker, MIN_COINS};
 use crate::web::format::{self, input_value, Num};
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
@@ -387,8 +387,12 @@ impl Forms<'_> {
     /// BotHelper#trigger_mode_select_options and #trigger_mode_for, on the active side: "Buy only"/"Sell only", "Start buying"/"Start selling", and for a basket the flip.
     fn trigger_mode(&self, rule: &str) -> (Vec<(String, String)>, &'static str) {
         let tokens: &[&str] = if rule == "price_drop_limit" { &["start", "flip"] } else { &["restrict", "start", "flip"] };
+        // D-COND-FORMS-INDEX: no flip where the bot has no direction to flip (conditions::support).
+        let flip = if self.bot.selling() { "start_buying" } else { "start_selling" };
+        let flips = crate::engine::conditions::TRIGGERS.iter().find(|(_, prefix)| *prefix == rule)
+            .is_none_or(|(r, _)| crate::engine::conditions::support(self.bot.kind, *r, self.bot.selling(), flip) != crate::engine::conditions::Support::Inapplicable);
         let side = self.side();
-        let options = tokens.iter().map(|token| (i18n::text(self.ctx.locale, &format!("bot.settings.trigger_mode.{token}_{side}"), &[]), token.to_string())).collect();
+        let options = tokens.iter().filter(|token| flips || **token != "flip").map(|token| (i18n::text(self.ctx.locale, &format!("bot.settings.trigger_mode.{token}_{side}"), &[]), token.to_string())).collect();
         let keys = self.k(rule);
         let current = if matches!(self.bot.text(&format!("{keys}_action")), Some("start_selling" | "start_buying")) { "flip" }
             else if rule == "price_drop_limit" { "start" }
@@ -436,16 +440,17 @@ impl Forms<'_> {
     /// The four conditions of a basket (bots/settings/_price_limit, _price_drop_limit, _moving_average_limit, _indicator_limit).
     /// `members` are BotHelper#base_select_options, `pairs` #ticker_select_options: (label, ticker id), sorted by label.
     pub fn conditions(&self, members: &[(String, String)], pairs: &[(String, String)]) -> String {
+        self.other_conditions(pairs, self.price_limit(members), members)
+    }
+
+    /// bots/settings/_price_limit on the active side; `members` (label, ticker id) are the subjects it can watch.
+    pub fn price_limit(&self, members: &[(String, String)]) -> String {
         let (bot, locale) = (self.bot, self.ctx.locale);
         // BotHelper#trigger_prefix: the sell side's mirror of every key while selling.
         let k = |name: &str| if bot.selling() { format!("sell_{name}") } else { name.to_string() };
-        let side = if bot.selling() { "selling" } else { "buying" };
         let quote = bot.quote_symbol().unwrap_or("");
         let words = |key: String| i18n::text(locale, &key, &[]);
         let boxed = |field: String| format!("<div>            {field}\n</div>");
-        let mut out = String::new();
-
-        // Price limit.
         let timing = bot.text(&k("price_limit_timing_condition")).unwrap_or("");
         let condition = bot.text(&k("price_limit_value_condition")).unwrap_or("");
         let conditions: Vec<(String, String)> = ["above", "below", "between"].iter().filter(|name| **name != "between" || timing == "while")
@@ -464,7 +469,16 @@ impl Forms<'_> {
             ("timing_condition_html", Arg::Html(&self.mode_pill("price_limit"))), ("value_condition_html", Arg::Html(&condition_pill)), ("price_input_html", Arg::Html(&price)),
             ("base_html", Arg::Html(&self.subject("price_limit", members))), ("quote", Arg::Text(quote)), ("count", Arg::Count(members.len() as i64)),
         ]);
-        out.push_str(&format!("  \n{}\n", self.rule(active, &k("price_limited"), active, self.locked(), &format!("          {sentence}\n          {}\n", if active { self.info_loader("price_limit") } else { String::new() }))));
+        format!("  \n{}\n", self.rule(active, &k("price_limited"), active, self.locked(), &format!("          {sentence}\n          {}\n", if active { self.info_loader("price_limit") } else { String::new() })))
+    }
+
+    /// The rest of a basket's conditions, after its price rule (`out`).
+    fn other_conditions(&self, pairs: &[(String, String)], mut out: String, members: &[(String, String)]) -> String {
+        let (bot, locale) = (self.bot, self.ctx.locale);
+        let k = |name: &str| if bot.selling() { format!("sell_{name}") } else { name.to_string() };
+        let side = if bot.selling() { "selling" } else { "buying" };
+        let words = |key: String| i18n::text(locale, &key, &[]);
+        let boxed = |field: String| format!("<div>            {field}\n</div>");
 
         // Price drop limit.
         let window = bot.text(&k("price_drop_limit_time_window_condition")).unwrap_or("");
@@ -603,12 +617,12 @@ struct BasketMain<'a> {
     add_path: String,
 }
 
-struct Coin {
+pub(super) struct Coin {
     color: String,
     market_cap: String,
-    asset_id: i64,
+    pub(super) asset_id: i64,
     symbol: String,
-    visible: bool,
+    pub(super) visible: bool,
 }
 
 #[derive(Template)]
@@ -642,7 +656,7 @@ fn intervals(locale: &str) -> Vec<(String, String)> {
 /// Bots::DcaIndex#current_index_preview with the Deltabadger provider: the index's members that
 /// trade here in the bot's quote, in index order, each with the market cap it is weighted by
 /// (the asset's own, else the weight the index carries for it).
-fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebError> {
+pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebError> {
     let Some(index) = bot.index.as_ref() else { return Ok(vec![]) };
     if bot.setting("quote_asset_id").is_none() { return Ok(vec![]); }
     let limit = bot.bounded_universe_size().unwrap_or(250) as usize;
@@ -769,10 +783,49 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
                 flattening_progress: (flattening.to_f() * 100.0).round() as i64, flattening: flattening.to_s(),
                 coins: coins.into_iter().enumerate().map(|(position, coin)| Coin { visible: (position as i64) < num_coins, ..coin }).collect(), fewer_note,
             }.render()?);
-            out.push_str(&format!("\n  {}\n  {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()?, forms.rebalance()));
+            out.push_str(&format!("\n  {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()?));
+            out.push_str(&index_rules(c, forms)?);
+            out.push_str(&format!("  {}\n", forms.rebalance()));
         }
     }
     out.push_str("</div>");
+    Ok(out)
+}
+
+/// D-COND-FORMS-INDEX: the rule forms of a basket that an index bot runs (conditions::support): its price rule, buy side,
+/// over the members and the subject it watches now (a former member, so named), preselecting the default subject while
+/// none is stored (D-IDX-SUBJECT-DEFAULT); and its spending cap.
+fn index_rules(c: &Connection, forms: &Forms) -> Result<String, WebError> {
+    use crate::engine::conditions::{support, Rule, Support};
+    let bot = forms.bot;
+    let mut out = String::new();
+    if support(Kind::Index, Rule::Price, false, "pause") == Support::Implemented {
+        let mut members: Vec<(String, String)> = super::draft::subject_tickers(c, bot)?.iter().map(|ticker| (ticker.base_symbol.clone().unwrap_or_default(), ticker.id.to_string())).collect();
+        members.sort_by(|a, b| a.0.cmp(&b.0));
+        let stored = bot.setting("price_limit_in_ticker_id").and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())));
+        let mut shown = None;
+        match stored {
+            Some(id) if !members.iter().any(|(_, value)| *value == id.to_string()) => {
+                if let Some(ticker) = Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next() {
+                    let symbol = ticker.base_symbol.clone().unwrap_or_default();
+                    members.push((i18n::text(forms.ctx.locale, "engine.condition_subject_departed", &[("symbol", Arg::Text(&symbol))]), id.to_string()));
+                }
+            }
+            Some(_) => {}
+            None => if let Some(id) = super::draft::default_subject(c, bot)? {
+                let mut preselected = bot.clone();
+                preselected.reads.insert("price_limit_in_ticker_id".into(), serde_json::json!(id));
+                shown = Some(preselected);
+            },
+        }
+        let price = match &shown {
+            Some(preselected) => Forms { ctx: forms.ctx, csrf: forms.csrf, bot: preselected, path: forms.path.clone(), hide_balances: forms.hide_balances,
+                                         time_zone: forms.time_zone, check: forms.check, rebalance_info: forms.rebalance_info }.price_limit(&members),
+            None => forms.price_limit(&members),
+        };
+        out.push_str(&price);
+    }
+    if support(Kind::Index, Rule::Cap, false, "pause") == Support::Implemented { out.push_str(&format!("    {}\n", forms.amount_limit(c)?)); }
     Ok(out)
 }
 

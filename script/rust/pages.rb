@@ -307,6 +307,21 @@ module Pages
                                    signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/pl/bots/2'), get('/bots'))),
       'venue_index_page_running' => venue.([running('kraken_index', '2026-09-09T13:30:00Z', acted('2026-09-10T13:30:00.800Z')), stopped('binance_index')],
                                            signed_in(get('/bots/1'), get('/bots/2'), get('/bots/1/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots')))
+    }.merge(twin_scenarios(venue))
+  end
+
+  # PLAN-conditions-every-bot CE-2 (D-COND-FORMS-INDEX): a Kraken index bot whose price rule and spending cap are on, as Rails
+  # draws its page (it has neither rule), and its basket twin over the same members with the same rules, as Rails draws its
+  # rule forms. The index bot watches a member (ETH), its former member (SOL), or has no rule on at all.
+  def twin_scenarios(venue)
+    rules = { 'price_limited' => true, 'price_limit' => 2500, 'price_limit_value_condition' => 'below', 'price_limit_timing_condition' => 'while',
+              'quote_amount_limited' => true, 'quote_amount_limit' => 500 }
+    capped = { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z' }
+    {
+      'twin_index_member' => venue.([stopped('kraken_index', 'settings' => rules, 'subject' => 'ETH', 'transient' => capped)], signed_in(get('/bots/1'))),
+      'twin_basket_member' => venue.([stopped('kraken_basket', 'settings' => rules, 'subject' => 'ETH', 'transient' => capped)], signed_in(get('/bots/1'))),
+      'twin_index_departed' => venue.([stopped('kraken_index', 'settings' => rules, 'subject' => 'SOL', 'transient' => capped)], signed_in(get('/bots/1'))),
+      'twin_index_off' => venue.([stopped('kraken_index')], signed_in(get('/bots/1')))
     }
   end
 

@@ -920,3 +920,7 @@ it:
                 fx_source: 'Conversione ai tassi di riferimento dell''euro pubblicati dalla BCE; nei giorni senza quotazione si applica il tasso del giorno lavorativo bancario precedente.'
                 interest_withholding_net: 'Gli interessi accreditati al netto della ritenuta estera sono indicati al netto alla riga 19, mentre la ritenuta è accreditata alla riga 41 — per gli interessi la banca non fornisce un importo lordo. I dividendi vengono invece ricostruiti al lordo.'
                 regulatory_fees: 'Le commissioni regolamentari aggregate non sono attribuibili a una singola cessione e pertanto non vengono dedotte da alcun importo; sono indicate solo a titolo informativo.'
+    engine:
+        flip_basket_only: "flip vale solo per i bot di portafoglio."
+        condition_no_subject: "non ha ancora un asset da monitorare"
+        condition_subject_departed: "%{symbol} (non è nell'indice)"

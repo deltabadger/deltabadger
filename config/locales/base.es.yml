@@ -919,3 +919,7 @@ es:
                 fx_source: 'Conversión a los tipos de referencia del euro publicados por el BCE; si no hay tipo para un día, se aplica el del día hábil bancario anterior.'
                 interest_withholding_net: 'Los intereses abonados después de descontar la retención extranjera se consignan netos en la línea 19, mientras que la retención se acredita en la línea 41 — el banco no facilita un importe bruto para los intereses. En cambio, los dividendos se elevan a bruto.'
                 regulatory_fees: 'Las comisiones regulatorias agrupadas no pueden asignarse a una transmisión concreta y, por tanto, no se deducen de ningún importe; se muestran únicamente a título informativo.'
+    engine:
+        flip_basket_only: "flip solo se aplica a los bots de cartera."
+        condition_no_subject: "aún no tiene ningún activo que vigilar"
+        condition_subject_departed: "%{symbol} (fuera del índice)"

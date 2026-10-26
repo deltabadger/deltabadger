@@ -948,3 +948,7 @@ sk:
                 fx_source: 'Prepočet podľa referenčných kurzov eura ECB; pre dni bez kurzu sa použije kurz z predchádzajúceho bankového pracovného dňa.'
                 interest_withholding_net: 'Úroky pripísané po odpočítaní zahraničnej zrážkovej dane sa vykazujú v čistej výške v riadku 19, zatiaľ čo zrážková daň sa započítava v riadku 41 — banka pri úrokoch neposkytuje hrubú sumu. Dividendy sa naopak dopočítavajú na hrubú sumu.'
                 regulatory_fees: 'Súhrnné regulačné poplatky nemožno priradiť k jednotlivému predaju, preto sa neodpočítavajú od žiadnej sumy a uvádzajú sa len informatívne.'
+    engine:
+        flip_basket_only: "flip platí len pre portfóliové boty."
+        condition_no_subject: "zatiaľ nemá žiadne aktívum na sledovanie"
+        condition_subject_departed: "%{symbol} (mimo indexu)"

@@ -921,3 +921,7 @@ fr:
                 fx_source: 'Conversion aux cours de référence de l''euro publiés par la BCE ; lorsqu''aucun cours n''est publié, le cours du jour ouvré bancaire précédent s''applique.'
                 interest_withholding_net: 'Les intérêts crédités après déduction d''une retenue à la source étrangère sont inscrits pour leur montant net à la ligne 19, tandis que la retenue est imputée à la ligne 41 — la banque ne fournit aucun montant brut pour les intérêts. Les dividendes sont en revanche reconstitués en brut.'
                 regulatory_fees: 'Les frais réglementaires groupés ne peuvent pas être rattachés à une cession précise et ne sont donc déduits d''aucun montant ; ils sont indiqués uniquement à titre informatif.'
+    engine:
+        flip_basket_only: "flip ne s'applique qu'aux bots de portefeuille."
+        condition_no_subject: "n'a encore aucun actif à surveiller"
+        condition_subject_departed: "%{symbol} (hors de l'indice)"
