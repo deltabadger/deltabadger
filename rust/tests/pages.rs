@@ -2583,7 +2583,14 @@ fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), Stri
     let mut in_picker = false;
     for (old, new) in a.iter_mut().zip(b) {
         let Some(line) = old.as_str() else { continue; };
-        if line.trim_start().starts_with("<select ") && matches!(attr(line,"name").as_deref(), Some("address" | "rules_withdrawal[address]")) {
+        if line.trim_start().starts_with("<input ") && attr(line, "data-rule-toggle-target").as_deref() == Some("checkbox") {
+            // D-RULE-LISTED-ENTRY: native validation must stop every change action,
+            // restoring the checkbox before submission, styling or disabling runs.
+            let guard = "if (!this.form.checkValidity()) { this.form.reportValidity(); this.checked = !this.checked; event.stopImmediatePropagation(); }";
+            let expected = line.replace(" type=\"checkbox\"", &format!(" onchange={guard:?} type=\"checkbox\""));
+            if new != &json!(expected) { return Err("D-RULE-LISTED-ENTRY: only the native validation guard may differ on the toggle".into()); }
+            *old = json!(expected);
+        } else if line.trim_start().starts_with("<select ") && matches!(attr(line,"name").as_deref(), Some("address" | "rules_withdrawal[address]")) {
             let expected = line.replace("name=\"address\"", "name=\"destination\"")
                 .replace("name=\"rules_withdrawal[address]\"", "name=\"rules_withdrawal[destination]\"");
             let expected = expected.strip_suffix('>').unwrap().to_string()

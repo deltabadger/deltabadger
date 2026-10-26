@@ -135,6 +135,25 @@ pub struct Listing {
 pub fn picker<'a>(list: &'a Listing, rule: &Rule) -> (Vec<&'a Entry>, Option<usize>) {
     let kind = Kind::of(&rule.exchange.class).expect("withdrawal venue");
     let selected = Identity::rule(rule);
+    // Compare V1's canonical networks, but retain the original entries for the
+    // form values and their exact membership check on submission.
+    let canonical = |entry: &Entry| {
+        let mut identity = Identity::entry(entry, kind);
+        if let Ok(
+            Destination::Gemini { network, .. }
+            | Destination::Mexc { network, .. }
+            | Destination::Binance { network, .. },
+        ) = withdrawal::select(
+            kind,
+            &list.code,
+            &Stored::new(&entry.address, None, None, None),
+            std::slice::from_ref(entry),
+            list.networks.as_ref(),
+        ) {
+            identity.network = Some(network);
+        }
+        identity
+    };
     let mut identities = Vec::new();
     let entries = list
         .entries
@@ -143,7 +162,7 @@ pub fn picker<'a>(list: &'a Listing, rule: &Rule) -> (Vec<&'a Entry>, Option<usi
             if e.refused.is_some() {
                 return false;
             }
-            let identity = Identity::entry(e, kind);
+            let identity = canonical(e);
             if identities.contains(&identity) {
                 return false;
             }
@@ -155,14 +174,11 @@ pub fn picker<'a>(list: &'a Listing, rule: &Rule) -> (Vec<&'a Entry>, Option<usi
         .iter()
         .enumerate()
         .filter(|(_, e)| {
-            let identity = Identity::entry(e, kind);
+            let identity = canonical(e);
             e.refused.is_none()
                 && identity.address == selected.address
                 && selected.network.as_ref().is_none_or(|n| {
                     identity.network.as_ref() == Some(n)
-                        || kind == Kind::Gemini
-                            && identity.network.is_none()
-                            && withdrawal::gemini_network(&list.code) == Some(n.as_str())
                         || kind == Kind::Mexc
                             && withdrawal::select(
                                 kind,

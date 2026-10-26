@@ -406,13 +406,19 @@ async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
 
 #[tokio::test]
 async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
-    for network in [json!("bitcoin"), Value::Null] {
+    for networks in [
+        [json!("bitcoin"), json!("bitcoin")],
+        [Value::Null, Value::Null],
+        [Value::Null, json!("bitcoin")],
+        [json!("bitcoin"), Value::Null],
+    ] {
         let server = MockServer::start().await;
-        let entry = json!({"address":ADDRESS,"network":network,"status":"active"});
+        let entries =
+            networks.map(|network| json!({"address":ADDRESS,"network":network,"status":"active"}));
         Mock::given(matchers::path("/v1/approvedAddresses/account/bitcoin"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_json(json!({"approvedAddresses":[{"address":"another-wallet","network":network,"status":"active"},entry,entry]})),
+                    .set_body_json(json!({"approvedAddresses":[{"address":"another-wallet","network":"bitcoin","status":"active"},entries[0],entries[1]]})),
             )
             .mount(&server)
             .await;
@@ -493,7 +499,99 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
                     .unwrap();
             assert_eq!(i.app.cipher.decrypt(&address).unwrap(), ADDRESS);
         }
+        assert_eq!(
+            i.c.query_row("SELECT status FROM rules", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
     }
+}
+
+#[tokio::test]
+async fn mexc_picker_deduplicates_network_aliases_before_selecting_saving_and_starting() {
+    use deltabadger::venue::withdrawal as w;
+    for networks in [["BTC", "Bitcoin"], ["Bitcoin", "BTC"]] {
+        for stored in ["BTC", "Bitcoin"] {
+            let (i, server) = identity_listing("Mexc", &["memo"]).await;
+            Mock::given(matchers::path(w::MEXC_ADDRESSES))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "data": networks.map(|network| json!({"coin":"BTC","address":ADDRESS,"network":network,"memo":"memo"})),
+                    "totalPageNum":1
+                })))
+                .with_priority(1)
+                .mount(&server).await;
+            let id = i.rule(2);
+            i.c.execute("UPDATE rules SET settings=json_set(settings,'$.network',?1,'$.address_tag','memo')", [stored]).unwrap();
+            let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+            let (name, options) = picker(&body);
+            assert_eq!(options.len(), 1, "{networks:?}, stored {stored}");
+            assert!(options[0].2, "the equivalent destination must be selected");
+            let form = form_urlencoded::Serializer::new(String::new())
+                .extend_pairs([(name.as_str(), options[0].0.as_str())])
+                .finish();
+            let path = format!("/rules/withdrawals/{id}");
+            assert_eq!(i.send("PATCH", &path, &form, None, true, true).await.0, 200);
+            let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+            let (_, options) = picker(&body);
+            assert_eq!(options.len(), 1);
+            assert!(options[0].2, "saving must retain the selection");
+            assert_eq!(
+                i.send(
+                    "PATCH",
+                    &path,
+                    "rules_withdrawal[status]=scheduled",
+                    None,
+                    true,
+                    true
+                )
+                .await
+                .0,
+                200
+            );
+            let (status, settings): (i64, String) =
+                i.c.query_row("SELECT status,settings FROM rules", [], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })
+                .unwrap();
+            assert_eq!(status, 1);
+            assert_eq!(
+                serde_json::from_str::<Value>(&settings).unwrap()["network"],
+                "Bitcoin"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn invalid_destination_toggle_guards_native_validation_before_stimulus_actions() {
+    let (i, _server) = identity_listing("Kraken", &["first", "second"]).await;
+    i.rule(2);
+    let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+    let doc = scraper::Html::parse_document(&body);
+    let form = doc
+        .select(&scraper::Selector::parse("form.rule--inactive").unwrap())
+        .next()
+        .unwrap();
+    assert!(form
+        .select(
+            &scraper::Selector::parse("select[required] option[value=''][selected][disabled]")
+                .unwrap()
+        )
+        .next()
+        .is_some());
+    let toggle = form
+        .select(&scraper::Selector::parse("input[data-rule-toggle-target=checkbox]").unwrap())
+        .next()
+        .unwrap();
+    assert!(toggle.value().attr("checked").is_none());
+    assert!(toggle.value().attr("disabled").is_none());
+    // The target's inline handler runs before Stimulus's bubbling change actions:
+    // restore the checkbox and stop submission, styling and disabling when invalid.
+    assert_eq!(toggle.value().attr("onchange"), Some("if (!this.form.checkValidity()) { this.form.reportValidity(); this.checked = !this.checked; event.stopImmediatePropagation(); }"));
+    assert_eq!(
+        toggle.value().attr("data-action"),
+        Some("change->form--submit#submit change->class-toggle#toggle change->rule-toggle#disable")
+    );
 }
 #[tokio::test]
 async fn unresolved_picker_has_no_successful_value_and_refuses_edits_and_start() {

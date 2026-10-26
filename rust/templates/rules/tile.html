@@ -2,7 +2,7 @@
 <div class="toggle-group">
  <div class="toggle-group__controls">
   <div class="toggle">
-   <input name="rules_withdrawal[status]" type="hidden" value="stopped" /><input data-rule-toggle-target="checkbox" data-action="change-&gt;form--submit#submit change-&gt;class-toggle#toggle change-&gt;rule-toggle#disable" type="checkbox" value="scheduled" {% if r.status == 1 %}checked="checked"{% endif %} name="rules_withdrawal[status]" id="rules_withdrawal_status" />
+   <input name="rules_withdrawal[status]" type="hidden" value="stopped" /><input data-rule-toggle-target="checkbox" data-action="change-&gt;form--submit#submit change-&gt;class-toggle#toggle change-&gt;rule-toggle#disable" onchange="if (!this.form.checkValidity()) { this.form.reportValidity(); this.checked = !this.checked; event.stopImmediatePropagation(); }" type="checkbox" value="scheduled" {% if r.status == 1 %}checked="checked"{% endif %} name="rules_withdrawal[status]" id="rules_withdrawal_status" />
    <div class="toggle__style"></div>
   </div>
   {% if r.status == 2 %}
