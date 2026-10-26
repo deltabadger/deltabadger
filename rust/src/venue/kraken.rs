@@ -319,6 +319,8 @@ pub(crate) fn aggregate_trades(trades: &[Value], txids: &[String]) -> Result<Vec
 
 /// Clients::Kraken#get_extended_balance's path.
 pub const BALANCE_EX: &str = "/0/private/BalanceEx";
+/// Clients::Kraken#get_ledgers' path.
+pub const LEDGERS: &str = "/0/private/Ledgers";
 
 // ---- the adapter
 
@@ -335,11 +337,16 @@ impl<T: Transport> KrakenVenue<T> {
 
     /// One private POST as honeymaker's #with_rescue returns it to a sync: the 2xx body of at most `limit` bytes, unparsed
     /// (`Ok`), else the failure's text: the answer's body, or Faraday's (or the transport's) message.
-    pub async fn read_text(&self, path: &str, limit: usize) -> Result<String, String> {
-        let r = self.private(path, &[]);
+    pub async fn read_text(&self, path: &str, limit: usize) -> Result<String, String> { self.read_form(path, &[], limit, false).await }
+
+    /// `read_text` with the call's private `fields` (the transport adds the nonce). `throttle_status`: an HTTP 429/418 answer
+    /// reads as Kraken's throttle text, as a read through `answer` does (Spec E §2.10).
+    pub async fn read_form(&self, path: &str, fields: &[(&str, String)], limit: usize, throttle_status: bool) -> Result<String, String> {
+        let r = self.private(path, fields);
         match self.transport.send_limited(&r, limit).await {
             Err(TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(self.transport.redact_diagnostic(&m)),
             Ok(resp) if (200..300).contains(&resp.status) => Ok(resp.body),
+            Ok(resp) if throttle_status && matches!(resp.status, 429 | 418) => Err(format!("the server responded with status {} ({HTTP_THROTTLE})", resp.status)),
             Ok(resp) if !resp.body.is_empty() => Err(resp.body),
             Ok(resp) => Err(format!("the server responded with status {} for POST {}", resp.status, r.url())),
         }

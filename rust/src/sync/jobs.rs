@@ -331,6 +331,9 @@ impl<C: Connect> Job for LedgerSync<C> {
                         crate::sync::bybit_ledger::sync(&cx.db, self.venues.bybit_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
                     Some(LedgerSync::Bitrue) =>
                         crate::sync::bitrue_ledger::sync(&cx.db, self.venues.bitrue_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock, crate::sync::bitrue_ledger::READ_PAUSE).await,
+                    Some(LedgerSync::Kraken) =>
+                        crate::sync::kraken_ledger::sync(&cx.db, self.venues.kraken_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
+                                                         crate::sync::kraken_ledger::THROTTLE_WAIT).await,
                     Some(LedgerSync::Bingx) =>
                         crate::sync::bingx_ledger::sync(&cx.db, self.venues.bingx_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
                     // Alpaca's, and a key on any other venue: ledger::load_key refuses it as it always did.

@@ -437,8 +437,8 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
-                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), named("kraken-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 11, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5 + 11], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes) + 11 Kraken balances");
+                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), named("kraken-balances-"), named("kraken-ledger-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 11, 19, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5 + 11 + 19], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes) + 11 Kraken balances + 19 Kraken ledger");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     // Rust's side starts as `serve` does: with this build's Rust migrations applied. parity::snapshot compares Rails'
     // tables only (parity::TABLES), so Rust's own tables stay out of the comparison.
@@ -451,7 +451,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-", "bingx-ledger-", "bingx-balances-", "kraken-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-", "bingx-ledger-", "bingx-balances-", "kraken-balances-", "kraken-ledger-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -478,6 +478,8 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     expected.push("bitrue-ledger-repeated_page");
     expected.push("bingx-ledger-repeated_page");
     expected.push("kraken-balances-full");
+    // Every Kraken ledger scenario: Rust's cursor walks (D-KR-W) never send Rails' requests.
+    expected.extend(dirs.iter().map(|d| d.file_name().unwrap().to_string_lossy().to_string()).filter(|n| n.starts_with("kraken-ledger-")).map(|n| &*Box::leak(n.into_boxed_str())));
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
     assert_eq!(divergences,expected,"the remaining divergences and all reviewed R legacy prices");
@@ -963,12 +965,61 @@ async fn an_api_sync_during_an_import_waits_for_it_and_dedupes_against_the_whole
     assert!(!changed.iter().any(|r| r["before"].is_null() && ["0xd1", "0xd2", "0xw1"].contains(&r["after"]["tx_id"].as_str().unwrap_or_default())), "and land no second time");
 }
 
+/// The columns a Kraken ledger row's divergences touch (plan Kraken sync §2.3, §2.4, D-KR-4), rendered as
+/// `tx_id|entry_type|base_currency|base_amount|fee_currency|fee_amount|base_asset_id|description|linked tx_id` (an empty field is
+/// null). Every other column of a row both sides stored must be identical.
+const KR_COLUMNS: [&str; 9] = ["tx_id", "entry_type", "base_currency", "base_amount", "fee_currency", "fee_amount", "base_asset_id", "description", "linked_transaction_id"];
+fn kr_rows(out: &Value) -> std::collections::BTreeMap<String, (String, Value)> {
+    let after: Vec<Value> = rows(out, "account_transactions").into_iter().map(|r| r["after"].clone()).filter(|a| !a.is_null()).collect();
+    let tx_of: std::collections::HashMap<i64, String> = after.iter().map(|a| (a["id"].as_i64().unwrap(), a["tx_id"].as_str().unwrap_or_default().to_string())).collect();
+    let cell = |v: &Value| match v { Value::Null => String::new(), Value::String(s) => s.clone(), other => num(other).map_or_else(|| other.to_string(), |f| f.to_string()) };
+    after.into_iter().map(|a| {
+        let mut fields: Vec<String> = KR_COLUMNS[..8].iter().map(|c| cell(&a[*c])).collect();
+        fields.push(a["linked_transaction_id"].as_i64().map(|id| tx_of.get(&id).cloned().unwrap_or_else(|| format!("#{id}"))).unwrap_or_default());
+        (fields[0].clone(), (fields.join("|"), a))
+    }).collect()
+}
+/// A Kraken ledger scenario's pinned results: each side's rows (`kr_rows`), Rust's Ledgers requests per step (the form,
+/// sorted), each side's key after it (`last_synced_at|last_sync_error`) and each step's raise.
+struct KrakenLedger { rails: &'static [&'static str], rust: &'static [&'static str], requests: &'static [&'static [&'static str]], keys: [&'static str; 2], raised: [&'static [bool]; 2] }
+fn kraken_ledger(name: &str, rails: &Value, rust: &Value) -> Result<(), String> {
+    let e = kraken_ledger_expected(name).ok_or_else(|| format!("{name}: no pinned results"))?;
+    let (r, u) = (kr_rows(rails), kr_rows(rust));
+    let rendered = |m: &std::collections::BTreeMap<String, (String, Value)>| m.values().map(|(t, _)| t.clone()).collect::<Vec<_>>();
+    check(rendered(&r) == e.rails, &format!("Rails' rows changed, drop or restate the divergence: {:#?}", rendered(&r)))?;
+    check(rendered(&u) == e.rust, &format!("Rust's rows: {:#?}", rendered(&u)))?;
+    for (tx, (_, a)) in &r {
+        // A row only one side stores is pinned by the tables above.
+        let Some((_, b)) = u.get(tx) else { continue };
+        let rest = |row: &Value| { let mut row = row.clone(); for c in KR_COLUMNS.iter().chain(&["id"]) { row.as_object_mut().unwrap().shift_remove(*c); } row };
+        check(rest(a) == rest(b), &format!("{tx}: beyond the Kraken columns the rows differ:\n  rails: {}\n  rust:  {}", rest(a), rest(b)))?;
+    }
+    let ledgers = |out: &Value| -> Vec<Vec<String>> {
+        out["steps"].as_array().unwrap().iter().map(|s| s["requests"].as_array().unwrap().iter().filter(|q| q[0] == "POST /0/private/Ledgers")
+            .map(|q| q[1].as_array().unwrap().iter().map(|p| format!("{}={}", p[0].as_str().unwrap(), p[1].as_str().unwrap())).collect::<Vec<_>>().join("&")).collect()).collect()
+    };
+    check(ledgers(rust) == e.requests, &format!("D-KR-W: Rust's Ledgers requests: {:?}", ledgers(rust)))?;
+    let key = |out: &Value| rows(out, "api_keys").first().map(|k| format!("{}|{}", k["after"]["last_synced_at"].as_str().unwrap_or_default(), k["after"]["last_sync_error"].as_str().unwrap_or_default()));
+    check(key(rails).as_deref().unwrap_or("") == e.keys[0] && key(rust).as_deref().unwrap_or("") == e.keys[1], &format!("the keys: rails {:?}, rust {:?}", key(rails), key(rust)))?;
+    let raised = |out: &Value| out["steps"].as_array().unwrap().iter().map(|s| s["raised"] == true).collect::<Vec<_>>();
+    check(raised(rails) == e.raised[0] && raised(rust) == e.raised[1], &format!("raised: rails {:?}, rust {:?}", raised(rails), raised(rust)))?;
+    rest_is_identical(rails, rust, &|out| {
+        out["changes"]["account_transactions"] = Value::Null;
+        out["changes"]["api_keys"] = Value::Null;
+        for step in out["steps"].as_array_mut().unwrap() {
+            step["raised"] = Value::Null;
+            if let Some(q) = step["requests"].as_array_mut() { q.retain(|q| q[0] != "POST /0/private/Ledgers"); }
+        }
+    })
+}
+
 /// D-BITRUE-PAGE: Rails raises on its undefined `path`; Rust names the stalled endpoint and keeps its committed page.
 /// The Kraken balance sync's listed divergences (plan Kraken sync §2.5, slice K1), each asserted on its own asset's row:
 /// D-KR-1 (every code of an asset summed, `free = balance − hold_trade`; Rails keeps the last code), D-KR-2 (legacy X-codes
 /// mapped), D-KR-3 (the exact code first; `.T` reads tokenized only), D-KR-6 (every listing, the unavailable included; the
 /// positive codes nothing names kept in `rust_sync.kraken_unresolved:<key_id>`, which Rails never has).
 fn listed_kraken(name: &str, rails_dir: &Path, rust_dir: &Path, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if name.starts_with("kraken-ledger-") { return Some(kraken_ledger(name, rails, rust)); }
     if name != "kraken-balances-full" { return None; }
     // Assets by id as the install builds them.
     const ETH: i64 = 6; const DOT: i64 = 7; const LTC: i64 = 9; const SOL: i64 = 10; const ADA: i64 = 11; const NVDAX: i64 = 12; const BRK: i64 = 13;
@@ -1083,4 +1134,144 @@ fn coinbase_size(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>>{
         if corrected!=2{return Err(format!("expected two corrected rows, got {corrected}"));}
         if expected!=*rust{return Err(format!("difference outside corrected Coinbase amounts: {expected}"));}Ok(())
     })())
+}
+
+/// Each Kraken ledger scenario's pinned results (`kraken_ledger`).
+fn kraken_ledger_expected(name: &str) -> Option<KrakenLedger> {
+    Some(match name {
+        // D-KR-2/D-KR-3: legacy and suffixed codes by their asset's symbol and id, `.T` never the coin, the tokenized walk's codes.
+        "kraken-ledger-dotted_symbols" => KrakenLedger {
+            rails: &["LZ1|6|DOT.S|0.25|||||", "LZ2|4|XDG|100|||8||", "LZ3|4|XLTC|2|||||", "LZ4|6|XBT.M|0.0001|||||", "LZ5|4|SOL.T|3|||||", "LZ6|4|ZZZ|9|||||"],
+            rust: &["LZ1|6|DOT|0.25|||7|Kraken staking|", "LZ2|4|DOGE|100|||8|Kraken deposit|", "LZ3|4|LTC|2|||9|Kraken deposit|", "LZ4|6|BTC|0.0001|||5|Kraken reward|", "LZ5|4|SOL.T|3||||Kraken deposit|", "LZ6|4|ZZZ|9||||Kraken deposit|", "LZ7|4|BRK.Bx|4|||13|Kraken deposit|", "LZ8|4|NVDAx|2|||12|Kraken deposit|"],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-16 11:00:00|", "2026-09-16 13:00:00|"],
+            raised: [&[false], &[false]] },
+        // D-KR-W: the two walks' requests only.
+        "kraken-ledger-empty" => KrakenLedger {
+            rails: &[],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["", ""],
+            raised: [&[false], &[false]] },
+        // D-KR-4/D-KR-F: an internal pair Rails skips, linked by refid, the deposit leg's fee folded (walks to −0.01).
+        "kraken-ledger-fee_on_deposit_leg" => KrakenLedger {
+            rails: &[],
+            rust: &["LP1|5|ETH|1|||6|Kraken transfer/spottostaking|LP2", "LP2|4|ETH|0.99|||6|Kraken transfer/stakingfromspot|"],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["", "2026-09-16 05:00:00|"],
+            raised: [&[false], &[false]] },
+        // D-KR-4/D-KR-F: the withdrawal leg's fee folded.
+        "kraken-ledger-fee_on_withdrawal_leg" => KrakenLedger {
+            rails: &[],
+            rust: &["LP1|5|ETH|1.01|||6|Kraken transfer/spottostaking|LP2", "LP2|4|ETH|1|||6|Kraken transfer/stakingfromspot|"],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["", "2026-09-16 05:00:00|"],
+            raised: [&[false], &[false]] },
+        // Float times as Rails stores them; D-KR-3 BTC named; a non-trade row's description.
+        "kraken-ledger-fractional_times" => KrakenLedger {
+            rails: &["LF1|0|BTC|0.01|||||", "LF2|1|USD|600|||1||", "LF3|4|ETH|1|||6||"],
+            rust: &["LF1|0|BTC|0.01|||5||", "LF2|1|USD|600|||1||", "LF3|4|ETH|1|||6|Kraken deposit|"],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-17 14:00:00.000099|", "2026-09-17 14:00:00.000099|"],
+            raised: [&[false], &[false]] },
+        // D-KR-W: three cursor pages, then the tokenized walk Rails never reads (its rows and the later watermark); D-KR-3, D-KR-F labels.
+        "kraken-ledger-full" => KrakenLedger {
+            rails: &["LD1|4|USD|1000|||1||", "LS1|6|ETH|0.05|||6||", "LT1|1|USD|600|USD|1.2|1||", "LT2|0|BTC|0.01|||||", "LT3|1|USD|270|||1||", "LW1|5|BTC|0.002|||||"],
+            rust: &["LD1|4|USD|1000|||1|Kraken deposit|", "LS1|6|ETH|0.05|||6|Kraken staking|", "LT1|1|USD|600|USD|1.2|1||", "LT2|0|BTC|0.01|||5||", "LT3|1|USD|270|||1||", "LW1|5|BTC|0.002|||5|Kraken withdrawal|", "LX1|0|NVDAx|1.5|||12||", "LX2|1|NVDAx|0.5|NVDAx|0.001|12||", "LX3|0|USD|90|||1||"],
+            requests: &[&["with_cursor=true", "cursor=c1&with_cursor=true", "cursor=c2&with_cursor=true", "aclass=tokenized_asset&with_cursor=true", "aclass=tokenized_asset&cursor=t1&with_cursor=true"]],
+            keys: ["2026-09-18 12:00:00|", "2026-09-19 12:00:00|"],
+            raised: [&[false], &[false]] },
+        // D-KR-4: the pair's legs on two pages, linked.
+        "kraken-ledger-group_across_pages" => KrakenLedger {
+            rails: &[],
+            rust: &["LP1|5|ETH|1|||6|Kraken transfer/spottostaking|LP2", "LP2|4|ETH|1|||6|Kraken transfer/stakingfromspot|"],
+            requests: &[&["start=1789340400&with_cursor=true", "cursor=c1&start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["", "2026-09-16 05:00:00|"],
+            raised: [&[false], &[false]] },
+        // D-KR-4: the second leg in the next sync (from Rust's own watermark), linked then.
+        "kraken-ledger-group_across_runs" => KrakenLedger {
+            rails: &[],
+            rust: &["LP1|5|ETH|1|||6|Kraken transfer/spottostaking|LP2", "LP2|4|ETH|1|||6|Kraken transfer/stakingfromspot|"],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"], &["start=1789444800&with_cursor=true", "aclass=tokenized_asset&start=1789444800&with_cursor=true"]],
+            keys: ["", "2026-09-16 05:00:00|"],
+            raised: [&[false, false], &[false, false]] },
+        // D-KR-W requests; D-KR-3 BTC named.
+        "kraken-ledger-incremental" => KrakenLedger {
+            rails: &["LT1|1|USD|600|USD|1.2|1||", "LT2|0|BTC|0.01|||||", "LT3|1|USD|270|||1||"],
+            rust: &["LT1|1|USD|600|USD|1.2|1||", "LT2|0|BTC|0.01|||5||", "LT3|1|USD|270|||1||"],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-18 12:00:00|", "2026-09-18 12:00:00|"],
+            raised: [&[false], &[false]] },
+        // Same failure; D-KR-W request only.
+        "kraken-ledger-invalid_key" => KrakenLedger {
+            rails: &[],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-15 00:00:00|EAPI:Invalid key", "2026-09-15 00:00:00|EAPI:Invalid key"],
+            raised: [&[false], &[false]] },
+        // Same failure; D-KR-W request only.
+        "kraken-ledger-not_json" => KrakenLedger {
+            rails: &[],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-15 00:00:00|maintenance", "2026-09-15 00:00:00|maintenance"],
+            raised: [&[false], &[false]] },
+        // Same failure; D-KR-W request only.
+        "kraken-ledger-permission_denied" => KrakenLedger {
+            rails: &[],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-15 00:00:00|EGeneral:Permission denied", "2026-09-15 00:00:00|EGeneral:Permission denied"],
+            raised: [&[false], &[false]] },
+        // Same failure; D-KR-W request only.
+        "kraken-ledger-pre_send" => KrakenLedger {
+            rails: &[],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-15 00:00:00|Connection refused - connect(2) for \"api.kraken.com\" port 443", "2026-09-15 00:00:00|Connection refused - connect(2) for \"api.kraken.com\" port 443"],
+            raised: [&[false], &[false]] },
+        // Same failure after the same seven reads, on the cursor walk.
+        "kraken-ledger-throttled_gives_up" => KrakenLedger {
+            rails: &[],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-15 00:00:00|EAPI:Rate limit exceeded", "2026-09-15 00:00:00|EAPI:Rate limit exceeded"],
+            raised: [&[false], &[false]] },
+        // Same rows after two throttled reads of the same page.
+        "kraken-ledger-throttled_recovers" => KrakenLedger {
+            rails: &["LT1|1|USD|600|USD|1.2|1||", "LT2|0|BTC|0.01|||||", "LT3|1|USD|270|||1||"],
+            rust: &["LT1|1|USD|600|USD|1.2|1||", "LT2|0|BTC|0.01|||5||", "LT3|1|USD|270|||1||"],
+            requests: &[&["start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true", "start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-18 12:00:00|", "2026-09-18 12:00:00|"],
+            raised: [&[false], &[false]] },
+        // Same failure; D-KR-W request only.
+        "kraken-ledger-transient" => KrakenLedger {
+            rails: &[],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-15 00:00:00|EGeneral:Internal error", "2026-09-15 00:00:00|EGeneral:Internal error"],
+            raised: [&[false], &[false]] },
+        // Plan §2.3 with r3 row 1, every row: types Rails skips stored (D-KR-4), fees folded, negative fees folded, zero is unsupported_activity.
+        "kraken-ledger-types" => KrakenLedger {
+            rails: &["LY1|0|ETH|1|ETH|0.01|6||", "LY10|4|ETH|2|ETH|0.5|6||", "LY11|4|ETH|0.5|ETH|0.5|6||", "LY12|5|ETH|2|ETH|0.5|6||", "LY13|5|ETH|2|ETH|0.5|6||", "LY14|5|ETH|0.5|ETH|0.5|6||", "LY15|6|ETH|2|ETH|0.5|6||", "LY16|6|ETH|2|ETH|0.5|6||", "LY17|6|ETH|0.5|ETH|0.5|6||", "LY18|6|ETH|2|ETH|0.5|6||", "LY19|6|ETH|2|ETH|0.5|6||", "LY20|6|ETH|0.5|ETH|0.5|6||", "LY24|11|ETH|2|ETH|0.5|6||", "LY25|11|ETH|2|ETH|0.5|6||", "LY26|11|ETH|0.5|ETH|0.5|6||", "LY30|10|ETH|2|ETH|0.5|6||", "LY31|10|ETH|2|ETH|0.5|6||", "LY32|10|ETH|0.5|ETH|0.5|6||", "LY6|0|ETH|1|||6||", "LY7|1|ETH|1|||6||", "LY8|1|ETH|0|||6||", "LY9|4|ETH|2|ETH|0.5|6||"],
+            rust: &["LY1|0|ETH|1|ETH|0.01|6||", "LY10|5|ETH|2.5|||6|Kraken deposit|", "LY11|16|ETH|0|||6|Kraken deposit|", "LY12|4|ETH|1.5|||6|Kraken withdrawal|", "LY13|5|ETH|2.5|||6|Kraken withdrawal|", "LY14|16|ETH|0|||6|Kraken withdrawal|", "LY15|6|ETH|1.5|||6|Kraken staking|", "LY16|5|ETH|2.5|||6|Kraken staking|", "LY17|16|ETH|0|||6|Kraken staking|", "LY18|6|ETH|1.5|||6|Kraken reward|", "LY19|5|ETH|2.5|||6|Kraken reward|", "LY2|1|ETH|1|ETH|0.01|6||", "LY20|16|ETH|0|||6|Kraken reward|", "LY21|6|ETH|1.5|||6|Kraken earn/reward|", "LY22|5|ETH|2.5|||6|Kraken earn/reward|", "LY23|16|ETH|0|||6|Kraken earn/reward|", "LY24|11|ETH|1.5|||6|Kraken dividend|", "LY25|5|ETH|2.5|||6|Kraken dividend|", "LY26|16|ETH|0|||6|Kraken dividend|", "LY27|4|ETH|1.5|||6|Kraken rollover|", "LY28|10|ETH|2.5|||6|Kraken rollover|", "LY29|16|ETH|0|||6|Kraken rollover|", "LY3|1|ETH|0.01|||6||", "LY30|4|ETH|1.5|||6|Kraken creator_fee|", "LY31|10|ETH|2.5|||6|Kraken creator_fee|", "LY32|16|ETH|0|||6|Kraken creator_fee|", "LY33|4|ETH|1.5|||6|Kraken nftcreatorfee|", "LY34|10|ETH|2.5|||6|Kraken nftcreatorfee|", "LY35|16|ETH|0|||6|Kraken nftcreatorfee|", "LY36|4|ETH|1.5|||6|Kraken earn/allocation|", "LY37|5|ETH|2.5|||6|Kraken earn/allocation|", "LY38|16|ETH|0|||6|Kraken earn/allocation|", "LY39|4|ETH|1.5|||6|Kraken transfer/spottostaking|", "LY4|1|ETH|0.02|||6||", "LY40|5|ETH|2.5|||6|Kraken transfer/spottostaking|", "LY41|16|ETH|0|||6|Kraken transfer/spottostaking|", "LY42|4|ETH|1.5|||6|Kraken transfer/spottofutures|", "LY43|5|ETH|2.5|||6|Kraken transfer/spottofutures|", "LY44|16|ETH|0|||6|Kraken transfer/spottofutures|", "LY45|8|ETH|1.5|||6|Kraken transfer/airdrop|", "LY46|5|ETH|2.5|||6|Kraken transfer/airdrop|", "LY47|16|ETH|0|||6|Kraken transfer/airdrop|", "LY48|4|ETH|1.5|||6|Kraken margin|", "LY49|5|ETH|2.5|||6|Kraken margin|", "LY5|16|ETH|0|||6||", "LY50|16|ETH|0|||6|Kraken margin|", "LY51|4|ETH|1.5|||6|Kraken settled|", "LY52|5|ETH|2.5|||6|Kraken settled|", "LY53|16|ETH|0|||6|Kraken settled|", "LY54|4|ETH|1.5|||6|Kraken sale|", "LY55|5|ETH|2.5|||6|Kraken sale|", "LY56|16|ETH|0|||6|Kraken sale|", "LY57|4|ETH|1.5|||6|Kraken none|", "LY58|5|ETH|2.5|||6|Kraken none|", "LY59|16|ETH|0|||6|Kraken none|", "LY6|0|ETH|1.01|||6||", "LY7|1|ETH|0.99|||6||", "LY8|0|ETH|0.01|||6||", "LY9|4|ETH|1.5|||6|Kraken deposit|"],
+            requests: &[&["start=1789340400&with_cursor=true", "cursor=c1&start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-16 00:32:00|", "2026-09-16 00:59:00|"],
+            raised: [&[false], &[false]] },
+        // D-KR-6: a listing that is unavailable names its asset (as Rails' does here); the label only.
+        "kraken-ledger-unavailable_listing" => KrakenLedger {
+            rails: &["LA1|4|ADA|7|||11||"],
+            rust: &["LA1|4|ADA|7|||11|Kraken deposit|"],
+            requests: &[&["start=1789340400&with_cursor=true", "aclass=tokenized_asset&start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-16 04:00:00|", "2026-09-16 04:00:00|"],
+            raised: [&[false], &[false]] },
+        // Kit-wide: an unreadable amount fails the sync (raised), nothing stored; Rails stores 0.
+        "kraken-ledger-unreadable_amount" => KrakenLedger {
+            rails: &["LG1|4|ETH|0|||6||", "LT1|1|USD|600|USD|1.2|1||", "LT2|0|BTC|0.01|||||", "LT3|1|USD|270|||1||"],
+            rust: &[],
+            requests: &[&["start=1789340400&with_cursor=true"]],
+            keys: ["2026-09-18 12:00:00|", "2026-09-15 00:00:00|ledger entry: unreadable amount: not a plain decimal number"],
+            raised: [&[false], &[true]] },
+        _ => return None,
+    })
 }

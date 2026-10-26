@@ -671,6 +671,84 @@ fn subtree_end(lines: &[Value], at: usize) -> usize {
     lines[at..].iter().position(|l| l.as_str() == Some(close.as_str())).map_or(lines.len(), |end| at + end + 1)
 }
 
+/// D-COND-FORMS-INDEX (strip): an index bot's rule forms (its price rule and spending cap), which Rails' index bot does not
+/// have, taken out of a normalized page with the whitespace before each; returns them, in page order. The rest of the page is
+/// Rails'; what was taken is held to the basket twin's forms (an_index_bots_rule_forms_are_its_basket_twins).
+fn index_rules(body: &mut Value) -> Vec<Vec<Value>> {
+    let Value::Array(lines) = body else { return vec![] };
+    let (mut taken, mut i) = (vec![], 0);
+    while i < lines.len() {
+        let form = lines[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form "));
+        let end = if form { subtree_end(lines, i) } else { i + 1 };
+        let rule = form && lines[i..end].iter().any(|l| l.as_str().is_some_and(|l| l.contains("name=\"bots_dca_index[price_limited]\"") || l.contains("name=\"bots_dca_index[quote_amount_limited]\"")));
+        if !rule { i += 1; continue; }
+        let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+        taken.push(lines.drain(start..end).filter(|l| !is_space(l)).collect());
+        i = start;
+    }
+    taken
+}
+
+/// D-COND-FORMS-INDEX (twin): an index bot's rule forms are its basket twin's (the same members, the same rules, as Rails
+/// draws them) with the index bot's parameter key, and without the flip, which an index bot has no direction for
+/// (conditions::support). The subject select offers the members, and a former member it still watches by its name; with
+/// no rule on, it shows the default subject (D-IDX-SUBJECT-DEFAULT). The rest of each page is Rails' (the grid compares it).
+#[tokio::test(flavor = "current_thread")]
+async fn an_index_bots_rule_forms_are_its_basket_twins() {
+    let (_recording, rust_root, dirs) = recorded_grid();
+    // PAGES may select another part of the grid; the unfiltered gate always includes these scenarios.
+    if !dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_index_member")) { return; }
+    let last = |v: &Value| v["responses"].as_array().unwrap().last().unwrap()["body"].clone();
+    let rust_forms = |name: &'static str| { let root = rust_root.path().join(name); async move { let mut body = last(&run(&root).await); index_rules(&mut body) } };
+    let rails_body = |name: &str| {
+        let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).unwrap();
+        let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let steps = scenario(dir)["steps"].clone();
+        rails_answer(recorded["responses"].as_array().unwrap().last().unwrap(), steps.as_array().unwrap().last().unwrap())["body"].clone()
+    };
+    // The twin's price rule and cap forms, keyed for an index bot, its flip option gone.
+    let mut twin: Vec<Vec<Value>> = vec![];
+    let Value::Array(lines) = rails_body("twin_basket_member") else { panic!("the twin page is HTML") };
+    let mut i = 0;
+    while i < lines.len() {
+        let form = lines[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form "));
+        let end = if form { subtree_end(&lines, i) } else { i + 1 };
+        if form && lines[i..end].iter().any(|l| l.as_str().is_some_and(|l| l.contains("[price_limited]\"") || l.contains("[quote_amount_limited]\""))) {
+            let mut block: Vec<Value> = vec![];
+            let mut j = i;
+            while j < end {
+                let line = lines[j].as_str().unwrap_or_default();
+                if line.trim_start().starts_with("<option") && line.contains("value=\"flip\"") { j = subtree_end(&lines, j); continue; }
+                if !is_space(&lines[j]) { block.push(json!(line.replace("bots_dca_multi_asset", "bots_dca_index"))); }
+                j += 1;
+            }
+            twin.push(block);
+        }
+        i = end;
+    }
+    assert_eq!(twin.len(), 2, "the twin draws a price rule and a spending cap");
+    assert!(twin[0].iter().any(|l| l.as_str().is_some_and(|l| l.contains("value=\"restrict\""))), "the twin's mode select is kept");
+    let member = rust_forms("twin_index_member").await;
+    assert_eq!(member, twin, "an index bot watching a member draws its basket twin's forms");
+    // A former member is offered by name, selected; the rest of the price form and the cap are the twin's.
+    let departed = rust_forms("twin_index_departed").await;
+    assert_eq!(departed.len(), 2);
+    assert_eq!(departed[1], twin[1], "the cap form");
+    let text = departed[0].iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>().join("\n");
+    assert!(text.contains("SOL (not in the index)"), "{text}");
+    assert_eq!(departed[0].iter().filter(|l| l.as_str().is_some_and(|l| l.trim_start().starts_with("<option") && l.contains("selected"))).count(), 3, "one selected option in each of the three selects: {text}");
+    // No rule on: the forms are drawn switched off, the default subject (BTC, the largest member) preselected, no flip.
+    let off = rust_forms("twin_index_off").await;
+    assert_eq!(off.len(), 2);
+    let text = off[0].iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>().join("\n");
+    assert!(!text.contains("value=\"flip\"") && text.contains("rule--inactive"), "{text}");
+    let selected: Vec<&str> = off[0].iter().filter_map(|l| l.as_str()).filter(|l| l.trim_start().starts_with("<option") && l.contains("selected")).collect();
+    let btc = rust_root.path().join("twin_index_off").join("production.sqlite3");
+    let btc: i64 = rusqlite::Connection::open(btc).unwrap().query_row("SELECT t.id FROM tickers t JOIN assets a ON a.id = t.base_asset_id JOIN assets q ON q.id = t.quote_asset_id JOIN exchanges e ON e.id = t.exchange_id \
+                                                                       WHERE a.symbol = 'BTC' AND q.symbol = 'EUR' AND e.name = 'Kraken'", [], |r| r.get(0)).unwrap();
+    assert!(selected.iter().any(|l| l.contains(&format!("value=\"{btc}\""))), "{selected:?}");
+}
+
 /// The `id` of a `<tr>` line.
 fn row_id(line: &Value) -> Option<String> {
     let line = line.as_str()?.trim_start();
@@ -1148,6 +1226,12 @@ fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
     for scenario in std::fs::read_dir(rust_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
         let c = rusqlite::Connection::open(scenario.join("production.sqlite3")).unwrap();
         deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
+        // D-STRAY-FLAGS-MIGRATION turned off the rules Rails' index bot cannot have; CE-2's twin_ index bots are ones whose owner
+        // switched them on here since.
+        if scenario.file_name().is_some_and(|n| n.to_string_lossy().starts_with("twin_index_")) {
+            c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.quote_amount_limited', json('true')) \
+                       WHERE type = 'Bots::DcaIndex' AND json_extract(settings, '$.price_limit') = 2500", []).unwrap();
+        }
     }
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(recording.path.join("rails")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
@@ -1621,7 +1705,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
         assert_eq!(dirs.len(), 254 + 2 + 6, "all action scenarios must remain selected, with two amounts typed key by key and six settings metrics cases");
     }
-    let (mut failures, mut countdown_pages, mut broker_gate_pages) = (vec![], 0, 0);
+    let (mut failures, mut countdown_pages, mut broker_gate_pages, mut index_rule_pages) = (vec![], 0, 0, 0);
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
@@ -1655,7 +1739,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
-        for answer in rust["responses"].as_array_mut().unwrap() { without_low_funds(&mut answer["body"]); }
+        for answer in rust["responses"].as_array_mut().unwrap() { without_low_funds(&mut answer["body"]); index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty()); }
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
             // Rails knows a time on every page of these scenarios, and this build must not claim the same one.
@@ -1750,14 +1834,15 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
+    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next; {index_rule_pages} index bot pages with their rule forms", dirs.len());
+    if dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_index_member")) { assert!(index_rule_pages > 0, "D-COND-FORMS-INDEX: no index bot page drew its rule forms"); }
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 29, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read)");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 29, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, and the empty bots page for a member (twice) and on the first visit");
     }

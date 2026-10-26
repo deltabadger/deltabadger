@@ -3,7 +3,28 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null))
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); data })
+}
+/// The schemas as recorded from Rails, before `rule_kinds`.
+pub fn recorded() -> Value { serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null) }
+/// D-MCP-COND-KINDS: update_bot_settings' rule fields say which bot kinds take them (conditions::support), where this build
+/// runs a rule on an index bot that Rails' does not have: the only change to the recorded schemas.
+fn rule_kinds(data: &mut Value) {
+    use crate::engine::conditions::{support, Support};
+    use crate::web::bot::Kind;
+    let Some(tool) = data["tools"].as_array_mut().and_then(|tools| tools.iter_mut().find(|t| t["name"] == "update_bot_settings")) else { return };
+    let Some(fields) = tool["inputSchema"]["properties"].as_object_mut() else { return };
+    for (name, schema) in fields.iter_mut() {
+        let Some((rule, selling)) = crate::web::bot::draft::field_rule(name) else { continue };
+        if support(Kind::Index, rule, selling, "pause") != Support::Implemented { continue; }
+        let Some(text) = schema["description"].as_str() else { continue };
+        let text = if name.ends_with("_in_ticker_id") {
+            text.replace("Basket bots: the ticker id of the member it watches (get_bot_details lists them).",
+                         "Basket and index bots: the ticker id of the member it watches (get_bot_details lists them); an index bot's may be a former member.")
+        } else if name.ends_with("_mode") { format!("{text} Basket and index bots; flip is for basket bots only.") }
+        else { format!("{text} Basket and index bots.") };
+        schema["description"] = json!(text);
+    }
 }
 fn matches_type(value: &Value, kind: &str) -> bool {
     match kind { "object" => value.is_object(), "array" => value.is_array(), "string" => value.is_string(), "number" => value.is_number(), "integer" => value.as_f64().is_some_and(|v| v.fract() == 0.0), "boolean" => value.is_boolean(), "null" => value.is_null(), _ => false }

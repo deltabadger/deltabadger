@@ -68,6 +68,7 @@ RECORDED = {
     FIX + 'setup_vectors.json': ('test', [runner('setup.rb', '{scratch}', '{out}')], None),
     FIX + 'start_time_vectors.json': ('test', [runner('start_time.rb', '{out}')], None),
     FIX + 'sync_vectors.json': ('test', [runner('record_sync_vectors.rb', '{out}')], None),
+    FIX + 'withdrawal_vectors.json': ('test', [runner('record_withdrawal_vectors.rb', '{out}')], None),
     FIX + 'tax_vectors.json': ('test', [runner('tax_vectors.rb', '{out}')],
                                r'scenarios/\d+/tables/(api_keys|users)/\d+/(key|secret|encrypted_password|otp_secret_key)'),
     FIX + 'tracker_cache.json': ('test', [runner('tracker_cache.rb', '{out}')], None),
@@ -84,7 +85,7 @@ RECORDED = {
 ALSO_WRITES = {FIX + 'ruby_vectors.json': ['rust/src/web/time_zones.json']}
 # setup.rb renders whole pages, so it needs the built JavaScript and CSS; their tokens, nonces, cookies, ciphertexts,
 # asset digests and fake-server ports are drawn fresh each run, so they are masked out of the content comparison.
-NEEDS_ASSETS = {FIX + 'setup_vectors.json'}
+NEEDS_ASSETS = {FIX + 'setup_vectors.json', FIX + 'withdrawal_vectors.json'}
 MASK = {FIX + 'setup_vectors.json': r'[A-Za-z0-9+/=_%.$-]{16,}|127\.0\.0\.1:\d+|"p":"[^"]*"'}
 HASH_ONLY = [FIX + n for n in ('api_sources.json', 'page_figure_sources.json', 'tracker_connect_sources.json', 'tracker_first_sync_sources.json',
                                'tracker_holdings_sources.json', 'tracker_index_sources.json', 'tracker_populated_sources.json',

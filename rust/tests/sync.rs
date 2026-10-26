@@ -506,8 +506,7 @@ async fn a_reading_kucoin_key_gets_a_ledger_job_and_a_balance_job_that_reach_kuc
     assert_eq!(deltabadger::sync::ledger_reading_keys(&c).unwrap(), vec![s.api_key_id]);
 }
 
-/// Plan Kraken sync K1: a reading Kraken key gets a balance job only (its ledger comes with K2), which reaches Kraken through
-/// its own transport. The codes a balance sync cannot name are kept in `rust_sync.kraken_unresolved:<key_id>`, written in
+/// Plan Kraken sync: a reading Kraken key gets its ledger and balance jobs, each reaching Kraken through its own transport. The codes a balance sync cannot name are kept in `rust_sync.kraken_unresolved:<key_id>`, written in
 /// the sync's last commit: whichever of the key's two jobs completes last, the record stands; a failed balance read keeps
 /// it; the sync that names every code removes it.
 #[tokio::test(flavor = "current_thread")]
@@ -517,7 +516,7 @@ async fn a_kraken_keys_unresolved_codes_survive_either_job_order_and_go_once_nam
     c.execute("UPDATE exchanges SET type = 'Exchanges::Kraken', name = 'Kraken' WHERE id = ?1", [s.exchange_id]).unwrap();
     let venues = Scripted(ScriptedTransport::default());
     let names = jobs::register(&c, &venues, Rc::new(NoPrices)).unwrap().iter().map(|j| (j.spec().name, j.spec().scope)).collect::<Vec<_>>();
-    assert_eq!(names, vec![("balance_sync", Some(s.api_key_id.to_string())), ("credential_scope_factory", None)]);
+    assert_eq!(names, vec![("ledger_sync", Some(s.api_key_id.to_string())), ("balance_sync", Some(s.api_key_id.to_string())), ("credential_scope_factory", None)]);
     let clock = clock();
     let Outcome::Failed(why) = BalanceSync::new(venues.clone(), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await else { panic!() };
     assert!(why.contains("Kraken is not connected here"), "{why}");

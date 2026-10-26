@@ -291,6 +291,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             (Some("ledger"), None) if mexc => super::mexc_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bybit => super::bybit_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bitrue => super::bitrue_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
+            (Some("ledger"), None) if kraken => super::kraken_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bingx => super::bingx_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), Some(fake)) => super::binance_ledger::sync(&db, fake.clone(), key_id, &credentials, &FixedClock(at), super::binance_ledger::Pacing::NONE).await?.is_err_and(|f| f.raised),
             (kind, _) => match kind {

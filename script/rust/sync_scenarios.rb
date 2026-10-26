@@ -1869,8 +1869,88 @@ module SyncScenarios
     ]
   end
 
+  # Exchanges::Kraken#get_ledger with AccountTransactionSync (plan Kraken sync, slices K2 and K3). Rails pages the currency
+  # ledger by `ofs`; Rust walks the currency and the tokenized ledgers by cursor (D-KR-W). Every scenario is a listed
+  # divergence asserted row by row in rust/tests/sync_parity.rs (`listed_kraken`).
+  def kraken_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    u = ->(*args) { Time.utc(*args).to_i }
+    week = Time.utc(2026, 9, 15)
+    start = (week - 25.hours).to_i
+    install = ->(ctx) { P.kraken(ctx) }
+    since = ->(ctx) { P.kraken(ctx); ctx[:key].update_columns(last_synced_at: week) }
+    e = ->(*args, **kw) { P.kr_entry(*args, **kw) }
+    throttle = P.kr_err('EAPI:Rate limit exceeded')
+    full = { 'LD1' => e.('ZUSD', 'deposit', '1000.0000', u.(2026, 9, 14, 9), refid: 'D1'),
+             'LT1' => e.('ZUSD', 'trade', '-600.0000', u.(2026, 9, 15, 10), fee: '1.2000', refid: 'T1'),
+             'LT2' => e.('XXBT', 'trade', '0.0100000000', u.(2026, 9, 15, 10), refid: 'T1'),
+             'LS1' => e.('XETH', 'staking', '0.0500000000', u.(2026, 9, 16, 1), refid: 'S1'),
+             'LW1' => e.('XXBT', 'withdrawal', '-0.0020000000', u.(2026, 9, 17, 3), refid: 'W1'),
+             'LT3' => e.('ZUSD', 'trade', '-270.0000', u.(2026, 9, 18, 12), refid: 'T2') }
+    tokenized = { 'LX1' => e.('NVDAx', 'trade', '1.5000000000', u.(2026, 9, 18, 12), refid: 'T2', aclass: 'tokenized_asset'),
+                  'LX2' => e.('NVDAx', 'trade', '-0.5000000000', u.(2026, 9, 19, 12), fee: '0.0010000000', refid: 'T3', aclass: 'tokenized_asset'),
+                  'LX3' => e.('ZUSD', 'trade', '90.0000', u.(2026, 9, 19, 12), refid: 'T3', aclass: 'tokenized_asset') }
+    recent = full.slice('LT1', 'LT2', 'LT3')
+    first = ->(**kw) { { "start=#{start}&with_cursor=true" => kw[:rust], "ofs=0&start=#{start}" => kw[:rails] }.compact }
+    fail = ->(reply) { P.kraken_ledger(night, currency: recent, start:, rust: first.(rust: [reply]).compact, rails: first.(rails: [reply]).compact) }
+    # Every row of plan §2.3 (r3 row 1): the trade group by sign and fee, a negative fee, and every other type up, down and flat.
+    types = {}
+    i = 0
+    add = lambda do |type, amount, fee = '0', subtype: '', asset: 'XETH'|
+      i += 1
+      types["LY#{i}"] = e.(asset, type, amount, u.(2026, 9, 16, 0, i), fee:, subtype:, refid: "Y#{i}")
+    end
+    [%w[trade 1 0.01], %w[spend -1 0.01], %w[receive 0.01 0.02], %w[adjustment 0 0.02], %w[conversion 0 0],
+     %w[trade 1 -0.01], %w[trade -1 -0.01], %w[trade 0 -0.01]].each { |t, a, f| add.(t, a, f) }
+    [%w[deposit], %w[withdrawal], %w[staking], %w[reward], %w[earn reward], %w[dividend], %w[rollover], %w[creator_fee], %w[nftcreatorfee],
+     %w[earn allocation], %w[transfer spottostaking], %w[transfer spottofutures], %w[transfer airdrop], %w[margin], %w[settled], %w[sale], %w[none]].each do |t, sub|
+      ['2', '-2', '0.5'].each { |a| add.(t, a, '0.5', subtype: sub.to_s) }
+    end
+    internal = lambda do |out_fee, in_fee|
+      { 'LP1' => e.('XETH', 'transfer', '-1.0000000000', u.(2026, 9, 16, 5), fee: out_fee, subtype: 'spottostaking', refid: 'P1'),
+        'LP2' => e.('ETH.S', 'transfer', '1.0000000000', u.(2026, 9, 16, 5), fee: in_fee, subtype: 'stakingfromspot', refid: 'P1') }
+    end
+    legs = internal.('0', '0')
+    dotted = { 'LZ1' => e.('DOT.S', 'staking', '0.2500000000', u.(2026, 9, 16, 6), refid: 'Z1'), 'LZ2' => e.('XXDG', 'deposit', '100.00000000', u.(2026, 9, 16, 7), refid: 'Z2'),
+               'LZ3' => e.('XLTC', 'deposit', '2.0000000000', u.(2026, 9, 16, 8), refid: 'Z3'), 'LZ4' => e.('XBT.M', 'reward', '0.0001000000', u.(2026, 9, 16, 9), refid: 'Z4'),
+               'LZ5' => e.('SOL.T', 'deposit', '3.0000000000', u.(2026, 9, 16, 10), refid: 'Z5'), 'LZ6' => e.('ZZZ', 'deposit', '9.0000000000', u.(2026, 9, 16, 11), refid: 'Z6') }
+    dotted_tokens = { 'LZ7' => e.('BRK.Bx', 'deposit', '4.0000000000', u.(2026, 9, 16, 12), refid: 'Z7', aclass: 'tokenized_asset'),
+                      'LZ8' => e.('NVDASPV', 'deposit', '2.0000000000', u.(2026, 9, 16, 13), refid: 'Z8', aclass: 'tokenized_asset') }
+    [
+      { name: 'kraken-ledger-full', setup: install, steps: [P.kraken_ledger(night, currency: full, tokenized:, per: 2)] },
+      { name: 'kraken-ledger-incremental', setup: since, steps: [P.kraken_ledger(night, currency: recent, start:)] },
+      { name: 'kraken-ledger-empty', setup: since, steps: [P.kraken_ledger(night, start:)] },
+      { name: 'kraken-ledger-throttled_recovers', setup: since,
+        steps: [P.kraken_ledger(night, currency: recent, start:, rust: first.(rust: [throttle, throttle]).compact, rails: first.(rails: [throttle, throttle]).compact)] },
+      { name: 'kraken-ledger-throttled_gives_up', setup: since,
+        steps: [P.kraken_ledger(night, currency: recent, start:, rust: first.(rust: [throttle] * 7).compact, rails: first.(rails: [throttle] * 7).compact)] },
+      { name: 'kraken-ledger-permission_denied', setup: since, steps: [fail.(P.kr_err('EGeneral:Permission denied'))] },
+      { name: 'kraken-ledger-invalid_key', setup: since, steps: [fail.(P.kr_err('EAPI:Invalid key'))] },
+      { name: 'kraken-ledger-transient', setup: since, steps: [fail.(P.kr_err('EGeneral:Internal error'))] },
+      { name: 'kraken-ledger-not_json', setup: since, steps: [fail.({ 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'kraken-ledger-pre_send', setup: since,
+        steps: [fail.({ 'network' => 'pre_send:api.kraken.com', 'message' => 'Connection refused - connect(2) for "api.kraken.com" port 443' })] },
+      { name: 'kraken-ledger-unreadable_amount', setup: since,
+        steps: [P.kraken_ledger(night, currency: recent.merge('LG1' => e.('XETH', 'deposit', 'garbage', u.(2026, 9, 16, 2), refid: 'G1')), start:)] },
+      { name: 'kraken-ledger-fractional_times', setup: since,
+        steps: [P.kraken_ledger(night, currency: { 'LF1' => e.('XXBT', 'trade', '0.0100000000', u.(2026, 9, 16, 14) + 0.1234, refid: 'F1'),
+                                                    'LF2' => e.('ZUSD', 'trade', '-600.0000', u.(2026, 9, 16, 14) + 0.1234, refid: 'F1'),
+                                                    'LF3' => e.('XETH', 'deposit', '1.0000000000', u.(2026, 9, 17, 14) + 0.0001, refid: 'F2') }, start:)] },
+      { name: 'kraken-ledger-types', setup: since, steps: [P.kraken_ledger(night, currency: types, start:)] },
+      { name: 'kraken-ledger-fee_on_withdrawal_leg', setup: since, steps: [P.kraken_ledger(night, currency: internal.('0.0100000000', '0'), start:)] },
+      { name: 'kraken-ledger-fee_on_deposit_leg', setup: since, steps: [P.kraken_ledger(night, currency: internal.('0', '0.0100000000'), start:)] },
+      { name: 'kraken-ledger-group_across_pages', setup: since, steps: [P.kraken_ledger(night, currency: legs, start:, per: 1)] },
+      { name: 'kraken-ledger-group_across_runs', setup: since,
+        steps: [P.kraken_ledger(night, currency: legs.slice('LP1'), start:),
+                P.kraken_ledger('2026-09-20T03:00:00.250000Z', currency: legs, start: (Time.utc(2026, 9, 16, 5) - 25.hours).to_i, rails_start: start)] },
+      { name: 'kraken-ledger-dotted_symbols', setup: since, steps: [P.kraken_ledger(night, currency: dotted, tokenized: dotted_tokens, start:)] },
+      { name: 'kraken-ledger-unavailable_listing', setup: since,
+        steps: [P.kraken_ledger(night, currency: { 'LA1' => e.('ADA', 'deposit', '7.00000000', u.(2026, 9, 16, 4), refid: 'A1') }, start:)] }
+    ]
+  end
+
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
             bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios + coinbase_scenarios + bingx_ledger_scenarios + bingx_balance_scenarios +
-            kraken_balance_scenarios
+            kraken_balance_scenarios + kraken_ledger_scenarios
 end

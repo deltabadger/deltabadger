@@ -830,6 +830,25 @@ mod action_write {
     }
 
     #[test]
+    fn action_write_a_basket_subject_change_clears_the_latch() -> Result {
+        // D-SUBJECT-CHANGE-CLEARS-LATCH (Rails keeps a met_at the old subject latched): a save that moves the price rule to
+        // another member clears it; a save that keeps the subject keeps it.
+        for (new_subject, cleared) in [(true, true), (false, false)] {
+            let f=Fixture::new()?;
+            let (eth,_)=seed::add_eth_sol(&f.c,&f.seed);
+            let eth_ticker:i64=f.c.query_row("SELECT id FROM tickers WHERE base_asset_id=?1",[eth],|r|r.get(0))?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1),'$.price_limited',json('true'),'$.price_limit_timing_condition','after','$.price_limit_in_ticker_id',?2), \
+                         transient_data=json_set(transient_data,'$.price_limit_condition_met_at','2026-09-05T00:00:00.000Z') WHERE id=?3",
+                        (json!({f.seed.btc.to_string():0.5,eth.to_string():0.5}).to_string(),f.seed.ticker_id,f.id))?;
+            let fields=if new_subject {json!({"price_limit_in_ticker_id":eth_ticker.to_string()})} else {json!({"price_limit":"99"})};
+            assert!(matches!(f.write(fields)?,Outcome::Committed(_)));
+            let met=f.stored()?["transient"]["price_limit_condition_met_at"].clone();
+            assert_eq!(met.is_null(),cleared,"new subject {new_subject}: {met}");
+        }
+        Ok(())
+    }
+
+    #[test]
     fn action_write_carry_reads_an_index_bots_price_rule() -> Result {
         // D-IDX-CONDITIONS (reverses #742): an index bot's buy-side price rule decorates its carry window as a basket's does; its
         // flip action and its sell side have nothing to act on there and leave the carry as an unflagged bot's.
@@ -2451,6 +2470,33 @@ mod custom_allocation {
         assert_eq!(transient["run_generation"], json!(1));
         assert!(transient[deltabadger::engine::index::RESYNC_KEY].is_object(), "the engine owes the bot its derivation");
         assert_eq!(f.snapshot()?.into_iter().filter(|row| row.starts_with("bot_index_assets")).collect::<Vec<_>>(), members);
+        Ok(())
+    }
+
+    /// Change the index keeps the rules this build runs on an index bot (conditions::support): the spending cap and the
+    /// buy-side price rule with its subject. Custom allocation hands them to the portfolio.
+    #[test]
+    fn changing_the_index_keeps_its_rules() -> Result {
+        let rules = |f: &Fixture| -> Result {
+            let ticker: i64 = f.c.query_row("SELECT id FROM tickers WHERE base_asset_id=?1", [f.assets[1]], |r| r.get(0))?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',300,'$.price_limited',json('true'),\
+                         '$.price_limit',150,'$.price_limit_value_condition','below','$.price_limit_in_ticker_id',?1) WHERE id=?2", (ticker, f.id))?;
+            Ok(())
+        };
+        let kept = |settings: &Value| ["quote_amount_limited", "quote_amount_limit", "price_limited", "price_limit", "price_limit_value_condition", "price_limit_in_ticker_id"]
+            .iter().map(|key| settings.get(*key).cloned().unwrap_or(Value::Null)).collect::<Vec<_>>();
+        let f = Fixture::new()?;
+        rules(&f)?;
+        let before = kept(&f.row()?.1);
+        seed::insert_index(&f.c, "sp-500", &["NVDA.US", "MSFT.US", "AAPL.US"], &json!({"NVDA.US": 1, "MSFT.US": 1, "AAPL.US": 1}));
+        assert!(matches!(follow(&f, "sp-500")?, Switched::Done));
+        let (class, settings, _) = f.row()?;
+        assert_eq!((class.as_str(), &settings["index_category_id"]), ("Bots::DcaIndex", &json!("sp-500")));
+        assert_eq!(kept(&settings), before, "both rules survive the change: {settings}");
+        let f = Fixture::new()?;
+        rules(&f)?;
+        assert!(matches!(f.customize()?, Switched::Done));
+        assert_eq!(kept(&f.row()?.1), before, "the portfolio keeps them too");
         Ok(())
     }
 

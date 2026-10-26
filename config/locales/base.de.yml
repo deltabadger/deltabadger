@@ -925,3 +925,7 @@ de:
                 fx_source: 'Umrechnung zu den Euro-Referenzkursen der EZB; für Tage ohne Kurs gilt der Kurs des vorherigen Bankarbeitstags.'
                 interest_withholding_net: 'Zinsen, die bereits um ausländische Quellensteuer gekürzt gutgeschrieben wurden, werden netto in Zeile 19 ausgewiesen, während die Quellensteuer in Zeile 41 angerechnet wird — für Zinsen liefert die Bank keine Bruttoangabe. Bei Dividenden wird dagegen auf den Bruttobetrag hochgerechnet.'
                 regulatory_fees: 'Regulatorische Sammelgebühren lassen sich keiner einzelnen Veräußerung zurechnen und werden deshalb von keinem Betrag abgezogen; sie sind nur nachrichtlich ausgewiesen.'
+    engine:
+        flip_basket_only: "flip gilt nur für Portfolio-Bots."
+        condition_no_subject: "hat noch kein Asset zum Beobachten"
+        condition_subject_departed: "%{symbol} (nicht im Index)"

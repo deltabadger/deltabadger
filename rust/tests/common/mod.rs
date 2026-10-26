@@ -325,3 +325,18 @@ pub fn ownership_business_rows(mut tables: serde_json::Value) -> serde_json::Val
 pub fn conditions_fixture() -> serde_json::Value {
     serde_json::from_str(include_str!("../fixtures/conditions_every_bot_expected.json")).expect("conditions_every_bot_expected.json parses")
 }
+
+/// D-MCP-COND-KINDS: `body` with update_bot_settings' field descriptions as Rails records them (protocol::recorded), where
+/// this build's schema says which rule fields an index bot takes (protocol::metadata). Each description is JSON-escaped text.
+#[allow(dead_code)]
+pub fn recorded_rule_kinds(body: &str) -> String {
+    use deltabadger::web::mcp::protocol;
+    let fields = |v: &serde_json::Value| v["tools"].as_array().unwrap().iter().find(|t| t["name"] == "update_bot_settings").unwrap()["inputSchema"]["properties"].clone();
+    let (ours, rails) = (fields(protocol::metadata()), fields(&protocol::recorded()));
+    let mut body = body.to_string();
+    for (name, schema) in ours.as_object().unwrap() {
+        let (a, b) = (schema["description"].to_string(), rails[name]["description"].to_string());
+        if a != b { body = body.replace(a.trim_matches('"'), b.trim_matches('"')); }
+    }
+    body
+}

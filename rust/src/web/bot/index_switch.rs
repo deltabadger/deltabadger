@@ -3,7 +3,7 @@
 //! market-data service.
 use super::{composition, draft, write, Bot, For};
 use crate::enums::BotStatus;
-use crate::engine::{eligibility, index, model};
+use crate::engine::{conditions::{self, Rule, Support, TRIGGERS}, eligibility, index, model};
 use crate::web::{bots, i18n, layout::Ctx, wizard, WebError};
 use crate::codec;
 use crate::engine::accounting::{web_effective_amount as effective_amount, web_minimum as minimum, web_serialized as serialized};
@@ -159,7 +159,16 @@ fn switch(tx: &Connection, ctx: &Ctx, owner: i64, id: i64, draft: &draft::Draft,
     one(tx.execute("UPDATE bots SET type=?1, settings=?2 WHERE id=?3 AND user_id=?4 AND type=?5 AND status<>3",
         (to, Value::Object(draft.original.settings.clone()).to_string(), id, owner, from))?)?;
     let target = Bot::find(tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| super::data("switched bot disappeared".into()))?;
+    // The target's own settings, and those of each rule switched on that this build runs on the target kind (an index bot's
+    // cap and price rule); a rule that is off is not carried (Rails carries none to an index bot).
+    let source_settings = Value::Object(target.settings.clone());
+    let runs = |key: &str| STORED_DCA_MULTI_ASSET.contains(&key) && rule_of(key).is_some_and(|(rule, selling, prefix)| {
+        let flag = prefix.as_ref().map_or_else(|| "quote_amount_limited".to_string(), |p| format!("{p}ed"));
+        source_settings.get(&flag) == Some(&Value::Bool(true))
+            && conditions::support(kind, rule, selling, &prefix.map_or_else(|| "pause".into(), |p| conditions::action(&source_settings, &p))) == Support::Implemented
+    });
     let mut settings: Map<String, Value> = stored.iter().filter_map(|key| target.settings.get(*key).map(|v| (key.to_string(), v.clone()))).collect();
+    settings.extend(target.settings.iter().filter(|(key, _)| !stored.contains(&key.as_str()) && runs(key)).map(|(key, v)| (key.clone(), v.clone())));
     assign(tx, &mut settings)?;
     source.settings = settings.clone();
     source.kind = kind;
@@ -260,6 +269,14 @@ fn follow_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option
     // after_update_commit :resync_index_composition (the index definition changed), and the request's own derivation.
     index::mark_resync(&tx, id, now).map_err(|e| super::data(format!("{e:?}")))?;
     commit(tx, ctx, id)
+}
+
+/// The rule a stored rule setting belongs to, its side, and the side's trigger prefix (None for the cap).
+fn rule_of(key: &str) -> Option<(Rule, bool, Option<String>)> {
+    if matches!(key, "quote_amount_limited" | "quote_amount_limit") { return Some((Rule::Cap, false, None)); }
+    let (selling, rest) = match key.strip_prefix("sell_") { Some(rest) => (true, rest), None => (false, key) };
+    let (rule, prefix) = TRIGGERS.iter().filter(|(_, prefix)| rest.starts_with(prefix)).max_by_key(|(_, prefix)| prefix.len())?;
+    Some((*rule, selling, Some(format!("{}{prefix}", if selling { "sell_" } else { "" }))))
 }
 
 /// A store accessor's write: ActiveRecord::Store assigns only a value that differs, by Ruby's ==, from what the store reads

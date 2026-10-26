@@ -215,7 +215,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     }
     fn page_rows(&self) -> usize { PAGE_ROWS }
     /// The file's takeover for every source the walk has finished (plan KI §5): those before the one its cursor reads.
-    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, now| {
+    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, _, now| {
         let at = cursor["source"].as_str().and_then(Source::named).unwrap_or(Source::Fills);
         let finished: Vec<&str> = [Source::Fills, Source::Deposits, Source::Withdrawals].into_iter().take_while(|s| *s != at).map(Source::name).collect();
         crate::tracker::import::kucoin::take_over(c, key, &finished, now)
