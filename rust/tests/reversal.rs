@@ -549,6 +549,57 @@ fn flip_admission_refuses_an_ineligible_opposite_direction() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn flip_admission_normalizes_the_inactive_smart_interval_split() {
+    use deltabadger::engine::eligibility;
+    let v = priced();
+    let spec = trigger(buyer(), false).with("smart_intervaled", json!(true))
+        .with("smart_interval_quote_amount", json!(6.0)).with("sell_denomination", json!("base"))
+        .with("sell_amount", json!(1)).with("sell_interval", json!("hour"))
+        .with("smart_interval_base_amount", json!(1e-8));
+    let (_d, mut e, id, _) = engine(spec, v.clone());
+    let now = "2026-09-08T10:00:01Z";
+    let settings = bot(&e.primary, id).settings;
+    let report = eligibility::check_install_at(&e.primary, t(now)).unwrap();
+    assert_eq!(report.refusal().unwrap(), vec![id]);
+    eligibility::guard(&e.primary, &seed::cipher(), Some(id)).unwrap();
+    assert_eq!(bot(&e.primary, id).settings, settings, "admission must not write");
+    run::step(&mut e, &at(now)).await.unwrap();
+    let b = bot(&e.primary, id);
+    assert!(b.selling());
+    assert_eq!(b.settings["sell_denomination"], "base");
+    assert!(b.settings["smart_interval_base_amount"].as_f64().unwrap() > 1e-8);
+    assert!(eligibility::bot_reasons(&e.primary, &b).unwrap().is_empty());
+    assert_eq!(eligibility::check_install_at(&e.primary, t(now)).unwrap().refusal().unwrap(), vec![id]);
+    assert!(v.sent().is_empty());
+}
+
+fn retire_buyer_with_ineligible_flip_target(action: write::Action, status: BotStatus) {
+    use deltabadger::web::{bot::action_params::ActionParams, bot_api};
+    let mut spec = trigger(buyer(), false);
+    spec.status = BotStatus::Stopped as i64;
+    let (dir, e, id, s) = engine(spec, priced());
+    foreign_history(&e.primary, &s, id);
+    let now = "2026-09-08T10:00:01Z";
+    assert!(deltabadger::engine::eligibility::check_install_at(&e.primary, t(now)).unwrap().refusal().is_ok());
+    let app = common::web::app(dir.path(), "engine-test-secret", common::web::TestClock::at(now));
+    let submitted = ActionParams::from_mcp(json!({})).unwrap();
+    let outcome = bot_api::bot_write(&e.primary, &app, s.user_id, id, bot_api::Write::Lifecycle(action), &submitted).unwrap();
+    assert!(matches!(outcome, write::Outcome::Committed(_)), "the lifecycle write must commit");
+    assert_eq!(bot(&e.primary, id).status, status);
+    assert!(deltabadger::engine::eligibility::check_install_at(&e.primary, t(now)).unwrap().refusal().is_ok());
+}
+
+#[test]
+fn flip_admission_allows_deleting_a_stopped_buyer_with_foreign_history() {
+    retire_buyer_with_ineligible_flip_target(write::Action::Delete, BotStatus::Deleted);
+}
+
+#[test]
+fn flip_admission_allows_archiving_a_stopped_buyer_with_foreign_history() {
+    retire_buyer_with_ineligible_flip_target(write::Action::Archive, BotStatus::Archived);
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn an_ineligible_trigger_flip_keeps_buying_and_the_engine_running() {
     use deltabadger::engine::eligibility;
     let v = priced();

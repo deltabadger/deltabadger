@@ -727,18 +727,7 @@ pub(crate) fn flip_in(tx: &Connection, bot: &model::Bot, now: chrono::DateTime<c
     let mut s = tx.prepare("SELECT id, side IS 0 FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1) AND transaction_type='REGULAR' ORDER BY id")?;
     let captured = s.query_map([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
-    // Bot::Reversible#clamp_smart_interval_splits, under the settings as they are.
-    if draft.candidate.on("smart_intervaled") {
-        let quote = super::start::smart_interval_minimum(&draft.candidate).value.to_f();
-        if draft.candidate.number("smart_interval_quote_amount").map_or(0.0, |n| n.to_f()) < quote {
-            draft.candidate.settings.insert("smart_interval_quote_amount".into(), json!(quote));
-        }
-        let base = draft.base_minimum().value.to_f();
-        let sell_amount = draft.candidate.settings.get("sell_amount").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|t| !t.trim().is_empty()));
-        if sell_amount && draft.candidate.number("smart_interval_base_amount").map_or(0.0, |n| n.to_f()) < base {
-            draft.candidate.settings.insert("smart_interval_base_amount".into(), json!(base));
-        }
-    }
+    draft.clamp_smart_interval_splits();
     let one_asset = draft.candidate.one_asset();
     let denomination = draft.candidate.text("sell_denomination").filter(|d| !d.trim().is_empty()).unwrap_or("quote");
     let (direction, denomination) = if target == Target::Toggle {

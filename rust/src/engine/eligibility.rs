@@ -103,13 +103,25 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
 
 /// Admission checks the opposite direction before accepting an active flip rule. Runtime install checks
 /// only require the current direction: the tick refuses an ineligible target without stopping the engine.
+/// Deleted and archived bots cannot fire rules; check_install still checks their outstanding work.
 fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    if matches!(bot.status, BotStatus::Deleted | BotStatus::Archived) { return Ok(vec![]); }
     for (kind, _) in conditions::TRIGGERS {
         let prefix = kind.prefix(bot.selling());
         if bot.settings.get(format!("{prefix}ed")) != Some(&Value::Bool(true)) || bot.support(kind, bot.selling()) != Support::Implemented { continue; }
         let action = conditions::action(&bot.settings, prefix);
         if matches!(action.as_str(), "start_selling" | "start_buying") {
             let mut target = bot.clone();
+            if bot.settings.get("smart_intervaled") == Some(&Value::Bool(true)) {
+                // Match flip_in's split clamp under the current direction, without writing the draft.
+                let mut draft = crate::web::bot::draft::Draft::load(c, bot.user_id, bot.id, "en")
+                    .map_err(|e| match e { crate::web::WebError::Engine(e) => e, other => EngineError::Data(format!("{other:?}")) })?
+                    .ok_or_else(|| EngineError::Data("flip admission bot disappeared".into()))?;
+                draft.clamp_smart_interval_splits();
+                for key in ["smart_interval_quote_amount", "smart_interval_base_amount"] {
+                    if let Some(value) = draft.candidate.settings.get(key) { target.settings[key] = value.clone(); }
+                }
+            }
             target.settings["direction"] = Value::String(if bot.selling() { "buying" } else { "selling" }.into());
             return bot_reasons(c, &target);
         }
