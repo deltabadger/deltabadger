@@ -21,9 +21,9 @@
     "config/locales/api.pl.yml": "fda850e430e8d64f14a5b6f078061c674c1a371d7e2883cdf970ee2495f6591b",
     "config/locales/api_read_only.en.yml": "349b0cb8dbf472fa989661b0ca648c8df5cc216d68b5e9b375a246268a00d735",
     "config/locales/api_withdrawal.en.yml": "8ac2fa18ec06a6599e431b80ecf40da79f853193e78ce495e00902dae66bb41a",
-    "config/locales/errors.en.yml": "5c8b9455a0ddd3777d79899edcafe081f3218e786ee5a1ddf5c5688db31e66f2",
-    "config/locales/errors.de.yml": "9ed87da4b5c2773ae37783ff00b4ad7fa54732178ffe8171489962b602cd53f3",
-    "config/locales/errors.pl.yml": "4ede2653ca0512683565a373739b7b32836c92ad354d894dded7ab893bf59c01",
+    "config/locales/errors.en.yml": "19f7041508d10c05917e9f21a0cf705571e3aa71fb1befd06933fcf4bbb2ca9b",
+    "config/locales/errors.de.yml": "6af05527c94dba96629ffc0d4517ce10f0f6f4c8a407d4ba32317ae3dfbde12a",
+    "config/locales/errors.pl.yml": "8abf92d30dc3f30e1072a53c6f5fedafe0b34be61f70a0171b8baa63c99beb2a",
     "app/models/exchanges/bingx.rb": "212f3e76c535c547e4fe1411b5fe4c98112ca4c92e91de1836c81090a3855ff4"
   },
   "honeymaker": "0.12.5",
@@ -41,7 +41,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for POST https://open-api.bingx.com/openApi/spot/v1/trade/cancel?orderId=0&signature=a8c3c64486cb346c807ca57588aa739c10a368c3219e079ecd233cf671a6284d&symbol=BTC-USDT&timestamp=1792669368161"
+            "the server responded with status 500 for POST https://open-api.bingx.com/openApi/spot/v1/trade/cancel?orderId=0&signature=98822452a6da29a86e07e0ac2984c704812f7cfa19e33e61e321d22a313a7034&symbol=BTC-USDT&timestamp=1792985216325"
           ]
         },
         "request": {
@@ -881,7 +881,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=60674eb15d7e7c3baf9b0fe75591f86f3dbaaea77e274000281602c0179f712b&timestamp=1792669368177"
+            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=9d70e216db1d2d72e0bd123fbe0fe04843dd77bf32a19a00119f9893d6c0dd2d&timestamp=1792985216342"
           ]
         },
         "request": {
@@ -1629,7 +1629,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=4c61bf20f5502074296d7065fddb21d8c96bf57bdeaa2c146e51c569e26a865e&timestamp=1792669368190"
+            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=348b7bac5b2fe33f09e1c2cc3da983b3a5678a6e88326434340b883ae69af699&timestamp=1792985216358"
           ]
         },
         "request": {

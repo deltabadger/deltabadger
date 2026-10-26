@@ -921,3 +921,7 @@ pt:
         flip_basket_only: "flip só se aplica a bots de carteira."
         condition_no_subject: "ainda não tem nenhum ativo para acompanhar"
         condition_subject_departed: "%{symbol} (fora do índice)"
+        signal_condition_unmet: "Sinal ignorado — limite %{limit} não atingido"
+        signal_quote_amount_limit_reached: "Sinal de compra ignorado — o montante total foi investido"
+        signal_buy_calls: "Quando chega um sinal de compra"
+        signal_sell_calls: "Quando chega um sinal de venda"

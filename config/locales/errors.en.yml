@@ -20,6 +20,7 @@ en:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "The amount spent so far is unknown: an order closed without reporting its cost."
+                            quote_amount_limit_reached: "The whole amount has been invested: raise the limit or turn it off to start the bot."
                         smart_interval_quote_amount:
                             not_a_number: "You must specify an amount for the Smart Intervals"
                             greater_than_or_equal_to: "For this schedule, the Smart Intervals amount cannot be smaller than %{count}"

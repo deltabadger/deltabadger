@@ -945,3 +945,7 @@ el:
         flip_basket_only: "Το flip ισχύει μόνο για bots χαρτοφυλακίου."
         condition_no_subject: "δεν έχει ακόμη περιουσιακό στοιχείο για παρακολούθηση"
         condition_subject_departed: "%{symbol} (εκτός δείκτη)"
+        signal_condition_unmet: "Το σήμα αγνοήθηκε — το όριο %{limit} δεν πληρούται"
+        signal_quote_amount_limit_reached: "Το σήμα αγοράς αγνοήθηκε — ολόκληρο το ποσό επενδύθηκε"
+        signal_buy_calls: "Όταν έρχεται σήμα αγοράς"
+        signal_sell_calls: "Όταν έρχεται σήμα πώλησης"

@@ -927,3 +927,7 @@ pl:
         flip_basket_only: "flip działa tylko w botach portfelowych."
         condition_no_subject: "nie ma jeszcze aktywa do obserwowania"
         condition_subject_departed: "%{symbol} (poza indeksem)"
+        signal_condition_unmet: "Sygnał zignorowany — limit %{limit} nie został spełniony"
+        signal_quote_amount_limit_reached: "Sygnał kupna zignorowany — cała kwota została zainwestowana"
+        signal_buy_calls: "Gdy przychodzi sygnał kupna"
+        signal_sell_calls: "Gdy przychodzi sygnał sprzedaży"

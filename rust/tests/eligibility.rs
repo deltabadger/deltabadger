@@ -1006,8 +1006,8 @@ fn one_signal_admission_rule_for_engine_and_pages() {
     for key in ["'kraken' =>", "'binance' =>", "'kucoin' =>", "'hyperliquid' =>", "'alpaca' =>"] { assert!(venues.contains(key), "the signal grid records {key}"); }
 }
 
-/// conditions::support on a signal bot: no rule runs there yet, so a cap or a trigger rule that is on is refused by name (never
-/// silently ignored); a flip has nothing to act on and is inert; a switch that is off is no reason.
+/// conditions::support on a signal bot: the cap and both sides' price rules run (CE-4); a trigger rule not built yet is refused
+/// by name (never silently ignored); a flip has nothing to act on and is inert; a switch that is off is no reason.
 #[test]
 fn a_signal_bots_rules_are_refused_until_the_engine_runs_them() {
     let reasons = |extra: &str| {
@@ -1018,7 +1018,9 @@ fn a_signal_bots_rules_are_refused_until_the_engine_runs_them() {
     };
     assert_eq!(reasons(""), Vec::<String>::new());
     assert_eq!(reasons(", '$.quote_amount_limited', json('false'), '$.price_limited', json('false')"), Vec::<String>::new());
-    assert_eq!(reasons(", '$.quote_amount_limited', json('true')"), vec!["quote_amount_limited"]);
-    assert_eq!(reasons(", '$.sell_price_limited', json('true')"), vec!["sell_price_limited"]);
+    assert_eq!(reasons(", '$.quote_amount_limited', json('true')"), Vec::<String>::new(), "D-SIG-CAP");
+    assert_eq!(reasons(", '$.sell_price_limited', json('true')"), Vec::<String>::new(), "D-SIG-CONDITIONS");
+    assert_eq!(reasons(", '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 'lots'"), vec!["quote_amount_limit \"lots\" is not a number"]);
+    assert_eq!(reasons(", '$.price_drop_limited', json('true')"), vec!["price_drop_limited"]);
     assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit_action', 'start_buying'"), Vec::<String>::new(), "a flip is inert");
 }

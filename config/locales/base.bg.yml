@@ -947,3 +947,7 @@ bg:
         flip_basket_only: "flip важи само за портфолио ботове."
         condition_no_subject: "все още няма актив за следене"
         condition_subject_departed: "%{symbol} (извън индекса)"
+        signal_condition_unmet: "Сигналът е игнориран — лимитът %{limit} не е изпълнен"
+        signal_quote_amount_limit_reached: "Сигналът за покупка е игнориран — цялата сума е инвестирана"
+        signal_buy_calls: "При сигнал за покупка"
+        signal_sell_calls: "При сигнал за продажба"

@@ -923,3 +923,7 @@ ru:
         flip_basket_only: "flip работает только в портфельных ботах."
         condition_no_subject: "пока нет актива для отслеживания"
         condition_subject_departed: "%{symbol} (вне индекса)"
+        signal_condition_unmet: "Сигнал проигнорирован — лимит %{limit} не достигнут"
+        signal_quote_amount_limit_reached: "Сигнал на покупку проигнорирован — вся сумма инвестирована"
+        signal_buy_calls: "При сигнале на покупку"
+        signal_sell_calls: "При сигнале на продажу"
