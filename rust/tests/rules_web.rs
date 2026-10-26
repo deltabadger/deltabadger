@@ -24,6 +24,7 @@ fn picker(body: &str) -> (String, Vec<(String, String, bool)>) {
         select.value().attr("name").unwrap().to_string(),
         select
             .select(&scraper::Selector::parse("option").unwrap())
+            .filter(|e| e.value().attr("disabled").is_none())
             .map(|e| {
                 (
                     e.value().attr("value").unwrap().to_string(),
@@ -281,7 +282,7 @@ async fn tile_settings_keep_network_tag_and_key() {
 }
 
 #[tokio::test]
-async fn picker_refuses_identical_entries_and_forged_identities_without_writing() {
+async fn picker_deduplicates_identical_entries_and_refuses_forged_identities() {
     for venue in ["Binance", "Mexc", "Kraken"] {
         let (i, _server) = identity_listing(venue, &["same", "same"]).await;
         let (_, body) = i
@@ -295,9 +296,8 @@ async fn picker_refuses_identical_entries_and_forged_identities_without_writing(
             )
             .await;
         let (name, options) = picker(&body);
-        assert_eq!(options[0].0, options[1].0);
+        assert_eq!(options.len(), 1);
         for value in [
-            &options[0].0,
             "{invalid",
             r#"{"address":"forged","network":"BTC","tag":"same","key":"same"}"#,
         ] {
@@ -320,7 +320,6 @@ async fn picker_refuses_identical_entries_and_forged_identities_without_writing(
             assert_eq!(i.rows(), "[]");
         }
         let id = i.rule(2);
-        let before = i.rows();
         let form = form_urlencoded::Serializer::new(String::new())
             .extend_pairs([("rules_withdrawal[destination]", &options[0].0)])
             .finish();
@@ -335,9 +334,12 @@ async fn picker_refuses_identical_entries_and_forged_identities_without_writing(
             )
             .await
             .0,
-            422
+            200
         );
-        assert_eq!(i.rows(), before);
+        let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+        let (_, options) = picker(&body);
+        assert_eq!(options.len(), 1);
+        assert!(options[0].2);
     }
 }
 
@@ -410,7 +412,7 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
         Mock::given(matchers::path("/v1/approvedAddresses/account/bitcoin"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_json(json!({"approvedAddresses":[entry,entry]})),
+                    .set_body_json(json!({"approvedAddresses":[{"address":"another-wallet","network":network,"status":"active"},entry,entry]})),
             )
             .mount(&server)
             .await;
@@ -431,9 +433,14 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
             .await;
         let (name, options) = picker(&body);
         assert_eq!(options.len(), 2);
-        assert_eq!(options[0].0, options[1].0);
+        assert!(!options[0].2);
+        assert!(options[1].2);
         let form = form_urlencoded::Serializer::new(String::new())
-            .extend_pairs([(&name, &options[0].0)])
+            .extend_pairs([
+                (name.as_str(), options[1].0.as_str()),
+                ("threshold_type", "min_amount"),
+                ("min_amount", "0.1"),
+            ])
             .finish();
         assert_eq!(
             i.send(
@@ -448,6 +455,12 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
             .0,
             200
         );
+        i.c.execute("UPDATE rules SET status=2", []).unwrap();
+        let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+        let (_, options) = picker(&body);
+        assert_eq!(options.len(), 2);
+        assert!(!options[0].2);
+        assert!(options[1].2);
         let settings: String =
             i.c.query_row("SELECT settings FROM rules", [], |r| r.get(0))
                 .unwrap();
@@ -455,8 +468,237 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
             serde_json::from_str::<Value>(&settings).unwrap()["network"],
             "bitcoin"
         );
+        let id: i64 =
+            i.c.query_row("SELECT id FROM rules", [], |r| r.get(0))
+                .unwrap();
+        for edit in [
+            "rules_withdrawal[min_amount]=0.7",
+            "rules_withdrawal[status]=scheduled",
+        ] {
+            assert_eq!(
+                i.send(
+                    "PATCH",
+                    &format!("/rules/withdrawals/{id}"),
+                    edit,
+                    None,
+                    true,
+                    true
+                )
+                .await
+                .0,
+                200
+            );
+            let address: String =
+                i.c.query_row("SELECT address FROM rules", [], |r| r.get(0))
+                    .unwrap();
+            assert_eq!(i.app.cipher.decrypt(&address).unwrap(), ADDRESS);
+        }
     }
 }
+#[tokio::test]
+async fn unresolved_picker_has_no_successful_value_and_refuses_edits_and_start() {
+    for venue in ["Binance", "Mexc", "Kraken"] {
+        for identities in [&["first", "second"][..], &["first"][..]] {
+            let (i, _server) = identity_listing(venue, identities).await;
+            let id = i.rule(2);
+            if identities.len() == 1 {
+                i.c.execute(
+                    "UPDATE rules SET address=?1",
+                    [i.app.cipher.encrypt("removed-wallet")],
+                )
+                .unwrap();
+            }
+            let before = i.rows();
+            let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+            let doc = scraper::Html::parse_document(&body);
+            let select = doc
+                .select(&scraper::Selector::parse(".tag--address select").unwrap())
+                .next()
+                .unwrap();
+            assert!(select.value().attr("required").is_some());
+            let selected: Vec<_> = select
+                .select(&scraper::Selector::parse("option[selected]").unwrap())
+                .collect();
+            assert_eq!(selected.len(), 1);
+            assert_eq!(selected[0].value().attr("value"), Some(""));
+            assert!(selected[0].value().attr("disabled").is_some());
+            // Disabled options are omitted from browser form data. Also refuse an explicit empty value.
+            for destination in ["", "&rules_withdrawal[destination]="] {
+                for edit in ["min_amount]=0.7", "status]=scheduled"] {
+                    let form = format!("rules_withdrawal[{edit}{destination}");
+                    assert_eq!(
+                        i.send(
+                            "PATCH",
+                            &format!("/rules/withdrawals/{id}"),
+                            &form,
+                            None,
+                            true,
+                            true
+                        )
+                        .await
+                        .0,
+                        422
+                    );
+                    assert_eq!(i.rows(), before);
+                }
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn preview_does_not_resolve_ambiguous_destinations_using_the_default_fee_network() {
+    let server = MockServer::start().await;
+    Mock::given(matchers::path(
+        deltabadger::venue::withdrawal::BINANCE_ADDRESSES,
+    ))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+        {"coin":"BTC","address":ADDRESS,"network":"BTC"},
+        {"coin":"BTC","address":ADDRESS,"network":"ETH"}
+    ])))
+    .mount(&server)
+    .await;
+    Mock::given(matchers::path(
+        deltabadger::venue::withdrawal::BINANCE_COINS,
+    ))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+        "coin":"BTC",
+        "networkList":[
+            {"network":"BTC","withdrawEnable":true,"withdrawTag":false},
+            {"network":"ETH","withdrawEnable":true,"withdrawTag":false}
+        ]
+    }])))
+    .mount(&server)
+    .await;
+    let mut i = Install::new("Binance");
+    i.app = i
+        .app
+        .with_venue_key_url("Exchanges::Binance", &server.uri())
+        .unwrap();
+    i.c.execute("UPDATE exchange_assets SET withdrawal_fee='0.0001',withdrawal_fee_updated_at=?1,withdrawal_chains=?2", (AT, json!([
+        {"name":"BTC","fee":"0.0001","is_default":true},
+        {"name":"ETH","fee":"0.003","is_default":false}
+    ]).to_string())).unwrap();
+    let (status, body) = i
+        .send(
+            "GET",
+            "/rules/withdrawals/confirm_settings/new",
+            "",
+            Some(i.config()),
+            true,
+            false,
+        )
+        .await;
+    assert_eq!(status, 200);
+    let (_, options) = picker(&body);
+    assert_eq!(options.len(), 2);
+    assert!(options.iter().all(|o| !o.2));
+    let doc = scraper::Html::parse_document(&body);
+    assert_eq!(
+        doc.select(
+            &scraper::Selector::parse(
+                "select[name=destination][required] option[value=''][selected][disabled]"
+            )
+            .unwrap()
+        )
+        .count(),
+        1
+    );
+    // Submitting the disabled placeholder contributes no destination; the server must
+    // reject the unresolved selection even when browser validation is bypassed.
+    let (status, _) = i
+        .send(
+            "POST",
+            "/rules/withdrawals/confirm_settings",
+            "min_amount=0.7",
+            Some(i.config()),
+            true,
+            true,
+        )
+        .await;
+    assert_eq!(status, 302);
+    assert_eq!(i.rows(), "[]");
+}
+
+#[tokio::test]
+async fn mexc_preview_resolves_destination_network_before_calculating_fee() {
+    let (i, _server) = identity_listing("Mexc", &["memo"]).await;
+    i.c.execute("UPDATE exchange_assets SET withdrawal_fee='0.0001',withdrawal_fee_updated_at=?1,withdrawal_chains=?2", (AT, json!([
+        {"name":"Other","fee":"0.0001","is_default":true},
+        {"name":"Bitcoin","fee":"0.003","is_default":false}
+    ]).to_string())).unwrap();
+    let mut config = i.config();
+    config["network"] = json!("Bitcoin");
+    let (_, body) = i
+        .send(
+            "GET",
+            "/rules/withdrawals/confirm_settings/new",
+            "",
+            Some(config.clone()),
+            true,
+            false,
+        )
+        .await;
+    let (name, options) = picker(&body);
+    let form = form_urlencoded::Serializer::new(String::new())
+        .extend_pairs([
+            (name.as_str(), options[0].0.as_str()),
+            ("network", "Other"),
+            ("threshold_type", "fee_percentage"),
+            ("max_fee_percentage", "0.5"),
+        ])
+        .finish();
+    let (status, preview) = i
+        .send(
+            "POST",
+            "/rules/withdrawals/confirm_settings/preview",
+            &form,
+            Some(config.clone()),
+            true,
+            true,
+        )
+        .await;
+    assert_eq!(status, 200);
+    let doc = scraper::Html::parse_document(&preview);
+    let info = doc
+        .select(&scraper::Selector::parse(".small-info").unwrap())
+        .find(|e| e.value().attr("style") == Some(""))
+        .unwrap()
+        .text()
+        .collect::<String>();
+    assert!(info.contains("0.003"), "{info}");
+    assert!(info.contains("0.6"), "{info}");
+    for html in [&body, &preview] {
+        let doc = scraper::Html::parse_document(html);
+        assert_eq!(
+            doc.select(&scraper::Selector::parse("[name=network]").unwrap())
+                .count(),
+            0
+        );
+    }
+    assert!(picker(&preview).1[0].2);
+    assert_eq!(
+        i.send(
+            "POST",
+            "/rules/withdrawals/confirm_settings",
+            &form,
+            Some(config),
+            true,
+            true
+        )
+        .await
+        .0,
+        200
+    );
+    let settings: String =
+        i.c.query_row("SELECT settings FROM rules", [], |r| r.get(0))
+            .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&settings).unwrap()["network"],
+        "Bitcoin"
+    );
+}
+
 struct Install {
     _dir: tempfile::TempDir,
     app: web::App,

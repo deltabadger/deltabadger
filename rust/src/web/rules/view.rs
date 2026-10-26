@@ -2,7 +2,7 @@ use super::{
     model::Rule,
     reads::{Identity, Listing},
 };
-use crate::venue::withdrawal::{self, Kind, Stored};
+use crate::venue::withdrawal::Kind;
 use crate::{
     ruby::BigDec,
     web::{
@@ -47,68 +47,35 @@ fn input(r: &Rule, key: &str, value: &str, required: bool) -> String {
 
 pub fn options(list: &Listing, rule: &Rule) -> String {
     let kind = Kind::of(&rule.exchange.class).expect("withdrawal venue");
-    let selected = Identity::rule(rule);
-    let matches = list
-        .entries
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| {
-            let identity = Identity::entry(e, kind);
-            e.refused.is_none()
-                && identity.address == selected.address
-                && selected.network.as_ref().is_none_or(|n| {
-                    identity.network.as_ref() == Some(n)
-                        || kind == Kind::Gemini
-                            && identity.network.is_none()
-                            && withdrawal::gemini_network(&list.code) == Some(n.as_str())
-                        || kind == Kind::Mexc
-                            && withdrawal::select(
-                                kind,
-                                &list.code,
-                                &Stored::new(&rule.address, Some(n), selected.tag.as_deref(), None),
-                                std::slice::from_ref(*e),
-                                list.networks.as_ref(),
-                            )
-                            .is_ok()
-                })
-                && selected
-                    .tag
-                    .as_ref()
-                    .is_none_or(|t| identity.tag.as_ref() == Some(t))
-                && selected
-                    .key
-                    .as_ref()
-                    .is_none_or(|k| identity.key.as_ref() == Some(k))
-        })
-        .map(|(index, _)| index)
-        .collect::<Vec<_>>();
-    let selected_index = match matches.as_slice() {
-        [index] => Some(*index),
-        _ => None,
+    let (entries, selected_index) = super::reads::picker(list, rule);
+    let placeholder = if selected_index.is_none() {
+        "<option value=\"\" disabled=\"disabled\" selected=\"selected\"></option>\n"
+    } else {
+        ""
     };
-    list.entries
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| e.refused.is_none())
-        .map(|(index, e)| {
-            let identity = Identity::entry(e, kind);
-            format!(
-                "<option {}value=\"{}\">{}</option>",
-                if Some(index) == selected_index {
-                    "selected=\"selected\" "
-                } else {
-                    ""
-                },
-                escape(&identity.value()),
-                escape(&if kind == Kind::Gemini {
-                    e.address.clone()
-                } else {
-                    identity.label()
-                })
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+    placeholder.to_string()
+        + &entries
+            .iter()
+            .enumerate()
+            .map(|(index, e)| {
+                let identity = Identity::entry(e, kind);
+                format!(
+                    "<option {}value=\"{}\">{}</option>",
+                    if Some(index) == selected_index {
+                        "selected=\"selected\" "
+                    } else {
+                        ""
+                    },
+                    escape(&identity.value()),
+                    escape(&if kind == Kind::Gemini {
+                        e.address.clone()
+                    } else {
+                        identity.label()
+                    })
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
 }
 
 fn address(r: &Rule, list: Option<&Listing>, ctx: &Ctx) -> String {
@@ -125,7 +92,7 @@ fn address(r: &Rule, list: Option<&Listing>, ctx: &Ctx) -> String {
             }
             return format!("<div class=\"tag tag--address\" data-controller=\"form--select-display\">
 {WALLET}<span data-form--select-display-target=\"label\">{}</span>
-<select data-action=\"change-&gt;form--select-display#update change-&gt;form--submit#submit\" name=\"rules_withdrawal[destination]\" id=\"rules_withdrawal_address\">{}</select>
+<select data-action=\"change-&gt;form--select-display#update change-&gt;form--submit#submit\" name=\"rules_withdrawal[destination]\" id=\"rules_withdrawal_address\" required=\"required\">{}</select>
 </div>", escape(display), options(list, r));
         }
     }

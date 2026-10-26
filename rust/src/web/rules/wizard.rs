@@ -71,7 +71,6 @@ struct Preview<'a> {
     display: String,
     options: String,
     truncated: String,
-    networks: String,
     infos: Vec<(bool, String)>,
 }
 
@@ -564,45 +563,6 @@ fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String,
             ),
         ),
     ];
-    let network = r.text("network");
-    let label = |chain: &Value| {
-        format!(
-            "{} ({}: {})",
-            string(&chain["name"]),
-            ctx.t("rules.withdrawals.sentence.fee"),
-            string(&chain["fee"])
-        )
-    };
-    let networks = match r.chains.as_slice() {
-        [] => String::new(),
-        [chain] => format!(
-            "<input type=\"hidden\" name=\"network\" value=\"{}\">",
-            escape(&string(&chain["name"]))
-        ),
-        chains => {
-            let selected = chains
-                .iter()
-                .find(|c| c["name"].as_str() == Some(network.as_str()))
-                .map(label)
-                .unwrap_or_else(|| network.clone());
-            let options = chains
-                .iter()
-                .map(|c| {
-                    format!(
-                        "<option value=\"{}\" {}>{}</option>",
-                        escape(&string(&c["name"])),
-                        if c["name"].as_str() == Some(network.as_str()) {
-                            "selected"
-                        } else {
-                            ""
-                        },
-                        escape(&label(c))
-                    )
-                })
-                .collect::<String>();
-            format!("{}<div class=\"sinput sinput--select\" data-controller=\"form--select-display\"><span data-form--select-display-target=\"label\">{}</span><select name=\"network\" data-action=\"change-&gt;form--select-display#update change-&gt;form--submit#submit\">{options}</select></div>",ctx.t("rules.withdrawals.sentence.on_network"),escape(&selected))
-        }
-    };
     let display = list
         .and_then(|l| {
             l.entries.iter().find(|e| {
@@ -632,7 +592,6 @@ fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String,
         } else {
             r.address.clone()
         },
-        networks,
         infos,
     }
     .render()?)
@@ -661,6 +620,13 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         if !list.as_ref().is_some_and(|l| identity.listed(&rule, l)) {
             return Ok(to(ctx, "add_address"));
         }
+    }
+    if rule.exchange.class == "Exchanges::Mexc" {
+        if let Some(destination) = list.as_ref().and_then(|l| reads::select(&rule, l).ok()) {
+            reads::store(&mut rule.settings, &destination);
+        }
+    }
+    if posted.is_some() {
         set(ctx, rule.settings.clone());
     }
     if is_create {
@@ -760,14 +726,6 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         if rule.settings[key].is_null() {
             rule.settings[key] = json!(default)
         }
-    }
-    if rule.settings["network"].is_null() {
-        rule.settings["network"] = rule
-            .chains
-            .iter()
-            .find(|c| c["is_default"] == true)
-            .or_else(|| rule.chains.first())
-            .map_or(Value::Null, |c| c["name"].clone());
     }
     let preview = preview(ctx, &rule, list.as_ref())?;
     if is_preview {

@@ -396,6 +396,27 @@ pub async fn tile(
             return alert(&ctx, error.clone(), true);
         }
     }
+    // A disabled placeholder contributes no destination to form data. Recheck the stored
+    // selection before accepting an unrelated edit or start from a stopped tile.
+    let checked_listing = if original.status == 2
+        && posted.is_none()
+        && field("address").is_none_or(crate::ruby::blank)
+    {
+        let list = reads::listing(&app, &rule, false).await?;
+        if let Some(list) = &list {
+            if reads::picker(list, &rule).1.is_none() {
+                return alert(
+                    &ctx,
+                    i18n::text(ctx.locale, crate::venue::withdrawal::NOT_LISTED_KEY, &[]),
+                    true,
+                );
+            }
+            destination_version = Some(list.version.clone());
+        }
+        Some(list)
+    } else {
+        None
+    };
     // Rails saves edits before attempting a start; a rejected start retains those edits.
     // ponytail: W2 decides the atomic shared-service behavior on every surface.
     let mut saved = rule.clone();
@@ -453,7 +474,10 @@ pub async fn tile(
         ))
     } else {
         let list = if rule.status == 2 {
-            reads::listing(&app, &rule, false).await?
+            match checked_listing {
+                Some(list) => list,
+                None => reads::listing(&app, &rule, false).await?,
+            }
         } else {
             None
         };

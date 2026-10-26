@@ -2586,6 +2586,8 @@ fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), Stri
         if line.trim_start().starts_with("<select ") && matches!(attr(line,"name").as_deref(), Some("address" | "rules_withdrawal[address]")) {
             let expected = line.replace("name=\"address\"", "name=\"destination\"")
                 .replace("name=\"rules_withdrawal[address]\"", "name=\"rules_withdrawal[destination]\"");
+            let expected = expected.strip_suffix('>').unwrap().to_string()
+                + if attr(line, "name").as_deref() == Some("address") { " required=\"\">" } else { " required=\"required\">" };
             if new != &json!(expected) { return Err("D-RULE-LISTED-ENTRY: unexpected picker attributes".into()); }
             *old = json!(expected);
             in_picker = true;
@@ -2606,6 +2608,17 @@ fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut
     for ((a,b),step) in rails["responses"].as_array_mut().unwrap().iter_mut()
         .zip(rust["responses"].as_array_mut().unwrap()).zip(scenario["steps"].as_array().unwrap()) {
         rules_listed_entry_picker(&mut a["body"], &b["body"])?;
+        // A disabled destination placeholder is absent from form data. Recheck the stored
+        // selection before a stopped rule starts, including a start submitted with settings.
+        if matches!(name, "rules_tile_start_stopped" | "rules_tile_combined_invalid_start")
+            && step["method"] == "PATCH" && step["path"] == "/rules/withdrawals/1" {
+            let expected = json!([{"method":"GET","host":"api.binance.com",
+                "path":"/sapi/v1/capital/withdraw/address/list","params":[["recvWindow","5000"]]}]);
+            if a.get("venue_requests").is_some() || b.get("venue_requests") != Some(&expected) {
+                return Err("D-RULE-LISTED-ENTRY: expected exactly one destination recheck before starting a stopped rule".into());
+            }
+            a["venue_requests"] = expected;
+        }
         if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
             let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {
                 let text=l.as_str()?;

@@ -91,12 +91,10 @@ impl Identity {
         let Some(kind) = Kind::of(&rule.exchange.class) else {
             return false;
         };
-        let count = listing
+        listing
             .entries
             .iter()
-            .filter(|e| e.refused.is_none() && Self::entry(e, kind) == *self)
-            .count();
-        count == 1 || kind == Kind::Gemini && count > 0
+            .any(|e| e.refused.is_none() && Self::entry(e, kind) == *self)
     }
 
     pub fn apply(&self, address: &mut String, settings: &mut Value, kind: Kind) {
@@ -131,6 +129,66 @@ pub struct Listing {
     pub networks: Option<Coin>,
     pub version: crate::engine::model::CredentialVersion,
     pub code: String,
+}
+
+/// Equivalent listed identities render once; only a unique match can be a form default.
+pub fn picker<'a>(list: &'a Listing, rule: &Rule) -> (Vec<&'a Entry>, Option<usize>) {
+    let kind = Kind::of(&rule.exchange.class).expect("withdrawal venue");
+    let selected = Identity::rule(rule);
+    let mut identities = Vec::new();
+    let entries = list
+        .entries
+        .iter()
+        .filter(|e| {
+            if e.refused.is_some() {
+                return false;
+            }
+            let identity = Identity::entry(e, kind);
+            if identities.contains(&identity) {
+                return false;
+            }
+            identities.push(identity);
+            true
+        })
+        .collect::<Vec<_>>();
+    let matches = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| {
+            let identity = Identity::entry(e, kind);
+            e.refused.is_none()
+                && identity.address == selected.address
+                && selected.network.as_ref().is_none_or(|n| {
+                    identity.network.as_ref() == Some(n)
+                        || kind == Kind::Gemini
+                            && identity.network.is_none()
+                            && withdrawal::gemini_network(&list.code) == Some(n.as_str())
+                        || kind == Kind::Mexc
+                            && withdrawal::select(
+                                kind,
+                                &list.code,
+                                &Stored::new(&rule.address, Some(n), selected.tag.as_deref(), None),
+                                std::slice::from_ref(**e),
+                                list.networks.as_ref(),
+                            )
+                            .is_ok()
+                })
+                && selected
+                    .tag
+                    .as_ref()
+                    .is_none_or(|t| identity.tag.as_ref() == Some(t))
+                && selected
+                    .key
+                    .as_ref()
+                    .is_none_or(|k| identity.key.as_ref() == Some(k))
+        })
+        .map(|(index, _)| index)
+        .collect::<Vec<_>>();
+    let selected_index = match matches.as_slice() {
+        [index] => Some(*index),
+        _ => None,
+    };
+    (entries, selected_index)
 }
 
 pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Listing>, WebError> {
@@ -181,14 +239,9 @@ pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Li
     if !networks {
         entries.retain(|entry| entry.refused.is_none());
     }
-    // MEXC may list a code while V1 stores the coin list's network label. Read the
-    // mapping when needed so a stopped tile keeps the matching destination selected.
-    let needs_aliases = kind == Kind::Mexc
-        && rule.settings["network"].as_str().is_some_and(|network| {
-            entries
-                .iter()
-                .any(|e| e.address == rule.address && e.network.as_deref() != Some(network))
-        });
+    // MEXC may list a code while V1 stores the coin list's network label. Display
+    // reads also need this mapping to select the destination and preview its chain fee.
+    let needs_aliases = kind == Kind::Mexc;
     let coin = if (networks && matches!(kind, Kind::Binance | Kind::Mexc)) || needs_aliases {
         match venue.withdrawal_networks(&code).await {
             Ok(coin) => coin,
@@ -212,19 +265,6 @@ pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Li
 
 pub fn select(rule: &Rule, listing: &Listing) -> Result<Destination, withdrawal::Refusal> {
     let kind = Kind::of(&rule.exchange.class).ok_or(withdrawal::Refusal::NotListed)?;
-    // Identical picker values cannot identify one entry. Gemini deliberately lists the same
-    // destination in account and group scopes, which V1 treats as one destination.
-    let identity = Identity::rule(rule);
-    if kind != Kind::Gemini
-        && listing
-            .entries
-            .iter()
-            .filter(|e| e.refused.is_none() && Identity::entry(e, kind) == identity)
-            .count()
-            > 1
-    {
-        return Err(withdrawal::Refusal::Ambiguous);
-    }
     withdrawal::select(
         kind,
         &listing.code,

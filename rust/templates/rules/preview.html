@@ -13,14 +13,13 @@
    <div class="tag tag--address" data-controller="form--select-display">
     {% include "svg/_16x16_wallet.html" %}
     <span data-form--select-display-target="label">{{ display }}</span>
-    <select name="destination" data-action="change-&gt;form--select-display#update change-&gt;form--submit#submit">
+    <select name="destination" required data-action="change-&gt;form--select-display#update change-&gt;form--submit#submit">
 {{ options|safe }}
 </select>
    </div>
    {% else %}
    <a data-turbo-frame="modal_content" class="tag tag--address" href="{{ address_url }}">{% include "svg/_16x16_wallet.html" %}{{ truncated }}</a>
    {% endif %}
-   {{ networks|safe }}
    <div data-controller="form--select-toggle" style="display: contents">
     {{ v.t("rules.withdrawals.sentence.when") }}
     {% if r.fee.is_some() %}
