@@ -3,7 +3,8 @@
 use crate::venue::Attributed;
 use super::venue_rules::VenueRules;
 use super::model::{self, Level};
-use super::{amount, notice, tick, EngineError};
+use super::amount_limit::{self, Cap};
+use super::{amount, tick, EngineError};
 use crate::codec::{format_time, parse_time};
 use crate::enums::TxExternalStatus;
 use crate::ruby::{inspect, to_sentence, to_sql, BigDec};
@@ -55,7 +56,7 @@ pub(crate) fn require_owner(c: &Connection, bot_id: i64, tx_id: i64) -> Result<(
 /// never moves the carry. Kept, as Rails keeps the keyword, until Rails removes it. Returns whether this fill spent the
 /// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
 /// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
-pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
+pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<Option<Cap>, EngineError> {
     require_owner(c, bot_id, tx_id)?;
     let row = crate::figures::fill::stored_order(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
@@ -67,7 +68,7 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
         let ticker = model::alpaca_order_ticker(c, bot.exchange_id, s.pair.as_deref(), s.asset_class.as_deref())?;
         if ticker.is_none() {
             eprintln!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
-            return Ok(false);
+            return Ok(None);
         }
         ticker
     } else {
@@ -76,7 +77,7 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
 
     let status = match s.status {
         OrderStatus::Open => TxExternalStatus::Open, OrderStatus::Closed => TxExternalStatus::Closed,
-        OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(false),
+        OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(None),
     };
 
     // update_with_order_data(...).compact under ActiveRecord's dirty check: only changed attributes are written.
@@ -104,6 +105,8 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     let exec_changed = sets.iter().any(|(col, _)| *col == "quote_amount_exec");
     let changed = |cols: &[&str]| sets.iter().any(|(col, _)| cols.contains(col));
     let terminal = matches!(status, TxExternalStatus::Closed | TxExternalStatus::Cancelled);
+    // Transaction#base_cap_relevant_change? (the base cap's trigger, below).
+    let base_changed = (changed(&["amount_exec"]) && s.amount_exec.is_positive()) || (changed(&["external_status"]) && status == TxExternalStatus::Closed);
     // Transaction's after_save :reconcile_wash_sale (transaction.rb:67-72): a sell closed or cancelled whose status, executed
     // figures or asset this write changed. Bot::WashSaleGuard is a basket's and an index bot's only.
     let wash = side == 1 && terminal && changed(&["external_status", "amount_exec", "quote_amount_exec", "base_asset_id"])
@@ -143,7 +146,16 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     // the job that committed the fill.
     // `return if selling?` (quote_amount_limitable.rb:106): a buy that still fills after a flip never stops the seller.
     // D-SIG-CAP: a spent cap never stops a signal bot (its sells keep working; buy calls get the cap line).
-    Ok(exec_changed && side == 0 && !bot.selling() && bot.bot_type != model::SIGNAL_TYPE && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
+    if exec_changed && side == 0 && !bot.selling() && bot.bot_type != model::SIGNAL_TYPE && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)? {
+        return Ok(Some(Cap::Quote));
+    }
+    // Its sell-side mirror (transaction.rb:34-36 → Bot::BaseAmountLimitable#handle_base_amount_limit_update): a sell of any
+    // kind whose executed base changed to a positive value, or that was newly closed (base_cap_relevant_change?), re-checks
+    // the base cap while the bot sells its one asset; reached, Bot::StopJob(amount_sold) and the base cap's mail.
+    let base_hit = side == 1 && base_changed && bot.base_amount_limited() && super::accounting::base_amount_limit_reached(c, &bot)?;
+    // A rotation's deferred D-6D-2 decision (amount_limit::ROTATION_PENDING) waits for this order's final state.
+    amount_limit::settle_rotation(c, bot_id, tx_id, now, base_hit)?;
+    Ok(base_hit.then_some(Cap::Base))
 }
 
 /// A terminal sell fill, noted in the fill's own transaction on this connection: a connection-local temp table, so the note
@@ -187,7 +199,7 @@ pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, 
 }
 
 /// One fill, committed. A fill that spends the amount limit enqueues one Rails Bot::StopJob per qualifying callback
-/// (quote_amount_limitable.rb:111), and mails stopped_by_amount_limit: its marker (notice::LIMIT) is written in the fill's
+/// (quote_amount_limitable.rb:111), and mails stopped_by_amount_limit: its marker (notice::LIMIT; the base cap's, notice::BASE_LIMIT) is written in the fill's
 /// transaction. Rails mails once per callback; the marker is one key, so two such fills before a send owe one mail. With `stop_now` (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
 /// has nothing left to do) the stop lands in the fill's own transaction. Without it (the tick's sweep: the job runs after the
 /// whole Bot::ActionJob) one pending stop is counted in `transient_data.rust_amount_limit_stops_pending`, by `json_set` in the
@@ -195,25 +207,20 @@ pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, 
 /// the tick's end, at the next start (run::step), or at the handback.
 /// notify_stopped_by_amount_limit runs in the fill callback that spends the cap, whatever the stop then does: the mail
 /// (notice::LIMIT) is owed in that fill's own transaction, on every path that applies a fill (here and placement's recovery).
-pub(crate) fn owe_limit_mail(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
-    c.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
-              params![format!("$.{}", notice::LIMIT), notice::limit_marker(now).to_string(), bot_id])?;
-    Ok(())
-}
-
 fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, stop_now: bool, version: &Option<model::CredentialVersion>) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
     let fenced=model::check_credential_result(&tx, version)?;
-    if apply_in(&fenced, bot_id, tx_id, s, true, now)? {
-        owe_limit_mail(&tx, bot_id, now)?;
+    if let Some(cap) = apply_in(&fenced, bot_id, tx_id, s, true, now)? {
+        amount_limit::owe_mail(&tx, bot_id, cap, now)?;
         if stop_now {
-            tick::stop_for_amount_limit(&tx, bot_id, now)?;
+            tick::stop_for_amount_limit(&tx, bot_id, cap, now)?;
         } else {
-            // Counted under the bot's start and limit (Bot::amount_limit_key); a stale count from before a restart restarts at 1.
+            // Counted under the bot's start and that cap's limit (Bot::cap_key), with the cap's `kind`; a stale count from
+            // before a restart, or one of the other cap, restarts at 1.
             let bot = model::load_bot(&tx, bot_id)?;
-            let n = match bot.pending_amount_limit_stops()? { Some((n, true)) => n + 1, _ => 1 };
+            let n = match bot.pending_amount_limit_stops()? { Some((n, true)) if bot.pending_amount_limit_cap() == cap => n + 1, _ => 1 };
             tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending', json(?1)) WHERE id = ?2",
-                       params![serde_json::json!({ "count": n, "key": bot.amount_limit_key()? }).to_string(), bot_id])?;
+                       params![serde_json::json!({ "count": n, "key": bot.cap_key(cap)?, "kind": cap.kind() }).to_string(), bot_id])?;
         }
     }
     tx.commit()?;

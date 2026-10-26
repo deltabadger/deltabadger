@@ -51,11 +51,11 @@ impl Origin {
 /// The transaction kinds the engine writes. A REBALANCE order is not a contribution: its rows stay out of the DCA carry, the
 /// spend cap and the intent's pending-buy spending (Rails scopes them all to 'REGULAR').
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TxKind { Regular, Rebalance }
+pub enum TxKind { Regular, Rebalance, Liquidation, Redeploy }
 
 impl TxKind {
-    pub fn as_str(self) -> &'static str { match self { Self::Regular => "REGULAR", Self::Rebalance => "REBALANCE" } }
-    pub fn parse(s: &str) -> Option<Self> { match s { "REGULAR" => Some(Self::Regular), "REBALANCE" => Some(Self::Rebalance), _ => None } }
+    pub fn as_str(self) -> &'static str { match self { Self::Regular => "REGULAR", Self::Rebalance => "REBALANCE", Self::Liquidation => "LIQUIDATION", Self::Redeploy => "REDEPLOY" } }
+    pub fn parse(s: &str) -> Option<Self> { match s { "REGULAR" => Some(Self::Regular), "REBALANCE" => Some(Self::Rebalance), "LIQUIDATION" => Some(Self::Liquidation), "REDEPLOY" => Some(Self::Redeploy), _ => None } }
 }
 
 #[derive(Debug)]

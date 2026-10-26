@@ -364,6 +364,7 @@ enum Gate { Pass, Held, Failed }
 /// stored met_at, the same venue script) and a call of that side writes met_at as Rails' basket does (stamped, kept or
 /// cleared) and decides as its gate does: traded ↔ placed, paused ↔ the unmet line, a failed tick ↔ the failed row. Carry,
 /// status and check jobs are not compared (a signal bot has none of them).
+#[cfg(unix)] // the Rails grid recorder (common::decisions) is Unix-only, as in parity.rs
 #[tokio::test(flavor = "current_thread")]
 async fn signal_cells_decide_as_the_rails_basket_twins_gate() {
     const CASES: [&str; 15] = ["below_met", "below_unmet", "below_at_limit", "above_met", "above_unmet", "between_reversed_met", "between_unmet",

@@ -84,6 +84,35 @@ async fn a_follow_up_fill_that_stops_the_bot_redraws_its_status_and_unlocks_its_
         pair("replace", dom("status_button")), pair("replace", dom("tile_status_button")), pair("remove_class", dom("columns"))]);
 }
 
+/// A final sell left for the settlement scan stops the bot without a poll or tick to announce the change.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rotation_settlement_stop_reaches_the_page_stream() {
+    use deltabadger::engine::{amount_limit, model};
+    use deltabadger::enums::BotStatus;
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling")).with("sell_denomination", json!("base"))
+        .with("sell_amount", json!(0.001)).with("base_amount_limited", json!(true)).with("base_amount_limit", json!(0.01))
+        .transient("base_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z")).transient("last_action_job_at", json!(STAMPED)));
+    let order = seed::insert_row(&r.c(), &r.s, r.id, r.s.btc, &json!({ "external_id": "OS", "external_status": 2, "side": 1,
+        "order_type": 1, "price": "64000", "amount": "0.01", "amount_exec": "0.01", "created_at": IN }));
+    r.c().execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
+        rusqlite::params![format!("$.{}", amount_limit::ROTATION_PENDING), json!([order]).to_string(), r.id]).unwrap();
+    let t = script(json!({}));
+    let mut e = r.engine(&t, "2026-09-01T10:00:06Z");
+    let mut rx = e.subscribe_to(EngineEvent::is_live);
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:06Z"))).await.unwrap();
+    assert_eq!(model::load_bot(&r.c(), r.id).unwrap().status, BotStatus::Stopped);
+    let events = heard(&mut rx);
+    assert_eq!(events, [EngineEvent::StatusChanged { bot_id: r.id }]);
+    let messages = r.render(&events[0]);
+    assert!(messages.iter().all(|(stream, _)| *stream == format!("user_{}:bot_updates", r.s.user_id)));
+    let dom = |name: &str| format!("{name}_bots_dca_multi_asset_{}", r.id);
+    let pair = |action: &str, target: String| (action.to_string(), target);
+    assert_eq!(shape(&messages), [pair("replace", dom("status_bar")), pair("replace", dom("progress_bar")),
+        pair("replace", dom("status_button")), pair("replace", dom("tile_status_button")), pair("remove_class", dom("columns"))]);
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:11:06Z"))).await.unwrap();
+    assert!(heard(&mut rx).is_empty(), "a settled decision is not announced again");
+}
+
 /// FetchAndUpdateOpenOrdersJob in the tick (polling::sweep) writes a resting order: its rows are replaced as the follow-up's
 /// are (Transaction after_update_commit → Bot#broadcast_updated_order), announced before the tick's end.
 #[tokio::test(flavor = "current_thread")]
@@ -220,4 +249,22 @@ fn each_sides_status_line_renders_into_its_own_element() {
     assert!(sell[0].1.contains("id=\"settings-sell-price-limit-info\"") && !sell[0].1.contains("text-success"), "{}", sell[0].1);
     assert_eq!(target(r.id, BUYING), ["settings-price-limit-info"], "a buying basket's own line");
     assert!(target(r.id, SELLING).is_empty(), "a buying basket shows no sell line");
+}
+
+/// Bot::BaseAmountLimitable#handle_base_amount_limit_update: a sell fill of a one-asset seller under the base cap redraws
+/// what is left of it on the open page (settings-amount-limit-info), in the order's own broadcast, before any stop.
+#[tokio::test(flavor = "current_thread")]
+async fn a_sell_fill_redraws_what_is_left_of_the_base_cap() {
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling")).with("sell_denomination", json!("base"))
+        .with("sell_amount", json!(0.001)).with("base_amount_limited", json!(true)).with("base_amount_limit", json!(0.02))
+        .transient("base_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z")));
+    let order = seed::insert_row(&r.c(), &r.s, r.id, r.s.btc, &json!({ "external_id": "OS", "external_status": 0, "side": 1, "order_type": 0,
+        "price": "64000", "amount": "0.01", "created_at": IN }));
+    let t = script(json!({ "GET /v2/orders/OS": [ok(json!({ "id": "OS", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "sell",
+        "notional": null, "qty": "0.01", "filled_qty": "0.005", "filled_avg_price": "64000", "limit_price": null }))] }));
+    deltabadger::engine::polling::follow_up(&r.c(), &venue(&t), r.id, order, at("2026-09-01T10:00:06Z")).await.unwrap();
+    let messages = r.render(&EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order });
+    let info = messages.iter().find(|(_, html)| html.contains("target=\"settings-amount-limit-info\"")).unwrap_or_else(|| panic!("{messages:?}"));
+    assert!(info.0.ends_with(":bot_updates") && !info.0.starts_with("user_"), "the bot's page stream: {}", info.0);
+    assert!(info.1.contains("0.015"), "0.02 less the 0.005 sold: {}", info.1);
 }

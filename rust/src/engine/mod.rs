@@ -76,6 +76,7 @@ pub mod splits;
 pub mod index;
 
 pub mod accounting;
+pub mod amount_limit;
 pub mod rebalance;
 pub mod signal;
 pub mod wash;
@@ -83,3 +84,6 @@ pub mod wash;
 pub mod reversal;
 pub mod conditions;
 pub mod candles;
+
+pub mod composition;
+pub mod technical;

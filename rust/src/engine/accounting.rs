@@ -236,7 +236,7 @@ fn rails_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec
 fn buy_intent_quote(bot: &Bot) -> Result<Option<BigDec>, EngineError> {
     let Some(intent) = bot.rust_placement() else { return Ok(None) };
     if intent.get("side").is_some_and(|s| s == "sell") { return Ok(None); }
-    if intent.get("transaction_type").is_some_and(|k| k == "REBALANCE") { return Ok(None); }
+    if intent.get("transaction_type").is_some_and(|k| !k.is_null() && k != "REGULAR") { return Ok(None); }
     let quote = intent["quote_amount"].as_str().ok_or_else(||data("unreadable intent quote"))?;
     BigDec::parse(quote).map(Some).map_err(data)
 }
@@ -298,24 +298,31 @@ fn sell_intent_base(intent: Option<&Value>) -> Result<Option<BigDec>, EngineErro
     BigDec::parse(amount).map(Some).map_err(data)
 }
 
-fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>) -> Result<(Option<Num>, bool), EngineError> {
+/// `settled`: only what is definitely sold (closed, cancelled, abandoned), neither an open sell nor an unresolved intent.
+fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>, settled: bool) -> Result<(Option<Num>, bool), EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     let Some(limit) = bot.base_amount_limit().map_err(EngineError::Data)? else { return Ok((None, false)) };
     let since = bot.base_amount_limit_enabled_at_us().map_err(EngineError::Data)?.map(at).transpose()?.map(format_time);
-    let rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(data)?;
-    let (left, reached) = base_cap(limit, &rows, sell_intent_base(bot.rust_placement().as_ref())?, decimals)?;
+    let mut rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(data)?;
+    let intent = if settled { rows.retain(|r| !matches!(r.status, 0 | 1)); None } else { sell_intent_base(bot.rust_placement().as_ref())? };
+    let (left, reached) = base_cap(limit, &rows, intent, decimals)?;
     Ok((Some(left), reached))
 }
 
 /// What the base cap leaves, as Ruby's numerics leave it; None when it is off (Rails' Float::INFINITY).
 pub fn base_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
-    Ok(engine_base_cap(c, bot, None)?.0)
+    Ok(engine_base_cap(c, bot, None, false)?.0)
 }
 
-pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, false) }
+
+/// D-6D-2 at a rotation: reached on what is definitely sold, the open sells the rotation cancels left out.
+pub fn base_amount_limit_reached_settled(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, true) }
+
+fn base_reached(c: &Connection, bot: &Bot, settled: bool) -> Result<bool, EngineError> {
     if !bot.base_amount_limited() { return Ok(false); }
     let Some(d) = tickers_min_decimals(c, bot, "base_decimals")? else { return Ok(false) };
-    Ok(engine_base_cap(c, bot, Some(d))?.1)
+    Ok(engine_base_cap(c, bot, Some(d), settled)?.1)
 }
 
 /// R1c order safety: exact cap minus exact normalized commitments, including unresolved intent.
@@ -345,7 +352,7 @@ pub enum CapGuard { Place(OrderPlan), BelowMinimum(OrderPlan) }
 /// At most four venue increments may be removed; a larger change refuses with a reason, under the intent lock.
 /// Only a REGULAR buy spends the DCA cap: a REBALANCE buy (an owed swap leg, even on a stopped bot whose cap is spent) passes.
 pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<CapGuard, EngineError> {
-    if plan.kind != super::amount::TxKind::Regular { return Ok(CapGuard::Place(plan.clone())); }
+    match plan.kind { super::amount::TxKind::Regular => {}, super::amount::TxKind::Rebalance | super::amount::TxKind::Liquidation | super::amount::TxKind::Redeploy => return Ok(CapGuard::Place(plan.clone())) }
     let Some(exact) = exact_cap_available(c, bot)? else { return Ok(CapGuard::Place(plan.clone())); };
     let (base, quote, price_scale) = plan.ticker.scales().map_err(EngineError::Data)?;
     let rules = || -> Result<&'static super::venue_rules::VenueRules, EngineError> {
@@ -551,11 +558,18 @@ pub(crate) fn round_up(value: f64, scale: f64) -> f64 {
 /// validate_base_amount_limit_not_reached on the start: the engine's tally (`base_cap`) on the candidate's limit, stamp,
 /// intent and tickers. A limit that is not a number is Rails' blank (Float::INFINITY): never reached.
 pub fn web_base_cap_reached(c: &Connection, bot: &WebBot) -> Result<bool, WebError> {
-    let Some(limit) = bot.number("base_amount_limit") else { return Ok(false) };
+    Ok(web_base_cap(c, bot)?.is_some_and(|(_, reached)| reached))
+}
+
+/// The same tally for the settings page (bots/settings/_amount_limit_info): what is left, as Ruby's numerics leave it, and
+/// whether that is reached. None for a limit that is not a number.
+pub fn web_base_cap(c: &Connection, bot: &WebBot) -> Result<Option<(WebNum, bool)>, WebError> {
+    let Some(limit) = bot.number("base_amount_limit") else { return Ok(None) };
     let since = codec::optional_time(bot.transient.get("base_amount_limit_enabled_at")).map_err(|_|error("unreadable stored timestamp"))?.map(format_time);
     let rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(web_bot::fill_error)?;
     let decimals = bot.tickers.iter().map(|t| i64::from(t.base_decimals)).min();
-    Ok(base_cap(core(limit), &rows, sell_intent_base(bot.transient.get("rust_placement"))?, decimals)?.1)
+    let (left, reached) = base_cap(core(limit), &rows, sell_intent_base(bot.transient.get("rust_placement"))?, decimals)?;
+    Ok(Some((view(left), reached)))
 }
 
 /// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as Rails'

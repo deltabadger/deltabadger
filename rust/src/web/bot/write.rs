@@ -748,6 +748,8 @@ pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i
     // Rails enqueues the next Bot::ActionJob at next_interval_checkpoint_at: re-anchored at now, the bot would otherwise be due at
     // once. Rails reads that a moment after the anchor (its own Time.current), so the checkpoint is one whole interval on.
     if working { crate::engine::placement::defer_to_next_checkpoint(&tx, &model::load_bot(&tx, id)?, now + chrono::Duration::microseconds(1))?; }
+    // D-6D-2: rotated into selling its one asset with the base cap used up, the bot is stopped and its owner mailed.
+    crate::engine::amount_limit::stop_at_rotation(&tx, id, now)?;
     if let Err(refusal) = eligibility::guard(&tx, cipher, Some(id)) {
         tx.rollback()?;
         return Ok(Reversal::Refused(refusal.reason()));

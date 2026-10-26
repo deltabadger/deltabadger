@@ -246,10 +246,10 @@ pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, csrf: &mut Token<'_>, prefix: &str, now: At) -> Result<String, FiguresError> {
     let quote = s.quote.as_deref().unwrap_or("");
-    let (status, settings, transient): (i64, String, String) = c.query_row("SELECT status, settings, transient_data FROM bots WHERE id=?1", [s.bot.id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+    let (status, settings): (i64, String) = c.query_row("SELECT status, settings FROM bots WHERE id=?1", [s.bot.id], |r| Ok((r.get(0)?,r.get(1)?)))?;
     let settings: Value = serde_json::from_str(&settings).map_err(|_| FiguresError::Data("Invalid settings".into()))?;
-    let transient: Value = serde_json::from_str(&transient).map_err(|_| FiguresError::Data("Invalid transient data".into()))?;
-    let in_flight = ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|k| !transient[k].is_null());
+    let engine_bot = crate::engine::model::load_bot(c, s.bot.id).map_err(|e| FiguresError::Data(format!("{e:?}")))?;
+    let in_flight = crate::engine::composition::in_flight(c, &engine_bot, now.utc()).map_err(|e| FiguresError::Data(format!("{e:?}")))?;
     let may_sell = !matches!(status, 3 | 7) && !in_flight;
     let members: HashSet<i64> = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1 AND in_index=1")?.query_map([s.bot.id], |r| r.get(0))?.collect::<Result<_,_>>()?;
     let mut rows = vec![];
