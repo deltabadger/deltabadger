@@ -468,7 +468,13 @@ impl Forms<'_> {
     /// The four conditions of a basket (bots/settings/_price_limit, _price_drop_limit, _moving_average_limit, _indicator_limit).
     /// `members` are BotHelper#base_select_options, `pairs` #ticker_select_options: (label, ticker id), sorted by label.
     pub fn conditions(&self, members: &[(String, String)], pairs: &[(String, String)]) -> String {
-        self.other_conditions(pairs, self.price_limit(members), members)
+        self.conditions_with_subjects(|rule| if matches!(rule, "price_limit" | "price_drop_limit") { members } else { pairs })
+    }
+
+    /// Each rule receives its own subjects; an index rule may keep only its own departed member.
+    fn conditions_with_subjects<'a>(&self, subjects: impl Fn(&str) -> &'a [(String, String)]) -> String {
+        let price = self.price_limit(subjects("price_limit"));
+        self.other_conditions(subjects, price)
     }
 
     /// bots/settings/_price_limit on the active side; `members` (label, ticker id) are the subjects it can watch.
@@ -501,7 +507,7 @@ impl Forms<'_> {
     }
 
     /// The rest of a basket's conditions, after its price rule (`out`).
-    fn other_conditions(&self, pairs: &[(String, String)], mut out: String, members: &[(String, String)]) -> String {
+    fn other_conditions<'a>(&self, subjects: impl Fn(&str) -> &'a [(String, String)], mut out: String) -> String {
         let (bot, locale) = (self.bot, self.ctx.locale);
         let k = |name: &str| self.k(name);
         let side = self.side();
@@ -509,6 +515,7 @@ impl Forms<'_> {
         let boxed = |field: String| format!("<div>            {field}\n</div>");
 
         // Price drop limit.
+        let members = subjects("price_drop_limit");
         let window = bot.text(&k("price_drop_limit_time_window_condition")).unwrap_or("");
         // BotHelper#price_drop_limit_time_window_condition_select_options: a high to fall from while buying, a low to rise from while selling.
         let (window_names, namespace): (&[&str], &str) = if self.selling() { (&["twenty_four_hours", "seven_days"], "sell_time_window_condition") } else { (&["ath", "twenty_four_hours"], "time_window_condition") };
@@ -527,6 +534,7 @@ impl Forms<'_> {
         out.push_str(&format!("  \n{}\n", self.rule(active, &k("price_drop_limited"), active, self.locked(), &format!("          {sentence}\n          {}\n", if active { self.info_loader("price_drop_limit") } else { String::new() }))));
 
         // Moving average limit.
+        let pairs = subjects("moving_average_limit");
         const TIMEFRAMES: [&str; 6] = ["one_hour", "four_hours", "one_day", "three_days", "one_week", "one_month"];
         let above_below = |rule: &str| -> String {
             let current = bot.text(&format!("{}_value_condition", k(rule))).unwrap_or("");
@@ -559,6 +567,7 @@ impl Forms<'_> {
         out.push_str(&format!("  \n{}\n", self.rule(active, &k("moving_average_limited"), active, self.locked(), &format!("          {sentence}\n          {info}\n"))));
 
         // Indicator limit. There is one indicator, so it is named, not chosen.
+        let pairs = subjects("indicator_limit");
         let active = bot.on(&k("indicator_limited"));
         let sentence = self.t("bot.settings.extra_indicator_limit.sentence_html", &[
             ("timing_condition_html", Arg::Html(&self.mode_pill("indicator_limit"))), ("value_condition_html", Arg::Html(&above_below("indicator_limit"))),
@@ -847,36 +856,41 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     Ok(out)
 }
 
-/// D-COND-FORMS-INDEX: the rule forms of a basket that an index bot runs (conditions::support): its price rule, buy side,
-/// over the members and the subject it watches now (a former member, so named), preselecting the default subject while
+/// D-COND-FORMS-INDEX: the rule forms of a basket that an index bot runs (conditions::support): its buy-side rules,
+/// each over the members and its own stored subject (a former member, so named), preselecting the default subject while
 /// none is stored (D-IDX-SUBJECT-DEFAULT); and its spending cap.
 fn index_rules(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     let mut bot = forms.bot.clone();
     let mut members: Vec<(String, String)> = super::draft::subject_tickers(c, &bot)?.iter()
         .map(|ticker| (ticker.base_symbol.clone().unwrap_or_default(), ticker.id.to_string())).collect();
     members.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut subjects = std::collections::HashMap::new();
     for (_, prefix) in crate::engine::conditions::TRIGGERS {
+        let mut options = members.clone();
         let key = format!("{prefix}_in_ticker_id");
         let stored = bot.setting(&key).and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())));
         match stored {
             Some(id) if !members.iter().any(|(_, value)| *value == id.to_string()) => {
                 if let Some(ticker) = Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next() {
                     let symbol = ticker.base_symbol.clone().unwrap_or_default();
-                    members.push((i18n::text(forms.ctx.locale, "engine.condition_subject_departed", &[("symbol", Arg::Text(&symbol))]), id.to_string()));
+                    options.push((i18n::text(forms.ctx.locale, "engine.condition_subject_departed", &[("symbol", Arg::Text(&symbol))]), id.to_string()));
                 }
             }
             Some(_) => {}
             None => if let Some(id) = super::draft::default_subject(c, &bot)? { bot.reads.insert(key, serde_json::json!(id)); },
         }
+        if matches!(prefix, "moving_average_limit" | "indicator_limit") {
+            for (label, id) in &mut options {
+                if let Some(ticker) = bot.tickers.iter().find(|t| t.id.to_string() == *id) {
+                    *label = format!("{}{}", ticker.base_symbol.as_deref().unwrap_or(""), ticker.quote_symbol.as_deref().unwrap_or(""));
+                }
+            }
+        }
+        subjects.insert(prefix, options);
     }
     let forms = Forms { ctx: forms.ctx, csrf: forms.csrf, bot: &bot, path: forms.path.clone(), hide_balances: forms.hide_balances,
                         time_zone: forms.time_zone, check: forms.check, rebalance_info: forms.rebalance_info, selling: None };
-    let pairs: Vec<(String, String)> = members.iter().map(|(label, id)| {
-        let ticker = bot.tickers.iter().find(|t| t.id.to_string() == *id);
-        let label = ticker.map_or_else(|| label.clone(), |t| format!("{}{}", t.base_symbol.as_deref().unwrap_or(""), t.quote_symbol.as_deref().unwrap_or("")));
-        (label, id.clone())
-    }).collect();
-    Ok(format!("{}    {}\n", forms.conditions(&members, &pairs), forms.amount_limit(c)?))
+    Ok(format!("{}    {}\n", forms.conditions_with_subjects(|rule| &subjects[rule]), forms.amount_limit(c)?))
 }
 
 /// D-COND-FORMS-SIGNAL: the rule forms a signal bot runs (conditions::support), after its rules: the price rule for its buy

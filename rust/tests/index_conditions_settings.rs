@@ -190,6 +190,48 @@ async fn a_subject_outside_the_members_is_refused() {
     assert_ne!(saved.answer["error"], true, "{}", saved.answer);
 }
 
+#[tokio::test(flavor = "current_thread")]
+async fn each_index_rule_offers_only_members_and_its_own_departed_subject() {
+    let i = install([0.5, 0.5, 0.0]);
+    let rules = ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"];
+    let initial = row(&i)["settings"].clone();
+    for departed_rule in rules {
+        let mut settings = initial.clone();
+        for rule in rules {
+            settings[format!("{rule}ed")] = json!(true);
+            settings[format!("{rule}_in_ticker_id")] = json!(if rule == departed_rule { i.tickers[2] } else { i.tickers[0] });
+        }
+        i.c.execute("UPDATE bots SET settings = ?1 WHERE id = ?2", (settings.to_string(), i.id)).unwrap();
+        let session = web::session::SessionData { user: Some((i.user, "x".into())), ..Default::default() };
+        let cookie = web::session::seal(&i.app.keys.session, &session, i.app.now());
+        let request = Request::builder().uri(format!("/bots/{}", i.id)).header("host", "localhost:3000")
+            .header("cookie", format!("{}={cookie}", web::session::COOKIE)).body(Body::empty()).unwrap();
+        let (status, page) = send(&i.app, request).await;
+        assert_eq!(status, 200, "{page}");
+        let page = scraper::Html::parse_document(&page);
+        for rule in rules {
+            let key = format!("{rule}_in_ticker_id");
+            let selector = scraper::Selector::parse(&format!("select[name='bots_dca_index[{key}]'] option")).unwrap();
+            let options: Vec<_> = page.select(&selector).collect();
+            let offered: Vec<i64> = options.iter().map(|option| option.value().attr("value").unwrap().parse().unwrap()).collect();
+            let expected = if rule == departed_rule { i.tickers.clone() } else { i.tickers[..2].to_vec() };
+            assert_eq!(offered, expected, "{rule} with {departed_rule} watching a departed member");
+            if rule == departed_rule {
+                let departed = options.last().unwrap();
+                assert!(departed.text().collect::<String>().contains("CCC"));
+                assert!(departed.value().attr("selected").is_some());
+            }
+            for subject in offered {
+                // Each option is submitted against the same stored subjects as the rendered page.
+                i.c.execute("UPDATE bots SET settings = ?1 WHERE id = ?2", (settings.to_string(), i.id)).unwrap();
+                let saved = save(&i, Surface::Web, json!({ &key: subject.to_string() }), json!({})).await;
+                assert_eq!(saved.status, 200, "{rule}: {subject}: {}", saved.answer);
+                assert_eq!(row(&i)["settings"][&key], json!(subject));
+            }
+        }
+    }
+}
+
 /// D-SUBJECT-CHANGE-CLEARS-LATCH: a new subject clears the met_at the old one latched; a save that keeps it does not.
 #[tokio::test(flavor = "current_thread")]
 async fn a_subject_change_clears_the_latch() {
