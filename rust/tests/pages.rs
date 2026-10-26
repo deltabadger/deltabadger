@@ -337,8 +337,10 @@ async fn run(dir: &Path) -> Value {
     mount_key_checks(&key_server).await;
     mount_account_reads(&key_server).await;
     mount_ibkr(&key_server).await;
+    mount_rule_reads(&key_server).await;
     let app = web::app_in(dir, scenario["secret_key_base"].as_str().unwrap(), None, scenario["env"].as_object().unwrap_or(&serde_json::Map::new()), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
         .with_venue_key_urls(&format!("{}/api.kraken.com", key_server.uri()), &format!("{}/api.binance.com", key_server.uri()), &format!("{}/api.kucoin.com", key_server.uri())).unwrap()
+        .with_venue_key_url(deltabadger::venue::gemini::GEMINI, &format!("{}/api.gemini.com", key_server.uri())).unwrap()
         .with_venue_key_url(deltabadger::venue::ibkr::IBKR, &format!("{}/api.ibkr.com", key_server.uri())).unwrap();
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
     app.attach_engine(wake.clone());
@@ -1262,6 +1264,7 @@ fn session_value(data: &session::SessionData, key: &str) -> Value {
         "tracker_connect" => data.tracker_connect.map_or(Value::Null, |id| json!({ "exchange_id": id })),
         "auto_open_bot_wizard" => if data.auto_open_bot_wizard { json!(true) } else { Value::Null },
         "bot_config" => data.bot_config.clone().unwrap_or(Value::Null),
+        "withdrawal_rule_config" => data.withdrawal_rule_config.clone().unwrap_or(Value::Null),
         other => panic!("session key {other} has no counterpart in this crate's session"),
     }
 }
@@ -1999,6 +2002,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
                 }
             }
         }
+        if let Err(error)=rules_differences(&name,&scenario,&mut rails,&mut rust) {
+            failures.push(format!("{name}: {error}")); continue;
+        }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name} (listed divergence): {message}")),
@@ -2014,10 +2020,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins')");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins')");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, and the empty bots page for a member (twice) and on the first visit");
     }
@@ -2543,4 +2549,132 @@ fn signal_page_oracle_sources_stay_pinned() {
     for (path, hash) in pins {
         assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the signal_page_ grid again (script/rust/repin)");
     }
+}
+
+async fn mount_rule_reads(server: &wiremock::MockServer) {
+    use wiremock::{matchers, Mock, ResponseTemplate};
+    Mock::given(matchers::path("/api.gemini.com/v1/approvedAddresses/account/bitcoin"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"approvedAddresses": [
+            {"network": "bitcoin", "address": "bc1qx0destination0000000000000000000000", "label": "cold", "status": "active"}
+        ]}))).with_priority(10).mount(server).await;
+    Mock::given(matchers::header("X-GEMINI-APIKEY", "rules-empty"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"approvedAddresses":[]}))).with_priority(1).mount(server).await;
+    Mock::given(matchers::header("X-GEMINI-APIKEY", "rules-failed"))
+        .respond_with(ResponseTemplate::new(503).set_body_json(json!({"result":"error","reason":"System"})))
+        .with_priority(1).mount(server).await;
+}
+
+/// W1's oracle sources: the live grid re-records their pages when any input changes.
+#[test]
+fn rules_page_oracle_sources_stay_pinned() {
+    use sha2::{Digest, Sha256};
+    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/rules_page_sources.json")).unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path, hash) in pins {
+        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the rules_ grid again");
+    }
+}
+
+/// W1's named differences remove only the affected venue option, destination member, or refused action.
+/// The remaining HTML, session, requests and rows still pass through the ordinary comparator.
+fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), String> {
+    let (Some(a), Some(b)) = (rails.as_array_mut(), rust.as_array()) else { return Ok(()); };
+    // The recorded W1 grid lists one Gemini destination, with this address and network.
+    // Assert the complete new option value, retaining all other attributes and text verbatim.
+    let address = "bc1qx0destination0000000000000000000000";
+    let identity = format!("{{\"address\":{address:?},\"network\":\"bitcoin\",\"tag\":null,\"key\":null}}");
+    let mut in_picker = false;
+    for (old, new) in a.iter_mut().zip(b) {
+        let Some(line) = old.as_str() else { continue; };
+        if line.trim_start().starts_with("<input ") && attr(line, "data-rule-toggle-target").as_deref() == Some("checkbox") {
+            // D-RULE-LISTED-ENTRY: native validation must stop every change action,
+            // restoring the checkbox before submission, styling or disabling runs.
+            let guard = "if (!this.form.checkValidity()) { this.form.reportValidity(); this.checked = !this.checked; event.stopImmediatePropagation(); }";
+            let expected = line.replace(" type=\"checkbox\"", &format!(" onchange={guard:?} type=\"checkbox\""));
+            if new != &json!(expected) { return Err("D-RULE-LISTED-ENTRY: only the native validation guard may differ on the toggle".into()); }
+            *old = json!(expected);
+        } else if line.trim_start().starts_with("<select ") && matches!(attr(line,"name").as_deref(), Some("address" | "rules_withdrawal[address]")) {
+            let expected = line.replace("name=\"address\"", "name=\"destination\"")
+                .replace("name=\"rules_withdrawal[address]\"", "name=\"rules_withdrawal[destination]\"");
+            let expected = expected.strip_suffix('>').unwrap().to_string()
+                + if attr(line, "name").as_deref() == Some("address") { " required=\"\">" } else { " required=\"required\">" };
+            if new != &json!(expected) { return Err("D-RULE-LISTED-ENTRY: unexpected picker attributes".into()); }
+            *old = json!(expected);
+            in_picker = true;
+        } else if in_picker && line.trim_start().starts_with("<option ") {
+            if attr(line,"value").as_deref() != Some(address) { return Err("D-RULE-LISTED-ENTRY: recorded destination changed".into()); }
+            let expected = line.replace(&format!("value={address:?}"), &format!("value={identity:?}"));
+            if new != &json!(expected) { return Err("D-RULE-LISTED-ENTRY: option must carry exactly Gemini's listed destination".into()); }
+            *old = json!(expected);
+        } else if in_picker && line.trim() == "</select>" {
+            in_picker = false;
+        }
+    }
+    Ok(())
+}
+
+fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+    if !name.starts_with("rules_") { return Ok(()) }
+    for ((a,b),step) in rails["responses"].as_array_mut().unwrap().iter_mut()
+        .zip(rust["responses"].as_array_mut().unwrap()).zip(scenario["steps"].as_array().unwrap()) {
+        rules_listed_entry_picker(&mut a["body"], &b["body"])?;
+        // A disabled destination placeholder is absent from form data. Recheck the stored
+        // selection before a stopped rule starts, including a start submitted with settings.
+        if matches!(name, "rules_tile_start_stopped" | "rules_tile_combined_invalid_start")
+            && step["method"] == "PATCH" && step["path"] == "/rules/withdrawals/1" {
+            let expected = json!([{"method":"GET","host":"api.binance.com",
+                "path":"/sapi/v1/capital/withdraw/address/list","params":[["recvWindow","5000"]]}]);
+            if a.get("venue_requests").is_some() || b.get("venue_requests") != Some(&expected) {
+                return Err("D-RULE-LISTED-ENTRY: expected exactly one destination recheck before starting a stopped rule".into());
+            }
+            a["venue_requests"] = expected;
+        }
+        if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
+            let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {
+                let text=l.as_str()?;
+                (text.contains("name=\"bots_dca_single_asset[exchange_id]\"")).then(||attr(text,"value")).flatten()
+            }).collect::<Vec<_>>();
+            if offered(&a["body"]) != ["1","5","2","3","4"] || offered(&b["body"]) != ["1","2","3","4"] {
+                return Err(format!("D-RULE-BINANCE-US-UNSUPPORTED: unexpected picker: {:?} / {:?}",offered(&a["body"]),offered(&b["body"])));
+            }
+            let lines=a["body"].as_array_mut().unwrap();
+            let button=lines.iter().position(|l|l.as_str().is_some_and(|s|s.contains("name=\"bots_dca_single_asset[exchange_id]\"")&&attr(s,"value").as_deref()==Some("5"))).unwrap();
+            let start=(0..button).rev().find(|i|lines[*i].as_str().is_some_and(|s|s.contains("class=\"exchange-grid__option\""))).unwrap();
+            let end=subtree_end(lines,start);
+            let from=if start>0&&is_space(&lines[start-1]){start-1}else{start};
+            lines.drain(from..end);
+        }
+        if name=="rules_tile_address_listed" && step["method"]=="PATCH" {
+            let old=&a["raw_rows"]["rules"][0]["settings"];
+            let mut expected:Value=serde_json::from_str(old.as_str().unwrap()).unwrap();
+            expected["network"]=json!("bitcoin");
+            let actual:Value=serde_json::from_str(b["raw_rows"]["rules"][0]["settings"].as_str().unwrap()).unwrap();
+            if expected!=actual {return Err("D-RULE-LISTED-ENTRY must persist exactly Gemini's listed network".into())}
+            a["raw_rows"]["rules"][0]["settings"]=b["raw_rows"]["rules"][0]["settings"].clone();
+        }
+        if name=="rules_destroy_scheduled" && step["method"]=="DELETE" {
+            if a["status"]!=200 || b["status"]!=422 || a["raw_rows"]["rules"][0]["status"]!=3 || b["raw_rows"]["rules"][0]["status"]!=1 {
+                return Err("D-RULE-TILE-DELETE-CREATED: scheduled DELETE must refuse without changing status".into());
+            }
+            let vectors:Value=serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+            let twin=vectors["pages"].as_array().unwrap().iter().find(|v|v["case"]=="tile_address_not_listed").unwrap();
+            let expected=twin["body"].as_str().unwrap().replace("That address is not on the exchange&#39;s withdrawal allowlist","Stop the withdrawal rule before deleting it.")
+                .replace("That address is not on the exchange's withdrawal allowlist","Stop the withdrawal rule before deleting it.");
+            if b["body"]!=json!(html::normalize(&expected)){return Err("D-RULE-TILE-DELETE-CREATED: refusal is not the Rails error-and-refresh twin".into())}
+            if b["headers"]["content-type"]!="text/vnd.turbo-stream.html; charset=utf-8"{return Err("DELETE refusal must be a Turbo stream".into())}
+            a["raw_rows"]["rules"][0]["status"]=json!(1);
+            a["status"]=json!(422);
+            a["body"]=b["body"].clone();
+            // Both are controller streams; the refusal sets the same headers as the successful refresh.
+        }
+        if name=="rules_post_withdrawals" && step["path"]=="/rules/withdrawals" && step["method"]=="POST" {
+            if a["status"]!=404 || b["status"]!=404 {return Err("D-RULE-POST-404: POST must remain unrouted".into())}
+            let public=deltabadger::web::assets::find("/404.html").unwrap();
+            if b["body"]!=json!(html::normalize(std::str::from_utf8(public.body).unwrap())) {return Err("D-RULE-POST-404: expected public 404 page".into())}
+            // Rails test mode draws its diagnostic page before a controller; Rust draws public/404.html.
+            a["body"]=b["body"].clone();
+            a["headers"]=b["headers"].clone();
+        }
+    }
+    Ok(())
 }

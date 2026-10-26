@@ -1,0 +1,9 @@
+<div class="bot-creation-layout">
+ {{ progress|safe }}
+ {{ sentence|safe }}
+ <turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="modal--search__assets selectable-options" id="asset-picker">
+ <form action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+ {% for item in items %}{% include "bots/_asset_search_result.html" %}{% endfor %}
+ {% if let Some((id,url)) = next %}<turbo-frame id="{{ id }}" src="{{ url }}" loading="lazy"></turbo-frame>{% endif %}
+ </form></turbo-frame>
+</div>

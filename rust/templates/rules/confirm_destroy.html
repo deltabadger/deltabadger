@@ -1,0 +1,23 @@
+<turbo-frame id="modal" complete="">
+ <dialog data-controller="modal--base" data-action="click-&gt;modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+ <div class="dialog__vertical-center">
+<div class="modal">
+  <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+ {% include "svg/_24x24_close.html" %}
+</button>
+  <div class="modal__header">
+<h1 class="modal__title">{{ title }}</h1>
+</div>
+  <div class="modal__body">
+<p>{{ v.t("rules.withdrawals.confirm_destroy.message") }}</p>
+  <div class="modal__footer">
+   <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
+{{ v.t("button.cancel") }}
+</button>
+   <form class="button_to" method="post" action="{{ action }}"><input type="hidden" name="_method" value="delete" /><button class="rbutton rbutton--danger" data-turbo-stream="true" data-action="modal--base#animateOutCloseAndCleanUp" type="submit">{{ v.t("button.delete") }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+  </div>
+</div>
+ </div>
+ </div>
+</dialog>
+</turbo-frame>
