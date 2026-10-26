@@ -53,29 +53,20 @@ fn t(locale: &str, key: &str) -> String { i18n::text(locale, &format!("errors.bo
 
 /// Bot::IndexSwitch.refusal, plus the engine's own fence (write::engine_holds). Rails' `poll_in_flight?` has no analogue: a
 /// stopped bot has no condition check in this engine, and the switch bumps the run generation.
-fn refusal(c: &Connection, bot: &model::Bot) -> Result<Option<&'static str>, WebError> {
+fn refusal(c: &Connection, bot: &model::Bot, now: chrono::DateTime<chrono::Utc>) -> Result<Option<&'static str>, WebError> {
     if !matches!(bot.status, BotStatus::Stopped | BotStatus::Created) { return Ok(Some("stop_first")); }
-    if in_flight(c, bot)? || write::engine_holds(c, bot)? { return Ok(Some("in_flight")); }
+    if in_flight(c, bot, now)? || write::engine_holds(c, bot)? { return Ok(Some("in_flight")); }
     Ok(None)
 }
 
 /// `rebalance_pending? || liquidation_in_flight? || redeploy_in_flight?` (Bot::Merge.mergeable? and Bot::IndexSwitch.refusal).
-pub(crate) fn in_flight(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> { busy(c, bot, true) }
+pub(crate) fn in_flight(c: &Connection, bot: &model::Bot, now: chrono::DateTime<chrono::Utc>) -> Result<bool, WebError> {
+    Ok(crate::engine::composition::in_flight(c, bot, now)?)
+}
 
-/// `in_flight`, with or without `redeploy_in_flight?` (Bot::Split.eligible? leaves a redeploy to its modal).
-pub(crate) fn busy(c: &Connection, bot: &model::Bot, redeploy: bool) -> Result<bool, WebError> {
-    let pending = |key: &str| bot.transient.get(key).is_some_and(|v| match v { Value::Null => false, Value::Object(o) => !o.is_empty(), Value::String(s) => !s.trim().is_empty(), _ => true });
-    // rebalance_pending?, liquidation_in_flight? (pending, a waiting leg, an abandoned leg not attested), redeploy_in_flight?.
-    let resolved: Vec<i64> = match bot.transient.get("liquidation_resolved_orders") {
-        Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),
-        _ => vec![],
-    };
-    let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND transaction_type IN ('LIQUIDATION',?2) AND status=0 AND external_status IN (0,1))",
-        (bot.id, if redeploy { "REDEPLOY" } else { "LIQUIDATION" }), |r| r.get(0))?;
-    let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND external_status=4")?;
-    let abandoned = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().any(|id| !resolved.contains(&id));
-    let keys: &[&str] = if redeploy { &["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] } else { &["rebalance_pending", "liquidation_pending", "liquidation_selling_since"] };
-    Ok(keys.iter().any(|k| pending(k)) || waiting || abandoned)
+/// Split leaves redeploy to its modal.
+pub(crate) fn busy(c: &Connection, bot: &model::Bot, redeploy: bool, now: chrono::DateTime<chrono::Utc>) -> Result<bool, WebError> {
+    Ok(crate::engine::composition::busy(c, bot, now, redeploy)?)
 }
 
 /// POST /bots/:id/custom_allocation (Bots::CustomAllocationsController#create, Bot::IndexSwitch.customize!): the index bot becomes
@@ -98,7 +89,7 @@ fn customize_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Swi
     let class: Option<Option<String>> = tx.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, owner), |r| r.get(0)).optional()?;
     match class { None => return Ok(Switched::Missing), Some(class) if class.as_deref() != Some(FROM) => return Ok(Switched::NotIndex), _ => {} }
     let engine_bot = model::load_bot(&tx, id)?;
-    if let Some(key) = refusal(&tx, &engine_bot)? { return Ok(Switched::Refused(t(ctx.locale, key))); }
+    if let Some(key) = refusal(&tx, &engine_bot, ctx.app.now())? { return Ok(Switched::Refused(t(ctx.locale, key))); }
     let wash: Option<bool> = tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1", [owner], |r| r.get(0))?;
     let (provider, _) = bots::market_data(&tx, &ctx.app)?;
     if let Some(reason) = super::refusal(&tx, id, wash, provider, For::Settings)? { return Ok(Switched::Unported(reason)); }
@@ -243,7 +234,7 @@ fn follow_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option
     };
     let engine_bot = model::load_bot(&tx, id)?;
     // `bot.try(:selling?)`: an index bot cannot sell, and a selling portfolio would silently start buying.
-    let refused = match refusal(&tx, &engine_bot)? { None if from == "Bots::DcaMultiAsset" && engine_bot.selling() => Some("selling"), other => other };
+    let refused = match refusal(&tx, &engine_bot, ctx.app.now())? { None if from == "Bots::DcaMultiAsset" && engine_bot.selling() => Some("selling"), other => other };
     if let Some(key) = refused { return Ok(Switched::Refused(t(ctx.locale, key))); }
     let wash: Option<bool> = tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1", [owner], |r| r.get(0))?;
     if let Some(reason) = super::refusal(&tx, id, wash, provider, For::Settings)? { return Ok(Switched::Unported(reason)); }

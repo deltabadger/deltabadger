@@ -211,7 +211,7 @@ fn written_since(c: &Connection, before: &[(i64, String)]) -> Result<Vec<i64>, E
 /// A signal bot is working but never ticks, so its intents are reconciled here whatever its status.
 fn idle_bots_with_intents(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare(&format!(
-        "SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL AND (status NOT IN ({}) OR type = '{}') ORDER BY id",
+        "SELECT id FROM bots WHERE (json_extract(transient_data, '$.rust_placement') IS NOT NULL AND (status NOT IN ({}) OR type = '{}')) OR (json_extract(transient_data, '$.rust_placement') IS NULL AND (json_extract(transient_data, '$.liquidation_pending.state') = 'placing' OR json_extract(transient_data, '$.redeploy_pending.state') = 'placing')) ORDER BY id",
         model::working_list(), model::SIGNAL_TYPE))?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
@@ -230,12 +230,16 @@ async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn
 }
 
 async fn reconcile_intent<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    super::composition::promote_orphans(&e.primary, id, clock.now())?;
     let bot = model::load_bot(&e.primary, id)?;
     let (venue, producer) = e.venue_for(&bot)?;
     if e.reconcile_at.get(&id).is_some_and(|state|!state.current_for(&producer).is_fresh()){e.reconcile_at.remove(&id);}
     if let Some(state)=e.reconcile_at.get(&id){if state.value>clock.now().timestamp_micros(){*wake=(*wake).min(state.value);return Ok(())}}
     match placement::recover_since(&e.primary, &venue, &bot, clock, e.process_start.expect("set by step")).await? {
         placement::Recovery::Pending => {
+            if let Some(kind) = bot.rust_placement().and_then(|v| v["transaction_type"].as_str().and_then(super::amount::TxKind::parse)) {
+                placement::halt_unknown(&e.primary, id, kind, crate::venue::Venue::rules(&venue), clock.now())?;
+            }
             let at = clock.now().timestamp_micros() + RECONCILE_EVERY_US;
             e.reconcile_at.insert(id, model::Produced::new(at,producer.clone()));
             *wake = (*wake).min(at);
@@ -300,18 +304,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     run_reversals(e, clock).await?;
     run_polls(e, clock, &mut wake).await;
     run_rebalances(e, &report.unreadable, clock, &mut wake).await?;
-    for id in idle_bots_with_intents(&e.primary)? {
-        if e.stopping() { break; }
-        if let Err(err) = reconcile_idle(e, id, clock, &mut wake).await {
-            if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
-            let changed=matches!(err,EngineError::CredentialsChanged);
-            if !changed {super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));}
-            let delay=if changed {0}else{RECONCILE_EVERY_US};
-            let at = clock.now().timestamp_micros() + delay;
-            e.reconcile_at.insert(id, model::Produced::new(at,None));
-            wake = wake.min(at);
-        }
-    }
+    reconcile_idle_intents(e, clock, &mut wake).await?;
     run_signals(e, clock, &mut wake).await?;
     run_condition_infos(e, &report.unreadable, clock, &mut wake).await?;
     run_resyncs(e, clock, &mut wake).await?;
@@ -957,4 +950,23 @@ pub async fn run<F: VenueFactory>(mut e: Engine<F>, clock: &dyn Clock) -> Result
             _ = e.wake.notified() => {}
         }
     }
+}
+
+
+/// The idle recovery phase, also exercised independently while composition engines remain unadmitted.
+pub async fn reconcile_idle_intents<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    e.process_start.get_or_insert(clock.now());
+    for id in idle_bots_with_intents(&e.primary)? {
+        if e.stopping() { break; }
+        if let Err(err) = reconcile_idle(e, id, clock, wake).await {
+            if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
+            let changed=matches!(err,EngineError::CredentialsChanged);
+            if !changed {super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));}
+            let delay=if changed {0}else{RECONCILE_EVERY_US};
+            let at = clock.now().timestamp_micros() + delay;
+            e.reconcile_at.insert(id, model::Produced::new(at,None));
+            *wake = (*wake).min(at);
+        }
+    }
+    Ok(())
 }

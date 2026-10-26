@@ -15,6 +15,7 @@ use deltabadger::venue::fake::{FakeVenue, AddOutcome};
 use deltabadger::web;
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
+#[cfg(unix)]
 use std::path::Path;
 use tower::ServiceExt;
 
@@ -357,6 +358,7 @@ fn the_cap_counts_open_orders_partial_cancels_and_an_unresolved_intent() {
 // §4.1: the signal cells against the Rails basket twin's gate (grid-conditions, Kraken, both sides).
 
 /// What a gate decided: the call (or tick) went on to trade, was held by the rule, or failed.
+#[cfg(unix)]
 #[derive(Debug, PartialEq)]
 enum Gate { Pass, Held, Failed }
 
@@ -364,6 +366,7 @@ enum Gate { Pass, Held, Failed }
 /// stored met_at, the same venue script) and a call of that side writes met_at as Rails' basket does (stamped, kept or
 /// cleared) and decides as its gate does: traded ↔ placed, paused ↔ the unmet line, a failed tick ↔ the failed row. Carry,
 /// status and check jobs are not compared (a signal bot has none of them).
+#[cfg(unix)] // the Rails grid recorder (common::decisions) is Unix-only, as in parity.rs
 #[tokio::test(flavor = "current_thread")]
 async fn signal_cells_decide_as_the_rails_basket_twins_gate() {
     const CASES: [&str; 15] = ["below_met", "below_unmet", "below_at_limit", "above_met", "above_unmet", "between_reversed_met", "between_unmet",
@@ -395,6 +398,7 @@ async fn signal_cells_decide_as_the_rails_basket_twins_gate() {
 }
 
 /// met_at as a write: "kept", "stamped" or "cleared".
+#[cfg(unix)]
 fn met_write(before: Option<&Value>, after: Option<&Value>) -> &'static str {
     match (before.filter(|v| !v.is_null()), after.filter(|v| !v.is_null())) {
         (None, Some(_)) => "stamped",
@@ -404,6 +408,7 @@ fn met_write(before: Option<&Value>, after: Option<&Value>) -> &'static str {
     }
 }
 
+#[cfg(unix)]
 fn rails_cell(rails: &Value, side: &str) -> (&'static str, Gate) {
     let key = if side == "sell" { "sell_price_limit_condition_met_at" } else { "price_limit_condition_met_at" };
     let bot = rails["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == json!(1));
@@ -415,6 +420,7 @@ fn rails_cell(rails: &Value, side: &str) -> (&'static str, Gate) {
 
 /// The cell's database and script, with a signal bot beside its basket (stopped): the basket's rule and met_at, a rule of
 /// the cell's side (60 EUR, the basket's amount) and one call, run once at the cell's time.
+#[cfg(unix)]
 async fn signal_cell(dir: &Path, side: &str) -> (&'static str, Gate) {
     let scenario: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
     let c = Connection::open(dir.join("production.sqlite3")).unwrap();

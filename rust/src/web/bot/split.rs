@@ -130,11 +130,11 @@ impl Split {
     }
 
     /// Bot::Split.eligible?, the redeploy left to the modal, and D-SPLIT-REVERSAL-PENDING.
-    fn eligible(c: &Connection, source: &Source) -> Result<bool, WebError> {
+    fn eligible(c: &Connection, source: &Source, now: At) -> Result<bool, WebError> {
         let members = source.bot.memberships.iter().filter(|m| m.in_index).count();
         Ok(merge::TYPES.contains(&source.class.as_str()) && source.bot.kind != Kind::Signal
             && !matches!(source.bot.status, BotStatus::Archived | BotStatus::Deleted | BotStatus::Executing)
-            && !index_switch::busy(c, &source.engine, false)? && members >= 2 && !merge::reversal_pending(&source.engine))
+            && !index_switch::busy(c, &source.engine, false, now.utc())? && members >= 2 && !merge::reversal_pending(&source.engine))
     }
 
     /// Bot::Split#reason, in its order; the books are read fresh. Then D-SPLIT-LEGACY-SHADOW's routing of each legacy row.
@@ -144,7 +144,7 @@ impl Split {
         if let Some(why) = self.unrun { return Ok(Some(Reason::Unrun(why))); }
         if self.bots.len() < self.found.len() { return Ok(Some(Reason::Plain("missing"))); }
         for source in &self.bots {
-            if !Self::eligible(c, source)? { return Ok(Some(Reason::Bot("unavailable", source.bot.label.clone()))); }
+            if !Self::eligible(c, source, now)? { return Ok(Some(Reason::Bot("unavailable", source.bot.label.clone()))); }
         }
         for source in &mut self.bots {
             let subject = Subject::load(c, source.bot.id).map_err(merge::fig)?;

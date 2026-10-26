@@ -414,13 +414,10 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
     if super::model::key_pending(c, &bot)? { return Ok(Outcome::Skipped("not_resumable")); }
     if let Some(raw) = bot.rust_placement() {
         if let super::placement::Recovery::Pending = super::placement::recover_since(c, venue, &bot, clock, cx.process_start).await? {
-            let rebalance = raw["transaction_type"].as_str() == Some(TxKind::Rebalance.as_str());
-            let at = crate::codec::optional_time(raw.get("at")).map_err(|_| EngineError::Data("rust_placement.at is unreadable".into()))?;
-            let margin = chrono::Duration::seconds(venue.rules().absence_margin_secs.max(super::placement::DEADLINE_SECONDS + super::placement::ABSENCE_AFTER_SECONDS));
-            if rebalance && at.is_some_and(|at| clock.now() >= at + margin) && pending(&bot.transient)?.is_none_or(|p| p.phase != PHASE_AMBIGUOUS) {
-                let side = raw["side"].as_str().unwrap_or("buy");
-                halt(c, bot_id, &format!("{side} placement outcome unknown: the venue has not answered for order {}", raw["cl_ord_id"].as_str().unwrap_or_default()), clock.now())?;
-                return Ok(Outcome::Skipped("ambiguous"));
+            if let Some(kind) = raw["transaction_type"].as_str().and_then(TxKind::parse) {
+                if super::placement::halt_unknown(c, bot_id, kind, venue.rules(), clock.now())? {
+                    return Ok(Outcome::Skipped("ambiguous"));
+                }
             }
             return Ok(Outcome::Skipped("awaiting_reconciliation"));
         }
@@ -460,6 +457,10 @@ struct Claim { bot: Bot, composition: Value }
 /// Bot::Rebalancer#rebalance!.
 async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     if pending(&claim.bot.transient)?.is_some_and(|p| p.phase == PHASE_AMBIGUOUS) { return Ok(Outcome::Skipped("ambiguous")); }
+    super::composition::promote_orphans(c, claim.bot.id, clock.now())?;
+    if super::composition::liquidation_in_flight(c, &claim.bot, clock.now())? || super::composition::redeploy_in_flight(c, &claim.bot)? {
+        return Ok(Outcome::Skipped("not_due"));
+    }
     if !before_rebalance(c, venue, &mut claim, clock, cx).await? { return Ok(Outcome::Skipped("changed")); }
     let claim = &claim;
     let bot = &claim.bot;
@@ -479,7 +480,8 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: 
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
     };
-    if !due(&bot.settings, &bot.transient, false, drift(entries.as_deref()).as_ref())? { return Ok(Outcome::Skipped("not_due")); }
+    let blocked = super::composition::liquidation_in_flight(c, bot, clock.now())? || super::composition::redeploy_in_flight(c, bot)?;
+    if !due(&bot.settings, &bot.transient, blocked, drift(entries.as_deref()).as_ref())? { return Ok(Outcome::Skipped("not_due")); }
     start(c, venue, claim, entries.unwrap_or_default(), &reconciled, clock, cx).await
 }
 

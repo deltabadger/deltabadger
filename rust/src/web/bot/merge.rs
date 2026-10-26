@@ -153,11 +153,11 @@ impl Merge {
     }
 
     /// Bot::Merge.mergeable?, and D-MERGE-REVERSAL-PENDING.
-    fn mergeable(c: &Connection, source: &Source) -> Result<bool, WebError> {
+    fn mergeable(c: &Connection, source: &Source, now: At) -> Result<bool, WebError> {
         let members = source.bot.memberships.iter().any(|m| m.in_index);
         Ok(TYPES.contains(&source.class.as_str()) && source.bot.kind != Kind::Signal
             && !matches!(source.bot.status, BotStatus::Archived | BotStatus::Deleted | BotStatus::Executing)
-            && !index_switch::in_flight(c, &source.engine)? && members && !reversal_pending(&source.engine))
+            && !index_switch::in_flight(c, &source.engine, now.utc())? && members && !reversal_pending(&source.engine))
     }
 
     /// Bot::Merge#reason, in its order. The books are read fresh here, as Rails' `reason` reads them for verify_books!.
@@ -165,7 +165,7 @@ impl Merge {
         if self.bots.len() < self.ids.len() { return Ok(Some(Reason::Plain("missing"))); }
         if self.bots.len() < 2 { return Ok(Some(Reason::Plain("too_few"))); }
         for source in &self.bots {
-            if !Self::mergeable(c, source)? { return Ok(Some(Reason::Bot("unavailable", source.bot.label.clone()))); }
+            if !Self::mergeable(c, source, now)? { return Ok(Some(Reason::Bot("unavailable", source.bot.label.clone()))); }
         }
         let quote = |source: &Source| source.bot.setting("quote_asset_id").map_or(0, wizard::to_i);
         if !self.bots.iter().all(|source| quote(source) == quote(self.anchor())) { return Ok(Some(Reason::Plain("quote"))); }
