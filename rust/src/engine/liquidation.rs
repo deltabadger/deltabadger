@@ -77,6 +77,9 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
         else if super::reversal::barred(&current) { Some("reversal_pending") }
         else { None };
     if let Some(reason) = reason { return refuse(c,id,json!([reason]),clock); }
+    if let Some(stale) = super::staleness::stale(c,&claim.bot,clock.now())? {
+        return refuse(c,id,json!([stale.message]),clock);
+    }
     if !rebalance::before_rebalance(c,venue,&mut claim,clock,cx).await? { return refuse(c,id,json!(["changed"]),clock); }
     let Some(reconciled) = rebalance::split_gate(c,venue,&claim,clock).await? else { return refuse(c,id,json!(["split_hold"]),clock) };
     let (walked,live) = match rebalance::holdings(c,venue,&claim.bot,clock.now()).await? {
@@ -97,31 +100,34 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
     for (key,_) in &names {
         if !selected.iter().any(|(k,_)|k==key) { skip(c,id,key,"not_held",clock)?; }
     }
-    for (key,ticker) in selected {
-        if (cx.stopping)() { break; }
-        if !ticker.available || !ticker.trading_enabled { skip(c,id,&key,"unavailable",clock)?; continue; }
-        if rebalance::account_waiting_buys(c,&claim.bot,&ticker)? { skip(c,id,&key,"open_order",clock)?; continue; }
-        let Some(price) = tick::market_price_for(venue,&claim.bot,&ticker,Side::Sell,clock,cx).await? else { skip(c,id,&key,"unpriced",clock)?; continue };
-        let held = walked.asset_breakdown.iter().find(|(k,_)|k==&key).map(|(_,v)|&v.amount).ok_or_else(||data("holding disappeared"))?;
+    for (index,(key,ticker)) in selected.iter().enumerate() {
+        let interrupted = || model::log_activity(c,id,"liquidation_batch_cut_short",Level::Info,
+            json!({"bases":selected[index..].iter().map(|(key,_)|key.as_str()).collect::<Vec<_>>().join(", ")}),clock.now());
+        if (cx.stopping)() { interrupted()?; break; }
+        if !ticker.available || !ticker.trading_enabled { skip(c,id,key,"unavailable",clock)?; continue; }
+        if rebalance::account_waiting_buys(c,&claim.bot,ticker)? { skip(c,id,key,"open_order",clock)?; continue; }
+        let Some(price) = tick::market_price_for(venue,&claim.bot,ticker,Side::Sell,clock,cx).await? else { skip(c,id,key,"unpriced",clock)?; continue };
+        let held = walked.asset_breakdown.iter().find(|(k,_)|k==key).map(|(_,v)|&v.amount).ok_or_else(||data("holding disappeared"))?;
         let held = BigDec::parse(&held.to_d().map_err(data)?.to_s_f()).map_err(data)?;
-        let free = tick::live_free_balance(c,venue,&claim.bot,&ticker,ticker.base_asset_id).await?.map_err(data)?;
+        let free = tick::live_free_balance(c,venue,&claim.bot,ticker,ticker.base_asset_id).await?.map_err(data)?;
         let amount = held.min(free);
-        if !amount.is_positive() { skip(c,id,&key,"unpriced",clock)?; continue; }
+        if !amount.is_positive() { skip(c,id,key,"unpriced",clock)?; continue; }
         let quote = &amount * &price;
-        let (plan,below) = amount::size_order(&ticker,Side::Sell,&price,&amount,&quote,venue.rules().minimum_logic,TxKind::Liquidation)?;
+        let (plan,below) = amount::size_order(ticker,Side::Sell,&price,&amount,&quote,venue.rules().minimum_logic,TxKind::Liquidation)?;
         let plan = plan.with_wire_price(venue.rules(),&price,true)?;
-        if below { skip(c,id,&key,"below_minimum",clock)?; continue; }
-        let loss = super::wash::sell_at_loss(c,&claim.bot,&ticker,&amount,&quote,clock.now())?;
-        let hold = venue.placement_hold(&ticker,Side::Sell).await.map_err(data)?;
-        let begun = placement::begin_operation(c,&claim.bot,&plan,&[&ticker],&claim.composition,&reconciled,&cx.credential_version,venue.placement_identity(),
+        if below { skip(c,id,key,"below_minimum",clock)?; continue; }
+        let loss = super::wash::sell_at_loss(c,&claim.bot,ticker,&amount,&quote,clock.now())?;
+        let hold = venue.placement_hold(ticker,Side::Sell).await.map_err(data)?;
+        let begun = placement::begin_operation(c,&claim.bot,&plan,&[ticker],&claim.composition,&reconciled,&cx.credential_version,venue.placement_identity(),
             placement::Op::Liquidation { symbol: &ticker.base_code },loss,hold.as_ref(),clock);
         drop(hold);
         let intent = match begun? {
             placement::Begun::Intent(i) => i,
-            placement::Begun::BelowMinimum(_) => { skip(c,id,&key,"below_minimum",clock)?; continue; }
+            placement::Begun::BelowMinimum(_) => { skip(c,id,key,"below_minimum",clock)?; continue; }
             placement::Begun::CredentialsChanged => return Err(EngineError::CredentialsChanged),
             placement::Begun::Refused(m) => return Err(EngineError::Data(m)),
-            placement::Begun::Changed | placement::Begun::Fenced | placement::Begun::LedgerStale(_) | placement::Begun::WashSaleLocked => break,
+            placement::Begun::LedgerStale(stale) => return refuse(c,id,json!([stale.message]),clock),
+            placement::Begun::Changed | placement::Begun::Fenced | placement::Begun::WashSaleLocked => { interrupted()?; break; }
         };
         match placement::send_recorded(c,venue,&claim.bot,&intent,clock).await? {
             placement::Sent::Accepted(_) | placement::Sent::NotSent(_) => {}

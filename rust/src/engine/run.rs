@@ -378,7 +378,7 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
         }
         for (bot,tx) in composition.late {
             let result=match model::load_bot(&e.primary,bot).and_then(|b|e.venue_for(&b)) {
-                Ok((venue,_))=>polling::refresh(&e.primary,&venue,bot,tx,clock.now()).await.map_err(|err|EngineError::Data(format!("{err:?}"))),
+                Ok((venue,_))=>polling::refresh_terminal(&e.primary,&venue,bot,tx,clock.now()).await.map_err(|err|EngineError::Data(format!("{err:?}"))),
                 Err(err)=>Err(err),
             };
             match result {

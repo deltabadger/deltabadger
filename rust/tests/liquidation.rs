@@ -7,7 +7,7 @@ use deltabadger::engine::{liquidation, model, polling, run, FixedClock};
 use deltabadger::engine::tick::{PriceCache, TickContext};
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
-use deltabadger::venue::http::ScriptedTransport;
+use deltabadger::venue::http::{ScriptedTransport, Transport};
 use serde_json::{json, Value};
 fn at(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
 const T0: &str = "2026-09-01T12:30:00Z";
@@ -172,6 +172,7 @@ async fn closed_stock_market_never_sizes_and_split_mismatch_holds() {
         let (_d,o,s)=common::install_alpaca();
         let (asset,_)=seed::add_alpaca_stock(&o.primary,&s,"KLAC");
         let id=seed::insert_bot(&o.primary,&s,&stopped().weights(&[(asset,1.0)]));
+        seed::fresh_stock_jobs(&o.primary,at(T0));
         seed::insert_stock_tx(&o.primary,&s,id,asset,"KLAC",&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("held".into()),order_type:0,amount:Some("10"),quote_amount:Some("1000"),price:Some("100"),amount_exec:Some("10"),quote_amount_exec:Some("1000"),created_at:"2026-08-01 10:00:01".into()});
         if !closed {
             let row=seed::insert_split(&o.primary,&s,"KLAC","2026-08-05 00:00:00",Some("3:2"));
@@ -386,4 +387,135 @@ fn liquidation_sources_match_the_live_rails_grid_oracle() {
     for (file,hash) in pins.as_object().unwrap() {
         assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())),hash.as_str().unwrap(),"{file}: re-record grid-liquidation and check the engine");
     }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn expired_crypto_catalogue_refuses_liquidation_before_sizing() {
+    let (_d,o,id,s,_)=swap_bot(stopped());
+    deltabadger::jobs::state::seed(&o.primary,deltabadger::jobs::reference::ALPACA_CRYPTO,
+        Some(at(T0)-Duration::hours(50)),at(T0)).unwrap();
+    let reason=deltabadger::engine::staleness::stale(&o.primary,&model::load_bot(&o.primary,id).unwrap(),at(T0)).unwrap().unwrap().message;
+    let t=script(json!({}));
+    sell(&o,&t,id,json!([["BTC",s.btc]])).await;
+    assert!(t.posted_orders().is_empty());
+    assert_eq!(logs(&o),vec![("liquidation_not_started".into(),json!({"reason":[reason]}))]);
+    assert!(t.requests().is_empty(),"freshness is checked before fetching prices or balances");
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn missing_terminal_partial_stays_cancelled_and_can_receive_late_proceeds() {
+    use deltabadger::venue::fake::{FakeFactory,FakeVenue};
+    let (d,o,s)=common::install();
+    let id=seed::insert_bot(&o.primary,&s,&stopped());
+    let row=seed::insert_row(&o.primary,&s,id,s.btc,&json!({"external_id":"LATE","external_status":3,"side":1,
+        "amount":"0.002","amount_exec":"0.001","created_at":"2026-08-01 10:00:02"}));
+    // The order is old, but its partial cancellation was recorded recently and awaits proceeds.
+    o.primary.execute("UPDATE transactions SET transaction_type='LIQUIDATION',quote_amount_exec=NULL,updated_at=?2 WHERE id=?1",
+        rusqlite::params![row,deltabadger::codec::format_time(at(T0))]).unwrap();
+    let paths=store::Paths::from_env(&|_|None,d.path());
+    let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
+    let v=FakeVenue::new();
+    let mut e=run::Engine::new(o.primary,FakeFactory(v.clone()),seed::cipher(),lock);
+    run::step(&mut e,&FixedClock(at(T0))).await.unwrap();
+    let stored=||e.primary.query_row("SELECT external_status,amount_exec,quote_amount_exec FROM transactions WHERE id=?1",
+        [row],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,f64>(1)?,r.get::<_,Option<f64>>(2)?))).unwrap();
+    assert_eq!(stored(),(3,0.001,None));
+    assert!(v.calls("/0/private/QueryOrders")>0 && v.calls("/0/private/TradesHistory")>0,"both endpoints were asked");
+    assert_eq!(e.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='order_abandoned'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    // The next scheduled scan must still see the row and accept the venue's positive fill.
+    let _v=v.order("LATE",json!({"status":"canceled","vol":"0.002","vol_exec":"0.001","cost":"64","price":"64000","oflags":"",
+        "descr":{"pair":"XBTUSD","type":"sell","ordertype":"market"}}));
+    run::step(&mut e,&FixedClock(at(T0)+Duration::minutes(10))).await.unwrap();
+    assert_eq!(e.primary.query_row("SELECT external_status,quote_amount_exec FROM transactions WHERE id=?1",
+        [row],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,f64>(1)?))).unwrap(),(3,64.0));
+}
+
+/// Commit a competing write during the last price read, after composition and freshness checks.
+#[derive(Clone)]
+struct During {
+    script: ScriptedTransport,
+    change: std::rc::Rc<dyn Fn()>,
+}
+impl Transport for During {
+    async fn send(&self,req:&deltabadger::venue::http::HttpRequest)->Result<deltabadger::venue::http::HttpResponse,deltabadger::venue::http::TransportError> {
+        if req.path=="/v2/stocks/KLAC/quotes/latest" { (self.change)(); }
+        self.script.send(req).await
+    }
+}
+struct DuringFactory(During);
+impl deltabadger::venue::VenueFactory for DuringFactory {
+    type V=AlpacaVenue<During>;
+    fn for_bot(&self,_t:&str,_c:Option<deltabadger::crypto::Credentials>)->Self::V {
+        AlpacaVenue::new(self.0.clone(),Urls::for_passphrase(Some("paper")))
+    }
+}
+async fn placement_refusal(case: &'static str) {
+    let (d,o,s)=common::install_alpaca();
+    let (asset,_)=seed::add_alpaca_stock(&o.primary,&s,"KLAC");
+    o.primary.execute("INSERT INTO exchange_assets (exchange_id,asset_id,available,created_at,updated_at) SELECT exchange_id,base_asset_id,1,created_at,updated_at FROM tickers WHERE ticker='KLAC'",[]).unwrap();
+    let id=seed::insert_bot(&o.primary,&s,&stopped().weights(&[(asset,1.0)]));
+    seed::insert_stock_tx(&o.primary,&s,id,asset,"KLAC",&seed::TxSpec {status:0,external_status:Some(2),
+        external_id:Some("held".into()),order_type:0,amount:Some("10"),quote_amount:Some("1000"),price:Some("100"),
+        amount_exec:Some("10"),quote_amount_exec:Some("1000"),created_at:"2026-08-01 10:00:01".into()});
+    seed::fresh_stock_jobs(&o.primary,at(T0));
+    let key:i64=one(&o,"SELECT id FROM api_keys WHERE key_type=0");
+    let stale=|c:&rusqlite::Connection|deltabadger::jobs::state::mark_incomplete(c,"ledger_sync",Some(&key.to_string()),at(T0)).unwrap();
+    if case=="stale_at_start" { stale(&o.primary); }
+    model::merge_transient_compact(&o.primary,id,&[(liquidation::REQUEST_KEY,json!({"id":"refusal","at":1,"holdings":[["KLAC",asset]]}))]).unwrap();
+    let t=script(json!({
+        "GET /v2/clock":[ok(json!({"is_open":true,"next_open":"2026-09-02T13:30:00Z","next_close":"2026-09-01T20:00:00Z","timestamp":T0}))],
+        "GET /v2/positions":[ok(json!([{"symbol":"KLAC","asset_class":"us_equity","qty":"10","qty_available":"10"}]))],
+        "GET /v2/stocks/snapshots":[ok(json!({"KLAC":{"latestTrade":{"p":100}}}))],
+        "GET /v2/stocks/KLAC/quotes/latest":[ok(json!({"quote":{"ap":100,"bp":100}}))]
+    }));
+    let writer=rusqlite::Connection::open(o.primary.path().unwrap()).unwrap();
+    let changed=std::rc::Rc::new(std::cell::Cell::new(false));
+    let observed=changed.clone();
+    let transport=During {script:t.clone(),change:std::rc::Rc::new(move|| {
+        observed.set(true);
+        if case=="ledger_changed" {
+            deltabadger::jobs::state::mark_incomplete(&writer,"ledger_sync",Some(&key.to_string()),at(T0)).unwrap();
+        } else if case=="settings_changed" {
+            writer.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)) WHERE id=?2",
+                rusqlite::params![json!({asset.to_string():0.5}).to_string(),id]).unwrap();
+        }
+    })};
+    let paths=store::Paths::from_env(&|_|None,d.path());
+    let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
+    let mut e=run::Engine::new(o.primary,DuringFactory(transport),seed::cipher(),lock);
+    run::run_commands(&mut e,&FixedClock(at(T0))).await.unwrap();
+    assert!(model::load_bot(&e.primary,id).unwrap().transient[liquidation::REQUEST_KEY].is_null(),"{case}");
+    assert_eq!(t.posted_orders().len(),usize::from(case=="unchanged"),"{case}");
+    if case=="stale_at_start" {
+        assert!(!changed.get(),"stale data must be refused before sizing");
+    } else { assert!(changed.get(),"the placement guard was reached: {case}"); }
+    if case=="unchanged" { return; }
+    let event=if case=="settings_changed" {"liquidation_batch_cut_short"} else {"liquidation_not_started"};
+    let details:String=e.primary.query_row("SELECT details FROM bot_activity_logs WHERE event=?1",[event],|r|r.get(0)).unwrap();
+    let details:Value=serde_json::from_str(&details).unwrap();
+    if case=="settings_changed" { assert_eq!(details,json!({"bases":"KLAC"})); }
+    else {
+        let reason=deltabadger::engine::staleness::ledger_stale(&e.primary,&model::load_bot(&e.primary,id).unwrap(),at(T0)).unwrap().unwrap().message;
+        assert_eq!(details,json!({"reason":[reason]}));
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn placement_refusals_are_logged_unchanged() {
+    placement_refusal("unchanged").await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn placement_refusals_are_logged_stale_at_start() {
+    placement_refusal("stale_at_start").await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn placement_refusals_are_logged_ledger_changed() {
+    placement_refusal("ledger_changed").await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn placement_refusals_are_logged_settings_changed() {
+    placement_refusal("settings_changed").await;
 }
