@@ -1544,6 +1544,119 @@ module Decisions
     end.tap { |l| raise "the limit sell grid has #{l.size} scenarios, not 154" unless l.size == 154 }
   end
 
+  # Slice 6c-2: the same user-requested sale on every trading venue, on a basket and an index.
+  def liquidation_scenarios
+    list = (%w[alpaca kraken] + VENUES.keys).uniq.flat_map do |venue|
+      kit = limit_sell_kit(venue)
+      if %w[binance binance_us mexc].include?(venue)
+        kit['http'] = kit['http'].merge('GET /api/v3/ticker/price' => [ok([{ 'symbol' => 'BTCUSDT', 'price' => '64000.05' }])],
+                                      'GET /api/v3/ticker/price?symbol=BTCUSDT' => [bn_last('64000.05')])
+      end
+      bulk = case venue
+             when 'bitrue' then { 'GET /api/v1/ticker/24hr' => [ok([{ 'symbol' => 'BTCUSDT', 'lastPrice' => '64000.05' }])] }
+             when 'bitvavo' then { 'GET /v2/ticker/price' => [ok([{ 'market' => 'BTC-EUR', 'price' => '64000' }])],
+                                   'GET /v2/ticker/price?market=BTC-EUR' => [bv_last('64000')] }
+             when 'gemini' then { 'GET /v1/pricefeed' => [ok([{ 'pair' => 'BTCUSD', 'price' => '64000.05' }])] }
+             when 'coinbase' then { 'GET /api/v3/brokerage/market/products' => [ok('products' => [{ 'product_id' => 'BTC-EUR', 'price' => '64000.05' }])] }
+             else {}
+             end
+      kit['http'] = kit['http'].merge(bulk)
+      %w[basket index].flat_map do |kind|
+        %w[accepted duplicate renamed fee_cutter rebalance_pending halted placing not_held below_minimum open_order partial_fill former free_cap unavailable timeout pre_send].map do |state|
+          held = limit_row('HELD', 2, side: 0, amount: state == 'free_cap' ? '1000' : '0.01', amount_exec: state == 'free_cap' ? '1000' : '0.01', price: '64000')
+          transient = case state
+                      when 'rebalance_pending' then { 'rebalance_pending' => { 'phase' => 'selling', 'sell_transaction_id' => nil } }
+                      when 'halted', 'placing' then { 'liquidation_pending' => { 'id' => 'prior-intent', 'symbol' => 'BTC', 'state' => state == 'placing' ? 'placing' : 'ambiguous' } }
+                      else {}
+                      end
+          rows = [held]
+          rows << limit_row(kit['ext'].(9), 1, side: 0, amount: '0.001', amount_exec: '0', price: '64000') if state == 'open_order'
+          if state == 'partial_fill'
+            rows << limit_row('PARTIAL', 3, side: 1, amount: '0.008', amount_exec: '0.002', price: '64000').merge('transaction_type' => 'LIQUIDATION')
+          end
+          http = kit['http']
+          if %w[timeout pre_send].include?(state)
+            add = case venue
+                  when 'alpaca' then 'POST /v2/orders'
+                  when 'kraken' then '/0/private/AddOrder'
+                  else VENUES.fetch(venue).scripted.order
+                  end
+            failure = if state == 'timeout' then POST_SEND
+                      elsif venue == 'alpaca' then PRE_SEND
+                      elsif venue == 'kraken' then KRAKEN_NOT_SENT
+                      else VENUES.fetch(venue).not_sent
+                      end
+            http = http.merge(add => [failure])
+          end
+          key = kit['key']
+          if venue == 'kraken' && %w[timeout pre_send].include?(state)
+            key = 'kraken_http'
+            http = http.to_h { |path, replies| ["#{path.start_with?('/0/public/') ? 'GET' : 'POST'} #{path}",
+                                               replies.map { |reply| reply.key?('network') ? reply : ok(reply) }] }
+          end
+          { 'name' => "liquidation-#{venue}-#{kind}-#{state}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0,
+            'started_at' => BASKET_STARTED, 'settings' => kit.fetch('settings', {}).merge(state == 'fee_cutter' ? { 'limit_ordered' => true } : {}),
+            'transient' => transient, 'transactions' => rows, 'ticker' => kit['ticker'], 'at' => basket_at(1),
+            'script' => { key => http }, 'tick' => false, 'bot_columns' => { 'status' => Bot.statuses[:stopped] },
+            'liquidation' => { 'kind' => kind, 'state' => state } }
+        end
+      end
+    end
+    # The stock oracle supplies an unresolved corporate action and a closed market before sizing.
+    %w[split_unresolved closed].each do |state|
+      sc = stock_scenarios.find { |s| s['name'] == "day-market-#{state}" }
+      raise "missing stock liquidation seed #{state}" unless sc
+
+      list << sc.merge('name' => "liquidation-alpaca-stock-#{state}", 'tick' => false,
+                       'liquidation' => { 'kind' => 'basket', 'state' => state })
+    end
+    raise 'liquidation grid exceeds its bound' if list.size > 2500
+
+    list
+  end
+
+  def prepare_liquidation(bot, sc)
+    spec = sc.fetch('liquidation')
+    asset = bot.tickers.first.base_asset
+    if spec['kind'] == 'index'
+      AppConfig.market_data_provider = 'deltabadger'
+      AppConfig.market_data_url = 'https://data.invalid'
+      AppConfig.market_data_token = 'scripted-token'
+      asset.update_columns(market_cap: 1_000_000)
+      Index.create!(external_id: 'top-coins', source: 'internal', name: 'Top coins', top_coins: [asset.external_id],
+                    weights: {}, top_coins_by_exchange: {}, available_exchanges: {}, weight: 0)
+      bot.update_columns(type: 'Bots::DcaIndex', settings: bot.settings.except('allocations', 'weighting').merge(
+        'index_type' => 'top', 'num_coins' => 1, 'allocation_flattening' => 0.0, 'hold_all' => false))
+    end
+    if spec['state'] == 'former'
+      # A one-member basket now targets ETH and still holds the BTC it exited.
+      successor = Asset.create!(external_id: 'ethereum', symbol: 'ETH', name: 'Ethereum', category: 'Cryptocurrency')
+      ExchangeAsset.create!(exchange: bot.exchange, asset: successor, available: true)
+      ticker = bot.tickers.first.dup
+      ticker.base_asset = successor
+      ticker.base = 'ETH'
+      ticker.ticker = sc['venue'] == 'hyperliquid' ? '@143' : ticker.ticker.sub(/BTC|XBT|btc/, 'ETH')
+      ticker.save!(validate: false)
+      if spec['kind'] == 'index'
+        successor.update_columns(market_cap: 2_000_000)
+        Index.find_by!(external_id: 'top-coins').update_columns(top_coins: [successor.external_id])
+      else
+        bot.update_columns(settings: bot.settings.merge('allocations' => { successor.id.to_s => 1.0 }))
+      end
+      bot.bot_index_assets.update_all(in_index: false, exited_at: Time.iso8601(sc['at']) - 60)
+      BotIndexAsset.create!(bot:, asset: successor, ticker:, in_index: true, target_allocation: 1.0, entered_at: Time.iso8601(sc['at']) - 60)
+    end
+    bot.tickers.update_all(minimum_quote_size: 100_000) if spec['state'] == 'below_minimum'
+    bot.tickers.update_all(available: false) if spec['state'] == 'unavailable'
+    holdings = case spec['state']
+               when 'renamed' then [['BTC', asset.id + 999]]
+               when 'not_held' then [['OLD', asset.id]]
+               when 'duplicate' then [['BTC', asset.id], ['BTC', asset.id]]
+               else [[asset.symbol, asset.id]]
+               end
+    { 'at' => sc['at'], 'holdings' => holdings }
+  end
+
   # Plan 2d: Alpaca stocks and ETFs. Tuesday 2026-09-01, 10:00 EDT; September is EDT, so a session is 13:30–20:00 UTC.
   STOCK_STARTED = '2026-09-01T14:00:00.123456Z'
 
@@ -4821,11 +4934,12 @@ module Decisions
             when 'signal' then build_signal(dir, sc)
             else sc['asset'] == 'stock' ? build_stock(dir, sc) : build(dir, sc)
             end
+      liquidation = prepare_liquidation(bot, sc) if sc['liquidation']
       apply_wash(bot, sc['wash']) if sc['wash']
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) || sc['reverse'] ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
-                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
+                 JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) || sc['reverse'] || sc['liquidation'] ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
+                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'], 'liquidation' => liquidation,
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
                                         'conditions' => sc['conditions'], 'info' => sc['info'], 'check_job' => sc['check_job'], 'info_job' => sc['info_job'],
                                         'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'], 'reverse' => sc['reverse'],
@@ -4927,7 +5041,10 @@ module Decisions
       end
     end)
     # A composition bot's own (Bot::ResyncIndexCompositionJob calls it): its module sits before Bot in the ancestors.
-    Bot::Composition::Measurable.prepend(Module.new { def broadcast_metrics_panel(*, **) = nil })
+    Bot::Composition::Measurable.prepend(Module.new do
+      def broadcast_metrics_panel(*, **) = nil
+      def broadcast_metrics_update(*, **) = nil
+    end)
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
       next if ENV['RUST_GRID_CACHE'] && File.exist?(File.join(dir, 'rails.json'))
@@ -5060,6 +5177,14 @@ module Decisions
         end
         settle.(Time.iso8601(time))
       end
+      if sc['liquidation']
+        command = sc['liquidation']
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        travel_to(Time.iso8601(command['at']), with_usec: true) do
+          Bot::LiquidateExitedJob.perform_now(Bot.find(sc['bot_id']), holdings: command['holdings'])
+        end
+        settle.(Time.iso8601(command['at']))
+      end
       mails.concat(enqueued_mails)
       sent = if alpaca then ScriptedAlpaca.sent elsif honeymaker then honeymaker.scripted.sent
              elsif ScriptedKrakenHttp.http then ScriptedKrakenHttp.sent else ScriptedKraken.sent end
@@ -5109,7 +5234,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-basket-sell <root> | grid-liquidation <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -5136,6 +5261,7 @@ when 'grid-bingx' then Decisions.grid(root, Decisions.bingx_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
+when 'grid-liquidation' then Decisions.grid(root, Decisions.liquidation_scenarios)
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
 when 'grid-conditions-indicators' then Decisions.grid(root, Decisions.indicator_condition_scenarios)

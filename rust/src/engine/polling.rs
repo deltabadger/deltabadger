@@ -16,6 +16,9 @@ use serde_json::json;
 
 pub const STALE_AFTER_DAYS: i64 = 14;
 
+#[derive(Clone, Copy, PartialEq)]
+enum PollMode { Sweep, FollowUp, Refresh, Terminal }
+
 #[derive(Debug, PartialEq)]
 pub enum PollFailure { CredentialsChanged, RateLimited(String), Transient(String), General(String), OwnerChanged(i64) }
 
@@ -57,12 +60,16 @@ pub(crate) fn require_owner(c: &Connection, bot_id: i64, tx_id: i64) -> Result<(
 /// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
 /// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
 pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<Option<Cap>, EngineError> {
+    apply_order_in(c, bot_id, tx_id, s, now, false)
+}
+
+fn apply_order_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, execution_only: bool) -> Result<Option<Cap>, EngineError> {
     require_owner(c, bot_id, tx_id)?;
     let row = crate::figures::fill::stored_order(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
     // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
     // order's pair (Exchanges::*#parse_order_data `tickers.find_by(ticker:)`), never the bot's first member.
-    let ticker = if row.base_asset_id.is_some() && row.quote_asset_id.is_some() {
+    let ticker = if execution_only || (row.base_asset_id.is_some() && row.quote_asset_id.is_some()) {
         None
     } else if model::exchange_type(c, &bot)? == "Exchanges::Alpaca" {
         let ticker = model::alpaca_order_ticker(c, bot.exchange_id, s.pair.as_deref(), s.asset_class.as_deref())?;
@@ -75,9 +82,18 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
         match &s.pair { Some(pair) => model::ticker_for_pair(c, bot.exchange_id, pair)?, None => None }
     };
 
-    let status = match s.status {
-        OrderStatus::Open => TxExternalStatus::Open, OrderStatus::Closed => TxExternalStatus::Closed,
-        OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(None),
+    let status = if execution_only {
+        // Re-read under the write lock: only positive execution data enriches a terminal row.
+        // Missing, unknown or open answers never reopen it or erase its recorded execution.
+        if !matches!(s.status, OrderStatus::Closed | OrderStatus::Cancelled) { return Ok(None); }
+        match row.external_status {
+            Some(2) => TxExternalStatus::Closed, Some(3) => TxExternalStatus::Cancelled, _ => return Ok(None),
+        }
+    } else {
+        match s.status {
+            OrderStatus::Open => TxExternalStatus::Open, OrderStatus::Closed => TxExternalStatus::Closed,
+            OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(None),
+        }
     };
 
     // update_with_order_data(...).compact under ActiveRecord's dirty check: only changed attributes are written.
@@ -85,16 +101,18 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     let mut decimal = |col: &'static str, old: &Option<BigDec>, new: Option<&BigDec>| {
         if let Some(new) = new { if old.as_ref() != Some(&new.round(18)) { sets.push((col, Sql::Real(to_sql(new)))); } }
     };
-    decimal("price", &row.price, s.price.as_ref());
-    decimal("amount", &row.amount, s.amount.as_ref());
-    decimal("quote_amount", &row.quote_amount, s.quote_amount.as_ref());
-    decimal("amount_exec", &row.amount_exec, Some(&s.amount_exec));
-    decimal("quote_amount_exec", &row.quote_amount_exec, s.quote_amount_exec.as_ref());
-    if row.external_status != Some(status as i64) { sets.push(("external_status", Sql::Integer(status as i64))); }
-    let side = if s.sell { 1 } else { 0 }; // parse_order_data: descr.type, as the exchange reports it
-    if row.side != Some(side) { sets.push(("side", Sql::Integer(side))); }
+    if !execution_only {
+        decimal("price", &row.price, s.price.as_ref());
+        decimal("amount", &row.amount, s.amount.as_ref());
+        decimal("quote_amount", &row.quote_amount, s.quote_amount.as_ref());
+    }
+    if !execution_only || s.amount_exec.is_positive() { decimal("amount_exec", &row.amount_exec, Some(&s.amount_exec)); }
+    decimal("quote_amount_exec", &row.quote_amount_exec, s.quote_amount_exec.as_ref().filter(|n| !execution_only || n.is_positive()));
+    if !execution_only && row.external_status != Some(status as i64) { sets.push(("external_status", Sql::Integer(status as i64))); }
+    let side = if execution_only { row.side.unwrap_or(0) } else { i64::from(s.sell) }; // parse_order_data: descr.type, as the exchange reports it
+    if !execution_only && row.side != Some(side) { sets.push(("side", Sql::Integer(side))); }
     let order_type = if s.limit { 1 } else { 0 };
-    if row.order_type != Some(order_type) { sets.push(("order_type", Sql::Integer(order_type))); }
+    if !execution_only && row.order_type != Some(order_type) { sets.push(("order_type", Sql::Integer(order_type))); }
     if let Some(t) = &ticker {
         // base/quote are snapshots: only filled when blank (update_with_order_data's `presence ||`).
         if row.base.as_deref().unwrap_or("").is_empty() { sets.push(("base", Sql::Text(t.base_symbol.clone()))); }
@@ -104,6 +122,7 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     }
     let exec_changed = sets.iter().any(|(col, _)| *col == "quote_amount_exec");
     let changed = |cols: &[&str]| sets.iter().any(|(col, _)| cols.contains(col));
+    let executed = s.amount_exec.is_positive() || (execution_only && row.amount_exec.as_ref().is_some_and(BigDec::is_positive));
     let terminal = matches!(status, TxExternalStatus::Closed | TxExternalStatus::Cancelled);
     // Transaction#base_cap_relevant_change? (the base cap's trigger, below).
     let base_changed = (changed(&["amount_exec"]) && s.amount_exec.is_positive()) || (changed(&["external_status"]) && status == TxExternalStatus::Closed);
@@ -113,7 +132,7 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
         && matches!(bot.bot_type.as_str(), "Bots::DcaMultiAsset" | "Bots::DcaIndex");
     // Its after_commit (transaction.rb:50-56): a closed sell, or a cancelled one that filled, whose status or executed
     // figures changed, wakes the account's ledger sync (EngineEvent::SaleSettled), for every bot type.
-    let sold = side == 1 && (status == TxExternalStatus::Closed || (status == TxExternalStatus::Cancelled && s.amount_exec.is_positive()))
+    let sold = side == 1 && (status == TxExternalStatus::Closed || (status == TxExternalStatus::Cancelled && executed))
         && changed(&["external_status", "amount_exec", "quote_amount_exec"]);
     // D-KUCOIN-ZERO-FILL-FUNDS: a buy the venue ended with nothing dealt is its out-of-funds answer. The settlement that moves
     // the row from a non-terminal status (once per row: a failed row is never polled again) fails it with the venue's own
@@ -200,19 +219,19 @@ pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, 
 
 /// One fill, committed. A fill that spends the amount limit enqueues one Rails Bot::StopJob per qualifying callback
 /// (quote_amount_limitable.rb:111), and mails stopped_by_amount_limit: its marker (notice::LIMIT; the base cap's, notice::BASE_LIMIT) is written in the fill's
-/// transaction. Rails mails once per callback; the marker is one key, so two such fills before a send owe one mail. With `stop_now` (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
+/// transaction. Rails mails once per callback; the marker is one key, so two such fills before a send owe one mail. Outside a sweep (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
 /// has nothing left to do) the stop lands in the fill's own transaction. Without it (the tick's sweep: the job runs after the
 /// whole Bot::ActionJob) one pending stop is counted in `transient_data.rust_amount_limit_stops_pending`, by `json_set` in the
 /// fill's own transaction, so a crash before the tick ends loses nothing: tick::run_pending_amount_limit_stops runs them at
 /// the tick's end, at the next start (run::step), or at the handback.
 /// notify_stopped_by_amount_limit runs in the fill callback that spends the cap, whatever the stop then does: the mail
 /// (notice::LIMIT) is owed in that fill's own transaction, on every path that applies a fill (here and placement's recovery).
-fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, stop_now: bool, version: &Option<model::CredentialVersion>) -> Result<(), EngineError> {
+fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, mode: PollMode, version: &Option<model::CredentialVersion>) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
     let fenced=model::check_credential_result(&tx, version)?;
-    if let Some(cap) = apply_in(&fenced, bot_id, tx_id, s, true, now)? {
+    if let Some(cap) = apply_order_in(&fenced, bot_id, tx_id, s, now, mode == PollMode::Terminal)? {
         amount_limit::owe_mail(&tx, bot_id, cap, now)?;
-        if stop_now {
+        if mode != PollMode::Sweep {
             tick::stop_for_amount_limit(&tx, bot_id, cap, now)?;
         } else {
             // Counted under the bot's start and that cap's limit (Bot::cap_key), with the cap's `kind`; a stale count from
@@ -233,7 +252,7 @@ pub async fn sweep<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: D
     let db = |e: EngineError| poll_error(e);
     let handle=crate::venue::Handle::for_bot(venue,c,bot).map_err(db)?;
     let venue=&handle;
-    poll_rows(c, venue, bot, waiting_ids(c, bot).map_err(db)?, now, true).await.map(|_| ())
+    poll_rows(c, venue, bot, waiting_ids(c, bot).map_err(db)?, now, PollMode::Sweep).await.map(|_| ())
 }
 
 /// Read only identity columns before the venue parses status or money. Complete stored IDs win.
@@ -244,9 +263,11 @@ fn order_identified(c: &Connection, bot: &model::Bot, tx_id: i64, pair: Option<&
 }
 
 /// Both Rails polls go through Exchanges::Kraken's QueryOrders → TradesHistory → StaleOrderResolver path, over
-/// the given waiting rows. `strict` (the sweep) fails on `unknown` like FetchAndUpdateOpenOrdersJob; the follow-up skips it.
+/// the given rows. The sweep fails on `unknown` like FetchAndUpdateOpenOrdersJob; the follow-up skips it.
+/// A terminal refresh uses the same lookups, but never abandons a missing order.
 /// Returns when the earliest zero-fill answer it skipped becomes final (OrderState::settles_at).
-async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, now: DateTime<Utc>, strict: bool) -> Result<Option<DateTime<Utc>>, PollFailure> {
+async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, now: DateTime<Utc>, mode: PollMode) -> Result<Option<DateTime<Utc>>, PollFailure> {
+    let strict = mode == PollMode::Sweep;
     let db = |e: EngineError| poll_error(e);
     if rows.is_empty() { return Ok(None); }
     let version = venue.producer();
@@ -273,7 +294,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
             // Inconclusive (Exchanges::Kraken#recover_missing_from_trades): the sweep leaves it out of missing; get_order fails
             // without not_found, so the follow-up raises as Bot::FetchAndUpdateOrderJob does.
             if f.status == OrderStatus::Unknown {
-                if !strict {
+                if mode == PollMode::FollowUp {
                     let tx_id = rows.iter().find(|(_, e, _)| e == &f.txid).map_or(0, |r| r.0);
                     return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: {}", inspect(&[format!("Kraken could not tell whether order {} filled", f.txid)]))));
                 }
@@ -286,7 +307,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     // Missing after both endpoints: Bot::StaleOrderResolver (Kraken is authoritative, so young ones just wait).
     let mut young = vec![];
     for (id, ext, created) in &rows {
-        if !reports || skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
+        if mode == PollMode::Terminal || !reports || skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
         if *created >= now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
             young.push(ext.clone());
         } else {
@@ -307,7 +328,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
             settles_at = settles_at.into_iter().chain(state.settles_at()).min();
             continue;
         }
-        apply_committed(c, bot.id, *id, state, now, !strict, &version).map_err(db)?;
+        apply_committed(c, bot.id, *id, state, now, mode, &version).map_err(db)?;
     }
     // FetchAndUpdateOpenOrdersJob, after the progress above: a young order a venue without a fill fallback of its own
     // (Exchange#authoritative_missing_orders? false) left out may hide a fill, so the sweep fails loudly.
@@ -330,7 +351,7 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
     let handle=crate::venue::Handle::for_bot(venue,c,&bot).map_err(db)?;
     let venue=&handle;
     let rows: Vec<_> = waiting_ids(c, &bot).map_err(db)?.into_iter().filter(|(id, _, _)| *id == tx_id).collect();
-    let polled = if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now, true).await } else { poll_rows(c, venue, &bot, rows, now, false).await };
+    let polled = if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now, PollMode::FollowUp).await } else { poll_rows(c, venue, &bot, rows, now, PollMode::FollowUp).await };
     if let Some(owner) = moved_to(c, bot_id, tx_id).map_err(db)? { return Ok(FollowUp::OwnerChanged(owner)); }
     let settles_at = polled?;
     if let Some(at) = settles_at { return Ok(FollowUp::SettlesAt(at)); }
@@ -343,9 +364,9 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
 
 /// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca and Binance: one order (Venue::order_identified); a throttle or transient
 /// failure is retried by the caller (retry_on); any other failure raises "Failed to fetch order <transaction id>"; an
-/// unknown status raises. A raise changes no row, as in Rails. With `defer_young` (the follow-up chain) a zero-fill answer
+/// unknown status raises. A raise changes no row, as in Rails. In the follow-up chain a zero-fill answer
 /// too young to be final is no raise: its time is returned for the caller to ask again (D-KUCOIN-ZERO-FILL-FUNDS).
-async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>, defer_young: bool) -> Result<Option<DateTime<Utc>>, PollFailure> {
+async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>, mode: PollMode) -> Result<Option<DateTime<Utc>>, PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(None) };
     let rules = venue.rules();
     let version = venue.producer();
@@ -354,29 +375,48 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
     }).await.value {
         Ok((_, skipped)) if skipped.contains(&ext) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: unsupported class or unmapped/ambiguous order identity"))),
         Ok((mut found, _)) if !found.is_empty() => found.remove(0).settled(now),
+        Ok(_) if mode == PollMode::Terminal => return Ok(None),
         Ok(_) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: []"))),
         Err(VenueError::Rejected(errs) | VenueError::Unauthorized(errs) | VenueError::Coded { errors: errs, .. }) if rules.is_throttle(&errs) => return Err(PollFailure::RateLimited(to_sentence(&errs))),
         Err(VenueError::Rejected(errs) | VenueError::Unauthorized(errs) | VenueError::Coded { errors: errs, .. }) if rules.is_transient(&errs) => return Err(PollFailure::Transient(to_sentence(&errs))),
         Err(VenueError::Rejected(errs) | VenueError::Unauthorized(errs) | VenueError::Coded { errors: errs, .. }) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: {}", inspect(&errs)))),
         Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Err(PollFailure::Transient(m)),
     };
-    if let Some(at) = state.settles_at().filter(|_| defer_young) { return Ok(Some(at)); }
-    if state.status == OrderStatus::Unknown { return Err(PollFailure::General(format!("Order {ext} status is unknown."))); }
-    apply_committed(c, bot.id, id, &state, now, true, &version).map_err(poll_error).map(|()| None)
+    if let Some(at) = state.settles_at().filter(|_| mode == PollMode::FollowUp) { return Ok(Some(at)); }
+    if state.status == OrderStatus::Unknown {
+        return if mode == PollMode::Terminal { Ok(None) } else { Err(PollFailure::General(format!("Order {ext} status is unknown."))) };
+    }
+    apply_committed(c, bot.id, id, &state, now, mode, &version).map_err(poll_error).map(|()| None)
 }
 
 /// Bot::FetchAndUpdateOrderJob for one row the caller names, whatever its external status (Bot::Rebalancer#refresh_pending_order!
 /// re-fetches the pending transaction even once closed: a closed sell may still lack its proceeds). Only this venue's rows
 /// are asked (the job skips a row placed elsewhere); a row not submitted is left alone.
 pub async fn refresh<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
+    refresh_row(c, venue, bot_id, tx_id, now, false).await
+}
+
+/// Late proceeds for an already-terminal liquidation. Keep its status and recorded execution
+/// when the venue has nothing new, and apply only positive execution data from a terminal answer.
+pub async fn refresh_terminal<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
+    refresh_row(c, venue, bot_id, tx_id, now, true).await
+}
+
+async fn refresh_row<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>, execution_only: bool) -> Result<(), PollFailure> {
     let db = |e: EngineError| poll_error(e);
     let bot = model::load_bot(c, bot_id).map_err(db)?;
     let handle = crate::venue::Handle::for_bot(venue, c, &bot).map_err(db)?;
     let venue = &handle;
-    let mut s = c.prepare("SELECT id, external_id, created_at FROM transactions WHERE id = ?1 AND bot_id = ?2 AND exchange_id = ?3 AND status = 0 \
+    let mut s = c.prepare("SELECT id, external_id, created_at, external_status FROM transactions WHERE id = ?1 AND bot_id = ?2 AND exchange_id = ?3 AND status = 0 \
                            AND external_id IS NOT NULL AND external_id NOT LIKE 'imported_%'").map_err(|e| db(e.into()))?;
-    let rows = s.query_map(params![tx_id, bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+    let rows = s.query_map(params![tx_id, bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<i64>>(3)?)))
         .and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| db(e.into()))?;
-    let rows = rows.into_iter().map(|(id, ext, at)| Ok((id, ext, created_us(&at)?))).collect::<Result<Vec<_>, EngineError>>().map_err(db)?;
-    if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now, false).await.map(|_| ()) } else { poll_rows(c, venue, &bot, rows, now, false).await.map(|_| ()) }
+    let terminal = rows.first().is_some_and(|(_, _, _, status)| matches!(status, Some(2) | Some(3)));
+    let rows = rows.into_iter().map(|(id, ext, at, _)| Ok((id, ext, created_us(&at)?))).collect::<Result<Vec<_>, EngineError>>().map_err(db)?;
+    if execution_only && !terminal { return Ok(()); }
+    if venue.rules().follow_up_strict {
+        follow_up_strict(c, venue, &bot, rows, tx_id, now, if execution_only { PollMode::Terminal } else { PollMode::Refresh }).await.map(|_| ())
+    } else {
+        poll_rows(c, venue, &bot, rows, now, if execution_only { PollMode::Terminal } else { PollMode::FollowUp }).await.map(|_| ())
+    }
 }
