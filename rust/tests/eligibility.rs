@@ -117,7 +117,7 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
             seed::insert_tx(c, s, id, &closed("2026-09-02 10:00:00"));
             c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
             c.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE bot_id = ?1", [id]).unwrap(); id })),
-        ("liquidation_pending", Box::new(|c, s| seed::insert_bot(c, s, &plain().transient("liquidation_pending", json!({"state": "x"}))))),
+        ("redeploy_pending", Box::new(|c, s| seed::insert_bot(c, s, &plain().transient("redeploy_pending", json!({"state": "x"}))))),
         ("category", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("instrument", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("type", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
@@ -129,10 +129,10 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("quote_decimals 41", Box::new(|c, s| { c.execute("UPDATE tickers SET quote_decimals = 41", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("LIQUIDATION/REDEPLOY", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
             c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                       VALUES (?1, ?2, 'OLIQ', 0, 1, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
-        ("LIQUIDATION order", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
+                       VALUES (?1, ?2, 'OLIQ', 0, 1, 0, 0, 'REDEPLOY', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
+        ("REDEPLOY order", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
             c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                       VALUES (?1, ?2, 'OLIQ2', 0, 4, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
+                       VALUES (?1, ?2, 'OLIQ2', 0, 4, 0, 0, 'REDEPLOY', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
     ];
     for (reason, make) in cases {
         let (_d, o, s) = install();
@@ -277,7 +277,8 @@ fn an_abandoned_liquidation_the_user_accounted_for_no_longer_refuses() {
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.liquidation_resolved_orders', json_array(?1)) WHERE id = ?2", [first, id]).unwrap();
     assert_eq!(refused(&o.primary, id), None, "an attested order is accounted for");
     abandon("OAB2");
-    assert!(refused(&o.primary, id).is_some_and(|p| p.contains("1 unresolved abandoned LIQUIDATION")), "{:?}", refused(&o.primary, id));
+    assert_eq!(refused(&o.primary,id),None,"6c-2 admits unresolved liquidations for recovery");
+    assert!(deltabadger::engine::composition::in_flight(&o.primary,&model::load_bot(&o.primary,id).unwrap(),"2026-09-01T12:00:00Z".parse().unwrap()).unwrap());
 }
 
 #[test]
@@ -638,8 +639,8 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        // An Alpaca basket's REBALANCE rows are read since 6b (tests/rebalance.rs); a liquidation is still not.
-        ("1 LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 1, "LIQUIDATION", Some(s.btc), "OLIQ"); id })),
+        // REDEPLOY remains out of scope on baskets; LIQUIDATION is admitted in 6c-2.
+        ("1 REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REDEPLOY", Some(s.btc), "OLIQ"); id })),
         ("1 imported row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),

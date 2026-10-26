@@ -353,3 +353,50 @@ async fn an_unknown_order_moved_across_a_poll_is_never_dropped() {
     assert_eq!(polling::follow_up(&o.primary, &v, to, tx, now()).await, Ok(polling::FollowUp::Done));
     assert_eq!(row(&o, tx).1, 2);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn terminal_refresh_keeps_confirmed_execution_when_the_answer_has_no_positive_fill() {
+    for status in ["open", "pending", "closed", "canceled"] {
+        let (_d,o,s,b)=setup(json!({}));
+        let tx=seed::insert_tx(&o.primary,&s,b,&TxSpec {external_status:Some(3),amount_exec:Some("0.001"),
+            quote_amount_exec:Some("50"),..open_market("2026-09-01 10:00:00","LATE")});
+        let v=FakeVenue::new().order("LATE",json!({"status":status,"vol":"0.002","vol_exec":"0","cost":"0","price":"0","oflags":"",
+            "descr":{"type":"buy","ordertype":"market"}}));
+        polling::refresh_terminal(&o.primary,&v,b,tx,now()).await.unwrap();
+        let row=o.primary.query_row("SELECT external_status,amount_exec,quote_amount_exec FROM transactions WHERE id=?1",[tx],
+            |r|Ok((r.get::<_,i64>(0)?,r.get::<_,f64>(1)?,r.get::<_,f64>(2)?))).unwrap();
+        assert_eq!(row,(3,0.001,50.0),"{status}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn terminal_refresh_does_not_turn_missing_execution_into_zero() {
+    let (_d,o,s,b)=setup(json!({}));
+    let tx=seed::insert_tx(&o.primary,&s,b,&TxSpec {external_status:Some(2),..open_market("2026-09-01 10:00:00","LATE")});
+    let v=FakeVenue::new().order("LATE",closed_raw("0","0","0"));
+    polling::refresh_terminal(&o.primary,&v,b,tx,now()).await.unwrap();
+    let row=o.primary.query_row("SELECT amount_exec,quote_amount_exec FROM transactions WHERE id=?1",[tx],
+        |r|Ok((r.get::<_,Option<f64>>(0)?,r.get::<_,Option<f64>>(1)?))).unwrap();
+    assert_eq!(row,(None,None));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn terminal_refresh_uses_binances_single_order_lookup() {
+    use deltabadger::venue::{binance::BinanceVenue, http::ScriptedTransport};
+    let (_d,o,s,b)=setup(json!({}));
+    let tx=seed::insert_tx(&o.primary,&s,b,&TxSpec {external_status:Some(3),amount_exec:Some("0.001"),
+        ..open_market("2026-09-01 10:00:00","BTCUSDT-28457")});
+    o.primary.execute("UPDATE transactions SET side=1,transaction_type='LIQUIDATION' WHERE id=?1",[tx]).unwrap();
+    let t=ScriptedTransport::from_script(&json!({
+        "GET /api/v3/order":[{"status":200,"body":{"symbol":"BTCUSDT","orderId":28457,"price":"64000","origQty":"0.002",
+            "origQuoteOrderQty":"128","executedQty":"0.001","cummulativeQuoteQty":"64","status":"CANCELED","type":"MARKET","side":"SELL"}}],
+        "GET /api/v3/myTrades":[{"status":200,"body":[{"symbol":"BTCUSDT","id":7,"orderId":28457,"price":"64000","qty":"0.001",
+            "quoteQty":"64","commission":"0","commissionAsset":"BTC","isBuyer":false,"isMaker":false}]}]
+    }));
+    let v=BinanceVenue::new(t.clone(),"https://api.binance.com","s");
+    polling::refresh_terminal(&o.primary,&v,b,tx,now()).await.unwrap();
+    assert_eq!(t.requests().iter().map(|r|r.path.clone()).collect::<Vec<_>>(),["/api/v3/order","/api/v3/myTrades"]);
+    let row=o.primary.query_row("SELECT external_status,amount_exec,quote_amount_exec,price,amount FROM transactions WHERE id=?1",[tx],
+        |r|Ok((r.get::<_,i64>(0)?,r.get::<_,f64>(1)?,r.get::<_,f64>(2)?,r.get::<_,f64>(3)?,r.get::<_,f64>(4)?))).unwrap();
+    assert_eq!(row,(3,0.001,64.0,50000.0,0.0012));
+}

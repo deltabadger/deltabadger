@@ -1,0 +1,6 @@
+{
+  "app/jobs/bot/liquidate_exited_job.rb": "146d42e41d8d4674b0ffee6ecf523a9faaf08b283cf279b2f3c81f30392e6b7c",
+  "app/models/bot/liquidation_state.rb": "a865f2f7e80a618a5d5ede2b711e1c2f47e22065683a0be47c57e79b97926a9e",
+  "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
+  "app/models/automation/schedulable.rb": "34b176eabd069a9ed76e73cf08639429e9c8ca17e6be69bae4def1f07225e14b"
+}

@@ -126,7 +126,6 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.future_price_drop_limited',json('true'))","future_price_drop_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.future_indicator_limited',json('true'))","future_indicator_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
-        ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{}'))","redeploy_pending"),
         // 6b T8: an Alpaca basket rebalances here (admitted below); a halt Rails wrote and a threshold it cannot read do not.
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))","rebalance_pending in phase"),
@@ -135,10 +134,7 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE transactions SET external_id='imported_test' WHERE side=1","imported"),
         ("UPDATE transactions SET base_asset_id=NULL WHERE side=1","without base_asset_id"),
         ("UPDATE transactions SET transaction_type='REBALANCE',external_status=4 WHERE side=1","abandoned REBALANCE"),
-        ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","LIQUIDATION/REDEPLOY row(s) in its history"),
-        ("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE side=1","LIQUIDATION/REDEPLOY row(s) in its history"),
-        ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=1 WHERE side=1","waiting LIQUIDATION"),
-        ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=4 WHERE side=1","unresolved abandoned LIQUIDATION"),
+        ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","REDEPLOY row(s) in its history"),
     ] {
         let tx=model::immediate(&o.primary).unwrap();
         tx.execute_batch(sql).unwrap();
@@ -152,6 +148,10 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
     // What 6b T8 lifted for an Alpaca basket: the rule, a swap pending in a phase this engine resumes (an empty hash is no
     // swap, Rails' `present?`), and a settled REBALANCE row the walk books.
     for sql in [
+        "UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))",
+        "UPDATE transactions SET transaction_type='LIQUIDATION' WHERE side=1",
+        "UPDATE transactions SET transaction_type='LIQUIDATION',external_status=1 WHERE side=1",
+        "UPDATE transactions SET transaction_type='LIQUIDATION',external_status=4 WHERE side=1",
         "UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))",
         "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'))",
         "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"buying\",\"remaining_quote_amount\":\"10.0\"}'))",

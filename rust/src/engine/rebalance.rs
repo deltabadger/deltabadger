@@ -281,6 +281,20 @@ pub enum ValueFail { Transient(String), Raised(String) }
 /// `locked`: the rebalance leg's wash-sale locks (#rebalance_targets); the sell leg passes none.
 pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, bot: &super::model::Bot, now: chrono::DateTime<chrono::Utc>, locked: &[i64])
     -> Result<Result<(Metrics, Option<Vec<Entry>>), ValueFail>, EngineError> {
+    match holdings(c, venue, bot, now).await? {
+        Ok((walked, data)) => {
+            let subject = crate::figures::db::Subject::load(c, bot.id).map_err(data_error)?;
+            let entries = match data { Some(data) => composition_targets(&data, &members(c, bot, &subject)?, locked)?, None => None };
+            Ok(Ok((walked, entries)))
+        }
+        Err(e) => Ok(Err(e)),
+    }
+}
+fn data_error(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
+
+/// Fresh ledger and live valuation shared by composition operations.
+pub(crate) async fn holdings<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, bot: &super::model::Bot, now: chrono::DateTime<chrono::Utc>)
+    -> Result<Result<(Metrics, Option<Metrics>), ValueFail>, EngineError> {
     use crate::figures::{at::At, db::Subject, live, market::Failure, walk, FiguresError};
     use crate::venue::VenueError;
     let fig = |e: FiguresError| EngineError::Data(format!("{e:?}"));
@@ -309,9 +323,7 @@ pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, 
         Err(FiguresError::NotComputed(_)) => None,
         Err(e) => return Err(fig(e)),
     };
-    let members = members(c, bot, &subject)?;
-    let entries = match &data { Some(data) => composition_targets(data, &members, locked)?, None => None };
-    Ok(Ok((walked, entries)))
+    Ok(Ok((walked, data)))
 }
 
 // ---- the state machine (Bot::Rebalancer, Bot::RebalanceJob) -------------------------------------------------------------
@@ -452,7 +464,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
 /// against, so an edit landing while the venue is asked (the clock, positions, prices) refuses the pass; the next
 /// evaluation runs it again from the edit, as Rails would. The pass's own composition refresh moves the claim forward
 /// with what it wrote, read under that write's lock.
-struct Claim { bot: Bot, composition: Value }
+pub(crate) struct Claim { pub(crate) bot: Bot, pub(crate) composition: Value }
 
 /// Bot::Rebalancer#rebalance!.
 async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
@@ -489,7 +501,7 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: 
 /// the venue's positions (splits::refusal), and the snapshot unchanged across that read. The snapshot is carried to the
 /// intent, whose fence refuses a split row that changed while the leg was sized. A generation other than the pass's claim
 /// holds too. None: hold, nothing is sized.
-async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, clock: &dyn Clock) -> Result<Option<super::splits::Snapshot>, EngineError> {
+pub(crate) async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, clock: &dyn Clock) -> Result<Option<super::splits::Snapshot>, EngineError> {
     let bot = &claim.bot;
     let reconciled = super::splits::snapshot(c, bot)?;
     let reason = if reconciled.generation != bot.restatement_generation { "split generation changed since the pass began".into() } else {
@@ -506,7 +518,7 @@ async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Cl
 /// Bot::Composition::Rebalancer#before_rebalance: the composition is refreshed (a stopped bot's DCA tick never does it), best
 /// effort: a failure is logged and the stored composition stands. Written only while the stored composition is still the
 /// claim's (false: it changed, the pass ends); the claim then moves to what was written.
-async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &mut Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<bool, EngineError> {
+pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &mut Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<bool, EngineError> {
     let bot = &claim.bot;
     let refreshed = if bot.bot_type == "Bots::DcaIndex" {
         match super::index::refresh_for_rebalance(c, venue, bot, &claim.composition, clock, cx.prices, &cx.credential_version).await {
@@ -585,7 +597,7 @@ pub(crate) async fn waiting_buy_blocks_sell<V: Venue + Attributed>(c: &Connectio
     account_waiting_buys(c, bot, ticker)
 }
 
-fn account_waiting_buys(c: &Connection, bot: &Bot, ticker: &super::model::Ticker) -> Result<bool, EngineError> {
+pub(crate) fn account_waiting_buys(c: &Connection, bot: &Bot, ticker: &super::model::Ticker) -> Result<bool, EngineError> {
     let mut s = c.prepare("SELECT base FROM tickers WHERE base_asset_id = ?1")?;
     let mut names: Vec<String> = s.query_map([ticker.base_asset_id], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?
         .into_iter().flatten().map(|b| crate::figures::db::base_spelling(&b).to_string()).collect();
