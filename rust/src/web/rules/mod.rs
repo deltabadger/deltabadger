@@ -322,17 +322,45 @@ pub async fn tile(
         }
     }
     let mut destination_version = None;
-    if let Some(address) = field("address").filter(|s| !crate::ruby::blank(s)) {
-        rule.address = address.into();
-        if rule.settings.get("address_name").is_some() {
+    let posted = match field("destination")
+        .map(reads::Identity::parse)
+        .transpose()
+    {
+        Ok(identity) => identity,
+        Err(_) => {
+            return alert(
+                &ctx,
+                i18n::text(ctx.locale, crate::venue::withdrawal::NOT_LISTED_KEY, &[]),
+                true,
+            )
+        }
+    };
+    if let Some(identity) = &posted {
+        let Some(kind) = crate::venue::withdrawal::Kind::of(&rule.exchange.class) else {
+            return Ok(layout::bad_request());
+        };
+        identity.apply(&mut rule.address, &mut rule.settings, kind);
+    } else if let Some(address) = field("address").filter(|s| !crate::ruby::blank(s)) {
+        // Legacy forms may resubmit the same address with unrelated settings. Keep its key and tag.
+        if rule.address != address {
+            rule.address = address.into();
             rule.settings["address_name"] = serde_json::Value::Null;
         }
+    }
+    if posted.is_some() || field("address").is_some_and(|s| !crate::ruby::blank(s)) {
         let list = if rule.status == 2 {
             reads::listing(&app, &rule, true).await?
         } else {
             None
         };
-        let destination = list.as_ref().and_then(|l| reads::select(&rule, l).ok());
+        let destination = list
+            .as_ref()
+            .filter(|l| {
+                posted
+                    .as_ref()
+                    .is_none_or(|identity| identity.listed(&rule, l))
+            })
+            .and_then(|l| reads::select(&rule, l).ok());
         let Some(destination) = destination else {
             return alert(
                 &ctx,
@@ -350,6 +378,7 @@ pub async fn tile(
         "min_amount",
         "max_interval",
         "address",
+        "destination",
     ]
     .iter()
     .any(|name| field(name).is_some());

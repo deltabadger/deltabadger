@@ -10,6 +10,122 @@ use crate::{
 };
 use serde_json::{json, Value};
 
+/// D-RULE-LISTED-ENTRY: one form value carries all of the venue's destination fields.
+/// This is untrusted input; `select` checks it against a fresh listing and V1's contract.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Identity {
+    pub address: String,
+    pub network: Option<String>,
+    pub tag: Option<String>,
+    pub key: Option<String>,
+}
+
+impl Identity {
+    pub fn entry(entry: &Entry, kind: Kind) -> Self {
+        Self {
+            address: entry.address.clone(),
+            network: match kind {
+                Kind::Kraken => None,
+                _ => entry.network.clone(),
+            },
+            tag: matches!(kind, Kind::Binance | Kind::Mexc)
+                .then(|| entry.tag.clone())
+                .flatten(),
+            key: (kind == Kind::Kraken).then(|| entry.key.clone()).flatten(),
+        }
+    }
+
+    pub fn rule(rule: &Rule) -> Self {
+        let stored = Stored::new(
+            &rule.address,
+            rule.settings["network"].as_str(),
+            rule.settings["address_tag"].as_str(),
+            rule.settings["address_name"].as_str(),
+        );
+        let kraken = Kind::of(&rule.exchange.class) == Some(Kind::Kraken);
+        Self {
+            address: stored.address,
+            network: if kraken { None } else { stored.network },
+            tag: if matches!(
+                Kind::of(&rule.exchange.class),
+                Some(Kind::Binance | Kind::Mexc)
+            ) {
+                stored.tag
+            } else {
+                None
+            },
+            key: if kraken { stored.key } else { None },
+        }
+    }
+
+    pub fn value(&self) -> String {
+        json!({"address":self.address,"network":self.network,"tag":self.tag,"key":self.key})
+            .to_string()
+    }
+
+    pub fn parse(value: &str) -> Result<Self, withdrawal::Refusal> {
+        use withdrawal::Refusal::NotListed;
+        let value: Value = serde_json::from_str(value).map_err(|_| NotListed)?;
+        let fields = value.as_object().ok_or(NotListed)?;
+        if fields.len() != 4 {
+            return Err(NotListed);
+        }
+        let optional = |name: &str| match fields.get(name) {
+            Some(Value::Null) => Ok(None),
+            Some(Value::String(value)) => Ok(Some(value.clone())),
+            _ => Err(NotListed),
+        };
+        Ok(Self {
+            address: fields
+                .get("address")
+                .and_then(Value::as_str)
+                .ok_or(NotListed)?
+                .to_string(),
+            network: optional("network")?,
+            tag: optional("tag")?,
+            key: optional("key")?,
+        })
+    }
+
+    pub fn listed(&self, rule: &Rule, listing: &Listing) -> bool {
+        let Some(kind) = Kind::of(&rule.exchange.class) else {
+            return false;
+        };
+        let count = listing
+            .entries
+            .iter()
+            .filter(|e| e.refused.is_none() && Self::entry(e, kind) == *self)
+            .count();
+        count == 1 || kind == Kind::Gemini && count > 0
+    }
+
+    pub fn apply(&self, address: &mut String, settings: &mut Value, kind: Kind) {
+        address.clone_from(&self.address);
+        match kind {
+            Kind::Kraken => settings["address_name"] = json!(self.key),
+            Kind::Binance | Kind::Mexc => {
+                settings["network"] = json!(self.network);
+                settings["address_tag"] = json!(self.tag);
+            }
+            Kind::Gemini => settings["network"] = json!(self.network),
+        }
+    }
+
+    pub fn label(&self) -> String {
+        if let Some(key) = &self.key {
+            return key.clone();
+        }
+        let mut label = self.address.clone();
+        if let Some(network) = &self.network {
+            label += &format!(" ({network})");
+        }
+        if let Some(tag) = &self.tag {
+            label += &format!(" — {tag}");
+        }
+        label
+    }
+}
+
 pub struct Listing {
     pub entries: Vec<Entry>,
     pub networks: Option<Coin>,
@@ -65,7 +181,15 @@ pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Li
     if !networks {
         entries.retain(|entry| entry.refused.is_none());
     }
-    let coin = if networks && matches!(kind, Kind::Binance | Kind::Mexc) {
+    // MEXC may list a code while V1 stores the coin list's network label. Read the
+    // mapping when needed so a stopped tile keeps the matching destination selected.
+    let needs_aliases = kind == Kind::Mexc
+        && rule.settings["network"].as_str().is_some_and(|network| {
+            entries
+                .iter()
+                .any(|e| e.address == rule.address && e.network.as_deref() != Some(network))
+        });
+    let coin = if (networks && matches!(kind, Kind::Binance | Kind::Mexc)) || needs_aliases {
         match venue.withdrawal_networks(&code).await {
             Ok(coin) => coin,
             Err(_) => return Ok(None),
@@ -88,6 +212,19 @@ pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Li
 
 pub fn select(rule: &Rule, listing: &Listing) -> Result<Destination, withdrawal::Refusal> {
     let kind = Kind::of(&rule.exchange.class).ok_or(withdrawal::Refusal::NotListed)?;
+    // Identical picker values cannot identify one entry. Gemini deliberately lists the same
+    // destination in account and group scopes, which V1 treats as one destination.
+    let identity = Identity::rule(rule);
+    if kind != Kind::Gemini
+        && listing
+            .entries
+            .iter()
+            .filter(|e| e.refused.is_none() && Identity::entry(e, kind) == identity)
+            .count()
+            > 1
+    {
+        return Err(withdrawal::Refusal::Ambiguous);
+    }
     withdrawal::select(
         kind,
         &listing.code,

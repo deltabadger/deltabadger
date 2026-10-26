@@ -13,7 +13,7 @@
    <div class="tag tag--address" data-controller="form--select-display">
     {% include "svg/_16x16_wallet.html" %}
     <span data-form--select-display-target="label">{{ display }}</span>
-    <select name="address" data-action="change-&gt;form--select-display#update change-&gt;form--submit#submit">
+    <select name="destination" data-action="change-&gt;form--select-display#update change-&gt;form--submit#submit">
 {{ options|safe }}
 </select>
    </div>

@@ -2574,10 +2574,38 @@ fn rules_page_oracle_sources_stay_pinned() {
 
 /// W1's named differences remove only the affected venue option, destination member, or refused action.
 /// The remaining HTML, session, requests and rows still pass through the ordinary comparator.
+fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), String> {
+    let (Some(a), Some(b)) = (rails.as_array_mut(), rust.as_array()) else { return Ok(()); };
+    // The recorded W1 grid lists one Gemini destination, with this address and network.
+    // Assert the complete new option value, retaining all other attributes and text verbatim.
+    let address = "bc1qx0destination0000000000000000000000";
+    let identity = format!("{{\"address\":{address:?},\"network\":\"bitcoin\",\"tag\":null,\"key\":null}}");
+    let mut in_picker = false;
+    for (old, new) in a.iter_mut().zip(b) {
+        let Some(line) = old.as_str() else { continue; };
+        if line.trim_start().starts_with("<select ") && matches!(attr(line,"name").as_deref(), Some("address" | "rules_withdrawal[address]")) {
+            let expected = line.replace("name=\"address\"", "name=\"destination\"")
+                .replace("name=\"rules_withdrawal[address]\"", "name=\"rules_withdrawal[destination]\"");
+            if new != &json!(expected) { return Err("D-RULE-LISTED-ENTRY: unexpected picker attributes".into()); }
+            *old = json!(expected);
+            in_picker = true;
+        } else if in_picker && line.trim_start().starts_with("<option ") {
+            if attr(line,"value").as_deref() != Some(address) { return Err("D-RULE-LISTED-ENTRY: recorded destination changed".into()); }
+            let expected = line.replace(&format!("value={address:?}"), &format!("value={identity:?}"));
+            if new != &json!(expected) { return Err("D-RULE-LISTED-ENTRY: option must carry exactly Gemini's listed destination".into()); }
+            *old = json!(expected);
+        } else if in_picker && line.trim() == "</select>" {
+            in_picker = false;
+        }
+    }
+    Ok(())
+}
+
 fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
     if !name.starts_with("rules_") { return Ok(()) }
     for ((a,b),step) in rails["responses"].as_array_mut().unwrap().iter_mut()
         .zip(rust["responses"].as_array_mut().unwrap()).zip(scenario["steps"].as_array().unwrap()) {
+        rules_listed_entry_picker(&mut a["body"], &b["body"])?;
         if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
             let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {
                 let text=l.as_str()?;

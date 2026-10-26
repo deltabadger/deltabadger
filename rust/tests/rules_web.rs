@@ -13,6 +13,450 @@ use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
 const AT: &str = "2026-10-01T12:00:00Z";
 const ADDRESS: &str = "bc1qwithdrawaltest";
+
+fn picker(body: &str) -> (String, Vec<(String, String, bool)>) {
+    let doc = scraper::Html::parse_document(body);
+    let select = doc
+        .select(&scraper::Selector::parse(".tag--address select").unwrap())
+        .next()
+        .expect("address picker");
+    (
+        select.value().attr("name").unwrap().to_string(),
+        select
+            .select(&scraper::Selector::parse("option").unwrap())
+            .map(|e| {
+                (
+                    e.value().attr("value").unwrap().to_string(),
+                    e.text().collect(),
+                    e.value().attr("selected").is_some(),
+                )
+            })
+            .collect(),
+    )
+}
+
+async fn identity_listing(venue: &str, identities: &[&str]) -> (Install, MockServer) {
+    use deltabadger::venue::withdrawal as w;
+    let server = MockServer::start().await;
+    let rows: Vec<Value> = identities
+        .iter()
+        .map(|identity| match venue {
+            "Binance" => {
+                json!({"coin":"BTC","address":ADDRESS,"network":"BTC","addressTag":identity})
+            }
+            "Mexc" => json!({"coin":"BTC","address":ADDRESS,"network":"BTC","memo":identity}),
+            "Kraken" => json!({"address":ADDRESS,"key":identity,"verified":true}),
+            _ => unreachable!(),
+        })
+        .collect();
+    let (path, body) = match venue {
+        "Binance" => (w::BINANCE_ADDRESSES, json!(rows)),
+        "Mexc" => (w::MEXC_ADDRESSES, json!({"data":rows,"totalPageNum":1})),
+        _ => (w::KRAKEN_ADDRESSES, json!({"error":[],"result":rows})),
+    };
+    Mock::given(matchers::path(path))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+    if venue != "Kraken" {
+        let network = if venue == "Mexc" { "Bitcoin" } else { "BTC" };
+        Mock::given(matchers::path(if venue == "Binance" { w::BINANCE_COINS } else { w::MEXC_COINS }))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"coin":"BTC","networkList":[{"network":network,"netWork":"BTC","withdrawEnable":true,"withdrawTag":true,"withdrawFee":"0.0001"}]}])))
+            .mount(&server).await;
+    }
+    let mut i = Install::new(venue);
+    let class = match venue {
+        "Binance" => "Exchanges::Binance",
+        "Mexc" => "Exchanges::Mexc",
+        "Kraken" => "Exchanges::Kraken",
+        _ => unreachable!(),
+    };
+    i.app = i.app.with_venue_key_url(class, &server.uri()).unwrap();
+    (i, server)
+}
+
+async fn select_each_identity(venue: &str) {
+    // Quotes and form delimiters must round trip through HTML and form encoding.
+    let identities = ["first & <memo>\"", "second + key"];
+    for choice in 0..2 {
+        let (i, _server) = identity_listing(venue, &identities).await;
+        let (_, body) = i
+            .send(
+                "GET",
+                "/rules/withdrawals/confirm_settings/new",
+                "",
+                Some(i.config()),
+                true,
+                false,
+            )
+            .await;
+        let (name, options) = picker(&body);
+        assert_eq!(options.len(), 2);
+        assert_ne!(
+            options[0].0, options[1].0,
+            "D-RULE-LISTED-ENTRY: distinct submitted identities"
+        );
+        assert_ne!(
+            options[0].1, options[1].1,
+            "the user can distinguish destinations"
+        );
+        let form = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs([
+                (&name[..], &options[choice].0[..]),
+                ("min_amount", "0.2"),
+                ("threshold_type", "min_amount"),
+            ])
+            .finish();
+        // Preview must retain the chosen identity before confirmation.
+        let (status, preview) = i
+            .send(
+                "POST",
+                "/rules/withdrawals/confirm_settings/preview",
+                &form,
+                Some(i.config()),
+                true,
+                true,
+            )
+            .await;
+        assert_eq!(status, 200);
+        let (_, selected) = picker(&preview);
+        assert_eq!(selected.iter().filter(|o| o.2).count(), 1);
+        assert!(selected[choice].2);
+        let (status, body) = i
+            .send(
+                "POST",
+                "/rules/withdrawals/confirm_settings",
+                &form,
+                Some(i.config()),
+                true,
+                true,
+            )
+            .await;
+        assert_eq!(status, 200, "{venue}: {body}");
+        let (address, settings): (String, String) =
+            i.c.query_row("SELECT address,settings FROM rules", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(i.app.cipher.decrypt(&address).unwrap(), ADDRESS);
+        let settings: Value = serde_json::from_str(&settings).unwrap();
+        assert_eq!(
+            settings[if venue == "Kraken" {
+                "address_name"
+            } else {
+                "address_tag"
+            }],
+            identities[choice]
+        );
+        if venue != "Kraken" {
+            assert_eq!(
+                settings["network"],
+                if venue == "Mexc" { "Bitcoin" } else { "BTC" }
+            );
+        }
+        // Changing the selection on a stopped tile uses the same identity contract.
+        i.c.execute("UPDATE rules SET status=2", []).unwrap();
+        let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+        let (name, options) = picker(&body);
+        assert_eq!(options.iter().filter(|o| o.2).count(), 1);
+        assert!(options[choice].2);
+        let id: i64 =
+            i.c.query_row("SELECT id FROM rules", [], |r| r.get(0))
+                .unwrap();
+        let form = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs([
+                (&name[..], &options[choice].0[..]),
+                ("rules_withdrawal[min_amount]", "0.7"),
+            ])
+            .finish();
+        assert_eq!(
+            i.send(
+                "PATCH",
+                &format!("/rules/withdrawals/{id}"),
+                &form,
+                None,
+                true,
+                true
+            )
+            .await
+            .0,
+            200
+        );
+        let text: String =
+            i.c.query_row("SELECT settings FROM rules", [], |r| r.get(0))
+                .unwrap();
+        let updated: Value = serde_json::from_str(&text).unwrap();
+        for field in ["network", "address_tag", "address_name"] {
+            assert_eq!(
+                updated[field], settings[field],
+                "{venue}: unrelated tile edit changed {field}"
+            );
+        }
+        let form = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs([(&name, &options[1 - choice].0)])
+            .finish();
+        let (status, body) = i
+            .send(
+                "PATCH",
+                &format!("/rules/withdrawals/{id}"),
+                &form,
+                None,
+                true,
+                true,
+            )
+            .await;
+        assert_eq!(status, 200, "{body}");
+        let settings: String =
+            i.c.query_row("SELECT settings FROM rules", [], |r| r.get(0))
+                .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&settings).unwrap()[if venue == "Kraken" {
+                "address_name"
+            } else {
+                "address_tag"
+            }],
+            identities[1 - choice]
+        );
+    }
+}
+
+#[tokio::test]
+async fn picker_selects_each_memo_at_the_same_address_and_network() {
+    for venue in ["Binance", "Mexc"] {
+        select_each_identity(venue).await;
+    }
+}
+
+#[tokio::test]
+async fn picker_selects_each_kraken_key_at_the_same_address() {
+    select_each_identity("Kraken").await;
+}
+
+#[tokio::test]
+async fn tile_settings_keep_network_tag_and_key() {
+    let (i, _server) = identity_listing("Kraken", &["first", "second"]).await;
+    let id = i.rule(2);
+    i.c.execute("UPDATE rules SET settings=json_set(settings,'$.network','legacy network','$.address_tag','legacy tag','$.address_name','second')", []).unwrap();
+    for submit_picker in [false, true] {
+        let mut fields = vec![
+            (
+                "rules_withdrawal[min_amount]".to_string(),
+                "0.7".to_string(),
+            ),
+            ("rules_withdrawal[max_interval]".into(), "12".into()),
+            (
+                "rules_withdrawal[threshold_type]".into(),
+                "min_amount".into(),
+            ),
+        ];
+        if submit_picker {
+            let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
+            let (name, options) = picker(&body);
+            let selected = options.iter().find(|o| o.2).unwrap();
+            fields.push((name, selected.0.clone()));
+        }
+        let (status, body) = i
+            .send(
+                "PATCH",
+                &format!("/rules/withdrawals/{id}"),
+                &form_urlencoded::Serializer::new(String::new())
+                    .extend_pairs(fields)
+                    .finish(),
+                None,
+                true,
+                true,
+            )
+            .await;
+        assert_eq!(status, 200, "{body}");
+        let text: String =
+            i.c.query_row("SELECT settings FROM rules", [], |r| r.get(0))
+                .unwrap();
+        let settings: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(settings["address_name"], "second");
+        assert_eq!(settings["address_tag"], "legacy tag");
+        assert_eq!(settings["network"], "legacy network");
+        assert_eq!(settings["min_amount"], "0.7");
+        assert_eq!(settings["max_interval"], "12");
+    }
+}
+
+#[tokio::test]
+async fn picker_refuses_identical_entries_and_forged_identities_without_writing() {
+    for venue in ["Binance", "Mexc", "Kraken"] {
+        let (i, _server) = identity_listing(venue, &["same", "same"]).await;
+        let (_, body) = i
+            .send(
+                "GET",
+                "/rules/withdrawals/confirm_settings/new",
+                "",
+                Some(i.config()),
+                true,
+                false,
+            )
+            .await;
+        let (name, options) = picker(&body);
+        assert_eq!(options[0].0, options[1].0);
+        for value in [
+            &options[0].0,
+            "{invalid",
+            r#"{"address":"forged","network":"BTC","tag":"same","key":"same"}"#,
+        ] {
+            let form = form_urlencoded::Serializer::new(String::new())
+                .extend_pairs([(&name[..], value)])
+                .finish();
+            assert_eq!(
+                i.send(
+                    "POST",
+                    "/rules/withdrawals/confirm_settings",
+                    &form,
+                    Some(i.config()),
+                    true,
+                    true
+                )
+                .await
+                .0,
+                302
+            );
+            assert_eq!(i.rows(), "[]");
+        }
+        let id = i.rule(2);
+        let before = i.rows();
+        let form = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs([("rules_withdrawal[destination]", &options[0].0)])
+            .finish();
+        assert_eq!(
+            i.send(
+                "PATCH",
+                &format!("/rules/withdrawals/{id}"),
+                &form,
+                None,
+                true,
+                true
+            )
+            .await
+            .0,
+            422
+        );
+        assert_eq!(i.rows(), before);
+    }
+}
+
+#[tokio::test]
+async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
+    for venue in ["Binance", "Mexc", "Kraken"] {
+        let (i, _server) = identity_listing(venue, &["first", "second"]).await;
+        let (_, body) = i
+            .send(
+                "GET",
+                "/rules/withdrawals/confirm_settings/new",
+                "",
+                Some(i.config()),
+                true,
+                false,
+            )
+            .await;
+        let (name, options) = picker(&body);
+        let identity: Value = serde_json::from_str(&options[0].0).unwrap();
+        let id = i.rule(2);
+        let before = i.rows();
+        for field in ["address", "network", "tag", "key"] {
+            let mut forged = identity.clone();
+            forged[field] = json!("unlisted");
+            let value = forged.to_string();
+            let form = form_urlencoded::Serializer::new(String::new())
+                .extend_pairs([(&name[..], &value)])
+                .finish();
+            assert_eq!(
+                i.send(
+                    "POST",
+                    "/rules/withdrawals/confirm_settings",
+                    &form,
+                    Some(i.config()),
+                    true,
+                    true
+                )
+                .await
+                .0,
+                302,
+                "{venue} {field}"
+            );
+            let form = form_urlencoded::Serializer::new(String::new())
+                .extend_pairs([("rules_withdrawal[destination]", &value)])
+                .finish();
+            assert_eq!(
+                i.send(
+                    "PATCH",
+                    &format!("/rules/withdrawals/{id}"),
+                    &form,
+                    None,
+                    true,
+                    true
+                )
+                .await
+                .0,
+                422,
+                "{venue} {field}"
+            );
+            assert_eq!(i.rows(), before);
+        }
+    }
+}
+
+#[tokio::test]
+async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
+    for network in [json!("bitcoin"), Value::Null] {
+        let server = MockServer::start().await;
+        let entry = json!({"address":ADDRESS,"network":network,"status":"active"});
+        Mock::given(matchers::path("/v1/approvedAddresses/account/bitcoin"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({"approvedAddresses":[entry,entry]})),
+            )
+            .mount(&server)
+            .await;
+        let mut i = Install::new("Gemini");
+        i.app = i
+            .app
+            .with_venue_key_url("Exchanges::Gemini", &server.uri())
+            .unwrap();
+        let (_, body) = i
+            .send(
+                "GET",
+                "/rules/withdrawals/confirm_settings/new",
+                "",
+                Some(i.config()),
+                true,
+                false,
+            )
+            .await;
+        let (name, options) = picker(&body);
+        assert_eq!(options.len(), 2);
+        assert_eq!(options[0].0, options[1].0);
+        let form = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs([(&name, &options[0].0)])
+            .finish();
+        assert_eq!(
+            i.send(
+                "POST",
+                "/rules/withdrawals/confirm_settings",
+                &form,
+                Some(i.config()),
+                true,
+                true
+            )
+            .await
+            .0,
+            200
+        );
+        let settings: String =
+            i.c.query_row("SELECT settings FROM rules", [], |r| r.get(0))
+                .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&settings).unwrap()["network"],
+            "bitcoin"
+        );
+    }
+}
 struct Install {
     _dir: tempfile::TempDir,
     app: web::App,
@@ -577,7 +1021,7 @@ async fn refused_addresses_are_not_counted_as_available_wallets() {
         i.rule(2);
         let (status, body) = i.send("GET", "/rules", "", None, true, false).await;
         assert_eq!(status, 200);
-        assert!(!body.contains("name=\"rules_withdrawal[address]\""));
+        assert!(!body.contains("name=\"rules_withdrawal[destination]\""));
         let expected = web::i18n::t(
             "en",
             "rules.tile.no_wallet_html",

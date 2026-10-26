@@ -604,12 +604,17 @@ fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String,
         }
     };
     let display = list
-        .and_then(|l| l.entries.iter().find(|e| e.address == r.address))
+        .and_then(|l| {
+            l.entries.iter().find(|e| {
+                e.address == r.address && r.settings["address_name"].as_str()
+                    .filter(|key| !ruby::blank(key)).is_none_or(|key| e.key.as_deref() == Some(key))
+            })
+        })
         .and_then(|e| e.key.clone())
         .unwrap_or_else(|| r.address.clone());
     // The preview's hand-written options use a boolean selected attribute, unlike form-builder selects.
     let options = list
-        .map(|l| view::options(l, &r.address).replace("selected=\"selected\"", "selected"))
+        .map(|l| view::options(l, r).replace("selected=\"selected\"", "selected"))
         .unwrap_or_default();
     Ok(Preview {
         v: ctx,
@@ -636,7 +641,28 @@ fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String,
 async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebError> {
     let is_preview = ctx.params.route_path.ends_with("/preview");
     let is_create = ctx.method == axum::http::Method::POST && !is_preview;
+    let posted = match ctx
+        .params
+        .form("destination")
+        .map(reads::Identity::parse)
+        .transpose()
+    {
+        Ok(identity) => identity,
+        Err(_) => return Ok(to(ctx, "add_address")),
+    };
+    if let Some(identity) = &posted {
+        let kind =
+            crate::venue::withdrawal::Kind::of(&rule.exchange.class).expect("withdrawal venue");
+        identity.apply(&mut rule.address, &mut rule.settings, kind);
+        rule.settings["address"] = json!(rule.address);
+    }
     let list = reads::listing(app, &rule, is_create).await?;
+    if let Some(identity) = &posted {
+        if !list.as_ref().is_some_and(|l| identity.listed(&rule, l)) {
+            return Ok(to(ctx, "add_address"));
+        }
+        set(ctx, rule.settings.clone());
+    }
     if is_create {
         let destination = list.as_ref().and_then(|l| reads::select(&rule, l).ok());
         let Some(destination) = destination else {
@@ -699,16 +725,25 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
     }
     if let Some(list) = &list {
         if !list.entries.is_empty() {
-            let Some(selected) = list.entries.iter().find(|e| e.address == rule.address) else {
+            let at_address = list
+                .entries
+                .iter()
+                .filter(|e| e.address == rule.address)
+                .collect::<Vec<_>>();
+            if at_address.is_empty() {
                 let mut conf = config(ctx);
                 conf.as_object_mut().unwrap().remove("address");
                 conf.as_object_mut().unwrap().remove("address_name");
                 set(ctx, conf);
                 return Ok(to(ctx, "add_address"));
-            };
-            let mut conf = config(ctx);
-            conf["address_name"] = json!(selected.key);
-            set(ctx, conf);
+            }
+            if let [selected] = at_address.as_slice() {
+                let mut conf = config(ctx);
+                if conf["address_name"].is_null() {
+                    conf["address_name"] = json!(selected.key);
+                    set(ctx, conf);
+                }
+            }
         }
     }
     reads::refresh_fee(app, &mut rule, list.as_ref()).await?;
@@ -782,6 +817,8 @@ pub async fn step(
             "max_interval",
             "network",
             "address",
+            "address_tag",
+            "address_name",
         ] {
             if let Some(value) = ctx.params.form(field) {
                 conf[field] = json!(value)
