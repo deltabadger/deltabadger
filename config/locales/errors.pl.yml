@@ -20,6 +20,7 @@ pl:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "Wydana dotąd kwota jest nieznana: zlecenie zostało zamknięte bez podania swojego kosztu."
+                            quote_amount_limit_reached: "Cała kwota została zainwestowana: zwiększ limit lub go wyłącz, aby uruchomić bota."
                         smart_interval_quote_amount:
                             not_a_number: "Musisz określić kwotę dla Smart Intervals"
                             greater_than_or_equal_to: "Dla tego harmonogramu kwota Smart Intervals nie może być mniejsza niż %{count}"

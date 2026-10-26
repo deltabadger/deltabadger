@@ -20,6 +20,7 @@ nl:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "Het tot nu toe uitgegeven bedrag is onbekend: een order is gesloten zonder de kosten te melden."
+                            quote_amount_limit_reached: "Het volledige bedrag is geïnvesteerd: verhoog de limiet of schakel deze uit om de bot te starten."
                         smart_interval_quote_amount:
                             not_a_number: "U moet een bedrag opgeven voor de Smart Intervals"
                             greater_than_or_equal_to: "Voor dit schema kan het Smart Intervals-bedrag niet kleiner zijn dan %{count}"

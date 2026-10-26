@@ -159,11 +159,15 @@ async fn gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule:
     };
     if let Some(m) = key { return fail_unsized(c, bot, ticker, rule.side, call, vec![m], &cx.credential_version, clock.now()).map(Some); }
     let now = clock.now();
-    model::locked(c, |tx| {
+    // Fenced as the gate's met_at writes are: stopped, or its key replaced, while the price was read keeps the call.
+    match model::run_credential_write(c, bot, &cx.credential_version, |tx| {
         model::remove_signal_call(tx, bot.id, &call.source)?;
         model::log_activity(tx, bot.id, CONDITION_UNMET, Level::Info, json!({ "signal_id": call.signal_id, "limit_type": "price" }), now)
-    })?;
-    Ok(Some(Step::Ran))
+    }) {
+        Ok(()) => Ok(Some(Step::Ran)),
+        Err(EngineError::RunFenced | EngineError::CredentialsChanged) => Ok(Some(Step::Again)),
+        Err(e) => Err(e),
+    }
 }
 
 /// D-SIG-CAP's fast path (§2b step 1): whether the stored amounts alone prove the cap is spent, at any price: nothing left;

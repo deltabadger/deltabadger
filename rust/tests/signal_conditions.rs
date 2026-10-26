@@ -109,6 +109,24 @@ async fn an_unmet_buy_rule_consumes_the_call_with_its_line_and_nothing_else() {
     assert_eq!(v.calls("/0/private/BalanceEx"), 0, "nothing sized");
 }
 
+/// The unmet write is fenced to the credentials the price was read with: a key replaced while the read is in flight keeps
+/// the call and writes nothing.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_key_replaced_while_an_unmet_rules_price_is_read_keeps_the_call() {
+    let s = sig("100", json!({ "price_limited": true, "price_limit": 40000, "price_limit_value_condition": "below", "price_limit_timing_condition": "while" }), json!({}));
+    let path = s._dir.path().join("production.sqlite3");
+    let cipher = seed::cipher();
+    let rotated = std::cell::Cell::new(false);
+    let v = priced().on_price(move || {
+        if rotated.replace(true) { return; }
+        Connection::open(&path).unwrap().execute("UPDATE api_keys SET key = ?1", [cipher.encrypt("rotated-key")]).unwrap();
+    });
+    s.call(s.buy, 1);
+    assert_eq!(s.run(&v, T0).await, Step::Again);
+    assert_eq!((s.calls(), v.sent().len(), s.rows().len(), s.status()), (1, 0, 0, 1));
+    assert!(s.lines().is_empty(), "nothing consumed");
+}
+
 /// An `after` rule latches on the met call (met_at stamped, the order placed) and lets the next call through unread, the
 /// price above it by then; no carry is written, ever.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
@@ -608,6 +626,17 @@ async fn a_start_with_the_cap_spent_is_refused() {
     let (_, answer) = mcp(&i, "start_bot", serde_json::Map::new()).await;
     assert_eq!(answer["error"], json!(true), "{answer}");
     assert!(answer["text"].as_str().unwrap().starts_with("Failed to start bot 'Signals': Settings"), "{answer}");
+    // D-START-CAP-COPY: Rails has no text for this refusal (its missing-translation text); this one is written in every locale.
+    assert!(answer["text"].as_str().unwrap().contains("The whole amount has been invested: raise the limit or turn it off to start the bot."), "{answer}");
+    let token = web::csrf::new_token();
+    let session = web::session::SessionData { user: Some((i.user, "x".into())), csrf: Some(token.clone()), ..Default::default() };
+    let cookie = web::session::seal(&i.app.keys.session, &session, i.app.now());
+    let request = Request::builder().method("PATCH").uri(format!("/pl/bots/{}/start", i.id)).header("host", "localhost:3000")
+        .header("cookie", format!("{}={cookie}", web::session::COOKIE)).header("x-csrf-token", web::csrf::masked(&token))
+        .header("accept", "text/vnd.turbo-stream.html").body(Body::empty()).unwrap();
+    let (_, page) = send(&i.app, request).await;
+    assert!(page.contains("Cała kwota została zainwestowana: zwiększ limit lub go wyłącz, aby uruchomić bota."), "{page}");
+    assert!(!page.contains("Translation missing"), "{page}");
     let status: i64 = i.c.query_row("SELECT status FROM bots WHERE id = ?1", [i.id], |r| r.get(0)).unwrap();
     assert_eq!(status, 2, "not started");
     // Raised: the start goes through.

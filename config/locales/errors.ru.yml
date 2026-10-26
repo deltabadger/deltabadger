@@ -15,6 +15,7 @@ ru:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "Потраченная на данный момент сумма неизвестна: ордер был закрыт без указания его стоимости."
+                            quote_amount_limit_reached: "Вся сумма была инвестирована: увеличьте лимит или отключите его, чтобы запустить бота."
                         smart_interval_quote_amount:
                             not_a_number: "Вы должны указать сумму для Smart Intervals"
                             greater_than_or_equal_to: "Для этого расписания сумма Smart Intervals не может быть меньше %{count}"

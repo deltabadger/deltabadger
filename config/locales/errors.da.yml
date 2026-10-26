@@ -20,6 +20,7 @@ da:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "Det hidtil brugte beløb er ukendt: en ordre blev lukket uden at oplyse sin pris."
+                            quote_amount_limit_reached: "Hele beløbet er investeret: hæv grænsen eller slå den fra for at starte botten."
                         smart_interval_quote_amount:
                             not_a_number: "Du skal angive et beløb for smarte intervaller"
                             greater_than_or_equal_to: "For denne tidsplan kan beløbet for smarte intervaller ikke være mindre end %{count}"

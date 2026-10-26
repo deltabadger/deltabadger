@@ -20,6 +20,7 @@ de:
                     attributes:
                         settings:
                             quote_amount_spent_unknown: "Der bisher ausgegebene Betrag ist unbekannt: Eine Order wurde geschlossen, ohne ihre Kosten zu melden."
+                            quote_amount_limit_reached: "Der gesamte Betrag wurde investiert: Erhöhen Sie das Limit oder schalten Sie es aus, um den Bot zu starten."
                         smart_interval_quote_amount:
                             not_a_number: "Sie müssen einen Betrag für die Smart Intervals angeben"
                             greater_than_or_equal_to: "Für diesen Zeitplan kann der Smart Intervals-Betrag nicht kleiner als %{count} sein"

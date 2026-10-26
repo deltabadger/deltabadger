@@ -11,6 +11,7 @@
     "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
     "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
     "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664",
+    "app/models/exchanges/coinbase.rb": "c662aa764ae09e866024e0e68d6802ada96b59f7da1c197b3075c54b51d0ac26",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -20,9 +21,9 @@
     "config/locales/api.pl.yml": "fda850e430e8d64f14a5b6f078061c674c1a371d7e2883cdf970ee2495f6591b",
     "config/locales/api_read_only.en.yml": "349b0cb8dbf472fa989661b0ca648c8df5cc216d68b5e9b375a246268a00d735",
     "config/locales/api_withdrawal.en.yml": "8ac2fa18ec06a6599e431b80ecf40da79f853193e78ce495e00902dae66bb41a",
-    "config/locales/errors.en.yml": "5c8b9455a0ddd3777d79899edcafe081f3218e786ee5a1ddf5c5688db31e66f2",
-    "config/locales/errors.de.yml": "9ed87da4b5c2773ae37783ff00b4ad7fa54732178ffe8171489962b602cd53f3",
-    "config/locales/errors.pl.yml": "4ede2653ca0512683565a373739b7b32836c92ad354d894dded7ab893bf59c01"
+    "config/locales/errors.en.yml": "19f7041508d10c05917e9f21a0cf705571e3aa71fb1befd06933fcf4bbb2ca9b",
+    "config/locales/errors.de.yml": "6af05527c94dba96629ffc0d4517ce10f0f6f4c8a407d4ba32317ae3dfbde12a",
+    "config/locales/errors.pl.yml": "8abf92d30dc3f30e1072a53c6f5fedafe0b34be61f70a0171b8baa63c99beb2a"
   },
   "honeymaker": "0.12.5",
   "bitrue": {
@@ -39,7 +40,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=7a1cfcdf56bc56d0cfff3763d5398e7fbd54cb11cd761de2e133049534a20deb&timestamp=1792614636528"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=5953c75b46f365a41722e0e156002c0a041a317a256e1194ef8032ef1101b5a9&timestamp=1792985222406"
           ]
         },
         "request": {
@@ -711,7 +712,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=dab468a862681f4dbd203507ec0fc4ad1c561a2c143b78985b24e07ede0dc7ee&timestamp=1792614636539"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=ed6cf228b35b145f91943402eef7d60c2a3569abe9ec96b0434dc59fc5148137&timestamp=1792985222422"
           ]
         },
         "request": {
@@ -1383,7 +1384,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=ad7f73a70d61d1804ea21fed47981a422a4e8b05402c0584cfffb2ed36c3ac69&timestamp=1792614636550"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=9cfacf8fd8c66fb392f309686e94b73bf2b1cd031c463c6ecc54e3d33b0e94af&timestamp=1792985222435"
           ]
         },
         "request": {
