@@ -156,11 +156,15 @@ pub async fn tile(
             Ok(identity)=>identity,
             Err(_)=>return alert(&ctx,i18n::text(ctx.locale,crate::venue::withdrawal::NOT_LISTED_KEY,&[]),true),
         };
+        let inner=app.clone();
+        let Some(rule)=app.db(move|c|model::load(c,&inner,user.id,id)).await? else {return Ok(layout::missing())};
+        // Rails has no separate toggle-submit parameter. Created and stopped tiles
+        // both post the hidden stopped value when their settings are edited.
         match field("status") {
-            Some("scheduled")=>service::Command::Start(id,patch),
-            Some("stopped")=>service::Command::Stop(id),
+            Some("scheduled") if rule.status!=1=>service::Command::Start(id,patch),
+            Some("stopped") if matches!(rule.status,1|4|5|6)=>service::Command::Stop(id),
+            Some("scheduled"|"stopped")|None=>service::Command::Update(id,patch),
             Some(_)=>return Ok(layout::bad_request()),
-            None=>service::Command::Update(id,patch),
         }
     };
     let action = match command { service::Command::Start(..)=>1, service::Command::Stop(_)=>2,service::Command::Delete(_)=>3,_=>0 };

@@ -476,6 +476,145 @@ async fn tile_settings_keep_network_tag_and_key() {
     }
 }
 
+// Submit the tile's successful controls in document order, including Rails' hidden
+// stopped status before the checkbox. Only the user's edited control is changed.
+async fn submit_rendered_tile(
+    i: &Install,
+    id: i64,
+    amount: Option<&str>,
+    checked: Option<bool>,
+) -> common::web::Answer {
+    use common::web::{Browser, Csrf};
+    let data = web::session::SessionData {
+        user: Some((i.s.user_id, "x".into())),
+        ..Default::default()
+    };
+    let mut browser = Browser {
+        cookie: Some(web::session::seal(&i.app.keys.session, &data, i.app.now())),
+        ..Default::default()
+    };
+    let page = browser.get(&i.app, "/rules").await;
+    assert_eq!(page.status, 200);
+    let doc = scraper::Html::parse_document(&page.body);
+    let form = doc
+        .select(&scraper::Selector::parse(&format!("form#rules_withdrawal_{id}")).unwrap())
+        .next()
+        .expect("rendered rule form");
+    let mut fields = Vec::new();
+    for control in form.select(&scraper::Selector::parse("input[name], select[name]").unwrap()) {
+        let node = control.value();
+        if node.attr("disabled").is_some() {
+            continue;
+        }
+        let name = node.attr("name").unwrap();
+        if node.attr("type") == Some("checkbox")
+            && !checked.unwrap_or_else(|| node.attr("checked").is_some())
+        {
+            continue;
+        }
+        let value = if node.name() == "select" {
+            let options: Vec<_> = control
+                .select(&scraper::Selector::parse("option").unwrap())
+                .collect();
+            let selected = options
+                .iter()
+                .find(|o| o.value().attr("selected").is_some())
+                .or_else(|| options.first())
+                .expect("select option");
+            assert!(selected.value().attr("disabled").is_none());
+            selected.value().attr("value").unwrap_or_default()
+        } else if name == "rules_withdrawal[min_amount]" {
+            amount.unwrap_or_else(|| node.attr("value").unwrap_or_default())
+        } else {
+            node.attr("value").unwrap_or_default()
+        };
+        fields.push((name.to_string(), value.to_string()));
+    }
+    assert!(fields.iter().any(|(k, v)| k == "_method" && v == "patch"));
+    assert!(fields
+        .iter()
+        .any(|(k, v)| k == "rules_withdrawal[status]" && v == "stopped"));
+    browser
+        .send_body(
+            &i.app,
+            &form.value().attr("method").unwrap().to_uppercase(),
+            form.value().attr("action").unwrap(),
+            Some(
+                form_urlencoded::Serializer::new(String::new())
+                    .extend_pairs(fields)
+                    .finish(),
+            ),
+            Csrf::None,
+            &[
+                ("content-type", "application/x-www-form-urlencoded"),
+                ("accept", "text/vnd.turbo-stream.html"),
+            ],
+        )
+        .await
+}
+
+async fn edit_rendered_tile(status: i64) {
+    let (i, _server) = identity_listing("Kraken", &["cold"]).await;
+    let id = i.rule(status);
+    let response = submit_rendered_tile(&i, id, Some("0.7"), None).await;
+    assert_eq!(response.status, 200, "{}", response.body);
+    assert!(response.body.contains(&format!(
+        "<turbo-stream action=\"replace\" target=\"rules_withdrawal_{id}\">"
+    )));
+    let saved: (i64, String) = i
+        .c
+        .query_row(
+            "SELECT status,json_extract(settings,'$.min_amount') FROM rules WHERE id=?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(saved, (status, "0.7".into()));
+    assert_eq!(
+        i.c.query_row("SELECT count(*) FROM rust_rule_evaluations", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn rendered_tile_edits_stopped_rule_amount_without_starting() {
+    edit_rendered_tile(2).await;
+}
+
+#[tokio::test]
+async fn rendered_tile_edits_created_rule_amount_without_stopping() {
+    edit_rendered_tile(0).await;
+}
+
+#[tokio::test]
+async fn rendered_tile_toggle_on_reaches_start_capability_guard() {
+    let (i, _server) = identity_listing("Kraken", &["cold"]).await;
+    let id = i.rule(2);
+    let before = i.rows();
+    let response = submit_rendered_tile(&i, id, None, Some(true)).await;
+    // D-RULE-UNSUPPORTED-START: all venues currently disable withdrawals.
+    assert_eq!(response.status, 422, "{}", response.body);
+    assert!(response.body.contains("Withdrawals are not enabled for this exchange."));
+    assert_eq!(i.rows(), before);
+}
+
+#[tokio::test]
+async fn rendered_tile_toggle_off_stops_working_rule() {
+    for status in [1, 4, 5, 6] {
+        let (i, _server) = identity_listing("Kraken", &["cold"]).await;
+        let id = i.rule(status);
+        let response = submit_rendered_tile(&i, id, None, Some(false)).await;
+        assert_eq!(response.status, 200, "status {status}: {}", response.body);
+        assert!(response.body.contains("<turbo-stream action=\"refresh\""));
+        assert_eq!(
+            i.c.query_row("SELECT status FROM rules WHERE id=?1", [id], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+    }
+}
+
 #[tokio::test]
 async fn picker_deduplicates_identical_entries_and_refuses_forged_identities() {
     for venue in ["Binance", "Mexc", "Kraken"] {
