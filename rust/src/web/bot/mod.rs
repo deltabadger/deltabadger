@@ -388,7 +388,7 @@ const SETTINGS: &[(&str, Shape)] = &[
     ("sell_indicator_limit_in_timeframe", Shape::OneOf(TIMEFRAMES)), ("sell_indicator_limit_action", Shape::OneOf(SELL_ACTIONS)), ("sell_indicator_limit_in_ticker_id", Shape::Id),
 ];
 /// And of `transient_data`: the two times the pages read, and the carry Rails validates.
-const TRANSIENT: &[(&str, Shape)] = &[("last_action_job_at", Shape::Time), ("quote_amount_limit_enabled_at", Shape::Time), ("missed_quote_amount", Shape::Carry)];
+const TRANSIENT: &[(&str, Shape)] = &[("last_action_job_at", Shape::Time), ("quote_amount_limit_enabled_at", Shape::Time), ("base_amount_limit_enabled_at", Shape::Time), ("missed_quote_amount", Shape::Carry)];
 
 /// The number a text that is plainly a decimal states, as a Float.
 fn plain(text: &str) -> Option<f64> {
@@ -487,8 +487,6 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let distance_ok = defaulted("limit_order_pcnt_distance") || settings.get("limit_order_pcnt_distance").and_then(Value::as_f64).is_some_and(|share| (0.0..=1.0).contains(&share));
     let interval_ok = matches!(settings.get("interval").and_then(Value::as_str), Some("hour" | "day" | "week" | "month"));
     if !positive("quote_amount") || !interval_ok || !mode_known || !smart_ok || !distance_ok { return Ok(Some("settings no form would have saved")); }
-    // A cap on what is sold (6d) is not counted here.
-    if selling && settings.get("base_amount_limited") == Some(&Value::Bool(true)) { return Ok(Some("a cap on what a selling bot sells")); }
     if ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|key| transient.get(key).is_some_and(|v| !v.is_null())) {
         return Ok(Some("a rebalance, liquidation or redeploy in progress"));
     }

@@ -364,12 +364,13 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
     let now_us = clock.now().timestamp_micros();
     if now_us >= e.settle_scan_at {
         e.settle_scan_at = now_us + SETTLE_SCAN_EVERY_US;
-        let waiting = match super::reversal::scan(&e.primary) {
-            Ok(waiting) => waiting,
+        let scan = match super::reversal::scan(&e.primary, clock.now()) {
+            Ok(scan) => scan,
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
-            Err(err) => { super::log(&format!("[engine] reversal reserves could not be scanned: {err:?}; retried in 10 minutes")); vec![] }
+            Err(err) => { super::log(&format!("[engine] reversal reserves could not be scanned: {err:?}; retried in 10 minutes")); super::reversal::Scan::default() }
         };
-        for (bot, tx) in waiting {
+        for bot_id in scan.status_changed { e.events.send(EngineEvent::StatusChanged { bot_id }); }
+        for (bot, tx) in scan.waiting {
             if e.polls.contains_key(&tx) { continue; }
             let producer = model::load_bot(&e.primary, bot).and_then(|row| e.venue_for(&row)).map(|(_, p)| p).unwrap_or(None);
             e.polls.insert(tx, model::Produced::new((bot, now_us, Attempts::default()), producer));

@@ -26,6 +26,8 @@ struct State {
     on_lookup: Option<Rc<dyn Fn()>>, // the same, while a recovery lookup by cl_ord_id does
     on_price: Option<Rc<dyn Fn()>>,  // the same, while a price read does
     hold_add: Option<Rc<tokio::sync::Notify>>, // AddOrder's reply waits for it: a tick held in hand while a test acts
+    candles: VecDeque<Result<Vec<crate::engine::candles::Candle>, VenueError>>, // candle answers, in order
+    candle_reads: Vec<(DateTime<Utc>, crate::engine::candles::Timeframe)>,  // each candle read's start_at and timeframe
     latency: Option<std::time::Duration>,      // every call first awaits this much timer: a slow venue whose await yields
 }
 
@@ -74,6 +76,10 @@ impl FakeVenue {
         if let Some(d) = d { tokio::time::sleep(d).await; }
     }
     pub fn sent(&self) -> Vec<NewOrder> { self.s.borrow().sent.clone() }
+    /// The next candle read's answer (answers are taken in order; an unscripted read is refused as the trait's default is).
+    pub fn candles_answer(self, answer: Result<Vec<crate::engine::candles::Candle>, VenueError>) -> Self { self.s.borrow_mut().candles.push_back(answer); self }
+    /// Every candle read so far: its start_at and timeframe.
+    pub fn candle_reads(&self) -> Vec<(DateTime<Utc>, crate::engine::candles::Timeframe)> { self.s.borrow().candle_reads.clone() }
     pub fn calls(&self, path: &str) -> usize { self.s.borrow().calls.get(path).copied().unwrap_or(0) }
 
     /// The next scripted body for a path (the last one repeats); `None` when the path is unscripted.
@@ -217,6 +223,13 @@ impl Venue for FakeVenue {
         let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
         check(&body)?;
         free_balance(&body, &ticker.base_code)
+    }
+
+    async fn candles(&self, _ticker: &Ticker, start_at: DateTime<Utc>, timeframe: crate::engine::candles::Timeframe) -> Result<Vec<crate::engine::candles::Candle>, VenueError> {
+        self.wait().await;
+        let mut s = self.s.borrow_mut();
+        s.candle_reads.push((start_at, timeframe));
+        s.candles.pop_front().unwrap_or_else(|| Err(VenueError::Rejected(vec!["candles are not connected for this venue".into()])))
     }
 
     /// A scripted CancelOrder body, or accepted when none is scripted.

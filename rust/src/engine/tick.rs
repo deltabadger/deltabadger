@@ -100,8 +100,9 @@ fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&s
 /// lifecycle.rb:91-115): every status but archived and deleted, so a stopped bot is stopped again (a new stopped_at and a
 /// `stopped` log). It owes no mail itself: Rails mails stopped_by_amount_limit from the fill callback, whatever the stop then
 /// does, so the marker (notice::LIMIT) is written where the stop is counted (polling::apply_committed).
-pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
-    stop_if(c, bot_id, AMOUNT_SPENT, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
+/// The base cap's (Bot::BaseAmountLimitable#handle_base_amount_limit_update) is the same stop with `amount_sold`.
+pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, cap: super::amount_limit::Cap, now: DateTime<Utc>) -> Result<(), EngineError> {
+    stop_if(c, bot_id, cap.stop_message_key(), None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
 }
 
 /// The amount-limit stops a sweep counted (polling::apply_committed), one per qualifying fill callback, as Rails runs one
@@ -123,7 +124,8 @@ fn drain_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>, own
             if &current.run_identity()? != expected_run
                 || (!stopped_here && !crate::enums::BOT_WORKING.contains(&current.status)) { return Ok(()); }
         }
-        let Some((n, current)) = model::load_bot(&tx, bot_id)?.pending_amount_limit_stops()? else { return Ok(()) };
+        let pending = model::load_bot(&tx, bot_id)?;
+        let Some((n, current)) = pending.pending_amount_limit_stops()? else { return Ok(()) };
         let remove = "UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending') WHERE id = ?1";
         if !current || n <= 0 {
             // Counted before the bot was started (afresh or continued) or its limit changed: Rails' Bot::StopJob ran before either.
@@ -132,7 +134,7 @@ fn drain_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>, own
             if !current { super::log(&format!("[engine] bot {bot_id}: {n} amount-limit stop(s) counted before a start or a limit change; discarded")); }
             return Ok(());
         }
-        stop_for_amount_limit(&tx, bot_id, now)?;
+        stop_for_amount_limit(&tx, bot_id, pending.pending_amount_limit_cap(), now)?;
         stopped_here = true;
         // Our own STOP advances the generation. Continue only from that identity, so a
         // concurrent restart still fences the remaining callbacks between transactions.
@@ -944,6 +946,13 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
     };
     let ticker = member.ticker;
+    // Bot::BaseAmountLimitable (slice 6d): what the base cap leaves, read before any exchange call; nothing left is a logged
+    // skip (`return sell_skipped('cap_reached') unless cap.positive?`). Off, it is no bound (Float::INFINITY).
+    let cap = super::accounting::base_amount_available_num(c, bot)?.map(|left| left.to_dec()).transpose().map_err(|e| EngineError::Data(format!("{e:?}")))?;
+    if cap.as_ref().is_some_and(|left| !left.is_positive()) {
+        super::log(&format!("[engine] bot {}: set_orders composition event=sell_skipped reason=cap_reached", bot.id));
+        return Ok(Ok(()));
+    }
     // Bot::OrderSetter#reference_price(ticker, :sell): the last trade for a limit sell, the bid for a market sell.
     let reference = match reference(venue, bot, &ticker, if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Bid }, &ticker.base_code, clock, cx).await {
         Ok(p) => p,
@@ -967,6 +976,9 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         super::log(&format!("[engine] bot {}: set_orders composition event=sell_skipped reason=no_holdings", bot.id));
         return Ok(Ok(()));
     }
+    // `[base || (quote / price), cap].min`, then `[amount, free].min`: the order never sells past the cap (its volume is
+    // floored from this amount).
+    let wanted = match cap { Some(cap) if cap < wanted => cap, _ => wanted };
     let amount = if free < wanted { free } else { wanted };
     // order_setter.rb:292: a loss sold while a buy of it rests anywhere on the account is washed when that buy fills. The
     // verdict first, so only a loss sweeps.

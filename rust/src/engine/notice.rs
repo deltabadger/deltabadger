@@ -11,6 +11,7 @@
 //! | `rust_error_mail_pending` | `{"<kind>": {"error": "…", "stamped_at": "…"}}`, kind as in `failure_notifications` | `notify_about_error` |
 //! | `rust_stopped_mail_pending` | `{"error": "…", "stamped_at": "…"}` | `stopped_by_error` |
 //! | `rust_limit_mail_pending` | `{"stamped_at": "…"}` | `stopped_by_amount_limit` |
+//! | `rust_base_limit_mail_pending` | `{"stamped_at": "…"}` | `stopped_by_base_amount_limit` |
 //!
 //! `error` is at most 500 characters (longer text is cut, with an ellipsis): a marker never grows with what a venue sends.
 //! `stamped_at` is when the engine raised it, the instant of the stamp or stop it was written with (ISO 8601, milliseconds, UTC). `error` is the raw message (Rails' `e.message`);
@@ -30,7 +31,8 @@ pub const FUNDS: &str = super::tick::FUNDS_MAIL_PENDING;
 pub const ERROR: &str = "rust_error_mail_pending";
 pub const STOPPED: &str = "rust_stopped_mail_pending";
 pub const LIMIT: &str = "rust_limit_mail_pending";
-pub const KEYS: [&str; 4] = [FUNDS, ERROR, STOPPED, LIMIT];
+pub const BASE_LIMIT: &str = "rust_base_limit_mail_pending";
+pub const KEYS: [&str; 5] = [FUNDS, ERROR, STOPPED, LIMIT, BASE_LIMIT];
 /// The most an error text may be, in a marker and in the mail built from it.
 pub const ERROR_LIMIT: usize = 500;
 
@@ -52,6 +54,9 @@ pub enum Notice {
     StoppedByError { error: String },
     /// #notify_stopped_by_amount_limit: a fill took the bot to its quote cap and stopped it.
     StoppedByAmountLimit,
+    /// #notify_stopped_by_base_amount_limit: a sell fill took the bot to its base cap (or, D-6D-2, a rotation into selling
+    /// found it used) and stopped it.
+    StoppedByBaseAmountLimit,
 }
 
 impl Notice {
@@ -62,6 +67,7 @@ impl Notice {
             Notice::Error { .. } => "notify_about_error",
             Notice::StoppedByError { .. } => "stopped_by_error",
             Notice::StoppedByAmountLimit => "stopped_by_amount_limit",
+            Notice::StoppedByBaseAmountLimit => "stopped_by_base_amount_limit",
         }
     }
 }
@@ -99,6 +105,7 @@ pub fn pending_in(bot_id: i64, transient: &Map<String, Value>) -> Vec<Pending> {
     }
     if let Some((at, error)) = transient.get(STOPPED).and_then(|v| Some((at(v)?, error(v)?))) { out.push(Pending { bot_id, stamped_at: at, notice: Notice::StoppedByError { error } }); }
     if let Some(at) = transient.get(LIMIT).and_then(at) { out.push(Pending { bot_id, stamped_at: at, notice: Notice::StoppedByAmountLimit }); }
+    if let Some(at) = transient.get(BASE_LIMIT).and_then(at) { out.push(Pending { bot_id, stamped_at: at, notice: Notice::StoppedByBaseAmountLimit }); }
     out
 }
 
@@ -131,6 +138,7 @@ pub fn clear(c: &Connection, cipher: &Cipher, p: &Pending) -> Result<bool, Engin
         Notice::Error { kind, .. } => return Err(EngineError::Data(format!("bot {}: error marker kind {kind:?}", p.bot_id))),
         Notice::StoppedByError { .. } => format!("$.{STOPPED}"),
         Notice::StoppedByAmountLimit => format!("$.{LIMIT}"),
+        Notice::StoppedByBaseAmountLimit => format!("$.{BASE_LIMIT}"),
     };
     let tx = model::immediate(c)?;
     let n = tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, ?1) WHERE id = ?2 AND json_extract(transient_data, ?3) = ?4",

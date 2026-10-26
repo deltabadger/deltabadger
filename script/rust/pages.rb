@@ -952,6 +952,11 @@ module Pages
       'bot_page_rebalancing_off_selling' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => false, 'rebalance_threshold' => 0.1 }),
                                                        stopped('single', 'settings' => selling_base.merge('rebalance_enabled' => true))],
                                                       signed_in(get('/bots/1'), get('/bots/2'), get('/bots'))),
+      # Slice 6d-2: a one-asset seller with its base cap on, and what is left of it (bots/settings/_amount_limit_info), in English
+      # and German.
+      'bot_page_selling_cap' => with_bots([stopped('single', 'settings' => selling_base.merge('base_amount_limited' => true, 'base_amount_limit' => 3)),
+                                           { 'kind' => 'basket' }],
+                                          signed_in(get('/bots/2'), get('/bots/1'), get('/de/bots/1'))),
       # Exactly one bot: the navbar says "Bot" and points at it.
       'bot_page_single_bot' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))], signed_in(get('/bots/1'), get('/de/bots/1'))),
       'bot_page_archived' => with_bots([{ 'kind' => 'basket', 'columns' => { 'status' => 7 } }, { 'kind' => 'single', 'columns' => { 'status' => 7 } }],
@@ -1091,8 +1096,6 @@ module Pages
     ages = [stopped('basket', 'settings' => { 'smart_interval_quote_amount' => 20_000_000 }), { 'kind' => 'single' }]
     {
       # A sold bot's page still shows a realised profit or loss only the figures know; its siblings that have not sold are served.
-      'not_ported_bot_selling_cap' => with_bots([stopped('single', 'settings' => selling_base.merge('base_amount_limited' => true, 'base_amount_limit' => 3)),
-                                                 { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1'))),
       'not_ported_bot_that_sold' => with_bots([stopped('single', 'orders' => 'sold'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
       # An index bot's liquidation, redeploy and rebalance legs: the engine reads them, and its start modal and starts are served
       # (actions_index_history_*). A page without figures has no realised profit or loss to show, so this grid's page is refused;

@@ -1615,6 +1615,63 @@ fn overspend_prevented(dir: &Path, rails_out: &serde_json::Value, rust_out: &ser
     Ok(())
 }
 
+/// Slice 6d-2: the base cap on a one-asset seller (script/rust/decisions.rb limit_sell_scenarios), on all 14 venues, compared
+/// whole beside two named divergences:
+/// - D-6D-1: the base cap's mail states the cap at the base's precision, zeros trimmed, where Rails prints its Float
+///   ("1.0e-05").
+/// - D-6D-2: a rotation into selling with the cap used up stops the bot (amount_sold; a working bot's `stopped` line) and
+///   owes the base cap's mail; Rails leaves it idle and says nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_limit_sell_grid() {
+    let (_copies, outputs) = grid_outputs("grid-limit-sell", 154).await;
+    const SOLD: &str = "bot.settings.extra_amount_limit.amount_sold";
+    let mut failures = vec![];
+    for (name, dir, rails_out, rust_out) in &outputs {
+        let mut rails_out = rails_out.clone();
+        let mut rust_out = rust_out.clone();
+        let mailed = |out: &serde_json::Value| -> Vec<String> { out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap().to_string()).collect() };
+        let bot_after = |out: &serde_json::Value| out["changes"]["bots"].as_array().unwrap().first().map(|b| b["after"].clone()).unwrap_or_default();
+        let reaches = name.ends_with("-poll_reaches") || name.ends_with("-poll_reaches_exponent") || name.ends_with("-sweep_reaches");
+        // Rails' side pinned, so that two silent sides cannot pass.
+        let expected: &[&str] = if reaches { &["stopped_by_base_amount_limit"] } else { &[] };
+        if mailed(&rails_out) != expected { failures.push(format!("{name}: Rails mailed {:?}, expected {expected:?}", mailed(&rails_out))); }
+        if reaches && bot_after(&rails_out)["stop_message_key"] != SOLD { failures.push(format!("{name}: Rails did not stop with amount_sold\n  rails: {rails_out}")); }
+        if name.ends_with("-poll_short") && bot_after(&rails_out)["status"] == 2 { failures.push(format!("{name}: 0.01 of 0.02 stopped Rails")); }
+        let sent = rails_out["sent"].as_array().unwrap().len();
+        let placing = ["-trim", "-cancelled_partial", "-buying_inert"].iter().any(|v| name.ends_with(v));
+        if sent != usize::from(placing) { failures.push(format!("{name}: Rails sent {sent} order(s)\n  rails: {rails_out}")); }
+        // What is left of the cap, never the 0.001 a tick sells: 0.0005 after 0.0095 sold, 0.0007 after a cancelled 0.0093.
+        for (case, left) in [("-trim", "0.0005"), ("-cancelled_partial", "0.0007")] {
+            if name.ends_with(case) && !rails_out["sent"].to_string().contains(left) { failures.push(format!("{name}: Rails did not sell {left}: {}", rails_out["sent"])); }
+        }
+        if name.ends_with("-poll_reaches_exponent") {
+            // D-6D-1.
+            let (r, m) = (&rails_out["mails"][0]["amount"], &rust_out["mails"][0]["amount"]);
+            if (r.as_str(), m.as_str()) != (Some("1.0e-05"), Some("0.00001")) { failures.push(format!("{name} (D-6D-1): Rails {r}, Rust {m}")); }
+            rails_out["mails"] = rust_out["mails"].clone();
+        }
+        if name.contains("-rotation_used_") {
+            // D-6D-2: Rust stopped the bot and owes the mail; Rails did neither. Beyond those, both sides are equal.
+            let (rails_bot, rust_bot) = (bot_after(&rails_out), bot_after(&rust_out));
+            if rails_bot["stop_message_key"] == SOLD || !mailed(&rails_out).is_empty() { failures.push(format!("{name}: Rails now stops at rotation: drop D-6D-2\n  rails: {rails_out}")); }
+            if (rust_bot["status"].clone(), rust_bot["stop_message_key"].clone()) != (serde_json::json!(2), serde_json::json!(SOLD)) || mailed(&rust_out) != ["stopped_by_base_amount_limit"] {
+                failures.push(format!("{name} (D-6D-2): not stopped and mailed\n  rust: {rust_out}"));
+            }
+            for col in ["status", "stopped_at", "stop_message_key", "updated_at"] { rails_out["changes"]["bots"][0]["after"][col] = rust_bot[col].clone(); }
+            rails_out["mails"] = rust_out["mails"].clone();
+            let logs = rust_out["changes"]["bot_activity_logs"].as_array_mut().unwrap();
+            let stops: Vec<usize> = logs.iter().enumerate().filter(|(_, l)| l["after"]["event"] == "stopped").map(|(i, _)| i).collect();
+            if stops.len() != usize::from(name.ends_with("_working")) { failures.push(format!("{name} (D-6D-2): {} stopped line(s)", stops.len())); }
+            for i in stops.into_iter().rev() { logs.remove(i); }
+        }
+        if name == "limit-sell-gemini-buying_inert" {
+            // D-679, as on the quote cap's grid: a Gemini market buy is sized at the crossed ask.
+            if let Err(e) = crossed_buy(name, dir, &rails_out, &rust_out) { failures.push(format!("{name} (D-679): {e}")); }
+        } else if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
     let (_copies, outputs) = grid_outputs("grid-limit", 130).await;

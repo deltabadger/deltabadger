@@ -142,6 +142,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     for id in super::reversal::unrecorded(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     for id in super::reversal::pending_settlements(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
+    refuse_pending_rotations(&o.primary)?;
     // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
     // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row
     // again, so after the handback nothing else would ever stop the bot.
@@ -155,6 +156,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // Again inside the ownership transaction: a rule switched on since the first check is caught before the lease moves.
     refuse_rust_only_conditions(&tx)?;
     refuse_ibkr(&tx, now)?;
+    refuse_pending_rotations(&tx)?;
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: Rails' adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.
@@ -370,6 +372,15 @@ pub fn rust_only_conditions(c: &Connection) -> Result<Vec<(i64, String)>, Engine
 fn refuse_ibkr(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
     let found = crate::venue::ibkr_reservations::handback_refusals(c, now)?;
     if found.is_empty() { Ok(()) } else { Err(EngineError::Ineligible(found)) }
+}
+
+/// Rails cannot finish a deferred base-cap rotation decision, even when its cancels and reserves are settled.
+fn refuse_pending_rotations(c: &Connection) -> Result<(), EngineError> {
+    let key = super::amount_limit::ROTATION_PENDING;
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_type(transient_data, ?1) IS NOT NULL ORDER BY id")?;
+    let ids = s.query_map([format!("$.{key}")], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    if ids.is_empty() { return Ok(()); }
+    Err(EngineError::Ineligible(ids.into_iter().map(|id| format!("bot {id}: {key} is pending; run the engine to settle the base-cap rotation decision before handing back")).collect()))
 }
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {

@@ -8,7 +8,7 @@ use crate::engine::{venue_rules, EngineError};
 use crate::ruby::float_to_s;
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::locale;
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
 /// `root_url`: where links and the logo point. config/environments/production.rb builds it from APP_ROOT_URL and FORCE_SSL.
@@ -107,6 +107,42 @@ pub fn stopped_by_amount_limit(from: &str, urls: &Urls, to: &Recipient, label: &
                        &[("label", Arg::Text(label)), ("amount", Arg::Text(amount)), ("quote", Arg::Text(quote))]);
     let body = format!("{}{html}", opening(to.locale, &subject, &to.name));
     message(from, false, &to.email, subject, urls, &body)
+}
+
+/// BotAlertsMailer#stopped_by_base_amount_limit. `amount` is D-6D-1's (`base_cap_amount`), `base` the one asset's symbol.
+pub fn stopped_by_base_amount_limit(from: &str, urls: &Urls, to: &Recipient, label: &str, amount: &str, base: &str) -> Message {
+    let subject = i18n::text(to.locale, "bot_alerts_mailer.stopped_by_base_amount_limit.subject", &[("label", Arg::Text(label))]);
+    let html = i18n::t(to.locale, "bot_alerts_mailer.stopped_by_base_amount_limit.template_html",
+                       &[("label", Arg::Text(label)), ("amount", Arg::Text(amount)), ("base", Arg::Text(base))]);
+    let body = format!("{}{html}", opening(to.locale, &subject, &to.name));
+    message(from, false, &to.email, subject, urls, &body)
+}
+
+/// D-6D-1: the base cap in the mail at the base's precision (`decimals[:base]`, 8 without one), zeros trimmed. Rails hands
+/// the mailer `base_amount_limit`, a Float printed by Float#to_s ("1.0e-05", "2.0").
+pub fn base_cap_amount(limit: Option<&Value>, decimals: Option<u8>) -> String {
+    let Some(limit) = limit.and_then(|v| crate::ruby::json_to_d(v).ok().flatten()) else { return ruby_to_s(limit) };
+    let text = limit.round(decimals.unwrap_or(8)).to_s_f();
+    text.strip_suffix(".0").map(str::to_string).unwrap_or(text)
+}
+
+/// The one asset of a one-asset basket, as the base mail names it: its symbol (None without one: Rails' `base_asset` is
+/// nil and the mail raises), and `decimals[:base]` (the first current member's ticker).
+pub(crate) fn base_of(c: &Connection, bot_id: i64, settings: &Value) -> Result<Option<(String, Option<u8>)>, EngineError> {
+    let ids: Vec<i64> = settings.get("allocations").and_then(Value::as_object).map(|m| m.keys().filter_map(|k| k.parse().ok()).collect()).unwrap_or_default();
+    let [id] = ids[..] else { return Ok(None) };
+    let Some(symbol) = c.query_row("SELECT symbol FROM assets WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).optional()?.flatten() else { return Ok(None) };
+    let decimals: Option<i64> = c.query_row("SELECT t.base_decimals FROM bot_index_assets b JOIN tickers t ON t.id = b.ticker_id WHERE b.bot_id = ?1 AND b.in_index = 1 ORDER BY b.id LIMIT 1",
+                                            [bot_id], |r| r.get(0)).optional()?.flatten();
+    Ok(Some((symbol, decimals.and_then(|d| u8::try_from(d).ok()))))
+}
+
+/// What the base cap's mail states, (cap, base): as its marker captured them when the stop owed it, else (a marker written
+/// before it captured them) from the settings as they are now.
+pub(crate) fn base_mail_values(c: &Connection, bot_id: i64, settings: &Value, marker: Option<&str>) -> Result<Option<(String, String)>, EngineError> {
+    let marker: Value = marker.and_then(|m| serde_json::from_str(m).ok()).unwrap_or_default();
+    if let (Some(amount), Some(base)) = (marker["amount"].as_str(), marker["base"].as_str()) { return Ok(Some((amount.to_string(), base.to_string()))); }
+    Ok(base_of(c, bot_id, settings)?.map(|(base, decimals)| (base_cap_amount(settings.get("base_amount_limit"), decimals), base)))
 }
 
 /// TestMailer#test_email (Settings: send a test email).
@@ -209,12 +245,12 @@ fn ruby_to_s(v: Option<&Value>) -> String {
 /// A bot whose label is blank is named by Rails the first time it loads the row; here the label is used as stored
 /// (a listed divergence that needs a bot Rails never loaded).
 pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls: &Urls) -> Result<Option<Message>, EngineError> {
-    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
     let row: Option<Row> = c.query_row(
-        "SELECT b.label, b.settings, u.email, u.name, u.locale, e.name, e.type FROM bots b JOIN users u ON u.id = b.user_id \
+        "SELECT b.label, b.settings, u.email, u.name, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
          LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
-        [bot_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional()?;
-    let Some((label, settings, Some(email), name, stored_locale, exchange_name, exchange_type)) = row else { return Ok(None) };
+        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))).optional()?;
+    let Some((label, settings, Some(email), name, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
     let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(format!("bot {bot_id}: settings: {e}")))?;
     let to = Recipient { email, name: bounded(&name.unwrap_or_default(), NAME_LIMIT), locale: user_locale(stored_locale.as_deref()) };
     let label = bounded(&label.unwrap_or_default(), NAME_LIMIT);
@@ -234,5 +270,7 @@ pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls
         }),
         Notice::StoppedByAmountLimit => symbol(settings.get("quote_asset_id").and_then(Value::as_i64))?
             .map(|quote| stopped_by_amount_limit(from, urls, &to, &label, &ruby_to_s(settings.get("quote_amount_limit")), &quote)),
+        Notice::StoppedByBaseAmountLimit => base_mail_values(c, bot_id, &settings, base_marker.as_deref())?
+            .map(|(amount, base)| stopped_by_base_amount_limit(from, urls, &to, &label, &amount, &base)),
     })
 }

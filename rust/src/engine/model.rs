@@ -329,6 +329,21 @@ impl Bot {
     pub fn amount_limit_key(&self) -> Result<String, EngineError> {
         Ok(serde_json::json!([self.started_at_us()?, self.settings.get("quote_amount_limited"), self.settings.get("quote_amount_limit")]).to_string())
     }
+    /// `amount_limit_key` for the base cap (slice 6d): its start, its switch, its limit and when it was switched on, so editing
+    /// the cap, or switching it off and on, is a new cause. Also D-6D-2's mail dedupe (`amount_limit::STOP_MAILED`).
+    pub fn base_amount_limit_key(&self) -> Result<String, EngineError> {
+        Ok(serde_json::json!([self.started_at_us()?, self.settings.get("base_amount_limited"), self.settings.get("base_amount_limit"),
+                              self.transient.get("base_amount_limit_enabled_at")]).to_string())
+    }
+    /// The key a cap's stops are counted under.
+    pub fn cap_key(&self, cap: super::amount_limit::Cap) -> Result<String, EngineError> {
+        match cap { super::amount_limit::Cap::Quote => self.amount_limit_key(), super::amount_limit::Cap::Base => self.base_amount_limit_key() }
+    }
+    /// Which cap a pending count is for: its `kind`, a legacy count (no kind) the quote cap's.
+    pub fn pending_amount_limit_cap(&self) -> super::amount_limit::Cap {
+        let kind = self.transient.get("rust_amount_limit_stops_pending").and_then(|v| v.get("kind")).and_then(Value::as_str);
+        if kind == Some("base") { super::amount_limit::Cap::Base } else { super::amount_limit::Cap::Quote }
+    }
     /// transient_data.rust_amount_limit_stops_pending: its count, and whether it still applies: counted under this bot's current
     /// key, and no continue start pending (`rust_continue_start`): the user's resume overrides a stop counted before it, which
     /// Rails would already have run, and a plain resume keeps the key. A count that raced the resume inside one tick is
@@ -336,7 +351,7 @@ impl Bot {
     pub fn pending_amount_limit_stops(&self) -> Result<Option<(i64, bool)>, EngineError> {
         let Some(v) = self.transient.get("rust_amount_limit_stops_pending").filter(|v| !v.is_null()) else { return Ok(None) };
         let continued = self.transient.get("rust_continue_start").is_some();
-        Ok(Some((v["count"].as_i64().unwrap_or(0), !continued && v["key"].as_str() == Some(self.amount_limit_key()?.as_str()))))
+        Ok(Some((v["count"].as_i64().unwrap_or(0), !continued && v["key"].as_str() == Some(self.cap_key(self.pending_amount_limit_cap())?.as_str()))))
     }
     /// transient_data.rust_signal_calls: the webhook calls waiting for this engine, oldest first (the hook appends). Absent is
     /// none; anything but an array of `{source, signal_id, triggered_at}` is refused, never read as none.
