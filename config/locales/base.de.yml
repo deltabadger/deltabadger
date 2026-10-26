@@ -932,3 +932,7 @@ de:
         flip_basket_only: "flip gilt nur für Portfolio-Bots."
         condition_no_subject: "hat noch kein Asset zum Beobachten"
         condition_subject_departed: "%{symbol} (nicht im Index)"
+        signal_condition_unmet: "Signal ignoriert — Limit %{limit} nicht erfüllt"
+        signal_quote_amount_limit_reached: "Kaufsignal ignoriert — der gesamte Betrag wurde investiert"
+        signal_buy_calls: "Bei einem Kaufsignal"
+        signal_sell_calls: "Bei einem Verkaufssignal"

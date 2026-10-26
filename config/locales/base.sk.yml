@@ -955,3 +955,7 @@ sk:
         flip_basket_only: "flip platí len pre portfóliové boty."
         condition_no_subject: "zatiaľ nemá žiadne aktívum na sledovanie"
         condition_subject_departed: "%{symbol} (mimo indexu)"
+        signal_condition_unmet: "Signál ignorovaný — limit %{limit} nebol splnený"
+        signal_quote_amount_limit_reached: "Nákupný signál ignorovaný — celá čiastka bola investovaná"
+        signal_buy_calls: "Pri nákupnom signáli"
+        signal_sell_calls: "Pri predajnom signáli"

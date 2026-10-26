@@ -947,3 +947,7 @@ sv:
         flip_basket_only: "flip gäller bara portföljbotar."
         condition_no_subject: "har ännu ingen tillgång att bevaka"
         condition_subject_departed: "%{symbol} (inte i indexet)"
+        signal_condition_unmet: "Signalen ignorerades — gränsen för %{limit} uppfylldes inte"
+        signal_quote_amount_limit_reached: "Köpsignalen ignorerades — hela beloppet har investerats"
+        signal_buy_calls: "Vid en köpsignal"
+        signal_sell_calls: "Vid en säljsignal"

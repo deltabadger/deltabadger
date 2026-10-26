@@ -27,7 +27,8 @@ fn split_bots(data: &mut Value) {
 /// The schemas as recorded from Rails, before `rule_kinds`.
 pub fn recorded() -> Value { serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null) }
 /// D-MCP-COND-KINDS: update_bot_settings' rule fields say which bot kinds take them (conditions::support), where this build
-/// runs a rule on an index bot that Rails' does not have: the only change to the recorded schemas.
+/// runs a rule on an index or signal bot that Rails' does not have: the only change to the recorded schemas. A signal bot
+/// watches its own pair (no subject field).
 fn rule_kinds(data: &mut Value) {
     use crate::engine::conditions::{support, Support};
     use crate::web::bot::Kind;
@@ -35,13 +36,16 @@ fn rule_kinds(data: &mut Value) {
     let Some(fields) = tool["inputSchema"]["properties"].as_object_mut() else { return };
     for (name, schema) in fields.iter_mut() {
         let Some((rule, selling)) = crate::web::bot::draft::field_rule(name) else { continue };
-        if support(Kind::Index, rule, selling, "pause") != Support::Implemented { continue; }
+        let index = support(Kind::Index, rule, selling, "pause") == Support::Implemented;
+        let signal = support(Kind::Signal, rule, selling, "pause") == Support::Implemented && !name.ends_with("_in_ticker_id");
+        if !index && !signal { continue; }
         let Some(text) = schema["description"].as_str() else { continue };
+        let kinds = match (index, signal) { (true, true) => "Basket, index and signal bots", (true, false) => "Basket and index bots", _ => "Basket and signal bots" };
         let text = if name.ends_with("_in_ticker_id") {
             text.replace("Basket bots: the ticker id of the member it watches (get_bot_details lists them).",
                          "Basket and index bots: the ticker id of the member it watches (get_bot_details lists them); an index bot's may be a former member.")
-        } else if name.ends_with("_mode") { format!("{text} Basket and index bots; flip is for basket bots only.") }
-        else { format!("{text} Basket and index bots.") };
+        } else if name.ends_with("_mode") { format!("{text} {kinds}; flip is for basket bots only.") }
+        else { format!("{text} {kinds}.") };
         schema["description"] = json!(text);
     }
 }

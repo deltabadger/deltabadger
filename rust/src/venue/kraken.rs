@@ -417,6 +417,20 @@ impl<T: Transport> KrakenVenue<T> {
 
 impl<T: Transport> Venue for KrakenVenue<T> {
     fn rules(&self) -> &'static VenueRules { &KRAKEN }
+
+    /// Exchanges::Kraken#list_withdrawal_addresses' read: WithdrawAddresses for `coin` (no method), every entry.
+    async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, VenueError> {
+        let body = self.fetch(&self.private(super::withdrawal::KRAKEN_ADDRESSES, &[("asset", coin.to_string())]), false).await.map_err(super::withdrawal::scrub)?;
+        super::withdrawal::kraken_entries(&body).map_err(super::withdrawal::scrub)
+    }
+
+    /// D-RULE-KRAKEN-QUOTE: WithdrawInfo(asset, key, amount), the fee for exactly `amount` (`withdrawal::kraken_quote`).
+    async fn withdrawal_fee(&self, destination: &super::withdrawal::Destination, amount: &BigDec) -> Result<Option<BigDec>, VenueError> {
+        let super::withdrawal::Destination::Kraken { asset, key, .. } = destination else { return Err(super::withdrawal::not_connected()) };
+        let fields = [("asset", asset.clone()), ("key", key.clone()), ("amount", amount.to_s_f())];
+        let body = self.fetch(&self.private(super::withdrawal::KRAKEN_INFO, &fields), false).await.map_err(super::withdrawal::scrub)?;
+        super::withdrawal::kraken_quote(&body, amount).map_err(super::withdrawal::scrub)
+    }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
     /// Exchanges::Kraken#get_ticker_information: public Ticker by the ticker's own pair.

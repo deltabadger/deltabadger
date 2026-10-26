@@ -33,8 +33,8 @@ fn m3_reads_remain_registered_at_every_m4_task_boundary(){
     }
 }
 
-/// D-MCP-COND-KINDS: update_bot_settings' fields of the rules an index bot runs here (conditions::support: the cap and the
-/// buy side's price rule) say so; nothing else of the recorded schemas changes.
+/// D-MCP-COND-KINDS: update_bot_settings' fields of the rules an index or signal bot runs here (conditions::support: the cap,
+/// the buy side's price rule, and a signal bot's sell side's) say so; nothing else of the recorded schemas changes.
 #[test]
 fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     let (mut recorded,mut ours)=(protocol::recorded(),protocol::metadata().clone());
@@ -49,7 +49,12 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
         if schema["description"]!=wanted[name]["description"]{changed.push(name.clone());schema["description"]=wanted[name]["description"].clone();}
     }
     assert_eq!(recorded,ours,"only descriptions of update_bot_settings change");
-    assert_eq!(changed,["quote_amount_limited","quote_amount_limit","price_limited","price_limit_mode","price_limit_value_condition","price_limit","price_limit_range_lower_bound","price_limit_range_upper_bound","price_limit_in_ticker_id"]);
+    assert_eq!(changed,["quote_amount_limited","quote_amount_limit","price_limited","price_limit_mode","price_limit_value_condition","price_limit","price_limit_range_lower_bound","price_limit_range_upper_bound","price_limit_in_ticker_id",
+                        "sell_price_limited","sell_price_limit_mode","sell_price_limit_value_condition","sell_price_limit","sell_price_limit_range_lower_bound","sell_price_limit_range_upper_bound"]);
+    // D-SIG-CONDITIONS / D-SIG-CAP: a signal bot takes the cap and both sides' price rules, never a subject.
+    let field=|name:&str|ours["tools"][at]["inputSchema"]["properties"][name]["description"].as_str().unwrap().to_string();
+    assert!(field("quote_amount_limit").ends_with(" Basket, index and signal bots."),"{}",field("quote_amount_limit"));
+    assert!(field("sell_price_limit_mode").ends_with(" Basket and signal bots; flip is for basket bots only."),"{}",field("sell_price_limit_mode"));
     let ticker=&ours["tools"].as_array().unwrap().iter().find(|t|t["name"]=="update_bot_settings").unwrap()["inputSchema"]["properties"]["price_limit_in_ticker_id"]["description"];
     assert_eq!(ticker,"Price condition while buying. Basket and index bots: the ticker id of the member it watches (get_bot_details lists them); an index bot's may be a former member.");
 }

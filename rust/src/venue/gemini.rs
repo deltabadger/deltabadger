@@ -203,6 +203,21 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
     }
 
     fn rules(&self) -> &'static VenueRules { &RULES }
+
+    /// Exchanges::Gemini#list_withdrawal_addresses' read: approvedAddresses under NETWORK_MAP's network for `coin`.
+    async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, VenueError> {
+        let Some(network) = super::withdrawal::gemini_network(coin) else { return Ok(vec![]) };
+        let body = self.post(&format!("/v1/approvedAddresses/account/{network}"), vec![]).await.map_err(super::withdrawal::scrub)?;
+        super::withdrawal::gemini_entries(&body)
+    }
+
+    /// D-RULE-GEMINI-FEE-ESTIMATE: POST /v2/withdraw/{network}/{ticker}/feeEstimate with the address and amount.
+    async fn withdrawal_fee(&self, destination: &super::withdrawal::Destination, amount: &BigDec) -> Result<Option<BigDec>, VenueError> {
+        let super::withdrawal::Destination::Gemini { ticker, network, address } = destination else { return Err(super::withdrawal::not_connected()) };
+        let params = vec![("address", Value::String(address.clone())), ("amount", Value::String(amount.to_s_f()))];
+        let body = self.post(&format!("/v2/withdraw/{network}/{ticker}/feeEstimate"), params).await.map_err(super::withdrawal::scrub)?;
+        Ok(super::withdrawal::gemini_fee(&body, ticker))
+    }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
     /// #get_ask_price / #get_bid_price through #get_bid_ask_price (pubticker: `bid` and `ask` both dug), and #get_last_price

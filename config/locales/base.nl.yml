@@ -930,3 +930,7 @@ nl:
         flip_basket_only: "flip geldt alleen voor portefeuillebots."
         condition_no_subject: "heeft nog geen asset om te volgen"
         condition_subject_departed: "%{symbol} (niet in de index)"
+        signal_condition_unmet: "Signaal genegeerd — %{limit}-limiet niet bereikt"
+        signal_quote_amount_limit_reached: "Koopsignaal genegeerd — het volledige bedrag is geïnvesteerd"
+        signal_buy_calls: "Bij een koopsignaal"
+        signal_sell_calls: "Bij een verkoopsignaal"

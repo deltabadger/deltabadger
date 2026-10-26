@@ -108,15 +108,14 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
     let deferred = std::cell::Cell::new(None);
     let class: Option<String> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, user), |r| r.get(0)).optional()?;
     let Some(class) = class else { return Ok(Outcome::Missing) };
-    // A signal bot's lifecycle (bot::signal_write).
+    // A signal bot's settings and lifecycle (bot::signal_write).
     let signal = class == crate::engine::model::SIGNAL_TYPE;
-    if !(["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) || signal && matches!(write, Write::Lifecycle(_))) {
+    if !(["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) || signal) {
         let tx = crate::engine::model::immediate(c)?;
         let reason = match crate::engine::eligibility::guard(&tx, &app.cipher, Some(id)) {
             Err(refusal) => refusal.reason(),
             Ok(()) => match crate::engine::eligibility::bot_reasons(&tx, &crate::engine::model::load_bot(&tx, id)?)?.join("; ") {
-                // An admitted signal bot: only its settings through the API are not served yet.
-                reasons if reasons.is_empty() => "a signal bot's settings through the API".to_string(),
+                reasons if reasons.is_empty() => format!("a {class} through the API"),
                 reasons => reasons,
             },
         };
@@ -126,6 +125,8 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
     }
     let out = match write {
         Write::Lifecycle(action) if signal => super::bot::signal_write::service(c, &ctx, &heard, user, id, action, submitted),
+        // D-SIG-CONDITIONS / D-SIG-CAP: a signal bot's settings through its own writer, the page's.
+        Write::Settings if signal => super::bot::signal_write::settings_service(c, &ctx, user, id, submitted),
         Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
             let updated: Vec<&String> = draft.submitted.keys().collect();
             let text = if draft.errors.is_empty() {
