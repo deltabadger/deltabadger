@@ -74,7 +74,7 @@ impl Cache {
 
 /// When the candle holding `now` closes: the month's and week's last nanosecond (`end_of_month`, `end_of_week`), else the
 /// epoch-aligned period's end (Utilities::Time.seconds_to_current_candle_close).
-fn candle_close(now: DateTime<Utc>, tf: Timeframe) -> DateTime<Utc> {
+pub fn candle_close(now: DateTime<Utc>, tf: Timeframe) -> DateTime<Utc> {
     let midnight = |d: chrono::NaiveDate| Utc.from_utc_datetime(&d.and_hms_opt(0, 0, 0).expect("midnight"));
     match tf {
         Timeframe::Month => midnight(now.date_naive().with_day(1).expect("the first")).checked_add_months(Months::new(1)).expect("in range") - Duration::nanoseconds(1),
@@ -83,9 +83,14 @@ fn candle_close(now: DateTime<Utc>, tf: Timeframe) -> DateTime<Utc> {
     }
 }
 
+/// The check job adds Utilities::Time's Float duration back to Time.now. Preserve its nanosecond rounding.
+pub fn next_check(now: DateTime<Utc>, tf: Timeframe) -> DateTime<Utc> {
+    minus_float(now, -seconds_since(candle_close(now, tf), now))
+}
+
 /// `n` timeframes before `t` (`t - n * timeframe`, ActiveSupport's `advance`): calendar months for a month.
-fn back(t: DateTime<Utc>, tf: Timeframe, n: u32) -> DateTime<Utc> {
-    match tf { Timeframe::Month => t.checked_sub_months(Months::new(n)).expect("in range"), _ => t - Duration::seconds(i64::from(n) * tf.seconds()) }
+fn back(t: DateTime<Utc>, tf: Timeframe, n: u32) -> Option<DateTime<Utc>> {
+    match tf { Timeframe::Month => t.checked_sub_months(Months::new(n)), _ => t.checked_sub_signed(Duration::seconds(i64::from(n) * tf.seconds())) }
 }
 
 /// `t - f` for Float seconds `f`, as Time#- (Time#since) takes a Float: its exact binary value, then down to the
@@ -112,7 +117,10 @@ fn seconds_since(now: DateTime<Utc>, earlier: DateTime<Utc>) -> f64 {
 /// Ticker#closed_candle_closes: the closes of the candles since `(multiplier + 2)` timeframes ago, the newest dropped
 /// while it is still forming. No candles at all is Rails' Failure.
 async fn closed_candle_closes<V: Venue>(venue: &V, ticker: &Ticker, tf: Timeframe, multiplier: u32, now: DateTime<Utc>) -> Result<Vec<BigDec>, VenueError> {
-    let since = back(now, tf, multiplier + 2);
+    // D-COND-LOOKBACK-RANGE: Rails' arbitrary-range Time accepts dates outside chrono's range.
+    // Such a lookback is a settled read failure, never an overflow or a panic.
+    let since = multiplier.checked_add(2).and_then(|n| back(now, tf, n))
+        .ok_or_else(|| VenueError::Rejected(vec!["condition candle lookback is outside the supported date range".into()]))?;
     let mut candles = venue.candles(ticker, since, tf).await?;
     if candles.is_empty() {
         return Err(VenueError::Rejected(vec![format!("Failed to get {} candles since {} for {}.", tf.inspect(), since.format("%Y-%m-%d %H:%M:%S UTC"), ticker.ticker)]));
@@ -181,7 +189,9 @@ fn round(n: &Num, places: i64) -> Option<Num> {
 pub async fn rsi<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, tf: Timeframe, period: usize, now: DateTime<Utc>) -> Result<Num, VenueError> {
     let key = Key::Rsi(ticker.id, period, tf);
     if let Some(Kept::Rsi(v)) = cache.get(&key, now) { return Ok(v); }
-    let closes = closed_candle_closes(venue, ticker, tf, 10 * period as u32, now).await?;
+    let multiplier = u32::try_from(period).ok().and_then(|p| p.checked_mul(10))
+        .ok_or_else(|| VenueError::Rejected(vec!["condition candle lookback is outside the supported date range".into()]))?;
+    let closes = closed_candle_closes(venue, ticker, tf, multiplier, now).await?;
     let failed = || VenueError::Rejected(vec![format!("Failed to calculate {} RSI for {} (period: {period})", tf.inspect(), ticker.ticker)]);
     if period == 0 || period >= closes.len() { return Err(failed()); }
     let value = rsi_of(&closes, period).and_then(|v| round(&v, 2)).ok_or_else(failed)?;
@@ -197,7 +207,9 @@ pub async fn moving_average<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker,
     let pick = |sma: Num, ema: Num| match kind { MaType::Sma => sma, MaType::Ema => ema };
     let key = Key::Ma(ticker.id, period, tf);
     if let Some(Kept::Ma { sma, ema }) = cache.get(&key, now) { return Ok(pick(sma, ema)); }
-    let closes = closed_candle_closes(venue, ticker, tf, 10 * period as u32, now).await?;
+    let multiplier = u32::try_from(period).ok().and_then(|p| p.checked_mul(10))
+        .ok_or_else(|| VenueError::Rejected(vec!["condition candle lookback is outside the supported date range".into()]))?;
+    let closes = closed_candle_closes(venue, ticker, tf, multiplier, now).await?;
     let failed = || VenueError::Rejected(vec![format!("Failed to calculate {} Moving Averages for {} (period: {period})", tf.inspect(), ticker.ticker)]);
     if period == 0 || period > closes.len() { return Err(failed()); }
     let sum = ruby_sum(&closes[closes.len() - period..].iter().cloned().map(Num::Dec).collect::<Vec<_>>()).map_err(|_| failed())?;

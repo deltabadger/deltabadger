@@ -597,7 +597,6 @@ async fn the_api_refuses_what_a_signal_bot_does_not_take() {
         (json!({ "quote_amount": 50 }), "quote_amount applies to DCA bots only."),
         (json!({ "rebalance_enabled": true }), "rebalance_enabled applies to basket and index bots only."),
         (json!({ "base_amount_limited": true }), "base_amount_limited applies to basket bots only."),
-        (json!({ "price_drop_limited": true }), "This app can't run that yet: price_drop_limited on a signal bot"),
     ] {
         let i = install();
         let before = row(&i);
@@ -645,3 +644,26 @@ async fn a_start_with_the_cap_spent_is_refused() {
     assert_eq!(answer["text"], json!("Bot 'Signals' started successfully."), "{answer}");
 }
 
+
+
+#[tokio::test(flavor = "current_thread")]
+async fn candle_conditions_save_identical_rows_on_web_mcp_and_rest() {
+    for selling in [false, true] {
+        let prefix = if selling { "sell_" } else { "" };
+        for (rule, extra) in [
+            ("price_drop_limit", json!({"": 20, "_time_window_condition": "twenty_four_hours"})),
+            ("moving_average_limit", json!({"_in_ma_type": "ema", "_in_period": 12, "_in_timeframe": "four_hours", "_value_condition": "below"})),
+            ("indicator_limit", json!({"": 40, "_in_indicator": "rsi", "_in_timeframe": "one_week", "_value_condition": "above"})),
+        ] {
+            let mut api = json!({format!("{prefix}{rule}ed"): true, format!("{prefix}{rule}_mode"): if rule == "price_drop_limit" { "start" } else { "restrict" }});
+            for (suffix, value) in extra.as_object().unwrap() { api[format!("{prefix}{rule}{suffix}")] = value.clone(); }
+            let mut web = api.clone();
+            for (_, v) in web.as_object_mut().unwrap() { *v = json!(match v { Value::Bool(true) => "1".into(), Value::String(s) => s.clone(), _ => v.to_string() }); }
+            let (saved, row) = on_every_surface(web, api).await;
+            assert_eq!(saved[0].0, 200, "{rule}: {:?}", saved);
+            assert_ne!(saved[1].1["error"], json!(true), "{rule}: {:?}", saved);
+            assert_eq!(saved[2].0, 200, "{rule}: {:?}", saved);
+            assert_eq!(row["settings"][format!("{prefix}{rule}ed")], json!(true));
+        }
+    }
+}

@@ -761,7 +761,7 @@ fn index_rules(body: &mut Value) -> Vec<Vec<Value>> {
     while i < lines.len() {
         let form = lines[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form "));
         let end = if form { subtree_end(lines, i) } else { i + 1 };
-        let rule = form && lines[i..end].iter().any(|l| l.as_str().is_some_and(|l| l.contains("name=\"bots_dca_index[price_limited]\"") || l.contains("name=\"bots_dca_index[quote_amount_limited]\"")));
+        let rule = form && lines[i..end].iter().any(|l| l.as_str().is_some_and(|l| ["price_limited", "price_drop_limited", "moving_average_limited", "indicator_limited", "quote_amount_limited"].iter().any(|k| l.contains(&format!("name=\"bots_dca_index[{k}]\"")))));
         if !rule { i += 1; continue; }
         let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
         taken.push(lines.drain(start..end).filter(|l| !is_space(l)).collect());
@@ -818,7 +818,7 @@ async fn an_index_bots_rule_forms_are_its_basket_twins() {
     while i < lines.len() {
         let form = lines[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form "));
         let end = if form { subtree_end(&lines, i) } else { i + 1 };
-        if form && lines[i..end].iter().any(|l| l.as_str().is_some_and(|l| l.contains("[price_limited]\"") || l.contains("[quote_amount_limited]\""))) {
+        if form && lines[i..end].iter().any(|l| l.as_str().is_some_and(|l| ["price_limited", "price_drop_limited", "moving_average_limited", "indicator_limited", "quote_amount_limited"].iter().any(|k| l.contains(&format!("[{k}]\""))))) {
             let mut block: Vec<Value> = vec![];
             let mut j = i;
             while j < end {
@@ -831,20 +831,20 @@ async fn an_index_bots_rule_forms_are_its_basket_twins() {
         }
         i = end;
     }
-    assert_eq!(twin.len(), 2, "the twin draws a price rule and a spending cap");
+    assert_eq!(twin.len(), 5, "the twin draws four trigger rules and a spending cap");
     assert!(twin[0].iter().any(|l| l.as_str().is_some_and(|l| l.contains("value=\"restrict\""))), "the twin's mode select is kept");
     let member = rust_forms("twin_index_member").await;
     assert_eq!(member, twin, "an index bot watching a member draws its basket twin's forms");
     // A former member is offered by name, selected; the rest of the price form and the cap are the twin's.
     let departed = rust_forms("twin_index_departed").await;
-    assert_eq!(departed.len(), 2);
-    assert_eq!(departed[1], twin[1], "the cap form");
+    assert_eq!(departed.len(), 5);
+    assert_eq!(departed[4], twin[4], "the cap form");
     let text = departed[0].iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>().join("\n");
     assert!(text.contains("SOL (not in the index)"), "{text}");
     assert_eq!(departed[0].iter().filter(|l| l.as_str().is_some_and(|l| l.trim_start().starts_with("<option") && l.contains("selected"))).count(), 3, "one selected option in each of the three selects: {text}");
     // No rule on: the forms are drawn switched off, the default subject (BTC, the largest member) preselected, no flip.
     let off = rust_forms("twin_index_off").await;
-    assert_eq!(off.len(), 2);
+    assert_eq!(off.len(), 5);
     let text = off[0].iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>().join("\n");
     assert!(!text.contains("value=\"flip\"") && text.contains("rule--inactive"), "{text}");
     let selected: Vec<&str> = off[0].iter().filter_map(|l| l.as_str()).filter(|l| l.trim_start().starts_with("<option") && l.contains("selected")).collect();
@@ -891,12 +891,15 @@ async fn a_signal_bots_rule_forms_are_its_basket_twins() {
         }
         out
     };
-    let mut expected = twin("twin_signal_basket_buy", &["price_limited", "quote_amount_limited"]);
-    assert_eq!(expected.len(), 2, "the buying twin draws a price rule and a spending cap");
-    let sell = twin("twin_signal_basket_sell", &["sell_price_limited"]);
-    assert_eq!(sell.len(), 1, "the selling twin draws its sell side's price rule");
+    let mut expected = twin("twin_signal_basket_buy", &["price_limited", "price_drop_limited", "moving_average_limited", "indicator_limited", "quote_amount_limited"]);
+    assert_eq!(expected.len(), 5, "the buying twin draws four trigger rules and a spending cap");
+    let sell = twin("twin_signal_basket_sell", &["sell_price_limited", "sell_price_drop_limited", "sell_moving_average_limited", "sell_indicator_limited"]);
+    assert_eq!(sell.len(), 4, "the selling twin draws four trigger rules");
     expected.extend(sell.into_iter().map(|form| form.into_iter().map(|l| json!(l.as_str().unwrap_or_default()
         .replace("id=\"settings-price-limit-info\"", "id=\"settings-sell-price-limit-info\"")
+        .replace("id=\"settings-price-drop-limit-info\"", "id=\"settings-sell-price-drop-limit-info\"")
+        .replace("id=\"settings-moving-average-limit-info\"", "id=\"settings-sell-moving-average-limit-info\"")
+        .replace("id=\"settings-indicator-limit-info\"", "id=\"settings-sell-indicator-limit-info\"")
         .replace(r#"{\"bot_id\":1}"#, r#"{\"bot_id\":1,\"side\":\"selling\"}"#))).collect()));
     let mut body = last(&run(&rust_root.path().join("twin_signal_rules")).await);
     // Compared line by line, without the indent: the forms sit one level deeper here, inside their block.

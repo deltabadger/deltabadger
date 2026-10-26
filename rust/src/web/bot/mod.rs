@@ -633,8 +633,8 @@ impl Bot {
             has_submitted_orders: exists(" AND status = 0")?,
             has_pending_market_orders: exists(&format!(" AND {}", orders::PENDING_MARKET))?,
         };
-        // Bots::Signal includes none of the concerns that fill settings in on load.
-        if kind != Kind::Signal { bot.fill_defaults(); }
+        // Signal rules receive read-only defaults; basket/index settings follow Rails.
+        bot.fill_defaults();
         if bot.label_unsaved { bot.label = bot.default_label(locale); }
         Ok(Some(bot))
     }
@@ -718,11 +718,7 @@ impl Bot {
                 for (key, value) in draft::index_defaults() {
                     if self.settings.get(key).is_none_or(Value::is_null) { self.reads.insert(key.to_string(), value); }
                 }
-                for suffix in ["ed", "", "_range_lower_bound", "_range_upper_bound", "_timing_condition", "_value_condition"] {
-                    let key = format!("sell_price_limit{suffix}");
-                    if self.settings.get(&key).is_none_or(Value::is_null) { self.reads.insert(key.clone(), draft::sell_default(&key)); }
-                }
-                if self.settings.get("sell_price_limit_action").is_none_or(Value::is_null) { self.reads.insert("sell_price_limit_action".into(), json!("pause")); }
+
             }
             // `default_num_coins`: ten, or all of a bounded index smaller than that.
             Kind::Index => {
@@ -732,11 +728,12 @@ impl Bot {
                 }
             }
         }
+        if self.kind == Kind::Signal { defaults.clear(); }
         for (key, value) in defaults {
             if matches!(self.settings.get(key), None | Some(Value::Null | Value::Bool(false))) { self.settings.insert(key.to_string(), value); }
         }
         // The sell side's reader fallbacks (`value.nil? ? default : value`, `super.presence || …`), read only while selling.
-        if self.selling() {
+        if self.selling() || self.kind == Kind::Signal {
             let first = self.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
             let blank = |value: Option<&Value>| value.is_none_or(|v| v.is_null() || v.as_str().is_some_and(|t| t.is_empty()));
             for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {

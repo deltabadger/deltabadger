@@ -376,9 +376,9 @@ fn the_started_at_decorator_reads_the_active_sides_pause_rules_only() {
         let want = if flip { Some(us(started)) } else if !met { None } else { Some(us(if two { second } else { first })) };
         assert_eq!(got, want, "flip {flip}, selling {selling}, met {met}, two rules {two}");
     }}}}
-    // Not one this engine runs on an index bot (a price-drop rule; a sell-side rule there is Inapplicable): inert.
+    // An index's buy-side drop rule decorates its start; sell-side rules remain inapplicable.
     let settings = json!({"price_drop_limited": true, "sell_price_limited": true}).as_object().unwrap().clone();
     for selling in [false, true] {
-        assert_eq!(accounting::condition_started_at(Kind::Index, &settings, &serde_json::Map::new(), Some(us(started)), selling).unwrap(), Some(us(started)));
+        assert_eq!(accounting::condition_started_at(Kind::Index, &settings, &serde_json::Map::new(), Some(us(started)), selling).unwrap(), if selling { Some(us(started)) } else { None });
     }
 }

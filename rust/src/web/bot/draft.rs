@@ -318,10 +318,15 @@ pub fn field_rule(key: &str) -> Option<(Rule, bool)> {
 
 /// What an index bot reads for a rule field its row lacks: a basket's `after_initialize` defaults
 /// (Bot::QuoteAmountLimitable, Bot::PriceLimitable), read, never written; an index bot persists only its subject.
-pub(super) fn index_defaults() -> [(&'static str, Value); 8] {
-    [("quote_amount_limited", json!(false)), ("quote_amount_limit", json!(1000)), ("price_limited", json!(false)), ("price_limit", json!(1_000_000)),
+pub(super) fn index_defaults() -> Vec<(&'static str, Value)> {
+    vec![("quote_amount_limited", json!(false)), ("quote_amount_limit", json!(1000)), ("price_limited", json!(false)), ("price_limit", json!(1_000_000)),
      ("price_limit_range_lower_bound", json!(0)), ("price_limit_range_upper_bound", json!(1_000_000)), ("price_limit_timing_condition", json!("while")),
-     ("price_limit_value_condition", json!("below"))]
+     ("price_limit_value_condition", json!("below")),
+     ("price_drop_limited", json!(false)), ("price_drop_limit", json!(0.2)), ("price_drop_limit_time_window_condition", json!("ath")),
+     ("moving_average_limited", json!(false)), ("moving_average_limit_timing_condition", json!("while")), ("moving_average_limit_value_condition", json!("below")),
+     ("moving_average_limit_in_ma_type", json!("sma")), ("moving_average_limit_in_timeframe", json!("one_day")), ("moving_average_limit_in_period", json!(9)),
+     ("indicator_limited", json!(false)), ("indicator_limit", json!(30)), ("indicator_limit_timing_condition", json!("while")),
+     ("indicator_limit_value_condition", json!("below")), ("indicator_limit_in_indicator", json!("rsi")), ("indicator_limit_in_timeframe", json!("one_day"))]
 }
 
 /// D-IDX-SUBJECT-DEFAULT: the ticker an index bot's rule watches when it is switched on with none named: of the members in
@@ -691,31 +696,24 @@ impl Draft {
     /// (conditions::support) and is refused by name. The subject is one of the members, or the one it watches now (a former
     /// member); a rule switched on with no member to watch is refused (D-IDX-SUBJECT-DEFAULT).
     fn index_conditions(&mut self, c: &Connection, locale: &str) -> Result<(), WebError> {
-        if support(Kind::Index, Rule::Price, false, "pause") != Support::Implemented { return Ok(()); }
-        self.boolean(locale, "price_limited");
-        let on = self.read("price_limited") == json!(true);
-        if on { for suffix in ["", "_range_lower_bound", "_range_upper_bound"] { self.number(locale, &format!("price_limit{suffix}"), Some((0.0, true)), None, false); } }
-        self.inclusion(locale, "price_limit_timing_condition", &["while", "after"]);
-        self.inclusion(locale, "price_limit_value_condition", &["above", "below", "between"]);
-        let action = text(&self.read("price_limit_action"));
-        if support(Kind::Index, Rule::Price, false, &action) == Support::Inapplicable { self.add("base", i18n::text(locale, "engine.flip_basket_only", &[])); }
-        else { self.inclusion(locale, "price_limit_action", &["pause"]); }
-        if !on { return Ok(()); }
-        match self.remapped_subject(c)? {
-            Some(subject) if subject.is_null() => { self.add("price_limit_in_ticker_id", i18n::text(locale, "engine.condition_no_subject", &[])); return Ok(()); }
-            // The save writes the remapped subject, the same asset's pair at the destination.
-            Some(_) => return Ok(()),
-            None => {}
-        }
-        match self.candidate.settings.get("price_limit_in_ticker_id").filter(|v| present(v)).map(|v| numeric(v, true).ok().and_then(|n| n.as_i64())) {
-            None => self.add("price_limit_in_ticker_id", i18n::text(locale, "engine.condition_no_subject", &[])),
-            // A subject the save gave it (D-IDX-SUBJECT-DEFAULT) is one by construction; a posted one is checked.
-            Some(_) if !self.parsed.contains_key("price_limit_in_ticker_id") => {}
-            Some(id) => {
-                let stored = self.raw_settings.get("price_limit_in_ticker_id").and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
-                let member = subject_tickers(c, &self.candidate)?.iter().any(|t| Some(t.id) == id);
-                // On a new venue or quote the stored subject is no former member there; only the destination's subjects are.
-                if !member && (id.is_none() || id != stored || self.moved().is_some()) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
+        for (rule, prefix) in crate::engine::conditions::TRIGGERS {
+            if support(Kind::Index, rule, false, "pause") != Support::Implemented { continue; }
+            self.shared_condition(rule, false, locale);
+            if self.read(&format!("{prefix}ed")) != json!(true) { continue; }
+            let key = format!("{prefix}_in_ticker_id");
+            match self.remapped_subject(c, prefix)? {
+                Some(subject) if subject.is_null() => { self.add(&key, i18n::text(locale, "engine.condition_no_subject", &[])); continue; }
+                Some(_) => continue,
+                None => {}
+            }
+            match self.candidate.settings.get(&key).filter(|v| present(v)).map(|v| numeric(v, true).ok().and_then(|n| n.as_i64())) {
+                None => self.add(&key, i18n::text(locale, "engine.condition_no_subject", &[])),
+                Some(_) if !self.parsed.contains_key(&key) => {}
+                Some(id) => {
+                    let stored = self.raw_settings.get(&key).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
+                    let member = subject_tickers(c, &self.candidate)?.iter().any(|t| Some(t.id) == id);
+                    if !member && (id.is_none() || id != stored || self.moved().is_some()) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
+                }
             }
         }
         Ok(())
@@ -740,19 +738,44 @@ impl Draft {
         self.error_codes.clear();
         if support(Kind::Signal, Rule::Cap, false, "pause") == Support::Implemented { self.cap(c, false, locale)?; }
         for selling in [false, true] {
-            if support(Kind::Signal, Rule::Price, selling, "pause") != Support::Implemented { continue; }
-            let prefix = if selling { "sell_price_limit" } else { "price_limit" };
-            self.boolean(locale, &format!("{prefix}ed"));
-            if self.read(&format!("{prefix}ed")) == json!(true) {
-                for suffix in ["", "_range_lower_bound", "_range_upper_bound"] { self.number(locale, &format!("{prefix}{suffix}"), Some((0.0, true)), None, false); }
+            for (rule, _) in crate::engine::conditions::TRIGGERS {
+                if support(Kind::Signal, rule, selling, "pause") == Support::Implemented { self.shared_condition(rule, selling, locale); }
             }
-            self.inclusion(locale, &format!("{prefix}_timing_condition"), &["while", "after"]);
-            self.inclusion(locale, &format!("{prefix}_value_condition"), &["above", "below", "between"]);
-            let action = text(&self.read(&format!("{prefix}_action")));
-            if support(Kind::Signal, Rule::Price, selling, &action) == Support::Inapplicable { self.add("base", i18n::text(locale, "engine.flip_basket_only", &[])); }
-            else { self.inclusion(locale, &format!("{prefix}_action"), &["pause"]); }
         }
         Ok(())
+    }
+
+    /// The trigger validations shared by index and signal forms; these kinds have no flip action.
+    fn shared_condition(&mut self, rule: Rule, selling: bool, locale: &str) {
+        let prefix = rule.prefix(selling);
+        self.boolean(locale, &format!("{prefix}ed"));
+        let on = self.read(&format!("{prefix}ed")) == json!(true);
+        match rule {
+            Rule::Price if on => for suffix in ["", "_range_lower_bound", "_range_upper_bound"] { self.number(locale, &format!("{prefix}{suffix}"), Some((0.0, true)), None, false); },
+            Rule::PriceDrop => {
+                if on { self.number(locale, prefix, Some((0.0, true)), Some(1.0), false); }
+                self.inclusion(locale, &format!("{prefix}_time_window_condition"), if selling { &["twenty_four_hours", "seven_days"] } else { &["ath", "twenty_four_hours"] });
+            }
+            Rule::MovingAverage => {
+                if on { self.number(locale, &format!("{prefix}_in_period"), Some((0.0, false)), None, true); }
+                self.inclusion(locale, &format!("{prefix}_in_ma_type"), &["sma", "ema"]);
+            }
+            Rule::Indicator => {
+                if on { self.number(locale, prefix, None, None, false); }
+                self.inclusion(locale, &format!("{prefix}_in_indicator"), &["rsi"]);
+            }
+            _ => {}
+        }
+        if rule != Rule::PriceDrop {
+            self.inclusion(locale, &format!("{prefix}_timing_condition"), &["while", "after"]);
+            self.inclusion(locale, &format!("{prefix}_value_condition"), if rule == Rule::Price { &["above", "below", "between"] } else { &["above", "below"] });
+        }
+        if matches!(rule, Rule::MovingAverage | Rule::Indicator) {
+            self.inclusion(locale, &format!("{prefix}_in_timeframe"), &["one_hour", "four_hours", "one_day", "three_days", "one_week", "one_month"]);
+        }
+        let action = text(&self.read(&format!("{prefix}_action")));
+        if support(self.candidate.kind, rule, selling, &action) == Support::Inapplicable { self.add("base", i18n::text(locale, "engine.flip_basket_only", &[])); }
+        else { self.inclusion(locale, &format!("{prefix}_action"), &["pause"]); }
     }
 
     /// Whether this save moves the bot to another venue or quote: Some(requoted).
@@ -765,15 +788,15 @@ impl Draft {
     /// D-IDX-SUBJECT: what an index bot's price-rule subject becomes when a save moves it to another venue or quote and posts
     /// no subject: the same asset's pair there; else, on a new venue, the default subject; on a new quote, none (null). A
     /// posted subject that is the stored one and no subject at the destination is remapped too, with no default (null).
-    fn remapped_subject(&self, c: &Connection) -> Result<Option<Value>, WebError> {
-        const KEY: &str = "price_limit_in_ticker_id";
+    fn remapped_subject(&self, c: &Connection, prefix: &str) -> Result<Option<Value>, WebError> {
+        let key = format!("{prefix}_in_ticker_id");
         if self.candidate.kind != Kind::Index { return Ok(None); }
         let Some(requoted) = self.moved() else { return Ok(None) };
-        let Some(old) = self.raw_settings.get(KEY).filter(|v| present(v)) else { return Ok(None) };
+        let Some(old) = self.raw_settings.get(&key).filter(|v| present(v)) else { return Ok(None) };
         let id = numeric(old, true)?.as_i64().unwrap_or(0);
-        let posted = self.parsed.contains_key(KEY);
+        let posted = self.parsed.contains_key(&key);
         if posted {
-            let posted_id = self.candidate.settings.get(KEY).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
+            let posted_id = self.candidate.settings.get(&key).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
             if posted_id != Some(id) || subject_tickers(c, &self.candidate)?.iter().any(|t| t.id == id) { return Ok(None); }
         }
         let old = Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next();
@@ -928,7 +951,9 @@ impl Draft {
             }
         }
         // D-IDX-SUBJECT: on a new venue or quote the rule watches the same asset there.
-        if let Some(subject) = self.remapped_subject(c)? { callback_set(&mut settings, "price_limit_in_ticker_id".into(), subject); }
+        for (_, prefix) in crate::engine::conditions::TRIGGERS {
+            if let Some(subject) = self.remapped_subject(c, prefix)? { callback_set(&mut settings, format!("{prefix}_in_ticker_id"), subject); }
+        }
         // D-SUBJECT-CHANGE-CLEARS-LATCH: a rule whose subject the save changes forgets what the old one latched.
         for prefix in trigger_prefixes() {
             let key = format!("{prefix}_in_ticker_id");

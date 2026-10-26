@@ -111,7 +111,7 @@ async fn one_bots_broken_data_does_not_stop_the_others() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_bot_made_ineligible_while_running_stops_the_engine() {
     let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), priced());
-    e.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_drop_limited', json('true')) WHERE id = ?1", [id]).unwrap();
+    e.primary.execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', json('true')) WHERE id = ?1", [id]).unwrap();
     assert!(matches!(run::step(&mut e, &at("2026-09-01T10:00:01Z")).await, Err(EngineError::Ineligible(_))));
 }
 

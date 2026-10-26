@@ -97,8 +97,8 @@ type Make = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded) -> i64>;
 #[test]
 fn each_thing_outside_the_slice_is_refused_with_its_reason() {
     let cases: Vec<(&str, Make)> = vec![
-        ("price_drop_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("price_drop_limited", json!(true))))),
-        ("indicator_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("indicator_limited", json!(true))))),
+        ("future_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("future_limited", json!(true))))),
+        ("future_indicator_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("future_indicator_limited", json!(true))))),
         // Lifting the starting time left the suffix rule whole: any other `*_limited`, `*_ordered`, `*_intervaled` refuses.
         ("stop_ordered", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("stop_ordered", json!(true))))),
         ("volume_intervaled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("volume_intervaled", json!("1"))))),
@@ -154,7 +154,7 @@ fn an_active_rule_refuses_the_install() {
 #[test]
 fn a_stopped_bot_outside_the_slice_refuses_only_when_it_has_pending_work() {
     let (_d, o, s) = install();
-    let quiet = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain().with("price_drop_limited", json!(true)) });
+    let quiet = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain().with("future_limited", json!(true)) });
     assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "a quiet stopped bot is Rails' business later, not now");
     seed::insert_tx(&o.primary, &s, quiet, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OOPEN".into()), order_type: 1,
         amount: Some("0.001"), quote_amount: None, price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-20 10:00:00".into() });
@@ -163,7 +163,7 @@ fn a_stopped_bot_outside_the_slice_refuses_only_when_it_has_pending_work() {
     let rebalancer = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain().with("rebalance_enabled", json!(true)) });
     assert!(!eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains(&format!("bot {rebalancer}"))));
     for status in [3, 7] { // deleted, archived: their orders are still at the venue
-        let gone = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().with("price_drop_limited", json!(true)) });
+        let gone = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().with("future_limited", json!(true)) });
         seed::insert_tx(&o.primary, &s, gone, &TxSpec { status: 0, external_status: Some(0), external_id: Some(format!("OGONE{status}")), order_type: 0,
             amount: None, quote_amount: Some("60"), price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-20 10:00:00".into() });
         assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains(&format!("bot {gone}"))), "status {status}");
@@ -284,7 +284,7 @@ fn an_abandoned_liquidation_the_user_accounted_for_no_longer_refuses() {
 fn the_refusal_names_the_bots_real_status() {
     for (status, label) in [(0, "created"), (2, "stopped"), (3, "deleted"), (7, "archived")] {
         let (_d, o, s) = install();
-        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().with("price_drop_limited", json!(true)) });
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().with("future_limited", json!(true)) });
         seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OOPEN".into()), order_type: 1,
             amount: Some("0.001"), quote_amount: None, price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-20 10:00:00".into() });
         let p = refused(&o.primary, id).expect("an outstanding order refuses");
@@ -343,14 +343,14 @@ fn the_guard_refuses_a_write_that_makes_the_install_ineligible_and_names_the_bot
     tx.commit().unwrap();
     // One it cannot: refused in check's words, naming the bot. The caller rolls back.
     let tx = model::immediate(&o.primary).unwrap();
-    tx.execute("UPDATE bots SET settings = json_set(settings, '$.price_drop_limited', json('true')) WHERE id = ?1", [id]).unwrap();
+    tx.execute("UPDATE bots SET settings = json_set(settings, '$.future_limited', json('true')) WHERE id = ?1", [id]).unwrap();
     let refused = eligibility::guard(&tx, &seed::cipher(), Some(id)).unwrap_err();
-    let line = format!("bot {id} (scheduled): price_drop_limited");
+    let line = format!("bot {id} (scheduled): future_limited");
     assert!(matches!(&refused, eligibility::Refusal::Ineligible(p) if p == &vec![line.clone()]), "{refused:?}");
     assert_eq!(refused.reason(), line);
     assert_eq!(refused.message(), format!("this install uses things only the full app runs:\n{line}"));
     drop(tx); // rolled back
-    let limited: Option<i64> = o.primary.query_row("SELECT json_extract(settings, '$.price_drop_limited') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    let limited: Option<i64> = o.primary.query_row("SELECT json_extract(settings, '$.future_limited') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
     assert_eq!(limited, None, "nothing of the refused write remains");
 }
 
@@ -587,7 +587,7 @@ fn an_index_bots_rules_are_admitted_by_what_the_engine_runs_on_it() {
     assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit', 50000"), Vec::<String>::new(), "the price rule runs");
     assert_eq!(reasons(", '$.sell_price_limited', json('true'), '$.sell_price_drop_limited', json('true'), '$.sell_indicator_limited', 'yes'"), Vec::<String>::new(), "the sell side is inert");
     assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit_action', 'start_selling'"), Vec::<String>::new(), "a flip is inert");
-    assert_eq!(reasons(", '$.price_drop_limited', json('true')"), vec!["price_drop_limited"], "not implemented: refused as today");
+    assert_eq!(reasons(", '$.price_drop_limited', json('true')"), Vec::<String>::new(), "implemented candle rule");
     assert_eq!(reasons(", '$.price_limited', '1'"), vec!["price_limited"], "a switch Rails reads as off is refused");
 }
 
@@ -598,7 +598,7 @@ fn a_baskets_unimplemented_rules_are_still_refused() {
     let drop = seed::insert_bot(&o.primary, &s, &plain().with("price_drop_limited", json!(true)));
     let flip = seed::insert_bot(&o.primary, &s, &plain().with("price_limited", json!(true)).with("price_limit_action", json!("start_selling")));
     let reasons = |id| eligibility::bot_reasons(&o.primary, &deltabadger::engine::model::load_bot(&o.primary, id).unwrap()).unwrap();
-    assert_eq!(reasons(drop), vec!["price_drop_limited"]);
+    assert!(reasons(drop).is_empty());
     assert_eq!(reasons(flip), vec!["price_limited with the start_selling action (the flip actions come with slice 7c)"]);
 }
 
@@ -911,7 +911,7 @@ fn a_price_rule_with_the_pause_action_is_eligible() {
     assert_eq!(reasons(rule().with("price_limit", json!("50000"))), vec![r#"price_limit "50000" is not a number"#]);
     assert_eq!(reasons(rule().with("price_limited", json!("1"))), vec!["price_limited"], "a flag Rails reads as off, but set: refused");
     for other in ["price_drop_limited", "moving_average_limited", "indicator_limited"] {
-        assert_eq!(reasons(plain().with(other, json!(true))), vec![other.to_string()]);
+        assert!(reasons(plain().with(other, json!(true))).is_empty(), "{other}");
     }
 }
 
@@ -1023,6 +1023,36 @@ fn a_signal_bots_rules_are_refused_until_the_engine_runs_them() {
     assert_eq!(reasons(", '$.quote_amount_limited', json('true')"), Vec::<String>::new(), "D-SIG-CAP");
     assert_eq!(reasons(", '$.sell_price_limited', json('true')"), Vec::<String>::new(), "D-SIG-CONDITIONS");
     assert_eq!(reasons(", '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 'lots'"), vec!["quote_amount_limit \"lots\" is not a number"]);
-    assert_eq!(reasons(", '$.price_drop_limited', json('true')"), vec!["price_drop_limited"]);
+    assert!(reasons(", '$.price_drop_limited', json('true')").is_empty());
     assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit_action', 'start_buying'"), Vec::<String>::new(), "a flip is inert");
+}
+
+#[test]
+fn candle_rules_are_admitted_only_on_candle_venues_and_flips_stay_refused() {
+    use deltabadger::engine::{conditions, model};
+    for venue in deltabadger::venue::registry::ROWS.iter().filter(|r| r.condition_candles) {
+        let (_d, o, s) = install();
+        o.primary.execute("UPDATE exchanges SET type = ?1, name = ?2", (venue.exchange_type, venue.name)).unwrap();
+        for (kind, prefix) in conditions::TRIGGERS.into_iter().filter(|(r, _)| *r != conditions::Rule::Price) {
+            for selling in [false, true] {
+                let prefix = format!("{}{prefix}", if selling { "sell_" } else { "" });
+                let id = seed::insert_bot(&o.primary, &s, &plain().with(&format!("{prefix}ed"), json!(true)));
+                let mut bot = model::load_bot(&o.primary, id).unwrap();
+                let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
+                assert!(!reasons.iter().any(|r| r.contains(&prefix)), "{} {prefix}: {reasons:?}", venue.name);
+                bot.settings[format!("{prefix}_action")] = json!(if selling { "start_buying" } else { "start_selling" });
+                assert!(eligibility::bot_reasons(&o.primary, &bot).unwrap().iter().any(|r| r.contains("slice 7c")), "{} {prefix}", venue.name);
+                assert_eq!(bot.support(kind, selling), conditions::Support::NotImplemented);
+            }
+        }
+    }
+    let (_d, o, s) = install();
+    let id = seed::index_bot(&o.primary, &s, "layer-1", 3, 0.0, false);
+    o.primary.execute("UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true'), '$.price_drop_limited', json('true'), '$.moving_average_limited', json('true'), '$.indicator_limited', json('true')) WHERE id = ?1", [id]).unwrap();
+    assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "a stopped rebalancing index is admitted with its candle rules");
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr', name = 'Interactive Brokers'", []).unwrap();
+    let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
+    for prefix in ["price_drop_limited", "moving_average_limited", "indicator_limited"] {
+        assert!(reasons.iter().any(|r| r.contains(prefix) && r.contains("condition candles")), "{reasons:?}");
+    }
 }
