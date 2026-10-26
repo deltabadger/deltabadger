@@ -60,18 +60,22 @@ fn refusal(c: &Connection, bot: &model::Bot) -> Result<Option<&'static str>, Web
 }
 
 /// `rebalance_pending? || liquidation_in_flight? || redeploy_in_flight?` (Bot::Merge.mergeable? and Bot::IndexSwitch.refusal).
-pub(crate) fn in_flight(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> {
+pub(crate) fn in_flight(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> { busy(c, bot, true) }
+
+/// `in_flight`, with or without `redeploy_in_flight?` (Bot::Split.eligible? leaves a redeploy to its modal).
+pub(crate) fn busy(c: &Connection, bot: &model::Bot, redeploy: bool) -> Result<bool, WebError> {
     let pending = |key: &str| bot.transient.get(key).is_some_and(|v| match v { Value::Null => false, Value::Object(o) => !o.is_empty(), Value::String(s) => !s.trim().is_empty(), _ => true });
     // rebalance_pending?, liquidation_in_flight? (pending, a waiting leg, an abandoned leg not attested), redeploy_in_flight?.
     let resolved: Vec<i64> = match bot.transient.get("liquidation_resolved_orders") {
         Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),
         _ => vec![],
     };
-    let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND transaction_type IN ('LIQUIDATION','REDEPLOY') AND status=0 AND external_status IN (0,1))",
-        [bot.id], |r| r.get(0))?;
+    let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND transaction_type IN ('LIQUIDATION',?2) AND status=0 AND external_status IN (0,1))",
+        (bot.id, if redeploy { "REDEPLOY" } else { "LIQUIDATION" }), |r| r.get(0))?;
     let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND external_status=4")?;
     let abandoned = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().any(|id| !resolved.contains(&id));
-    Ok(["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|k| pending(k)) || waiting || abandoned)
+    let keys: &[&str] = if redeploy { &["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] } else { &["rebalance_pending", "liquidation_pending", "liquidation_selling_since"] };
+    Ok(keys.iter().any(|k| pending(k)) || waiting || abandoned)
 }
 
 /// POST /bots/:id/custom_allocation (Bots::CustomAllocationsController#create, Bot::IndexSwitch.customize!): the index bot becomes

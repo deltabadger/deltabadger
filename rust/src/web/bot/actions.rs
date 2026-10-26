@@ -260,3 +260,57 @@ pub async fn merge_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
         Err(e) => layout::or_refused(&ctx, e),
     }
 }
+
+/// GET /bots/split/new (Bots::SplitsController#new): the split modal for the picked bots, refusal included.
+pub async fn split_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
+    use super::split::{modal, Loaded, Split};
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let (ids, keep) = super::split::params(params.value());
+    let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
+    let result = app.db(move |c| {
+        let tx = c.unchecked_transaction()?;
+        view.now = inner.now();
+        let mut split = match Split::load(&tx,&view,owner.id,ids,keep)? { Loaded::Split(split) => split, Loaded::Unported(reason) => return Ok(Err(reason)) };
+        let csrf = view.csrf_token();
+        let body = match modal(&tx,&view,&mut split,&csrf)? { Ok(body) => body, Err(reason) => return Ok(Err(reason)) };
+        let shell = Shell::load(&tx,&inner,&owner)?;
+        tx.commit()?;
+        Ok(Ok((body,csrf,shell)))
+    }).await;
+    match result {
+        Ok(Ok((body,csrf,shell))) => shell::application(&ctx,&csrf,&user,&shell,Page { status:StatusCode::OK,body,flash_now:vec![] }),
+        Ok(Err(reason)) => Ok(layout::refused(&ctx,reason)),
+        Err(e) => layout::or_refused(&ctx,e),
+    }
+}
+
+/// POST /bots/split (Bots::SplitsController#create): one write transaction (split::perform), split::complete after it, then
+/// Turbo visits the dashboard; a refusal is the flash Rails prepends, with 422, and so is a split this build does not serve
+/// (`engine.write_refused`, naming why), so the modal that posted it says so in place.
+pub async fn split_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
+    use super::split::{complete, perform, Performed};
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let (ids, keep) = super::split::params(params.value());
+    let (inner, view) = (app.clone(), ctx.clone());
+    let result = app.db(move |c| {
+        let performed = perform(c, &view, user.id, ids, keep)?;
+        // In the App::db job, after the commit, as every writer wakes the engine.
+        if let Performed::Done(done) = &performed { complete(&inner, user.id, done); }
+        Ok(performed)
+    }).await;
+    match result {
+        Ok(Performed::Done(_)) => {
+            flash::set(&ctx.session, flash::NOTICE, i18n::text(ctx.locale, "bot.split.success", &[]));
+            Ok(action_view::response(crate::web::turbo::redirect(&ctx.path("/bots")), false))
+        }
+        Ok(Performed::Refused(refusal)) => Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text: refusal.reason }])?.trim_end()), true)),
+        Ok(Performed::Unported(reason)) => {
+            eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, ctx.params.fullpath);
+            let text = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]);
+            Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text }])?.trim_end()), true))
+        }
+        Err(e) => layout::or_refused(&ctx, e),
+    }
+}

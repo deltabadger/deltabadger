@@ -15,7 +15,7 @@ use crate::figures::totals;
 
 pub const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
 fn colour(n: &Num) -> &'static str { if n.is_negative() { "text-danger" } else if n.is_positive() { "text-success" } else { "" } }
-fn precision(n: &Num, digits: usize, grouping: bool) -> Result<String, FiguresError> {
+pub(crate) fn precision(n: &Num, digits: usize, grouping: bool) -> Result<String, FiguresError> {
     let rounded = n.to_d()?.round(digits as i64)?.to_s_f();
     let (whole, fraction) = rounded.split_once('.').unwrap_or((&rounded, ""));
     let sign = if whole.starts_with('-') { "-" } else { "" };

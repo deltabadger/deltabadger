@@ -21,6 +21,20 @@ fn first_gid(arguments: &str) -> Option<String> {
     first.get("_aj_globalid").and_then(Value::as_str).or_else(|| first.as_str()).map(str::to_string)
 }
 
+/// Automation::Schedulable#active_job?: a `class` job for the record `gid` in a scheduled, ready, claimed or blocked execution
+/// (a failed one is over), its arguments matched as #job_matches_record? matches them (any argument, GlobalID or bare string).
+pub fn active_job(queue: &Connection, class: &str, gid: &str) -> rusqlite::Result<bool> {
+    let live = ["solid_queue_scheduled_executions", "solid_queue_ready_executions", "solid_queue_claimed_executions", "solid_queue_blocked_executions"]
+        .map(|table| format!("EXISTS (SELECT 1 FROM {table} e WHERE e.job_id = j.id)")).join(" OR ");
+    let mut s = queue.prepare(&format!("SELECT j.arguments FROM solid_queue_jobs j WHERE j.class_name = ?1 AND ({live})"))?;
+    let jobs = s.query_map([class], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(jobs.iter().flatten().any(|arguments| {
+        let Ok(v) = serde_json::from_str::<Value>(arguments) else { return false };
+        let args = if v.is_object() { v.get("arguments").cloned().unwrap_or(Value::Null) } else { v };
+        args.as_array().is_some_and(|args| args.iter().any(|arg| arg.get("_aj_globalid").and_then(Value::as_str).or_else(|| arg.as_str()) == Some(gid)))
+    }))
+}
+
 /// An engine-owned install must start its scheduler to refresh stale reference data. Keep structural refusals on
 /// restart; a takeover from Rails also checks freshness. Per-tick staleness checks remain active in both cases.
 pub fn startup_report(c: &rusqlite::Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<eligibility::Report, EngineError> {

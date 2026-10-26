@@ -374,6 +374,9 @@ pub struct Inner {
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
+    /// The Solid Queue database Rails' jobs wait in, as startup resolved it (`with_queue_path`), read only to see a job Rails
+    /// still holds for a bot. None: not given, so a question about it is refused.
+    pub queue_path: Option<std::path::PathBuf>,
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
     /// alone (every router test).
     engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
@@ -419,7 +422,7 @@ impl App {
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
-            db: Mutex::new(primary),
+            db: Mutex::new(primary), queue_path: None,
             engine: std::sync::OnceLock::new(),
         })))
     }
@@ -428,6 +431,13 @@ impl App {
     pub fn with_cable_timing(self, ping: Duration, recheck: Duration) -> Result<Self, WebError> {
         let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
         (inner.cable_ping, inner.cable_recheck) = (ping, recheck);
+        Ok(Self(Arc::new(inner)))
+    }
+
+    /// The queue database `store::Paths` resolved for the install this app serves.
+    pub fn with_queue_path(self, path: std::path::PathBuf) -> Result<Self, WebError> {
+        let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
+        inner.queue_path = Some(path);
         Ok(Self(Arc::new(inner)))
     }
 
@@ -715,6 +725,8 @@ fn routes(app: App) -> Router {
         .route("/bots/reorder", only(patch(bots::reorder)))
         .route("/bots/merge/new", only(get(bot::actions::merge_new)))
         .route("/bots/merge", only(post(bot::actions::merge_create)))
+        .route("/bots/split/new", only(get(bot::actions::split_new)))
+        .route("/bots/split", only(post(bot::actions::split_create)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))

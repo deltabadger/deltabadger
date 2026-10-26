@@ -268,8 +268,10 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     };
     let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
     // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.
-    let own = store::open(&paths(env)).unwrap_or_else(|e| fail(&explain(e))).primary;
-    let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));
+    let install = paths(env);
+    let own = store::open(&install).unwrap_or_else(|e| fail(&explain(e))).primary;
+    let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).and_then(|app| app.with_queue_path(install.queue))
+        .unwrap_or_else(|e| fail(&web_problem(e)));
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let listener = rt.block_on(deltabadger::web::server::bind(&app, port)).unwrap_or_else(|e| fail(&web_problem(e)));
     let mail = mail_sender(env, &cipher);

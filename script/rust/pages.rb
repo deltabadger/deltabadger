@@ -225,7 +225,7 @@ module Pages
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
-                      .merge(merge_scenarios)
+                      .merge(merge_scenarios).merge(split_scenarios)
 
   # A Kraken bot that waits, a Binance bot at work with a fill, a failed order and one resting, and a stock basket beside them.
   def venue_bots
@@ -618,6 +618,96 @@ module Pages
       'merge_create_no_csrf' => with_bots([basket, lone], signed_in(get('/bots'), merge_post([1, 2], 1).merge('csrf' => 'none'), get('/bots'))),
       'merge_create_signed_out' => with_bots([basket, lone], signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
                                                                         merge_post([1, 2], 1).merge('client' => 'signed_out', 'csrf' => 'none'), get('/bots')))
+    }
+  end
+
+  # The dashboard's Split (Bots::SplitsController, Bot::Split): the modal as the bar's form opens it in the modal frame (ids[] in
+  # the query), and its Split button as Turbo submits it (the page's token in the header; ids[] and the keep_ids[] the modal's
+  # No answers add, in the query).
+  def split_path(path, ids, keep = []) = [path, (ids.map { |id| "ids[]=#{id}" } + keep.map { |id| "keep_ids[]=#{id}" }).join('&').presence].compact.join('?')
+
+  def split_pick(ids, path: '/bots/split/new')
+    get(split_path(path, ids), TURBO.merge('Accept' => 'text/html, application/xhtml+xml', 'Turbo-Frame' => 'modal'))
+  end
+
+  # The modal as a whole page (no frame): the token source where the dashboard is not served here (a source that sold).
+  def split_page(ids) = get(split_path('/bots/split/new', ids), 'Accept' => 'text/html, application/xhtml+xml')
+
+  def split_post(ids, keep = [], path: '/bots/split')
+    post(split_path(path, ids, keep), {}, 'csrf' => 'header', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots'), 'action_snapshot' => true,
+         'may_mutate' => %w[bots bot_index_assets bot_activity_logs transactions])
+  end
+
+  def split_scenarios
+    basket = stopped('basket')
+    lone = stopped('basket', 'allocations' => { 'QQQM' => 1.0 })
+    wide = stopped('wide')
+    index = stopped('index')
+    executing = stopped('wide', 'columns' => { 'status' => 4 })
+    fill = { 'price' => '100', 'amount' => '1', 'amount_exec' => '1', 'quote_amount' => '100', 'quote_amount_exec' => '100' }
+    # An index bot's special rows (a basket's are refused before the split): a buy, then its liquidation, then the redeploy.
+    bought = ['NVDA', '2026-09-08T13:30:01Z', fill]
+    liquidated = ['NVDA', '2026-09-09T13:30:01Z', fill.merge('side' => 'sell', 'transaction_type' => 'LIQUIDATION', 'price' => '150', 'quote_amount' => nil,
+                                                              'quote_amount_exec' => '150')]
+    redeployed = ['MSFT', '2026-09-09T15:30:01Z', fill.merge('transaction_type' => 'REDEPLOY', 'price' => '50', 'quote_amount' => '50', 'quote_amount_exec' => '50')]
+    proceeds = stopped('index', 'orders' => [bought, liquidated])
+    kept = stopped('index', 'orders' => [bought, liquidated, redeployed], 'transient' => { 'liquidation_resolved_orders' => [7, 9] },
+                            'columns' => { 'status' => 2, 'redeploy_declined_offset' => '25' })
+    swap = stopped('index', 'orders' => [bought, ['NVDA', '2026-09-09T13:30:01Z', fill.merge('side' => 'sell', 'transaction_type' => 'REBALANCE', 'price' => '120',
+                                                                                             'amount' => '0.5', 'amount_exec' => '0.5', 'quote_amount' => nil,
+                                                                                             'quote_amount_exec' => '60')],
+                                         ['MSFT', '2026-09-09T13:31:01Z', fill.merge('transaction_type' => 'REBALANCE', 'price' => '60', 'quote_amount' => '60',
+                                                                                     'quote_amount_exec' => '60')]])
+    unpriced = stopped('basket', 'orders' => [['QQQM', '2026-09-08T13:30:01Z', fill],
+                                              ['QQQM', '2026-09-09T13:30:01Z', fill.merge('side' => 'sell', 'amount' => '0.5', 'amount_exec' => '0.5',
+                                                                                          'quote_amount' => nil, 'quote_amount_exec' => nil)]])
+    # A member dropped (NVDA, exited), and a row recorded before orders stored their asset, of that exited asset.
+    exited = stopped('basket', 'allocations' => { 'QQQM' => 0.4, 'IBIT' => 0.3, 'NVDA' => 0.3 }, 'reweigh' => { 'QQQM' => 0.5, 'IBIT' => 0.5 },
+                               'orders' => [['QQQM', '2026-09-08T13:30:01Z', fill], ['NVDA', '2026-09-08T13:30:02Z', fill.merge('base_asset_id' => nil)]])
+    # D-SPLIT-LEGACY-SHADOW: a legacy row spelled in lower case beside an identified one; QQQM is the first (heaviest) child, where
+    # Rails' exact match sends it too.
+    shadow = stopped('basket', 'orders' => [['QQQM', '2026-09-08T13:30:01Z', fill], ['QQQM', '2026-09-08T13:30:02Z', fill.merge('base' => 'qqqm', 'base_asset_id' => nil)],
+                                            ['IBIT', '2026-09-08T13:30:03Z', fill]])
+    hyperliquid = { 'venues' => true, 'hyperliquid_bots' => true, 'hyperliquid_eth' => true }
+    {
+      'split_new_basket' => with_bots([basket, wide], signed_in(get('/bots'), split_pick([1]))),
+      'split_new_index' => with_bots([index, basket], signed_in(get('/bots'), split_pick([1]))),
+      'split_new_two' => with_bots([wide, basket], signed_in(get('/bots'), split_pick([1, 2]))),
+      'split_new_one_asset' => with_bots([lone, basket], signed_in(get('/bots'), split_pick([1]))),
+      'split_new_none' => with_bots([basket, wide], signed_in(get('/bots'), split_pick([]))),
+      'split_new_missing' => with_bots([basket, wide], signed_in(get('/bots'), split_pick([1, 9]), split_pick(['x', 2]))),
+      'split_new_executing' => with_bots([basket, executing], signed_in(split_pick([2]))),
+      'split_new_external_sales' => with_bots([stopped('basket', 'orders' => 'sold'), wide], signed_in(split_pick([1]))),
+      'split_new_unpriced' => with_bots([unpriced, wide], signed_in(split_pick([1]))),
+      'split_new_nothing_to_buy' => with_bots([wide, stopped('basket', 'delist' => %w[QQQM IBIT])], signed_in(split_pick([2]))),
+      'split_new_proceeds' => with_bots([proceeds, basket], signed_in(split_pick([1]))),
+      'split_new_de' => with_bots([basket, wide], signed_in(get('/de/bots'), split_pick([1], path: '/de/bots/split/new'))),
+      'split_new_signed_out' => with_bots([basket, wide], [split_pick([1]), get('/login')]),
+      'split_create_basket' => with_bots([stopped('basket', 'orders' => 'basket_sold', 'logs' => 'history'), wide],
+                                         signed_in(split_page([1]), split_post([1]).merge('expect' => 200), get('/bots/4'))),
+      'split_create_index' => with_bots([stopped('index', 'orders' => 'one_fill'), basket], signed_in(get('/bots'), split_pick([1]), split_post([1]).merge('expect' => 200), get('/bots'))),
+      'split_create_exited_and_legacy' => with_bots([exited, wide], signed_in(get('/bots'), split_post([1]).merge('expect' => 200), get('/bots/3'))),
+      'split_create_swap' => with_bots([swap, basket], signed_in(split_page([1]), split_post([1]).merge('expect' => 200))),
+      'split_create_liquidation_kept' => with_bots([kept, basket], signed_in(split_page([1]), split_post([1], [1]).merge('expect' => 200))),
+      'split_create_proceeds_unanswered' => with_bots([kept, basket], signed_in(split_page([1]), split_post([1]).merge('expect' => 422))),
+      'split_create_two_bots' => with_bots([basket, wide, lone], signed_in(get('/bots'), split_pick([2, 1]), split_post([2, 1]).merge('expect' => 200), get('/bots'))),
+      'split_create_delisted_member' => with_bots([stopped('wide', 'orders' => 'one_fill', 'delist' => 'NVDA'), basket],
+                                                  signed_in(get('/bots'), split_pick([1]), split_post([1]).merge('expect' => 200), get('/bots'), get('/bots/3'))),
+      'split_create_hyperliquid' => with_bots([stopped('hyperliquid', 'allocations' => { 'BTC' => 0.5, 'ETH' => 0.5 }), stopped('hyperliquid')],
+                                              signed_in(get('/bots'), split_post([1]).merge('expect' => 200), get('/bots/3')), hyperliquid),
+      'split_create_executing' => with_bots([basket, executing], signed_in(get('/bots'), split_post([2]).merge('expect' => 422))),
+      'split_create_legacy_shadow' => with_bots([shadow, wide], signed_in(get('/bots'), split_post([1]).merge('expect' => 200), get('/bots/3'))),
+      'split_create_de' => with_bots([basket, wide], signed_in(get('/de/bots'), split_post([1], path: '/de/bots/split').merge('expect' => 200), get('/de/bots/3'))),
+      'split_create_no_csrf' => with_bots([basket, wide], signed_in(get('/bots'), split_post([1]).merge('csrf' => 'none'), get('/bots'))),
+      'split_create_signed_out' => with_bots([basket, wide], signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
+                                                                        split_post([1]).merge('client' => 'signed_out', 'csrf' => 'none'), get('/bots'))),
+      # Rails splits a basket on Interactive Brokers, whose bots this build does not run: refused, the source left as it was.
+      'refused_web_split_create_ibkr' => with_bots([stopped('basket', 'exchange' => 'Interactive Brokers'), wide],
+                                                   signed_in(get('/bots/2'), split_post([1]).merge('expect' => 200))),
+      # A basket's liquidation and redeploy rows are history this build does not read: the split is refused by name, nothing written.
+      'refused_web_split_create_basket_special_rows' => with_bots([stopped('basket', 'orders' => [['QQQM', '2026-09-08T13:30:01Z', fill],
+                                                                                                  ['QQQM', '2026-09-09T13:30:01Z', liquidated[2]]]), wide],
+                                                                 signed_in(get('/bots/2'), split_post([1], [1]).merge('expect' => 200)))
     }
   end
 

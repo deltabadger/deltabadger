@@ -8,6 +8,7 @@ pub mod draft;
 pub mod index_switch;
 pub mod live;
 pub mod merge;
+pub mod split;
 pub mod write;
 pub mod mcp_input;
 pub mod composition;

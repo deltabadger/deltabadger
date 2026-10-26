@@ -18,24 +18,28 @@ use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
 
 /// Bot::Merge::TYPES.
-const TYPES: [&str; 2] = ["Bots::DcaMultiAsset", "Bots::DcaIndex"];
+pub(super) const TYPES: [&str; 2] = ["Bots::DcaMultiAsset", "Bots::DcaIndex"];
 
 /// The ids as `Array(params[:ids]).map(&:to_i).uniq` reads them (request order: the first is the anchor), and the venue
 /// picked in the modal (`params[:exchange_id].presence&.to_i`).
 pub fn params(value: &Value) -> (Vec<i64>, Option<i64>) {
-    let sent: Vec<i64> = match value.get("ids") {
-        None | Some(Value::Null) => vec![],
-        Some(Value::Array(items)) => items.iter().map(wizard::to_i).collect(),
-        Some(other) => vec![wizard::to_i(other)],
-    };
     let mut ids = vec![];
-    for id in sent { if !ids.contains(&id) { ids.push(id); } }
+    for id in self::ids(value, "ids") { if !ids.contains(&id) { ids.push(id); } }
     let exchange = match value.get("exchange_id") {
         None | Some(Value::Null) => None,
         Some(Value::String(text)) if crate::ruby::blank(text) => None,
         Some(other) => Some(wizard::to_i(other)),
     };
     (ids, exchange)
+}
+
+/// `Array(params[key]).map(&:to_i)`, in request order, repeats kept.
+pub(super) fn ids(value: &Value, key: &str) -> Vec<i64> {
+    match value.get(key) {
+        None | Some(Value::Null) => vec![],
+        Some(Value::Array(items)) => items.iter().map(wizard::to_i).collect(),
+        Some(other) => vec![wizard::to_i(other)],
+    }
 }
 
 struct Source {
@@ -68,14 +72,14 @@ pub struct Merge {
 /// What loading the selection found.
 pub enum Loaded { Merge(Box<Merge>), Unported(&'static str) }
 
-fn fig(e: FiguresError) -> WebError { super::data(format!("merge books: {e:?}")) }
+pub(super) fn fig(e: FiguresError) -> WebError { super::data(format!("merge books: {e:?}")) }
 
 fn exchange_name(c: &Connection, id: i64) -> Result<Option<String>, WebError> {
     Ok(c.query_row("SELECT name FROM exchanges WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).optional()?.map(Option::unwrap_or_default))
 }
 
 /// Why this build would not run the merged bot (a basket that buys) on this venue, if it would not.
-fn unrun(c: &Connection, exchange: i64) -> Result<Option<&'static str>, WebError> {
+pub(super) fn unrun(c: &Connection, exchange: i64) -> Result<Option<&'static str>, WebError> {
     let class: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get(0)).optional()?.flatten();
     Ok(eligibility::admission(class.as_deref(), false, false))
 }
@@ -85,7 +89,7 @@ fn waiting(c: &Connection, bot: i64) -> Result<bool, WebError> {
 }
 
 /// D-MERGE-REVERSAL-PENDING: cancels a reversal captured or reserves it registered, not settled yet.
-fn reversal_pending(bot: &model::Bot) -> bool {
+pub(super) fn reversal_pending(bot: &model::Bot) -> bool {
     [reversal::RESERVE_PENDING, reversal::CANCELS].iter().any(|key| bot.transient.get(*key).and_then(Value::as_array).is_some_and(|a| !a.is_empty()))
 }
 
@@ -222,7 +226,23 @@ impl Merge {
 }
 
 /// One stacked asset of the modal.
-struct Pill { symbol: String, class: &'static str, color: String, id: i64 }
+pub(super) struct Pill { pub(super) symbol: String, pub(super) class: &'static str, pub(super) color: String, pub(super) id: i64 }
+
+/// The modal's stacked assets, in this order (an id with no asset row is left out).
+pub(super) fn pills(c: &Connection, ids: &[i64]) -> Result<Vec<Pill>, WebError> {
+    let mut pills = vec![];
+    for id in ids {
+        let Some(asset) = super::Asset::find(c, *id)? else { continue };
+        pills.push(Pill {
+            symbol: asset.symbol().to_string(), class: colors::ticker_class(asset.category.as_deref(), asset.color.as_deref()),
+            color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {id}: its colour is not a colour")))?, id: *id,
+        });
+    }
+    Ok(pills)
+}
+
+/// The modal's `ticker-group--…` class for this many stacked assets.
+pub(super) fn stack_class(pills: usize) -> &'static str { match pills { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" } }
 struct VenueOption { id: i64, name: String, selected: bool }
 
 #[derive(Template)]
@@ -257,16 +277,9 @@ pub fn modal(c: &Connection, ctx: &Ctx, merge: &mut Merge, csrf: &str) -> Result
         } else { i18n::escape(&name) };
         let quote = merge.anchor().bot.quote_symbol().unwrap_or("").to_string();
         view.explanation = i18n::t(ctx.locale, "bot.merge.explanation_html", &[("quote", i18n::Arg::Text(&quote)), ("exchange", i18n::Arg::Html(&shown))]);
-        let allocations = merge.allocations()?;
-        for key in allocations.keys() {
-            let id = crate::web::bot::search::to_i(key);
-            let Some(asset) = super::Asset::find(c, id)? else { continue };
-            view.pills.push(Pill {
-                symbol: asset.symbol().to_string(), class: colors::ticker_class(asset.category.as_deref(), asset.color.as_deref()),
-                color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {id}: its colour is not a colour")))?, id,
-            });
-        }
-        view.stack_class = match view.pills.len() { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" };
+        let ids: Vec<i64> = merge.allocations()?.keys().map(|key| crate::web::bot::search::to_i(key)).collect();
+        view.pills = pills(c, &ids)?;
+        view.stack_class = stack_class(view.pills.len());
         view.assets_stay = merge.bots.iter().any(|source| source.bot.exchange.id != exchange);
         view.exchange_id = exchange;
     }
@@ -318,11 +331,11 @@ fn perform_inner(c: &Connection, ctx: &Ctx, owner: i64, ids: Vec<i64>, exchange_
     Ok(Merged::Done(id))
 }
 
-fn write_refused(locale: &str, reason: &str) -> String { i18n::text(locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
+pub(super) fn write_refused(locale: &str, reason: &str) -> String { i18n::text(locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
 
 /// Why this build would not serve this bot, as `load` asks of each source (For::Settings): the refusal, then the bot as it
 /// renders. A page without figures (For::Page) refuses what the sources already showed it, so it is not asked here.
-fn unserved(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
+pub(super) fn unserved(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
     let wash: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
     let (provider, _) = bots::market_data(c, &ctx.app)?;
     if let Some(reason) = super::refusal(c, id, wash, provider, For::Settings)? { return Ok(Some(reason)); }
