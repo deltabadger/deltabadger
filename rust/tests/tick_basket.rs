@@ -990,13 +990,13 @@ async fn a_buy_whose_asset_was_locked_after_it_was_sized_is_not_placed() {
     let composition = placement::composition_snapshot(c, &bot).unwrap();
     let reconciled = splits::snapshot(c, &bot).unwrap();
     let version = model::credential_version(c, &bot).unwrap();
-    let begin = |plan: &amount::OrderPlan| placement::begin_with_credentials(c, &bot, plan, &[&ticker], &composition, &reconciled, &version, None, false, &FixedClock(at(T0))).unwrap();
+    let begin = |plan: &amount::OrderPlan| placement::begin_with_credentials(c, &bot, plan, &[&ticker], &composition, &reconciled, &version, None, false, None, &FixedClock(at(T0))).unwrap();
     assert!(matches!(begin(&plan(Side::Buy, TxKind::Regular)), placement::Begun::WashSaleLocked));
     assert!(model::load_bot(c, id).unwrap().rust_placement().is_none(), "no intent");
     assert!(!matches!(begin(&plan(Side::Sell, TxKind::Regular)), placement::Begun::WashSaleLocked), "a lock never forbids selling");
     // The rebalance buy: re-read before #mark_buy_attempted!, so the pending state stands as it was.
     let owed = rebalance::Pending { phase: rebalance::PHASE_BUYING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: Some(BigDec::from_i64(25)), buy_attempted: true };
-    assert!(matches!(placement::begin_rebalance(c, &bot, &plan(Side::Buy, TxKind::Rebalance), &[&ticker], &composition, &reconciled, &version, None, &owed, false, &FixedClock(at(T0))).unwrap(),
+    assert!(matches!(placement::begin_rebalance(c, &bot, &plan(Side::Buy, TxKind::Rebalance), &[&ticker], &composition, &reconciled, &version, None, &owed, false, None, &FixedClock(at(T0))).unwrap(),
                      placement::Begun::WashSaleLocked));
     assert!(model::load_bot(c, id).unwrap().transient.get("rebalance_pending").is_none());
     o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();

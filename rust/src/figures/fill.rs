@@ -184,7 +184,7 @@ pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresE
 /// An engine commitment: normalized settled value or the quote reserved by a waiting buy.
 /// SQL numeric kind survives only for Rails' existing amount-limit compatibility calculation.
 pub use crate::engine::accounting::Commitment;
-use crate::engine::accounting::{CapKind,SoldCommitment};
+use crate::engine::accounting::CapKind;
 
 pub fn commitments(c: &Connection, bot_id: i64, since: &str) -> Result<Vec<Commitment>, FiguresError> {
     budget::within(|| commitments_bounded(c, bot_id, since, None))
@@ -337,10 +337,28 @@ fn quantity(raw: &Raw, closed: bool) -> Result<Dec, FiguresError> {
     }
     Ok(quantity)
 }
-pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Result<Vec<SoldCommitment>, FiguresError> {
+/// The base cap's commitments (Bot::BaseAmountLimitable#base_amount_available_before_limit_reached): this bot's submitted
+/// REGULAR sells in the window, in id order, each with the Ruby class Rails' bucket gives it. Closed:
+/// `pluck(Arel.sql('COALESCE(amount_exec, amount)')).compact`, SQLite's own INTEGER or REAL. Open or unknown:
+/// `pluck(:amount).compact`, BigDecimal. Cancelled: `COALESCE(amount_exec, 0)`, raw. Abandoned (D-6D-3): what it asked
+/// for while that is more than it reported, `max(amount_exec, amount)`, until polling moves it to closed or cancelled
+/// (Rails counts the reported exec only, which reopens the unreported part of the cap).
+pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Result<Vec<Commitment>, FiguresError> {
+    use rusqlite::types::ValueRef;
+    // An INTEGER is an Integer, a REAL a Float; a NULL in COALESCE(…, 0) the Integer 0. TEXT (never written by Rails,
+    // which binds a Float) is read as its decimal.
+    fn raw_kind(v: ValueRef, value: &BigDec) -> CapKind {
+        match v {
+            ValueRef::Integer(n) if *value == BigDec::from_i64(n) => CapKind::Integer(n),
+            ValueRef::Real(f) => CapKind::RealBits(f.to_bits()),
+            ValueRef::Null => CapKind::Integer(0),
+            _ => CapKind::Decimal,
+        }
+    }
+    let big = |d: &Dec| BigDec::parse(&d.to_s_f()).map_err(|_| FiguresError::Data("sell commitment exceeds numeric bounds".into()));
     budget::within(|| {
         // As in commitments: Rails' text comparison decides the window; an unset stamp matches nothing.
-        let mut s = c.prepare("SELECT external_status, price, amount, amount_exec, quote_amount_exec, created_at, coalesce(created_at >= ?2, 0) FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) LIMIT 100001")?;
+        let mut s = c.prepare("SELECT external_status, price, amount, amount_exec, quote_amount_exec, created_at, coalesce(created_at >= ?2, 0) FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id LIMIT 100001")?;
         since.map(crate::codec::parse_time).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))?;
         let mut rows = s.query(params![bot_id, since])?;
         let mut out = Vec::new();
@@ -353,9 +371,20 @@ pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Res
             if !row.get::<_,bool>(6)? {continue;}
             let status:i64 = row.get(0)?;
             let raw = Raw::new(super::db::decimal(row,1)?,super::db::decimal(row,2)?,super::db::decimal(row,3)?,super::db::decimal(row,4)?);
-            let executed = quantity(&raw,status==2)?;
-            let committed = if status==0 || status==1 { raw.amount.unwrap_or_else(Dec::zero) } else { executed };
-            out.push(SoldCommitment::normalized(BigDec::parse(&committed.to_s_f()).map_err(|_|FiguresError::Data("sell commitment exceeds numeric bounds".into()))?));
+            let executed = big(&quantity(&raw,status==2)?)?;
+            let (amount, exec) = (row.get_ref(2)?, row.get_ref(3)?);
+            let asked = if status == 4 { raw.amount.as_ref().map(big).transpose()?.filter(|a| *a > executed) } else { None };
+            let (value, kind) = match (status, asked) {
+                (0 | 1, _) => match &raw.amount { Some(a) => (big(a)?, CapKind::Decimal), None => continue },
+                (2, _) => match (exec, amount) {
+                    (ValueRef::Null, ValueRef::Null) => continue,
+                    (ValueRef::Null, a) => { let kind = raw_kind(a, &executed); (executed, kind) }
+                    (e, _) => { let kind = raw_kind(e, &executed); (executed, kind) }
+                },
+                (_, Some(asked)) => { let kind = raw_kind(amount, &asked); (asked, kind) }
+                _ => { let kind = raw_kind(exec, &executed); (executed, kind) }
+            };
+            out.push(Commitment::normalized(status, value, kind, false));
         }
         Ok(out)
     })

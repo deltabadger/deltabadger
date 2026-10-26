@@ -344,7 +344,7 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
   // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
   if let Some(id)=current.id.filter(|_|!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret))){
    tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
-   tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}")))?;
+   tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2,?3,?4)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}"),format!("rust_sync.kraken_unresolved:{id}"),format!("rust_sync.kraken_repair_deferred:{id}")))?;
   }
   tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user_id,exchange,kind])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
@@ -374,16 +374,18 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
 #[template(path="settings/sync_warnings.html")]
 struct Warnings{title:String,fixes:Vec<Fix>}
 struct Fix{message:String,trading:bool,trading_path:String,reading_path:String,trading_label:String,add_label:String,replace_label:String}
-struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>}
+/// `unresolved`: the key's last balance sync held codes no asset is named by (`rust_sync.kraken_unresolved:<key_id>`, D-KR-6),
+/// a failure Rails never records; it reads as the sync's own failure.
+struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
 impl WarningKey{
-    fn failed(&self)->bool{self.error.as_deref().is_some_and(|e|!crate::ruby::blank(e))}
+    fn failed(&self)->bool{self.unresolved||self.error.as_deref().is_some_and(|e|!crate::ruby::blank(e))}
     /// ApiKey#missing_permission?: the venue's own permission_denied texts (Exchange#permission_error?), one table for every venue.
     fn permission(&self)->bool{crate::tracker::import::run::missing_permission(&self.venue,self.error.as_deref())}
 }
 /// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
 pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
-    let mut statement=c.prepare("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id")?;
-    let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?}))?.collect::<Result<Vec<_>,_>>()?;
+    let mut statement=c.prepare("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id) FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id")?;
+    let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>()?;
     let mut failed=vec![];let mut seen=std::collections::HashSet::new();
     for key in &keys{
         if !seen.insert(key.exchange){continue}
@@ -641,7 +643,7 @@ pub async fn legacy(
     tx.execute("UPDATE api_keys SET status=0,updated_at=?1 WHERE id=?2",(&stamp,id))?;
    } else {
     tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=0,last_sync_error=NULL,last_synced_at=NULL,updated_at=?4 WHERE id=?5",(key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),saved_passphrase.map(|s|inner.cipher.encrypt(s)),stamp,id))?;
-    tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}")))?;
+    tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2,?3,?4)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}"),format!("rust_sync.kraken_unresolved:{id}"),format!("rust_sync.kraken_repair_deferred:{id}")))?;
    }
    id
   }else{

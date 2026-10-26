@@ -3,7 +3,7 @@
 # raised, and every request it made, in order. Every case runs at NOW (travel_to): Binance's walk ends against
 # `timeframe.ago`.
 #   bin/rails runner script/rust/record_candles.rb kraken rust/tests/fixtures/kraken_candles.json
-#   (binance, binance_us and alpaca likewise)
+#   (binance, binance_us, alpaca, kucoin, bitget, bybit, mexc, bitrue, bitvavo, gemini, hyperliquid, coinbase and bingx likewise)
 # Each case's bodies are served at the Faraday adapter beneath honeymaker, so its middleware, #with_rescue and the
 # exchange's own parsing and CandleBuilder all run. Nothing leaves the machine. Re-run (script/rust/repin) when a file
 # under "sources" changes. One venue per fixture; later venues add a section below.
@@ -31,7 +31,8 @@ module ScriptedCandles
 
       query = Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')
       key = "#{env.method.to_s.upcase} #{env.url.path}#{"?#{query}" unless query.empty?}"
-      ScriptedCandles.requests << key
+      # A POST's body is recorded with it (Hyperliquid's one read); it is answered by its method and path.
+      ScriptedCandles.requests << (env.body.present? ? "#{key} #{env.body}" : key)
       queue = ScriptedCandles.http[key] or raise Unscripted, "unscripted call #{key}"
       reply = queue.size > 1 ? queue.shift : queue.first
       raise NETWORK.fetch(reply['network']).call if reply['network']
@@ -349,6 +350,405 @@ end
 crypto_case.call('bars_not_an_array', ok({ 'bars' => { AL_CRYPTO['ticker'] => 'x' } }))
 alpaca << ['stock_bars_not_an_array', '1h', start, { al_key(AL_STOCK, '1h', start) => ok({ 'bars' => 'x' }) }, AL_STOCK]
 
+# ---- The other venues. Each row is built in the venue's own shape from one set of prices (`shaped`), and each venue
+# gets the same numbers cases (`number_cases`).
+def prices(i)
+  { o: "#{64_000 + (i * 37 % 101)}.5", h: "#{64_200 + (i * 53 % 97)}.25", l: "#{63_800 - (i * 29 % 89)}.125",
+    c: "#{64_000 + (i * 71 % 103)}.75", v: "#{(i % 5) + 1}.0001" }
+end
+# A row as an array in `order` (symbols are the time and prices, anything else is sent as it is) or as a hash of them.
+def shaped(order, t, i, over)
+  p = prices(i).merge(over)
+  pick = ->(k) { k == :t ? t : (k.is_a?(Symbol) ? p[k] : k) }
+  order.is_a?(Hash) ? order.transform_values(&pick) : order.map(&pick)
+end
+def forty(step, last) = (0...40).map { |i| last - ((39 - i) * step) }
+# t0: the venue's own time value for the start's minute.
+def number_cases(row, t0)
+  float = t0.is_a?(String) ? "#{t0}.5" : t0 + 0.5
+  cases = { 'numbers_as_json_numbers' => row.call(t0, 0, o: 64_000.5, h: 64_100, l: 63_900.25, c: 64_050, v: 2.5),
+            'float_digits' => row.call(t0, 0, o: 1.2345678901234567, v: 1e-07),
+            'many_digits' => row.call(t0, 0, o: '64000.123456789012345678901234567890', v: '0.00000001'),
+            'exponent_strings' => row.call(t0, 0, o: '6.4e4', h: '6.41E4', l: '6.39e4', c: '6.4e4', v: '1e-3'),
+            'open_null' => row.call(t0, 0, o: nil), 'open_word' => row.call(t0, 0, o: 'x'), 'close_blank' => row.call(t0, 0, c: ''),
+            'volume_null' => row.call(t0, 0, v: nil), 'time_string' => row.call(t0.to_s, 0), 'time_number' => row.call(t0.to_i, 0),
+            'time_float' => row.call(float, 0), 'time_null' => row.call(nil, 0), 'time_word' => row.call('soon', 0) }
+  r = row.call(t0, 0)
+  cases['short_row'] = r.first(5) if r.is_a?(Array)
+  cases
+end
+def failure_cases(key, error_body)
+  { 'http_400' => status(400, error_body), 'http_500_empty' => status(500, ''), 'http_502' => status(502, '<html>bad gateway</html>'),
+    'http_401' => status(401, { 'msg' => 'unauthorized' }), 'http_403' => status(403, ''), 'http_429' => status(429, 'too many requests'),
+    'not_json' => ok('<html>'), 'json_array' => ok([1, 2]), 'json_object' => ok({ 'code' => 1, 'msg' => 'odd' }), 'json_null' => ok(nil),
+    'transport_pre_send' => network('pre_send'), 'transport_timeout' => network('post_send') }.map { |name, reply| [name, { key => reply }] }
+end
+NUMBER_TF = '1h'.freeze
+
+# ---- KuCoin: windows of 1500 periods from the start (startAt/endAt in seconds) to now, at most MAX_CANDLE_PAGES; each
+# window sorted, the next from a second after its latest candle (after the window's end when it had none); deduped and
+# sorted; 3 days built from daily candles and 1 month from weekly. Rows are [time, open, close, high, low, volume, turnover].
+KC_TYPE = { '1m' => '1min', '5m' => '5min', '15m' => '15min', '30m' => '30min', '1h' => '1hour', '4h' => '4hour', '1d' => '1day',
+            '3d' => '1day', '1w' => '1week', '1M' => '1week' }.freeze
+NATIVE_STEP = ->(tf, over = {}) { over.fetch(tf, TIMEFRAMES.fetch(tf).to_i) }
+def kc_key(tf, from, to) = "GET /api/v1/market/candles?endAt=#{to.to_i}&startAt=#{from.to_i}&symbol=BTC-USDT&type=#{KC_TYPE.fetch(tf)}"
+kc_row = ->(t, i, **over) { shaped([:t, :o, :c, :h, :l, :v, '64001.1'], t, i, over) }
+kc_rows = ->(times) { times.each_with_index.map { |at, i| kc_row.call(at.to_s, i) }.reverse }
+kc_body = ->(rows) { { 'code' => '200000', 'data' => rows } }
+kucoin = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '3d' => 86_400, '1M' => 604_800 }), minute)
+  key = kc_key(tf, start, NOW)
+  kucoin << ["#{tf}_normal", tf, start, { key => ok(kc_body.call(kc_rows.call(times))) }]
+  kucoin << ["#{tf}_gap", tf, start, { key => ok(kc_body.call(kc_rows.call(times.values_at(0..9, 11..20, 22..39)))) }]
+  kucoin << ["#{tf}_empty", tf, start, { key => ok(kc_body.call([])) }]
+  kucoin << ["#{tf}_http_500", tf, start, { key => status(500, 'upstream failed') }]
+end
+[['3d', Time.utc(2026, 7, 1), 86_400], ['3d', Time.utc(2026, 7, 2), 86_400], ['1M', Time.utc(2026, 6, 1), 604_800]].each do |tf, from, step|
+  kucoin << ["#{tf}_built_from_#{from.strftime('%Y%m%d')}", tf, from,
+             { kc_key(tf, from, NOW) => ok(kc_body.call(kc_rows.call((0...20).map { |i| from.to_i + (i * step) }))) }]
+end
+# Windows: 1500 minutes each.
+w0 = Time.utc(2026, 9, 1, 8)
+w1 = w0 + 1500.minutes
+kucoin << ['1m_two_windows', '1m', w0, { kc_key('1m', w0, w1) => ok(kc_body.call(kc_rows.call([w1.to_i - 120, w1.to_i - 60]))),
+                                         kc_key('1m', w1 - 59, NOW) => ok(kc_body.call(kc_rows.call([minute]))) }]
+kucoin << ['1m_empty_window_skips_forward', '1m', w0, { kc_key('1m', w0, w1) => ok(kc_body.call([])),
+                                                        kc_key('1m', w1 + 1, NOW) => ok(kc_body.call(kc_rows.call([minute]))) }]
+kucoin << ['1m_window_then_500', '1m', w0, { kc_key('1m', w0, w1) => ok(kc_body.call(kc_rows.call([w1.to_i - 60]))),
+                                             kc_key('1m', w1 - 59, NOW) => status(500, 'upstream failed') }]
+kucoin << ['1m_overlap_deduped', '1m', w0, { kc_key('1m', w0, w1) => ok(kc_body.call(kc_rows.call([w1.to_i - 120, w1.to_i - 60]))),
+                                             kc_key('1m', w1 - 59, NOW) => ok(kc_body.call([kc_row.call((w1.to_i - 60).to_s, 7), kc_row.call(minute.to_s, 8)])) }]
+kucoin << ['1m_window_order_as_sent', '1m', w0, { kc_key('1m', w0, w1) => ok(kc_body.call(kc_rows.call([w1.to_i - 60, w1.to_i - 120]).reverse)),
+                                                  kc_key('1m', w1 - 59, NOW) => ok(kc_body.call([])) }]
+v0 = w0 - 1500.minutes
+kucoin << ['1m_three_windows', '1m', v0, { kc_key('1m', v0, w0) => ok(kc_body.call([])),
+                                           kc_key('1m', w0 + 1, w0 + 1 + 1500.minutes) => ok(kc_body.call(kc_rows.call([(w0 + 1500.minutes).to_i - 60]))),
+                                           kc_key('1m', w0 + 1500.minutes - 59, NOW) => ok(kc_body.call(kc_rows.call([minute]))) }]
+# The 20-year walk: empty windows skipped to the one with candles.
+walk_from = Time.utc(2006, 9, 1)
+walk = {}
+loop do
+  to = [walk_from + 1500.days, NOW].min
+  walk[kc_key('1d', walk_from, to)] = ok(kc_body.call(to == NOW ? kc_rows.call([minute - (minute % 86_400)]) : []))
+  break if to == NOW
+
+  walk_from = to + 1
+end
+kucoin << ['1d_twenty_years', '1d', Time.utc(2006, 9, 1), walk]
+k = kc_key(NUMBER_TF, start, NOW)
+failure_cases(k, { 'code' => '400100', 'msg' => 'This pair is not provided at present' }).each { |name, http| kucoin << [name, NUMBER_TF, start, http] }
+kucoin << ['error_envelope', NUMBER_TF, start, { k => ok({ 'code' => '400100', 'msg' => 'This pair is not provided at present' }) }]
+kucoin << ['data_null', NUMBER_TF, start, { k => ok({ 'code' => '200000', 'data' => nil }) }]
+kucoin << ['data_not_an_array', NUMBER_TF, start, { k => ok({ 'code' => '200000', 'data' => 'x' }) }]
+number_cases(kc_row, minute.to_s).each { |name, r| kucoin << ["row_#{name}", NUMBER_TF, start, { k => ok(kc_body.call([r])) }] }
+
+# ---- Bitget: pages of up to 1000 from startTime (ms) to now; a full page asks again from a second after its last row
+# (as sent); a blank page ends; 3 days built from daily. Rows are [time, open, high, low, close, volume, usdt, quote].
+BG_GRAN = { '1m' => '1min', '5m' => '5min', '15m' => '15min', '30m' => '30min', '1h' => '1h', '4h' => '4h', '1d' => '1day',
+            '3d' => '1day', '1w' => '1Wutc', '1M' => '1Mutc' }.freeze
+def bg_key(tf, from) = "GET /api/v2/spot/market/candles?endTime=#{NOW.to_i * 1000}&granularity=#{BG_GRAN.fetch(tf)}&limit=1000&startTime=#{from.to_i * 1000}&symbol=BTCUSDT"
+bg_row = ->(t, i, **over) { shaped([:t, :o, :h, :l, :c, :v, '64001.1', '64001.1'], t, i, over) }
+bg_rows = ->(times) { times.each_with_index.map { |at, i| bg_row.call((at * 1000).to_s, i) } }
+bg_body = ->(rows) { { 'code' => '00000', 'msg' => 'success', 'requestTime' => NOW.to_i * 1000, 'data' => rows } }
+bitget = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '3d' => 86_400 }), minute)
+  key = bg_key(tf, start)
+  bitget << ["#{tf}_normal", tf, start, { key => ok(bg_body.call(bg_rows.call(times))) }]
+  bitget << ["#{tf}_gap", tf, start, { key => ok(bg_body.call(bg_rows.call(times.values_at(0..9, 11..20, 22..39)))) }]
+  bitget << ["#{tf}_empty", tf, start, { key => ok(bg_body.call([])) }]
+  bitget << ["#{tf}_http_500", tf, start, { key => status(500, 'upstream failed') }]
+end
+[Time.utc(2026, 7, 1), Time.utc(2026, 7, 2)].each do |from|
+  bitget << ["3d_built_from_#{from.strftime('%Y%m%d')}", '3d', from,
+             { bg_key('3d', from) => ok(bg_body.call(bg_rows.call((0...20).map { |i| from.to_i + (i * 86_400) }))) }]
+end
+p0 = minute - (1100 * 60)
+full = (0...1000).map { |i| p0 + (i * 60) }
+bitget << ['1m_full_page_then_rest', '1m', Time.at(p0).utc, { bg_key('1m', Time.at(p0)) => ok(bg_body.call(bg_rows.call(full))),
+                                                              bg_key('1m', Time.at(full.last + 1)) => ok(bg_body.call(bg_rows.call((1000...1003).map { |i| p0 + (i * 60) }))) }]
+bitget << ['1m_full_page_then_empty', '1m', Time.at(p0).utc, { bg_key('1m', Time.at(p0)) => ok(bg_body.call(bg_rows.call(full))),
+                                                               bg_key('1m', Time.at(full.last + 1)) => ok(bg_body.call([])) }]
+bitget << ['1m_full_page_then_500', '1m', Time.at(p0).utc, { bg_key('1m', Time.at(p0)) => ok(bg_body.call(bg_rows.call(full))),
+                                                             bg_key('1m', Time.at(full.last + 1)) => status(500, '') }]
+# The next page follows the LAST row as sent, not the latest.
+bitget << ['1m_full_page_newest_first', '1m', Time.at(p0).utc, { bg_key('1m', Time.at(p0)) => ok(bg_body.call(bg_rows.call(full).reverse)),
+                                                                 bg_key('1m', Time.at(p0 + 1)) => ok(bg_body.call([])) }]
+k = bg_key(NUMBER_TF, start)
+failure_cases(k, { 'code' => '40034', 'msg' => 'Parameter verification exception', 'requestTime' => 1, 'data' => nil }).each { |name, http| bitget << [name, NUMBER_TF, start, http] }
+bitget << ['error_envelope', NUMBER_TF, start, { k => ok({ 'code' => '40034', 'msg' => 'Parameter verification exception', 'data' => nil }) }]
+bitget << ['data_not_an_array', NUMBER_TF, start, { k => ok({ 'code' => '00000', 'data' => 'x' }) }]
+number_cases(bg_row, (minute * 1000).to_s).each { |name, r| bitget << ["row_#{name}", NUMBER_TF, start, { k => ok(bg_body.call([r])) }] }
+
+# ---- Bybit: pages of up to 1000 from `start` (ms), newest first, each read oldest first; a full page asks again from a
+# second after its latest; a retCode other than 0 fails with retMsg; 3 days built from daily.
+BY_INT = { '1m' => '1', '5m' => '5', '15m' => '15', '30m' => '30', '1h' => '60', '4h' => '240', '1d' => 'D', '3d' => 'D', '1w' => 'W',
+           '1M' => 'M' }.freeze
+def by_key(tf, from) = "GET /v5/market/kline?category=spot&interval=#{BY_INT.fetch(tf)}&limit=1000&start=#{from.to_i * 1000}&symbol=BTCUSDT"
+by_row = ->(t, i, **over) { shaped([:t, :o, :h, :l, :c, :v, '64001.1'], t, i, over) }
+by_rows = ->(times) { times.each_with_index.map { |at, i| by_row.call((at * 1000).to_s, i) }.reverse }
+by_body = ->(rows) { { 'retCode' => 0, 'retMsg' => 'OK', 'result' => { 'category' => 'spot', 'symbol' => 'BTCUSDT', 'list' => rows }, 'retExtInfo' => {}, 'time' => 1 } }
+bybit = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '3d' => 86_400 }), minute)
+  key = by_key(tf, start)
+  bybit << ["#{tf}_normal", tf, start, { key => ok(by_body.call(by_rows.call(times))) }]
+  bybit << ["#{tf}_gap", tf, start, { key => ok(by_body.call(by_rows.call(times.values_at(0..9, 11..20, 22..39)))) }]
+  bybit << ["#{tf}_empty", tf, start, { key => ok(by_body.call([])) }]
+  bybit << ["#{tf}_http_500", tf, start, { key => status(500, 'upstream failed') }]
+end
+[Time.utc(2026, 7, 1), Time.utc(2026, 7, 2)].each do |from|
+  bybit << ["3d_built_from_#{from.strftime('%Y%m%d')}", '3d', from,
+            { by_key('3d', from) => ok(by_body.call(by_rows.call((0...20).map { |i| from.to_i + (i * 86_400) }))) }]
+end
+bybit << ['1m_full_page_then_rest', '1m', Time.at(p0).utc, { by_key('1m', Time.at(p0)) => ok(by_body.call(by_rows.call(full))),
+                                                             by_key('1m', Time.at(full.last + 1)) => ok(by_body.call(by_rows.call((1000...1003).map { |i| p0 + (i * 60) }))) }]
+bybit << ['1m_full_page_then_retcode', '1m', Time.at(p0).utc, { by_key('1m', Time.at(p0)) => ok(by_body.call(by_rows.call(full))),
+                                                                by_key('1m', Time.at(full.last + 1)) => ok({ 'retCode' => 10_006, 'retMsg' => 'Too many visits!' }) }]
+k = by_key(NUMBER_TF, start)
+failure_cases(k, { 'retCode' => 10_001, 'retMsg' => 'Not supported symbols', 'result' => {} }).each { |name, http| bybit << [name, NUMBER_TF, start, http] }
+bybit << ['http_400_msg', NUMBER_TF, start, { k => status(400, { 'msg' => 'bad request' }) }]
+bybit << ['retcode_error', NUMBER_TF, start, { k => ok({ 'retCode' => 10_001, 'retMsg' => 'Not supported symbols', 'result' => {} }) }]
+bybit << ['retcode_string', NUMBER_TF, start, { k => ok({ 'retCode' => '0', 'retMsg' => 'OK', 'result' => { 'list' => [] } }) }]
+bybit << ['result_missing', NUMBER_TF, start, { k => ok({ 'retCode' => 0, 'retMsg' => 'OK' }) }]
+bybit << ['list_null', NUMBER_TF, start, { k => ok({ 'retCode' => 0, 'retMsg' => 'OK', 'result' => { 'list' => nil } }) }]
+bybit << ['list_not_an_array', NUMBER_TF, start, { k => ok({ 'retCode' => 0, 'retMsg' => 'OK', 'result' => { 'list' => 'x' } }) }]
+number_cases(by_row, (minute * 1000).to_s).each { |name, r| bybit << ["row_#{name}", NUMBER_TF, start, { k => ok(by_body.call([r])) }] }
+
+# ---- MEXC: the range from the start's whole second to now in windows of 500 periods (3 days: 500 days), each its own
+# read, joined in order; a failure's `msg` when it has one; 3 days built from daily.
+MX_INT = { '1m' => '1m', '5m' => '5m', '15m' => '15m', '30m' => '30m', '1h' => '60m', '4h' => '4h', '1d' => '1d', '3d' => '1d',
+           '1w' => '1W', '1M' => '1M' }.freeze
+def mx_span(tf) = 500 * (tf == '3d' ? 86_400 : TIMEFRAMES.fetch(tf).to_i) * 1000
+def mx_key(tf, from_ms) = "GET /api/v3/klines?endTime=#{from_ms + mx_span(tf) - 1}&interval=#{MX_INT.fetch(tf)}&limit=500&startTime=#{from_ms}&symbol=BTCUSDT"
+mx_row = ->(t, i, **over) { shaped([:t, :o, :h, :l, :c, :v, 0, '64001.1'], t, i, over) }
+mx_rows = ->(times) { times.each_with_index.map { |at, i| mx_row.call(at * 1000, i) } }
+mexc = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '3d' => 86_400 }), minute)
+  key = mx_key(tf, start.to_i * 1000)
+  mexc << ["#{tf}_normal", tf, start, { key => ok(mx_rows.call(times)) }]
+  mexc << ["#{tf}_gap", tf, start, { key => ok(mx_rows.call(times.values_at(0..9, 11..20, 22..39))) }]
+  mexc << ["#{tf}_empty", tf, start, { key => ok([]) }]
+  mexc << ["#{tf}_http_500", tf, start, { key => status(500, 'upstream failed') }]
+end
+windows = ->(tf, from) { (from.to_i * 1000).step(NOW.to_i * 1000, mx_span(tf)).to_a }
+two = windows.call('1h', deep)
+mexc << ['1h_two_windows', '1h', deep, { mx_key('1h', two[0]) => ok(mx_rows.call([deep.to_i, deep.to_i + 3600])), mx_key('1h', two[1]) => ok(mx_rows.call([minute])) }]
+mexc << ['1h_window_then_error', '1h', deep, { mx_key('1h', two[0]) => ok(mx_rows.call([deep.to_i])),
+                                               mx_key('1h', two[1]) => status(400, { 'code' => -1121, 'msg' => 'Invalid symbol.' }) }]
+mexc << ['1h_window_then_transport', '1h', deep, { mx_key('1h', two[0]) => ok(mx_rows.call([deep.to_i])), mx_key('1h', two[1]) => network('post_send') }]
+built = windows.call('3d', Time.utc(2025, 1, 1))
+mexc << ['3d_built_across_windows', '3d', Time.utc(2025, 1, 1),
+         { mx_key('3d', built[0]) => ok(mx_rows.call((0...5).map { |i| Time.utc(2025, 1, 1).to_i + (i * 86_400) })),
+           mx_key('3d', built[1]) => ok(mx_rows.call((0...5).map { |i| (built[1] / 1000) + (i * 86_400) })) }]
+mexc << ['3d_built_empty', '3d', start, { mx_key('3d', start.to_i * 1000) => ok([]) }]
+years = windows.call('1d', Time.utc(2006, 9, 1))
+mexc << ['1d_twenty_years', '1d', Time.utc(2006, 9, 1), years.to_h { |ws| [mx_key('1d', ws), ok(ws == years.last ? mx_rows.call([minute - (minute % 86_400)]) : [])] }]
+# A window from exactly now is still read.
+mexc << ['1m_window_from_now', '1m', NOW, { mx_key('1m', NOW.to_i * 1000) => ok(mx_rows.call([NOW.to_i - 1])) }]
+k = mx_key(NUMBER_TF, start.to_i * 1000)
+failure_cases(k, { 'code' => -1121, 'msg' => 'Invalid symbol.' }).each { |name, http| mexc << [name, NUMBER_TF, start, http] }
+mexc << ['http_400_blank_msg', NUMBER_TF, start, { k => status(400, { 'code' => 1, 'msg' => '' }) }]
+mexc << ['http_400_no_msg', NUMBER_TF, start, { k => status(400, { 'code' => 1 }) }]
+number_cases(mx_row, minute * 1000).each { |name, r| mexc << ["row_#{name}", NUMBER_TF, start, { k => ok([r]) }] }
+
+# ---- Bitrue: the newest 1440 rows, then older pages before the oldest (`fromIdx`) until a short page or one reaching
+# the start; deduped by `is`, sorted, 3 days and 1 month built from daily (none to build from is a failure), then only
+# the candles from the start on.
+BT_SCALE = { '1m' => '1m', '5m' => '5m', '15m' => '15m', '30m' => '30m', '1h' => '1h', '4h' => '4h', '1d' => '1d', '3d' => '1d',
+             '1w' => '1w', '1M' => '1d' }.freeze
+def bt_key(tf, from_idx = nil) = "GET /api/v1/market/kline?#{"fromIdx=#{from_idx}&" if from_idx}limit=1440&scale=#{BT_SCALE.fetch(tf)}&symbol=BTCUSDT"
+bt_row = ->(t, i, **over) { shaped({ 'i' => 1, 'is' => :t, 'a' => '64001.1', 'v' => :v, 'c' => :c, 'h' => :h, 'l' => :l, 'o' => :o }, t, i, over) }
+bt_rows = ->(times) { times.each_with_index.map { |at, i| bt_row.call(at * 1000, i) }.reverse }
+bt_body = ->(rows) { { 'symbol' => 'BTCUSDT', 'scale' => '1h', 'data' => rows } }
+bitrue = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '3d' => 86_400, '1M' => 86_400 }), minute)
+  from = Time.at(times[20]).utc
+  bitrue << ["#{tf}_normal", tf, from, { bt_key(tf) => ok(bt_body.call(bt_rows.call(times))) }]
+  bitrue << ["#{tf}_gap", tf, from, { bt_key(tf) => ok(bt_body.call(bt_rows.call(times.values_at(0..9, 11..20, 22..39)))) }]
+  bitrue << ["#{tf}_empty", tf, from, { bt_key(tf) => ok(bt_body.call([])) }]
+  bitrue << ["#{tf}_http_500", tf, from, { bt_key(tf) => status(500, 'upstream failed') }]
+end
+[Time.utc(2026, 7, 1), Time.utc(2026, 7, 2)].each do |from|
+  bitrue << ["3d_built_from_#{from.strftime('%Y%m%d')}", '3d', from,
+             { bt_key('3d') => ok(bt_body.call(bt_rows.call((0...20).map { |i| from.to_i + (i * 86_400) }))) }]
+end
+bitrue << ['1M_built_from_20260615', '1M', Time.utc(2026, 6, 15), { bt_key('1M') => ok(bt_body.call(bt_rows.call((0...75).map { |i| Time.utc(2026, 6, 1).to_i + (i * 86_400) }))) }]
+b0 = minute - (1500 * 60)
+newest = (60...1500).map { |i| b0 + (i * 60) }
+oldest_ms = newest.first * 1000
+bitrue << ['1m_full_page_then_older', '1m', Time.at(b0).utc, { bt_key('1m') => ok(bt_body.call(bt_rows.call(newest))),
+                                                               bt_key('1m', oldest_ms - 1) => ok(bt_body.call(bt_rows.call((0...61).map { |i| b0 + (i * 60) }))) }]
+bitrue << ['1m_full_page_reaches_the_start', '1m', Time.at(newest.first).utc, { bt_key('1m') => ok(bt_body.call(bt_rows.call(newest))) }]
+bitrue << ['1m_full_page_then_newer_ignored', '1m', Time.at(b0).utc, { bt_key('1m') => ok(bt_body.call(bt_rows.call(newest))),
+                                                                       bt_key('1m', oldest_ms - 1) => ok(bt_body.call(bt_rows.call([minute]))) }]
+bitrue << ['1m_full_page_then_empty', '1m', Time.at(b0).utc, { bt_key('1m') => ok(bt_body.call(bt_rows.call(newest))),
+                                                               bt_key('1m', oldest_ms - 1) => ok(bt_body.call([])) }]
+bitrue << ['1m_full_page_then_error', '1m', Time.at(b0).utc, { bt_key('1m') => ok(bt_body.call(bt_rows.call(newest))),
+                                                               bt_key('1m', oldest_ms - 1) => status(400, { 'code' => -1121, 'msg' => 'Invalid symbol.' }) }]
+bitrue << ['1m_duplicate_kept_first', '1m', Time.at(minute - 120).utc, { bt_key('1m') => ok(bt_body.call([bt_row.call(minute * 1000, 1), bt_row.call(minute * 1000, 2), bt_row.call((minute - 60) * 1000, 3)])) }]
+bitrue << ['1m_start_kept_with_its_fraction', '1m', Time.at(minute, 500, :millisecond).utc, { bt_key('1m') => ok(bt_body.call(bt_rows.call([minute - 60, minute, minute + 60]))) }]
+k = bt_key(NUMBER_TF)
+failure_cases(k, { 'code' => -1121, 'msg' => 'Invalid symbol.' }).each { |name, http| bitrue << [name, NUMBER_TF, Time.at(minute - 3600).utc, http] }
+bitrue << ['data_null', NUMBER_TF, start, { k => ok({ 'data' => nil }) }]
+number_cases(bt_row, minute * 1000).each { |name, r| bitrue << ["row_#{name}", NUMBER_TF, Time.at(minute - 3600).utc, { k => ok(bt_body.call([r])) }] }
+
+# ---- Bitvavo: the newest 1440 of the range from the start (ms), then older pages ending at the oldest, until a short
+# page or one no older; keyed by time (a later row replacing an earlier), sorted; 3 days, 1 week and 1 month built from daily.
+BV_INT = { '1m' => '1m', '5m' => '5m', '15m' => '15m', '30m' => '30m', '1h' => '1h', '4h' => '4h', '1d' => '1d', '3d' => '1d',
+           '1w' => '1d', '1M' => '1d' }.freeze
+def bv_key(tf, from, end_ms = nil) = "GET /v2/BTC-EUR/candles?#{"end=#{end_ms}&" if end_ms}interval=#{BV_INT.fetch(tf)}&limit=1440&start=#{from.to_i * 1000}"
+bv_row = ->(t, i, **over) { shaped([:t, :o, :h, :l, :c, :v], t, i, over) }
+bv_rows = ->(times) { times.each_with_index.map { |at, i| bv_row.call(at * 1000, i) }.reverse }
+bitvavo = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '3d' => 86_400, '1w' => 86_400, '1M' => 86_400 }), minute)
+  key = bv_key(tf, start)
+  bitvavo << ["#{tf}_normal", tf, start, { key => ok(bv_rows.call(times)) }]
+  bitvavo << ["#{tf}_gap", tf, start, { key => ok(bv_rows.call(times.values_at(0..9, 11..20, 22..39))) }]
+  bitvavo << ["#{tf}_empty", tf, start, { key => ok([]) }]
+  bitvavo << ["#{tf}_http_500", tf, start, { key => status(500, 'upstream failed') }]
+end
+[['3d', Time.utc(2026, 7, 1)], ['3d', Time.utc(2026, 7, 2)], ['1w', Time.utc(2026, 7, 1)], ['1M', Time.utc(2026, 6, 15)]].each do |tf, from|
+  bitvavo << ["#{tf}_built_from_#{from.strftime('%Y%m%d')}", tf, from, { bv_key(tf, from) => ok(bv_rows.call((0...75).map { |i| from.to_i + (i * 86_400) })) }]
+end
+vb = Time.at(b0).utc
+bitvavo << ['1m_full_page_then_older', '1m', vb, { bv_key('1m', vb) => ok(bv_rows.call(newest)),
+                                                   bv_key('1m', vb, oldest_ms) => ok(bv_rows.call((0...61).map { |i| b0 + (i * 60) })) }]
+bitvavo << ['1m_full_page_then_no_older', '1m', vb, { bv_key('1m', vb) => ok(bv_rows.call(newest)), bv_key('1m', vb, oldest_ms) => ok(bv_rows.call([newest.first + 60])) }]
+bitvavo << ['1m_full_page_then_empty', '1m', vb, { bv_key('1m', vb) => ok(bv_rows.call(newest)), bv_key('1m', vb, oldest_ms) => ok([]) }]
+bitvavo << ['1m_full_page_then_500', '1m', vb, { bv_key('1m', vb) => ok(bv_rows.call(newest)), bv_key('1m', vb, oldest_ms) => status(500, '') }]
+bitvavo << ['1m_duplicate_later_replaces', '1m', start, { bv_key('1m', start) => ok([bv_row.call(minute * 1000, 1), bv_row.call(minute * 1000, 2), bv_row.call((minute - 60) * 1000, 3)]) }]
+k = bv_key(NUMBER_TF, start)
+failure_cases(k, { 'errorCode' => 205, 'error' => 'market parameter is invalid.' }).each { |name, http| bitvavo << [name, NUMBER_TF, start, http] }
+number_cases(bv_row, minute * 1000).each { |name, r| bitvavo << ["row_#{name}", NUMBER_TF, start, { k => ok([r]) }] }
+
+# ---- Gemini: one recent window per native resolution, newest first; 4 hours built from hourly, 3 days, 1 week and
+# 1 month from daily (none to build from is a failure); then only the candles from the start on.
+GM_TF = { '1m' => '1m', '5m' => '5m', '15m' => '15m', '30m' => '30m', '1h' => '1hr', '4h' => '1hr', '1d' => '1day', '3d' => '1day',
+          '1w' => '1day', '1M' => '1day' }.freeze
+def gm_key(tf) = "GET /v2/candles/btcusd/#{GM_TF.fetch(tf)}"
+gm_row = ->(t, i, **over) { shaped([:t, :o, :h, :l, :c, :v], t, i, over) }
+gm_rows = ->(times) { times.each_with_index.map { |at, i| gm_row.call(at * 1000, i) }.reverse }
+gemini = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '4h' => 3600, '3d' => 86_400, '1w' => 86_400, '1M' => 86_400 }), minute)
+  from = Time.at(times[20]).utc
+  gemini << ["#{tf}_normal", tf, from, { gm_key(tf) => ok(gm_rows.call(times)) }]
+  gemini << ["#{tf}_gap", tf, from, { gm_key(tf) => ok(gm_rows.call(times.values_at(0..9, 11..20, 22..39))) }]
+  gemini << ["#{tf}_empty", tf, from, { gm_key(tf) => ok([]) }]
+  gemini << ["#{tf}_http_500", tf, from, { gm_key(tf) => status(500, 'upstream failed') }]
+end
+[['4h', Time.utc(2026, 9, 1), 3600], ['3d', Time.utc(2026, 7, 1), 86_400], ['1w', Time.utc(2026, 7, 6), 86_400], ['1M', Time.utc(2026, 6, 15), 86_400]].each do |tf, from, step|
+  gemini << ["#{tf}_built_from_#{from.strftime('%Y%m%d')}", tf, from, { gm_key(tf) => ok(gm_rows.call((0...75).map { |i| from.to_i + ((i - 10) * step) })) }]
+end
+gemini << ['1m_start_kept_with_its_fraction', '1m', Time.at(minute, 500, :millisecond).utc, { gm_key('1m') => ok(gm_rows.call([minute - 60, minute, minute + 60])) }]
+gemini << ['4h_built_none_from_the_start', '4h', NOW + 3600, { gm_key('4h') => ok(gm_rows.call([minute])) }]
+k = gm_key(NUMBER_TF)
+gfrom = Time.at(minute - 3600).utc
+failure_cases(k, { 'result' => 'error', 'reason' => 'InvalidSymbol', 'message' => 'Supplied value is not a valid symbol' }).each { |name, http| gemini << [name, NUMBER_TF, gfrom, http] }
+gemini << ['json_object_built', '4h', gfrom, { gm_key('4h') => ok({ 'result' => 'error' }) }]
+number_cases(gm_row, minute * 1000).each { |name, r| gemini << ["row_#{name}", NUMBER_TF, gfrom, { k => ok([r]) }] }
+
+# ---- Hyperliquid: one candleSnapshot from the start (ms) to now; 3 days, 1 week and 1 month built from daily.
+HL_INT = { '1m' => '1m', '5m' => '5m', '15m' => '15m', '30m' => '30m', '1h' => '1h', '4h' => '4h', '1d' => '1d', '3d' => '1d', '1w' => '1d',
+           '1M' => '1d' }.freeze
+HL_COIN = '@107'.freeze
+HL_KEY = 'POST /info'.freeze
+hl_row = ->(t, i, **over) { shaped({ 't' => :t, 'T' => 0, 's' => HL_COIN, 'i' => '1h', 'o' => :o, 'c' => :c, 'h' => :h, 'l' => :l, 'v' => :v, 'n' => 10 }, t, i, over) }
+hl_rows = ->(times) { times.each_with_index.map { |at, i| hl_row.call(at * 1000, i) } }
+hyperliquid = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '3d' => 86_400, '1w' => 86_400, '1M' => 86_400 }), minute)
+  hyperliquid << ["#{tf}_normal", tf, start, { HL_KEY => ok(hl_rows.call(times)) }]
+  hyperliquid << ["#{tf}_gap", tf, start, { HL_KEY => ok(hl_rows.call(times.values_at(0..9, 11..20, 22..39))) }]
+  hyperliquid << ["#{tf}_empty", tf, start, { HL_KEY => ok([]) }]
+  hyperliquid << ["#{tf}_http_500", tf, start, { HL_KEY => status(500, 'upstream failed') }]
+end
+[['3d', Time.utc(2026, 7, 1)], ['3d', Time.utc(2026, 7, 2)], ['1w', Time.utc(2026, 7, 1)], ['1M', Time.utc(2026, 6, 15)]].each do |tf, from|
+  hyperliquid << ["#{tf}_built_from_#{from.strftime('%Y%m%d')}", tf, from, { HL_KEY => ok(hl_rows.call((0...75).map { |i| from.to_i + (i * 86_400) })) }]
+end
+failure_cases(HL_KEY, 'Failed to deserialize the JSON body into the target type').each { |name, http| hyperliquid << [name, NUMBER_TF, start, http] }
+number_cases(hl_row, minute * 1000).each { |name, r| hyperliquid << ["row_#{name}", NUMBER_TF, start, { HL_KEY => ok([r]) }] }
+hyperliquid << ['row_volume_missing', NUMBER_TF, start, { HL_KEY => ok([hl_row.call(minute * 1000, 0).except('v')]) }]
+
+# ---- Coinbase: windows of 350 periods (start/end in seconds) to now, each sorted; the next from a second after the
+# latest candle so far (from the window's end while there is none); 4 hours built from two-hourly, 3 days, 1 week and
+# 1 month from daily.
+CB_GRAN = { '1m' => 'ONE_MINUTE', '5m' => 'FIVE_MINUTE', '15m' => 'FIFTEEN_MINUTE', '30m' => 'THIRTY_MINUTE', '1h' => 'ONE_HOUR',
+            '4h' => 'TWO_HOUR', '1d' => 'ONE_DAY', '3d' => 'ONE_DAY', '1w' => 'ONE_DAY', '1M' => 'ONE_DAY' }.freeze
+def cb_key(tf, from, to) = "GET /api/v3/brokerage/market/products/BTC-USD/candles?end=#{to.to_i}&granularity=#{CB_GRAN.fetch(tf)}&start=#{from.to_i}"
+cb_row = ->(t, i, **over) { shaped({ 'start' => :t, 'low' => :l, 'high' => :h, 'open' => :o, 'close' => :c, 'volume' => :v }, t, i, over) }
+cb_rows = ->(times) { times.each_with_index.map { |at, i| cb_row.call(at.to_s, i) }.reverse }
+cb_body = ->(rows) { { 'candles' => rows } }
+coinbase = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(NATIVE_STEP.call(tf, { '4h' => 7200, '3d' => 86_400, '1w' => 86_400, '1M' => 86_400 }), minute)
+  key = cb_key(tf, start, NOW)
+  coinbase << ["#{tf}_normal", tf, start, { key => ok(cb_body.call(cb_rows.call(times))) }]
+  coinbase << ["#{tf}_gap", tf, start, { key => ok(cb_body.call(cb_rows.call(times.values_at(0..9, 11..20, 22..39)))) }]
+  coinbase << ["#{tf}_empty", tf, start, { key => ok(cb_body.call([])) }]
+  coinbase << ["#{tf}_http_500", tf, start, { key => status(500, 'upstream failed') }]
+end
+[['4h', Time.utc(2026, 9, 1), 7200], ['3d', Time.utc(2026, 7, 1), 86_400], ['1w', Time.utc(2026, 7, 6), 86_400], ['1M', Time.utc(2026, 6, 15), 86_400]].each do |tf, from, step|
+  coinbase << ["#{tf}_built_from_#{from.strftime('%Y%m%d')}", tf, from, { cb_key(tf, from, NOW) => ok(cb_body.call(cb_rows.call((0...60).map { |i| from.to_i + (i * step) }))) }]
+end
+c0 = NOW - 360.days
+c1 = c0 + 350.days
+coinbase << ['1d_two_windows', '1d', c0, { cb_key('1d', c0, c1) => ok(cb_body.call(cb_rows.call([c1.to_i - 172_800, c1.to_i - 86_400]))),
+                                           cb_key('1d', c1 - 86_399, NOW) => ok(cb_body.call(cb_rows.call([minute - (minute % 86_400)]))) }]
+coinbase << ['1d_empty_window_then_page', '1d', c0, { cb_key('1d', c0, c1) => ok(cb_body.call([])),
+                                                      cb_key('1d', c1, NOW) => ok(cb_body.call(cb_rows.call([minute - (minute % 86_400)]))) }]
+coinbase << ['1d_window_then_500', '1d', c0, { cb_key('1d', c0, c1) => ok(cb_body.call(cb_rows.call([c1.to_i - 86_400]))),
+                                               cb_key('1d', c1 - 86_399, NOW) => status(500, '') }]
+coinbase << ['1d_window_then_empty', '1d', c0, { cb_key('1d', c0, c1) => ok(cb_body.call(cb_rows.call([c1.to_i - 86_400]))),
+                                                 cb_key('1d', c1 - 86_399, NOW) => ok(cb_body.call([])) }]
+k = cb_key(NUMBER_TF, start, NOW)
+failure_cases(k, { 'error' => 'INVALID_ARGUMENT', 'error_details' => 'start and end argument is invalid', 'message' => 'start and end argument is invalid' })
+  .each { |name, http| coinbase << [name, NUMBER_TF, start, http] }
+coinbase << ['candles_null', NUMBER_TF, start, { k => ok({ 'candles' => nil }) }]
+number_cases(cb_row, minute.to_s).each { |name, r| coinbase << ["row_#{name}", NUMBER_TF, start, { k => ok(cb_body.call([r])) }] }
+
+# ---- BingX: the newest 1000 at timeZone=0, rows before the start's whole second dropped, sorted; nothing built.
+BX_INT = { '1m' => '1m', '5m' => '5m', '15m' => '15m', '30m' => '30m', '1h' => '1h', '4h' => '4h', '1d' => '1d', '3d' => '3d', '1w' => '1w',
+           '1M' => '1M' }.freeze
+def bx_key(tf) = "GET /openApi/spot/v1/market/kline?interval=#{BX_INT.fetch(tf)}&limit=1000&symbol=BTC-USDT&timeZone=0"
+bx_row = ->(t, i, **over) { shaped([:t, :o, :h, :l, :c, :v, 0, '64001.1'], t, i, over) }
+bx_rows = ->(times) { times.each_with_index.map { |at, i| bx_row.call(at * 1000, i) }.reverse }
+bx_body = ->(rows) { { 'code' => 0, 'timestamp' => 1, 'data' => rows } }
+bingx = []
+TIMEFRAMES.each_key do |tf|
+  times = forty(TIMEFRAMES.fetch(tf).to_i, minute)
+  from = Time.at(times[20], 500, :millisecond).utc
+  bingx << ["#{tf}_normal", tf, from, { bx_key(tf) => ok(bx_body.call(bx_rows.call(times))) }]
+  bingx << ["#{tf}_gap", tf, from, { bx_key(tf) => ok(bx_body.call(bx_rows.call(times.values_at(0..9, 11..20, 22..39)))) }]
+  bingx << ["#{tf}_empty", tf, from, { bx_key(tf) => ok(bx_body.call([])) }]
+  bingx << ["#{tf}_http_500", tf, from, { bx_key(tf) => status(500, 'upstream failed') }]
+end
+k = bx_key(NUMBER_TF)
+bfrom = Time.at(minute - 3600).utc
+failure_cases(k, { 'code' => 100_400, 'msg' => 'Invalid parameters' }).each { |name, http| bingx << [name, NUMBER_TF, bfrom, http] }
+bingx << ['error_envelope', NUMBER_TF, bfrom, { k => ok({ 'code' => 100_204, 'msg' => 'symbol not exist', 'timestamp' => 1 }) }]
+bingx << ['bare_rows', NUMBER_TF, bfrom, { k => ok(bx_rows.call([minute - 60, minute])) }]
+bingx << ['data_null', NUMBER_TF, bfrom, { k => ok({ 'code' => 0, 'data' => nil }) }]
+number_cases(bx_row, minute * 1000).each { |name, r| bingx << ["row_#{name}", NUMBER_TF, bfrom, { k => ok(bx_body.call([r])) }] }
+
+OTHER_VENUES = {
+  'kucoin' => [Exchanges::Kucoin, 'KuCoin', kucoin, 'BTC-USDT', %w[app/models/exchanges/kucoin.rb]],
+  'bitget' => [Exchanges::Bitget, 'Bitget', bitget, 'BTCUSDT', %w[app/models/exchanges/bitget.rb]],
+  'bybit' => [Exchanges::Bybit, 'Bybit', bybit, 'BTCUSDT', %w[app/models/exchanges/bybit.rb]],
+  'mexc' => [Exchanges::Mexc, 'MEXC', mexc, 'BTCUSDT', %w[app/models/exchanges/mexc.rb]],
+  'bitrue' => [Exchanges::Bitrue, 'Bitrue', bitrue, 'BTCUSDT', %w[app/models/exchanges/bitrue.rb]],
+  'bitvavo' => [Exchanges::Bitvavo, 'Bitvavo', bitvavo, 'BTC-EUR', %w[app/models/exchanges/bitvavo.rb]],
+  'gemini' => [Exchanges::Gemini, 'Gemini', gemini, 'btcusd', %w[app/models/exchanges/gemini.rb]],
+  'hyperliquid' => [Exchanges::Hyperliquid, 'Hyperliquid', hyperliquid, HL_COIN, %w[app/models/exchanges/hyperliquid.rb]],
+  'coinbase' => [Exchanges::Coinbase, 'Coinbase', coinbase, 'BTC-USD', %w[app/models/exchanges/coinbase.rb]],
+  'bingx' => [Exchanges::Bingx, 'BingX', bingx, 'BTC-USDT', %w[app/models/exchanges/bingx.rb]]
+}.freeze
+
 stub = ->(t) { TickerStub.new(t['ticker'], t['base'], AssetStub.new(t['crypto'] ? 'Cryptocurrency' : 'Stock')) }
 cases_by_venue = { 'kraken' => [Exchanges::Kraken.new(name: 'Kraken'), kraken, TickerStub.new(KR_PAIR)],
                    'binance' => [Exchanges::Binance.new(name: 'Binance'), binance, TickerStub.new(BN_SYMBOL)],
@@ -357,6 +757,10 @@ cases_by_venue = { 'kraken' => [Exchanges::Kraken.new(name: 'Kraken'), kraken, T
 sources = { 'kraken' => %w[app/models/exchanges/kraken.rb], 'binance' => %w[app/models/exchanges/binance.rb],
             'binance_us' => %w[app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb],
             'alpaca' => %w[app/models/exchanges/alpaca.rb app/models/clients/alpaca.rb app/models/client.rb] }
+OTHER_VENUES.each do |venue, (klass, name, list, pair, files)|
+  cases_by_venue[venue] = [klass.new(name:), list, TickerStub.new(pair)]
+  sources[venue] = files
+end
 
 venue = ARGV.fetch(0)
 exchange, list, ticker = cases_by_venue.fetch(venue)

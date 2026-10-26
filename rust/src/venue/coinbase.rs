@@ -3,6 +3,7 @@
 use super::binance::Pairs;
 use super::http::{self, HttpRequest, Transport};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, COINBASE as RULES};
 use crate::ruby::BigDec;
@@ -247,7 +248,49 @@ fn format_transport(e: http::TransportError) -> String {
         | http::TransportError::MaybeSent(m) => m,
     }
 }
+/// Exchanges::Coinbase#get_candles' granularity for each timeframe and its length in seconds: 4 hours are two-hourly,
+/// 3 days, 1 week and 1 month daily, built.
+pub fn candle_granularity(timeframe: Timeframe) -> (&'static str, i64) {
+    match timeframe {
+        Timeframe::Minute => ("ONE_MINUTE", 60), Timeframe::FiveMinutes => ("FIVE_MINUTE", 300), Timeframe::FifteenMinutes => ("FIFTEEN_MINUTE", 900),
+        Timeframe::ThirtyMinutes => ("THIRTY_MINUTE", 1800), Timeframe::Hour => ("ONE_HOUR", 3600), Timeframe::FourHours => ("TWO_HOUR", 7200),
+        Timeframe::Day | Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month => ("ONE_DAY", 86_400),
+    }
+}
+
 impl<T: Transport> super::Venue for CoinbaseVenue<T> {
+    /// Exchanges::Coinbase#get_candles: windows of 350 periods (`start`/`end` in whole seconds), each ending at now at the
+    /// latest and sorted by time; the walk ends at the window reaching now, the next one starting a second after the
+    /// latest candle so far (at the window's end while there is none). Each `{start, open, high, low, close, volume}` at
+    /// `start.to_i`; 4 hours built from two-hourly, 3 days, 1 week and 1 month from daily. DIVERGES
+    /// (D-COND-CANDLE-COINBASE-EMPTY-WINDOW): an empty window after one with candles moves on from its end, where Rails
+    /// asks the same window again forever; D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES windows it is a settled failure.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let (granularity, seconds) = candle_granularity(timeframe);
+        let path = format!("/api/v3/brokerage/market/products/{}/candles", ticker.ticker);
+        let (mut start, mut out) = (start_at, Vec::<Candle>::new());
+        for _ in 0..candles::MAX_CANDLE_PAGES {
+            let now = self.transport.now();
+            let end = (start + chrono::Duration::seconds(350 * seconds)).min(now);
+            // In Faraday's (sorted) order: a failure's text names the URL.
+            let r = self.request("GET", &path, vec![("end", end.timestamp().to_string()), ("granularity", granularity.into()), ("start", start.timestamp().to_string())], None);
+            let body = candles::get(&self.transport, &r, str::to_string, None, unreadable).await?;
+            let mut page = body.as_object().and_then(|b| b.get("candles")).and_then(Value::as_array).ok_or_else(unreadable)?.iter().map(|row| {
+                let at = row.get("start").and_then(candles::to_i).and_then(|s| DateTime::from_timestamp(s, 0));
+                at.and_then(|at| candles::fields(at, row, ["open", "high", "low", "close", "volume"])).ok_or_else(unreadable)
+            }).collect::<Result<Vec<_>, _>>()?;
+            // ponytail: sorted by time; Rails sorts by the raw `start`, which differs only for times of different lengths.
+            page.sort_by_key(|c| c.at);
+            let latest = page.last().map(|c| c.at);
+            out.extend(page);
+            if end == now {
+                return Ok(if matches!(timeframe, Timeframe::FourHours | Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month) { candles::build(&out, timeframe) } else { out });
+            }
+            start = latest.map_or(end, |at| at + chrono::Duration::seconds(1));
+        }
+        Err(candles::too_many_pages("Coinbase"))
+    }
+
     fn rules(&self) -> &'static VenueRules {
         &RULES
     }

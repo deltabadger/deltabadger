@@ -104,9 +104,16 @@ impl<F: VenueFactory> Engine<F> {
     fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> { venue_for(&self.primary, &self.factory, &self.cipher, bot) }
 }
 
-fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, cipher: &Cipher, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> {
+/// The bot's venue. An IBKR bot's is built for the account it belongs to (`ibkr_account::bot_binding`): one whose key is
+/// bound to another account gets a venue that refuses every call, so its placement, recovery, polls, cancels and
+/// liquidation never reach IBKR (D-IBKR-BOT-ACCOUNT).
+pub(crate) fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, cipher: &Cipher, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> {
     let (credentials,version,sensitive)=model::credentials_with_redaction(primary,cipher,bot)?;
-    Ok((crate::venue::Handle::new(factory.for_bot_with_redaction(&model::exchange_type(primary, bot)?, credentials,sensitive),version.clone()),version))
+    let exchange = model::exchange_type(primary, bot)?;
+    let venue = if exchange == crate::venue::ibkr::IBKR {
+        factory.for_ibkr(credentials, sensitive, version.clone(), crate::venue::ibkr_account::bot_binding(primary, cipher, bot.id)?)
+    } else { factory.for_bot_with_redaction(&exchange, credentials, sensitive) };
+    Ok((crate::venue::Handle::new(venue,version.clone()),version))
 }
 
 /// A stop request for the loop: the tick in hand finishes, nothing new starts, and `run` returns `EngineError::Stopped`.

@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :coinbase, :bingx, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :coinbase, :bingx, :kraken, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -39,7 +39,8 @@ module ScriptedSync
     'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) },
     'pre_send:api.mexc.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.mexc.com" port 443')) },
     'hyperliquid_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.hyperliquid.xyz" port 443')) },
-    'pre_send:openapi.bitrue.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "openapi.bitrue.com" port 443')) }
+    'pre_send:openapi.bitrue.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "openapi.bitrue.com" port 443')) },
+    'pre_send:api.kraken.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kraken.com" port 443')) }
   }.freeze
 
   def self.reply(env)
@@ -60,6 +61,7 @@ module ScriptedSync
              elsif host == 'openapi.bitrue.com' then bitrue
              elsif host == 'api.coinbase.com' then coinbase
              elsif host == 'open-api.bingx.com' then bingx
+             elsif host == 'api.kraken.com' then kraken
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -68,11 +70,15 @@ module ScriptedSync
     hyperliquid = host == 'api.hyperliquid.xyz'
     params = if host == 'api.gemini.com' then gemini_params(env)
              elsif hyperliquid then JSON.parse(env.request_body).map { |k, v| [k, v.to_s] }.sort # its /info body, logged as a query's pairs
+             # Kraken's private calls carry their fields in the form body: logged as a query's pairs, without the clock's nonce.
+             elsif host == 'api.kraken.com' then (URI.decode_www_form(env.request_body.to_s).reject { |k, _| k == 'nonce' } + URI.decode_www_form(env.url.query.to_s)).sort
              else URI.decode_www_form(env.url.query.to_s).sort
              end
     requests << [key, params]
     # Hyperliquid names each /info read by its body's `type` ("POST /info userFillsByTime").
     typed = "#{key} #{JSON.parse(env.request_body)['type']}" if hyperliquid
+    # Kraken's private fields name a reply as a query would ("POST /0/private/Ledgers?ofs=0"), before the bare path.
+    typed ||= "#{key}?#{params.map { |k, v| "#{k}=#{v}" }.join('&')}" if host == 'api.kraken.com' && params.any? && script.key?("#{key}?#{params.map { |k, v| "#{k}=#{v}" }.join('&')}")
     queue = (typed && script[typed]) || script[key] or raise Harness::Unscripted, "unscripted call #{typed || key}"
     queue.size > 1 ? queue.shift : queue.first
   end
@@ -649,6 +655,59 @@ module SyncParity
     { 'kind' => 'balances', 'at' => at, 'bitvavo' => { BV_BALANCE => [balance] },
       'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
   end
+  # A Kraken key (plan Kraken sync, slice K1): its tickers as Exchanges::Kraken#get_tickers_info stores them, the base the
+  # wsname's (XBT for BTC, XDG for DOGE, NVDAx for the xStock); ADA's only ticker is unavailable. Tokenized wrappers carry
+  # instrument_type 'tokenized' (Asset.mark_tokenized!).
+  KR_ASSETS = { 'DOT' => %w[polkadot Polkadot], 'DOGE' => %w[dogecoin Dogecoin], 'LTC' => %w[litecoin Litecoin], 'SOL' => %w[solana Solana],
+                'ADA' => %w[cardano Cardano], 'NVDAx' => %w[nvidia-xstock NVIDIA], 'BRK.Bx' => %w[berkshire-hathaway-xstock Berkshire] }.freeze
+  KR_BASES = { 'BTC' => 'XBT', 'ETH' => 'ETH', 'DOT' => 'DOT', 'DOGE' => 'XDG', 'LTC' => 'LTC', 'SOL' => 'SOL', 'NVDAx' => 'NVDAx', 'BRK.Bx' => 'BRK.Bx',
+               'ADA' => 'ADA' }.freeze
+  def kraken(ctx)
+    all = ctx[:assets]
+    KR_ASSETS.each do |s, (id, name)|
+      all[s] ||= Asset.create!(external_id: id, symbol: s, name:, category: 'Cryptocurrency', instrument_type: id.end_with?('-xstock') ? 'tokenized' : nil)
+    end
+    venue(ctx, Exchanges::Kraken, 'Kraken', as: :kraken, assets: %w[USD] + KR_BASES.keys, pairs: [], pair: nil, coin: {})
+    KR_BASES.each do |s, base|
+      Ticker.create!(exchange: ctx[:kraken], ticker: "#{base}USD", base:, quote: 'USD', base_asset: all[s], quote_asset: all['USD'], available: s != 'ADA',
+                     base_decimals: 8, quote_decimals: 5, price_decimals: 1, minimum_base_size: '0.0001', minimum_quote_size: '0.5')
+    end
+  end
+  KR_BALANCE = 'POST /0/private/BalanceEx'.freeze
+  # BalanceEx's answer: each code's `balance` and `hold_trade` (plus `credit`/`credit_used` where given).
+  def kr_ok(result) = ok('error' => [], 'result' => result)
+  def kr_err(*errors) = ok('error' => errors)
+  def kr_bal(balance, hold = '0', **extra) = { 'balance' => balance, 'hold_trade' => hold }.merge(extra.transform_keys(&:to_s))
+  def kraken_balances(at, balance:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'kraken' => { KR_BALANCE => [balance] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
+  KR_LEDGERS = 'POST /0/private/Ledgers'.freeze
+  # One Ledgers entry, in Kraken's key order (docs.kraken.com get-ledgers-info); `at` in seconds (a Float where fractional).
+  def kr_entry(asset, type, amount, at, fee: '0', subtype: '', refid: 'R1', aclass: 'currency', balance: '0')
+    { 'refid' => refid, 'time' => at, 'type' => type, 'subtype' => subtype, 'aclass' => aclass, 'asset' => asset, 'amount' => amount, 'fee' => fee, 'balance' => balance }
+  end
+  # A Kraken ledger run (plan Kraken sync, K2): `currency` and `tokenized` ({ ledger id => entry }) as each side asks for
+  # them. Rails pages the currency ledger by `ofs` (`count` the total); Rust walks both by cursor (D-KR-W), `per` entries
+  # a page. `start`: the exclusive start both send (the watermark less the overlap, in seconds). `rails`/`rust`: replies to
+  # put first on a key (a throttle, an error), as { key params => [replies] }. `rails_start`: Rails' own, where its watermark
+  # differs from Rust's (a row only Rust stores moved Rust's).
+  def kraken_ledger(at, currency: {}, tokenized: {}, start: nil, rails_start: start, per: 50, rails: {}, rust: {})
+    form = ->(**f) { "#{KR_LEDGERS}?#{f.compact.map { |k, v| "#{k}=#{v}" }.sort.join('&')}" }
+    page = ->(rows, extra = {}) { ok('error' => [], 'result' => { 'ledger' => rows.to_h }.merge(extra)) }
+    script = {}
+    chunks = currency.to_a.each_slice(per).to_a.presence || [[]]
+    chunks.each_with_index { |rows, i| script[form.(ofs: i * per, start: rails_start)] = [page.(rows, 'count' => currency.size)] }
+    { 'currency' => [currency, nil], 'tokenized' => [tokenized, 'tokenized_asset'] }.each do |name, (rows, aclass)|
+      pages = rows.to_a.each_slice(per).to_a.presence || [[]]
+      pages.each_with_index do |chunk, i|
+        more = i + 1 < pages.size ? { 'cursor' => { 'next' => "#{name[0]}#{i + 1}" } } : {}
+        script[form.(with_cursor: 'true', cursor: (i.zero? ? nil : "#{name[0]}#{i}"), aclass:, start:)] = [page.(chunk, { 'count' => nil }.merge(more))]
+      end
+    end
+    rails.merge(rust).each { |params, replies| k = "#{KR_LEDGERS}?#{params}"; script[k] = replies + (script[k] || []) }
+    { 'kind' => 'ledger', 'at' => at, 'kraken' => script }
+  end
   KC_FILLS = 'GET /api/v1/fills'.freeze
   KC_DEPOSITS = 'GET /api/v1/deposits'.freeze
   KC_WITHDRAWALS = 'GET /api/v1/withdrawals'.freeze
@@ -771,6 +830,7 @@ module SyncParity
     Exchanges::Bybit.prepend(Module.new { def sleep(*) = nil })
     Exchanges::Kucoin.prepend(Module.new { def sleep(*) = nil }) # each_page's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     Exchanges::Bitvavo.prepend(Module.new { def sleep(*) = nil }) # the ledger's pacing (LEDGER_READ_PAUSE)
+    Exchanges::Kraken.prepend(Module.new { def sleep(*) = nil }) # get_ledger's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     Exchanges::Gemini.prepend(Module.new { def sleep(*) = nil }) # each_ledger_row's 5 s transfers pacing (TRANSFERS_REQUEST_INTERVAL)
     PortfolioSnapshot.singleton_class.prepend(Module.new { def record!(*) = nil })
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
@@ -779,7 +839,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase, Exchanges::Bingx, Exchanges::Ibkr].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase, Exchanges::Bingx, Exchanges::Kraken, Exchanges::Ibkr].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -795,6 +855,7 @@ module SyncParity
         ScriptedSync.bitrue = step.fetch('bitrue', {}).transform_values(&:dup)
         ScriptedSync.coinbase = step.fetch('coinbase', {}).transform_values(&:dup)
         ScriptedSync.bingx = step.fetch('bingx', {}).transform_values(&:dup)
+        ScriptedSync.kraken = step.fetch('kraken', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

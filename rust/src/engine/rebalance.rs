@@ -719,11 +719,19 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
 async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, plan: &OrderPlan, intent_state: &Pending, loss: bool, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     use super::placement::{Begun, Sent};
     let bot = &claim.bot;
-    let intent = match super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &claim.composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, loss, clock)? {
+    // The venue's own check, read under its lock until the intent commits (an IBKR order's account and position).
+    let hold = match venue.placement_hold(&plan.ticker, plan.side).await {
+        Ok(hold) => hold,
+        Err(e) => return Ok(Outcome::Failed(e.rejection().map_or_else(|| format!("{e:?}"), crate::ruby::to_sentence))),
+    };
+    let begun = super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &claim.composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, loss, hold.as_ref(), clock);
+    drop(hold);
+    let intent = match begun? {
         Begun::Intent(intent) => intent,
         Begun::Changed | Begun::Fenced => return Ok(Outcome::Skipped("changed")),
         Begun::LedgerStale(_) => return Ok(Outcome::Skipped("ledger_stale")),
         Begun::CredentialsChanged => return Ok(Outcome::Failed("credentials changed".into())),
+        Begun::Refused(why) => return Ok(Outcome::Failed(why)),
         Begun::BelowMinimum(_) => return Ok(Outcome::Skipped("below_minimum")),
         // Re-read before #mark_buy_attempted! (written with the intent): the proceeds stay owed, the pending state stands.
         Begun::WashSaleLocked => {

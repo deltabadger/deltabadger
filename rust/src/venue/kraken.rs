@@ -34,7 +34,7 @@ const TRADES_RECOVERY_REACH: u64 = 20 * 50;
 /// with `deltabadger resolve-placement`.
 pub const ABSENCE_UNPROVEN: &str = "Kraken: no order with this client order id was found, and the lookup is not confirmed live, so absence is not proven";
 
-const ASSET_MAP: [(&str, &str); 10] = [("ZUSD", "USD"), ("ZEUR", "EUR"), ("ZGBP", "GBP"), ("ZJPY", "JPY"), ("ZCHF", "CHF"),
+pub(crate) const ASSET_MAP: [(&str, &str); 10] = [("ZUSD", "USD"), ("ZEUR", "EUR"), ("ZGBP", "GBP"), ("ZJPY", "JPY"), ("ZCHF", "CHF"),
     ("ZCAD", "CAD"), ("ZAUD", "AUD"), ("XXBT", "XBT"), ("XETH", "ETH"), ("XXDG", "XDG")];
 
 // ---- signing: Honeymaker::Clients::Kraken#private_headers / #nonce, byte for byte (tests/fixtures/kraken_signing.json)
@@ -317,6 +317,11 @@ pub(crate) fn aggregate_trades(trades: &[Value], txids: &[String]) -> Result<Vec
     }).collect())
 }
 
+/// Clients::Kraken#get_extended_balance's path.
+pub const BALANCE_EX: &str = "/0/private/BalanceEx";
+/// Clients::Kraken#get_ledgers' path.
+pub const LEDGERS: &str = "/0/private/Ledgers";
+
 // ---- the adapter
 
 #[derive(Clone)]
@@ -329,6 +334,23 @@ impl<T: Transport> KrakenVenue<T> {
     /// Another host: local test servers only.
     #[doc(hidden)]
     pub fn with_base(mut self, base: &str) -> Self { self.base = base.into(); self }
+
+    /// One private POST as honeymaker's #with_rescue returns it to a sync: the 2xx body of at most `limit` bytes, unparsed
+    /// (`Ok`), else the failure's text: the answer's body, or Faraday's (or the transport's) message.
+    pub async fn read_text(&self, path: &str, limit: usize) -> Result<String, String> { self.read_form(path, &[], limit, false).await }
+
+    /// `read_text` with the call's private `fields` (the transport adds the nonce). `throttle_status`: an HTTP 429/418 answer
+    /// reads as Kraken's throttle text, as a read through `answer` does (Spec E §2.10).
+    pub async fn read_form(&self, path: &str, fields: &[(&str, String)], limit: usize, throttle_status: bool) -> Result<String, String> {
+        let r = self.private(path, fields);
+        match self.transport.send_limited(&r, limit).await {
+            Err(TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(self.transport.redact_diagnostic(&m)),
+            Ok(resp) if (200..300).contains(&resp.status) => Ok(resp.body),
+            Ok(resp) if throttle_status && matches!(resp.status, 429 | 418) => Err(format!("the server responded with status {} ({HTTP_THROTTLE})", resp.status)),
+            Ok(resp) if !resp.body.is_empty() => Err(resp.body),
+            Ok(resp) => Err(format!("the server responded with status {} for POST {}", resp.status, r.url())),
+        }
+    }
 
     fn public(&self, path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
         HttpRequest { method: "GET", base: self.base.clone(), path: path.into(), query, body: None, not_after: None }

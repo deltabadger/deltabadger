@@ -7,12 +7,12 @@ use crate::engine::venue_rules::{self, VenueRules};
 
 /// How a key's balances are synced (`sync::balances`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BalanceSync { Alpaca, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx, Ibkr }
+pub enum BalanceSync { Alpaca, Kraken, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx, Ibkr }
 
 /// How a key's ledger is synced (`sync::ledger`, `sync::binance_ledger` (Binance and Binance.US, each its own sources),
-/// `sync::kucoin_ledger`, `sync::bitvavo_ledger`, `sync::gemini_ledger`, `sync::bitget_ledger`, `sync::mexc_ledger`, `sync::hyperliquid_ledger`).
+/// `sync::kraken_ledger`, `sync::kucoin_ledger`, `sync::bitvavo_ledger`, `sync::gemini_ledger`, `sync::bitget_ledger`, `sync::mexc_ledger`, `sync::hyperliquid_ledger`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LedgerSync { Alpaca, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx }
+pub enum LedgerSync { Alpaca, Kraken, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx }
 
 /// How a key is checked (ApiKey#get_validity): Alpaca's account read (`settings::validator::check`), or the venue's own
 /// request sequence (`settings::key_check`) through its proxy. Binance.US's is its own (binance_us.rb: an account read,
@@ -86,7 +86,7 @@ pub static ROWS: [Row; 15] = [
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
           wizard: true, figures: Some(Figures::Alpaca), condition_candles: true },
     Row { exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
-          needs_pairs: false, trades: true, balances: None, ledger: None, key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
+          needs_pairs: false, trades: true, balances: Some(BalanceSync::Kraken), ledger: Some(LedgerSync::Kraken), key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
     Row { exchange_type: super::binance::BINANCE, name: "Binance", name_id: "binance", base: super::binance::URL, rules: Some(&venue_rules::BINANCE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
           key_check: Some(KeyCheck::Binance), wizard: true, figures: Some(Figures::Binance), condition_candles: true },
@@ -97,40 +97,41 @@ pub static ROWS: [Row; 15] = [
           key_check: Some(KeyCheck::BinanceUs), wizard: true, figures: Some(Figures::Binance), condition_candles: true },
     Row { exchange_type: super::kucoin::KUCOIN, name: "KuCoin", name_id: "kucoin", base: super::kucoin::URL, rules: Some(&venue_rules::KUCOIN),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Kucoin), ledger: Some(LedgerSync::Kucoin),
-          key_check: Some(KeyCheck::Kucoin), wizard: true, figures: Some(Figures::Kucoin), condition_candles: false },
+          key_check: Some(KeyCheck::Kucoin), wizard: true, figures: Some(Figures::Kucoin), condition_candles: true },
     Row { exchange_type: super::bitvavo::BITVAVO, name: "Bitvavo", name_id: "bitvavo", base: super::bitvavo::URL, rules: Some(&venue_rules::BITVAVO),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitvavo), ledger: Some(LedgerSync::Bitvavo),
-          key_check: Some(KeyCheck::Bitvavo), wizard: true, figures: Some(Figures::Bitvavo), condition_candles: false },
+          key_check: Some(KeyCheck::Bitvavo), wizard: true, figures: Some(Figures::Bitvavo), condition_candles: true },
     // Its figures land with the F3 family (plan VB §1.7, BF): until then its bots show no exchange note.
     Row { exchange_type: super::gemini::GEMINI, name: "Gemini", name_id: "gemini", base: super::gemini::URL, rules: Some(&venue_rules::GEMINI),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Gemini), ledger: Some(LedgerSync::Gemini),
-          key_check: Some(KeyCheck::Gemini), wizard: true, figures: None, condition_candles: false },
+          key_check: Some(KeyCheck::Gemini), wizard: true, figures: None, condition_candles: true },
     // Plan VB slice A4, the classic v2 API as Rails runs it.
     Row { exchange_type: super::bitget::BITGET, name: "Bitget", name_id: "bitget", base: super::bitget::URL, rules: Some(&venue_rules::BITGET),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitget), ledger: Some(LedgerSync::Bitget),
-          key_check: Some(KeyCheck::Bitget), wizard: true, figures: Some(Figures::Bitget), condition_candles: false },
+          key_check: Some(KeyCheck::Bitget), wizard: true, figures: Some(Figures::Bitget), condition_candles: true },
     Row { exchange_type: super::mexc::MEXC, name: "MEXC", name_id: "mexc", base: super::mexc::URL, rules: Some(&venue_rules::MEXC),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Mexc), ledger: Some(LedgerSync::Mexc),
-          key_check: Some(KeyCheck::Mexc), wizard: true, figures: Some(Figures::Mexc), condition_candles: false },
+          key_check: Some(KeyCheck::Mexc), wizard: true, figures: Some(Figures::Mexc), condition_candles: true },
     // Plan VB slice B1. Its figures land with the F3 family (BF): until then its bots show no exchange note.
     Row { exchange_type: super::hyperliquid::HYPERLIQUID, name: "Hyperliquid", name_id: "hyperliquid", base: super::hyperliquid::URL, rules: Some(&venue_rules::HYPERLIQUID),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Hyperliquid), ledger: Some(LedgerSync::Hyperliquid),
-          key_check: Some(KeyCheck::Hyperliquid), wizard: true, figures: None, condition_candles: false },
+          key_check: Some(KeyCheck::Hyperliquid), wizard: true, figures: None, condition_candles: true },
     Row { exchange_type: super::bybit::BYBIT, name: "Bybit", name_id: "bybit", base: super::bybit::URL, rules: Some(&venue_rules::BYBIT),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bybit), ledger: Some(LedgerSync::Bybit),
-          key_check: Some(KeyCheck::Bybit), wizard: true, figures: Some(Figures::Bybit), condition_candles: false },
+          key_check: Some(KeyCheck::Bybit), wizard: true, figures: Some(Figures::Bybit), condition_candles: true },
     Row { exchange_type: super::bitrue::BITRUE, name: "Bitrue", name_id: "bitrue", base: super::bitrue::URL, rules: Some(&venue_rules::BITRUE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitrue), ledger: Some(LedgerSync::Bitrue),
-          key_check: Some(KeyCheck::Bitrue), wizard: true, figures: Some(Figures::Bitrue), condition_candles: false },
+          key_check: Some(KeyCheck::Bitrue), wizard: true, figures: Some(Figures::Bitrue), condition_candles: true },
     Row { exchange_type: super::coinbase::COINBASE, name: "Coinbase", name_id: "coinbase", base: super::coinbase::URL, rules: Some(&venue_rules::COINBASE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Coinbase), ledger: Some(LedgerSync::Coinbase),
-          key_check: Some(KeyCheck::Coinbase), wizard: true, figures: None, condition_candles: false },
+          key_check: Some(KeyCheck::Coinbase), wizard: true, figures: None, condition_candles: true },
     Row { exchange_type: super::bingx::BINGX, name: "BingX", name_id: "bingx", base: super::bingx::URL, rules: Some(&venue_rules::BINGX),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bingx), ledger: Some(LedgerSync::Bingx),
-          key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx), condition_candles: false },
+          key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx), condition_candles: true },
     // Ibkr plan I2: its key check (with the activation wait) and its balances. Its keys are connected on its own page
-    // (I3), never through the generic key form; it trades from I4. Its figures (F1) read through the account's own login.
-    Row { exchange_type: super::ibkr::IBKR, name: "Interactive Brokers", name_id: "ibkr", base: super::ibkr::URL, rules: None, passphrase: false,
+    // (I3), never through the generic key form. Its trading adapter is in (I4b: venue::ibkr_venue, the `IBKR` rules); its figures (F1)
+    // read through the account's own login. It trades once order fixtures recorded on a paper login exist (gate G3, `a_trading_ibkr_row_needs_paper_order_fixtures`).
+    Row { exchange_type: super::ibkr::IBKR, name: "Interactive Brokers", name_id: "ibkr", base: super::ibkr::URL, rules: Some(&venue_rules::IBKR), passphrase: false,
           needs_pairs: false, trades: false, balances: Some(BalanceSync::Ibkr), ledger: None, key_check: Some(KeyCheck::Ibkr), wizard: false,
           figures: Some(Figures::Ibkr), condition_candles: false },
 ];
@@ -173,8 +174,8 @@ mod tests {
         let ibkr = "Exchanges::Ibkr";
         let (alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc) = ("Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs",
                                                                                  "Exchanges::Kucoin", "Exchanges::Bitvavo", "Exchanges::Gemini", "Exchanges::Bitget", "Exchanges::Mexc");
-        assert_eq!(crate::sync::balance_venues(), [alpaca, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx, ibkr], "BALANCE_VENUES");
-        assert_eq!(crate::sync::ledger_venues(), [alpaca, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LEDGER_VENUES");
+        assert_eq!(crate::sync::balance_venues(), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx, ibkr], "BALANCE_VENUES");
+        assert_eq!(crate::sync::ledger_venues(), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LEDGER_VENUES");
         assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "wizard::keys::PORTED");
         assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
         assert_eq!(types(|r| r.passphrase), [alpaca, kucoin, bitget], "model::credentials_with_redaction's passphrase");

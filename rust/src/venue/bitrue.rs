@@ -6,6 +6,7 @@
 use super::binance::{error_message, Pairs, Shape};
 use super::http::{self, HttpRequest, HttpResponse, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITRUE as RULES};
 use crate::ruby::BigDec;
@@ -156,7 +157,63 @@ impl<T: Transport> BitrueVenue<T> {
     }
 }
 
+/// Exchanges::Bitrue::KLINE_PAGE: rows per page.
+const KLINE_PAGE: usize = 1440;
+/// Exchanges::Bitrue#get_candles' scale for each timeframe, and the timeframe it reads to build one it has none for.
+pub fn kline_scale(timeframe: Timeframe) -> (&'static str, Option<Timeframe>) {
+    match timeframe {
+        Timeframe::Minute => ("1m", None), Timeframe::FiveMinutes => ("5m", None), Timeframe::FifteenMinutes => ("15m", None),
+        Timeframe::ThirtyMinutes => ("30m", None), Timeframe::Hour => ("1h", None), Timeframe::FourHours => ("4h", None),
+        Timeframe::Day => ("1d", None), Timeframe::Week => ("1w", None), Timeframe::ThreeDays | Timeframe::Month => ("1d", Some(Timeframe::Day)),
+    }
+}
+
 impl<T: Transport> super::Venue for BitrueVenue<T> {
+    /// Exchanges::Bitrue#get_candles: the newest 1440 rows, then older pages from a millisecond before the oldest
+    /// (`fromIdx`), until a short page or one reaching the start; a page whose oldest is newer than asked, or an empty one,
+    /// is dropped and ends the walk. A failed page is its `msg` (else the answer); an answer that is no object has no rows.
+    /// Deduped by `is` (the first kept), each time `is.to_i / 1000`, sorted; 3 days and 1 month built from daily (none to
+    /// build from is Rails' failure); then only the candles from the start on. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES
+    /// pages it is a settled failure.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let (scale, source) = kline_scale(timeframe);
+        let start_ms = start_at.timestamp().saturating_mul(1000);
+        let (mut rows, mut from_idx): (Vec<(Value, i64, Value)>, Option<i64>) = (vec![], None);
+        let mut pages = 0;
+        loop {
+            pages += 1;
+            if pages > candles::MAX_CANDLE_PAGES { return Err(candles::too_many_pages("Bitrue")); }
+            let mut q = vec![("symbol", ticker.ticker.clone()), ("scale", scale.into()), ("limit", KLINE_PAGE.to_string())];
+            q.extend(from_idx.map(|i| ("fromIdx", i.to_string())));
+            let body = candles::get(&self.transport, &self.request("GET", KLINE, q), error_message, Some("Too Many Requests"), unreadable).await?;
+            let page = match body.get("data") { None | Some(Value::Null) => vec![], Some(Value::Array(page)) => page.clone(), Some(_) => return Err(unreadable()) };
+            let page = page.into_iter().map(|row| {
+                let ms = row.get("is").and_then(candles::to_i).ok_or_else(unreadable)?;
+                Ok((row.get("is").cloned().unwrap_or(Value::Null), ms, row))
+            }).collect::<Result<Vec<_>, VenueError>>()?;
+            let Some(oldest) = page.iter().map(|(_, ms, _)| *ms).min() else { break };
+            if from_idx.is_some_and(|i| oldest > i) { break; }
+            let full = page.len() >= KLINE_PAGE;
+            rows.extend(page);
+            if !full || oldest <= start_ms { break; }
+            from_idx = Some(oldest - 1);
+        }
+        let mut seen = vec![];
+        let mut out = vec![];
+        for (is, ms, row) in rows {
+            if seen.contains(&is) { continue; }
+            seen.push(is);
+            out.push(candles::at_ms(ms).and_then(|at| candles::fields(at, &row, ["o", "h", "l", "c", "v"])).ok_or_else(unreadable)?);
+        }
+        out.sort_by_key(|c| c.at);
+        if let Some(source) = source {
+            if out.is_empty() { return Err(candles::nothing_to_build(source, timeframe, "Bitrue")); }
+            out = candles::build(&out, timeframe);
+        }
+        out.retain(|c| c.at >= start_at);
+        Ok(out)
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 

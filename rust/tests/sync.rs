@@ -506,6 +506,53 @@ async fn a_reading_kucoin_key_gets_a_ledger_job_and_a_balance_job_that_reach_kuc
     assert_eq!(deltabadger::sync::ledger_reading_keys(&c).unwrap(), vec![s.api_key_id]);
 }
 
+/// Plan Kraken sync: a reading Kraken key gets its ledger and balance jobs, each reaching Kraken through its own transport. The codes a balance sync cannot name are kept in `rust_sync.kraken_unresolved:<key_id>`, written in
+/// the sync's last commit: whichever of the key's two jobs completes last, the record stands; a failed balance read keeps
+/// it; the sync that names every code removes it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_kraken_keys_unresolved_codes_survive_either_job_order_and_go_once_named() {
+    let (dir, db, s) = install();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Kraken', name = 'Kraken' WHERE id = ?1", [s.exchange_id]).unwrap();
+    let venues = Scripted(ScriptedTransport::default());
+    let names = jobs::register(&c, &venues, Rc::new(NoPrices)).unwrap().iter().map(|j| (j.spec().name, j.spec().scope)).collect::<Vec<_>>();
+    assert_eq!(names, vec![("ledger_sync", Some(s.api_key_id.to_string())), ("balance_sync", Some(s.api_key_id.to_string())), ("credential_scope_factory", None)]);
+    let clock = clock();
+    let Outcome::Failed(why) = BalanceSync::new(venues.clone(), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await else { panic!() };
+    assert!(why.contains("Kraken is not connected here"), "{why}");
+
+    let key = format!("rust_sync.kraken_unresolved:{}", s.api_key_id);
+    let record = |c: &Connection| c.query_row("SELECT value FROM app_configs WHERE key = ?1", [&key], |r| r.get::<_, String>(0)).ok()
+        .map(|v| serde_json::from_str::<Value>(&v).unwrap());
+    let answer = |body: Value| ScriptedTransport::from_script(&json!({ "POST /0/private/BalanceEx": [ok(body)] }));
+    let held = json!({ "error": [], "result": { "BTC": { "balance": "0.5", "hold_trade": "0.1" }, "ZZZ": { "balance": "9", "hold_trade": "0" }, "QQQ": { "balance": "0", "hold_trade": "0" } } });
+    let balance = || async { balances::sync_kraken(&db, answer(held.clone()), &NoPrices, s.api_key_id, &paper(), &clock).await.unwrap().unwrap() };
+    let ledger = || async { LedgerSync::new(venues.clone(), s.api_key_id).run(cx(&db, &clock), vec![Wake::Manual(None)]).await };
+    let want = json!({ "codes": ["ZZZ"], "at": "2026-09-20T02:00:00.000000Z" });
+    // The balance sync completes first, then the ledger job.
+    balance().await;
+    assert_eq!(record(&c), Some(want.clone()));
+    assert!(matches!(ledger().await, Outcome::Failed(_)), "this build reads no Kraken ledger");
+    assert_eq!(record(&c), Some(want.clone()));
+    // The ledger job completes first, then the balance sync.
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [&key]).unwrap();
+    assert!(matches!(ledger().await, Outcome::Failed(_)));
+    balance().await;
+    assert_eq!(record(&c), Some(want.clone()));
+    assert_eq!(one::<String>(&db, "SELECT free || ' ' || locked FROM account_balances WHERE asset_id = (SELECT id FROM assets WHERE symbol = 'BTC')").await, "0.4 0.1");
+    // A failed read changes nothing; a sync that names every code removes the record.
+    let refused = balances::sync_kraken(&db, answer(json!({ "error": ["EGeneral:Internal error"] })), &NoPrices, s.api_key_id, &paper(), &clock).await.unwrap();
+    assert_eq!(refused.unwrap_err().error, "EGeneral:Internal error");
+    assert_eq!(record(&c), Some(want));
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('zzz-coin', 'ZZZ', 'Zed', 'Cryptocurrency', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+               minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, 'ZZZUSD', 'ZZZ', 'USD', last_insert_rowid(), ?2, 8, 2, 2, '1', '1', 1, 0, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.exchange_id, s.quote]).unwrap();
+    balance().await;
+    assert_eq!(record(&c), None, "named through an unavailable listing (D-KR-6)");
+    assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_balances WHERE asset_id = (SELECT id FROM assets WHERE symbol = 'ZZZ')").await, 1);
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_run_reports_done_even_with_nothing_to_import_and_failed_with_the_keys_error() {
     let (_dir, db, s) = install();

@@ -45,6 +45,40 @@ async fn sync_renders_the_real_progress_fragment() {
     assert!(!response.body.contains("test-key"));
 }
 
+/// Plan Kraken sync K2: a reading Kraken key's tracker sync is announced and wakes its ledger and balance jobs.
+#[tokio::test(flavor="current_thread")]
+async fn sync_wakes_both_jobs_of_a_reading_kraken_key() {
+    let (dir,opened,s) = common::install_alpaca();
+    let c = opened.primary;
+    c.execute("UPDATE users SET confirmed_at=created_at,setup_completed=1",[]).unwrap();
+    c.execute("UPDATE exchanges SET type='Exchanges::Kraken',name='Kraken' WHERE id=?1",[s.exchange_id]).unwrap();
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[s.user_id],|r|r.get(0)).unwrap();
+    let clock = TestClock::at("2026-09-10T12:00:30.123456Z");
+    let app = web::app(dir.path(),web::SECRET,clock.clone());
+    let mut b = browser(&app,s.user_id,&hash);
+    let (sent,mut heard) = tokio::sync::mpsc::unbounded_channel();
+    let key = s.api_key_id;
+    let probes: Vec<Box<dyn Job>> = vec![
+        Box::new(Probe { name:deltabadger::sync::jobs::LEDGER_SYNC,key,inner:Box::new(deltabadger::sync::jobs::LedgerSync::new(ProbeVenue,key)),heard:sent.clone() }),
+        Box::new(Probe { name:deltabadger::sync::jobs::BALANCE_SYNC,key,inner:Box::new(deltabadger::sync::jobs::BalanceSync::new(ProbeVenue,std::rc::Rc::new(deltabadger::sync::balances::NoPrices),key)),heard:sent.clone() }),
+    ];
+    let scheduler = jobs::Scheduler::new(rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap(),app.cipher.clone(),probes,None);
+    app.attach_jobs(scheduler.wakers()).unwrap();
+    let (stop,stopped) = tokio::sync::watch::channel(false);
+    let requests = async {
+        let response = b.send(&app,"POST","/tracker/sync",Some(&[]),Csrf::Header,HEADERS).await;
+        assert_eq!(response.status,200);
+        assert!(response.body.contains("id=\"sync-progress\"") && response.body.contains("Kraken"));
+        let mut jobs = vec![];
+        for _ in 0..2 { jobs.push(tokio::time::timeout(std::time::Duration::from_secs(2),heard.recv()).await.unwrap().unwrap()); }
+        jobs.sort();
+        assert_eq!(jobs,vec![("balance_sync",key),("ledger_sync",key)]);
+        stop.send(true).unwrap();
+    };
+    let ((),run) = tokio::join!(requests,scheduler.run(stopped,clock.as_ref()));
+    run.unwrap();
+}
+
 // Exercise the real attributed jobs through a local, empty-account protocol adapter.
 #[derive(Clone)] struct ProbeVenue;
 struct ProbeTransport;
