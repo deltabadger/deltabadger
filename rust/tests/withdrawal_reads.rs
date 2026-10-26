@@ -292,6 +292,15 @@ fn ambiguous_entries_are_refused() {
     assert_eq!(withdrawal::select(Kind::Mexc, "BTC", &Stored::new("a", None, None, None), &m, None),
                Err(Refusal::Inadmissible("the entry's network maps to no single netWork")));
     assert!(withdrawal::select(Kind::Mexc, "BTC", &Stored::new("a", Some("BTC"), None, None), &m, Some(&two_codes)).is_ok());
+    // MEXC: one address on ETH and BSC. The stored network (by any alias) picks its entry; none stored is ambiguous.
+    let on = |n: &str| Entry { address: "a".into(), network: Some(n.into()), tag: None, key: None, label: None, refused: None };
+    let eth_bsc = [on("Ethereum(ERC20)"), on("BNB Smart Chain(BEP20)")];
+    let usdt = withdrawal::Coin { networks: vec![network("Ethereum(ERC20)", Some("ETH"), false), network("BNB Smart Chain(BEP20)", Some("BSC"), false)] };
+    let bsc = Ok(Destination::Mexc { coin: "USDT".into(), network: "BNB Smart Chain(BEP20)".into(), net_work: "BSC".into(), address: "a".into(), memo: None });
+    assert_eq!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", Some("BSC"), None, None), &eth_bsc, Some(&usdt)), bsc);
+    assert_eq!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", Some("BNB Smart Chain(BEP20)"), None, None), &eth_bsc, Some(&usdt)), bsc);
+    assert_eq!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", None, None, None), &eth_bsc, Some(&usdt)), Err(Refusal::Ambiguous));
+    assert_eq!(withdrawal::select(Kind::Mexc, "USDT", &Stored::new("a", Some("TRX"), None, None), &eth_bsc, Some(&usdt)), Err(Refusal::NotListed));
 
     // An address nobody lists, and an unverified one.
     assert_eq!(withdrawal::select(Kind::Kraken, "XBT", &Stored::new("z", None, None, None), &two, None), Err(Refusal::NotListed));

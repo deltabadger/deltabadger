@@ -261,10 +261,12 @@ pub fn select(kind: Kind, coin: &str, stored: &Stored, entries: &[Entry], networ
     }
     let mut picked: Vec<Destination> = vec![];
     for e in admitted {
-        let d = destination(kind, coin, stored, e, networks)?;
+        // An entry on a network other than the stored one drops out before the pick: only the rest can be ambiguous.
+        let d = match destination(kind, coin, stored, e, networks) { Err(Refusal::NotListed) => continue, d => d? };
         if !picked.contains(&d) { picked.push(d); }
     }
     if picked.len() > 1 { return Err(Refusal::Ambiguous); }
+    if picked.is_empty() { return Err(Refusal::NotListed); }
     Ok(picked.remove(0))
 }
 
@@ -289,10 +291,14 @@ fn destination(kind: Kind, coin: &str, stored: &Stored, e: &Entry, networks: Opt
             let mut codes: Vec<&str> = candidates.iter().filter_map(|n| n.net_work.as_deref()).collect();
             codes.sort_unstable();
             codes.dedup();
-            let [code] = codes.as_slice() else { return Err(Refusal::Inadmissible("the entry's network maps to no single netWork")) };
+            // The stored network, by any of the listing's aliases, is checked before anything that refuses the entry.
+            let on_stored = |n: Option<&Network>, code: Option<&str>| stored.network.as_ref().is_none_or(|s| *s == listed || n.is_some_and(|n| *s == n.network) || code == Some(s.as_str()));
+            let [code] = codes.as_slice() else {
+                return Err(if on_stored(None, None) { Refusal::Inadmissible("the entry's network maps to no single netWork") } else { Refusal::NotListed });
+            };
             let n = candidates.iter().find(|n| n.net_work.as_deref() == Some(*code)).expect("a candidate names the code");
+            if !on_stored(Some(n), Some(code)) { return Err(Refusal::NotListed); }
             if !n.withdraw_enable { return Err(Refusal::Inadmissible("the network is closed for withdrawals")); }
-            if stored.network.as_ref().is_some_and(|s| *s != n.network && s != code && *s != listed) { return Err(Refusal::NotListed); }
             Ok(Destination::Mexc { coin: coin.to_string(), network: n.network.clone(), net_work: code.to_string(), address, memo: e.tag.clone() })
         }
         Kind::Kraken => {
