@@ -33,20 +33,15 @@ fn scenario(name: &str) -> &'static Value {
 /// What the engine keeps refusing, and the reason `check` names. Rails trades on the last two (RULING-B2B-1 MQ1,
 /// RULING-B2B-R1 item 1): their fill is unknown, so a Yes or the next split could spend the same money twice. A swap pending
 /// in its selling or buying phase is admitted since 6b T8: the tick stands down as Rails' does (STOOD_DOWN).
-const REFUSED: [(&str, &str); 10] = [
-    ("liquidation_waiting", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
-    ("liquidation_partly_filled_open", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
-    ("liquidation_unknown", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
-    ("liquidation_placing_intent", "liquidation_pending"),
-    ("liquidation_ambiguous", "liquidation_pending"),
-    ("liquidation_abandoned_unresolved", "unresolved abandoned LIQUIDATION"),
+const REFUSED: [(&str, &str); 4] = [
     ("redeploy_waiting", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
     ("redeploy_ambiguous", "redeploy_pending"),
     ("redeploy_abandoned", "unresolved abandoned REDEPLOY"),
     ("rebalance_abandoned", "abandoned REBALANCE"),
 ];
 /// Rails' tick skipped these (dca_skipped_rebalance_pending): no split is computed, nothing is placed.
-const STOOD_DOWN: [&str; 2] = ["rebalance_selling", "rebalance_buying"];
+const STOOD_DOWN: [&str; 8] = ["rebalance_selling", "rebalance_buying", "liquidation_waiting", "liquidation_partly_filled_open",
+    "liquidation_unknown", "liquidation_placing_intent", "liquidation_ambiguous", "liquidation_abandoned_unresolved"];
 fn refusal(name: &str) -> Option<&'static str> { REFUSED.iter().find(|(n, _)| *n == name).map(|(_, r)| *r) }
 
 struct Built { _d: tempfile::TempDir, o: deltabadger::store::Opened, id: i64, assets: BTreeMap<String, i64> }
@@ -209,7 +204,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
         let rails = &sc["rails"]["tick"];
         let bot = model::load_bot(c, b.id).unwrap();
         let stood_down = STOOD_DOWN.contains(&name);
-        assert_eq!(stood_down, rails["activity"].as_array().unwrap().iter().any(|a| a["event"] == "dca_skipped_rebalance_pending"), "{name}");
+        assert_eq!(stood_down, rails["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending"))), "{name}");
         if refusal(name).is_none() && !stood_down {
             // The split as get_orders_data computes it, before any rounding.
             let holdings = basket::walk(c, &bot, at()).unwrap().amounts;
@@ -244,7 +239,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             json!({ "symbol": o["base"], "side": o["side"], "notional": format!("{:.2}", q.floor(2).to_f()) })
         }).collect();
         assert_eq!(json!(posted), json!(wire), "{name}: wire");
-        let skipped: i64 = c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'dca_skipped_rebalance_pending'", [b.id], |r| r.get(0)).unwrap();
+        let skipped: i64 = c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('dca_skipped_rebalance_pending', 'dca_skipped_liquidation_pending')", [b.id], |r| r.get(0)).unwrap();
         assert_eq!(skipped, i64::from(stood_down), "{name}: stand-down");
         let mut q = c.prepare("SELECT base, side, status, external_status, transaction_type, price, amount, quote_amount FROM transactions WHERE id > ?1 ORDER BY id").unwrap();
         let rows: Vec<Value> = q.query_map([before], |r| Ok(json!({
@@ -278,10 +273,9 @@ fn rejected_special_rows_are_ignored_unless_they_report_an_execution() {
 /// bookkeeping of the first tick never clears a row-based refusal.
 #[tokio::test(flavor = "current_thread")]
 async fn each_new_refusal_survives_a_refused_tick_and_rolls_back_a_guarded_write() {
-    let cases: [(&str, &str, &str); 6] = [
+    let cases: [(&str, &str, &str); 5] = [
         ("redeploy_abandoned", "", "unresolved abandoned REDEPLOY"),
         ("rebalance_abandoned", "", "abandoned REBALANCE"),
-        ("full_cycle", "UPDATE bots SET transient_data = json_set(transient_data, '$.liquidation_selling_since', '2026-08-24T13:00:00Z')", "liquidation_selling_since"),
         ("full_cycle", "UPDATE transactions SET transaction_type = 'SWAP' WHERE transaction_type = 'REDEPLOY'", "unsupported transaction type"),
         ("full_cycle", "UPDATE transactions SET side = 1 WHERE transaction_type = 'REDEPLOY'", "REDEPLOY sell"),
         ("full_cycle", "UPDATE transactions SET base_asset_id = NULL WHERE transaction_type = 'LIQUIDATION'", "without base_asset_id"),
@@ -308,9 +302,9 @@ async fn each_new_refusal_survives_a_refused_tick_and_rolls_back_a_guarded_write
 }
 
 /// 6b T8: an Alpaca basket's settled REBALANCE rows are read as an index bot's are (the walk books them); its LIQUIDATION and
-/// REDEPLOY rows keep the refusal.
+/// REDEPLOY rows keep the refusal; LIQUIDATION rows are admitted since 6c-2.
 #[test]
-fn a_basket_reads_settled_rebalance_rows_and_refuses_liquidation_and_redeploy_ones() {
+fn a_basket_reads_settled_composition_rows_and_refuses_redeploy_ones() {
     let basket = |name: &str| {
         let b = build(scenario(name));
         b.o.primary.execute("UPDATE bots SET type = 'Bots::DcaMultiAsset', settings = json_set(settings, '$.allocations', json(?1)) WHERE id = ?2",
@@ -322,7 +316,7 @@ fn a_basket_reads_settled_rebalance_rows_and_refuses_liquidation_and_redeploy_on
     assert!(!problems.iter().any(|p| p.contains("row(s) in its history")), "{problems:?}");
     let b = basket("full_cycle");
     let problems = eligibility::check_install(&b.o.primary).unwrap().problems;
-    assert!(problems.iter().any(|p| p.contains("LIQUIDATION/REDEPLOY row(s) in its history")), "{problems:?}");
+    assert!(problems.iter().any(|p| p.contains("REDEPLOY row(s) in its history")), "{problems:?}");
 }
 
 /// RULING-B2B-1 MQ7 under B2-1, the one recorded divergence from the oracle's walk: a closed REDEPLOY buy that executed

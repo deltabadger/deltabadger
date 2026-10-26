@@ -37,8 +37,8 @@ pub fn allocations_balanced(bot: &Bot) -> bool {
 pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     Ok(bot_reasons(c, bot)?.into_iter().filter(|r| !r.starts_with(UNBALANCED)).collect())
 }
-/// One rule set with the page and the write path (web/bot/mod.rs, web/figure/holdings.rs): a selling batch is in flight too.
-const PENDING_KEYS: [&str; 4] = ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"];
+/// Unported operations still refuse admission. Liquidation states are admitted and stand trading down inside the engine.
+const PENDING_KEYS: [&str; 2] = ["rebalance_pending", "redeploy_pending"];
 
 const UNKNOWN_STATUS: &str = "row(s) with a status Rails never writes";
 
@@ -78,19 +78,10 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
         if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(format!("{e:?}")); }
     }
     let non_regular: i64 = c.query_row(
-        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR' AND NOT (?2 AND transaction_type = 'REBALANCE') \
+        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'LIQUIDATION') AND NOT (?2 AND transaction_type = 'REBALANCE') \
          AND status = 0 AND external_status IN (0, 1)",
         params![bot.id, rebalances], |r| r.get(0))?;
     if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
-    // Bot::LiquidationState#unresolved_liquidation_orders: ids the user attested to (liquidation_resolved_orders) are accounted for.
-    // Ruby's `to_i`; an id this cannot read counts as unresolved.
-    let resolved: Vec<i64> = match bot.transient.get("liquidation_resolved_orders") {
-        Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),
-        _ => vec![],
-    };
-    let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND transaction_type = 'LIQUIDATION' AND external_status = 4")?;
-    let abandoned = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().filter(|id| !resolved.contains(id)).count();
-    if abandoned > 0 { r.push(format!("{abandoned} unresolved abandoned LIQUIDATION order(s)")); }
     // An abandoned REDEPLOY (RULING-B2B-1 MQ1) or REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades
     // on: its spent counts 0, so a Yes could buy the proceeds twice, and a rebalance's flight cash may already be the asset.
     // Rails has no way to account for either, so the refusal stands until the row itself is settled.
@@ -166,7 +157,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         if let Err(e) = bot.base_amount_limit() { r.push(e); }
         if let Err(e) = bot.base_amount_limit_enabled_at_us() { r.push(e); }
     }
-    history_reasons(c, bot, alpaca, &members, splits, &mut r)?;
+    history_reasons(c, bot, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.
     let sold: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND side = 1)", [bot.id], |r| r.get(0))?;
@@ -265,7 +256,7 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
     }
     // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
     if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push("user not found".into()); }
-    history_reasons(c, bot, alpaca, &[base], splits, r)?;
+    history_reasons(c, bot, &[base], splits, r)?;
     // The pair's ticker on this venue, within the decimals the pages round to. Its asset: a plain cryptocurrency, or a stock (Alpaca's catalog,
     // whatever its instrument type: the pair's sizing and its market clock are the venue's, never a basket's split walk).
     let Some(t) = model::ticker_for(c, bot)? else { r.push(format!("no ticker for the asset {base} on this venue")); return Ok(()) };
@@ -375,12 +366,11 @@ fn composition_reasons(bot: &Bot, r: &mut Vec<String>) -> Vec<i64> {
     ids
 }
 
-/// Alpaca REGULAR buys/sells and merged rows are covered by the normalized walk, and an Alpaca index bot's settled
-/// REBALANCE/LIQUIDATION/REDEPLOY rows too (B2b). Other histories retain their named refusals. Stock split matching and
-/// trust checks remain in engine::splits.
-fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
+/// The normalized walk covers REGULAR buys/sells, merged rows and composition bots' REBALANCE/LIQUIDATION rows.
+/// REDEPLOY retains its existing Alpaca index admission (B2b). Stock split matching and trust checks remain in engine::splits.
+fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
     crate::figures::fill::validate_row_times(c,bot.id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
-    order_kind_reasons(c, bot, alpaca, r)?;
+    order_kind_reasons(c, bot, r)?;
     if !model::all_crypto(c, bot)? { return Ok(()); }
     // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
     // the walk; the ported walk does not. Crypto never splits, so this refuses only what this build does not port. Broader than Rails'
@@ -406,28 +396,28 @@ fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], spl
 
 /// The kinds of order a bot's history holds that this build does not read: special rows outside what
 /// special_reasons admits, imported rows, and orders without an asset.
-fn order_kind_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
+fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
     let (imported, no_asset): (i64, i64) = c.query_row(
         "SELECT coalesce(sum(external_id LIKE 'imported_%'), 0), \
                 coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     // Sell rows are no refusal on any venue: off Alpaca the same normalized walk reads them (tests/eligibility.rs proves it
     // on Kraken and Binance), and bot_reasons_with runs it for such a history before accepting it.
-    special_row_reasons(c, bot, alpaca, r)?;
+    special_row_reasons(c, bot, r)?;
     if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
     Ok(())
 }
 
-/// The LIQUIDATION, REDEPLOY and REBALANCE rows this build does not read: on an Alpaca index bot those special_reasons
-/// names; on a basket, and on an index bot off Alpaca, every LIQUIDATION and REDEPLOY row too (6c is Alpaca's).
-fn special_row_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
-    if alpaca && bot.bot_type == "Bots::DcaIndex" { return special_reasons(c, bot, r); }
+/// Liquidation and rebalance history is read on every composition bot. Redeploy admission remains
+/// limited to the existing Alpaca index reader until its engine slice lands.
+fn special_row_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
+    if bot.bot_type == "Bots::DcaIndex" && model::exchange_type(c, bot)? == "Exchanges::Alpaca" { return special_reasons(c, bot, r); }
     // A rebalancing basket (6b), and an index bot on a crypto venue (plan CB T4): its REBALANCE rows are read as the Alpaca
     // index bot's are; the walk books them.
     if bot.bot_type == "Bots::DcaMultiAsset" || bot.bot_type == "Bots::DcaIndex" {
-        let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'REBALANCE')", [bot.id], |r| r.get(0))?;
-        if other > 0 { r.push(format!("{other} LIQUIDATION/REDEPLOY row(s) in its history")); }
+        let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'REBALANCE', 'LIQUIDATION')", [bot.id], |r| r.get(0))?;
+        if other > 0 { r.push(format!("{other} REDEPLOY row(s) in its history")); }
         return special_reasons(c, bot, r);
     }
     let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR'", [bot.id], |r| r.get(0))?;
@@ -439,9 +429,8 @@ fn special_row_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Stri
 /// pages refuse a bot by it (web/bot/mod.rs `refusal`), so a page never refuses a history the engine reads. The guard's
 /// other refusals stand at the start itself.
 pub fn unread_special_rows(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
-    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     let mut r = vec![];
-    special_row_reasons(c, bot, exchange.as_deref() == Some("Exchanges::Alpaca"), &mut r)?;
+    special_row_reasons(c, bot, &mut r)?;
     Ok(r)
 }
 

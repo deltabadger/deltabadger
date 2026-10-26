@@ -722,8 +722,8 @@ module Pages
       # Rails splits a basket on Interactive Brokers, whose bots this build does not run: refused, the source left as it was.
       'refused_web_split_create_ibkr' => with_bots([stopped('basket', 'exchange' => 'Interactive Brokers'), wide],
                                                    signed_in(get('/bots/2'), split_post([1]).merge('expect' => 200))),
-      # A basket's liquidation and redeploy rows are history this build does not read: the split is refused by name, nothing written.
-      'refused_web_split_create_basket_special_rows' => with_bots([stopped('basket', 'orders' => [['QQQM', '2026-09-08T13:30:01Z', fill],
+      # Settled liquidation history is admitted in 6c-2; compare the split's rows and answer with Rails.
+      'split_create_basket_liquidation' => with_bots([stopped('basket', 'orders' => [['QQQM', '2026-09-08T13:30:01Z', fill],
                                                                                                   ['QQQM', '2026-09-09T13:30:01Z', liquidated[2]]]), wide],
                                                                  signed_in(get('/bots/2'), split_post([1], [1]).merge('expect' => 200)))
     }

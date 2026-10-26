@@ -1,4 +1,4 @@
-//! Shared composition-operation state. Request execution is admitted in later slices.
+//! Shared composition-operation state and periodic liquidation settlement.
 use super::{model::{self, Bot, Level}, amount::TxKind, EngineError};
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
@@ -30,13 +30,18 @@ pub fn liquidation_in_flight(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> R
     // Rails markers have no holdings; only their page spinner's 15-minute TTL applies.
     let selling = request.is_object() && (request.get("holdings").is_some()
         || request["at"].as_i64().or_else(|| request["at"].as_str()?.parse().ok()).unwrap_or(0) > now.timestamp() - SELLING_TTL_SECONDS);
+    let abandoned = unresolved_liquidations(c, bot)?;
+    Ok(present(bot, "liquidation_pending") || selling || waiting(c, bot.id, "LIQUIDATION")? || abandoned)
+}
+
+pub(crate) fn unresolved_liquidations(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     let resolved: Vec<i64> = match bot.transient.get("liquidation_resolved_orders") {
         Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),
         _ => vec![],
     };
     let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND external_status=4")?;
     let abandoned = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().any(|id| !resolved.contains(&id));
-    Ok(present(bot, "liquidation_pending") || selling || waiting(c, bot.id, "LIQUIDATION")? || abandoned)
+    Ok(abandoned)
 }
 
 pub fn redeploy_in_flight(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
@@ -92,4 +97,35 @@ pub(crate) fn promote_orphan(c: &Connection, bot_id: i64, kind: TxKind, now: Dat
         }
         Ok(())
     })
+}
+
+
+/// The watched ids belong to this sweep; a terminal row is not announced twice.
+pub(crate) fn waiting_liquidations(c: &Connection, bot: Option<i64>) -> Result<Vec<(i64,i64)>, EngineError> {
+    let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type='LIQUIDATION' AND status=0 AND external_status IN (0,1) AND (?1 IS NULL OR bot_id=?1) ORDER BY id")?;
+    let rows=s.query_map([bot],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
+    Ok(rows)
+}
+pub(crate) fn halt_abandoned(c: &Connection, watched: &[(i64,i64)], now: DateTime<Utc>) -> Result<(), EngineError> {
+    let mut bots: std::collections::BTreeMap<i64,Vec<String>>=Default::default();
+    for (bot,id) in watched {
+        use rusqlite::OptionalExtension;
+        let base:Option<String>=c.query_row("SELECT base FROM transactions WHERE id=?1 AND bot_id=?2 AND external_status=4",(*id,*bot),|r|r.get(0)).optional()?.flatten();
+        if let Some(base)=base {
+            let names=bots.entry(*bot).or_default();
+            if !names.contains(&base) { names.push(base); }
+        }
+    }
+    for (bot,names) in bots { model::log_activity(c,bot,"liquidation_ambiguous",Level::Error,json!({"base":names.join(", "),"reason":"exchange stopped reporting the order"}),now)?; }
+    Ok(())
+}
+#[derive(Default)]
+pub(crate) struct Scan { pub waiting: Vec<(i64,i64)>, pub late: Vec<(i64,i64)> }
+pub(crate) fn scan(c: &Connection, now: DateTime<Utc>) -> Result<Scan,EngineError> {
+    let waiting=waiting_liquidations(c,None)?;
+    // ponytail: re-read late proceeds for seven days after the terminal update; widen if a venue reports them later.
+    // Rails has no closed_at column: updated_at records the poll that closed/cancelled the row.
+    let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type='LIQUIDATION' AND status=0 AND external_status IN (2,3) AND amount_exec>0 AND COALESCE(quote_amount_exec,0)=0 AND updated_at>=?1 ORDER BY id")?;
+    let late=s.query_map([crate::codec::format_time(now-chrono::Duration::days(7))],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
+    Ok(Scan {waiting,late})
 }

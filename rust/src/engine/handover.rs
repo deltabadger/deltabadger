@@ -26,7 +26,7 @@ fn first_gid(arguments: &str) -> Option<String> {
 pub fn active_job(queue: &Connection, class: &str, gid: &str) -> rusqlite::Result<bool> {
     let live = ["solid_queue_scheduled_executions", "solid_queue_ready_executions", "solid_queue_claimed_executions", "solid_queue_blocked_executions"]
         .map(|table| format!("EXISTS (SELECT 1 FROM {table} e WHERE e.job_id = j.id)")).join(" OR ");
-    let mut s = queue.prepare(&format!("SELECT j.arguments FROM solid_queue_jobs j WHERE j.class_name = ?1 AND ({live})"))?;
+    let mut s = queue.prepare(&format!("SELECT j.arguments FROM solid_queue_jobs j WHERE j.class_name = ?1 AND j.finished_at IS NULL AND NOT EXISTS (SELECT 1 FROM solid_queue_failed_executions f WHERE f.job_id=j.id) AND ({live})"))?;
     let jobs = s.query_map([class], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
     Ok(jobs.iter().flatten().any(|arguments| {
         let Ok(v) = serde_json::from_str::<Value>(arguments) else { return false };
@@ -52,6 +52,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
     // Rails' webhook calls, read and judged before anything changes owner: a claimed or unreadable one refuses here.
+    refuse_composition_jobs(o)?;
     let signal_jobs = signal_jobs(o)?;
     // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
@@ -143,6 +144,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     for id in super::reversal::pending_settlements(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
     refuse_pending_rotations(&o.primary)?;
+    refuse_commands(&o.primary)?;
     // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
     // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row
     // again, so after the handback nothing else would ever stop the bot.
@@ -157,6 +159,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_rust_only_conditions(&tx)?;
     refuse_ibkr(&tx, now)?;
     refuse_pending_rotations(&tx)?;
+    refuse_commands(&tx)?;
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: Rails' adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.
@@ -387,4 +390,24 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     let found = rust_only_conditions(c)?;
     if found.is_empty() { return Ok(()); }
     Err(EngineError::Ineligible(found.into_iter().map(|(id, key)| format!("bot {id}: {key} is on, and only this engine runs it on that kind of bot; switch it off before handing back")).collect()))
+}
+
+
+// D-6C-10: a queued manual command belongs to Rails, including stopped and archived bots.
+fn refuse_composition_jobs(o: &Opened) -> Result<(),EngineError> {
+    let mut s=o.primary.prepare("SELECT id,type FROM bots ORDER BY id")?;
+    let bots=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+    let mut reasons=vec![];
+    for (id,class) in bots {
+        let gid=format!("gid://deltabadger/{class}/{id}");
+        for job in ["Bot::LiquidateExitedJob","Bot::RedeployJob","Bot::DeclineRedeployJob","Bot::ResolveLiquidationJob","Bot::ResolveRedeployJob"] {
+            if active_job(&o.queue,job,&gid)? { reasons.push(format!("bot {id}: unfinished {job}; let Rails finish it before takeover")); }
+        }
+    }
+    if reasons.is_empty() { Ok(()) } else { Err(EngineError::Ineligible(reasons)) }
+}
+fn refuse_commands(c: &Connection) -> Result<(),EngineError> {
+    let mut s=c.prepare("SELECT id FROM bots WHERE json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL ORDER BY id")?;
+    let reasons=s.query_map([],|r|r.get::<_,i64>(0))?.map(|r|r.map(|id|format!("bot {id}: liquidation request pending; run the engine before handing back"))).collect::<Result<Vec<_>,_>>()?;
+    if reasons.is_empty() {Ok(())} else {Err(EngineError::Ineligible(reasons))}
 }
