@@ -272,7 +272,13 @@ pub fn resolve(c: &Connection, id: i64, user: i64, nonce: &str, now: chrono::Dat
         tx.execute("UPDATE bots SET redeploy_declined_offset=?1 WHERE id=?2", ((&stored + &intent.plan.quote_amount).to_s_f(), id))?;
         model::merge_transient_compact(&tx, id, &[("rust_placement", Value::Null)])?;
     }
-    model::merge_transient_compact(&tx, id, &[(PENDING_KEY, Value::Null)])?;
+    // The abandoned rows this Clear accounted for, kept in state (the activity log is pruned) so the backstop scan skips them.
+    let mut resolved: Vec<i64> = bot.transient["redeploy_resolved_orders"].as_array().into_iter().flatten().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.parse().ok())).collect();
+    for row in tx.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND transaction_type='REDEPLOY' AND external_status=4 ORDER BY id")?.query_map([id], |r| r.get::<_, i64>(0))? {
+        let row = row?;
+        if !resolved.contains(&row) { resolved.push(row); }
+    }
+    model::merge_transient_compact(&tx, id, &[(PENDING_KEY, Value::Null), ("redeploy_resolved_orders", if resolved.is_empty() { Value::Null } else { json!(resolved) })])?;
     model::log_activity(&tx, id, "redeploy_manually_resolved", Level::Info, json!({"user_id":user}), now)?;
     tx.commit()?;
     Ok(None)

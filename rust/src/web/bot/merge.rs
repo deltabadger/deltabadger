@@ -380,20 +380,25 @@ fn write_merged(tx: &Connection, ctx: &Ctx, owner: i64, merge: &Merge, now: Date
     }
     tx.execute("UPDATE bots SET redeploy_declined_offset = ?1 WHERE id = ?2", (offset.to_s_f(), id))?;
     // merge_transient_data!: the merged history's last row and the resolved sales, then `.compact` drops every nil key.
-    let mut resolved: Vec<i64> = vec![];
-    for source in &merge.bots {
-        let ids: Vec<i64> = match source.engine.transient.get("liquidation_resolved_orders") {
-            None | Some(Value::Null) => vec![],
-            Some(Value::Array(items)) => items.iter().map(wizard::to_i).collect(),
-            Some(other) => vec![wizard::to_i(other)],
-        };
-        for id in ids { if !resolved.contains(&id) { resolved.push(id); } }
-    }
+    // Each resolved-orders key (liquidation's and redeploy's) is the union of the sources' lists.
+    let keys = ["liquidation_resolved_orders", "redeploy_resolved_orders"];
+    let resolved: Vec<Vec<i64>> = keys.iter().map(|key| {
+        let mut out: Vec<i64> = vec![];
+        for source in &merge.bots {
+            let ids: Vec<i64> = match source.engine.transient.get(*key) {
+                None | Some(Value::Null) => vec![],
+                Some(Value::Array(items)) => items.iter().map(wizard::to_i).collect(),
+                Some(other) => vec![wizard::to_i(other)],
+            };
+            for id in ids { if !out.contains(&id) { out.push(id); } }
+        }
+        out
+    }).collect();
     let last: Option<i64> = tx.query_row("SELECT MAX(id) FROM transactions WHERE bot_id = ?1", [id], |r| r.get(0))?;
     let text: String = tx.query_row("SELECT transient_data FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
     let mut transient: Map<String, Value> = serde_json::from_str(&text).map_err(|e| super::data(format!("merged bot transient: {e}")))?;
     transient.insert("merged_history_until_id".into(), json!(last));
-    transient.insert("liquidation_resolved_orders".into(), if resolved.is_empty() { Value::Null } else { json!(resolved) });
+    for (key, ids) in keys.iter().zip(&resolved) { transient.insert((*key).into(), if ids.is_empty() { Value::Null } else { json!(ids) }); }
     transient.retain(|_, value| !value.is_null());
     tx.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (Value::Object(transient).to_string(), id))?;
     // The sources, deleted as the Delete button leaves a bot; their run generation moves, fencing an engine write in flight.

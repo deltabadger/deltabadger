@@ -542,4 +542,15 @@ async fn the_scan_halts_rows_abandoned_without_a_halt() {
     assert_eq!(redeploy::resolve(&e.primary, id, bot.user_id, &nonce, at(T0)).unwrap(), None);
     for minutes in [10, 20] { run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(minutes))).await.unwrap(); }
     assert!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null(), "a Clear resolves the rows it followed");
+    // Activity logs are pruned after 90 days: the Clear is kept in the bot's state, not in its log.
+    e.primary.execute("DELETE FROM bot_activity_logs", []).unwrap();
+    run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(30))).await.unwrap();
+    assert!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null(), "pruned logs do not re-halt a cleared bot");
+    // A row abandoned after the Clear is not covered by it.
+    let row = seed::insert_row(&e.primary, &s, id, s.btc, &json!({"external_id":"LOST-3","external_status":4,"amount":"0.001","quote_amount":"20","price":"20000","created_at":"2026-08-02 10:00:02"}));
+    e.primary.execute("UPDATE transactions SET transaction_type='REDEPLOY' WHERE id=?1", [row]).unwrap();
+    run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(40))).await.unwrap();
+    assert!(stood_down(&e.primary, id), "a new abandoned row halts again");
+    let halts: Vec<_> = logs(&e.primary).into_iter().filter(|(event, _)| event == "redeploy_ambiguous").collect();
+    assert_eq!(halts, vec![("redeploy_ambiguous".into(), json!({"base":"BTC","reason":"exchange stopped reporting the order"}))]);
 }

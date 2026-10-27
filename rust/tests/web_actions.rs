@@ -2631,6 +2631,20 @@ mod merge {
         Ok(())
     }
 
+    /// The merged bot carries the union of both sources' resolved liquidation and redeploy rows (their ids move with them).
+    #[test]
+    fn carries_the_resolved_orders() -> Result {
+        let f = Fixture::new(1, 1)?;
+        f.transient(f.bots[0], "redeploy_resolved_orders", json!([3, 5]))?;
+        f.transient(f.bots[1], "redeploy_resolved_orders", json!([5, 8]))?;
+        f.transient(f.bots[1], "liquidation_resolved_orders", json!([7]))?;
+        let Merged::Done(id) = f.merge()? else { return Err("expected a merge".into()) };
+        let (redeploy, liquidation): (String, String) = f.c.query_row("SELECT json_extract(transient_data,'$.redeploy_resolved_orders'), json_extract(transient_data,'$.liquidation_resolved_orders') FROM bots WHERE id=?1",
+            [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        assert_eq!((redeploy.as_str(), liquidation.as_str()), ("[3,5,8]", "[7]"));
+        Ok(())
+    }
+
     /// D-FENCE-PER-BOT: a source whose placement intent is still recorded is the engine's; nothing is written.
     #[test]
     fn a_placement_intent_refuses() -> Result {
@@ -2910,6 +2924,7 @@ mod split {
         let f = Fixture::index(&[0.5, 0.3, 0.2])?;
         let (bot, a, b) = (f.bots[0], f.assets[0][0].0, f.assets[0][1].0);
         f.transient(bot, "liquidation_resolved_orders", json!([7, 9]))?;
+        f.transient(bot, "redeploy_resolved_orders", json!([4]))?;
         f.c.execute("UPDATE bots SET redeploy_declined_offset='12.5' WHERE id=?1", [bot])?;
         f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
         f.order(bot, Some(a), "S0X0", 1, "LIQUIDATION", "1", "100", "100", "2026-09-03 10:00:00")?;
@@ -2922,6 +2937,8 @@ mod split {
                  (SELECT max(id) FROM transactions WHERE bot_id=?1) FROM bots WHERE id=?1", [child], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
             assert_eq!(offset, 0.0);
             assert_eq!(resolved.as_deref(), Some("[7,9]"));
+            let redeploy: Option<String> = f.c.query_row("SELECT json_extract(transient_data,'$.redeploy_resolved_orders') FROM bots WHERE id=?1", [child], |r| r.get(0))?;
+            assert_eq!(redeploy.as_deref(), Some("[4]"));
             assert_eq!(merged, last);
             assert_eq!(merged.is_some(), n < 2, "child {n}");
             let special: i64 = f.c.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND transaction_type<>'REGULAR'", [child], |r| r.get(0))?;

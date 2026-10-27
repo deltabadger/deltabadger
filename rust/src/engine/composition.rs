@@ -147,11 +147,11 @@ pub(crate) fn halt_abandoned(c: &Connection, watched: &[(i64,i64)], before: &std
 }
 
 /// Backstop for REDEPLOY rows abandoned without their halt (older builds, or Rails stopped between the two writes): a bot
-/// with an abandoned row that no Clear (`redeploy_manually_resolved`) followed is halted as halt_abandoned_redeploys! would.
+/// with an abandoned row no Clear accounted for (transient `redeploy_resolved_orders`) is halted as halt_abandoned_redeploys! would.
 fn halt_unrecorded_redeploys(c: &Connection, now: DateTime<Utc>) -> Result<Vec<i64>, EngineError> {
     let mut s=c.prepare("SELECT t.bot_id,group_concat(DISTINCT t.base) FROM transactions t JOIN bots b ON b.id=t.bot_id \
         WHERE t.transaction_type='REDEPLOY' AND t.status=0 AND t.external_status=4 \
-        AND NOT EXISTS(SELECT 1 FROM bot_activity_logs l WHERE l.bot_id=t.bot_id AND l.event='redeploy_manually_resolved' AND l.created_at>=t.updated_at) \
+        AND t.id NOT IN (SELECT CAST(value AS INTEGER) FROM json_each(b.transient_data,'$.redeploy_resolved_orders')) \
         GROUP BY t.bot_id ORDER BY t.bot_id")?;
     let rows:Vec<(i64,Option<String>)>=s.query_map([],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
     let mut halted=vec![];
