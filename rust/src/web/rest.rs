@@ -236,6 +236,8 @@ fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<
             // Rails REST is a live action; the paper-trading preference belongs to MCP only.
             args.insert("dry_run".into(),json!(false)); args
         },
+        // `params[:accept]` as it came; Rails REST is live, like the liquidation above.
+        bot_api::Write::Redeploy => Map::from_iter([("accept".to_string(), params.get("accept").cloned().unwrap_or(Value::Null)), ("dry_run".to_string(), json!(false))]),
         bot_api::Write::Settings => params.iter()
             .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (name.as_str() == "allocations" || !(value.is_array() || value.is_object())))
             .map(|(name, value)| (name.clone(), value.clone())).collect(),
@@ -277,12 +279,17 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let submitted = super::bot::action_params::ActionParams::from_service(service_arguments(write, p));
             let work=|| {
                 let res=bot_api::write_result(bot_api::bot_write(c, app, user, id, write, &submitted)?);
-                let accepted=write==bot_api::Write::Liquidate && res.code.is_none();
+                let accepted=matches!(write,bot_api::Write::Liquidate | bot_api::Write::Redeploy) && res.code.is_none();
                 let mut answer=render(res);
                 if accepted { if let Answer::Json(status, _) = &mut answer { *status=StatusCode::ACCEPTED; } }
                 Ok(answer)
             };
-            if write==bot_api::Write::Liquidate {super::rest_idempotency::run(c,app,user,input,work)?} else {work()?}
+            // Both can place market orders, so both require an Idempotency-Key (BotsController#liquidate and #redeploy).
+            match write {
+                bot_api::Write::Liquidate => super::rest_idempotency::run(c,app,user,input,"liquidate",work)?,
+                bot_api::Write::Redeploy => super::rest_idempotency::run(c,app,user,input,"redeploy",work)?,
+                _ => work()?,
+            }
         }
         Action::Read(reading) => {
             // The summary reads no parameter, so a body Rails cannot parse never reaches it.

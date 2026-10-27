@@ -51,22 +51,34 @@ pub(crate) fn selected(c:&Connection,held:&[(String,i64)],params:&Value,web:bool
     Ok(if selected.is_empty() {Err(Res::failure(Domain::NotFound,"holding_not_held","No symbol is a position this bot holds.".into()))}else{Ok(selected)})
 }
 
+/// The service's lookup: an owned, undeleted composition bot with its label, refused when archived. `unsupported` is the
+/// service's own not_composition_bot message.
+pub(super) fn composition_bot(tx:&Connection,ctx:&Ctx,user:i64,id:i64,unsupported:&str)->Result<Result<(model::Bot,String),Res>,WebError> {
+    let found:Option<(String,String,i64)>=tx.query_row("SELECT type,COALESCE(label,''),status FROM bots WHERE id=?1 AND user_id=?2 AND status<>3",(id,user),|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+    let Some((class,label,status))=found else {return Ok(Err(Res::failure(Domain::NotFound,"bot_not_found","Bot not found.".into())))};
+    if !["Bots::DcaIndex","Bots::DcaMultiAsset"].contains(&class.as_str()) {return Ok(Err(Res::failure(Domain::ValidationFailed,"not_composition_bot",unsupported.into())))}
+    let bot=model::load_bot(tx,id)?;
+    let label=if label.trim().is_empty(){crate::web::mcp::reads::generated_label(tx,user,id,&class,&bot.settings,ctx.locale)?}else{label};
+    if status==7 {return Ok(Err(Res::failure(Domain::Conflict,"bot_archived",format!("Bot '{label}' is archived; reactivate it first."))))}
+    Ok(Ok((bot,label)))
+}
+
+/// D-6C-7: the page's own refusal (the wash-sale question included) for every surface.
+pub(super) fn page_refused(tx:&Connection,ctx:&Ctx,user:i64,id:i64)->Result<Option<Res>,WebError> {
+    let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[user],|r|r.get(0))?;
+    let (provider,_)=crate::web::bots::market_data(tx,&ctx.app)?;
+    Ok(super::refusal(tx,id,wash,provider,super::For::Settings)?.map(|reason|Res::failure(Domain::NotPorted,"not_ported",bot_api::refused(reason))))
+}
+
 pub fn request(c:&Connection,ctx:&Ctx,user:i64,id:i64,params:&Value,web:bool)->Result<Res,WebError> {
     let tx=model::immediate(c)?;
-    let found:Option<(String,String,i64)>=tx.query_row("SELECT type,COALESCE(label,''),status FROM bots WHERE id=?1 AND user_id=?2 AND status<>3",(id,user),|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
-    let Some((class,label,status))=found else {return Ok(Res::failure(Domain::NotFound,"bot_not_found","Bot not found.".into()))};
-    if !["Bots::DcaIndex","Bots::DcaMultiAsset"].contains(&class.as_str()) {return Ok(Res::failure(Domain::ValidationFailed,"not_composition_bot","Only index and basket bots hold sellable positions.".into()))}
-    let bot=model::load_bot(&tx,id)?;
-    let label=if label.trim().is_empty(){crate::web::mcp::reads::generated_label(&tx,user,id,&class,&bot.settings,ctx.locale)?}else{label};
-    if status==7 {return Ok(Res::failure(Domain::Conflict,"bot_archived",format!("Bot '{label}' is archived; reactivate it first.")))}
+    let (bot,label)=match composition_bot(&tx,ctx,user,id,"Only index and basket bots hold sellable positions.")? {Ok(found)=>found,Err(res)=>return Ok(res)};
     if engine::composition::in_flight(&tx,&bot,ctx.now)? {
         engine::liquidation::refuse(&tx,id,json!(["in_flight"]),ctx.app.clock.as_ref())?;
         tx.commit()?;
         return Ok(Res::failure(Domain::Conflict,"write_refused",i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&i18n::text(ctx.locale,"errors.bots.index_switch.in_flight",&[])))])));
     }
-    let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[user],|r|r.get(0))?;
-    let (provider,_)=crate::web::bots::market_data(&tx,&ctx.app)?;
-    if let Some(reason)=super::refusal(&tx,id,wash,provider,super::For::Settings)? {return Ok(Res::failure(Domain::NotPorted,"not_ported",bot_api::refused(reason)))}
+    if let Some(res)=page_refused(&tx,ctx,user,id)? {return Ok(res)}
     let holdings=match selected(&tx,&held(&tx,id,ctx.now)?,params,web)? {Ok(h)=>h,Err(r)=>return Ok(r)};
     let dry=!web && params.get("dry_run").and_then(Value::as_bool).unwrap_or(crate::web::mcp::tools::paper_trading(&tx,user)?);
     let symbols:Vec<_>=holdings.iter().map(|(key,_)|key.clone()).collect();
@@ -95,7 +107,7 @@ struct Modal {
     cancel:String,sell:String,selling:String,colour:&'static str,
 }
 
-fn missing(ctx:&Ctx)->Response {
+pub(super) fn missing(ctx:&Ctx)->Response {
     (StatusCode::NOT_FOUND,[(axum::http::header::CONTENT_TYPE,if ctx.stream {"text/vnd.turbo-stream.html"}else{"text/html"})]).into_response()
 }
 pub async fn new(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>)->Result<Response,WebError> {
@@ -173,10 +185,10 @@ pub async fn clear(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segm
 
 
 /// Render after commit from the current row: a request that already finished cannot repaint an old spinner.
-fn changed(c:&Connection,ctx:&Ctx,id:i64) {
+pub(super) fn changed(c:&Connection,ctx:&Ctx,id:i64) {
     ctx.app.wake_engine();ctx.app.figure_service.mark(id);
     match super::live::render(c,&ctx.app,&engine::events::EngineEvent::TickEnded {bot_id:id}) {
         Ok(messages)=>for (stream,html) in messages {ctx.app.hub.broadcast(&stream,&html);},
-        Err(e)=>engine::log(&format!("[web] liquidation status bot={id}: {e:?}")),
+        Err(e)=>engine::log(&format!("[web] composition status bot={id}: {e:?}")),
     }
 }

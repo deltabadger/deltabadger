@@ -317,7 +317,21 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     out.push_str("\n  ");
     out.push_str(&wash_sale_table(c,s,&locked,hidden,locale,prefix)?);
     out.push_str("\n\n");
-    if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
+    let redeploy_pending = &engine_bot.transient[crate::engine::redeploy::PENDING_KEY];
+    if redeploy_pending["state"] == "ambiguous" {
+        // The halt's Clear, before any balance, status or direction condition: it names the intent this render shows.
+        let mut q = form_urlencoded::Serializer::new(String::new());
+        if !redeploy_pending["id"].is_null() { q.append_pair("intent_id", &crate::web::mcp::tools::str_value(&redeploy_pending["id"])); }
+        let query = q.finish();
+        out.push_str(&format!("<div class=\"widget redeploy-prompt\">\n<span class=\"text-error\">{}</span>\n<form class=\"button_to\" data-turbo-confirm=\"{}\" method=\"post\" action=\"{}/bots/{}/redeploy_resolutions{}{}\"><button class=\"rbutton rbutton--danger\" type=\"submit\">{}</button>",
+            t(locale,"bot.redeploy.halted"), escape(&i18n::text(locale,"bot.redeploy.resolve_confirm",&[])), escape(prefix), s.bot.id, if query.is_empty() {""} else {"?"}, escape(&query), t(locale,"bot.redeploy.resolve")));
+        match csrf {
+            Token::Value("") => {}
+            Token::Value(token) => out.push_str(&token_field(token)),
+            Token::Slots(slots) => slots.push(out.len()),
+        }
+        out.push_str("</form>\n</div>\n");
+    } else if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
         // D-6C-9: Rails' clamp and minimum fallback; a stored decline is never rewritten from a GET.
         match crate::engine::redeploy::offer(c,s,m)? {
             offer if offer.is_positive() => {

@@ -752,6 +752,8 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/liquidation/new", only(get(bot::liquidation::new)))
         .route("/bots/{id}/liquidation", only(post(bot::liquidation::create)))
         .route("/bots/{id}/liquidation_resolutions", only(post(bot::liquidation::clear)))
+        .route("/bots/{id}/redeploy", only(post(bot::redeploy::create).delete(bot::redeploy::destroy)))
+        .route("/bots/{id}/redeploy_resolutions", only(post(bot::redeploy::clear)))
         .route("/bots/{id}/reverse", only(post(bot::actions::reverse)))
         .route("/bots/{id}/custom_allocation", only(post(bot::actions::custom_allocation)))
         .route("/bots/{id}/index/new", only(get(bot::actions::index_new)))

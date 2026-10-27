@@ -304,6 +304,8 @@ module PageFigures
     specials['bots'].first['orders'] += [Figures.sell('AAA', rebalanced, '53', '0.1', type: 'REBALANCE'),
                                          Figures.buy('DDD', rebalanced + 1, '90.1', '0.058823529', type: 'REBALANCE')]
     list << specials
+    # Slice 6c-5: a halted redeploy over the same legs: its Clear in place of the prompt.
+    list << list.find { |s| s['name'] == 'liquidations' }.deep_dup.merge('name' => 'redeploy_halt')
     list.concat(rebalance_drift(list))
     list.concat(display_currency(list))
     list.concat(pair_list)
@@ -321,6 +323,9 @@ module PageFigures
         user.wash_sale_locks.create!(asset_id: assets['AAA'], buy_locked_until: Figures.time(sc['at']) + 10.days, source: 'ledger')
       end
       bots.first.update_columns(redeploy_declined_offset: 100) if sc['name'] == 'stranded_offset'
+      if sc['name'] == 'redeploy_halt'
+        bots.first.update_columns(transient_data: bots.first.transient_data.merge('redeploy_pending' => { 'id' => 'a1b2c3d4e5f6', 'state' => 'ambiguous' }))
+      end
       bots.first.bot_index_assets.delete_all if sc['name'] == 'no_composition'
       user.update_columns(locale: sc['locale']) if sc['locale']
       Rails.cache.clear

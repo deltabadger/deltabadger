@@ -225,7 +225,28 @@ module Pages
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
-                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios)
+                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios)
+
+  # Slice 6c-5: the flashes of the real redeploy controllers, from the settings page. A page showing a sale is refused
+  # without figures here (REALISED_WITHOUT_FIGURES), so the prompt and its halt are compared by page_figures.rb
+  # ('liquidations', 'redeploy_halt').
+  def redeploy_scenarios
+    fill = { 'price' => '100', 'amount' => '1', 'amount_exec' => '1', 'quote_amount' => '100', 'quote_amount_exec' => '100' }
+    sold = ['NVDA', '2026-09-09T13:30:01Z', fill.merge('side' => 'sell', 'transaction_type' => 'LIQUIDATION', 'price' => '150', 'quote_amount' => nil,
+                                                      'quote_amount_exec' => '150')]
+    orders = [['NVDA', '2026-09-08T13:30:01Z', fill], sold]
+    proceeds = stopped('basket', 'orders' => orders)
+    halted = stopped('basket', 'orders' => orders, 'transient' => { 'redeploy_pending' => { 'id' => 'a1b2c3d4e5f6', 'state' => 'ambiguous' } })
+    answer = ->(form) { post('/bots/1/redeploy', form, 'csrf' => 'header', 'headers' => TURBO, 'may_mutate' => ['bots'], 'expect' => 200) }
+    back = TURBO.merge('Referer' => 'http://localhost:3000/settings/connect')
+    {
+      'redeploy_started' => with_bots([proceeds], signed_in(get('/settings/connect'), answer.call({}))),
+      'redeploy_double_yes' => with_bots([proceeds], signed_in(get('/settings/connect'), answer.call({}), answer.call({}))),
+      'redeploy_declined' => with_bots([proceeds], signed_in(get('/settings/connect'), answer.call({ '_method' => 'delete' }))),
+      'redeploy_clear_noop' => with_bots([halted], signed_in(get('/settings/connect'), post('/bots/1/redeploy_resolutions?intent_id=stale', {}, 'csrf' => 'header', 'headers' => back),
+                                                           get('/settings/connect'))),
+    }
+  end
 
   # Slice 6c-3: a cached-only confirmation and the flashes from the real controllers.
   def liquidation_scenarios
