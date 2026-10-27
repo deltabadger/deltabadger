@@ -1041,6 +1041,9 @@ pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock)
             after_tick(e,id,&start,last_tx,None,clock,&producer)?;
             result
         }.await;
+        // A command's sweep owes the same StopJobs as a tick's, even on a refusal or error.
+        // Drain before compare-clear or error reporting can fail and leave the bot scheduled.
+        let outcome=tick::end_of_run(&e.primary,id,clock.now(),outcome);
         // Compare-clear precedes propagation, including SQL, credential, and lease failures.
         liquidation::clear(&e.primary,id,&request)?;
         e.events.send(EngineEvent::OrderUpdated {bot_id:id});

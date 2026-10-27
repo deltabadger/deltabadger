@@ -33,7 +33,7 @@ pub fn allocations_balanced(bot: &Bot) -> bool {
     (crate::ruby::float_sum(&weights) - 1.0).abs() <= ALLOCATION_TOLERANCE
 }
 
-/// bot_reasons, less the reason a rebalance does not care about (UNBALANCED): what refuses a rebalance's order.
+/// bot_reasons, less UNBALANCED: rebalances and liquidations do not require weights summing to 100 %.
 pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     Ok(bot_reasons(c, bot)?.into_iter().filter(|r| !r.starts_with(UNBALANCED)).collect())
 }
@@ -541,15 +541,15 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
             if let Some(i) = items.as_deref_mut() { i.extend(reasons.iter().map(|r| format!("bot {id}: {r}"))); member_findings(c, id, i)?; }
             continue;
         }
-        // UNBALANCED alone refuses ticking only: a stopped bot does not tick, and its swap still places, polls and settles
-        // (Rails' rebalance_targets: `rebalance_pending? || allocations_balanced?`). Its REBALANCE orders are this engine's.
+        // The same UNBALANCED exception as rebalance_reasons, used to admit both rebalances and liquidations:
+        // a stopped bot does not tick, but either operation's orders still place, poll and settle.
         let rebalances = rebalances_here(&bot);
-        let swap_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
+        let composition_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
-                                            AND NOT (?2 AND transaction_type = 'REBALANCE')", params![id, swap_only], |r| r.get(0))?;
+                                            AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION'))", params![id, composition_only], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
         // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.
-        if super::rebalance::candidate(&bot) && rebalances && !swap_only { work.push("rebalancing".into()); }
+        if super::rebalance::candidate(&bot) && rebalances && !composition_only { work.push("rebalancing".into()); }
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
         if !work.is_empty() {
             report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));

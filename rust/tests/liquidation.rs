@@ -106,6 +106,87 @@ impl deltabadger::venue::VenueFactory for Factory {
     type V=AlpacaVenue<ScriptedTransport>;
     fn for_bot(&self,_t:&str,_c:Option<deltabadger::crypto::Credentials>)->Self::V { venue(&self.0) }
 }
+
+#[tokio::test(flavor="current_thread")]
+async fn unbalanced_stopped_basket_liquidation_is_polled_in_process_and_after_restart() {
+    for restart in [false, true] {
+        let (d,o,id,s,eth)=swap_bot(stopped());
+        o.primary.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)) WHERE id=?2",
+            rusqlite::params![json!({s.btc.to_string():0.2,eth.to_string():0.3}).to_string(),id]).unwrap();
+        model::merge_transient_compact(&o.primary,id,&[(liquidation::REQUEST_KEY,json!({"id":"unbalanced","at":1,"holdings":[["BTC",s.btc]]}))]).unwrap();
+        let t=script(json!({"GET /v2/orders/OTX-1":[order("OTX-1","filled","BTC/USD","sell",Some("0.01"),None,"0.01",Some("64000"))]}));
+        let paths=store::Paths::from_env(&|_|None,d.path());
+        let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
+        let mut e=run::Engine::new(o.primary,Factory(t.clone()),seed::cipher(),lock);
+        run::step(&mut e,&FixedClock(at(T0))).await.unwrap();
+        assert_eq!(t.posted_orders().len(),1);
+        let report=deltabadger::engine::eligibility::check_install(&e.primary).unwrap();
+        assert!(report.problems.is_empty(),"{:?}",report.problems);
+        assert!(report.unreadable.is_empty(),"{:?}",report.unreadable);
+        if restart {
+            drop(e);
+            let o=store::open(&paths).unwrap();
+            let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
+            e=run::Engine::new(o.primary,Factory(t.clone()),seed::cipher(),lock);
+        }
+        run::step(&mut e,&FixedClock(at(T0)+Duration::minutes(1))).await.unwrap();
+        let filled:(i64,f64)=e.primary.query_row("SELECT external_status,quote_amount_exec FROM transactions WHERE external_id='OTX-1'",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+        assert_eq!(filled,(2,640.0),"restart={restart}");
+        assert_eq!(model::load_bot(&e.primary,id).unwrap().status,deltabadger::enums::BotStatus::Stopped);
+        assert_eq!(t.posted_orders().len(),1);
+    }
+}
+
+async fn command_sweep_amount_limit(case: &str) {
+    use deltabadger::engine::{notice, tick};
+    let spec=BotSpec::weekly(60.0,"2026-09-01 10:00:00").with("quote_amount_limited",json!(true)).with("quote_amount_limit",json!(60.0))
+        .transient("quote_amount_limit_enabled_at",json!("2026-09-01T11:00:00Z"));
+    let (d,o,id,s,_)=swap_bot(spec);
+    for (external_id,side) in [("WAIT-BUY",0),("WAIT-SELL",1)] {
+        seed::insert_row(&o.primary,&s,id,s.btc,&json!({"external_id":external_id,"external_status":1,"side":side,
+            "amount":"0.0009375","quote_amount":"60","price":"64000","amount_exec":"0","quote_amount_exec":"0","created_at":"2026-09-01 11:00:01"}));
+    }
+    if case=="error" {
+        o.primary.execute_batch("CREATE TRIGGER refuse_log_failure BEFORE INSERT ON bot_activity_logs WHEN NEW.event='liquidation_not_started'
+            BEGIN SELECT RAISE(ABORT,'liquidation refusal log unavailable'); END;").unwrap();
+    }
+    model::merge_transient_compact(&o.primary,id,&[(liquidation::REQUEST_KEY,json!({"id":"cap","at":1,"holdings":[["BTC",s.btc]]}))]).unwrap();
+    let t=script(json!({
+        "GET /v2/orders/WAIT-BUY":[order("WAIT-BUY","filled","BTC/USD","buy",Some("0.0009375"),None,"0.0009375",Some("64000"))],
+        "GET /v2/orders/WAIT-SELL":[order("WAIT-SELL",if case=="success" {"canceled"} else {"new"},"BTC/USD","sell",Some("0.0009375"),None,"0",None)]
+    }));
+    let paths=store::Paths::from_env(&|_|None,d.path());
+    let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
+    let mut e=run::Engine::new(o.primary,Factory(t.clone()),seed::cipher(),lock);
+    // No engine step or tick: the command itself must finish the queued stop.
+    for _ in 0..2 {
+        run::run_commands(&mut e,&FixedClock(at(T0))).await.unwrap();
+        let bot=model::load_bot(&e.primary,id).unwrap();
+        assert_eq!(bot.status,deltabadger::enums::BotStatus::Stopped,"{case}");
+        assert!(bot.transient["rust_amount_limit_stops_pending"].is_null());
+        assert!(bot.transient[liquidation::REQUEST_KEY].is_null());
+        assert_eq!(e.primary.query_row("SELECT stop_message_key FROM bots WHERE id=?1",[id],|r|r.get::<_,String>(0)).unwrap(),tick::AMOUNT_SPENT);
+        let (mail,_)=notice::pending(&e.primary,0,10).unwrap();
+        assert_eq!(mail.len(),1);
+        assert_eq!(mail[0].notice,notice::Notice::StoppedByAmountLimit);
+        assert_eq!(e.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='stopped'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+    }
+    assert_eq!(t.posted_orders().len(),usize::from(case=="success"));
+    if case!="success" {
+        let event=if case=="error" {"liquidation_failed"} else {"liquidation_not_started"};
+        assert_eq!(e.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event=?1",[event],|r|r.get::<_,i64>(0)).unwrap(),1);
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn successful_liquidation_command_drains_swept_amount_limit_stops() { command_sweep_amount_limit("success").await; }
+
+#[tokio::test(flavor="current_thread")]
+async fn refused_liquidation_command_drains_swept_amount_limit_stops() { command_sweep_amount_limit("refusal").await; }
+
+#[tokio::test(flavor="current_thread")]
+async fn failed_liquidation_command_drains_swept_amount_limit_stops() { command_sweep_amount_limit("error").await; }
+
 #[tokio::test(flavor="current_thread")]
 async fn requests_are_compare_cleared_and_taken_requests_are_never_replayed() {
     for case in ["queued","taken","archived","pending_key","rails_marker","invalid"] {

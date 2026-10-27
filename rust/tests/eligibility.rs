@@ -7,6 +7,39 @@ use serde_json::json;
 fn plain() -> BotSpec { BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
 
 #[test]
+fn stopped_basket_order_kinds_remain_admitted_after_placement() {
+    use deltabadger::engine::{amount::TxKind, model};
+    // Rebalances and requested liquidations place on stopped, unbalanced baskets. Regular
+    // orders require a working, balanced bot; redeployment is not an engine command yet.
+    for kind in [TxKind::Regular, TxKind::Rebalance, TxKind::Liquidation, TxKind::Redeploy] {
+        for balanced in [false, true] {
+            for external_status in [0, 1] {
+                let (_d, o, s) = install();
+                let spec = BotSpec { status: 2, ..plain().weights(&[(s.btc, if balanced { 1.0 } else { 0.5 })]) };
+                let id = seed::insert_bot(&o.primary, &s, &spec);
+                let row = seed::insert_row(&o.primary, &s, id, s.btc, &json!({"external_id":"WAIT", "external_status":external_status, "side":i64::from(kind == TxKind::Liquidation),
+                    "amount":"0.001", "quote_amount":"60", "amount_exec":"0", "quote_amount_exec":"0", "created_at":"2026-09-01 10:00:01"}));
+                o.primary.execute("UPDATE transactions SET transaction_type=?1 WHERE id=?2", rusqlite::params![kind.as_str(), row]).unwrap();
+                let admitted = match kind {
+                    TxKind::Rebalance | TxKind::Liquidation => {
+                        assert!(eligibility::rebalance_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap().is_empty());
+                        true
+                    }
+                    TxKind::Regular => balanced,
+                    TxKind::Redeploy => false,
+                };
+                let report = eligibility::check_install(&o.primary).unwrap();
+                assert!(report.unreadable.is_empty(), "{:?}", report.unreadable);
+                assert_eq!(report.problems.is_empty(), admitted, "{kind:?}, balanced={balanced}, external_status={external_status}: {:?}", report.problems);
+                assert!(report.eligible.is_empty(), "a stopped bot must not tick");
+                o.primary.execute("UPDATE bots SET settings=json_set(settings,'$.future_limited',1) WHERE id=?1", [id]).unwrap();
+                assert!(!eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "{kind:?}: other refusals still apply");
+            }
+        }
+    }
+}
+
+#[test]
 fn the_slice_is_eligible_with_its_two_options() {
     let (_d, o, s) = install();
     let a = seed::insert_bot(&o.primary, &s, &plain());
