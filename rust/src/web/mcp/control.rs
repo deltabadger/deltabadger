@@ -4,7 +4,7 @@ use crate::web::{App, WebError, bearer::Bearer, bot::{action_params::ActionParam
 use rusqlite::Connection;
 use serde_json::Value;
 
-pub const NAMES: [&str;6]=["stop_bot","archive_bot","unarchive_bot","delete_bot","update_bot_settings","start_bot"];
+pub const NAMES: [&str;7]=["stop_bot","archive_bot","unarchive_bot","delete_bot","update_bot_settings","start_bot","liquidate_exited_asset"];
 // Outcome owns refusal classification. The shown text is the answer only; never infer
 // success from an HTTP 200, a shared view, or a guard-message prefix.
 fn finish(out:Outcome<Shown>)->Value {
@@ -29,8 +29,9 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Val
         return Ok(tool_text("Bot not found.",true));
     }
     let id=numeric_id as i64;
-    let submitted=ActionParams::from_mcp(args.clone()).map_err(|_|WebError::Config("MCP arguments exceed parameter bounds".into()))?;
     let write=Write::tool(name).ok_or_else(||WebError::Config("unknown control tool".into()))?;
+    let arguments=if write==Write::Liquidate {serde_json::json!({"symbol":args["symbol"],"dry_run":tools::paper_trading(c,who.user_id)?})}else{args.clone()};
+    let submitted=ActionParams::from_mcp(arguments).map_err(|_|WebError::Config("MCP arguments exceed parameter bounds".into()))?;
     Ok(finish(bot_api::bot_write(c,app,who.user_id,id,write,&submitted)?))
 }
 /// D-SPLIT-API: split_bots, the web's split through bot_api::split. Success is the data as JSON text; a refusal (and a split

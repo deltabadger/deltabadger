@@ -341,6 +341,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
     match bot.status {
         BotStatus::Archived => text = Some(t("bot.status.archived")),
         _ if !bot.exchange.retired() && !bot.api_key_correct() => connect = Some(ctx.path(&format!("/bots/{}/add_api_key/new", bot.id))),
+        _ if crate::engine::composition::selling_request(bot.transient.get("liquidation_selling_since").unwrap_or(&serde_json::Value::Null),ctx.now) => (text,setting) = (Some(t("bot.liquidation.selling")),true),
         BotStatus::Executing => text = Some(t("bot.status.setting_orders")),
         _ if bot.excess_members() > 0 => {
             text = Some(i18n::text(ctx.locale, "bot.dca_multi_asset.too_many_assets", &[("count", i18n::Arg::Count(bot.excess_members() as i64))]));

@@ -30,6 +30,7 @@ pub mod multipart;
 pub mod oauth;
 pub mod rate_limit;
 pub mod rest;
+mod rest_idempotency;
 pub mod ring;
 pub mod rules;
 pub mod server;
@@ -748,6 +749,9 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
         .route("/bots/{id}/stop", only(patch(bot::actions::stop)))
+        .route("/bots/{id}/liquidation/new", only(get(bot::liquidation::new)))
+        .route("/bots/{id}/liquidation", only(post(bot::liquidation::create)))
+        .route("/bots/{id}/liquidation_resolutions", only(post(bot::liquidation::clear)))
         .route("/bots/{id}/reverse", only(post(bot::actions::reverse)))
         .route("/bots/{id}/custom_allocation", only(post(bot::actions::custom_allocation)))
         .route("/bots/{id}/index/new", only(get(bot::actions::index_new)))

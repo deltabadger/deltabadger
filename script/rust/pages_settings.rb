@@ -131,6 +131,8 @@ module Pages
       # Validations call the real client and model against a deterministic paper account response.
       WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/positions').to_return(status: 200, body: '[]',
                                                                                             headers: { 'Content-Type' => 'application/json' })
+      WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/clock').to_return(status: 200, body: '{"is_open":true}',
+                                                                                        headers: { 'Content-Type' => 'application/json' })
       WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/account')
              .to_return(status: 200, body: '{"status":"ACTIVE","cash":"0"}', headers: { 'Content-Type' => 'application/json' })
       WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/account').with(headers: { 'APCA-API-KEY-ID' => 'incorrect-key' }).to_return(

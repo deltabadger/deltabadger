@@ -136,24 +136,27 @@ fn route(method: &Method, path: &str) -> Option<Route> {
 /// The request's parameters as Rails' `params` holds them (ActionDispatch::Http::Parameters#parameters): the body's,
 /// then the query's over them, then the path's over both. A body Rails cannot parse is `Err`: its 400, raised where an
 /// action first reads `params`. (ParamsWrapper's copy of the body under the controller's name is never read.)
-struct Input<'a> { params: &'a Params, json: Option<Vec<u8>>, path: &'a [(&'static str, String)] }
+pub(super) struct Input<'a> { pub params: &'a Params, json: Option<Vec<u8>>, pub path: &'a [(&'static str, String)], pub idempotency: Option<&'a str> }
 
 impl Input<'_> {
     fn parse(&self) -> Result<Map<String, Value>, ()> {
-        let mut out = match &self.json {
+        let mut out = self.body()?;
+        out.extend(object(super::bot::action_params::form(&self.params.query).map_err(|_| ())?));
+        out.extend(self.path.iter().map(|(name, value)| (name.to_string(), json!(value))));
+        Ok(out)
+    }
+    pub fn body(&self) -> Result<Map<String, Value>, ()> {
+        Ok(match &self.json {
             // `content_length.zero?`: no parameters.
             Some(body) if body.is_empty() => Map::new(),
             // A body that is not an object is `_json` (ActionDispatch's JSON parser).
             Some(body) => match serde_json::from_slice::<Value>(body).map_err(|_| ())? { Value::Object(m) => m, other => Map::from_iter([("_json".to_string(), other)]) },
             None => object(super::bot::action_params::form(&self.params.form).map_err(|_| ())?),
-        };
-        out.extend(object(super::bot::action_params::form(&self.params.query).map_err(|_| ())?));
-        out.extend(self.path.iter().map(|(name, value)| (name.to_string(), json!(value))));
-        Ok(out)
+        })
     }
 }
 
-fn object(v: Value) -> Map<String, Value> { match v { Value::Object(m) => m, _ => Map::new() } }
+pub(super) fn object(v: Value) -> Map<String, Value> { match v { Value::Object(m) => m, _ => Map::new() } }
 
 /// The media types ActionDispatch parses as JSON (Mime[:json] and its synonyms).
 fn json_body(content_type: Option<&str>) -> bool {
@@ -175,7 +178,7 @@ fn status_for(status: Domain) -> StatusCode {
     }
 }
 
-fn failure(status: StatusCode, code: &str, message: &str) -> Answer {
+pub(super) fn failure(status: StatusCode, code: &str, message: &str) -> Answer {
     Answer::Json(status, encode(&json!({"data": null, "error": {"code": code, "message": message}})))
 }
 
@@ -228,6 +231,11 @@ fn typed_tool(gate: Gate, params: &Map<String, Value>) -> Result<&'static str, A
 /// nil included, and `allocations` as it came); for a start, `params[:start_fresh]`.
 fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<String, Value> {
     match write {
+        bot_api::Write::Liquidate => {
+            let mut args:Map<String,Value>=params.iter().filter(|(k,_)| k.as_str()=="symbol").map(|(k,v)|(k.clone(),v.clone())).collect();
+            // Rails REST is a live action; the paper-trading preference belongs to MCP only.
+            args.insert("dry_run".into(),json!(false)); args
+        },
         bot_api::Write::Settings => params.iter()
             .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (name.as_str() == "allocations" || !(value.is_array() || value.is_object())))
             .map(|(name, value)| (name.clone(), value.clone())).collect(),
@@ -267,7 +275,14 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             // `params[:id].to_i`: the path's id (it wins over the body's and the query's), its leading digits.
             let id = p.get("id").and_then(bot_api::to_i).unwrap_or(0);
             let submitted = super::bot::action_params::ActionParams::from_service(service_arguments(write, p));
-            render(bot_api::write_result(bot_api::bot_write(c, app, user, id, write, &submitted)?))
+            let work=|| {
+                let res=bot_api::write_result(bot_api::bot_write(c, app, user, id, write, &submitted)?);
+                let accepted=write==bot_api::Write::Liquidate && res.code.is_none();
+                let mut answer=render(res);
+                if accepted { if let Answer::Json(status, _) = &mut answer { *status=StatusCode::ACCEPTED; } }
+                Ok(answer)
+            };
+            if write==bot_api::Write::Liquidate {super::rest_idempotency::run(c,app,user,input,work)?} else {work()?}
         }
         Action::Read(reading) => {
             // The summary reads no parameter, so a body Rails cannot parse never reaches it.
@@ -307,6 +322,7 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
         None => Answer::Below(Box::new(layout::missing())),
         Some(route) => {
             let (parts, body) = request.into_parts();
+            let idempotency = super::header_text(&parts.headers, "idempotency-key").map(str::to_string);
             let authorization = super::header_text(&parts.headers, "authorization").map(str::to_string);
             let json = if json_body(super::header_text(&parts.headers, "content-type")) {
                 match tokio::time::timeout(BODY_READ_TIMEOUT, to_bytes(body, FORM_LIMIT)).await {
@@ -318,7 +334,7 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
             let app2 = app.clone();
             let shown = params.full_path.clone();
             let method = parts.method.clone();
-            let answer = match app.db(move |c| dispatch(c, &app2, &route, &Input { params: &params, json, path: &route.path }, authorization.as_deref(), &method, &shown)).await {
+            let answer = match app.db(move |c| dispatch(c, &app2, &route, &Input { params: &params, json, path: &route.path, idempotency: idempotency.as_deref() }, authorization.as_deref(), &method, &shown)).await {
                 Ok(answer) => answer,
                 Err(error) => Answer::Below(Box::new(error.into_response())),
             };

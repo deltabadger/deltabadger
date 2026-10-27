@@ -305,16 +305,26 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     let actions = rows.iter().any(|r| r.can_sell);
     if !composed.is_empty() { out.push_str(&format!("<div id=\"assets_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n{}\n</div>\n", table(c,s,&composed,"assets_metrics_list",actions,hidden,locale,prefix)?)); }
     out.push('\n');
-    if !exited.is_empty() {
+    let halt = liquidation_halt(c,s.bot.id)?;
+    if !exited.is_empty() || !halt.bases.is_empty() {
         let title = if s.bot.kind == db::Kind::Index { "bot.dca_index.out_of_the_index" } else { "bot.dca_multi_asset.removed_from_portfolio" };
         out.push_str(&format!("<div id=\"exited_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n", t(locale,title)));
-        if exited.len() > 1 && may_sell {
+        if !halt.bases.is_empty() {
+            let offset=out.len();
+            let mut slots=vec![];
+            match csrf {
+                Token::Slots(all)=>{out.push_str(&halt_control(s.bot.id,&halt,locale,prefix,&mut Token::Slots(&mut slots)));all.extend(slots.into_iter().map(|at|at+offset));}
+                Token::Value(token)=>out.push_str(&halt_control(s.bot.id,&halt,locale,prefix,&mut Token::Value(token))),
+            }
+        } else if exited.len() > 1 && may_sell {
             let mut q = form_urlencoded::Serializer::new(String::new());
             for row in &exited { if let Some(id) = row.asset { q.append_pair("asset_id[]", &id.to_string()); } }
             for row in &exited { q.append_pair("symbol[]", &row.key); }
             out.push_str(&format!("<a class=\"rbutton rbutton--small rbutton--danger\" data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>\n", escape(prefix),s.bot.id,escape(&q.finish()),t(locale,"bot.liquidation.sell_all")));
         }
-        out.push_str(&format!("</div>\n{}\n</div>\n",table(c,s,&exited,"exited_metrics_list",actions,hidden,locale,prefix)?));
+        out.push_str("</div>\n");
+        if !exited.is_empty() { out.push_str(&table(c,s,&exited,"exited_metrics_list",actions,hidden,locale,prefix)?); }
+        out.push_str("</div>\n");
     }
     let locked: Vec<_> = rows.iter().filter(|r| locked_keys.contains(&r.key)).collect();
     out.push_str("\n  ");
@@ -346,6 +356,61 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     out.push_str("</div>\n");
     budget::check().map_err(FiguresError::from)?;
     Ok(out)
+}
+
+/// The nonce and row ids are read from one snapshot, including when prices are cold.
+struct LiquidationHalt { bases:Vec<String>, nonce:Option<String>, rows:Vec<i64> }
+fn liquidation_halt(c:&Connection,id:i64)->Result<LiquidationHalt,FiguresError> {
+    if c.is_autocommit() {let tx=c.unchecked_transaction()?;let halt=liquidation_halt(&tx,id)?;tx.commit()?;return Ok(halt)}
+    let bot=crate::engine::model::load_bot(c,id).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+    let pending=&bot.transient["liquidation_pending"];
+    let ambiguous=pending["state"]=="ambiguous";
+    let mut bases=vec![];
+    if ambiguous {if let Some(base)=pending["symbol"].as_str().filter(|s|!s.trim().is_empty()) {bases.push(base.to_string());}}
+    let resolved:Vec<i64>=bot.transient["liquidation_resolved_orders"].as_array().into_iter().flatten().filter_map(|v|v.as_i64().or_else(||v.as_str()?.parse().ok())).collect();
+    let mut rows=vec![];
+    for row in c.prepare("SELECT id,base FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND external_status=4 ORDER BY id")?
+        .query_map([id],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))? {
+        let (id,base)=row?;
+        if resolved.contains(&id) {continue}
+        rows.push(id);
+        if let Some(base)=base.filter(|s|!s.trim().is_empty()) {if !bases.contains(&base) {bases.push(base);}}
+    }
+    Ok(LiquidationHalt {bases,rows,nonce:ambiguous.then(||pending["id"].as_str().map(str::to_string)).flatten()})
+}
+fn halt_control(id:i64,halt:&LiquidationHalt,locale:&str,prefix:&str,csrf:&mut Token<'_>)->String {
+    let mut query=form_urlencoded::Serializer::new(String::new());
+    if let Some(nonce)=&halt.nonce {query.append_pair("intent_id",nonce);}
+    for id in &halt.rows {query.append_pair("order_ids[]",&id.to_string());}
+    let mut out=format!("<span class=\"text-error\">{} · {}</span>\n<form class=\"button_to\" data-turbo-confirm=\"{}\" method=\"post\" action=\"{}/bots/{id}/liquidation_resolutions?{}\"><button class=\"rbutton rbutton--danger\" type=\"submit\">{}</button>",
+        t(locale,"bot.liquidation.halted"),escape(&halt.bases.join(", ")),escape(&i18n::text(locale,"bot.liquidation.resolve_confirm",&[])),escape(prefix),escape(&query.finish()),t(locale,"bot.liquidation.resolve"));
+    match csrf {Token::Value("")=>{},Token::Value(token)=>out.push_str(&token_field(token)),Token::Slots(slots)=>slots.push(out.len())}
+    out.push_str("</form>\n");out
+}
+
+/// LiquidationsController#new: cached prices where present, the ledger amount where cold.
+pub(crate) fn liquidation_table(c:&Connection,ctx:&crate::web::layout::Ctx,id:i64,selected:&[(String,i64)])->Result<(String,bool,bool),FiguresError> {
+    budget::within(|| {
+        let now=At::from_utc(ctx.now).ok_or_else(||FiguresError::Data("invalid time".into()))?;
+        let s=Subject::load(c,id)?;
+        let ledger=walk::metrics(c,&s,now)?;
+        let cache=super::loading::cached_market(c,&ctx.app,s.bot.user_id).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+        let reader=crate::figures::page_market::Reader::new(&cache,ctx.now.timestamp()).with_current(c);
+        let priced=live::live(c,&s,&ledger,&reader,now)?;
+        let members:HashSet<i64>=c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1 AND in_index=1")?.query_map([id],|r|r.get(0))?.collect::<Result<_,_>>()?;
+        let mut rows=vec![];
+        for (key,asset) in selected {
+            let value=priced.asset_values.iter().find(|(k,_)|k==key).map(|(_,v)|v).filter(|_|!priced.prices_stale && !priced.unpriced.iter().any(|p|p.key==*key));
+            let amount=ledger.asset_breakdown.iter().find(|(k,_)|k==key).map(|(_,v)|v.amount.clone()).ok_or_else(||FiguresError::Data("holding disappeared".into()))?;
+            rows.push(Holding {key:key.clone(),asset:Some(*asset),amount,
+                avg:value.map(|v|v.avg_price.clone()),value:value.map(|v|v.current_value.clone()),pnl:value.map(|v|v.pnl_percentage.clone()),
+                harvest:value.is_some_and(|v|v.harvestable),sellable:true,can_sell:false,lock:None});
+        }
+        let harvest=rows.iter().any(|r|r.harvest);
+        let exited=!members.is_empty() && selected.iter().all(|(_,id)|!members.contains(id));
+        let table=table(c,&s,&rows.iter().collect::<Vec<_>>(),"liquidation_confirm_list",false,ctx.user().is_some_and(|u|u.hide_balances),ctx.locale,"")?;
+        Ok((table,harvest,exited))
+    })
 }
 
 #[cfg(test)]

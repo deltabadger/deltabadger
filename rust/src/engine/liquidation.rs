@@ -138,3 +138,49 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
     Ok(())
 }
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
+
+/// T4 / D-6C-2: attest only to the displayed nonce and abandoned rows. The same IMMEDIATE lock
+/// as recovery makes its intent removal and this one exclusive. Returns the waiting venue id.
+pub fn resolve(c: &Connection, id: i64, user: i64, nonce: &str, shown: &[i64], now: chrono::DateTime<chrono::Utc>) -> Result<Option<String>, EngineError> {
+    use rusqlite::OptionalExtension;
+    let tx=model::immediate(c)?;
+    let bot=model::load_bot(&tx,id)?;
+    if bot.user_id!=user { return Err(data("liquidation owner changed")); }
+    let waiting:Option<Option<String>>=tx.query_row("SELECT external_id FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND status=0 AND external_status IN (0,1) ORDER BY id LIMIT 1",[id],|r|r.get(0)).optional()?;
+    if let Some(order)=waiting { return Ok(Some(order.unwrap_or_default())); }
+    let mut resolved:Vec<i64>=bot.transient["liquidation_resolved_orders"].as_array().into_iter().flatten().filter_map(|v|v.as_i64().or_else(||v.as_str()?.parse().ok())).collect();
+    let rows=tx.prepare("SELECT id,base FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND external_status=4 ORDER BY id")?
+        .query_map([id],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+    let mut accounted=vec![];
+    let mut changed=false;
+    for (row,base) in rows {
+        if shown.contains(&row) && !resolved.contains(&row) {
+            resolved.push(row); changed=true;
+            if let Some(base)=base { accounted.push(base); }
+        }
+    }
+    // r5 row 2: row accounting is independent of whether a pending marker exists or matches.
+    if changed { model::merge_transient_compact(&tx,id,&[("liquidation_resolved_orders",json!(resolved))])?; }
+    let pending=&bot.transient["liquidation_pending"];
+    if pending["state"]=="ambiguous" && pending["id"].as_str()==Some(nonce) {
+        let intent=placement::load_intent(&tx,&bot,None)?;
+        // A different intent must never be removed by an old page, even if a legacy marker remained.
+        let matches=intent.as_ref().is_none_or(|i|i.plan.kind==TxKind::Liquidation && i.cl_ord_id==nonce);
+        if matches {
+            if let Some(intent)=intent {
+                super::wash::settle_claim(&tx,id,super::wash::Holder::Liquidation(intent.wash_claim.as_ref()),super::wash::Reason::Ambiguous,now)?;
+                model::merge_transient_compact(&tx,id,&[("rust_placement",Value::Null)])?;
+            }
+            model::merge_transient_compact(&tx,id,&[("liquidation_pending",Value::Null)])?;
+            if let Some(base)=pending["symbol"].as_str() { accounted.insert(0,base.into()); }
+            changed=true;
+        }
+    }
+    if changed {
+        let mut names=vec![];
+        for name in accounted { if !name.trim().is_empty() && !names.contains(&name) { names.push(name); } }
+        model::log_activity(&tx,id,"liquidation_manually_resolved",Level::Info,json!({"user_id":user,"base":if names.is_empty(){Value::Null}else{json!(names.join(", "))}}),now)?;
+    }
+    tx.commit()?;
+    Ok(None)
+}

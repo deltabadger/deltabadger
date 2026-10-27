@@ -1018,7 +1018,11 @@ pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock)
             model::merge_transient_compact(c,id,&[(REQUEST_KEY,request.clone())])?;
             Ok(Some(request))
         })?;
-        let Some(request)=request else {continue};
+        let Some(request)=request else {
+            e.events.send(EngineEvent::TickEnded {bot_id:id});
+            e.events.send(EngineEvent::OrderUpdated {bot_id:id});
+            continue;
+        };
         let start=crate::codec::format_time(clock.now());
         let last_tx=e.primary.query_row("SELECT COALESCE(max(id),0) FROM transactions",[],|r|r.get(0));
         let mut producer=None;
@@ -1043,6 +1047,8 @@ pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock)
         }.await;
         // Compare-clear precedes propagation, including SQL, credential, and lease failures.
         liquidation::clear(&e.primary,id,&request)?;
+        // D-6C-6: after_tick ran before compare-clear; redraw after it so Selling ends with this request.
+        e.events.send(EngineEvent::TickEnded {bot_id:id});
         e.events.send(EngineEvent::OrderUpdated {bot_id:id});
         if let Err(err)=outcome {
             model::log_activity(&e.primary,id,"liquidation_failed",model::Level::Error,serde_json::json!({"reason":format!("{err:?}")}),clock.now())?;
