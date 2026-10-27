@@ -236,7 +236,7 @@ async fn a_bot_outside_the_slice_keeps_its_marker_and_no_venue_is_built_for_it()
 }
 
 /// Plan CI T2 (r2): the tokenized refusal is the bot's own tick, never the install. A running engine with a Binance basket
-/// holding an open order and a Binance Layer-1 index bot: when the day's index pull ranks pax-gold (tokenized) inside
+/// holding an open order and a Binance Layer-1 index bot: when the day's index pull ranks a tokenized stock (NVDAX) inside
 /// num_coins, the pass stays Ok, the basket's order is still polled, and the index tick fails with the member reason, writing
 /// no member and placing nothing. Ranked outside num_coins, the index bot buys.
 #[tokio::test(flavor = "current_thread")]
@@ -253,9 +253,9 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     c.execute("UPDATE assets SET external_id = 'tether', symbol = 'USDT', category = 'Cryptocurrency' WHERE id = ?1", [s.quote]).unwrap();
     c.execute("UPDATE tickers SET ticker = 'BTCUSDT', base = 'BTC', quote = 'USDT', quote_decimals = 8, price_decimals = 2, minimum_quote_size = '5'", []).unwrap();
     c.execute("UPDATE assets SET market_cap = 1.3e12 WHERE id = ?1", [s.btc]).unwrap();
-    for (ext, sym, cap, instrument) in [("ethereum", "ETH", 4e11, None), ("pax-gold", "PAXG", 9e11, Some("tokenized"))] {
-        c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, market_cap, created_at, updated_at) VALUES (?1, ?2, ?2, 'Cryptocurrency', ?3, ?4, '2026-01-01', '2026-01-01')",
-                  rusqlite::params![ext, sym, instrument, cap]).unwrap();
+    for (ext, sym, cap, category, instrument) in [("ethereum", "ETH", 4e11, "Cryptocurrency", None), ("nvda-xstock", "NVDAX", 9e11, "Tokenized Stock", Some("tokenized"))] {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, market_cap, created_at, updated_at) VALUES (?1, ?2, ?2, ?5, ?3, ?4, '2026-01-01', '2026-01-01')",
+                  rusqlite::params![ext, sym, instrument, cap, category]).unwrap();
         c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
                    minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2 || 'USDT', ?2, 'USDT', ?3, ?4, 5, 8, 2, '0.0001', '5', 1, 1, '2026-01-01', '2026-01-01')",
                   rusqlite::params![s.exchange_id, sym, c.last_insert_rowid(), s.quote]).unwrap();
@@ -264,7 +264,7 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     seed::insert_tx(c, &s, basket, &seed::TxSpec { status: 0, external_status: Some(1), external_id: Some("BTCUSDT-28457".into()), order_type: 0, amount: None,
         quote_amount: Some("60"), price: None, quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 14:00:01".into() });
     c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.last_action_job_at', '2026-09-01T14:00:00.500Z') WHERE id = ?1", [basket]).unwrap();
-    seed::insert_index(c, "layer-1", &["bitcoin", "pax-gold", "ethereum"], &json!({}));
+    seed::insert_index(c, "layer-1", &["bitcoin", "nvda-xstock", "ethereum"], &json!({}));
     let index = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
     seed::fresh_stock_jobs(c, at("2026-09-01T14:00:00Z"));
     let exchange_id = s.exchange_id;
@@ -272,7 +272,7 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     let book = |sym: &str, ask: &str| json!([{ "status": 200, "body": { "symbol": format!("{sym}USDT"), "bidPrice": ask, "bidQty": "1", "askPrice": ask, "askQty": "1" } }]);
     let t = ScriptedTransport::from_script(&json!({
         "GET /api/v3/ticker/bookTicker?symbol=BTCUSDT": book("BTC", "64000.00"), "GET /api/v3/ticker/bookTicker?symbol=ETHUSDT": book("ETH", "2500.00"),
-        "GET /api/v3/ticker/bookTicker?symbol=PAXGUSDT": book("PAXG", "2400.00"),
+        "GET /api/v3/ticker/bookTicker?symbol=NVDAXUSDT": book("NVDAX", "180.00"),
         "GET /api/v3/allOrders": [{ "status": 200, "body": [] }],
         "GET /api/v3/order": [{ "status": 200, "body": { "symbol": "BTCUSDT", "orderId": 28457, "orderListId": -1, "clientOrderId": "web_28457", "price": "0.00000000",
             "origQty": "0.00000000", "executedQty": "0.00000000", "cummulativeQuoteQty": "0.00000000", "status": "NEW", "timeInForce": "GTC", "type": "MARKET",
@@ -289,9 +289,9 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     assert!(t.requests().iter().all(|r| r.method != "POST"), "nothing placed");
     assert_eq!(members(), 0);
     let failed: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed'", [index], |r| r.get(0)).unwrap();
-    assert!(failed.contains("asset category Cryptocurrency / instrument tokenized"), "{failed}");
+    assert!(failed.contains("tokenized NVDAX on Binance (no recorded Rails vector for tokenized pairs on this venue)"), "{failed}");
 
-    c.execute("UPDATE indices SET top_coins = '[\"bitcoin\",\"ethereum\",\"pax-gold\"]'", []).unwrap(); // the next pull
+    c.execute("UPDATE indices SET top_coins = '[\"bitcoin\",\"ethereum\",\"nvda-xstock\"]'", []).unwrap(); // the next pull
     seed::fresh_stock_jobs(c, at("2026-09-08T14:00:00Z"));
     run::step(&mut e, &FixedClock(at("2026-09-08T14:00:01Z"))).await.expect("the pass stays Ok");
     assert_eq!(members(), 2, "BTC and ETH");
