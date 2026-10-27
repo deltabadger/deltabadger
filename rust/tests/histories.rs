@@ -145,7 +145,7 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))","rebalance_pending in phase"),
         ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'),'$.rebalance_threshold',json('[1]'))","rebalance_threshold"),
         ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','x')","limit_order_pcnt_distance is not a number"),
-        ("UPDATE transactions SET external_id='imported_test' WHERE side=1","imported"),
+        ("UPDATE transactions SET external_id='imported_test',external_status=1 WHERE side=1","legacy imported row(s) left open"),
         ("UPDATE transactions SET base_asset_id=NULL WHERE side=1","without base_asset_id"),
         ("UPDATE transactions SET transaction_type='REBALANCE',external_status=4 WHERE side=1","abandoned REBALANCE"),
         ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","REDEPLOY row(s) in its history"),

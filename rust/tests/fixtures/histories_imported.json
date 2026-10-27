@@ -1,0 +1,3502 @@
+{
+  "synthetic_only": true,
+  "ported_sources": {
+    "app/models/bot/exportable.rb": "ba23a91b0205087b4442cb0445c72f54f72f502172401c8dfaf5e0125e5a2ad8",
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
+    "app/models/bot/base_amount_limitable.rb": "0ae736fa810fe2977c54a0da02f7d863e84789a29596b9ecb317902d37066295",
+    "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
+    "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
+    "app/models/bot/rebalancer.rb": "aa1b95a2d20476d4ecd27222cd039d5a45188f0baca13f23b33abb1278f3a30f",
+    "app/models/bot/reversible.rb": "dc751df2041cd682b24a6d384ee612884191caa379decfe77f8210a4f8a2ec60",
+    "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
+    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
+    "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
+    "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
+    "script/rust/record_histories_imported.rb": "e95c0030784d77f02d8b6fe9b68e61f732fd9928c16058b28d480b7b7e8401f8"
+  },
+  "cases": [
+    {
+      "name": "carry_before",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T11:00:00Z,o1,Market,Buy,3,30,10.0,AAA,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 1,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "AAA": 2
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 3,
+          "amount_exec": 3,
+          "quote_amount": 30,
+          "quote_amount_exec": 30,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:00:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0"
+        },
+        "contributed": "30.0",
+        "cash": "0.0",
+        "pending": "100.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "10.0",
+            "quote": "100.0"
+          }
+        ],
+        "local_units": {
+          "AAA": "3.0"
+        }
+      },
+      "one_week_pending": "200.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 1,
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 3,
+            "amount_exec": 3,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 30,
+            "quote_amount_exec": 30,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "carry_inside",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T12:00:00Z,o1,Market,Buy,3,30,10.0,AAA,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 1,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "AAA": 2
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 3,
+          "amount_exec": 3,
+          "quote_amount": 30,
+          "quote_amount_exec": 30,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 12:00:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0"
+        },
+        "contributed": "30.0",
+        "cash": "0.0",
+        "pending": "70.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.0",
+            "quote": "70.0"
+          }
+        ],
+        "local_units": {
+          "AAA": "3.0"
+        }
+      },
+      "one_week_pending": "170.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 1,
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 3,
+            "amount_exec": 3,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 30,
+            "quote_amount_exec": 30,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "carry_after",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T13:00:00Z,o1,Market,Buy,3,30,10.0,AAA,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 1,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "AAA": 2
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 3,
+          "amount_exec": 3,
+          "quote_amount": 30,
+          "quote_amount_exec": 30,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 13:00:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0"
+        },
+        "contributed": "30.0",
+        "cash": "0.0",
+        "pending": "70.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.0",
+            "quote": "70.0"
+          }
+        ],
+        "local_units": {
+          "AAA": "3.0"
+        }
+      },
+      "one_week_pending": "170.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 1,
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 3,
+            "amount_exec": 3,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 13:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 30,
+            "quote_amount_exec": 30,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "quote_cap_crossed",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T11:30:00Z,o1,Market,Buy,12,120,10.0,AAA,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 1,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "AAA": 2
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 12,
+          "amount_exec": 12,
+          "quote_amount": 120,
+          "quote_amount_exec": 120,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:30:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "AAA": "12.0"
+        },
+        "contributed": "120.0",
+        "cash": "0.0",
+        "pending": "0.0",
+        "quote_available": "0.0",
+        "base_available": null,
+        "quote_reached": true,
+        "base_reached": false,
+        "decision": "quote_limit_reached",
+        "orders": [],
+        "local_units": {
+          "AAA": "12.0"
+        }
+      },
+      "one_week_pending": "0.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":true,\"quote_amount_limit\":100,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"quote_amount_limit_enabled_at\":\"2026-01-05T11:00:00Z\"}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 1,
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 12,
+            "amount_exec": 12,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:30:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 120,
+            "quote_amount_exec": 120,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "selling_base_cap",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T10:00:00Z,o1,Market,Buy,5,50,10.0,AAA,USD,Closed\n2026-01-05T11:30:00Z,o2,Market,Sell,2,20,10.0,AAA,USD,Closed\n2026-01-05T11:40:00Z,o3,Market,Sell,2,22,11.0,AAA,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 3,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "AAA": 2
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 5,
+          "amount_exec": 5,
+          "quote_amount": 50,
+          "quote_amount_exec": 50,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 10:00:00"
+        },
+        {
+          "external_id": "imported_1_o2",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 2,
+          "amount_exec": 2,
+          "quote_amount": 20,
+          "quote_amount_exec": 20,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:30:00"
+        },
+        {
+          "external_id": "imported_1_o3",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 2,
+          "amount_exec": 2,
+          "quote_amount": 22,
+          "quote_amount_exec": 22,
+          "price": 11,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:40:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "AAA": "1.0"
+        },
+        "contributed": "50.0",
+        "cash": "42.0",
+        "pending": "0.0",
+        "quote_available": null,
+        "base_available": "0.0",
+        "quote_reached": false,
+        "base_reached": true,
+        "decision": "base_limit_reached",
+        "orders": [],
+        "local_units": {
+          "AAA": "1.0"
+        }
+      },
+      "one_week_pending": "0.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1,\"direction\":\"selling\",\"sell_denomination\":\"base\",\"sell_amount\":1,\"sell_interval\":\"week\",\"base_amount_limited\":true,\"base_amount_limit\":3}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"base_amount_limit_enabled_at\":\"2026-01-05T11:00:00Z\"}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 1,
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 5,
+            "amount_exec": 5,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 10:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 50,
+            "quote_amount_exec": 50,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          },
+          {
+            "id": 2,
+            "amount": 2,
+            "amount_exec": 2,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:30:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o2",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 1,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          },
+          {
+            "id": 3,
+            "amount": 2,
+            "amount_exec": 2,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:40:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o3",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 11,
+            "quote": "USD",
+            "quote_amount": 22,
+            "quote_amount_exec": 22,
+            "quote_asset_id": 1,
+            "side": 1,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "venue_spelling",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T11:00:00Z,o1,Market,Buy,0.5,20,40.0,XBT,USD,Closed\n2026-01-05T11:10:00Z,o2,Market,Buy,2,20,10.0,ETH,USD,Closed\n2026-01-05T12:00:00Z,o3,Market,Buy,1,15,15.0,XBT,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 3,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "BTC": 2,
+        "ETH": 3
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "XBT",
+          "base_asset_id": 2,
+          "amount": {
+            "real": "0.5"
+          },
+          "amount_exec": {
+            "real": "0.5"
+          },
+          "quote_amount": 20,
+          "quote_amount_exec": 20,
+          "price": 40,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:00:00"
+        },
+        {
+          "external_id": "imported_1_o2",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "ETH",
+          "base_asset_id": 3,
+          "amount": 2,
+          "amount_exec": 2,
+          "quote_amount": 20,
+          "quote_amount_exec": 20,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:10:00"
+        },
+        {
+          "external_id": "imported_1_o3",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "XBT",
+          "base_asset_id": 2,
+          "amount": 1,
+          "amount_exec": 1,
+          "quote_amount": 15,
+          "quote_amount_exec": 15,
+          "price": 15,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 12:00:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "BTC": "1.5",
+          "ETH": "2.0"
+        },
+        "contributed": "55.0",
+        "cash": "0.0",
+        "pending": "85.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "XBT",
+            "amount": "4.5",
+            "quote": "45.0"
+          },
+          {
+            "side": "buy",
+            "asset": "ETH",
+            "amount": "3.99999999999999999999999999999996",
+            "quote": "39.9999999999999999999999999999996"
+          }
+        ],
+        "local_units": {
+          "BTC": "1.5",
+          "ETH": "2.0"
+        }
+      },
+      "one_week_pending": "185.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-btc",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic BTC",
+            "symbol": "BTC",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-eth",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic ETH",
+            "symbol": "ETH",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 3,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "XBT",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "XBTUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          },
+          {
+            "id": 2,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "ETH",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "ETHUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":0.5,\"3\":0.5},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":2,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":2,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":2,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":2,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":2,\"sell_price_drop_limit_in_ticker_id\":2,\"sell_moving_average_limit_in_ticker_id\":2,\"sell_indicator_limit_in_ticker_id\":2}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": {
+              "real": "0.5"
+            },
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          },
+          {
+            "id": 2,
+            "asset_id": 3,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": {
+              "real": "0.5"
+            },
+            "ticker_id": 2,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": {
+              "real": "0.5"
+            },
+            "amount_exec": {
+              "real": "0.5"
+            },
+            "base": "XBT",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 40,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          },
+          {
+            "id": 2,
+            "amount": 2,
+            "amount_exec": 2,
+            "base": "ETH",
+            "base_asset_id": 3,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:10:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o2",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          },
+          {
+            "id": 3,
+            "amount": 1,
+            "amount_exec": 1,
+            "base": "XBT",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o3",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 15,
+            "quote": "USD",
+            "quote_amount": 15,
+            "quote_amount_exec": 15,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "index_resolved",
+      "kind": "index",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T11:00:00Z,o1,Market,Buy,0.5,20,40.0,XBT,USD,Closed\n2026-01-05T12:00:00Z,o2,Market,Buy,2,20,10.0,ETH,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 2,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "BTC": 2,
+        "ETH": 3
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "XBT",
+          "base_asset_id": 2,
+          "amount": {
+            "real": "0.5"
+          },
+          "amount_exec": {
+            "real": "0.5"
+          },
+          "quote_amount": 20,
+          "quote_amount_exec": 20,
+          "price": 40,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:00:00"
+        },
+        {
+          "external_id": "imported_1_o2",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "ETH",
+          "base_asset_id": 3,
+          "amount": 2,
+          "amount_exec": 2,
+          "quote_amount": 20,
+          "quote_amount_exec": 20,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 12:00:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "BTC": "0.5",
+          "ETH": "2.0"
+        },
+        "contributed": "40.0",
+        "cash": "0.0",
+        "pending": "80.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [],
+        "local_units": {
+          "BTC": "0.5",
+          "ETH": "2.0"
+        }
+      },
+      "one_week_pending": "180.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-btc",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic BTC",
+            "symbol": "BTC",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-eth",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic ETH",
+            "symbol": "ETH",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 3,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "XBT",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "XBTUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          },
+          {
+            "id": 2,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "ETH",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "ETHUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"index_type\":\"top\",\"num_coins\":2,\"allocation_flattening\":0.0,\"hold_all\":false,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaIndex",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-04 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-04 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": {
+              "real": "0.5"
+            },
+            "ticker_id": 1,
+            "updated_at": "2026-01-04 12:00:00"
+          },
+          {
+            "id": 2,
+            "asset_id": 3,
+            "bot_id": 1,
+            "created_at": "2026-01-04 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-04 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": {
+              "real": "0.5"
+            },
+            "ticker_id": 2,
+            "updated_at": "2026-01-04 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": {
+              "real": "0.5"
+            },
+            "amount_exec": {
+              "real": "0.5"
+            },
+            "base": "XBT",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 40,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          },
+          {
+            "id": 2,
+            "amount": 2,
+            "amount_exec": 2,
+            "base": "ETH",
+            "base_asset_id": 3,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o2",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "odd_type",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T11:00:00Z,o1,Stop,Buy,3,30,10.0,AAA,USD,Closed\n2026-01-05T12:00:00Z,o2,Market,Buy,1,10,10.0,AAA,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 2,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "AAA": 2
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": null,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 3,
+          "amount_exec": 3,
+          "quote_amount": 30,
+          "quote_amount_exec": 30,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:00:00"
+        },
+        {
+          "external_id": "imported_1_o2",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 1,
+          "amount_exec": 1,
+          "quote_amount": 10,
+          "quote_amount_exec": 10,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 12:00:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "AAA": "4.0"
+        },
+        "contributed": "40.0",
+        "cash": "0.0",
+        "pending": "90.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "9.0",
+            "quote": "90.0"
+          }
+        ],
+        "local_units": {
+          "AAA": "4.0"
+        }
+      },
+      "one_week_pending": "190.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 1,
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 3,
+            "amount_exec": 3,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": null,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 30,
+            "quote_amount_exec": 30,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          },
+          {
+            "id": 2,
+            "amount": 1,
+            "amount_exec": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o2",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 10,
+            "quote_amount_exec": 10,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "paxg_basket",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T11:00:00Z,o1,Market,Buy,0.01,40,4000.0,PAXG,USD,Closed\n2026-01-05T11:10:00Z,o2,Market,Buy,2,20,10.0,AAA,USD,Closed\n",
+      "import": {
+        "success": true,
+        "imported_count": 2,
+        "skipped_existing": 0,
+        "skipped_ambiguous": 0
+      },
+      "bot_id": 1,
+      "assets": {
+        "PAXG": 2,
+        "AAA": 3
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "PAXG",
+          "base_asset_id": 2,
+          "amount": {
+            "real": "0.01"
+          },
+          "amount_exec": {
+            "real": "0.01"
+          },
+          "quote_amount": 40,
+          "quote_amount_exec": 40,
+          "price": 4000,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:00:00"
+        },
+        {
+          "external_id": "imported_1_o2",
+          "status": 0,
+          "external_status": 2,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 3,
+          "amount": 2,
+          "amount_exec": 2,
+          "quote_amount": 20,
+          "quote_amount_exec": 20,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:10:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "PAXG": "0.01",
+          "AAA": "2.0"
+        },
+        "contributed": "60.0",
+        "cash": "0.0",
+        "pending": "100.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "PAXG",
+            "amount": "5.995",
+            "quote": "59.95"
+          },
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "4.005",
+            "quote": "40.05"
+          }
+        ],
+        "local_units": {
+          "PAXG": "0.01",
+          "AAA": "2.0"
+        }
+      },
+      "one_week_pending": "200.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "pax-gold",
+            "image_url": null,
+            "instrument_type": "tokenized",
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic PAXG",
+            "symbol": "PAXG",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 3,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "PAXG",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "PAXGUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          },
+          {
+            "id": 2,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":0.5,\"3\":0.5},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":2,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":2,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":2,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":2,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":2,\"sell_price_drop_limit_in_ticker_id\":2,\"sell_moving_average_limit_in_ticker_id\":2,\"sell_indicator_limit_in_ticker_id\":2}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": {
+              "real": "0.5"
+            },
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          },
+          {
+            "id": 2,
+            "asset_id": 3,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": {
+              "real": "0.5"
+            },
+            "ticker_id": 2,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": {
+              "real": "0.01"
+            },
+            "amount_exec": {
+              "real": "0.01"
+            },
+            "base": "PAXG",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 4000,
+            "quote": "USD",
+            "quote_amount": 40,
+            "quote_amount_exec": 40,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          },
+          {
+            "id": 2,
+            "amount": 2,
+            "amount_exec": 2,
+            "base": "AAA",
+            "base_asset_id": 3,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:10:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o2",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "legacy_open",
+      "kind": "basket",
+      "csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-01-05T11:00:00Z,o1,Market,Buy,3,30,10.0,AAA,USD,Closed\n",
+      "import": {
+        "legacy": true
+      },
+      "bot_id": 1,
+      "assets": {
+        "AAA": 2
+      },
+      "stored": [
+        {
+          "external_id": "imported_1_o1",
+          "status": 0,
+          "external_status": 1,
+          "order_type": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "base": "AAA",
+          "base_asset_id": 2,
+          "amount": 3,
+          "amount_exec": 3,
+          "quote_amount": 30,
+          "quote_amount_exec": 30,
+          "price": 10,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-01-05 11:00:00"
+        }
+      ],
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0"
+        },
+        "contributed": "30.0",
+        "cash": "0.0",
+        "pending": "100.0",
+        "quote_available": null,
+        "base_available": null,
+        "quote_reached": false,
+        "base_reached": false,
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "10.0",
+            "quote": "100.0"
+          }
+        ],
+        "local_units": {
+          "AAA": "3.0"
+        }
+      },
+      "one_week_pending": "200.0",
+      "tables": {
+        "users": [
+          {
+            "id": 1,
+            "admin": 0,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-05 12:00:00",
+            "created_at": "2026-01-05 12:00:00",
+            "display_currency": "USD",
+            "email": "synthetic@example.invalid",
+            "encrypted_password": "",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Synthetic",
+            "otp_module": 0,
+            "otp_secret_key": null,
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 0,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "UTC",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-05 12:00:00",
+            "wash_sale_enabled": null,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "maker_fee": null,
+            "name": "Kraken",
+            "taker_fee": null,
+            "type": "Exchanges::Kraken",
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Fiat",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-05 12:00:00",
+            "external_id": "synthetic-aaa",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "Synthetic AAA",
+            "symbol": "AAA",
+            "updated_at": "2026-01-05 12:00:00",
+            "url": null
+          }
+        ],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-05 12:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": {
+              "real": "1.0e-09"
+            },
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAAUSD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-05 12:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": null,
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": null,
+            "status": 1,
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-05 12:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": null,
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+            "settings_changed_at": "2026-01-05 12:00:00",
+            "started_at": "2026-01-05 12:00:00",
+            "status": 1,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-05 12:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-05 12:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-05 12:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 1,
+            "ticker_id": 1,
+            "updated_at": "2026-01-05 12:00:00"
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 3,
+            "amount_exec": 3,
+            "base": "AAA",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "",
+            "bot_quote_amount": 0,
+            "created_at": "2026-01-05 11:00:00",
+            "error_messages": "[]",
+            "exchange_id": 1,
+            "external_id": "imported_1_o1",
+            "external_status": 1,
+            "order_type": 0,
+            "price": 10,
+            "quote": "USD",
+            "quote_amount": 30,
+            "quote_amount_exec": 30,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-01-05 12:00:00",
+            "run_identity": null
+          }
+        ]
+      }
+    }
+  ]
+}

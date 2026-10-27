@@ -152,7 +152,8 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
             c.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("redeploy_pending", Box::new(|c, s| seed::insert_bot(c, s, &plain().transient("redeploy_pending", json!({"state": "x"}))))),
         ("category", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
-        ("instrument", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
+        ("Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here",
+         Box::new(|c, s| { c.execute("UPDATE assets SET category = 'Tokenized Stock', instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("type", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
         ("smart interval amount", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("smart_intervaled", json!(true))))),
         ("smart interval amount", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!("20"))))),
@@ -342,7 +343,8 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
     let cases: Vec<(&str, Make)> = vec![
         ("category stock", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
-        ("instrument tokenized", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
+        ("tokenized BTC on Alpaca (no recorded Rails vector for tokenized pairs on this venue)",
+         Box::new(|c, s| { c.execute("UPDATE assets SET category = 'Tokenized Stock', instrument_type = NULL WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("index_type None", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
         ("quote USDT (Alpaca: only USD)", Box::new(|c, s| { c.execute("UPDATE assets SET symbol = 'USDT' WHERE id = ?1", [s.quote]).unwrap(); seed::insert_bot(c, s, &plain()) })),
@@ -674,7 +676,8 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
         })),
         // REDEPLOY remains out of scope on baskets; LIQUIDATION is admitted in 6c-2.
         ("1 REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REDEPLOY", Some(s.btc), "OLIQ"); id })),
-        ("1 imported row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); id })),
+        ("1 legacy imported row(s) left open (Rails never polls or settles them)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth));
+            history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); c.execute("UPDATE transactions SET external_status = 1 WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
         ("1 split(s) recorded for its assets", Box::new(move |c, s, eth| {
@@ -902,7 +905,7 @@ fn alpaca_stocks_and_etfs_are_admitted_as_data_api_imports_them() {
 }
 
 #[test]
-fn a_legacy_untyped_or_tokenized_stock_is_refused() {
+fn a_legacy_or_untyped_stock_is_refused_and_a_tokenized_crypto_admitted() {
     let (_d, o, s) = common::install_alpaca();
     let (legacy, _) = seed::add_alpaca_stock(&o.primary, &s, "IBIT");
     o.primary.execute("UPDATE assets SET external_id = 'alpaca_0f4c9e2a', instrument_type = NULL WHERE id = ?1", [legacy]).unwrap();
@@ -910,11 +913,14 @@ fn a_legacy_untyped_or_tokenized_stock_is_refused() {
     o.primary.execute("UPDATE assets SET instrument_type = NULL WHERE id = ?1", [untyped]).unwrap();
     let (tokenized, _) = seed::add_alpaca_stock(&o.primary, &s, "TSLAX");
     o.primary.execute("UPDATE assets SET category = 'Cryptocurrency', instrument_type = 'tokenized_stock' WHERE id = ?1", [tokenized]).unwrap();
-    for (asset, why) in [(legacy, "legacy alpaca_<uuid>"), (untyped, "no instrument_type"), (tokenized, "tokenized")] {
+    for (asset, why) in [(legacy, "legacy alpaca_<uuid>"), (untyped, "no instrument_type")] {
         let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(asset, 1.0)]));
         let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
         assert!(reasons.iter().any(|r| r.starts_with("asset category")), "{why}: {reasons:?}");
     }
+    // B1: Rails' bot code reads the category alone, never instrument_type.
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(tokenized, 1.0)]));
+    assert_eq!(eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), Vec::<String>::new());
 }
 
 #[test]
@@ -1104,6 +1110,48 @@ fn all_trigger_flips_are_inapplicable_to_index_and_signal_bots() {
             }
         }
     }
+}
+
+/// B1: a Cryptocurrency asset with an instrument_type (PAXG, XAUT: Asset.mark_tokenized!) is admitted on every venue, as no
+/// Rails bot path reads instrument_type. A Tokenized Stock stays refused (B2), as is a tokenized instrument of another category.
+#[test]
+fn tokenized_crypto_is_admitted_and_tokenized_stocks_refused() {
+    for alpaca in [false, true] {
+        let (_d, o, s) = if alpaca { common::install_alpaca() } else { install() };
+        let venue = if alpaca { "Alpaca" } else { "Kraken" };
+        o.primary.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap();
+        let id = seed::insert_bot(&o.primary, &s, &plain());
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.is_empty(), "{venue}: {:?}", r.problems);
+        assert_eq!(r.eligible, vec![id], "{venue}");
+        o.primary.execute("UPDATE assets SET category = 'Stock' WHERE id = ?1", [s.btc]).unwrap();
+        let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
+        let want = if alpaca { "tokenized BTC on Alpaca (no recorded Rails vector for tokenized pairs on this venue)".to_string() }
+                   else { "Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here".to_string() };
+        assert_eq!(reasons, vec![want], "{venue}");
+    }
+    let (_d, o, s) = install();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bybit', name = 'Bybit'", []).unwrap();
+    o.primary.execute("UPDATE assets SET category = 'Tokenized Stock' WHERE id = ?1", [s.btc]).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
+    assert!(reasons.contains(&"tokenized BTC on Bybit (no recorded Rails vector for tokenized pairs on this venue)".to_string()), "{reasons:?}");
+}
+
+/// A: an imported row Rails' importer wrote (closed) is read as any other REGULAR row and admitted; a stopped bot whose only
+/// waiting rows are imported has no outstanding work, as neither engine polls them (fetch_and_update_open_orders_job.rb:11).
+#[test]
+fn closed_imported_rows_are_admitted_and_imported_waiting_rows_are_no_work() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    seed::insert_tx(&o.primary, &s, id, &TxSpec { external_id: Some(format!("imported_{id}_O1")), ..closed("2026-08-30 10:00:00") });
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![id]);
+    let stopped = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain().with("future_limited", json!(true)) });
+    seed::insert_tx(&o.primary, &s, stopped, &TxSpec { external_id: Some(format!("imported_{stopped}_O2")), external_status: Some(1), ..closed("2026-08-30 11:00:00") });
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
 }
 
 /// Plan B2: a `Tokenized Stock` (Hyperliquid's RWA spot listings, e.g. MU on @333) runs only where Rails' trading of a tokenized

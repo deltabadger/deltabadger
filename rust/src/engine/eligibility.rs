@@ -431,16 +431,20 @@ fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut Spli
 }
 
 /// The kinds of order a bot's history holds that this build does not read: special rows outside what
-/// special_reasons admits, imported rows, and orders without an asset.
+/// special_reasons admits, legacy waiting imported rows, and orders without an asset. A terminal imported row
+/// (Bot::Exportable#import_orders_csv writes closed ones) is read by every reader as any submitted REGULAR row, as in Rails.
+/// D-IMP-OPEN: before 92e1c5871 the importer mapped the CSV status, so it could write open or unknown rows; Rails never
+/// polls them (fetch_and_update_open_orders_job.rb:11) nor cancels them (transaction.rb:211-221), and leaves them waiting
+/// forever: failed cancels at each flip, phantom reservations, caps counting them open. That is not ported: refused by name.
 fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
     let (imported, no_asset): (i64, i64) = c.query_row(
-        "SELECT coalesce(sum(external_id LIKE 'imported_%'), 0), \
+        "SELECT coalesce(sum(external_id LIKE 'imported_%' AND (external_status IS NULL OR external_status NOT IN (2, 3, 4))), 0), \
                 coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     // Sell rows are no refusal on any venue: off Alpaca the same normalized walk reads them (tests/eligibility.rs proves it
     // on Kraken and Binance), and bot_reasons_with runs it for such a history before accepting it.
     special_row_reasons(c, bot, r)?;
-    if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
+    if imported > 0 { r.push(format!("{imported} legacy imported row(s) left open (Rails never polls or settles them)")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
     Ok(())
 }
@@ -506,19 +510,21 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         };
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
         if let Err(e) = t.scales() { r.push(e); }
-        // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer); wrappers such as tokenized stocks carry
-        // an instrument_type (Asset.mark_tokenized!) and may be split — outside the slice. Stocks and ETFs are category Stock,
+        // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer). Stocks and ETFs are category Stock,
         // typed by instrument_type (MarketData::CATEGORY_BY_TYPE, market_data.rb:377, :447), and trade on Alpaca only. A legacy
         // `alpaca_<uuid>` asset is never refreshed by the listings sync (market_data.rb:563-566), so nothing vouches for it.
         let (category, instrument, external_id): (Option<String>, Option<String>, Option<String>) = c.query_row(
             "SELECT category, instrument_type, external_id FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-        let crypto = category.as_deref() == Some("Cryptocurrency") && instrument.is_none();
+        // No Rails bot path reads instrument_type (only tax does): a Cryptocurrency marked tokenized (PAXG, XAUT) trades as
+        // any coin. A tokenized stock (the catalogue's category, or a tokenized instrument of another category) is refused until
+        // a recorded vector proves its venue (B2). D-TOK-KRAKEN: Rails cannot trade one on Kraken; refused rather than copied.
+        let crypto = category.as_deref() == Some("Cryptocurrency");
+        let tokenized = category.as_deref() == Some("Tokenized Stock") || (!crypto && instrument.as_deref() == Some("tokenized"));
         let stock = alpaca && category.as_deref() == Some("Stock") && matches!(instrument.as_deref(), Some("stock" | "etf"))
             && !external_id.as_deref().unwrap_or_default().starts_with("alpaca_");
         // A tokenized stock (Hyperliquid's RWA listings, xStocks): Rails trades it as any spot pair, with no bot path of its own
         // (the rebalancer's local_units reads it as splittable, tick.rs). It runs where a Rails vector of a tokenized pair is
         // recorded; elsewhere it is refused (D-TOK-UNPROVEN), on Kraken for Rails' own reason (D-TOK-KRAKEN).
-        let tokenized = category.as_deref() == Some("Tokenized Stock") || (instrument.as_deref() == Some("tokenized") && category.as_deref() != Some("Cryptocurrency"));
         if tokenized && !stock {
             let venue = model::exchange_type(c, bot)?;
             if venue == "Exchanges::Kraken" {
@@ -588,7 +594,9 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         // a stopped bot does not tick, but either operation's orders still place, poll and settle.
         let rebalances = rebalances_here(&bot);
         let composition_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
+        // Imported rows are never polled, by Rails (fetch_and_update_open_orders_job.rb:11) or here (polling.rs): no work.
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
+                                            AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') \
                                             AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION'))", params![id, composition_only], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
         // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.

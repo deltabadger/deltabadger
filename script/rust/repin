@@ -36,6 +36,7 @@ RECORDED = {
     FIX + 'float_digits.json': ('test', [runner('record_float_digits.rb', '{out}')], None),
     FIX + 'histories.json': ('test', [runner('record_histories.rb', '{out}')], None),
     FIX + 'histories_r1.json': ('test', [runner('record_histories_r1.rb', '{out}')], None),
+    FIX + 'histories_imported.json': ('test', [runner('record_histories_imported.rb', '{out}')], None),
     # Recorded in development: under the test environment its rails_wire cases come out null.
     FIX + 'histories_r2.json': ('development', [runner('record_histories_r2.rb', '{out}')], None),
     **{FIX + f'histories_r{n}.json': ('test', [runner(f'record_histories_r{n}.rb', '{out}')], None) for n in (3, 5, 6, 7, 8, 9)},
