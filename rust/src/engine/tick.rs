@@ -956,7 +956,7 @@ const UNSPLITTABLE_CATEGORIES: [&str; 4] = ["Cryptocurrency", "Currency", "Fiat"
 /// Bot::Rebalancer#local_units: executed buys minus executed sells of the asset on this bot's own venue, each read by
 /// Transaction.confirmed_exec_amounts (a closed row with no executed figure counts its ordered amount), never below 0. An
 /// asset that could have split (a share, a tokenized one) has none: a sum of fills is not what is held.
-fn local_units(c: &Connection, bot: &model::Bot, asset_id: i64) -> Result<BigDec, EngineError> {
+pub fn local_units(c: &Connection, bot: &model::Bot, asset_id: i64) -> Result<BigDec, EngineError> {
     let category: Option<String> = c.query_row("SELECT category FROM assets WHERE id = ?1", [asset_id], |r| r.get(0)).optional()?.flatten();
     if !category.is_some_and(|k| UNSPLITTABLE_CATEGORIES.contains(&k.as_str())) { return Ok(BigDec::zero()); }
     let dec = |v: rusqlite::types::ValueRef<'_>| crate::ruby::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));

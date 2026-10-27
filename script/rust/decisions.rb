@@ -13,6 +13,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-mexc <root>    # MEXC spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-coinbase <root> # Coinbase decisions and paged order polling (plan VB B2)
 #   bin/rails runner script/rust/decisions.rb grid-hyperliquid <root> # Hyperliquid spot, beneath honeymaker and hyperliquid-rb at the Faraday adapter (plan VB B1)
+#   bin/rails runner script/rust/decisions.rb grid-hyperliquid-tokenized <root> # the same on a tokenized stock's pair (plan B2)
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
 #   bin/rails runner script/rust/decisions.rb grid-venue-index <root>  # crypto index bots on Kraken, Binance, KuCoin and Alpaca, and their resync (plan CI)
@@ -308,14 +309,16 @@ module Decisions
     [alpaca, btc, usd, ticker, 'paper']
   end
 
-  # A VENUES row's exchange, BTC and its quote listed, and the BTC pair as `sc['ticker']` gives its precisions.
+  # A VENUES row's exchange, BTC and its quote listed, and the BTC pair as `sc['ticker']` gives its precisions. A scenario's
+  # `base` ([external_id, symbol, name, category]) and `pair` list another base asset in BTC's place.
   def venue_row(row, sc)
     exchange = row.exchange.constantize.create!(name: row.name, maker_fee: '0.1', taker_fee: '0.1')
-    btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
+    base_id, base, base_name, base_category = sc.fetch('base', %w[bitcoin BTC Bitcoin Cryptocurrency])
+    btc = Asset.create!(external_id: base_id, symbol: base, name: base_name, category: base_category)
     external_id, symbol, name, category = row.quote
     quote = Asset.create!(external_id:, symbol:, name:, category:)
     [btc, quote].each { |a| ExchangeAsset.create!(exchange:, asset: a, available: true) }
-    ticker = Ticker.create!(exchange:, ticker: row.ticker, base: 'BTC', quote: symbol, base_asset: btc, quote_asset: quote, **sc['ticker'].symbolize_keys)
+    ticker = Ticker.create!(exchange:, ticker: sc.fetch('pair', row.ticker), base:, quote: symbol, base_asset: btc, quote_asset: quote, **sc['ticker'].symbolize_keys)
     [exchange, btc, quote, ticker, row.passphrase]
   end
 
@@ -3955,6 +3958,23 @@ module Decisions
     end
   end
 
+  # Plan B2: Hyperliquid's tokenized stocks (RWA spot listings, category Tokenized Stock as the data-api's RWA sync writes it):
+  # one on @333 (MU), sized, sent, polled, priced and balanced exactly as the grid's @142, plus a book with no side at all (most
+  # RWA books). Rails has no tokenized path here: the same scenarios with the pair and the coin renamed.
+  HL_TOKENIZED = %w[first_tick on_schedule carry below_minimum insufficient low_funds held_funds no_asks no_mid sweep_closed sweep_limit_partial
+                    sweep_gone_filled poll_filled poll_gone sell_base sell_quote sell_free_below tick_then_poll].freeze
+  def hyperliquid_tokenized_scenarios
+    base = hyperliquid_scenarios.select { |sc| sc['name'].start_with?('day-limit-') && HL_TOKENIZED.include?(sc['name'].delete_prefix('day-limit-')) }
+    empty = { 'POST /info l2Book' => [hl_book(nil, nil)], 'POST /info allMids' => [ok('@1' => '7.5')] }
+    seller = base.find { |sc| sc['name'] == 'day-limit-sell_base' }
+    base += [base.find { |sc| sc['name'] == 'day-limit-on_schedule' }.merge('name' => 'day-limit-empty_book'),
+             seller.merge('name' => 'day-limit-sell_empty_book')].map { |sc| sc.merge('script' => { 'hyperliquid' => sc['script']['hyperliquid'].merge(empty) }) }
+    base.map do |sc|
+      JSON.parse(JSON.generate(sc).gsub(HL_PAIR, '@333').gsub('BTC', 'MU'))
+          .merge('name' => sc['name'].sub('day-limit-', 'tokenized-'), 'base' => ['hl:0xmu', 'MU', 'Micron', 'Tokenized Stock'], 'pair' => '@333')
+    end.tap { |l| raise "the tokenized Hyperliquid grid has #{l.size} scenarios, not 20" unless l.size == 20 }
+  end
+
   def hyperliquid_scenarios
     started = '2026-09-01T10:00:00.123456Z'
     ticker = { 'base_decimals' => 2, 'quote_decimals' => 2, 'price_decimals' => 5, 'minimum_base_size' => '0', 'minimum_quote_size' => '10' }
@@ -5275,7 +5295,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-conditions-flips <root> | grid-basket-sell <root> | grid-liquidation <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-hyperliquid-tokenized <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-conditions-flips <root> | grid-basket-sell <root> | grid-liquidation <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -5296,6 +5316,7 @@ when 'grid-bitget' then Decisions.grid(root, Decisions.bitget_scenarios)
 when 'grid-coinbase' then Decisions.grid(root, Decisions.coinbase_scenarios)
 when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
 when 'grid-hyperliquid' then Decisions.grid(root, Decisions.hyperliquid_scenarios)
+when 'grid-hyperliquid-tokenized' then Decisions.grid(root, Decisions.hyperliquid_tokenized_scenarios)
 when 'grid-bybit' then Decisions.grid(root, Decisions.bybit_scenarios)
 when 'grid-bitrue' then Decisions.grid(root, Decisions.bitrue_scenarios)
 when 'grid-bingx' then Decisions.grid(root, Decisions.bingx_scenarios)
