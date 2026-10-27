@@ -1497,6 +1497,33 @@
         "openWorldHint": true,
         "destructiveHint": true
       }
+    },
+    {
+      "name": "answer_redeploy_offer",
+      "description": "Answer an index or basket bot's \"Redeploy?\" offer: accept buys the idle sale proceeds back into the composition at target weights; decline takes them off the table for good.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          },
+          "accept": {
+            "type": "boolean",
+            "description": "true to redeploy, false to decline"
+          }
+        },
+        "required": [
+          "bot_id",
+          "accept"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
     }
   ],
   "tax": {

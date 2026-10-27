@@ -40,12 +40,13 @@ pub struct Shown { pub data: Value, pub text: String }
 
 /// The bot writes: BotApi::Bots::UpdateSettings, Start, Stop, Archive, Unarchive and Delete.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Write { Settings, Lifecycle(Action), Liquidate }
+pub enum Write { Settings, Lifecycle(Action), Liquidate, Redeploy }
 
 impl Write {
     pub fn tool(name: &str) -> Option<Self> {
         Some(match name {
             "liquidate_exited_asset" => Self::Liquidate,
+            "answer_redeploy_offer" => Self::Redeploy,
             "update_bot_settings" => Self::Settings, "start_bot" => Self::Lifecycle(Action::Start), "stop_bot" => Self::Lifecycle(Action::Stop),
             "archive_bot" => Self::Lifecycle(Action::Archive), "unarchive_bot" => Self::Lifecycle(Action::Unarchive),
             "delete_bot" => Self::Lifecycle(Action::Delete), _ => return None,
@@ -118,6 +119,23 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
             None=>Outcome::Committed(shown),
         });
     }
+    if write == Write::Redeploy {
+        // AnswerRedeployOfferTool#perform over BotApi::Bots::AnswerRedeploy.
+        let submitted=submitted.value();
+        let res=super::bot::redeploy::answer(c,&ctx,user,id,super::bot::redeploy::accept(&submitted["accept"]),submitted["dry_run"]==true)?;
+        let prefix=if super::mcp::tools::paper_trading(c,user)? {"[DRY RUN] "}else{""};
+        let dry=res.data["dry_run"]==true;
+        let text=if res.code.is_some() {format!("{prefix}{}",res.message)}else{
+            let verb=match (dry,res.data["accepted"]==true) {(true,true)=>"Would redeploy",(true,false)=>"Would decline redeploying",(false,true)=>"Redeploying",(false,false)=>"Declined redeploying"};
+            format!("{prefix}{verb} {} for bot '{}' — {}",super::mcp::tools::str_value(&res.data["offer"]),res.data["label"].as_str().unwrap_or(""),if dry {"nothing was queued."}else{"queued."})
+        };
+        let shown=Shown {data:res.data,text};
+        return Ok(match res.code {
+            Some(code)=>Outcome::Invalid(shown,Failure {status:res.status,code,message:res.message}),
+            None if dry=>Outcome::NoChange(shown),
+            None=>Outcome::Committed(shown),
+        });
+    }
     // Bot#with_user_locale: what the owner's open pages hear is in the owner's language; the answer stays English.
     let mut heard = ctx.clone();
     heard.locale = owner.as_ref().and_then(|o| o.locale.as_deref()).and_then(super::locale::known).unwrap_or("en");
@@ -143,7 +161,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
         Write::Lifecycle(action) if signal => super::bot::signal_write::service(c, &ctx, &heard, user, id, action, submitted),
         // D-SIG-CONDITIONS / D-SIG-CAP: a signal bot's settings through its own writer, the page's.
         Write::Settings if signal => super::bot::signal_write::settings_service(c, &ctx, user, id, submitted),
-        Write::Liquidate => unreachable!("liquidation handled above"),
+        Write::Liquidate | Write::Redeploy => unreachable!("composition answers handled above"),
         Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
             let updated: Vec<&String> = draft.submitted.keys().collect();
             let text = if draft.errors.is_empty() {

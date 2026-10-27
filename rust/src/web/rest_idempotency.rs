@@ -18,13 +18,13 @@ fn canonical(value:&Value)->String {
         v=>v.to_string(),
     }
 }
-pub(super) fn run(c:&Connection,app:&App,user:i64,input:&Input<'_>,work:impl FnOnce()->Result<Answer,WebError>)->Result<Answer,WebError> {
+pub(super) fn run(c:&Connection,app:&App,user:i64,input:&Input<'_>,action:&str,work:impl FnOnce()->Result<Answer,WebError>)->Result<Answer,WebError> {
     let Some(key)=input.idempotency.filter(|s|!s.trim().is_empty()) else {
         return Ok(super::rest::failure(StatusCode::BAD_REQUEST,"idempotency_key_required","Idempotency-Key header is required."));
     };
     let mut payload=super::rest::object(super::bot::action_params::form(&input.params.query).map_err(|_|WebError::Config("invalid query".into()))?);
     payload.extend(input.body().map_err(|_|WebError::Config("invalid body".into()))?);
-    payload.insert("_action".into(),json!("liquidate"));
+    payload.insert("_action".into(),json!(action));
     payload.insert("_bot_id".into(),json!(input.path.iter().find(|(k,_)|*k=="id").map(|(_,v)|v.as_str()).unwrap_or("")));
     let fingerprint=hex::encode(Sha256::digest(canonical(&Value::Object(payload))));
     let now=crate::codec::format_time(app.now());

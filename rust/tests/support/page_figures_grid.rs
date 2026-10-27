@@ -233,7 +233,7 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
          "UPDATE tickers SET quote_decimals=0 WHERE id=104".to_string(), true),
     ].into_iter().map(|(what, prep, sql, kept)| (what.to_string(), prep, sql, kept)).collect();
     // What hides the Sell and Redeploy controls while an operation runs.
-    for flag in ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] {
+    for flag in ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending", "rust_redeploy_request"] {
         let set = format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{flag}','2026-01-01T00:00:00Z')");
         cases.push((format!("{flag} set"), String::new(), set.clone(), false));
         cases.push((format!("{flag} cleared"), set, format!("UPDATE bots SET transient_data=json_remove(transient_data,'$.{flag}')"), false));
@@ -317,7 +317,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
         let name = dir.file_name().unwrap().to_str().unwrap();
         if name == "boundaries" { boundaries(&dir); currencies += 100; continue; }
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
-        let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        if name == "redeploy_halt" { without_sell_while_halted(&mut expected); }
         if name.starts_with("fx_") { display_currency(name, &dir, &sc, &expected).await; currencies += 1; continue; }
         let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
         let now = At::from_utc(chrono::DateTime::parse_from_rfc3339(sc["at"].as_str().unwrap()).unwrap().to_utc()).unwrap();
@@ -997,6 +998,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     entry[0]==stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\"")))
                 }).unwrap_or_else(||panic!("{name}: no Rails broadcast to {stream} {target}"));
                 if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { continue; }
+                // This grid renders `actual` with a page's token ("token"); a real broadcast has none, as Rails' has none.
+                let payload = if name == "redeploy_halt" { payload.replace(GRID_TOKEN_FIELD, "") } else { payload };
                 if SELL_ONLY_PAIRS.contains(&name) && target == "metrics" { assert_eq!(sell_only_table(&payload), sell_only_table(wanted[1].as_str().unwrap()), "{name} broadcast metrics"); continue; }
                 assert_eq!(common::html::normalize(&payload),common::html::normalize(wanted[1].as_str().unwrap()),"{name} broadcast {stream} {target}");
             }
@@ -1017,6 +1020,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     continue;
                 }
                 let got = got.as_str().unwrap().to_string();
+                // Rails records these fragments without a request, so its Clear has no token field; this grid's has "token".
+                let got = if name == "redeploy_halt" { got.replace(GRID_TOKEN_FIELD, "") } else { got };
                 if SELL_ONLY_PAIRS.contains(&name) && part == "metrics" {
                     // D4 (3.0, Rust only): a pair that only sells states what it sold and what that brought in, where Rails states an
                     // investment; its row, chart, tile and totals are Rails'.
@@ -1044,6 +1049,21 @@ const SELL_ONLY_PAIRS: [&str; 1] = ["signal_sell_only"];
 const FRAMED_SIGNALS: [&str; 4] = ["signal_sell_only", "framed_signal_buys", "framed_signal_candles_failed", "framed_signal_price_refused"];
 
 /// A pair panel's holdings table, which D4 leaves as Rails renders it.
+const GRID_TOKEN_FIELD: &str = "<input type=\"hidden\" name=\"authenticity_token\" value=\"token\" autocomplete=\"off\" />";
+/// D-6C-4: Rails offers Sell beside a halted redeploy and refuses it in the job; this build hides every Sell while the shared
+/// in-flight predicate holds. Rails' Sell controls must be there, and are taken out of what the rest is compared against.
+fn without_sell_while_halted(expected: &mut Value) {
+    let cells = regex::Regex::new(r#"(?s)\s*<t[hd] [^>]*class="table__action"[^>]*>.*?</t[hd]>|\s*<a [^>]*href="[^"]*/liquidation/new\?[^"]*"[^>]*>[^<]*</a>"#).unwrap();
+    let mut removed = 0;
+    let mut strip = |html: &mut Value| if let Some(text) = html.as_str() {
+        removed += cells.find_iter(text).count();
+        *html = json!(cells.replace_all(text, "").to_string());
+    };
+    for parts in expected["bots"].as_object_mut().unwrap().values_mut() { if let Some(metrics) = parts.get_mut("metrics") { strip(metrics); } }
+    for entry in expected["broadcasts"].as_array_mut().unwrap() { strip(&mut entry[1]); }
+    assert!(removed > 0, "D-6C-4: Rails no longer offers Sell beside a halted redeploy");
+}
+
 fn sell_only_table(html: &str) -> Vec<String> {
     let doc = scraper::Html::parse_fragment(html);
     common::html::normalize(&doc.select(&scraper::Selector::parse("#assets_metrics_table").unwrap()).next().expect("no holdings table").html())

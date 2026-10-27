@@ -179,8 +179,8 @@ async fn control_transcripts() {
             }
             let body:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let names:Vec<_>=body["result"]["tools"].as_array().unwrap().iter().map(|t|t["name"].as_str().unwrap()).collect();
-            // This lifecycle/settings grid grants its six controls; liquidation and split stay off here.
-            assert_eq!(names,deltabadger::web::mcp::tools::NAMES.iter().copied().filter(|n|!["split_bots","liquidate_exited_asset"].contains(n)).collect::<Vec<_>>(),"complete granted registry without a cursor");
+            // This lifecycle/settings grid grants its six controls; liquidation, redeploy and split stay off here.
+            assert_eq!(names,deltabadger::web::mcp::tools::NAMES.iter().copied().filter(|n|!["split_bots","liquidate_exited_asset","answer_redeploy_offer"].contains(n)).collect::<Vec<_>>(),"complete granted registry without a cursor");
             assert!(body["result"].get("nextCursor").is_none());
             if let Ok(root)=std::env::var("M4_EVIDENCE") {
                 std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
@@ -345,9 +345,9 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
     common::rails(boot.path(),"test",&["runner","script/rust/mcp_control_races.rb",output.to_str().unwrap()]);
     let lost=read(output.join("settings_lost_update/race.json"));
     assert_eq!((lost["read"].as_f64(),lost["committed"].as_f64(),lost["final"].as_f64()),(Some(50.0),Some(20.0),Some(20.0)),"the rename keeps the amount committed after its load");
-    // mcp_control_races.rb records the six lifecycle/settings controls. Liquidation's request/clear races
-    // and its real MCP entry point are exercised in liquidation.rs and liquidation_web.rs.
-    for name in deltabadger::web::mcp::control::NAMES.into_iter().filter(|n|*n!="liquidate_exited_asset") {
+    // mcp_control_races.rb records the six lifecycle/settings controls. Liquidation's and redeploy's request/clear races
+    // and their real MCP entry points are exercised in liquidation.rs, liquidation_web.rs and redeploy_web.rs.
+    for name in deltabadger::web::mcp::control::NAMES.into_iter().filter(|n|!["liquidate_exited_asset","answer_redeploy_offer"].contains(n)) {
         let dir=output.join(name);let rails=read(dir.join("race.json"));
         let rust=tempfile::tempdir().unwrap();
         copy_install(&dir,rust.path());
