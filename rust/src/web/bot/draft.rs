@@ -660,6 +660,20 @@ impl Draft {
         Ok(())
     }
 
+    /// Bot::Reversible#clamp_smart_interval_splits, before changing direction.
+    pub(crate) fn clamp_smart_interval_splits(&mut self) {
+        if !self.candidate.on("smart_intervaled") { return; }
+        let quote = start::smart_interval_minimum(&self.candidate).value.to_f();
+        if self.candidate.number("smart_interval_quote_amount").map_or(0.0, |n| n.to_f()) < quote {
+            self.candidate.settings.insert("smart_interval_quote_amount".into(), json!(quote));
+        }
+        let base = self.base_minimum().value.to_f();
+        let sell_amount = self.candidate.settings.get("sell_amount").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|t| !t.trim().is_empty()));
+        if sell_amount && self.candidate.number("smart_interval_base_amount").map_or(0.0, |n| n.to_f()) < base {
+            self.candidate.settings.insert("smart_interval_base_amount".into(), json!(base));
+        }
+    }
+
     pub(super) fn base_minimum(&self) -> start::Minimum {
         let Some(decimals) = self.candidate.tickers.iter().map(|t| t.base_decimals).min() else {
             return start::Minimum { value: format::Num::Int(0), reason: start::Reason::None, decimals: 0 };

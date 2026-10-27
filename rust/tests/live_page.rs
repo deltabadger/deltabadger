@@ -268,3 +268,17 @@ async fn a_sell_fill_redraws_what_is_left_of_the_base_cap() {
     assert!(info.0.ends_with(":bot_updates") && !info.0.starts_with("user_"), "the bot's page stream: {}", info.0);
     assert!(info.1.contains("0.015"), "0.02 less the 0.005 sold: {}", info.1);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_reversal_redraws_settings_and_queues_the_metrics_panel() {
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling")));
+    let app = common::web::app(r.dir.path(), common::web::SECRET, common::web::TestClock::at("2026-09-08T10:00:00Z"))
+        .with_figure_source(deltabadger::web::figure::loading::Source::Script(json!({}))).unwrap();
+    let event = EngineEvent::Reversed { bot_id: r.id };
+    assert!(event.is_live());
+    assert!(!event.is_classic());
+    let messages = deltabadger::web::bot::live::render(&r.c(), &app, &event).unwrap();
+    assert_eq!(shape(&messages), vec![("replace".into(), "settings".into())]);
+    assert!(messages[0].1.contains("sell_price_limit"));
+    assert!(app.figure_service.panels_pending() > 0, "the metrics redraw uses the existing figure worker");
+}

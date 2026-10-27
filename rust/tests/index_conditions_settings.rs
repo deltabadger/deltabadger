@@ -60,10 +60,12 @@ async fn save(i: &Install, surface: Surface, web_fields: Value, api_fields: Valu
             let token = web::csrf::new_token();
             let session = web::session::SessionData { user: Some((i.user, "x".into())), csrf: Some(token.clone()), ..Default::default() };
             let cookie = web::session::seal(&i.app.keys.session, &session, i.app.now());
+            let class: String = i.c.query_row("SELECT type FROM bots WHERE id=?1", [i.id], |r| r.get(0)).unwrap();
+            let param = if class == "Bots::DcaMultiAsset" { "bots_dca_multi_asset" } else { "bots_dca_index" };
             let request = Request::builder().method("PATCH").uri(format!("/bots/{}", i.id)).header("host", "localhost:3000")
                 .header("cookie", format!("{}={cookie}", web::session::COOKIE)).header("x-csrf-token", web::csrf::masked(&token))
                 .header("content-type", "application/json").header("accept", "text/vnd.turbo-stream.html")
-                .body(Body::from(json!({ "bots_dca_index": web_fields }).to_string())).unwrap();
+                .body(Body::from(json!({ param: web_fields }).to_string())).unwrap();
             let (status, body) = send(&i.app, request).await;
             Saved { status, answer: json!(body) }
         }
@@ -384,5 +386,28 @@ async fn a_rebalancing_index_saves_all_candle_rules_equally_across_surfaces() {
         assert_eq!(row["settings"][format!("{rule}ed")], json!(true));
         assert_eq!(row["settings"][format!("{rule}_in_ticker_id")], json!(i.tickers[0]));
         assert_eq!(row["transient"][format!("{rule}_enabled_at")], json!("2026-09-10T12:00:30.123Z"));
+    }
+}
+
+
+/// 7c: each basket form and both automation surfaces save the same flip action.
+#[tokio::test(flavor = "current_thread")]
+async fn basket_flip_forms_mcp_and_rest_write_identical_settings() {
+    for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+        for selling in [false, true] {
+            let prefix = format!("{}{rule}", if selling { "sell_" } else { "" });
+            let setup = |i: &Install| {
+                let asset: i64 = i.c.query_row("SELECT base_asset_id FROM tickers WHERE id=?1", [i.tickers[0]], |r| r.get(0)).unwrap();
+                i.c.execute("UPDATE bots SET type='Bots::DcaMultiAsset', settings=json_set(settings,'$.allocations',json(?1),'$.direction',?2) WHERE id=?3",
+                    (json!({asset.to_string(): 1.0}).to_string(), if selling { "selling" } else { "buying" }, i.id)).unwrap();
+            };
+            let (saved, row, _) = on_every_surface([1.0, 0.0, 0.0], setup,
+                |_| json!({format!("{prefix}ed"): "1", format!("{prefix}_mode"): "flip"}),
+                |_| json!({format!("{prefix}ed"): true, format!("{prefix}_mode"): "flip"})).await;
+            assert_eq!(saved[0].status, 200, "{} {prefix}", saved[0].answer);
+            assert_ne!(saved[1].answer["error"], true, "{} {prefix}", saved[1].answer);
+            assert_eq!(saved[2].status, 200, "{} {prefix}", saved[2].answer);
+            assert_eq!(row["settings"][format!("{prefix}_action")], if selling { "start_buying" } else { "start_selling" });
+        }
     }
 }
