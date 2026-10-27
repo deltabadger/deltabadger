@@ -1,0 +1,29 @@
+<turbo-frame id="modal" complete="">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+      <div class="modal">
+        <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+          {% include "svg/_24x24_close.html" %}
+        </button>
+        <div class="modal__header">
+          <h1 class="modal__title">{{ title }}</h1>
+        </div>
+        <div class="modal__body">
+          <p>{{ confirm }}</p>
+          {% if harvest %}<p class="text-inactive">{{ partial }}</p>{% endif %}
+          <div class="widget widget--table" data-controller="table-fit">
+            {{ table|safe }}
+          </div>
+          <form data-controller="form--checkbox-enables" data-action="turbo:submit-end->modal--base#submitEnd change->form--checkbox-enables#toggleSubmitButton" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+            <div class="modal__footer">
+              <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
+                {{ cancel }}
+              </button>
+              <button name="button" type="submit" data-form--checkbox-enables-target="submit" data-turbo-submits-with="{{ selling }}" class="rbutton {{ colour }}">{{ sell }}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </dialog>
+</turbo-frame>

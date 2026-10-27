@@ -3,6 +3,7 @@
 //! Page readers share their model with the guarded settings writer in `write`.
 pub mod action_params;
 pub mod actions;
+pub mod liquidation;
 pub mod action_view;
 pub mod draft;
 pub mod index_switch;
@@ -487,7 +488,7 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let distance_ok = defaulted("limit_order_pcnt_distance") || settings.get("limit_order_pcnt_distance").and_then(Value::as_f64).is_some_and(|share| (0.0..=1.0).contains(&share));
     let interval_ok = matches!(settings.get("interval").and_then(Value::as_str), Some("hour" | "day" | "week" | "month"));
     if !positive("quote_amount") || !interval_ok || !mode_known || !smart_ok || !distance_ok { return Ok(Some("settings no form would have saved")); }
-    if ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|key| transient.get(key).is_some_and(|v| !v.is_null())) {
+    if ["rebalance_pending", "redeploy_pending"].iter().any(|key| transient.get(key).is_some_and(|v| !v.is_null())) {
         return Ok(Some("a rebalance, liquidation or redeploy in progress"));
     }
     if class == "Bots::DcaIndex" && !provider_is_deltabadger { return Ok(Some("an index bot whose market data comes from CoinGecko")); }

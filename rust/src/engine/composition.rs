@@ -25,11 +25,7 @@ pub fn busy(c: &Connection, bot: &Bot, now: DateTime<Utc>, redeploy: bool) -> Re
 }
 
 pub fn liquidation_in_flight(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    let request = &bot.transient["liquidation_selling_since"];
-    // Rust requests remain owned until compare-cleared, including taken requests after a crash.
-    // Rails markers have no holdings; only their page spinner's 15-minute TTL applies.
-    let selling = request.is_object() && (request.get("holdings").is_some()
-        || request["at"].as_i64().or_else(|| request["at"].as_str()?.parse().ok()).unwrap_or(0) > now.timestamp() - SELLING_TTL_SECONDS);
+    let selling = selling_request(&bot.transient["liquidation_selling_since"],now);
     let abandoned = unresolved_liquidations(c, bot)?;
     Ok(present(bot, "liquidation_pending") || selling || waiting(c, bot.id, "LIQUIDATION")? || abandoned)
 }
@@ -128,4 +124,11 @@ pub(crate) fn scan(c: &Connection, now: DateTime<Utc>) -> Result<Scan,EngineErro
     let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type='LIQUIDATION' AND status=0 AND external_status IN (2,3) AND amount_exec>0 AND COALESCE(quote_amount_exec,0)=0 AND updated_at>=?1 ORDER BY id")?;
     let late=s.query_map([crate::codec::format_time(now-chrono::Duration::days(7))],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
     Ok(Scan {waiting,late})
+}
+
+pub fn selling_request(request: &Value, now: DateTime<Utc>) -> bool {
+    // Rust requests remain owned until compare-cleared, including taken requests after a crash.
+    // Rails markers have no holdings; only their page spinner's 15-minute TTL applies.
+    request.is_object() && (request.get("holdings").is_some()
+        || request["at"].as_i64().or_else(|| request["at"].as_str()?.parse().ok()).unwrap_or(0) > now.timestamp() - SELLING_TTL_SECONDS)
 }

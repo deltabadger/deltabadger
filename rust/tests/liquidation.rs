@@ -121,7 +121,12 @@ async fn requests_are_compare_cleared_and_taken_requests_are_never_replayed() {
         let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
         let t=script(json!({}));
         let mut e=run::Engine::new(o.primary,Factory(t.clone()),seed::cipher(),lock);
+        let mut events=e.subscribe_to(|_|true);
         run::run_commands(&mut e,&FixedClock(at(T0))).await.unwrap();
+        let mut seen=vec![];while let Ok(event)=events.try_recv() {seen.push(event);}
+        if case!="rails_marker" {
+            assert!(seen.iter().any(|e|matches!(e,deltabadger::engine::events::EngineEvent::TickEnded {bot_id} if *bot_id==id)),"compare-clear redraws the status bar: {case}");
+        }
         run::run_commands(&mut e,&FixedClock(at(T0))).await.unwrap();
         assert_eq!(t.posted_orders().len(),usize::from(case=="queued"),"{case}");
         let b=model::load_bot(&e.primary,id).unwrap();
@@ -383,7 +388,7 @@ fn liquidation_sources_match_the_live_rails_grid_oracle() {
     use sha2::{Digest,Sha256};
     let pins:Value=serde_json::from_str(include_str!("fixtures/liquidation_sources.json")).unwrap();
     let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    assert_eq!(pins.as_object().unwrap().len(),4);
+    assert_eq!(pins.as_object().unwrap().len(),13);
     for (file,hash) in pins.as_object().unwrap() {
         assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())),hash.as_str().unwrap(),"{file}: re-record grid-liquidation and check the engine");
     }
@@ -518,4 +523,65 @@ async fn placement_refusals_are_logged_ledger_changed() {
 #[tokio::test(flavor="current_thread")]
 async fn placement_refusals_are_logged_settings_changed() {
     placement_refusal("settings_changed").await;
+}
+
+// Slice 6c-3 T4: the attestation covers only the nonce and rows rendered to the user.
+#[test]
+fn clear_accounts_for_shown_abandoned_rows_without_a_marker() {
+    let (_d,o,id,s,eth)=swap_bot(stopped());
+    let a=liquidation_row(&o.primary,&s,id,s.btc,&json!({"transaction_type":"LIQUIDATION","side":1,"external_status":4,"external_id":"abandoned-a"}));
+    let b=liquidation_row(&o.primary,&s,id,eth,&json!({"transaction_type":"LIQUIDATION","side":1,"external_status":4,"external_id":"abandoned-b"}));
+    assert!(liquidation::resolve(&o.primary,id,s.user_id,"",&[a,999999],at(T0)).unwrap().is_none());
+    let bot=model::load_bot(&o.primary,id).unwrap();
+    assert_eq!(bot.transient["liquidation_resolved_orders"],json!([a]));
+    assert!(deltabadger::engine::composition::in_flight(&o.primary,&bot,at(T0)).unwrap(),"a row abandoned after render keeps blocking");
+    liquidation::resolve(&o.primary,id,s.user_id,"",&[b],at(T0)).unwrap();
+    assert!(!deltabadger::engine::composition::in_flight(&o.primary,&model::load_bot(&o.primary,id).unwrap(),at(T0)).unwrap());
+    assert_eq!(logs(&o).iter().filter(|(e,_)|e=="liquidation_manually_resolved").map(|(_,v)|v["base"].clone()).collect::<Vec<_>>(),vec![json!("BTC"),json!("ETH")]);
+}
+#[test]
+fn clear_refuses_waiting_and_preserves_placing_or_a_new_nonce() {
+    for (state,nonce,cleared) in [("placing","current",false),("ambiguous","stale",false),("ambiguous","current",true)] {
+        let (_d,o,id,s,_)=swap_bot(stopped());
+        model::merge_transient_compact(&o.primary,id,&[("liquidation_pending",json!({"id":"current","state":state,"symbol":"BTC"}))]).unwrap();
+        let row=liquidation_row(&o.primary,&s,id,s.btc,&json!({"transaction_type":"LIQUIDATION","side":1,"external_status":0,"external_id":"open"}));
+        assert_eq!(liquidation::resolve(&o.primary,id,s.user_id,nonce,&[],at(T0)).unwrap(),Some("open".into()));
+        assert!(!model::load_bot(&o.primary,id).unwrap().transient["liquidation_pending"].is_null());
+        o.primary.execute("UPDATE transactions SET external_status=2 WHERE id=?1",[row]).unwrap();
+        liquidation::resolve(&o.primary,id,s.user_id,nonce,&[],at(T0)).unwrap();
+        assert_eq!(model::load_bot(&o.primary,id).unwrap().transient["liquidation_pending"].is_null(),cleared);
+    }
+}
+#[tokio::test(flavor="current_thread")]
+async fn clear_and_successful_recovery_are_exclusive_and_keep_the_wash_claim() {
+    for clear_first in [true,false] {
+        let (_d,o,id,s,_)=swap_bot(stopped());
+        o.primary.execute("UPDATE users SET wash_sale_enabled=1,wash_sale_jurisdiction=\'US\' WHERE id=?1",[s.user_id]).unwrap();
+        let t=script(json!({"GET /v1beta3/crypto/us/latest/trades":[ok(json!({"trades":{"BTC/USD":{"p":100}}}))],"GET /v1beta3/crypto/us/latest/quotes":[ok(json!({"quotes":{"BTC/USD":{"ap":100,"bp":100}}}))],"POST /v2/orders":[{"network":"post_send","message":common::scripted::POST_SEND}]}));
+        sell(&o,&t,id,json!([["BTC",s.btc]])).await;
+        let bot=model::load_bot(&o.primary,id).unwrap();
+        let intent=deltabadger::engine::placement::load_intent(&o.primary,&bot,None).unwrap().unwrap();
+        let nonce=bot.transient["liquidation_pending"]["id"].as_str().unwrap();
+        assert!(intent.wash_claim.is_some());
+        if clear_first { liquidation::resolve(&o.primary,id,s.user_id,nonce,&[],at(T0)).unwrap(); }
+        let recovered=deltabadger::engine::placement::record_accepted(&o.primary,&bot,&intent,"recovered");
+        assert_eq!(recovered.is_ok(),!clear_first);
+        if !clear_first {
+            // Recovery won. Its waiting row refuses Clear; after settlement the stale nonce is harmless.
+            assert_eq!(liquidation::resolve(&o.primary,id,s.user_id,nonce,&[],at(T0)).unwrap(),Some("recovered".into()));
+            o.primary.execute("UPDATE transactions SET external_status=2 WHERE external_id=\'recovered\'",[]).unwrap();
+            liquidation::resolve(&o.primary,id,s.user_id,nonce,&[],at(T0)).unwrap();
+        }
+        assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
+        assert_eq!(one::<i64>(&o,"SELECT count(*) FROM transactions WHERE external_id=\'recovered\'"),i64::from(!clear_first));
+        assert_eq!(one::<i64>(&o,"SELECT count(*) FROM wash_sale_locks"),1);
+        assert_eq!(logs(&o).iter().filter(|(e,_)|e=="liquidation_manually_resolved").count(),usize::from(clear_first));
+    }
+}
+
+fn liquidation_row(c: &rusqlite::Connection, s: &seed::Seeded, id: i64, asset: i64, v: &Value) -> i64 {
+    let mut v=v.clone(); v["created_at"]=json!("2026-09-01 12:00:00");
+    let row=seed::insert_row(c,s,id,asset,&v);
+    c.execute("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE id=?1",[row]).unwrap();
+    row
 }

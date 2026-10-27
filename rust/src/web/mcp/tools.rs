@@ -4,7 +4,7 @@ use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 /// D-SPLIT-API: split_bots is this build's own, after the recorded tools.
-pub const NAMES: [&str;15] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot","split_bots"];
+pub const NAMES: [&str;16] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","split_bots"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -20,7 +20,7 @@ pub fn gate(c: &Connection, who: Bearer, name: &str) -> Result<Option<Value>,Web
 /// ApplicationMCPTool::LIVE_AUTOMATION_TOOLS; only start_bot is served here, the rest stay Rails'.
 const LIVE_AUTOMATION_TOOLS: [&str;5] = ["create_bot","create_index_bot","create_signal_bot","start_bot","start_rule"];
 /// User#mcp_dry_run?: `mcp_settings['dry_run'] == true`, nothing looser.
-fn paper_trading(c: &Connection, user_id: i64) -> Result<bool,WebError> {
+pub(crate) fn paper_trading(c: &Connection, user_id: i64) -> Result<bool,WebError> {
     let stored: Option<String> = c.query_row("SELECT mcp_settings FROM users WHERE id = ?1", [user_id], |r| r.get(0)).optional()?.flatten();
     let Some(text) = stored else { return Ok(false) };
     let settings: Value = serde_json::from_str(&text).map_err(|_| WebError::Config("unreadable mcp_settings".into()))?;
