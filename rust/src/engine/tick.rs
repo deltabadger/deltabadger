@@ -298,28 +298,33 @@ pub async fn tick_recovering_for_run<V: Venue>(c: &Connection, venue: &V, bot: &
     };
     if let Err(EngineError::Lease(_) | EngineError::Store(_)) = outcome { return outcome; }
     let drain = drain_amount_limit_stops(c, bot_id, clock.now(), Some(bot));
-    finish_tick(bot_id, outcome, drain)
+    finish_run(bot_id, outcome, drain)
 }
 
 /// The Bot::StopJobs a tick's sweep enqueued run after the run, whatever its outcome (polling::apply_committed counted
 /// them), unless the engine itself can no longer write. When the tick and the stops both fail, both errors are reported:
 /// an error that ends the engine wins, and the other is logged.
 pub fn end_of_tick(c: &Connection, bot_id: i64, now: DateTime<Utc>, outcome: Result<TickOutcome, EngineError>) -> Result<TickOutcome, EngineError> {
-    if let Err(EngineError::Lease(_) | EngineError::Store(_)) = outcome { return outcome; }
-    finish_tick(bot_id, outcome, run_pending_amount_limit_stops(c, bot_id, now))
+    end_of_run(c, bot_id, now, outcome)
 }
 
-fn finish_tick(bot_id: i64, outcome: Result<TickOutcome, EngineError>, drain: Result<(), EngineError>) -> Result<TickOutcome, EngineError> {
+/// Drain swept stops after a tick or command, preserving the run's error unless the drain ends the engine.
+pub(crate) fn end_of_run<T>(c: &Connection, bot_id: i64, now: DateTime<Utc>, outcome: Result<T, EngineError>) -> Result<T, EngineError> {
+    if let Err(EngineError::Lease(_) | EngineError::Store(_)) = outcome { return outcome; }
+    finish_run(bot_id, outcome, run_pending_amount_limit_stops(c, bot_id, now))
+}
+
+fn finish_run<T>(bot_id: i64, outcome: Result<T, EngineError>, drain: Result<(), EngineError>) -> Result<T, EngineError> {
     match (outcome, drain) {
         (outcome, Ok(())) => outcome,
         (Ok(_), Err(drain)) => Err(drain),
-        (Err(tick), Err(drain @ (EngineError::Lease(_) | EngineError::Store(_)))) => {
-            super::log(&format!("[engine] bot {bot_id}: the tick failed: {tick:?}"));
+        (Err(run), Err(drain @ (EngineError::Lease(_) | EngineError::Store(_)))) => {
+            super::log(&format!("[engine] bot {bot_id}: the run failed: {run:?}"));
             Err(drain)
         }
-        (Err(tick), Err(drain)) => {
-            super::log(&format!("[engine] bot {bot_id}: the amount-limit stops after a failed tick also failed: {drain:?}"));
-            Err(tick)
+        (Err(run), Err(drain)) => {
+            super::log(&format!("[engine] bot {bot_id}: the amount-limit stops after a failed run also failed: {drain:?}"));
+            Err(run)
         }
     }
 }
