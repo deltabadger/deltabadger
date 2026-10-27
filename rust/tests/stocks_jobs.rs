@@ -70,7 +70,7 @@ fn a_reference_write_is_refused_for_what_it_adds_not_for_what_the_install_alread
     assert!(refused.is_err_and(|e| e.contains("would stop a running bot")), "a new reason for a running bot is refused");
     let instrument: String = o.primary.query_row("SELECT instrument_type FROM assets WHERE id = ?1", [good], |r| r.get(0)).unwrap();
     assert_eq!(instrument, "stock");
-    let refused = write("UPDATE assets SET category = 'Cryptocurrency', instrument_type = 'stock' WHERE id = ?1", legacy);
+    let refused = write("UPDATE assets SET category = 'Tokenized Stock', instrument_type = 'stock' WHERE id = ?1", legacy);
     assert!(refused.is_err(), "a changed reason on the already-refused bot is new too");
 }
 

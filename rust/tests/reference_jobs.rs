@@ -589,7 +589,7 @@ async fn a_reference_write_that_would_stop_a_running_bot_is_rolled_back_and_name
     let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     let t = ScriptedTransport::default();
     t.reply("GET /api/v1/assets", 200, json!({ "data": [{ "external_id": "bitcoin", "symbol": "BTC", "name": "Bitcoin",
-        "category": "Cryptocurrency", "instrument_type": "tokenized" }] }));
+        "category": "Tokenized Stock", "instrument_type": "tokenized" }] }));
     let out = run(reference::ASSETS, scripted(&t), o.primary, "2026-10-02T00:20:00Z").await;
     assert!(matches!(&out, Outcome::Failed(m) if m.contains("rolled back") && m.contains(&format!("bot {bot}"))), "{out:?}");
     let c = Connection::open(d.path().join("production.sqlite3"))?;
@@ -639,7 +639,7 @@ async fn reference_assets_guard_a_stopped_bot_with_an_outstanding_order() -> Res
         amount_exec: None, created_at: "2026-09-01 10:00:00".into() });
     let t = ScriptedTransport::default();
     t.reply("GET /api/v1/assets", 200, json!({ "data": [{ "external_id": "bitcoin", "symbol": "BTC", "name": "Bitcoin",
-        "category": "Cryptocurrency", "instrument_type": "tokenized" }] }));
+        "category": "Tokenized Stock", "instrument_type": "tokenized" }] }));
     let out = run(reference::ASSETS, scripted(&t), o.primary, "2026-10-02T00:20:00Z").await;
     assert!(matches!(&out, Outcome::Failed(m) if m.contains("rolled back") && m.contains(&format!("bot {bot}"))), "{out:?}");
     let c = Connection::open(d.path().join("production.sqlite3"))?;
