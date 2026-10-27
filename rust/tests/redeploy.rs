@@ -527,30 +527,13 @@ async fn a_failed_halt_write_rolls_back_the_abandonment() {
     assert!(model::load_bot(&o.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null());
 }
 
-/// Rails' shape: rows abandoned with no halt recorded are halted by the settle scan, every base named; after a Clear they stay cleared.
+/// Rails halts only when it abandons a row: an abandoned row cleared before (no halt standing) is not re-halted by the scan.
 #[tokio::test(flavor = "current_thread")]
-async fn the_scan_halts_rows_abandoned_without_a_halt() {
+async fn the_scan_leaves_a_cleared_abandoned_row_alone() {
     let (d, o, id, s, eth) = proceeds_bot("640", "100");
     abandoned_rows(&o, &s, id, eth, 4);
     let mut e = fake_engine(&d, o.primary);
-    run::step(&mut e, &FixedClock(at(T0))).await.unwrap();
-    assert!(stood_down(&e.primary, id));
-    let halts: Vec<_> = logs(&e.primary).into_iter().filter(|(event, _)| event == "redeploy_ambiguous").collect();
-    assert_eq!(halts, vec![("redeploy_ambiguous".into(), json!({"base":"BTC, ETH","reason":"exchange stopped reporting the order"}))]);
-    let bot = model::load_bot(&e.primary, id).unwrap();
-    let nonce = bot.transient[redeploy::PENDING_KEY]["id"].as_str().unwrap().to_string();
-    assert_eq!(redeploy::resolve(&e.primary, id, bot.user_id, &nonce, at(T0)).unwrap(), None);
-    for minutes in [10, 20] { run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(minutes))).await.unwrap(); }
-    assert!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null(), "a Clear resolves the rows it followed");
-    // Activity logs are pruned after 90 days: the Clear is kept in the bot's state, not in its log.
-    e.primary.execute("DELETE FROM bot_activity_logs", []).unwrap();
-    run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(30))).await.unwrap();
-    assert!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null(), "pruned logs do not re-halt a cleared bot");
-    // A row abandoned after the Clear is not covered by it.
-    let row = seed::insert_row(&e.primary, &s, id, s.btc, &json!({"external_id":"LOST-3","external_status":4,"amount":"0.001","quote_amount":"20","price":"20000","created_at":"2026-08-02 10:00:02"}));
-    e.primary.execute("UPDATE transactions SET transaction_type='REDEPLOY' WHERE id=?1", [row]).unwrap();
-    run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(40))).await.unwrap();
-    assert!(stood_down(&e.primary, id), "a new abandoned row halts again");
-    let halts: Vec<_> = logs(&e.primary).into_iter().filter(|(event, _)| event == "redeploy_ambiguous").collect();
-    assert_eq!(halts, vec![("redeploy_ambiguous".into(), json!({"base":"BTC","reason":"exchange stopped reporting the order"}))]);
+    for minutes in [0, 10, 20] { run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(minutes))).await.unwrap(); }
+    assert!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null());
+    assert_eq!(logs(&e.primary).into_iter().filter(|(event, _)| event == "redeploy_ambiguous").count(), 0);
 }

@@ -146,39 +146,16 @@ pub(crate) fn halt_abandoned(c: &Connection, watched: &[(i64,i64)], before: &std
     Ok(())
 }
 
-/// Backstop for REDEPLOY rows abandoned without their halt (older builds, or Rails stopped between the two writes): a bot
-/// with an abandoned row no Clear accounted for (transient `redeploy_resolved_orders`) is halted as halt_abandoned_redeploys! would.
-fn halt_unrecorded_redeploys(c: &Connection, now: DateTime<Utc>) -> Result<Vec<i64>, EngineError> {
-    let mut s=c.prepare("SELECT t.bot_id,group_concat(DISTINCT t.base) FROM transactions t JOIN bots b ON b.id=t.bot_id \
-        WHERE t.transaction_type='REDEPLOY' AND t.status=0 AND t.external_status=4 \
-        AND t.id NOT IN (SELECT CAST(value AS INTEGER) FROM json_each(b.transient_data,'$.redeploy_resolved_orders')) \
-        GROUP BY t.bot_id ORDER BY t.bot_id")?;
-    let rows:Vec<(i64,Option<String>)>=s.query_map([],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
-    let mut halted=vec![];
-    for (bot,bases) in rows {
-        let raised=model::locked(c,|c| {
-            if present(&model::load_bot(c,bot)?,"redeploy_pending") { return Ok(false); }
-            model::merge_transient_compact(c,bot,&[("redeploy_pending",json!({"id":nonce(),"state":"ambiguous"}))])?;
-            let base=bases.as_deref().unwrap_or_default().replace(',',", ");
-            model::log_activity(c,bot,"redeploy_ambiguous",Level::Error,json!({"base":base,"reason":"exchange stopped reporting the order"}),now)?;
-            Ok(true)
-        })?;
-        if raised { halted.push(bot); }
-    }
-    Ok(halted)
-}
 #[derive(Default)]
-pub(crate) struct Scan { pub waiting: Vec<(i64,i64)>, pub late: Vec<(i64,i64)>, pub halted: Vec<i64> }
-/// T2b: every waiting LIQUIDATION/REDEPLOY row to re-poll, and every terminal one still owing its proceeds. Bots with an
-/// abandoned redeploy and no halt are halted first (halt_unrecorded_redeploys).
+pub(crate) struct Scan { pub waiting: Vec<(i64,i64)>, pub late: Vec<(i64,i64)> }
+/// T2b: every waiting LIQUIDATION/REDEPLOY row to re-poll, and every terminal one still owing its proceeds.
 pub(crate) fn scan(c: &Connection, now: DateTime<Utc>) -> Result<Scan,EngineError> {
-    let halted=halt_unrecorded_redeploys(c,now)?;
     let waiting=waiting_rows(c,None,None)?;
     // ponytail: re-read late proceeds for seven days after the terminal update; widen if a venue reports them later.
     // Rails has no closed_at column: updated_at records the poll that closed/cancelled the row.
     let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type IN ('LIQUIDATION','REDEPLOY') AND status=0 AND external_status IN (2,3) AND amount_exec>0 AND COALESCE(quote_amount_exec,0)=0 AND updated_at>=?1 ORDER BY id")?;
     let late=s.query_map([crate::codec::format_time(now-chrono::Duration::days(7))],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
-    Ok(Scan {waiting,late,halted})
+    Ok(Scan {waiting,late})
 }
 
 pub fn selling_request(request: &Value, now: DateTime<Utc>) -> bool {

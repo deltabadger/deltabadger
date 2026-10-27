@@ -387,18 +387,17 @@ fn split_one(tx: &Connection, ctx: &Ctx, owner: i64, source: &Source, now: DateT
     tx.execute("UPDATE transactions SET bot_id = ?1, transaction_type = 'REGULAR' WHERE bot_id = ?2", (first, from))?;
     move_memberships(tx, from, &children, now)?;
     // merge_transient_data!: the child's last row and the source's resolved sales (`.presence`), then `.compact` drops every nil.
-    let keys = ["liquidation_resolved_orders", "redeploy_resolved_orders"];
-    let resolved: Vec<Vec<i64>> = keys.iter().map(|key| match source.engine.transient.get(*key) {
+    let resolved: Vec<i64> = match source.engine.transient.get("liquidation_resolved_orders") {
         None | Some(Value::Null) => vec![],
         Some(Value::Array(items)) => items.iter().map(wizard::to_i).collect(),
         Some(other) => vec![wizard::to_i(other)],
-    }).collect();
+    };
     for child in &children {
         let last: Option<i64> = tx.query_row("SELECT MAX(id) FROM transactions WHERE bot_id = ?1", [child.id], |r| r.get(0))?;
         let text: String = tx.query_row("SELECT transient_data FROM bots WHERE id = ?1", [child.id], |r| r.get(0))?;
         let mut transient: Map<String, Value> = serde_json::from_str(&text).map_err(|e| super::data(format!("split child transient: {e}")))?;
         transient.insert("merged_history_until_id".into(), json!(last));
-        for (key, ids) in keys.iter().zip(&resolved) { transient.insert((*key).into(), if ids.is_empty() { Value::Null } else { json!(ids) }); }
+        transient.insert("liquidation_resolved_orders".into(), if resolved.is_empty() { Value::Null } else { json!(resolved) });
         transient.retain(|_, value| !value.is_null());
         tx.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (Value::Object(transient).to_string(), child.id))?;
         model::log_activity(tx, child.id, "split", model::Level::Info, json!({ "source_id": from, "source_label": source.bot.label }), now)?;

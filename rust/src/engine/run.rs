@@ -371,7 +371,6 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
             Err(err) => { super::log(&format!("[engine] reversal reserves could not be scanned: {err:?}; retried in 10 minutes")); super::reversal::Scan::default() }
         };
         let composition = super::composition::scan(&e.primary,clock.now())?;
-        for bot_id in composition.halted { e.events.send(EngineEvent::OrderUpdated { bot_id }); }
         for (bot,tx) in composition.waiting {
             if e.polls.contains_key(&tx) { continue; }
             let producer=model::load_bot(&e.primary,bot).and_then(|b|e.venue_for(&b)).map(|(_,p)|p).unwrap_or(None);
