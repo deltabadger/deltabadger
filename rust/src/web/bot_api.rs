@@ -40,11 +40,12 @@ pub struct Shown { pub data: Value, pub text: String }
 
 /// The bot writes: BotApi::Bots::UpdateSettings, Start, Stop, Archive, Unarchive and Delete.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Write { Settings, Lifecycle(Action) }
+pub enum Write { Settings, Lifecycle(Action), Liquidate }
 
 impl Write {
     pub fn tool(name: &str) -> Option<Self> {
         Some(match name {
+            "liquidate_exited_asset" => Self::Liquidate,
             "update_bot_settings" => Self::Settings, "start_bot" => Self::Lifecycle(Action::Start), "stop_bot" => Self::Lifecycle(Action::Stop),
             "archive_bot" => Self::Lifecycle(Action::Archive), "unarchive_bot" => Self::Lifecycle(Action::Unarchive),
             "delete_bot" => Self::Lifecycle(Action::Delete), _ => return None,
@@ -102,6 +103,21 @@ pub fn split(c: &Connection, app: &App, user: i64, bot_ids: Option<&Value>, keep
 pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, submitted: &ActionParams) -> Result<Outcome<Shown>, WebError> {
     let owner = super::auth::User::find(c, user)?;
     let Some(ctx) = owner.as_ref().map(|owner| service_ctx(app, owner)) else { return Ok(Outcome::Missing) };
+    if write == Write::Liquidate {
+        let res=super::bot::liquidation::request(c,&ctx,user,id,submitted.value(),false)?;
+        let dry=res.data["dry_run"]==true;
+        let prefix=if super::mcp::tools::paper_trading(c,user)? {"[DRY RUN] "}else{""};
+        let text=if res.code.is_some() {format!("{prefix}{}",res.message)}else{
+            format!("{prefix}{} {} from bot '{}' — {}",if dry {"Would sell"}else{"Selling"},res.data["symbol"].as_str().unwrap_or(""),res.data["label"].as_str().unwrap_or(""),
+                if dry {"nothing was queued."}else{"queued; check the bot's transactions for the fill."})
+        };
+        let shown=Shown {data:res.data,text};
+        return Ok(match res.code {
+            Some(code)=>Outcome::Invalid(shown,Failure {status:res.status,code,message:res.message}),
+            None if dry=>Outcome::NoChange(shown),
+            None=>Outcome::Committed(shown),
+        });
+    }
     // Bot#with_user_locale: what the owner's open pages hear is in the owner's language; the answer stays English.
     let mut heard = ctx.clone();
     heard.locale = owner.as_ref().and_then(|o| o.locale.as_deref()).and_then(super::locale::known).unwrap_or("en");
@@ -127,6 +143,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
         Write::Lifecycle(action) if signal => super::bot::signal_write::service(c, &ctx, &heard, user, id, action, submitted),
         // D-SIG-CONDITIONS / D-SIG-CAP: a signal bot's settings through its own writer, the page's.
         Write::Settings if signal => super::bot::signal_write::settings_service(c, &ctx, user, id, submitted),
+        Write::Liquidate => unreachable!("liquidation handled above"),
         Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
             let updated: Vec<&String> = draft.submitted.keys().collect();
             let text = if draft.errors.is_empty() {

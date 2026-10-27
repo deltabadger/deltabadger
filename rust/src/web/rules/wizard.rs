@@ -615,80 +615,30 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         identity.apply(&mut rule.address, &mut rule.settings, kind);
         rule.settings["address"] = json!(rule.address);
     }
-    let list = reads::listing(app, &rule, is_create).await?;
-    if let Some(identity) = &posted {
-        if !list.as_ref().is_some_and(|l| identity.listed(&rule, l)) {
-            return Ok(to(ctx, "add_address"));
-        }
-    }
-    if rule.exchange.class == "Exchanges::Mexc" {
-        if let Some(destination) = list.as_ref().and_then(|l| reads::select(&rule, l).ok()) {
-            reads::store(&mut rule.settings, &destination);
-        }
-    }
-    if posted.is_some() {
-        set(ctx, rule.settings.clone());
-    }
     if is_create {
-        let destination = list.as_ref().and_then(|l| reads::select(&rule, l).ok());
-        let Some(destination) = destination else {
-            return Ok(to(ctx, "add_address"));
+        let patch=service::Patch {
+            address:Some(rule.address.clone()),settings:rule.settings.clone(),destination:posted,
         };
-        let version = list.as_ref().expect("selected listing").version.clone();
-        let inner = app.clone();
-        let v = ctx.clone();
-        let written=app.db(move|c|{
-            let tx=crate::engine::model::immediate(c)?;
-            if !crate::engine::model::credential_is_current(&tx,&version)? { return Ok(None) }
-            let existing:Option<(i64,i64)>=tx.query_row("SELECT id,status FROM rules WHERE user_id=?1 AND type='Rules::Withdrawal' AND exchange_id=?2 AND asset_id=?3",
-                (rule.user_id,rule.exchange.id,rule.asset.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
-            if existing.is_some_and(|(_,status)|status!=3){return Ok(Some(false))}
-            let mut stored=if let Some((id,_))=existing {
-                let text:String=tx.query_row("SELECT settings FROM rules WHERE id=?1",[id],|r|r.get(0))?;
-                serde_json::from_str(&text).unwrap_or_else(|_|json!({}))
-            } else {json!({})};
-            for field in ["address_name","address_tag","network","withdrawal_percentage","threshold_type","max_fee_percentage","min_amount","max_interval"]{
-                if stored[field] != rule.settings[field] { stored[field]=rule.settings[field].clone(); }
-            }
-            if stored["max_interval"].as_str().is_some_and(ruby::blank){stored["max_interval"]=Value::Null}
-            if stored["withdrawal_percentage"].is_null()||stored["withdrawal_percentage"].as_str().is_some_and(ruby::blank){stored["withdrawal_percentage"]=json!("100")}
-            reads::store(&mut stored,&destination);
-            rule.settings=stored;
-            if let Some((id,_))=existing{rule.id=id;save(&tx,&inner,&rule,&v)?;}
-            else{
-                let at=crate::codec::format_time(v.now);
-                tx.execute("INSERT INTO rules (user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at,settings_changed_at) VALUES (?1,'Rules::Withdrawal',0,?2,?3,?4,?5,?6,?6,?6)",
-                    rusqlite::params![rule.user_id,rule.exchange.id,rule.asset.id,inner.cipher.encrypt(&rule.address),rule.settings.to_string(),at])?;
-            }
-            tx.commit()?;Ok(Some(true))
-        }).await?;
-        let Some(written) = written else {
-            return Ok(to(ctx, "add_address"));
-        };
-        if !written {
-            let conf = config(ctx);
-            let Some(rule) = temporary(app, ctx, conf).await? else {
-                return Ok(to(ctx, "pick_exchange"));
-            };
-            return alert(
-                ctx,
-                i18n::t(
-                    ctx.locale,
-                    "errors.withdrawal_rule_already_exists",
-                    &[
-                        ("asset_symbol", Arg::Text(rule.asset.symbol())),
-                        ("exchange_name", Arg::Text(&rule.exchange.name)),
-                    ],
-                ),
-                false,
-            );
+        match service::call(app,rule.user_id,service::Command::Create {exchange_id:rule.exchange.id,asset_id:rule.asset.id,patch}).await? {
+            Err(e) if e.code=="address_not_listed" || e.code=="credential_changed"=>return Ok(to(ctx,"add_address")),
+            Err(e) if e.code=="rule_exists"=>return alert(ctx,i18n::t(ctx.locale,"errors.withdrawal_rule_already_exists",
+                &[("asset_symbol",Arg::Text(rule.asset.symbol())),("exchange_name",Arg::Text(&rule.exchange.name))]),false),
+            Err(e)=>return alert(ctx,e.reason,false),
+            Ok(_)=>{}
         }
-        ctx.session.lock().withdrawal_rule_config = None;
-        return Ok(crate::web::wizard::stream(
-            StatusCode::OK,
-            turbo::redirect(&ctx.path("/rules")),
-        ));
+        ctx.session.lock().withdrawal_rule_config=None;
+        return Ok(crate::web::wizard::stream(StatusCode::OK,turbo::redirect(&ctx.path("/rules"))));
     }
+    let list=reads::listing(app,&rule,false).await?;
+    if let Some(identity)=&posted {
+        if !list.as_ref().is_some_and(|l|identity.listed(&rule,l)) {return Ok(to(ctx,"add_address"))}
+    }
+    if rule.exchange.class=="Exchanges::Mexc" {
+        if let Some(destination)=list.as_ref().and_then(|l|reads::select(&rule,l).ok()) {
+            reads::store(&mut rule.settings,&destination);
+        }
+    }
+    if posted.is_some() {set(ctx,rule.settings.clone());}
     if let Some(list) = &list {
         if !list.entries.is_empty() {
             let at_address = list

@@ -225,7 +225,24 @@ module Pages
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
-                      .merge(merge_scenarios).merge(split_scenarios)
+                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios)
+
+  # Slice 6c-3: a cached-only confirmation and the flashes from the real controllers.
+  def liquidation_scenarios
+    fill = { 'price' => '100', 'amount' => '1.234567', 'amount_exec' => '1.234567', 'quote_amount' => '123.4567', 'quote_amount_exec' => '123.4567' }
+    bot = stopped('basket', 'allocations' => { 'QQQM' => 0.5, 'NVDA' => 0.5 }, 'reweigh' => { 'QQQM' => 1.0 },
+                           'orders' => [['NVDA', '2026-09-08T13:30:01Z', fill]])
+    modal = ->(path) { get(path, TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')) }
+    {
+      'liquidation_modal_cold' => with_bots([bot], signed_in(modal.call('/bots/1/liquidation/new?symbol=NVDA&asset_id=4'))),
+      'liquidation_modal_intersect' => with_bots([bot], signed_in(modal.call('/bots/1/liquidation/new?symbol[]=NVDA&symbol[]=gone&asset_id[]=4&asset_id[]=999'))),
+      'liquidation_modal_hidden' => with_bots([bot], signed_in(modal.call('/bots/1/liquidation/new?symbol=NVDA&asset_id=4')), 'user' => owner.merge('hide_balances' => true)),
+      'liquidation_modal_de' => with_bots([bot], signed_in(modal.call('/de/bots/1/liquidation/new?symbol=NVDA&asset_id=4'))),
+      'liquidation_missing' => with_bots([bot], signed_in(modal.call('/bots/1/liquidation/new?symbol=gone'))),
+      'liquidation_clear_noop' => with_bots([bot], signed_in(get('/bots/1'), post('/bots/1/liquidation_resolutions', {'intent_id' => 'stale'}, 'csrf' => 'header', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots/1')), get('/bots/1'))),
+      'liquidation_started' => with_bots([bot], signed_in(get('/bots/1'), post('/bots/1/liquidation', {'symbol' => 'NVDA', 'asset_id' => '4'}, 'csrf' => 'header', 'headers' => TURBO, 'may_mutate' => ['bots'], 'expect' => 200))),
+    }
+  end
 
   # A Kraken bot that waits, a Binance bot at work with a fill, a failed order and one resting, and a stock basket beside them.
   def venue_bots

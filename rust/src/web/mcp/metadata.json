@@ -1470,6 +1470,33 @@
         ],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "liquidate_exited_asset",
+      "description": "Sell, at market, one holding of an index or basket bot — a current constituent or one that left the composition. Irreversible and a taxable disposal. See get_bot_details for holdings. A sale at a loss on the bot's own lots locks the asset out of buying for the bot's wash-sale window.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "The holding to sell: its key as get_bot_details lists it, its asset id, or its symbol when no other holding shares it (e.g., AAPL)"
+          }
+        },
+        "required": [
+          "bot_id",
+          "symbol"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
     }
   ],
   "tax": {

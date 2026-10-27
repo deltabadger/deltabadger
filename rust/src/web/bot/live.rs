@@ -26,7 +26,7 @@ pub(super) fn owner_ctx(app: &App, owner: User) -> Ctx {
 pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(String, String)>, WebError> {
     let bot_id = match event {
         EngineEvent::StatusChanged { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. }
-        | EngineEvent::SignalMarkerChanged { bot_id } | EngineEvent::ConditionInfo { bot_id, .. } => *bot_id,
+        | EngineEvent::SignalMarkerChanged { bot_id } | EngineEvent::Reversed { bot_id } | EngineEvent::ConditionInfo { bot_id, .. } => *bot_id,
         _ => return Ok(vec![]),
     };
     let owner: Option<i64> = OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
@@ -43,6 +43,12 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
             let mut out = action_view::bar_broadcasts(&stream, &bot, &state).to_vec();
             out.extend(action_view::button_broadcasts(&stream, &bot, &state));
             out
+        }
+        EngineEvent::Reversed { .. } => {
+            let Some(draft) = super::draft::Draft::load(c, owner.id, bot_id, ctx.locale)? else { return Ok(vec![]) };
+            let settings = super::settings::draft_column(c, &ctx, "", &draft, &owner.time_zone, owner.hide_balances)?;
+            action_view::broadcast_settings_metrics(&ctx, &bot, true);
+            vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", "settings", &settings))]
         }
         EngineEvent::TickEnded { .. } => {
             let state = state()?;

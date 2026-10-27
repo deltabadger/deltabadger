@@ -27,6 +27,8 @@ pub enum EngineEvent {
     /// after_update_commit on the status broadcasts its status and progress bars, its two Start/Stop buttons and the
     /// columns lock (app/models/bot.rb:38-40).
     StatusChanged { bot_id: i64 },
+    /// A condition flipped this basket: redraw its settings and metrics panels.
+    Reversed { bot_id: i64 },
     /// A tick of this bot ended, whatever it did: Rails broadcasts its bars from the job's rescue and from
     /// Bot::BroadcastAfterScheduledActionJob once the next tick is enqueued (app/jobs/bot/action_job.rb).
     TickEnded { bot_id: i64 },
@@ -54,12 +56,12 @@ impl EngineEvent {
     /// wants, and the bot page's own.
     pub fn is_classic(&self) -> bool {
         !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. }
-                        | Self::SignalMarkerChanged { .. } | Self::ConditionInfo { .. })
+                        | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::ConditionInfo { .. })
     }
 
     /// What the bot page hears live (web::bot::live): its status, and each order inserted or written.
     pub fn is_live(&self) -> bool {
-        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. } | Self::ConditionInfo { .. })
+        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::ConditionInfo { .. })
     }
 
     /// An order inserted or written: what the figures service hears.

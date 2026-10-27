@@ -2,5 +2,14 @@
   "app/jobs/bot/liquidate_exited_job.rb": "146d42e41d8d4674b0ffee6ecf523a9faaf08b283cf279b2f3c81f30392e6b7c",
   "app/models/bot/liquidation_state.rb": "a865f2f7e80a618a5d5ede2b711e1c2f47e22065683a0be47c57e79b97926a9e",
   "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
-  "app/models/automation/schedulable.rb": "34b176eabd069a9ed76e73cf08639429e9c8ca17e6be69bae4def1f07225e14b"
+  "app/models/automation/schedulable.rb": "34b176eabd069a9ed76e73cf08639429e9c8ca17e6be69bae4def1f07225e14b",
+  "app/controllers/bots/liquidations_controller.rb": "abf29cf4c9de33624625dd8539b2fdbb8a33f828c2646ba942508d65d0dea816",
+  "app/controllers/bots/liquidation_resolutions_controller.rb": "a0f799dc6703c17e97892300edf70b3cadb1ab4647dc7fbc5bb9982af5db737e",
+  "app/jobs/bot/resolve_liquidation_job.rb": "43c94d9ca633c6bc78920afe313f743209cc75f641aa151d1ceef4e69abb3326",
+  "app/services/bot_api/bots/liquidate_exited.rb": "8de8ad400b8dc12a040bf7520b384c0161311283c2bbeedea271c26c3bdbcfea",
+  "app/views/bots/liquidations/new.html.erb": "7487d2290b29b3b15dd654fa4fd20f818e78966e5e59aff3f49f1c401cbd79c2",
+  "app/controllers/api/v1/bots_controller.rb": "db9f5bfe003a56ef6591f2533a605c3c2bb6711f1f81f96fb256e916c286b6ab",
+  "app/controllers/concerns/idempotency.rb": "dd727f6919fd0151ae0f341afabdcbed24feaa294adc3fbdc29dea34cd1d608f",
+  "app/models/idempotency_key.rb": "03d3a61c9e02a66743b5e92985b21e69fbc548b56aebc1f3bf7c635bd9c7d753",
+  "app/mcp/tools/liquidate_exited_asset_tool.rb": "fb4c767efde73c756825091640f22df89c141084008675dc4c13c0588e350715"
 }

@@ -1288,6 +1288,31 @@ fn without_rust_tables(answer: &Value) -> Value {
     answer
 }
 
+/// D-6C-6/8: the request itself is durable engine work, instead of a Rails TTL-only spinner token.
+/// Assert that one field's complete shape before comparing every remaining row and the flash unchanged.
+fn liquidation_request_difference(name:&str,scenario:&Value,rails:&mut Value,rust:&mut Value)->Result<(),String> {
+    if name!="liquidation_started" {return Ok(())}
+    // D-6C-3: exactly the request's clock pre-check moves to the engine.
+    let sent=&rails["responses"].as_array().unwrap().last().unwrap()["venue_requests"];
+    if *sent!=json!([{"method":"GET","host":"paper-api.alpaca.markets","path":"/v2/clock","params":[]}]) || rust["responses"].as_array().unwrap().last().unwrap().get("venue_requests").is_some() {
+        return Err(format!("unexpected request-side market reads: {sent}"));
+    }
+    rails["responses"].as_array_mut().unwrap().last_mut().unwrap().as_object_mut().unwrap().shift_remove("venue_requests");
+    let at=chrono::DateTime::parse_from_rfc3339(scenario["at"].as_str().unwrap()).unwrap().timestamp();
+    for (value,is_rust) in [(rails,false),(rust,true)] {
+        let bot=&mut value["bots"][0];
+        let mut transient:Value=serde_json::from_str(bot["transient_data"].as_str().ok_or("missing transient data")?).map_err(|e|e.to_string())?;
+        let marker=transient.as_object_mut().ok_or("invalid transient data")?.shift_remove("liquidation_selling_since").ok_or("request was not persisted")?;
+        if marker["at"]!=at {return Err(format!("wrong request time: {marker}"))}
+        let token=marker["id"].as_str().ok_or("missing request token")?;
+        if is_rust {
+            if uuid::Uuid::parse_str(token).is_err() || marker.as_object().unwrap().len()!=3 || marker["holdings"]!=json!([["NVDA",4]]) {return Err(format!("invalid durable request: {marker}"))}
+        }else if token.len()!=12 || !token.bytes().all(|b|b.is_ascii_hexdigit()) || marker.as_object().unwrap().len()!=2 {return Err(format!("Rails marker changed: {marker}"))}
+        bot["transient_data"]=json!(transient.to_string());
+    }
+    Ok(())
+}
+
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     let theirs = rails["responses"].as_array()?;
     let ours = rust["responses"].as_array()?;
@@ -2002,7 +2027,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
                 }
             }
         }
-        if let Err(error)=rules_differences(&name,&scenario,&mut rails,&mut rust) {
+        if let Err(error)=liquidation_request_difference(&name,&scenario,&mut rails,&mut rust).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)) {
             failures.push(format!("{name}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
@@ -2020,10 +2045,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins')");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins')");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, and the empty bots page for a member (twice) and on the first visit");
     }
@@ -2613,22 +2638,97 @@ fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), Stri
     Ok(())
 }
 
+/// W2 changes only the explicitly named writes; assert their entire response against Rails twins.
+fn rules_service_differences(name: &str, step: &Value, a: &mut Value, b: &Value) -> Result<(),String> {
+    let refuse_start=matches!(name,"rules_tile_start_created"|"rules_tile_start_stopped"|"rules_tile_start_invalid"|"rules_tile_combined_invalid_start");
+    let refuse_update=name=="rules_tile_settings_scheduled";
+    let stop=name=="rules_tile_combined_invalid_stop";
+    if step["method"]=="PATCH" && (refuse_start||refuse_update||stop) {
+        let vectors:Value=serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+        let twin_case=if stop {"tile_stop_scheduled"} else {"tile_address_not_listed"};
+        let twin=vectors["pages"].as_array().unwrap().iter().find(|v|v["case"]==twin_case).unwrap();
+        let mut expected=twin["body"].as_str().unwrap().to_string();
+        if !stop {
+            let reason=if refuse_start {"Withdrawals are not enabled for this exchange."} else {"Stop the withdrawal rule before updating it."};
+            expected=expected.replace("That address is not on the exchange&#39;s withdrawal allowlist",reason)
+                .replace("That address is not on the exchange's withdrawal allowlist",reason);
+        }
+        if b["body"]!=json!(html::normalize(&expected)) || b["status"]!=if stop {200} else {422}
+            || b["headers"]["content-type"]!="text/vnd.turbo-stream.html; charset=utf-8" || b.get("venue_requests").is_some() {
+            return Err(format!("D-RULE-ONE-MATRIX / D-RULE-UNSUPPORTED-START: {name} must match its complete Rails stream twin without venue reads"));
+        }
+        let old_status=if name=="rules_tile_start_created" {"created"} else if refuse_update || stop {"scheduled"} else {"stopped"};
+        let mut settings=json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"});
+        if name=="rules_tile_start_invalid" {settings.as_object_mut().unwrap().remove("max_fee_percentage");}
+        let expected_row=json!({"rules":[{"id":1,"user_id":1,"type":"Rules::Withdrawal",
+            "status":if stop {2} else if old_status=="created" {0} else if old_status=="stopped" {2} else {1},
+            "exchange_id":1,"asset_id":1,"settings":settings.to_string()}],"rule_logs":[]});
+        let mut actual=b["raw_rows"].clone();
+        let actual_settings:Value=serde_json::from_str(actual["rules"][0]["settings"].as_str().unwrap()).unwrap();
+        if actual_settings!=settings {return Err(format!("D-RULE-ONE-MATRIX: {name} wrote settings"));}
+        actual["rules"][0]["settings"]=json!(settings.to_string());
+        if actual!=expected_row {return Err(format!("D-RULE-ONE-MATRIX: {name} changed rows beyond its status"));}
+        a["raw_rows"]=b["raw_rows"].clone();
+        a["status"]=json!(if stop {200} else {422});
+        a["body"]=json!(html::normalize(&expected));
+        a.as_object_mut().unwrap().remove("venue_requests");
+    }
+    if name=="rules_wizard_duplicate" && step["method"]=="POST" && step["path"]=="/rules/withdrawals/confirm_settings" {
+        let expected=json!([{"method":"POST","host":"api.gemini.com","path":"/v1/approvedAddresses/account/bitcoin","params":[]}]);
+        if a["venue_requests"]!=expected || b.get("venue_requests").is_some() {return Err("D-RULE-ONE-MATRIX: duplicate refuses before listing".into())}
+        a.as_object_mut().unwrap().remove("venue_requests");
+    }
+    if name=="rules_tile_settings_stopped" && step["method"]=="PATCH" {
+        let request=json!({"method":"POST","host":"api.gemini.com","path":"/v1/approvedAddresses/account/bitcoin","params":[]});
+        if a["venue_requests"]!=json!([request]) || b["venue_requests"]!=json!([request,request]) {
+            return Err("D-RULE-ONE-MATRIX: service rechecks the destination before the tile's display read".into());
+        }
+        a["venue_requests"]=b["venue_requests"].clone();
+    }
+    if matches!(name,"rules_wizard_gemini"|"rules_wizard_revive"|"rules_tile_settings_stopped")
+        && a["raw_rows"]["rules"].as_array().is_some_and(|r| !r.is_empty())
+        && (step["path"]=="/rules" || step["method"]=="PATCH" || step["path"]=="/rules/withdrawals/confirm_settings") {
+        let mut expected:Value=serde_json::from_str(a["raw_rows"]["rules"][0]["settings"].as_str().unwrap()).unwrap();
+        if name=="rules_tile_settings_stopped" {expected["network"]=json!("bitcoin");}
+        else if name=="rules_wizard_gemini" {expected["max_fee_percentage"]=json!("0.5");}
+        else {
+            expected["threshold_type"]=json!("fee_percentage");
+            expected["max_fee_percentage"]=json!("0.5");
+            expected["min_amount"]=json!("0.1");
+        }
+        let mut actual:Value=serde_json::from_str(b["raw_rows"]["rules"][0]["settings"].as_str().unwrap()).unwrap();
+        expected.as_object_mut().unwrap().retain(|_,v|!v.is_null());
+        actual.as_object_mut().unwrap().retain(|_,v|!v.is_null());
+        if expected!=actual {return Err(format!("D-RULE-ONE-MATRIX: {name} defaults differ: {expected} / {actual}"));}
+        a["raw_rows"]["rules"][0]["settings"]=b["raw_rows"]["rules"][0]["settings"].clone();
+    }
+    if name=="rules_wizard_revive" && step["method"]=="GET" && step["path"]=="/rules" {
+        // A revived rule now has a valid 0.5% threshold, so its existing Rails fee hint is visible.
+        let lines=b["body"].as_array().unwrap();
+        let at=lines.iter().position(|line|line.as_str().is_some_and(|s|s.trim()=="<div class=\"small-info\">"))
+            .ok_or("D-RULE-ONE-MATRIX: revived threshold has no fee hint")?;
+        let end=subtree_end(lines,at);
+        let expected=html::normalize("<div class=\"small-info\">\nThe current fee is 0.0001 BTC, so the withdrawal will be triggered at <b>0.02 BTC</b>.\n</div>");
+        let actual=lines[at..end].iter().map(|v|v.as_str().unwrap().trim_start()).collect::<Vec<_>>();
+        let expected:Vec<Value>=expected.into_iter().map(Value::String).collect();
+        let expected_at=expected.iter().position(|v|v.as_str().unwrap().trim()=="<div class=\"small-info\">").unwrap();
+        let expected_end=subtree_end(&expected,expected_at);
+        let expected=expected[expected_at..expected_end].iter().map(|v|v.as_str().unwrap().trim_start()).collect::<Vec<_>>();
+        if actual!=expected || !is_space(&lines[end]) {
+            return Err(format!("D-RULE-ONE-MATRIX: revived fee hint must state exactly the validated 0.5% threshold: {actual:?} / {expected:?}"));
+        }
+        a["body"].as_array_mut().unwrap().splice(at..at,lines[at..=end].iter().cloned());
+    }
+
+    Ok(())
+}
+
 fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
     if !name.starts_with("rules_") { return Ok(()) }
     for ((a,b),step) in rails["responses"].as_array_mut().unwrap().iter_mut()
         .zip(rust["responses"].as_array_mut().unwrap()).zip(scenario["steps"].as_array().unwrap()) {
+        rules_service_differences(name, step, a, b)?;
         rules_listed_entry_picker(&mut a["body"], &b["body"])?;
-        // A disabled destination placeholder is absent from form data. Recheck the stored
-        // selection before a stopped rule starts, including a start submitted with settings.
-        if matches!(name, "rules_tile_start_stopped" | "rules_tile_combined_invalid_start")
-            && step["method"] == "PATCH" && step["path"] == "/rules/withdrawals/1" {
-            let expected = json!([{"method":"GET","host":"api.binance.com",
-                "path":"/sapi/v1/capital/withdraw/address/list","params":[["recvWindow","5000"]]}]);
-            if a.get("venue_requests").is_some() || b.get("venue_requests") != Some(&expected) {
-                return Err("D-RULE-LISTED-ENTRY: expected exactly one destination recheck before starting a stopped rule".into());
-            }
-            a["venue_requests"] = expected;
-        }
         if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
             let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {
                 let text=l.as_str()?;
