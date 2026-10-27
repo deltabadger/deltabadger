@@ -1,0 +1,8 @@
+{
+  "app/jobs/bot/redeploy_job.rb": "8e4dda76e950fa75eb37edda6c70980eeea77c12a890ea83d470731a0a188857",
+  "app/jobs/bot/decline_redeploy_job.rb": "ec22cae4425eb612f1c284c53042287b7ffe008a95aa28a593e27761cc6baa65",
+  "app/jobs/bot/resolve_redeploy_job.rb": "a2a8e28054b0f994a8eef49c9bc35c5742f895ed71b2a794e338c0f0a94cab56",
+  "app/models/bot/composition/redeployable.rb": "3b2d9bd6f00f991a437dcdf3a13e2532a9164ff2f4934dad5ae0e280a01b49e6",
+  "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
+  "app/models/bot/order_setter.rb": "8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff"
+}

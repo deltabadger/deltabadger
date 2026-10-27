@@ -387,7 +387,7 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
                     e.events.send(EngineEvent::OrderWritten {bot_id:bot,transaction_id:tx});
                 }
                 Err(err @ (EngineError::Lease(_) | EngineError::Store(_)))=>return Err(err),
-                Err(err)=>super::log(&format!("[engine] liquidation late proceeds bot={bot} transaction={tx}: {err:?}")),
+                Err(err)=>super::log(&format!("[engine] late proceeds bot={bot} transaction={tx}: {err:?}")),
             }
         }
         for bot_id in scan.status_changed { e.events.send(EngineEvent::StatusChanged { bot_id }); }
@@ -648,6 +648,8 @@ async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(
 async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) {
     let now_us = clock.now().timestamp_micros();
     let entries:Vec<_>=e.polls.iter().map(|(tx,state)|(*tx,state.clone())).collect();
+    // D-6C-5: the pass's abandoned composition rows halt together, every base named.
+    let mut watched=vec![];
     for (tx,state) in entries {
         if e.stopping() { break; }
         let (id,at,mut attempts)=state.value;
@@ -662,7 +664,7 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         let status_of = |c: &Connection| c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get::<_, i64>(0)).optional();
         let status_before = status_of(&e.primary);
         let mut announce_retry=true;
-        let watched=super::composition::waiting_liquidations(&e.primary,Some(id)).unwrap_or_default().into_iter().filter(|(_,row)|*row==tx).collect::<Vec<_>>();
+        watched.extend(super::composition::waiting_rows(&e.primary,Some(id),None).unwrap_or_default().into_iter().filter(|(_,row)|*row==tx));
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(polling::FollowUp::Done) => None,
             // A Merge or Split moved the row while this poll ran: nothing was written; it is polled again at once, under its owner.
@@ -684,9 +686,6 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
             Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }
         };
-        if let Err(err)=super::composition::halt_abandoned(&e.primary,&watched,clock.now()) {
-            super::log(&format!("[engine] liquidation abandoned halt bot={id}: {err:?}"));
-        }
         // Whatever the poll wrote, on success or on error, the bot is announced; nothing is read to decide.
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
@@ -696,6 +695,10 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             if announce_retry {super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));}
             e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts),producer));
         }
+    }
+    match super::composition::halt_abandoned(&e.primary,&watched,clock.now()) {
+        Ok(()) => { let mut bots:Vec<i64>=watched.iter().map(|(bot,_)|*bot).collect(); bots.dedup(); for bot_id in bots { e.events.send(EngineEvent::OrderUpdated { bot_id }); } }
+        Err(err) => super::log(&format!("[engine] abandoned composition order halt: {err:?}")),
     }
     for state in e.polls.values() { *wake = (*wake).min(state.value.1); }
 }
@@ -1021,22 +1024,33 @@ pub async fn reconcile_idle_intents<F: VenueFactory>(e: &mut Engine<F>, clock: &
 /// A one-shot request is taken under the claim's lock. A surviving taken request belongs to a
 /// previous process: discard it, leaving any durable placement to the normal recovery loop.
 pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(),EngineError> {
-    use super::liquidation::{self,REQUEST_KEY};
-    let mut s=e.primary.prepare("SELECT id FROM bots WHERE json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL ORDER BY id")?;
+    for kind in [super::amount::TxKind::Liquidation, super::amount::TxKind::Redeploy] { run_command(e, clock, kind).await?; }
+    Ok(())
+}
+
+async fn run_command<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, kind: super::amount::TxKind) -> Result<(),EngineError> {
+    use super::{liquidation, redeploy};
+    let liquidating = kind == super::amount::TxKind::Liquidation;
+    let (key, select) = if liquidating { (liquidation::REQUEST_KEY, "json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL") }
+        else { (redeploy::REQUEST_KEY, "json_type(transient_data,'$.rust_redeploy_request')='object'") };
+    let name = super::composition::name(kind).expect("composition kind");
+    let refuse = |c: &Connection, id: i64, reason: serde_json::Value| if liquidating { liquidation::refuse(c,id,reason,clock) } else { redeploy::refuse(c,id,reason,clock) };
+    let clear = |c: &Connection, id: i64, request: &serde_json::Value| if liquidating { liquidation::clear(c,id,request) } else { redeploy::clear(c,id,request) };
+    let mut s=e.primary.prepare(&format!("SELECT id FROM bots WHERE {select} ORDER BY id"))?;
     let ids=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
     drop(s);
     for id in ids {
         if e.stopping() { break; }
         let request=model::locked(&e.primary,|c|{
             let bot=model::load_bot(c,id)?;
-            let mut request=bot.transient[REQUEST_KEY].clone();
-            if request.get("holdings").is_none() {return Ok(None);}
+            let mut request=bot.transient[key].clone();
+            if !request.is_object() || (liquidating && request.get("holdings").is_none()) {return Ok(None);}
             if request.get("taken_at").is_some() {
-                liquidation::clear(c,id,&request)?;
+                clear(c,id,&request)?;
                 return Ok(None);
             }
             request["taken_at"]=serde_json::json!(clock.now().timestamp());
-            model::merge_transient_compact(c,id,&[(REQUEST_KEY,request.clone())])?;
+            model::merge_transient_compact(c,id,&[(key,request.clone())])?;
             Ok(Some(request))
         })?;
         let Some(request)=request else {
@@ -1052,17 +1066,17 @@ pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock)
             let bot=model::load_bot(&e.primary,id)?;
             // These refusals must land even when credentials cannot construct a venue.
             if matches!(bot.status,crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) {
-                return liquidation::refuse(&e.primary,id,serde_json::json!("archived"),clock);
+                return refuse(&e.primary,id,serde_json::json!("archived"));
             }
             if model::key_pending(&e.primary,&bot)? {
-                return liquidation::refuse(&e.primary,id,serde_json::json!("api_key_pending"),clock);
+                return refuse(&e.primary,id,serde_json::json!("api_key_pending"));
             }
             let (venue,version)=e.venue_for(&bot)?;
             producer=version.clone();
             let stop=e.stop.clone();
             let stopping=move || stop.load(Ordering::SeqCst);
             let cx=TickContext {credential_version:version,prices:&e.prices,process_start:e.process_start.unwrap_or(clock.now()),stopping:&stopping,below_minimum:&|_,_|{},claimed:&|_|{}};
-            let result=liquidation::run(&e.primary,&venue,id,&request["holdings"],clock,&cx).await;
+            let result=if liquidating { liquidation::run(&e.primary,&venue,id,&request["holdings"],clock,&cx).await } else { redeploy::run(&e.primary,&venue,id,clock,&cx).await };
             after_tick(e,id,&start,last_tx,None,clock,&producer)?;
             result
         }.await;
@@ -1074,14 +1088,14 @@ pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock)
         // Announce a committed stop before cleanup or error reporting can fail.
         if let (Ok(before), Ok(after)) = (status_before, status_of(&e.primary)) { if before != after { e.events.send(EngineEvent::StatusChanged { bot_id: id }); } }
         // Compare-clear precedes propagation, including SQL, credential, and lease failures.
-        liquidation::clear(&e.primary,id,&request)?;
-        // D-6C-6: after_tick ran before compare-clear; redraw after it so Selling ends with this request.
+        clear(&e.primary,id,&request)?;
+        // D-6C-6: after_tick ran before compare-clear; redraw after it so the status bar ends with this request.
         e.events.send(EngineEvent::TickEnded {bot_id:id});
         e.events.send(EngineEvent::OrderUpdated {bot_id:id});
         if let Err(err)=outcome {
-            model::log_activity(&e.primary,id,"liquidation_failed",model::Level::Error,serde_json::json!({"reason":format!("{err:?}")}),clock.now())?;
+            model::log_activity(&e.primary,id,&format!("{name}_failed"),model::Level::Error,serde_json::json!({"reason":format!("{err:?}")}),clock.now())?;
             if matches!(err,EngineError::Lease(_) | EngineError::Store(_)) {return Err(err);}
-            super::log(&format!("[engine] liquidation bot={id}: {err:?}"));
+            super::log(&format!("[engine] {name} bot={id}: {err:?}"));
         }
     }
     Ok(())

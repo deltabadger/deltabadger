@@ -22,6 +22,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-condition-info <root> # the price rule's status line, every venue (slice 7s)
 #   bin/rails runner script/rust/decisions.rb grid-conditions-degenerate <root> # RSI/SMA on degenerate closes, Alpaca's ATH pages (7b-0, Rails only)
 #   bin/rails runner script/rust/decisions.rb grid-signal <root>  # Bot::SignalJob, one webhook call of a signal bot, on every configured venue (slice 8a)
+#   bin/rails runner script/rust/decisions.rb grid-redeploy <root> # Yes to a liquidation's proceeds on every trading venue (slice 6c-4)
 #   bin/rails runner script/rust/decisions.rb grid-wash-sale <root> # the wash-sale rule on: buy locks, sale claims, fills, rebalance, signal (PLAN-wash-sale WS-3)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
@@ -1613,6 +1614,68 @@ module Decisions
     raise 'liquidation grid exceeds its bound' if list.size > 2500
 
     list
+  end
+
+  # Slice 6c-4: the user's Yes to a liquidation's proceeds on every trading venue, on a basket and an index: a one-member
+  # basket holding 0.005 BTC after a LIQUIDATION banked 320.
+  REDEPLOY_STATES = %w[accepted declined offset_above below_minimum halted placing rebalance_pending liquidation_pending selling timeout pre_send].freeze
+  def redeploy_scenarios
+    list = (%w[alpaca kraken] + VENUES.keys).uniq.flat_map do |venue|
+      kit = limit_sell_kit(venue)
+      http = kit['buy_http']
+      %w[basket index].flat_map do |kind|
+        (kind == 'index' ? %w[accepted] : REDEPLOY_STATES).map do |state|
+          rows = [limit_row('HELD', 2, side: 0, amount: '0.01', amount_exec: '0.01', quote_amount: '640', quote_amount_exec: '640', price: '64000'),
+                  limit_row('SOLD', 2, side: 1, amount: '0.005', amount_exec: '0.005', quote_amount: '320', quote_amount_exec: '320', price: '64000',
+                            created_at: '2026-09-01 10:00:02').merge('transaction_type' => 'LIQUIDATION')]
+          transient = case state
+                      when 'rebalance_pending' then { 'rebalance_pending' => { 'phase' => 'selling', 'sell_transaction_id' => nil } }
+                      when 'liquidation_pending' then { 'liquidation_pending' => { 'id' => 'prior-sale', 'symbol' => 'BTC', 'state' => 'ambiguous' } }
+                      when 'halted', 'placing' then { 'redeploy_pending' => { 'id' => 'prior-intent', 'state' => state == 'placing' ? 'placing' : 'ambiguous' } }
+                      else {}
+                      end
+          script = http
+          if %w[timeout pre_send].include?(state)
+            add = case venue
+                  when 'alpaca' then 'POST /v2/orders'
+                  when 'kraken' then '/0/private/AddOrder'
+                  else VENUES.fetch(venue).scripted.order
+                  end
+            failure = if state == 'timeout' then POST_SEND
+                      elsif venue == 'alpaca' then PRE_SEND
+                      elsif venue == 'kraken' then KRAKEN_NOT_SENT
+                      else VENUES.fetch(venue).not_sent
+                      end
+            script = script.merge(add => [failure])
+          end
+          key = kit['key']
+          if venue == 'kraken' && %w[timeout pre_send].include?(state)
+            key = 'kraken_http'
+            script = script.to_h { |path, replies| ["#{path.start_with?('/0/public/') ? 'GET' : 'POST'} #{path}",
+                                                   replies.map { |reply| reply.key?('network') ? reply : ok(reply) }] }
+          end
+          { 'name' => "redeploy-#{venue}-#{kind}-#{state}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0,
+            'started_at' => BASKET_STARTED, 'settings' => kit.fetch('settings', {}).merge(state == 'selling' ? { 'direction' => 'selling' } : {}),
+            'transient' => transient, 'transactions' => rows, 'ticker' => kit['ticker'], 'at' => basket_at(1),
+            'script' => { key => script }, 'tick' => false, 'bot_columns' => { 'status' => Bot.statuses[:stopped] },
+            'redeploy' => { 'kind' => kind, 'state' => state } }
+        end
+      end
+    end
+    raise 'redeploy grid exceeds its bound' if list.size > 2500
+
+    list
+  end
+
+  def prepare_redeploy(bot, sc)
+    spec = sc.fetch('redeploy')
+    prepare_liquidation(bot, sc.merge('liquidation' => { 'kind' => spec['kind'], 'state' => 'accepted' })) if spec['kind'] == 'index'
+    case spec['state']
+    when 'declined' then bot.update_columns(redeploy_declined_offset: 320)
+    when 'offset_above' then bot.update_columns(redeploy_declined_offset: 1000)
+    when 'below_minimum' then bot.tickers.update_all(minimum_base_size: 1000)
+    end
+    { 'at' => sc['at'] }
   end
 
   def prepare_liquidation(bot, sc)
@@ -4976,11 +5039,12 @@ module Decisions
             else sc['asset'] == 'stock' ? build_stock(dir, sc) : build(dir, sc)
             end
       liquidation = prepare_liquidation(bot, sc) if sc['liquidation']
+      redeploy = prepare_redeploy(bot, sc) if sc['redeploy']
       apply_wash(bot, sc['wash']) if sc['wash']
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) || sc['reverse'] || sc['liquidation'] ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
-                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'], 'liquidation' => liquidation,
+                 JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) || sc['reverse'] || sc['liquidation'] || sc['redeploy'] ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
+                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'], 'liquidation' => liquidation, 'redeploy' => redeploy,
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
                                         'conditions' => sc['conditions'], 'info' => sc['info'], 'check_job' => sc['check_job'], 'info_job' => sc['info_job'],
                                         'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'], 'reverse' => sc['reverse'],
@@ -5226,6 +5290,14 @@ module Decisions
         end
         settle.(Time.iso8601(command['at']))
       end
+      if sc['redeploy']
+        command = sc['redeploy']
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        travel_to(Time.iso8601(command['at']), with_usec: true) do
+          Bot::RedeployJob.perform_now(Bot.find(sc['bot_id']))
+        end
+        settle.(Time.iso8601(command['at']))
+      end
       mails.concat(enqueued_mails)
       sent = if alpaca then ScriptedAlpaca.sent elsif honeymaker then honeymaker.scripted.sent
              elsif ScriptedKrakenHttp.http then ScriptedKrakenHttp.sent else ScriptedKraken.sent end
@@ -5275,7 +5347,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-conditions-flips <root> | grid-basket-sell <root> | grid-liquidation <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-conditions-flips <root> | grid-basket-sell <root> | grid-liquidation <root> | grid-redeploy <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -5303,6 +5375,7 @@ when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
 when 'grid-liquidation' then Decisions.grid(root, Decisions.liquidation_scenarios)
+when 'grid-redeploy' then Decisions.grid(root, Decisions.redeploy_scenarios)
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
 when 'grid-conditions-flips' then Decisions.grid(root, Decisions.flip_condition_scenarios)

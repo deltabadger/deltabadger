@@ -189,7 +189,7 @@ async fn idle_scan_promotes_stopped_rails_markers_without_an_intent() {
     let o=store::open(&paths).unwrap();
     let t=script(json!({}));
     let mut engine=deltabadger::engine::run::Engine::new(o.primary,Factory(t.clone()),seed::cipher(),lock);
-    assert!(!deltabadger::engine::eligibility::check_install(&engine.primary).unwrap().problems.is_empty(), "6c-1 remains dark");
+    assert!(deltabadger::engine::eligibility::check_install(&engine.primary).unwrap().problems.is_empty(), "both markers are admitted since 6c-4");
     let mut wake=i64::MAX;
     deltabadger::engine::run::reconcile_idle_intents(&mut engine,&FixedClock(now()),&mut wake).await.unwrap();
     let bot=model::load_bot(&engine.primary,id).unwrap();

@@ -21,7 +21,6 @@ use askama::Template;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
-use std::collections::HashSet;
 
 /// `Array(params[:ids]).map(&:to_i).uniq` (request order) and `Array(params[:keep_ids]).map(&:to_i)`.
 pub fn params(value: &Value) -> (Vec<i64>, Vec<i64>) {
@@ -170,16 +169,11 @@ impl Split {
         Ok(None)
     }
 
-    /// Bot::Split#offers: each bot's `redeploy_offer` on its fresh books. A bot this build cannot size an offer for is not
-    /// served (Err), never offered a guessed zero.
+    /// Bot::Split#offers: each bot's `redeploy_offer` on its fresh books (D-6C-9: Rails' clamp and minimum fallback).
     fn offers(&mut self, c: &Connection) -> Result<Result<(), &'static str>, WebError> {
         for source in &mut self.bots {
             let (subject, books) = source.books.as_ref().ok_or_else(|| super::data("offers before the books".into()))?;
-            let members: HashSet<i64> = source.bot.memberships.iter().filter(|m| m.in_index).map(|m| m.asset.id).collect();
-            match figure::redeploy_offer(c, subject, books, &members).map_err(merge::fig)? {
-                Some(offer) => source.offer = Some(offer),
-                None => return Ok(Err("a redeploy offer this build cannot size")),
-            }
+            source.offer = Some(crate::engine::redeploy::offer(c, subject, books).map_err(merge::fig)?);
         }
         Ok(Ok(()))
     }

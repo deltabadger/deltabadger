@@ -605,6 +605,10 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         let when=command["at"].as_str().and_then(|s|s.parse().ok()).ok_or_else(||EngineError::Data("liquidation time".into()))?;
         crate::engine::liquidation::run(&o.primary,venue,bot_id,&command["holdings"],&FixedClock(when),&cx).await?;
     }
+    if let Some(command)=scenario.get("redeploy") {
+        let when=command["at"].as_str().and_then(|s|s.parse().ok()).ok_or_else(||EngineError::Data("redeploy time".into()))?;
+        crate::engine::redeploy::run(&o.primary,venue,bot_id,&FixedClock(when),&cx).await?;
+    }
     let mut extra = serde_json::Map::new();
     if listing { extra.insert("checks".into(), json!(checks)); }
     if scenario["info"].is_array() { extra.insert("infos".into(), Value::Array(infos)); }

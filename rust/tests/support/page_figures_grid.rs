@@ -971,7 +971,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let page=browser.get(&app,&format!("/bots/{id}")).await;
             assert_eq!(page.status,200,"{name}: {}",page.body);
             let selector=scraper::Selector::parse("#metrics").unwrap();
-            let got=scraper::Html::parse_document(&page.body).select(&selector).next().unwrap().html().replacen("<p role=\"status\">Redeploy unavailable</p>\n","",1);
+            let got=scraper::Html::parse_document(&page.body).select(&selector).next().unwrap().html();
             let want=scraper::Html::parse_fragment(expected["bots"][&id]["metrics"].as_str().unwrap());
             let want=want.select(&selector).next().unwrap().html();
             assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"{name}: GET /bots/{id}");
@@ -998,7 +998,6 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 }).unwrap_or_else(||panic!("{name}: no Rails broadcast to {stream} {target}"));
                 if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { continue; }
                 if SELL_ONLY_PAIRS.contains(&name) && target == "metrics" { assert_eq!(sell_only_table(&payload), sell_only_table(wanted[1].as_str().unwrap()), "{name} broadcast metrics"); continue; }
-                let payload=payload.replace("<p role=\"status\">Redeploy unavailable</p>\n","");
                 assert_eq!(common::html::normalize(&payload),common::html::normalize(wanted[1].as_str().unwrap()),"{name} broadcast {stream} {target}");
             }
         }
@@ -1017,7 +1016,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     match part { "metrics" => assert!(got.contains("no-value"), "{name} {part}"), "chart" => assert_eq!(got, "<div id=\"chart\" hidden=\"hidden\">\n</div>\n", "{name} chart"), _ => no_widget(got, Some("pnl_bots_")) }
                     continue;
                 }
-                let mut got = got.as_str().unwrap().to_string();
+                let got = got.as_str().unwrap().to_string();
                 if SELL_ONLY_PAIRS.contains(&name) && part == "metrics" {
                     // D4 (3.0, Rust only): a pair that only sells states what it sold and what that brought in, where Rails states an
                     // investment; its row, chart, tile and totals are Rails'.
@@ -1026,11 +1025,9 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     assert_eq!(sell_only_table(&got), sell_only_table(parts[part].as_str().unwrap()), "{name} bot {id} metrics");
                     continue;
                 }
-                if ["stranded_offset", "liquidations", "index_specials"].contains(&name) && part == "metrics" {
-                    let refusal = "<p role=\"status\">Redeploy unavailable</p>\n";
-                    assert!(got.contains(refusal));
+                if name == "stranded_offset" && part == "metrics" {
+                    // D-6C-9: Rails' clamp to zero, and a read never rewrites the saved decline.
                     assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a Rails read keeps the saved decline");
-                    got = got.replacen(refusal, "", 1);
                 }
                 assert_eq!(common::html::normalize(&got), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");
             }

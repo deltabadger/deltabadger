@@ -87,4 +87,5 @@ pub mod candles;
 
 pub mod composition;
 pub mod liquidation;
+pub mod redeploy;
 pub mod technical;

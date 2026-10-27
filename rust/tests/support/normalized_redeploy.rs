@@ -1,5 +1,5 @@
 use super::*;
-    fn offer(redeploy:bool)->Option<Dec>{
+    fn offer(redeploy:bool)->Dec{
         let c=Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE bots(id INTEGER,redeploy_declined_offset DECIMAL); INSERT INTO bots VALUES(1,0);
             CREATE TABLE tickers(id INTEGER,minimum_quote_size DECIMAL); INSERT INTO tickers VALUES(1,1);
@@ -11,12 +11,12 @@ use super::*;
         let s=Subject{bot:db::Bot{id:1,user_id:1,exchange_id:Some(1),kind:db::Kind::Basket,exchange_type:Some("Exchanges::Alpaca".into()),quote_asset_id:Some(1),base_asset_ids:vec![2]},orders:db::orders(&c,1).unwrap(),tickers:vec![],quote:Some("USD".into())};
         let mut m=Metrics::empty();
         m.walked=Some(crate::figures::walk::Walked{shadowed_by:vec![],external_sales:false,restated_at:None,restated_before_external_sales:false,realised_cash:Num::Int(if redeploy{60}else{110}),asset_lots:vec![],tax_pnl_by_transaction:vec![],loss_lot_by_transaction:vec![]});
-        let offer=redeploy_offer(&c,&s,&m,&HashSet::new()).unwrap();
+        let offer=crate::engine::redeploy::offer(&c,&s,&m).unwrap();
         assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE quote_amount_exec IS NULL",[],|r|r.get::<_,i64>(0)).unwrap(),1,"normalization does not write stored columns");
         offer
     }
     #[test]
     // RULING-B2B-1 MQ6: an unpriced liquidation banks nothing (Redeployable#redeploy_banked sums reported proceeds).
-    fn redeploy_banks_only_reported_liquidation_proceeds(){assert_eq!(offer(false),Some(Dec::zero()));}
+    fn redeploy_banks_only_reported_liquidation_proceeds(){assert_eq!(offer(false),Dec::zero());}
     #[test]
-    fn redeploy_uses_normalized_spend_at_effective_quantity(){assert_eq!(offer(true),Some(Dec::from_i64(60)));}
+    fn redeploy_uses_normalized_spend_at_effective_quantity(){assert_eq!(offer(true),Dec::from_i64(60));}

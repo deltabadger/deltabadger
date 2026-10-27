@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 
 mod holdings;
-pub(crate) use holdings::{redeploy_offer,liquidation_table};
+pub(crate) use holdings::liquidation_table;
 pub use plot::NOT_CHARTED;
 mod plot;
 mod headline;

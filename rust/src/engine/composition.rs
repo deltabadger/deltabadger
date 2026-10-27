@@ -1,4 +1,4 @@
-//! Shared composition-operation state and periodic liquidation settlement.
+//! Shared composition-operation state and periodic settlement of liquidation and redeploy rows.
 use super::{model::{self, Bot, Level}, amount::TxKind, EngineError};
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
@@ -96,32 +96,50 @@ pub(crate) fn promote_orphan(c: &Connection, bot_id: i64, kind: TxKind, now: Dat
 }
 
 
-/// The watched ids belong to this sweep; a terminal row is not announced twice.
-pub(crate) fn waiting_liquidations(c: &Connection, bot: Option<i64>) -> Result<Vec<(i64,i64)>, EngineError> {
-    let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type='LIQUIDATION' AND status=0 AND external_status IN (0,1) AND (?1 IS NULL OR bot_id=?1) ORDER BY id")?;
-    let rows=s.query_map([bot],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
+/// The watched ids belong to this sweep; a terminal row is not announced twice. `kind` None: both kinds.
+pub(crate) fn waiting_rows(c: &Connection, bot: Option<i64>, kind: Option<TxKind>) -> Result<Vec<(i64,i64)>, EngineError> {
+    let kind=kind.map(TxKind::as_str);
+    let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type IN ('LIQUIDATION','REDEPLOY') AND (?2 IS NULL OR transaction_type=?2) AND status=0 AND external_status IN (0,1) AND (?1 IS NULL OR bot_id=?1) ORDER BY id")?;
+    let rows=s.query_map(rusqlite::params![bot,kind],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
     Ok(rows)
 }
+/// Rows of `watched` the venue stopped reporting. A liquidation's unresolved row is its own halt; a redeploy's raises
+/// `redeploy_pending` (Redeployable#halt_abandoned_redeploys!) unless one stands. D-6C-5: every abandoned base is named.
 pub(crate) fn halt_abandoned(c: &Connection, watched: &[(i64,i64)], now: DateTime<Utc>) -> Result<(), EngineError> {
-    let mut bots: std::collections::BTreeMap<i64,Vec<String>>=Default::default();
-    for (bot,id) in watched {
+    let mut bots: std::collections::BTreeMap<(i64,String),Vec<String>>=Default::default();
+    let mut watched=watched.to_vec();
+    watched.sort_unstable();
+    for (bot,id) in &watched {
         use rusqlite::OptionalExtension;
-        let base:Option<String>=c.query_row("SELECT base FROM transactions WHERE id=?1 AND bot_id=?2 AND external_status=4",(*id,*bot),|r|r.get(0)).optional()?.flatten();
-        if let Some(base)=base {
-            let names=bots.entry(*bot).or_default();
-            if !names.contains(&base) { names.push(base); }
+        let row:Option<(Option<String>,String)>=c.query_row("SELECT base,transaction_type FROM transactions WHERE id=?1 AND bot_id=?2 AND external_status=4",(*id,*bot),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+        if let Some((base,kind))=row {
+            let names=bots.entry((*bot,kind)).or_default();
+            if let Some(base)=base { if !names.contains(&base) { names.push(base); } }
         }
     }
-    for (bot,names) in bots { model::log_activity(c,bot,"liquidation_ambiguous",Level::Error,json!({"base":names.join(", "),"reason":"exchange stopped reporting the order"}),now)?; }
+    for ((bot,kind),names) in bots {
+        let details=json!({"base":names.join(", "),"reason":"exchange stopped reporting the order"});
+        if kind=="REDEPLOY" {
+            model::locked(c,|c| {
+                if present(&model::load_bot(c,bot)?,"redeploy_pending") { return Ok(()); }
+                let nonce=uuid::Uuid::new_v4().simple().to_string()[..12].to_string();
+                model::merge_transient_compact(c,bot,&[("redeploy_pending",json!({"id":nonce,"state":"ambiguous"}))])?;
+                model::log_activity(c,bot,"redeploy_ambiguous",Level::Error,details,now)
+            })?;
+        } else {
+            model::log_activity(c,bot,"liquidation_ambiguous",Level::Error,details,now)?;
+        }
+    }
     Ok(())
 }
 #[derive(Default)]
 pub(crate) struct Scan { pub waiting: Vec<(i64,i64)>, pub late: Vec<(i64,i64)> }
+/// T2b: every waiting LIQUIDATION/REDEPLOY row to re-poll, and every terminal one still owing its proceeds.
 pub(crate) fn scan(c: &Connection, now: DateTime<Utc>) -> Result<Scan,EngineError> {
-    let waiting=waiting_liquidations(c,None)?;
+    let waiting=waiting_rows(c,None,None)?;
     // ponytail: re-read late proceeds for seven days after the terminal update; widen if a venue reports them later.
     // Rails has no closed_at column: updated_at records the poll that closed/cancelled the row.
-    let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type='LIQUIDATION' AND status=0 AND external_status IN (2,3) AND amount_exec>0 AND COALESCE(quote_amount_exec,0)=0 AND updated_at>=?1 ORDER BY id")?;
+    let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type IN ('LIQUIDATION','REDEPLOY') AND status=0 AND external_status IN (2,3) AND amount_exec>0 AND COALESCE(quote_amount_exec,0)=0 AND updated_at>=?1 ORDER BY id")?;
     let late=s.query_map([crate::codec::format_time(now-chrono::Duration::days(7))],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
     Ok(Scan {waiting,late})
 }

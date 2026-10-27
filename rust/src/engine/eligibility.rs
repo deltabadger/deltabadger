@@ -33,12 +33,12 @@ pub fn allocations_balanced(bot: &Bot) -> bool {
     (crate::ruby::float_sum(&weights) - 1.0).abs() <= ALLOCATION_TOLERANCE
 }
 
-/// bot_reasons, less UNBALANCED: rebalances and liquidations do not require weights summing to 100 %.
+/// bot_reasons, less UNBALANCED: rebalances, liquidations and redeploys do not require weights summing to 100 %.
 pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     Ok(bot_reasons(c, bot)?.into_iter().filter(|r| !r.starts_with(UNBALANCED)).collect())
 }
-/// Unported operations still refuse admission. Liquidation states are admitted and stand trading down inside the engine.
-const PENDING_KEYS: [&str; 2] = ["rebalance_pending", "redeploy_pending"];
+/// Unported operations still refuse admission. Liquidation and redeploy states are admitted and stand trading down inside the engine.
+const PENDING_KEYS: [&str; 1] = ["rebalance_pending"];
 
 const UNKNOWN_STATUS: &str = "row(s) with a status Rails never writes";
 
@@ -78,18 +78,16 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
         if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(format!("{e:?}")); }
     }
     let non_regular: i64 = c.query_row(
-        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'LIQUIDATION') AND NOT (?2 AND transaction_type = 'REBALANCE') \
+        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'LIQUIDATION', 'REDEPLOY') AND NOT (?2 AND transaction_type = 'REBALANCE') \
          AND status = 0 AND external_status IN (0, 1)",
         params![bot.id, rebalances], |r| r.get(0))?;
     if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
-    // An abandoned REDEPLOY (RULING-B2B-1 MQ1) or REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades
-    // on: its spent counts 0, so a Yes could buy the proceeds twice, and a rebalance's flight cash may already be the asset.
-    // Rails has no way to account for either, so the refusal stands until the row itself is settled.
-    for (kind, label) in [("REDEPLOY", "unresolved abandoned REDEPLOY"), ("REBALANCE", "abandoned REBALANCE")] {
-        let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = ?2 AND external_status = 4",
-                                 params![bot.id, kind], |r| r.get(0))?;
-        if n > 0 { r.push(format!("{n} {label} order(s) (fill unknown)")); }
-    }
+    // An abandoned REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades on: the flight cash may already be
+    // the asset, and Rails cannot account for it, so the refusal stands until the row itself is settled. An abandoned REDEPLOY
+    // is admitted since 6c-4: its spend counts what it asked for, and the engine halts on it.
+    let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REBALANCE' AND external_status = 4",
+                             [bot.id], |r| r.get(0))?;
+    if n > 0 { r.push(format!("{n} abandoned REBALANCE order(s) (fill unknown)")); }
     Ok(r)
 }
 
@@ -402,8 +400,8 @@ fn composition_reasons(bot: &Bot, r: &mut Vec<String>) -> Vec<i64> {
     ids
 }
 
-/// The normalized walk covers REGULAR buys/sells, merged rows and composition bots' REBALANCE/LIQUIDATION rows.
-/// REDEPLOY retains its existing Alpaca index admission (B2b). Stock split matching and trust checks remain in engine::splits.
+/// The normalized walk covers REGULAR buys/sells, merged rows and composition bots' REBALANCE/LIQUIDATION/REDEPLOY rows.
+/// Stock split matching and trust checks remain in engine::splits.
 fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
     crate::figures::fill::validate_row_times(c,bot.id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
     order_kind_reasons(c, bot, r)?;
@@ -445,17 +443,9 @@ fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<
     Ok(())
 }
 
-/// Liquidation and rebalance history is read on every composition bot. Redeploy admission remains
-/// limited to the existing Alpaca index reader until its engine slice lands.
+/// Rebalance, liquidation and redeploy history is read on every composition bot (6b, 6c-2, 6c-4); the walk books them.
 fn special_row_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
-    if bot.bot_type == "Bots::DcaIndex" && model::exchange_type(c, bot)? == "Exchanges::Alpaca" { return special_reasons(c, bot, r); }
-    // A rebalancing basket (6b), and an index bot on a crypto venue (plan CB T4): its REBALANCE rows are read as the Alpaca
-    // index bot's are; the walk books them.
-    if bot.bot_type == "Bots::DcaMultiAsset" || bot.bot_type == "Bots::DcaIndex" {
-        let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'REBALANCE', 'LIQUIDATION')", [bot.id], |r| r.get(0))?;
-        if other > 0 { r.push(format!("{other} REDEPLOY row(s) in its history")); }
-        return special_reasons(c, bot, r);
-    }
+    if bot.bot_type == "Bots::DcaMultiAsset" || bot.bot_type == "Bots::DcaIndex" { return special_reasons(c, bot, r); }
     let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR'", [bot.id], |r| r.get(0))?;
     if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     Ok(())
@@ -569,12 +559,12 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
             if let Some(i) = items.as_deref_mut() { i.extend(reasons.iter().map(|r| format!("bot {id}: {r}"))); member_findings(c, id, i)?; }
             continue;
         }
-        // The same UNBALANCED exception as rebalance_reasons, used to admit both rebalances and liquidations:
+        // The same UNBALANCED exception as rebalance_reasons, used to admit rebalances, liquidations and redeploys:
         // a stopped bot does not tick, but either operation's orders still place, poll and settle.
         let rebalances = rebalances_here(&bot);
         let composition_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
-                                            AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION'))", params![id, composition_only], |r| r.get(0))?;
+                                            AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", params![id, composition_only], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
         // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.
         if super::rebalance::candidate(&bot) && rebalances && !composition_only { work.push("rebalancing".into()); }

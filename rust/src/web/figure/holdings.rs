@@ -67,19 +67,6 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
     Ok(out)
 }
 
-/// Bot::Composition::Redeployable#redeploy_offer: what may be put back, zero when nothing (or less than the smallest
-/// placeable amount) is; None where Rails would rewrite the stored decline first (offset above the banked total).
-pub(crate) fn redeploy_offer(c: &Connection, s: &Subject, m: &Metrics, _members: &HashSet<i64>) -> Result<Option<Dec>, FiguresError> {
-    let (banked,spent)=crate::engine::accounting::index_redeploy_totals(&s.orders)?;
-    let offset = decimal(c,"SELECT redeploy_declined_offset FROM bots WHERE id=?1",s.bot.id)?;
-    let offer = (&(&banked - &spent)? - &offset)?;
-    if offer.is_negative() { return Ok(None); }
-    let cash = m.walked.as_ref().map(|w| w.realised_cash.to_d()).transpose()?.unwrap_or_else(Dec::zero);
-    let offer = offer.min(cash);
-    let Some(minimum) = crate::figures::db::composition_minimum(c, s)? else { return Ok(None); };
-    Ok(Some(if offer >= minimum { offer } else { Dec::zero() }))
-}
-
 #[allow(clippy::too_many_arguments)]
 /// A form's authenticity token: this one, or none (`Value("")`: a broadcast, where Rails' renderer has no session and
 /// writes no field), or, for kept figures, nothing but the byte offset where each form's field goes (`Slots`): a page
@@ -331,10 +318,9 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     out.push_str(&wash_sale_table(c,s,&locked,hidden,locale,prefix)?);
     out.push_str("\n\n");
     if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
-        // Never rewrite the user's persisted decline from a GET. No redeploy offer for that invalid state.
-        match redeploy_offer(c,s,m,&members)? {
-            None => out.push_str("<p role=\"status\">Redeploy unavailable</p>\n"),
-            Some(offer) if offer.is_positive() => {
+        // D-6C-9: Rails' clamp and minimum fallback; a stored decline is never rewritten from a GET.
+        match crate::engine::redeploy::offer(c,s,m)? {
+            offer if offer.is_positive() => {
                 let amount = precision(&Num::Dec(offer),2,true)?;
                 let prompt = i18n::t(locale,"bot.redeploy.prompt",&[("amount",Arg::Text(&amount)),("symbol",Arg::Text(quote))]);
                 out.push_str(&format!("<div class=\"widget redeploy-prompt\">\n<span class=\"label\">\n{prompt}\n</span>\n<div class=\"redeploy-prompt__actions\" id=\"redeploy-prompt-actions\">\n"));
@@ -350,7 +336,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
                 }
                 out.push_str("</div>\n</div>\n");
             }
-            Some(_) => {}
+            _ => {}
         }
     }
     out.push_str("</div>\n");

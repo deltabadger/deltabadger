@@ -30,18 +30,14 @@ fn scenario(name: &str) -> &'static Value {
     fixture()["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == name).unwrap_or_else(|| panic!("{name}"))
 }
 
-/// What the engine keeps refusing, and the reason `check` names. Rails trades on the last two (RULING-B2B-1 MQ1,
-/// RULING-B2B-R1 item 1): their fill is unknown, so a Yes or the next split could spend the same money twice. A swap pending
-/// in its selling or buying phase is admitted since 6b T8: the tick stands down as Rails' does (STOOD_DOWN).
-const REFUSED: [(&str, &str); 4] = [
-    ("redeploy_waiting", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
-    ("redeploy_ambiguous", "redeploy_pending"),
-    ("redeploy_abandoned", "unresolved abandoned REDEPLOY"),
-    ("rebalance_abandoned", "abandoned REBALANCE"),
-];
-/// Rails' tick skipped these (dca_skipped_rebalance_pending): no split is computed, nothing is placed.
-const STOOD_DOWN: [&str; 8] = ["rebalance_selling", "rebalance_buying", "liquidation_waiting", "liquidation_partly_filled_open",
-    "liquidation_unknown", "liquidation_placing_intent", "liquidation_ambiguous", "liquidation_abandoned_unresolved"];
+/// What the engine keeps refusing, and the reason `check` names. Rails trades on it (RULING-B2B-R1 item 1): its fill is
+/// unknown, so the next split could spend the same money twice. A swap pending in its selling or buying phase is admitted
+/// since 6b T8, liquidations since 6c-2 and redeploys since 6c-4: the tick stands down as Rails' does (STOOD_DOWN). An
+/// abandoned redeploy counts what it asked for and halts only when this engine's own sweep abandons it, as Rails' does.
+const REFUSED: [(&str, &str); 1] = [("rebalance_abandoned", "abandoned REBALANCE")];
+/// Rails' tick skipped these (dca_skipped_*_pending): no split is computed, nothing is placed.
+const STOOD_DOWN: [&str; 10] = ["rebalance_selling", "rebalance_buying", "liquidation_waiting", "liquidation_partly_filled_open",
+    "liquidation_unknown", "liquidation_placing_intent", "liquidation_ambiguous", "liquidation_abandoned_unresolved", "redeploy_waiting", "redeploy_ambiguous"];
 fn refusal(name: &str) -> Option<&'static str> { REFUSED.iter().find(|(n, _)| *n == name).map(|(_, r)| *r) }
 
 struct Built { _d: tempfile::TempDir, o: deltabadger::store::Opened, id: i64, assets: BTreeMap<String, i64> }
@@ -128,7 +124,7 @@ fn transport() -> deltabadger::venue::http::ScriptedTransport {
 #[test]
 fn walks_and_books_match_rails_for_every_index_history() {
     let scenarios = fixture()["scenarios"].as_array().unwrap();
-    assert_eq!(scenarios.len(), 40);
+    assert_eq!(scenarios.len(), 42);
     for sc in scenarios {
         let name = sc["name"].as_str().unwrap();
         let b = build(sc);
@@ -160,12 +156,23 @@ fn walks_and_books_match_rails_for_every_index_history() {
         assert_eq!(got, want, "{name}: books");
         let (banked, spent) = accounting::index_redeploy_totals(&db::orders(c, b.id).unwrap()).unwrap();
         // Redeployable#redeploy_spent sums the proceeds the venue reported, so a closed redeploy reporting 0 spends nothing
-        // in Rails; Rust values it at price × units (0.03 × 400) like every buy. Display only: the offer is capped at the
-        // walk's uninvested cash, 14.4 on both sides, and this build has no redeploy action.
+        // in Rails; Rust values it at price × units (0.03 × 400) like every buy. The offer is capped at the walk's realised
+        // cash, 14.4 on both sides, so it is Rails' offer; a decline writes 12.0 less (it can only under-offer later).
         let spent_want = if name == "redeploy_zero_quote" { "12.0" } else { sc["rails"]["redeploy"]["spent"].as_str().unwrap() };
         assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["rails"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.into()),
                    "{name}: redeploy banked/spent");
         assert_eq!(amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap().to_s_f(), sc["rails"]["pending_quote_amount"], "{name}: carry");
+        // D-6C-9: the one offer the engine, the panel and MCP read; Rails' clamp to zero and its smallest-minimum floor.
+        let offer = deltabadger::engine::redeploy::offer(c, &subject, &m).unwrap();
+        assert_eq!(BigDec::parse(&offer.to_s_f()).unwrap(), BigDec::parse(sc["rails"]["redeploy"]["offer"].as_str().unwrap()).unwrap(), "{name}: offer");
+        // Bot::DeclineRedeployJob: refused while in flight, else the offset that reads the offer as zero now. B2-1/MQ7 above:
+        // the zero-quote redeploy is spent at its executed value here, so the offset it writes is 12.0 lower.
+        let declined = deltabadger::engine::redeploy::decline(c, b.id, bot.user_id, at()).unwrap();
+        let rails_decline = &sc["rails"]["decline"];
+        assert_eq!(declined == deltabadger::engine::redeploy::Declined::Declined, rails_decline["result"] == "success", "{name}: decline");
+        let offset: String = c.query_row("SELECT CAST(redeploy_declined_offset AS TEXT) FROM bots WHERE id = ?1", [b.id], |r| r.get(0)).unwrap();
+        let want = if name == "redeploy_zero_quote" { "14.4" } else { rails_decline["offset"].as_str().unwrap() };
+        assert_eq!(BigDec::parse(&offset).unwrap(), BigDec::parse(want).unwrap(), "{name}: declined offset");
     }
 }
 
@@ -204,7 +211,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
         let rails = &sc["rails"]["tick"];
         let bot = model::load_bot(c, b.id).unwrap();
         let stood_down = STOOD_DOWN.contains(&name);
-        assert_eq!(stood_down, rails["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending"))), "{name}");
+        assert_eq!(stood_down, rails["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending" | "dca_skipped_redeploy_pending"))), "{name}");
         if refusal(name).is_none() && !stood_down {
             // The split as get_orders_data computes it, before any rounding.
             let holdings = basket::walk(c, &bot, at()).unwrap().amounts;
@@ -239,7 +246,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             json!({ "symbol": o["base"], "side": o["side"], "notional": format!("{:.2}", q.floor(2).to_f()) })
         }).collect();
         assert_eq!(json!(posted), json!(wire), "{name}: wire");
-        let skipped: i64 = c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('dca_skipped_rebalance_pending', 'dca_skipped_liquidation_pending')", [b.id], |r| r.get(0)).unwrap();
+        let skipped: i64 = c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('dca_skipped_rebalance_pending', 'dca_skipped_liquidation_pending', 'dca_skipped_redeploy_pending')", [b.id], |r| r.get(0)).unwrap();
         assert_eq!(skipped, i64::from(stood_down), "{name}: stand-down");
         let mut q = c.prepare("SELECT base, side, status, external_status, transaction_type, price, amount, quote_amount FROM transactions WHERE id > ?1 ORDER BY id").unwrap();
         let rows: Vec<Value> = q.query_map([before], |r| Ok(json!({
@@ -273,8 +280,7 @@ fn rejected_special_rows_are_ignored_unless_they_report_an_execution() {
 /// bookkeeping of the first tick never clears a row-based refusal.
 #[tokio::test(flavor = "current_thread")]
 async fn each_new_refusal_survives_a_refused_tick_and_rolls_back_a_guarded_write() {
-    let cases: [(&str, &str, &str); 5] = [
-        ("redeploy_abandoned", "", "unresolved abandoned REDEPLOY"),
+    let cases: [(&str, &str, &str); 4] = [
         ("rebalance_abandoned", "", "abandoned REBALANCE"),
         ("full_cycle", "UPDATE transactions SET transaction_type = 'SWAP' WHERE transaction_type = 'REDEPLOY'", "unsupported transaction type"),
         ("full_cycle", "UPDATE transactions SET side = 1 WHERE transaction_type = 'REDEPLOY'", "REDEPLOY sell"),
@@ -301,10 +307,9 @@ async fn each_new_refusal_survives_a_refused_tick_and_rolls_back_a_guarded_write
     }
 }
 
-/// 6b T8: an Alpaca basket's settled REBALANCE rows are read as an index bot's are (the walk books them); its LIQUIDATION and
-/// REDEPLOY rows keep the refusal; LIQUIDATION rows are admitted since 6c-2.
+/// 6b T8, 6c-2, 6c-4: an Alpaca basket's settled REBALANCE, LIQUIDATION and REDEPLOY rows are read as an index bot's are.
 #[test]
-fn a_basket_reads_settled_composition_rows_and_refuses_redeploy_ones() {
+fn a_basket_reads_settled_composition_rows() {
     let basket = |name: &str| {
         let b = build(scenario(name));
         b.o.primary.execute("UPDATE bots SET type = 'Bots::DcaMultiAsset', settings = json_set(settings, '$.allocations', json(?1)) WHERE id = ?2",
@@ -316,14 +321,14 @@ fn a_basket_reads_settled_composition_rows_and_refuses_redeploy_ones() {
     assert!(!problems.iter().any(|p| p.contains("row(s) in its history")), "{problems:?}");
     let b = basket("full_cycle");
     let problems = eligibility::check_install(&b.o.primary).unwrap().problems;
-    assert!(problems.iter().any(|p| p.contains("REDEPLOY row(s) in its history")), "{problems:?}");
+    assert!(!problems.iter().any(|p| p.contains("row(s) in its history")), "{problems:?}");
 }
 
 /// RULING-B2B-1 MQ7 under B2-1, the one recorded divergence from the oracle's walk: a closed REDEPLOY buy that executed
 /// 0.03 of the 0.06 it asked and reported no proceeds is read at what executed (0.03 × 400 = 12.0). Rails'
 /// confirmed_exec_amounts books it at price × REQUESTED: DDD invested 24.0, spent 24.0, realised_cash 2.4. The units are
 /// the same either way, so the tick's split is unchanged; the figures page shows 12.0 more realised cash than Rails, and
-/// Rails' offer would be 12.0 lower (display only: this build has no redeploy action).
+/// Rails' offer would be 12.0 lower: the engine offers the cash the fills really left (the free-quote cap bounds it too).
 #[test]
 fn a_partly_executed_unpriced_redeploy_is_read_at_what_executed() {
     let b = build(scenario("redeploy_closed_unpriced"));
