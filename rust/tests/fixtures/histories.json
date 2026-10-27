@@ -11,10 +11,11 @@
     "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
     "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e",
+    "app/models/bot/rebalancer.rb": "aa1b95a2d20476d4ecd27222cd039d5a45188f0baca13f23b33abb1278f3a30f",
     "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
     "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
     "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
-    "script/rust/record_histories.rb": "ccf0a4790e0183c3faabb17b03e1561526cc3f7d8b77156e41b40f394edd13b6"
+    "script/rust/record_histories.rb": "939b21cdc8f1a67f3d0262ba6c717c46d922be1175ea8959005d90010e51b8b2"
   },
   "cases": [
     {
@@ -56,6 +57,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -79,7 +93,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -104,7 +122,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -148,6 +170,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "0.0",
@@ -171,7 +206,11 @@
             "amount": "2.5",
             "quote": "25.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -196,7 +235,11 @@
             "amount": "2.5",
             "quote": "25.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -240,6 +283,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "0.0",
@@ -263,7 +319,11 @@
             "amount": "2.5",
             "quote": "25.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -288,7 +348,11 @@
             "amount": "2.5",
             "quote": "25.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -312,6 +376,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "0.0",
@@ -335,7 +412,11 @@
             "amount": "5.0",
             "quote": "50.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -360,7 +441,11 @@
             "amount": "5.0",
             "quote": "50.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -414,6 +499,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "8.0",
@@ -437,7 +535,11 @@
             "amount": "6.5",
             "quote": "65.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -462,7 +564,11 @@
             "amount": "6.5",
             "quote": "65.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -506,6 +612,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -529,7 +648,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -554,7 +677,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -598,6 +725,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -621,7 +761,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -646,7 +790,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -690,6 +838,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -713,7 +874,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -738,7 +903,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -782,6 +951,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -805,7 +987,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -830,7 +1016,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -874,6 +1064,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -897,7 +1100,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -922,7 +1129,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -966,6 +1177,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -989,7 +1213,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1014,7 +1242,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1058,6 +1290,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -1081,7 +1326,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1106,7 +1355,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1150,6 +1403,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -1173,7 +1439,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1198,7 +1468,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1242,6 +1516,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "5.0",
@@ -1265,7 +1552,11 @@
             "amount": "5.0",
             "quote": "50.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1290,7 +1581,11 @@
             "amount": "2.5",
             "quote": "25.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "150.0",
       "one_week_rails_pending": "200.0"
@@ -1334,6 +1629,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "5.0",
@@ -1357,7 +1665,11 @@
             "amount": "3.0",
             "quote": "30.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1382,7 +1694,11 @@
             "amount": "0.5",
             "quote": "5.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "10.0",
       "one_week_rails_pending": "60.0"
@@ -1427,6 +1743,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "1.0",
@@ -1450,7 +1779,11 @@
             "amount": "2.5",
             "quote": "25.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1475,7 +1808,11 @@
             "amount": "2.5",
             "quote": "25.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "150.0",
       "one_week_rails_pending": "150.0"
@@ -1519,6 +1856,19 @@
       "split_offset": 0,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "6.0",
@@ -1542,7 +1892,11 @@
             "amount": "5.5",
             "quote": "55.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1567,7 +1921,11 @@
             "amount": "5.5",
             "quote": "55.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1611,6 +1969,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "5.0",
@@ -1634,7 +2005,11 @@
             "amount": "5.0",
             "quote": "50.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "5.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1659,7 +2034,11 @@
             "amount": "5.0",
             "quote": "50.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "5.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1703,6 +2082,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -1726,7 +2118,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1751,7 +2147,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1795,6 +2195,19 @@
       "split_offset": -9,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "8.0",
@@ -1818,7 +2231,11 @@
             "amount": "6.5",
             "quote": "65.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1843,7 +2260,11 @@
             "amount": "6.5",
             "quote": "65.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1887,6 +2308,19 @@
       "split_offset": -7,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "6.0",
@@ -1910,7 +2344,11 @@
             "amount": "5.5",
             "quote": "55.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -1935,7 +2373,11 @@
             "amount": "5.5",
             "quote": "55.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -1979,6 +2421,19 @@
       "split_offset": -8,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "8.0",
@@ -2002,7 +2457,11 @@
             "amount": "6.5",
             "quote": "65.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -2027,7 +2486,11 @@
             "amount": "6.5",
             "quote": "65.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -2071,6 +2534,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -2094,7 +2570,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -2119,7 +2599,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -2163,6 +2647,19 @@
       "split_offset": null,
       "venue": null,
       "foreign": null,
+      "exchange": "Exchanges::Alpaca",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -2173,7 +2670,11 @@
         "available": null,
         "pending": "0.0",
         "decision": "skip_zero_pending",
-        "orders": []
+        "orders": [],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -2185,7 +2686,11 @@
         "available": null,
         "pending": "0.0",
         "decision": "skip_zero_pending",
-        "orders": []
+        "orders": [],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        }
       },
       "one_week_pending": "100.0",
       "one_week_rails_pending": "100.0"
@@ -2229,6 +2734,19 @@
       "split_offset": null,
       "venue": "kraken",
       "foreign": "BBB",
+      "exchange": "Exchanges::Kraken",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -2252,7 +2770,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -2277,7 +2799,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -2321,6 +2847,19 @@
       "split_offset": null,
       "venue": "binance",
       "foreign": "BBB",
+      "exchange": "Exchanges::Binance",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -2344,7 +2883,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -2369,7 +2912,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
@@ -2413,6 +2960,19 @@
       "split_offset": null,
       "venue": "kucoin",
       "foreign": "BBB",
+      "exchange": "Exchanges::Kucoin",
+      "category": null,
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 9,
+        "quote_decimals": 2,
+        "price_decimals": 2,
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1"
+      },
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -2436,7 +2996,11 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        }
       },
       "normalized": {
         "holdings": {
@@ -2461,10 +3025,217 @@
             "amount": "4.0",
             "quote": "40.0"
           }
-        ]
+        ],
+        "local_units": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        }
       },
       "one_week_pending": "200.0",
       "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "hyperliquid_tokenized_one",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "venue": null,
+      "foreign": null,
+      "exchange": "Exchanges::Hyperliquid",
+      "category": "Tokenized Stock",
+      "weights": {
+        "AAA": 1.0
+      },
+      "pair": {
+        "base_decimals": 2,
+        "quote_decimals": 2,
+        "price_decimals": 5,
+        "minimum_base_size": "0",
+        "minimum_quote_size": "10"
+      },
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        },
+        "contributed": "50.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "10.01001001001001001001001001001",
+            "quote": "100.0"
+          }
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "0.0"
+        },
+        "contributed": "50.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "10.01001001001001001001001001001",
+            "quote": "100.0"
+          }
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "hyperliquid_tokenized_two",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": true,
+      "merged": false,
+      "split_offset": null,
+      "venue": null,
+      "foreign": null,
+      "exchange": "Exchanges::Hyperliquid",
+      "category": "Tokenized Stock",
+      "weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "pair": {
+        "base_decimals": 2,
+        "quote_decimals": 2,
+        "price_decimals": 5,
+        "minimum_base_size": "0",
+        "minimum_quote_size": "10"
+      },
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": "60.0",
+        "pending": "60.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "4.003003003003003003003003003003",
+            "quote": "39.99"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.003003003003003003003003003003",
+            "quote": "20.01"
+          }
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": "60.0",
+        "pending": "60.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "4.003003003003003003003003003003",
+            "quote": "39.99"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.003003003003003003003003003003",
+            "quote": "20.01"
+          }
+        ],
+        "local_units": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        }
+      },
+      "one_week_pending": "60.0",
+      "one_week_rails_pending": "60.0"
     }
   ]
 }

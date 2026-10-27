@@ -16,9 +16,10 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, B
     let d=common::rails_install();
     let o=deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_|None,d.path())).unwrap();
     let s=seed::seed_alpaca(&o.primary,cipher());
-    let pair = json!({"base_decimals":9,"quote_decimals":2,"price_decimals":2,"minimum_base_size":"0.000000001","minimum_quote_size":"1"});
+    let pair = case["pair"].clone();
     let ids: BTreeMap<String, i64> = ["AAA", "BBB"].into_iter().map(|name| (name.into(), seed::add_alpaca_crypto(&o.primary, &s, name, &pair).0)).collect();
-    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(100.0, &stamp(0)).weights(&[(ids["AAA"],0.5),(ids["BBB"],0.5)]));
+    let weights: Vec<(i64, f64)> = case["weights"].as_object().unwrap().iter().map(|(name, w)| (ids[name], w.as_f64().unwrap())).collect();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(100.0, &stamp(0)).weights(&weights));
     o.primary.execute("UPDATE bots SET settings_changed_at=?1 WHERE id=?2",rusqlite::params![stamp(0),id]).unwrap();
     for (n, r) in case["rows"].as_array().unwrap().iter().enumerate() {
         let status = match r[2].as_str().unwrap() {"closed"=>2,"cancelled"=>3,"abandoned"=>4,"open"=>1,"unknown"=>0,x=>panic!("{x}")};
@@ -41,6 +42,11 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, B
         o.primary.execute("INSERT INTO exchanges (type,name,created_at,updated_at) VALUES (?1,'Foreign','2026-01-01','2026-01-01')",[other]).unwrap();
         o.primary.execute("UPDATE transactions SET exchange_id=last_insert_rowid() WHERE bot_id=?1 AND base_asset_id=?2",rusqlite::params![id,ids[case["foreign"].as_str().unwrap()]]).unwrap();
     }
+    // Plan B2: a Hyperliquid basket of tokenized stocks (every Hyperliquid bot is a limit bot).
+    if let Some(category)=case["category"].as_str() {
+        o.primary.execute("UPDATE exchanges SET type=?1, name='Hyperliquid' WHERE id=?2",rusqlite::params![case["exchange"].as_str().unwrap(),s.exchange_id]).unwrap();
+        o.primary.execute("UPDATE assets SET category=?1 WHERE id IN (?2,?3)",rusqlite::params![category,ids["AAA"],ids["BBB"]]).unwrap();
+    }
     if let Some(offset)=case["split_offset"].as_i64() {
         o.primary.execute("UPDATE assets SET category='Stock', instrument_type='stock' WHERE id IN (?1,?2)",[ids["AAA"],ids["BBB"]]).unwrap();
         o.primary.execute("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at) VALUES (?1,?2,15,'AAA',5,?3,?4,?3,?3)",rusqlite::params![s.user_id,s.exchange_id,stamp(offset),json!({"corporate_action":"split","split_ratio":"2:1","qty":"-5","merged_activity_ids":["a","b"]}).to_string()]).unwrap();
@@ -51,7 +57,7 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, B
 #[test]
 fn history_decisions_match_the_recorded_oracle() {
     let v=vectors();
-    assert_eq!(v["cases"].as_array().unwrap().len(),27);
+    assert_eq!(v["cases"].as_array().unwrap().len(),29);
     for case in v["cases"].as_array().unwrap() {
         let (_d,o,id,ids)=build(case);
         let c=&o.primary;
@@ -68,9 +74,17 @@ fn history_decisions_match_the_recorded_oracle() {
         let pending=available.as_ref().map_or(pending.clone(),|cap|pending.min(cap.clone()));
         assert_eq!(pending.to_s_f(),case["normalized"]["pending"],"{} pending",case["name"]);
         basket::refresh_composition(c,&bot,at).unwrap().unwrap();
-        let priced:Vec<_>=basket::members(c,&bot,&[]).unwrap().into_iter().map(|member|basket::Priced{member,reference:BigDec::from_i64(10),price:BigDec::from_i64(10)}).collect();
-        let orders:Vec<_>=basket::split(&priced,&w.amounts,&basket::reserved(c,&bot).unwrap(),&pending).unwrap().into_iter().map(|leg|json!({"side":"buy","asset":leg.ticker.base_symbol,"amount":leg.quote.div(&BigDec::from_i64(10)).unwrap().to_s_f(),"quote":leg.quote.to_s_f()})).collect();
+        let rules=deltabadger::engine::venue_rules::for_exchange(&model::exchange_type(c,&bot).unwrap()).unwrap();
+        let priced:Vec<_>=basket::members(c,&bot,&[]).unwrap().into_iter().map(|member|{
+            let price=amount::order_price(&bot,&member.ticker,&BigDec::from_i64(10),rules).unwrap();
+            basket::Priced{member,reference:BigDec::from_i64(10),price}
+        }).collect();
+        let at_price=|base:&str|priced.iter().find(|p|p.member.ticker.base_symbol==base).unwrap().price.clone();
+        let orders:Vec<_>=basket::split(&priced,&w.amounts,&basket::reserved(c,&bot).unwrap(),&pending).unwrap().into_iter().map(|leg|json!({"side":"buy","asset":leg.ticker.base_symbol,"amount":leg.quote.div(&at_price(&leg.ticker.base_symbol)).unwrap().to_s_f(),"quote":leg.quote.to_s_f()})).collect();
         assert_eq!(json!(orders),case["normalized"]["orders"],"{} orders",case["name"]);
+        // Bot::Rebalancer#local_units: none of a category a split may restate (a Tokenized Stock), the net fills otherwise.
+        let local:Value=ids.iter().map(|(name,asset)|(name.clone(),json!(deltabadger::engine::tick::local_units(c,&bot,*asset).unwrap().to_s_f()))).collect();
+        assert_eq!(local,case["normalized"]["local_units"],"{} local_units",case["name"]);
         let decision=if pending.is_zero(){"skip_zero_pending"}else{"buy"};
         assert_eq!(decision,case["normalized"]["decision"]);
         let later=amount::pending_quote_amount(c,&bot,(at+Duration::weeks(1)).timestamp_micros()).unwrap();

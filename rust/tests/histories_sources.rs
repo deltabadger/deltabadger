@@ -8,7 +8,7 @@ fn sources_and_history_vectors_are_reviewable() {
     let bytes=std::fs::read(root.join("rust/tests/fixtures/histories.json")).expect("record the synthetic history vectors first");
     let v:Value=serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["synthetic_only"],true);
-    assert_eq!(v["cases"].as_array().unwrap().len(),27);
+    assert_eq!(v["cases"].as_array().unwrap().len(),29);
     for (name,hash) in v["ported_sources"].as_object().unwrap() {
         assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(name)).unwrap())),hash.as_str().unwrap(),"{name}: re-record");
     }
@@ -27,6 +27,12 @@ fn sources_and_history_vectors_are_reviewable() {
         assert_eq!(c["normalized"]["pending"],first);
         assert_eq!(c["one_week_pending"],later);
         assert_eq!(c["one_week_rails_pending"],later);
+    }
+    // Plan B2: a Tokenized Stock is never sold against the venue's balance (Bot::Rebalancer::UNSPLITTABLE_CATEGORIES).
+    for name in ["hyperliquid_tokenized_one","hyperliquid_tokenized_two"] {
+        let c=v["cases"].as_array().unwrap().iter().find(|c|c["name"]==name).unwrap();
+        assert_eq!((c["exchange"].as_str(),c["category"].as_str()),(Some("Exchanges::Hyperliquid"),Some("Tokenized Stock")));
+        assert_eq!(c["rails_unchanged"]["local_units"],serde_json::json!({"AAA":"0.0","BBB":"0.0"}),"{name}");
     }
 }
 

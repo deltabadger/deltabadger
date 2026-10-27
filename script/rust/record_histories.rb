@@ -8,7 +8,10 @@ ActiveJob::Base.queue_adapter = :test
 ActiveJob::Base.logger = Logger.new(File::NULL)
 Rails.cache = ActiveSupport::Cache::MemoryStore.new
 Net::HTTP.prepend(Module.new { def connect = raise('Unexpected network in history recorder') })
-Ticker.prepend(Module.new { def get_ask_price = Result::Success.new(BigDecimal('10')) })
+Ticker.prepend(Module.new do
+  def get_ask_price = Result::Success.new(BigDecimal('10'))
+  def get_last_price = Result::Success.new(BigDecimal('10')) # a limit bot's reference (Hyperliquid's are all limit)
+end)
 NOW = Time.utc(2026, 1, 5, 12)
 # asset, side, external status, requested base, executed base, executed quote, price, seconds from start, optional requested quote
 BUY_A = ['AAA', 'buy', 'closed', '5', '5', '50', '10', -10].freeze
@@ -40,8 +43,15 @@ cases = [
   ['merge_before_start', [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = -1 } }],
   ['merge_at_start', [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = 0 } }],
   # A merge on a crypto venue whose BBB source lived on another one: BBB's rows keep that venue's exchange_id.
-  *%w[kraken binance kucoin].map { |venue| ["merge_#{venue}_foreign", [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = -1 } }] }
+  *%w[kraken binance kucoin].map { |venue| ["merge_#{venue}_foreign", [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = -1 } }] },
+  # Plan B2: Hyperliquid's tokenized stocks (category Tokenized Stock, as the data-api's RWA sync writes them), in a one- and a
+  # two-member basket, the second under a quote cap.
+  ['hyperliquid_tokenized_one', [BUY_A, SELL]],
+  ['hyperliquid_tokenized_two', [BUY_A, BUY_B, SELL]]
 ]
+PAIR = {base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1'}.freeze
+# A Hyperliquid RWA spot pair as Exchanges::Hyperliquid#get_tickers_info lists it (szDecimals 2, the 10-USDC floor).
+HL_PAIR = {base_decimals: 2, quote_decimals: 2, price_decimals: 5, minimum_base_size: '0', minimum_quote_size: '10'}.freeze
 VENUE_CLASSES = { 'kraken' => 'Exchanges::Kraken', 'binance' => 'Exchanges::Binance', 'kucoin' => 'Exchanges::Kucoin' }.freeze
 vectors = cases.map do |name, rows|
   result = nil
@@ -50,7 +60,9 @@ vectors = cases.map do |name, rows|
     user = User.new(name: 'Synthetic', email: 'synthetic@example.invalid', password: 'synthetic-password', confirmed_at: NOW)
     user.save!(validate: false)
     venue = name[/\Amerge_(\w+)_foreign\z/, 1]
-    exchange = (venue ? VENUE_CLASSES.fetch(venue) : 'Exchanges::Alpaca').constantize.create!(name: venue || 'Alpaca')
+    tokenized = name.start_with?('hyperliquid_tokenized')
+    exchange_class = tokenized ? 'Exchanges::Hyperliquid' : (venue ? VENUE_CLASSES.fetch(venue) : 'Exchanges::Alpaca')
+    exchange = exchange_class.constantize.create!(name: tokenized ? 'Hyperliquid' : venue || 'Alpaca')
     # The venue the BBB source traded on before the merge (another crypto venue).
     foreign = venue && (venue == 'kraken' ? Exchanges::Binance : Exchanges::Kraken).create!(name: 'Foreign')
     venues = [exchange, foreign].compact
@@ -58,11 +70,12 @@ vectors = cases.map do |name, rows|
     quote = Asset.create!(external_id: 'synthetic-usd', symbol: 'USD', name: 'Synthetic Dollar', category: 'Fiat')
     venues.each { |e| ExchangeAsset.create!(exchange: e, asset: quote, available: true) }
     assets = %w[AAA BBB].to_h do |symbol|
-      asset = Asset.create!(external_id: "synthetic-#{symbol}", symbol:, name: "Synthetic #{symbol}", category: name.include?('split') ? 'Stock' : 'Cryptocurrency', instrument_type: name.include?('split') ? 'stock' : nil)
+      category = if tokenized then 'Tokenized Stock' elsif name.include?('split') then 'Stock' else 'Cryptocurrency' end
+      asset = Asset.create!(external_id: "synthetic-#{symbol}", symbol:, name: "Synthetic #{symbol}", category:, instrument_type: name.include?('split') ? 'stock' : nil)
       venues.each do |e|
         ExchangeAsset.create!(exchange: e, asset:, available: true)
         Ticker.create!(exchange: e, ticker: symbol, base: symbol, quote: 'USD', base_asset: asset, quote_asset: quote,
-          base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+          **(tokenized ? HL_PAIR : PAIR))
       end
       [symbol, asset]
     end
@@ -70,13 +83,14 @@ vectors = cases.map do |name, rows|
       bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange: on, status: :stopped, settings: {
         'quote_asset_id' => quote.id, 'quote_amount' => 100, 'interval' => 'week', 'weighting' => 'manual',
         'allocations' => weights.to_h { |symbol, weight| [assets.fetch(symbol).id.to_s, weight] }
-      })
+      }.merge(tokenized ? {'limit_ordered' => true} : {})) # Bot::LimitOrderable#limit_orders_locked? on Hyperliquid
       bot.set_missed_quote_amount
       bot.save!
       bot
     end
     merging = name.start_with?('merge')
-    sources = merging ? [make.call({'AAA' => 1.0}), make.call({'BBB' => 1.0}, foreign || exchange)] : [make.call({'AAA' => 0.5, 'BBB' => 0.5})]
+    weights = name == 'hyperliquid_tokenized_one' ? {'AAA' => 1.0} : {'AAA' => 0.5, 'BBB' => 0.5}
+    sources = merging ? [make.call({'AAA' => 1.0}), make.call({'BBB' => 1.0}, foreign || exchange)] : [make.call(weights)]
     rows.each_with_index do |(symbol, side, status, amount, executed, value, price, offset, requested_quote), i|
       source = merging && symbol == 'BBB' ? sources[1] : sources[0]
       Transaction.insert!({bot_id: source.id, exchange_id: source.exchange_id, base_asset_id: assets.fetch(symbol).id, quote_asset_id: quote.id,
@@ -94,7 +108,7 @@ vectors = cases.map do |name, rows|
     else
       bot.update_columns(status: Bot.statuses[:scheduled], started_at: NOW)
     end
-    limited = name == 'cancelled_price_only_buy_with_cap'
+    limited = %w[cancelled_price_only_buy_with_cap hyperliquid_tokenized_two].include?(name)
     if limited
       bot.settings = bot.settings.merge('quote_amount_limited' => true, 'quote_amount_limit' => 60)
       bot.transient_data = bot.transient_data.merge('quote_amount_limit_enabled_at' => NOW.iso8601)
@@ -116,7 +130,9 @@ vectors = cases.map do |name, rows|
         contributed: m[:total_quote_amount_invested].to_d.to_s('F'), cash: m[:rebalance_cash].to_d.to_s('F'),
         available: limited ? bot.quote_amount_available_before_limit_reached.to_d.to_s('F') : nil,
         pending: pending.to_s('F'), decision: pending.zero? ? 'skip_zero_pending' : 'buy',
-        orders: orders.map { |o| {side: o[:side], asset: o[:ticker].base, amount: o[:amount].to_s('F'), quote: o[:quote_amount].to_s('F')} }
+        orders: orders.map { |o| {side: o[:side], asset: o[:ticker].base, amount: o[:amount].to_s('F'), quote: o[:quote_amount].to_s('F')} },
+        # Bot::Rebalancer#local_units: what a rebalance may sell here of a merged asset; none of a category a split may restate.
+        local_units: assets.to_h { |symbol, a| [symbol, bot.send(:local_units, a.id).to_d.to_s('F')] }
       }
     end
     unchanged = capture.call
@@ -132,14 +148,15 @@ vectors = cases.map do |name, rows|
     Thread.current[:normalized_figure_rows] = true
     later = bot.pending_quote_amount.to_d.to_s('F')
     raise "#{name}: merged onto #{bot.exchange.type}" if venue && bot.exchange_id != exchange.id
-    result = {name:, rows:, limited:, merged: merging, split_offset:, venue:, foreign: venue && 'BBB', rails_unchanged: unchanged, normalized:, one_week_pending: later, one_week_rails_pending: later_unchanged}
+    result = {name:, rows:, limited:, merged: merging, split_offset:, venue:, foreign: venue && 'BBB', exchange: exchange_class,
+              category: tokenized ? 'Tokenized Stock' : nil, weights:, pair: tokenized ? HL_PAIR : PAIR, rails_unchanged: unchanged, normalized:, one_week_pending: later, one_week_rails_pending: later_unchanged}
     raise ActiveRecord::Rollback
   ensure
     Thread.current[:normalized_figure_rows] = false
   end
   result
 end
-sources = %w[app/models/bot/composition/measurable.rb app/models/bot/rebalance_accounting.rb app/models/bot/composition/order_setter.rb app/models/bot/accountable.rb app/models/bot/quote_amount_limitable.rb app/models/bot/merge.rb app/models/bot/restatable.rb app/models/bot.rb app/models/api_key.rb app/models/bot/lifecycle.rb app/models/transaction.rb script/rust/figures_normalized.rb script/rust/histories_normalized.rb script/rust/record_histories.rb]
+sources = %w[app/models/bot/composition/measurable.rb app/models/bot/rebalance_accounting.rb app/models/bot/composition/order_setter.rb app/models/bot/accountable.rb app/models/bot/quote_amount_limitable.rb app/models/bot/merge.rb app/models/bot/restatable.rb app/models/bot.rb app/models/api_key.rb app/models/bot/lifecycle.rb app/models/bot/rebalancer.rb app/models/transaction.rb script/rust/figures_normalized.rb script/rust/histories_normalized.rb script/rust/record_histories.rb]
 output = {synthetic_only: true, ported_sources: sources.to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }, cases: vectors}
 File.write(ARGV.fetch(0), JSON.pretty_generate(output) + "\n")
 travel_back
