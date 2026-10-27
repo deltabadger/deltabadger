@@ -9,8 +9,8 @@ fn plain() -> BotSpec { BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
 #[test]
 fn stopped_basket_order_kinds_remain_admitted_after_placement() {
     use deltabadger::engine::{amount::TxKind, model};
-    // Rebalances and requested liquidations place on stopped, unbalanced baskets. Regular
-    // orders require a working, balanced bot; redeployment is not an engine command yet.
+    // Rebalances, requested liquidations and redeploys place on stopped, unbalanced baskets. Regular
+    // orders require a working, balanced bot.
     for kind in [TxKind::Regular, TxKind::Rebalance, TxKind::Liquidation, TxKind::Redeploy] {
         for balanced in [false, true] {
             for external_status in [0, 1] {
@@ -21,12 +21,11 @@ fn stopped_basket_order_kinds_remain_admitted_after_placement() {
                     "amount":"0.001", "quote_amount":"60", "amount_exec":"0", "quote_amount_exec":"0", "created_at":"2026-09-01 10:00:01"}));
                 o.primary.execute("UPDATE transactions SET transaction_type=?1 WHERE id=?2", rusqlite::params![kind.as_str(), row]).unwrap();
                 let admitted = match kind {
-                    TxKind::Rebalance | TxKind::Liquidation => {
+                    TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => {
                         assert!(eligibility::rebalance_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap().is_empty());
                         true
                     }
                     TxKind::Regular => balanced,
-                    TxKind::Redeploy => false,
                 };
                 let report = eligibility::check_install(&o.primary).unwrap();
                 assert!(report.unreadable.is_empty(), "{:?}", report.unreadable);
@@ -150,7 +149,6 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
             seed::insert_tx(c, s, id, &closed("2026-09-02 10:00:00"));
             c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
             c.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE bot_id = ?1", [id]).unwrap(); id })),
-        ("redeploy_pending", Box::new(|c, s| seed::insert_bot(c, s, &plain().transient("redeploy_pending", json!({"state": "x"}))))),
         ("category", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here",
          Box::new(|c, s| { c.execute("UPDATE assets SET category = 'Tokenized Stock', instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
@@ -161,12 +159,6 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("price_decimals 1000000000", Box::new(|c, s| { c.execute("UPDATE tickers SET price_decimals = 1000000000", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("base_decimals -1", Box::new(|c, s| { c.execute("UPDATE tickers SET base_decimals = -1", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("quote_decimals 41", Box::new(|c, s| { c.execute("UPDATE tickers SET quote_decimals = 41", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
-        ("LIQUIDATION/REDEPLOY", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
-            c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                       VALUES (?1, ?2, 'OLIQ', 0, 1, 0, 0, 'REDEPLOY', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
-        ("REDEPLOY order", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
-            c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                       VALUES (?1, ?2, 'OLIQ2', 0, 4, 0, 0, 'REDEPLOY', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
     ];
     for (reason, make) in cases {
         let (_d, o, s) = install();
@@ -674,8 +666,6 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        // REDEPLOY remains out of scope on baskets; LIQUIDATION is admitted in 6c-2.
-        ("1 REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REDEPLOY", Some(s.btc), "OLIQ"); id })),
         ("1 legacy imported row(s) left open (Rails never polls or settles them)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth));
             history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); c.execute("UPDATE transactions SET external_status = 1 WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
@@ -1109,6 +1099,24 @@ fn all_trigger_flips_are_inapplicable_to_index_and_signal_bots() {
                 }
             }
         }
+    }
+}
+
+/// 6c-4 T7: a redeploy marker, a waiting REDEPLOY row and an abandoned one are admitted; the engine stands trading down.
+#[test]
+fn redeploy_states_are_admitted() {
+    for case in ["pending", "waiting", "abandoned"] {
+        let (_d, o, s) = install();
+        let id = seed::insert_bot(&o.primary, &s, &plain());
+        match case {
+            "pending" => { o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{\"id\":\"x\",\"state\":\"ambiguous\"}')) WHERE id=?1", [id]).unwrap(); }
+            _ => { o.primary.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, base_asset_id, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
+                       VALUES (?1, ?2, 'ORED', 0, ?3, 0, 0, 'REDEPLOY', ?4, '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
+                       rusqlite::params![id, s.exchange_id, if case == "waiting" { 1 } else { 4 }, s.btc]).unwrap(); }
+        }
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.is_empty(), "{case}: {:?}", r.problems);
+        assert!(deltabadger::engine::composition::in_flight(&o.primary, &deltabadger::engine::model::load_bot(&o.primary, id).unwrap(), "2026-09-01T12:00:00Z".parse().unwrap()).unwrap() || case == "abandoned", "{case}");
     }
 }
 

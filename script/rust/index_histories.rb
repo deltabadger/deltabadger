@@ -8,7 +8,7 @@
 # Per scenario, Rails' own methods, each called as it stands:
 #   metrics(force: true)        holdings per member (amount, invested), contributed, flight/realised/estimated/divested cash
 #   pending_quote_amount        the carry the DCA tick spends
-#   redeploy_banked/_spent/_offer, declined offset
+#   redeploy_banked/_spent/_offer, declined offset, and decline_redeploy! (its refusal or the offset it writes)
 #   liquidation_in_flight?, liquidation_halted?, redeploy_in_flight?, rebalance_pending?, exited_symbols
 #   execute_action              the tick through Bot::Rebalanceable's stand-down guards, Bot::LimitOrderable and
 #                               Bot::Composition::OrderSetter#set_orders: the orders it would place, the rows it writes,
@@ -91,6 +91,10 @@ module IndexOracle
         'members' => rotated, 'rows' => history + [liq_ccc, row('DDD', 'buy', 'REDEPLOY', '0.03', '400', 11)] },
       { 'name' => 'liquidated_redeploy_declined', 'note' => 'the user answered No: the offset makes the offer zero, the cash stays counted',
         'members' => rotated, 'rows' => history + [liq_ccc], 'declined_offset' => '26.4' },
+      { 'name' => 'liquidated_offset_stranded', 'note' => 'an offset above the banked total: the offer clamps to zero, the decline is never rewritten',
+        'members' => rotated, 'rows' => history + [liq_ccc], 'declined_offset' => '40' },
+      { 'name' => 'liquidated_offer_under_floor', 'note' => 'what is left is under the smallest member minimum: nothing is offered',
+        'members' => rotated, 'rows' => history + [liq_ccc], 'declined_offset' => '26.0' },
       { 'name' => 'liquidated_declined_then_sold_again', 'note' => 'a later sale is offered on its own past the declined offset',
         'members' => members([%w[AAA 0.6], %w[DDD 0.4]], exited: %w[BBB CCC]), 'declined_offset' => '26.4',
         'rows' => history + [liq_ccc, row('BBB', 'sell', 'LIQUIDATION', '0.18', '190', 12)] },
@@ -259,7 +263,12 @@ module IndexOracle
       'smallest_placeable' => num(bot.smallest_placeable_amount), 'offer' => num(bot.redeploy_offer(m))
     }
     pending = bot.pending_quote_amount
-    { 'walk' => walk, 'state' => state, 'redeploy' => redeploy, 'pending_quote_amount' => num(pending.to_d), 'tick' => tick(bot) }
+    ticked = tick(bot)
+    # Bot::DeclineRedeployJob's decision, after the tick (which writes no LIQUIDATION or REDEPLOY row).
+    declining = Bot.find(bot.id)
+    answer = declining.decline_redeploy!
+    decline = { 'result' => answer.success? ? 'success' : answer.errors.map(&:to_s), 'offset' => num(declining.reload.declined_offset) }
+    { 'walk' => walk, 'state' => state, 'redeploy' => redeploy, 'pending_quote_amount' => num(pending.to_d), 'tick' => ticked, 'decline' => decline }
   end
 
   # The DCA tick as Bot::ActionJob runs it, minus the job: the decorators' stand-down guards, then set_orders.

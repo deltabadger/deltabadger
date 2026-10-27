@@ -407,7 +407,7 @@ fn refuse_composition_jobs(o: &Opened) -> Result<(),EngineError> {
     if reasons.is_empty() { Ok(()) } else { Err(EngineError::Ineligible(reasons)) }
 }
 fn refuse_commands(c: &Connection) -> Result<(),EngineError> {
-    let mut s=c.prepare("SELECT id FROM bots WHERE json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL ORDER BY id")?;
-    let reasons=s.query_map([],|r|r.get::<_,i64>(0))?.map(|r|r.map(|id|format!("bot {id}: liquidation request pending; run the engine before handing back"))).collect::<Result<Vec<_>,_>>()?;
+    let mut s=c.prepare("SELECT id,json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL FROM bots WHERE json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL OR json_type(transient_data,'$.rust_redeploy_request')='object' ORDER BY id")?;
+    let reasons=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,bool>(1)?)))?.map(|r|r.map(|(id,selling)|format!("bot {id}: {} request pending; run the engine before handing back",if selling {"liquidation"} else {"redeploy"}))).collect::<Result<Vec<_>,_>>()?;
     if reasons.is_empty() {Ok(())} else {Err(EngineError::Ineligible(reasons))}
 }

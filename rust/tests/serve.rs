@@ -474,15 +474,15 @@ fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refu
     let refused = check.ended_within(Duration::from_secs(20)).expect("check ends within 20 s");
     assert!(!refused.success() && said("check.log").contains("another Deltabadger engine"), "{}", said("check.log"));
 
-    // The engine makes its passes beside the pages. Set to work behind its back with a redeploy Rails left pending, the basket of two
+    // The engine makes its passes beside the pages. Set to work behind its back with a rebalance halt Rails left, the basket of two
     // is a bot it cannot trade: its next pass (it idles for a minute at most) reads the install again, names the bot, and
     // ends the process.
     let behind = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    behind.execute("UPDATE bots SET status = 1, transient_data = json_set(coalesce(transient_data, '{}'), '$.redeploy_pending', json('{}')) WHERE id = ?1", [basket]).unwrap();
+    behind.execute("UPDATE bots SET status = 1, transient_data = json_set(coalesce(transient_data, '{}'), '$.rebalance_pending', json('{\"phase\":\"ambiguous\"}')) WHERE id = ?1", [basket]).unwrap();
     drop(behind);
     let ended = server.ended_within(Duration::from_secs(100)).unwrap_or_else(|| panic!("no engine pass within 100 s: {}", said("serve.log")));
     assert!(!ended.success(), "the engine's pass ends the process: {ended}");
-    assert!(said("serve.log").contains(&format!("bot {basket} (scheduled)")) && said("serve.log").contains("redeploy_pending"), "{}", said("serve.log"));
+    assert!(said("serve.log").contains(&format!("bot {basket} (scheduled)")) && said("serve.log").contains("rebalance_pending in phase"), "{}", said("serve.log"));
     assert!(!up_within(port, Duration::from_secs(2)), "and the pages went with it");
 
     // Started on that install, the executable does not come up: refused before anything is served.
@@ -490,7 +490,7 @@ fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refu
     let mut again = Child(serve_command(dir.path(), free_port()).env("SECRET_KEY_BASE", "engine-test-secret").stdout(out.try_clone().unwrap()).stderr(out).spawn().unwrap());
     let refused = again.ended_within(Duration::from_secs(30)).unwrap_or_else(|| panic!("serve neither refused nor ended within 30 s: {}", said("again.log")));
     assert_eq!(refused.code(), Some(1), "{}", said("again.log"));
-    assert!(said("again.log").contains(&format!("bot {basket} (scheduled)")) && said("again.log").contains("redeploy_pending"), "{}", said("again.log"));
+    assert!(said("again.log").contains(&format!("bot {basket} (scheduled)")) && said("again.log").contains("rebalance_pending in phase"), "{}", said("again.log"));
 }
 
 /// The cookie is written when the session changed, not on every response. A request that left the
@@ -1861,12 +1861,13 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
         c.execute("DELETE FROM transactions WHERE transaction_type = ?1", [kind]).unwrap();
     }
-    // A basket's REDEPLOY rows remain refused by the page and settings; the feed does not ask.
+    // A basket's REDEPLOY buys are read by the engine since 6c-4: the settings and the feed serve them, and the page refuses
+    // only for the REGULAR sale beside them, as before.
     order(0, "REDEPLOY");
-    for asked in [bot::For::Page, bot::For::Settings] {
-        assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), Some(bot::UNREAD_ORDERS));
+    for asked in [bot::For::Settings, bot::For::Feed] {
+        assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), None);
     }
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
     c.execute("DELETE FROM transactions WHERE transaction_type = 'REDEPLOY'", []).unwrap();
     // An order whose asset is not recorded is not a special row: the settings serve it, and the engine's guard refuses its start.
     c.execute("UPDATE transactions SET base_asset_id = NULL WHERE side = 1", []).unwrap();
@@ -2677,7 +2678,7 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
     assert!(std::fs::read_to_string(scratch.path().join("check.log"))?
         .contains("another Deltabadger engine"));
     // Merged basket support means a basket alone is no longer an engine refusal.
-    c.execute("UPDATE bots SET status=1,transient_data=json_set(coalesce(transient_data,'{}'),'$.redeploy_pending',json('{}')) WHERE id=?1",[stock])?;
+    c.execute("UPDATE bots SET status=1,transient_data=json_set(coalesce(transient_data,'{}'),'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}')) WHERE id=?1",[stock])?;
     // A refused write cannot wake the loop; its next bounded idle pass must end both tasks.
     assert_eq!(
         action(
@@ -2697,7 +2698,7 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
     let supervision_log = std::fs::read_to_string(scratch.path().join("serve.log"))?;
     assert!(
         supervision_log.contains("a write to bots skipped eligibility::guard")
-            && supervision_log.contains("redeploy_pending"),
+            && supervision_log.contains("rebalance_pending in phase"),
         "{ended}: {supervision_log}"
     );
     drop(release);

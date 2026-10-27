@@ -452,13 +452,9 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
         if !held.is_empty(){lines.push(format!("Holdings (sellable with liquidate_exited_asset): {}",held.join(", ")));}
         if !exited.is_empty(){lines.push(format!("Exited holdings: {}",exited.join(", ")));}
         (holdings,exited_holdings)=(json!(held),json!(exited));
-        if figures::db::composition_minimum(c,s).map_err(fail_fig)?.is_none(){
-            redeploy_line=Some("Redeploy unavailable: no composition minimum".into());
-        }else{
-            let offer=figure::redeploy_offer(c,s,m,&in_index).map_err(fail_fig)?.filter(|v|v.is_positive());
-            redeploy=json!(offer.as_ref().map_or_else(||"0".to_string(),|o|o.to_s_f()));
-            if let Some(offer)=offer{redeploy_line=Some(format!("Redeploy offer (answer with answer_redeploy_offer): {} {}",offer.to_s_f(),b.quote));}
-        }
+        let offer=crate::engine::redeploy::offer(c,s,m).map_err(fail_fig)?;
+        redeploy=json!(if offer.is_positive() {offer.to_s_f()} else {"0".to_string()});
+        if offer.is_positive(){redeploy_line=Some(format!("Redeploy offer (answer with answer_redeploy_offer): {} {}",offer.to_s_f(),b.quote));}
     }
     }
     let (enabled,jurisdiction,zone):(Option<bool>,Option<String>,String)=c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction,time_zone FROM users WHERE id=?1",[user],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
