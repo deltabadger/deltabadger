@@ -371,6 +371,7 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
             Err(err) => { super::log(&format!("[engine] reversal reserves could not be scanned: {err:?}; retried in 10 minutes")); super::reversal::Scan::default() }
         };
         let composition = super::composition::scan(&e.primary,clock.now())?;
+        for bot_id in composition.halted { e.events.send(EngineEvent::OrderUpdated { bot_id }); }
         for (bot,tx) in composition.waiting {
             if e.polls.contains_key(&tx) { continue; }
             let producer=model::load_bot(&e.primary,bot).and_then(|b|e.venue_for(&b)).map(|(_,p)|p).unwrap_or(None);
@@ -650,6 +651,8 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
     let entries:Vec<_>=e.polls.iter().map(|(tx,state)|(*tx,state.clone())).collect();
     // D-6C-5: the pass's abandoned composition rows halt together, every base named.
     let mut watched=vec![];
+    let ids:Vec<(i64,i64)>=entries.iter().map(|(tx,state)|(state.value.0,*tx)).collect();
+    let before=super::composition::halted(&e.primary,&ids).unwrap_or_default();
     for (tx,state) in entries {
         if e.stopping() { break; }
         let (id,at,mut attempts)=state.value;
@@ -696,7 +699,7 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts),producer));
         }
     }
-    match super::composition::halt_abandoned(&e.primary,&watched,clock.now()) {
+    match super::composition::halt_abandoned(&e.primary,&watched,&before,clock.now()) {
         Ok(()) => { let mut bots:Vec<i64>=watched.iter().map(|(bot,_)|*bot).collect(); bots.dedup(); for bot_id in bots { e.events.send(EngineEvent::OrderUpdated { bot_id }); } }
         Err(err) => super::log(&format!("[engine] abandoned composition order halt: {err:?}")),
     }

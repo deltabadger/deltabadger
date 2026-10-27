@@ -316,6 +316,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
                 tx.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
                       params![TxExternalStatus::Abandoned as i64, format_time(now), id])?;
                 model::log_activity(tx, bot.id, "order_abandoned", Level::Info, json!({ "order_id": ext }), now)?;
+                super::composition::halt_abandoned_redeploy(tx, bot.id, *id)?;
                 super::reversal::settle(tx, bot.id, *id).map(|_| ())
             }).map_err(db)?;
         }

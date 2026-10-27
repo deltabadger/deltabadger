@@ -474,3 +474,72 @@ async fn rails_redeploy_grid_matches_every_venue() {
         assert_eq!(count, usize::from(sends), "{name}: {out}");
     }
 }
+
+/// Two abandoned-by-staleness REDEPLOY rows (BTC, ETH) on the stopped proceeds bot.
+fn abandoned_rows(o: &store::Opened, s: &seed::Seeded, id: i64, eth: i64, status: i64) -> Vec<i64> {
+    [(s.btc, "LOST-1"), (eth, "LOST-2")].into_iter().map(|(asset, ext)| {
+        let row = seed::insert_row(&o.primary, s, id, asset, &json!({"external_id":ext,"external_status":status,"amount":"0.001","quote_amount":"20","price":"20000","created_at":"2026-08-01 10:00:02"}));
+        o.primary.execute("UPDATE transactions SET transaction_type='REDEPLOY', updated_at='2026-08-20 10:00:00.000000' WHERE id=?1", [row]).unwrap();
+        row
+    }).collect()
+}
+fn fake_engine(d: &tempfile::TempDir, c: rusqlite::Connection) -> run::Engine<deltabadger::venue::fake::FakeFactory> {
+    use deltabadger::venue::fake::{FakeFactory, FakeVenue};
+    let paths = store::Paths::from_env(&|_| None, d.path());
+    let lock = deltabadger::lease::lock(&paths, at(T0)).unwrap();
+    run::Engine::new(c, FakeFactory(FakeVenue::new()), seed::cipher(), lock)
+}
+fn stood_down(c: &rusqlite::Connection, id: i64) -> bool {
+    let bot = model::load_bot(c, id).unwrap();
+    bot.transient[redeploy::PENDING_KEY]["state"] == "ambiguous" && deltabadger::engine::composition::in_flight(c, &bot, at(T0)).unwrap()
+}
+
+/// The halt commits with the abandonment: a crash before the announcing pass still leaves the bot halted after a restart.
+#[tokio::test(flavor = "current_thread")]
+async fn a_crash_after_the_abandoning_commit_keeps_the_halt() {
+    let (d, o, id, s, eth) = proceeds_bot("640", "100");
+    let rows = abandoned_rows(&o, &s, id, eth, 1);
+    let venue = deltabadger::venue::fake::FakeVenue::new();
+    deltabadger::engine::polling::follow_up(&o.primary, &venue, id, rows[0], at(T0)).await.unwrap();
+    assert_eq!(one::<i64>(&o.primary, "SELECT count(*) FROM transactions WHERE external_status=4"), 1);
+    assert!(stood_down(&o.primary, id), "halted in the abandoning transaction");
+    // The process dies here; the restarted engine neither loses nor re-raises the halt.
+    let nonce = model::load_bot(&o.primary, id).unwrap().transient[redeploy::PENDING_KEY]["id"].clone();
+    let mut e = fake_engine(&d, o.primary);
+    for minutes in [0, 10, 20] { run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(minutes))).await.unwrap(); }
+    assert!(stood_down(&e.primary, id));
+    assert_eq!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY]["id"], nonce);
+    let halts: Vec<_> = logs(&e.primary).into_iter().filter(|(event, _)| event == "redeploy_ambiguous").collect();
+    assert_eq!(halts, vec![], "the halt stood before the second row's pass: nothing new is announced");
+}
+
+/// A halt that cannot be written rolls the abandonment back: the row stays waiting and is polled again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_failed_halt_write_rolls_back_the_abandonment() {
+    let (_d, o, id, s, eth) = proceeds_bot("640", "100");
+    let rows = abandoned_rows(&o, &s, id, eth, 1);
+    o.primary.execute_batch("CREATE TRIGGER no_halt BEFORE UPDATE OF transient_data ON bots WHEN NEW.transient_data LIKE '%redeploy_pending%' \
+                             BEGIN SELECT RAISE(ABORT, 'halt write failed'); END;").unwrap();
+    let venue = deltabadger::venue::fake::FakeVenue::new();
+    assert!(deltabadger::engine::polling::follow_up(&o.primary, &venue, id, rows[0], at(T0)).await.is_err());
+    assert_eq!(one::<i64>(&o.primary, "SELECT external_status FROM transactions WHERE external_id='LOST-1'"), 1);
+    assert_eq!(one::<i64>(&o.primary, "SELECT count(*) FROM bot_activity_logs WHERE event='order_abandoned'"), 0);
+    assert!(model::load_bot(&o.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null());
+}
+
+/// Rails' shape: rows abandoned with no halt recorded are halted by the settle scan, every base named; after a Clear they stay cleared.
+#[tokio::test(flavor = "current_thread")]
+async fn the_scan_halts_rows_abandoned_without_a_halt() {
+    let (d, o, id, s, eth) = proceeds_bot("640", "100");
+    abandoned_rows(&o, &s, id, eth, 4);
+    let mut e = fake_engine(&d, o.primary);
+    run::step(&mut e, &FixedClock(at(T0))).await.unwrap();
+    assert!(stood_down(&e.primary, id));
+    let halts: Vec<_> = logs(&e.primary).into_iter().filter(|(event, _)| event == "redeploy_ambiguous").collect();
+    assert_eq!(halts, vec![("redeploy_ambiguous".into(), json!({"base":"BTC, ETH","reason":"exchange stopped reporting the order"}))]);
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    let nonce = bot.transient[redeploy::PENDING_KEY]["id"].as_str().unwrap().to_string();
+    assert_eq!(redeploy::resolve(&e.primary, id, bot.user_id, &nonce, at(T0)).unwrap(), None);
+    for minutes in [10, 20] { run::step(&mut e, &FixedClock(at(T0) + Duration::minutes(minutes))).await.unwrap(); }
+    assert!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null(), "a Clear resolves the rows it followed");
+}

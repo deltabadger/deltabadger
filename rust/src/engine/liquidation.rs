@@ -63,8 +63,9 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
     let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND external_status IN (0,1))",[id],|r|r.get(0))?;
     if waiting {
         let watched = composition::waiting_rows(c,Some(id),None)?;
+        let before = composition::halted(c,&watched)?;
         if let Err(e) = super::polling::sweep(c,venue,&claim.bot,clock.now()).await { super::log(&format!("[engine] liquidation sweep bot={id}: {e:?}")); }
-        composition::halt_abandoned(c,&watched,clock.now())?;
+        composition::halt_abandoned(c,&watched,&before,clock.now())?;
     }
     composition::promote_orphan(c,id,TxKind::Liquidation,clock.now())?;
     let current = model::load_bot(c,id)?;

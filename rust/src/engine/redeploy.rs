@@ -93,8 +93,9 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, clock: &dyn Clock
     // #advance_waiting_redeploys!: this leg's own waiting rows, swept with every other; abandoned ones halt.
     let watched = composition::waiting_rows(c, Some(id), Some(TxKind::Redeploy))?;
     if !watched.is_empty() {
+        let before = composition::halted(c, &watched)?;
         if let Err(e) = super::polling::sweep(c, venue, &bot, clock.now()).await { super::log(&format!("[engine] redeploy order refresh failed bot={id}: {e:?}")); }
-        composition::halt_abandoned(c, &watched, clock.now())?;
+        composition::halt_abandoned(c, &watched, &before, clock.now())?;
     }
     composition::promote_orphan(c, id, TxKind::Redeploy, clock.now())?;
     let bot = model::load_bot(c, id)?;
