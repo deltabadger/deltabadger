@@ -66,6 +66,19 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("id", "INTEGER", false), ("api_key_id", "INTEGER", true), ("account_ref", "TEXT", true), ("conid", "INTEGER", true), ("bot_id", "INTEGER", true),
         ("cl_ord_id", "TEXT", true), ("transaction_id", "INTEGER", false), ("quantity", "TEXT", true), ("created_at", "TEXT", true),
         ("released_at", "TEXT", false)], unique_indexes: &[&["cl_ord_id"]] }),
+    ("20261026000001", TableContract { name: "rust_rule_evaluations", columns: &[
+        ("id", "INTEGER", false), ("rule_id", "INTEGER", true), ("source", "TEXT", true), ("created_at", "TEXT", true), ("consumed_at", "TEXT", false), ("outcome", "TEXT", false)], unique_indexes: &[&["rule_id", "source"]] }),
+    ("20261026000001", TableContract { name: "rust_withdrawal_intents", columns: &[
+        ("owner", "TEXT", true), ("evaluation_id", "INTEGER", false), ("state", "TEXT", true), ("client_id", "TEXT", true), ("created_at", "TEXT", true), ("api_key_id", "INTEGER", true), ("credential_digest", "TEXT", true), ("host", "TEXT", true), ("account_scope", "TEXT", true), ("key_identity", "TEXT", true), ("params_enc", "TEXT", true), ("fee_basis", "TEXT", true), ("budget", "TEXT", true), ("free_balance", "TEXT", true), ("venue_id", "TEXT", false), ("reason", "TEXT", false)], unique_indexes: &[&["owner"]] }),
+    ("20261026000001", TableContract { name: "rust_withdrawal_ids", columns: &[
+        ("exchange_id", "INTEGER", true), ("venue_id", "TEXT", true), ("owner", "TEXT", true), ("settled_at", "TEXT", true), ("source", "TEXT", true)], unique_indexes: &[&["exchange_id", "venue_id"]] }),
+    ("20261026000001", TableContract { name: "rust_rails_attempt_acks", columns: &[
+        ("rule_log_id", "INTEGER", false), ("rule_id", "INTEGER", true), ("resolution", "TEXT", true), ("venue_id", "TEXT", false), ("at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261026000001", TableContract { name: "rust_rails_job_acks", columns: &[
+        ("active_job_id", "TEXT", true), ("rule_id", "INTEGER", true), ("resolution", "TEXT", true), ("venue_id", "TEXT", false), ("at", "TEXT", true)], unique_indexes: &[&["active_job_id"]] }),
+    ("20261026000001", TableContract { name: "rust_recorder_runs", columns: &[
+        ("scenario_id", "TEXT", true), ("account_ref", "TEXT", true), ("destination_digest", "TEXT", true), ("amount", "TEXT", true), ("evaluation_id", "INTEGER", true), ("outcome", "TEXT", false), ("created_at", "TEXT", true)], unique_indexes: &[&["scenario_id"]] }),
+
 ];
 
 /// What this build migrates.

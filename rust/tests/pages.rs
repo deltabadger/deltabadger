@@ -2613,22 +2613,97 @@ fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), Stri
     Ok(())
 }
 
+/// W2 changes only the explicitly named writes; assert their entire response against Rails twins.
+fn rules_service_differences(name: &str, step: &Value, a: &mut Value, b: &Value) -> Result<(),String> {
+    let refuse_start=matches!(name,"rules_tile_start_created"|"rules_tile_start_stopped"|"rules_tile_start_invalid"|"rules_tile_combined_invalid_start");
+    let refuse_update=name=="rules_tile_settings_scheduled";
+    let stop=name=="rules_tile_combined_invalid_stop";
+    if step["method"]=="PATCH" && (refuse_start||refuse_update||stop) {
+        let vectors:Value=serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+        let twin_case=if stop {"tile_stop_scheduled"} else {"tile_address_not_listed"};
+        let twin=vectors["pages"].as_array().unwrap().iter().find(|v|v["case"]==twin_case).unwrap();
+        let mut expected=twin["body"].as_str().unwrap().to_string();
+        if !stop {
+            let reason=if refuse_start {"Withdrawals are not enabled for this exchange."} else {"Stop the withdrawal rule before updating it."};
+            expected=expected.replace("That address is not on the exchange&#39;s withdrawal allowlist",reason)
+                .replace("That address is not on the exchange's withdrawal allowlist",reason);
+        }
+        if b["body"]!=json!(html::normalize(&expected)) || b["status"]!=if stop {200} else {422}
+            || b["headers"]["content-type"]!="text/vnd.turbo-stream.html; charset=utf-8" || b.get("venue_requests").is_some() {
+            return Err(format!("D-RULE-ONE-MATRIX / D-RULE-UNSUPPORTED-START: {name} must match its complete Rails stream twin without venue reads"));
+        }
+        let old_status=if name=="rules_tile_start_created" {"created"} else if refuse_update || stop {"scheduled"} else {"stopped"};
+        let mut settings=json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"});
+        if name=="rules_tile_start_invalid" {settings.as_object_mut().unwrap().remove("max_fee_percentage");}
+        let expected_row=json!({"rules":[{"id":1,"user_id":1,"type":"Rules::Withdrawal",
+            "status":if stop {2} else if old_status=="created" {0} else if old_status=="stopped" {2} else {1},
+            "exchange_id":1,"asset_id":1,"settings":settings.to_string()}],"rule_logs":[]});
+        let mut actual=b["raw_rows"].clone();
+        let actual_settings:Value=serde_json::from_str(actual["rules"][0]["settings"].as_str().unwrap()).unwrap();
+        if actual_settings!=settings {return Err(format!("D-RULE-ONE-MATRIX: {name} wrote settings"));}
+        actual["rules"][0]["settings"]=json!(settings.to_string());
+        if actual!=expected_row {return Err(format!("D-RULE-ONE-MATRIX: {name} changed rows beyond its status"));}
+        a["raw_rows"]=b["raw_rows"].clone();
+        a["status"]=json!(if stop {200} else {422});
+        a["body"]=json!(html::normalize(&expected));
+        a.as_object_mut().unwrap().remove("venue_requests");
+    }
+    if name=="rules_wizard_duplicate" && step["method"]=="POST" && step["path"]=="/rules/withdrawals/confirm_settings" {
+        let expected=json!([{"method":"POST","host":"api.gemini.com","path":"/v1/approvedAddresses/account/bitcoin","params":[]}]);
+        if a["venue_requests"]!=expected || b.get("venue_requests").is_some() {return Err("D-RULE-ONE-MATRIX: duplicate refuses before listing".into())}
+        a.as_object_mut().unwrap().remove("venue_requests");
+    }
+    if name=="rules_tile_settings_stopped" && step["method"]=="PATCH" {
+        let request=json!({"method":"POST","host":"api.gemini.com","path":"/v1/approvedAddresses/account/bitcoin","params":[]});
+        if a["venue_requests"]!=json!([request]) || b["venue_requests"]!=json!([request,request]) {
+            return Err("D-RULE-ONE-MATRIX: service rechecks the destination before the tile's display read".into());
+        }
+        a["venue_requests"]=b["venue_requests"].clone();
+    }
+    if matches!(name,"rules_wizard_gemini"|"rules_wizard_revive"|"rules_tile_settings_stopped")
+        && a["raw_rows"]["rules"].as_array().is_some_and(|r| !r.is_empty())
+        && (step["path"]=="/rules" || step["method"]=="PATCH" || step["path"]=="/rules/withdrawals/confirm_settings") {
+        let mut expected:Value=serde_json::from_str(a["raw_rows"]["rules"][0]["settings"].as_str().unwrap()).unwrap();
+        if name=="rules_tile_settings_stopped" {expected["network"]=json!("bitcoin");}
+        else if name=="rules_wizard_gemini" {expected["max_fee_percentage"]=json!("0.5");}
+        else {
+            expected["threshold_type"]=json!("fee_percentage");
+            expected["max_fee_percentage"]=json!("0.5");
+            expected["min_amount"]=json!("0.1");
+        }
+        let mut actual:Value=serde_json::from_str(b["raw_rows"]["rules"][0]["settings"].as_str().unwrap()).unwrap();
+        expected.as_object_mut().unwrap().retain(|_,v|!v.is_null());
+        actual.as_object_mut().unwrap().retain(|_,v|!v.is_null());
+        if expected!=actual {return Err(format!("D-RULE-ONE-MATRIX: {name} defaults differ: {expected} / {actual}"));}
+        a["raw_rows"]["rules"][0]["settings"]=b["raw_rows"]["rules"][0]["settings"].clone();
+    }
+    if name=="rules_wizard_revive" && step["method"]=="GET" && step["path"]=="/rules" {
+        // A revived rule now has a valid 0.5% threshold, so its existing Rails fee hint is visible.
+        let lines=b["body"].as_array().unwrap();
+        let at=lines.iter().position(|line|line.as_str().is_some_and(|s|s.trim()=="<div class=\"small-info\">"))
+            .ok_or("D-RULE-ONE-MATRIX: revived threshold has no fee hint")?;
+        let end=subtree_end(lines,at);
+        let expected=html::normalize("<div class=\"small-info\">\nThe current fee is 0.0001 BTC, so the withdrawal will be triggered at <b>0.02 BTC</b>.\n</div>");
+        let actual=lines[at..end].iter().map(|v|v.as_str().unwrap().trim_start()).collect::<Vec<_>>();
+        let expected:Vec<Value>=expected.into_iter().map(Value::String).collect();
+        let expected_at=expected.iter().position(|v|v.as_str().unwrap().trim()=="<div class=\"small-info\">").unwrap();
+        let expected_end=subtree_end(&expected,expected_at);
+        let expected=expected[expected_at..expected_end].iter().map(|v|v.as_str().unwrap().trim_start()).collect::<Vec<_>>();
+        if actual!=expected || !is_space(&lines[end]) {
+            return Err(format!("D-RULE-ONE-MATRIX: revived fee hint must state exactly the validated 0.5% threshold: {actual:?} / {expected:?}"));
+        }
+        a["body"].as_array_mut().unwrap().splice(at..at,lines[at..=end].iter().cloned());
+    }
+
+    Ok(())
+}
+
 fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
     if !name.starts_with("rules_") { return Ok(()) }
     for ((a,b),step) in rails["responses"].as_array_mut().unwrap().iter_mut()
         .zip(rust["responses"].as_array_mut().unwrap()).zip(scenario["steps"].as_array().unwrap()) {
+        rules_service_differences(name, step, a, b)?;
         rules_listed_entry_picker(&mut a["body"], &b["body"])?;
-        // A disabled destination placeholder is absent from form data. Recheck the stored
-        // selection before a stopped rule starts, including a start submitted with settings.
-        if matches!(name, "rules_tile_start_stopped" | "rules_tile_combined_invalid_start")
-            && step["method"] == "PATCH" && step["path"] == "/rules/withdrawals/1" {
-            let expected = json!([{"method":"GET","host":"api.binance.com",
-                "path":"/sapi/v1/capital/withdraw/address/list","params":[["recvWindow","5000"]]}]);
-            if a.get("venue_requests").is_some() || b.get("venue_requests") != Some(&expected) {
-                return Err("D-RULE-LISTED-ENTRY: expected exactly one destination recheck before starting a stopped rule".into());
-            }
-            a["venue_requests"] = expected;
-        }
         if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
             let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {
                 let text=l.as_str()?;
