@@ -844,7 +844,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         Err(_) => return Ok(()),
     };
     wait_tx.commit()?;
-    let deferred = defer.flatten().filter(|&t| t >= now_us);
+    let mut deferred = defer.flatten().filter(|&t| t >= now_us);
     let on_schedule = || -> Result<bool, EngineError> {
         Ok(anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000))) // stored value is ms-truncated
     };
@@ -896,9 +896,19 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let funds_before = funds_marker(&e.primary)?;
         let waiting = waiting_rows(&e.primary, id)?;
         let info_before = info_marker(&e.primary, id)?;
+        let selling_before = bot.selling();
         let ticked = tick::tick_recovering_for_run(&e.primary, &venue, &mut bot, clock, attempts, &mut recovered, &cx).await;
         // Whatever the tick wrote (its sweep's fills, its placement), on success or on error, the bot is announced, with
         // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
+        let flipped = bot.selling() != selling_before;
+        if flipped {
+            deferred = bot.rust_defer_until_us()?.filter(|&t| t >= now_us);
+            e.events.send(EngineEvent::Reversed { bot_id: id });
+            e.condition_at.remove(&id);
+            // D-FLIP-CANCEL-AFTER: the transaction is committed even when Fundable failed.
+            // Captured cancels run in this pass and their normal follow-up polls are queued.
+            run_reversals(e, clock).await?;
+        }
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         let committed = after_tick(e, id, &tick_start, last_tx, recovered, clock,&retry_producer);
         // The sweep's writes (polling::sweep), those committed before an error of it included.
@@ -933,9 +943,16 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             }
             TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + d.as_micros() as i64,retry_producer.clone())); }
             TickOutcome::AwaitingReconciliation => { e.retry_at.remove(&id); e.reconcile_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + RECONCILE_EVERY_US,retry_producer.clone())); }
-            TickOutcome::Done { .. } => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); }
+            TickOutcome::Done { .. } | TickOutcome::Flipped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.condition_at.remove(&id); }
             // Rescheduled: `retrying` until the next checkpoint, as Rails' reschedule leaves it.
-            TickOutcome::Rescheduled => { e.retry_at.insert(id, model::Produced::new(cps.next_us + AFTER_CHECKPOINT_US,retry_producer.clone())); e.reconcile_at.remove(&id); }
+            TickOutcome::Rescheduled => {
+                // A flip can change both anchor and cadence before Fundable raises.
+                let next = model::load_bot(&e.primary, id)?.rust_defer_until_us()?.unwrap_or(cps.next_us);
+                deferred = Some(next).filter(|&t| t >= now_us);
+                if flipped { e.retry_at.remove(&id); }
+                else { e.retry_at.insert(id, model::Produced::new(next + AFTER_CHECKPOINT_US, retry_producer.clone())); }
+                e.reconcile_at.remove(&id);
+            }
             // The bot stays due and is rechecked after a bounded wait: an expired retry time left here would pull every wake to now.
             TickOutcome::Stale { .. } => { e.retry_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + STALE_RECHECK_US,retry_producer.clone())); }
             TickOutcome::Skipped | TickOutcome::Stopped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id); }
@@ -954,10 +971,14 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     // Only entries that still apply count: a stale one (bot stopped and restarted) would spin the loop.
     if bot.status != crate::enums::BotStatus::Retrying && !due { e.retry_at.remove(&id); }
     if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
-    for at in [e.retry_at.get(&id).map(|t|&t.value), e.reconcile_at.get(&id).map(|t|&t.value), e.closed_until.get(&id).map(|(t, _)| &t.value).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
-    if let Some(t) = deferred { *wake = (*wake).min(t + AFTER_CHECKPOINT_US); }
-    let next = checkpoints(anchor, clock.now().timestamp_micros(), eff)?.next_us;
-    *wake = (*wake).min(next + AFTER_CHECKPOINT_US);
+    // A deferral blocks retries in both the due decision and the wake calculation.
+    for at in [e.retry_at.get(&id).map(|t|&t.value).filter(|_| deferred.is_none()), e.reconcile_at.get(&id).map(|t|&t.value), e.closed_until.get(&id).map(|(t, _)| &t.value).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
+    if let Some(t) = deferred {
+        *wake = (*wake).min(t + AFTER_CHECKPOINT_US);
+    } else {
+        let next = checkpoints(bot.started_at_us()?.unwrap_or(anchor), clock.now().timestamp_micros(), bot.effective().unwrap_or(eff))?.next_us;
+        *wake = (*wake).min(next + AFTER_CHECKPOINT_US);
+    }
     Ok(())
 }
 

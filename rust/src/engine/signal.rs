@@ -153,6 +153,7 @@ async fn gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule:
     let rejected = |e: &[String]| format!("{} rejected the API key: {}", rules.name, to_sentence(e));
     let key = match &evaluated {
         Evaluated::Off | Evaluated::Met { .. } => return Ok(None),
+        Evaluated::Flip(_) => unreachable!("signal flips are inapplicable"),
         Evaluated::Failed(VenueError::Unauthorized(e)) => Some(rejected(e)),
         Evaluated::Failed(VenueError::Rejected(e) | VenueError::Coded { errors: e, .. }) if rules.failure_kind(e) == Some("invalid_key") => Some(rejected(e)),
         Evaluated::Unmet | Evaluated::Unavailable | Evaluated::Failed(_) => None,

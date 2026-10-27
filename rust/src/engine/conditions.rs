@@ -47,7 +47,7 @@ impl Rule {
 /// What this build does with a rule on a bot kind (PLAN-conditions-every-bot §3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Support {
-    /// The engine runs it (with the `pause` action), the pages and the API take it.
+    /// The engine runs it; the pages and the API take it.
     Implemented,
     /// It has nothing to act on there (an index bot never sells; an index or signal bot has no direction to flip): the
     /// switch is inert, eligibility admits it.
@@ -56,7 +56,7 @@ pub enum Support {
     NotImplemented,
 }
 
-/// The (kind, rule) pairs the engine runs, with the `pause` action. Each slice adds its own with that rule's engine.
+/// The (kind, rule) pairs the engine runs. Basket triggers also support direction flips.
 pub const IMPLEMENTED: &[(Kind, Rule)] = &[(Kind::Basket, Rule::Cap), (Kind::Basket, Rule::Price), (Kind::Index, Rule::Cap), (Kind::Index, Rule::Price),
     (Kind::Signal, Rule::Cap), (Kind::Signal, Rule::Price),
     (Kind::Basket, Rule::PriceDrop), (Kind::Basket, Rule::MovingAverage), (Kind::Basket, Rule::Indicator),
@@ -127,7 +127,7 @@ pub fn support(kind: Kind, rule: Rule, selling: bool, action: &str) -> Support {
     // The cap's sell side (base_amount_limited) has nothing to sell on an index bot.
     if rule == Rule::Cap && selling && kind == Kind::Index { return Support::Inapplicable; }
     if rule != Rule::Cap && ((kind == Kind::Index && (selling || flip)) || (kind == Kind::Signal && flip)) { return Support::Inapplicable; }
-    if action == "pause" && IMPLEMENTED.contains(&(kind, rule)) { Support::Implemented } else { Support::NotImplemented }
+    if (action == "pause" || (flip && kind == Kind::Basket && rule != Rule::Cap)) && IMPLEMENTED.contains(&(kind, rule)) { Support::Implemented } else { Support::NotImplemented }
 }
 
 /// A rule's `*_action` as Bot::PriceLimitable reads it (and its siblings): absent, false or blank is `pause`; any other value
@@ -185,6 +185,8 @@ pub fn price_met(rule: &PriceRule, price: &BigDec) -> Result<bool, EngineError> 
 pub enum Evaluated {
     /// No rule on the active side.
     Off,
+    /// The gate met a basket flip; the caller commits the reversal inside its run.
+    Flip(Box<Bot>),
     /// Met (`after` with a stored met_at, or the price satisfies it). `refreshed`: the bot as the stamp left it, when this
     /// call stamped met_at, so the tick sizes from it.
     Met { refreshed: Option<Box<Bot>> },
@@ -259,19 +261,52 @@ pub async fn evaluate_side<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, 
     evaluate_rule(c, venue, bot, Rule::Price, selling, clock, prices, version).await
 }
 
-/// The shared decorator chain, outermost first. An unmet or failed rule prevents all inner reads.
+/// The shared decorator chain, outermost first. Unmet and settled failed flip reads
+/// pass to the inner rules; rejected keys and raised exceptions retain the failure path.
 pub async fn gate<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<(Rule, Evaluated), EngineError> {
+    gate_after(c, venue, bot, selling, clock, prices, version, None).await
+}
+
+/// Continue inside a refused flip, preserving the decorator order without reading the outer rules again.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn gate_after<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, selling: bool, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, after: Option<Rule>) -> Result<(Rule, Evaluated), EngineError> {
     let venue = crate::venue::Handle::for_bot(venue, c, bot)?;
     let mut refreshed = None;
-    for kind in [Rule::Indicator, Rule::MovingAverage, Rule::PriceDrop, Rule::Price] {
+    let chain = [Rule::Indicator, Rule::MovingAverage, Rule::PriceDrop, Rule::Price];
+    let start = after.and_then(|rule| chain.iter().position(|r| *r == rule)).map_or(0, |i| i + 1);
+    for &kind in &chain[start..] {
         let current = refreshed.as_deref().unwrap_or(bot);
-        match evaluate_rule(c, &venue, current, kind, selling, clock, prices, version).await? {
+        let flip = current.condition_rule(kind, selling).map_err(EngineError::Data)?
+            .is_some_and(|r| matches!(r.common.action.as_str(), "start_selling" | "start_buying"));
+        let evaluated = evaluate_rule(c, &venue, current, kind, selling, clock, prices, version).await?;
+        if flip {
+            match evaluated {
+                Evaluated::Met { refreshed: stamped } => return Ok((kind, Evaluated::Flip(stamped.unwrap_or_else(|| Box::new(current.clone()))))),
+                Evaluated::Unmet | Evaluated::Unavailable => {
+                    // evaluate may have cleared the latch and captured carry; retain that row.
+                    refreshed = Some(Box::new(model::run_write(c, current, |tx| model::load_bot(tx, bot.id))?));
+                    continue;
+                }
+                Evaluated::Failed(ref e) if !failure_raises(e, venue.rules()) => continue,
+                _ => {}
+            }
+        }
+        match evaluated {
             Evaluated::Off | Evaluated::Met { refreshed: None } => {},
             Evaluated::Met { refreshed: Some(b) } => refreshed = Some(b),
             other => return Ok((kind, other)),
         }
     }
     Ok((Rule::Price, Evaluated::Met { refreshed }))
+}
+
+fn failure_raises(e: &VenueError, rules: &super::venue_rules::VenueRules) -> bool {
+    raised(e).is_some() || match e {
+        VenueError::Unauthorized(_) => true,
+        VenueError::Rejected(errors) | VenueError::Coded { errors, .. } => rules.failure_kind(errors) == Some("invalid_key"),
+        VenueError::Transient(_) => rules.transport_raises,
+        VenueError::Ambiguous(_) => false,
+    }
 }
 
 /// Read a rule without changing its latch or carry. The info worker uses this same comparison.
@@ -337,12 +372,14 @@ pub async fn evaluate_rule<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, 
     if rule.met_at_us.is_some() {
         model::run_credential_write(c, bot, &origin, |tx| {
             let current = model::load_bot(tx, bot.id)?;
+            let mut cleared = current.clone();
+            cleared.transient[&key] = Value::Null;
             if current.bot_type == model::SIGNAL_TYPE {
                 model::update_transient(tx, bot.id, &[(key.as_str(), Value::Null)], now)?;
-            } else if current.condition_started_us()?.is_none() {
-                // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): the clear leaves the carry window where it
-                // was (another enabled rule, or no start, already keeps the decorated started_at nil), so the capture is taken
-                // back: the carry as stored before it (nil when absent), and the marker nil.
+            } else if current.condition_started_us()? == cleared.condition_started_us()? {
+                // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): settings_changed_at is unchanged,
+                // and clearing this latch leaves the decorated started_at unchanged too. Flip rules never move that mark.
+                // Keep the stored carry (nil when absent), and clear the capture marker.
                 let before = current.transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null);
                 model::update_transient(tx, bot.id, &[("missed_quote_amount", before), ("missed_quote_amount_was_set", Value::Null), (key.as_str(), Value::Null)], now)?;
             } else {
@@ -583,6 +620,7 @@ pub async fn check<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot,
             })?;
             Ok(if rearmed { Checked::Rearmed } else { Checked::Gone })
         }
+        Evaluated::Flip(_) => unreachable!("a single-rule check never flips"),
         Evaluated::Off | Evaluated::Unmet | Evaluated::Unavailable => { model::run_write(c, bot, revive)?; Ok(Checked::Next(next_at(bot, kind, now)?)) }
         Evaluated::Failed(e) => match raised(&e) {
             Some(m) => Err(EngineError::Data(m)),

@@ -1979,8 +1979,8 @@ fn info_writes_taken_back(rails: &serde_json::Value) -> (serde_json::Value, bool
     (out, wrote)
 }
 
-/// Slice 7b-0, Rails only: Rust admits no RSI, moving-average or price-drop rule until 7b-3, which turns this into a
-/// Rails/Rust comparison. Until then it pins what Rails does on a degenerate daily close series (the plan's "7b-0
+/// Slice 7b-0 characterisation, with 7c end-to-end rule-off comparisons for buy flips.
+/// Pins what Rails does on a degenerate daily close series (the plan's "7b-0
 /// findings"): a flat series gives RSI NaN, which meets neither `below` nor `above`; an all-gain series gives 100.0; 14
 /// closes (RSI) or 8 (SMA 9) fail, which reads as not met; an unmet or failed buy-side flip rule places nothing (its
 /// decorated started_at is nil), a sell-side one sells. And the Alpaca crypto ATH seed reads every page at limit=10000.
@@ -1989,7 +1989,6 @@ async fn rails_reads_degenerate_indicator_series_as_recorded() {
     use serde_json::Value;
     let root = tempfile::tempdir().unwrap();
     built_grid("grid-conditions-degenerate", root.path());
-    rails(&["record", root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 68, "the degenerate grid has {} scenarios", dirs.len());
@@ -2010,6 +2009,7 @@ async fn rails_reads_degenerate_indicator_series_as_recorded() {
         rusqlite::Connection::open(off_root.path().join(name).join("production.sqlite3")).unwrap()
             .execute(&format!("UPDATE bots SET settings=json_set(settings,'$.{flag}',json('false'))"), []).unwrap();
     }
+    rails(&["record", root.path().to_str().unwrap()]);
     rails(&["record", off_root.path().to_str().unwrap()]);
     let (close, retry, minute) = ("2026-09-02T23:59:59.999999Z", "2026-09-02T10:04:01.123456Z", "2026-09-02T10:00:59.999999Z");
     let mut failures = vec![];
@@ -2060,17 +2060,24 @@ async fn rails_reads_degenerate_indicator_series_as_recorded() {
         let c = rusqlite::Connection::open(rust_root.path().join(name).join("production.sqlite3")).unwrap();
         let bot = model::load_bot(&c, sc["bot_id"].as_i64().unwrap()).unwrap();
         let met_at = if name.contains("-ma_") { "moving_average_limit_condition_met_at" } else { "indicator_limit_condition_met_at" };
-        // The rule this cell arms is not one the engine runs before 7b-3: the bot is refused (no tick), so the cell pins the
-        // shared decorator and what the tick would owe through it; 7b-3 turns it into an end-to-end comparison.
+        // 7c admits the flip: its undecorated window and complete tick match the rule-off twin.
         let refused = !eligibility::bot_reasons(&c, &bot).unwrap().is_empty();
         let owed = accounting::pending_quote_amount_num(&c, &bot, at).unwrap().to_dec().unwrap();
         let rails_quote = off["changes"]["transactions"][0]["after"]["quote_amount"].to_string();
         let carry_kept = off["changes"]["bots"].as_array().unwrap().iter().all(|b| b["after"]["transient_data"].get("missed_quote_amount") == b["before"]["transient_data"].get("missed_quote_amount"));
         if off["sent"].as_array().unwrap().len() != 1 || !carry_kept { failures.push(format!("{name}: the rule-off recording buys once and keeps the carry\n  rails: {off}")); }
-        if !refused || !bot.transient.get(met_at).is_none_or(Value::is_null) || bot.condition_started_us().unwrap() != bot.started_at_us().unwrap()
+        if refused || !bot.transient.get(met_at).is_none_or(Value::is_null) || bot.condition_started_us().unwrap() != bot.started_at_us().unwrap()
             || owed.cmp(&deltabadger::ruby::BigDec::parse(&rails_quote).unwrap()) != std::cmp::Ordering::Equal {
             failures.push(format!("{name}: D-FLIP-UNMET-KEEPS-BUYING: met_at nil, started_at undecorated, owed {} = the rule-off Rails order's {rails_quote}\n  rails off: {off}", owed.to_s_f()));
         }
+        drop(c);
+        let rust = deltabadger::parity::decide(&rust_root.path().join(name)).await.unwrap();
+        let mut expected = r5_cleanup_expected(&off, &rust);
+        let flag = if name.contains("-ma_") { "moving_average_limited" } else { "indicator_limited" };
+        for row in expected["changes"]["bots"].as_array_mut().unwrap() {
+            for phase in ["before", "after"] { row[phase]["settings"][flag] = serde_json::json!(true); }
+        }
+        if expected != rust { failures.push(format!("{name}: rule-off twin\nRails: {expected}\nRust: {rust}")); }
     }
     assert!(failures.is_empty(), "{} of {} degenerate scenarios differ from the recorded findings:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
@@ -2665,4 +2672,65 @@ async fn rails_and_rust_guard_wash_sales_identically() {
             assert!(token.len() == 16 && token.bytes().all(|b| b.is_ascii_hexdigit()) && token != "aaaaaaaaaaaaaaaa", "{name}: a claim of its own, not {token:?}");
         }
     }
+}
+
+/// 7c: the recorded decorator chain on every price venue and the three candle reference venues.
+/// D-FLIP-UNMET-KEEPS-BUYING compares an unmet/failed buy's orders and carry to its rule-off Rails twin.
+#[tokio::test(flavor = "current_thread")]
+async fn flip_condition_grid_matches_rails_and_rule_off_buy_twins() {
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-conditions-flips", rails_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path())
+        .filter(|p| p.is_dir() && !p.file_name().unwrap().to_string_lossy().ends_with("-off")).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 118, "four rules × three venues × two sides × four outcomes, plus 22 price flip smoke rows");
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy();
+        let read = |path: PathBuf| -> serde_json::Value { serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap() };
+        let rails = read(d.join("rails.json"));
+        let rust = deltabadger::parity::decide(&rust_root.path().join(name.as_ref())).await.unwrap();
+        let unmet = name.ends_with("-unmet") || name.ends_with("-below_unmet") || name.ends_with("-failed_read") || name.ends_with("-server_error");
+        if unmet && name.contains("-buy-") {
+            let twin = read(rails_root.path().join(format!("{name}-off")).join("rails.json"));
+            assert!(rails["sent"].as_array().unwrap().is_empty(), "{name}: Rails' flip decorator defect");
+            // The entire money result is the independent rule-off oracle; inactive trigger metadata is unchanged.
+            for key in ["sent", "mails"] {
+                if rust[key] != twin[key] { failures.push(format!("{name}: rule-off {key}: {} != {}", rust[key], twin[key])); }
+            }
+            assert_eq!(rust["changes"]["transactions"], twin["changes"]["transactions"], "{name}: rule-off transactions");
+            assert_eq!(rust["changes"]["bot_activity_logs"], twin["changes"]["bot_activity_logs"], "{name}: rule-off activity");
+            assert_eq!(rust["changes"]["bots"][0]["after"]["status"], twin["changes"]["bots"][0]["after"]["status"], "{name}: rule-off status");
+            assert_eq!(rust["checks"], serde_json::json!([]), "{name}: no check job");
+            let transient = &rust["changes"]["bots"][0]["after"]["transient_data"];
+            let prefix = rails["changes"]["bots"][0]["before"]["settings"].as_object().unwrap().iter()
+                .find_map(|(k, v)| (v == "start_selling").then(|| k.strip_suffix("_action")).flatten()).unwrap();
+            assert!(transient.get(format!("{prefix}_condition_met_at")).is_none(), "{name}: no latch");
+
+            assert_eq!(rust["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"],
+                twin["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"], "{name}: carry");
+        } else {
+            let mut expected = r5_cleanup_expected(&rails, &rust);
+            if name.contains("-buy-") && (name.ends_with("-met") || name.ends_with("-below_met")) {
+                // D-FLIP-CARRY-KEEPS-ACCRUAL: CE-1 excludes flip rules from the carry window.
+                // Rails stamps the condition now and discards the accrued interval, capturing 30.
+                // Rust captures the rule-off 60 + 30 and caps it at the effective amount, 60.
+                assert_eq!(expected["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"], "30.0", "{name}");
+                assert_eq!(rust["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"], serde_json::json!(60.0), "{name}");
+                expected["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"] = serde_json::json!(60.0);
+            }
+            if expected != rust { failures.push(format!("{name}\nRails: {expected}\nRust: {rust}")); }
+        }
+        if name.ends_with("-met") || name.ends_with("-below_met") {
+            assert!(rust["sent"].as_array().unwrap().is_empty(), "{name}: flip sends no order");
+            let db = rusqlite::Connection::open(rust_root.path().join(name.as_ref()).join("production.sqlite3")).unwrap();
+            let b = deltabadger::engine::model::load_bot(&db, 1).unwrap();
+            assert!(b.transient.as_object().unwrap().keys().all(|k| !k.ends_with("_condition_met_at")), "{name}");
+            assert!(b.rust_defer_until_us().unwrap() > b.started_at_us().unwrap(), "{name}: next checkpoint");
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
