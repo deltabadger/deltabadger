@@ -138,6 +138,7 @@ async fn unbalanced_stopped_basket_liquidation_is_polled_in_process_and_after_re
 }
 
 async fn command_sweep_amount_limit(case: &str) {
+    use deltabadger::engine::events::EngineEvent;
     use deltabadger::engine::{notice, tick};
     let spec=BotSpec::weekly(60.0,"2026-09-01 10:00:00").with("quote_amount_limited",json!(true)).with("quote_amount_limit",json!(60.0))
         .transient("quote_amount_limit_enabled_at",json!("2026-09-01T11:00:00Z"));
@@ -158,6 +159,7 @@ async fn command_sweep_amount_limit(case: &str) {
     let paths=store::Paths::from_env(&|_|None,d.path());
     let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
     let mut e=run::Engine::new(o.primary,Factory(t.clone()),seed::cipher(),lock);
+    let mut page=e.subscribe_to(EngineEvent::is_live);
     // No engine step or tick: the command itself must finish the queued stop.
     for _ in 0..2 {
         run::run_commands(&mut e,&FixedClock(at(T0))).await.unwrap();
@@ -171,6 +173,11 @@ async fn command_sweep_amount_limit(case: &str) {
         assert_eq!(mail[0].notice,notice::Notice::StoppedByAmountLimit);
         assert_eq!(e.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='stopped'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
     }
+    let mut statuses=vec![];
+    while let Ok(event)=page.try_recv() {
+        if matches!(event,EngineEvent::StatusChanged {..}) { statuses.push(event); }
+    }
+    assert_eq!(statuses,vec![EngineEvent::StatusChanged {bot_id:id}],"{case}: the committed stop reaches the page exactly once");
     assert_eq!(t.posted_orders().len(),usize::from(case=="success"));
     if case!="success" {
         let event=if case=="error" {"liquidation_failed"} else {"liquidation_not_started"};
