@@ -1153,3 +1153,26 @@ fn closed_imported_rows_are_admitted_and_imported_waiting_rows_are_no_work() {
     let r = eligibility::check_install(&o.primary).unwrap();
     assert!(r.problems.is_empty(), "{:?}", r.problems);
 }
+
+/// Plan B2: a `Tokenized Stock` (Hyperliquid's RWA spot listings, e.g. MU on @333) runs only where Rails' trading of a tokenized
+/// pair is recorded (tests/hyperliquid_tokenized.rs); every other venue keeps refusing it (D-TOK-UNPROVEN), Kraken by its own
+/// reason (D-TOK-KRAKEN).
+#[test]
+fn a_tokenized_stock_runs_on_hyperliquid_only() {
+    let (_d, o, s) = install();
+    o.primary.execute("UPDATE assets SET category = 'Tokenized Stock', instrument_type = NULL WHERE id = ?1", [s.btc]).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    let reasons = |venue: &str| {
+        o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+        eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap()
+    };
+    assert_eq!(reasons("Exchanges::Hyperliquid"), Vec::<String>::new());
+    let refused = reasons("Exchanges::Binance");
+    assert!(refused.iter().any(|r| r.starts_with("tokenized BTC on ") && r.ends_with(" (no recorded Rails vector for tokenized pairs on this venue)")), "{refused:?}");
+    let refused = reasons("Exchanges::Kraken");
+    assert!(refused.contains(&"Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here".to_string()), "{refused:?}");
+    // instrument_type 'tokenized' outside the crypto category reads the same way.
+    o.primary.execute("UPDATE assets SET category = 'Stock', instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap();
+    assert_eq!(reasons("Exchanges::Hyperliquid"), Vec::<String>::new());
+    assert!(reasons("Exchanges::Bybit").iter().any(|r| r.starts_with("tokenized BTC on ")));
+}

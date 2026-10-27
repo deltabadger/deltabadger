@@ -492,6 +492,10 @@ fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(),
     Ok(())
 }
 
+/// The venues whose trading of a tokenized pair is a recorded Rails vector (plan B2): Hyperliquid's in
+/// tests/hyperliquid_tokenized.rs (script/rust/decisions.rb grid-hyperliquid-tokenized). A venue joins in the commit that records it.
+pub const TOKENIZED_PROVEN: [&str; 1] = ["Exchanges::Hyperliquid"];
+
 /// Every member's pair on this venue, and the composition rows Rails' tick reads (bot_index_assets).
 pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
     let mut quote_checked = false;
@@ -518,12 +522,16 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         let tokenized = category.as_deref() == Some("Tokenized Stock") || (!crypto && instrument.as_deref() == Some("tokenized"));
         let stock = alpaca && category.as_deref() == Some("Stock") && matches!(instrument.as_deref(), Some("stock" | "etf"))
             && !external_id.as_deref().unwrap_or_default().starts_with("alpaca_");
-        if tokenized {
-            r.push(if model::exchange_type(c, bot)? == "Exchanges::Kraken" {
-                "Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here".into()
-            } else {
-                format!("tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)", t.base_symbol, t.exchange_name)
-            });
+        // A tokenized stock (Hyperliquid's RWA listings, xStocks): Rails trades it as any spot pair, with no bot path of its own
+        // (the rebalancer's local_units reads it as splittable, tick.rs). It runs where a Rails vector of a tokenized pair is
+        // recorded; elsewhere it is refused (D-TOK-UNPROVEN), on Kraken for Rails' own reason (D-TOK-KRAKEN).
+        if tokenized && !stock {
+            let venue = model::exchange_type(c, bot)?;
+            if venue == "Exchanges::Kraken" {
+                r.push("Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here".into());
+            } else if !TOKENIZED_PROVEN.contains(&venue.as_str()) {
+                r.push(format!("tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)", t.base_symbol, model::exchange_name(c, bot)?));
+            }
         } else if !crypto && !stock {
             r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks and ETFs on Alpaca)",
                            category.unwrap_or_default(), instrument.unwrap_or_default()));
