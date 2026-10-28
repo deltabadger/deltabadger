@@ -588,13 +588,22 @@ impl<T: Transport> KrakenVenue<T> {
             ("amount", r.amount.clone()),
             ("max_fee", r.fee_cap.clone()),
         ];
+        // The absolute bound on the send, as add_order's: the request's creation + E0's send window, plus the request
+        // budget. Past it the transport refuses before signing, which proves nothing was sent.
+        let Ok(created) = crate::codec::parse_time(&r.created_at) else {
+            return SendResult::Rejected { definitive: true, reason: "the withdrawal request has no readable creation time; not sent".into() };
+        };
+        let not_after = created
+            + chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS)
+            + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s");
+        let request = HttpRequest { not_after: Some(not_after), ..self.private("/0/private/Withdraw", &fields) };
         // Do not use the trading classifier: an HTTP status alone never proves rejection.
-        let Ok(response) = self
-            .transport
-            .send_limited(&self.private("/0/private/Withdraw", &fields), 64 * 1024)
-            .await
-        else {
-            return unknown();
+        let response = match self.transport.send_limited(&request, 64 * 1024).await {
+            Ok(response) => response,
+            Err(TransportError::NotSent(_)) => {
+                return SendResult::Rejected { definitive: true, reason: "past the withdrawal send window; not sent".into() }
+            }
+            Err(_) => return unknown(),
         };
         if !(200..300).contains(&response.status) && !(400..500).contains(&response.status) {
             return unknown();
@@ -836,6 +845,12 @@ mod withdrawal_wire_tests {
         };
         venue.withdraw(&request).await;
         let r = t.requests().remove(0);
+        assert_eq!(r.not_after, Some("2026-10-28T12:00:00Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap()
+            + chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS) + chrono::Duration::seconds(45)),
+            "the send carries add_order's absolute bound");
+        let unreadable = Request { created_at: "not a time".into(), ..request.clone() };
+        assert!(matches!(venue.withdraw(&unreadable).await, crate::engine::withdrawal::SendResult::Rejected { definitive: true, .. }));
+        assert_eq!(t.requests().len(), 1, "an unreadable creation time sends nothing");
         let signed = sign::request(
             Wire::Kraken,
             &reqwest::Client::new(),
