@@ -3,7 +3,51 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); split_bots(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); data })
+}
+/// A1 listed additions. Rails' six rule tools, extended with W2's one-matrix fields.
+/// The Rails definitions remain source-pinned by withdrawal_vectors.json.
+fn withdrawal_rules(data: &mut Value) {
+    let property = |kind: &str, description: &str| json!({"type":kind,"description":description});
+    let Some(tools) = data["tools"].as_array_mut() else { return };
+    for (name, description) in [
+        ("list_rules", "List withdrawal rules with their id, status, exchange, asset, destination and thresholds"),
+        ("create_rule", "Create a withdrawal rule (stopped). The address must already be on the exchange's withdrawal allow-list. Use start_rule to activate."),
+        ("update_rule_settings", "Update a created or stopped withdrawal rule's thresholds, maximum interval or listed destination"),
+        ("start_rule", "Start a stopped rule (e.g., withdrawal rule)"),
+        ("stop_rule", "Stop an active rule"),
+        ("delete_rule", "Delete a stopped withdrawal rule"),
+    ] {
+        let mut fields = serde_json::Map::new();
+        let create = name == "create_rule";
+        if create {
+            fields.insert("exchange_name".into(), property("string", "Exchange name (e.g., Binance)"));
+            fields.insert("asset".into(), property("string", "Asset symbol to withdraw (e.g., BTC)"));
+        } else if name != "list_rules" {
+            fields.insert("rule_id".into(), property("number", "The rule ID"));
+        }
+        if create || name == "update_rule_settings" {
+            for (field, kind, description) in [
+                ("address", "string", "Destination address, exactly as allow-listed on the exchange"),
+                ("address_tag", "string", "Memo / tag, if the network needs one"),
+                ("network", "string", "Network, if the exchange needs one"),
+                ("address_name", "string", "The listed withdrawal key for a Kraken destination"),
+                ("max_interval", "integer", "Maximum interval in days; a positive integer, or null to remove the deadline"),
+                ("withdrawal_percentage", "number", if create {"Share of the free balance to withdraw (default 100)"} else {"Percentage of available balance to withdraw (optional)"}),
+                ("threshold_type", "string", if create {"'fee_percentage' (default) or 'min_amount'"} else {"'fee_percentage' or 'min_amount' — which threshold to use (optional)"}),
+                ("max_fee_percentage", "number", if create {"Withdraw only when the fee is at most this percent (default 0.5)"} else {"Max acceptable withdrawal fee percentage (optional)"}),
+                ("min_amount", "number", if create {"Withdraw only above this amount (for threshold_type 'min_amount')"} else {"Minimum amount threshold (optional)"}),
+            ] { fields.insert(field.into(), property(kind, description)); }
+            fields["max_interval"]["type"] = json!(["integer", "null"]);
+        }
+        let mut schema = json!({"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","properties":fields,"additionalProperties":false});
+        if name != "list_rules" { schema["required"] = if create { json!(["exchange_name","asset","address"]) } else { json!(["rule_id"]) }; }
+        let mut tool = json!({"name":name,"description":description,"inputSchema":schema});
+        if name == "list_rules" { tool["annotations"] = json!({"readOnlyHint":true}); }
+        tools.push(tool);
+    }
+    // The same order as AppConfig's recorded catalogue and the permission registry.
+    tools.sort_by_key(|tool| crate::web::oauth::TOOL_DEFAULTS.iter().position(|(name, _)| tool["name"] == *name));
 }
 /// D-SPLIT-API: the split_bots tool, this build's own (Rails has no such tool), after the recorded ones.
 fn split_bots(data: &mut Value) {
@@ -24,7 +68,7 @@ fn split_bots(data: &mut Value) {
         }
     }));
 }
-/// The schemas as recorded from Rails, before `rule_kinds`.
+/// The schemas as recorded from Rails, before the description overlay and listed additions.
 pub fn recorded() -> Value { serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null) }
 /// D-MCP-COND-KINDS: update_bot_settings' rule fields say which bot kinds take them (conditions::support), where this build
 /// runs a rule on an index or signal bot that Rails' does not have: the only change to the recorded schemas. A signal bot

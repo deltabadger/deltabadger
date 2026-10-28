@@ -249,16 +249,20 @@ token).
 | GET | `/orders` | `list_open_orders` | Optional `?exchange_name=`; merges DB + live exchange orders |
 | POST | `/orders` | per-type | **Requires `Idempotency-Key`** (see section 5) |
 | DELETE | `/orders/:id` | `cancel_order` | Numeric ID → DB row; non-numeric → exchange order (then `exchange_name` required) |
-| GET | `/rules` | `list_rules` | Withdrawal rules; destinations are returned masked |
-| POST | `/rules` | `create_rule` | 201, created stopped; `address` must already be on the exchange's withdrawal allow-list (422 `address_not_listed`) |
-| DELETE | `/rules/:id` | `delete_rule` | Rule must be stopped |
-| POST | `/rules/:id/start` | `start_rule` | 409 if already active |
+| GET | `/rules` | `list_rules` | Withdrawal rules; destinations are masked; includes `max_interval` and `unresolved_withdrawal` |
+| POST | `/rules` | `create_rule` | 201, stored as `created`; requires a listed destination and a valid withdrawal key |
+| DELETE | `/rules/:id` | `delete_rule` | Rule must be created or stopped, with no unconfirmed withdrawal |
+| POST | `/rules/:id/start` | `start_rule` | 409 if already active; currently refused with 422 `withdrawal_disabled` on supported venues |
 | POST | `/rules/:id/stop` | `stop_rule` | 409 if not active |
-| PATCH | `/rules/:id` | `update_rule_settings` | Accepts `withdrawal_percentage`, `max_fee_percentage`, `min_amount`, `threshold_type`; rule must be stopped |
+| PATCH | `/rules/:id` | `update_rule_settings` | Accepts `withdrawal_percentage`, `max_fee_percentage`, `min_amount`, `threshold_type`, `max_interval`, and destination fields; rule must be created or stopped |
 | GET | `/tax/jurisdictions` | `list_tax_jurisdictions` | Supported countries, method, currency |
 | POST | `/tax/reports` | `generate_tax_report` | `country` (any case), `year`, optional `stablecoin_as_fiat`, optional `force` to replace an existing report; **202** — poll status; crypto scope only |
 | GET | `/tax/reports/:country/:year` | `get_tax_report_status` | `{ ready: bool, state: "ready" \| "generating" \| "none" }`; `generating` is per account (one report runs at a time) |
 | GET | `/tax/reports/:country/:year/download` | `download_tax_report` | **CSV** (see section 6); 404 until generated |
+
+Withdrawal rules use the same validation on REST, MCP and the web. Create takes `exchange_name`, `asset` and `address`, with optional `network`, `address_tag`, `address_name` (Kraken's listed key), `withdrawal_percentage`, `threshold_type`, `max_fee_percentage`, `min_amount` and `max_interval`. Updates accept those settings and destination fields; include `address` when changing a destination. `max_interval` is a positive integer (days), or `null` to remove the deadline. Destinations are checked against the exchange's current list on every create or update. An explicitly selected threshold is preserved; the default is `fee_percentage`.
+
+No venue currently enables withdrawal execution. Starting a supported rule returns `422 withdrawal_disabled` once the withdrawal-key checks pass; unsupported venues return `withdrawal_unsupported`. A rule with an unconfirmed withdrawal returns `409 withdrawal_unconfirmed` on create, update, start or delete. Stop is still allowed for an active rule and preserves the unconfirmed withdrawal. List returns `unresolved_withdrawal: null` or an object with `state`, `reason`, `since` and `candidates`.
 
 ---
 

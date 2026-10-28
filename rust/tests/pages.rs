@@ -1672,6 +1672,9 @@ const IBKR_RECONNECT: [&str; 13] = [
 ];
 
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    // A1 serves these historical grid names now: compare the empty rule list and
+    // missing-rule delete with Rails in full, including headers and row snapshots.
+    if matches!(name, "not_ported_api_get_rules" | "not_ported_api_delete_rules_1") { return None; }
     let kind = ["unrouted_", "refused_api_", "refused_web_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
     let (mut theirs, mut ours) = (responses(rails), responses(rust));
