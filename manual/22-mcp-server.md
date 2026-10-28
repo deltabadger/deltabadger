@@ -54,7 +54,7 @@ A tool is usable only when both of these are true:
 | **Portfolio summary** | View global P/L and a per-bot breakdown |
 | **List transactions** | View recent trades, optionally for one bot (up to 100) |
 | **List open orders** | View currently open (unfilled) orders across exchanges; an exchange that cannot be asked is reported, not skipped |
-| **List rules** | View your [withdrawal rules](16-withdrawal-rules.md) with status, exchange, asset, destination and thresholds; destinations are masked |
+| **List rules** | View your [withdrawal rules](16-withdrawal-rules.md) with status, exchange, asset, destination and thresholds; destinations are masked; includes maximum interval and any unconfirmed withdrawal |
 | **List indices** | View the indices an [index bot](13-direct-indexing.md) can track and the exchanges each is available on |
 
 ### Control
@@ -71,14 +71,16 @@ A tool is usable only when both of these are true:
 | **Reactivate bot** | Bring an archived bot back, stopped |
 | **Split bots** | Turn basket or index bots into one stopped bot per asset, each with its share of the amount and that asset's history; the split bots are deleted. Off by default. Money from past sales still waiting for an answer is refused with each bot's offer: answer it with **Answer redeploy offer**, or name the bot in `keep_proceeds_for` to keep the money as it is |
 | **Delete bot** | Delete a bot, running or not; its schedule is cancelled and its history is kept but hidden |
-| **Create rule** | Create a [withdrawal rule](16-withdrawal-rules.md), stopped. The address must already be on the exchange's withdrawal allow-list |
-| **Delete rule** | Delete a stopped withdrawal rule |
+| **Create rule** | Create a [withdrawal rule](16-withdrawal-rules.md), stored as `created`. Requires a listed destination and a valid withdrawal key |
+| **Delete rule** | Delete a created or stopped withdrawal rule with no unconfirmed withdrawal |
 | **Start rule** | Start a stopped rule |
 | **Stop rule** | Stop an active rule |
-| **Update rules** | Change settings on a stopped rule: withdrawal percentage, maximum fee percentage, minimum amount, threshold type |
+| **Update rules** | Change settings on a created or stopped rule: withdrawal percentage, maximum fee percentage, minimum amount, threshold type, maximum interval, and listed destination |
 | **Sync tracker** | Refresh the [Portfolio tracker](17-portfolio-tracker.md) — pull new account transactions and balances from every connected exchange, in the background |
 | **Mark transfer** | Mark a withdrawal and a deposit as one transfer between your own accounts, so it is not a disposal, or undo that. Give either side; the match is found within 14 days |
 | **State a price** | State the price of one account transaction the venue did not value — a deposit, a gift, an airdrop. Tiles, chart and tax reports use it |
+
+Withdrawal rule tools follow the [same validation as REST and the web](23-rest-api.md). `create_rule` and `update_rule_settings` accept `max_interval` (positive integer days, or `null` to clear it), `address`, `network`, `address_tag` and `address_name` (Kraken's listed key). Include `address` when changing the destination. No venue currently enables withdrawal execution: `start_rule` refuses with the service's reason, and paper trading also refuses starts. An unconfirmed withdrawal blocks create, update, start and delete; stopping an active rule preserves that withdrawal. `list_rules` shows its `state`, `reason`, `since` and `candidates` after the masked destination.
 
 ### Trade
 

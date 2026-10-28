@@ -4,7 +4,7 @@ use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 /// D-SPLIT-API: split_bots is this build's own, after the recorded tools.
-pub const NAMES: [&str;17] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
+pub const NAMES: [&str;23] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","list_tax_jurisdictions","list_rules","create_rule","delete_rule","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -17,7 +17,7 @@ pub fn gate(c: &Connection, who: Bearer, name: &str) -> Result<Option<Value>,Web
        else if LIVE_AUTOMATION_TOOLS.contains(&name) && paper_trading(c,who.user_id)? {Some(tool_text(&format!("[DRY RUN] Paper trading is on, so nothing was created or started: '{name}' would leave a bot or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it."),true))}
        else {None})
 }
-/// ApplicationMCPTool::LIVE_AUTOMATION_TOOLS; only start_bot is served here, the rest stay Rails'.
+/// ApplicationMCPTool::LIVE_AUTOMATION_TOOLS; includes the rule start adapter.
 const LIVE_AUTOMATION_TOOLS: [&str;5] = ["create_bot","create_index_bot","create_signal_bot","start_bot","start_rule"];
 /// User#mcp_dry_run?: `mcp_settings['dry_run'] == true`, nothing looser.
 pub(crate) fn paper_trading(c: &Connection, user_id: i64) -> Result<bool,WebError> {
@@ -69,7 +69,7 @@ fn transactions(c: &Connection, user: i64, data: &Value) -> Result<String, WebEr
     Ok(format!("Transactions ({}):\n{}", data["count"], lines.join("\n")))
 }
 /// What a call answers now, or the venue or market read it needs first (`reads`).
-pub enum Called { Done(Value), Fetch(reads::Fetch) }
+pub enum Called { Done(Value), Fetch(reads::Fetch), Rules(crate::web::rules::api::Request) }
 pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called,WebError>{
     if super::control::NAMES.contains(&name) {
         return Ok(Called::Done(match super::control::call(c,app,who,name,args) {
@@ -85,6 +85,9 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
     let schema=metadata()["tools"].as_array().into_iter().flatten().find(|t|t["name"]==name).map(|t|&t["inputSchema"]).unwrap_or(&Value::Null);
     let errors=validate(args,schema,"");
     if !errors.is_empty(){return Ok(Called::Done(tool_text(&format!("Invalid input: {}",errors.join(", ")),true)));}
+    if let Some(action) = crate::web::rules::api::Action::tool(name) {
+        return Ok(Called::Rules(crate::web::rules::api::Request::mcp(who.user_id, action, args.clone())));
+    }
     if name=="split_bots"{return Ok(Called::Done(super::control::split(c,app,who.user_id,args).unwrap_or_else(|_|{
         crate::engine::log("MCP split_bots failed");
         tool_text("An unexpected error occurred.",true)

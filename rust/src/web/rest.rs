@@ -7,6 +7,7 @@
 //! (a locale prefix included: the API is outside the locale scope) is the 404 every missing page is.
 use super::bot_api::{self, Domain, Res};
 use super::mcp::reads;
+use super::rules::api as rules;
 use super::{bearer, consent, headers, layout, App, Params, WebError, BODY_READ_TIMEOUT, FORM_LIMIT};
 use axum::body::{to_bytes, Body};
 use axum::extract::{Request, State};
@@ -29,7 +30,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Unported }
+enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Unported }
 
 /// The reads that may ask a venue (BotApi::Bots::Get, Exchanges::Balances, Orders::ListOpen, Portfolio::Summary).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -107,17 +108,18 @@ fn route(method: &Method, path: &str) -> Option<Route> {
         ["orders", id] if delete => { path.push(("id", id.to_string())); (tool("cancel_order"), Action::Unported) }
         ["portfolio"] if get => (tool("get_portfolio_summary"), Action::Read(Reading::Portfolio)),
         ["indices"] if get => (tool("list_indices"), Action::Indices),
-        ["rules"] if get => (tool("list_rules"), Action::Unported),
-        ["rules"] if post => (tool("create_rule"), Action::Unported),
+        ["rules"] if get => (tool("list_rules"), Action::Rules(rules::Action::List)),
+        ["rules"] if post => (tool("create_rule"), Action::Rules(rules::Action::Create)),
         ["rules", id, rest @ ..] => {
             path.push(("id", id.to_string()));
-            (match rest {
-                [] if update => tool("update_rule_settings"),
-                [] if delete => tool("delete_rule"),
-                ["start"] if post => tool("start_rule"),
-                ["stop"] if post => tool("stop_rule"),
+            let name = match rest {
+                [] if update => Some("update_rule_settings"),
+                [] if delete => Some("delete_rule"),
+                ["start"] if post => Some("start_rule"),
+                ["stop"] if post => Some("stop_rule"),
                 _ => None,
-            }, Action::Unported)
+            };
+            (name.map(Gate::Tool), name.and_then(rules::Action::tool).map_or(Action::Unported, Action::Rules))
         }
         ["tax", "jurisdictions"] if get => (tool("list_tax_jurisdictions"), Action::TaxJurisdictions),
         ["tax", "reports"] if post => (tool("generate_tax_report"), Action::Unported),
@@ -167,7 +169,7 @@ fn json_body(content_type: Option<&str>) -> bool {
 /// An answer before the shared headers: the envelope a controller renders, or a response made below the controllers.
 /// `Pending`: a read's venue fetch, run outside the database before the read is finished and rendered.
 /// `Head`: `head <status>` (an empty body under `text/html`, the controller's headers).
-pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>) }
+pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request) }
 
 /// Api::V1::BaseController#status_for.
 fn status_for(status: Domain) -> StatusCode {
@@ -261,6 +263,12 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
     if let Some(refused) = require_tool(c, who, tool)? { return Ok(refused); }
     let user = who.user_id;
     Ok(match route.action {
+        Action::Rules(action) => {
+            let args = if action == rules::Action::List { json!({}) } else {
+                let Ok(p) = params() else { return Ok(bad_request()) }; Value::Object(p.clone())
+            };
+            Answer::Rules(rules::Request { user, action, args })
+        }
         Action::Exchanges => render(bot_api::exchanges(c, user)?),
         Action::TaxJurisdictions => render(bot_api::tax_jurisdictions()),
         Action::Bots => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::bots(c, user, p.get("status"))?) }
@@ -347,6 +355,18 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
             };
             // A venue read: fetched outside the database, then finished on one snapshot of it.
             match answer {
+                Answer::Rules(request) => {
+                    let create = request.action == rules::Action::Create;
+                    match request.perform(&app).await {
+                        Ok(read) => {
+                            let created = create && !read.is_error;
+                            let mut answer = render(read.res);
+                            if created { if let Answer::Json(status, _) = &mut answer { *status = StatusCode::CREATED; } }
+                            answer
+                        }
+                        Err(error) => Answer::Below(Box::new(error.into_response())),
+                    }
+                }
                 Answer::Pending(fetch) => {
                     let fetched = reads::fetch(&app, *fetch).await;
                     match app.db(move |c| reads::finish_read(c, fetched)).await {
@@ -393,7 +413,7 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
             headers::controller_defaults(response.headers_mut(), status, false);
             response
         }
-        Answer::Pending(_) => WebError::Config("a venue read was not fetched".into()).into_response(),
+        Answer::Pending(_) | Answer::Rules(_) => WebError::Config("a venue read was not fetched".into()).into_response(),
         Answer::Below(response) => {
             let mut response = *response;
             let status = response.status();

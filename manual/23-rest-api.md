@@ -72,12 +72,16 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 
 | Method | Path | Toggle | Notes |
 |---|---|---|---|
-| GET | `/rules` | List rules | Destinations are returned masked |
-| POST | `/rules` | Create rule | Created stopped; `address` must already be on the exchange's withdrawal allow-list |
-| PATCH | `/rules/:id` | Update rules | `withdrawal_percentage`, `max_fee_percentage`, `min_amount`, `threshold_type`; rule must be stopped |
-| DELETE | `/rules/:id` | Delete rule | Rule must be stopped |
-| POST | `/rules/:id/start` | Start rule | `409` if already active |
+| GET | `/rules` | List rules | Destinations are masked; includes `max_interval` and `unresolved_withdrawal` |
+| POST | `/rules` | Create rule | Stored as `created`; requires a listed destination and a valid withdrawal key |
+| PATCH | `/rules/:id` | Update rules | `withdrawal_percentage`, `max_fee_percentage`, `min_amount`, `threshold_type`, `max_interval`, and destination fields; rule must be created or stopped |
+| DELETE | `/rules/:id` | Delete rule | Rule must be created or stopped, with no unconfirmed withdrawal |
+| POST | `/rules/:id/start` | Start rule | `409` if already active; currently refused with `422 withdrawal_disabled` on supported venues |
 | POST | `/rules/:id/stop` | Stop rule | `409` if not active |
+
+Withdrawal rules use the same validation on REST, MCP and the web. Create takes `exchange_name`, `asset` and `address`, with optional `network`, `address_tag`, `address_name` (Kraken's listed key), `withdrawal_percentage`, `threshold_type`, `max_fee_percentage`, `min_amount` and `max_interval`. Updates accept those settings and destination fields; include `address` when changing a destination. `max_interval` is a positive integer (days), or `null` to remove the deadline. Destinations are checked against the exchange's current list on every create or update. An explicitly selected threshold is preserved; the default is `fee_percentage`.
+
+No venue currently enables withdrawal execution. Starting a supported rule returns `422 withdrawal_disabled` once the withdrawal-key checks pass; unsupported venues return `withdrawal_unsupported`. A rule with an unconfirmed withdrawal returns `409 withdrawal_unconfirmed` on create, update, start or delete. Stop is still allowed for an active rule and preserves the unconfirmed withdrawal. List returns `unresolved_withdrawal: null` or an object with `state`, `reason`, `since` and `candidates`.
 
 ### Tax reports
 

@@ -179,8 +179,9 @@ async fn control_transcripts() {
             }
             let body:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let names:Vec<_>=body["result"]["tools"].as_array().unwrap().iter().map(|t|t["name"].as_str().unwrap()).collect();
-            // This lifecycle/settings grid grants its six controls; liquidation, redeploy and split stay off here.
-            assert_eq!(names,deltabadger::web::mcp::tools::NAMES.iter().copied().filter(|n|!["split_bots","liquidate_exited_asset","answer_redeploy_offer"].contains(n)).collect::<Vec<_>>(),"complete granted registry without a cursor");
+            // This recorded grid grants the bot reads and six bot controls. Rule tools and later
+            // additions are not in this client's grant, even when enabled by the owner's defaults.
+            assert_eq!(names,["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot"],"complete recorded grant without a cursor");
             assert!(body["result"].get("nextCursor").is_none());
             if let Ok(root)=std::env::var("M4_EVIDENCE") {
                 std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();

@@ -1,4 +1,5 @@
-//! Withdrawal pages. Rails' controllers and views are pinned by tests/pages.rs.
+//! Withdrawal pages and API adapters. The shared service owns all rule mutations.
+pub mod api;
 pub mod model;
 mod reads;
 pub mod service;
