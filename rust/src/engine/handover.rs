@@ -50,10 +50,12 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let report = startup_report(&o.primary, cipher, now)?;
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
+    problems.extend(super::rules::takeover_problems(&o.primary,&o.queue)?);
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
     // Rails' webhook calls, read and judged before anything changes owner: a claimed or unreadable one refuses here.
     refuse_composition_jobs(o)?;
     let signal_jobs = signal_jobs(o)?;
+    let rule_jobs=super::rules::jobs(&o.primary,&o.queue)?;
     // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
@@ -66,8 +68,9 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // from Rails' baseline, read once, here, in the commit that closes Rails' ownership window. A restart reseeds nothing.
     super::staleness::seed(&tx, now)?;
     let imported_calls = import_signal_jobs(&tx, &signal_jobs, now)?;
+    super::rules::import(&tx,&rule_jobs,now)?;
     tx.commit()?;
-    let deleted_signal_jobs = finish_signal_import(o, now)?;
+    let deleted_signal_jobs = finish_signal_import(o, now)? + super::rules::finish_cleanup(&o.primary,&o.queue,now)?;
 
     // GlobalID names the STI class: Bots::DcaMultiAsset or Bots::DcaIndex.
     let mut gids: Vec<String> = vec![];
@@ -130,6 +133,8 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_rust_only_conditions(&o.primary)?;
     refuse_ibkr(&o.primary, clock.now())?;
     hand_back_calls(o, clock.now())?;
+    let problems=super::rules::handback_problems(&o.primary)?;
+    if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
@@ -160,6 +165,8 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_ibkr(&tx, now)?;
     refuse_pending_rotations(&tx)?;
     refuse_commands(&tx)?;
+    let problems=super::rules::handback_problems(&tx)?;
+    if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: Rails' adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.

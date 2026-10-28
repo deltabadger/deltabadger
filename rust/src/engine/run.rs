@@ -307,6 +307,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     run_rebalances(e, &report.unreadable, clock, &mut wake).await?;
     reconcile_idle_intents(e, clock, &mut wake).await?;
     run_signals(e, clock, &mut wake).await?;
+    super::withdrawal::phase(&e.primary, &e.cipher, &e.factory, clock).await?;
     run_condition_infos(e, &report.unreadable, clock, &mut wake).await?;
     run_resyncs(e, clock, &mut wake).await?;
     for id in report.eligible {
@@ -1102,3 +1103,5 @@ async fn run_command<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, kind
     }
     Ok(())
 }
+
+pub const RULES_SCHEDULE: crate::jobs::schedule::Schedule = crate::jobs::schedule::Schedule::EveryHours { every: 4, minute: 0 };

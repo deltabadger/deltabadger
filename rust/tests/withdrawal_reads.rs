@@ -439,7 +439,7 @@ fn db() -> rusqlite::Connection {
                      CREATE UNIQUE INDEX ea ON exchange_assets (asset_id, exchange_id);
                      CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base_asset_id INTEGER, quote_asset_id INTEGER, base VARCHAR, quote VARCHAR, available BOOLEAN);
                      CREATE TABLE fee_api_keys (id INTEGER PRIMARY KEY, exchange_id INTEGER NOT NULL, key VARCHAR, passphrase VARCHAR, secret VARCHAR);
-                     CREATE TABLE api_keys (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, key_type INTEGER, key VARCHAR, secret VARCHAR, passphrase VARCHAR,
+                     CREATE TABLE api_keys (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, key_type INTEGER, status INTEGER DEFAULT 1, key VARCHAR, secret VARCHAR, passphrase VARCHAR,
                        access_token VARCHAR, rsa_signature_key VARCHAR, rsa_encryption_key VARCHAR, dh_param VARCHAR);").unwrap();
     c
 }

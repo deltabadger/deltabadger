@@ -16,6 +16,11 @@
       "builds": "engine Handle material"
     },
     {
+      "file": "engine/model.rs",
+      "function": "withdrawal_credentials",
+      "builds": "withdrawal adapter credentials and CredentialVersion from one snapshot"
+    },
+    {
       "file": "engine/placement.rs",
       "function": "begin_checked",
       "builds": "direct-entry intent handle before send"

@@ -18,7 +18,7 @@ pub struct Rule {
     pub fee: Option<BigDec>,
     pub chains: Vec<Value>,
     pub balance: Option<BigDec>,
-    pub unconfirmed: Option<String>,
+    pub unconfirmed: Option<crate::engine::rules::Status>,
 }
 
 pub fn string(v: &Value) -> String {
@@ -132,8 +132,7 @@ pub fn load(c: &Connection, app: &App, user: i64, id: i64) -> Result<Option<Rule
             .next()
             .and_then(|s| BigDec::parse(s).ok())
     });
-    let unconfirmed = c.query_row("SELECT state FROM rust_withdrawal_intents WHERE owner=?1 AND state IN ('dispatched','unresolved')",
-        [format!("rule:{id}")], |r| r.get::<_,String>(0)).optional()?;
+    let unconfirmed = crate::engine::rules::status(c,id)?;
     Ok(Some(Rule {
         id,
         user_id: user,

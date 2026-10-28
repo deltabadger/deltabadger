@@ -385,7 +385,7 @@ pub fn fee_key(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, exc
             return Ok(Some(FeeKey::Fee(credentials)));
         }
     }
-    Ok(crate::engine::model::withdrawal_credentials(c, cipher, user_id, exchange_id)?.map(|(cr, v)| FeeKey::Withdrawal(cr, v)))
+    Ok(crate::engine::model::withdrawal_credentials(c, cipher, user_id, exchange_id)?.map(|(cr, v)| FeeKey::Withdrawal(cr, v.id)))
 }
 
 // ---- §6 sizing
@@ -414,12 +414,22 @@ pub enum Sizing {
 /// for sending `x` (None: unknown); it is asked at the budget and again at the amount, so a percentage fee is exact.
 pub async fn size<F, Fut>(free: &BigDec, pct: &BigDec, multiple: Option<&BigDec>, mut quote: F) -> Result<Sizing, VenueError>
 where F: FnMut(BigDec) -> Fut, Fut: std::future::Future<Output = Result<Option<BigDec>, VenueError>> {
+    size_with_semantics(free,pct,multiple,None,&mut quote).await
+}
+
+/// The fee-included branch is enabled only after the venue proves those semantics.
+pub async fn size_with_semantics<F,Fut>(free:&BigDec,pct:&BigDec,multiple:Option<&BigDec>,fee_on_top:Option<bool>,mut quote:F)->Result<Sizing,VenueError>
+where F:FnMut(BigDec)->Fut,Fut:std::future::Future<Output=Result<Option<BigDec>,VenueError>> {
     let hundred = BigDec::from_i64(100);
     let budget = floor_p(&(free * &pct.div(&hundred).expect("100 is not zero")), multiple);
-    let Some(first_fee) = quote(budget.clone()).await? else { return Ok(Sizing::FeeUnknown { budget }) };
+    let Some(first_fee) = quote(budget.clone()).await?.filter(|f| *f >= BigDec::zero()) else { return Ok(Sizing::FeeUnknown { budget }) };
+    if fee_on_top==Some(false) {
+        if !budget.is_positive() {return Ok(Sizing::DoesNotCover{budget,fee:first_fee});}
+        return Ok(Sizing::Send{amount:budget.clone(),budget,fee_cap:first_fee.clone(),first_fee});
+    }
     let amount = floor_p(&(&budget - &first_fee), multiple);
     if !amount.is_positive() { return Ok(Sizing::DoesNotCover { budget, fee: first_fee }); }
-    let Some(fee_cap) = quote(amount.clone()).await? else { return Ok(Sizing::FeeUnknown { budget }) };
+    let Some(fee_cap) = quote(amount.clone()).await?.filter(|f| *f >= BigDec::zero()) else { return Ok(Sizing::FeeUnknown { budget }) };
     if &amount + &fee_cap > budget { return Ok(Sizing::DoesNotCover { budget, fee: fee_cap }); }
     Ok(Sizing::Send { budget, amount, first_fee, fee_cap })
 }
