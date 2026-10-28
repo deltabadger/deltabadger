@@ -1,5 +1,7 @@
 //! The web layer's pure parts, each held to what Rails recorded (tests/fixtures/ruby_vectors.json).
 mod common;
+#[path = "support/settings_fixture.rs"]
+mod fixture;
 
 mod embedded_assets {
     use deltabadger::web::assets;
@@ -1228,7 +1230,89 @@ mod bot_rows {
 
 mod status_bar {
     use super::common;
+    use common::seed::{self, BotSpec};
+    use deltabadger::engine::{model, placement};
+    use deltabadger::web::bot::{Bot, For};
     use deltabadger::web::bot::status;
+    use serde_json::json;
+
+    const CONTINUED_AT: &str = "2026-10-28T16:58:00Z";
+    const DEFERRED_UNTIL: &str = "2026-10-29T09:32:30.507969Z";
+
+    fn continued_bot(c: &rusqlite::Connection, seed: &seed::Seeded) -> i64 {
+        seed::insert_bot(c, seed, &BotSpec::weekly(100.0, "2026-10-23T19:08:30.507969Z")
+            .with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!(10))
+            .transient("last_action_job_at", json!("2026-10-23T19:08:30.976Z"))
+            .transient("missed_quote_amount", json!(0)))
+    }
+
+    #[test]
+    fn a_continued_schedule_displays_its_persisted_wait_on_the_page_and_broadcasts() {
+        let (dir, opened, seed) = super::fixture::install();
+        let c = &opened.primary;
+        let id = continued_bot(c, &seed);
+        let now = CONTINUED_AT.parse().unwrap();
+        let read = || Bot::find(c, seed.user_id, id, For::Page, "en").unwrap().unwrap();
+        assert_eq!(status::next_action_at(c, &read(), now).unwrap(), None, "without a wait the old checkpoint is due");
+        placement::defer_to_next_checkpoint(c, &model::load_bot(c, id).unwrap(), now).unwrap();
+        assert_eq!(status::next_action_at(c, &read(), now).unwrap(), Some(DEFERRED_UNTIL.parse().unwrap()));
+
+        let app = common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at(CONTINUED_AT));
+        let messages = deltabadger::web::bot::live::render(c, &app, &deltabadger::engine::events::EngineEvent::StatusChanged { bot_id: id }).unwrap();
+        let bars: Vec<_> = messages.iter().filter(|(_, html)| html.contains("data-controller=\"countdown\"")).collect();
+        assert_eq!(bars.len(), 1, "page and tile share the status bar target");
+        for (_, html) in bars { assert!(html.contains("data-countdown-end-time-value=\"2026-10-29T09:32:30Z\""), "{html}"); }
+        let progress = messages.iter().find(|(_, html)| html.contains("data-controller=\"progress-bar\"")).unwrap();
+        assert!(progress.1.contains("data-progress-bar-end-time-value=\"2026-10-29T09:32:30Z\""), "{}", progress.1);
+        assert!(!progress.1.contains("width: 0%"), "{}", progress.1);
+    }
+
+    #[test]
+    fn stale_deferrals_do_not_hide_a_due_checkpoint() {
+        let (_dir, opened, seed) = super::fixture::install();
+        let c = &opened.primary;
+        let now = CONTINUED_AT.parse().unwrap();
+        for change in [
+            "settings=json_set(settings,'$.smart_interval_quote_amount',20)",
+            "started_at='2026-10-24T19:08:30.507969Z'",
+            "transient_data=json_set(transient_data,'$.run_generation',1)",
+            "transient_data=json_remove(transient_data,'$.rust_defer_until.origin')",
+            "transient_data=json_set(transient_data,'$.rust_defer_until.origin','unknown')",
+        ] {
+            let id = continued_bot(c, &seed);
+            placement::defer_to_next_checkpoint(c, &model::load_bot(c, id).unwrap(), now).unwrap();
+            c.execute(&format!("UPDATE bots SET {change} WHERE id=?1"), [id]).unwrap();
+            let bot = Bot::find(c, seed.user_id, id, For::Page, "en").unwrap().unwrap();
+            assert_eq!(status::next_action_at(c, &bot, now).unwrap(), None, "{change}");
+        }
+        let id = continued_bot(c, &seed);
+        let bot = model::load_bot(c, id).unwrap();
+        let producer = model::credential_version(c, &bot).unwrap();
+        model::credential_write(c, &producer, |tx| placement::defer_failure(tx, &bot, now)).unwrap();
+        let read = || Bot::find(c, seed.user_id, id, For::Page, "en").unwrap().unwrap();
+        assert_eq!(status::next_action_at(c, &read(), now).unwrap(), Some(DEFERRED_UNTIL.parse().unwrap()), "current venue deferrals also count");
+        c.execute("UPDATE api_keys SET key='replaced' WHERE id=?1", [seed.api_key_id]).unwrap();
+        assert_eq!(status::next_action_at(c, &read(), now).unwrap(), None, "replaced credentials invalidate a venue wait");
+    }
+
+    #[test]
+    fn an_ended_wait_is_due_even_if_the_last_checkpoint_already_ran() {
+        let (_dir, opened, seed) = super::fixture::install();
+        let c = &opened.primary;
+        let id = continued_bot(c, &seed);
+        let now = CONTINUED_AT.parse().unwrap();
+        c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.last_action_job_at',?1) WHERE id=?2", (CONTINUED_AT, id)).unwrap();
+        let read = || Bot::find(c, seed.user_id, id, For::Page, "en").unwrap().unwrap();
+        assert!(status::next_action_at(c, &read(), now).unwrap().is_some(), "no wait: normal checkpoint inference");
+        placement::run_now(c, &model::load_bot(c, id).unwrap(), now).unwrap();
+        assert_eq!(status::next_action_at(c, &read(), now).unwrap(), None, "run-now marker overrides the last-action inference");
+        placement::defer_to_next_checkpoint(c, &model::load_bot(c, id).unwrap(), now).unwrap();
+        for at in [DEFERRED_UNTIL, "2026-10-29T09:32:30.507970Z"] {
+            assert_eq!(status::next_action_at(c, &read(), at.parse().unwrap()).unwrap(), None, "the wait has ended at {at}");
+        }
+        placement::remove_wait(c, Some(id)).unwrap();
+        assert!(status::next_action_at(c, &read(), now).unwrap().is_some(), "removed waits restore normal inference");
+    }
 
     #[test]
     fn the_progress_bar_is_as_wide_as_rails_draws_it() {
