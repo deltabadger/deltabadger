@@ -1310,6 +1310,13 @@ mod status_bar {
         for at in [DEFERRED_UNTIL, "2026-10-29T09:32:30.507970Z"] {
             assert_eq!(status::next_action_at(c, &read(), at.parse().unwrap()).unwrap(), None, "the wait has ended at {at}");
         }
+        // The tick the wait released parked on a closed market before removing the wait: the page counts to the open.
+        let open = "2026-10-29T13:30:00Z";
+        c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.waiting_for_market_open',json('true')) WHERE id=?1", [id]).unwrap();
+        c.execute("INSERT INTO bot_activity_logs (bot_id, created_at, details, event) VALUES (?1, ?2, json_object('next_market_open_at', ?3), 'market_closed')",
+                  (id, DEFERRED_UNTIL, open)).unwrap();
+        assert_eq!(status::next_action_at(c, &read(), "2026-10-29T09:32:31Z".parse().unwrap()).unwrap(), Some(open.parse().unwrap()), "an ended wait parked on a closed market");
+        c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.waiting_for_market_open') WHERE id=?1", [id]).unwrap();
         placement::remove_wait(c, Some(id)).unwrap();
         assert!(status::next_action_at(c, &read(), now).unwrap().is_some(), "removed waits restore normal inference");
     }

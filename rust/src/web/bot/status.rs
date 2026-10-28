@@ -258,6 +258,7 @@ pub fn job_time_us(checkpoint_us: i64) -> i64 {
 /// here, so a current persisted engine wait takes precedence; otherwise "due" is read from the row:
 /// the checkpoint has come and the bot has not acted on it.
 pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>,WebError> {
+    let parked = bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false));
     if bot.working() && bot.transient.contains_key("rust_defer_until") {
         let mut scheduled = crate::engine::model::load_bot(c, bot.id)?;
         // A refused form can render unsaved settings/transient data. Validate the wait against the
@@ -268,12 +269,14 @@ pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<O
             if scheduled.started_at_us()? == bot.started_at.map(|at| at.timestamp_micros())
                 && scheduled.schedule_key()?.as_ref() == Some(&schedule)
                 && crate::engine::model::wait_is_current(c, &scheduled.transient["rust_defer_until"])? {
-                // An ended wait (including run_now) is due even if last_action_job_at looks current.
-                return Ok(DateTime::from_timestamp_micros(until).filter(|until| *until > now));
+                if let Some(until) = DateTime::from_timestamp_micros(until).filter(|until| *until > now) { return Ok(Some(until)); }
+                // An ended wait (including run_now) is due even if last_action_job_at looks current, unless the
+                // tick it released parked on a closed market (park runs before the wait is removed): then the open.
+                if !parked { return Ok(None); }
             }
         }
     }
-    if bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false)) {
+    if parked {
         // The flag is cleared by the first tick that finds the market open, so the latest park is the one it stands for.
         let details: Option<String> = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'market_closed' ORDER BY id DESC LIMIT 1",
                                                   [bot.id], |r| r.get(0)).optional()?;
