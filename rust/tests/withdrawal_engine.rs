@@ -1,4 +1,5 @@
 //! E0 G0: durable transaction boundaries, Rails evidence, and money fences. No sockets.
+mod common;
 use deltabadger::{
     crypto::{Cipher, EncryptionKeys},
     engine::{rules, withdrawal as w, FixedClock},
@@ -103,6 +104,10 @@ struct Fake<'a> {
     replacement_secret: String,
     network: &'static str,
     fee: &'static str,
+    tag: Option<&'static str>,
+    net_work: Option<&'static str>,
+    change_at: Cell<usize>,
+    change: String,
     version: deltabadger::engine::model::CredentialVersion,
     c: &'a Connection,
     sends: Cell<usize>,
@@ -118,6 +123,10 @@ impl<'a> Fake<'a> {
             replacement_secret: d.cipher.encrypt("rotated-secret"),
             network: "BTC",
             fee: "0.0001",
+            tag: None,
+            net_work: None,
+            change_at: Cell::new(0),
+            change: String::new(),
             version: deltabadger::engine::model::credential_version_by_id(&d.c, 1)
                 .unwrap()
                 .unwrap(),
@@ -134,6 +143,9 @@ impl<'a> Fake<'a> {
     fn step(&self) {
         let i = self.read.get() + 1;
         self.read.set(i);
+        if self.change_at.get() == i {
+            self.c.execute(&self.change, []).unwrap();
+        }
         if self.rotate_at.get() == i {
             self.c
                 .execute("UPDATE api_keys SET secret=?1", [&self.replacement_secret])
@@ -158,14 +170,14 @@ impl w::Adapter for Fake<'_> {
     }
     async fn networks(&self, _: &str) -> Result<Option<v::Coin>, deltabadger::venue::VenueError> {
         self.step();
-        Ok(Some(v::coin_networks(&json!([{"coin":"BTC","networkList":[{"network":self.network,"withdrawEnable":true,"withdrawTag":false,"withdrawFee":self.fee,"isDefault":true}]}]),"BTC","Binance").unwrap().unwrap()))
+        Ok(Some(v::coin_networks(&json!([{"coin":"BTC","networkList":[{"network":self.network,"withdrawEnable":true,"netWork":self.net_work,"withdrawTag":self.tag.is_some(),"withdrawFee":self.fee,"isDefault":true}]}]),"BTC","Binance").unwrap().unwrap()))
     }
     async fn addresses(&self, _: &str) -> Result<Vec<v::Entry>, deltabadger::venue::VenueError> {
         self.step();
         Ok(vec![v::Entry {
             address: "destination".into(),
             network: Some(self.network.into()),
-            tag: None,
+            tag: self.tag.map(str::to_owned),
             key: None,
             label: None,
             refused: None,
@@ -208,7 +220,11 @@ async fn crash_after_begin_dispatch_settle_never_resends() {
         let f = Fake::new(&d);
         let i = d.prepared(&f).await;
         if boundary != "begin" {
-            assert!(w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap());
+            assert!(
+                w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                    .await
+                    .unwrap()
+            );
         }
         if boundary == "settle" {
             w::settle(
@@ -262,7 +278,9 @@ async fn conditional_settlement_accept_reject_stale_and_duplicate() {
         let d = Db::new();
         let f = Fake::new(&d);
         let i = d.prepared(&f).await;
-        w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+        w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+            .await
+            .unwrap();
         assert!(w::settle(&d.c, &d.cipher, &i, "dispatched", result.clone(), now()).unwrap());
         assert!(!w::settle(&d.c, &d.cipher, &i, "dispatched", result, now()).unwrap());
         assert_eq!(d.count("rule_logs"), 1);
@@ -270,7 +288,9 @@ async fn conditional_settlement_accept_reject_stale_and_duplicate() {
     let d = Db::new();
     let f = Fake::new(&d);
     let i = d.prepared(&f).await;
-    w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+    w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
     w::settle(
         &d.c,
         &d.cipher,
@@ -291,7 +311,11 @@ async fn conditional_settlement_accept_reject_stale_and_duplicate() {
         now()
     )
     .unwrap());
-    assert!(!w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap());
+    assert!(
+        !w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+            .await
+            .unwrap()
+    );
     assert_eq!(d.count("rule_logs"), 0);
     d.log("Withdrew", Some("X"));
     w::settle(
@@ -351,7 +375,9 @@ async fn credential_fences_each_read_begin_dispatch_send_and_lookup() {
                 .await
                 .unwrap();
         } else {
-            w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+            w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                .await
+                .unwrap();
             f.rotate_at.set(f.read.get() + 1);
             *f.lookup.borrow_mut() = w::LookupResult::Found {
                 id: "X".into(),
@@ -504,7 +530,9 @@ async fn all_resolvers_seed_before_takeover_and_refuse_historical_id() {
         d.job("job", false, true);
         if mode == 2 {
             let i = d.prepared(&f).await;
-            w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+            w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                .await
+                .unwrap();
         }
         let target = match mode {
             0 => w::Target::Rails(log),
@@ -633,7 +661,15 @@ async fn rust_log_provenance_and_secret_scrubbing() {
     let d = Db::new();
     let f = Fake::new(&d);
     let i = d.prepared(&f).await;
-    w::mark_dispatched(&d.c, &d.cipher, &f, &i, now() + chrono::Duration::hours(1)).unwrap();
+    w::mark_dispatched(
+        &d.c,
+        &d.cipher,
+        &f,
+        &i,
+        &FixedClock(now() + chrono::Duration::hours(1)),
+    )
+    .await
+    .unwrap();
     assert_eq!(d.count("rust_rule_log_origins"), 1);
     assert!(rules::takeover_problems(&d.c, &d.q).unwrap().is_empty());
     assert!(rules::handback_problems(&d.c).unwrap().is_empty());
@@ -810,7 +846,9 @@ async fn candidates_are_visible_but_never_settle() {
     let d = Db::new();
     let f = Fake::new(&d);
     let i = d.prepared(&f).await;
-    w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+    w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
     *f.lookup.borrow_mut() = w::LookupResult::Unknown {
         reason: "operator evidence needed".into(),
         candidates: vec![json!({"id":"unrelated","status":"Pending"})],
@@ -860,7 +898,9 @@ async fn changed_owner_client_or_state_cannot_delete_or_settle() {
     let d = Db::new();
     let f = Fake::new(&d);
     let i = d.prepared(&f).await;
-    w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+    w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
     d.c.execute("UPDATE rust_withdrawal_intents SET client_id='newer'", [])
         .unwrap();
     assert!(!w::settle(
@@ -873,7 +913,11 @@ async fn changed_owner_client_or_state_cannot_delete_or_settle() {
     )
     .unwrap());
     d.c.execute("UPDATE api_keys SET status=0", []).unwrap();
-    assert!(!w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap());
+    assert!(
+        !w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+            .await
+            .unwrap()
+    );
     assert_eq!(d.count("rust_withdrawal_intents"), 1);
     assert_eq!(d.count("rule_logs"), 0);
 }
@@ -909,7 +953,9 @@ async fn settlement_uses_immutable_persisted_parameters() {
     let d = Db::new();
     let f = Fake::new(&d);
     let mut i = d.prepared(&f).await;
-    w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+    w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
     i.request.amount = "99999".into();
     w::settle(
         &d.c,
@@ -948,7 +994,9 @@ async fn exact_found_failed_status_is_proof_but_candidates_are_not() {
     let d = Db::new();
     let f = Fake::new(&d);
     let i = d.prepared(&f).await;
-    w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+    w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
     *f.lookup.borrow_mut() = w::LookupResult::Found {
         id: "failed-id".into(),
         status: w::FoundStatus::Failed {
@@ -1083,7 +1131,9 @@ async fn crash_worker() {
         "begin" | "dispatch" | "settle" => {
             let i = d.prepared(&f).await;
             if boundary == "dispatch" {
-                w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap();
+                w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                    .await
+                    .unwrap();
             }
             if boundary == "settle" {
                 w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
@@ -1228,7 +1278,9 @@ async fn status_role_and_ownership_are_fenced_even_when_the_digest_is_unchanged(
         d.c.execute(&format!("UPDATE api_keys SET {update}"), [])
             .unwrap();
         assert!(
-            !w::mark_dispatched(&d.c, &d.cipher, &f, &i, now()).unwrap(),
+            !w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                .await
+                .unwrap(),
             "{update}"
         );
         assert_eq!(d.count("rust_withdrawal_intents"), 0);
@@ -1281,4 +1333,229 @@ async fn destination_is_validated_at_begin_and_again_before_send() {
     assert_eq!(f.sends.get(), 0);
     assert_eq!(d.count("rule_logs"), 1);
     assert_eq!(d.count("rust_withdrawal_intents"), 0);
+}
+
+fn old_address() -> String {
+    Cipher::new(&EncryptionKeys::resolve(&|_| None, "previous-key").unwrap()).encrypt("destination")
+}
+
+#[tokio::test]
+async fn inactive_unreadable_evaluation_skips_before_decryption() {
+    for status in [0, 2, 3, 4, 5, 6, 7] {
+        let d = Db::new();
+        let f = Fake::new(&d);
+        d.c.execute(
+            "UPDATE rules SET status=?1,address=?2,settings='unreadable'",
+            params![status, old_address()],
+        )
+        .unwrap();
+        let evaluation = d.eval();
+        assert!(
+            w::evaluate(&d.c, &d.cipher, &f, evaluation, &FixedClock(now()))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            d.count("rust_rule_evaluations WHERE consumed_at IS NOT NULL AND outcome='skipped'"),
+            1
+        );
+        assert_eq!(d.count("rule_logs"), 0);
+        assert_eq!(f.read.get(), 0);
+    }
+}
+
+#[tokio::test]
+async fn active_unreadable_evaluation_logs_once_without_venue_reads() {
+    for (column, value, message) in [
+        (
+            "address",
+            old_address(),
+            "withdrawal address cannot be decrypted",
+        ),
+        (
+            "settings",
+            "invalid-json".into(),
+            "unreadable withdrawal settings",
+        ),
+    ] {
+        let d = Db::new();
+        let f = Fake::new(&d);
+        d.c.execute(&format!("UPDATE rules SET {column}=?1"), [value])
+            .unwrap();
+        let evaluation = d.eval();
+        for _ in 0..2 {
+            assert!(
+                w::evaluate(&d.c, &d.cipher, &f, evaluation, &FixedClock(now()))
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+        }
+        assert_eq!(
+            d.count("rust_rule_evaluations WHERE consumed_at IS NOT NULL AND outcome='logged'"),
+            1
+        );
+        assert_eq!(d.count("rule_logs WHERE status=2"), 1);
+        let logged: String =
+            d.c.query_row("SELECT message FROM rule_logs", [], |r| r.get(0))
+                .unwrap();
+        assert_eq!(logged, format!("Unexpected error: {message}"));
+        assert_eq!(d.count("rust_withdrawal_intents"), 0);
+        assert_eq!(f.read.get(), 0);
+    }
+}
+
+async fn engine_steps_with_unreadable_rule(status: i64) {
+    use deltabadger::{
+        engine::run,
+        lease,
+        store::{self, Paths},
+        venue::fake::{FakeFactory, FakeVenue},
+    };
+    let dir = common::rails_install();
+    let paths = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&paths, now()).unwrap();
+    let opened = store::open(&paths).unwrap();
+    let cipher = common::seed::cipher();
+    let seed = common::seed::seed_kraken(&opened.primary, &cipher);
+    opened.primary.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(1,?1,'Rules::Withdrawal',?2,?3,?4,?5,'{}',?6,?6)", params![seed.user_id,status,seed.exchange_id,seed.btc,old_address(),now().to_rfc3339()]).unwrap();
+    // A ready Rails ExecuteJob for the unreadable rule is imported before the first engine pass.
+    let queue = Db::new();
+    queue.job("old-key-job", false, false);
+    let tx = deltabadger::engine::model::immediate(&opened.primary).unwrap();
+    rules::import(&tx, &rules::jobs(&tx, &queue.q).unwrap(), now()).unwrap();
+    tx.commit().unwrap();
+    rules::finish_cleanup(&opened.primary, &queue.q, now()).unwrap();
+    let mut engine = run::Engine::new(opened.primary, FakeFactory(FakeVenue::new()), cipher, lock);
+    for pass in 0..2 {
+        // A later evaluation proves that the same phase keeps processing other rules on every pass.
+        engine.primary.execute("INSERT OR IGNORE INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(?1,?2,'Rules::Withdrawal',2,?3,?4,?5,'{}',?6,?6)", params![2,seed.user_id,seed.exchange_id,seed.quote,engine.cipher.encrypt("other"),now().to_rfc3339()]).unwrap();
+        engine
+            .primary
+            .execute(
+                "INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES(?1,?2,?3)",
+                params![2, format!("start:other:{pass}"), now().to_rfc3339()],
+            )
+            .unwrap();
+        if status == 1 {
+            // E0 intentionally refuses active rules at engine eligibility until an adapter passes G0.
+            // Exercise the exact withdrawal phase called by step without enabling production sends.
+            w::phase(
+                &engine.primary,
+                &engine.cipher,
+                &engine.factory,
+                &FixedClock(now()),
+            )
+            .await
+            .unwrap();
+        } else {
+            run::step(&mut engine, &FixedClock(now())).await.unwrap();
+        }
+        let pending: i64 = engine
+            .primary
+            .query_row(
+                "SELECT count(*) FROM rust_rule_evaluations WHERE consumed_at IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(pending, 0);
+        let logged: i64 = engine
+            .primary
+            .query_row("SELECT count(*) FROM rule_logs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(logged, i64::from(status == 1));
+    }
+    let outcome: String = engine
+        .primary
+        .query_row(
+            "SELECT outcome FROM rust_rule_evaluations WHERE rule_id=1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(outcome, if status == 1 { "logged" } else { "skipped" });
+}
+
+#[tokio::test]
+async fn stopped_old_key_job_does_not_end_engine_steps() {
+    engine_steps_with_unreadable_rule(2).await;
+}
+
+#[tokio::test]
+async fn active_old_key_job_does_not_end_withdrawal_phase() {
+    engine_steps_with_unreadable_rule(1).await;
+}
+
+#[tokio::test]
+async fn legacy_no_tag_rule_dispatches_captured_tag() {
+    let d = Db::new();
+    let mut f = Fake::new(&d);
+    f.tag = Some("123");
+    let i = d.prepared(&f).await;
+    assert!(
+        matches!(&i.request.destination, v::Destination::Binance { tag: Some(tag), .. } if tag == "123")
+    );
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(f.sends.get(), 1);
+    assert_eq!(d.count("rule_logs WHERE status=1"), 1);
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+}
+
+#[tokio::test]
+async fn mexc_network_alias_dispatches_normalized_destination() {
+    let d = Db::new();
+    d.c.execute(
+        "UPDATE exchanges SET type='Exchanges::Mexc',name='MEXC'",
+        [],
+    )
+    .unwrap();
+    d.c.execute(
+        "UPDATE rules SET settings=json_set(settings,'$.network','BTC-CODE')",
+        [],
+    )
+    .unwrap();
+    let mut f = Fake::new(&d);
+    f.net_work = Some("BTC-CODE");
+    let i = d.prepared(&f).await;
+    assert!(
+        matches!(&i.request.destination, v::Destination::Mexc { network, net_work, .. } if network == "BTC" && net_work == "BTC-CODE")
+    );
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(f.sends.get(), 1);
+    assert_eq!(d.count("rule_logs WHERE status=1"), 1);
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+}
+
+#[tokio::test]
+async fn destination_changes_before_or_during_dispatch_delete_unsent() {
+    for field in ["address", "address_tag", "network"] {
+        for during_read in [false, true] {
+            let d = Db::new();
+            let mut f = Fake::new(&d);
+            let i = d.prepared(&f).await;
+            let change = if field == "address" {
+                format!("UPDATE rules SET address='{}'", d.cipher.encrypt("changed"))
+            } else {
+                format!("UPDATE rules SET settings=json_set(settings,'$.{field}','changed')")
+            };
+            if during_read {
+                f.change = change;
+                f.change_at.set(f.read.get() + 2);
+            } else {
+                d.c.execute(&change, []).unwrap();
+            }
+            w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                .await
+                .unwrap();
+            assert_eq!(f.sends.get(), 0, "{field}, during read: {during_read}");
+            assert_eq!(d.count("rust_withdrawal_intents"), 0);
+            assert_eq!(d.count("rule_logs WHERE status=2"), 1);
+        }
+    }
 }

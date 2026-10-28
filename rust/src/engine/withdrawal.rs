@@ -287,6 +287,39 @@ fn rule(c: &Connection, cipher: &Cipher, id: i64) -> Result<Rule, EngineError> {
         .map_err(|_| data("unreadable withdrawal settings"))?;
     Ok(r)
 }
+// Called under the evaluation's immediate transaction. Rails ExecuteJob checks scheduled?
+// before reading encrypted attributes and records unexpected rule-data failures per job.
+fn evaluation_rule(
+    c: &Connection,
+    cipher: &Cipher,
+    id: i64,
+    evaluation: i64,
+    now: DateTime<Utc>,
+) -> Result<Option<Rule>, EngineError> {
+    let status: i64 = c.query_row("SELECT status FROM rules WHERE id=?1", [id], |r| r.get(0))?;
+    if status != 1 {
+        consume(c, evaluation, "skipped", now)?;
+        return Ok(None);
+    }
+    match rule(c, cipher, id) {
+        Ok(r) => Ok(Some(r)),
+        Err(EngineError::Data(message)) => {
+            if consume(c, evaluation, "logged", now)? {
+                rules::log(
+                    c,
+                    id,
+                    None,
+                    2,
+                    &format!("Unexpected error: {message}"),
+                    &json!({}),
+                    now,
+                )?;
+            }
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
+}
 fn key_current(
     c: &Connection,
     version: &CredentialVersion,
@@ -399,12 +432,10 @@ pub async fn evaluate<A: Adapter>(
             )
             .optional()?;
         let Some(id) = id else { return Ok(None) };
-        let r = rule(&tx, cipher, id)?;
-        if r.status != 1 {
-            consume(&tx, evaluation, "skipped", clock.now())?;
+        let Some(r) = evaluation_rule(&tx, cipher, id, evaluation, clock.now())? else {
             tx.commit()?;
             return Ok(None);
-        }
+        };
         if tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_intents WHERE owner=?1)",
             [format!("rule:{id}")],
@@ -790,7 +821,6 @@ pub async fn evaluate<A: Adapter>(
 /// A guard failure deletes only the matching prepared request. A dispatched request cannot reach this path.
 fn guard(
     c: &Connection,
-    cipher: &Cipher,
     a: &impl Adapter,
     i: &Intent,
     now: DateTime<Utc>,
@@ -828,62 +858,97 @@ fn guard(
         }
         return Ok(false);
     }
-    // Settings/destination are checked again, as well as key status and ownership.
-    let r = rule(c, cipher, i.request.rule_id)?;
-    let selected = i.request.stored();
+    Ok(true)
+}
+
+/// Validate the current rule against fresh listing data and commit the prepared -> dispatched CAS.
+/// No venue send occurs here; the returned request is the immutable persisted one.
+async fn prepare_dispatch<A: Adapter>(
+    c: &Connection,
+    cipher: &Cipher,
+    a: &A,
+    i: &Intent,
+    clock: &dyn Clock,
+) -> Result<Option<Intent>, EngineError> {
+    let current = {
+        let tx = model::immediate(c)?;
+        let Some(current) = matched(&tx, cipher, i, "prepared")? else {
+            return Ok(None);
+        };
+        if !guard(&tx, a, &current, clock.now())? {
+            tx.commit()?;
+            return Ok(None);
+        }
+        tx.commit()?;
+        current
+    };
+    let networks = a.networks(&current.request.coin).await;
+    // Do not read the listing with a handle whose credential snapshot has been replaced.
+    let addresses = if same_key(c, &current)? {
+        a.addresses(&current.request.coin).await.ok()
+    } else {
+        None
+    };
+    let tx = model::immediate(c)?;
+    let Some(current) = matched(&tx, cipher, &current, "prepared")? else {
+        return Ok(None);
+    };
+    if !guard(&tx, a, &current, clock.now())? {
+        tx.commit()?;
+        return Ok(None);
+    }
+    // Select from the rule as it is NOW, under the same lock as the CAS. Legacy blank
+    // fields and network aliases must use the same normalization as evaluation.
+    let r = rule(&tx, cipher, current.request.rule_id)?;
     let stored = v::Stored::new(
         &r.address,
         r.settings["network"].as_str(),
         r.settings["address_tag"].as_str(),
         r.settings["address_name"].as_str(),
     );
-    if r.class != i.request.exchange
-        || stored.address != selected.address
-        || stored
-            .network
-            .as_ref()
-            .is_some_and(|v| Some(v) != selected.network.as_ref())
-        || stored.tag != selected.tag
-        || stored
-            .key
-            .as_ref()
-            .is_some_and(|v| Some(v) != selected.key.as_ref())
+    let selected = networks.ok().zip(addresses).and_then(|(n, e)| {
+        v::select(
+            v::Kind::of(&r.class)?,
+            &current.request.coin,
+            &stored,
+            &e,
+            n.as_ref(),
+        )
+        .ok()
+    });
+    if r.class != current.request.exchange
+        || selected.as_ref() != Some(&current.request.destination)
     {
-        if remove(c, i, "prepared")? {
+        if remove(&tx, &current, "prepared")? {
             rules::log(
-                c,
+                &tx,
                 r.id,
-                Some(&i.client_id),
+                Some(&current.client_id),
                 2,
-                "Withdrawal failed: withdrawal destination changed before sending",
-                &i.request.details(None),
-                now,
+                "Withdrawal failed: withdrawal destination changed or is not listed",
+                &current.request.details(None),
+                clock.now(),
             )?;
         }
-        return Ok(false);
+        tx.commit()?;
+        return Ok(None);
     }
-    Ok(true)
+    model::check_credential_result(&tx, &Some(current.version.clone()))?;
+    let changed = tx.execute("UPDATE rust_withdrawal_intents SET state='dispatched' WHERE owner=?1 AND client_id=?2 AND state='prepared'", params![current.owner, current.client_id])? == 1;
+    tx.commit()?;
+    Ok(changed.then_some(current))
 }
-pub fn mark_dispatched(
+
+pub async fn mark_dispatched(
     c: &Connection,
     cipher: &Cipher,
     a: &impl Adapter,
     i: &Intent,
-    now: DateTime<Utc>,
+    clock: &dyn Clock,
 ) -> Result<bool, EngineError> {
-    let tx = model::immediate(c)?;
-    let Some(current) = matched(&tx, cipher, i, "prepared")? else {
-        return Ok(false);
-    };
-    if !guard(&tx, cipher, a, &current, now)? {
-        tx.commit()?;
-        return Ok(false);
-    }
-    model::check_credential_result(&tx, &Some(current.version.clone()))?;
-    let changed=tx.execute("UPDATE rust_withdrawal_intents SET state='dispatched' WHERE owner=?1 AND client_id=?2 AND state='prepared'",params![current.owner,current.client_id])?==1;
-    tx.commit()?;
-    Ok(changed)
+    Ok(prepare_dispatch(c, cipher, a, i, clock).await?.is_some())
 }
+
 pub async fn dispatch<A: Adapter>(
     c: &Connection,
     cipher: &Cipher,
@@ -891,60 +956,9 @@ pub async fn dispatch<A: Adapter>(
     i: &Intent,
     clock: &dyn Clock,
 ) -> Result<(), EngineError> {
-    let current = {
-        let tx = model::immediate(c)?;
-        let Some(current) = matched(&tx, cipher, i, "prepared")? else {
-            return Ok(());
-        };
-        if !guard(&tx, cipher, a, &current, clock.now())? {
-            tx.commit()?;
-            return Ok(());
-        }
-        tx.commit()?;
-        current
+    let Some(current) = prepare_dispatch(c, cipher, a, i, clock).await? else {
+        return Ok(());
     };
-    let networks = a.networks(&current.request.coin).await;
-    // On a rotation, use the prepared guard to record a provably unsent outcome.
-    if !same_key(c, &current)? {
-        mark_dispatched(c, cipher, a, &current, clock.now())?;
-        return Ok(());
-    }
-    let addresses = a.addresses(&current.request.coin).await;
-    if !same_key(c, &current)? {
-        mark_dispatched(c, cipher, a, &current, clock.now())?;
-        return Ok(());
-    }
-    let selected = networks.ok().zip(addresses.ok()).and_then(|(n, e)| {
-        v::select(
-            v::Kind::of(&current.request.exchange)?,
-            &current.request.coin,
-            &current.request.stored(),
-            &e,
-            n.as_ref(),
-        )
-        .ok()
-    });
-    if selected.as_ref() != Some(&current.request.destination) {
-        let tx = model::immediate(c)?;
-        if let Some(i) = matched(&tx, cipher, &current, "prepared")? {
-            if remove(&tx, &i, "prepared")? {
-                rules::log(
-                    &tx,
-                    i.request.rule_id,
-                    Some(&i.client_id),
-                    2,
-                    "Withdrawal failed: withdrawal address is not listed",
-                    &i.request.details(None),
-                    clock.now(),
-                )?;
-            }
-        }
-        tx.commit()?;
-        return Ok(());
-    }
-    if !mark_dispatched(c, cipher, a, &current, clock.now())? {
-        return Ok(());
-    }
     let result = a.send(&current.request).await;
     settle(c, cipher, &current, "dispatched", result, clock.now())?;
     Ok(())
@@ -1476,13 +1490,13 @@ pub async fn phase<F: crate::venue::VenueFactory>(
         .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?
         .collect::<Result<Vec<_>, _>>()?;
     for (evaluation, id) in evaluations {
-        let r = rule(c, cipher, id)?;
-        if r.status != 1 {
+        let r = {
             let tx = model::immediate(c)?;
-            consume(&tx, evaluation, "skipped", clock.now())?;
+            let r = evaluation_rule(&tx, cipher, id, evaluation, clock.now())?;
             tx.commit()?;
-            continue;
-        }
+            r
+        };
+        let Some(r) = r else { continue };
         if !crate::venue::registry::row(&r.class).is_some_and(|v| v.withdraws) {
             continue;
         }
