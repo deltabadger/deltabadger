@@ -82,7 +82,7 @@ async fn the_kraken_key_rails_sends_with_is_the_key_selected() {
     let entries = KrakenVenue::new(t).withdrawal_addresses("XBT").await.unwrap();
     let sent = c["requests"].as_array().unwrap().iter().find(|r| r["path"] == "/0/private/Withdraw").unwrap();
     let d = withdrawal::select(Kind::Kraken, "XBT", &Stored::new(ADDRESS, None, None, None), &entries, None).unwrap();
-    assert_eq!(d, Destination::Kraken { asset: "XBT".into(), key: sent["params"]["key"].as_str().unwrap().into(), address: ADDRESS.into() });
+    assert_eq!(d, Destination::Kraken { method: Some("Bitcoin".into()), asset: "XBT".into(), key: sent["params"]["key"].as_str().unwrap().into(), address: ADDRESS.into() });
 }
 
 #[test]
@@ -262,7 +262,7 @@ fn ambiguous_entries_are_refused() {
     let two = [k("cold"), k("cold-2")];
     assert_eq!(withdrawal::select(Kind::Kraken, "XBT", &Stored::new("a", None, None, None), &two, None), Err(Refusal::Ambiguous));
     assert_eq!(withdrawal::select(Kind::Kraken, "XBT", &Stored::new("a", None, None, Some("cold-2")), &two, None),
-               Ok(Destination::Kraken { asset: "XBT".into(), key: "cold-2".into(), address: "a".into() }));
+               Ok(Destination::Kraken { method: Some("Bitcoin".into()), asset: "XBT".into(), key: "cold-2".into(), address: "a".into() }));
     assert_eq!(withdrawal::select(Kind::Kraken, "XBT", &Stored::new("b", None, None, Some("cold")), &two, None), Err(Refusal::NotListed), "the key's own address");
 
     // Binance: one address on two networks; the rule's network picks one.
@@ -323,7 +323,7 @@ fn kraken_info(t: &ScriptedTransport, amount: &str, body: Value) {
     t.reply(&format!("POST {}?amount={amount}&asset=XBT&key=cold", withdrawal::KRAKEN_INFO), 200, body);
 }
 fn info(net: &str, fee: &str) -> Value { json!({ "error": [], "result": { "method": "Bitcoin", "limit": "10", "amount": net, "fee": fee } }) }
-fn kraken_dest() -> Destination { Destination::Kraken { asset: "XBT".into(), key: "cold".into(), address: "a".into() } }
+fn kraken_dest() -> Destination { Destination::Kraken { method: Some("Bitcoin".into()), asset: "XBT".into(), key: "cold".into(), address: "a".into() } }
 
 #[tokio::test(flavor = "current_thread")]
 async fn an_inconsistent_kraken_quote_is_unknown() {

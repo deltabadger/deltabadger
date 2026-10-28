@@ -228,6 +228,8 @@ impl<V:Venue> Venue for &V {
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{(*self).withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{(*self).withdrawal_networks(coin).await}
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{(*self).withdrawal_fee(d,amount).await}
+    async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{(*self).withdraw(r).await}
+    async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{(*self).withdrawal_lookup(r).await}
 }
 impl<V:Venue> Venue for Handle<V> {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
@@ -253,6 +255,8 @@ impl<V:Venue> Venue for Handle<V> {
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.venue.withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.venue.withdrawal_networks(coin).await}
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{self.venue.withdrawal_fee(d,amount).await}
+    async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{self.venue.withdraw(r).await}
+    async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{self.venue.withdrawal_lookup(r).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
@@ -344,6 +348,14 @@ pub trait Venue {
     async fn withdrawal_addresses(&self, _coin: &str) -> Result<Vec<withdrawal::Entry>, VenueError> { Err(withdrawal::not_connected()) }
     /// capital/config/getall's networks for `coin` (Binance, MEXC); None when the coin is not listed.
     async fn withdrawal_networks(&self, _coin: &str) -> Result<Option<withdrawal::Coin>, VenueError> { Err(withdrawal::not_connected()) }
+    /// Send only the immutable request committed by the withdrawal engine.
+    async fn withdraw(&self, _request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult {
+        crate::engine::withdrawal::SendResult::Ambiguous { reason: "withdrawal adapter is not enabled".into() }
+    }
+    /// Exact matches may settle; candidate-only venues must always return Unknown.
+    async fn withdrawal_lookup(&self, _request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::LookupResult {
+        crate::engine::withdrawal::LookupResult::Unknown { reason: "withdrawal lookup requires operator evidence".into(), candidates: vec![] }
+    }
     /// The fee for sending `amount` to `destination` (§6): None when it is unknown.
     async fn withdrawal_fee(&self, _destination: &withdrawal::Destination, _amount: &BigDec) -> Result<Option<BigDec>, VenueError> { Err(withdrawal::not_connected()) }
 }

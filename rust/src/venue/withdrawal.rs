@@ -86,7 +86,7 @@ pub struct Entry {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Destination {
     Binance { coin: String, network: String, address: String, tag: Option<String> },
-    Kraken { asset: String, key: String, address: String },
+    Kraken { asset: String, key: String, address: String, method: Option<String> },
     Gemini { ticker: String, network: String, address: String },
     /// `network` is the coin list's label (the old endpoint's), `net_work` the new endpoint's code (D-RULE-MEXC-CAPITAL).
     Mexc { coin: String, network: String, net_work: String, address: String, memo: Option<String> },
@@ -307,7 +307,8 @@ fn destination(kind: Kind, coin: &str, stored: &Stored, e: &Entry, networks: Opt
         }
         Kind::Kraken => {
             let key = e.key.clone().ok_or(Refusal::Inadmissible("the entry names no key"))?;
-            Ok(Destination::Kraken { asset: coin.to_string(), key, address })
+            let method = e.network.clone().filter(|m| !crate::ruby::blank(m)).ok_or(Refusal::Inadmissible("the entry names no method"))?;
+            Ok(Destination::Kraken { asset: coin.to_string(), key, address, method: Some(method) })
         }
         Kind::Gemini => {
             let network = gemini_network(coin).filter(|n| GEMINI_MEMO_FREE.contains(n)).ok_or(Refusal::Inadmissible("Gemini withdrawals on this network need a memo"))?;
