@@ -853,3 +853,44 @@ fn finished_or_failed_composition_jobs_do_not_block_takeover() {
         assert!(handover::take_over(&l,&o,&seed::cipher(),"test",now()).is_ok());
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn rust_withdrawal_outcomes_and_consumed_evaluations_survive_handback_takeover() {
+    let dir=common::rails_install();let p=Paths::from_env(&|_|None,dir.path());
+    let lock=lease::lock(&p,now()).unwrap();let o=store::open(&p).unwrap();
+    let s=seed::seed_kraken(&o.primary,&seed::cipher());
+    o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',2,?1,?2,?3,'{}',?4,?4)",rusqlite::params![s.user_id,s.exchange_id,s.btc,deltabadger::codec::format_time(now())]).unwrap();
+    let rule=o.primary.last_insert_rowid();
+    let tx=model::immediate(&o.primary).unwrap();
+    deltabadger::engine::rules::log(&tx,rule,Some("expired-intent"),2,"Withdrawal failed: the request was not sent in time",&json!({}),now()).unwrap();
+    tx.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at,consumed_at,outcome) VALUES(?1,'start:consumed',?2,?2,'skipped')",rusqlite::params![rule,deltabadger::codec::format_time(now())]).unwrap();tx.commit().unwrap();
+    handover::take_over(&lock,&o,&seed::cipher(),"test",now()).unwrap();
+    handover::hand_back(&lock,&o,&FakeFactory::default(),&seed::cipher(),&deltabadger::engine::FixedClock(now())).await.unwrap();
+    handover::take_over(&lock,&o,&seed::cipher(),"test",now()).unwrap();
+    assert_eq!(count(&o.primary,"SELECT count(*) FROM rust_rails_attempt_acks"),0);
+    assert_eq!(count(&o.primary,"SELECT count(*) FROM rule_logs"),1);
+}
+
+#[test]
+fn withdrawal_cli_migrates_and_seeds_before_any_takeover() {
+    let dir=common::rails_install_unmigrated();let p=Paths::from_env(&|_|None,dir.path());
+    let c=rusqlite::Connection::open(&p.primary).unwrap();let s=seed::seed_kraken(&c,&seed::cipher());
+    c.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',2,?1,?2,?3,'{}',?4,?4)",rusqlite::params![s.user_id,s.exchange_id,s.btc,deltabadger::codec::format_time(now())]).unwrap();
+    let rule=c.last_insert_rowid();
+    c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(?1,1,'Withdrew 0.9 BTC','{\"withdrawal_id\":\"X\",\"amount\":\"0.9\"}',?2)",rusqlite::params![rule,deltabadger::codec::format_time(now())]).unwrap();
+    c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(?1,2,'Unexpected error: unreadable','{}',?2)",rusqlite::params![rule,deltabadger::codec::format_time(now())]).unwrap();let log=c.last_insert_rowid().to_string();
+    let run=|args:&[&str]|{
+        Command::new(env!("CARGO_BIN_EXE_deltabadger")).arg("resolve-withdrawal").args(args)
+            .env("STORAGE_DIR",dir.path()).env("SECRET_KEY_BASE","engine-test-secret")
+            .env_remove("DATABASE_PATH").env_remove("QUEUE_DATABASE_PATH")
+            .env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").env_remove("ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL")
+            .output().unwrap()
+    };
+    let duplicate=run(&["--rails",&log,"--sent","X","--amount","0.9"]);
+    assert!(!duplicate.status.success());assert!(String::from_utf8_lossy(&duplicate.stderr).contains("already recorded"));
+    assert_eq!(count(&c,"SELECT count(*) FROM rust_withdrawal_ids"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),0);
+    let listed=run(&["--rails-list",&rule.to_string()]);assert!(listed.status.success(),"{}",String::from_utf8_lossy(&listed.stderr));assert!(String::from_utf8_lossy(&listed.stdout).contains(&format!("Rails attempt {log}")));
+    let resolved=run(&["--rails",&log,"--sent","new-id","--amount","0.9"]);assert!(resolved.status.success(),"{}",String::from_utf8_lossy(&resolved.stderr));
+    assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rule_log_origins"),1);
+    assert!(lease::read(&c,&seed::cipher()).unwrap().is_none(),"resolution does not take ownership");
+}

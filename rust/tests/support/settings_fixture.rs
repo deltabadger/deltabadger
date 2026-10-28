@@ -15,6 +15,8 @@ pub fn install() -> (
         .unwrap();
     drop(c);
     let opened = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    // serve and run apply Rust's pending migrations before the engine starts; the engine's phases read those tables.
+    store::test_support::migrate(&opened.primary).unwrap();
     let seed = crate::common::seed::seed_alpaca(&opened.primary, &crate::common::seed::cipher());
     (dir, opened, seed)
 }

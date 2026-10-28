@@ -797,7 +797,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
                     rt.block_on(async move {
                         let paths=deltabadger::store::Paths::from_env(&|_| None,&copy_dir);
-                        let mut engine=deltabadger::engine::run::Engine::new(deltabadger::store::open(&paths).unwrap().primary,
+                        let primary=deltabadger::store::open(&paths).unwrap().primary; deltabadger::store::test_support::migrate(&primary).unwrap(); // as run/serve do
+                        let mut engine=deltabadger::engine::run::Engine::new(primary,
                             Scripted(deltabadger::venue::http::ScriptedTransport::from_script(&Value::Object(script))),cipher,deltabadger::lease::lock(&paths,at).unwrap());
                         receiver.send(engine.subscribe_to(EngineEvent::is_order)).unwrap();
                         arrived.recv().unwrap(); // the publication has rendered and checked the account, and waits at the clock

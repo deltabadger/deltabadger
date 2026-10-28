@@ -152,7 +152,7 @@ pub struct UnresolvedWithdrawal {
     pub state: String,
     pub reason: Option<String>,
     pub since: String,
-    /// E0 supplies lookup candidates; W2 never performs recovery or sends.
+    /// Exact-match recovery candidates for operator review; candidates never settle an attempt.
     pub candidates: Vec<Value>,
 }
 #[derive(Debug)]
@@ -209,9 +209,7 @@ pub fn list(c: &Connection, app: &App, user: i64) -> Result<Vec<ListedRule>, Web
     let mut rows = Vec::new();
     for r in visible_rules(c, app, user)? {
         let id = r.id;
-        let unresolved_withdrawal = c.query_row(
-            "SELECT state,reason,created_at FROM rust_withdrawal_intents WHERE owner=?1 AND state IN ('dispatched','unresolved')",
-            [format!("rule:{id}")], |r| Ok(UnresolvedWithdrawal { state:r.get(0)?,reason:r.get(1)?,since:r.get(2)?,candidates:vec![] })).optional()?;
+        let unresolved_withdrawal = crate::engine::rules::status(c,id)?.map(|s|UnresolvedWithdrawal{state:s.state,reason:s.reason,since:s.since,candidates:s.candidates});
         rows.push(ListedRule {
             id,
             rule_type: "Rules::Withdrawal",
@@ -418,11 +416,11 @@ fn apply_patch(r: &mut Rule, patch: &Patch, create: bool) -> Result<(), Refusal>
 fn consume(c: &Connection, id: i64, at: &str) -> rusqlite::Result<usize> {
     c.execute("UPDATE rust_rule_evaluations SET consumed_at=?1,outcome='skipped' WHERE rule_id=?2 AND consumed_at IS NULL",(at,id))
 }
-fn start_evaluations(c: &Connection, at: &str) -> rusqlite::Result<usize> {
-    // D-RULE-EVALUATION-ID: one distinct fire per Start, fan-out matches EvaluateAllJob.
-    c.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM rules WHERE type='Rules::Withdrawal' AND status=1",
-        (format!("start:{}",uuid::Uuid::new_v4()),at))
+fn start_evaluations(c: &Connection, at: &str) -> Result<usize, crate::engine::EngineError> {
+    let now=crate::codec::parse_time(at).map_err(crate::engine::EngineError::Arithmetic)?;
+    crate::engine::rules::start_evaluations(c,now)
 }
+
 fn save(c: &Connection, app: &App, r: &Rule, at: &str) -> Result<(), WebError> {
     let old: (String, Option<String>, i64) = c.query_row(
         "SELECT settings,address,status FROM rules WHERE id=?1",
@@ -581,7 +579,7 @@ mod tests {
             let tx = crate::engine::model::immediate(&c).unwrap();
             tx.execute("UPDATE rules SET status=1 WHERE id=1", [])
                 .unwrap();
-            assert_eq!(start_evaluations(&tx, "2026-10-26").unwrap(), 2);
+            assert_eq!(start_evaluations(&tx, "2026-10-26 00:00:00").unwrap(), 2);
             tx.commit().unwrap();
         }
         let mut stmt=c.prepare("SELECT source,count(*),count(DISTINCT rule_id) FROM rust_rule_evaluations GROUP BY source").unwrap();
@@ -605,7 +603,7 @@ mod tests {
             let tx = crate::engine::model::immediate(&c).unwrap();
             tx.execute("UPDATE rules SET status=1 WHERE id=3", [])
                 .unwrap();
-            assert_eq!(start_evaluations(&tx, "2026-10-27").unwrap(), 3);
+            assert_eq!(start_evaluations(&tx, "2026-10-27 00:00:00").unwrap(), 3);
             // A failed commit must roll back both the status and its evaluations.
         }
         assert_eq!(

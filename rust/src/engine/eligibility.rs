@@ -552,11 +552,14 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> { install(c,
 fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<String>>) -> Result<Report, EngineError> {
     let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![], notes: vec![] };
     let mut splits = SplitRows::new();
-    let rules: i64 = c.query_row(&format!("SELECT count(*) FROM rules WHERE status IN ({})", model::working_list()), [], |r| r.get(0))?;
-    if rules > 0 {
-        report.problems.push(format!("{rules} active rule(s): rules run only in the full app"));
-        if let Some(i) = items.as_deref_mut() { i.extend(report.problems.last().cloned()); }
+    let mut rule_rows=c.prepare(&format!("SELECT r.id,e.type,r.type FROM rules r LEFT JOIN exchanges e ON e.id=r.exchange_id WHERE r.status IN ({})",model::working_list()))?;
+    for row in rule_rows.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?)))? {
+        let (id,exchange,kind)=row?;
+        if kind!="Rules::Withdrawal" || !exchange.as_deref().and_then(crate::venue::registry::row).is_some_and(|v|v.withdraws) {
+            report.problems.push(format!("rule {id}: withdrawals are not enabled for {}",exchange.as_deref().unwrap_or("this exchange")));
+        }
     }
+
     // Every status, archived and deleted included: archiving or deleting a bot leaves its orders at the venue,
     // and Rails keeps accounting for them, so their pending work refuses the install like any other bot's.
     let mut s = c.prepare("SELECT id FROM bots ORDER BY id")?;

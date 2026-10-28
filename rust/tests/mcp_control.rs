@@ -407,6 +407,7 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
     let clock=TestClock::at("2026-09-10T12:00:30.123457Z");
     let paths=deltabadger::store::Paths::from_env(&|_|None,rust.path());
     let lock=deltabadger::lease::lock(&paths,deltabadger::engine::Clock::now(&*clock)).unwrap();
+    deltabadger::store::test_support::migrate(&c).unwrap(); // as run/serve do before the engine starts
     let mut engine=deltabadger::engine::run::Engine::new(c,script.clone(),cipher,lock);
     deltabadger::engine::run::step(&mut engine,&*clock).await.unwrap();
     assert_eq!(script.sent.borrow().len(),2,"fresh start immediately buys both legs");

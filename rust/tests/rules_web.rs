@@ -1372,6 +1372,9 @@ async fn unresolved_and_dispatched_statuses_and_legacy_error_redaction() {
     .unwrap();
     i.c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES (?1,2,?2,'{}','2026-01-01 00:00:00')",
         (id,"Withdrawal failed: GET https://api.example/withdraw?address=SECRETADDRESS&signature=SECRETSIGNATURE")).unwrap();
+    i.c.execute("INSERT INTO rust_withdrawal_candidates(owner,client_id,candidates) VALUES(?1,'test',?2)",
+        (format!("rule:{id}"),json!([{"id":"candidate-visible","status":"Pending"}]).to_string())).unwrap();
+    assert_eq!(service::list(&i.c,&i.app,i.s.user_id).unwrap()[0].unresolved_withdrawal.as_ref().unwrap().candidates[0]["id"],"candidate-visible");
     for state in ["dispatched", "unresolved"] {
         i.c.execute("UPDATE rust_withdrawal_intents SET state=?1", [state])
             .unwrap();
@@ -1380,6 +1383,8 @@ async fn unresolved_and_dispatched_statuses_and_legacy_error_redaction() {
         assert!(body.contains("Withdrawal status unconfirmed"));
         assert!(body.contains("not retried"));
         assert!(body.contains("resolve-withdrawal"));
+        assert!(body.contains("candidate-visible"));
+
         for secret in ["SECRETADDRESS", "SECRETSIGNATURE", "https://api.example"] {
             assert!(!body.contains(secret));
         }

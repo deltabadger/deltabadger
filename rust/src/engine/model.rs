@@ -853,17 +853,19 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
     Ok((credentials,Some(version),sensitive))
 }
 
-/// The user's withdrawal key for the exchange (`key_type` 1, plan §2.5) and its api_keys id. None when it is missing or
-/// its key or secret does not decrypt: nothing is sent with it. (Its CredentialVersion is E0's, at handle construction.)
-pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,user_id:i64,exchange_id:i64)->Result<Option<(Credentials,i64)>,EngineError>{
+/// Withdrawal credentials and provenance from the same SQLite snapshot. Unlike trading,
+/// an absent, invalid or undecryptable key is never replaced by an empty signing key.
+pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,user_id:i64,exchange_id:i64)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,user_id,exchange_id)?;tx.commit()?;return Ok(result);}
     let row:Option<([Option<String>;7],i64)>=c.query_row(
-        "SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=1 ORDER BY id LIMIT 1",
+        "SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=1 AND status=1 ORDER BY id LIMIT 1",
         params![user_id,exchange_id],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
-    let Some((columns,id))=row else { return Ok(None) };
+    let Some((columns,id))=row else{return Ok(None)};
     let open=|v:&Option<String>|v.as_ref().and_then(|v|cipher.decrypt(v).ok());
-    let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else { return Ok(None) };
-    let redaction_values=columns.iter().flatten().map(|v|cipher.decrypt(v).unwrap_or_else(|_|v.clone())).collect();
-    Ok(Some((Credentials{redaction_values,key,secret,passphrase:open(&columns[2]),ibkr:None},id)))
+    let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};
+    if key.is_empty()||secret.is_empty(){return Ok(None);}
+    let version=ciphertext_version(id,&columns);
+    Ok(Some((Credentials{redaction_values:columns.iter().filter_map(open).collect(),key,secret,passphrase:open(&columns[2]),ibkr:None},version)))
 }
 
 #[derive(Debug, Clone, Copy)]

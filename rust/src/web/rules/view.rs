@@ -312,7 +312,8 @@ pub fn tile(ctx: &Ctx, r: &Rule, list: Option<&Listing>) -> Result<String, WebEr
             .unconfirmed
             .as_ref()
             .map(|state| {
-                let mut line = unconfirmed(ctx, &r.exchange.name, state, &[]);
+                let candidates=state.candidates.iter().map(ToString::to_string).collect::<Vec<_>>();
+                let mut line = unconfirmed(ctx, &r.exchange.name, &state.state, &candidates);
                 if matches!(
                     r.exchange.class.as_str(),
                     "Exchanges::Kraken" | "Exchanges::Gemini"

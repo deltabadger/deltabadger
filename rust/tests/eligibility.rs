@@ -1184,3 +1184,15 @@ fn a_tokenized_stock_runs_on_hyperliquid_only() {
     assert_eq!(reasons("Exchanges::Hyperliquid"), Vec::<String>::new());
     assert!(reasons("Exchanges::Bybit").iter().any(|r| r.starts_with("tokenized BTC on ")));
 }
+
+#[test]
+fn e0_keeps_withdrawal_sending_disabled_on_every_production_venue() {
+    let (_d,o,s)=install();
+    o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',1,?1,?2,?3,'{}','2026-01-01','2026-01-01')",rusqlite::params![s.user_id,s.exchange_id,s.btc]).unwrap();
+    let rule=o.primary.last_insert_rowid();
+    for venue in &deltabadger::venue::registry::ROWS {
+        assert!(!venue.withdraws,"E0 adds no production withdrawal sender");
+        o.primary.execute("UPDATE exchanges SET type=?1 WHERE id=?2",rusqlite::params![venue.exchange_type,s.exchange_id]).unwrap();
+        assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p|p.contains(&format!("rule {rule}:"))),"{} remains refused",venue.exchange_type);
+    }
+}

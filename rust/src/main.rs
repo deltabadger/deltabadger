@@ -1,4 +1,4 @@
-//! `deltabadger check | run | handback | serve | sync | resolve-placement | decide`.
+//! `deltabadger check | run | handback | serve | sync | resolve-withdrawal | resolve-placement | decide`.
 //! - check: take the engine lock, check the Rails-prepared install read-only, list the Rust migrations `run`/`serve`
 //!   would apply, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
@@ -61,6 +61,29 @@ fn main() {
         Some("handback") => std::process::exit(hand_back(&env)),
         Some("sync") => std::process::exit(sync_by_hand(&env)),
         Some("serve") => std::process::exit(serve(&env)),
+        Some("resolve-withdrawal") => {
+            use deltabadger::engine::withdrawal::{self,Target};
+            let args:Vec<String>=std::env::args().skip(2).collect();
+            let (target,resolution)=withdrawal::parse_cli(&args).unwrap_or_else(|e|fail(&format!("{e:?}")));
+            refuse_url_overrides(&env);
+            let paths=paths(&env);
+            let lock=take_lock(&paths);
+            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&format!("{e:?}")));
+            let o=store::open(&paths).unwrap_or_else(|e|fail(&format!("{e:?}")));
+            let secret=env("SECRET_KEY_BASE").unwrap_or_else(||fail("SECRET_KEY_BASE is required"));
+            let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
+            let cipher=Cipher::new(&keys);
+            if let Target::RailsList(id)=target {
+                let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
+                deltabadger::engine::rules::seed_rails_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
+                tx.commit().unwrap_or_else(|e|fail(&format!("{e:?}")));
+                for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: Rails attempt {attempt}");}
+            } else {
+                withdrawal::resolve(&o.primary,&o.queue,&cipher,target,resolution,chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
+                deltabadger::engine::rules::finish_cleanup(&o.primary,&o.queue,chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
+                println!("resolved");
+            }
+        }
         Some("resolve-placement") => {
             let args: Vec<String> = std::env::args().skip(2).collect();
             let bot_id: i64 = args.first().and_then(|a| a.parse().ok()).unwrap_or_else(|| fail("usage: deltabadger resolve-placement <bot_id> --placed <txid> | --not-placed"));
@@ -94,7 +117,7 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
     }
