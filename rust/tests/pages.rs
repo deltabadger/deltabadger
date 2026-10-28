@@ -61,10 +61,9 @@ fn comparable(status: u64, headers: &BTreeMap<String, Vec<String>>, body: &str, 
 }
 
 /// A listed divergence of the `countdown_*` scenarios: when a bot acts next. Rails reads it from its
-/// job table. This build has no job table and derives it from the bot's row (the next interval
-/// checkpoint), which is the same instant after every completed tick; two times are in no row: when a
-/// retry the engine has in hand fires, and the checkpoint Rails waits for after a restart that was not
-/// a fresh start. There the countdown's end,
+/// job table. This build reads a current persisted engine wait or derives the next interval checkpoint
+/// from the bot's row. These fixture rows have neither the engine's in-memory retry time nor its
+/// persisted continue decision, so the corresponding Rails jobs remain unknown here. There the countdown's end,
 /// and with it the progress bar's end and width, differ: Rails has the job's time, this build the
 /// checkpoint or nothing. The three values are taken out of both pages, and what they were is
 /// returned, so the caller can hold the two sides to differing exactly there.

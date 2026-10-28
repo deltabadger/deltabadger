@@ -255,9 +255,28 @@ pub fn job_time_us(checkpoint_us: i64) -> i64 {
 ///
 /// Rails has no time either while a tick is due or in hand: its job is then ready, claimed or
 /// blocked, no longer scheduled (Automation::Schedulable#next_action_job_at). There is no job table
-/// here, so "due" is read from the row: the checkpoint has come and the bot has not acted on it.
+/// here, so a current persisted engine wait takes precedence; otherwise "due" is read from the row:
+/// the checkpoint has come and the bot has not acted on it.
 pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>,WebError> {
-    if bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false)) {
+    let parked = bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false));
+    if bot.working() && bot.transient.contains_key("rust_defer_until") {
+        let mut scheduled = crate::engine::model::load_bot(c, bot.id)?;
+        // A refused form can render unsaved settings/transient data. Validate the wait against the
+        // displayed schedule, and discard it if that form moved the start away from the stored run.
+        scheduled.settings = serde_json::Value::Object(bot.settings.clone());
+        scheduled.transient = serde_json::Value::Object(bot.transient.clone());
+        if let Some((until, schedule)) = scheduled.rust_defer()? {
+            if scheduled.started_at_us()? == bot.started_at.map(|at| at.timestamp_micros())
+                && scheduled.schedule_key()?.as_ref() == Some(&schedule)
+                && crate::engine::model::wait_is_current(c, &scheduled.transient["rust_defer_until"])? {
+                if let Some(until) = DateTime::from_timestamp_micros(until).filter(|until| *until > now) { return Ok(Some(until)); }
+                // An ended wait (including run_now) is due even if last_action_job_at looks current, unless the
+                // tick it released parked on a closed market (park runs before the wait is removed): then the open.
+                if !parked { return Ok(None); }
+            }
+        }
+    }
+    if parked {
         // The flag is cleared by the first tick that finds the market open, so the latest park is the one it stands for.
         let details: Option<String> = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'market_closed' ORDER BY id DESC LIMIT 1",
                                                   [bot.id], |r| r.get(0)).optional()?;
