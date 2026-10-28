@@ -416,6 +416,14 @@ impl<T: Transport> KrakenVenue<T> {
 }
 
 impl<T: Transport> Venue for KrakenVenue<T> {
+    async fn withdrawal_networks(&self, _: &str) -> Result<Option<super::withdrawal::Coin>, VenueError> { Ok(None) }
+    async fn withdraw(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult {
+        self.send_withdrawal(request).await
+    }
+    async fn withdrawal_lookup(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::LookupResult {
+        self.lookup_withdrawal(request).await
+    }
+
     fn rules(&self) -> &'static VenueRules { &KRAKEN }
 
     /// Exchanges::Kraken#list_withdrawal_addresses' read: WithdrawAddresses for `coin` (no method), every entry.
@@ -555,5 +563,331 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     /// #cancel_order through Clients::Kraken#cancel_order: CancelOrder by txid; the body's `error` is the failure.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         self.call(&self.private("/0/private/CancelOrder", &[("txid", txid.to_string())]), false).await.map(|_| ())
+    }
+}
+
+// D-RULE-KRAKEN-KEY / D-RULE-KRAKEN-MAXFEE: persisted key and re-quote cap only.
+// The address is sent as Rails (honeymaker 0.12.5) sends it: Kraken refuses a withdrawal whose address does not match the key's.
+impl<T: Transport> KrakenVenue<T> {
+    async fn send_withdrawal(
+        &self,
+        r: &crate::engine::withdrawal::Request,
+    ) -> crate::engine::withdrawal::SendResult {
+        use super::withdrawal::Destination;
+        use crate::engine::{rules, withdrawal::SendResult};
+        let unknown = || SendResult::Ambiguous {
+            reason: "Kraken withdrawal reply is unconfirmed".into(),
+        };
+        let Destination::Kraken { asset, key, address, .. } = &r.destination else {
+            return unknown();
+        };
+        let fields = [
+            ("asset", asset.clone()),
+            ("key", key.clone()),
+            ("address", address.clone()),
+            ("amount", r.amount.clone()),
+            ("max_fee", r.fee_cap.clone()),
+        ];
+        // The absolute bound on the send, as add_order's: the request's creation + E0's send window, plus the request
+        // budget. Past it the transport refuses before signing, which proves nothing was sent.
+        let Ok(created) = crate::codec::parse_time(&r.created_at) else {
+            return SendResult::Rejected { definitive: true, reason: "the withdrawal request has no readable creation time; not sent".into() };
+        };
+        let not_after = created
+            + chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS)
+            + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s");
+        let request = HttpRequest { not_after: Some(not_after), ..self.private("/0/private/Withdraw", &fields) };
+        // Do not use the trading classifier: an HTTP status alone never proves rejection.
+        let response = match self.transport.send_limited(&request, 64 * 1024).await {
+            Ok(response) => response,
+            Err(TransportError::NotSent(_)) => {
+                return SendResult::Rejected { definitive: true, reason: "past the withdrawal send window; not sent".into() }
+            }
+            Err(_) => return unknown(),
+        };
+        if !(200..300).contains(&response.status) && !(400..500).contains(&response.status) {
+            return unknown();
+        }
+        let Ok(body) = http::decode_json(&response.body) else {
+            return unknown();
+        };
+        let Some(errors) = body["error"].as_array() else {
+            return unknown();
+        };
+        if !errors.is_empty() {
+            // Mixed or malformed errors and every EGeneral/EService reply stay ambiguous (E2).
+            // Keep E0's shared allowlist for all other codes; never interpret an arbitrary message.
+            if !body["result"].is_null()
+                || !errors.iter().all(|e| {
+                    e.as_str().is_some_and(|e| {
+                        e.starts_with('E')
+                            && !e.starts_with("EGeneral:")
+                            && !e.starts_with("EService:")
+                            && rules::definitive("Kraken", e)
+                    })
+                })
+            {
+                return unknown();
+            }
+            return SendResult::Rejected {
+                definitive: true,
+                reason: rules::safe_message(errors[0].as_str().expect("validated error")),
+            };
+        }
+        if !(200..300).contains(&response.status) {
+            return unknown();
+        }
+        match body["result"]["refid"]
+            .as_str()
+            .filter(|id| !crate::ruby::blank(id))
+        {
+            Some(id) => SendResult::Accepted { id: id.into() },
+            None => unknown(),
+        }
+    }
+
+    /// Candidates only, even for Success or Failure. No time window can prove this attempt absent.
+    /// https://docs.kraken.com/api-reference/funding/get-status-of-recent-withdrawals
+    async fn lookup_withdrawal(
+        &self,
+        r: &crate::engine::withdrawal::Request,
+    ) -> crate::engine::withdrawal::LookupResult {
+        use super::withdrawal::Destination;
+        use crate::engine::withdrawal::LookupResult;
+        let unknown = |reason: &str, candidates: Vec<Value>| LookupResult::Unknown {
+            reason: format!("{reason}; operator recovery via resolve-withdrawal is required"),
+            candidates,
+        };
+        let Destination::Kraken {
+            asset,
+            key,
+            method: Some(method),
+            ..
+        } = &r.destination
+        else {
+            return unknown("Kraken withdrawal method was not recorded", vec![]);
+        };
+        if crate::ruby::blank(method) {
+            return unknown("Kraken withdrawal method was not recorded", vec![]);
+        }
+        let Ok(at) = crate::codec::parse_time(&r.created_at) else {
+            return unknown("Kraken withdrawal time is unreadable", vec![]);
+        };
+        let Ok(amount) = BigDec::parse(&r.amount) else {
+            return unknown("Kraken withdrawal amount is unreadable", vec![]);
+        };
+        let (start, end) = (at.timestamp() - 60, at.timestamp() + 3600);
+        let mut cursor = "true".to_string();
+        let mut seen = std::collections::HashSet::new();
+        let mut candidates = Vec::new();
+        // A bound on broken pagination, not evidence of absence. Partial candidates remain visible.
+        for _ in 0..100 {
+            if !seen.insert(cursor.clone()) {
+                return unknown("Kraken withdrawal cursor repeated", candidates);
+            }
+            let fields = [
+                ("asset", asset.clone()),
+                ("method", method.clone()),
+                ("start", start.to_string()),
+                ("end", end.to_string()),
+                ("cursor", cursor.clone()),
+            ];
+            let Ok(response) = self
+                .transport
+                .send_limited(
+                    &self.private("/0/private/WithdrawStatus", &fields),
+                    2 * 1024 * 1024,
+                )
+                .await
+            else {
+                return unknown("Kraken withdrawal lookup failed", candidates);
+            };
+            if !(200..300).contains(&response.status) {
+                return unknown("Kraken withdrawal lookup failed", candidates);
+            }
+            let Ok(body) = http::decode_json(&response.body) else {
+                return unknown("Kraken withdrawal lookup is unreadable", candidates);
+            };
+            if check(&body).is_err() {
+                return unknown("Kraken withdrawal lookup failed", candidates);
+            }
+            let result = &body["result"];
+            // Kraken also documents the unpaged array form. It is useful only as candidate evidence.
+            let (rows, next) = if let Some(rows) = result.as_array() {
+                (rows, None)
+            } else {
+                let Some(rows) = result["withdrawals"].as_array() else {
+                    return unknown("Kraken withdrawal page is unreadable", candidates);
+                };
+                let next = match result.get("cursor") {
+                    Some(Value::Null) => None,
+                    Some(Value::String(s)) if s.is_empty() => None,
+                    Some(Value::String(s)) => Some(s.clone()),
+                    _ => return unknown("Kraken withdrawal cursor is unreadable", candidates),
+                };
+                (rows, next)
+            };
+            for row in rows {
+                let (Some(row_key), Some(time), Some(id), Some(status)) = (
+                    row["key"].as_str(),
+                    row["time"].as_i64(),
+                    row["refid"].as_str(),
+                    row["status"].as_str(),
+                ) else {
+                    return unknown("Kraken withdrawal candidate is unreadable", candidates);
+                };
+                let Some(row_amount) = crate::ruby::json_to_d(&row["amount"]).ok().flatten() else {
+                    return unknown(
+                        "Kraken withdrawal candidate amount is unreadable",
+                        candidates,
+                    );
+                };
+                if row_key != key || row_amount != amount || !(start..=end).contains(&time) {
+                    continue;
+                }
+                if row["method"].as_str().is_some_and(|m| m != method) {
+                    continue;
+                }
+                if crate::ruby::blank(id) {
+                    return unknown("Kraken withdrawal candidate id is unreadable", candidates);
+                }
+                let prop = match row.get("status-prop") {
+                    None | Some(Value::Null) => "",
+                    Some(Value::String(s)) => s.as_str(),
+                    _ => {
+                        return unknown(
+                            "Kraken withdrawal status property is unreadable",
+                            candidates,
+                        )
+                    }
+                };
+                let interpretation = if status == "Failure" || matches!(prop, "canceled" | "return")
+                {
+                    "looks failed"
+                } else if matches!(prop, "onhold" | "cancel-pending") {
+                    "in review"
+                } else {
+                    status
+                };
+                // E0 stores only id/status/amount/at. Preserve status-prop and its interpretation
+                // in the displayed status; neither a successful nor failed-looking candidate settles.
+                let shown = if !prop.is_empty() {
+                    format!("{status} ({prop}; {interpretation})")
+                } else if interpretation != status {
+                    format!("{status} ({interpretation})")
+                } else {
+                    status.to_string()
+                };
+                let Some(time) = DateTime::<Utc>::from_timestamp(time, 0) else {
+                    return unknown("Kraken withdrawal candidate time is unreadable", candidates);
+                };
+                let safe = crate::engine::rules::safe_message;
+                let candidate = serde_json::json!({"id":safe(id),"amount":row_amount.to_s_f(),
+                    "at":crate::codec::format_time(time),"status":safe(&shown)});
+                if !candidates.contains(&candidate) {
+                    candidates.push(candidate);
+                }
+            }
+            let Some(next) = next else {
+                return unknown("Kraken withdrawals are candidates only", candidates);
+            };
+            cursor = next;
+        }
+        unknown(
+            "Kraken withdrawal lookup exceeded the page limit",
+            candidates,
+        )
+    }
+}
+
+#[cfg(test)]
+mod withdrawal_wire_tests {
+    use super::*;
+    use crate::{
+        engine::{withdrawal::Request, FixedClock},
+        venue::{
+            http::ScriptedTransport,
+            sign::{self, Keys, Wire},
+            withdrawal::Destination,
+        },
+    };
+    use serde_json::json;
+    #[tokio::test]
+    async fn kraken_withdrawal_signed_fields_exact() {
+        let t = ScriptedTransport::default();
+        t.reply(
+            "POST /0/private/Withdraw",
+            200,
+            json!({"error":[],"result":{"refid":"K-1"}}),
+        );
+        let venue = KrakenVenue::new(t.clone());
+        let request = Request {
+            rule_id: 1,
+            user_id: 1,
+            exchange_id: 1,
+            asset_id: 1,
+            exchange: "Exchanges::Kraken".into(),
+            symbol: "BTC".into(),
+            coin: "XBT".into(),
+            client_id: "unused".into(),
+            destination: Destination::Kraken {
+                asset: "XBT".into(),
+                key: "cold & storage".into(),
+                address: "destination".into(),
+                method: Some("Bitcoin".into()),
+            },
+            amount: "0.99".into(),
+            fee_cap: "0.0099".into(),
+            free_balance: "1".into(),
+            percentage: "100".into(),
+            created_at: "2026-10-28T12:00:00Z".into(),
+            wallet_type: None,
+        };
+        venue.withdraw(&request).await;
+        let r = t.requests().remove(0);
+        assert_eq!(r.not_after, Some("2026-10-28T12:00:00Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap()
+            + chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS) + chrono::Duration::seconds(45)),
+            "the send carries add_order's absolute bound");
+        let unreadable = Request { created_at: "not a time".into(), ..request.clone() };
+        assert!(matches!(venue.withdraw(&unreadable).await, crate::engine::withdrawal::SendResult::Rejected { definitive: true, .. }));
+        assert_eq!(t.requests().len(), 1, "an unreadable creation time sends nothing");
+        let signed = sign::request(
+            Wire::Kraken,
+            &reqwest::Client::new(),
+            &r,
+            Keys {
+                key: "key",
+                secret: "c2VjcmV0",
+                passphrase: "",
+                ibkr: None,
+            },
+            &FixedClock("2026-10-28T12:00:00Z".parse().unwrap()),
+        )
+        .build()
+        .unwrap();
+        let body = std::str::from_utf8(signed.body().unwrap().as_bytes().unwrap()).unwrap();
+        let fields: std::collections::BTreeMap<_, _> = form_urlencoded::parse(body.as_bytes())
+            .into_owned()
+            .collect();
+        let nonce = fields["nonce"].parse::<u64>().unwrap();
+        assert!(nonce > 0);
+        assert_eq!(
+            fields,
+            std::collections::BTreeMap::from([
+                ("nonce".into(), nonce.to_string()),
+                ("asset".into(), "XBT".into()),
+                ("key".into(), "cold & storage".into()),
+                ("address".into(), "destination".into()),
+                ("amount".into(), "0.99".into()),
+                ("max_fee".into(), "0.0099".into())
+            ])
+        );
+        assert!(body.starts_with("nonce="));
+        let headers = private_headers("/0/private/Withdraw", body, "key", "c2VjcmV0");
+        assert_eq!(signed.headers()["API-Key"], "key");
+        assert_eq!(
+            signed.headers()["API-Sign"],
+            headers.iter().find(|(k, _)| k == "API-Sign").unwrap().1
+        );
     }
 }

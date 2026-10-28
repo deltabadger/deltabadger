@@ -1560,6 +1560,530 @@ async fn destination_changes_before_or_during_dispatch_delete_unsent() {
     }
 }
 
+// E2: the production VenueAdapter and KrakenVenue, with offline HTTP answers.
+use deltabadger::venue::{http::ScriptedTransport, kraken::KrakenVenue};
+use w::Adapter;
+const K_SEND: &str = "POST /0/private/Withdraw";
+const K_STATUS: &str = "POST /0/private/WithdrawStatus";
+fn kraken_db() -> Db {
+    let d = Db::new();
+    d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Kraken',name='Kraken'; UPDATE tickers SET base='XBT'; UPDATE rules SET settings=json_set(settings,'$.address_name','cold');").unwrap();
+    d
+}
+fn kraken_adapter(
+    d: &Db,
+    t: &ScriptedTransport,
+) -> w::VenueAdapter<KrakenVenue<ScriptedTransport>> {
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+        .unwrap()
+        .unwrap();
+    w::VenueAdapter::new(
+        KrakenVenue::new(t.clone()).with_identity(&cr),
+        version,
+        None,
+    )
+}
+fn kraken_reads() -> ScriptedTransport {
+    let t = ScriptedTransport::default();
+    t.reply(
+        "POST /0/private/BalanceEx",
+        200,
+        json!({"error":[],"result":{"XBT":{"balance":"1","hold_trade":"0"}}}),
+    );
+    t.reply("POST /0/private/WithdrawAddresses", 200, json!({"error":[],"result":[{"address":"destination","key":"cold","method":"Bitcoin","verified":true}]}));
+    t.reply(
+        "POST /0/private/WithdrawInfo",
+        200,
+        json!({"error":[],"result":{"amount":"0.99","fee":"0.01"}}),
+    );
+    t.reply(
+        "POST /0/private/WithdrawInfo",
+        200,
+        json!({"error":[],"result":{"amount":"0.9801","fee":"0.0099"}}),
+    );
+    t.reply(
+        K_STATUS,
+        200,
+        json!({"error":[],"result":{"withdrawals":[],"cursor":null}}),
+    );
+    t
+}
+async fn kraken_prepared(d: &Db, t: &ScriptedTransport) -> w::Intent {
+    w::evaluate(
+        &d.c,
+        &d.cipher,
+        &kraken_adapter(d, t),
+        d.eval(),
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap()
+    .unwrap()
+}
+fn kraken_sends(t: &ScriptedTransport) -> usize {
+    t.requests()
+        .iter()
+        .filter(|r| r.path == "/0/private/Withdraw")
+        .count()
+}
+#[tokio::test]
+async fn kraken_g0_answers_restart_without_resends() {
+    let answers = [
+        (200, json!({"error":[],"result":{"refid":"K-1"}}), Some(1)),
+        (200, json!({"error":["EFunding:Max fee exceeded"]}), Some(2)),
+        (200, json!({"error":["EGeneral:Internal error"]}), None),
+        (200, json!({"error":["EService:Unavailable"]}), None),
+        (500, json!({"error":["EFunding:Max fee exceeded"]}), None),
+        (200, json!("not JSON"), None),
+        (200, json!({"error":[],"result":{}}), None),
+        (200, json!({"error":[],"result":{"refid":" "}}), None),
+        (200, json!({"result":{"refid":"K-1"}}), None),
+        (
+            200,
+            json!({"error":["EFunding:Max fee exceeded","EService:Unavailable"]}),
+            None,
+        ),
+        (200, json!({"error":[null]}), None),
+        (200, json!({"error":["Unknown symbol for asset XBT"]}), None),
+        (200, json!({"error":["EAPI:Unrecognized code"]}), None),
+        (
+            200,
+            json!({"error":["EFunding:Max fee exceeded"],"result":{"refid":"K-1"}}),
+            None,
+        ),
+        (200, json!({"error":["EGeneral:Invalid arguments"]}), None),
+    ];
+    for (http, body, log) in answers {
+        let d = kraken_db();
+        let t = kraken_reads();
+        t.reply(K_SEND, http, body.clone());
+        let i = kraken_prepared(&d, &t).await;
+        let a = kraken_adapter(&d, &t);
+        // A caller changing its in-memory copy must not change the signed request.
+        let mut edited = i.clone();
+        edited.request.amount = "99".into();
+        edited.request.fee_cap = "50".into();
+        w::dispatch(&d.c, &d.cipher, &a, &edited, &FixedClock(now()))
+            .await
+            .unwrap();
+        assert_eq!(d.count("rule_logs"), i64::from(log.is_some()), "{body}");
+        if let Some(expected) = log {
+            assert_eq!(
+                d.c.query_row("SELECT status FROM rule_logs", [], |r| r.get::<_, i64>(0))
+                    .unwrap(),
+                expected,
+                "{body}"
+            );
+        }
+        assert_eq!(
+            d.count("rust_withdrawal_intents"),
+            i64::from(log.is_none()),
+            "{body}"
+        );
+        let wire = t
+            .requests()
+            .into_iter()
+            .find(|r| r.path == "/0/private/Withdraw")
+            .unwrap();
+        assert_eq!(
+            wire.body.unwrap(),
+            json!({"asset":"XBT","key":"cold","address":"destination","amount":"0.99","max_fee":"0.0099"})
+        );
+        // Reopen the durable database and reconstruct the production adapter.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("restart.sqlite");
+        d.c.execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+            .unwrap();
+        let restarted = Db {
+            c: Connection::open(path).unwrap(),
+            q: Connection::open_in_memory().unwrap(),
+            cipher: d.cipher,
+        };
+        let a = kraken_adapter(&restarted, &t);
+        for _ in 0..2 {
+            w::recover(
+                &restarted.c,
+                &restarted.cipher,
+                &a,
+                "rule:1",
+                &FixedClock(now()),
+            )
+            .await
+            .unwrap();
+            w::dispatch(&restarted.c, &restarted.cipher, &a, &i, &FixedClock(now()))
+                .await
+                .unwrap();
+        }
+        assert_eq!(kraken_sends(&t), 1, "{body}");
+        assert_eq!(
+            rules::status(&restarted.c, 1).unwrap().is_some(),
+            log.is_none()
+        );
+    }
+}
+#[tokio::test]
+async fn kraken_timeout_is_unresolved_and_never_retried() {
+    let d = kraken_db();
+    let t = kraken_reads();
+    t.network(K_SEND, "post_send", "timeout");
+    let i = kraken_prepared(&d, &t).await;
+    let a = kraken_adapter(&d, &t);
+    w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("restart.sqlite");
+    d.c.execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+        .unwrap();
+    let d = Db {
+        c: Connection::open(path).unwrap(),
+        q: Connection::open_in_memory().unwrap(),
+        cipher: d.cipher,
+    };
+    let a = kraken_adapter(&d, &t);
+    w::recover(
+        &d.c,
+        &d.cipher,
+        &kraken_adapter(&d, &t),
+        "rule:1",
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap();
+    w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(kraken_sends(&t), 1);
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(rules::status(&d.c, 1).unwrap().unwrap().state, "unresolved");
+}
+fn k_candidate(id: &str, offset: i64, key: &str, amount: &str, status: &str, prop: &str) -> Value {
+    json!({"refid":id,"time":now().timestamp()+offset,"key":key,"amount":amount,"status":status,"status-prop":prop,"method":"Bitcoin","asset":"XXBT"})
+}
+#[tokio::test]
+async fn kraken_paged_candidates_use_inclusive_window_and_never_settle() {
+    let d = kraken_db();
+    let reads = kraken_reads();
+    let i = kraken_prepared(&d, &reads).await;
+    let a = kraken_adapter(&d, &reads);
+    assert!(
+        w::mark_dispatched(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+            .await
+            .unwrap()
+    );
+    let t = ScriptedTransport::default();
+    t.reply(
+        K_STATUS,
+        200,
+        json!({"error":[],"result":{"withdrawals":[
+        k_candidate("early",-61,"cold","0.99","Success",""),
+        k_candidate("start",-60,"cold","0.9900","Success",""),
+        k_candidate("other",0,"other","0.99","Success",""),
+        k_candidate("amount",0,"cold","0.98","Success","")],"cursor":"page-2"}}),
+    );
+    t.reply(
+        K_STATUS,
+        200,
+        json!({"error":[],"result":{"withdrawals":[
+        k_candidate("canceled",0,"cold","0.99","Pending","canceled"),
+        k_candidate("return",1,"cold","0.99","Success","return"),
+        k_candidate("review",2,"cold","0.99","Pending","onhold"),
+        k_candidate("cancel-pending",3,"cold","0.99","Pending","cancel-pending"),
+        k_candidate("initial",4,"cold","0.99","Initial",""),
+        k_candidate("settled",5,"cold","0.99","Settled",""),
+        k_candidate("end",3600,"cold","0.99","Failure",""),
+        k_candidate("late",3601,"cold","0.99","Success","")],"cursor":null}}),
+    );
+    w::recover(
+        &d.c,
+        &d.cipher,
+        &kraken_adapter(&d, &t),
+        "rule:1",
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap();
+    let s = rules::status(&d.c, 1).unwrap().unwrap();
+    assert_eq!(s.state, "unresolved");
+    assert!(s.reason.unwrap().contains("resolve-withdrawal"));
+    assert_eq!(
+        s.candidates
+            .iter()
+            .map(|c| c["id"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec![
+            "start",
+            "canceled",
+            "return",
+            "review",
+            "cancel-pending",
+            "initial",
+            "settled",
+            "end"
+        ]
+    );
+    assert_eq!(
+        s.candidates[1]["status"],
+        "Pending (canceled; looks failed)"
+    );
+    assert_eq!(s.candidates[2]["status"], "Success (return; looks failed)");
+    assert_eq!(s.candidates[3]["status"], "Pending (onhold; in review)");
+    assert_eq!(
+        s.candidates[4]["status"],
+        "Pending (cancel-pending; in review)"
+    );
+    assert_eq!(s.candidates[5]["status"], "Initial");
+    assert_eq!(s.candidates[6]["status"], "Settled");
+    assert_eq!(s.candidates[7]["status"], "Failure (looks failed)");
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(d.count("rust_withdrawal_ids"), 0);
+    let requests = t.requests();
+    assert_eq!(requests.len(), 2);
+    for (r, cursor) in requests.iter().zip(["true", "page-2"]) {
+        assert_eq!(
+            r.body.as_ref().unwrap(),
+            &json!({"asset":"XBT","method":"Bitcoin","start":(now().timestamp()-60).to_string(),"end":(now().timestamp()+3600).to_string(),"cursor":cursor})
+        );
+    }
+    assert_eq!(kraken_sends(&t), 0);
+}
+#[tokio::test]
+async fn kraken_x0_classifier_cells_through_real_adapter() {
+    let vectors: Value =
+        serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+    let cells: Vec<_> = vectors["classifier"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["venue"] == "kraken" && c["replies"][K_SEND].is_array())
+        .collect();
+    assert_eq!(
+        cells.len(),
+        1 + 1 + 1 + 1 + 1,
+        "Kraken X0: max fee + internal + service + HTML + timeout"
+    );
+    let d = kraken_db();
+    let i = kraken_prepared(&d, &kraken_reads()).await;
+    for c in cells {
+        let reply = &c["replies"][K_SEND][0];
+        let t = ScriptedTransport::default();
+        if reply["network"].is_string() {
+            t.network(K_SEND, "post_send", "timeout");
+        } else {
+            t.reply(
+                K_SEND,
+                reply["status"].as_u64().unwrap_or(200) as u16,
+                reply["body"].clone(),
+            );
+        }
+        let result = kraken_adapter(&d, &t).send(&i.request).await;
+        let definitive = c["case"] == "kraken_max_fee_exceeded";
+        let message = c["rule_logs"][0]["message"].as_str().unwrap();
+        assert_eq!(rules::ambiguous("Kraken", message), !definitive);
+        if let w::SendResult::Rejected { reason, .. } = &result {
+            assert_eq!(message, format!("Withdrawal failed: {reason}"));
+        }
+        assert_eq!(
+            matches!(
+                result,
+                w::SendResult::Rejected {
+                    definitive: true,
+                    ..
+                }
+            ),
+            definitive,
+            "{}",
+            c["case"]
+        );
+        assert_eq!(
+            matches!(result, w::SendResult::Ambiguous { .. }),
+            !definitive,
+            "{}",
+            c["case"]
+        );
+    }
+}
+#[tokio::test]
+async fn kraken_quote_over_budget_or_threshold_refuses_before_send() {
+    for threshold in [false, true] {
+        let d = kraken_db();
+        let t = kraken_reads();
+        if threshold {
+            d.c.execute("UPDATE rules SET settings=json_set(settings,'$.threshold_type','fee_percentage','$.max_fee_percentage','0.1','$.max_interval',NULL)",[]).unwrap();
+        } else {
+            // First quote consumes .01 of the budget; a .02 re-quote exceeds the remainder.
+            // Replace the script to supply the two precise answers.
+            let t = ScriptedTransport::from_script(&json!({
+                "POST /0/private/BalanceEx":[{"status":200,"body":{"error":[],"result":{"XBT":{"balance":"1","hold_trade":"0"}}}}],
+                "POST /0/private/WithdrawAddresses":[{"status":200,"body":{"error":[],"result":[{"address":"destination","key":"cold","method":"Bitcoin","verified":true}]}}],
+                "POST /0/private/WithdrawInfo":[{"status":200,"body":{"error":[],"result":{"amount":"0.99","fee":"0.01"}}},{"status":200,"body":{"error":[],"result":{"amount":"0.97","fee":"0.02"}}}]
+            }));
+            assert!(w::evaluate(
+                &d.c,
+                &d.cipher,
+                &kraken_adapter(&d, &t),
+                d.eval(),
+                &FixedClock(now())
+            )
+            .await
+            .unwrap()
+            .is_none());
+            assert_eq!(kraken_sends(&t), 0);
+            continue;
+        }
+        assert!(w::evaluate(
+            &d.c,
+            &d.cipher,
+            &kraken_adapter(&d, &t),
+            d.eval(),
+            &FixedClock(now())
+        )
+        .await
+        .unwrap()
+        .is_none());
+        assert_eq!(kraken_sends(&t), 0);
+    }
+}
+#[test]
+fn kraken_g0_gate_does_not_enable_live_withdrawals() {
+    assert!(w::G0_ADAPTERS.contains(&"Exchanges::Kraken"));
+    assert!(
+        !deltabadger::venue::registry::row("Exchanges::Kraken")
+            .unwrap()
+            .withdraws
+    );
+}
+
+#[tokio::test]
+async fn kraken_kill_worker() {
+    let Ok(path) = std::env::var("E2_CRASH_DB") else {
+        return;
+    };
+    let path = std::path::PathBuf::from(path);
+    let d = reopen(&path);
+    let t = kraken_reads();
+    t.reply(
+        K_SEND,
+        200,
+        json!({"error":[],"result":{"refid":"K-crash"}}),
+    );
+    let i = kraken_prepared(&d, &t).await;
+    let a = kraken_adapter(&d, &t);
+    assert!(
+        w::mark_dispatched(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+            .await
+            .unwrap()
+    );
+    assert!(matches!(
+        a.send(&i.request).await,
+        w::SendResult::Accepted { .. }
+    ));
+    std::fs::write(path.with_extension("sends"), kraken_sends(&t).to_string()).unwrap();
+    std::process::exit(74); // No settlement or destructors: the reply was lost.
+}
+#[tokio::test]
+async fn kraken_kill_after_dispatch_real_adapter_sends_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("primary.sqlite");
+    let seed = kraken_db();
+    seed.c
+        .execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+        .unwrap();
+    seed.q
+        .execute(
+            "VACUUM INTO ?1",
+            [path.with_extension("queue").to_str().unwrap()],
+        )
+        .unwrap();
+    drop(seed);
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "kraken_kill_worker", "--nocapture"])
+        .env("E2_CRASH_DB", &path)
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(74),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let d = reopen(&path);
+    let t = kraken_reads();
+    let a = kraken_adapter(&d, &t);
+    let i = w::load(&d.c, &d.cipher, "rule:1").unwrap().unwrap();
+    assert_eq!(i.state, "dispatched");
+    for _ in 0..2 {
+        w::recover(&d.c, &d.cipher, &a, "rule:1", &FixedClock(now()))
+            .await
+            .unwrap();
+        w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(path.with_extension("sends")).unwrap(),
+        "1"
+    );
+    assert_eq!(kraken_sends(&t), 0);
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(rules::status(&d.c, 1).unwrap().unwrap().state, "unresolved");
+}
+#[tokio::test]
+async fn kraken_lookup_malformed_permission_and_cursor_cycles_stay_unknown() {
+    let d = kraken_db();
+    let i = kraken_prepared(&d, &kraken_reads()).await;
+    for body in [
+        json!({"error":["EGeneral:Permission denied"]}),
+        json!({"error":[],"result":{}}),
+        json!({"error":[],"result":{"withdrawals":[{"key":"cold","amount":"bad"}],"cursor":null}}),
+        json!({"error":[],"result":{"withdrawals":[],"cursor":42}}),
+        json!({"error":[],"result":{"withdrawals":[],"cursor":"loop"}}),
+    ] {
+        let t = ScriptedTransport::default();
+        t.reply(K_STATUS, 200, body);
+        assert!(matches!(
+            kraken_adapter(&d, &t).lookup(&i.request).await,
+            w::LookupResult::Unknown { .. }
+        ));
+        assert!(t.requests().len() <= 2);
+    }
+}
+
+#[tokio::test]
+async fn kraken_method_is_immutable_and_missing_method_is_refused() {
+    let d = kraken_db();
+    let t = kraken_reads();
+    let i = kraken_prepared(&d, &t).await;
+    assert!(
+        matches!(&w::load(&d.c,&d.cipher,"rule:1").unwrap().unwrap().request.destination,v::Destination::Kraken{method:Some(method),..} if method=="Bitcoin")
+    );
+    let changed = ScriptedTransport::default();
+    changed.reply("POST /0/private/WithdrawAddresses",200,json!({"error":[],"result":[{"address":"destination","key":"cold","method":"Lightning","verified":true}]}));
+    w::dispatch(
+        &d.c,
+        &d.cipher,
+        &kraken_adapter(&d, &changed),
+        &i,
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(kraken_sends(&changed), 0);
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    let entries = v::kraken_entries(
+        &json!({"error":[],"result":[{"address":"destination","key":"cold","verified":true}]}),
+    )
+    .unwrap();
+    assert!(v::select(
+        v::Kind::Kraken,
+        "XBT",
+        &v::Stored::new("destination", None, None, Some("cold")),
+        &entries,
+        None
+    )
+    .is_err());
+}
+
 // R0: a recorder owns one scenario, never a synthetic rule or rule evaluation.
 fn recorder_spec() -> w::RecorderSpec {
     w::RecorderSpec {

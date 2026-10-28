@@ -303,7 +303,7 @@ async fn record<V: Venue>(
     lock: &lease::EngineLock,
     c: &rusqlite::Connection,
     cipher: &Cipher,
-    adapter: w::ReadAdapter<V>,
+    adapter: w::VenueAdapter<V>,
     options: &Options,
     journal: &Journal,
 ) -> Result<(), String> {
@@ -442,11 +442,7 @@ async fn run() -> Result<(), String> {
                 &lock,
                 &opened.primary,
                 &cipher,
-                w::ReadAdapter {
-                    venue: $venue,
-                    version,
-                    fee_on_top: row.fee_on_top,
-                },
+                w::VenueAdapter::new($venue, version, row.fee_on_top),
                 &options,
                 &journal,
             )

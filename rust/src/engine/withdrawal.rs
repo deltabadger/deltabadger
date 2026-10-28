@@ -256,7 +256,7 @@ fn intent_log(
 }
 
 /// Real adapters join only with their E1-E3 G0 evidence. The live recorder uses this gate.
-pub const G0_ADAPTERS: &[&str] = &[];
+pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken"];
 pub const SEND_WINDOW_SECONDS: i64 = super::placement::SEND_WINDOW_SECONDS;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {
@@ -411,7 +411,8 @@ fn destination_value(d: &v::Destination) -> Value {
             asset,
             key,
             address,
-        } => json!({"kind":"Kraken","coin":asset,"key":key,"address":address}),
+            method,
+        } => json!({"kind":"Kraken","coin":asset,"key":key,"address":address,"method":method}),
         v::Destination::Gemini {
             ticker,
             network,
@@ -443,6 +444,8 @@ fn destination_read(d: &Value) -> Result<v::Destination, EngineError> {
             asset: s("coin")?,
             key: s("key")?,
             address: s("address")?,
+            // Older intents remain readable; lookup refuses to infer a missing method.
+            method: d["method"].as_str().map(str::to_owned),
         },
         "Gemini" => v::Destination::Gemini {
             ticker: s("coin")?,
@@ -1749,7 +1752,7 @@ pub async fn phase<F: crate::venue::VenueFactory>(
             tx.commit()?;
             continue;
         };
-        let adapter = ReadAdapter {
+        let adapter = VenueAdapter {
             venue: factory.for_bot(&i.request.exchange, Some(cr)),
             fee_on_top: crate::venue::registry::row(&i.request.exchange)
                 .and_then(|row| row.fee_on_top),
@@ -1779,7 +1782,7 @@ pub async fn phase<F: crate::venue::VenueFactory>(
             outcome(c,cipher,&r,evaluation,None,2,&format!("Failed to fetch balance: No valid withdrawal API key for {}. Add one in Settings.",r.name),json!({}),clock.now())?;
             continue;
         };
-        let adapter = ReadAdapter {
+        let adapter = VenueAdapter {
             venue: factory.for_bot(&r.class, Some(cr)),
             fee_on_top: crate::venue::registry::row(&r.class).and_then(|row| row.fee_on_top),
             version,
@@ -1790,13 +1793,18 @@ pub async fn phase<F: crate::venue::VenueFactory>(
     }
     Ok(())
 }
-/// Reads reuse Venue/V1. E1-E3 will implement sends/lookups on the venue and extend the G0 gate.
-pub struct ReadAdapter<V> {
-    pub venue: V,
-    pub version: CredentialVersion,
-    pub fee_on_top: Option<bool>,
+/// One credential snapshot for V1 reads and the venue withdrawal send/lookup implementation.
+pub struct VenueAdapter<V> {
+    venue: V,
+    version: CredentialVersion,
+    fee_on_top: Option<bool>,
 }
-impl<V: crate::venue::Venue> Adapter for ReadAdapter<V> {
+impl<V> VenueAdapter<V> {
+    pub fn new(venue: V, version: CredentialVersion, fee_on_top: Option<bool>) -> Self {
+        Self { venue, version, fee_on_top }
+    }
+}
+impl<V: crate::venue::Venue> Adapter for VenueAdapter<V> {
     fn fee_on_top(&self) -> Option<bool> {
         self.fee_on_top
     }
@@ -1823,15 +1831,10 @@ impl<V: crate::venue::Venue> Adapter for ReadAdapter<V> {
     async fn fee(&self, d: &v::Destination, amount: &BigDec) -> Result<Option<BigDec>, VenueError> {
         self.venue.withdrawal_fee(d, amount).await
     }
-    async fn send(&self, _: &Request) -> SendResult {
-        SendResult::Ambiguous {
-            reason: "withdrawal adapter is not enabled".into(),
-        }
+    async fn send(&self, request: &Request) -> SendResult {
+        self.venue.withdraw(request).await
     }
-    async fn lookup(&self, _: &Request) -> LookupResult {
-        LookupResult::Unknown {
-            reason: "withdrawal lookup requires operator evidence".into(),
-            candidates: vec![],
-        }
+    async fn lookup(&self, request: &Request) -> LookupResult {
+        self.venue.withdrawal_lookup(request).await
     }
 }
