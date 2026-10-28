@@ -39,6 +39,9 @@ live_venues!($ Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<Reqwest
              Ibkr(IbkrVenue<ReqwestTransport>));
 
 impl Venue for LiveVenue {
+    async fn withdraw(&self, r: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult { each!(self, v => v.withdraw(r).await) }
+    async fn withdrawal_lookup(&self, r: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::LookupResult { each!(self, v => v.withdrawal_lookup(r).await) }
+
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }
     fn placement_identity(&self) -> Option<serde_json::Value> { each!(self, v => v.placement_identity()) }
     async fn placement_hold(&self, t: &Ticker, s: super::Side) -> Result<Option<super::PlacementHold>, VenueError> { each!(self, v => v.placement_hold(t, s).await) }
