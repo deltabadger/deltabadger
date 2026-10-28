@@ -2083,3 +2083,466 @@ async fn kraken_method_is_immutable_and_missing_method_is_refused() {
     )
     .is_err());
 }
+
+// R0: a recorder owns one scenario, never a synthetic rule or rule evaluation.
+fn recorder_spec() -> w::RecorderSpec {
+    w::RecorderSpec {
+        scenario: "external-1".into(),
+        user_id: 1,
+        exchange_id: 1,
+        asset_id: 1,
+        max_amount: "0.001".into(),
+        destination: v::Stored::new("destination", Some("BTC"), None, None),
+    }
+}
+fn recorder_lock() -> (tempfile::TempDir, deltabadger::lease::EngineLock) {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, now()).unwrap();
+    (dir, lock)
+}
+#[tokio::test]
+async fn recorder_refuses_ceiling_and_unlisted_destination_before_intent() {
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let (_dir, lock) = recorder_lock();
+    for (amount, address) in [
+        ("0.00100001", "destination"),
+        ("0", "destination"),
+        ("0.001", "elsewhere"),
+    ] {
+        let mut spec = recorder_spec();
+        spec.max_amount = amount.into();
+        spec.destination.address = address.into();
+        assert!(
+            w::begin_recorder(&lock, &d.c, &d.cipher, &f, &spec, &FixedClock(now()))
+                .await
+                .is_err()
+        );
+        assert_eq!(d.count("rust_withdrawal_intents"), 0);
+        assert_eq!(f.sends.get(), 0);
+    }
+}
+#[tokio::test]
+async fn recorder_consumption_binding_and_no_rule_effects() {
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let (_dir, lock) = recorder_lock();
+    d.c.execute("CREATE TABLE bots(id INTEGER PRIMARY KEY)", [])
+        .unwrap();
+    let eligibility_before = deltabadger::engine::eligibility::check_install(&d.c)
+        .unwrap()
+        .problems;
+    assert!(eligibility_before
+        .iter()
+        .any(|p| p.contains("withdrawals are not enabled")));
+    let before = deltabadger::venue::registry::row("Exchanges::Binance")
+        .unwrap()
+        .withdraws;
+    let spec = recorder_spec();
+    let i = w::begin_recorder(&lock, &d.c, &d.cipher, &f, &spec, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(i.owner, "recorder:external-1");
+    assert_eq!(i.request.amount, "0.0009");
+    let mut other = recorder_spec();
+    other.max_amount = "0.0008".into();
+    assert!(format!(
+        "{:?}",
+        w::begin_recorder(&lock, &d.c, &d.cipher, &f, &other, &FixedClock(now())).await
+    )
+    .contains("different binding"));
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(f.sends.get(), 1);
+    assert_eq!(d.count("rules"), 1);
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(d.count("rust_rule_evaluations"), 0);
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    assert_eq!(
+        d.c.query_row("SELECT outcome FROM rust_recorder_runs", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        "sent"
+    );
+    assert!(format!(
+        "{:?}",
+        w::begin_recorder(&lock, &d.c, &d.cipher, &f, &spec, &FixedClock(now())).await
+    )
+    .contains("consumed"));
+    assert!(!before);
+    assert_eq!(
+        before,
+        deltabadger::venue::registry::row("Exchanges::Binance")
+            .unwrap()
+            .withdraws
+    );
+    assert_eq!(
+        eligibility_before,
+        deltabadger::engine::eligibility::check_install(&d.c)
+            .unwrap()
+            .problems
+    );
+    d.eval();
+    w::phase(
+        &d.c,
+        &d.cipher,
+        &deltabadger::venue::fake::FakeFactory::default(),
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+}
+#[tokio::test]
+async fn recorder_dispatch_crash_recovery_and_operator_resolution() {
+    for sent in [true, false] {
+        let d = Db::new();
+        let f = Fake::new(&d);
+        let (_dir, lock) = recorder_lock();
+        let i = w::begin_recorder(
+            &lock,
+            &d.c,
+            &d.cipher,
+            &f,
+            &recorder_spec(),
+            &FixedClock(now()),
+        )
+        .await
+        .unwrap();
+        assert!(
+            w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                .await
+                .unwrap()
+        );
+        // Restart at the committed dispatch boundary: the fresh adapter must never send.
+        let restarted = Fake::new(&d);
+        w::recover(&d.c, &d.cipher, &restarted, &i.owner, &FixedClock(now()))
+            .await
+            .unwrap();
+        w::dispatch(&d.c, &d.cipher, &restarted, &i, &FixedClock(now()))
+            .await
+            .unwrap();
+        assert_eq!(restarted.sends.get(), 0);
+        assert_eq!(
+            w::load(&d.c, &d.cipher, &i.owner).unwrap().unwrap().state,
+            "unresolved"
+        );
+        assert_eq!(
+            d.c.query_row("SELECT outcome FROM rust_recorder_runs", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            "unresolved"
+        );
+        let args: Vec<String> = if sent {
+            vec!["--recorder", "external-1", "--sent", "operator-id"]
+        } else {
+            vec!["--recorder", "external-1", "--not-sent"]
+        }
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        let (target, resolution) = w::parse_cli(&args).unwrap();
+        w::resolve(&d.c, &d.q, &d.cipher, target, resolution, now()).unwrap();
+        assert_eq!(d.count("rust_withdrawal_intents"), 0);
+        assert_eq!(d.count("rule_logs"), 0);
+        assert!(w::begin_recorder(
+            &lock,
+            &d.c,
+            &d.cipher,
+            &f,
+            &recorder_spec(),
+            &FixedClock(now())
+        )
+        .await
+        .is_err());
+    }
+}
+
+#[tokio::test]
+async fn recorder_rotated_credentials_and_changed_listing_cannot_dispatch() {
+    for changed in ["key", "listing", "expired"] {
+        let d = Db::new();
+        let mut f = Fake::new(&d);
+        let (_dir, lock) = recorder_lock();
+        let i = w::begin_recorder(
+            &lock,
+            &d.c,
+            &d.cipher,
+            &f,
+            &recorder_spec(),
+            &FixedClock(now()),
+        )
+        .await
+        .unwrap();
+        if changed == "key" {
+            d.c.execute(
+                "UPDATE api_keys SET secret=?1",
+                [d.cipher.encrypt("different")],
+            )
+            .unwrap();
+        }
+        if changed == "listing" {
+            f.network = "OTHER";
+        }
+        let at = if changed == "expired" {
+            now() + chrono::Duration::seconds(w::SEND_WINDOW_SECONDS + 1)
+        } else {
+            now()
+        };
+        w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(at))
+            .await
+            .unwrap();
+        assert_eq!(f.sends.get(), 0);
+        assert_eq!(d.count("rule_logs"), 0);
+        assert_eq!(d.count("rust_withdrawal_intents"), 0);
+        assert_eq!(
+            d.c.query_row("SELECT outcome FROM rust_recorder_runs", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            "not_sent"
+        );
+    }
+}
+#[tokio::test]
+async fn recorder_fences_every_read_and_consumes_prepared_crash() {
+    for read in 1..=5 {
+        let d = Db::new();
+        let f = Fake::new(&d);
+        let (_dir, lock) = recorder_lock();
+        f.rotate_at.set(read);
+        assert!(w::begin_recorder(
+            &lock,
+            &d.c,
+            &d.cipher,
+            &f,
+            &recorder_spec(),
+            &FixedClock(now())
+        )
+        .await
+        .is_err());
+        assert_eq!(f.sends.get(), 0);
+        assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    }
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let (_dir, lock) = recorder_lock();
+    let i = w::begin_recorder(
+        &lock,
+        &d.c,
+        &d.cipher,
+        &f,
+        &recorder_spec(),
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap();
+    w::recover(&d.c, &d.cipher, &f, &i.owner, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    assert!(w::begin_recorder(
+        &lock,
+        &d.c,
+        &d.cipher,
+        &f,
+        &recorder_spec(),
+        &FixedClock(now())
+    )
+    .await
+    .is_err());
+    assert_eq!(d.count("rule_logs"), 0);
+}
+#[tokio::test]
+async fn recorder_ambiguous_reply_keeps_intent_and_resolver_seeds_rails_ids() {
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let (_dir, lock) = recorder_lock();
+    *f.answer.borrow_mut() = w::SendResult::Accepted { id: "".into() };
+    let i = w::begin_recorder(
+        &lock,
+        &d.c,
+        &d.cipher,
+        &f,
+        &recorder_spec(),
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap();
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(f.sends.get(), 1);
+    assert_eq!(
+        w::load(&d.c, &d.cipher, &i.owner).unwrap().unwrap().state,
+        "unresolved"
+    );
+    d.log("Withdrew 1 BTC", Some("historical-id"));
+    assert!(w::resolve(
+        &d.c,
+        &d.q,
+        &d.cipher,
+        w::Target::Recorder("external-1".into()),
+        w::Resolution::Sent {
+            id: "historical-id".into(),
+            amount: None
+        },
+        now()
+    )
+    .is_err());
+    assert_eq!(d.count("rust_withdrawal_ids"), 1);
+    assert_eq!(d.count("rust_withdrawal_intents"), 1);
+    assert_eq!(d.count("rule_logs"), 1);
+}
+#[tokio::test]
+async fn recorder_different_account_or_destination_refused_even_before_consumption() {
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let (_dir, lock) = recorder_lock();
+    let mut unlisted = recorder_spec();
+    unlisted.destination.address = "unlisted".into();
+    assert!(
+        w::begin_recorder(&lock, &d.c, &d.cipher, &f, &unlisted, &FixedClock(now()))
+            .await
+            .is_err()
+    );
+    let reads = f.read.get();
+    assert!(format!(
+        "{:?}",
+        w::begin_recorder(
+            &lock,
+            &d.c,
+            &d.cipher,
+            &f,
+            &recorder_spec(),
+            &FixedClock(now())
+        )
+        .await
+    )
+    .contains("different binding"));
+    let mut changed_asset = unlisted;
+    changed_asset.asset_id = 2;
+    assert!(format!(
+        "{:?}",
+        w::begin_recorder(
+            &lock,
+            &d.c,
+            &d.cipher,
+            &f,
+            &changed_asset,
+            &FixedClock(now())
+        )
+        .await
+    )
+    .contains("different binding"));
+    assert_eq!(f.read.get(), reads);
+}
+
+#[test]
+fn recorder_process_child() {
+    let Ok(path) = std::env::var("R0_CRASH_DB") else {
+        return;
+    };
+    let dir = std::path::Path::new(&path).parent().unwrap();
+    let paths = deltabadger::store::Paths::from_env(&|_| None, dir);
+    let lock = deltabadger::lease::lock(&paths, now()).unwrap();
+    let mut d = Db::new();
+    d.c = Connection::open(&path).unwrap();
+    let mut f = Fake::new(&d);
+    f.counter = Some(dir.join("sends"));
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let i = w::begin_recorder(
+                &lock,
+                &d.c,
+                &d.cipher,
+                &f,
+                &recorder_spec(),
+                &FixedClock(now()),
+            )
+            .await
+            .unwrap();
+            assert!(
+                w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+                    .await
+                    .unwrap()
+            );
+            if std::env::var("R0_AFTER_SEND").as_deref() == Ok("1") {
+                let _ = w::Adapter::send(&f, &i.request).await;
+            }
+            std::fs::write(dir.join("ready"), "committed").unwrap();
+            loop {
+                std::thread::park();
+            }
+        });
+}
+#[tokio::test]
+async fn recorder_killed_process_reopens_durable_intent_without_resending() {
+    for after_send in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("production.sqlite3");
+        let mut d = Db::new();
+        d.c.execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+            .unwrap();
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "recorder_process_child", "--nocapture"])
+            .env("R0_CRASH_DB", &path)
+            .env("R0_AFTER_SEND", if after_send { "1" } else { "0" })
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        while !dir.path().join("ready").exists() {
+            if std::time::Instant::now() > deadline || child.try_wait().unwrap().is_some() {
+                let _ = child.kill();
+                let _ = child.wait();
+                panic!("recorder did not reach dispatch boundary");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        child.kill().unwrap();
+        child.wait().unwrap();
+        d.c = Connection::open(&path).unwrap();
+        let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
+        let lock = deltabadger::lease::lock(&paths, now()).unwrap();
+        let mut restarted = Fake::new(&d);
+        restarted.counter = Some(dir.path().join("sends"));
+        w::recover(
+            &d.c,
+            &d.cipher,
+            &restarted,
+            "recorder:external-1",
+            &FixedClock(now()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            w::load(&d.c, &d.cipher, "recorder:external-1")
+                .unwrap()
+                .unwrap()
+                .state,
+            "unresolved"
+        );
+        assert!(w::begin_recorder(
+            &lock,
+            &d.c,
+            &d.cipher,
+            &restarted,
+            &recorder_spec(),
+            &FixedClock(now())
+        )
+        .await
+        .is_err());
+        assert_eq!(
+            std::fs::read(dir.path().join("sends"))
+                .unwrap_or_default()
+                .len(),
+            usize::from(after_send)
+        );
+        assert_eq!(d.count("rule_logs"), 0);
+    }
+}

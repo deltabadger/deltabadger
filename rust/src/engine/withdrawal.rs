@@ -13,6 +13,248 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
+/// Maximum total budget in asset units, including the conservative fee reserve.
+pub const RECORDER_CEILING: &str = "0.001";
+#[derive(Clone, Debug)]
+pub struct RecorderSpec {
+    pub scenario: String,
+    pub user_id: i64,
+    pub exchange_id: i64,
+    pub asset_id: i64,
+    pub max_amount: String,
+    pub destination: v::Stored,
+}
+fn recorder_digest(value: &Value) -> String {
+    use sha2::Digest;
+    hex::encode(sha2::Sha256::digest(value.to_string().as_bytes()))
+}
+fn recorder_account(spec: &RecorderSpec, identity: &Identity) -> String {
+    recorder_digest(&json!([
+        spec.user_id,
+        spec.exchange_id,
+        spec.asset_id,
+        identity.host,
+        identity.account_scope,
+        identity.key_identity
+    ]))
+}
+fn recorder_destination(destination: &v::Stored) -> String {
+    recorder_digest(&json!([
+        destination.address,
+        destination.network,
+        destination.tag,
+        destination.key
+    ]))
+}
+pub fn validate_recorder(spec: &RecorderSpec) -> Result<(), EngineError> {
+    if spec.scenario.is_empty()
+        || spec.scenario.len() > 100
+        || !spec
+            .scenario
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    {
+        return Err(data(
+            "scenario must contain 1-100 letters, digits, hyphens or underscores",
+        ));
+    }
+    let amount = decimal(&spec.max_amount)?;
+    if !amount.is_positive() || amount > decimal(RECORDER_CEILING)? {
+        return Err(data(
+            "recorder amount must be positive and at most 0.001 asset units",
+        ));
+    }
+    if spec.user_id <= 0 || spec.exchange_id <= 0 || spec.asset_id <= 0 {
+        return Err(data("recorder account and asset ids must be positive"));
+    }
+    Ok(())
+}
+/// Bind before any reads. A retry of an unconsumed binding may finish its reads, but a begun
+/// scenario is consumed forever, even if it was provably not sent. No rule evaluation is created.
+/// The example checks G0 before supplying a real adapter; tests supply a FakeVenue adapter.
+pub async fn begin_recorder<A: Adapter>(
+    _lock: &crate::lease::EngineLock,
+    c: &Connection,
+    cipher: &Cipher,
+    a: &A,
+    spec: &RecorderSpec,
+    clock: &dyn Clock,
+) -> Result<Intent, EngineError> {
+    validate_recorder(spec)?;
+    let amount = decimal(&spec.max_amount)?.to_s_f();
+    let identity = a.identity();
+    if identity.host.is_empty()
+        || identity.account_scope.is_empty()
+        || identity.key_identity.is_empty()
+    {
+        return Err(data("recorder requires an explicit account identity"));
+    }
+    let version = a.version();
+    let check = || -> Result<(), EngineError> {
+        if key_current(c, &version, spec.user_id, spec.exchange_id)? {
+            Ok(())
+        } else {
+            Err(EngineError::CredentialsChanged)
+        }
+    };
+    check()?;
+    let class: String = c.query_row(
+        "SELECT type FROM exchanges WHERE id=?1",
+        [spec.exchange_id],
+        |r| r.get(0),
+    )?;
+    let kind = v::Kind::of(&class).ok_or_else(|| data("unsupported withdrawal adapter"))?;
+    if kind == v::Kind::Gemini {
+        return Err(data("Gemini recorder requires E3 feeEstimate bootstrap"));
+    }
+    let account = recorder_account(spec, &identity);
+    let destination_digest = recorder_destination(&spec.destination);
+    {
+        let tx = model::immediate(c)?;
+        let existing: Option<(String,String,String,Option<String>)> = tx.query_row(
+            "SELECT account_ref,destination_digest,amount,outcome FROM rust_recorder_runs WHERE scenario_id=?1", [&spec.scenario],
+            |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional()?;
+        if let Some((ac, dest, am, outcome)) = existing {
+            if ac != account || dest != destination_digest || am != amount {
+                return Err(data("scenario has a different binding"));
+            }
+            if outcome.is_some() {
+                return Err(data(
+                    "scenario is already consumed; recover or resolve its existing intent",
+                ));
+            }
+        } else {
+            tx.execute("INSERT INTO rust_recorder_runs(scenario_id,account_ref,destination_digest,amount,evaluation_id,created_at) VALUES(?1,?2,?3,?4,(SELECT COALESCE(MAX(evaluation_id),0)+1 FROM rust_recorder_runs),?5)", params![spec.scenario,account,destination_digest,amount,crate::codec::format_time(clock.now())])?;
+        }
+        tx.commit()?;
+    }
+    let coin = v::venue_code(c, spec.exchange_id, spec.asset_id)?
+        .ok_or_else(|| data("withdrawal asset is not listed"))?;
+    let free = a.balance(&coin).await;
+    check()?;
+    let free = free.map_err(|_| data("recorder balance read failed"))?;
+    let maximum = decimal(&amount)?;
+    if free < maximum {
+        return Err(data("recorder budget exceeds free balance"));
+    }
+    let networks = a.networks(&coin).await;
+    check()?;
+    let networks = networks.map_err(|_| data("recorder network read failed"))?;
+    let entries = a.addresses(&coin).await;
+    check()?;
+    let entries = entries.map_err(|_| data("recorder destination read failed"))?;
+    // Require the full selection, without V1's legacy blank-field inference.
+    if !entries.iter().any(|e| {
+        e.refused.is_none()
+            && e.address == spec.destination.address
+            && e.network == spec.destination.network
+            && e.tag == spec.destination.tag
+            && e.key == spec.destination.key
+    }) {
+        return Err(data("withdrawal destination is not one listed entry"));
+    }
+    let destination = v::select(kind, &coin, &spec.destination, &entries, networks.as_ref())
+        .map_err(|_| data("withdrawal destination is not listed or is ambiguous"))?;
+    let multiple = networks
+        .as_ref()
+        .and_then(|n| {
+            n.networks.iter().find(|n|
+        matches!(&destination, v::Destination::Binance{network,..} if *network == n.network))
+        })
+        .and_then(|n| n.multiple.as_ref());
+    let sized = v::size_with_semantics(
+        &maximum,
+        &BigDec::from_i64(100),
+        multiple,
+        a.fee_on_top(),
+        |amount| {
+            let destination = &destination;
+            let check = &check;
+            async move {
+                let result = a.fee(destination, &amount).await;
+                check()
+                    .map_err(|_| VenueError::Ambiguous("withdrawal credential changed".into()))?;
+                result
+            }
+        },
+    )
+    .await;
+    check()?;
+    let v::Sizing::Send {
+        budget,
+        amount: send_amount,
+        first_fee,
+        fee_cap,
+    } = sized.map_err(|_| data("recorder fee read failed"))?
+    else {
+        return Err(data("recorder fee unknown or budget does not cover fee"));
+    };
+    let client_id = uuid::Uuid::new_v4().to_string();
+    let owner = format!("recorder:{}", spec.scenario);
+    let request = Request {
+        rule_id: 0,
+        user_id: spec.user_id,
+        exchange_id: spec.exchange_id,
+        asset_id: spec.asset_id,
+        exchange: class,
+        symbol: c.query_row(
+            "SELECT symbol FROM assets WHERE id=?1",
+            [spec.asset_id],
+            |r| r.get(0),
+        )?,
+        coin,
+        client_id: client_id.clone(),
+        destination,
+        amount: send_amount.to_s_f(),
+        fee_cap: fee_cap.to_s_f(),
+        free_balance: free.to_s_f(),
+        percentage: "100".into(),
+        created_at: crate::codec::format_time(clock.now()),
+        wallet_type: (kind == v::Kind::Binance).then_some(0),
+    };
+    let tx = model::immediate(c)?;
+    check()?;
+    model::check_credential_result(&tx, &Some(version.clone()))?;
+    if tx.execute("UPDATE rust_recorder_runs SET outcome='prepared' WHERE scenario_id=?1 AND outcome IS NULL AND account_ref=?2 AND destination_digest=?3 AND amount=?4", params![spec.scenario,account,destination_digest,amount])? != 1 {
+        return Err(data("scenario is already consumed"));
+    }
+    tx.execute("INSERT INTO rust_withdrawal_intents(owner,state,client_id,created_at,api_key_id,credential_digest,host,account_scope,key_identity,params_enc,fee_basis,budget,free_balance) VALUES(?1,'prepared',?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)", params![owner,client_id,request.created_at,version.id,version.cache_stamp()["ciphertext_digest"].as_str(),identity.host,identity.account_scope,identity.key_identity,cipher.encrypt(&request.value().to_string()),json!({"first_fee":first_fee.to_s_f(),"fee_cap":fee_cap.to_s_f(),"fee_on_top":a.fee_on_top()}).to_string(),budget.to_s_f(),free.to_s_f()])?;
+    tx.commit()?;
+    load(c, cipher, &owner)?.ok_or_else(|| data("recorder intent missing"))
+}
+fn recorder_outcome(c: &Connection, i: &Intent, outcome: &str) -> Result<(), EngineError> {
+    if let Some(scenario) = i.owner.strip_prefix("recorder:") {
+        c.execute(
+            "UPDATE rust_recorder_runs SET outcome=?2 WHERE scenario_id=?1",
+            params![scenario, outcome],
+        )?;
+    }
+    Ok(())
+}
+fn intent_log(
+    c: &Connection,
+    i: &Intent,
+    status: i64,
+    message: &str,
+    id: Option<&str>,
+    now: DateTime<Utc>,
+) -> Result<(), EngineError> {
+    if i.owner.starts_with("recorder:") {
+        recorder_outcome(c, i, if status == 1 { "sent" } else { "not_sent" })?;
+    } else {
+        rules::log(
+            c,
+            i.request.rule_id,
+            Some(&i.client_id),
+            status,
+            message,
+            &i.request.details(id),
+            now,
+        )?;
+    }
+    Ok(())
+}
+
 /// Real adapters join only with their E1-E3 G0 evidence. The live recorder uses this gate.
 pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken"];
 pub const SEND_WINDOW_SECONDS: i64 = super::placement::SEND_WINDOW_SECONDS;
@@ -357,6 +599,9 @@ fn remove(c: &Connection, i: &Intent, state: &str) -> Result<bool, EngineError> 
         params![i.owner, i.client_id, state],
     )? == 1;
     if changed {
+        if state == "prepared" {
+            recorder_outcome(c, i, "not_sent")?;
+        }
         c.execute(
             "DELETE FROM rust_withdrawal_candidates WHERE owner=?1 AND client_id=?2",
             params![i.owner, i.client_id],
@@ -365,7 +610,11 @@ fn remove(c: &Connection, i: &Intent, state: &str) -> Result<bool, EngineError> 
     Ok(changed)
 }
 fn uncertain(c: &Connection, i: &Intent, state: &str, reason: &str) -> Result<bool, EngineError> {
-    Ok(c.execute("UPDATE rust_withdrawal_intents SET state='unresolved',reason=?4 WHERE owner=?1 AND client_id=?2 AND state=?3",params![i.owner,i.client_id,state,rules::safe_message(reason)])?==1)
+    let changed = c.execute("UPDATE rust_withdrawal_intents SET state='unresolved',reason=?4 WHERE owner=?1 AND client_id=?2 AND state=?3",params![i.owner,i.client_id,state,rules::safe_message(reason)])?==1;
+    if changed {
+        recorder_outcome(c, i, "unresolved")?;
+    }
+    Ok(changed)
 }
 fn consume(
     c: &Connection,
@@ -835,27 +1084,28 @@ fn guard(
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .optional()?;
-    let stopped = status.is_none_or(|s| s.0 != 1);
-    let account = status.is_some_and(|s| {
-        s.1 == i.request.user_id && s.2 == i.request.exchange_id && s.3 == i.request.asset_id
-    });
+    let recorder = i.owner.starts_with("recorder:");
+    let stopped = !recorder && status.is_none_or(|s| s.0 != 1);
+    let account = recorder
+        || status.is_some_and(|s| {
+            s.1 == i.request.user_id && s.2 == i.request.exchange_id && s.3 == i.request.asset_id
+        });
     let at = crate::codec::parse_time(&i.request.created_at).map_err(EngineError::Arithmetic)?;
     let expired = (now - at).num_seconds() > SEND_WINDOW_SECONDS || now < at;
     let current =
         same_key(c, i)? && a.identity() == i.identity && a.version() == i.version && account;
     if stopped || expired || !current {
         if remove(c, i, "prepared")? && !stopped {
-            rules::log(
+            intent_log(
                 c,
-                i.request.rule_id,
-                Some(&i.client_id),
+                i,
                 2,
                 if !current {
                     "Withdrawal failed: the withdrawal key changed before sending"
                 } else {
                     "Withdrawal failed: the request was not sent in time"
                 },
-                &i.request.details(None),
+                None,
                 now,
             )?;
         }
@@ -902,16 +1152,23 @@ async fn prepare_dispatch<A: Adapter>(
     }
     // Select from the rule as it is NOW, under the same lock as the CAS. Legacy blank
     // fields and network aliases must use the same normalization as evaluation.
-    let r = rule(&tx, cipher, current.request.rule_id)?;
-    let stored = v::Stored::new(
-        &r.address,
-        r.settings["network"].as_str(),
-        r.settings["address_tag"].as_str(),
-        r.settings["address_name"].as_str(),
-    );
+    let (class, stored) = if current.owner.starts_with("recorder:") {
+        (current.request.exchange.clone(), current.request.stored())
+    } else {
+        let r = rule(&tx, cipher, current.request.rule_id)?;
+        (
+            r.class,
+            v::Stored::new(
+                &r.address,
+                r.settings["network"].as_str(),
+                r.settings["address_tag"].as_str(),
+                r.settings["address_name"].as_str(),
+            ),
+        )
+    };
     let selected = networks.ok().zip(addresses).and_then(|(n, e)| {
         v::select(
-            v::Kind::of(&r.class)?,
+            v::Kind::of(&class)?,
             &current.request.coin,
             &stored,
             &e,
@@ -919,17 +1176,15 @@ async fn prepare_dispatch<A: Adapter>(
         )
         .ok()
     });
-    if r.class != current.request.exchange
-        || selected.as_ref() != Some(&current.request.destination)
+    if class != current.request.exchange || selected.as_ref() != Some(&current.request.destination)
     {
         if remove(&tx, &current, "prepared")? {
-            rules::log(
+            intent_log(
                 &tx,
-                r.id,
-                Some(&current.client_id),
+                &current,
                 2,
                 "Withdrawal failed: withdrawal destination changed or is not listed",
-                &current.request.details(None),
+                None,
                 clock.now(),
             )?;
         }
@@ -938,6 +1193,9 @@ async fn prepare_dispatch<A: Adapter>(
     }
     model::check_credential_result(&tx, &Some(current.version.clone()))?;
     let changed = tx.execute("UPDATE rust_withdrawal_intents SET state='dispatched' WHERE owner=?1 AND client_id=?2 AND state='prepared'", params![current.owner, current.client_id])? == 1;
+    if changed {
+        recorder_outcome(&tx, &current, "dispatched")?;
+    }
     tx.commit()?;
     Ok(changed.then_some(current))
 }
@@ -1008,13 +1266,12 @@ fn settle_result(
             if inserted == 0 {
                 uncertain(&tx, &current, state, "duplicate venue id")?;
             } else {
-                rules::log(
+                intent_log(
                     &tx,
-                    request.rule_id,
-                    Some(&current.client_id),
+                    &current,
                     1,
                     &format!("Withdrew {} {}", request.amount, request.symbol),
-                    &request.details(Some(&id)),
+                    Some(&id),
                     now,
                 )?;
                 remove(&tx, &current, state)?;
@@ -1024,13 +1281,12 @@ fn settle_result(
             definitive: true,
             reason,
         } if failure_proven || rules::definitive(&request.exchange, &reason) => {
-            rules::log(
+            intent_log(
                 &tx,
-                request.rule_id,
-                Some(&current.client_id),
+                &current,
                 2,
                 &format!("Withdrawal failed: {}", rules::safe_message(&reason)),
-                &request.details(None),
+                None,
                 now,
             )?;
             remove(&tx, &current, state)?;
@@ -1141,7 +1397,12 @@ fn note_unresolved(i: &Intent) {
     {
         super::log(&format!(
             "{}: withdrawal status unconfirmed; not retried; resolve-withdrawal {}",
-            i.owner, i.request.rule_id
+            i.owner,
+            if let Some(s) = i.owner.strip_prefix("recorder:") {
+                format!("--recorder {s}")
+            } else {
+                i.request.rule_id.to_string()
+            }
         ));
     }
 }
@@ -1166,6 +1427,7 @@ fn clean_candidates(candidates: Vec<Value>) -> Vec<Value> {
 #[derive(Clone, Debug)]
 pub enum Target {
     Rule(i64),
+    Recorder(String),
     Rails(i64),
     RailsJob(String),
     RailsList(i64),
@@ -1180,7 +1442,7 @@ pub enum Resolution {
 }
 pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
     let usage = || {
-        data("usage: resolve-withdrawal <rule_id> | --rails <rule_log_id> | --rails-job <job> (--sent <id> [--amount <amount>] | --not-sent | --recorded <rule_log_id> | --skip); --rails-list <rule_id>")
+        data("usage: resolve-withdrawal <rule_id> | --recorder <scenario> | --rails <rule_log_id> | --rails-job <job> (--sent <id> [--amount <amount>] | --not-sent | --recorded <rule_log_id> | --skip); --rails-list <rule_id>")
     };
     let id = |s: Option<&String>| {
         s.and_then(|v| v.parse::<i64>().ok())
@@ -1191,6 +1453,15 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
         Some("--rails-list") if args.len() == 2 => {
             return Ok((Target::RailsList(id(args.get(1))?), Resolution::List))
         }
+        Some("--recorder") => (
+            Target::Recorder(
+                args.get(1)
+                    .filter(|s| !s.is_empty())
+                    .ok_or_else(usage)?
+                    .clone(),
+            ),
+            &args[2..],
+        ),
         Some("--rails") => (Target::Rails(id(args.get(1))?), &args[2..]),
         Some("--rails-job") => (
             Target::RailsJob(
@@ -1245,6 +1516,7 @@ pub fn resolve(
     rules::seed_rails_ids(&tx)?;
     if let Resolution::Sent { id, .. } = &resolution {
         let exchange=match &target{
+   Target::Recorder(scenario)=>load(&tx,cipher,&format!("recorder:{scenario}"))?.ok_or_else(||data("no recorder intent"))?.request.exchange_id,
    Target::Rule(id)=>load(&tx,cipher,&format!("rule:{id}"))?.ok_or_else(||data("no withdrawal intent"))?.request.exchange_id,
    Target::Rails(id)=>tx.query_row("SELECT r.exchange_id FROM rules r JOIN rule_logs l ON l.rule_id=r.id WHERE l.id=?1",[id],|r|r.get(0))?,
    Target::RailsJob(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such Rails job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
@@ -1274,9 +1546,13 @@ fn resolve_in(
     let at = crate::codec::format_time(now);
     match target {
         Target::RailsList(_) => Err(data("use open_attempts to list Rails evidence")),
-        Target::Rule(id) => {
-            let i = load(c, cipher, &format!("rule:{id}"))?
-                .ok_or_else(|| data("no withdrawal intent"))?;
+        Target::Rule(_) | Target::Recorder(_) => {
+            let owner = match target {
+                Target::Rule(id) => format!("rule:{id}"),
+                Target::Recorder(s) => format!("recorder:{s}"),
+                _ => unreachable!(),
+            };
+            let i = load(c, cipher, &owner)?.ok_or_else(|| data("no withdrawal intent"))?;
             if !matches!(i.state.as_str(), "dispatched" | "unresolved") {
                 return Err(data(
                     "only dispatched or unresolved attempts need resolution",
@@ -1285,24 +1561,22 @@ fn resolve_in(
             match resolution {
                 Resolution::Sent { id, amount: _ } => {
                     insert_operator_id(c, i.request.exchange_id, &id, &i.owner, now)?;
-                    rules::log(
+                    intent_log(
                         c,
-                        i.request.rule_id,
-                        Some(&i.client_id),
+                        &i,
                         1,
                         &format!("Withdrew {} {}", i.request.amount, i.request.symbol),
-                        &i.request.details(Some(&id)),
+                        Some(&id),
                         now,
                     )?;
                 }
                 Resolution::NotSent => {
-                    rules::log(
+                    intent_log(
                         c,
-                        i.request.rule_id,
-                        Some(&i.client_id),
+                        &i,
                         2,
                         "Withdrawal failed: operator confirmed not sent",
-                        &i.request.details(None),
+                        None,
                         now,
                     )?;
                 }
