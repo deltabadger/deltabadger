@@ -798,3 +798,36 @@ async fn create_update_delete_revive_use_the_same_matrix_on_all_three_surfaces()
         .iter()
         .all(|r| r.method == "GET"));
 }
+
+/// A destination change on the API carries the whole destination, as the web picker does: moving a rule whose
+/// destination has a memo to a listed destination without one clears the memo (review finding on A1).
+#[tokio::test]
+async fn an_api_destination_change_clears_the_previous_memo() {
+    const PLAIN: &str = "bc1qx0destination1111111111111111111111";
+    let server = MockServer::start().await;
+    Mock::given(matchers::path("/sapi/v1/capital/withdraw/address/list"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"coin":"BTC","address":ADDRESS,"name":"memo","network":"BNB","addressTag":"m1"},
+            {"coin":"BTC","address":PLAIN,"name":"plain","network":"BTC","addressTag":""}
+        ])))
+        .mount(&server).await;
+    Mock::given(matchers::path("/sapi/v1/capital/config/getall")).respond_with(ResponseTemplate::new(200).set_body_json(json!([
+        {"coin":"BTC","networkList":[
+            {"network":"BTC","isDefault":true,"withdrawEnable":true,"withdrawTag":false,"withdrawFee":"0.0001","withdrawIntegerMultiple":"0.00000001"},
+            {"network":"BNB","isDefault":false,"withdrawEnable":true,"withdrawTag":true,"withdrawFee":"0.00001","withdrawIntegerMultiple":"0.00000001"}]}
+    ]))).mount(&server).await;
+    for surface in ["rest", "mcp"] {
+        let mut i = Install::new();
+        i.app = i.app.with_venue_key_url("Exchanges::Binance", &server.uri()).unwrap();
+        let create = json!({"exchange_name":"Binance","asset":"BTC","address":ADDRESS,"network":"BNB","address_tag":"m1","withdrawal_percentage":25.0,"threshold_type":"min_amount","min_amount":0.5,"max_fee_percentage":2.0});
+        let update = json!({"address":PLAIN,"network":"BTC","address_tag":""});
+        for (tool, args) in [("create_rule", create), ("update_rule_settings", update)] {
+            let got = if surface == "rest" { i.rest(tool, 1, args).await } else { i.mcp(tool, 1, args).await };
+            assert!(got.0 < 300 && got.1["result"].get("isError").is_none(), "{surface} {tool}: {got:?}");
+        }
+        let row = &i.rows()[0];
+        assert_eq!(row["address"], PLAIN, "{surface}");
+        assert!(crate_blank(&row["settings"]["address_tag"]), "{surface}: the old memo survived: {row}");
+    }
+}
+fn crate_blank(v: &Value) -> bool { v.is_null() || v.as_str().is_some_and(str::is_empty) }
