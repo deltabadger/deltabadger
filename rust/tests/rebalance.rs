@@ -403,9 +403,11 @@ fn an_alpaca_rebalancing_bot_is_eligible_in_every_phase_this_engine_resumes() {
     assert!(check().problems.is_empty(), "{:?}", check().problems);
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_rebalance_halted', json('true'))", []).unwrap();
     assert!(check().problems.is_empty(), "{:?}", check().problems);
-    // An abandoned REBALANCE leg stays refused (its fill is unknown).
+    // An abandoned leg in a supported halt is admitted only for owner resolution.
     o.primary.execute("UPDATE transactions SET external_status = 4 WHERE external_id = 'OHELD-1'", []).unwrap();
-    assert!(check().problems.iter().any(|p| p.contains("abandoned REBALANCE")), "{:?}", check().problems);
+    assert!(check().problems.is_empty(), "{:?}", check().problems);
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rebalance_pending')", []).unwrap();
+    assert!(check().problems.iter().any(|p| p.contains("abandoned REBALANCE")));
 }
 
 #[test]
@@ -1193,4 +1195,115 @@ async fn resolution_rolls_back_when_another_admission_blocker_remains() {
         assert!(!events(&o).contains(&"rebalance_manually_resolved".into()));
         assert!(posted(&t).is_empty());
     }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_with_unbalanced_stopped_allocations_matches_rails_and_completes_the_buy() {
+    let (d, o, id, s, _) = swap_bot(stopped().transient("rebalance_pending", json!({"phase":"ambiguous","remaining_quote_amount":"40","buy_attempted":true})));
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();
+    let before = model::load_bot(&o.primary, id).unwrap().transient;
+    rails_resolves_the_halt(d.path(), id);
+    let expected = model::load_bot(&o.primary, id).unwrap().transient;
+    o.primary.execute("UPDATE bots SET transient_data=?1 WHERE id=?2", (before.to_string(), id)).unwrap();
+    let token = rebalance::resolution_token_for(id, &before);
+    let t = script(json!({"GET /v2/orders/OTX-1":[order("OTX-1","filled","ETH/USD","buy",None,Some("40"),"0.016",Some("2500"))]}));
+    rebalance::resolve(&o.primary, &venue(&t), &seed::cipher(), id, s.user_id, &token, at(T0)).await.unwrap();
+    let mut got = model::load_bot(&o.primary, id).unwrap().transient;
+    assert!(got.as_object_mut().unwrap().remove("rust_rebalance_resolution").is_some(), "D-A6-STALE");
+    assert_eq!(got, expected);
+    assert!(eligibility::check_install(&o.primary).unwrap().refusal().is_ok());
+    assert!(matches!(evaluate(&o, &t, id, at(T0)).await, Outcome::Placed(_)));
+    assert_eq!(posted(&t), vec![("ETH/USD".into(), "buy".into(), "40.00".into())]);
+    assert_eq!(evaluate(&o, &t, id, at(T0) + Duration::hours(4)).await, Outcome::Skipped("completed"));
+    assert!(pending(&o, id).is_null());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn abandoned_halt_passes_startup_then_resume_restores_trading() {
+    use common::web::{self, Browser, TestClock};
+    let (d, o, id, s, _) = swap_bot(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    resolution_row(&o.primary, &s, id, s.btc, &json!({"side":0,"external_status":4,"external_id":"abandoned","amount":"0.001","price":"64000"}));
+    assert!(deltabadger::venue::alpaca::preflight(&o.primary, &seed::cipher()).is_err(), "an abandoned row without a halt still refuses startup");
+    model::merge_transient_compact(&o.primary, id, &[("rebalance_pending", json!({"phase":"ambiguous"}))]).unwrap();
+    deltabadger::venue::alpaca::preflight(&o.primary, &seed::cipher()).unwrap();
+    eligibility::guard(&o.primary, &seed::cipher(), Some(id)).unwrap();
+    o.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01',wash_sale_enabled=0", [deltabadger::crypto::hash_password("Correct-horse-9").unwrap()]).unwrap();
+    let paths = store::Paths::from_env(&|_| None, d.path());
+    let lock = deltabadger::lease::lock(&paths, at(T0)).unwrap();
+    let t = script(json!({}));
+    let mut engine = deltabadger::engine::run::Engine::new(store::open(&paths).unwrap().primary, Factory(t.clone()), seed::cipher(), lock);
+    deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
+    assert!(t.posted_orders().is_empty(), "startup must leave the halted bot idle");
+    assert_eq!(evaluate(&o, &t, id, at(T0)).await, Outcome::Skipped("ambiguous"));
+    let app = web::app(d.path(), "engine-test-secret", TestClock::at(T0))
+        .with_figure_source(deltabadger::web::figure::loading::Source::Script(json!({}))).unwrap();
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]","o@example.com"),("user[password]","Correct-horse-9")]).await.status, 303);
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    let doc = scraper::Html::parse_document(&page.body);
+    let token = doc.select(&scraper::Selector::parse("input[name=halt_token]").unwrap()).next().unwrap().value().attr("value").unwrap();
+    let answer = browser.send(&app, "POST", &format!("/bots/{id}/rebalance_resolutions"), Some(&[("halt_token",token)]), web::Csrf::Header, &[]).await;
+    assert_eq!(answer.status, 302, "{}", answer.body);
+    assert!(pending(&o, id).is_null());
+    assert!(matches!(evaluate(&o, &t, id, at(T0)).await, Outcome::Placed(_)));
+    assert_eq!(t.posted_orders().len(), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_slow_resume_does_not_block_an_authenticated_stop() {
+    use std::sync::Arc;
+    use axum::{extract::{Extension, Path, State}, http::HeaderMap};
+    use common::web::{self, Browser, TestClock};
+    use deltabadger::web::{auth::{Current, User}, layout::Ctx, session::{Session, SessionData}, Params};
+    use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
+    struct Slow { entered: Arc<tokio::sync::Notify>, release: Arc<tokio::sync::Notify>, script: ScriptedTransport }
+    impl Transport for Slow {
+        async fn send(&self, request: &HttpRequest) -> Result<HttpResponse, TransportError> {
+            assert_eq!(request.path, "/v2/orders/slow");
+            self.entered.notify_one();
+            self.release.notified().await;
+            self.script.send(request).await
+        }
+    }
+    struct SlowFactory(Slow);
+    impl deltabadger::venue::VenueFactory for SlowFactory {
+        type V = AlpacaVenue<Slow>;
+        fn for_bot(&self, _: &str, _: Option<deltabadger::crypto::Credentials>) -> Self::V {
+            AlpacaVenue::new(Slow { entered: self.0.entered.clone(), release: self.0.release.clone(), script: self.0.script.clone() }, Urls::for_passphrase(Some("paper")))
+        }
+    }
+    let (d, o, id, s, _) = swap_bot(stopped().transient("rebalance_pending", json!({"phase":"ambiguous"})));
+    resolution_row(&o.primary, &s, id, s.btc, &json!({"side":1,"external_status":1,"external_id":"slow","amount":"0.001","price":"64000"}));
+    let other = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01',wash_sale_enabled=0", [deltabadger::crypto::hash_password("Correct-horse-9").unwrap()]).unwrap();
+    let app = web::app(d.path(), "engine-test-secret", TestClock::at(T0));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]","o@example.com"),("user[password]","Correct-horse-9")]).await.status, 303);
+    browser.get(&app, &format!("/bots/{other}")).await;
+    let route = format!("/bots/{id}/rebalance_resolutions");
+    let token = rebalance::resolution_token(&model::load_bot(&o.primary, id).unwrap());
+    let params = Params { full_path: route.clone(), fullpath: route.clone(), route_path: route, path_locale: None, query: vec![], form: vec![("halt_token".into(), token)], json: None, upload: None };
+    let ctx = Ctx::new(app.clone(), Arc::new(params), Session::new(SessionData::default()), Current::SignedIn(Arc::new(User::find(&o.primary, s.user_id).unwrap().unwrap())), "nonce".into(), at(T0), &axum::http::Request::new(axum::body::Body::empty()));
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let (signal, unblock) = (entered.clone(), release.clone());
+    let resume = deltabadger::web::bot::rebalance::resolve_with_factory(State(app.clone()), Extension(ctx), Path(id.to_string()), HeaderMap::new(), move |_, _| {
+        SlowFactory(Slow { entered: signal, release: unblock, script: script(json!({"GET /v2/orders/slow":[order("slow","canceled","BTC/USD","sell",Some("0.001"),None,"0",None)]})) })
+    });
+    let stop = async {
+        tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
+        let answer = tokio::time::timeout(std::time::Duration::from_secs(2), browser.send(&app, "PATCH", &format!("/bots/{other}/stop"), Some(&[]), web::Csrf::Header, &[])).await;
+        // Always release the venue, including on failure, so the blocking worker can finish.
+        release.notify_one();
+        answer
+    };
+    let (resume, stop) = tokio::join!(resume, stop);
+    assert_eq!(resume.unwrap().status(), 302);
+    let stop = stop.expect("an unrelated Stop must complete while Resume waits on the venue");
+    assert_eq!(stop.status, 200, "{}", stop.body);
+    assert_eq!(model::load_bot(&o.primary, other).unwrap().status, deltabadger::enums::BotStatus::Stopped);
+    assert!(pending(&o, id).is_null());
 }

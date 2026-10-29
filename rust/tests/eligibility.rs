@@ -1207,9 +1207,14 @@ fn l_kraken_admits_active_withdrawal_rules_only_on_kraken() {
 /// AUDIT #6: the sole new admission is a readable inherited halt on an otherwise supported bot.
 #[test]
 fn inherited_rebalance_halts_do_not_mask_other_admission_or_guard_refusals() {
-    for status in 0..=7 {
+    for (status, rust_halt, abandoned) in (0..=7).flat_map(|status| [false, true].into_iter().flat_map(move |rust_halt| [false, true].into_iter().map(move |abandoned| (status, rust_halt, abandoned)))) {
         let (_d, o, s) = install();
         let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().transient("rebalance_pending", json!({"phase":"ambiguous"})) });
+        if rust_halt { o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_rebalance_halted',json('true'))", []).unwrap(); }
+        if abandoned {
+            let row = seed::insert_row(&o.primary, &s, id, s.btc, &json!({"created_at":"2026-09-01 10:00:01","external_status":4,"external_id":"abandoned","side":1,"amount":"0.001","price":"64000"}));
+            o.primary.execute("UPDATE transactions SET transaction_type='REBALANCE' WHERE id=?1", [row]).unwrap();
+        }
         assert!(eligibility::check_install(&o.primary).unwrap().refusal().is_ok());
         assert!(eligibility::guard(&o.primary, &seed::cipher(), Some(id)).is_ok());
         for sql in [

@@ -409,7 +409,7 @@ pub async fn resolve<V: Venue>(c: &Connection, venue: &V, cipher: &crate::crypto
     super::model::log_activity(&tx,id,"rebalance_manually_resolved",Level::Info,json!({"user_id":user}),now)?;
     // A stopped bot with no remaining work is normally ignored by install admission. Resolution
     // must not use that exemption to discharge a halt on an otherwise unsupported bot.
-    let reasons = super::eligibility::bot_reasons(&tx, &super::model::load_bot(&tx, id)?)?;
+    let reasons = super::eligibility::rebalance_reasons(&tx, &super::model::load_bot(&tx, id)?)?;
     if !reasons.is_empty() { return Err(EngineError::Ineligible(reasons)); }
     super::eligibility::guard(&tx, cipher, Some(id)).map_err(|r| EngineError::Ineligible(vec![r.reason()]))?;
     tx.commit()?;

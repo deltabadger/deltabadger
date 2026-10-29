@@ -4,25 +4,41 @@ use crate::{engine::{model,rebalance},web::{auth,flash,i18n,layout::{self,Ctx},A
 use super::{action_params::ActionParams,liquidation::{changed,missing}};
 
 pub async fn resolve(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>,headers:HeaderMap)->Result<Response,WebError> {
+    resolve_with_factory(State(app), Extension(ctx), Path(segment), headers, |c, app| {
+        crate::venue::alpaca::LiveFactory::for_install(c, &app.cipher).with_clock(app.clock.clone())
+    }).await
+}
+
+/// The Resume handler with an injected venue factory for deterministic transport tests.
+#[doc(hidden)]
+pub async fn resolve_with_factory<F: crate::venue::VenueFactory>(State(app):State<App>, Extension(ctx):Extension<Ctx>, Path(segment):Path<String>, headers:HeaderMap,
+    factory: impl FnOnce(&rusqlite::Connection, &App) -> F + Send + 'static) -> Result<Response, WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(&segment) else {return Ok(missing(&ctx))};
     let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
     let view=ctx.clone();
     let runtime=tokio::runtime::Handle::current();
-    let result=app.db(move |c| {
+    // Match the figures worker: only copy the database path under App::db. The dedicated
+    // connection holds no transaction across venue reads; resolve rechecks the halt under IMMEDIATE.
+    let path=app.db(|c| c.path().filter(|path| !path.is_empty()).map(str::to_owned)
+        .ok_or_else(||WebError::Config("rebalance resolution requires an install database".into()))).await?;
+    let result=tokio::task::spawn_blocking(move || -> Result<_,WebError> {
+        let connection=rusqlite::Connection::open_with_flags(path,rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+        crate::store::configure(&connection)?;
+        let c=&connection;
         let found:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaIndex','Bots::DcaMultiAsset'))",(id,user.id),|r|r.get(0))?;
         if !found {return Ok(None)}
         let token=params.value()["halt_token"].as_str().unwrap_or("");
         let bot=model::load_bot(c,id)?;
         // Construct a venue only for a current confirmation. All credential/proxy rules are the engine's.
         let waiting=if rebalance::resolution_token(&bot)==token {
-            let factory=crate::venue::alpaca::LiveFactory::for_install(c,&view.app.cipher).with_clock(view.app.clock.clone());
+            let factory=factory(c, &view.app);
             let (venue,_)=crate::engine::run::venue_for(c,&factory,&view.app.cipher,&bot)?;
             runtime.block_on(rebalance::resolve(c,&venue,&view.app.cipher,id,user.id,token,view.now))?
         } else {None};
         changed(c,&view,id);
         Ok(Some(waiting))
-    }).await;
+    }).await.map_err(|e|WebError::Task(e.to_string()))?;
     match result {
         Ok(None)=>Ok(missing(&ctx)),
         Ok(Some(waiting))=>{

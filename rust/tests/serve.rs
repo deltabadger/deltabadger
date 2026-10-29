@@ -2876,3 +2876,26 @@ async fn a_signal_stop_commits_beside_a_bot_that_cannot_be_drawn() {
     let status: i64 = c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
     assert_eq!(status, 2, "the Stop committed");
 }
+
+#[test]
+fn serve_admits_an_abandoned_rebalance_only_when_halted_for_resume() {
+    use common::seed::{self, BotSpec};
+    let (dir, opened, seeded) = common::install_alpaca();
+    let id = seed::insert_bot(&opened.primary, &seeded, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let row = seed::insert_row(&opened.primary, &seeded, id, seeded.btc, &serde_json::json!({"created_at":"2026-09-01 10:00:01","external_status":4,"side":0,"external_id":"abandoned","amount":"0.001","price":"64000"}));
+    opened.primary.execute("UPDATE transactions SET transaction_type='REBALANCE' WHERE id=?1", [row]).unwrap();
+    let port = free_port();
+    let before = serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").output().unwrap();
+    assert!(!before.status.success());
+    assert!(String::from_utf8_lossy(&before.stderr).contains("abandoned REBALANCE"));
+    opened.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}')) WHERE id=?1", [id]).unwrap();
+    let mut server = Child(serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
+    let started = Instant::now();
+    let answer = loop {
+        if let Some(answer) = http_get(port, "/up") { break answer; }
+        assert!(started.elapsed() < Duration::from_secs(10) && server.0.try_wait().unwrap().is_none(), "serve must start so the owner can reach Resume");
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
+    assert_eq!(opened.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1", [id], |r|r.get::<_,i64>(0)).unwrap(), 1, "the halted bot cannot trade");
+}
