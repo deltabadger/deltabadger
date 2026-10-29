@@ -60,6 +60,8 @@ end
 # Deferred: the check reads through the models, which are not loaded while initializers run.
 # Skipped during asset precompilation, which Rails runs with a generated dummy secret.
 Rails.application.config.after_initialize do
+  next if defined?(ExportScratch) && ExportScratch.active?
+
   if Rails.env.production? && ENV['SECRET_KEY_BASE_DUMMY'].blank?
     EncryptionKeyCheck.emit_warning!
   end

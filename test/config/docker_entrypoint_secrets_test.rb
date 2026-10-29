@@ -27,7 +27,8 @@ class DockerEntrypointSecretsTest < ActiveSupport::TestCase
     SH
 
     Open3.capture3(
-      { 'SECRETS_FILE' => File.join(dir, '.secrets'),
+      { 'DATABASE_URL' => nil, 'PRIMARY_DATABASE_URL' => nil,
+        'SECRETS_FILE' => File.join(dir, '.secrets'),
         'DATABASE_PATH' => File.join(dir, 'production.sqlite3') }.merge(env),
       'bash', '-c', command
     )
@@ -225,7 +226,8 @@ class DockerEntrypointSecretsTest < ActiveSupport::TestCase
       SH
 
       stdout, stderr, status = Open3.capture3(
-        { 'SECRETS_FILE' => File.join(dir, '.secrets'),
+        { 'DATABASE_URL' => nil, 'PRIMARY_DATABASE_URL' => nil,
+          'SECRETS_FILE' => File.join(dir, '.secrets'),
           'DATABASE_PATH' => File.join(dir, 'production.sqlite3') }, 'bash', '-c', command
       )
 
