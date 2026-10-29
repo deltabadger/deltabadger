@@ -6,6 +6,7 @@
 # profiler script and cookie to every page and serves assets without fingerprints.
 # PAGES=login,two_factor limits the grid to scenarios whose name starts with one of the prefixes.
 require 'json'
+require 'digest'
 require 'fileutils'
 require 'active_support/testing/time_helpers'
 
@@ -1195,9 +1196,39 @@ module Pages
     end
   end
 
-  def selected
-    prefixes = ENV['PAGES'].to_s.split(',')
-    scenarios.select { |name, _| prefixes.empty? || prefixes.any? { |prefix| name.start_with?(prefix) } }
+  # Stable across Ruby processes and versions; all locale variants stay with their parent scenario.
+  SHARD_COUNT = 5
+
+  def select_scenarios(grid, scope: nil, prefixes: ENV['PAGES'].to_s.split(','))
+    shard = scope.delete_prefix('shard-').to_i if scope&.start_with?('shard-')
+    raise ArgumentError, "invalid page shard: #{scope}" if shard && scope != "shard-#{shard}"
+    raise ArgumentError, "invalid page shard: #{scope}" if shard && !(0...SHARD_COUNT).cover?(shard)
+
+    grid.select do |name, _|
+      matches_pages = prefixes.empty? || prefixes.any? { |prefix| name.start_with?(prefix) }
+      matches_scope = if shard
+                        Digest::SHA256.digest(name).unpack1('Q>') % SHARD_COUNT == shard
+                      else
+                        scope.nil? || scope.split(',').any? { |prefix| name.start_with?(prefix) }
+                      end
+      matches_pages && matches_scope
+    end
+  end
+
+  def selected = select_scenarios(scenarios, scope: @selection_scope)
+
+  def selection_scope=(scope)
+    @selection_scope = scope
+  end
+
+  # Descriptions only: no schema load, scenario installs or HTTP requests.
+  def inventory(path)
+    all = scenarios
+    File.write(path, JSON.generate(
+      'all' => all, 'selected' => select_scenarios(all).keys,
+      'shards' => SHARD_COUNT.times.map { |i| select_scenarios(all, scope: "shard-#{i}", prefixes: []).keys },
+      'selected_shards' => SHARD_COUNT.times.map { |i| select_scenarios(all, scope: "shard-#{i}").keys }
+    ))
   end
 
   def grid(root)
@@ -1490,13 +1521,15 @@ require_relative 'pages_rules'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
-  command, root = ARGV
+  command, root, scope = ARGV
   if %w[figures chronology].include?(command) && root
     require_relative 'page_figures'
     command == 'figures' ? PageFigures.run(root) : PageFigures.chronology(root)
     exit
   end
-  raise ArgumentError, 'usage: grid <root> | record <root>' unless %w[grid record].include?(command) && root
+  raise ArgumentError, 'usage: grid <root> [shard-N|prefixes] | record <root> | inventory <file>' unless %w[grid record inventory].include?(command) && root
+
+  Pages.selection_scope = scope
 
   Pages.public_send(command, root)
   # The recording is on disk now. Leave without Ruby's exit hooks and thread joins: on CI a background thread Rails
