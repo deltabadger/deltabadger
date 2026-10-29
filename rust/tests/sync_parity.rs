@@ -255,6 +255,69 @@ fn listed_balances(name: &str, rails: &Value, rust: &Value) -> Option<Result<(),
 
 // ---- the Binance ledger (D2b-2 slice 1): both sides read one fake account; their requests differ by design ----
 
+/// D-BINANCE-LEDGER-IDENTITY-A12, guarded writer only until the PR 2 release boundary lands.
+/// Recorded Rails survivors are inserted verbatim; all of their columns must remain unchanged.
+#[test]
+fn binance_a12_guarded_writer_divergence_against_recorded_rails_cells() {
+    use deltabadger::{engine::model, sync::{self, activities::{Entry,Raw}, binance_identity::{Context,Event,Source}, binance_writer as writer}, ruby::BigDec};
+    let fixture:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
+    let mut cases=0;
+    for case in fixture["collisions"].as_array().unwrap() {
+        let name=case["name"].as_str().unwrap();
+        if name=="negative_controls" || name.contains("margin") || name=="liquidations" || name.contains("futures") {continue}
+        cases+=1;
+        if name=="flexible_missing_type" {assert_eq!(case["entries"],json!([]));assert_eq!(case["stored"],json!([]));continue}
+        let (dir,o,s)=common::install();let c=&o.primary;let cipher=common::seed::cipher();let now="2026-08-18T00:00:00Z".parse().unwrap();
+        c.execute("UPDATE exchanges SET type='Exchanges::Binance' WHERE id=?1",[s.exchange_id]).unwrap();
+        let key=sync::load_key_of(c,s.api_key_id,&["Exchanges::Binance"]).unwrap();
+        let lock=deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_|None,dir.path()),now).unwrap();
+        deltabadger::lease::claim(&lock,c,&cipher,"test",now).unwrap();
+        let kind=|v:&Value|deltabadger::tracker::import::entry_type(v.as_str().unwrap()).unwrap();
+        for old in case["stored"].as_array().unwrap() {
+            let mut row=old.clone();row["user_id"]=json!(key.user_id);row["exchange_id"]=json!(key.exchange_id);row["api_key_id"]=json!(key.id);row["entry_type"]=json!(kind(&old["entry_type"]));
+            row["created_at"]=json!(sync::sql_time(now));row["updated_at"]=json!(sync::sql_time(now));
+            let row=row.as_object().unwrap();let columns=row.keys().cloned().collect::<Vec<_>>();
+            let values:Vec<rusqlite::types::Value>=row.values().map(|v|match v {Value::Null=>rusqlite::types::Value::Null,Value::Bool(b)=>(*b as i64).into(),Value::Number(n)=>n.as_i64().unwrap().into(),Value::String(s)=>s.clone().into(),_=>v.to_string().into()}).collect();
+            c.execute(&format!("INSERT INTO account_transactions ({}) VALUES ({})",columns.join(","),vec!["?";columns.len()].join(",")),rusqlite::params_from_iter(values)).unwrap();
+        }
+        let before=sync::parity::snapshot(c).unwrap();
+        let inputs:Vec<_>=case["entries"].as_array().unwrap().iter().map(|r| {
+            let id=r["tx_id"].as_str().unwrap();let source=if id.starts_with("dust-") {if kind(&r["entry_type"])==2 {Source::DustIn}else{Source::DustOut}}
+                else if id.starts_with("flex-reward-"){Source::FlexibleReward}else if id.starts_with("lock-reward-"){Source::LockedReward}
+                else if id.starts_with("flex-sub-"){Source::FlexibleSubscription}else if id.starts_with("flex-redeem-"){Source::FlexibleRedemption}
+                else if id.starts_with("lock-sub-"){Source::LockedSubscription}else if id.starts_with("lock-redeem-"){Source::LockedRedemption}
+                else if kind(&r["entry_type"])==4 {Source::Deposit}else{Source::Withdrawal};
+            let parent=case["answers"]["dust_log"]["userAssetDribblets"].as_array().and_then(|ps|ps.iter().find(|p|p["userAssetDribbletDetails"].as_array().unwrap().contains(&r["raw_data"]))).and_then(|p|p["transId"].as_str());
+            let at:chrono::DateTime<chrono::Utc>=r["transacted_at"].as_str().unwrap().parse().unwrap();let text=|k:&str|r[k].as_str().map(str::to_string);let dec=|k:&str|r[k].as_str().map(|s|BigDec::parse(s).unwrap());
+            writer::Input{event:Event::read(source,&r["raw_data"],Context{parent,requested_type:r["raw_data"]["type"].as_str(),occurred_ms:Some(at.timestamp_millis())}).unwrap(),entry:Entry {
+                entry_type:kind(&r["entry_type"]),base_currency:text("base_currency"),base_amount:dec("base_amount").unwrap(),quote_currency:text("quote_currency"),quote_amount:dec("quote_amount"),
+                fee_currency:text("fee_currency"),fee_amount:dec("fee_amount"),tx_id:text("tx_id"),group_id:text("group_id"),description:text("description"),transacted_at:Some(at),raw:Raw::from_value(r["raw_data"].clone())}}
+        }).collect();
+        let tx=model::immediate(c).unwrap();let result=writer::store(&model::fence_versions(&tx,&[]).unwrap(),&cipher,&key,&inputs,now);
+        if name.ends_with("fallback") {assert!(result.is_err(),"{name}");drop(tx);assert_eq!(sync::parity::snapshot(c).unwrap(),before);assert!(!writer::written(c).unwrap());continue}
+        assert_eq!(result.unwrap().imported,inputs.len()-case["imported"].as_u64().unwrap() as usize,"{name}");tx.commit().unwrap();
+        let after=sync::parity::snapshot(c).unwrap();
+        for (id,row) in before["account_transactions"].as_object().unwrap(){assert_eq!(&after["account_transactions"][id],row,"all original columns: {name}");}
+        assert_eq!(after["account_transactions"].as_object().unwrap().len(),inputs.len(),"{name}");
+        for table in ["account_balances","api_keys","bots","bot_activity_logs"] {assert_eq!(before[table],after[table],"{name}: {table}");}
+        let mut stmt=c.prepare("SELECT key,value,created_at,updated_at FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%' ORDER BY key").unwrap();
+        let configs=||stmt.query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
+        let mut configs=configs;let metadata=configs();assert_eq!(metadata.iter().filter(|(k,v,_,_)|k==writer::MARKER && v=="1").count(),1);
+        let mut represented=0;
+        for (_,text,_,_) in metadata.iter().filter(|(k,_,_,_)|k!=writer::MARKER) {let bucket:Value=serde_json::from_str(text).unwrap();assert_eq!(bucket["version"],1);
+            for binding in bucket["bindings"].as_array().unwrap() {represented+=1;assert_eq!(binding["suppressed"],false);
+                let input=inputs.iter().find(|i|i.event.key().unwrap().tuple()==binding["event"]["key"].as_str().unwrap()).unwrap();
+                assert_eq!(binding["raw"],input.entry.raw.value);assert_eq!(binding["amount"],input.entry.base_amount.to_s_f());
+                if binding["inserted"]==true {assert_eq!(binding["tx_id"],input.event.sibling_id().unwrap());assert_eq!(binding["group"],json!(input.event.group_id().or(input.entry.group_id.clone())));}
+                assert_eq!(binding["after"]["tx_id"],binding["tx_id"]);
+            }
+        }assert_eq!(represented,inputs.len());
+        let mut reversed=inputs;reversed.reverse();let tx=model::immediate(c).unwrap();assert_eq!(writer::store(&model::fence_versions(&tx,&[]).unwrap(),&cipher,&key,&reversed,now).unwrap().imported,0);tx.commit().unwrap();
+        assert_eq!(sync::parity::snapshot(c).unwrap(),after);assert_eq!(configs(),metadata,"zero metadata writes on repeat");
+    }
+    assert_eq!(cases,8+8+1+2,"8 capital/reward/dust + 8 Earn + flexible mapper + 2 US transfers");
+}
+
 fn tx_ids(out: &Value) -> Vec<String> { rows(out, "account_transactions").iter().filter_map(|r| r["after"]["tx_id"].as_str().map(str::to_string)).collect() }
 /// The key's watermark after the run, or None when the run left it as it was.
 fn moved_watermark(out: &Value) -> Option<Value> {

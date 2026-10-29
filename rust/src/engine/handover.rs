@@ -126,6 +126,9 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
 
 /// `hand_back` by a process that started at `process_start` (placement::recover_since).
 pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<usize, EngineError> {
+    if crate::sync::binance_writer::written(&o.primary)? {
+        return Err(EngineError::Ineligible(vec!["Binance A12 identity data permanently requires Rust ownership".into()]));
+    }
     // The row Rails will read back must open with this secret before anything is written. With a wrong SECRET_KEY_BASE the
     // handback would otherwise overwrite it with a row Rails cannot decrypt and report success. An absent row (never taken
     // over by Rust) holds nothing to protect.
@@ -161,6 +164,9 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let now = clock.now();
     let tx = model::immediate(&o.primary)?;
     // Again inside the ownership transaction: a rule switched on since the first check is caught before the lease moves.
+    if crate::sync::binance_writer::written(&tx)? {
+        return Err(EngineError::Ineligible(vec!["Binance A12 identity data permanently requires Rust ownership".into()]));
+    }
     refuse_rust_only_conditions(&tx)?;
     refuse_ibkr(&tx, now)?;
     refuse_pending_rotations(&tx)?;
