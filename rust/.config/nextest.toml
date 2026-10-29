@@ -6,8 +6,13 @@ slow-timeout = { period = "60s", terminate-after = 60 }
 # Scheduling order only; nothing is skipped or changed. The longest tests start first, so the run's tail is short tests
 # on every slot.
 [[profile.default.overrides]]
-filter = 'binary(pages) & test(=rails_and_rust_serve_the_same_pages_across_the_scenario_grid)'
+filter = 'binary(pages) & test(rails_and_rust_serve_the_same_pages_shard_)'
 priority = 90
+
+# These also record Rails and replay pages; start them before the short parity checks.
+[[profile.default.overrides]]
+filter = 'binary(pages) & (test(=a_signal_bots_rule_forms_are_its_basket_twins) | test(=settings_metrics_panel_matches_recorded_rails_bytes))'
+priority = 80
 
 [[profile.default.overrides]]
 filter = 'binary(parity) | binary(sync_parity) | binary(figures) | binary(tracker_write_parity) | binary(tracker_first_sync) | binary(mcp_control) | binary(oauth) | binary(tracker_parity) | binary(setup) | binary(tracker_index)'

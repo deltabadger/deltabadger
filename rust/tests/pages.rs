@@ -801,7 +801,7 @@ fn signal_rules(body: &mut Value) -> Option<Vec<Vec<Value>>> {
 /// no rule on, it shows the default subject (D-IDX-SUBJECT-DEFAULT). The rest of each page is Rails' (the grid compares it).
 #[tokio::test(flavor = "current_thread")]
 async fn an_index_bots_rule_forms_are_its_basket_twins() {
-    let (_recording, rust_root, dirs) = recorded_grid();
+    let (_recording, rust_root, dirs) = recorded_grid("twin_index_,twin_basket_");
     // PAGES may select another part of the grid; the unfiltered gate always includes these scenarios.
     if !dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_index_member")) { return; }
     let last = |v: &Value| v["responses"].as_array().unwrap().last().unwrap()["body"].clone();
@@ -861,7 +861,7 @@ async fn an_index_bots_rule_forms_are_its_basket_twins() {
 /// its own (D-INFO-SIDE: `settings-sell-price-limit-info`, the request naming the side). The rest of the page is Rails'.
 #[tokio::test(flavor = "current_thread")]
 async fn a_signal_bots_rule_forms_are_its_basket_twins() {
-    let (_recording, rust_root, dirs) = recorded_grid();
+    let (_recording, rust_root, dirs) = recorded_grid("twin_signal_");
     if !dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_signal_rules")) { return; }
     let last = |v: &Value| v["responses"].as_array().unwrap().last().unwrap()["body"].clone();
     let rails_body = |name: &str| {
@@ -1413,21 +1413,22 @@ fn unmet_expectation(name: &str, scenario: &Value, rails: &Value) -> Option<Stri
 /// store accessor fails here instead of being dropped by a conversion.
 #[test]
 fn index_switch_stored_settings_are_rails() {
-    let recording = grid_recording();
+    let recording = grid_recording("login_page_en");
     let rails: Value = serde_json::from_str(&std::fs::read_to_string(recording.path.join("rails/stored_settings.json")).unwrap()).unwrap();
     use deltabadger::web::bot::index_switch::{STORED_DCA_INDEX, STORED_DCA_MULTI_ASSET};
     assert_eq!(rails, json!({"Bots::DcaMultiAsset": STORED_DCA_MULTI_ASSET, "Bots::DcaIndex": STORED_DCA_INDEX}));
 }
 
-/// Builds the grid with Rails and records Rails' answers (common::recording: once per state of Rails' inputs and PAGES).
+/// Builds and records only this scope, intersected with PAGES. Each scope has its own cache key and lock;
+/// CI records independently, so selection must happen before building installs or sending Rails requests.
 /// The recording keeps `rails/` (each scenario's scenario.json and rails.json) and `rust/` (the installs as the grid built
 /// them, before Rails' requests).
-fn grid_recording() -> common::Recording {
-    common::recording("pages", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
+fn grid_recording(scope: &str) -> common::Recording {
+    common::recording(&format!("pages-5-{scope}"), |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
         let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), out.join("rails"), out.join("rust"));
         std::fs::create_dir_all(&rails_root).unwrap();
         common::rails(scratch.path(), "test", &["db:schema:load"]);
-        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.to_str().unwrap()]);
+        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.to_str().unwrap(), scope]);
         for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
             copy_scenario(&dir, &rust_root.join(dir.file_name().unwrap())); // before Rails writes to its copies
         }
@@ -1438,8 +1439,8 @@ fn grid_recording() -> common::Recording {
 }
 
 /// The grid's recording (grid_recording), with (rust_root, scenario dirs): this run's Rust side works on its own copy of `rust/`.
-fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
-    let recording = grid_recording();
+fn recorded_grid(scope: &str) -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
+    let recording = grid_recording(scope);
     let rust_root = tempfile::tempdir().unwrap();
     common::copy_tree(&recording.path.join("rust"), rust_root.path());
     // Rust's side starts as `serve` does: with this build's Rust migrations applied.
@@ -1797,7 +1798,7 @@ fn refusal_headers(signed_in: bool) -> Value {
 
 #[tokio::test(flavor = "current_thread")]
 async fn settings_metrics_panel_matches_recorded_rails_bytes() {
-    let (_recording, rust_root, dirs) = recorded_grid();
+    let (_recording, rust_root, dirs) = recorded_grid("actions_settings_metrics_");
     for dir in dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_settings_metrics_"))) {
         for scope in ["", "de"] {
             let source = dir.join(scope);
@@ -1852,9 +1853,9 @@ async fn panels_published(app: &App) {
 /// panel of its own, and the owner hiding balances) are not lost: the page ends on the panel of the latest rows.
 #[tokio::test(flavor = "current_thread")]
 async fn settings_metrics_panel_is_computed_off_the_request_and_ends_on_the_latest_rows() {
-    let (_recording, rust_root, dirs) = recorded_grid();
+    let (_recording, rust_root, dirs) = recorded_grid("actions_settings_metrics_composition");
     let name = "actions_settings_metrics_composition";
-    let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).expect(name);
+    let Some(dir) = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)) else { return };
     let scenario = scenario(dir);
     let app = web::app(&rust_root.path().join(name), scenario["secret_key_base"].as_str().unwrap(), TestClock::at(scenario["at"].as_str().unwrap()));
     app.attach_engine(Default::default());
@@ -1893,7 +1894,7 @@ async fn settings_metrics_panel_is_computed_off_the_request_and_ends_on_the_late
 
 #[tokio::test(flavor = "current_thread")]
 async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
-    let (_recording, rust_root, dirs) = recorded_grid();
+    let (_recording, rust_root, dirs) = recorded_grid("venue_bot_page_hyperliquid_limit_lock");
     let name = "venue_bot_page_hyperliquid_limit_lock";
     // PAGES may select another part of the grid; the unfiltered gate always includes this scenario.
     let Some(dir) = dirs.iter().find(|dir| dir.file_name().is_some_and(|file| file == name)) else { return };
@@ -1926,14 +1927,101 @@ async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
     assert_eq!(controls, 4 + 2, "four stored-flag/status combinations and two translated controls");
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
-    let (_rails_root, rust_root, dirs) = recorded_grid();
-    assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
-    if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 254 + 2 + 6, "all action scenarios must remain selected, with two amounts typed key by key and six settings metrics cases");
+/// Counts the named broker-surface witnesses without rendering. Replay checks these against the actual pages.
+fn expected_broker_pages(name: &str, scenario: &Value) -> usize {
+    let steps = scenario["steps"].as_array().unwrap();
+    if name == "bots_empty_not_admin" {
+        return steps.iter().filter(|s| s["method"] == "GET" && s["path"] == "/bots").count();
     }
-    let (mut failures, mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages) = (vec![], 0, 0, 0, 0, 0);
+    if name == "bots_empty_first_visit" {
+        return steps.iter().filter(|s| s["path"].as_str().is_some_and(|p| p.ends_with("?auto_open=true"))).count();
+    }
+    if ["settings_page_connect_", "settings_frame_connect_", "settings_connection_state_", "settings_pref_invalid_stored_", "redeploy_"].iter().any(|prefix| name.starts_with(prefix)) {
+        return steps.iter().filter(|s| s["method"] == "GET" && s["path"].as_str().is_some_and(|p| p.ends_with("/settings/connect"))).count();
+    }
+    0
+}
+
+/// This only enumerates Rails' scenario descriptions: no installs, requests or recording cache.
+#[test]
+fn page_grid_selection_is_complete_and_disjoint() {
+    use std::collections::BTreeSet;
+    use sha2::{Digest, Sha256};
+    let scratch = tempfile::tempdir().unwrap();
+    let path = scratch.path().join("inventory.json");
+    common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "inventory", path.to_str().unwrap()]);
+    let inventory: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let all = inventory["all"].as_object().unwrap();
+    let full: BTreeSet<&str> = all.keys().map(String::as_str).collect();
+    let selected: BTreeSet<&str> = inventory["selected"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    let pages = std::env::var("PAGES").unwrap_or_default();
+    let prefixes: Vec<&str> = pages.trim_end_matches(',').split(',').collect();
+    assert_eq!(selected, full.iter().copied().filter(|name| prefixes.iter().any(|prefix| name.starts_with(prefix))).collect());
+    assert!(!selected.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
+    for (key, expected) in [("shards", &full), ("selected_shards", &selected)] {
+        let shards = inventory[key].as_array().unwrap();
+        assert_eq!(shards.len(), 5);
+        let mut union = BTreeSet::new();
+        for (shard, names) in shards.iter().enumerate() {
+            for name in names.as_array().unwrap().iter().map(|n| n.as_str().unwrap()) {
+                assert!(union.insert(name), "{key}: {name} occurs in multiple shards");
+                let hash = u64::from_be_bytes(Sha256::digest(name)[..8].try_into().unwrap());
+                assert_eq!(hash % 5, shard as u64, "{key}: unstable shard for {name}");
+            }
+        }
+        assert_eq!(&union, expected, "{key}: sharding must neither drop nor add scenarios");
+    }
+    // These tests may skip on PAGES selections, but their witnesses must exist in the full gate.
+    for name in ["twin_index_member", "twin_index_departed", "twin_index_off", "twin_basket_member",
+                 "twin_signal_rules", "twin_signal_basket_buy", "twin_signal_basket_sell", "venue_bot_page_hyperliquid_limit_lock"] {
+        assert!(full.contains(name), "the unfiltered gate must include {name}");
+    }
+    let countdown_pages: usize = all.iter().filter(|(name, _)| name.starts_with("countdown_")).map(|(_, s)| s["steps"].as_array().unwrap().len() - 2).sum();
+    let broker_gate_pages: usize = all.iter().map(|(name, s)| expected_broker_pages(name, s)).sum();
+    let index_rule_pages = full.iter().filter(|name| name.starts_with("twin_index_")).count();
+    let signal_rule_pages = full.iter().filter(|name| **name == "twin_signal_rules").count();
+    let split_menu_pages = full.iter().filter(|name| **name == "twin_basket_member").count();
+    assert_eq!(index_rule_pages, 1 + 1 + 1, "D-COND-FORMS-INDEX: member, departed member and switched-off rule witnesses");
+    assert_eq!(signal_rule_pages, 1, "D-COND-FORMS-SIGNAL: the signal rule witness");
+    assert_eq!(split_menu_pages, 1, "D-SPLIT-BOT-MENU: the basket menu witness");
+    assert_eq!(full.iter().filter(|name| name.starts_with("actions")).count(), 254 + 2 + 6 + 1,
+               "PAGES=actions includes two amounts typed key by key, six settings metrics cases and the wash-sale Stop");
+    let dirs: Vec<PathBuf> = full.iter().map(PathBuf::from).collect();
+    {
+        let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
+        assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear)");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
+        assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
+        assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3 + 5, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, the empty bots page for a member (twice) and on the first visit, and the five Connect pages slice 6c-5's redeploy_ answers start from");
+    }
+    println!("{} scenarios; {} selected; shard counts {:?}; {countdown_pages} countdown and {broker_gate_pages} broker pages", full.len(), selected.len(),
+             inventory["shards"].as_array().unwrap().iter().map(|s| s.as_array().unwrap().len()).collect::<Vec<_>>());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_serve_the_same_pages_shard_1() { replay_page_shard(0).await; }
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_serve_the_same_pages_shard_2() { replay_page_shard(1).await; }
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_serve_the_same_pages_shard_3() { replay_page_shard(2).await; }
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_serve_the_same_pages_shard_4() { replay_page_shard(3).await; }
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_serve_the_same_pages_shard_5() { replay_page_shard(4).await; }
+
+async fn replay_page_shard(shard: usize) {
+    let measured = std::time::Instant::now();
+    let (_rails_root, rust_root, dirs) = recorded_grid(&format!("shard-{shard}"));
+    eprintln!("page shard {}: {} scenarios; recording/setup {:?}", shard + 1, dirs.len(), measured.elapsed());
+    let replay = std::time::Instant::now();
+    let mut failures = vec![];
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
@@ -1943,19 +2031,20 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         for scope in ["", "de", "crypto", "crypto_de"].into_iter().filter(|scope| scope.is_empty() || dir.join(scope).is_dir()) {
         let dir = &dir.join(scope);
         let scenario = scenario(dir);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages) = (0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| rails_answer(answer, step)).collect();
         let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
         let rails = json!({ "responses": answers, "users": recorded["users"], "bots": recorded["bots"] });
-        if let Some(message) = unmet_expectation(&name, &scenario, &rails) { failures.push(message); }
+        if let Some(message) = unmet_expectation(&format!("{name}/{scope}"), &scenario, &rails) { failures.push(message); }
         // A page that reached the network in Rails was compared on whatever the network said: no scenario may.
         let network = recorded["network"].as_array().expect("pages.rb records the network calls a scenario made");
-        if !network.is_empty() { failures.push(format!("{name}: Rails reached the network: {network:?}")); }
+        if !network.is_empty() { failures.push(format!("{name}/{scope}: Rails reached the network: {network:?}")); }
         // Rails must leave the bots as the grid built them (the copy this crate runs on was taken before Rails' requests).
         let built = rows(&rust_root.path().join(&name).join(scope), "bots", &BOT_COLUMNS);
         // A wizard's last step creates a bot (it declares `may_mutate`), and the rows it writes are compared step by step.
         let creates = scenario["steps"].as_array().unwrap().iter().any(|step| step["may_mutate"].as_array().is_some_and(|tables| tables.iter().any(|t| t == "bots")));
-        if !name.starts_with("actions_") && !creates && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
+        if !name.starts_with("actions_") && !creates && recorded["bots"] != built { failures.push(format!("{name}/{scope}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
         let (pending_txs, pending_bots, waiting_bots) = pending_market(&rust_root.path().join(&name).join(scope));
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         // The listed 3.0 tracker tabs (tabs_3_0): the populated index in its scope frame, or the first-sync page.
@@ -1964,7 +2053,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         for (answer, framed) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(framed.into_iter().chain(std::iter::repeat(false))) {
             let Some(raw) = answer.as_object_mut().unwrap().remove("tracker_raw") else { continue };
             let raw = raw.as_str().unwrap();
-            let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}: {e}"));
+            let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}/{scope}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
         for answer in rust["responses"].as_array_mut().unwrap() {
@@ -1973,15 +2062,22 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
+        for (witness, count, divergence) in [("twin_index_member", index_rule_pages, "D-COND-FORMS-INDEX"),
+                                             ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
+                                             ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU")] {
+            if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
+        }
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
             // Rails knows a time on every page of these scenarios, and this build must not claim the same one.
             for (index, (theirs, ours)) in rails_countdowns.iter().zip(&ours).enumerate().skip(2) {
                 let end = |values: &Vec<String>| values.iter().find(|value| value.starts_with("data-countdown-end-time-value")).cloned();
-                if end(theirs).is_none() || end(theirs) == end(ours) { failures.push(format!("{name} step {index}: expected Rails to know the time and this build not to: {theirs:?} / {ours:?}")); }
+                if end(theirs).is_none() || end(theirs) == end(ours) { failures.push(format!("{name}/{scope} step {index}: expected Rails to know the time and this build not to: {theirs:?} / {ours:?}")); }
                 countdown_pages += 1;
             }
         }
+        let expected_countdowns = if name.starts_with("countdown_") { scenario["steps"].as_array().unwrap().len() - 2 } else { 0 };
+        if countdown_pages != expected_countdowns { failures.push(format!("{name}/{scope}: expected {expected_countdowns} countdown pages, got {countdown_pages}")); }
         let mut rails = rails;
         if name.starts_with("settings_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
@@ -1994,11 +2090,11 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
             let ours = rust["responses"].as_array().unwrap().clone();
             if let Some(message) = rails["responses"].as_array_mut().unwrap().iter_mut().zip(&ours).find_map(|(a, b)| escaped_label(a, b).err()) {
-                failures.push(format!("{name} (listed divergence): {message}"));
+                failures.push(format!("{name}/{scope} (listed divergence): {message}"));
                 continue;
             }
             if let Err(message) = without_new_tokens(&mut rails).and_then(|()| without_new_tokens(&mut rust)) {
-                failures.push(format!("{name}: {message}"));
+                failures.push(format!("{name}/{scope}: {message}"));
                 continue;
             }
             // A cable payload is markup: compared as a page is (html::normalize), as the api_ scenarios compare theirs.
@@ -2011,7 +2107,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         if name.starts_with("wizard_signal_") {
             // The wizard's save draws each rule's token (plan 8e), on each side its own.
             if let Err(message) = without_new_tokens(&mut rails).and_then(|()| without_new_tokens(&mut rust)) {
-                failures.push(format!("{name}: {message}"));
+                failures.push(format!("{name}/{scope}: {message}"));
                 continue;
             }
         }
@@ -2033,7 +2129,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         }
         if name.starts_with("settings_pref_regenerate") {
             if let Err(message) = without_random_tokens(&mut rails).and_then(|()| without_random_tokens(&mut rust)) {
-                failures.push(format!("{name} (listed divergence): {message}"));
+                failures.push(format!("{name}/{scope} (listed divergence): {message}"));
                 continue;
             }
         }
@@ -2049,42 +2145,31 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         for answer in rails["responses"].as_array_mut().unwrap() {
             if without_broker_gate(&mut answer["body"]) > 0 { broker_gate_pages += 1; }
         }
+        let expected_brokers = expected_broker_pages(&name, &scenario);
+        if broker_gate_pages != expected_brokers { failures.push(format!("{name}/{scope}: expected {expected_brokers} broker pages, got {broker_gate_pages}")); }
         if name.starts_with("settings_ibkr_") {
             // D-IBKR-NOECHO: Rails' credentials form shows the stored consumer key, access token and secret; this crate's never does.
             for answer in rails["responses"].as_array_mut().unwrap() { without_echoed_credentials(&mut answer["body"]); }
             // D-IBKR-RECONNECT: Rails' "generating" for a key its job never completed, here Disconnect only.
             if name == "settings_ibkr_reconnect_generating" {
                 if let Err(message) = rails["responses"].as_array_mut().unwrap().last_mut().map_or(Err("no response".to_string()), |answer| as_reconnect(&mut answer["body"])) {
-                    failures.push(format!("{name} (listed divergence): {message}"));
+                    failures.push(format!("{name}/{scope} (listed divergence): {message}"));
                     continue;
                 }
             }
         }
         if let Err(error)=liquidation_request_difference(&name,&scenario,&mut rails,&mut rust).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)) {
-            failures.push(format!("{name}: {error}")); continue;
+            failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
             Some(Ok(())) => {}
-            Some(Err(message)) => failures.push(format!("{name} (listed divergence): {message}")),
-            None => if let Some(message) = difference(&name, &rails, &rust) { failures.push(message); },
+            Some(Err(message)) => failures.push(format!("{name}/{scope} (listed divergence): {message}")),
+            None => if let Some(message) = difference(&format!("{name}/{scope}"), &rails, &rust) { failures.push(message); },
         }
     }
     }
-    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next; {index_rule_pages} index bot pages with their rule forms; {signal_rule_pages} signal bot pages with theirs", dirs.len());
-    if dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_index_member")) { assert!(index_rule_pages > 0, "D-COND-FORMS-INDEX: no index bot page drew its rule forms"); }
-    if std::env::var("PAGES").is_err() { assert!(split_menu_pages > 0, "D-SPLIT-BOT-MENU: no bot page offered Split in its menu"); }
-    if dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_signal_rules")) { assert!(signal_rule_pages > 0, "D-COND-FORMS-SIGNAL: no signal bot page drew its rule forms"); }
-    if std::env::var("PAGES").is_err() {
-        let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
-        assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear)");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
-        assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
-        assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3 + 5, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, the empty bots page for a member (twice) and on the first visit, and the five Connect pages slice 6c-5's redeploy_ answers start from");
-    }
+    eprintln!("page shard {}: replay {:?}", shard + 1, replay.elapsed());
+    assert!(failures.is_empty(), "{} failures across {} scenarios in shard {}:\n{}", failures.len(), dirs.len(), shard + 1, failures.join("\n"));
 }
 
 // The response is deliberately identical: only a primary row is corrupted in each case.

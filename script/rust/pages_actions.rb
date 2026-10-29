@@ -343,8 +343,8 @@ module Pages
     alias_method :record_without_action_locales, :record
 
     def grid(root)
-      raise 'empty page selection' if selected.empty?
       grid_without_action_locales(root)
+      return if selected.empty? # PAGES can select no scenarios in this shard.
       crypto_names = %w[single_amount single_start start_missed_false start_missed_true]
       scratch_template = template(root)
       selected.each do |name, original|
