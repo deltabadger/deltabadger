@@ -445,9 +445,9 @@ pub(crate) fn capital_unknown() -> crate::engine::withdrawal::LookupResult {
     }
 }
 
+/// Provably nothing was transmitted (a refusal before the request, or the transport's NotSent): settles as not sent.
 pub(crate) fn capital_not_sent() -> crate::engine::withdrawal::SendResult {
-    crate::engine::withdrawal::SendResult::Rejected {
-        definitive: true,
+    crate::engine::withdrawal::SendResult::NotSent {
         reason: "the withdrawal request is invalid or past its send window; not sent".into(),
     }
 }

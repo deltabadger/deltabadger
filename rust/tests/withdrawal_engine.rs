@@ -1881,7 +1881,10 @@ async fn kraken_x0_classifier_cells_through_real_adapter() {
         let message = c["rule_logs"][0]["message"].as_str().unwrap();
         assert_eq!(rules::ambiguous("Kraken", message), !definitive);
         if let w::SendResult::Rejected { reason, .. } = &result {
-            assert_eq!(message, format!("Withdrawal failed: {reason}"));
+            assert_eq!(reason, &reply["body"].to_string());
+            assert!(rules::definitive("Kraken", reason));
+            let body: Value = serde_json::from_str(reason).unwrap();
+            assert_eq!(message, format!("Withdrawal failed: {}", body["error"][0].as_str().unwrap()));
         }
         assert_eq!(
             matches!(
@@ -2701,20 +2704,14 @@ async fn e1_signed_fields_and_absolute_send_bound() {
         t.network(e1_send_path(mexc), "pre_send", "expired");
         assert!(matches!(
             e1_send(mexc, &t, &r).await,
-            w::SendResult::Rejected {
-                definitive: true,
-                ..
-            }
+            w::SendResult::NotSent { .. }
         ));
         let mut invalid = r;
         invalid.created_at = "bad".into();
         let t = ScriptedTransport::default();
         assert!(matches!(
             e1_send(mexc, &t, &invalid).await,
-            w::SendResult::Rejected {
-                definitive: true,
-                ..
-            }
+            w::SendResult::NotSent { .. }
         ));
         assert!(t.requests().is_empty());
     }
@@ -3347,10 +3344,7 @@ async fn e1_missing_destination_network_and_wrong_wallet_are_never_sent() {
         t.set_now(now());
         assert!(matches!(
             e1_send(mexc, &t, &r).await,
-            w::SendResult::Rejected {
-                definitive: true,
-                ..
-            }
+            w::SendResult::NotSent { .. }
         ));
         assert!(matches!(
             e1_lookup(mexc, &t, &r).await,
@@ -3363,10 +3357,7 @@ async fn e1_missing_destination_network_and_wrong_wallet_are_never_sent() {
     r.wallet_type = Some(1);
     assert!(matches!(
         e1_send(false, &t, &r).await,
-        w::SendResult::Rejected {
-            definitive: true,
-            ..
-        }
+        w::SendResult::NotSent { .. }
     ));
     assert!(t.requests().is_empty(), "D-RULE-WALLET-SPOT");
 }
@@ -3403,4 +3394,726 @@ async fn e1_partial_or_malformed_history_cannot_settle_an_earlier_match() {
         w::LookupResult::Unknown { .. }
     ));
     assert_eq!(t.requests().len(), 1 + 1, "exact match then failed window");
+}
+
+// E3: the production VenueAdapter and GeminiVenue, with offline HTTP answers.
+use deltabadger::venue::gemini::GeminiVenue;
+const G_SEND: &str = "POST /v2/withdraw/bitcoin/btc";
+const G_STATUS: &str = "POST /v2/transfers";
+fn gemini_db() -> Db {
+    let d = Db::new();
+    d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Gemini',name='Gemini'; UPDATE rules SET settings=json_set(settings,'$.network','bitcoin');").unwrap();
+    d
+}
+fn gemini_adapter(
+    d: &Db,
+    t: &ScriptedTransport,
+) -> w::VenueAdapter<GeminiVenue<ScriptedTransport>> {
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+        .unwrap()
+        .unwrap();
+    w::VenueAdapter::new(
+        GeminiVenue::new(t.clone(), deltabadger::venue::gemini::URL)
+            .with_pairs(deltabadger::venue::binance::Pairs { assets: [("BTC".into(), "BTC".into())].into(), ..Default::default() })
+            .with_identity(&cr),
+        version,
+        None,
+    )
+}
+fn gemini_reads() -> ScriptedTransport {
+    let t = ScriptedTransport::default();
+    t.set_now(now() + chrono::Duration::seconds(3600));
+    t.reply("POST /v1/balances", 200, json!([{"currency":"BTC","type":"exchange","amount":"1","available":"1","availableForWithdrawal":"1"}]));
+    t.reply("POST /v1/approvedAddresses/account/bitcoin", 200, json!({"approvedAddresses":[{"address":"destination","network":"bitcoin","status":"active"}]}));
+    t.reply("POST /v2/withdraw/bitcoin/btc/feeEstimate", 200, json!({"currency":"BTC","fee":"0.01"}));
+    t.reply("POST /v2/withdraw/bitcoin/btc/feeEstimate", 200, json!({"currency":"BTC","fee":"0.0099"}));
+    t.reply(G_STATUS, 200, json!([]));
+    t
+}
+async fn gemini_prepared(d: &Db, t: &ScriptedTransport) -> w::Intent {
+    w::evaluate(
+        &d.c,
+        &d.cipher,
+        &gemini_adapter(d, t),
+        d.eval(),
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap()
+    .unwrap()
+}
+fn gemini_sends(t: &ScriptedTransport) -> usize {
+    t.requests()
+        .iter()
+        .filter(|r| r.path == "/v2/withdraw/bitcoin/btc")
+        .count()
+}
+#[tokio::test(start_paused = true)]
+async fn gemini_g0_answers_restart_without_resends() {
+    let answers = [
+        (200, json!({"withdrawalId":"G-1"}), Some(1)),
+        (400, json!({"result":"error","reason":"InsufficientFunds"}), Some(2)),
+        (500, json!({"result":"error","reason":"System"}), None),
+        (500, json!({"result":"error","reason":"InsufficientFunds"}), None),
+        (200, json!({"result":"error","reason":"Maintenance"}), None),
+        (400, json!({"result":"error","reason":"RateLimit"}), None),
+        (400, json!({"result":"error","reason":"NewReason"}), None),
+        (200, json!("not JSON"), None),
+        (200, json!({}), None),
+        (200, json!({"withdrawalId":" "}), None),
+        (400, json!({"withdrawalId":"G-1"}), None),
+        (200, json!({"reason":"InsufficientFunds"}), None),
+        (200, json!({"withdrawalId":"G-1","result":"error","reason":"InsufficientFunds"}), None),
+        (200, json!({"withdrawalId":"G-1","reason":"System"}), None),
+    ];
+    for (http, body, log) in answers {
+        let d = gemini_db();
+        let t = gemini_reads();
+        t.reply(G_SEND, http, body.clone());
+        let i = gemini_prepared(&d, &t).await;
+        let a = gemini_adapter(&d, &t);
+        // A caller changing its in-memory copy must not change the signed request.
+        let mut edited = i.clone();
+        edited.request.amount = "99".into();
+        edited.request.fee_cap = "50".into();
+        w::dispatch(&d.c, &d.cipher, &a, &edited, &FixedClock(now()))
+            .await
+            .unwrap();
+        assert_eq!(d.count("rule_logs"), i64::from(log.is_some()), "{body}");
+        if let Some(expected) = log {
+            assert_eq!(
+                d.c.query_row("SELECT status FROM rule_logs", [], |r| r.get::<_, i64>(0))
+                    .unwrap(),
+                expected,
+                "{body}"
+            );
+        }
+        assert_eq!(
+            d.count("rust_withdrawal_intents"),
+            i64::from(log.is_none()),
+            "{body}"
+        );
+        let wire = t
+            .requests()
+            .into_iter()
+            .find(|r| r.path == "/v2/withdraw/bitcoin/btc")
+            .unwrap();
+        assert_eq!(
+            wire.body.unwrap(),
+            json!({"address":"destination","amount":"0.99","clientTransferId":i.request.client_id})
+        );
+        // Reopen the durable database and reconstruct the production adapter.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("restart.sqlite");
+        d.c.execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+            .unwrap();
+        let restarted = Db {
+            c: Connection::open(path).unwrap(),
+            q: Connection::open_in_memory().unwrap(),
+            cipher: d.cipher,
+        };
+        let a = gemini_adapter(&restarted, &t);
+        for _ in 0..2 {
+            w::recover(
+                &restarted.c,
+                &restarted.cipher,
+                &a,
+                "rule:1",
+                &FixedClock(now()),
+            )
+            .await
+            .unwrap();
+            w::dispatch(&restarted.c, &restarted.cipher, &a, &i, &FixedClock(now()))
+                .await
+                .unwrap();
+        }
+        assert_eq!(gemini_sends(&t), 1, "{body}");
+        assert_eq!(
+            rules::status(&restarted.c, 1).unwrap().is_some(),
+            log.is_none()
+        );
+    }
+}
+#[tokio::test(start_paused = true)]
+async fn gemini_timeout_is_unresolved_and_never_retried() {
+    let d = gemini_db();
+    let t = gemini_reads();
+    t.network(G_SEND, "post_send", "timeout");
+    let i = gemini_prepared(&d, &t).await;
+    let a = gemini_adapter(&d, &t);
+    w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("restart.sqlite");
+    d.c.execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+        .unwrap();
+    let d = Db {
+        c: Connection::open(path).unwrap(),
+        q: Connection::open_in_memory().unwrap(),
+        cipher: d.cipher,
+    };
+    let a = gemini_adapter(&d, &t);
+    w::recover(
+        &d.c,
+        &d.cipher,
+        &gemini_adapter(&d, &t),
+        "rule:1",
+        &FixedClock(now()),
+    )
+    .await
+    .unwrap();
+    w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(gemini_sends(&t), 1);
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(rules::status(&d.c, 1).unwrap().unwrap().state, "unresolved");
+}
+fn g_candidate(id: &str, offset_ms: i64, address: &str, amount: &str, status: &str) -> Value {
+    json!({"withdrawalId":id,"eid":id,"timestampms":now().timestamp_millis()+offset_ms,"destination":address,"amount":amount,"status":status,"currency":"BTC","type":"Withdrawal","network":"bitcoin"})
+}
+#[tokio::test(start_paused = true)]
+async fn gemini_candidates_use_window_and_never_settle() {
+    let d = gemini_db();
+    let i = gemini_prepared(&d, &gemini_reads()).await;
+    let t = ScriptedTransport::default();
+    t.set_now(now() + chrono::Duration::seconds(3600));
+    let mut deposit = g_candidate("deposit", 1, "destination", "0.99", "Complete");
+    deposit["type"] = json!("Deposit");
+    let mut other_coin = g_candidate("coin", 1, "destination", "0.99", "Complete");
+    other_coin["currency"] = json!("ETH");
+    t.reply(G_STATUS, 200, json!([
+        g_candidate("early", -1, "destination", "0.99", "Complete"),
+        g_candidate("start", 0, "destination", "0.9900", "Complete"),
+        g_candidate("other", 1, "other", "0.99", "Complete"),
+        g_candidate("amount", 1, "destination", "0.98", "Complete"),
+        g_candidate("end", 3600000, "destination", "0.99", "Pending"),
+        g_candidate("late", 3600001, "destination", "0.99", "Complete"), deposit, other_coin
+    ]));
+    let a = gemini_adapter(&d, &t);
+    assert!(w::mark_dispatched(&d.c, &d.cipher, &gemini_adapter(&d, &gemini_reads()), &i, &FixedClock(now())).await.unwrap());
+    w::recover(&d.c, &d.cipher, &a, "rule:1", &FixedClock(now())).await.unwrap();
+    let s = rules::status(&d.c, 1).unwrap().unwrap();
+    assert_eq!(s.state, "unresolved");
+    assert!(s.reason.unwrap().contains("resolve-withdrawal"));
+    assert_eq!(s.candidates.iter().map(|c| c["id"].as_str().unwrap()).collect::<Vec<_>>(), vec!["start", "end"]);
+    assert_eq!(s.candidates[0]["status"], "Complete");
+    assert_eq!(s.candidates[1]["status"], "Pending");
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(d.count("rust_withdrawal_ids"), 0);
+    assert_eq!(t.requests()[0].body, Some(json!({"timestamp":now().timestamp_millis(),"limit_transfers":50})));
+}
+#[tokio::test(start_paused = true)]
+async fn gemini_x0_classifier_cells_through_real_adapter() {
+    let vectors: Value =
+        serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+    let cells: Vec<_> = vectors["classifier"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["venue"] == "gemini" && c["replies"]["POST /v1/withdraw/btc"].is_array())
+        .collect();
+    assert_eq!(
+        cells.len(),
+        2 + 2 + 1 + 1 + 1,
+        "Gemini X0: definitive errors + server errors + rate limit + HTML + timeout"
+    );
+    let d = gemini_db();
+    let i = gemini_prepared(&d, &gemini_reads()).await;
+    for c in cells {
+        let reply = &c["replies"]["POST /v1/withdraw/btc"][0];
+        let t = ScriptedTransport::default();
+        if reply["network"].is_string() {
+            t.network(G_SEND, "post_send", "timeout");
+        } else {
+            t.reply(
+                G_SEND,
+                reply["status"].as_u64().unwrap_or(200) as u16,
+                reply["body"].clone(),
+            );
+        }
+        let result = gemini_adapter(&d, &t).send(&i.request).await;
+        let definitive = matches!(c["case"].as_str(), Some("gemini_http_400_insufficient_funds" | "gemini_http_400_invalid_signature"));
+        let message = c["rule_logs"][0]["message"].as_str().unwrap();
+        assert_eq!(rules::ambiguous("Gemini", message), !definitive);
+        if let w::SendResult::Rejected { reason, .. } = &result {
+            assert!(rules::definitive("Gemini", reason));
+        }
+        assert_eq!(
+            matches!(
+                result,
+                w::SendResult::Rejected {
+                    definitive: true,
+                    ..
+                }
+            ),
+            definitive,
+            "{}",
+            c["case"]
+        );
+        assert_eq!(
+            matches!(result, w::SendResult::Ambiguous { .. }),
+            !definitive,
+            "{}",
+            c["case"]
+        );
+    }
+}
+
+#[test]
+fn gemini_g0_gate_does_not_enable_live_withdrawals() {
+    assert!(w::G0_ADAPTERS.contains(&"Exchanges::Gemini"));
+    assert!(
+        !deltabadger::venue::registry::row("Exchanges::Gemini")
+            .unwrap()
+            .withdraws
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn gemini_kill_worker() {
+    let Ok(path) = std::env::var("E3_CRASH_DB") else {
+        return;
+    };
+    let path = std::path::PathBuf::from(path);
+    let d = reopen(&path);
+    let t = gemini_reads();
+    t.reply(
+        G_SEND,
+        200,
+        json!({"withdrawalId":"G-crash"}),
+    );
+    let i = gemini_prepared(&d, &t).await;
+    let a = gemini_adapter(&d, &t);
+    assert!(
+        w::mark_dispatched(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+            .await
+            .unwrap()
+    );
+    assert!(matches!(
+        a.send(&i.request).await,
+        w::SendResult::Accepted { .. }
+    ));
+    std::fs::write(path.with_extension("sends"), gemini_sends(&t).to_string()).unwrap();
+    std::process::exit(74); // No settlement or destructors: the reply was lost.
+}
+#[tokio::test(start_paused = true)]
+async fn gemini_kill_after_dispatch_real_adapter_sends_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("primary.sqlite");
+    let seed = gemini_db();
+    seed.c
+        .execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+        .unwrap();
+    seed.q
+        .execute(
+            "VACUUM INTO ?1",
+            [path.with_extension("queue").to_str().unwrap()],
+        )
+        .unwrap();
+    drop(seed);
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "gemini_kill_worker", "--nocapture"])
+        .env("E3_CRASH_DB", &path)
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(74),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let d = reopen(&path);
+    let t = gemini_reads();
+    let a = gemini_adapter(&d, &t);
+    let i = w::load(&d.c, &d.cipher, "rule:1").unwrap().unwrap();
+    assert_eq!(i.state, "dispatched");
+    for _ in 0..2 {
+        w::recover(&d.c, &d.cipher, &a, "rule:1", &FixedClock(now()))
+            .await
+            .unwrap();
+        w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(path.with_extension("sends")).unwrap(),
+        "1"
+    );
+    assert_eq!(gemini_sends(&t), 0);
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(rules::status(&d.c, 1).unwrap().unwrap().state, "unresolved");
+}
+
+#[tokio::test]
+async fn gemini_signed_fields_bound_and_pretransmission_refusal() {
+    use base64::Engine;
+    use hmac::{Hmac, Mac};
+    let d = gemini_db();
+    let t = gemini_reads();
+    let i = gemini_prepared(&d, &t).await;
+    t.network(G_SEND, "pre_send", "expired");
+    assert!(matches!(gemini_adapter(&d, &t).send(&i.request).await, w::SendResult::NotSent { .. }));
+    let r = t.requests().into_iter().find(|r| r.path == "/v2/withdraw/bitcoin/btc").unwrap();
+    assert_eq!(r.not_after, Some(now() + chrono::Duration::seconds(w::SEND_WINDOW_SECONDS) + chrono::Duration::from_std(deltabadger::venue::http::TOTAL_TIMEOUT).unwrap()));
+    assert_eq!(r.method, "POST");
+    assert!(r.query.is_empty());
+    let fields: Vec<_> = r.body.as_ref().unwrap().as_object().unwrap().iter().map(|(k,v)| (k.as_str(),v.clone())).collect();
+    let headers = deltabadger::venue::signers::gemini::headers("key", "secret", &r.path, &fields, 123);
+    let header = |key: &str| &headers.iter().find(|(k,_)| *k == key).unwrap().1;
+    let payload: Value = serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(header("X-GEMINI-PAYLOAD")).unwrap()).unwrap();
+    assert_eq!(payload, json!({"address":"destination","amount":"0.99","clientTransferId":i.request.client_id,"request":"/v2/withdraw/bitcoin/btc","nonce":"123"}));
+    let mut mac = Hmac::<sha2::Sha384>::new_from_slice(b"secret").unwrap();
+    mac.update(header("X-GEMINI-PAYLOAD").as_bytes());
+    assert_eq!(header("X-GEMINI-SIGNATURE"), &hex::encode(mac.finalize().into_bytes()));
+    assert_eq!(header("X-GEMINI-APIKEY"), "key");
+    // The actual HTTP transport checks the absolute bound before opening a socket.
+    let live = deltabadger::venue::http::ReqwestTransport::gemini(deltabadger::venue::http::client(), "key".into(), "secret".into())
+        .with_clock(std::sync::Arc::new(FixedClock(r.not_after.unwrap() + chrono::Duration::milliseconds(1))));
+    use deltabadger::venue::Venue;
+    assert!(matches!(GeminiVenue::new(live, deltabadger::venue::gemini::URL).withdraw(&i.request).await, w::SendResult::NotSent { .. }));
+}
+
+#[tokio::test]
+async fn gemini_recorder_bootstrap_quotes_budget_then_amount() {
+    let d = gemini_db();
+    let (_dir, lock) = recorder_lock();
+    let mut spec = recorder_spec();
+    spec.destination.network = Some("bitcoin".into());
+    let t = ScriptedTransport::default();
+    t.reply("POST /v1/balances", 200, json!([{"currency":"BTC","type":"exchange","amount":"1","available":"1","availableForWithdrawal":"1"}]));
+    t.reply("POST /v1/approvedAddresses/account/bitcoin", 200, json!({"approvedAddresses":[{"address":"destination","network":"bitcoin","status":"active"}]}));
+    let fee = "POST /v2/withdraw/bitcoin/btc/feeEstimate";
+    t.reply(fee, 200, json!({"currency":"BTC","fee":"0.0001"}));
+    t.reply(fee, 200, json!({"currency":"BTC","fee":"0.00009"}));
+    let a = gemini_adapter(&d, &t);
+    let i = w::begin_recorder(&lock, &d.c, &d.cipher, &a, &spec, &FixedClock(now())).await.unwrap();
+    assert_eq!(i.owner, "recorder:external-1");
+    assert_eq!(i.request.amount, "0.0009");
+    assert_eq!(i.request.fee_cap, "0.00009");
+    let quotes: Vec<_> = t.requests().into_iter().filter(|r| r.path.ends_with("/feeEstimate")).map(|r| r.body.unwrap()).collect();
+    assert_eq!(quotes, vec![json!({"address":"destination","amount":"0.001"}), json!({"address":"destination","amount":"0.0009"})]);
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(d.count("rust_rule_evaluations"), 0);
+    assert_eq!(gemini_sends(&t), 0);
+    assert!(w::begin_recorder(&lock, &d.c, &d.cipher, &a, &spec, &FixedClock(now())).await.is_err());
+}
+
+#[tokio::test(start_paused = true)]
+async fn gemini_lookup_pages_are_paced_deduplicated_and_never_prove_absence() {
+    let d = gemini_db();
+    let i = gemini_prepared(&d, &gemini_reads()).await;
+    let t = ScriptedTransport::default();
+    t.set_now(now() + chrono::Duration::seconds(3600));
+    let page: Vec<_> = (0..50).map(|x| g_candidate(&x.to_string(), x, "destination", "0.99", "Complete")).collect();
+    t.reply(G_STATUS, 200, json!(page));
+    t.reply(G_STATUS, 200, json!([g_candidate("49", 49, "destination", "0.99", "Complete"),g_candidate("50", 50, "destination", "0.99", "Pending")]));
+    let start = tokio::time::Instant::now();
+    let w::LookupResult::Unknown { candidates, .. } = gemini_adapter(&d,&t).lookup(&i.request).await else { panic!("candidate lookup settled") };
+    assert_eq!(candidates.len(), 50 + 1);
+    assert!(start.elapsed() >= std::time::Duration::from_secs(5));
+    assert_eq!(t.requests()[1].body.as_ref().unwrap()["timestamp"], now().timestamp_millis()+49);
+    for body in [json!([]), json!({"result":"error","reason":"MissingRole"}), json!([{"type":"Withdrawal"}]), json!("bad JSON")] {
+        let t = ScriptedTransport::default();
+        t.reply(G_STATUS, 200, body);
+        assert!(matches!(gemini_adapter(&d,&t).lookup(&i.request).await, w::LookupResult::Unknown { .. }));
+    }
+    let t = ScriptedTransport::default();
+    t.reply(G_STATUS, 200, json!(page)); // repeating full page must terminate
+    assert!(matches!(gemini_adapter(&d,&t).lookup(&i.request).await, w::LookupResult::Unknown { .. }));
+    assert!(t.requests().len() <= 2);
+}
+
+#[tokio::test]
+async fn gemini_send_refuses_non_memo_free_or_mismatched_network_before_transport() {
+    let d = gemini_db();
+    let i = gemini_prepared(&d, &gemini_reads()).await;
+    for (ticker, network) in [("sol", "solana"), ("btc", "ethereum"), ("../btc", "bitcoin")] {
+        let mut request = i.request.clone();
+        request.destination = v::Destination::Gemini { ticker:ticker.into(), network:network.into(), address:"destination".into() };
+        let t = ScriptedTransport::default();
+        assert!(matches!(gemini_adapter(&d, &t).send(&request).await, w::SendResult::NotSent { .. }));
+        assert!(t.requests().is_empty());
+    }
+}
+
+// A withdrawal reaches the transport, but the transport refuses before transmitting it.
+// Reads still use the production adapters and their usual scripted answers.
+struct RefusingWithdrawalTransport {
+    reads: ScriptedTransport,
+    attempts: std::rc::Rc<Cell<usize>>,
+    reason: &'static str,
+}
+impl deltabadger::venue::http::Transport for RefusingWithdrawalTransport {
+    async fn send(
+        &self,
+        r: &deltabadger::venue::http::HttpRequest,
+    ) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError>
+    {
+        if matches!(
+            r.path.as_str(),
+            "/0/private/Withdraw" | "/v2/withdraw/bitcoin/btc"
+        ) {
+            self.attempts.set(self.attempts.get() + 1);
+            return Err(deltabadger::venue::http::TransportError::NotSent(
+                self.reason.into(),
+            ));
+        }
+        self.reads.send(r).await
+    }
+}
+async fn assert_unsent_dispatch(d: &Db, i: &w::Intent, a: &impl w::Adapter) {
+    w::dispatch(&d.c, &d.cipher, a, i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(d.count("rule_logs"), 1);
+    let (status, message): (i64, String) =
+        d.c.query_row("SELECT status,message FROM rule_logs", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    assert_eq!(status, 2);
+    assert!(message.starts_with("Withdrawal failed:"));
+    assert_eq!(message, rules::safe_message(&message));
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    assert_eq!(d.count("rust_withdrawal_ids"), 0);
+    assert!(
+        rules::status(&d.c, 1).unwrap().is_none(),
+        "no operator acknowledgement required"
+    );
+    w::recover(&d.c, &d.cipher, a, "rule:1", &FixedClock(now()))
+        .await
+        .unwrap();
+    w::dispatch(&d.c, &d.cipher, a, i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(d.count("rule_logs"), 1);
+}
+#[tokio::test]
+async fn kraken_not_sent_dispatch_settles_without_operator_ack() {
+    for reason in ["connection refused", "expired send bound"] {
+        let d = kraken_db();
+        let t = kraken_reads();
+        let i = kraken_prepared(&d, &t).await;
+        let attempts = std::rc::Rc::new(Cell::new(0));
+        let (cr, version) =
+            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+                .unwrap()
+                .unwrap();
+        let a = w::VenueAdapter::new(
+            KrakenVenue::new(RefusingWithdrawalTransport {
+                reads: t.clone(),
+                attempts: attempts.clone(),
+                reason,
+            })
+            .with_identity(&cr),
+            version,
+            None,
+        );
+        assert_unsent_dispatch(&d, &i, &a).await;
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(kraken_sends(&t), 0);
+    }
+}
+#[tokio::test]
+async fn gemini_not_sent_dispatch_settles_without_operator_ack() {
+    for reason in ["connection refused", "expired send bound"] {
+        let d = gemini_db();
+        let t = gemini_reads();
+        let i = gemini_prepared(&d, &t).await;
+        let attempts = std::rc::Rc::new(Cell::new(0));
+        let (cr, version) =
+            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+                .unwrap()
+                .unwrap();
+        let a = w::VenueAdapter::new(
+            GeminiVenue::new(
+                RefusingWithdrawalTransport {
+                    reads: t.clone(),
+                    attempts: attempts.clone(),
+                    reason,
+                },
+                deltabadger::venue::gemini::URL,
+            )
+            .with_identity(&cr),
+            version,
+            None,
+        );
+        assert_unsent_dispatch(&d, &i, &a).await;
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(gemini_sends(&t), 0);
+    }
+}
+#[tokio::test]
+async fn gemini_long_rejection_dispatch_preserves_classification_and_scrubs_storage() {
+    for reason in ["InsufficientFunds", "UnknownReason"] {
+        let d = gemini_db();
+        let t = gemini_reads();
+        let body = format!("{{ \"result\":\"error\", \"reason\":\"{reason}\", \"message\":\"https://venue.invalid/private?signature=hidden token=hidden {}\" }}", "x".repeat(300));
+        assert!(body.len() > 200);
+        t.reply(G_SEND, 400, json!(body));
+        let i = gemini_prepared(&d, &t).await;
+        let a = gemini_adapter(&d, &t);
+        w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+            .await
+            .unwrap();
+        if reason == "InsufficientFunds" {
+            assert_eq!(d.count("rust_withdrawal_intents"), 0);
+            let (status, message): (i64, String) =
+                d.c.query_row("SELECT status,message FROM rule_logs", [], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })
+                .unwrap();
+            assert_eq!(status, 2);
+            assert_eq!(
+                message,
+                rules::safe_message(&format!("Withdrawal failed: {body}"))
+            );
+        } else {
+            assert_eq!(d.count("rule_logs"), 0);
+            let status = rules::status(&d.c, 1).unwrap().unwrap();
+            assert_eq!(status.state, "unresolved");
+            let message = status.reason.unwrap();
+            assert_eq!(message, rules::safe_message(&message));
+            assert!(!message.contains("hidden"));
+        }
+        assert_eq!(gemini_sends(&t), 1);
+    }
+}
+#[tokio::test]
+async fn kraken_rejection_keeps_unmodified_venue_body() {
+    let d = kraken_db();
+    let t = kraken_reads();
+    let i = kraken_prepared(&d, &t).await;
+    let body = "{ \"error\": [\"EFunding:Max fee exceeded\"], \"result\": null }";
+    t.reply(K_SEND, 400, json!(body));
+    let a = kraken_adapter(&d, &t);
+    let w::SendResult::Rejected {
+        definitive: true,
+        reason,
+    } = a.send(&i.request).await
+    else {
+        panic!("expected rejection")
+    };
+    assert_eq!(reason, body);
+    w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    assert_eq!(
+        d.c.query_row("SELECT status FROM rule_logs", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+}
+#[tokio::test]
+async fn unallowlisted_rejection_dispatch_stays_unresolved_with_safe_text() {
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let i = d.prepared(&f).await;
+    let body = format!(
+        "https://venue.invalid/private?signature=hidden token=hidden {}",
+        "x".repeat(300)
+    );
+    *f.answer.borrow_mut() = w::SendResult::Rejected {
+        definitive: true,
+        reason: body.clone(),
+    };
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    let status = rules::status(&d.c, 1).unwrap().unwrap();
+    assert_eq!(status.state, "unresolved");
+    assert_eq!(
+        status.reason.as_deref(),
+        Some(rules::safe_message(&body).as_str())
+    );
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(f.sends.get(), 1);
+}
+
+#[tokio::test]
+async fn kraken_settlement_double_checks_every_error_in_raw_body() {
+    for body in [
+        json!({"error":[]}),
+        json!({"error":["EFunding:Max fee exceeded", "Unknown"]}),
+        json!({"error":["EFunding:Max fee exceeded", null]}),
+        json!({"error":["EGeneral:Invalid arguments"]}),
+        json!({"error":["EService:Unavailable"]}),
+        json!({"error":["EFunding:Max fee exceeded"], "result":{"refid":"K-1"}}),
+    ] {
+        let d = kraken_db();
+        let t = kraken_reads();
+        let i = kraken_prepared(&d, &t).await;
+        assert!(w::mark_dispatched(
+            &d.c,
+            &d.cipher,
+            &kraken_adapter(&d, &t),
+            &i,
+            &FixedClock(now())
+        )
+        .await
+        .unwrap());
+        w::settle(
+            &d.c,
+            &d.cipher,
+            &i,
+            "dispatched",
+            w::SendResult::Rejected {
+                definitive: true,
+                reason: body.to_string(),
+            },
+            now(),
+        )
+        .unwrap();
+        assert_eq!(d.count("rule_logs"), 0, "{body}");
+        assert_eq!(
+            rules::status(&d.c, 1).unwrap().unwrap().state,
+            "unresolved",
+            "{body}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn not_sent_and_candidate_text_obey_rule_log_secrets() {
+    let text = format!(
+        "https://venue.invalid/private?signature=hidden token=hidden {}",
+        "x".repeat(300)
+    );
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let i = d.prepared(&f).await;
+    *f.answer.borrow_mut() = w::SendResult::NotSent {
+        reason: text.clone(),
+    };
+    assert_unsent_dispatch(&d, &i, &f).await;
+    let message: String =
+        d.c.query_row("SELECT message FROM rule_logs", [], |r| r.get(0))
+            .unwrap();
+    assert!(!message.contains("hidden"));
+
+    let i = d.prepared(&f).await;
+    *f.answer.borrow_mut() = w::SendResult::Ambiguous {
+        reason: text.clone(),
+    };
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    *f.lookup.borrow_mut() = w::LookupResult::Unknown {
+        reason: text.clone(),
+        candidates: vec![json!({"id":text,"status":text,"amount":text,"at":text,"raw":text})],
+    };
+    w::recover(&d.c, &d.cipher, &f, "rule:1", &FixedClock(now()))
+        .await
+        .unwrap();
+    let status = rules::status(&d.c, 1).unwrap().unwrap();
+    assert_eq!(status.reason, Some(rules::safe_message(&text)));
+    assert_eq!(
+        status.candidates,
+        vec![
+            json!({"id":rules::safe_message(&text),"status":rules::safe_message(&text),"amount":rules::safe_message(&text),"at":rules::safe_message(&text)})
+        ]
+    );
 }
