@@ -255,7 +255,9 @@ impl<'a, T: Transport> Walk<'a, T> {
             fresh += 1;
             let asked = self.transfer_statuses()[self.c.status_page];
             if r.value.get("status").is_some_and(|s| to_i(s) != asked) { continue; }
-            self.transfers.observe(if deposit { "deposits" } else { "withdrawals" }, &r.value)?;
+            let mut observed = r.value.clone();
+            if observed.get("status").is_none() { observed["status"] = json!(asked); }
+            self.transfers.observe(if deposit { "deposits" } else { "withdrawals" }, &observed)?;
             // A success-filtered response also proves completion when the row omits its redundant status.
             if self.c.status_page == 0 { entries.push(transfer(r, deposit)?); }
         }

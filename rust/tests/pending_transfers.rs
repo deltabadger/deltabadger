@@ -4,13 +4,13 @@ use chrono::{DateTime, Duration, Utc};
 use deltabadger::{crypto::Credentials, engine::FixedClock, jobs::Db, sync};
 use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
 use serde_json::{json, Value};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::{Cell, RefCell}, rc::Rc};
 
 const HOUR: i64 = 3_600_000;
 fn now() -> DateTime<Utc> { "2026-09-20T02:00:00Z".parse().unwrap() }
 fn creds() -> Credentials { Credentials { ibkr: None, redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 #[derive(Clone)]
-struct Venue { name: &'static str, rows: Rc<RefCell<Vec<(bool, i64, Value)>>>, requests: Rc<RefCell<Vec<HttpRequest>>> }
+struct Venue { deny_history: Rc<Cell<bool>>, omit_status: Rc<Cell<bool>>, name: &'static str, rows: Rc<RefCell<Vec<(bool, i64, Value)>>>, requests: Rc<RefCell<Vec<HttpRequest>>> }
 fn row(name: &str, deposit: bool, id: &str, at: i64, complete: bool) -> Value {
     let status = match (name, deposit, complete) {
         ("Mexc", true, true) => json!(5), ("Mexc", false, true) => json!(7), ("Mexc", _, false) => json!(1),
@@ -32,11 +32,13 @@ impl Transport for Venue {
         let path = r.path.as_str();
         let transfer = path.to_lowercase().contains("deposit") || path.to_lowercase().contains("withdraw");
         let deposit = path.to_lowercase().contains("deposit");
+        if transfer && self.deny_history.get() { return Ok(HttpResponse { status:400, body:json!({"code":700007,"msg":"No permission"}).to_string() }); }
         let start = ["startTime","startAt","start"].iter().find_map(|k| q(k)).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
         let end = ["endTime","endAt","end"].iter().find_map(|k| q(k)).and_then(|s| s.parse::<i64>().ok()).unwrap_or(i64::MAX);
-        let rows: Vec<Value> = if transfer && !path.contains("internal") {
+        let mut rows: Vec<Value> = if transfer && !path.contains("internal") {
             self.rows.borrow().iter().filter(|(d,t,v)| *d == deposit && (start..=end).contains(t) && q("status").is_none_or(|s| v["status"] == s || v["status"].as_i64().is_some_and(|n| s.parse::<i64>() == Ok(n)))).map(|(_,_,v)| v.clone()).collect()
         } else { vec![] };
+        if self.omit_status.get() { for row in &mut rows { row.as_object_mut().unwrap().remove("status"); } }
         let body = match self.name {
             "Mexc" => if transfer { json!(rows) } else if path.ends_with("account") { json!({"balances":[]}) } else { json!({"symbols":[]}) },
             "Bingx" => if transfer { json!(rows) } else if path.ends_with("balance") { json!({"code":0,"balances":[]}) } else { json!({"code":0,"data":{"symbols":[]}}) },
@@ -67,7 +69,7 @@ async fn run(db: &Db, key: i64, v: &Venue, at: DateTime<Utc>) {
 fn install(name: &'static str) -> (tempfile::TempDir, Db, i64, Venue) {
     let (dir,o,s) = common::install_alpaca();
     o.primary.execute("UPDATE exchanges SET type=?1 WHERE id=?2", rusqlite::params![format!("Exchanges::{name}"),s.exchange_id]).unwrap();
-    (dir,Db::new(o.primary,common::seed::cipher()),s.api_key_id,Venue{name,rows:Rc::default(),requests:Rc::default()})
+    (dir,Db::new(o.primary,common::seed::cipher()),s.api_key_id,Venue{deny_history:Rc::default(),omit_status:Rc::default(),name,rows:Rc::default(),requests:Rc::default()})
 }
 async fn stored(db:&Db) -> Vec<(i64,Value)> {
     db.run(|c,_| {
@@ -120,31 +122,39 @@ async fn mexc_100_day_gap_reads_available_history_and_keeps_a_visible_gap() {
     assert_eq!(first,Some((later-Duration::days(90)).timestamp_millis()),"request every available day, bounded by MEXC retention");
     assert_eq!(stored(&db).await.len(),2,"the 80-day floor must not discard a servable deposit");
     let error:Option<String>=db.run(move |c,_| Ok(c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[key],|r| r.get(0)).unwrap())).await.unwrap();
-    assert!(error.as_ref().is_some_and(|e| e.contains("history gap") && e.contains("2026-09-19 01:00:00") && e.contains("2026-09-30 02:00:00")),"unservable dates must be visible: {error:?}");
+    assert!(error.as_ref().is_some_and(|e| e.contains("history gap") && e.contains("2026-09-20 02:00:00") && e.contains("2026-09-30 02:00:00")),"unservable dates must be visible: {error:?}");
     run(&db,key,&v,later+Duration::days(1)).await;
     let later_error:Option<String>=db.run(move |c,_| Ok(c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[key],|r| r.get(0)).unwrap())).await.unwrap();
     assert_eq!(later_error,error,"a successful later read must not erase a historical gap");
 }
 
-async fn legacy(name: &'static str) {
+async fn legacy(name: &'static str) { legacy_changed(name, false).await; }
+async fn legacy_changed(name: &'static str, changed: bool) {
     let (_dir,db,key,v)=install(name);
     let t=now().timestamp_millis();
     v.rows.borrow_mut().push((true,t,row(name,true,"recent",t,true)));
     run(&db,key,&v,now()).await;
     let old=t-30*HOUR;
-    let raw=row(name,false,"legacy",old,false);
+    let mut raw=row(name,false,"legacy",old,false);
+    if changed { raw["txID"]=json!(""); }
     let tx_id=match name { "Bitrue"|"Bitget"=>Some("withdrawal-legacy"),"Bitvavo"=>None,_=>Some("legacy") };
     let original=db.run(move |c,_| {
         c.execute("INSERT INTO account_transactions (user_id,api_key_id,exchange_id,entry_type,base_currency,base_amount,tx_id,transacted_at,raw_data,created_at,updated_at) SELECT user_id,id,exchange_id,5,'BTC',1,?1,?2,?3,?2,?2 FROM api_keys WHERE id=?4",
             rusqlite::params![tx_id,sync::sql_time(DateTime::from_timestamp_millis(old).unwrap()),raw.to_string(),key]).unwrap();
         Ok(c.last_insert_rowid())
     }).await.unwrap();
-    let completed=row(name,false,"legacy",old,true);
-    v.rows.borrow_mut().push((false,old,completed.clone()));
+    let settled=if changed { t } else { old };
+    let mut completed=row(name,false,"legacy",settled,true);
+    if changed { completed["txID"]=json!("settled-hash"); }
+    v.rows.borrow_mut().push((false,settled,completed.clone()));
     run(&db,key,&v,now()+Duration::hours(1)).await;
     let rows=stored(&db).await;
     assert_eq!(rows.len(),2,"{name}: completion updates an existing pending row");
     assert_eq!(rows.iter().find(|(id,_)| *id==original).unwrap().1,completed,"{name}: old state picked up without resetting the watermark");
+    if changed {
+        let fields:(String,String)=db.run(move |c,_| Ok(c.query_row("SELECT tx_id,transacted_at FROM account_transactions WHERE id=?1",[original],|r| Ok((r.get(0)?,r.get(1)?))).unwrap())).await.unwrap();
+        assert_eq!(fields,("settled-hash".into(),sync::sql_time(now())));
+    }
 }
 macro_rules! legacy_test { ($test:ident,$name:literal) => { #[tokio::test] async fn $test() { legacy($name).await; } }; }
 legacy_test!(mexc_existing_pending,"Mexc");
@@ -214,6 +224,86 @@ async fn mexc_cancellation_releases_the_hold_without_booking_funds() {
     v.rows.borrow_mut()[0].2["status"]=json!(9);
     run(&db,key,&v,now()+Duration::hours(30)).await;
     assert_eq!(stored(&db).await.len(),1);
-    let pending:bool=db.run(move|c,_| Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key=?1)",[format!("rust_sync.pending_transfers:{key}")],|r|r.get(0)).unwrap())).await.unwrap();
+    let pending:bool=db.run(move|c,_| Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key=?1 AND json_extract(value,'$.state.pending') != '{}')",[format!("rust_sync.pending_transfers:{key}")],|r|r.get(0)).unwrap())).await.unwrap();
     assert!(!pending,"a proved terminal state releases the durable hold");
+}
+
+
+#[tokio::test]
+async fn bitrue_statusless_pending_holds_then_statusless_success_releases() {
+    let (_dir,db,key,v)=install("Bitrue");
+    v.omit_status.set(true);
+    let t=now().timestamp_millis()-HOUR;
+    v.rows.borrow_mut().extend([(true,t,row("Bitrue",true,"pending",t,false)),(true,t+HOUR,row("Bitrue",true,"recent",t+HOUR,true))]);
+    run(&db,key,&v,now()).await;
+    let watermark=|db: Db| async move { db.run(move |c,_| Ok(c.query_row("SELECT last_synced_at FROM api_keys WHERE id=?1",[key],|r| r.get::<_,String>(0)).unwrap())).await.unwrap() };
+    assert_eq!(watermark(db.clone()).await,sync::sql_time(DateTime::from_timestamp_millis(t).unwrap()),"status-filtered pending reply holds the watermark");
+    assert_eq!(stored(&db).await.len(),1);
+    v.rows.borrow_mut()[0].2["status"]=json!(1);
+    run(&db,key,&v,now()+Duration::hours(30)).await;
+    assert_eq!(watermark(db.clone()).await,sync::sql_time(now()),"status-filtered success releases the hold");
+    assert_eq!(stored(&db).await.len(),2);
+}
+
+#[tokio::test]
+async fn bybit_legacy_settlement_keeps_identity_when_hash_and_time_change() {
+    legacy_changed("Bybit",true).await;
+}
+
+#[tokio::test]
+async fn mexc_100_daily_empty_reads_cover_an_inactive_account() {
+    let (_dir,db,key,v)=install("Mexc");
+    let t=now().timestamp_millis();
+    v.rows.borrow_mut().push((true,t,row("Mexc",true,"old",t,true)));
+    for day in 0..=100 {
+        run(&db,key,&v,now()+Duration::days(day)).await;
+        let error:Option<String>=db.run(move |c,_| Ok(c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[key],|r|r.get(0)).unwrap())).await.unwrap();
+        assert_eq!(error,None,"day {day}: successful reads cover history even without new transactions");
+        v.requests.borrow_mut().clear();
+    }
+}
+
+static TRANSFER_READS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(vec![]);
+fn transfer_read(event: rusqlite::trace::TraceEvent<'_>) {
+    if let rusqlite::trace::TraceEvent::Stmt(_,sql)=event {
+        if sql.starts_with("SELECT") && sql.contains("raw_data") && sql.contains("FROM account_transactions WHERE api_key_id") {
+            TRANSFER_READS.lock().unwrap().push(sql.into());
+        }
+    }
+}
+#[tokio::test]
+async fn transfer_identity_lookup_preloads_once_per_sync() {
+    let (_dir,db,key,v)=install("Mexc");
+    let t=now().timestamp_millis();
+    for i in 0..100 { v.rows.borrow_mut().push((true,t,row("Mexc",true,&format!("deposit-{i}"),t,true))); }
+    TRANSFER_READS.lock().unwrap().clear();
+    db.run(|c,_| { c.trace_v2(rusqlite::trace::TraceEventCodes::SQLITE_TRACE_STMT,Some(transfer_read)); Ok(()) }).await.unwrap();
+    run(&db,key,&v,now()).await;
+    db.run(|c,_| { c.trace_v2(rusqlite::trace::TraceEventCodes::empty(),None); Ok(()) }).await.unwrap();
+    assert_eq!(stored(&db).await.len(),100);
+    let reads=TRANSFER_READS.lock().unwrap();
+    assert_eq!(reads.len(),1,"one pending-identity preload, independent of completed transfer count: {reads:?}");
+}
+
+
+#[tokio::test]
+async fn mexc_permission_denials_do_not_cover_history() {
+    let (_dir,db,key,v)=install("Mexc");
+    let t=now().timestamp_millis();
+    v.rows.borrow_mut().push((true,t,row("Mexc",true,"old",t,true)));
+    run(&db,key,&v,now()).await;
+    v.deny_history.set(true);
+    for day in 1..=100 { run(&db,key,&v,now()+Duration::days(day)).await; }
+    let error:Option<String>=db.run(move |c,_| Ok(c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[key],|r|r.get(0)).unwrap())).await.unwrap();
+    assert!(error.is_some_and(|e| e.contains("history gap") && e.contains("2026-09-20 02:00:00")),"denied reads leave an actual gap after the last successful read");
+}
+
+#[tokio::test]
+async fn mexc_daily_coverage_does_not_hide_expired_pending_transfers() {
+    let (_dir,db,key,v)=install("Mexc");
+    let t=now().timestamp_millis();
+    v.rows.borrow_mut().extend([(true,t,row("Mexc",true,"recent",t,true)),(false,t-HOUR,row("Mexc",false,"pending",t-HOUR,false))]);
+    for day in 0..=100 { run(&db,key,&v,now()+Duration::days(day)).await; }
+    let error:Option<String>=db.run(move |c,_| Ok(c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[key],|r|r.get(0)).unwrap())).await.unwrap();
+    assert!(error.is_some_and(|e| e.contains("history gap") && e.contains("2026-09-20 01:00:00")),"unresolved expired transfers still need a statement even when daily reads succeeded");
 }

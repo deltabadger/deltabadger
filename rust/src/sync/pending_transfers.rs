@@ -13,15 +13,17 @@ pub(super) struct State {
     pending: BTreeMap<String, i64>,
     coins: BTreeMap<String, String>,
     gaps: Vec<(i64, i64)>,
+    covered: BTreeMap<String, Vec<(i64, i64)>>,
     finalized: BTreeMap<String, (String, Value)>,
 }
 impl State {
-    fn of(v: &Value) -> Option<Self> { Some(Self { pending: serde_json::from_value(v["pending"].clone()).ok()?, coins: serde_json::from_value(v["coins"].clone()).unwrap_or_default(), gaps: serde_json::from_value(v["gaps"].clone()).ok()?, finalized: serde_json::from_value(v["finalized"].clone()).unwrap_or_default() }) }
-    fn json(&self) -> Value { serde_json::json!({"pending":self.pending,"coins":self.coins,"gaps":self.gaps,"finalized":self.finalized}) }
+    fn of(v: &Value) -> Option<Self> { Some(Self { covered: serde_json::from_value(v["covered"].clone()).unwrap_or_default(), pending: serde_json::from_value(v["pending"].clone()).ok()?, coins: serde_json::from_value(v["coins"].clone()).unwrap_or_default(), gaps: serde_json::from_value(v["gaps"].clone()).ok()?, finalized: serde_json::from_value(v["finalized"].clone()).unwrap_or_default() }) }
+    fn json(&self) -> Value { serde_json::json!({"covered":self.covered,"pending":self.pending,"coins":self.coins,"gaps":self.gaps,"finalized":self.finalized}) }
 }
 #[derive(Clone, Default)]
 pub(super) struct Watch {
     state: Arc<Mutex<State>>,
+    pub(super) legacy: Legacy,
     venue: String,
     fallback: i64,
     floor: Option<i64>,
@@ -79,40 +81,82 @@ fn anonymous(venue: &str, source: &str, raw: &Value) -> String {
     // Some APIs expose no record id or hash while pending. Use the immutable event fields, never its status/fee.
     format!("{source}:{}", serde_json::json!([at(venue,source,raw),raw["coin"],raw["symbol"],raw["currency"],raw["amount"],raw["size"],raw["address"]]))
 }
+/// One scan per sync, shared by settlement and terminal-failure cleanup. Stable venue ids are
+/// independent of the hash and timestamp assigned at settlement. The map contains only pending rows.
+#[derive(Clone, Default)]
+pub(super) struct Legacy(Arc<BTreeMap<String, (i64, i64)>>);
+fn supported(venue: &str) -> bool { ["Mexc","Bingx","Bitrue","Bitvavo","Bitget","Bybit","Kucoin"].contains(&name(venue)) }
+impl Legacy {
+    pub fn load(c: &Connection, key: &Key) -> Result<Self, SyncError> {
+        let mut pending = BTreeMap::new();
+        if !supported(&key.exchange_type) { return Ok(Self(Arc::new(pending))); }
+        let mut s = c.prepare("SELECT id,entry_type,transacted_at,raw_data,description FROM account_transactions WHERE api_key_id=?1 AND entry_type IN (4,5)")?;
+        for row in s.query_map([key.id],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?)))? {
+            let (id,kind,time,raw,description) = row?;
+            let Ok(raw) = serde_json::from_str::<Value>(&raw) else { continue };
+            let source = source(&key.exchange_type,kind,&raw,description.as_deref());
+            if final_state(&key.exchange_type,source,&raw) == Some(false) {
+                if let Some(t) = at(&key.exchange_type,source,&raw).or_else(|| super::binance_ledger::apply_time(&time).map(|t| t.timestamp_millis())) {
+                    pending.insert(identity(&key.exchange_type,source,&raw), (id,t));
+                }
+            }
+        }
+        Ok(Self(Arc::new(pending)))
+    }
+    fn row(&self, venue: &str, source: &str, raw: &Value) -> Option<i64> {
+        self.0.get(&identity(venue,source,raw)).or_else(|| self.0.get(&anonymous(venue,source,raw))).map(|&(id,_)| id)
+    }
+}
+fn merge(ranges: &mut Vec<(i64,i64)>, mut range: (i64,i64)) {
+    ranges.retain(|&(a,b)| {
+        if a <= range.1.saturating_add(1) && b.saturating_add(1) >= range.0 { range=(range.0.min(a),range.1.max(b)); false } else { true }
+    });
+    ranges.push(range);
+    ranges.sort_unstable();
+}
+/// Subtract completed reads from the expired interval. Adjacent millisecond windows cover it continuously.
+fn uncovered(mut from: i64, to: i64, covered: &[(i64,i64)]) -> Vec<(i64,i64)> {
+    let mut gaps = vec![];
+    for &(a,b) in covered {
+        if from >= to { break; }
+        if a > from.saturating_add(1) { gaps.push((from,a.min(to))); }
+        from = from.max(b);
+    }
+    if from < to { gaps.push((from,to)); }
+    gaps
+}
 impl Watch {
     pub fn load(c: &Connection, key: &Key, stamp: &Value, start: Option<DateTime<Utc>>, now: DateTime<Utc>, cursor: Option<&Value>) -> Result<Self, SyncError> {
-        if !["Mexc","Bingx","Bitrue","Bitvavo","Bitget","Bybit","Kucoin"].contains(&name(&key.exchange_type)) { return Ok(Self::default()); }
+        if !supported(&key.exchange_type) { return Ok(Self::default()); }
         let saved: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key=?1",[config(key.id)],|r| r.get(0)).optional()?;
         let saved: Value = saved.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
         let mut state: State = if crate::engine::model::stamp_current_for(&saved["credential_origin"],stamp).is_fresh() {
             State::of(&saved["state"]).unwrap_or_default()
         } else { State::default() };
         if let Some(v) = cursor.and_then(|v| v.get("_pending_transfers")) { state = State::of(v).ok_or_else(|| SyncError("unreadable pending transfer checkpoint".into()))?; }
-        // Existing installs need no migration: scan the original venue state in stored transfer rows.
+        let legacy = Legacy::load(c,key)?;
+        // Resume the checkpoint's observations; otherwise discover legacy pending rows once.
         if cursor.and_then(|c| c.get("_pending_transfers")).is_none() {
-            let mut s = c.prepare("SELECT entry_type,transacted_at,raw_data,description FROM account_transactions WHERE api_key_id=?1 AND entry_type IN (4,5)")?;
-            for row in s.query_map([key.id],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,Option<String>>(3)?)))? {
-                let (kind,time,raw,description) = row?;
-                let Ok(raw) = serde_json::from_str::<Value>(&raw) else { continue };
-                let source = source(&key.exchange_type,kind,&raw,description.as_deref());
-                if final_state(&key.exchange_type,source,&raw) == Some(false) {
-                    if let Some(t) = at(&key.exchange_type,source,&raw).or_else(|| super::binance_ledger::apply_time(&time).map(|t| t.timestamp_millis())) {
-                        state.pending.entry(identity(&key.exchange_type,source,&raw)).or_insert(t);
-                    }
-                }
-            }
+            for (id,&(_,time)) in legacy.0.iter() { state.pending.entry(id.clone()).or_insert(time); }
         }
         let floor = match name(&key.exchange_type) { "Mexc" => Some(now-Duration::days(90)), "Bybit" => Some(now-Duration::days(super::bybit_ledger::HISTORY_DAYS)), _ => None }.map(|t| t.timestamp_millis());
         if let Some(floor) = floor {
-            let missing = start.filter(|_| name(&key.exchange_type) == "Mexc").map(|s| s.timestamp_millis()).into_iter().chain(state.pending.values().copied()).min();
-            if let Some(from) = missing.filter(|from| *from < floor) {
-                // Coalesce overlapping warnings; keep them after a later successful sync.
-                let mut gap = (from,floor);
-                state.gaps.retain(|&(a,b)| { if a <= gap.1 && b >= gap.0 { gap=(gap.0.min(a),gap.1.max(b)); false } else { true } });
-                state.gaps.push(gap);
+            if name(&key.exchange_type) == "Mexc" {
+                let from = start.map(|s| s.timestamp_millis()).or_else(|| state.covered.values().flatten().map(|&(a,_)| a).min());
+                if let Some(from) = from.filter(|from| *from < floor) {
+                    for source in ["deposits","withdrawals"] {
+                        for gap in uncovered(from,floor,state.covered.get(source).map_or(&[],Vec::as_slice)) { merge(&mut state.gaps,gap); }
+                    }
+                }
             }
+            if let Some(from) = state.pending.values().copied().min().filter(|from| *from < floor) { merge(&mut state.gaps,(from,floor)); }
         }
-        Ok(Self { state:Arc::new(Mutex::new(state)),venue:key.exchange_type.clone(),fallback:start.unwrap_or(now).timestamp_millis(),floor })
+        Ok(Self { legacy,state:Arc::new(Mutex::new(state)),venue:key.exchange_type.clone(),fallback:start.unwrap_or(now).timestamp_millis(),floor })
+    }
+    /// Called only after all pages of a transfer window were read and normalized successfully.
+    /// Coverage rides the same checkpoint as the rows, including empty windows and resumed reads.
+    pub fn covered(&self, source: &str, from: i64, to: i64) {
+        merge(self.state.lock().expect("pending transfer state").covered.entry(source.into()).or_default(),(from,to));
     }
     pub fn observe(&self, source: &str, raw: &Value) -> Result<(), Fail> { self.observe_from(source, raw, self.fallback) }
     pub fn observe_from(&self, source: &str, raw: &Value, fallback: i64) -> Result<(), Fail> {
@@ -145,38 +189,35 @@ impl Watch {
         if state.gaps.is_empty() { return None; }
         Some(format!("Transfer history gap: the venue can no longer serve {}. Import an account statement for this interval.",state.gaps.iter().filter_map(|&(a,b)| Some(format!("{} to {}",sql_time(DateTime::from_timestamp_millis(a)?),sql_time(DateTime::from_timestamp_millis(b)?)))).collect::<Vec<_>>().join(", ")))
     }
-    pub fn save(c: &Connection, key: &Key, stamp: &Value, cursor: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
+    pub fn save(&self, c: &Connection, key: &Key, stamp: &Value, cursor: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
         let Some(mut state) = State::of(&cursor["_pending_transfers"]) else { return Ok(()) };
         // Terminal failures have no bookable Entry. Refresh a legacy row's state too, so it is not rediscovered as pending.
-        for (id, (source, raw)) in &state.finalized {
-            let mut rows = c.prepare("SELECT id,raw_data FROM account_transactions WHERE api_key_id=?1 AND entry_type=?2")?;
-            let rows = rows.query_map(params![key.id,if source == "withdrawals" { 5 } else { 4 }],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
-            for (stored, old) in rows {
-                if let Ok(old) = serde_json::from_str::<Value>(&old) {
-                    if final_state(&key.exchange_type,source,&old) == Some(false) && (identity(&key.exchange_type,source,&old) == *id || identity(&key.exchange_type,source,&old) == anonymous(&key.exchange_type,source,raw)) {
-                        c.execute("UPDATE account_transactions SET raw_data=?1,updated_at=?2 WHERE id=?3",params![raw.to_string(),sql_time(now),stored])?;
-                    }
+        for (source, raw) in state.finalized.values() {
+            if let Some(stored) = self.legacy.row(&key.exchange_type,source,raw) {
+                if pending_row(c,stored,&key.exchange_type,source)? {
+                    c.execute("UPDATE account_transactions SET raw_data=?1,updated_at=?2 WHERE id=?3",params![raw.to_string(),sql_time(now),stored])?;
                 }
             }
         }
         state.finalized.clear();
-        if state.pending.is_empty() && state.gaps.is_empty() { c.execute("DELETE FROM app_configs WHERE key=?1",[config(key.id)])?; return Ok(()); }
+        if state.pending.is_empty() && state.gaps.is_empty() && state.covered.is_empty() { c.execute("DELETE FROM app_configs WHERE key=?1",[config(key.id)])?; return Ok(()); }
         let value=serde_json::json!({"credential_origin":stamp,"state":state.json()});
         c.execute("INSERT INTO app_configs (key,value,created_at,updated_at) VALUES (?1,?2,?3,?3) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",params![config(key.id),value.to_string(),sql_time(now)])?; Ok(())
     }
 }
+fn pending_row(c: &Connection, id: i64, venue: &str, source: &str) -> Result<bool,SyncError> {
+    let raw: Option<String> = c.query_row("SELECT raw_data FROM account_transactions WHERE id=?1",[id],|r|r.get(0)).optional()?;
+    Ok(raw.and_then(|raw| serde_json::from_str::<Value>(&raw).ok()).is_some_and(|raw| final_state(venue,source,&raw)==Some(false)))
+}
 /// Only a nonfinal row with the same venue identity may be replaced; manual fields and links remain on its row.
-pub(super) fn existing(c: &Connection, key: &Key, e: &Entry) -> Result<Option<i64>,SyncError> {
+pub(super) fn existing(c: &Connection, key: &Key, e: &Entry, legacy: &Legacy) -> Result<Option<i64>,SyncError> {
     if ![4,5].contains(&e.entry_type) { return Ok(None); }
     let source=source(&key.exchange_type,e.entry_type,&e.raw.value,e.description.as_deref());
-    if final_state(&key.exchange_type,source,&e.raw.value) != Some(true) { return Ok(None); }
-    let id=identity(&key.exchange_type,source,&e.raw.value);
-    let mut s=c.prepare("SELECT id,raw_data FROM account_transactions WHERE api_key_id=?1 AND entry_type=?2 AND (tx_id=?3 OR transacted_at=?4)")?;
-    for row in s.query_map(params![key.id,e.entry_type,e.tx_id,e.transacted_at.map(sql_time)],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))? {
-        let (stored,raw)=row?;
-        if let Ok(raw)=serde_json::from_str::<Value>(&raw) {
-            if final_state(&key.exchange_type,source,&raw)==Some(false) && (identity(&key.exchange_type,source,&raw)==id || identity(&key.exchange_type,source,&raw)==anonymous(&key.exchange_type,source,&e.raw.value)) { return Ok(Some(stored)); }
-        }
+    // Bitrue's bookable entries come from success-filtered requests; status is redundant there.
+    let statusless_bitrue = name(&key.exchange_type)=="Bitrue" && e.raw.value.get("status").is_none();
+    if final_state(&key.exchange_type,source,&e.raw.value) != Some(true) && !statusless_bitrue { return Ok(None); }
+    if let Some(id) = legacy.row(&key.exchange_type,source,&e.raw.value) {
+        if pending_row(c,id,&key.exchange_type,source)? { return Ok(Some(id)); }
     }
     Ok(None)
 }

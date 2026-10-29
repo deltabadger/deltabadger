@@ -269,6 +269,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         let k = key.clone();
         phase(db, move |c| Ok(Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![])))).await?
     };
+    progress.pending = Some(transfers.legacy.clone());
     progress.kraken_repair = W::KRAKEN_REPAIR.then(|| version.cache_stamp());
     let stamp = Arc::new(version.cache_stamp());
     progress.stored.extend(record.ours.iter().flat_map(|&(a, b)| a..=b));
@@ -286,13 +287,13 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         r.stalls = 0;
         r.max_seen = [r.max_seen, rows.iter().filter_map(|e| e.transacted_at).max()].into_iter().flatten().max();
         r.units = budget.millis();
-        let (k, p, st) = (key.clone(), progress.over(Arc::new(rows)), stamp.clone());
+        let (k, p, st, observed) = (key.clone(), progress.over(Arc::new(rows)), stamp.clone(), transfers.clone());
         let (p, r) = budget.timed(units, super::commit_for(db, version, move |c| {
             let mut r = r;
             let to = p.batch.len();
             let p = ledger::store(c, &k, 0..to, None, p, now)?;
             checkpoint(c, &k, &r.cursor, &st, now)?;
-            super::pending_transfers::Watch::save(c, &k, &st, &r.cursor, now)?;
+            observed.save(c, &k, &st, &r.cursor, now)?;
             // The store's dedup state after this page, verbatim.
             r.ours = id_runs(&p.stored);
             r.repeats = p.repeats.iter().filter(|(_, n)| **n > 0).map(|(k, n)| (k.clone(), *n)).collect();
@@ -329,7 +330,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     let finished_key = key.clone();
     super::commit_for(db, version, move |c| {
         checkpoint(c, &finished_key, &done_cursor, &stamp, now)?;
-        super::pending_transfers::Watch::save(c, &finished_key, &stamp, &done_cursor, now)?;
+        transfers.save(c, &finished_key, &stamp, &done_cursor, now)?;
         super::cache::record_ledger(c, key_id, &producer, now)?;
         if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = ?4, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id, warning])?; }
         c.execute("DELETE FROM app_configs WHERE key = ?1", [record_key(key_id)])?;

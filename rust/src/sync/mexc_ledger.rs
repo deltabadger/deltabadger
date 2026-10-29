@@ -261,7 +261,8 @@ impl<'a, T: Transport> Walk<'a, T> {
             return Ok(vec![]);
         }
         if !self.ranges.is_empty() { return Ok(vec![]); }
-        self.window = (self.window + TRANSFER_RANGE_MS).min(self.now_ms) + 1;
+        let covered = (self.window, (self.window + TRANSFER_RANGE_MS).min(self.now_ms));
+        self.window = covered.1 + 1;
         let mut rows = vec![];
         for raw in self.take_pending("MEXC transfer")? {
             self.transfers.observe(if deposits { "deposits" } else { "withdrawals" }, &raw.value)?;
@@ -270,6 +271,7 @@ impl<'a, T: Transport> Walk<'a, T> {
                 rows.push(e);
             }
         }
+        self.transfers.covered(if deposits { "deposits" } else { "withdrawals" }, covered.0, covered.1);
         Ok(rows)
     }
 
