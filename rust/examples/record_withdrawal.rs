@@ -126,9 +126,6 @@ impl Options {
     }
 }
 fn require_g0(class: &str) -> Result<(), String> {
-    if class == "Exchanges::Gemini" {
-        return Err("Gemini recorder requires E3 feeEstimate bootstrap".into());
-    }
     if !w::G0_ADAPTERS.contains(&class) {
         return Err("withdrawal adapter has no G0 evidence; recording refused".into());
     }
@@ -615,6 +612,11 @@ async fn run() -> Result<(), String> {
             credentials.secret.clone(),
         )
         .kraken(),
+        "Exchanges::Gemini" => ReqwestTransport::gemini(
+            client.clone(),
+            credentials.key.clone(),
+            credentials.secret.clone(),
+        ),
         _ => return Err("unsupported recorder adapter".into()),
     }
     .with_sensitive_values(credentials.redaction_values.clone());
@@ -670,6 +672,14 @@ async fn run() -> Result<(), String> {
         }
         "Exchanges::Kraken" => {
             execute!(venue::kraken::KrakenVenue::new(transport).with_identity(&credentials))
+        }
+        "Exchanges::Gemini" => {
+            execute!(
+                venue::gemini::GeminiVenue::new(transport, row.base)
+                    .with_pairs(venue::binance::Pairs::load(&opened.primary, options.spec.exchange_id)
+                        .map_err(|_| "cannot load Gemini asset mappings")?)
+                    .with_identity(&credentials)
+            )
         }
         _ => Err("unsupported recorder adapter".into()),
     }
@@ -1050,9 +1060,9 @@ mod tests {
     }
 
     #[test]
-    fn adapter_requires_g0_and_gemini_requires_e3() {
+    fn adapter_requires_g0_including_gemini() {
         assert!(require_g0("Exchanges::Unknown").is_err());
-        assert!(require_g0("Exchanges::Gemini").unwrap_err().contains("E3"));
+        assert!(require_g0("Exchanges::Gemini").is_ok());
         for row in deltabadger::venue::registry::ROWS.iter() {
             if !w::G0_ADAPTERS.contains(&row.exchange_type) {
                 assert!(require_g0(row.exchange_type).is_err());

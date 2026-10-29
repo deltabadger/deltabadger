@@ -579,7 +579,7 @@ impl<T: Transport> KrakenVenue<T> {
             reason: "Kraken withdrawal reply is unconfirmed".into(),
         };
         let Destination::Kraken { asset, key, address, .. } = &r.destination else {
-            return unknown();
+            return SendResult::NotSent { reason: "the withdrawal destination is not Kraken's; not sent".into() };
         };
         let fields = [
             ("asset", asset.clone()),
@@ -591,7 +591,7 @@ impl<T: Transport> KrakenVenue<T> {
         // The absolute bound on the send, as add_order's: the request's creation + E0's send window, plus the request
         // budget. Past it the transport refuses before signing, which proves nothing was sent.
         let Ok(created) = crate::codec::parse_time(&r.created_at) else {
-            return SendResult::Rejected { definitive: true, reason: "the withdrawal request has no readable creation time; not sent".into() };
+            return SendResult::NotSent { reason: "the withdrawal request has no readable creation time; not sent".into() };
         };
         let not_after = created
             + chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS)
@@ -601,7 +601,7 @@ impl<T: Transport> KrakenVenue<T> {
         let response = match self.transport.send_limited(&request, 64 * 1024).await {
             Ok(response) => response,
             Err(TransportError::NotSent(_)) => {
-                return SendResult::Rejected { definitive: true, reason: "past the withdrawal send window; not sent".into() }
+                return SendResult::NotSent { reason: "the withdrawal request was not sent".into() }
             }
             Err(_) => return unknown(),
         };
@@ -631,7 +631,7 @@ impl<T: Transport> KrakenVenue<T> {
             }
             return SendResult::Rejected {
                 definitive: true,
-                reason: rules::safe_message(errors[0].as_str().expect("validated error")),
+                reason: response.body,
             };
         }
         if !(200..300).contains(&response.status) {
@@ -861,7 +861,7 @@ mod withdrawal_wire_tests {
             + chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS) + chrono::Duration::seconds(45)),
             "the send carries add_order's absolute bound");
         let unreadable = Request { created_at: "not a time".into(), ..request.clone() };
-        assert!(matches!(venue.withdraw(&unreadable).await, crate::engine::withdrawal::SendResult::Rejected { definitive: true, .. }));
+        assert!(matches!(venue.withdraw(&unreadable).await, crate::engine::withdrawal::SendResult::NotSent { .. }));
         assert_eq!(t.requests().len(), 1, "an unreadable creation time sends nothing");
         let signed = sign::request(
             Wire::Kraken,
