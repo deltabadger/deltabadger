@@ -882,7 +882,7 @@ async fn one_read_and_capped(history: &[Value], pages: usize) -> (String, String
 /// legs that are neighbours after it has dropped the cancelled activities, so the stop is decided on that sequence;
 /// only the group the run ends in waits for the next run; and a run that holds nothing but one group reads on to its end.
 #[tokio::test(flavor = "current_thread")]
-async fn a_capped_run_never_parts_what_rails_would_merge_and_always_moves_on() {
+async fn a_capped_run_reconciles_split_legs_and_always_moves_on() {
     let ints = |prefix: &str, n: usize| -> Vec<Value> { (0..n).map(|i| interest(&format!("{prefix}-{i:03}"), "2026-09-01")).collect() };
     let leg = |id: &str, symbol: &str, qty: &str, date: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": symbol, "qty": qty, "date": date });
     let cancelled = |id: &str, kind: &str| json!({ "id": id, "activity_type": kind, "symbol": "AAPL", "asset_class": "us_equity", "qty": "999", "net_amount": "1", "date": "2026-09-15", "status": "canceled" });
@@ -908,15 +908,20 @@ async fn a_capped_run_never_parts_what_rails_would_merge_and_always_moves_on() {
         ("three legs, cancelled activities among them, the cap after the second", 96,
          vec![leg("s-remove", "AAPL", "-10", day), cancelled("c-1", "INT"), leg("s-add", "AAPL", "15", day), cancelled("c-2", "FEE"), leg("s-add-2", "AAPL", "15", day)],
          r#""merged_activity_ids":["s-remove","s-add","s-add-2"],"split_ratio":"3:1""#),
-        ("a cancelled FILL between the legs: a trade is never dropped, so Rails does not merge them either", 98,
-         vec![leg("s-remove", "AAPL", "-10", day), cancelled_fill.clone(), leg("s-add", "AAPL", "20", day)], "s-remove -10 2026-09-15 00:00:00 Split (AAPL) "),
-        ("another symbol's leg between them", 98, vec![leg("s-remove", "AAPL", "-10", day), leg("k-remove", "KLAC", "-5", day), leg("s-add", "AAPL", "20", day)], "s-add 20 2026-09-15 00:00:00 Split (AAPL) "),
+        ("a cancelled FILL between the legs: retained, but no longer separates the split", 98,
+         vec![leg("s-remove", "AAPL", "-10", day), cancelled_fill.clone(), leg("s-add", "AAPL", "20", day)], merged),
+        ("another symbol's leg between them", 98, vec![leg("s-remove", "AAPL", "-10", day), leg("k-remove", "KLAC", "-5", day), leg("s-add", "AAPL", "20", day)], merged),
         ("the same symbol on the next date", 99, vec![leg("s-remove", "AAPL", "-10", day), leg("s-add", "AAPL", "20", "2026-09-16")], "s-add 20 2026-09-16 00:00:00 Split (AAPL) "),
         ("a cancelled activity as the last of the run, after an ordinary one", 99, vec![cancelled("c-1", "INT"), leg("s-remove", "AAPL", "-10", day), leg("s-add", "AAPL", "20", day)], merged),
     ];
     for (what, before, middle, stored) in cases {
         let (whole, capped, _, _) = one_read_and_capped(&around(before, middle), 1).await;
-        assert_eq!(capped, whole, "{what}");
+        if what.starts_with("a cancelled FILL") || what == "another symbol's leg between them" {
+            // D-ALPACA-SPLIT-GROUPING: the capped read updates a partial group. The
+            // final rows match one read; the two committed versions each invalidate metrics.
+            assert!(capped.ends_with("counters 2") && whole.ends_with("counters 1"));
+            assert_eq!(capped.trim_end_matches("counters 2"),whole.trim_end_matches("counters 1"),"{what}");
+        } else { assert_eq!(capped, whole, "{what}"); }
         assert!(whole.contains(stored), "{what}: {whole}");
     }
 
@@ -1871,4 +1876,121 @@ async fn a_recorded_ledger_success_wakes_the_engine_and_a_failure_does_not() {
         let woken = tokio::time::timeout(std::time::Duration::ZERO, wake.notified()).await.is_ok();
         assert_eq!(woken, wakes, "{:?}", record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id));
     }
+}
+
+/// D-ALPACA-SPLIT-GROUPING: sync real activities, then walk the stored adjustments through
+/// the tracker quantity rules and the FIFO engine shared with tax. Half the final position
+/// must still carry half the original $900 basis and the original acquisition date.
+async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_rows: i64) {
+    use deltabadger::{figures::{at::At, dec::Dec}, tracker::{rows::Kind, walk::{self, Engine, Row}}};
+    let (_dir, db, s) = install();
+    for batch in &batches {
+        let (_, v) = venue(json!({ACTIVITIES: [ok(json!(batch))]}));
+        ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    }
+    let mut expected_legs = std::collections::BTreeMap::new();
+    for leg in batches.iter().flatten().filter(|a|a["activity_type"]=="SPLIT") {
+        let mut normalized=leg.clone(); normalized["corporate_action"]=json!("split");
+        expected_legs.insert(leg["id"].as_str().unwrap().to_string(),normalized);
+    }
+    let retained=one::<String>(&db,"SELECT json_group_array(raw_data) FROM account_transactions WHERE entry_type=15").await;
+    let mut actual_legs=std::collections::BTreeMap::new();
+    for raw in serde_json::from_str::<Vec<String>>(&retained).unwrap() {
+        let raw:Value=serde_json::from_str(&raw).unwrap();
+        for text in raw["rust_split_legs"].as_array().unwrap() {
+            let leg:Value=serde_json::from_str(text.as_str().unwrap()).unwrap();
+            assert!(actual_legs.insert(leg["id"].as_str().unwrap().to_string(),leg).is_none());
+        }
+    }
+    assert_eq!(actual_legs,expected_legs,"every leg's latest complete payload survives");
+    let snapshot = one::<String>(&db, "SELECT json_group_array(json_array(id,base_amount,raw_data,updated_at)) FROM account_transactions WHERE entry_type=15 ORDER BY id").await;
+    let (_, v) = venue(json!({ACTIVITIES: [ok(json!(batches.last().unwrap()))]}));
+    let repeat = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!(repeat.imported, 0, "an identical replay changes nothing");
+    assert_eq!(snapshot, one::<String>(&db, "SELECT json_group_array(json_array(id,base_amount,raw_data,updated_at)) FROM account_transactions WHERE entry_type=15 ORDER BY id").await);
+    assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions WHERE entry_type=15").await, expected_rows);
+    let amounts = db.run(|c, _| {
+        let mut q = c.prepare("SELECT CAST(base_amount AS TEXT) FROM account_transactions WHERE entry_type=15 ORDER BY transacted_at,id").map_err(|e|e.to_string())?;
+        let amounts = q.query_map([], |r| r.get::<_,String>(0)).map_err(|e|e.to_string())?.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string());
+        amounts
+    }).await.unwrap();
+    let dec = |s: &str| Dec::parse(s).unwrap();
+    let acquired = At::from_sql("2026-09-01T12:00:00Z").unwrap();
+    let row = |uid, kind, amount: Dec, fiat_value: Dec, at| Row {
+        uid, kind, base:"AAPL".into(), amount, fiat_value, at, quote:Some("USD".into()), quote_amount:None,
+        fee_fiat_value:Dec::zero(), fee_currency:None, fee_amount:None, group:None, price_missing:false,
+        value_missing:Some(false), exchange:"alpaca".into(), linked:false, transfer_fee:None, swap_fiat_cost:None,
+        swap_stable_cost:None, per_share:None, to_exchange:None, orphan:false, opening:false,
+    };
+    let mut rows = vec![row(0,Kind::Buy,dec("10"),dec("900"),acquired)];
+    let mut held = dec("10");
+    for amount in amounts {
+        let amount = dec(&amount);
+        let moves = walk::quantity_moves(Kind::Adjustment,"AAPL",&amount,None,None,false,None).unwrap();
+        held = (&held + &moves[0].1).unwrap();
+        rows.push(row(rows.len(),Kind::Adjustment,amount,Dec::zero(),At::from_sql("2026-09-15T00:00:00Z").unwrap()));
+    }
+    assert_eq!(held,dec(expected),"holdings from the stored ledger");
+    let half = held.div(&dec("2")).unwrap();
+    rows.push(row(rows.len(),Kind::Sell,half.clone(),dec("700"),At::from_sql("2026-09-19T12:00:00Z").unwrap()));
+    let mut engine = Engine::new(true);
+    engine.calculate(&rows).unwrap();
+    assert_eq!(engine.disposals.len(),1);
+    let disposal = &engine.disposals[0];
+    assert_eq!(disposal.amount,half);
+    assert_eq!(disposal.cost_basis,dec("450"));
+    assert_eq!(disposal.acquired,Some(acquired));
+    assert!(!engine.uncovered);
+}
+fn event_split(id: &str, qty: &str, event: &str) -> Value {
+    let mut leg = split(id,qty);
+    leg["corporate_action_id"] = json!(event);
+    leg
+}
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_same_date_double_split() {
+    split_grouping_case(vec![vec![event_split("a","-10","one"),event_split("b","20","one"),
+        event_split("c","-20","two"),event_split("d","60","two")]],"60",2).await;
+}
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_late_third_leg() {
+    split_grouping_case(vec![vec![split("a","-10"),split("b","15")],vec![split("c","15")]],"30",1).await;
+}
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_interleaved_legs() {
+    split_grouping_case(vec![vec![split("a","-10"),interest("between","2026-09-15"),split("b","20")]],"20",1).await;
+}
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_corrected_leg() {
+    split_grouping_case(vec![vec![split("a","-10"),split("b","20")],vec![split("b","30")]],"30",1).await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_unidentified_events_keep_net_without_inventing_a_ratio() {
+    split_grouping_case(vec![vec![split("a","-10"),split("b","20"),split("c","-20"),split("d","60")]],"60",1).await;
+    let (_dir, db, s) = install();
+    let (_, v) = venue(json!({ACTIVITIES:[ok(json!([split("a","-10"),split("b","20"),split("c","-20"),split("d","60")]))]}));
+    ledger::sync(&db,&v,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
+    assert_eq!(one::<i64>(&db,"SELECT count(*) FROM account_transactions WHERE json_extract(raw_data,'$.split_ratio') IS NOT NULL").await,0);
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_group_id_and_interleaved_events_survive_separate_syncs() {
+    let leg = |id,qty,event| { let mut v=split(id,qty); v["group_id"]=json!(event); v };
+    split_grouping_case(vec![vec![leg("a","-10","one"),leg("c","-20","two"),leg("b","20","one")],
+        vec![leg("d","60","two"),leg("b","20","one"),leg("a","-10","one")]],"60",2).await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_does_not_repair_legacy_aggregates() {
+    let (_dir, db, s) = install();
+    let (_,v)=venue(json!({ACTIVITIES:[ok(json!([split("a","-10"),split("b","20")]))]}));
+    ledger::sync(&db,&v,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
+    db.run(|c,_|c.execute("UPDATE account_transactions SET raw_data=json_remove(raw_data,'$.rust_split_legs') WHERE entry_type=15",[]).map(|_|()).map_err(|e|e.to_string())).await.unwrap();
+    let before=one::<String>(&db,"SELECT raw_data FROM account_transactions WHERE entry_type=15").await;
+    let (_,v)=venue(json!({ACTIVITIES:[ok(json!([event_split("c","10","another-event")]))]}));
+    let failure=ledger::sync(&db,&v,s.api_key_id,&paper(),&clock()).await.unwrap_err();
+    assert!(failure.0.contains("historical repair"),"{failure:?}");
+    assert_eq!(before,one::<String>(&db,"SELECT raw_data FROM account_transactions WHERE entry_type=15").await);
+    assert_eq!(one::<i64>(&db,"SELECT count(*) FROM account_transactions WHERE entry_type=15").await,1);
 }

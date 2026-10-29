@@ -208,10 +208,10 @@ pub fn dropped(activity: &Value) -> bool { activity["activity_type"] != "FILL" &
 
 fn split_leg(activity: &Value) -> bool { activity["activity_type"].as_str().is_some_and(|t| SPLIT_TYPES.contains(&t)) }
 
-/// #merge_split_entries' test between two neighbours (exchanges/alpaca.rb:855-859): both split legs, the same symbol,
-/// the same `date`.
-fn same_split(previous: &Value, current: &Value) -> bool {
-    split_leg(previous) && split_leg(current) && previous["symbol"].as_str() == current["symbol"].as_str() && previous["date"] == current["date"]
+/// Two split legs share a symbol, date and event identity. Missing event identity is
+/// a daily net bucket, not evidence that only one corporate action happened.
+pub(super) fn same_split(previous: &Value, current: &Value) -> bool {
+    split_leg(previous) && split_leg(current) && previous["symbol"].as_str() == current["symbol"].as_str() && previous["date"] == current["date"] && split_event(previous) == split_event(current)
 }
 
 /// The group #merge_split_entries would be building at the end of these activities: where its first leg stands, and
@@ -242,27 +242,46 @@ pub fn leading_split(activities: &[Raw]) -> usize {
     legs
 }
 
-/// #merge_split_entries, exactly: split legs of one symbol and one `date` that are consecutive in the read become
-/// the first leg, carrying the net share delta, every leg's id and the ratio. Legs that are not neighbours stay apart,
-/// as in Rails (its defects with splits are listed in the plan and ported as they are). `Err`: a group whose ratio is
-/// not a number this port can reduce (Ruby raises FloatDomainError on one that is not finite), which fails the sync.
-pub fn merge_splits(entries: Vec<Entry>) -> Result<Vec<Entry>, String> {
+/// D-ALPACA-SPLIT-GROUPING: activity IDs identify legs, not corporate actions. Prefer the
+/// event ID; some NTA payloads expose only group_id. Without either, retain a daily net
+/// adjustment and do not claim a ratio if multiple removals could represent separate events.
+fn split_event(raw: &Value) -> Option<(&str, &str)> {
+    ["corporate_action_id", "group_id"].into_iter().find_map(|key|
+        raw[key].as_str().filter(|s| !s.trim().is_empty()).map(|id| (key, id)))
+}
+
+pub fn merge_splits(entries: Vec<Entry>) -> Result<Vec<Entry>, String> { merge_splits_with_legs(entries, false) }
+
+/// Retain original leg texts, not nested objects: an activity at the parser's nesting limit
+/// remains readable when stored. Each leg is replaceable by activity ID on a later sync.
+pub(super) fn merge_splits_with_legs(entries: Vec<Entry>, retain: bool) -> Result<Vec<Entry>, String> {
+    type SplitKey = (Option<String>, String, Option<(String, String)>);
+    let mut by_event: HashMap<SplitKey, usize> = HashMap::new();
     let mut groups: Vec<Vec<Entry>> = vec![];
     for e in entries {
-        match groups.last_mut() {
-            Some(g) if g.last().is_some_and(|p| same_split(&p.raw.value, &e.raw.value)) => g.push(e),
-            _ => groups.push(vec![e]),
-        }
+        if !split_leg(&e.raw.value) { groups.push(vec![e]); continue; }
+        let key = (text(&e.raw.value["symbol"]), e.raw.value["date"].to_string(), split_event(&e.raw.value).map(|(k,v)|(k.to_string(),v.to_string())));
+        let index = *by_event.entry(key).or_insert_with(|| { groups.push(vec![]); groups.len()-1 });
+        let g = &mut groups[index];
+        if let Some(old) = g.iter_mut().find(|p| e.tx_id.as_ref().is_some_and(|id| !id.is_empty()) && p.tx_id == e.tx_id) { *old = e; }
+        else { g.push(e); }
+        if retain && g.len() > super::ledger::MAX_SPLIT_LEGS { return Err("too many retained legs in an Alpaca split".into()); }
     }
     let mut merged = Vec::with_capacity(groups.len());
-    for mut g in groups {
-        if g.len() == 1 { merged.extend(g.pop()); continue; }
-        let ratio = split_ratio(&g)?;
+    for g in groups {
         let mut first = g[0].clone();
-        first.base_amount = g.iter().fold(BigDec::zero(), |sum, e| &sum + &e.base_amount);
-        if let Some(r) = &ratio { first.description = Some(format!("{} {r}", first.description.clone().unwrap_or_default()).trim_start().to_string()); }
-        first.raw.set_node("merged_activity_ids", Node::Array(g.iter().map(|e| e.raw.member("id").cloned().unwrap_or(Node::Scalar("null".into()))).collect()));
-        if let Some(r) = ratio { first.raw.set("split_ratio", json!(r)); }
+        if g.len() > 1 {
+            let ambiguous = split_event(&first.raw.value).is_none() && g.iter().filter(|e| e.base_amount < BigDec::zero()).count() > 1;
+            let ratio = if ambiguous { None } else { split_ratio(&g)? };
+            first.base_amount = g.iter().fold(BigDec::zero(), |sum, e| &sum + &e.base_amount);
+            if let Some(r) = &ratio { first.description = Some(format!("{} {r}", first.description.clone().unwrap_or_default()).trim_start().to_string()); }
+            first.raw.set_node("merged_activity_ids", Node::Array(g.iter().map(|e| e.raw.member("id").cloned().unwrap_or(Node::Scalar("null".into()))).collect()));
+            if let Some(r) = ratio { first.raw.set("split_ratio", json!(r)); }
+        }
+        if retain && split_leg(&first.raw.value) {
+            if g.iter().any(|e| e.tx_id.as_ref().is_none_or(|id| id.trim().is_empty())) { return Err("a split leg without an activity id".into()); }
+            first.raw.set("rust_split_legs", json!(g.iter().map(|e| e.raw.text()).collect::<Vec<_>>()));
+        }
         merged.push(first);
     }
     Ok(merged)
