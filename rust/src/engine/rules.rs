@@ -17,8 +17,13 @@ pub const FIRED: &str = "rust_rules_fired_at";
 /// Gemini errors (https://docs.gemini.com/error-codes), MEXC spot v3 error-code
 /// (https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code). Rails aliases are in
 /// app/models/exchanges/{binance:3-9,kraken:37,mexc:9-10}. Unknown messages stay ambiguous.
-const DEFINITIVE: &[(&str, &[&str])] = &[
+/// The numeric lists gate E1 wire replies; Rails rows lost their codes and still use messages only.
+const DEFINITIVE: &[(&str, &[i64], &[&str])] = &[
  ("Binance", &[
+  -4006, -4007, -4008, -4012, -4013, -4014, -4015, -4016, -4017, -4018, -4019, -4021, -4022, -4023, -4024, -4025,
+  -4026, -4028, -4033, -4034, -4035, -4036, -4060, -4106, -1002, -1100, -1101, -1102, -1103,
+  -1104, -1105, -1106, -1111, -1128, -1130, -2015, -1021
+ ], &[
   "Support main account only.", "Address validation is not passed.", "Address tag validation is not passed.",
   "White list is not opened.", "2FA is not opened.", "Withdraw is not allowed within 2 min login.", "Withdraw is limited.",
   "Within 24 hours after password modification, withdrawal is prohibited.",
@@ -42,12 +47,15 @@ const DEFINITIVE: &[(&str, &[&str])] = &[
   "Parameter `%s` has too much precision.", "Precision is over the maximum defined for this asset.", "Combination of optional parameters invalid.",
   "Invalid data sent for a parameter.", "Data sent for parameter `%s` is not valid.", "Param `%s` or `%s` must be sent, but both were empty/null!"
  ]),
- ("Kraken", &[
+ ("Kraken", &[], &[
   "EFunding:Max fee exceeded", "EBM:limit exceeded:CAL", "EGeneral:Invalid arguments", "EGeneral:Invalid arguments:%s",
   "EGeneral:Permission denied", "EAPI:Invalid key", "EAPI:Invalid signature", "EAPI:Invalid nonce",
   "EGeneral:Temporary lockout", "EAPI:Insufficient funds", "EOrder:Insufficient funds"
  ]),
  ("Mexc", &[
+  10101, 10212, 10265, 10095, 10096, 10097, 10102, 10222, 10232, 10268, 33333, 44444,
+  400, 401, 602, 10072, 700001, 700002, 700003, 700005, 700006, 700007, 700008, 730002
+ ], &[
   "amount cannot be null", "amount decimal places is too long", "amount is error", "amount cannot be zero or negative", "recvWindow must less than 60000", "Illegal characters found in parameter",
   "Insufficient balance", "This withdrawal address is not on the commonly used address list or has been invalidated",
   "Due to risk control, withdrawal is unavailable, please try again later", "currency cannot be null", "currency does not exist",
@@ -56,7 +64,7 @@ const DEFINITIVE: &[(&str, &[&str])] = &[
   "Timestamp for this request is outside of the recvWindow", "IP non white list", "No permission to access the endpoint",
   "Your input param is invalid", "Parameter error", "Api key info invalid", "Invalid Api-Key ID."
  ]),
- ("Gemini", &[
+ ("Gemini", &[], &[
   "InsufficientFunds", "InvalidSignature", "InvalidApiKey", "InvalidNonce", "MissingRole", "MissingApikeyHeader",
   "MissingPayloadHeader", "MissingSignatureHeader", "MissingPayloadKey", "MissingNonce", "InvalidJson", "EndpointMismatch",
   "EndpointNotFound", "InvalidQuantity", "AccountClosed", "RemoteAddressForbidden"
@@ -83,7 +91,7 @@ pub fn definitive(exchange: &str, error: &str) -> bool {
     } else {
         exchange
     };
-    let Some((_, list)) = DEFINITIVE.iter().find(|(v, _)| *v == exchange) else {
+    let Some((_, _, list)) = DEFINITIVE.iter().find(|(v, _, _)| *v == exchange) else {
         return false;
     };
     if exchange == "Gemini" {
@@ -92,6 +100,14 @@ pub fn definitive(exchange: &str, error: &str) -> bool {
         });
     }
     list.iter().any(|pattern| template_matches(pattern, error))
+}
+/// E1 wire replies retain their numeric code. Require a listed code AND message; Rails-only
+/// pre-send texts cannot turn an unknown venue code into proof of rejection.
+pub(crate) fn definitive_code(exchange: &str, code: i64, message: &str) -> bool {
+    DEFINITIVE.iter().any(|(venue, codes, messages)| {
+        *venue == exchange && codes.contains(&code)
+            && messages.iter().any(|pattern| template_matches(pattern, message))
+    })
 }
 pub fn ambiguous(exchange: &str, message: &str) -> bool {
     if message.starts_with("Unexpected error:") {

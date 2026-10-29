@@ -201,6 +201,13 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
 
     fn rules(&self) -> &'static VenueRules { &RULES }
 
+    async fn withdraw(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult {
+        self.send_withdrawal(request).await
+    }
+    async fn withdrawal_lookup(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::LookupResult {
+        self.lookup_withdrawal(request).await
+    }
+
     /// D-RULE-MEXC-LISTING: GET capital/withdraw/address for `coin`, every page (`page`, `limit`) until `totalPageNum`,
     /// each read as `data[]` (`withdrawal::mexc_page`); more than MEXC_MAX_PAGES pages is refused, never cut short.
     async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, VenueError> {
@@ -349,6 +356,145 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
         let mut params = vec![("symbol", symbol)];
         params.extend(ext.map(|e| ("orderId", e)));
         self.call(&self.signed_now("DELETE", ORDER_PATH, params), false).await.map(|_| ())
+    }
+}
+
+// E1: D-RULE-MEXC-CAPITAL, D-RULE-CLIENT-ID, D-RULE-MEXC-ADDRESSTAG.
+// The replacement endpoint uses the prepared netWork code and memo, never addressTag.
+impl<T: Transport> MexcVenue<T> {
+    async fn send_withdrawal(
+        &self,
+        r: &crate::engine::withdrawal::Request,
+    ) -> crate::engine::withdrawal::SendResult {
+        use super::withdrawal as w;
+        let w::Destination::Mexc {
+            coin,
+            address,
+            network,
+            net_work,
+            memo,
+        } = &r.destination
+        else {
+            return w::capital_not_sent();
+        };
+        let Some(not_after) = w::capital_deadline(r) else {
+            return w::capital_not_sent();
+        };
+        if coin != &r.coin
+            || [coin, address, network, net_work, &r.client_id]
+                .iter()
+                .any(|s| crate::ruby::blank(s))
+            || !BigDec::parse(&r.amount).is_ok_and(|a| a.is_positive())
+        {
+            return w::capital_not_sent();
+        }
+        let mut fields = vec![
+            ("coin", coin.clone()),
+            ("address", address.clone()),
+            ("netWork", net_work.clone()),
+            ("amount", r.amount.clone()),
+            ("withdrawOrderId", r.client_id.clone()),
+        ];
+        fields.extend(memo.clone().map(|memo| ("memo", memo)));
+        let request = HttpRequest {
+            not_after: Some(not_after),
+            ..self.signed_now("POST", "/api/v3/capital/withdraw", fields)
+        };
+        w::capital_send(&self.transport, &request, "Mexc").await
+    }
+
+    /// §3 / r2-9: coin-filtered seven-day windows, without walletType. A full 1000-row
+    /// window is incomplete: discard that page, halve it, and read both inclusive halves.
+    /// Only complete leaves count, and even an exact match waits for all remaining windows.
+    async fn lookup_withdrawal(
+        &self,
+        r: &crate::engine::withdrawal::Request,
+    ) -> crate::engine::withdrawal::LookupResult {
+        use super::withdrawal as w;
+        use crate::engine::withdrawal::LookupResult;
+        let w::Destination::Mexc {
+            coin,
+            address,
+            network,
+            net_work,
+            ..
+        } = &r.destination
+        else {
+            return w::capital_unknown();
+        };
+        if coin != &r.coin
+            || [coin, address, network, net_work, &r.client_id]
+                .iter()
+                .any(|s| crate::ruby::blank(s))
+        {
+            return w::capital_unknown();
+        }
+        let Ok(at) = crate::codec::parse_time(&r.created_at) else {
+            return w::capital_unknown();
+        };
+        let start = at.timestamp_millis() - 60_000;
+        let end = self.transport.now().timestamp_millis();
+        // No truncated read at the retention edge can resolve this intent.
+        if end < start || end - start >= 90 * 86_400_000 {
+            return w::capital_unknown();
+        }
+        let mut windows = vec![];
+        let mut from = start;
+        while from <= end {
+            let to = end.min(from + 7 * 86_400_000 - 1);
+            windows.push((from, to));
+            from = to + 1;
+        }
+        windows.reverse();
+        let mut found = None;
+        // A work bound on pathological halving, never evidence of absence.
+        for _ in 0..1024 {
+            let Some((from, to)) = windows.pop() else {
+                return match found {
+                    Some((id, status)) => LookupResult::Found { id, status },
+                    None => LookupResult::NotFound,
+                };
+            };
+            let request = self.signed_now(
+                "GET",
+                "/api/v3/capital/withdraw/history",
+                vec![
+                    ("coin", coin.clone()),
+                    ("startTime", from.to_string()),
+                    ("endTime", to.to_string()),
+                    ("limit", "1000".into()),
+                ],
+            );
+            let Ok(response) = self.transport.send_limited(&request, 8 * 1024 * 1024).await else {
+                return w::capital_unknown();
+            };
+            if !(200..300).contains(&response.status) {
+                return w::capital_unknown();
+            }
+            let Ok(body) = http::decode_json(&response.body) else {
+                return w::capital_unknown();
+            };
+            let Some(rows) = body.as_array().filter(|rows| rows.len() <= 1000) else {
+                return w::capital_unknown();
+            };
+            if rows.len() == 1000 {
+                if from == to {
+                    return w::capital_unknown();
+                }
+                let mid = from + (to - from) / 2;
+                windows.push((mid + 1, to));
+                windows.push((from, mid));
+                continue;
+            }
+            for row in rows {
+                match w::capital_match(row, r, w::Kind::Mexc) {
+                    Ok(Some(matched)) if found.is_none() => found = Some(matched),
+                    Ok(None) => {}
+                    _ => return w::capital_unknown(),
+                }
+            }
+        }
+        w::capital_unknown()
     }
 }
 
