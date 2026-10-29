@@ -658,18 +658,11 @@ impl<T: Transport> KrakenVenue<T> {
             reason: format!("{reason}; operator recovery via resolve-withdrawal is required"),
             candidates,
         };
-        let Destination::Kraken {
-            asset,
-            key,
-            method: Some(method),
-            ..
-        } = &r.destination
-        else {
-            return unknown("Kraken withdrawal method was not recorded", vec![]);
+        let Destination::Kraken { asset, key, method, .. } = &r.destination else {
+            return unknown("Kraken withdrawal destination is not Kraken's", vec![]);
         };
-        if crate::ruby::blank(method) {
-            return unknown("Kraken withdrawal method was not recorded", vec![]);
-        }
+        // WithdrawStatus takes the method as an optional filter; an entry listed without one is looked up by asset.
+        let method = method.as_deref().filter(|m| !crate::ruby::blank(m));
         let Ok(at) = crate::codec::parse_time(&r.created_at) else {
             return unknown("Kraken withdrawal time is unreadable", vec![]);
         };
@@ -685,13 +678,13 @@ impl<T: Transport> KrakenVenue<T> {
             if !seen.insert(cursor.clone()) {
                 return unknown("Kraken withdrawal cursor repeated", candidates);
             }
-            let fields = [
-                ("asset", asset.clone()),
-                ("method", method.clone()),
+            let mut fields = vec![("asset", asset.clone())];
+            if let Some(method) = method { fields.push(("method", method.to_string())); }
+            fields.extend([
                 ("start", start.to_string()),
                 ("end", end.to_string()),
                 ("cursor", cursor.clone()),
-            ];
+            ]);
             let Ok(response) = self
                 .transport
                 .send_limited(
@@ -745,7 +738,7 @@ impl<T: Transport> KrakenVenue<T> {
                 if row_key != key || row_amount != amount || !(start..=end).contains(&time) {
                     continue;
                 }
-                if row["method"].as_str().is_some_and(|m| m != method) {
+                if method.is_some_and(|method| row["method"].as_str().is_some_and(|m| m != method)) {
                     continue;
                 }
                 if crate::ruby::blank(id) {
@@ -812,6 +805,25 @@ mod withdrawal_wire_tests {
         },
     };
     use serde_json::json;
+    #[tokio::test]
+    async fn kraken_lookup_without_a_listed_method_filters_by_asset_only() {
+        let t = ScriptedTransport::default();
+        t.reply("POST /0/private/WithdrawStatus", 200, json!({"error":[],"result":{"withdrawals":[],"next_cursor":null}}));
+        let venue = KrakenVenue::new(t.clone());
+        let request = Request {
+            rule_id: 1, user_id: 1, exchange_id: 1, asset_id: 1, exchange: "Exchanges::Kraken".into(), symbol: "BTC".into(),
+            coin: "XBT".into(), client_id: "unused".into(),
+            destination: Destination::Kraken { asset: "XBT".into(), key: "cold".into(), address: "destination".into(), method: None },
+            amount: "0.99".into(), fee_cap: "0.0099".into(), free_balance: "1".into(), percentage: "100".into(),
+            created_at: "2026-10-28T12:00:00Z".into(), wallet_type: None,
+        };
+        venue.withdrawal_lookup(&request).await;
+        let sent = t.requests();
+        assert_eq!(sent.len(), 1, "an entry listed without a method is still looked up");
+        let body = sent[0].body.as_ref().unwrap();
+        assert_eq!(body["asset"], "XBT");
+        assert!(body.get("method").is_none(), "no method filter: {body}");
+    }
     #[tokio::test]
     async fn kraken_withdrawal_signed_fields_exact() {
         let t = ScriptedTransport::default();
