@@ -10,8 +10,14 @@
 //! `post_action` (no vault, no expiry, through ExchangeProxy.for('hyperliquid') like every other request).
 //!
 //! Hyperliquid spot has no market order. A market plan reaches the adapter crossed (`OrderKind::Crossed`, D-679, plan VB
-//! §1.5): a GTC limit at the price the engine persisted in the intent, its volume as sized (Rails' #set_crossing_order
-//! re-reads #market_price_for; GTC, so a miss rests and is polled like any limit order).
+//! §1.5): an IOC limit at Rails' 1% crossed price persisted in the intent. Price adjustment floors
+//! both before and after crossing. D-HYPERLIQUID-MARKET-IOC changes only time-in-force from GTC to IOC.
+//! Configured limit orders stay GTC. Final partial fills use the normal status/fills poll and accounting;
+//! iocCanceled is terminal, and its executed portion is credited without reserving the unfilled remainder.
+//! A no-match response is status ok, response.type order, response.data.statuses =
+//! [{"error":"Order could not immediately match against any resting orders."}]: a definitive rejection.
+//! https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/error-responses
+//! https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint
 //!
 //! Where it differs on purpose (plan VB §5, named in tests/parity.rs and tests/hyperliquid.rs):
 //! - the order carries a cloid (`0x` + the intent id's 32 hex digits, D9; Rails sends none) and recovery asks orderStatus
@@ -366,9 +372,9 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
         Ok(price)
     }
 
-    /// #set_crossing_order / #set_limit_order through Clients::Hyperliquid#order → Exchange#order: one GTC limit order
-    /// (`{a, b, p, s, r: false, t: {limit: {tif: "Gtc"}}}`, p and s through float_to_wire), a crossed (market) order at its
-    /// persisted price, plus `c`, the cloid (D9). Sent at most once. "ok" with the order resting or filled is its oid, stored
+    /// #set_crossing_order / #set_limit_order through Clients::Hyperliquid#order → Exchange#order:
+    /// a crossed market order is IOC (D-HYPERLIQUID-MARKET-IOC), a configured limit GTC; p and s
+    /// go through float_to_wire, at the persisted price, plus `c`, the cloid (D9). Sent at most once. "ok" with the order resting or filled is its oid, stored
     /// as "<base>-<oid>"; an `err` answer or a status error is the refusal Rails writes ("Hyperliquid order failed: …").
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let price = match &o.kind {
@@ -384,7 +390,8 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
         let wire = |v: &str| BigDec::parse(v).map_err(|_| format!("unreadable {v}")).and_then(|d| super::signers::hyperliquid::float_to_wire(&d)).map_err(|m| VenueError::Rejected(vec![m]));
         let (p, s) = (wire(price)?, wire(&o.volume)?);
         let asset = self.asset(&o.pair).await?;
-        let order = json!({ "a": asset, "b": o.side == super::Side::Buy, "p": p, "s": s, "r": false, "t": { "limit": { "tif": "Gtc" } }, "c": cloid });
+        let tif = if matches!(o.kind, OrderKind::Crossed { .. }) { "Ioc" } else { "Gtc" };
+        let order = json!({ "a": asset, "b": o.side == super::Side::Buy, "p": p, "s": s, "r": false, "t": { "limit": { "tif": tif } }, "c": cloid });
         let action = json!({ "type": "order", "orders": [order], "grouping": "na" });
         // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.
         let not_after = o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s");

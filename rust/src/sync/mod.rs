@@ -19,6 +19,7 @@
 pub mod activities;
 pub mod balances;
 pub mod binance_ledger;
+pub mod binance_identity;
 pub mod bitvavo_ledger;
 pub mod bitget_ledger;
 pub mod mexc_ledger;

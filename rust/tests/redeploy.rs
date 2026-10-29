@@ -370,6 +370,13 @@ const D_6C_12: [&str; 4] = ["kraken", "kucoin", "bitvavo", "bitrue"];
 #[cfg(unix)]
 fn redeploy_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust: &Value) -> Result<(), String> {
     let mut expected = rails.clone();
+    if name.contains("-hyperliquid-") {
+        // D-HYPERLIQUID-MARKET-IOC: the same crossed price and size as Rails, sent IOC instead of GTC.
+        for order in expected["sent"].as_array_mut().unwrap() {
+            assert_eq!(order["t"]["limit"]["tif"], "Gtc", "{name}");
+            order["t"]["limit"]["tif"] = json!("Ioc");
+        }
+    }
     let venue = name.split('-').nth(1).unwrap();
     let (timeout, pre_send) = (name.ends_with("-timeout"), name.ends_with("-pre_send"));
     let (alpaca, kraken, hyperliquid) = (venue == "alpaca", venue == "kraken", venue == "hyperliquid");
@@ -464,7 +471,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust
 #[tokio::test(flavor = "current_thread")]
 async fn rails_redeploy_grid_matches_every_venue() {
     let outputs = common::venue_grid::run_venue_grid("grid-redeploy", 168, &[common::venue_grid::Validator {
-        names: &|name| name.ends_with("-timeout") || name.ends_with("-pre_send") || name == "redeploy-alpaca-basket-below_minimum"
+        names: &|name| name.contains("-hyperliquid-") || name.ends_with("-timeout") || name.ends_with("-pre_send") || name == "redeploy-alpaca-basket-below_minimum"
             || (name.ends_with("-accepted") && D_6C_12.iter().any(|v| name.starts_with(&format!("redeploy-{v}-")))),
         check: &redeploy_grid_difference,
     }]).await;
