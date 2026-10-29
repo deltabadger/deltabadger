@@ -409,6 +409,13 @@ impl<T: Transport> BinanceVenue<T> {
 impl<T: Transport> super::Venue for BinanceVenue<T> {
     fn rules(&self) -> &'static VenueRules { self.rules }
 
+    async fn withdraw(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult {
+        self.send_withdrawal(request).await
+    }
+    async fn withdrawal_lookup(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::LookupResult {
+        self.lookup_withdrawal(request).await
+    }
+
     /// Exchanges::Binance#list_withdrawal_addresses' read: GET capital/withdraw/address/list (the gem's recvWindow), the
     /// rows for `coin` with their network and addressTag (`withdrawal::binance_entries`). Binance.US lists none
     /// (D-RULE-BINANCE-US-UNSUPPORTED).
@@ -635,6 +642,124 @@ pub fn kline_interval(timeframe: Timeframe) -> &'static str {
         Timeframe::Minute => "1m", Timeframe::FiveMinutes => "5m", Timeframe::FifteenMinutes => "15m", Timeframe::ThirtyMinutes => "30m",
         Timeframe::Hour => "1h", Timeframe::FourHours => "4h", Timeframe::Day => "1d", Timeframe::ThreeDays => "3d", Timeframe::Week => "1w",
         Timeframe::Month => "1M",
+    }
+}
+
+// E1: D-RULE-CLIENT-ID and D-RULE-WALLET-SPOT. Rails sends no client id or walletType.
+impl<T: Transport> BinanceVenue<T> {
+    async fn send_withdrawal(
+        &self,
+        r: &crate::engine::withdrawal::Request,
+    ) -> crate::engine::withdrawal::SendResult {
+        use super::withdrawal as w;
+        let w::Destination::Binance {
+            coin,
+            address,
+            network,
+            tag,
+        } = &r.destination
+        else {
+            return w::capital_not_sent();
+        };
+        let Some(not_after) = w::capital_deadline(r) else {
+            return w::capital_not_sent();
+        };
+        if self.rules.exchange_type != BINANCE
+            || r.wallet_type != Some(0)
+            || coin != &r.coin
+            || [coin, address, network, &r.client_id]
+                .iter()
+                .any(|s| crate::ruby::blank(s))
+            || !BigDec::parse(&r.amount).is_ok_and(|a| a.is_positive())
+        {
+            return w::capital_not_sent();
+        }
+        let mut fields = vec![
+            ("coin", coin.clone()),
+            ("address", address.clone()),
+            ("network", network.clone()),
+            ("amount", r.amount.clone()),
+            ("withdrawOrderId", r.client_id.clone()),
+            ("walletType", "0".into()),
+            ("recvWindow", w::RECV_WINDOW.into()),
+        ];
+        fields.extend(tag.clone().map(|tag| ("addressTag", tag)));
+        let request = HttpRequest {
+            not_after: Some(not_after),
+            ..self.signed_now("POST", "/sapi/v1/capital/withdraw/apply", fields)
+        };
+        w::capital_send(&self.transport, &request, "Binance").await
+    }
+
+    /// §3 / r2-9: a filtered, complete read can find one exact id, never prove absence.
+    /// Refuse at S + 7d, where S = creation - 60s; the inclusive end is at most S + 7d - 1ms.
+    async fn lookup_withdrawal(
+        &self,
+        r: &crate::engine::withdrawal::Request,
+    ) -> crate::engine::withdrawal::LookupResult {
+        use super::withdrawal as w;
+        use crate::engine::withdrawal::LookupResult;
+        let w::Destination::Binance {
+            coin,
+            address,
+            network,
+            ..
+        } = &r.destination
+        else {
+            return w::capital_unknown();
+        };
+        if self.rules.exchange_type != BINANCE
+            || r.wallet_type != Some(0)
+            || coin != &r.coin
+            || [coin, address, network, &r.client_id]
+                .iter()
+                .any(|s| crate::ruby::blank(s))
+        {
+            return w::capital_unknown();
+        }
+        let Ok(at) = crate::codec::parse_time(&r.created_at) else {
+            return w::capital_unknown();
+        };
+        let start = at.timestamp_millis() - 60_000;
+        let now = self.transport.now().timestamp_millis();
+        let window_end = start + 7 * 86_400_000 - 1;
+        if now < start || now > window_end {
+            return w::capital_unknown();
+        }
+        let request = self.signed_now(
+            "GET",
+            "/sapi/v1/capital/withdraw/history",
+            vec![
+                ("withdrawOrderId", r.client_id.clone()),
+                ("startTime", start.to_string()),
+                ("endTime", now.min(window_end).to_string()),
+                ("recvWindow", w::RECV_WINDOW.into()),
+            ],
+        );
+        let Ok(response) = self.transport.send_limited(&request, 8 * 1024 * 1024).await else {
+            return w::capital_unknown();
+        };
+        if !(200..300).contains(&response.status) {
+            return w::capital_unknown();
+        }
+        let Ok(body) = http::decode_json(&response.body) else {
+            return w::capital_unknown();
+        };
+        let Some(rows) = body.as_array().filter(|rows| rows.len() < 1000) else {
+            return w::capital_unknown();
+        };
+        let mut found = None;
+        for row in rows {
+            match w::capital_match(row, r, w::Kind::Binance) {
+                Ok(Some(matched)) if found.is_none() => found = Some(matched),
+                Ok(None) => {}
+                _ => return w::capital_unknown(),
+            }
+        }
+        match found {
+            Some((id, status)) => LookupResult::Found { id, status },
+            None => LookupResult::NotFound,
+        }
     }
 }
 

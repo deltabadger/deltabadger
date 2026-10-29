@@ -256,7 +256,7 @@ fn intent_log(
 }
 
 /// Real adapters join only with their E1-E3 G0 evidence. The live recorder uses this gate.
-pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken"];
+pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Mexc"];
 pub const SEND_WINDOW_SECONDS: i64 = super::placement::SEND_WINDOW_SECONDS;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {

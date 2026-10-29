@@ -1,5 +1,5 @@
 //! Withdrawal reads (PLAN-withdrawal-rules V1): the venues' address books, the §4 destination contract a rule is held to,
-//! the fee reads and quotes, the §6 sizing, and how a fee read is written back. No send lives here (E0–E3 own sends).
+//! the fee reads and quotes, the §6 sizing, and shared E1 send/recovery validation.
 //!
 //! Rails is the oracle where it is right (tests/fixtures/withdrawal_vectors.json `reads`, recorded through honeymaker
 //! 0.12.5): Binance's and Kraken's listing requests and filters (the coin, Kraken's `verified`), Gemini's NETWORK_MAP and
@@ -434,4 +434,186 @@ where F:FnMut(BigDec)->Fut,Fut:std::future::Future<Output=Result<Option<BigDec>,
     let Some(fee_cap) = quote(amount.clone()).await?.filter(|f| *f >= BigDec::zero()) else { return Ok(Sizing::FeeUnknown { budget }) };
     if &amount + &fee_cap > budget { return Ok(Sizing::DoesNotCover { budget, fee: fee_cap }); }
     Ok(Sizing::Send { budget, amount, first_fee, fee_cap })
+}
+
+// ---- E1 capital withdrawals: shared wire validation, not the trading error classifier.
+
+pub(crate) fn capital_unknown() -> crate::engine::withdrawal::LookupResult {
+    crate::engine::withdrawal::LookupResult::Unknown {
+        reason: "withdrawal history is incomplete, mismatched or outside the lookup window; operator recovery via resolve-withdrawal is required".into(),
+        candidates: vec![],
+    }
+}
+
+pub(crate) fn capital_not_sent() -> crate::engine::withdrawal::SendResult {
+    crate::engine::withdrawal::SendResult::Rejected {
+        definitive: true,
+        reason: "the withdrawal request is invalid or past its send window; not sent".into(),
+    }
+}
+
+pub(crate) fn capital_deadline(r: &crate::engine::withdrawal::Request) -> Option<DateTime<Utc>> {
+    crate::codec::parse_time(&r.created_at)
+        .ok()?
+        .checked_add_signed(
+            chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS)
+                + chrono::Duration::from_std(super::http::TOTAL_TIMEOUT).expect("45 s"),
+        )
+}
+
+/// Only a clean id accepts; only a cited code and message reject. 5xx, missing codes,
+/// contradictory envelopes, unreadable bodies and all uncertain transport errors retain the intent.
+/// D-RULE-AMBIGUITY-ALLOWLIST and D-RULE-LOG-SECRETS: no untrusted body is logged.
+pub(crate) async fn capital_send<T: super::http::Transport>(
+    transport: &T,
+    request: &super::http::HttpRequest,
+    venue: &str,
+) -> crate::engine::withdrawal::SendResult {
+    use super::http::{decode_json, TransportError};
+    use crate::engine::{rules, withdrawal::SendResult};
+    let unknown = || SendResult::Ambiguous {
+        reason: "withdrawal reply is unconfirmed".into(),
+    };
+    let response = match transport.send_limited(request, 64 * 1024).await {
+        Ok(response) => response,
+        Err(TransportError::NotSent(_)) => return capital_not_sent(),
+        Err(_) => return unknown(),
+    };
+    if !(200..300).contains(&response.status) && !(400..500).contains(&response.status) {
+        return unknown();
+    }
+    let Ok(body) = decode_json(&response.body) else {
+        return unknown();
+    };
+    let Some(object) = body.as_object() else {
+        return unknown();
+    };
+    if object.contains_key("code") {
+        if ["id", "success", "result", "error", "errors"]
+            .iter()
+            .any(|key| object.contains_key(*key))
+        {
+            return unknown();
+        }
+        if let (Some(code), Some(message)) = (body["code"].as_i64(), body["msg"].as_str()) {
+            if rules::definitive_code(venue, code, message) {
+                return SendResult::Rejected {
+                    definitive: true,
+                    reason: rules::safe_message(message),
+                };
+            }
+        }
+        return unknown();
+    }
+    if !(200..300).contains(&response.status)
+        || object
+            .get("success")
+            .is_some_and(|value| value != &Value::Bool(true))
+        || ["msg", "error", "errors", "result"]
+            .iter()
+            .any(|key| object.contains_key(*key))
+    {
+        return unknown();
+    }
+    match text(&body["id"]) {
+        Some(id) => SendResult::Accepted { id },
+        None => unknown(),
+    }
+}
+
+/// All rows must parse, even unrelated ones. A missing client id can be a manual withdrawal;
+/// it never matches ours. The history network is optional, but a returned value must match.
+/// MEXC's canonical network was resolved through networkList when the immutable destination
+/// was prepared (D-RULE-LISTED-ENTRY); compare that label, never the sent netWork alias.
+pub(crate) fn capital_match(
+    row: &Value,
+    request: &crate::engine::withdrawal::Request,
+    kind: Kind,
+) -> Result<Option<(String, crate::engine::withdrawal::FoundStatus)>, ()> {
+    use crate::engine::withdrawal::FoundStatus;
+    let required = |key: &str| {
+        row[key]
+            .as_str()
+            .filter(|s| !crate::ruby::blank(s))
+            .ok_or(())
+    };
+    let optional = |key: &str| match row.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => Ok(Some(s.as_str())),
+        _ => Err(()),
+    };
+    let id = required("id")?;
+    let coin = required("coin")?;
+    let address = required("address")?;
+    let amount = crate::ruby::json_to_d(&row["amount"])
+        .ok()
+        .flatten()
+        .filter(BigDec::is_positive)
+        .ok_or(())?;
+    let status = row["status"].as_i64().ok_or(())?;
+    let client_id = optional("withdrawOrderId")?;
+    let network = optional("network")?;
+    let tag = optional(if kind == Kind::Mexc {
+        "memo"
+    } else {
+        "addressTag"
+    })?;
+    let info = optional("info")?;
+    let (expected_coin, expected_address, expected_network, expected_tag) =
+        match (&request.destination, kind) {
+            (
+                Destination::Binance {
+                    coin,
+                    address,
+                    network,
+                    tag,
+                },
+                Kind::Binance,
+            ) => {
+                let wallet = row["walletType"]
+                    .as_i64()
+                    .filter(|w| matches!(w, 0 | 1))
+                    .ok_or(())?;
+                if client_id == Some(request.client_id.as_str())
+                    && (wallet != 0 || request.wallet_type != Some(0))
+                {
+                    return Err(());
+                }
+                (coin, address, network, tag)
+            }
+            (
+                Destination::Mexc {
+                    coin,
+                    address,
+                    network,
+                    memo,
+                    ..
+                },
+                Kind::Mexc,
+            ) => (coin, address, network, memo),
+            _ => return Err(()),
+        };
+    if client_id != Some(request.client_id.as_str()) {
+        return Ok(None);
+    }
+    if coin != expected_coin
+        || coin != request.coin
+        || address != expected_address
+        || amount != BigDec::parse(&request.amount).map_err(|_| ())?
+        || network.is_some_and(|n| n != expected_network)
+        || tag.is_some_and(|t| t != expected_tag.as_deref().unwrap_or(""))
+    {
+        return Err(());
+    }
+    let outcome = match (kind, status) {
+        (Kind::Binance, 0 | 2 | 4 | 6) | (Kind::Mexc, 1..=7 | 10) => FoundStatus::Sent,
+        (Kind::Binance, 1 | 3 | 5) | (Kind::Mexc, 8 | 9) => FoundStatus::Failed {
+            reason: crate::engine::rules::safe_message(
+                info.filter(|s| !crate::ruby::blank(s))
+                    .unwrap_or("the venue reports that the withdrawal failed"),
+            ),
+        },
+        _ => return Err(()),
+    };
+    Ok(Some((id.into(), outcome)))
 }
