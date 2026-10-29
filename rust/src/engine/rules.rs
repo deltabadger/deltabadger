@@ -86,6 +86,18 @@ pub fn definitive(exchange: &str, error: &str) -> bool {
     let Some((_, list)) = DEFINITIVE.iter().find(|(v, _)| *v == exchange) else {
         return false;
     };
+    // Rust carries the complete Kraken reply through settlement. Rails evidence remains
+    // the original single error string below. Every error in a reply must prove rejection.
+    if exchange == "Kraken" {
+        if let Ok(body) = serde_json::from_str::<Value>(error) {
+            return body["result"].is_null() && body["error"].as_array().is_some_and(|errors| {
+                !errors.is_empty() && errors.iter().all(|e| e.as_str().is_some_and(|e| {
+                    !e.starts_with("EGeneral:") && !e.starts_with("EService:")
+                        && list.iter().any(|pattern| template_matches(pattern, e))
+                }))
+            });
+        }
+    }
     if exchange == "Gemini" {
         return serde_json::from_str::<Value>(error).ok().is_some_and(|v| {
             v["result"] == "error" && v["reason"].as_str().is_some_and(|r| list.contains(&r))

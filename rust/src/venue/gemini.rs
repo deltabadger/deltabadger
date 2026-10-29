@@ -344,7 +344,7 @@ impl<T: Transport> GeminiVenue<T> {
         use super::withdrawal::{gemini_network, Destination, GEMINI_MEMO_FREE};
         use crate::engine::{rules, withdrawal::SendResult};
         let unknown = || SendResult::Ambiguous { reason: "Gemini withdrawal reply is unconfirmed".into() };
-        let unsent = |reason: &str| SendResult::Rejected { definitive: true, reason: reason.into() };
+        let unsent = |reason: &str| SendResult::NotSent { reason: reason.into() };
         let Destination::Gemini { ticker, network, address } = &r.destination else {
             return unsent("the withdrawal destination is not Gemini's; not sent");
         };
@@ -374,7 +374,7 @@ impl<T: Transport> GeminiVenue<T> {
         if body["result"] == "error" {
             // A contradictory success id never proves rejection. The shared X0 allowlist is the only rejection list.
             if !body["withdrawalId"].is_null() || !rules::definitive("Gemini", &body.to_string()) { return unknown(); }
-            return SendResult::Rejected { definitive: true, reason: rules::safe_message(&body.to_string()) };
+            return SendResult::Rejected { definitive: true, reason: response.body };
         }
         if !(200..300).contains(&response.status)
             || !body["reason"].is_null() || !body["error"].is_null()

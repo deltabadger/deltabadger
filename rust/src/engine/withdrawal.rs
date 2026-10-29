@@ -264,6 +264,9 @@ pub struct Identity {
 #[derive(Clone, Debug)]
 pub enum SendResult {
     Accepted { id: String },
+    /// Proven before transmission; settlement needs no venue rejection evidence.
+    NotSent { reason: String },
+    /// Unmodified, bounded venue body. Scrub only when writing durable or display text.
     Rejected { definitive: bool, reason: String },
     Ambiguous { reason: String },
 }
@@ -1256,6 +1259,14 @@ fn settle_result(
         return Ok(true);
     }
     let request = &current.request;
+    // Preserve the distinct proof of a local refusal; only venue replies need the allowlist.
+    let rejected = match &result {
+        SendResult::NotSent { .. } => true,
+        SendResult::Rejected { definitive: true, reason } => {
+            failure_proven || rules::definitive(&request.exchange, reason)
+        }
+        _ => false,
+    };
     match result {
         SendResult::Accepted { id } if !id.trim().is_empty() => {
             rules::seed_rails_ids(&tx)?;
@@ -1274,10 +1285,7 @@ fn settle_result(
                 remove(&tx, &current, state)?;
             }
         }
-        SendResult::Rejected {
-            definitive: true,
-            reason,
-        } if failure_proven || rules::definitive(&request.exchange, &reason) => {
+        SendResult::NotSent { reason } | SendResult::Rejected { reason, .. } if rejected => {
             intent_log(
                 &tx,
                 &current,
@@ -1288,7 +1296,7 @@ fn settle_result(
             )?;
             remove(&tx, &current, state)?;
         }
-        SendResult::Rejected { reason, .. } | SendResult::Ambiguous { reason } => {
+        SendResult::NotSent { reason } | SendResult::Rejected { reason, .. } | SendResult::Ambiguous { reason } => {
             uncertain(&tx, &current, state, &reason)?;
         }
         SendResult::Accepted { .. } => {

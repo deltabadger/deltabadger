@@ -1881,7 +1881,10 @@ async fn kraken_x0_classifier_cells_through_real_adapter() {
         let message = c["rule_logs"][0]["message"].as_str().unwrap();
         assert_eq!(rules::ambiguous("Kraken", message), !definitive);
         if let w::SendResult::Rejected { reason, .. } = &result {
-            assert_eq!(message, format!("Withdrawal failed: {reason}"));
+            assert_eq!(reason, &reply["body"].to_string());
+            assert!(rules::definitive("Kraken", reason));
+            let body: Value = serde_json::from_str(reason).unwrap();
+            assert_eq!(message, format!("Withdrawal failed: {}", body["error"][0].as_str().unwrap()));
         }
         assert_eq!(
             matches!(
@@ -2905,7 +2908,7 @@ async fn gemini_signed_fields_bound_and_pretransmission_refusal() {
     let t = gemini_reads();
     let i = gemini_prepared(&d, &t).await;
     t.network(G_SEND, "pre_send", "expired");
-    assert!(matches!(gemini_adapter(&d, &t).send(&i.request).await, w::SendResult::Rejected { definitive: true, .. }));
+    assert!(matches!(gemini_adapter(&d, &t).send(&i.request).await, w::SendResult::NotSent { .. }));
     let r = t.requests().into_iter().find(|r| r.path == "/v2/withdraw/bitcoin/btc").unwrap();
     assert_eq!(r.not_after, Some(now() + chrono::Duration::seconds(w::SEND_WINDOW_SECONDS) + chrono::Duration::from_std(deltabadger::venue::http::TOTAL_TIMEOUT).unwrap()));
     assert_eq!(r.method, "POST");
@@ -2923,7 +2926,7 @@ async fn gemini_signed_fields_bound_and_pretransmission_refusal() {
     let live = deltabadger::venue::http::ReqwestTransport::gemini(deltabadger::venue::http::client(), "key".into(), "secret".into())
         .with_clock(std::sync::Arc::new(FixedClock(r.not_after.unwrap() + chrono::Duration::milliseconds(1))));
     use deltabadger::venue::Venue;
-    assert!(matches!(GeminiVenue::new(live, deltabadger::venue::gemini::URL).withdraw(&i.request).await, w::SendResult::Rejected { definitive: true, .. }));
+    assert!(matches!(GeminiVenue::new(live, deltabadger::venue::gemini::URL).withdraw(&i.request).await, w::SendResult::NotSent { .. }));
 }
 
 #[tokio::test]
@@ -2984,7 +2987,287 @@ async fn gemini_send_refuses_non_memo_free_or_mismatched_network_before_transpor
         let mut request = i.request.clone();
         request.destination = v::Destination::Gemini { ticker:ticker.into(), network:network.into(), address:"destination".into() };
         let t = ScriptedTransport::default();
-        assert!(matches!(gemini_adapter(&d, &t).send(&request).await, w::SendResult::Rejected { definitive:true, .. }));
+        assert!(matches!(gemini_adapter(&d, &t).send(&request).await, w::SendResult::NotSent { .. }));
         assert!(t.requests().is_empty());
     }
+}
+
+// A withdrawal reaches the transport, but the transport refuses before transmitting it.
+// Reads still use the production adapters and their usual scripted answers.
+struct RefusingWithdrawalTransport {
+    reads: ScriptedTransport,
+    attempts: std::rc::Rc<Cell<usize>>,
+    reason: &'static str,
+}
+impl deltabadger::venue::http::Transport for RefusingWithdrawalTransport {
+    async fn send(
+        &self,
+        r: &deltabadger::venue::http::HttpRequest,
+    ) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError>
+    {
+        if matches!(
+            r.path.as_str(),
+            "/0/private/Withdraw" | "/v2/withdraw/bitcoin/btc"
+        ) {
+            self.attempts.set(self.attempts.get() + 1);
+            return Err(deltabadger::venue::http::TransportError::NotSent(
+                self.reason.into(),
+            ));
+        }
+        self.reads.send(r).await
+    }
+}
+async fn assert_unsent_dispatch(d: &Db, i: &w::Intent, a: &impl w::Adapter) {
+    w::dispatch(&d.c, &d.cipher, a, i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(d.count("rule_logs"), 1);
+    let (status, message): (i64, String) =
+        d.c.query_row("SELECT status,message FROM rule_logs", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    assert_eq!(status, 2);
+    assert!(message.starts_with("Withdrawal failed:"));
+    assert_eq!(message, rules::safe_message(&message));
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    assert_eq!(d.count("rust_withdrawal_ids"), 0);
+    assert!(
+        rules::status(&d.c, 1).unwrap().is_none(),
+        "no operator acknowledgement required"
+    );
+    w::recover(&d.c, &d.cipher, a, "rule:1", &FixedClock(now()))
+        .await
+        .unwrap();
+    w::dispatch(&d.c, &d.cipher, a, i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(d.count("rule_logs"), 1);
+}
+#[tokio::test]
+async fn kraken_not_sent_dispatch_settles_without_operator_ack() {
+    for reason in ["connection refused", "expired send bound"] {
+        let d = kraken_db();
+        let t = kraken_reads();
+        let i = kraken_prepared(&d, &t).await;
+        let attempts = std::rc::Rc::new(Cell::new(0));
+        let (cr, version) =
+            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+                .unwrap()
+                .unwrap();
+        let a = w::VenueAdapter::new(
+            KrakenVenue::new(RefusingWithdrawalTransport {
+                reads: t.clone(),
+                attempts: attempts.clone(),
+                reason,
+            })
+            .with_identity(&cr),
+            version,
+            None,
+        );
+        assert_unsent_dispatch(&d, &i, &a).await;
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(kraken_sends(&t), 0);
+    }
+}
+#[tokio::test]
+async fn gemini_not_sent_dispatch_settles_without_operator_ack() {
+    for reason in ["connection refused", "expired send bound"] {
+        let d = gemini_db();
+        let t = gemini_reads();
+        let i = gemini_prepared(&d, &t).await;
+        let attempts = std::rc::Rc::new(Cell::new(0));
+        let (cr, version) =
+            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+                .unwrap()
+                .unwrap();
+        let a = w::VenueAdapter::new(
+            GeminiVenue::new(
+                RefusingWithdrawalTransport {
+                    reads: t.clone(),
+                    attempts: attempts.clone(),
+                    reason,
+                },
+                deltabadger::venue::gemini::URL,
+            )
+            .with_identity(&cr),
+            version,
+            None,
+        );
+        assert_unsent_dispatch(&d, &i, &a).await;
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(gemini_sends(&t), 0);
+    }
+}
+#[tokio::test]
+async fn gemini_long_rejection_dispatch_preserves_classification_and_scrubs_storage() {
+    for reason in ["InsufficientFunds", "UnknownReason"] {
+        let d = gemini_db();
+        let t = gemini_reads();
+        let body = format!("{{ \"result\":\"error\", \"reason\":\"{reason}\", \"message\":\"https://venue.invalid/private?signature=hidden token=hidden {}\" }}", "x".repeat(300));
+        assert!(body.len() > 200);
+        t.reply(G_SEND, 400, json!(body));
+        let i = gemini_prepared(&d, &t).await;
+        let a = gemini_adapter(&d, &t);
+        w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+            .await
+            .unwrap();
+        if reason == "InsufficientFunds" {
+            assert_eq!(d.count("rust_withdrawal_intents"), 0);
+            let (status, message): (i64, String) =
+                d.c.query_row("SELECT status,message FROM rule_logs", [], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })
+                .unwrap();
+            assert_eq!(status, 2);
+            assert_eq!(
+                message,
+                rules::safe_message(&format!("Withdrawal failed: {body}"))
+            );
+        } else {
+            assert_eq!(d.count("rule_logs"), 0);
+            let status = rules::status(&d.c, 1).unwrap().unwrap();
+            assert_eq!(status.state, "unresolved");
+            let message = status.reason.unwrap();
+            assert_eq!(message, rules::safe_message(&message));
+            assert!(!message.contains("hidden"));
+        }
+        assert_eq!(gemini_sends(&t), 1);
+    }
+}
+#[tokio::test]
+async fn kraken_rejection_keeps_unmodified_venue_body() {
+    let d = kraken_db();
+    let t = kraken_reads();
+    let i = kraken_prepared(&d, &t).await;
+    let body = "{ \"error\": [\"EFunding:Max fee exceeded\"], \"result\": null }";
+    t.reply(K_SEND, 400, json!(body));
+    let a = kraken_adapter(&d, &t);
+    let w::SendResult::Rejected {
+        definitive: true,
+        reason,
+    } = a.send(&i.request).await
+    else {
+        panic!("expected rejection")
+    };
+    assert_eq!(reason, body);
+    w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    assert_eq!(
+        d.c.query_row("SELECT status FROM rule_logs", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+}
+#[tokio::test]
+async fn unallowlisted_rejection_dispatch_stays_unresolved_with_safe_text() {
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let i = d.prepared(&f).await;
+    let body = format!(
+        "https://venue.invalid/private?signature=hidden token=hidden {}",
+        "x".repeat(300)
+    );
+    *f.answer.borrow_mut() = w::SendResult::Rejected {
+        definitive: true,
+        reason: body.clone(),
+    };
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    let status = rules::status(&d.c, 1).unwrap().unwrap();
+    assert_eq!(status.state, "unresolved");
+    assert_eq!(
+        status.reason.as_deref(),
+        Some(rules::safe_message(&body).as_str())
+    );
+    assert_eq!(d.count("rule_logs"), 0);
+    assert_eq!(f.sends.get(), 1);
+}
+
+#[tokio::test]
+async fn kraken_settlement_double_checks_every_error_in_raw_body() {
+    for body in [
+        json!({"error":[]}),
+        json!({"error":["EFunding:Max fee exceeded", "Unknown"]}),
+        json!({"error":["EFunding:Max fee exceeded", null]}),
+        json!({"error":["EGeneral:Invalid arguments"]}),
+        json!({"error":["EService:Unavailable"]}),
+        json!({"error":["EFunding:Max fee exceeded"], "result":{"refid":"K-1"}}),
+    ] {
+        let d = kraken_db();
+        let t = kraken_reads();
+        let i = kraken_prepared(&d, &t).await;
+        assert!(w::mark_dispatched(
+            &d.c,
+            &d.cipher,
+            &kraken_adapter(&d, &t),
+            &i,
+            &FixedClock(now())
+        )
+        .await
+        .unwrap());
+        w::settle(
+            &d.c,
+            &d.cipher,
+            &i,
+            "dispatched",
+            w::SendResult::Rejected {
+                definitive: true,
+                reason: body.to_string(),
+            },
+            now(),
+        )
+        .unwrap();
+        assert_eq!(d.count("rule_logs"), 0, "{body}");
+        assert_eq!(
+            rules::status(&d.c, 1).unwrap().unwrap().state,
+            "unresolved",
+            "{body}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn not_sent_and_candidate_text_obey_rule_log_secrets() {
+    let text = format!(
+        "https://venue.invalid/private?signature=hidden token=hidden {}",
+        "x".repeat(300)
+    );
+    let d = Db::new();
+    let f = Fake::new(&d);
+    let i = d.prepared(&f).await;
+    *f.answer.borrow_mut() = w::SendResult::NotSent {
+        reason: text.clone(),
+    };
+    assert_unsent_dispatch(&d, &i, &f).await;
+    let message: String =
+        d.c.query_row("SELECT message FROM rule_logs", [], |r| r.get(0))
+            .unwrap();
+    assert!(!message.contains("hidden"));
+
+    let i = d.prepared(&f).await;
+    *f.answer.borrow_mut() = w::SendResult::Ambiguous {
+        reason: text.clone(),
+    };
+    w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
+        .await
+        .unwrap();
+    *f.lookup.borrow_mut() = w::LookupResult::Unknown {
+        reason: text.clone(),
+        candidates: vec![json!({"id":text,"status":text,"amount":text,"at":text,"raw":text})],
+    };
+    w::recover(&d.c, &d.cipher, &f, "rule:1", &FixedClock(now()))
+        .await
+        .unwrap();
+    let status = rules::status(&d.c, 1).unwrap().unwrap();
+    assert_eq!(status.reason, Some(rules::safe_message(&text)));
+    assert_eq!(
+        status.candidates,
+        vec![
+            json!({"id":rules::safe_message(&text),"status":rules::safe_message(&text),"amount":rules::safe_message(&text),"at":rules::safe_message(&text)})
+        ]
+    );
 }
