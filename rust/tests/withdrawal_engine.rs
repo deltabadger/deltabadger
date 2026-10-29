@@ -2550,6 +2550,864 @@ async fn recorder_killed_process_reopens_durable_intent_without_resending() {
     }
 }
 
+// E1: real Binance/MEXC adapters, signed requests and exact-id recovery; no network.
+use deltabadger::venue::{binance::BinanceVenue, mexc::MexcVenue, Venue};
+const B_SEND: &str = "POST /sapi/v1/capital/withdraw/apply";
+const M_SEND: &str = "POST /api/v3/capital/withdraw";
+const B_HISTORY: &str = "GET /sapi/v1/capital/withdraw/history";
+const M_HISTORY: &str = "GET /api/v3/capital/withdraw/history";
+const DAY_MS: i64 = 86_400_000;
+fn e1_request(mexc: bool) -> w::Request {
+    w::Request {
+        rule_id: 1,
+        user_id: 1,
+        exchange_id: 1,
+        asset_id: 1,
+        exchange: if mexc {
+            "Exchanges::Mexc"
+        } else {
+            "Exchanges::Binance"
+        }
+        .into(),
+        symbol: "BTC".into(),
+        coin: "BTC".into(),
+        client_id: "our-client-id".into(),
+        destination: if mexc {
+            v::Destination::Mexc {
+                coin: "BTC".into(),
+                network: "Bitcoin".into(),
+                net_work: "BTC".into(),
+                address: "destination".into(),
+                memo: Some("memo 1".into()),
+            }
+        } else {
+            v::Destination::Binance {
+                coin: "BTC".into(),
+                network: "BTC".into(),
+                address: "destination".into(),
+                tag: Some("tag 1".into()),
+            }
+        },
+        amount: "0.99".into(),
+        fee_cap: "0.01".into(),
+        free_balance: "1".into(),
+        percentage: "100".into(),
+        created_at: now().to_rfc3339(),
+        wallet_type: (!mexc).then_some(0),
+    }
+}
+async fn e1_send(mexc: bool, t: &ScriptedTransport, r: &w::Request) -> w::SendResult {
+    if mexc {
+        MexcVenue::new(t.clone(), deltabadger::venue::mexc::URL, "secret")
+            .withdraw(r)
+            .await
+    } else {
+        BinanceVenue::new(t.clone(), deltabadger::venue::binance::URL, "secret")
+            .withdraw(r)
+            .await
+    }
+}
+async fn e1_lookup(mexc: bool, t: &ScriptedTransport, r: &w::Request) -> w::LookupResult {
+    if mexc {
+        MexcVenue::new(t.clone(), deltabadger::venue::mexc::URL, "secret")
+            .withdrawal_lookup(r)
+            .await
+    } else {
+        BinanceVenue::new(t.clone(), deltabadger::venue::binance::URL, "secret")
+            .withdrawal_lookup(r)
+            .await
+    }
+}
+fn e1_history(mexc: bool) -> &'static str {
+    if mexc {
+        M_HISTORY
+    } else {
+        B_HISTORY
+    }
+}
+fn e1_send_path(mexc: bool) -> &'static str {
+    if mexc {
+        M_SEND
+    } else {
+        B_SEND
+    }
+}
+fn e1_row(mexc: bool, status: i64) -> Value {
+    let mut row = json!({"id":"venue-id","withdrawOrderId":"our-client-id","coin":"BTC","address":"destination","amount":"0.99000000","network":if mexc {"Bitcoin"} else {"BTC"},"status":status,"info":"rejected by venue"});
+    if mexc {
+        row["memo"] = json!("memo 1");
+    } else {
+        row["walletType"] = json!(0);
+        row["addressTag"] = json!("tag 1");
+    }
+    row
+}
+fn e1_query(
+    r: &deltabadger::venue::http::HttpRequest,
+) -> std::collections::BTreeMap<&'static str, String> {
+    r.query.iter().map(|(k, v)| (*k, v.clone())).collect()
+}
+#[tokio::test]
+async fn e1_signed_fields_and_absolute_send_bound() {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    for mexc in [false, true] {
+        let t = ScriptedTransport::default();
+        t.set_now(now());
+        t.reply(e1_send_path(mexc), 200, json!({"id":"venue-id"}));
+        let r = e1_request(mexc);
+        assert!(
+            matches!(e1_send(mexc, &t, &r).await, w::SendResult::Accepted { id } if id == "venue-id")
+        );
+        let requests = t.requests();
+        let wire = &requests[0];
+        let mut actual = e1_query(wire);
+        let signature = actual.remove("signature").unwrap();
+        let mut expected = std::collections::BTreeMap::from([
+            ("coin", "BTC".into()),
+            ("address", "destination".into()),
+            ("amount", "0.99".into()),
+            ("withdrawOrderId", "our-client-id".into()),
+            ("recvWindow", "5000".into()),
+            ("timestamp", now().timestamp_millis().to_string()),
+        ]);
+        if mexc {
+            expected.insert("netWork", "BTC".into());
+            expected.insert("memo", "memo 1".into());
+        } else {
+            expected.insert("network", "BTC".into());
+            expected.insert("addressTag", "tag 1".into());
+            expected.insert("walletType", "0".into());
+        }
+        assert_eq!(
+            actual, expected,
+            "D-RULE-CLIENT-ID, D-RULE-WALLET-SPOT, D-RULE-MEXC-CAPITAL, D-RULE-MEXC-ADDRESSTAG"
+        );
+        let encoded = actual
+            .iter()
+            .map(|(k, v)| format!("{k}={}", v.replace(' ', "+")))
+            .collect::<Vec<_>>()
+            .join("&");
+        let mut mac = Hmac::<Sha256>::new_from_slice(b"secret").unwrap();
+        mac.update(encoded.as_bytes());
+        assert_eq!(signature, hex::encode(mac.finalize().into_bytes()));
+        assert!(wire.body.is_none());
+        assert_eq!(
+            wire.not_after,
+            Some(
+                now()
+                    + chrono::Duration::seconds(w::SEND_WINDOW_SECONDS)
+                    + chrono::Duration::from_std(deltabadger::venue::http::TOTAL_TIMEOUT).unwrap()
+            )
+        );
+        let t = ScriptedTransport::default();
+        t.network(e1_send_path(mexc), "pre_send", "expired");
+        assert!(matches!(
+            e1_send(mexc, &t, &r).await,
+            w::SendResult::Rejected {
+                definitive: true,
+                ..
+            }
+        ));
+        let mut invalid = r;
+        invalid.created_at = "bad".into();
+        let t = ScriptedTransport::default();
+        assert!(matches!(
+            e1_send(mexc, &t, &invalid).await,
+            w::SendResult::Rejected {
+                definitive: true,
+                ..
+            }
+        ));
+        assert!(t.requests().is_empty());
+    }
+}
+#[tokio::test]
+async fn e1_only_clean_success_or_allowlisted_rejection_settles() {
+    for mexc in [false, true] {
+        let (code, message) = if mexc {
+            (10101, "Insufficient balance")
+        } else {
+            (-4026, "You have insufficient balance.")
+        };
+        for (status, body, expected) in [
+            (200, json!({"id":"ok"}), "accepted"),
+            (400, json!({"code":code,"msg":message}), "rejected"),
+            (200, json!({"code":code,"msg":message}), "rejected"),
+            (500, json!({"code":code,"msg":message}), "ambiguous"),
+            (400, json!({"code":999999,"msg":message}), "ambiguous"),
+            (
+                400,
+                json!({"code":code,"msg":"unknown failure"}),
+                "ambiguous",
+            ),
+            (400, json!({"msg":message}), "ambiguous"),
+            (
+                200,
+                json!({"id":"ok","code":code,"msg":message}),
+                "ambiguous",
+            ),
+            (200, json!({"id":"ok","success":false}), "ambiguous"),
+            (
+                400,
+                json!({"code":code,"msg":message,"error":"unknown failure"}),
+                "ambiguous",
+            ),
+            (400, json!({"id":"ok"}), "ambiguous"),
+            (200, json!({}), "ambiguous"),
+            (200, json!({"id":" "}), "ambiguous"),
+            (200, json!({"id":123}), "ambiguous"),
+            (502, json!("<html>gateway</html>"), "ambiguous"),
+        ] {
+            let t = ScriptedTransport::default();
+            t.reply(e1_send_path(mexc), status, body.clone());
+            let result = e1_send(mexc, &t, &e1_request(mexc)).await;
+            let actual = match result {
+                w::SendResult::Accepted { .. } => "accepted",
+                w::SendResult::Rejected {
+                    definitive: true, ..
+                } => "rejected",
+                _ => "ambiguous",
+            };
+            assert_eq!(actual, expected, "mexc={mexc}, {status}, {body}");
+        }
+        for kind in ["post_send", "permanent"] {
+            let t = ScriptedTransport::default();
+            t.network(e1_send_path(mexc), kind, "lost signed URL");
+            assert!(matches!(
+                e1_send(mexc, &t, &e1_request(mexc)).await,
+                w::SendResult::Ambiguous { .. }
+            ));
+        }
+    }
+}
+#[tokio::test]
+async fn e1_exact_lookup_statuses_and_parameter_fences() {
+    for mexc in [false, true] {
+        for status in -1..=11 {
+            let t = ScriptedTransport::default();
+            t.set_now(now());
+            t.reply(e1_history(mexc), 200, json!([e1_row(mexc, status)]));
+            let result = e1_lookup(mexc, &t, &e1_request(mexc)).await;
+            let sent = if mexc {
+                matches!(status, 1..=7 | 10)
+            } else {
+                matches!(status, 0 | 2 | 4 | 6)
+            };
+            let failed = if mexc {
+                matches!(status, 8 | 9)
+            } else {
+                matches!(status, 1 | 3 | 5)
+            };
+            assert_eq!(
+                matches!(result, w::LookupResult::Found { ref id, status: w::FoundStatus::Sent } if id == "venue-id"),
+                sent,
+                "{mexc}, {status}"
+            );
+            assert_eq!(
+                matches!(
+                    result,
+                    w::LookupResult::Found {
+                        status: w::FoundStatus::Failed { .. },
+                        ..
+                    }
+                ),
+                failed,
+                "{mexc}, {status}"
+            );
+            assert_eq!(
+                matches!(result, w::LookupResult::Unknown { .. }),
+                !sent && !failed
+            );
+        }
+        for key in [
+            "id",
+            "coin",
+            "address",
+            "amount",
+            "network",
+            if mexc { "memo" } else { "walletType" },
+        ] {
+            let mut row = e1_row(mexc, 6);
+            row[key] = if key == "id" {
+                json!("")
+            } else {
+                json!("wrong")
+            };
+            let t = ScriptedTransport::default();
+            t.set_now(now());
+            t.reply(e1_history(mexc), 200, json!([row]));
+            assert!(
+                matches!(
+                    e1_lookup(mexc, &t, &e1_request(mexc)).await,
+                    w::LookupResult::Unknown { .. }
+                ),
+                "{mexc}, {key}"
+            );
+        }
+        let mut unrelated = e1_row(mexc, 6);
+        unrelated["withdrawOrderId"] = json!("someone-else");
+        let t = ScriptedTransport::default();
+        t.set_now(now());
+        t.reply(e1_history(mexc), 200, json!([unrelated]));
+        assert!(matches!(
+            e1_lookup(mexc, &t, &e1_request(mexc)).await,
+            w::LookupResult::NotFound
+        ));
+        for rows in [
+            json!([]),
+            json!([e1_row(mexc, 6), e1_row(mexc, 6)]),
+            json!([e1_row(mexc, 6), {}]),
+        ] {
+            let empty = rows.as_array().unwrap().is_empty();
+            let t = ScriptedTransport::default();
+            t.set_now(now());
+            t.reply(e1_history(mexc), 200, rows);
+            let result = e1_lookup(mexc, &t, &e1_request(mexc)).await;
+            assert_eq!(matches!(result, w::LookupResult::NotFound), empty);
+            assert_eq!(matches!(result, w::LookupResult::Unknown { .. }), !empty);
+        }
+        for (status, body) in [
+            (
+                403,
+                json!({"code":700007,"msg":"No permission to access the endpoint"}),
+            ),
+            (200, json!({"code":700007})),
+            (200, json!("garbage")),
+        ] {
+            let t = ScriptedTransport::default();
+            t.set_now(now());
+            t.reply(e1_history(mexc), status, body);
+            assert!(matches!(
+                e1_lookup(mexc, &t, &e1_request(mexc)).await,
+                w::LookupResult::Unknown { .. }
+            ));
+        }
+        // §3 permits history to omit network. When present it must equal the canonical label, never MEXC netWork.
+        let mut row = e1_row(mexc, 6);
+        row.as_object_mut().unwrap().remove("network");
+        let t = ScriptedTransport::default();
+        t.set_now(now());
+        t.reply(e1_history(mexc), 200, json!([row]));
+        assert!(matches!(
+            e1_lookup(mexc, &t, &e1_request(mexc)).await,
+            w::LookupResult::Found { .. }
+        ));
+        if mexc {
+            let mut row = e1_row(true, 6);
+            row["network"] = json!("BTC");
+            let t = ScriptedTransport::default();
+            t.set_now(now());
+            t.reply(M_HISTORY, 200, json!([row]));
+            assert!(matches!(
+                e1_lookup(true, &t, &e1_request(true)).await,
+                w::LookupResult::Unknown { .. }
+            ));
+        }
+    }
+}
+#[tokio::test]
+async fn e1_binance_seven_day_boundary_and_exact_query() {
+    let start = now() - chrono::Duration::seconds(60);
+    for offset in [60_000, 7 * DAY_MS - 1, 7 * DAY_MS] {
+        let t = ScriptedTransport::default();
+        t.set_now(start + chrono::Duration::milliseconds(offset));
+        t.reply(B_HISTORY, 200, json!([e1_row(false, 6)]));
+        let result = e1_lookup(false, &t, &e1_request(false)).await;
+        if offset == 7 * DAY_MS {
+            assert!(matches!(result, w::LookupResult::Unknown { .. }));
+            assert!(t.requests().is_empty());
+        } else {
+            assert!(matches!(result, w::LookupResult::Found { .. }));
+            let mut q = e1_query(&t.requests()[0]);
+            q.remove("signature");
+            q.remove("timestamp");
+            assert_eq!(
+                q,
+                std::collections::BTreeMap::from([
+                    ("withdrawOrderId", "our-client-id".into()),
+                    ("startTime", start.timestamp_millis().to_string()),
+                    ("endTime", (start.timestamp_millis() + offset).to_string()),
+                    ("recvWindow", "5000".into())
+                ])
+            );
+        }
+    }
+}
+#[tokio::test]
+async fn e1_mexc_halves_full_windows_and_finishes_before_settling() {
+    let start = now().timestamp_millis() - 60_000;
+    let end = start + 7 * DAY_MS + 1;
+    let t = ScriptedTransport::default();
+    t.set_now(chrono::DateTime::from_timestamp_millis(end).unwrap());
+    t.reply(M_HISTORY, 200, json!(vec![e1_row(true, 6); 1000]));
+    t.reply(M_HISTORY, 200, json!([e1_row(true, 6)]));
+    t.reply(M_HISTORY, 200, json!([]));
+    t.reply(M_HISTORY, 200, json!([]));
+    assert!(matches!(
+        e1_lookup(true, &t, &e1_request(true)).await,
+        w::LookupResult::Found { .. }
+    ));
+    let requests = t.requests();
+    assert_eq!(
+        requests.len(),
+        1 + 2 + 1,
+        "full window + two halves + remaining window"
+    );
+    let ranges: Vec<_> = requests
+        .iter()
+        .map(|r| {
+            let q = e1_query(r);
+            assert!(!q.contains_key("walletType"));
+            assert_eq!(q["coin"], "BTC");
+            assert_eq!(q["limit"], "1000");
+            (
+                q["startTime"].parse::<i64>().unwrap(),
+                q["endTime"].parse::<i64>().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(ranges[0], (start, start + 7 * DAY_MS - 1));
+    assert_eq!(ranges[1].0, start);
+    assert_eq!(ranges[1].1 + 1, ranges[2].0);
+    assert_eq!(ranges[2].1, ranges[0].1);
+    assert_eq!(ranges[3], (ranges[0].1 + 1, end));
+    // A second matching record in a later window prevents settlement, even after an earlier exact match.
+    let t = ScriptedTransport::default();
+    t.set_now(chrono::DateTime::from_timestamp_millis(end).unwrap());
+    t.reply(M_HISTORY, 200, json!([e1_row(true, 6)]));
+    assert!(matches!(
+        e1_lookup(true, &t, &e1_request(true)).await,
+        w::LookupResult::Unknown { .. }
+    ));
+    let t = ScriptedTransport::default();
+    t.set_now(now());
+    t.reply(M_HISTORY, 200, json!(vec![e1_row(true, 6); 1000]));
+    assert!(matches!(
+        e1_lookup(true, &t, &e1_request(true)).await,
+        w::LookupResult::Unknown { .. }
+    ));
+    assert!(
+        t.requests().len() < 100,
+        "a saturated millisecond cannot be halved"
+    );
+}
+#[tokio::test]
+async fn e1_mexc_ninety_day_limit_never_proves_absence() {
+    let start = now() - chrono::Duration::seconds(60);
+    for offset in [90 * DAY_MS - 1, 90 * DAY_MS, 91 * DAY_MS] {
+        let t = ScriptedTransport::default();
+        t.set_now(start + chrono::Duration::milliseconds(offset));
+        t.reply(M_HISTORY, 200, json!([]));
+        let result = e1_lookup(true, &t, &e1_request(true)).await;
+        if offset < 90 * DAY_MS {
+            assert!(matches!(result, w::LookupResult::NotFound));
+            assert_eq!(t.requests().len(), 12 + 1, "twelve full weeks + remainder");
+        } else {
+            assert!(matches!(result, w::LookupResult::Unknown { .. }));
+            assert!(t.requests().is_empty());
+        }
+    }
+}
+#[tokio::test]
+async fn e1_x0_classifier_cells_through_real_adapters() {
+    let vectors: Value =
+        serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+    for mexc in [false, true] {
+        let venue = if mexc { "mexc" } else { "binance" };
+        let old_path = if mexc {
+            "POST /api/v3/capital/withdraw/apply"
+        } else {
+            B_SEND
+        };
+        let cells: Vec<_> = vectors["classifier"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["venue"] == venue && c["replies"][old_path].is_array())
+            .collect();
+        assert_eq!(cells.len(), if mexc { 1 + 1 + 1 + 1 } else { 3 + 1 + 1 + 1 + 1 + 1 + 1 }, "X0: MEXC rejection + internal + raw + timeout; Binance three rejections + tranId + missing msg + empty + HTML + timeout + unreadable");
+        for cell in cells {
+            let reply = &cell["replies"][old_path][0];
+            let t = ScriptedTransport::default();
+            if reply["network"].is_string() {
+                t.network(e1_send_path(mexc), "post_send", "timeout");
+            } else {
+                t.reply(
+                    e1_send_path(mexc),
+                    reply["status"].as_u64().unwrap_or(200) as u16,
+                    reply["body"].clone(),
+                );
+            }
+            let result = e1_send(mexc, &t, &e1_request(mexc)).await;
+            let message = cell["rule_logs"][0]["message"].as_str().unwrap();
+            let definitive = !rules::ambiguous(if mexc { "Mexc" } else { "Binance" }, message);
+            assert_eq!(
+                matches!(
+                    result,
+                    w::SendResult::Rejected {
+                        definitive: true,
+                        ..
+                    }
+                ),
+                definitive,
+                "{}",
+                cell["case"]
+            );
+            assert_eq!(
+                matches!(result, w::SendResult::Ambiguous { .. }),
+                !definitive,
+                "{}",
+                cell["case"]
+            );
+            if let w::SendResult::Rejected { reason, .. } = result {
+                assert_eq!(message, format!("Withdrawal failed: {reason}"));
+            }
+        }
+    }
+}
+#[test]
+fn e1_g0_gate_does_not_enable_live_withdrawals() {
+    for name in ["Exchanges::Binance", "Exchanges::Mexc"] {
+        assert!(w::G0_ADAPTERS.contains(&name));
+        assert!(!deltabadger::venue::registry::row(name).unwrap().withdraws);
+    }
+}
+fn e1_db(mexc: bool) -> Db {
+    let d = Db::new();
+    if mexc {
+        d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Mexc',name='MEXC'; UPDATE rules SET settings=json_set(settings,'$.network','Bitcoin');").unwrap();
+    }
+    d
+}
+fn e1_reads(mexc: bool) -> ScriptedTransport {
+    let t = ScriptedTransport::default();
+    t.set_now(now());
+    t.reply(
+        "GET /api/v3/account",
+        200,
+        json!({"balances":[{"asset":"BTC","free":"1","locked":"0"}]}),
+    );
+    let network = if mexc { "Bitcoin" } else { "BTC" };
+    t.reply(if mexc { "GET /api/v3/capital/config/getall" } else { "GET /sapi/v1/capital/config/getall" }, 200,
+        json!([{"coin":"BTC","networkList":[{"network":network,"netWork":"BTC","withdrawEnable":true,"withdrawTag":false,"withdrawFee":"0.01","withdrawIntegerMultiple":"0.00000001","isDefault":true}]}]));
+    t.reply(if mexc { "GET /api/v3/capital/withdraw/address" } else { "GET /sapi/v1/capital/withdraw/address/list" }, 200,
+        if mexc { json!({"data":[{"coin":"BTC","network":"BTC","address":"destination"}],"page":1,"totalPageNum":1,"totalRecords":1}) }
+        else { json!([{"coin":"BTC","network":"BTC","address":"destination"}]) });
+    t.reply(e1_history(mexc), 200, json!([]));
+    t
+}
+fn e1_binance_adapter(
+    d: &Db,
+    t: &ScriptedTransport,
+) -> w::VenueAdapter<BinanceVenue<ScriptedTransport>> {
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+        .unwrap()
+        .unwrap();
+    w::VenueAdapter::new(
+        BinanceVenue::new(t.clone(), deltabadger::venue::binance::URL, "secret")
+            .with_identity(&cr)
+            .with_pairs(deltabadger::venue::binance::Pairs {
+                assets: [("BTC".into(), "BTC".into())].into(),
+                ..Default::default()
+            }),
+        version,
+        None,
+    )
+}
+fn e1_mexc_adapter(d: &Db, t: &ScriptedTransport) -> w::VenueAdapter<MexcVenue<ScriptedTransport>> {
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+        .unwrap()
+        .unwrap();
+    w::VenueAdapter::new(
+        MexcVenue::new(t.clone(), deltabadger::venue::mexc::URL, "secret")
+            .with_identity(&cr)
+            .with_pairs(deltabadger::venue::binance::Pairs {
+                assets: [("BTC".into(), "BTC".into())].into(),
+                ..Default::default()
+            }),
+        version,
+        None,
+    )
+}
+fn e1_sends(mexc: bool, t: &ScriptedTransport) -> usize {
+    t.requests()
+        .iter()
+        .filter(|r| format!("{} {}", r.method, r.path) == e1_send_path(mexc))
+        .count()
+}
+async fn e1_g0<V: Venue>(
+    mexc: bool,
+    factory: impl Fn(&Db, &ScriptedTransport) -> w::VenueAdapter<V>,
+) {
+    for outcome in ["accepted", "rejected", "ambiguous", "timeout"] {
+        let d = e1_db(mexc);
+        let t = e1_reads(mexc);
+        let a = factory(&d, &t);
+        let i = w::evaluate(&d.c, &d.cipher, &a, d.eval(), &FixedClock(now()))
+            .await
+            .unwrap()
+            .unwrap();
+        match outcome {
+            "accepted" => {
+                t.reply(e1_send_path(mexc), 200, json!({"id":"venue-id"}));
+            }
+            "rejected" => {
+                t.reply(
+                    e1_send_path(mexc),
+                    400,
+                    if mexc {
+                        json!({"code":10101,"msg":"Insufficient balance"})
+                    } else {
+                        json!({"code":-4026,"msg":"You have insufficient balance."})
+                    },
+                );
+            }
+            "ambiguous" => {
+                t.reply(e1_send_path(mexc), 200, json!({}));
+            }
+            _ => {
+                t.network(e1_send_path(mexc), "post_send", "timeout");
+            }
+        }
+        let mut edited = i.clone();
+        edited.request.amount = "99".into();
+        w::dispatch(&d.c, &d.cipher, &a, &edited, &FixedClock(now()))
+            .await
+            .unwrap();
+        let wire = t
+            .requests()
+            .into_iter()
+            .find(|r| r.method == "POST")
+            .unwrap();
+        assert_eq!(
+            e1_query(&wire)["amount"],
+            i.request.amount,
+            "immutable persisted amount"
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("restart.sqlite");
+        d.c.execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+            .unwrap();
+        let d = Db {
+            c: Connection::open(path).unwrap(),
+            q: Connection::open_in_memory().unwrap(),
+            cipher: d.cipher,
+        };
+        let a = factory(&d, &t);
+        for _ in 0..2 {
+            w::recover(&d.c, &d.cipher, &a, "rule:1", &FixedClock(now()))
+                .await
+                .unwrap();
+            w::dispatch(&d.c, &d.cipher, &a, &i, &FixedClock(now()))
+                .await
+                .unwrap();
+        }
+        let unresolved = matches!(outcome, "ambiguous" | "timeout");
+        assert_eq!(e1_sends(mexc, &t), 1);
+        assert_eq!(d.count("rule_logs"), i64::from(!unresolved));
+        assert_eq!(d.count("rust_withdrawal_intents"), i64::from(unresolved));
+        assert_eq!(rules::status(&d.c, 1).unwrap().is_some(), unresolved);
+        if !unresolved {
+            let status: i64 =
+                d.c.query_row("SELECT status FROM rule_logs", [], |r| r.get(0))
+                    .unwrap();
+            assert_eq!(status, if outcome == "accepted" { 1 } else { 2 });
+        }
+    }
+}
+#[tokio::test]
+async fn e1_g0_real_adapters_restart_without_resends() {
+    e1_g0(false, e1_binance_adapter).await;
+    e1_g0(true, e1_mexc_adapter).await;
+}
+async fn e1_kill_send(d: &Db, t: &ScriptedTransport, a: &impl w::Adapter) {
+    let i = w::evaluate(&d.c, &d.cipher, a, d.eval(), &FixedClock(now()))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        w::mark_dispatched(&d.c, &d.cipher, a, &i, &FixedClock(now()))
+            .await
+            .unwrap()
+    );
+    assert!(matches!(
+        a.send(&i.request).await,
+        w::SendResult::Accepted { .. }
+    ));
+    assert_eq!(
+        t.requests().iter().filter(|r| r.method == "POST").count(),
+        1
+    );
+}
+#[tokio::test]
+async fn e1_kill_worker() {
+    let Ok(path) = std::env::var("E1_CRASH_DB") else {
+        return;
+    };
+    let path = std::path::PathBuf::from(path);
+    let d = reopen(&path);
+    let mexc = std::env::var("E1_CRASH_MEXC").unwrap() == "true";
+    let t = e1_reads(mexc);
+    t.reply(e1_send_path(mexc), 200, json!({"id":"venue-id"}));
+    if mexc {
+        e1_kill_send(&d, &t, &e1_mexc_adapter(&d, &t)).await;
+    } else {
+        e1_kill_send(&d, &t, &e1_binance_adapter(&d, &t)).await;
+    }
+    std::fs::write(path.with_extension("sends"), e1_sends(mexc, &t).to_string()).unwrap();
+    std::process::exit(74);
+}
+async fn e1_after_kill(d: &Db, a: &impl w::Adapter, i: &w::Intent) {
+    for _ in 0..2 {
+        w::recover(&d.c, &d.cipher, a, "rule:1", &FixedClock(now()))
+            .await
+            .unwrap();
+        w::dispatch(&d.c, &d.cipher, a, i, &FixedClock(now()))
+            .await
+            .unwrap();
+    }
+}
+#[tokio::test]
+async fn e1_kill_after_dispatch_real_adapters_send_once_and_exact_lookup_settles() {
+    for mexc in [false, true] {
+        for status in [None, Some(6), Some(if mexc { 8 } else { 3 })] {
+            let found = status.is_some();
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("primary.sqlite");
+            let d = e1_db(mexc);
+            d.c.execute("VACUUM INTO ?1", [path.to_str().unwrap()])
+                .unwrap();
+            d.q.execute(
+                "VACUUM INTO ?1",
+                [path.with_extension("queue").to_str().unwrap()],
+            )
+            .unwrap();
+            drop(d);
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "e1_kill_worker", "--nocapture"])
+                .env("E1_CRASH_DB", &path)
+                .env("E1_CRASH_MEXC", mexc.to_string())
+                .output()
+                .unwrap();
+            assert_eq!(
+                output.status.code(),
+                Some(74),
+                "{} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let d = reopen(&path);
+            let t = ScriptedTransport::default();
+            t.set_now(now());
+            let i = w::load(&d.c, &d.cipher, "rule:1").unwrap().unwrap();
+            assert_eq!(i.state, "dispatched");
+            let mut row = e1_row(mexc, status.unwrap_or(6));
+            row["withdrawOrderId"] = json!(i.request.client_id);
+            row["amount"] = json!(i.request.amount);
+            row.as_object_mut()
+                .unwrap()
+                .remove(if mexc { "memo" } else { "addressTag" });
+            t.reply(
+                e1_history(mexc),
+                200,
+                if found { json!([row]) } else { json!([]) },
+            );
+            if mexc {
+                e1_after_kill(&d, &e1_mexc_adapter(&d, &t), &i).await;
+            } else {
+                e1_after_kill(&d, &e1_binance_adapter(&d, &t), &i).await;
+            }
+            assert_eq!(
+                std::fs::read_to_string(path.with_extension("sends")).unwrap(),
+                "1"
+            );
+            assert_eq!(e1_sends(mexc, &t), 0);
+            assert_eq!(d.count("rule_logs"), i64::from(found));
+            assert_eq!(d.count("rust_withdrawal_intents"), i64::from(!found));
+            assert_eq!(rules::status(&d.c, 1).unwrap().is_some(), !found);
+            if let Some(status) = status {
+                let actual: i64 =
+                    d.c.query_row("SELECT status FROM rule_logs", [], |r| r.get(0))
+                        .unwrap();
+                assert_eq!(actual, if status == 6 { 1 } else { 2 });
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn e1_missing_destination_network_and_wrong_wallet_are_never_sent() {
+    for mexc in [false, true] {
+        let mut r = e1_request(mexc);
+        match &mut r.destination {
+            v::Destination::Binance { network, .. } | v::Destination::Mexc { network, .. } => {
+                network.clear()
+            }
+            _ => unreachable!(),
+        }
+        let t = ScriptedTransport::default();
+        t.set_now(now());
+        assert!(matches!(
+            e1_send(mexc, &t, &r).await,
+            w::SendResult::Rejected {
+                definitive: true,
+                ..
+            }
+        ));
+        assert!(matches!(
+            e1_lookup(mexc, &t, &r).await,
+            w::LookupResult::Unknown { .. }
+        ));
+        assert!(t.requests().is_empty());
+    }
+    let t = ScriptedTransport::default();
+    let mut r = e1_request(false);
+    r.wallet_type = Some(1);
+    assert!(matches!(
+        e1_send(false, &t, &r).await,
+        w::SendResult::Rejected {
+            definitive: true,
+            ..
+        }
+    ));
+    assert!(t.requests().is_empty(), "D-RULE-WALLET-SPOT");
+}
+
+#[tokio::test]
+async fn e1_partial_or_malformed_history_cannot_settle_an_earlier_match() {
+    for mexc in [false, true] {
+        for key in ["id", "amount", "status", "coin", "address"] {
+            let mut malformed = e1_row(mexc, 6);
+            malformed.as_object_mut().unwrap().remove(key);
+            malformed["withdrawOrderId"] = json!("unrelated");
+            let t = ScriptedTransport::default();
+            t.set_now(now());
+            t.reply(e1_history(mexc), 200, json!([e1_row(mexc, 6), malformed]));
+            assert!(
+                matches!(
+                    e1_lookup(mexc, &t, &e1_request(mexc)).await,
+                    w::LookupResult::Unknown { .. }
+                ),
+                "{mexc}, {key}"
+            );
+        }
+    }
+    let t = ScriptedTransport::default();
+    t.set_now(now() + chrono::Duration::days(8));
+    t.reply(M_HISTORY, 200, json!([e1_row(true, 6)]));
+    t.reply(
+        M_HISTORY,
+        403,
+        json!({"code":700007,"msg":"No permission to access the endpoint"}),
+    );
+    assert!(matches!(
+        e1_lookup(true, &t, &e1_request(true)).await,
+        w::LookupResult::Unknown { .. }
+    ));
+    assert_eq!(t.requests().len(), 1 + 1, "exact match then failed window");
+}
+
 // E3: the production VenueAdapter and GeminiVenue, with offline HTTP answers.
 use deltabadger::venue::gemini::GeminiVenue;
 const G_SEND: &str = "POST /v2/withdraw/bitcoin/btc";
