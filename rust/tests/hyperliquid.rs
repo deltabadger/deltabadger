@@ -40,7 +40,7 @@ async fn an_order_is_one_gtc_limit_with_the_intents_cloid_on_the_pairs_asset() {
     // Utils.order_request_to_order_wire: a b p s r t in that order, p and s through float_to_wire, `c` the cloid (D9).
     assert_eq!(sent, json!({ "action": { "type": "order", "orders": [{ "a": 10142, "b": true, "p": "40.022", "s": "1.49", "r": false,
                                                                          "t": { "limit": { "tif": "Gtc" } }, "c": "0x0b1d2c3e4f5061728394a5b6c7d8e9f0" }], "grouping": "na" } }));
-    // A market plan reaches the adapter crossed: the same GTC limit at the persisted price.
+    // A market plan reaches the adapter crossed: an IOC limit at the persisted crossed price.
     let t = script(ok(json!({ "status": "ok", "response": { "type": "order", "data": { "statuses": [{ "filled": { "oid": 5u64, "totalSz": "1", "avgPx": "1" } }] } } })));
     assert_eq!(venue(&t).add_order(&new_order(OrderKind::Crossed { price: "40.525".into() }, "1.48")).await, Ok("BTC-5".into()));
     let t = ScriptedTransport::from_script(&json!({}));
@@ -222,4 +222,99 @@ fn every_hyperliquid_bot_places_limit_orders() {
     let bot = deltabadger::engine::model::load_bot(&o.primary, id).unwrap();
     assert!(bot.limit_ordered(), "on Hyperliquid it is locked on");
     assert_eq!(bot.limit_distance().map(|d| d.to_s_f()), Some("0.001".into()));
+}
+
+/// D-HYPERLIQUID-MARKET-IOC: sign IOC at Rails' unchanged 1% cross, adjusted before
+/// and after crossing with Floor on both sides.
+#[tokio::test(flavor = "current_thread")]
+async fn market_ioc_buy_and_sell_sign_the_rails_crossed_price() {
+    use deltabadger::engine::{amount, model};
+    use deltabadger::ruby::BigDec;
+    let (_dir, o, s) = common::install_alpaca();
+    let id = common::seed::insert_bot(&o.primary, &s, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let mut ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    ticker.ticker = "@142".into();
+    let d = |s: &str| BigDec::parse(s).unwrap();
+    for (touch, decimals, buy, sell) in [("40.1234567", 5, "40.524", "39.721"), ("0.01234567", 2, "0.012468", "0.012221"), ("64012.7", 5, "64652", "63371")] {
+        ticker.base_decimals = decimals;
+        for (side, want) in [(Side::Buy, buy), (Side::Sell, sell)] {
+            let price = HYPERLIQUID.market_price(&d(touch), &ticker, side).unwrap();
+            assert_eq!(price, d(want));
+            let (plan, _) = amount::size_order(&ticker, side, &price, &d("1"), &price, HYPERLIQUID.minimum_logic, amount::TxKind::Regular).unwrap();
+            let plan = plan.with_wire_price(&HYPERLIQUID, &price, true).unwrap();
+            let order = plan.to_order(CLOID_OF.into(), t0() + Duration::seconds(10), HYPERLIQUID.wire).unwrap();
+            let t = script(ok(json!({"status":"ok","response":{"type":"order","data":{"statuses":[{"filled":{"oid":5,"totalSz":"1","avgPx":touch}}]}}})));
+            assert_eq!(venue(&t).add_order(&order).await, Ok("BTC-5".into()));
+            let action = t.requests().last().unwrap().body.as_ref().unwrap()["action"].clone();
+            let signed: Value = serde_json::from_str(&signer::signed_body(&signer::signing_key(AGENT).unwrap(), &action, 1788000000000)).unwrap();
+            assert_eq!(signed["action"]["orders"][0]["t"]["limit"]["tif"], "Ioc");
+            assert_eq!(signed["action"]["orders"][0]["p"], want);
+            let mut gtc = action.clone();
+            gtc["orders"][0]["t"]["limit"]["tif"] = json!("Gtc");
+            let gtc: Value = serde_json::from_str(&signer::signed_body(&signer::signing_key(AGENT).unwrap(), &gtc, 1788000000000)).unwrap();
+            assert_ne!(signed["signature"], gtc["signature"], "the signature commits to IOC");
+        }
+    }
+}
+
+/// Placement and the normal fill poll share the existing final-order accounting; no IOC remainder rests.
+#[tokio::test(flavor = "current_thread")]
+async fn market_ioc_fills_no_match_and_uncertainty_settle_through_placement_and_polling() {
+    use deltabadger::engine::{amount, model, placement, polling};
+    use deltabadger::ruby::BigDec;
+    let filled = |size: &str| ok(json!({"status":"ok","response":{"type":"order","data":{"statuses":[{"filled":{"oid":5,"totalSz":size,"avgPx":"40"}}]}}}));
+    let no_match = ok(json!({"status":"ok","response":{"type":"order","data":{"statuses":[{"error":"Order could not immediately match against any resting orders."}]}}}));
+    for (answer, executed, status) in [(filled("1"), Some("1"), "filled"), (filled("0.4"), Some("0.4"), "filled"),
+        (filled("0.4"), Some("0.4"), "iocCanceled"), (no_match, Some("0"), "rejected"),
+        (json!({"status":503,"body":"unavailable"}), None, "ambiguous"),
+        (json!({"network":"post_send","message":"timeout"}), None, "ambiguous"),
+        (json!({"status":200,"body":"unreadable"}), None, "ambiguous")] {
+        let (_dir, o, s) = common::install_alpaca();
+        let c = &o.primary;
+        let id = common::seed::insert_bot(c, &s, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        c.execute("UPDATE exchanges SET type = 'Exchanges::Hyperliquid' WHERE id = ?1", [s.exchange_id]).unwrap();
+        let bot = model::load_bot(c, id).unwrap();
+        let mut ticker = model::ticker_for(c, &bot).unwrap().unwrap();
+        ticker.ticker = "@142".into();
+        ticker.base_decimals = 5;
+        let d = |s: &str| BigDec::parse(s).unwrap();
+        let (plan, _) = amount::size_order(&ticker, Side::Buy, &d("40.4"), &d("1"), &d("40.4"), HYPERLIQUID.minimum_logic, amount::TxKind::Regular).unwrap();
+        let plan = plan.with_wire_price(&HYPERLIQUID, &d("40"), false).unwrap();
+        let size = executed.unwrap_or("0");
+        let left = (&d("1") - &d(size)).to_s_f();
+        let t = ScriptedTransport::from_script(&json!({"POST /info spotMeta":[spot_meta()], "POST /exchange":[answer],
+            "POST /info orderStatus":[ok(json!({"status":"order","order":{"order":{"coin":"@142","side":"B","limitPx":"40.4","sz":left,"oid":5,"timestamp":1788000000000u64,"origSz":"1","tif":"Ioc"},"status":status}}))],
+            "POST /info userFillsByTime":[ok(json!([{"oid":5,"sz":size,"px":"40","tid":1,"time":1788000000001u64}]))]}));
+        let v = venue(&t);
+        let owed = amount::pending_quote_amount(c, &bot, t0().timestamp_micros()).unwrap();
+        let intent = placement::begin(c, &bot, &plan, &FixedClock(t0())).unwrap();
+        let sent = placement::send_recorded(c, &v, &bot, &intent, &FixedClock(t0())).await.unwrap();
+        match executed {
+            None => {
+                assert!(matches!(sent, placement::Sent::Ambiguous(_)), "{sent:?}");
+                assert!(model::load_bot(c, id).unwrap().rust_placement().is_some());
+                assert_eq!(c.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+            }
+            Some("0") => {
+                assert!(matches!(sent, placement::Sent::Rejected(_)), "{sent:?}");
+                assert!(model::load_bot(c, id).unwrap().rust_placement().is_none());
+                assert_eq!(amount::pending_quote_amount(c, &model::load_bot(c, id).unwrap(), t0().timestamp_micros()).unwrap(), owed);
+                assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE status=0", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+                assert_eq!(t.requests().len(), 2, "no resting order to poll");
+            }
+            Some(size) => {
+                assert!(matches!(sent, placement::Sent::Accepted(_)), "{sent:?}");
+                let row = c.query_row("SELECT id FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap();
+                assert_eq!(polling::follow_up(c, &v, id, row, t0()).await.unwrap(), polling::FollowUp::Done);
+                let (exec, cost, state): (f64, f64, i64) = c.query_row("SELECT amount_exec, quote_amount_exec, external_status FROM transactions", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+                assert_eq!((exec, cost), (d(size).to_f(), (&d(size) * &d("40")).to_f()));
+                assert_eq!(state, if status == "iocCanceled" { 3 } else { 2 });
+                let before = t.requests().len();
+                assert_eq!(polling::follow_up(c, &v, id, row, t0()).await.unwrap(), polling::FollowUp::Done);
+                assert_eq!(t.requests().len(), before, "the remainder is final, never polled open");
+                assert_eq!(amount::pending_quote_amount(c, &model::load_bot(c, id).unwrap(), t0().timestamp_micros()).unwrap(), &owed - &(&d(size) * &d("40")));
+            }
+        }
+    }
 }

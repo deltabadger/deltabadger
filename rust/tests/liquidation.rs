@@ -333,14 +333,29 @@ async fn zero_open_then_terminal_missing_then_late_positive_proceeds_for_both_te
     }
 }
 
+/// D-HYPERLIQUID-MARKET-IOC: liquidation sends the same crossed sell price and base
+/// quantity as Rails, with IOC instead of GTC. All database effects remain in the comparison.
+#[cfg(unix)]
+fn hyperliquid_ioc_expected(rails: &Value, rust: &Value) -> Value {
+    let mut expected = rails.clone();
+    for order in expected["sent"].as_array_mut().unwrap() {
+        assert_eq!(order["b"], false);
+        assert_eq!(order["p"], "63360");
+        assert_eq!(order["t"]["limit"]["tif"], "Gtc");
+        order["t"]["limit"]["tif"] = json!("Ioc");
+    }
+    assert_eq!(expected["sent"], rust["sent"], "only time-in-force differs; price and quantity match Rails");
+    expected
+}
+
 #[cfg(unix)]
 fn liquidation_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust: &Value) -> Result<(),String> {
-    let mut expected=rails.clone();
+    let mut expected=if name.contains("-hyperliquid-") { hyperliquid_ioc_expected(rails, rust) } else { rails.clone() };
     if name.ends_with("-split_unresolved") {
         // D-6C-SPLIT-HOLD (T3): refuse before sizing, with the explicit reconciliation reason.
         assert_eq!(expected["changes"]["bot_activity_logs"][0]["after"]["details"]["reason"],json!(["not_held"]));
         expected["changes"]["bot_activity_logs"][0]["after"]["details"]["reason"]=json!(["split_hold"]);
-    } else {
+    } else if name.ends_with("-timeout") || name.ends_with("-pre_send") {
         let alpaca=name.contains("-alpaca-");
         let hyperliquid=name.contains("-hyperliquid-");
         let kraken=name.contains("-kraken-");
@@ -403,7 +418,7 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, rails: &Value, r
 #[tokio::test(flavor="current_thread")]
 async fn rails_liquidation_grid_matches_every_venue() {
     let outputs=common::venue_grid::run_venue_grid("grid-liquidation",450,&[common::venue_grid::Validator {
-        names:&|name|["-timeout","-pre_send","-split_unresolved"].iter().any(|suffix|name.ends_with(suffix)),
+        names:&|name|name.contains("-hyperliquid-") || ["-timeout","-pre_send","-split_unresolved"].iter().any(|suffix|name.ends_with(suffix)),
         check:&liquidation_grid_difference,
     }]).await;
     for (name,out) in outputs {

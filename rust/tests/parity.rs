@@ -554,9 +554,9 @@ fn hyperliquid_invalid_private_key(dir: &Path, rails: &serde_json::Value, rust: 
     Ok(())
 }
 
-/// D-679, path 2: Rails and Rust both size at the crossed price. Pin the entire wire order,
-/// including GTC (a crossed Hyperliquid order can rest), and the base quantity the row records.
-fn hyperliquid_path_two(name: &str, out: &serde_json::Value) {
+/// D-HYPERLIQUID-MARKET-IOC and D-679, path 2: Rails and Rust use the same 1% cross
+/// and base quantity; only the time-in-force differs (Rails GTC, Rust IOC).
+fn hyperliquid_path_two(name: &str, out: &serde_json::Value, ioc: bool) {
     use deltabadger::ruby::BigDec;
     for order in out["sent"].as_array().unwrap() {
         let buy = order["b"].as_bool().unwrap();
@@ -570,7 +570,7 @@ fn hyperliquid_path_two(name: &str, out: &serde_json::Value) {
         assert!(size > BigDec::zero(), "{name}: positive base size");
         assert_eq!(size, size.floor(5), "{name}: base precision");
         assert_eq!(*order, serde_json::json!({"a": asset, "b": buy, "p": price, "s": order["s"],
-            "r": false, "t": {"limit": {"tif": "Gtc"}}}), "{name}: D-679 crosses once, then sends a GTC limit");
+            "r": false, "t": {"limit": {"tif": if ioc { "Ioc" } else { "Gtc" }}}}), "{name}: D-HYPERLIQUID-MARKET-IOC changes only the time-in-force");
     }
     let sent = out["sent"].as_array().unwrap();
     let rows: Vec<_> = out["changes"]["transactions"].as_array().unwrap().iter()
@@ -589,7 +589,7 @@ fn hyperliquid_path_two(name: &str, out: &serde_json::Value) {
     if name.starts_with("rebalance-hyperliquid-") {
         for order in sent.iter().filter(|o| o["b"] == false) {
             // (0.01 * 64006.1 - 0.04 * 2500.5) / 2 = 270.0205 USDC excess; size at the crossed bid.
-            assert_eq!(order["s"], "0.00426", "{name}: D-679 sells the excess at 63360, rather than the raw bid");
+            assert_eq!(order["s"], "0.00426", "{name}: sell the excess at the persisted bound");
         }
     }
     if name.starts_with("signal-hyperliquid-") {
@@ -601,6 +601,20 @@ fn hyperliquid_path_two(name: &str, out: &serde_json::Value) {
             assert_eq!(order["s"], size, "{name}: D-679 sizes at the cross, within the quote budget or free base");
         }
     }
+}
+
+/// D-HYPERLIQUID-MARKET-IOC: validate Rails GTC versus Rust IOC at the same price and
+/// quantity, then compare every other field and database effect through the existing validators.
+fn hyperliquid_market_ioc_comparison(name: &str, rails: &serde_json::Value, rust: &serde_json::Value) -> serde_json::Value {
+    hyperliquid_path_two(name, rails, false);
+    hyperliquid_path_two(name, rust, true);
+    let mut out = rust.clone();
+    for order in out["sent"].as_array_mut().unwrap() {
+        assert_eq!(order["t"]["limit"]["tif"], "Ioc", "{name}: Rust market order is IOC");
+        order["t"]["limit"]["tif"] = serde_json::json!("Gtc");
+    }
+    assert_eq!(out["sent"], rails["sent"], "{name}: only time-in-force differs; price and quantity match Rails");
+    out
 }
 
 /// Plan VB slice B1. Every Hyperliquid DCA bot places limit orders (Bot::LimitOrderable#limit_orders_locked?), so no DCA order
@@ -936,10 +950,11 @@ async fn rails_and_rust_rebalance_identically() {
         out["changes"]["bots"].as_array().unwrap().last().map(|b| b["after"]["transient_data"]["rebalance_pending"]["phase"].clone()).unwrap_or_default()
     };
     for (name, dir, rails_out, rust_out) in &outputs {
-        if name.starts_with("rebalance-hyperliquid-") {
-            hyperliquid_path_two(name, rails_out);
-            hyperliquid_path_two(name, rust_out);
-        }
+        let comparison;
+        let rust_out = if name.starts_with("rebalance-hyperliquid-") {
+            comparison = hyperliquid_market_ioc_comparison(name, rails_out, rust_out);
+            &comparison
+        } else { rust_out };
         if unknown.iter().any(|u| name.ends_with(u)) {
             // Both sent the one sell; Rails halted (or, on Binance's id-less answer, stored "BTCUSDT-" and waits on it), the
             // engine waits on its intent with the selling phase, no row on its side.
@@ -2367,10 +2382,11 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
     };
     let mut failures = vec![];
     for (name, _, rails_out, rust_out) in &outputs {
-        if name.starts_with("signal-hyperliquid-") {
-            hyperliquid_path_two(name, rails_out);
-            hyperliquid_path_two(name, rust_out);
-        }
+        let comparison;
+        let rust_out = if name.starts_with("signal-hyperliquid-") {
+            comparison = hyperliquid_market_ioc_comparison(name, rails_out, rust_out);
+            &comparison
+        } else { rust_out };
         let honeymaker = ["signal-kraken-", "signal-binance-", "signal-kucoin-"].iter().any(|p| name.starts_with(p));
         let alpaca = name.starts_with("signal-alpaca");
         let hyperliquid = name.starts_with("signal-hyperliquid-");

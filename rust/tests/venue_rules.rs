@@ -80,18 +80,16 @@ fn the_price_fixture_is_recorded_from_the_current_rails_sources() {
 #[test]
 fn every_recorded_adjusted_and_market_price_is_reproduced() {
     use deltabadger::engine::model::Ticker;
-    use deltabadger::engine::venue_rules::{PriceRule, Rounding, VenueRules, BINANCE, HYPERLIQUID_PRICE_RULE, KUCOIN, MARKET_CROSS};
+    use deltabadger::engine::venue_rules::{PriceRule, Rounding, VenueRules, BINANCE, HYPERLIQUID, KUCOIN, MARKET_CROSS};
     use deltabadger::ruby::BigDec;
     use deltabadger::venue::Side;
-    // The five ported venues by their own rows; Gemini's and Hyperliquid's rows come with B3/B1, so their price fields are
-    // set here on a borrowed row.
+    // Exercise the production Hyperliquid rule against the recorded Rails prices.
     let gemini = VenueRules { cross: Some(MARKET_CROSS), ..KRAKEN };
-    let hyperliquid = VenueRules { price_rule: HYPERLIQUID_PRICE_RULE, cross: Some(MARKET_CROSS), ..KRAKEN };
     for existing in [&KRAKEN, &ALPACA, &BINANCE, &deltabadger::engine::venue_rules::BINANCE_US, &KUCOIN, &deltabadger::engine::venue_rules::BITVAVO, &deltabadger::engine::venue_rules::MEXC] {
         assert_eq!((existing.price_rule, existing.cross), (PriceRule::Decimals, None), "{}: the default rule, never crossed", existing.name);
     }
     let rules = |name: &str| -> &VenueRules {
-        match name { "Gemini" => &gemini, "Hyperliquid" => &hyperliquid, _ => for_exchange(&format!("Exchanges::{name}")).unwrap() }
+        match name { "Gemini" => &gemini, "Hyperliquid" => &HYPERLIQUID, _ => for_exchange(&format!("Exchanges::{name}")).unwrap() }
     };
     let f = prices_fixture();
     let tickers: Vec<Ticker> = f["price_tickers"].as_array().unwrap().iter().map(|t| Ticker {
@@ -116,6 +114,8 @@ fn every_recorded_adjusted_and_market_price_is_reproduced() {
         assert_eq!(got, c[4].as_str().unwrap(), "market_price_for {c}");
     }
     assert_eq!((f["adjusted_price"].as_array().unwrap().len(), f["market_price_for"].as_array().unwrap().len()), (28_539, 19_026));
+    assert_eq!(f["market_price_for"].as_array().unwrap().iter().filter(|c| c[0] == "Hyperliquid").count(), 1_812 + 302,
+        "Hyperliquid market-price parity: 1812 valid + 302 invalid-precision vectors");
     assert!(errors > 0 && crossed > 1_000, "the fixture reaches Hyperliquid's raise ({errors}) and the cross ({crossed})");
 }
 
