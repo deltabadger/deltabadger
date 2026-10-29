@@ -81,8 +81,9 @@ pub(crate) fn not_crossing(name: &str) -> VenueError { VenueError::Transient(for
 pub enum OrderKind {
     Market,
     Limit { price: String },
-    /// A market order a crossing venue has no market type for (Gemini's IOC `exchange limit`, Hyperliquid's GTC limit),
-    /// sent at its persisted crossed price (OrderPlan::wire_price, D-679). Only a venue whose rules cross receives one.
+    /// A market order a crossing venue has no market type for (Gemini's IOC `exchange limit`, Hyperliquid's IOC limit),
+    /// sent at its persisted crossed price (OrderPlan::wire_price, D-679). Hyperliquid keeps Rails' 1% cross;
+    /// D-HYPERLIQUID-MARKET-IOC changes only time-in-force. Only a venue whose rules cross receives one.
     Crossed { price: String },
 }
 
