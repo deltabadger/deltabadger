@@ -216,3 +216,85 @@ fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
         assert_eq!(budget::within(|| rails::unresolved(c, s.user_id, &orders, &holdings, now)).unwrap(), unresolved, "{case:?}");
     }
 }
+
+/// D-ALPACA-SPLIT-GROUPING: identities distinguish sequential actions from conflicting reports.
+fn same_day_events(c: &Connection, s: &seed::Seeded, identity: &str, conflict: bool, reverse: bool) -> (model::Bot, i64) {
+    use serde_json::json;
+    let case = json!({"assets":[{"base":"AAA","symbol":"AAA"}],"allocations":["AAA"],
+        "buys":[["AAA","2026-09-01 00:00:00","10","90"]],"splits":[]});
+    let (id, assets) = seed_case(c, s, &case);
+    let mut events = vec![("one", "2:1", "-10", "10"), (if conflict { "one" } else { "two" }, "3:1", "-20", "40")];
+    if reverse { events.reverse(); }
+    for (event, ratio, qty, amount) in events {
+        let row = seed::insert_split(c, s, "AAA", "2026-09-05 00:00:00", Some(ratio));
+        let mut raw = json!({"corporate_action":"split","qty":qty,"split_ratio":ratio,"merged_activity_ids":[format!("{event}-remove"),format!("{event}-add")]});
+        raw[identity] = json!(event);
+        c.execute("UPDATE account_transactions SET base_amount=?1,raw_data=?2 WHERE id=?3", params![amount, raw.to_string(), row]).unwrap();
+    }
+    (model::load_bot(c, id).unwrap(), assets["AAA"])
+}
+
+#[test]
+fn distinct_same_day_events_compose_bot_figures() {
+    use deltabadger::{figures::{at::At, budget, db, splits as figures}, ruby::BigDec};
+    for identity in ["corporate_action_id", "group_id"] {
+        for reverse in [false, true] {
+            let (_dir, o, s) = common::install_alpaca();
+            let (bot, asset) = same_day_events(&o.primary, &s, identity, false, reverse);
+            let now = "2026-09-10T14:00:00Z".parse().unwrap();
+            let orders = db::orders(&o.primary, bot.id).unwrap();
+            let holdings = [figures::Holding {key:"AAA".into(), asset_id:Some(asset), strings:vec!["AAA".into()]}];
+            let events = budget::within(|| figures::events(&o.primary, s.user_id, &orders, &holdings, At::from_utc(now).unwrap())).unwrap();
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0].factor.to_s_f(), "6.0");
+            assert_eq!(basket::walk(&o.primary, &bot, now).unwrap().amounts[&asset], BigDec::from_i64(60));
+            assert!(!splits::untrusted(&o.primary, &bot, now).unwrap());
+        }
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn distinct_same_day_events_pass_engine_reconciliation() {
+    use deltabadger::venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport};
+    for identity in ["corporate_action_id", "group_id"] {
+        for reverse in [false, true] {
+            let (_dir, o, s) = common::install_alpaca();
+            let (bot, _) = same_day_events(&o.primary, &s, identity, false, reverse);
+            let transport = ScriptedTransport::from_script(&serde_json::json!({"GET /v2/positions":[{"status":200,"body":[{"symbol":"AAA","asset_class":"us_equity","qty":"60"}]}]}));
+            let venue = AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper")));
+            assert_eq!(splits::refusal(&o.primary, &venue, &bot, "2026-09-10T14:00:00Z".parse().unwrap()).await.unwrap(), None);
+            assert!(transport.posted_orders().is_empty());
+        }
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn conflicting_reports_of_one_event_remain_refused() {
+    use deltabadger::venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport};
+    for identity in ["corporate_action_id", "group_id"] {
+        let (_dir, o, s) = common::install_alpaca();
+        let (bot, _) = same_day_events(&o.primary, &s, identity, true, false);
+        let now = "2026-09-10T14:00:00Z".parse().unwrap();
+        let resolved = splits::splits(&o.primary, &bot, now).unwrap();
+        assert!(resolved.events.is_empty());
+        assert!(resolved.unresolved);
+        let transport = ScriptedTransport::from_script(&serde_json::json!({}));
+        let venue = AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper")));
+        assert!(splits::refusal(&o.primary, &venue, &bot, now).await.unwrap().unwrap().contains("several rows"));
+        assert!(transport.posted_orders().is_empty());
+    }
+}
+
+#[test]
+fn distinct_events_multiply_equal_ratios_and_require_each_factor() {
+    use deltabadger::ruby::BigDec;
+    let (_dir, o, s) = common::install_alpaca();
+    let (bot, asset) = same_day_events(&o.primary, &s, "corporate_action_id", false, false);
+    let now = "2026-09-10T14:00:00Z".parse().unwrap();
+    o.primary.execute("UPDATE account_transactions SET base_amount=20,raw_data=json_set(raw_data,'$.split_ratio','2:1') WHERE json_extract(raw_data,'$.corporate_action_id')='two'", []).unwrap();
+    assert_eq!(basket::walk(&o.primary, &bot, now).unwrap().amounts[&asset], BigDec::from_i64(40));
+    o.primary.execute("UPDATE account_transactions SET raw_data=json_remove(raw_data,'$.split_ratio') WHERE json_extract(raw_data,'$.corporate_action_id')='two'", []).unwrap();
+    let resolved = splits::splits(&o.primary, &bot, now).unwrap();
+    assert!(resolved.events.is_empty(), "a known event cannot mask an unsized distinct event");
+    assert!(resolved.unresolved);
+}

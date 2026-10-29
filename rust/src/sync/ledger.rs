@@ -589,7 +589,7 @@ fn ledger_coin(symbol: &str, l: &Listings) -> Option<String> {
 pub(super) struct Progress {
     pub(super) out: Outcome,
     pub(super) assets: Arc<AssetRule>,
-    /// Every leg id of every merged split stored: a standalone leg arriving later is a duplicate.
+    /// Leg IDs retained by existing merged rows. Alpaca reconciles its provenance before generic deduplication.
     pub(super) merged: HashSet<String>,
     pub(super) min_skipped: Option<DateTime<Utc>>,
     /// The rows this run stored: no evidence that a later entry is a duplicate (#same_event?).
@@ -653,7 +653,7 @@ fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Prepared, Sy
             Err(text) => return Ok(Err(text)),
         }
     }
-    let entries = match activities::merge_splits(entries) { Ok(entries) => Arc::new(entries), Err(text) => return Ok(Err(text)) };
+    let entries = match activities::merge_splits_with_legs(entries, true) { Ok(entries) => Arc::new(entries), Err(text) => return Ok(Err(text)) };
     let merged = stored_merged(c, key)?;
     Ok(Ok((entries.clone(), Progress::new(AssetRule::Alpaca(listings(c, key.exchange_id)?), merged, entries))))
 }
@@ -661,10 +661,43 @@ fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Prepared, Sy
 /// A split row, as everything that reacts to one tells it.
 fn split(e: &Entry) -> bool { e.entry_type == ADJUSTMENT && e.raw.value["corporate_action"] == "split" }
 
+/// D-ALPACA-SPLIT-GROUPING. Only rows created with complete leg provenance may be
+/// updated by forward sync. Legacy aggregates discarded their legs and require a separate,
+/// reviewed historical repair. Reconciliation happens inside the guarded write transaction.
+fn reconcile_split(c: &Connection, key: &Key, incoming: &Entry) -> Result<(Entry, Option<i64>, bool), SyncError> {
+    let rows = stored_rows(c, "WHERE user_id=?1 AND exchange_id=?2 AND entry_type=15 AND base_currency IS ?3 AND transacted_at=?4 ORDER BY id",
+                           params![key.user_id, key.exchange_id, incoming.base_currency, incoming.transacted_at.map(sql_time)])?;
+    let mut found = None;
+    for row in rows {
+        let is_split = row.raw["corporate_action"] == "split" || row.raw["activity_type"].as_str().is_some_and(|t| activities::SPLIT_TYPES.contains(&t));
+        if !is_split { continue; }
+        // A legacy row can already contain another event's legs on the same day.
+        if row.raw["rust_split_legs"].as_array().is_none() {
+            return Err(SyncError("stored Alpaca split requires historical repair".into()));
+        }
+        if !activities::same_split(&row.raw, &incoming.raw.value) { continue; }
+        if found.is_some() { return Err(SyncError("multiple stored Alpaca split aggregates require historical repair".into())); }
+        found = Some(row);
+    }
+    let Some(stored) = found else { return Ok((incoming.clone(), None, false)) };
+    let mut entries = vec![];
+    for raw in [&stored.raw, &incoming.raw.value] {
+        for text in raw["rust_split_legs"].as_array().ok_or_else(|| SyncError("split leg provenance absent".into()))? {
+            let leg = text.as_str().and_then(Raw::parse).ok_or_else(|| SyncError("split leg provenance unreadable".into()))?.map_err(SyncError)?;
+            let entry = activities::normalize(&leg, &Default::default()).map_err(SyncError)?.ok_or_else(|| SyncError("split leg provenance canceled".into()))?;
+            entries.push(entry);
+        }
+    }
+    let mut merged = activities::merge_splits_with_legs(entries, true).map_err(SyncError)?;
+    if merged.len() != 1 { return Err(SyncError("split leg provenance has conflicting events".into())); }
+    let updated = merged.remove(0);
+    let unchanged = updated.raw.value == stored.raw;
+    Ok((updated, Some(stored.id), unchanged))
+}
+
 /// AccountTransactionSync#store! for one unit, inside the caller's write transaction: the entries `range` names of
 /// `p.batch`, at most `BATCH` of them, or one split with the `effects` the read before it computed. A split row is
-/// stored, skipped and announced exactly as Rails does it: a group is a duplicate when its first leg's id is stored, or
-/// is a leg of a stored merged row. (#refuse_unreadable_amounts! has nothing to refuse here: a BigDec is never NaN or
+/// reconciled by retained leg identity for Alpaca; other entries use Rails duplicate rules. (#refuse_unreadable_amounts! has nothing to refuse here: a BigDec is never NaN or
 /// infinite, and its bounds keep the double it binds as finite.)
 pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, range: std::ops::Range<usize>, effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
     let no_effects = || SyncError("a split row outside a unit of its own".into());
@@ -674,7 +707,12 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         for e in batch.iter() { coinbase_rekey(c, key, e, &p.merged)?; }
     }
     for (n, index) in range.enumerate() {
-        let e = &batch[index];
+        let original = &batch[index];
+        let (entry, update, unchanged) = if split(original) && original.raw.value["rust_split_legs"].is_array() {
+            reconcile_split(c, key, original)?
+        } else { (original.clone(), None, false) };
+        if unchanged { p.out.duplicates += 1; continue; }
+        let e = &entry;
         if let Some(stamp) = &p.kraken_repair { super::kraken_ledger::repair(c, key, e, &p.assets, stamp, now)?; }
         let tx_id = present(&e.tx_id);
         // A row its id already names is not one of the identical rows counted.
@@ -683,7 +721,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             *seen += 1;
             *seen - 1
         };
-        if duplicate(c, key, &p, index, tx_id, repeat)? { p.out.duplicates += 1; continue; }
+        if update.is_none() && duplicate(c, key, &p, index, tx_id, repeat)? { p.out.duplicates += 1; continue; }
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
         let (Some(base_currency), Some(at)) = (present(&e.base_currency), e.transacted_at) else {
@@ -695,14 +733,19 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         };
         let no_fee = e.fee_amount.as_ref().is_none_or(BigDec::is_zero);
         let bot_order = if [BUY, SELL, 2, 3].contains(&e.entry_type) { bot_order(c, key.exchange_id, tx_id, &e.raw.value)? } else { None };
-        c.execute(
-            "INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
+        if let Some(id) = update {
+            c.execute("UPDATE account_transactions SET base_amount=?1, description=?2, raw_data=?3, updated_at=?4 WHERE id=?5",
+                      params![amount_sql(&key.exchange_type, &e.base_amount), e.description, e.raw.text(), sql_time(now), id])?;
+        } else {
+            c.execute(
+                "INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
              fee_currency, fee_amount, tx_id, group_id, description, transacted_at, raw_data, manual_values, base_asset_id, transaction_id, \
              transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, '{}', ?16, ?17, 0, ?18, ?18)",
-            params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
+                params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
                     if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)) }, tx_id, e.group_id,
                     e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
-        p.stored.insert(c.last_insert_rowid());
+            p.stored.insert(c.last_insert_rowid());
+        }
         p.merged.extend(merged_ids(&e.raw.value));
         if split(e) {
             let effects = effects.ok_or_else(no_effects)?;

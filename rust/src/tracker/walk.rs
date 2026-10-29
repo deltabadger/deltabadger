@@ -380,6 +380,7 @@ pub fn transfers_first(rows: &[Row]) -> Vec<Row> {
 /// first row, with the least that keeps it at or above zero, at that day's price (a zero, unpriced, when nobody has
 /// one); located, per venue.
 pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next_uid: &mut usize) -> Result<Vec<Row>, FiguresError> {
+    let rows = net_daily_splits(rows)?;
     type Key = (Option<String>, String);
     let mut running: HashMap<Key, Dec> = HashMap::new();
     let mut lowest: Vec<(Key, Dec)> = vec![];
@@ -426,6 +427,25 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
         out.push(row);
     }
     Ok(out)
+}
+
+/// D-ALPACA-SPLIT-GROUPING: a venue's same-day adjustments of one symbol are one restatement.
+/// Applying an intermediate removal first can erase FIFO basis or invent an opening balance. Net before
+/// either walk, at the first row of that day; retain the other row identities with zero quantity changes.
+fn net_daily_splits(mut rows: Vec<Row>) -> Result<Vec<Row>, FiguresError> {
+    let mut first = HashMap::new();
+    for i in 0..rows.len() {
+        crate::figures::budget::charge(1, 0)?;
+        let row = &rows[i];
+        if row.kind != Kind::Adjustment { continue; }
+        let key = (row.exchange.clone(), row.base.clone(), row.at.utc().date_naive());
+        let at = *first.entry(key).or_insert(i);
+        if at != i {
+            rows[at].amount = (&rows[at].amount + &rows[i].amount)?;
+            rows[i].amount = Dec::zero();
+        }
+    }
+    Ok(rows)
 }
 
 /// `taxable`: a fiat row reaches the engine only to pay a fee in a coin.
@@ -867,7 +887,7 @@ impl Engine {
     /// Tracker::Ledger::Engine#calculate over the taxable rows.
     pub fn calculate(&mut self, rows: &[Row]) -> Result<(), FiguresError> {
         for r in rows { self.original.insert(r.uid, r.clone()); }
-        let remapped: Vec<Row> = rows.iter().map(Engine::remap).collect();
+        let remapped = net_daily_splits(rows.iter().map(Engine::remap).collect())?;
         self.groups(&remapped)?;
         for r in &remapped {
             crate::figures::budget::check()?;
