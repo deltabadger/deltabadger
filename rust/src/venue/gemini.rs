@@ -182,6 +182,14 @@ pub fn candle_resolution(timeframe: Timeframe) -> (&'static str, Option<Timefram
 }
 
 impl<T: Transport> super::Venue for GeminiVenue<T> {
+    async fn withdrawal_networks(&self, _: &str) -> Result<Option<super::withdrawal::Coin>, VenueError> { Ok(None) }
+    async fn withdraw(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult {
+        self.send_withdrawal(request).await
+    }
+    async fn withdrawal_lookup(&self, request: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::LookupResult {
+        self.lookup_withdrawal(request).await
+    }
+
     /// Exchanges::Gemini#get_candles: the one recent window /v2/candles serves at the native resolution, newest first and
     /// read oldest first (an answer that is no array has none), each time `to_i / 1000`; a built timeframe with nothing
     /// to build from is Rails' failure; then only the candles from the start on. Rows are [time, open, high, low, close,
@@ -326,5 +334,129 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
     /// #cancel_order through Clients::Gemini#cancel_order: any 2xx answer is the cancel, as Rails takes it.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         self.post(ORDER_CANCEL, vec![("order_id", Value::String(txid.into()))]).await.map(|_| ())
+    }
+}
+
+// D-RULE-GEMINI-V2 / D-RULE-CLIENT-ID: immutable v2 destination, amount and clientTransferId.
+// Honeymaker 0.12.5 only has v1; v2 fields: https://developer.gemini.com/rest/fund-management
+impl<T: Transport> GeminiVenue<T> {
+    async fn send_withdrawal(&self, r: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult {
+        use super::withdrawal::{gemini_network, Destination, GEMINI_MEMO_FREE};
+        use crate::engine::{rules, withdrawal::SendResult};
+        let unknown = || SendResult::Ambiguous { reason: "Gemini withdrawal reply is unconfirmed".into() };
+        let unsent = |reason: &str| SendResult::Rejected { definitive: true, reason: reason.into() };
+        let Destination::Gemini { ticker, network, address } = &r.destination else {
+            return unsent("the withdrawal destination is not Gemini's; not sent");
+        };
+        // D-RULE-GEMINI-MEMO: enforce V1's admitted network set at the send boundary too.
+        if gemini_network(ticker) != Some(network.as_str()) || !GEMINI_MEMO_FREE.contains(&network.as_str()) {
+            return unsent("the Gemini withdrawal network is not supported; not sent");
+        }
+        let Ok(created) = crate::codec::parse_time(&r.created_at) else {
+            return unsent("the withdrawal request has no readable creation time; not sent");
+        };
+        let not_after = created + chrono::Duration::seconds(crate::engine::withdrawal::SEND_WINDOW_SECONDS)
+            + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s");
+        let request = HttpRequest {
+            not_after: Some(not_after),
+            ..self.private(&format!("/v2/withdraw/{network}/{ticker}"), vec![
+                ("address", address.clone().into()), ("amount", r.amount.clone().into()), ("clientTransferId", r.client_id.clone().into()),
+            ])
+        };
+        // Trading's HTTP-4xx classifier is deliberately not used for money transfers.
+        let response = match self.transport.send_limited(&request, 64 * 1024).await {
+            Ok(response) => response,
+            Err(TransportError::NotSent(_)) => return unsent("the withdrawal request was not sent"),
+            Err(_) => return unknown(),
+        };
+        if !(200..300).contains(&response.status) && !(400..500).contains(&response.status) { return unknown(); }
+        let Ok(body) = http::decode_json(&response.body) else { return unknown(); };
+        if body["result"] == "error" {
+            // A contradictory success id never proves rejection. The shared X0 allowlist is the only rejection list.
+            if !body["withdrawalId"].is_null() || !rules::definitive("Gemini", &body.to_string()) { return unknown(); }
+            return SendResult::Rejected { definitive: true, reason: rules::safe_message(&body.to_string()) };
+        }
+        if !(200..300).contains(&response.status)
+            || !body["reason"].is_null() || !body["error"].is_null()
+            || (!body["result"].is_null() && body["result"] != "success") {
+            return unknown();
+        }
+        match body["withdrawalId"].as_str().filter(|id| !crate::ruby::blank(id)) {
+            Some(id) => SendResult::Accepted { id: id.into() },
+            None => unknown(),
+        }
+    }
+
+    /// D-RULE-NO-ABSENCE: transfers are candidate evidence only, never proof of success, failure or absence.
+    /// Walk forward from the persisted creation time through the lookup time (inclusive), at most 50 rows per call.
+    /// Like the existing Gemini ledger reader, overlap the newest millisecond and deduplicate event ids.
+    async fn lookup_withdrawal(&self, r: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::LookupResult {
+        use crate::engine::{rules::safe_message, withdrawal::LookupResult};
+        use super::withdrawal::Destination;
+        let unknown = |reason: &str, candidates: Vec<Value>| LookupResult::Unknown {
+            reason: format!("{reason}; operator recovery via resolve-withdrawal is required"), candidates,
+        };
+        let Destination::Gemini { ticker, network, address } = &r.destination else {
+            return unknown("Gemini withdrawal destination is not Gemini's", vec![]);
+        };
+        let (Ok(at), Ok(amount)) = (crate::codec::parse_time(&r.created_at), BigDec::parse(&r.amount)) else {
+            return unknown("Gemini withdrawal parameters are unreadable", vec![]);
+        };
+        let (start, end) = (at.timestamp_millis(), self.transport.now().timestamp_millis());
+        let mut from = start;
+        let mut candidates = vec![];
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..100 {
+            // Also pause before the first page: sequential engine recoveries and ledger calls share this endpoint's
+            // one-request-per-five-seconds limit. There is no parallel rule dispatch lane.
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            let request = self.private("/v2/transfers", vec![("timestamp", from.into()), ("limit_transfers", 50.into())]);
+            let Ok(response) = self.transport.send_limited(&request, 2 * 1024 * 1024).await else {
+                return unknown("Gemini withdrawal lookup failed", candidates);
+            };
+            if !(200..300).contains(&response.status) { return unknown("Gemini withdrawal lookup failed", candidates); }
+            let Ok(body) = http::decode_json(&response.body) else { return unknown("Gemini withdrawal lookup is unreadable", candidates); };
+            let Some(rows) = body.as_array() else { return unknown("Gemini withdrawal page is unreadable", candidates); };
+            let (mut newest, mut fresh) = (from, 0);
+            for row in rows {
+                let Some(time) = row["timestampms"].as_i64().or_else(|| row["timestampms"].as_str()?.parse().ok()) else {
+                    return unknown("Gemini transfer time is unreadable", candidates);
+                };
+                let event = match &row["eid"] {
+                    Value::String(id) if !crate::ruby::blank(id) => id.clone(),
+                    Value::Number(id) if id.as_u64().is_some() => id.to_string(),
+                    _ => return unknown("Gemini transfer id is unreadable", candidates),
+                };
+                newest = newest.max(time);
+                if !seen.insert(event.clone()) { continue; }
+                fresh += 1;
+                if !(start..=end).contains(&time) || row["type"] != "Withdrawal" { continue; }
+                if row["destination"].as_str() != Some(address) || !row["currency"].as_str().is_some_and(|c| c.eq_ignore_ascii_case(ticker))
+                    || row["network"].as_str().is_some_and(|n| n != network) {
+                    continue;
+                }
+                let Some(row_amount) = crate::ruby::json_to_d(&row["amount"]).ok().flatten() else {
+                    return unknown("Gemini withdrawal candidate amount is unreadable", candidates);
+                };
+                if row_amount != amount { continue; }
+                let Some(status) = row["status"].as_str().filter(|s| !crate::ruby::blank(s)) else {
+                    return unknown("Gemini withdrawal candidate status is unreadable", candidates);
+                };
+                let id = match row.get("withdrawalId") {
+                    None | Some(Value::Null) => event.as_str(),
+                    Some(Value::String(id)) if !crate::ruby::blank(id) => id,
+                    _ => return unknown("Gemini withdrawal candidate id is unreadable", candidates),
+                };
+                let Some(time) = DateTime::<Utc>::from_timestamp_millis(time) else {
+                    return unknown("Gemini withdrawal candidate time is unreadable", candidates);
+                };
+                candidates.push(serde_json::json!({"id":safe_message(id),"status":safe_message(status),
+                    "amount":row_amount.to_s_f(),"at":crate::codec::format_time(time)}));
+            }
+            if rows.len() < 50 || newest > end { return unknown("Gemini withdrawals are candidates only", candidates); }
+            if fresh == 0 || newest < from { return unknown("Gemini withdrawal paging stopped making progress", candidates); }
+            from = newest;
+        }
+        unknown("Gemini withdrawal lookup exceeded the page limit", candidates)
     }
 }

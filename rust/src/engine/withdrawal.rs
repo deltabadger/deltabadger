@@ -104,9 +104,6 @@ pub async fn begin_recorder<A: Adapter>(
         |r| r.get(0),
     )?;
     let kind = v::Kind::of(&class).ok_or_else(|| data("unsupported withdrawal adapter"))?;
-    if kind == v::Kind::Gemini {
-        return Err(data("Gemini recorder requires E3 feeEstimate bootstrap"));
-    }
     let account = recorder_account(spec, &identity);
     let destination_digest = recorder_destination(&spec.destination);
     {
@@ -256,7 +253,7 @@ fn intent_log(
 }
 
 /// Real adapters join only with their E1-E3 G0 evidence. The live recorder uses this gate.
-pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken"];
+pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken", "Exchanges::Gemini"];
 pub const SEND_WINDOW_SECONDS: i64 = super::placement::SEND_WINDOW_SECONDS;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {
