@@ -18,6 +18,44 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 /// Tracker::UnfundedCash::LENDS_CASH.
 pub const LENDS_CASH: [&str; 2] = ["alpaca", "ibkr"];
 
+#[cfg(test)]
+#[test]
+fn binance_a12_recorded_accounting_baselines() {
+    use serde_json::{json, Value};
+    let fixture: Value = serde_json::from_str(include_str!("../../tests/fixtures/binance_identity.json")).unwrap();
+    let cases=fixture["accounting"].as_array().unwrap();
+    assert_eq!(cases.len(), 1 + 1, "complete two-pair history + reduced rollback baseline");
+    for case in cases {
+        let rows: Vec<Row> = case["rows"].as_array().unwrap().iter().enumerate().map(|(uid,r)| {
+            let d=|k:&str| Dec::parse(r[k].as_str().unwrap()).unwrap();
+            let kind=match r["entry_type"].as_str().unwrap() { "buy"=>Kind::Buy,"sell"=>Kind::Sell,"deposit"=>Kind::Deposit,
+                "withdrawal"=>Kind::Withdrawal,"staking_reward"=>Kind::StakingReward,"airdrop"=>Kind::Airdrop,
+                "swap_in"=>Kind::SwapIn,"swap_out"=>Kind::SwapOut,_=>panic!("unexpected baseline kind") };
+            Row {uid,kind,base:r["base_currency"].as_str().unwrap().into(),amount:d("base_amount"),quote:None,quote_amount:None,
+                fiat_value:d("fiat_value"),fee_fiat_value:d("fee_fiat_value"),fee_currency:r["fee_currency"].as_str().map(str::to_owned),fee_amount:r["fee_amount"].as_str().map(|s|Dec::parse(s).unwrap()),
+                at:At::from_sql(r["transacted_at"].as_str().unwrap()).unwrap(),group:r["group_id"].as_str().map(str::to_owned),
+                price_missing:false,value_missing:None,exchange:"binance".into(),linked:false,transfer_fee:None,swap_fiat_cost:None,
+                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false}
+        }).collect();
+        let mut engine=Engine::new(false); engine.calculate(&rows).unwrap();
+        let lots: serde_json::Map<String,Value>=engine.lots.iter().map(|((_,asset),ls)|
+            (asset.clone(),json!(ls.iter().map(|l|vec![l.amount.to_s_f(),l.cost_per_unit.to_s_f()]).collect::<Vec<_>>()))).collect();
+        assert_eq!(json!(lots),case["lots"],"exact per-lot remaining quantities and unit basis");
+        let mut held:BTreeMap<String,Dec>=BTreeMap::new();
+        for r in &rows { for (coin,amount) in quantity_moves(r.kind,&r.base,&r.amount,r.fee_currency.as_deref(),r.fee_amount.as_ref(),false,None).unwrap() {
+            let old=held.entry(coin).or_insert_with(Dec::zero); *old=(&*old+&amount).unwrap();
+        }}
+        assert_eq!(json!(held.into_iter().map(|(k,v)|(k,v.to_s_f())).collect::<BTreeMap<_,_>>()),case["holdings"]);
+        assert_eq!(engine.disposals.len(),case["disposals"].as_array().unwrap().len());
+        for (actual,expected) in engine.disposals.iter().zip(case["disposals"].as_array().unwrap()) {
+            for (name,value) in [("amount",&actual.amount),("proceeds",&actual.proceeds),("cost_basis",&actual.cost_basis),("gain_loss",&actual.gain_loss)] {
+                assert_eq!(value.to_s_f(),expected[name].as_str().unwrap(),"{name}");
+            }
+        }
+        assert_eq!(sum(engine.disposals.iter().map(|d|Ok(d.gain_loss.clone()))).unwrap().to_s_f(),case["realised"]);
+    }
+}
+
 /// An enriched row: what Tax::PriceService#enrich hands the engines, and the walk's own marks. `uid` is the row's
 /// identity (Rails keys several tables by the row object).
 #[derive(Clone, Debug)]

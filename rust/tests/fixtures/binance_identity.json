@@ -1,0 +1,3806 @@
+{
+  "sources": {
+    "script/rust/record_binance_identity.rb": "13477789dd9e776849addd2f00925d896fcfd745a2fe1952d187dc97bab66320",
+    "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
+    "app/models/exchanges/binance_us.rb": "0a7814fb073bf00733986d2fb4a9c2d69d9a3be5e78c068aca153bc5966a16f7",
+    "app/services/account_transaction_sync.rb": "b9c77c65b07bdedb77dafd2b13dc222ca8fd29b910b9ee3b7c37537a490dcba7",
+    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
+    "app/models/tracker/ledger.rb": "9b3d4ccb01c46e07099549bb4f58b6b37beca774ae48f17a1f54be4b3ac0fd86",
+    "app/models/tax/methods/fifo.rb": "0eaaab43c43312e2c3fd335e301bd76d07e96f7c4e4e69a578042b818825df5e",
+    "app/models/tax/methods/acquisition_fee.rb": "297b34726a574b2b7f0ef008998377e16f5becbdabfd8684d0960fc5cae4e968",
+    "app/models/tax/methods/return_of_capital.rb": "c65096951e43050cd2d6dd6fb6d11229b578635d285bd4348c702a11797f0ee6",
+    "db/schema.rb": "4ccf4a2a776830d15f5da917eb7b5930801b5c5c6d325b169cc823fd2a9a48d0"
+  },
+  "collisions": [
+    {
+      "name": "deposits_same",
+      "answers": {
+        "deposit_history": [
+          {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          },
+          {
+            "id": "d2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "d2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "hash",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "deposits_coins_networks",
+      "answers": {
+        "deposit_history": [
+          {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          },
+          {
+            "id": "d2",
+            "txId": "hash",
+            "coin": "ETH",
+            "network": "ETH",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "d2",
+            "txId": "hash",
+            "coin": "ETH",
+            "network": "ETH",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "hash",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "withdrawals",
+      "answers": {
+        "withdraw_history": [
+          {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          },
+          {
+            "id": "w2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BTC",
+          "fee_amount": "0.01",
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BTC",
+          "fee_amount": "0.01",
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "w2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "withdrawal",
+          "exchange_id": 1,
+          "fee_amount": "0.01",
+          "fee_currency": "BTC",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "hash",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "deposit_withdrawal",
+      "answers": {
+        "deposit_history": [
+          {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        ],
+        "withdraw_history": [
+          {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BTC",
+          "fee_amount": "0.01",
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "hash",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "locked_rewards",
+      "answers": {
+        "simple_earn_locked_rewards": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos2",
+              "type": "BONUS"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-reward-1786960800000-BTC",
+          "group_id": null,
+          "description": "Earn reward",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS"
+          }
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-reward-1786960800000-BTC",
+          "group_id": null,
+          "description": "Earn reward",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos2",
+            "type": "BONUS"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn reward",
+          "entry_type": "staking_reward",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "lock-reward-1786960800000-BTC",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "flexible_missing_type",
+      "answers": {
+        "simple_earn_flexible_rewards": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "REALTIME"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p2",
+              "positionId": "pos1",
+              "type": "BONUS"
+            }
+          ],
+          "total": 3
+        }
+      },
+      "entries": [],
+      "stored": [],
+      "imported": 0,
+      "repeated": 0
+    },
+    {
+      "name": "dust_assets",
+      "answers": {
+        "dust_log": {
+          "userAssetDribblets": [
+            {
+              "transId": "parent1",
+              "operateTime": 1786960800000,
+              "userAssetDribbletDetails": [
+                {
+                  "transId": "detail",
+                  "fromAsset": "BTC",
+                  "amount": "1",
+                  "transferedAmount": "0.1",
+                  "serviceChargeAmount": "0.01"
+                },
+                {
+                  "transId": "detail",
+                  "fromAsset": "ETH",
+                  "amount": "1",
+                  "transferedAmount": "0.1",
+                  "serviceChargeAmount": "0.01"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "dust-detail-out",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.1",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BNB",
+          "fee_amount": "0.01",
+          "tx_id": "dust-detail-in",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "dust-detail-out",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "ETH",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.1",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BNB",
+          "fee_amount": "0.01",
+          "tx_id": "dust-detail-in",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "ETH",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Dust conversion",
+          "entry_type": "swap_out",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "dust_detail",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "dust-detail-out",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "0.1",
+          "base_asset_id": null,
+          "base_currency": "BNB",
+          "description": "Dust conversion",
+          "entry_type": "swap_in",
+          "exchange_id": 1,
+          "fee_amount": "0.01",
+          "fee_currency": "BNB",
+          "group_id": "dust_detail",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "dust-detail-in",
+          "user_id": 1
+        }
+      ],
+      "imported": 2,
+      "repeated": 0
+    },
+    {
+      "name": "dust_parents",
+      "answers": {
+        "dust_log": {
+          "userAssetDribblets": [
+            {
+              "transId": "parent1",
+              "operateTime": 1786960800000,
+              "userAssetDribbletDetails": [
+                {
+                  "transId": "detail",
+                  "fromAsset": "BTC",
+                  "amount": "1",
+                  "transferedAmount": "0.1",
+                  "serviceChargeAmount": "0.01"
+                }
+              ]
+            },
+            {
+              "transId": "parent2",
+              "operateTime": 1786960800000,
+              "userAssetDribbletDetails": [
+                {
+                  "transId": "detail",
+                  "fromAsset": "ETH",
+                  "amount": "1",
+                  "transferedAmount": "0.1",
+                  "serviceChargeAmount": "0.01"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "dust-detail-out",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.1",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BNB",
+          "fee_amount": "0.01",
+          "tx_id": "dust-detail-in",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "dust-detail-out",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "ETH",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.1",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BNB",
+          "fee_amount": "0.01",
+          "tx_id": "dust-detail-in",
+          "group_id": "dust_detail",
+          "description": "Dust conversion",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "ETH",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Dust conversion",
+          "entry_type": "swap_out",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "dust_detail",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "dust-detail-out",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "0.1",
+          "base_asset_id": null,
+          "base_currency": "BNB",
+          "description": "Dust conversion",
+          "entry_type": "swap_in",
+          "exchange_id": 1,
+          "fee_amount": "0.01",
+          "fee_currency": "BNB",
+          "group_id": "dust_detail",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "transId": "detail",
+            "fromAsset": "BTC",
+            "amount": "1",
+            "transferedAmount": "0.1",
+            "serviceChargeAmount": "0.01"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "dust-detail-in",
+          "user_id": 1
+        }
+      ],
+      "imported": 2,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_flexible_subscriptions",
+      "answers": {
+        "simple_earn_flexible_subscriptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "purchaseId": "one"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "purchaseId": "two"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-sub-one",
+          "group_id": null,
+          "description": "Earn flex sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "one"
+          }
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-sub-two",
+          "group_id": null,
+          "description": "Earn flex sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "two"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn flex sub",
+          "entry_type": "withdrawal",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "one"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "flex-sub-one",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn flex sub",
+          "entry_type": "withdrawal",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "two"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "flex-sub-two",
+          "user_id": 1
+        }
+      ],
+      "imported": 2,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_flexible_subscriptions_fallback",
+      "answers": {
+        "simple_earn_flexible_subscriptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            },
+            {
+              "asset": "ETH",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p2",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-sub-1786960800000",
+          "group_id": null,
+          "description": "Earn flex sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-sub-1786960800000",
+          "group_id": null,
+          "description": "Earn flex sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "ETH",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p2",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn flex sub",
+          "entry_type": "withdrawal",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "flex-sub-1786960800000",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_flexible_redemptions",
+      "answers": {
+        "simple_earn_flexible_redemptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "redeemId": "one"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "redeemId": "two"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-redeem-one",
+          "group_id": null,
+          "description": "Earn flex redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "one"
+          }
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-redeem-two",
+          "group_id": null,
+          "description": "Earn flex redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "two"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn flex redeem",
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "one"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "flex-redeem-one",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn flex redeem",
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "two"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "flex-redeem-two",
+          "user_id": 1
+        }
+      ],
+      "imported": 2,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_flexible_redemptions_fallback",
+      "answers": {
+        "simple_earn_flexible_redemptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            },
+            {
+              "asset": "ETH",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p2",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-redeem-1786960800000",
+          "group_id": null,
+          "description": "Earn flex redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-redeem-1786960800000",
+          "group_id": null,
+          "description": "Earn flex redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "ETH",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p2",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn flex redeem",
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "flex-redeem-1786960800000",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_locked_subscriptions",
+      "answers": {
+        "simple_earn_locked_subscriptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "purchaseId": "one"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "purchaseId": "two"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-sub-one",
+          "group_id": null,
+          "description": "Earn lock sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "one"
+          }
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-sub-two",
+          "group_id": null,
+          "description": "Earn lock sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "two"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn lock sub",
+          "entry_type": "withdrawal",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "one"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "lock-sub-one",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn lock sub",
+          "entry_type": "withdrawal",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "purchaseId": "two"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "lock-sub-two",
+          "user_id": 1
+        }
+      ],
+      "imported": 2,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_locked_subscriptions_fallback",
+      "answers": {
+        "simple_earn_locked_subscriptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            },
+            {
+              "asset": "ETH",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p2",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-sub-1786960800000",
+          "group_id": null,
+          "description": "Earn lock sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-sub-1786960800000",
+          "group_id": null,
+          "description": "Earn lock sub",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "ETH",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p2",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn lock sub",
+          "entry_type": "withdrawal",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "lock-sub-1786960800000",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_locked_redemptions",
+      "answers": {
+        "simple_earn_locked_redemptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "redeemId": "one"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1",
+              "redeemId": "two"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-redeem-one",
+          "group_id": null,
+          "description": "Earn lock redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "one"
+          }
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-redeem-two",
+          "group_id": null,
+          "description": "Earn lock redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "two"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn lock redeem",
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "one"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "lock-redeem-one",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn lock redeem",
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1",
+            "redeemId": "two"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "lock-redeem-two",
+          "user_id": 1
+        }
+      ],
+      "imported": 2,
+      "repeated": 0
+    },
+    {
+      "name": "simple_earn_locked_redemptions_fallback",
+      "answers": {
+        "simple_earn_locked_redemptions": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            },
+            {
+              "asset": "ETH",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p2",
+              "positionId": "pos1",
+              "type": "BONUS",
+              "purchaseAmount": "1",
+              "amount": "1"
+            }
+          ],
+          "total": 2
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-redeem-1786960800000",
+          "group_id": null,
+          "description": "Earn lock redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "lock-redeem-1786960800000",
+          "group_id": null,
+          "description": "Earn lock redeem",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "ETH",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p2",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn lock redeem",
+          "entry_type": "deposit",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS",
+            "purchaseAmount": "1",
+            "amount": "1"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "lock-redeem-1786960800000",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "margin_interest_mapper_only",
+      "answers": {
+        "margin_interest_history": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "interest": "0.01",
+              "interestAccuredTime": 1786960800000,
+              "txId": "i1",
+              "type": "PERIODIC",
+              "isolatedSymbol": "BTCUSDT"
+            },
+            {
+              "asset": "BTC",
+              "interest": "0.01",
+              "interestAccuredTime": 1786960800000,
+              "txId": "i2",
+              "type": "ON_BORROW",
+              "isolatedSymbol": "BTCETH"
+            }
+          ]
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "fee",
+          "base_currency": "BTC",
+          "base_amount": "0.01",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "margin-interest-1786960800000-BTC",
+          "group_id": null,
+          "description": "Margin interest",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "interest": "0.01",
+            "interestAccuredTime": 1786960800000,
+            "txId": "i1",
+            "type": "PERIODIC",
+            "isolatedSymbol": "BTCUSDT"
+          }
+        },
+        {
+          "entry_type": "fee",
+          "base_currency": "BTC",
+          "base_amount": "0.01",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "margin-interest-1786960800000-BTC",
+          "group_id": null,
+          "description": "Margin interest",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "interest": "0.01",
+            "interestAccuredTime": 1786960800000,
+            "txId": "i2",
+            "type": "ON_BORROW",
+            "isolatedSymbol": "BTCETH"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "0.01",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Margin interest",
+          "entry_type": "fee",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "interest": "0.01",
+            "interestAccuredTime": 1786960800000,
+            "txId": "i1",
+            "type": "PERIODIC",
+            "isolatedSymbol": "BTCUSDT"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "margin-interest-1786960800000-BTC",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "liquidations",
+      "answers": {
+        "margin_force_liquidation": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "symbol": "BTCUSDT",
+              "orderId": 1,
+              "qty": "1",
+              "quoteAsset": "USDT",
+              "quoteQty": "10",
+              "updatedTime": 1786960800000
+            },
+            {
+              "asset": "BTC",
+              "symbol": "BTCETH",
+              "orderId": 1,
+              "qty": "1",
+              "quoteAsset": "USDT",
+              "quoteQty": "10",
+              "updatedTime": 1786960800000
+            }
+          ]
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "sell",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "liquidation-1",
+          "group_id": null,
+          "description": "Liquidation",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "symbol": "BTCUSDT",
+            "orderId": 1,
+            "qty": "1",
+            "quoteAsset": "USDT",
+            "quoteQty": "10",
+            "updatedTime": 1786960800000
+          }
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "liquidation-1",
+          "group_id": null,
+          "description": "Liquidation",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "symbol": "BTCETH",
+            "orderId": 1,
+            "qty": "1",
+            "quoteAsset": "USDT",
+            "quoteQty": "10",
+            "updatedTime": 1786960800000
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Liquidation",
+          "entry_type": "sell",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": "10.0",
+          "quote_currency": "USDT",
+          "raw_data": {
+            "asset": "BTC",
+            "symbol": "BTCUSDT",
+            "orderId": 1,
+            "qty": "1",
+            "quoteAsset": "USDT",
+            "quoteQty": "10",
+            "updatedTime": 1786960800000
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "liquidation-1",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "futures_income_history",
+      "answers": {
+        "futures_income_history": [
+          {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "REALIZED_PNL"
+          },
+          {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "FUNDING_FEE"
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "other_income",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "usdt-futures-1",
+          "group_id": null,
+          "description": "Futures realized pnl",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "REALIZED_PNL"
+          }
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "usdt-futures-1",
+          "group_id": null,
+          "description": "Futures funding fee",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "FUNDING_FEE"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Futures realized pnl",
+          "entry_type": "other_income",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "REALIZED_PNL"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "usdt-futures-1",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "coin_futures_income_history",
+      "answers": {
+        "coin_futures_income_history": [
+          {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "REALIZED_PNL"
+          },
+          {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "FUNDING_FEE"
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "other_income",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "coin-futures-1",
+          "group_id": null,
+          "description": "Futures realized pnl",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "REALIZED_PNL"
+          }
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "coin-futures-1",
+          "group_id": null,
+          "description": "Futures funding fee",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "FUNDING_FEE"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Futures realized pnl",
+          "entry_type": "other_income",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "income": "1",
+            "tranId": 1,
+            "time": 1786960800000,
+            "incomeType": "REALIZED_PNL"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "coin-futures-1",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "flexible_mapper_only",
+      "answers": {
+        "simple_earn_flexible_rewards": {
+          "rows": [
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "BONUS"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
+              "type": "REALTIME"
+            },
+            {
+              "asset": "BTC",
+              "time": 1786960800000,
+              "rewards": "1",
+              "projectId": "p2",
+              "positionId": "pos1",
+              "type": "BONUS"
+            }
+          ],
+          "total": 3
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-reward-1786960800000-BTC",
+          "group_id": null,
+          "description": "Earn reward",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS"
+          }
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-reward-1786960800000-BTC",
+          "group_id": null,
+          "description": "Earn reward",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "REALTIME"
+          }
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "flex-reward-1786960800000-BTC",
+          "group_id": null,
+          "description": "Earn reward",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p2",
+            "positionId": "pos1",
+            "type": "BONUS"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Earn reward",
+          "entry_type": "staking_reward",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "asset": "BTC",
+            "time": 1786960800000,
+            "rewards": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
+            "type": "BONUS"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "flex-reward-1786960800000-BTC",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "us_deposits_same",
+      "answers": {
+        "deposit_history": [
+          {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          },
+          {
+            "id": "d2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "d2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "deposit",
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "d1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 1
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "hash",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "us_withdrawals",
+      "answers": {
+        "withdraw_history": [
+          {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          },
+          {
+            "id": "w2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        ]
+      },
+      "entries": [
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BTC",
+          "fee_amount": "0.01",
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BTC",
+          "fee_amount": "0.01",
+          "tx_id": "hash",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": "w2",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "withdrawal",
+          "exchange_id": 2,
+          "fee_amount": "0.01",
+          "fee_currency": "BTC",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "w1",
+            "txId": "hash",
+            "coin": "BTC",
+            "network": "BTC",
+            "address": "addr",
+            "addressTag": "",
+            "amount": "1",
+            "insertTime": 1786960800000,
+            "status": 6,
+            "applyTime": "2026-08-17 10:00:00",
+            "transactionFee": "0.01"
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "hash",
+          "user_id": 1
+        }
+      ],
+      "imported": 1,
+      "repeated": 0
+    },
+    {
+      "name": "negative_controls",
+      "answers": {
+        "convert_trade_flow": {
+          "list": [
+            {
+              "quoteId": "q1",
+              "fromAsset": "BTC",
+              "toAsset": "ETH",
+              "fromAmount": "1",
+              "toAmount": "2",
+              "createTime": 1786960800000
+            }
+          ]
+        },
+        "fiat_payments": {
+          "data": [
+            {
+              "orderNo": "f1",
+              "cryptoCurrency": "BTC",
+              "fiatCurrency": "USD",
+              "obtainAmount": "1",
+              "sourceAmount": "10",
+              "totalFee": "0.1",
+              "status": "Completed",
+              "createTime": 1786960800000
+            }
+          ]
+        },
+        "asset_dividend": {
+          "rows": [
+            {
+              "id": 1,
+              "asset": "BTC",
+              "amount": "1",
+              "divTime": 1786960800000
+            }
+          ]
+        }
+      },
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "q1-out",
+          "group_id": "convert_q1",
+          "description": "Convert",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "quoteId": "q1",
+            "fromAsset": "BTC",
+            "toAsset": "ETH",
+            "fromAmount": "1",
+            "toAmount": "2",
+            "createTime": 1786960800000
+          }
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ETH",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "q1-in",
+          "group_id": "convert_q1",
+          "description": "Convert",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "quoteId": "q1",
+            "fromAsset": "BTC",
+            "toAsset": "ETH",
+            "fromAmount": "1",
+            "toAmount": "2",
+            "createTime": 1786960800000
+          }
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": "USD",
+          "quote_amount": "10.0",
+          "fee_currency": "USD",
+          "fee_amount": "0.1",
+          "tx_id": "fiat-buy-f1",
+          "group_id": null,
+          "description": "Fiat purchase",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "orderNo": "f1",
+            "cryptoCurrency": "BTC",
+            "fiatCurrency": "USD",
+            "obtainAmount": "1",
+            "sourceAmount": "10",
+            "totalFee": "0.1",
+            "status": "Completed",
+            "createTime": 1786960800000
+          }
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "BTC",
+          "base_amount": "10.0",
+          "quote_currency": "USD",
+          "quote_amount": "1.0",
+          "fee_currency": "USD",
+          "fee_amount": "0.1",
+          "tx_id": "fiat-sell-f1",
+          "group_id": null,
+          "description": "Fiat sale",
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "orderNo": "f1",
+            "cryptoCurrency": "BTC",
+            "fiatCurrency": "USD",
+            "obtainAmount": "1",
+            "sourceAmount": "10",
+            "totalFee": "0.1",
+            "status": "Completed",
+            "createTime": 1786960800000
+          }
+        },
+        {
+          "entry_type": "airdrop",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "dividend-1",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": 1,
+            "asset": "BTC",
+            "amount": "1",
+            "divTime": 1786960800000
+          }
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "quote_currency": "USDT",
+          "quote_amount": "2.0",
+          "fee_currency": "BTC",
+          "fee_amount": "0.01",
+          "tx_id": "BTCUSDT-2-1",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": 1,
+            "orderId": 2,
+            "qty": "1",
+            "quoteQty": "2",
+            "commission": "0.01",
+            "commissionAsset": "BTC",
+            "time": 1786960800000,
+            "isBuyer": true
+          }
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BTC",
+          "fee_amount": "0.01",
+          "tx_id": "ETHBTC-2-1-in",
+          "group_id": "swap_ETHBTC-2-1",
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": 1,
+            "orderId": 2,
+            "qty": "1",
+            "quoteQty": "2",
+            "commission": "0.01",
+            "commissionAsset": "BTC",
+            "time": 1786960800000,
+            "isBuyer": true
+          }
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "ETHBTC-2-1-out",
+          "group_id": "swap_ETHBTC-2-1",
+          "description": null,
+          "transacted_at": "2026-08-17T10:00:00.000000Z",
+          "raw_data": {
+            "id": 1,
+            "orderId": 2,
+            "qty": "1",
+            "quoteQty": "2",
+            "commission": "0.01",
+            "commissionAsset": "BTC",
+            "time": 1786960800000,
+            "isBuyer": true
+          }
+        }
+      ],
+      "stored": [
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Convert",
+          "entry_type": "swap_out",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "convert_q1",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "quoteId": "q1",
+            "fromAsset": "BTC",
+            "toAsset": "ETH",
+            "fromAmount": "1",
+            "toAmount": "2",
+            "createTime": 1786960800000
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "q1-out",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "2.0",
+          "base_asset_id": null,
+          "base_currency": "ETH",
+          "description": "Convert",
+          "entry_type": "swap_in",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "convert_q1",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "quoteId": "q1",
+            "fromAsset": "BTC",
+            "toAsset": "ETH",
+            "fromAmount": "1",
+            "toAmount": "2",
+            "createTime": 1786960800000
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "q1-in",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Fiat purchase",
+          "entry_type": "buy",
+          "exchange_id": 1,
+          "fee_amount": "0.1",
+          "fee_currency": "USD",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": "10.0",
+          "quote_currency": "USD",
+          "raw_data": {
+            "orderNo": "f1",
+            "cryptoCurrency": "BTC",
+            "fiatCurrency": "USD",
+            "obtainAmount": "1",
+            "sourceAmount": "10",
+            "totalFee": "0.1",
+            "status": "Completed",
+            "createTime": 1786960800000
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "fiat-buy-f1",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "10.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": "Fiat sale",
+          "entry_type": "sell",
+          "exchange_id": 1,
+          "fee_amount": "0.1",
+          "fee_currency": "USD",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": "1.0",
+          "quote_currency": "USD",
+          "raw_data": {
+            "orderNo": "f1",
+            "cryptoCurrency": "BTC",
+            "fiatCurrency": "USD",
+            "obtainAmount": "1",
+            "sourceAmount": "10",
+            "totalFee": "0.1",
+            "status": "Completed",
+            "createTime": 1786960800000
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "fiat-sell-f1",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "airdrop",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": 1,
+            "asset": "BTC",
+            "amount": "1",
+            "divTime": 1786960800000
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "dividend-1",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "buy",
+          "exchange_id": 1,
+          "fee_amount": "0.01",
+          "fee_currency": "BTC",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": "2.0",
+          "quote_currency": "USDT",
+          "raw_data": {
+            "id": 1,
+            "orderId": 2,
+            "qty": "1",
+            "quoteQty": "2",
+            "commission": "0.01",
+            "commissionAsset": "BTC",
+            "time": 1786960800000,
+            "isBuyer": true
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "BTCUSDT-2-1",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "1.0",
+          "base_asset_id": null,
+          "base_currency": "ETH",
+          "description": null,
+          "entry_type": "swap_in",
+          "exchange_id": 1,
+          "fee_amount": "0.01",
+          "fee_currency": "BTC",
+          "group_id": "swap_ETHBTC-2-1",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": 1,
+            "orderId": 2,
+            "qty": "1",
+            "quoteQty": "2",
+            "commission": "0.01",
+            "commissionAsset": "BTC",
+            "time": 1786960800000,
+            "isBuyer": true
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "ETHBTC-2-1-in",
+          "user_id": 1
+        },
+        {
+          "api_key_id": 1,
+          "base_amount": "2.0",
+          "base_asset_id": null,
+          "base_currency": "BTC",
+          "description": null,
+          "entry_type": "swap_out",
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "swap_ETHBTC-2-1",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": 1,
+            "orderId": 2,
+            "qty": "1",
+            "quoteQty": "2",
+            "commission": "0.01",
+            "commissionAsset": "BTC",
+            "time": 1786960800000,
+            "isBuyer": true
+          },
+          "transacted_at": "2026-08-17 10:00:00 UTC",
+          "transaction_id": null,
+          "transfer_link_rejected": false,
+          "tx_id": "ETHBTC-2-1-out",
+          "user_id": 1
+        }
+      ],
+      "imported": 8,
+      "repeated": 0
+    }
+  ],
+  "accounting": [
+    {
+      "rows": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "4.0",
+          "fiat_value": "40.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-01T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ETH",
+          "base_amount": "4.0",
+          "fiat_value": "80.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-02T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-03T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-04T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-05T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "airdrop",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "fiat_value": "20.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-06T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-07T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "convert",
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ETH",
+          "base_amount": "0.5",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-07T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "convert",
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-08T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "dust_btc",
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.1",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "1.0",
+          "transacted_at": "2026-08-08T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "dust_btc",
+          "price_missing": false,
+          "linked": false,
+          "fee_currency": "BNB",
+          "fee_amount": "0.01"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "fiat_value": "20.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-08T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "dust_eth",
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.1",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "1.0",
+          "transacted_at": "2026-08-08T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "dust_eth",
+          "price_missing": false,
+          "linked": false,
+          "fee_currency": "BNB",
+          "fee_amount": "0.01"
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "15.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-09T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "fiat_value": "25.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-09T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "BNB",
+          "base_amount": "0.09",
+          "fiat_value": "30.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-10T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        }
+      ],
+      "lots": {
+        "BNB": [
+          [
+            "0.045",
+            "222.22222222222222222222222222222"
+          ],
+          [
+            "0.045",
+            "222.22222222222222222222222222222"
+          ]
+        ],
+        "BTC": [
+          [
+            "1.0",
+            "10.0"
+          ],
+          [
+            "1.0",
+            "10.0"
+          ]
+        ],
+        "ETH": [
+          [
+            "2.5",
+            "20.0"
+          ],
+          [
+            "1.0",
+            "20.0"
+          ]
+        ]
+      },
+      "holdings": {
+        "BTC": "2.0",
+        "ETH": "3.5",
+        "BNB": "0.09"
+      },
+      "disposals": [
+        {
+          "date": "2026-08-09T00:00:00.000000Z",
+          "acquisition_date": "2026-08-01T00:00:00.000000Z",
+          "asset": "BTC",
+          "amount": "1.0",
+          "proceeds": "15.0",
+          "cost_basis": "10.0",
+          "fee": "0.0",
+          "gain_loss": "5.0",
+          "holding_days": 8,
+          "cost_basis_complete": true,
+          "data_incomplete": true,
+          "unpriced_quantity": "0.0",
+          "unpriced_proceeds": "0.0",
+          "tx_id": null,
+          "exchange": "binance",
+          "any_lot_lost": false,
+          "closes_position": false
+        },
+        {
+          "date": "2026-08-09T00:00:00.000000Z",
+          "acquisition_date": "2026-08-02T00:00:00.000000Z",
+          "asset": "ETH",
+          "amount": "1.0",
+          "proceeds": "25.0",
+          "cost_basis": "20.0",
+          "fee": "0.0",
+          "gain_loss": "5.0",
+          "holding_days": 7,
+          "cost_basis_complete": true,
+          "data_incomplete": false,
+          "unpriced_quantity": "0.0",
+          "unpriced_proceeds": "0.0",
+          "tx_id": null,
+          "exchange": "binance",
+          "any_lot_lost": false,
+          "closes_position": false
+        },
+        {
+          "date": "2026-08-10T00:00:00.000000Z",
+          "acquisition_date": "2026-08-01T00:00:00.000000Z",
+          "asset": "BNB",
+          "amount": "0.09",
+          "proceeds": "30.0",
+          "cost_basis": "9.9999999999999999999999999999999",
+          "fee": "0.0",
+          "gain_loss": "20.0000000000000000000000000000001",
+          "holding_days": 9,
+          "cost_basis_complete": true,
+          "data_incomplete": true,
+          "unpriced_quantity": "0.0",
+          "unpriced_proceeds": "0.0",
+          "tx_id": null,
+          "exchange": "binance",
+          "any_lot_lost": false,
+          "closes_position": false
+        }
+      ],
+      "period": "2026",
+      "realised": "30.0000000000000000000000000000001"
+    },
+    {
+      "rows": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "4.0",
+          "fiat_value": "40.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-01T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ETH",
+          "base_amount": "4.0",
+          "fiat_value": "80.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-02T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-03T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-04T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-05T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "airdrop",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "fiat_value": "20.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-06T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-07T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "convert",
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ETH",
+          "base_amount": "0.5",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-07T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "convert",
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-08T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "dust_btc",
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.1",
+          "fiat_value": "10.0",
+          "fee_fiat_value": "1.0",
+          "transacted_at": "2026-08-08T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": "dust_btc",
+          "price_missing": false,
+          "linked": false,
+          "fee_currency": "BNB",
+          "fee_amount": "0.01"
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "BTC",
+          "base_amount": "1.0",
+          "fiat_value": "15.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-09T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "ETH",
+          "base_amount": "1.0",
+          "fiat_value": "25.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-09T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        },
+        {
+          "entry_type": "sell",
+          "base_currency": "BNB",
+          "base_amount": "0.09",
+          "fiat_value": "30.0",
+          "fee_fiat_value": "0.0",
+          "transacted_at": "2026-08-10T00:00:00.000000Z",
+          "exchange": "binance",
+          "group_id": null,
+          "price_missing": false,
+          "linked": false
+        }
+      ],
+      "lots": {
+        "BNB": [],
+        "BTC": [
+          [
+            "1.0",
+            "10.0"
+          ],
+          [
+            "1.0",
+            "10.0"
+          ]
+        ],
+        "ETH": [
+          [
+            "3.5",
+            "20.0"
+          ],
+          [
+            "1.0",
+            "20.0"
+          ]
+        ]
+      },
+      "holdings": {
+        "BTC": "2.0",
+        "ETH": "4.5",
+        "BNB": "0.0"
+      },
+      "disposals": [
+        {
+          "date": "2026-08-09T00:00:00.000000Z",
+          "acquisition_date": "2026-08-01T00:00:00.000000Z",
+          "asset": "BTC",
+          "amount": "1.0",
+          "proceeds": "15.0",
+          "cost_basis": "10.0",
+          "fee": "0.0",
+          "gain_loss": "5.0",
+          "holding_days": 8,
+          "cost_basis_complete": true,
+          "data_incomplete": true,
+          "unpriced_quantity": "0.0",
+          "unpriced_proceeds": "0.0",
+          "tx_id": null,
+          "exchange": "binance",
+          "any_lot_lost": false,
+          "closes_position": false
+        },
+        {
+          "date": "2026-08-09T00:00:00.000000Z",
+          "acquisition_date": "2026-08-01T00:00:00.000000Z",
+          "asset": "ETH",
+          "amount": "1.0",
+          "proceeds": "25.0",
+          "cost_basis": "20.0",
+          "fee": "0.0",
+          "gain_loss": "5.0",
+          "holding_days": 8,
+          "cost_basis_complete": true,
+          "data_incomplete": true,
+          "unpriced_quantity": "0.0",
+          "unpriced_proceeds": "0.0",
+          "tx_id": null,
+          "exchange": "binance",
+          "any_lot_lost": false,
+          "closes_position": false
+        },
+        {
+          "date": "2026-08-10T00:00:00.000000Z",
+          "acquisition_date": "2026-08-01T00:00:00.000000Z",
+          "asset": "BNB",
+          "amount": "0.09",
+          "proceeds": "30.0",
+          "cost_basis": "9.9999999999999999999999999999999",
+          "fee": "0.0",
+          "gain_loss": "20.0000000000000000000000000000001",
+          "holding_days": 9,
+          "cost_basis_complete": true,
+          "data_incomplete": true,
+          "unpriced_quantity": "0.0",
+          "unpriced_proceeds": "0.0",
+          "tx_id": null,
+          "exchange": "binance",
+          "any_lot_lost": false,
+          "closes_position": true
+        }
+      ],
+      "period": "2026",
+      "realised": "30.0000000000000000000000000000001"
+    }
+  ]
+}
