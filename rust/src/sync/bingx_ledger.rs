@@ -238,6 +238,7 @@ impl Cursor {
     }
 }
 struct Walk<'a, T: Transport> {
+    transfers: super::pending_transfers::Watch,
     venue: &'a BingxVenue<T>,
     db: &'a Db,
     key: &'a Key,
@@ -271,6 +272,7 @@ impl<'a, T: Transport> Walk<'a, T> {
             pending: vec![],
         });
         Self {
+            transfers: begin.transfers,
             venue,
             db,
             key,
@@ -348,6 +350,7 @@ impl<'a, T: Transport> Walk<'a, T> {
                 continue;
             }
             fresh += 1;
+            self.transfers.observe(if deposit { "deposits" } else { "withdrawals" }, &r.value)?;
             if to_i(&r.value["status"]) != if deposit { 1 } else { 6 } {
                 continue;
             }

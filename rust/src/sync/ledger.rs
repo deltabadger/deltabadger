@@ -676,6 +676,17 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     for (n, index) in range.enumerate() {
         let e = &batch[index];
         if let Some(stamp) = &p.kraken_repair { super::kraken_ledger::repair(c, key, e, &p.assets, stamp, now)?; }
+        // D-PENDING-TRANSFERS: a legacy pending row becomes the completed venue row in place.
+        if let Some(id) = super::pending_transfers::existing(c, key, e)? {
+            if let (Some(base), Some(at)) = (present(&e.base_currency), e.transacted_at) {
+                let no_fee = e.fee_amount.as_ref().is_none_or(BigDec::is_zero);
+                c.execute("UPDATE account_transactions SET base_currency=?1,base_amount=?2,fee_currency=?3,fee_amount=?4,tx_id=COALESCE(?5,tx_id),transacted_at=?6,raw_data=?7,updated_at=?8,base_asset_id=COALESCE(base_asset_id,?9) WHERE id=?10",
+                    params![base,amount_sql(&key.exchange_type,&e.base_amount),if no_fee { None } else { e.fee_currency.as_deref() },if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type,d)) },e.tx_id,sql_time(at),e.raw.text(),sql_time(now),p.assets.asset_id(c,Some(base),&e.raw.value,Some(at))?,id])?;
+                p.stored.insert(id);
+                p.out.duplicates += 1;
+                continue;
+            }
+        }
         let tx_id = present(&e.tx_id);
         // A row its id already names is not one of the identical rows counted.
         let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {

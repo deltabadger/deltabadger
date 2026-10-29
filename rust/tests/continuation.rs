@@ -116,7 +116,11 @@ impl Transport for Venue {
             rows.sort_by_key(|d| std::cmp::Reverse(at(d)));
         }
         let page = q("currentPage").unwrap() as usize;
-        let items: Vec<&Value> = rows.iter().skip((page - 1) * self.per_page).take(self.per_page).copied().collect();
+        let items: Vec<Value> = rows.iter().skip((page - 1) * self.per_page).take(self.per_page).map(|v| {
+            let mut v = (*v).clone();
+            if r.path != FILLS_PATH && v.get("status").is_none() { v["status"] = json!("SUCCESS"); }
+            v
+        }).collect();
         if !items.is_empty() { self.served.borrow_mut().insert(self.log.borrow().last().unwrap().clone()); }
         let body = json!({ "code": "200000", "data": { "currentPage": page, "pageSize": 500, "totalNum": rows.len(), "totalPage": rows.len().div_ceil(self.per_page), "items": items } });
         Ok(HttpResponse { status: 200, body: body.to_string() })

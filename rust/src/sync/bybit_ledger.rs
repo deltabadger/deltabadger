@@ -86,6 +86,7 @@ impl Source {
 }
 
 struct Walk<'a, T: Transport> {
+    transfers: super::pending_transfers::Watch,
     venue: &'a BybitVenue<T>, tickers: &'a Tickers, now_ms: i64, transfers_ms: i64,
     source: Source, window: i64, before: Option<String>, seen: Vec<String>, bare: Vec<String>, pages: usize,
 }
@@ -96,7 +97,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         let reach = begin.end - Duration::days(HISTORY_DAYS);
         let fills_ms = ms(begin.start.map_or(reach, |s| s.max(reach)));
         let transfers_ms = fills_ms;
-        let mut walk = Self { venue, tickers, now_ms, transfers_ms, source: Source::Fills, window: fills_ms, before: None, seen: vec![], bare: vec![], pages: 0 };
+        let mut walk = Self { transfers: begin.transfers, venue, tickers, now_ms, transfers_ms, source: Source::Fills, window: fills_ms, before: None, seen: vec![], bare: vec![], pages: 0 };
         if let Some((c, source)) = begin.cursor.and_then(|c| Some((c, Source::named(c["source"].as_str()?)?))) {
             walk.source = source;
             walk.window = c["window"].as_i64().unwrap_or(fills_ms);
@@ -159,6 +160,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
         };
         let mut rows = vec![];
         for raw in &page {
+            if self.source != Source::Fills { self.transfers.observe_from(self.source.name(), &raw.value, self.window)?; }
             let entry = if self.source == Source::Fills { Some(fill(raw.clone(), self.tickers)?) } else { transfer(self.source, raw.clone())? };
             if let Some(e) = entry {
                 if e.tx_id.as_deref().is_none_or(crate::ruby::blank) {
@@ -215,7 +217,7 @@ mod tests {
             let venue = BybitVenue::new(transport.clone(), URL);
             let tickers = Tickers(vec![]);
             let end = "2026-09-20T02:00:00Z".parse().unwrap();
-            let mut walk = Walk::new(&venue, &tickers, continuation::Begin { start:None, end, cursor:None });
+            let mut walk = Walk::new(&venue, &tickers, continuation::Begin { start:None, end, cursor:None, transfers: Default::default() });
             let cursor = walk.cursor();
             assert_eq!(walk.request_reserve(), std::time::Duration::from_secs(280));
             let start = tokio::time::Instant::now();

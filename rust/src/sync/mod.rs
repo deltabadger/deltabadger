@@ -31,6 +31,7 @@ pub mod gemini_ledger;
 pub mod hyperliquid_ledger;
 pub mod cache;
 pub mod continuation;
+mod pending_transfers;
 pub mod jobs;
 pub mod ledger;
 pub mod parity;

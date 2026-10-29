@@ -401,6 +401,131 @@ fn kucoin_transfer_pin(name: &str, dir: &std::path::Path, rails: &Value, rust: &
     Some(check(stripped == *rails, &format!("beyond the transfer pin the outputs differ:\n  rails: {rails}\n  rust:  {stripped}")))
 }
 
+/// D-PENDING-TRANSFERS / D-MEXC-HISTORY-GAP. These recorded replies contain pending states that
+/// Rails drops. Validate the exact held watermark and resulting request bounds; all other output stays equal.
+fn transfer_watermarks(name: &str, dir: &Path, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    let pending = match name {
+        "mexc-ledger-week" | "mexc-ledger-two_nights" | "bitvavo-ledger-week" | "bitvavo-ledger-two_nights" => Some("2026-09-16 00:00:00"),
+        "mexc-ledger-no_permission_mid" => Some("2026-09-18 00:00:00"),
+        "bitget-ledger-week" | "bitget-ledger-full" | "bitget-ledger-two_nights" | "bitget-ledger-transfer_pages" => Some("2026-09-17 00:00:00"),
+        "bingx-ledger-pending" => Some("2026-09-18 00:00:00"),
+        "mexc-ledger-full" | "mexc-ledger-away_100_days" => None,
+        _ => return None,
+    };
+    Some((|| {
+        let mut expected = rails.clone();
+        if let Some(pending) = pending {
+            check(key_error(rails).is_null(), "Rails fixture no longer succeeds")?;
+            let changes = &mut expected["changes"]["api_keys"];
+            if changes.as_array().is_some_and(Vec::is_empty) {
+                // The pending-only fixture leaves Rails' key unchanged. Assert every changed column in Rust.
+                let ours = rows(rust,"api_keys");
+                check(ours.len()==1 && ours[0]["before"]["last_synced_at"]=="2026-09-15 00:00:00", "pending-only fixture's prior watermark changed")?;
+                let mut change=ours[0].clone();
+                change["after"]=change["before"].clone();
+                change["after"]["updated_at"]=json!("2026-09-20 02:00:00.250000");
+                *changes=json!([change]);
+            }
+            for change in changes.as_array_mut().unwrap() { change["after"]["last_synced_at"]=json!(pending); }
+            let start = deltabadger::codec::parse_time(pending).unwrap().timestamp_millis() - 25*3_600_000;
+            for step in expected["steps"].as_array_mut().unwrap().iter_mut().skip(1) {
+                for request in step["requests"].as_array_mut().unwrap() {
+                    for p in request[1].as_array_mut().unwrap() { if p[0]=="startTime" || p[0]=="start" { p[1]=json!(start.to_string()); } }
+                }
+            }
+        }
+        if matches!(name,"mexc-ledger-full" | "mexc-ledger-away_100_days") {
+            let end = 1_789_869_600_249_i64; // Rails Float milliseconds at the fixture clock
+            let start = end - 90*86_400_000;
+            let requests=expected["steps"][0]["requests"].as_array_mut().unwrap();
+            let mut rebuilt=vec![];
+            let mut seen=std::collections::HashSet::new();
+            for request in requests.iter() {
+                let path=request[0].as_str().unwrap_or_default();
+                if !matches!(path,"GET /api/v3/capital/deposit/hisrec" | "GET /api/v3/capital/withdraw/history") { rebuilt.push(request.clone()); continue; }
+                if !seen.insert(path.to_string()) { continue; }
+                let mut from=start;
+                while from<end {
+                    let to=(from+7*86_400_000).min(end);
+                    let mut request=request.clone();
+                    for p in request[1].as_array_mut().unwrap() { if p[0]=="startTime" { p[1]=json!(from.to_string()); } else if p[0]=="endTime" { p[1]=json!(to.to_string()); } }
+                    rebuilt.push(request); from=to+1;
+                }
+            }
+            *requests=rebuilt;
+            if name=="mexc-ledger-away_100_days" {
+                for change in expected["changes"]["api_keys"].as_array_mut().unwrap() {
+                    change["after"]["last_sync_error"]=json!("Transfer history gap: the venue can no longer serve 2026-06-10 23:00:00 to 2026-06-22 02:00:00.250000. Import an account statement for this interval.");
+                }
+            }
+        }
+        if name.starts_with("mexc-") {
+            let scenario=read(&dir.join("scenario.json"));
+            for step in expected["steps"].as_array_mut().unwrap() {
+                for request in step["requests"].as_array_mut().unwrap() { resign_transfer_request(request, scenario["credentials"]["secret"].as_str().unwrap()); }
+            }
+        }
+        check(expected==*rust,&format!("{name}: differs beyond the named pending/history correction\nexpected: {expected}\nrust: {rust}"))
+    })())
+}
+
+// These transfer queries contain ASCII currency codes and integers. Their signature must cover the changed bounds/status.
+fn resign_transfer_request(request: &mut Value, secret: &str) {
+    let q=request[1].as_array_mut().unwrap();
+    if !q.iter().any(|p| p[0]=="signature") { return; }
+    let query=q.iter().filter(|p| p[0]!="signature").map(|p| format!("{}={}",p[0].as_str().unwrap(),p[1].as_str().unwrap())).collect::<Vec<_>>().join("&");
+    let signature=deltabadger::venue::binance::sign(secret,&query);
+    for p in q { if p[0]=="signature" { p[1]=json!(signature); } }
+}
+
+/// D-PENDING-TRANSFERS: success-only requests cannot reveal transfers whose settlement is delayed.
+/// KuCoin removes that filter; Bitrue's API defaults to status 0, so every status is explicitly paged.
+/// Existing successful requests and every database effect must still match the oracle here.
+fn transfer_status_reads(name: &str, dir: &Path, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if rails == rust { return None; }
+    if name.starts_with("kucoin-ledger-") {
+        let mut expected = rails.clone();
+        for step in expected["steps"].as_array_mut().into_iter().flatten() {
+            for request in step["requests"].as_array_mut().into_iter().flatten() {
+                if matches!(request[0].as_str(), Some("GET /api/v1/deposits" | "GET /api/v1/withdrawals")) {
+                    request[1].as_array_mut().unwrap().retain(|p| p[0] != "status");
+                }
+            }
+        }
+        return Some(kucoin_transfer_pin(name, dir, &expected, rust).unwrap_or_else(|| check(expected == *rust, "D-PENDING-TRANSFERS: KuCoin differs beyond the success filter")));
+    }
+    if !name.starts_with("bitrue-ledger-") || name == "bitrue-ledger-repeated_page" { return None; }
+    Some((|| {
+        let mut stripped = rust.clone();
+        let mut additional = 0;
+        for (i, step) in stripped["steps"].as_array_mut().into_iter().flatten().enumerate() {
+            let requests = step["requests"].as_array_mut().unwrap();
+            let mut kept = vec![];
+            for request in requests.iter() {
+                let path = request[0].as_str().unwrap_or_default();
+                let deposit = path == "GET /api/v1/deposit/history";
+                if !deposit && path != "GET /api/v1/withdraw/history" { kept.push(request.clone()); continue; }
+                let q = request[1].as_array().unwrap();
+                let status = q.iter().find(|p| p[0] == "status").and_then(|p| p[1].as_str()).unwrap_or_default();
+                if status == if deposit { "1" } else { "5" } { kept.push(request.clone()); continue; }
+                check(if deposit { status == "0" } else { ["0","1","2","3","4","6"].contains(&status) }, "unexpected Bitrue transfer status read")?;
+                let mut success = request.clone();
+                for p in success[1].as_array_mut().unwrap() { if p[0] == "status" { p[1] = json!(if deposit { "1" } else { "5" }); } }
+                let scenario=read(&dir.join("scenario.json"));
+                let secret=scenario["credentials"]["secret"].as_str().unwrap();
+                let mut signed=request.clone(); resign_transfer_request(&mut signed,secret);
+                check(signed==*request,"Bitrue status request has an incorrect signature")?;
+                resign_transfer_request(&mut success,secret);
+                check(rails["steps"][i]["requests"].as_array().unwrap().contains(&success), "Bitrue added a request outside the original paged history")?;
+                additional += 1;
+            }
+            *requests = kept;
+        }
+        check(additional > 0, "no additional Bitrue status was read")?;
+        check(stripped == *rails, "D-PENDING-TRANSFERS: Bitrue differs beyond additional status requests")
+    })())
+}
+
 /// R: a seeded legacy price has no producer digest and cannot be reused by a fresh sync.
 const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "gemini-balances-stale_and_gone", "bitget-balances-stale_and_gone", "hyperliquid-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
 fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>> {
@@ -461,7 +586,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match listed_kraken(name, &rails_root.path().join(name), &rust_root.path().join(name), rails_out, rust_out).or_else(|| bingx_page(name, rails_out, rust_out)).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
+        match transfer_watermarks(name, &rust_root.path().join(name), rails_out, rust_out).or_else(|| transfer_status_reads(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| listed_kraken(name, &rails_root.path().join(name), &rust_root.path().join(name), rails_out, rust_out)).or_else(|| bingx_page(name, rails_out, rust_out)).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -481,6 +606,17 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     // Every Kraken ledger scenario: Rust's cursor walks (D-KR-W) never send Rails' requests.
     expected.extend(dirs.iter().map(|d| d.file_name().unwrap().to_string_lossy().to_string()).filter(|n| n.starts_with("kraken-ledger-")).map(|n| &*Box::leak(n.into_boxed_str())));
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
+    expected.extend_from_slice(&[
+        "bingx-ledger-pending", "bitvavo-ledger-week", "bitvavo-ledger-two_nights",
+        "bitget-ledger-week", "bitget-ledger-full", "bitget-ledger-two_nights", "bitget-ledger-transfer_pages",
+        "mexc-ledger-week", "mexc-ledger-two_nights", "mexc-ledger-no_permission_mid", "mexc-ledger-full", "mexc-ledger-away_100_days",
+        "kucoin-ledger-week", "kucoin-ledger-full", "kucoin-ledger-two_nights", "kucoin-ledger-cap_split", "kucoin-ledger-throttled",
+        "kucoin-ledger-error_envelope", "kucoin-ledger-network", "kucoin-ledger-nothing",
+        "bitrue-ledger-bot_order_pair", "bitrue-ledger-full", "bitrue-ledger-halving", "bitrue-ledger-listing_empty_object_symbols",
+        "bitrue-ledger-listing_empty_symbols", "bitrue-ledger-listing_missing_symbols", "bitrue-ledger-listing_null_symbols",
+        "bitrue-ledger-listing_string_symbols", "bitrue-ledger-no_permission", "bitrue-ledger-nothing", "bitrue-ledger-offset",
+        "bitrue-ledger-sold_out", "bitrue-ledger-symbol_gone", "bitrue-ledger-symbol_gone_200", "bitrue-ledger-two_nights", "bitrue-ledger-two_years", "bitrue-ledger-week",
+    ]);
     expected.sort();
     assert_eq!(divergences,expected,"the remaining divergences and all reviewed R legacy prices");
 

@@ -3,9 +3,10 @@
 //! them. Read only: signed GETs, and the public exchange information. Rows, tx_ids, fees and raw_data are Rails' (rust/tests/
 //! sync_parity.rs, the `mexc-ledger-` scenarios).
 //!
-//! As Rails reads it, from `start` (the watermark less 25 hours, floored to 80 days ago: #ledger_window) to the moment the
+//! D-PENDING-TRANSFERS holds the start at pending transfers. D-MEXC-HISTORY-GAP removes Rails' 80-day floor.
+//! From `start` (the watermark less 25 hours, bounded only by the venue's retention) to the moment the
 //! import began:
-//! - deposits, then withdrawals (`each_transfer`): 7-day ranges from `start` (or as far back as MEXC keeps them, 89 days),
+//! - deposits, then withdrawals (`each_transfer`): 7-day ranges from `start` (or as far back as MEXC keeps them, 90 days),
 //!   each range read whole, a full page (1000) halved and both halves read, older first (`read_range`); 700007 (no
 //!   permission) ends that history with what earlier ranges held; a deposit is kept at status 5 or 12, a withdrawal at 7;
 //! - then the pairs to read (`get_ledger`): every symbol of the exchange information whose base the kept transfers moved
@@ -42,7 +43,7 @@ pub const WITHDRAWALS_PATH: &str = "/api/v3/capital/withdraw/history";
 pub const TRADES_PATH: &str = "/api/v3/myTrades";
 pub const EXCHANGE_INFO_PATH: &str = "/api/v3/exchangeInfo";
 /// Exchanges::Mexc::TRANSFER_REACH, TRANSFER_RANGE and TRANSFER_PAGE.
-pub const TRANSFER_REACH_DAYS: i64 = 89;
+pub const TRANSFER_REACH_DAYS: i64 = 90;
 pub const TRANSFER_RANGE_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 pub const TRANSFER_PAGE: usize = 1000;
 /// Exchanges::Mexc::NO_PERMISSION_CODE: a key without the wallet-history permission has no transfers to give.
@@ -168,6 +169,7 @@ fn trade(symbol: &str, base: &str, quote: &str, raw: Raw) -> Result<Entry, Fail>
 /// next one last; `pending` the rows (as MEXC wrote them) the current range or pair read so far; `coins` the coins the kept
 /// transfers named; `pairs` the frozen pair list (symbol, base, quote), `pair` the one being read.
 struct Walk<'a, T: Transport> {
+    transfers: super::pending_transfers::Watch,
     venue: &'a MexcVenue<T>, db: &'a Db, key: &'a Key, clock: &'a dyn Clock, now_ms: i64, transfers_from: i64, trades_from: i64,
     source: Source, window: i64, ranges: Vec<(i64, i64)>, pending: Vec<String>, coins: BTreeSet<String>, pairs: Vec<(String, String, String)>, pair: usize,
     requests: usize,
@@ -176,14 +178,14 @@ struct Walk<'a, T: Transport> {
 impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a MexcVenue<T>, db: &'a Db, key: &'a Key, clock: &'a dyn Clock, begin: continuation::Begin<'_>) -> Self {
         let end = begin.end;
-        // AccountTransactionSync's floor (#ledger_window), then #each_transfer's and #trades_reach's.
-        let start = begin.start.map(|s| s.max(end - Duration::days(LEDGER_WINDOW_DAYS)));
+        // Only the venue retention limits apply; an unservable interval is recorded by the shared observer.
+        let start = begin.start;
         let reach = (end - Duration::days(TRANSFER_REACH_DAYS)).max(start.unwrap_or(DateTime::<Utc>::MIN_UTC));
         let month = end.checked_sub_months(Months::new(1)).unwrap_or(end).max(end - Duration::days(30));
         // `(...).to_i * 1000`: whole seconds, unlike the transfers' `(from.to_f * 1000).to_i`.
         let trades_from = start.map_or(month, |s| s.max(month)).timestamp() * 1000;
         let transfers_from = ruby_ms(reach);
-        let mut walk = Self { venue, db, key, clock, now_ms: ruby_ms(end), transfers_from, trades_from, source: Source::Deposits,
+        let mut walk = Self { transfers: begin.transfers, venue, db, key, clock, now_ms: ruby_ms(end), transfers_from, trades_from, source: Source::Deposits,
                               window: transfers_from, ranges: vec![], pending: vec![], coins: BTreeSet::new(), pairs: vec![], pair: 0, requests: 0 };
         if let Some(c) = begin.cursor {
             if let Some(source) = c["source"].as_str().and_then(Source::named) {
@@ -262,6 +264,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         self.window = (self.window + TRANSFER_RANGE_MS).min(self.now_ms) + 1;
         let mut rows = vec![];
         for raw in self.take_pending("MEXC transfer")? {
+            self.transfers.observe(if deposits { "deposits" } else { "withdrawals" }, &raw.value)?;
             if let Some(e) = if deposits { deposit(raw)? } else { withdrawal(raw)? } {
                 if let Some(c) = &e.base_currency { self.coins.insert(c.clone()); }
                 rows.push(e);
