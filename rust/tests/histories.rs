@@ -140,8 +140,8 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.future_price_drop_limited',json('true'))","future_price_drop_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.future_indicator_limited',json('true'))","future_indicator_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
-        // 6b T8: an Alpaca basket rebalances here (admitted below); a halt Rails wrote and a threshold it cannot read do not.
-        ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))","rebalance_pending in phase"),
+        // A halt with another blocker and an unreadable threshold still refuse.
+        ("UPDATE bots SET settings=json_set(settings,'$.future_limited',1), transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))","rebalance_pending in phase"),
         ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'),'$.rebalance_threshold',json('[1]'))","rebalance_threshold"),
         ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','x')","limit_order_pcnt_distance is not a number"),
         ("UPDATE transactions SET external_id='imported_test',external_status=1 WHERE side=1","legacy imported row(s) left open"),
@@ -168,6 +168,8 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         "UPDATE transactions SET transaction_type='LIQUIDATION',external_status=4 WHERE side=1",
         "UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))",
         "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'))",
+        // AUDIT #6: a readable inherited halt whose only blocker is the halt can be resolved here.
+        "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))",
         "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"buying\",\"remaining_quote_amount\":\"10.0\"}'))",
         "UPDATE transactions SET transaction_type='REBALANCE' WHERE side=1",
     ] {

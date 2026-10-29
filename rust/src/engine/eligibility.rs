@@ -41,6 +41,10 @@ pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, Engin
 const PENDING_KEYS: [&str; 1] = ["rebalance_pending"];
 
 const UNKNOWN_STATUS: &str = "row(s) with a status Rails never writes";
+const AMBIGUOUS_HALT: &str = "rebalance_pending in phase \"ambiguous\"";
+const ABANDONED_REBALANCE: &str = "abandoned REBALANCE order(s) (fill unknown)";
+
+fn halt_reason(reason: &str) -> bool { reason == AMBIGUOUS_HALT || reason.ends_with(ABANDONED_REBALANCE) }
 
 fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v != "false" && v != 0 && v != "" }
 
@@ -55,8 +59,8 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
     if unknown > 0 { r.push(format!("{unknown} {UNKNOWN_STATUS}")); }
     // Slice 6b, plan CB T4: threshold rebalancing runs here for a basket or index bot on every venue (rebalance.rs, run::run_rebalances). Its
-    // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous by this engine itself
-    // (idle until the user resolves it after a handback); an ambiguous halt Rails wrote stays Rails'.
+    // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous
+    // (idle until the owner resolves it through Resume, including halts inherited from Rails).
     let rebalances = rebalances_here(bot);
     // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
     for key in PENDING_KEYS {
@@ -64,7 +68,6 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
         if key == super::rebalance::PENDING_KEY && rebalances {
             match super::rebalance::pending(&bot.transient) {
                 Ok(Some(p)) if [super::rebalance::PHASE_SELLING, super::rebalance::PHASE_BUYING].contains(&p.phase.as_str()) => continue,
-                Ok(Some(p)) if p.phase == super::rebalance::PHASE_AMBIGUOUS && bot.transient.get(super::rebalance::RUST_HALT_KEY).is_some_and(set) => continue,
                 Ok(None) => continue,
                 Ok(Some(p)) => { r.push(format!("rebalance_pending in phase {:?}", p.phase)); continue; }
                 Err(e) => { r.push(format!("{e:?}")); continue; }
@@ -83,11 +86,12 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
         params![bot.id, rebalances], |r| r.get(0))?;
     if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
     // An abandoned REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades on: the flight cash may already be
-    // the asset, and Rails cannot account for it, so the refusal stands until the row itself is settled. An abandoned REDEPLOY
+    // the asset, and Rails cannot account for it. Only an otherwise supported ambiguous halt is admitted idle for
+    // resolution below; D-A6-ATTESTED records the rows the owner explicitly resolves. An abandoned REDEPLOY
     // is admitted since 6c-4: its spend counts what it asked for, and the engine halts on it.
-    let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REBALANCE' AND external_status = 4",
+    let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REBALANCE' AND external_status = 4 AND id NOT IN (SELECT value FROM json_each(COALESCE(json_extract((SELECT transient_data FROM bots WHERE id=?1),'$.rust_rebalance_resolved_orders'),'[]')))",
                              [bot.id], |r| r.get(0))?;
-    if n > 0 { r.push(format!("{n} abandoned REBALANCE order(s) (fill unknown)")); }
+    if n > 0 { r.push(format!("{n} {ABANDONED_REBALANCE}")); }
     Ok(r)
 }
 
@@ -185,6 +189,14 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     }
     history_reasons(c, bot, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
+    // AUDIT #6: a readable halt and its abandoned rows can be served for owner resolution. The
+    // pending state still bars both DCA and rebalancing. Every other eligibility check must pass,
+    // with the usual allocation exception for a basket that does not tick.
+    if rebalances_here(bot)
+        && super::rebalance::pending(&bot.transient).is_ok_and(|p| p.is_some_and(|p| p.phase == super::rebalance::PHASE_AMBIGUOUS))
+        && r.iter().all(|reason| halt_reason(reason) || (!BOT_WORKING.contains(&bot.status) && reason.starts_with(UNBALANCED))) {
+        r.retain(|reason| !halt_reason(reason));
+    }
     // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.
     let sold: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND side = 1)", [bot.id], |r| r.get(0))?;
     if (alpaca || sold) && r.is_empty() {
@@ -596,6 +608,8 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
                                             AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') \
                                             AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", params![id, composition_only], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
+        // bot_reasons admitted this halt with only the stopped-basket allocation exception left.
+        if composition_only { work.retain(|reason| !halt_reason(reason)); }
         // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.
         if super::rebalance::candidate(&bot) && rebalances && !composition_only { work.push("rebalancing".into()); }
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }

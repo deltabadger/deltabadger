@@ -359,7 +359,7 @@ async fn run(dir: &Path) -> Value {
             let token:String=form_urlencoded::byte_serialize(token.as_bytes()).collect();
             step["path"].as_str().unwrap().replace("__R2_TOKEN__",&token)
         }else{step["path"].as_str().unwrap().to_string()};
-        let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());
+        let mut form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());
         let mut headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
         // pages.rb `if_none_match`: 'last' is the etag of this client's last response, 'last_strong' it without W/.
         let client = step["client"].as_str().unwrap_or("main").to_string();
@@ -371,6 +371,11 @@ async fn run(dir: &Path) -> Value {
         // otherwise). When this crate's page has not, that page already differs from Rails' and is
         // reported as such; the step is sent without the token so the rest can still be compared.
         let page = browser.page.clone().unwrap_or_default();
+        let halt_token = if request_path.ends_with("/rebalance_resolutions") {
+            let doc=scraper::Html::parse_document(&page);
+            doc.select(&scraper::Selector::parse("input[name=halt_token]").unwrap()).next().and_then(|e|e.value().attr("value")).map(str::to_string)
+        } else {None};
+        if let Some(token)=halt_token.as_deref() {form.get_or_insert_with(Vec::new).push(("halt_token",token));}
         let has_form = web::form_token(&page, step["path"].as_str().unwrap().split('?').next().unwrap()).is_some();
         let has_meta = web::meta_token(&page).is_some();
         let csrf = match wanted {
@@ -400,7 +405,7 @@ async fn run(dir: &Path) -> Value {
         // `rack_input` (pages_signals.rb): the body Rack reads, with the Content-Length a step may declare apart from it.
         let declared = step["content_length"].as_u64().map(|n| n.to_string());
         if let Some(length) = declared.as_deref() { headers.push(("content-length", length)); }
-        let answer = match step["json"].as_str().or(step["raw_body"].as_str()).or(step["rack_input"].as_str()) {
+        let mut answer = match step["json"].as_str().or(step["raw_body"].as_str()).or(step["rack_input"].as_str()) {
             Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), &request_path, Some(json.to_string()), csrf, &headers).await,
             None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
         };
@@ -414,6 +419,10 @@ async fn run(dir: &Path) -> Value {
         }
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
         etags.insert(client, answer.header("etag").unwrap_or_default().to_string());
+        if answer.body.contains("name=\"halt_token\"") {
+            let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+            answer.body=common::html::without_rebalance_attestation(&answer.body,&c);
+        }
         let mut response = rust_answer(&answer, step);
         if step["jobs"] == true { response["job_classes"] = job_classes(&app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default()[woken..]); }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
@@ -1392,6 +1401,17 @@ fn redeploy_request_difference(name:&str,scenario:&Value,rails:&mut Value,rust:&
     Ok(())
 }
 
+/// D-A6-STALE: the retained generation prevents an identical later halt from accepting an old form.
+fn rebalance_resolution_difference(name:&str,rust:&mut Value)->Result<(),String> {
+    if !name.starts_with("rebalance_resolution_") {return Ok(())}
+    let bot=&mut rust["bots"][0];
+    let mut transient:Value=serde_json::from_str(bot["transient_data"].as_str().ok_or("missing transient")?).map_err(|e|e.to_string())?;
+    let generation=transient.as_object_mut().ok_or("invalid transient")?.shift_remove("rust_rebalance_resolution").ok_or("resolution was not committed")?;
+    uuid::Uuid::parse_str(generation.as_str().ok_or("invalid resolution generation")?).map_err(|e|e.to_string())?;
+    bot["transient_data"]=json!(transient.to_string());
+    Ok(())
+}
+
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     let theirs = rails["responses"].as_array()?;
     let ours = rust["responses"].as_array()?;
@@ -2039,10 +2059,10 @@ fn page_grid_selection_is_complete_and_disjoint() {
     {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear)");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear), and AUDIT #6's two rebalance resolution flows");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line, plus AUDIT #6's two rebalance resolution flows)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3 + 5, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, the empty bots page for a member (twice) and on the first visit, and the five Connect pages slice 6c-5's redeploy_ answers start from");
     }
@@ -2207,7 +2227,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
@@ -3056,4 +3076,73 @@ fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut
         }
     }
     Ok(())
+}
+
+/// The resolution flows need no venue reads (no rows exist). Replay them in-process too, so the
+/// core page/CSRF/redirect contract remains runnable where the sandbox forbids listening sockets.
+#[tokio::test]
+async fn rebalance_resolution_pages_match_rails_without_a_listener() {
+    let (recording,_scratch,dirs)=recorded_grid("rebalance_resolution_");
+    if dirs.is_empty() {return} // PAGES can select another part of the inventory.
+    assert_eq!(dirs.len(),1+1,"clear and owed-buy resolution flows");
+    for dir in dirs {
+        let name=dir.file_name().unwrap().to_os_string();
+        let dir=_scratch.path().join(&name);
+        let scenario=scenario(&dir);
+        let recorded:Value=serde_json::from_slice(&std::fs::read(recording.path.join("rails").join(&name).join("rails.json")).unwrap()).unwrap();
+        let app=web::app_in(&dir,scenario["secret_key_base"].as_str().unwrap(),None,
+            &scenario["env"].as_object().cloned().unwrap_or_default(),TestClock::at(scenario["at"].as_str().unwrap()));
+        let mut browser=web::Browser::default();
+        for (step,rails) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
+            let path=step["path"].as_str().unwrap();
+            let token=browser.page.as_deref().and_then(|page| {
+                let doc=scraper::Html::parse_document(page);
+                doc.select(&scraper::Selector::parse("input[name=halt_token]").unwrap()).next().and_then(|e|e.value().attr("value")).map(str::to_string)
+            });
+            let mut form:Vec<(&str,&str)>=step["form"].as_object().into_iter().flatten().map(|(k,v)|(k.as_str(),v.as_str().unwrap())).collect();
+            if path.ends_with("rebalance_resolutions") {form.push(("halt_token",token.as_deref().expect("Resume carries the halt token")));}
+            let csrf=match step["csrf"].as_str() {Some("header")=>Csrf::Header,Some("form")=>Csrf::Form,_=>Csrf::None};
+            let answer=browser.send(&app,step["method"].as_str().unwrap(),path,(!form.is_empty()).then_some(form.as_slice()),csrf,&[]).await;
+            assert_eq!(answer.status as u64,rails["status"].as_u64().unwrap(),"{name:?}: {path}: {}",answer.body);
+            if let Some(location)=answer.header("location") {assert_eq!(html::location(location),html::location(rails["headers"]["location"].as_str().unwrap()),"{name:?}: redirect");}
+            if path.starts_with("/bots/") && step["method"]=="GET" {
+                let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+                let body=html::without_rebalance_attestation(&answer.body,&c);
+                let mut ours=json!(html::normalize(&body));
+                // The existing D-SPLIT-BOT-MENU applies to these basket pages too.
+                let bot=deltabadger::engine::model::load_bot(&c,1).unwrap();
+                assert_eq!(without_split_item(&mut ours),usize::from(bot.transient["rebalance_pending"].is_null()),"{name:?}: Split is offered after the pending swap clears");
+                let ours=ours.as_array().unwrap().iter().map(|line|line.as_str().unwrap().to_string()).collect::<Vec<_>>();
+                if let Some(diff)=html::first_difference(&html::normalize(rails["body"].as_str().unwrap()),&ours) {panic!("{name:?}: {path}: {diff}")}
+            }
+        }
+        let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+        let bot=deltabadger::engine::model::load_bot(&c,1).unwrap();
+        let mut transient=bot.transient;
+        assert!(uuid::Uuid::parse_str(transient.as_object_mut().unwrap().remove("rust_rebalance_resolution").unwrap().as_str().unwrap()).is_ok());
+        let expected:Value=serde_json::from_str(recorded["bots"][0]["transient_data"].as_str().unwrap()).unwrap();
+        assert_eq!(transient,expected,"{name:?}: Rails' resulting ledger");
+        let count:i64=c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='rebalance_manually_resolved' AND json_extract(details,'$.user_id')=1",[],|r|r.get(0)).unwrap();
+        assert_eq!(count,1);
+        let route="/bots/1/rebalance_resolutions";
+        c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}')) WHERE id=1",[]).unwrap();
+        let halted=deltabadger::engine::model::load_bot(&c,1).unwrap();
+        let token=deltabadger::engine::rebalance::resolution_token(&halted);
+        let forged=browser.send(&app,"POST",route,Some(&[("halt_token",&token)]),Csrf::None,&[]).await;
+        assert_eq!(forged.status,302,"Rails' unverified-request handler redirects");
+        assert_eq!(forged.header("location"),Some("/"));
+        assert_eq!(deltabadger::engine::model::load_bot(&c,1).unwrap().transient,halted.transient,"a valid halt confirmation without CSRF cannot resolve it");
+        browser.get(&app,"/bots/1").await;
+        c.execute("UPDATE bots SET settings=json_set(settings,'$.future_limited',1) WHERE id=1",[]).unwrap();
+        let refused=browser.send(&app,"POST",route,Some(&[("halt_token",&token)]),Csrf::Header,&[]).await;
+        assert_eq!(refused.status,422,"a current attestation cannot bypass another eligibility blocker: {}",refused.body);
+        assert!(refused.body.contains("future_limited"));
+        assert_eq!(deltabadger::engine::model::load_bot(&c,1).unwrap().transient,halted.transient,"a refused resolution rolls back its state and generation");
+        c.execute("UPDATE bots SET settings=json_remove(settings,'$.future_limited') WHERE id=1",[]).unwrap();
+        c.execute("INSERT INTO users(id,email,created_at,updated_at) VALUES(9999,'foreign@example.com','2026-01-01','2026-01-01')",[]).unwrap();
+        c.execute("UPDATE bots SET user_id=9999 WHERE id=1",[]).unwrap();
+        let foreign=browser.send(&app,"POST",route,Some(&[("halt_token","stale")]),Csrf::Header,&[]).await;
+        assert_eq!(foreign.status,404,"an owner's session cannot resolve another owner's bot");
+        assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='rebalance_manually_resolved'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+    }
 }

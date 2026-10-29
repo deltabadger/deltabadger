@@ -317,6 +317,13 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     out.push_str("\n  ");
     out.push_str(&wash_sale_table(c,s,&locked,hidden,locale,prefix)?);
     out.push_str("\n\n");
+    let mut control = crate::web::bot::rebalance::control(s.bot.id,&engine_bot.transient,locale,prefix);
+    if let Some(slot) = control.find("<input type=\"hidden\" name=\"halt_token\"") {
+        match csrf {
+            Token::Value("") => {}, Token::Value(token) => control.insert_str(slot,&token_field(token)), Token::Slots(slots) => slots.push(out.len()+slot),
+        }
+        out.push_str(&control);
+    }
     let redeploy_pending = &engine_bot.transient[crate::engine::redeploy::PENDING_KEY];
     if redeploy_pending["state"] == "ambiguous" {
         // The halt's Clear, before any balance, status or direction condition: it names the intent this render shows.

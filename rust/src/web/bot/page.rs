@@ -68,6 +68,7 @@ struct Show<'a> {
     settings: String,
     hide_money: bool,
     metrics: Option<String>,
+    rebalance_halt: String,
     order_filter: String,
     order_filters_id: String,
     default_filter: &'static str,
@@ -281,12 +282,16 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let shown_orders = bot.has_orders && c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND NOT {})", orders::PENDING_MARKET), [bot.id], |r| r.get::<_, bool>(0))?;
         let Filters { default_filter, order_filter, order_filters } = filters(c, ctx, &bot, hide_money)?;
         let (preferences, bot_updates, page_stream) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id), page_stream(&bot));
+        let mut rebalance_halt = super::rebalance::control(bot.id,&serde_json::Value::Object(bot.transient.clone()),ctx.locale,&ctx.path(""));
+        if let Some(slot) = rebalance_halt.find("<input type=\"hidden\" name=\"halt_token\"") {
+            rebalance_halt.insert_str(slot,&format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />",crate::web::i18n::escape(csrf)));
+        }
         let body = Show {
             v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, path: path.clone(),
             label_id: bot.dom_id("label"), label: &bot.label, other_bots,
             menu: menu(ctx, csrf, &bot, configured)?, exchange_select: exchange_select(c, ctx, csrf, &bot, user.id)?,
             progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, inline_chart, cached, columns_id: bot.dom_id("columns"), working: bot.working(),
-            settings, hide_money, metrics, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
+            settings, hide_money, metrics, rebalance_halt, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
             bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !shown_orders && !activities,
         }.render()?;

@@ -337,9 +337,84 @@ use crate::venue::{Attributed, Side, Venue};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::json;
 
-/// A Rust-only key beside an ambiguous halt this engine wrote: eligibility admits such a bot (idle until the user resolves
-/// it after a handback); an ambiguous phase Rails wrote stays refused.
+/// A Rust-only key beside an ambiguous halt this engine wrote. Both inherited and new halts stay
+/// idle until the owner resolves them through Resume; resolving removes this marker too.
 pub const RUST_HALT_KEY: &str = "rust_rebalance_halted";
+
+/// D-A6-STALE: bind the owner's attestation to the displayed halt and placement, including a generation
+/// retained after resolution so an identical later halt cannot be cleared by an old tab.
+pub fn resolution_token(bot: &Bot) -> String {
+    resolution_token_for(bot.id, &bot.transient)
+}
+
+pub fn resolution_token_for(id: i64, transient: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(json!([id, transient[PENDING_KEY],
+        transient["rust_rebalance_resolution"], transient["rust_placement"]]).to_string()))
+}
+
+/// Bots::RebalanceResolutionsController#create and Bot::Rebalanceable#resolve_rebalance_halt!.
+/// Refresh every known candidate, then compare the displayed state under the engine's write lock.
+/// Only this explicit attestation can retire an unknown placement; venue read failures never do.
+pub async fn resolve<V: Venue>(c: &Connection, venue: &V, cipher: &crate::crypto::Cipher, id: i64, user: i64, token: &str,
+    now: chrono::DateTime<chrono::Utc>) -> Result<Option<String>, EngineError> {
+    let bot = super::model::load_bot(c, id)?;
+    if bot.user_id != user { return Err(data("rebalance owner changed")); }
+    if resolution_token(&bot) != token || pending(&bot.transient)?.is_none_or(|p| p.phase != PHASE_AMBIGUOUS) { return Ok(None); }
+    let p = pending(&bot.transient)?.expect("ambiguous pending");
+    let candidates = c.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND ((transaction_type='REBALANCE' AND status=0 AND external_status IN (0,1)) OR id IN (?2,?3)) ORDER BY id")?
+        .query_map(params![id,p.sell_transaction_id,p.buy_transaction_id], |r| r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+    for row in candidates {
+        if let Err(e) = super::polling::refresh(c, venue, id, row, now).await {
+            super::log(&format!("[engine] rebalance resolution refresh bot={id}: {e:?}"));
+        }
+        let waiting: Option<Option<String>> = c.query_row("SELECT external_id FROM transactions WHERE id=?1 AND bot_id=?2 AND status=0 AND external_status IN (0,1)",
+            (row,id), |r| r.get(0)).optional()?;
+        if let Some(order) = waiting { return Ok(Some(order.unwrap_or_default())); }
+    }
+    let tx = super::model::immediate(c)?;
+    let current = super::model::load_bot(&tx, id)?;
+    if current.user_id != user || resolution_token(&current) != token { return Ok(None); }
+    // Also catch a row persisted by recovery while the refresh was in flight.
+    let waiting: Option<Option<String>> = tx.query_row("SELECT external_id FROM transactions WHERE bot_id=?1 AND ((transaction_type='REBALANCE') OR id IN (?2,?3)) AND status=0 AND external_status IN (0,1) ORDER BY id LIMIT 1",
+        params![id,p.sell_transaction_id,p.buy_transaction_id], |r| r.get(0)).optional()?;
+    if let Some(order) = waiting { return Ok(Some(order.unwrap_or_default())); }
+    if let Some(intent) = super::placement::load_intent(&tx, &current, None)? {
+        if intent.plan.kind != TxKind::Rebalance { return Ok(None); }
+        // The user has checked the venue. Preserve wash-sale claims as an ambiguous outcome does.
+        super::model::merge_transient_compact(&tx,id,&[("rust_placement",Value::Null)])?;
+    }
+    let recovered = |id: Option<i64>| -> Result<bool, EngineError> {
+        Ok(tx.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND id=?2 AND external_status IN (2,3))",
+            params![bot.id,id], |r| r.get(0))?)
+    };
+    let next = if recovered(p.buy_transaction_id)? && p.remaining_quote_amount.is_some() {
+        Some(Pending { phase: PHASE_BUYING.into(), buy_attempted: true, ..p })
+    } else if recovered(p.sell_transaction_id)? && p.remaining_quote_amount.is_none() {
+        Some(Pending { phase: PHASE_SELLING.into(), buy_transaction_id: None, buy_attempted: false, ..p })
+    } else if p.remaining_quote_amount.as_ref().is_some_and(BigDec::is_positive) {
+        Some(Pending { phase: PHASE_BUYING.into(), buy_transaction_id: None, buy_attempted: false, ..p })
+    } else { None };
+    // D-A6-ATTESTED: retain exactly which abandoned rows the owner has checked. Their unknown
+    // fills remain in the ledger; only the automatic admission refusal is discharged.
+    let abandoned: Vec<i64> = tx.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND transaction_type='REBALANCE' AND external_status=4 ORDER BY id")?
+        .query_map([id],|r|r.get(0))?.collect::<Result<Vec<_>,_>>()?;
+    if !abandoned.is_empty() { super::model::merge_transient_compact(&tx,id,&[("rust_rebalance_resolved_orders",json!(abandoned))])?; }
+    // Rails' merge_transient_data! compacts every top-level nil, including pre-existing ones.
+    let mut updates:Vec<(&str,Value)>=current.transient.as_object().into_iter().flatten()
+        .filter(|(_,value)|value.is_null()).map(|(key,_)|(key.as_str(),Value::Null)).collect();
+    updates.extend([(PENDING_KEY,next.map_or(Value::Null,|p|p.to_json())),
+        (RUST_HALT_KEY,Value::Null),("rust_rebalance_resolution",json!(uuid::Uuid::new_v4().to_string()))]);
+    super::model::merge_transient_compact(&tx,id,&updates)?;
+    super::model::log_activity(&tx,id,"rebalance_manually_resolved",Level::Info,json!({"user_id":user}),now)?;
+    // A stopped bot with no remaining work is normally ignored by install admission. Resolution
+    // must not use that exemption to discharge a halt on an otherwise unsupported bot.
+    let reasons = super::eligibility::rebalance_reasons(&tx, &super::model::load_bot(&tx, id)?)?;
+    if !reasons.is_empty() { return Err(EngineError::Ineligible(reasons)); }
+    super::eligibility::guard(&tx, cipher, Some(id)).map_err(|r| EngineError::Ineligible(vec![r.reason()]))?;
+    tx.commit()?;
+    Ok(None)
+}
 
 /// What one evaluation did: Rails' Result::Success(skipped:), Success(transaction_id:), or Failure (a raise included).
 #[derive(Debug, PartialEq)]
@@ -651,19 +726,30 @@ async fn refresh<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, id
     }
 }
 
+/// D-A6-STALE: a poll that began before a halt was resolved cannot change the replacement swap.
+fn transition(c: &Connection, bot: &Bot, expected: &Pending, write: impl FnOnce(&Connection) -> Result<(),EngineError>) -> Result<bool,EngineError> {
+    super::model::locked(c,|tx| {
+        let current=super::model::load_bot(tx,bot.id)?;
+        if pending(&current.transient)?.as_ref()!=Some(expected)
+            || current.transient["rust_rebalance_resolution"]!=bot.transient["rust_rebalance_resolution"] {return Ok(false)}
+        write(tx)?;
+        Ok(true)
+    })
+}
+
 /// #resume_selling!.
 async fn resume_selling<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, p: Pending, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     let (bot, now) = (&claim.bot, clock.now());
-    if pending_row(c, bot.id, p.sell_transaction_id)?.is_none() { halt(c, bot.id, "sell intent with no persisted order", now)?; return Ok(Outcome::Skipped("ambiguous")); }
+    if pending_row(c, bot.id, p.sell_transaction_id)?.is_none() { if !transition(c,bot,&p,|tx|halt(tx,bot.id,"sell intent with no persisted order",now))? {return Ok(Outcome::Skipped("changed"));} return Ok(Outcome::Skipped("ambiguous")); }
     let id = p.sell_transaction_id.expect("found by it");
     refresh(c, venue, bot, id, now).await;
     let row = pending_row(c, bot.id, Some(id))?.ok_or_else(|| EngineError::Data(format!("transaction {id} vanished")))?;
     if !row.terminal() { return Ok(Outcome::Skipped("waiting_for_sell")); }
-    if row.abandoned() { halt(c, bot.id, "sell abandoned", now)?; return Ok(Outcome::Skipped("ambiguous")); }
+    if row.abandoned() { if !transition(c,bot,&p,|tx|halt(tx,bot.id,"sell abandoned",now))? {return Ok(Outcome::Skipped("changed"));} return Ok(Outcome::Skipped("ambiguous")); }
     // nil, not zero: a closed sell whose quote figure is still unknown waits for one it can spend.
     let Some(proceeds) = row.realized() else { return Ok(Outcome::Skipped("proceeds_unknown")) };
-    if !proceeds.is_positive() { clear_pending(c, bot.id)?; return Ok(Outcome::Skipped("nothing_sold")); }
-    set_pending(c, bot.id, &Pending { phase: PHASE_BUYING.into(), sell_transaction_id: Some(id), buy_transaction_id: None, remaining_quote_amount: Some(proceeds), buy_attempted: false })?;
+    if !proceeds.is_positive() { if !transition(c,bot,&p,|tx|clear_pending(tx,bot.id))? {return Ok(Outcome::Skipped("changed"));} return Ok(Outcome::Skipped("nothing_sold")); }
+    if !transition(c,bot,&p,|tx|set_pending(tx,bot.id,&Pending { phase: PHASE_BUYING.into(), sell_transaction_id: Some(id), buy_transaction_id: None, remaining_quote_amount: Some(proceeds), buy_attempted: false }))? {return Ok(Outcome::Skipped("changed"));}
     place_pending_buy(c, venue, claim, clock, cx).await
 }
 
@@ -673,22 +759,22 @@ async fn resume_buying<V: Venue + Attributed>(c: &Connection, venue: &V, claim: 
     if pending_row(c, bot.id, p.buy_transaction_id)?.is_none() {
         if p.buy_transaction_id.is_none() {
             // Attempted with no order id in the state: the send may have landed. Only a handoff that never left is replayed.
-            if p.buy_attempted { halt(c, bot.id, "buy attempted with no persisted order", now)?; return Ok(Outcome::Skipped("ambiguous")); }
+            if p.buy_attempted { if !transition(c,bot,&p,|tx|halt(tx,bot.id,"buy attempted with no persisted order",now))? {return Ok(Outcome::Skipped("changed"));} return Ok(Outcome::Skipped("ambiguous")); }
             return place_pending_buy(c, venue, claim, clock, cx).await;
         }
-        halt(c, bot.id, "buy intent with no persisted order", now)?;
+        if !transition(c,bot,&p,|tx|halt(tx,bot.id,"buy intent with no persisted order",now))? {return Ok(Outcome::Skipped("changed"));}
         return Ok(Outcome::Skipped("ambiguous"));
     }
     let id = p.buy_transaction_id.expect("found by it");
     refresh(c, venue, bot, id, now).await;
     let row = pending_row(c, bot.id, Some(id))?.ok_or_else(|| EngineError::Data(format!("transaction {id} vanished")))?;
     if !row.terminal() { return Ok(Outcome::Skipped("waiting_for_buy")); }
-    if row.abandoned() { halt(c, bot.id, "buy abandoned", now)?; return Ok(Outcome::Skipped("ambiguous")); }
+    if row.abandoned() { if !transition(c,bot,&p,|tx|halt(tx,bot.id,"buy abandoned",now))? {return Ok(Outcome::Skipped("changed"));} return Ok(Outcome::Skipped("ambiguous")); }
     let Some(filled) = row.realized() else { return Ok(Outcome::Skipped("fill_unknown")) };
-    let remaining = &p.remaining_quote_amount.unwrap_or_else(BigDec::zero) - &filled;
-    if !remaining.is_positive() { clear_pending(c, bot.id)?; return Ok(Outcome::Skipped("completed")); }
+    let remaining = &p.remaining_quote_amount.clone().unwrap_or_else(BigDec::zero) - &filled;
+    if !remaining.is_positive() { if !transition(c,bot,&p,|tx|clear_pending(tx,bot.id))? {return Ok(Outcome::Skipped("changed"));} return Ok(Outcome::Skipped("completed")); }
     // A partly filled then cancelled buy still owes the remainder: only that is placed.
-    set_pending(c, bot.id, &Pending { phase: PHASE_BUYING.into(), sell_transaction_id: p.sell_transaction_id, buy_transaction_id: None, remaining_quote_amount: Some(remaining), buy_attempted: false })?;
+    if !transition(c,bot,&p,|tx|set_pending(tx,bot.id,&Pending { phase: PHASE_BUYING.into(), sell_transaction_id: p.sell_transaction_id, buy_transaction_id: None, remaining_quote_amount: Some(remaining), buy_attempted: false }))? {return Ok(Outcome::Skipped("changed"));}
     place_pending_buy(c, venue, claim, clock, cx).await
 }
 
@@ -697,9 +783,14 @@ async fn resume_buying<V: Venue + Attributed>(c: &Connection, venue: &V, claim: 
 async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     let (bot, bot_id) = (&claim.bot, claim.bot.id);
     // The phase is this pass's own write (resume_*); everything the buy is sized from is the claim's.
-    let p = pending(&super::model::load_bot(c, bot_id)?.transient)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no pending rebalance to buy for")))?;
+    let current=super::model::load_bot(c,bot_id)?;
+    let Some(p)=pending(&current.transient)? else {return Ok(Outcome::Skipped("changed"))};
+    if p.phase != PHASE_BUYING || current.transient["rust_rebalance_resolution"] != bot.transient["rust_rebalance_resolution"] {return Ok(Outcome::Skipped("changed"))}
     let owed = p.remaining_quote_amount.clone().unwrap_or_else(BigDec::zero);
-    if !owed.is_positive() { clear_pending(c, bot_id)?; return Ok(Outcome::Skipped("nothing_owed")); }
+    if !owed.is_positive() {
+        if !transition(c,bot,&p,|tx|clear_pending(tx,bot_id))? {return Ok(Outcome::Skipped("changed"));}
+        return Ok(Outcome::Skipped("nothing_owed"));
+    }
     let Some(reconciled) = split_gate(c, venue, claim, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
     let entries = match value(c, venue, bot, clock.now(), &super::wash::locked(c, bot.user_id, clock)?).await? {
         Ok((_, entries)) => entries,
@@ -718,7 +809,7 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
     if below {
         // #abandon_below_minimum!(buying): the user's own cash left unconvertible, said once.
         let now = clock.now();
-        super::model::locked(c, |tx| { super::model::log_activity(tx, bot_id, "rebalance_dust", Level::Info, plan.log_details(), now)?; clear_pending(tx, bot_id) })?;
+        if !transition(c,bot,&p,|tx| { super::model::log_activity(tx, bot_id, "rebalance_dust", Level::Info, plan.log_details(), now)?; clear_pending(tx, bot_id) })? {return Ok(Outcome::Skipped("changed"));}
         return Ok(Outcome::Skipped("below_minimum"));
     }
     // #mark_buy_attempted!, written with the intent.

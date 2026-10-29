@@ -318,7 +318,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
         if name == "boundaries" { boundaries(&dir); currencies += 100; continue; }
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
         let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
-        if name == "redeploy_halt" { without_sell_while_halted(&mut expected); }
+        if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { without_sell_while_halted(&mut expected); }
         if name.starts_with("fx_") { display_currency(name, &dir, &sc, &expected).await; currencies += 1; continue; }
         let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
         let now = At::from_utc(chrono::DateTime::parse_from_rfc3339(sc["at"].as_str().unwrap()).unwrap().to_utc()).unwrap();
@@ -883,7 +883,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
         let reader = Reader::new(&cache, now.utc().timestamp());
         let actual = deltabadger::web::figure::account(&c, sc["user_id"].as_i64().unwrap(), &reader, now, "en", "token", "").unwrap();
         if FRAMED_SIGNALS.contains(&name) && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { signal_pages(name, &dir, &sc, &expected, &actual, now).await; }
-        if name.starts_with("framed_rebalance_") && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { rebalance_pages(name, &dir, &sc, &expected, now).await; }
+        if name.starts_with("framed_rebalance_") && !name.starts_with("framed_rebalance_halt") && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { rebalance_pages(name, &dir, &sc, &expected, now).await; }
         if ["framed_rebalance_drift_under", "owner_account"].contains(&name) && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { rule_saves(name, &dir, &sc, now).await; }
         if name.starts_with("pair_") || name.starts_with("signal_") || name.starts_with("framed_signal_") || name == "account_pair_bot" { pairs += 1; }
         // Which caches Rails writes for a pair (Measurable's three layers), as the page reads them.
@@ -994,13 +994,17 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let selector=scraper::Selector::parse("turbo-stream").unwrap();
                 let target=document.select(&selector).next().unwrap().value().attr("target").unwrap();
                 // D-REB-DRIFT-LATE: Rails never broadcasts the drift readout; it renders it with the page, cold or warm.
-                if target == "settings-rebalance-info" { drift_late(name, &payload, &expected); continue; }
+                if target == "settings-rebalance-info" {
+                    rebalance_broadcast(name, &payload, &expected, scratch.path());
+                    continue;
+                }
                 let wanted=expected["broadcasts"].as_array().unwrap().iter().find(|entry| {
                     entry[0]==stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\"")))
                 }).unwrap_or_else(||panic!("{name}: no Rails broadcast to {stream} {target}"));
                 if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { continue; }
                 // This grid renders `actual` with a page's token ("token"); a real broadcast has none, as Rails' has none.
-                let payload = if name == "redeploy_halt" { payload.replace(GRID_TOKEN_FIELD, "") } else { payload };
+                let payload = if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { payload.replace(GRID_TOKEN_FIELD, "") } else { payload };
+                let payload=common::html::without_rebalance_attestation(&payload,&c);
                 if SELL_ONLY_PAIRS.contains(&name) && target == "metrics" { assert_eq!(sell_only_table(&payload), sell_only_table(wanted[1].as_str().unwrap()), "{name} broadcast metrics"); continue; }
                 assert_eq!(common::html::normalize(&payload),common::html::normalize(wanted[1].as_str().unwrap()),"{name} broadcast {stream} {target}");
             }
@@ -1022,7 +1026,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 }
                 let got = got.as_str().unwrap().to_string();
                 // Rails records these fragments without a request, so its Clear has no token field; this grid's has "token".
-                let got = if name == "redeploy_halt" { got.replace(GRID_TOKEN_FIELD, "") } else { got };
+                let got = if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { got.replace(GRID_TOKEN_FIELD, "") } else { got };
+                let got=common::html::without_rebalance_attestation(&got,&c);
                 if SELL_ONLY_PAIRS.contains(&name) && part == "metrics" {
                     // D4 (3.0, Rust only): a pair that only sells states what it sold and what that brought in, where Rails states an
                     // investment; its row, chart, tile and totals are Rails'.
@@ -1062,7 +1067,10 @@ fn without_sell_while_halted(expected: &mut Value) {
     };
     for parts in expected["bots"].as_object_mut().unwrap().values_mut() { if let Some(metrics) = parts.get_mut("metrics") { strip(metrics); } }
     for entry in expected["broadcasts"].as_array_mut().unwrap() { strip(&mut entry[1]); }
-    assert!(removed > 0, "D-6C-4: Rails no longer offers Sell beside a halted redeploy");
+    for state in ["cold","warm"] {
+        if let Some(bots)=expected[state]["bots"].as_object_mut() {for parts in bots.values_mut() {strip(&mut parts["page"]);}}
+    }
+    assert!(removed > 0, "D-6C-4: Rails no longer offers Sell beside a halted composition operation");
 }
 
 fn sell_only_table(html: &str) -> Vec<String> {
@@ -1146,11 +1154,25 @@ fn note_only(rails: &str) -> String {
 /// D-REB-DRIFT-LATE on the figures' stream: what follows the page is the readout Rails rendered with its cold page.
 fn drift_late(name: &str, payload: &str, expected: &Value) {
     let rails = expected["cold"]["bots"]["1"]["page"].as_str().unwrap_or_else(|| panic!("{name}: a drift readout on a page the grid does not frame"));
-    let (info, _) = rebalance_rule(rails);
-    assert!(info.contains("off its target split"), "{name}: Rails' cold page reads the drift");
+    let document = scraper::Html::parse_document(rails);
+    let info = document.select(&scraper::Selector::parse("#settings-rebalance-info").unwrap()).next()
+        .unwrap_or_else(|| panic!("{name}: no Rails rebalance note")).html();
+    assert_eq!(info.contains("off its target split"), !name.starts_with("framed_rebalance_halt"),
+        "{name}: Rails reads drift only when the swap is not halted");
     let streamed = scraper::Html::parse_fragment(payload);
     let template = streamed.select(&scraper::Selector::parse("template").unwrap()).next().unwrap().inner_html();
     assert_eq!(common::html::normalize(template.trim_end()), common::html::normalize(&info), "{name}: the streamed drift readout");
+}
+
+/// A selling basket hides the rule. Its streamed note targets no element; compare the fragment
+/// with Rails' halted buying twin, which renders that same note, instead of requiring a form.
+fn rebalance_broadcast(name: &str, payload: &str, expected: &Value, root: &Path) {
+    if name == "framed_rebalance_halt_selling" {
+        let page = expected["cold"]["bots"]["1"]["page"].as_str().unwrap();
+        assert!(!page.contains("id=\"settings-rebalance-info\""));
+        let twin: Value = serde_json::from_slice(&std::fs::read(root.join("framed_rebalance_halt/rails.json")).unwrap()).unwrap();
+        drift_late("framed_rebalance_halt", payload, &twin);
+    } else { drift_late(name, payload, expected); }
 }
 
 /// The rebalance rule on a held basket's page (page_figures.rb's framed_rebalance_*): cold, the note alone (D-REB-DRIFT-LATE)
@@ -1613,4 +1635,65 @@ async fn cold_pages_match_rails_loading_state() {
             }
         }
     }
+}
+
+/// AUDIT #6: the halt control is reachable cold and warm, with the rule on/off and while selling.
+/// No cable listener is needed to compare the actual HTTP pages and the figure cache's panels.
+#[tokio::test]
+async fn rebalance_halted_pages_match_rails_cold_and_warm() {
+    use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
+    let scratch=tempfile::tempdir().unwrap();
+    record(&scratch,"figures");
+    let mut count=0;
+    for name in ["framed_rebalance_halt","framed_rebalance_halt_off","framed_rebalance_halt_selling"] {
+        let dir=scratch.path().join(name);
+        let sc:Value=serde_json::from_slice(&std::fs::read(dir.join("scenario.json")).unwrap()).unwrap();
+        let mut expected:Value=serde_json::from_slice(&std::fs::read(dir.join("rails.json")).unwrap()).unwrap();
+        without_sell_while_halted(&mut expected);
+        let env=common::web::env(common::web::SECRET);
+        let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+        let user=sc["user_id"].as_i64().unwrap();
+        let password:String=c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
+        let now:chrono::DateTime<chrono::Utc>=sc["at"].as_str().unwrap().parse().unwrap();
+        let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::starting(now)).unwrap()
+            .with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+        let signed=SessionData{user:Some((user,password.chars().take(29).collect())),..SessionData::default()};
+        let mut browser=common::web::Browser{cookie:Some(session::seal(&app.keys.session,&signed,now)),page:None};
+        let held=app.figure_service.compute().acquire_owned().await.unwrap();
+        {
+            let when="cold";
+            let response=browser.get(&app,"/bots/1").await;
+            assert_eq!(response.status,200,"{name} {when}: {}",response.body);
+            assert!(response.body.contains("/rebalance_resolutions"),"{name} {when}: Resume must be reachable");
+            let got=common::html::without_rebalance_attestation(&response.body,&c);
+            let panel=|body:&str| {
+                let doc=scraper::Html::parse_document(body);
+                tokenless(&doc.select(&scraper::Selector::parse("#metrics").unwrap()).next().expect("metrics panel").html())
+            };
+            assert_eq!(panel(&got),panel(expected[when]["bots"]["1"]["page"].as_str().unwrap()),"{name} {when}: complete panel");
+            count+=1;
+        }
+        drop(held);
+        loading::publish(&app,user).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(10),async {loop {
+            match loading::prepare(&app,user).await.unwrap() {loading::Snapshot::Ready(..)=>break,loading::Snapshot::Failed(why)=>panic!("{name}: {why:?}"),_=>tokio::task::yield_now().await}
+        }}).await.unwrap();
+        let response=browser.get(&app,"/bots/1").await;
+        assert_eq!(response.status,200,"{name} warm: {}",response.body);
+        let got=common::html::without_rebalance_attestation(&response.body,&c);
+        let panel=|body:&str| {let doc=scraper::Html::parse_document(body);tokenless(&doc.select(&scraper::Selector::parse("#metrics").unwrap()).next().expect("metrics").html())};
+        assert_eq!(panel(&got),panel(expected["warm"]["bots"]["1"]["page"].as_str().unwrap()),"{name} warm: complete panel");
+        let market = deltabadger::figures::scripted::Scripted::new(&sc["script"], None);
+        let rendered = deltabadger::web::figure::account(&c,user,&market,At::from_utc(now).unwrap(),"en","token","").unwrap();
+        let mut notes = 0;
+        for (_, payload) in deltabadger::web::figure::streams(&c,user,&rendered).unwrap() {
+            if target(&payload) == "settings-rebalance-info" {
+                rebalance_broadcast(name,&payload,&expected,scratch.path());
+                notes += 1;
+            }
+        }
+        assert_eq!(notes, usize::from(name != "framed_rebalance_halt_off"), "{name}: only an enabled rule streams a note");
+        count+=1;
+    }
+    assert_eq!(count,2+2+2,"three halted states, cold and warm");
 }

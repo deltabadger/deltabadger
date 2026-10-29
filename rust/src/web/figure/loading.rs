@@ -80,7 +80,7 @@ fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
         account.write_u8(0xff);
     }
     let mut statement=c.prepare(&format!("SELECT b.*,CASE WHEN json_valid(b.transient_data) THEN json_array(json_extract(b.transient_data,'$.rebalance_pending'),\
-        json_extract(b.transient_data,'$.liquidation_resolved_orders'),json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending'),json_extract(b.transient_data,'$.rust_redeploy_request'),json_extract(b.transient_data,'$.rebalance_below_minimum_at')) END AS operations__, \
+        json_extract(b.transient_data,'$.liquidation_resolved_orders'),json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending'),json_extract(b.transient_data,'$.rust_redeploy_request'),json_extract(b.transient_data,'$.rust_rebalance_resolution'),json_extract(b.transient_data,'$.rust_placement'),json_extract(b.transient_data,'$.rebalance_below_minimum_at')) END AS operations__, \
         (SELECT json_group_array(json_array(asset_id,ticker_id,in_index,target_allocation)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY id)) AS members__, \
         (SELECT json_group_array(json_array(id,base,base_asset_id,quote_asset_id,minimum_base_size,minimum_quote_size,available,trading_enabled,base_decimals,quote_decimals,price_decimals)) FROM (SELECT * FROM tickers t \
           WHERE t.exchange_id=b.exchange_id AND t.id IN (\
@@ -200,7 +200,7 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
         // (its drift readout), and whether it parses.
         ("SELECT id,json_valid(transient_data),CASE WHEN json_valid(transient_data) THEN json_array(json_extract(transient_data,'$.rebalance_pending'),\
           json_extract(transient_data,'$.liquidation_resolved_orders'),json_extract(transient_data,'$.liquidation_pending'),json_extract(transient_data,'$.liquidation_selling_since'),json_extract(transient_data,'$.redeploy_pending'),json_extract(transient_data,'$.rust_redeploy_request'),\
-          json_extract(transient_data,'$.rebalance_below_minimum_at')) END FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"operations"),
+          json_extract(transient_data,'$.rust_rebalance_resolution'),json_extract(transient_data,'$.rust_placement'),json_extract(transient_data,'$.rebalance_below_minimum_at')) END FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"operations"),
         (format!("SELECT * FROM transactions WHERE bot_id IN ({bots}) ORDER BY id"),"transactions"),
         (format!("SELECT * FROM bot_index_assets WHERE bot_id IN ({bots}) ORDER BY id"),"bot_index_assets"),
         ("SELECT * FROM wash_sale_locks WHERE user_id=?1 ORDER BY id".to_string(),"wash_sale_locks"),
