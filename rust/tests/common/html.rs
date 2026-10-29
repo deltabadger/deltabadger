@@ -157,3 +157,18 @@ pub fn first_difference(rails: &[String], rust: &[String]) -> Option<String> {
     let context = |lines: &[String]| lines[at.saturating_sub(3)..(at + 3).min(lines.len())].join("\n    ");
     Some(format!("line {at}\n  rails:\n    {}\n  rust:\n    {}", context(rails), context(rust)))
 }
+
+/// D-A6-STALE: Rails has no halt token. Validate the one extra hidden field against the actual
+/// halt/intent/generation before removing it for whole-page parity; nothing else is normalized away.
+pub fn without_rebalance_attestation(body:&str,c:&rusqlite::Connection)->String {
+    let forms=regex::Regex::new(r#"(?s)<form[^>]*action="[^"]*/bots/(\d+)/rebalance_resolutions"[^>]*>.*?</form>"#).unwrap();
+    let token=regex::Regex::new(r#"<input type="hidden" name="halt_token" value="([0-9a-f]{64})" autocomplete="off" />"#).unwrap();
+    forms.replace_all(body,|cap:&regex::Captures<'_>| {
+        let id:i64=cap[1].parse().unwrap();
+        let bot=deltabadger::engine::model::load_bot(c,id).unwrap();
+        let fields=token.captures_iter(&cap[0]).collect::<Vec<_>>();
+        assert_eq!(fields.len(),1,"D-A6-STALE: exactly one attestation field per Resume");
+        assert_eq!(&fields[0][1],deltabadger::engine::rebalance::resolution_token(&bot));
+        token.replace(&cap[0],"").to_string()
+    }).into_owned()
+}

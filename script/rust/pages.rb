@@ -226,7 +226,20 @@ module Pages
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
-                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios)
+                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios)
+
+  # AUDIT #6: the same Resume confirmation clears an empty halt or hands back an owed buy.
+  def rebalance_resolution_scenarios
+    [nil, '40'].to_h do |owed|
+      pending = { 'phase' => 'ambiguous', 'remaining_quote_amount' => owed, 'buy_attempted' => true }
+      # Use mapped cryptocurrencies: the stock page fixtures intentionally fail engine admission.
+      bot = stopped('coins', 'transient' => { 'rebalance_pending' => pending })
+      name = owed ? 'rebalance_resolution_owed' : 'rebalance_resolution_clear'
+      [name, with_bots([bot], signed_in(get('/bots/1'),
+        post('/bots/1/rebalance_resolutions', {}, 'csrf' => 'header', 'expect' => 302,
+             'may_mutate' => %w[bots bot_activity_logs]), get('/bots/1')))]
+    end
+  end
 
   # Slice 6c-5: the flashes of the real redeploy controllers, from the settings page. A page showing a sale is refused
   # without figures here (REALISED_WITHOUT_FIGURES), so the prompt and its halt are compared by page_figures.rb

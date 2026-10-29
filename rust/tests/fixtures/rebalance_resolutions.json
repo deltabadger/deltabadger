@@ -1,0 +1,911 @@
+{
+  "sources": {
+    "script/rust/record_rebalance_resolutions.rb": "fbcadf4bc07413205551cc66dd8f52b5c9154aede6911f36d78abac5726a20eb",
+    "app/controllers/bots/rebalance_resolutions_controller.rb": "76ea720513490a048ec57b76ec431792f07762004c2d45f2e78e73113e30e1a6",
+    "app/models/bot/rebalanceable.rb": "cda8eb4b1b300ebd2dad68c2a779084e3bcf7adc4fb32aaa57fbff0133e0f8de",
+    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
+    "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
+    "app/views/bots/composition/_metrics.html.erb": "a4ba28f2bc397d71c49686e50a99b73177c16648051d8ed3879d6469c8f436f7",
+    "config/locales/bot.en.yml": "192d7277719074620529ab2d9c660e9cc3888f685b74325d6cad9b564997e86e",
+    "script/rust/pages.rb": "40c1012c96973a0d52e01798873a1ed69b8335d62bedacb60822fd609ed798bf",
+    "script/rust/page_figures.rb": "b64199cfc9bf2eba766f2a2a17b026964fd7fa8f4911f4f516ab9e790b3a4d70"
+  },
+  "cases": [
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": null,
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "closed",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "cancelled",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "abandoned",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": null,
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "abandoned",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": null,
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "abandoned",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "selling",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": null,
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": null,
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "closed",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "cancelled",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": null,
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "abandoned",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": null,
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": null,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": null,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "abandoned",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": null,
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "abandoned",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": null,
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "abandoned",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": null,
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "0.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "0",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "abandoned",
+      "expected": {
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": null,
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": null,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": null,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": null,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": null,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": null,
+      "buy": "abandoned",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": null,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": null,
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "closed",
+      "buy": "abandoned",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": null,
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "cancelled",
+      "buy": "abandoned",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": null,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": null,
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "closed",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "cancelled",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": 12,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": true
+        },
+        "unrelated": 17
+      }
+    },
+    {
+      "pending": {
+        "phase": "ambiguous",
+        "sell_transaction_id": 11,
+        "buy_transaction_id": 12,
+        "remaining_quote_amount": "40",
+        "buy_attempted": true
+      },
+      "sell": "abandoned",
+      "buy": "abandoned",
+      "expected": {
+        "rebalance_pending": {
+          "phase": "buying",
+          "sell_transaction_id": 11,
+          "buy_transaction_id": null,
+          "remaining_quote_amount": "40.0",
+          "buy_attempted": false
+        },
+        "unrelated": 17
+      }
+    }
+  ]
+}
