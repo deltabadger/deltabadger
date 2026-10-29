@@ -309,7 +309,9 @@ pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome 
         Ok((key,fingerprint))
     }).await;
     let (key,captured) = match captured { Ok(v)=>v, Err(e)=>return Outcome::Failed(e) };
-    let body = match fetch.markets(&key).await { Ok(body)=>body, Err(e)=>return api_failure(e) };
+    // Same PullFailed classification as indices() above: feed failures (including HTTP 5xx
+    // and timeouts) use the indices job's four attempts, with a 15-minute wait.
+    let body = match fetch.markets(&key).await { Ok(body)=>body, Err(e)=>return Outcome::Transient(e.message()) };
     let Some(rows) = body.as_array().filter(|rows|!rows.is_empty() && rows.len()<=250) else {
         return Outcome::Failed("CoinGecko ranking is empty or malformed; previous ranking kept".into());
     };

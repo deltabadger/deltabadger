@@ -77,12 +77,8 @@ fn to_f(v: Option<&Value>) -> f64 {
     match v { Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0), Some(Value::String(s)) => s.trim().parse().unwrap_or(0.0), _ => 0.0 }
 }
 
-/// Asset taxonomy is authoritative. Legacy catalogues predate the Stablecoin category; reuse the
-/// currency registry for those rows rather than inventing another list of stablecoin symbols.
-pub fn stablecoin(category: Option<&str>, external_id: &str) -> bool {
-    category.is_some_and(|c| c.eq_ignore_ascii_case("stablecoin"))
-        || crate::figures::totals::STABLECOIN_IDS.iter().any(|(_, id)| *id == external_id)
-}
+/// The asset classifier owns taxonomy, including overrides for legacy catalogue rows.
+pub use crate::asset_taxonomy::stablecoin;
 
 /// MarketData.get_top_coins' data-api branch: the ranked ids with the asset's market_cap, else the index's published weight;
 /// a coin with neither, or with no local asset, is skipped.

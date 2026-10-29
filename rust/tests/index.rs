@@ -724,3 +724,81 @@ async fn index_searches_beyond_three_times_n_and_skips_taxonomy_stablecoins() {
     assert!(matches!(out,TickOutcome::Done{placed:true}),"{out:?}");
     assert_eq!(in_index(&o,id).iter().map(|(s,_)|s.as_str()).collect::<Vec<_>>(),["BBB","CCC"]);
 }
+
+/// D-ASSET-TAXONOMY: the generated catalogue labels these stablecoins Cryptocurrency.
+/// Import its real rows, preserving that sync-routing category, and rank them ahead of BTC/ETH.
+async fn bundled_stablecoin_index() -> (tempfile::TempDir, store::Opened, seed::Seeded, i64) {
+    use deltabadger::jobs::{import, Db};
+    let (d, o, s) = common::install();
+    let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
+    let ids = ["usds", "ethena-usde", "usd1-wlfi", "bitcoin", "ethereum"];
+    let rows: Vec<Value> = ids.iter().enumerate().map(|(n, id)| {
+        let mut row = catalogue["data"].as_array().unwrap().iter().find(|a| a["external_id"] == *id).unwrap().clone();
+        assert_eq!(row["category"], "Cryptocurrency");
+        row["market_cap"] = json!(1000 - n);
+        row
+    }).collect();
+    let db = Db::new(rusqlite::Connection::open(o.primary.path().unwrap()).unwrap(), seed::cipher());
+    import::import_assets(&db, import::plan_assets(&rows, "").unwrap(), at(T0)).await.unwrap();
+    let c = &o.primary;
+    for row in rows {
+        c.execute("INSERT OR REPLACE INTO tickers (exchange_id,base_asset_id,quote_asset_id,ticker,base,quote,available,trading_enabled,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,created_at,updated_at) SELECT ?1,id,?2,symbol||'EUR',symbol,'EUR',1,1,8,2,2,0.001,0.01,'2026-01-01','2099-01-01' FROM assets WHERE external_id=?3",
+            rusqlite::params![s.exchange_id,s.quote,row["external_id"].as_str().unwrap()]).unwrap();
+    }
+    seed::insert_index(c, "top-coins", &ids, &json!({}));
+    let id = seed::index_bot(c, &s, "top-coins", 2, 1.0, false);
+    (d, o, s, id)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn bundled_stablecoins_are_excluded_from_top_n() {
+    let (_d, o, _s, id) = bundled_stablecoin_index().await;
+    let venue = deltabadger::venue::fake::FakeVenue::new()
+        .ticker("USDSEUR", "10", "10", "10").ticker("USDEEUR", "10", "10", "10").ticker("USD1EUR", "10", "10", "10")
+        .ticker("BTCEUR", "10", "10", "10").ticker("ETHEUR", "10", "10", "10");
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    index::refresh_composition(&o.primary, &venue, &bot, &FixedClock(at(T0)), &Default::default()).await.unwrap().unwrap();
+    assert_eq!(in_index(&o, id), [("BTC".into(), 0.5), ("ETH".into(), 0.5)]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn bundled_stablecoins_are_excluded_from_the_preview() {
+    use common::web::{self, Browser, Csrf, TestClock};
+    use deltabadger::web::session;
+    let (d, o, s, id) = bundled_stablecoin_index().await;
+    o.primary.execute("UPDATE users SET confirmed_at=created_at", []).unwrap();
+    let app = web::app(d.path(), "engine-test-secret", TestClock::at(T0));
+    let cookie = session::seal(&app.keys.session, &session::SessionData { user: Some((s.user_id, "x".into())), ..Default::default() }, app.now());
+    let mut browser = Browser { cookie: Some(cookie), page: None };
+    let page = browser.send(&app, "GET", &format!("/bots/{id}"), None, Csrf::None, &[]).await;
+    assert_eq!(page.status, 200);
+    let preview = page.body.split("class=\"index-assets\"").nth(1).expect("index preview").split("</form>").next().unwrap();
+    for symbol in ["USDS", "USDE", "USD1"] { assert!(!preview.contains(&format!("data-ticker-symbol=\"{symbol}\"")), "{symbol} in preview"); }
+    for symbol in ["BTC", "ETH"] { assert!(preview.contains(&format!("data-ticker-symbol=\"{symbol}\"")), "{symbol} missing from preview"); }
+}
+
+/// D-ASSET-TAXONOMY grid: Rails' generated rows retain their routing category;
+/// the asset classifier corrects all 55 stablecoins in this supported catalogue.
+#[test]
+fn bundled_stablecoin_classification_grid() {
+    use sha2::{Digest, Sha256};
+    assert_eq!(format!("{:x}", Sha256::digest(include_bytes!("../../db/seed_data/assets.json"))),
+        "14c08bfb06ba8c04b932f15bd7ef67b03c8cd5a4d9d7a04989e5c89506419e46",
+        "the generated catalogue changed: audit its stablecoin category overrides before updating this guard");
+    let stablecoins = "agora-dollar anchored-coins-eur aussie-dollar-token bfusd brl1 cash-4 chain-key-usdt dai ethena-usde eurite euro-coin falcon-finance fathom-dollar felix-feusd fidelity-digital-dollar first-digital-usd frankencoin frax freedom-dollar frontier-stable-token gemini-dollar gho global-dollar hex-trust-usdx hyper-usd kyrgyz-som-stablecoin last-usd mxnb novatti-australian-digital-dollar paxos-standard paypal-usd pht-stablecoin quantoz-eurq quantoz-usdq ripple-usd schuman-europ stablr-euro stablr-usd straitsx-xusd terrausd tether tokenised-gbp true-usd united-stables usa usd-coin usd-mapped-token usd1-wlfi usdd usdh-2 usds usdt0 usdtb worldwide-usd xsgd";
+    let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
+    let rows = catalogue["data"].as_array().unwrap();
+    assert_eq!(stablecoins.split_whitespace().count(), 50 + 5, "50 category matches plus five legacy/bridged catalogue identities");
+    for id in stablecoins.split_whitespace() {
+        let row = rows.iter().find(|a| a["external_id"] == id).unwrap_or_else(|| panic!("{id} missing from supported catalogue"));
+        assert_eq!(row["category"], "Cryptocurrency", "{id}: oracle taxonomy changed; review D-ASSET-TAXONOMY");
+        assert!(index::stablecoin(row["category"].as_str(), id), "{id} must be classified as a stablecoin");
+    }
+    // Governance tokens, chain tokens and gold/treasury wrappers are not fiat stablecoins.
+    for id in ["bitcoin", "ethereum", "ethena", "sky", "stable-2", "pax-gold", "tether-gold", "ondo-us-dollar-yield"] {
+        let row = rows.iter().find(|a| a["external_id"] == id).unwrap();
+        assert!(!index::stablecoin(row["category"].as_str(), id), "{id} is not a stablecoin");
+    }
+    assert!(index::stablecoin(Some("stablecoin"), "new-provider-stablecoin"), "new provider classifications remain authoritative without a bundled override");
+    assert!(!index::stablecoin(Some("Stablecoin"), "pax-gold"), "the explicit RWA override wins over CoinGecko's commodity-backed stablecoin category");
+}
