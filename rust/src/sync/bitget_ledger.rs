@@ -129,6 +129,7 @@ impl Source {
 /// first run), a page at a time: `window` is the start of the window being read (its end 89 days on, or now), `before` the
 /// next page's `idLessThan`, `bare` the id-less fills kept so far (#get_ledger's `uniq` for rows no id names).
 struct Walk<'a, T: Transport> {
+    transfers: super::pending_transfers::Watch,
     venue: &'a BitgetVenue<T>, tickers: &'a Tickers, now_ms: i64, transfers_ms: i64,
     source: Source, window: i64, before: Option<String>, bare: Vec<String>, pages: usize,
 }
@@ -140,7 +141,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         let reach = begin.end - Duration::days(WINDOW_DAYS);
         let fills_ms = ms(begin.start.map_or(reach, |s| s.max(reach)));
         let transfers_ms = ms(begin.start.unwrap_or_else(transfers_from));
-        let mut walk = Self { venue, tickers, now_ms, transfers_ms, source: Source::Fills, window: fills_ms, before: None, bare: vec![], pages: 0 };
+        let mut walk = Self { transfers: begin.transfers, venue, tickers, now_ms, transfers_ms, source: Source::Fills, window: fills_ms, before: None, bare: vec![], pages: 0 };
         if let Some((c, source)) = begin.cursor.and_then(|c| Some((c, Source::named(c["source"].as_str()?)?))) {
             walk.source = source;
             walk.window = c["window"].as_i64().unwrap_or(fills_ms);
@@ -213,6 +214,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
         };
         let mut rows = vec![];
         for raw in &page {
+            if self.source != Source::Fills { self.transfers.observe(self.source.name(), &raw.value)?; }
             match self.source {
                 Source::Fills => {
                     let e = fill(raw.clone(), self.tickers)?;

@@ -99,7 +99,7 @@ pub(super) trait Walk {
 pub(super) type Checkpoint = fn(&Connection, &Key, &Value, &Value, DateTime<Utc>) -> Result<(), SyncError>;
 
 /// Where a walk begins: a fresh import from `start` (None: the venue's whole history) to `end`, or a recorded cursor.
-pub(super) struct Begin<'a> { pub start: Option<DateTime<Utc>>, pub end: DateTime<Utc>, pub cursor: Option<&'a Value> }
+pub(super) struct Begin<'a> { pub start: Option<DateTime<Utc>>, pub end: DateTime<Utc>, pub cursor: Option<&'a Value>, pub transfers: super::pending_transfers::Watch }
 
 /// The import's record: `app_configs` row `rust_sync.venue_ledger:<api_key_id>`, plain JSON. Rails never reads it.
 #[derive(Clone, Debug, PartialEq)]
@@ -238,7 +238,12 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         record.runs = 1;
         record.chain = 1;
     }
-    let mut walk = make(Begin { start: record.start, end: record.started, cursor: (!fresh).then_some(&record.cursor) });
+    let transfers = {
+        let (k, stamp, cursor, start, begun) = (key.clone(), version.cache_stamp(), (!fresh).then_some(record.cursor.clone()), record.start, record.started);
+        phase(db, move |c| super::pending_transfers::Watch::load(c, &k, &stamp, start, begun, cursor.as_ref())).await?
+    };
+    if fresh { if let (Some(start), Some(pending)) = (record.start, transfers.oldest()) { record.start = Some(start.min(pending)); } }
+    let mut walk = make(Begin { start: record.start, end: record.started, cursor: (!fresh).then_some(&record.cursor), transfers: transfers.clone() });
     let mut budget = Budget { run, units: record.units.iter().map(|ms| Duration::from_millis(*ms)).collect() };
 
     // Read, page by page, while the next page and everything read so far still fit.
@@ -249,13 +254,13 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         if !first && (!budget.fits(cost) || read.rows() + walk.page_rows() > MAX_RUN_ROWS) { break; }
         first = false;
         match walk.step().await {
-            Ok(rows) => read.push(rows, walk.cursor()),
+            Ok(rows) => read.push(rows, transfers.cursor(walk.cursor())),
             // A fresh import fails as Rails' single read does: nothing it read is stored. A resumed one keeps its record.
             Err((text, raised)) => return fail(text, raised, (!fresh).then_some(record)).await,
         }
     }
     let complete = walk.done();
-    let (checkpoint, done_cursor) = (W::CHECKPOINT, walk.cursor());
+    let (checkpoint, done_cursor) = (W::CHECKPOINT, transfers.cursor(walk.cursor()));
 
     // Store, a page (with the empty pages after it) at a time, each in one transaction with its checkpoint: a cut leaves a
     // page wholly stored and checkpointed, or not at all, so a replay never meets half a page.
@@ -264,6 +269,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         let k = key.clone();
         phase(db, move |c| Ok(Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![])))).await?
     };
+    progress.pending = Some(transfers.legacy.clone());
     progress.kraken_repair = W::KRAKEN_REPAIR.then(|| version.cache_stamp());
     let stamp = Arc::new(version.cache_stamp());
     progress.stored.extend(record.ours.iter().flat_map(|&(a, b)| a..=b));
@@ -281,12 +287,13 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         r.stalls = 0;
         r.max_seen = [r.max_seen, rows.iter().filter_map(|e| e.transacted_at).max()].into_iter().flatten().max();
         r.units = budget.millis();
-        let (k, p, st) = (key.clone(), progress.over(Arc::new(rows)), stamp.clone());
+        let (k, p, st, observed) = (key.clone(), progress.over(Arc::new(rows)), stamp.clone(), transfers.clone());
         let (p, r) = budget.timed(units, super::commit_for(db, version, move |c| {
             let mut r = r;
             let to = p.batch.len();
             let p = ledger::store(c, &k, 0..to, None, p, now)?;
             checkpoint(c, &k, &r.cursor, &st, now)?;
+            observed.save(c, &k, &st, &r.cursor, now)?;
             // The store's dedup state after this page, verbatim.
             r.ours = id_runs(&p.stored);
             r.repeats = p.repeats.iter().filter(|(_, n)| **n > 0).map(|(k, n)| (k.clone(), *n)).collect();
@@ -316,14 +323,16 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     // The newest row read, held back by a row that could not be saved, never past the import's start; else the last one.
     let min_skipped = [record.min_skipped, progress.min_skipped].into_iter().flatten().min();
     let max_seen = record.max_seen;
-    let watermark = [max_seen, min_skipped].into_iter().flatten().min().or(key.last_synced_at).map(|w| w.min(record.started));
-    let changed = micros(watermark) != raw_watermark || key.last_sync_error.is_some();
+    let watermark = [max_seen, min_skipped, transfers.oldest()].into_iter().flatten().min().or(key.last_synced_at).map(|w| w.min(record.started));
+    let warning = super::pending_transfers::Watch::warning(&done_cursor);
+    let changed = micros(watermark) != raw_watermark || key.last_sync_error != warning;
     let producer = version.clone();
     let finished_key = key.clone();
     super::commit_for(db, version, move |c| {
         checkpoint(c, &finished_key, &done_cursor, &stamp, now)?;
+        transfers.save(c, &finished_key, &stamp, &done_cursor, now)?;
         super::cache::record_ledger(c, key_id, &producer, now)?;
-        if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = NULL, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id])?; }
+        if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = ?4, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id, warning])?; }
         c.execute("DELETE FROM app_configs WHERE key = ?1", [record_key(key_id)])?;
         Ok(())
     }).await?;

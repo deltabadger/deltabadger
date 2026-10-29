@@ -112,6 +112,7 @@ fn trade(market: &str, raw: Raw) -> Result<Entry, Fail> {
 /// (stored text) and the most of each one page held; `discovered` the currencies the kept transfers named; `markets` the
 /// frozen market list (from the trade phase on), `market` the one being read and `trade_to` its next `tradeIdTo`.
 struct Walk<'a, T: Transport> {
+    transfers: super::pending_transfers::Watch,
     venue: &'a BitvavoVenue<T>, db: &'a Db, key: &'a Key, pause: std::time::Duration, start_ms: Option<i64>, begun_ms: i64,
     source: Source, end_ms: i64, counts: Vec<(String, usize)>, discovered: BTreeSet<String>, markets: Vec<String>, market: usize,
     trade_to: Option<String>, pages: usize,
@@ -129,7 +130,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         // #read_transfers: `end` starts a millisecond past the moment the fetch began.
         // Both as Ruby's `(time.to_f * 1000).to_i`.
         let begun_ms = crate::venue::bitvavo::ruby_ms(begin.end) + 1;
-        let mut walk = Self { venue, db, key, pause, start_ms: begin.start.map(crate::venue::bitvavo::ruby_ms), begun_ms, source: Source::Deposits, end_ms: begun_ms,
+        let mut walk = Self { transfers: begin.transfers, venue, db, key, pause, start_ms: begin.start.map(crate::venue::bitvavo::ruby_ms), begun_ms, source: Source::Deposits, end_ms: begun_ms,
                               counts: vec![], discovered: BTreeSet::new(), markets: vec![], market: 0, trade_to: None, pages: 0, seen: HashSet::new(), last_page: vec![] };
         if let Some(c) = begin.cursor {
             if let Some(source) = c["source"].as_str().and_then(Source::named) {
@@ -171,6 +172,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         // page.tally, in the page's order: rows compared as Ruby's Hash#eql? compares them (key order is no difference).
         let mut tally: Vec<(String, usize, Raw)> = vec![];
         for raw in &page {
+            self.transfers.observe(self.source.name(), &raw.value)?;
             let key = raw.eql_key();
             match tally.iter_mut().find(|(k, _, _)| *k == key) { Some(t) => t.1 += 1, None => tally.push((key, 1, raw.clone())) }
         }

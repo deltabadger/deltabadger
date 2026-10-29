@@ -157,6 +157,7 @@ impl Source {
 /// where the first page found them, and what arrives after it is the next import's. Divergence D-KUCOIN-TRANSFER-PIN
 /// (tests/sync_parity.rs): the `endAt` on transfer pages after the first; the rows stored are Rails'.
 struct Walk<'a, T: Transport> {
+    transfers: super::pending_transfers::Watch,
     venue: &'a KucoinVenue<T>, wait: std::time::Duration, start: Option<chrono::DateTime<chrono::Utc>>, end: i64,
     source: Source, window_start: i64, window_end: i64, ranges: Vec<(i64, i64)>, page: i64,
     /// The transfer source's `endAt`, recorded by its first page and sent with every later one.
@@ -166,7 +167,7 @@ struct Walk<'a, T: Transport> {
 impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a KucoinVenue<T>, wait: std::time::Duration, begin: continuation::Begin<'_>) -> Self {
         let (start, end) = (begin.start, begin.end.timestamp() * 1000);
-        let mut walk = Self { venue, wait, start, end, source: Source::Fills, window_start: 0, window_end: 0, ranges: vec![], page: 1, pin: None };
+        let mut walk = Self { transfers: begin.transfers, venue, wait, start, end, source: Source::Fills, window_start: 0, window_end: 0, ranges: vec![], page: 1, pin: None };
         match begin.cursor.and_then(|c| Some((c, Source::named(c["source"].as_str()?)?))) {
             Some((c, source)) => {
                 walk.source = source;
@@ -239,9 +240,9 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
                 let (path, kind) = if self.source == Source::Deposits { (DEPOSITS_PATH, DEPOSIT) } else { (WITHDRAWALS_PATH, WITHDRAWAL) };
                 let mut q: Vec<(&'static str, String)> = self.start.map(|s| ("startAt", s.timestamp_millis().to_string())).into_iter().collect();
                 q.extend(self.pin.filter(|_| self.page > 1).map(|e| ("endAt", e.to_string())));
-                q.push(("status", "SUCCESS".into()));
+
                 let mut newest = None;
-                let mut read = |raw: Raw| -> Result<(), Fail> { newest = newest.max(Some(to_i(&raw.value["createdAt"]))); rows.push(transfer(kind, raw)?); Ok(()) };
+                let mut read = |raw: Raw| -> Result<(), Fail> { newest = newest.max(Some(to_i(&raw.value["createdAt"]))); self.transfers.observe(self.source.name(), &raw.value)?; if raw.value["status"] == "SUCCESS" { rows.push(transfer(kind, raw)?); } Ok(()) };
                 let last = read_page(self.venue, self.wait, path, &q, false, self.page, &mut read).await.map_err(|e| e.fail)?;
                 if self.page == 1 { self.pin = newest.map(|n| n + 1); }
                 self.next_page(last)?;

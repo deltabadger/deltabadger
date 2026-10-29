@@ -104,7 +104,7 @@ fn transfer(r: Raw, deposit: bool) -> Result<Entry, Fail> {
 #[derive(Clone, Copy, PartialEq)]
 enum Source { Account, Listing, Trades, Coins, Deposits, Withdrawals, Done }
 struct Cursor {
-    source: Source, window: i64, ranges: Vec<(i64, i64)>, pending: Vec<String>, coins: BTreeSet<String>,
+    source: Source, status_page: usize, window: i64, ranges: Vec<(i64, i64)>, pending: Vec<String>, coins: BTreeSet<String>,
     pairs: Vec<(String, String, String)>, pair: usize, transfer_coins: Vec<String>, coin: usize, offset: usize, seen: HashSet<Value>,
 }
 impl Source {
@@ -113,11 +113,11 @@ impl Source {
 }
 impl Cursor {
     fn json(&self) -> Value {
-        json!({"source": self.source.label(), "window": self.window, "ranges": self.ranges, "pending": self.pending, "coins": self.coins,
+        json!({"source": self.source.label(), "status_page": self.status_page, "window": self.window, "ranges": self.ranges, "pending": self.pending, "coins": self.coins,
                "pairs": self.pairs, "pair": self.pair, "transfer_coins": self.transfer_coins, "coin": self.coin, "offset": self.offset, "seen": self.seen})
     }
     fn of(v: &Value) -> Option<Self> {
-        Some(Self { source: Source::of(v["source"].as_str()?)?, window: v["window"].as_i64()?, ranges: serde_json::from_value(v["ranges"].clone()).ok()?,
+        Some(Self { status_page: v["status_page"].as_u64().unwrap_or(0) as usize, source: Source::of(v["source"].as_str()?)?, window: v["window"].as_i64()?, ranges: serde_json::from_value(v["ranges"].clone()).ok()?,
             pending: serde_json::from_value(v["pending"].clone()).ok()?, coins: serde_json::from_value(v["coins"].clone()).ok()?,
             pairs: serde_json::from_value(v["pairs"].clone()).ok()?, pair: v["pair"].as_u64()?.try_into().ok()?,
             transfer_coins: serde_json::from_value(v["transfer_coins"].clone()).ok()?, coin: v["coin"].as_u64()?.try_into().ok()?,
@@ -125,6 +125,7 @@ impl Cursor {
     }
 }
 struct Walk<'a, T: Transport> {
+    transfers: super::pending_transfers::Watch,
     venue: &'a BitrueVenue<T>, db: &'a Db, key: &'a Key, clock: &'a dyn Clock,
     start: i64, end: i64, pause: std::time::Duration, c: Cursor,
 }
@@ -132,10 +133,10 @@ impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a BitrueVenue<T>, db: &'a Db, key: &'a Key, clock: &'a dyn Clock, pause: std::time::Duration, begin: continuation::Begin<'_>) -> Self {
         let start = ruby_ms(begin.start.unwrap_or_else(|| "2018-07-01T00:00:00Z".parse::<chrono::DateTime<Utc>>().expect("Rails LEDGER_FROM")));
         let c = begin.cursor.and_then(Cursor::of).unwrap_or(Cursor {
-            source: Source::Account, window: start, ranges: vec![], pending: vec![], coins: BTreeSet::new(), pairs: vec![], pair: 0,
+            source: Source::Account, status_page: 0, window: start, ranges: vec![], pending: vec![], coins: BTreeSet::new(), pairs: vec![], pair: 0,
             transfer_coins: vec![], coin: 0, offset: 0, seen: HashSet::new(),
         });
-        Self { venue, db, key, clock, start, end: ruby_ms(begin.end), pause, c }
+        Self { transfers: begin.transfers, venue, db, key, clock, start, end: ruby_ms(begin.end), pause, c }
     }
     async fn get(&self, path: &str, mut params: Vec<(&'static str, String)>, paced: bool) -> Result<Node, Fail> {
         if paced && !self.pause.is_zero() { tokio::time::sleep(self.pause).await; }
@@ -213,10 +214,18 @@ impl<'a, T: Transport> Walk<'a, T> {
             Ok(rows)
         }).await.map_err(|e| (e.0, true))?;
         self.c.coins.extend(stored.into_iter().map(|s| s.to_uppercase()));
+        self.c.coins.extend(self.transfers.coins());
         self.c.transfer_coins = self.c.coins.iter().filter(|s| !s.trim().is_empty()).cloned().collect();
         self.c.source = if self.c.transfer_coins.is_empty() { Source::Done } else { Source::Deposits }; Ok(vec![])
     }
+    fn transfer_statuses(&self) -> &'static [i64] {
+        if self.c.source == Source::Deposits { &[1, 0] } else { &[5, 0, 1, 2, 3, 4, 6] }
+    }
     fn next_history(&mut self) {
+        self.c.window = self.start; self.c.offset = 0; self.c.seen.clear();
+        self.c.status_page += 1;
+        if self.c.status_page < self.transfer_statuses().len() { return; }
+        self.c.status_page = 0;
         self.c.window = self.start; self.c.offset = 0; self.c.seen.clear();
         if self.c.source == Source::Deposits { self.c.source = Source::Withdrawals; }
         else { self.c.coin += 1; self.c.source = if self.c.coin == self.c.transfer_coins.len() { Source::Done } else { Source::Deposits }; }
@@ -226,7 +235,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         let deposit = self.c.source == Source::Deposits;
         let path = if deposit { DEPOSITS_PATH } else { WITHDRAWALS_PATH };
         let end = (self.c.window + WINDOW_MS).min(self.end);
-        let q = vec![("coin", self.c.transfer_coins[self.c.coin].to_lowercase()), ("status", if deposit { "1" } else { "5" }.into()),
+        let q = vec![("coin", self.c.transfer_coins[self.c.coin].to_lowercase()), ("status", self.transfer_statuses()[self.c.status_page].to_string()),
             ("startTime", self.c.window.to_string()), ("endTime", end.to_string()), ("offset", self.c.offset.to_string()), ("limit", PAGE.to_string())];
         let node = match self.get(path, q, true).await {
             Err((message, _)) if crate::engine::venue_rules::BITRUE.kinds.iter().any(|(kind, patterns)| *kind == "permission_denied" && patterns.iter().any(|p| message.contains(p))) => { self.next_history(); return Ok(vec![]); }
@@ -239,13 +248,21 @@ impl<'a, T: Transport> Walk<'a, T> {
         }
         let page = rows(&node, Some("data"))?; let count = page.len();
         let mut entries = vec![];
+        let mut fresh = 0;
         for s in page {
             let r = raw(&s)?;
             if !self.c.seen.insert(r.value.clone()) { continue; }
-            entries.push(transfer(r, deposit)?);
+            fresh += 1;
+            let asked = self.transfer_statuses()[self.c.status_page];
+            if r.value.get("status").is_some_and(|s| to_i(s) != asked) { continue; }
+            let mut observed = r.value.clone();
+            if observed.get("status").is_none() { observed["status"] = json!(asked); }
+            self.transfers.observe(if deposit { "deposits" } else { "withdrawals" }, &observed)?;
+            // A success-filtered response also proves completion when the row omits its redundant status.
+            if self.c.status_page == 0 { entries.push(transfer(r, deposit)?); }
         }
         if count >= PAGE {
-            if entries.is_empty() { return Err((format!("Bitrue ledger read failed: a full page of {path} brought nothing new"), false)); }
+            if fresh == 0 { return Err((format!("Bitrue ledger read failed: a full page of {path} brought nothing new"), false)); }
             self.c.offset += count;
         } else { self.c.window = end; self.c.offset = 0; }
         if self.c.window >= self.end { self.next_history(); }

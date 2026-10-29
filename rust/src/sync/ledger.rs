@@ -603,12 +603,13 @@ pub(super) struct Progress {
     /// A Kraken ledger sync's store (never a file's): stored rows under the ids it reads are repaired (D-KR-5). The
     /// import's credential stamp, which its deferred repairs carry.
     pub(super) kraken_repair: Option<Value>,
+    pub(super) pending: Option<super::pending_transfers::Legacy>,
 }
 
 impl Progress {
     /// What one store starts from (AccountTransactionSync#store!'s locals): nothing counted yet, over `batch`.
     pub(super) fn new(assets: AssetRule, merged: HashSet<String>, batch: Arc<Vec<Entry>>) -> Progress {
-        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch, kraken_repair: None }
+        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch, kraken_repair: None, pending: None }
     }
     /// The same store going on over the next `batch` (continuation::sync stores an import a page at a time): what it
     /// counted so far carried, as one store over every page would carry it.
@@ -706,6 +707,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     if key.exchange_type == crate::venue::coinbase::COINBASE {
         for e in batch.iter() { coinbase_rekey(c, key, e, &p.merged)?; }
     }
+    if p.pending.is_none() { p.pending = Some(super::pending_transfers::Legacy::load(c,key)?); }
     for (n, index) in range.enumerate() {
         let original = &batch[index];
         let (entry, update, unchanged) = if split(original) && original.raw.value["rust_split_legs"].is_array() {
@@ -714,6 +716,17 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         if unchanged { p.out.duplicates += 1; continue; }
         let e = &entry;
         if let Some(stamp) = &p.kraken_repair { super::kraken_ledger::repair(c, key, e, &p.assets, stamp, now)?; }
+        // D-PENDING-TRANSFERS: a legacy pending row becomes the completed venue row in place.
+        if let Some(id) = super::pending_transfers::existing(c, key, e, p.pending.as_ref().expect("pending identities loaded"))? {
+            if let (Some(base), Some(at)) = (present(&e.base_currency), e.transacted_at) {
+                let no_fee = e.fee_amount.as_ref().is_none_or(BigDec::is_zero);
+                c.execute("UPDATE account_transactions SET base_currency=?1,base_amount=?2,fee_currency=?3,fee_amount=?4,tx_id=COALESCE(?5,tx_id),transacted_at=?6,raw_data=?7,updated_at=?8,base_asset_id=COALESCE(base_asset_id,?9) WHERE id=?10",
+                    params![base,amount_sql(&key.exchange_type,&e.base_amount),if no_fee { None } else { e.fee_currency.as_deref() },if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type,d)) },e.tx_id,sql_time(at),e.raw.text(),sql_time(now),p.assets.asset_id(c,Some(base),&e.raw.value,Some(at))?,id])?;
+                p.stored.insert(id);
+                p.out.duplicates += 1;
+                continue;
+            }
+        }
         let tx_id = present(&e.tx_id);
         // A row its id already names is not one of the identical rows counted.
         let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {
@@ -771,16 +784,16 @@ pub(crate) fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &
 /// `store_file`'s writer state (the venue's asset rule, the merged legs stored), read once for a writer that stores
 /// many batches in one transaction (a KuCoin file, one UTC second at a time). Each batch is its own store, exactly as
 /// `store_file` over it: only the state read before the store is carried, with the legs each batch merged.
-pub(crate) struct FileWriter { assets: Arc<AssetRule>, merged: HashSet<String> }
+pub(crate) struct FileWriter { assets: Arc<AssetRule>, merged: HashSet<String>, pending: super::pending_transfers::Legacy }
 
 impl FileWriter {
     pub(crate) fn new(c: &Connection, key: &Key) -> Result<Self, SyncError> {
-        Ok(Self { assets: Arc::new(asset_rule(c, key.exchange_id, &key.exchange_type)?), merged: stored_merged(c, key)? })
+        Ok(Self { assets: Arc::new(asset_rule(c, key.exchange_id, &key.exchange_type)?), merged: stored_merged(c, key)?, pending: super::pending_transfers::Legacy::load(c,key)? })
     }
     pub(crate) fn store(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
         let batch = Arc::new(entries);
         let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored: HashSet::new(),
-                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: None };
+                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: None, pending: Some(self.pending.clone()) };
         let p = store(c, key, 0..batch.len(), None, p, now)?;
         self.merged = p.merged;
         Ok(p.out)
