@@ -5,7 +5,7 @@
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Source { Deposit, Withdrawal, FlexibleReward, LockedReward, FlexibleSubscription, FlexibleRedemption,
     LockedSubscription, LockedRedemption, DustOut, DustIn }
 impl Source {
@@ -19,19 +19,27 @@ impl Source {
 #[derive(Clone, Copy, Default)]
 pub struct Context<'a> { pub parent: Option<&'a str>, pub requested_type: Option<&'a str>, pub occurred_ms: Option<i64> }
 /// Retain the encoded tuple alongside every digest; equality never trusts the digest alone.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Key(String);
 impl Key {
     fn new(source: &str, fields: &[String]) -> Self { Self(serde_json::to_string(&("a12-v1",source,fields)).expect("string tuple")) }
     pub fn tuple(&self) -> &str { &self.0 }
     pub fn digest(&self) -> String { hex::encode(Sha256::digest(self.0.as_bytes())) }
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event { source: Source, key: Option<Key>, pair: Option<Key>, evidence: Vec<Option<String>>, payload: Option<Value> }
 fn text(raw: &Value, field: &str) -> Option<String> {
     match &raw[field] { Value::String(s) if !s.trim().is_empty()=>Some(s.clone()),Value::Number(n) if n.is_i64()||n.is_u64()=>Some(n.to_string()),_=>None }
 }
 impl Event {
+    /// Reconstruct a legacy candidate using the incoming endpoint context. The resolver must
+    /// require a unique match before retaining this context (especially a dust parent).
+    pub(crate) fn legacy(&self, raw: &Value, at: i64) -> Result<Self, &'static str> {
+        let pair: Value = self.pair.as_ref().map(|p|serde_json::from_str(p.tuple())).transpose().map_err(|_|"unreadable retained pair tuple")?.unwrap_or(Value::Null);
+        Self::read(self.source,raw,Context {parent:pair[2][0].as_str(),requested_type:raw["type"].as_str(),occurred_ms:Some(at)})
+    }
+    pub(crate) fn equivalent(&self, other: &Self) -> bool { self.same(other) }
+    pub(crate) fn capital(&self) -> bool { matches!(self.source,Source::Deposit|Source::Withdrawal) }
     /// Original raw_data is borrowed, never rewritten. Missing stable IDs cannot mint a fallback key.
     pub fn read(source: Source, raw: &Value, context: Context<'_>) -> Result<Self, &'static str> {
         let required=|k| text(raw,k).ok_or("missing identity evidence");

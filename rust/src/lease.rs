@@ -23,6 +23,7 @@ pub enum LeaseError {
     Locked,
     RailsAlive { seconds_ago: i64 },
     Unreadable,
+    BinanceIdentityWritten,
     Sqlite(rusqlite::Error),
     Io(std::io::Error),
 }
@@ -131,5 +132,10 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
 
 /// The engine calls this inside the same transaction that leaves every working bot `scheduled`.
 pub fn hand_back(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), LeaseError> {
+    if primary.is_autocommit() {
+        let tx=rusqlite::Transaction::new_unchecked(primary,rusqlite::TransactionBehavior::Immediate)?;
+        hand_back(_proof,&tx,cipher,now)?;tx.commit()?;return Ok(());
+    }
+    if crate::sync::binance_writer::written(primary)? {return Err(LeaseError::BinanceIdentityWritten)}
     write(primary, cipher, &json!({ "engine": "none", "released_by": "rust", "handed_back": true, "at": now.to_rfc3339() }), now)
 }
