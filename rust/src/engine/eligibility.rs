@@ -55,8 +55,8 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
     if unknown > 0 { r.push(format!("{unknown} {UNKNOWN_STATUS}")); }
     // Slice 6b, plan CB T4: threshold rebalancing runs here for a basket or index bot on every venue (rebalance.rs, run::run_rebalances). Its
-    // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous by this engine itself
-    // (idle until the user resolves it after a handback); an ambiguous halt Rails wrote stays Rails'.
+    // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous
+    // (idle until the owner resolves it through Resume, including halts inherited from Rails).
     let rebalances = rebalances_here(bot);
     // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
     for key in PENDING_KEYS {
@@ -83,9 +83,10 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
         params![bot.id, rebalances], |r| r.get(0))?;
     if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
     // An abandoned REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades on: the flight cash may already be
-    // the asset, and Rails cannot account for it, so the refusal stands until the row itself is settled. An abandoned REDEPLOY
+    // the asset, and Rails cannot account for it, so the refusal stands until the row settles or the owner explicitly
+    // resolves its halt (D-A6-ATTESTED records exactly those rows). An abandoned REDEPLOY
     // is admitted since 6c-4: its spend counts what it asked for, and the engine halts on it.
-    let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REBALANCE' AND external_status = 4",
+    let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REBALANCE' AND external_status = 4 AND id NOT IN (SELECT value FROM json_each(COALESCE(json_extract((SELECT transient_data FROM bots WHERE id=?1),'$.rust_rebalance_resolved_orders'),'[]')))",
                              [bot.id], |r| r.get(0))?;
     if n > 0 { r.push(format!("{n} abandoned REBALANCE order(s) (fill unknown)")); }
     Ok(r)
@@ -185,6 +186,9 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     }
     history_reasons(c, bot, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
+    // AUDIT #6: discharge only the inherited halt itself, after every other eligibility check.
+    // Keeping it when another blocker remains also keeps stopped/archived work refused by install.
+    if r.len() == 1 && r[0] == "rebalance_pending in phase \"ambiguous\"" { r.clear(); }
     // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.
     let sold: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND side = 1)", [bot.id], |r| r.get(0))?;
     if (alpaca || sold) && r.is_empty() {

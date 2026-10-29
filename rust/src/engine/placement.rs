@@ -269,6 +269,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     if !context_matches { return Err(EngineError::Data("order kind does not match its operation context".into())); }
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
+    if plan.kind == TxKind::Rebalance && (current.transient["rebalance_pending"]["phase"] == "ambiguous"
+        || current.transient["rust_rebalance_resolution"] != bot.transient["rust_rebalance_resolution"]) { return Ok(Begun::Changed); }
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
     }

@@ -1203,3 +1203,25 @@ fn l_kraken_admits_active_withdrawal_rules_only_on_kraken() {
         }
     }
 }
+
+/// AUDIT #6: the sole new admission is a readable inherited halt on an otherwise supported bot.
+#[test]
+fn inherited_rebalance_halts_do_not_mask_other_admission_or_guard_refusals() {
+    for status in 0..=7 {
+        let (_d, o, s) = install();
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().transient("rebalance_pending", json!({"phase":"ambiguous"})) });
+        assert!(eligibility::check_install(&o.primary).unwrap().refusal().is_ok());
+        assert!(eligibility::guard(&o.primary, &seed::cipher(), Some(id)).is_ok());
+        for sql in [
+            "UPDATE assets SET category='Stock' WHERE symbol='BTC'",
+            "UPDATE bots SET settings=json_set(settings,'$.future_limited',1)",
+            "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending.remaining_quote_amount',json('[]'))",
+        ] {
+            let tx = deltabadger::engine::model::immediate(&o.primary).unwrap();
+            tx.execute_batch(sql).unwrap();
+            let report = eligibility::check_install(&tx).unwrap();
+            assert!(report.problems.iter().any(|p| p.contains("rebalance_pending")), "{status}: {sql}: {:?}", report.problems);
+            assert!(eligibility::guard(&tx, &seed::cipher(), Some(id)).is_err(), "{status}: {sql}");
+        }
+    }
+}

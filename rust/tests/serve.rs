@@ -474,11 +474,11 @@ fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refu
     let refused = check.ended_within(Duration::from_secs(20)).expect("check ends within 20 s");
     assert!(!refused.success() && said("check.log").contains("another Deltabadger engine"), "{}", said("check.log"));
 
-    // The engine makes its passes beside the pages. Set to work behind its back with a rebalance halt Rails left, the basket of two
-    // is a bot it cannot trade: its next pass (it idles for a minute at most) reads the install again, names the bot, and
+    // A readable inherited halt is now admitted for resolution (AUDIT #6). Use an unknown phase
+    // to retain this test of an unguarded write and supervision: its next pass (it idles for a minute at most) reads the install again, names the bot, and
     // ends the process.
     let behind = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    behind.execute("UPDATE bots SET status = 1, transient_data = json_set(coalesce(transient_data, '{}'), '$.rebalance_pending', json('{\"phase\":\"ambiguous\"}')) WHERE id = ?1", [basket]).unwrap();
+    behind.execute("UPDATE bots SET status = 1, transient_data = json_set(coalesce(transient_data, '{}'), '$.rebalance_pending', json('{\"phase\":\"unknown\"}')) WHERE id = ?1", [basket]).unwrap();
     drop(behind);
     let ended = server.ended_within(Duration::from_secs(100)).unwrap_or_else(|| panic!("no engine pass within 100 s: {}", said("serve.log")));
     assert!(!ended.success(), "the engine's pass ends the process: {ended}");
@@ -1758,6 +1758,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     for (sql, reason) in [
         ("UPDATE bots SET type = 'Bots::Signal'", "settings the wizard always stores are missing"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
+        ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"buying\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Ibkr'", "a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"),
         ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.direction', 'selling')", "an index bot that sells"),
         // A ticker's decimals size the rounding: one past the bound, a negative one and the largest number the column holds.

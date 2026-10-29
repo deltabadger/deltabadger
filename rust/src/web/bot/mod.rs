@@ -5,6 +5,7 @@ pub mod action_params;
 pub mod actions;
 pub mod liquidation;
 pub mod redeploy;
+pub mod rebalance;
 pub mod action_view;
 pub mod draft;
 pub mod index_switch;
@@ -489,7 +490,12 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let distance_ok = defaulted("limit_order_pcnt_distance") || settings.get("limit_order_pcnt_distance").and_then(Value::as_f64).is_some_and(|share| (0.0..=1.0).contains(&share));
     let interval_ok = matches!(settings.get("interval").and_then(Value::as_str), Some("hour" | "day" | "week" | "month"));
     if !positive("quote_amount") || !interval_ok || !mode_known || !smart_ok || !distance_ok { return Ok(Some("settings no form would have saved")); }
-    if transient.get("rebalance_pending").is_some_and(|v| !v.is_null()) {
+    if transient.get("rebalance_pending").is_some_and(|v| !v.is_null())
+        && !crate::engine::rebalance::pending(&transient)?.is_some_and(|p| p.phase == "ambiguous"
+            // A resolution can return an owed leg. Its redirect must remain readable; unrelated
+            // inherited selling/buying states keep the existing page refusal.
+            || (transient["rust_rebalance_resolution"].as_str().is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
+                && matches!(p.phase.as_str(), "selling" | "buying"))) {
         return Ok(Some("a rebalance, liquidation or redeploy in progress"));
     }
     if class == "Bots::DcaIndex" && !provider_is_deltabadger { return Ok(Some("an index bot whose market data comes from CoinGecko")); }

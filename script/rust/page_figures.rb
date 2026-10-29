@@ -21,7 +21,7 @@ module PageFigures
   # is served: each pair scenario framed is recorded again as a signal bot (`signal_framed`).
   FRAMED = %w[no_orders basket_buys hidden owner_account owner_candles_failed signal_sell_only framed_signal_buys framed_signal_candles_failed
               framed_signal_price_refused framed_rebalance_drift_under framed_rebalance_drift_over framed_rebalance_drift_below_minimum
-              framed_rebalance_wash_sale_lock].freeze
+              framed_rebalance_wash_sale_lock framed_rebalance_halt framed_rebalance_halt_off framed_rebalance_halt_selling].freeze
 
   # The dashboard, then each bot page and its chart frame, through Rails' own controllers, as a browser loads them: the
   # frame at the src its page gave it. Recorded cold, before any figure is cached, and warm, once they are.
@@ -307,6 +307,13 @@ module PageFigures
     # Slice 6c-5: a halted redeploy over the same legs: its Clear in place of the prompt.
     list << list.find { |s| s['name'] == 'liquidations' }.deep_dup.merge('name' => 'redeploy_halt')
     list.concat(rebalance_drift(list))
+    %w[framed_rebalance_halt framed_rebalance_halt_off framed_rebalance_halt_selling].each do |name|
+      sc = list.find { |s| s['name'] == 'basket_buys' }.deep_dup.merge('name' => name)
+      sc['bots'].first['settings'] = { 'rebalance_enabled' => name != 'framed_rebalance_halt_off' }
+      sc['bots'].first['settings']['direction'] = 'selling' if name.end_with?('_selling')
+      sc['sql'] = Array(sc['sql']) + ["UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending', json('{\"phase\":\"ambiguous\"}'))"]
+      list << sc
+    end
     list.concat(display_currency(list))
     list.concat(pair_list)
     list.each do |sc|

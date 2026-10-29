@@ -398,9 +398,9 @@ fn an_alpaca_rebalancing_bot_is_eligible_in_every_phase_this_engine_resumes() {
     // A waiting REBALANCE row (the swap's resting sell) is read, not refused.
     o.primary.execute("UPDATE transactions SET external_status = 1, transaction_type = 'REBALANCE', side = 1 WHERE external_id = 'OHELD-1'", []).unwrap();
     assert!(check().problems.is_empty(), "{:?}", check().problems);
-    // Rails' own ambiguous halt is Rails' to resolve; this engine's is admitted (idle).
+    // Both Rails' and Rust's ambiguous halts are admitted idle, now that Resume is ported.
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending.phase', 'ambiguous')", []).unwrap();
-    assert!(check().problems.iter().any(|p| p.contains("ambiguous")), "{:?}", check().problems);
+    assert!(check().problems.is_empty(), "{:?}", check().problems);
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_rebalance_halted', json('true'))", []).unwrap();
     assert!(check().problems.is_empty(), "{:?}", check().problems);
     // An abandoned REBALANCE leg stays refused (its fill is unknown).
@@ -841,8 +841,8 @@ async fn a_resting_buy_of_another_bot_on_the_kraken_key_blocks_the_sale() {
     assert_eq!(pending(&o, id), Value::Null);
 }
 
-/// Plan CB T4: a crypto rebalancer is admitted in every phase this engine resumes, a Rails-written ambiguous halt stays
-/// Rails' to resolve, and a swap Rails left mid-way is taken over and handed back in Rails' own shape.
+/// Plan CB T4 and AUDIT #6: active swaps can resume and inherited ambiguous halts remain idle
+/// with an owner-accessible Resume; handback retains Rails' own swap shape.
 #[tokio::test(flavor = "current_thread")]
 async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_rails_left_it() {
     for venue in ["kraken", "binance", "kucoin"] {
@@ -863,9 +863,9 @@ async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_rails_left_
         deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0)).unwrap();
         deltabadger::engine::handover::hand_back(&lock, &o, &Factory(script(json!({}))), &seed::cipher(), &FixedClock(at(T0))).await.unwrap();
         assert_eq!(pending(&o, id), swap, "{venue}: Rails reads back the swap it left");
-        // Rails' own ambiguous halt is Rails' to resolve.
+        // An inherited halt is admitted idle now that its owner can resolve it here.
         o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending.phase', 'ambiguous')", []).unwrap();
-        assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("ambiguous")), "{venue}");
+        assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "{venue}");
     }
 }
 
@@ -1016,4 +1016,181 @@ async fn a_loss_rebalance_sell_under_the_floor_claims_and_gives_back_in_one_tran
     o.primary.execute("UPDATE tickers SET minimum_quote_size = '500' WHERE ticker = 'BTC/USD'", []).unwrap();
     assert_eq!(evaluate(&o, &script(json!({})), id, at(T0)).await, Outcome::Skipped("below_minimum"));
     assert_eq!(lock_row(&o, s.btc), Some((None, None, None)));
+}
+
+fn resolution_row(c:&rusqlite::Connection,s:&seed::Seeded,id:i64,asset:i64,row:&Value)->i64 {
+    let mut row=row.clone();
+    row["created_at"]=json!("2026-09-01 10:00:01");
+    let inserted=seed::insert_row(c,s,id,asset,&row);
+    c.execute("UPDATE transactions SET transaction_type='REBALANCE' WHERE id=?1",[inserted]).unwrap();
+    inserted
+}
+
+// AUDIT #6: the owner's Resume is the only attestation; the engine never retries an ambiguous leg itself.
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_clears_a_rejected_sell_and_the_next_poll_can_rebalance() {
+    let (_d,o,id,s,_) = swap_bot(stopped());
+    let rejected=script(json!({"POST /v2/orders":[{"status":403,"body":{"code":40310000,"message":"insufficient balance for BTC"}}]}));
+    assert_eq!(evaluate(&o,&rejected,id,at(T0)).await,Outcome::Skipped("ambiguous"));
+    let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+    let t=script(json!({}));
+    assert_eq!(rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap(),None);
+    assert!(pending(&o,id).is_null());
+    assert!(model::load_bot(&o.primary,id).unwrap().transient.get(rebalance::RUST_HALT_KEY).is_none());
+    assert_eq!(events(&o).last().unwrap(),"rebalance_manually_resolved");
+    assert!(matches!(evaluate(&o,&t,id,at(T0)).await,Outcome::Placed(_)));
+    let after=pending(&o,id);
+    rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap();
+    assert_eq!(pending(&o,id),after,"a repeated Resume cannot clear the next leg");
+    assert_eq!(events(&o).iter().filter(|e|*e=="rebalance_manually_resolved").count(),1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_retries_only_the_owed_buy_and_preserves_other_bookkeeping() {
+    let (_d,o,id,s,_) = swap_bot(stopped().transient("rebalance_pending",json!({"phase":"ambiguous","remaining_quote_amount":"40","buy_attempted":true})).transient("untouched",json!(17)));
+    let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+    let t=script(json!({}));
+    rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap();
+    assert_eq!(pending(&o,id)["phase"],"buying");
+    assert_eq!(pending(&o,id)["remaining_quote_amount"],"40.0");
+    assert_eq!(pending(&o,id)["buy_attempted"],false);
+    assert!(matches!(evaluate(&o,&t,id,at(T0)).await,Outcome::Placed(_)));
+    assert_eq!(posted(&t),vec![("ETH/USD".into(),"buy".into(),"40.00".into())]);
+    let b=model::load_bot(&o.primary,id).unwrap();
+    assert_eq!(b.transient["untouched"],17);
+    assert_eq!(b.status,deltabadger::enums::BotStatus::Stopped);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_refreshes_unlinked_waiting_orders_and_blocks_until_settled() {
+    let (_d,o,id,s,_) = swap_bot(stopped().transient("rebalance_pending",json!({"phase":"ambiguous"})));
+    resolution_row(&o.primary,&s,id,s.btc,&json!({"transaction_type":"REBALANCE","side":1,"external_status":1,"external_id":"unlinked","amount":"0.001","price":"64000"}));
+    let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+    let t=script(json!({"GET /v2/orders/unlinked":[order("unlinked","new","BTC/USD","sell",Some("0.001"),None,"0",None)]}));
+    assert_eq!(rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap(),Some("unlinked".into()));
+    assert_eq!(pending(&o,id)["phase"],"ambiguous");
+    assert!(!events(&o).contains(&"rebalance_manually_resolved".into()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_rejects_a_stale_halt_and_another_owner() {
+    let (_d,o,id,s,_) = swap_bot(stopped().transient("rebalance_pending",json!({"phase":"ambiguous"})));
+    let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+    let t=script(json!({}));
+    assert!(rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id+1,&token,at(T0)).await.is_err());
+    rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap();
+    model::merge_transient_compact(&o.primary,id,&[("rebalance_pending",json!({"phase":"ambiguous"}))]).unwrap();
+    rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap();
+    assert_eq!(pending(&o,id)["phase"],"ambiguous","even an identical later halt needs a fresh attestation");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_matches_all_recorded_rails_ledger_branches() {
+    use sha2::{Digest,Sha256};
+    let fixture:Value=serde_json::from_str(include_str!("fixtures/rebalance_resolutions.json")).unwrap();
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path,hash) in fixture["sources"].as_object().unwrap() {
+        assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(path)).unwrap())),hash.as_str().unwrap(),"{path}: run script/rust/repin");
+    }
+    assert_eq!(fixture["cases"].as_array().unwrap().len(),16+16+16,"owed absent/zero/positive × sell and buy absent/closed/cancelled/abandoned");
+    for case in fixture["cases"].as_array().unwrap() {
+        let (_d,o,id,s,eth)=swap_bot(stopped().transient("rebalance_pending",case["pending"].clone()).transient("unrelated",json!(17)).transient("old_null",Value::Null));
+        for (row,leg,asset,side) in [(11,"sell",s.btc,1),(12,"buy",eth,0)] {
+            if let Some(status)=case[leg].as_str() {
+                resolution_row(&o.primary,&s,id,asset,&json!({"transaction_type":"REBALANCE","side":side,"external_status":match status {"closed"=>2,"cancelled"=>3,_=>4},"external_id":format!("imported_{row}"),"price":"100","amount":"1","amount_exec":"0.4","quote_amount_exec":"40"}));
+                let inserted=o.primary.last_insert_rowid();
+                o.primary.execute("UPDATE transactions SET id=?1 WHERE id=?2",(row,inserted)).unwrap();
+            }
+        }
+        let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+        rebalance::resolve(&o.primary,&venue(&script(json!({}))),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap();
+        let mut got=model::load_bot(&o.primary,id).unwrap().transient;
+        assert!(got.as_object_mut().unwrap().remove("rust_rebalance_resolution").is_some());
+        let abandoned:Vec<i64>=[(11,"sell"),(12,"buy")].into_iter().filter(|(_,leg)|case[*leg]=="abandoned").map(|(id,_)|id).collect();
+        assert_eq!(got.as_object_mut().unwrap().remove("rust_rebalance_resolved_orders"),(!abandoned.is_empty()).then(||json!(abandoned)),"D-A6-ATTESTED");
+        assert!(!eligibility::unread_special_rows(&o.primary,&model::load_bot(&o.primary,id).unwrap()).unwrap().iter().any(|r|r.contains("abandoned REBALANCE")));
+        assert_eq!(got,case["expected"],"{case}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_refresh_racing_a_changed_halt_keeps_the_new_state() {
+    let (_d,o,id,s,_) = swap_bot(stopped());
+    let row=resolution_row(&o.primary,&s,id,s.btc,&json!({"transaction_type":"REBALANCE","side":1,"external_status":1,"external_id":"race","amount":"0.001","price":"64000"}));
+    model::merge_transient_compact(&o.primary,id,&[("rebalance_pending",json!({"phase":"ambiguous","sell_transaction_id":row}))]).unwrap();
+    let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+    let t=script(json!({"GET /v2/orders/race":[order("race","filled","BTC/USD","sell",Some("0.001"),None,"0.001",Some("64000"))]}));
+    let changed=json!({"phase":"buying","remaining_quote_amount":"64","buy_attempted":false});
+    let sql=format!("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'),'$.rust_rebalance_resolution','new') WHERE id={id}",changed);
+    rebalance::resolve(&o.primary,&during(&o,&t,"/v2/orders/race",sql),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap();
+    assert_eq!(pending(&o,id),changed);
+    assert!(!events(&o).contains(&"rebalance_manually_resolved".into()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_recovers_a_sell_and_a_partial_buy_without_losing_or_double_spending_proceeds() {
+    for buy in [false,true] {
+        let (_d,o,id,s,eth)=swap_bot(stopped());
+        let row=resolution_row(&o.primary,&s,id,if buy {eth}else{s.btc},&json!({"transaction_type":"REBALANCE","side":if buy {0}else{1},"external_status":1,"external_id":"recovered","amount":if buy {"0.032"}else{"0.00125"},"price":if buy {"2500"}else{"64000"}}));
+        let state=if buy {json!({"phase":"ambiguous","buy_transaction_id":row,"remaining_quote_amount":"80","buy_attempted":true})}else{json!({"phase":"ambiguous","sell_transaction_id":row})};
+        model::merge_transient_compact(&o.primary,id,&[("rebalance_pending",state)]).unwrap();
+        let reply=if buy {order("recovered","canceled","ETH/USD","buy",Some("0.032"),None,"0.016",Some("2500"))}else{order("recovered","filled","BTC/USD","sell",Some("0.00125"),None,"0.00125",Some("64000"))};
+        let t=script(json!({"GET /v2/orders/recovered":[reply]}));
+        let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+        assert_eq!(rebalance::resolve(&o.primary,&venue(&t),&seed::cipher(),id,s.user_id,&token,at(T0)).await.unwrap(),None);
+        assert_eq!(pending(&o,id)[if buy {"buy_transaction_id"}else{"sell_transaction_id"}],row);
+        assert!(matches!(evaluate(&o,&t,id,at(T0)).await,Outcome::Placed(_)));
+        assert_eq!(posted(&t),vec![("ETH/USD".into(),"buy".into(),if buy {"40.00".into()}else{"80.00".into()})]);
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_racing_a_tick_prevents_the_old_poll_from_overwriting_the_resolved_swap() {
+    let (_d,o,id,s,_)=swap_bot(stopped());
+    let row=resolution_row(&o.primary,&s,id,s.btc,&json!({"transaction_type":"REBALANCE","side":1,"external_status":1,"external_id":"race","amount":"0.001","price":"64000"}));
+    model::merge_transient_compact(&o.primary,id,&[("rebalance_pending",json!({"phase":"selling","sell_transaction_id":row}))]).unwrap();
+    let t=script(json!({"GET /v2/orders/race":[order("race","filled","BTC/USD","sell",Some("0.001"),None,"0.001",Some("64000"))]}));
+    // Another pass halted; the user resolved it while this pass was asking about the old sell.
+    let replacement=json!({"phase":"buying","remaining_quote_amount":"17","buy_attempted":false});
+    let sql=format!("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'),'$.rust_rebalance_resolution','resolved') WHERE id={id}",replacement);
+    assert_eq!(evaluate_on(&o,&during(&o,&t,"/v2/orders/race",sql),id,at(T0)).await,Outcome::Skipped("changed"));
+    assert_eq!(pending(&o,id),replacement);
+    assert!(posted(&t).is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_is_an_explicit_attestation_for_the_halts_unknown_placement() {
+    let (d,id,exchange)=crypto_swap_bot("binance",json!({}));
+    let o=store::open(&store::Paths::from_env(&|_|None,d.path())).unwrap();
+    let lost=crypto_script("binance",json!({"POST /api/v3/order":[{"network":"post_send","message":POST_SEND}]}));
+    crypto_fire("binance",&o,exchange,&lost,id,at(T0)).await;
+    let bot=model::load_bot(&o.primary,id).unwrap();
+    assert!(bot.rust_placement().is_some());
+    assert!(placement::halt_unknown(&o.primary,id,deltabadger::engine::amount::TxKind::Rebalance,
+        &deltabadger::engine::venue_rules::BINANCE,at(T0)+Duration::days(1)).unwrap());
+    let token=rebalance::resolution_token(&model::load_bot(&o.primary,id).unwrap());
+    let t=crypto_script("binance",json!({"POST /api/v3/order":[ok(json!({"symbol":"BTCEUR","orderId":30001,"orderListId":-1,"transactTime":1}))]}));
+    let Crypto::Binance(v)=crypto_venue("binance",&o,exchange,&t) else {unreachable!()};
+    rebalance::resolve(&o.primary,&v,&seed::cipher(),id,bot.user_id,"",at(T0)+Duration::days(1)).await.unwrap();
+    assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_some(),"no valid confirmation means no removal");
+    rebalance::resolve(&o.primary,&v,&seed::cipher(),id,bot.user_id,&token,at(T0)+Duration::days(1)).await.unwrap();
+    assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
+    assert!(pending(&o,id).is_null());
+    assert!(matches!(crypto_fire("binance",&o,exchange,&t,id,at(T0)).await,Outcome::Placed(_)));
+    assert_eq!(crypto_posts("binance",&t).len(),1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolution_rolls_back_when_another_admission_blocker_remains() {
+    for owed in [Value::Null, json!("40")] {
+        let (_d, o, id, s, _) = swap_bot(stopped().transient("rebalance_pending", json!({"phase":"ambiguous","remaining_quote_amount":owed})));
+        o.primary.execute("UPDATE assets SET category='Stock',instrument_type=NULL WHERE id=?1", [s.btc]).unwrap();
+        let before = model::load_bot(&o.primary, id).unwrap().transient;
+        let token = rebalance::resolution_token_for(id, &before);
+        let t = script(json!({}));
+        assert!(rebalance::resolve(&o.primary, &venue(&t), &seed::cipher(), id, s.user_id, &token, at(T0)).await.is_err());
+        assert_eq!(model::load_bot(&o.primary, id).unwrap().transient, before);
+        assert!(!events(&o).contains(&"rebalance_manually_resolved".into()));
+        assert!(posted(&t).is_empty());
+    }
 }
