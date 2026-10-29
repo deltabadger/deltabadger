@@ -78,7 +78,7 @@ impl Stopwatch for Watch {
 struct Venue { account: Rc<Account>, per_page: usize, watch: Rc<Watch>, latency: Rc<dyn Fn(usize) -> Duration>, throttled: Rc<Cell<usize>>, log: Rc<RefCell<Vec<String>>>,
                /// Every page answered with rows, as its log line.
                served: Rc<RefCell<std::collections::HashSet<String>>>,
-               /// Cut the run (as the runner's deadline would) once it has sent this many requests in all.
+               /// Suspend this request after notifying the runner to cut, before any response can reach the store.
                cut_at_request: Rc<Cell<Option<usize>>>,
                /// Transfers committed on the venue after the test began (path, row): served with the account's.
                arrived: Rc<RefCell<Vec<(&'static str, Value)>>>,
@@ -90,9 +90,13 @@ impl Transport for Venue {
         let n = self.log.borrow().len();
         self.pending.borrow_mut().retain(|(at, path, row)| if *at <= n { self.arrived.borrow_mut().push((path, row.clone())); false } else { true });
         self.watch.at.set(self.watch.at.get() + (self.latency)(n));
-        if self.cut_at_request.get() == Some(n + 1) { self.watch.cut.notify_one(); }
         let q = |k: &str| r.query.iter().find(|(name, _)| *name == k).map(|(_, v)| v.parse::<i64>().unwrap());
         self.log.borrow_mut().push(format!("{} {:?} {:?} {:?}", r.path, q("startAt"), q("endAt"), q("currentPage")));
+        if self.cut_at_request.get() == Some(n + 1) {
+            self.watch.cut.notify_one();
+            // Notification alone cannot interrupt this poll. Keep the answer unavailable until the runner drops us.
+            return std::future::pending().await;
+        }
         if self.throttled.get() > 0 {
             self.throttled.set(self.throttled.get() - 1);
             return Ok(HttpResponse { status: 429, body: json!({ "code": "429000", "msg": "Too Many Requests" }).to_string() });
@@ -121,6 +125,29 @@ impl Transport for Venue {
 
 fn venue(account: &Rc<Account>, per_page: usize, watch: &Rc<Watch>, latency: impl Fn(usize) -> Duration + 'static) -> Venue {
     Venue { account: account.clone(), per_page, watch: watch.clone(), latency: Rc::new(latency), throttled: Rc::new(Cell::new(0)), log: Rc::default(), served: Rc::default(), cut_at_request: Rc::default(), arrived: Rc::default(), pending: Rc::default() }
+}
+
+/// Notifying the runner must suspend the request in the same poll: an immediately ready answer can reach a
+/// non-cancellable store before a biased select polls its cancellation branch again.
+#[test]
+fn a_request_cut_never_returns_a_response() {
+    use std::future::Future;
+    use std::task::{Context, Poll, Waker};
+
+    let watch = Rc::new(Watch::default());
+    let v = venue(&Rc::new(account()), 4, &watch, |_| Duration::from_secs(10));
+    v.cut_at_request.set(Some(1));
+    let request = HttpRequest { method: "GET", base: "https://example.test".into(), path: FILLS_PATH.into(),
+        query: vec![("startAt", start_ms().to_string()), ("endAt", (start_ms() + 7 * DAY_MS).to_string()), ("currentPage", "1".into())],
+        body: None, not_after: None };
+    let mut send = std::pin::pin!(v.send(&request));
+    let mut cx = Context::from_waker(Waker::noop());
+    let first = send.as_mut().poll(&mut cx);
+    assert!(first.is_pending(), "a cut request must not answer in its notifying poll: {first:?}");
+    assert!(matches!(std::pin::pin!(watch.cut.notified()).as_mut().poll(&mut cx), Poll::Ready(())));
+    assert!(send.as_mut().poll(&mut cx).is_pending(), "the request stays unanswered until dropped");
+    assert_eq!(v.log.borrow().len(), 1, "the request was sent once");
+    assert!(v.served.borrow().is_empty(), "no page was answered");
 }
 
 type Ran = Result<Result<Outcome, Failure>, deltabadger::sync::SyncError>;
@@ -154,6 +181,12 @@ async fn result(db: &Db) -> (Vec<String>, Option<String>, Option<String>, bool) 
         let record: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'rust_sync.venue_ledger:%')", [], |r| r.get(0)).map_err(|e| e.to_string())?;
         Ok((rows, w, e, record))
     }).await.unwrap()
+}
+
+async fn continuation_record(db: &Db) -> Value {
+    let text = db.run(|c, _| c.query_row("SELECT value FROM app_configs WHERE key LIKE 'rust_sync.venue_ledger:%'", [], |r| r.get::<_, String>(0))
+        .map_err(|e| e.to_string())).await.unwrap();
+    serde_json::from_str(&text).unwrap()
 }
 
 /// 385.55 s of reserves (seven tries of 45 s, a 500-row page at the 2.11 s floor, the 60 s finish) leave room for `pages`
@@ -426,20 +459,84 @@ async fn runs_that_never_checkpoint_stop_the_chain_and_the_cursor_survives() {
     let (account, watch) = (Rc::new(account()), Rc::new(Watch::default()));
     let v = venue(&account, 4, &watch, |_| Duration::from_secs(10));
     assert!(!run(&db, &v, deadline_for(2), CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
-    // Two runs cut by the deadline before they store anything (the record counts them as they start).
+    // Two runs cut with their first request unanswered (the record counts them as they start).
+    let unchanged = result(&db).await;
+    let mut expected = continuation_record(&db).await;
     for _ in 0..2 {
         v.cut_at_request.set(Some(v.log.borrow().len() + 1));
+        let before = v.log.borrow().len();
         assert!(run(&db, &v, deadline_for(2), CHAIN_RUNS).await.is_none());
+        assert_eq!(v.log.borrow().len(), before + 1, "only the unanswered request was sent");
+        assert_eq!(watch.units.get(), 0, "no store was reached");
+        assert_eq!(result(&db).await, unchanged, "no rows, watermark or error changed after draining the cut run");
+        for field in ["runs", "chain", "stalls"] { expected[field] = json!(expected[field].as_u64().unwrap() + 1); }
+        assert_eq!(continuation_record(&db).await, expected, "only the run counts change; the checkpoint stays intact");
     }
     v.cut_at_request.set(None);
     let before = v.log.borrow().len();
-    let Some(Ok(Err(failure))) = run(&db, &v, deadline_for(2), CHAIN_RUNS).await else { panic!("a stalled import fails") };
+    let third = run(&db, &v, deadline_for(2), CHAIN_RUNS).await;
+    let Some(Ok(Err(failure))) = third else { panic!("a stalled import fails: {third:?}") };
     assert!(failure.error.contains("completed no page") && !failure.raised, "{}", failure.error);
     assert_eq!(v.log.borrow().len(), before, "nothing read");
     let (_, w, e, record) = result(&db).await;
     assert!(record && e.is_some() && w == Some(deltabadger::sync::sql_time(WATERMARK.parse().unwrap())));
     while !run(&db, &v, deadline_for(2), CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete {}
     assert_eq!(result(&db).await, (rows, watermark, None, false), "resumed from the cursor, and the error cleared");
+}
+
+/// Force a submitted store to commit AFTER cancellation, using SQLite's write lock rather than scheduler timing.
+/// Such a cut has made progress once drained; two of them must not trigger the no-checkpoint stall rule.
+#[tokio::test(flavor = "current_thread")]
+async fn cut_runs_with_in_flight_checkpoints_do_not_stall() {
+    use std::future::Future;
+    use std::task::Poll;
+
+    struct HeldStore<'a> { writer: rusqlite::Connection, begun: Cell<bool>, watch: &'a Watch }
+    impl Stopwatch for HeldStore<'_> {
+        fn elapsed(&self) -> Duration { self.watch.elapsed() }
+        fn unit_begun(&self) {
+            self.writer.execute_batch("BEGIN IMMEDIATE").unwrap();
+            self.begun.set(true);
+        }
+    }
+
+    let (_dir, db, key) = install();
+    let watch = Rc::new(Watch::default());
+    let v = venue(&Rc::new(account()), 4, &watch, |_| Duration::from_secs(10));
+    assert!(!run(&db, &v, deadline_for(2), CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    let path = db.run(|c, _| Ok(c.path().unwrap().to_string())).await.unwrap();
+    let held = HeldStore { writer: rusqlite::Connection::open(path).unwrap(), begun: Cell::new(false), watch: &watch };
+    held.writer.busy_timeout(Duration::from_secs(5)).unwrap();
+    let (credentials, now) = (creds(), clock());
+    for _ in 0..2 {
+        let before = continuation_record(&db).await;
+        let rows = result(&db).await.0.len();
+        watch.at.set(Duration::ZERO);
+        held.begun.set(false);
+        let bounds = Run { deadline: deadline_for(2), chain_runs: CHAIN_RUNS, stopwatch: &held };
+        let mut sync = Box::pin(kucoin_ledger::sync_within(&db, v.clone(), key, &credentials, &now, Duration::ZERO, &bounds));
+        std::future::poll_fn(|cx| {
+            let out = sync.as_mut().poll(cx);
+            assert!(out.is_pending(), "the store cannot finish while its write lock is held: {out:?}");
+            if held.begun.get() { Poll::Ready(()) } else { Poll::Pending }
+        }).await;
+        drop(sync);
+        // The run has been counted, but the store is still blocked: cancellation itself cannot reset stalls.
+        let counted: String = held.writer.query_row("SELECT value FROM app_configs WHERE key LIKE 'rust_sync.venue_ledger:%'", [], |r| r.get(0)).unwrap();
+        let counted: Value = serde_json::from_str(&counted).unwrap();
+        assert_eq!(counted["stalls"], json!(1));
+        assert_eq!(counted["cursor"], before["cursor"]);
+        held.writer.execute_batch("ROLLBACK").unwrap();
+        db.settled().await;
+        let after = continuation_record(&db).await;
+        assert_eq!(result(&db).await.0.len(), rows + 4, "the submitted page commits after its caller was dropped");
+        assert_ne!(after["cursor"], before["cursor"]);
+        assert_eq!(after["stalls"], json!(0), "the committed checkpoint is progress");
+    }
+    let third = run(&db, &v, deadline_for(2), CHAIN_RUNS).await;
+    let Some(Ok(Ok(out))) = third else { panic!("checkpointed cuts must allow continuation: {third:?}") };
+    assert!(!out.complete && out.imported > 0, "{out:?}");
+    assert_eq!(continuation_record(&db).await["runs"], json!(4));
 }
 
 /// CHAIN_RUNS forced to 2: the second run of a chain records that the import is still running and wakes nothing; the
