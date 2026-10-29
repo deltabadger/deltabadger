@@ -46,6 +46,35 @@ fn file(c: &Connection, key: &sync::Key, rows: &[Entry]) -> Result<sync::ledger:
 }
 
 #[test]
+fn csv_fallback_preserves_file_multiplicity_and_repeat_imports() {
+    for existing in [0,1] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let mut entry=input(Source::Deposit,"d1","","BTC").entry;entry.tx_id=None;
+        entry.raw=Raw::from_value(json!({"operation":"Deposit"}));
+        if existing==1 {assert_eq!(file(c,&key,std::slice::from_ref(&entry)).unwrap().imported,1);}
+        let entries=[entry.clone(),entry];let out=file(c,&key,&entries).unwrap();
+        assert_eq!((out.imported,out.duplicates,out.skipped),(2-existing,existing,0));
+        assert_eq!(count(c),2,"identical ungrouped rows retain file-level multiplicity");
+        let before=state(c);let out=file(c,&key,&entries).unwrap();
+        assert_eq!((out.imported,out.duplicates,out.skipped),(0,2,0));assert_eq!(state(c),before);
+    }
+}
+
+#[test]
+fn csv_ambiguous_non_dust_identity_refuses_without_writes() {
+    for (grouped,first_matched) in [(false,false),(false,true),(true,false),(true,true)] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let rows=[input(Source::Deposit,"d1","","BTC"),input(Source::Deposit,"d2","","BTC"),input(Source::Deposit,"d3","","ETH")];
+        assert_eq!(write(c,&key,&rows).unwrap().imported,3);
+        let mut entries=vec![rows[2].entry.clone(),rows[0].entry.clone()];
+        if !first_matched {entries[0].base_currency=Some("LTC".into());}
+        for e in &mut entries {e.tx_id=None;e.group_id=grouped.then(||"csv_group".into());e.raw=Raw::from_value(json!({"operation":"Deposit"}));}
+        let before=state(c);let err=file(c,&key,&entries).expect_err("several retained identities must refuse the CSV");
+        assert_eq!(err.0,"Binance A12 unresolved: ambiguous CSV identity");assert_eq!(state(c),before);
+    }
+}
+
+#[test]
 fn collision_siblings_reorder_and_later_pages_are_noops() {
     for sources in [[Source::Deposit,Source::Deposit],[Source::Withdrawal,Source::Withdrawal],[Source::Deposit,Source::Withdrawal]] {
         let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
