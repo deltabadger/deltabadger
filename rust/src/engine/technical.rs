@@ -265,6 +265,15 @@ pub async fn low_of_last<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, wi
 /// writes the row (only what changed, `updated_at` with it). An unseeded ticker with no history at all is remembered
 /// for an hour and not walked again.
 pub async fn high_of_last<V: Venue>(c: &Connection, venue: &V, cache: &Cache, ticker: &Ticker, window: Window, now: DateTime<Utc>) -> Result<Result<Option<BigDec>, VenueError>, EngineError> {
+    high_of_last_reading(c, venue, cache, ticker, window, now, true).await
+}
+
+/// D-COND-INFO-READ-ONLY: a display may compute an ATH, but must not advance the ticker history a tick reads.
+pub(crate) async fn high_of_last_for_info<V: Venue>(c: &Connection, venue: &V, cache: &Cache, ticker: &Ticker, window: Window, now: DateTime<Utc>) -> Result<Result<Option<BigDec>, VenueError>, EngineError> {
+    high_of_last_reading(c, venue, cache, ticker, window, now, false).await
+}
+
+async fn high_of_last_reading<V: Venue>(c: &Connection, venue: &V, cache: &Cache, ticker: &Ticker, window: Window, now: DateTime<Utc>, persist: bool) -> Result<Result<Option<BigDec>, VenueError>, EngineError> {
     let key = Key::High(ticker.id, window);
     if let Some(Kept::Price(v)) = cache.get(&key, now) { return Ok(Ok(v)); }
     let keep = |v: Option<BigDec>| { cache.put(key.clone(), now + Duration::seconds(20), Kept::Price(v.clone())); Ok(Ok(v)) };
@@ -300,7 +309,7 @@ pub async fn high_of_last<V: Venue>(c: &Connection, venue: &V, cache: &Cache, ti
         }
     };
     let new_high = if restated && deep { found } else { [ath.clone(), found].into_iter().flatten().reduce(BigDec::max) };
-    if let Some(high) = &new_high {
+    if let Some(high) = new_high.as_ref().filter(|_| persist) {
         let stamp = format_time(now);
         // update!: only changed attributes are written; ath_updated_at read back to the microsecond never equals a
         // nanosecond `now` unless both are whole microseconds.

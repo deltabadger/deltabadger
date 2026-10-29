@@ -1994,6 +1994,59 @@ fn info_writes_taken_back(rails: &serde_json::Value) -> (serde_json::Value, bool
     (out, wrote)
 }
 
+/// D-COND-INFO-READ-ONLY: the ATH status line preserves both bot trading state and the ticker history.
+/// Rails' recorder supplies the display and bot writes; its resulting ticker row independently pins the ATH write.
+#[tokio::test(flavor = "current_thread")]
+async fn ath_status_lines_match_rails_without_its_bot_or_ticker_writes() {
+    use serde_json::{json, Value};
+    let built = tempfile::tempdir().unwrap();
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-conditions-indicators", built.path());
+    let ticker_state = |dir: &Path| {
+        let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+        let mut s = c.prepare("SELECT id, ath, ath_updated_at, updated_at FROM tickers ORDER BY id").unwrap();
+        s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<f64>>(1)?,
+            r.get::<_, Option<String>>(2)?, r.get::<_, String>(3)?))).unwrap().map(Result::unwrap).collect::<Vec<_>>()
+    };
+    let mut cases = vec![];
+    for venue in ["kraken", "alpaca", "binance"] {
+        for status in [1, 2] {
+            let name = format!("info-ath-{venue}-{status}");
+            let dir = rails_root.path().join(&name);
+            copy_dir(&built.path().join(format!("indicator-{venue}-buy-price_drop-met")), &dir);
+            let mut sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
+            sc["name"] = json!(name);
+            sc["tick"] = json!(false);
+            sc["check_at"] = Value::Null;
+            sc["info_job"] = json!("Bot::BroadcastPriceDropLimitInfoUpdateJob");
+            sc["info"] = json!([{ "at": sc["at"] }]);
+            std::fs::write(dir.join("scenario.json"), sc.to_string()).unwrap();
+            let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+            c.execute("UPDATE bots SET status = ?1, settings = json_set(settings, '$.price_drop_limit_time_window_condition', 'ath')", [status]).unwrap();
+            c.execute("UPDATE tickers SET ath = NULL, ath_updated_at = NULL", []).unwrap();
+            drop(c);
+            let before = ticker_state(&dir);
+            copy_dir(&dir, &rust_root.path().join(&name));
+            cases.push((name, before));
+        }
+    }
+    assert_eq!(cases.len(), 3 * 2, "three venues × running and stopped ATH status lines");
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    for (name, before) in cases {
+        let rails_dir = rails_root.path().join(&name);
+        let rust_dir = rust_root.path().join(&name);
+        let recorded: Value = serde_json::from_str(&std::fs::read_to_string(rails_dir.join("rails.json")).unwrap()).unwrap();
+        let rust = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        let (expected, wrote) = info_writes_taken_back(&recorded);
+        assert!(wrote, "{name}: Rails must stamp its met time");
+        assert_eq!(recorded["infos"][0].as_array().unwrap().len(), 1, "{name}: Rails displays the ATH");
+        assert_ne!(ticker_state(&rails_dir), before, "{name}: Rails must write the ATH history");
+        assert_eq!(ticker_state(&rust_dir), before, "{name}: Rust preserves the ATH history");
+        assert_eq!(expected, rust, "{name}: only the named trading writes diverge");
+    }
+}
+
 /// Slice 7b-0 characterisation, with 7c end-to-end rule-off comparisons for buy flips.
 /// Pins what Rails does on a degenerate daily close series (the plan's "7b-0
 /// findings"): a flat series gives RSI NaN, which meets neither `below` nor `above`; an all-gain series gives 100.0; 14
