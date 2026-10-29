@@ -104,9 +104,6 @@ pub async fn begin_recorder<A: Adapter>(
         |r| r.get(0),
     )?;
     let kind = v::Kind::of(&class).ok_or_else(|| data("unsupported withdrawal adapter"))?;
-    if kind == v::Kind::Gemini {
-        return Err(data("Gemini recorder requires E3 feeEstimate bootstrap"));
-    }
     let account = recorder_account(spec, &identity);
     let destination_digest = recorder_destination(&spec.destination);
     {
@@ -256,7 +253,7 @@ fn intent_log(
 }
 
 /// Real adapters join only with their E1-E3 G0 evidence. The live recorder uses this gate.
-pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Mexc"];
+pub const G0_ADAPTERS: &[&str] = &["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Mexc", "Exchanges::Gemini"];
 pub const SEND_WINDOW_SECONDS: i64 = super::placement::SEND_WINDOW_SECONDS;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {
@@ -267,6 +264,9 @@ pub struct Identity {
 #[derive(Clone, Debug)]
 pub enum SendResult {
     Accepted { id: String },
+    /// Proven before transmission; settlement needs no venue rejection evidence.
+    NotSent { reason: String },
+    /// Unmodified, bounded venue body. Scrub only when writing durable or display text.
     Rejected { definitive: bool, reason: String },
     Ambiguous { reason: String },
 }
@@ -1259,6 +1259,14 @@ fn settle_result(
         return Ok(true);
     }
     let request = &current.request;
+    // Preserve the distinct proof of a local refusal; only venue replies need the allowlist.
+    let rejected = match &result {
+        SendResult::NotSent { .. } => true,
+        SendResult::Rejected { definitive: true, reason } => {
+            failure_proven || rules::definitive(&request.exchange, reason)
+        }
+        _ => false,
+    };
     match result {
         SendResult::Accepted { id } if !id.trim().is_empty() => {
             rules::seed_rails_ids(&tx)?;
@@ -1277,10 +1285,7 @@ fn settle_result(
                 remove(&tx, &current, state)?;
             }
         }
-        SendResult::Rejected {
-            definitive: true,
-            reason,
-        } if failure_proven || rules::definitive(&request.exchange, &reason) => {
+        SendResult::NotSent { reason } | SendResult::Rejected { reason, .. } if rejected => {
             intent_log(
                 &tx,
                 &current,
@@ -1291,7 +1296,7 @@ fn settle_result(
             )?;
             remove(&tx, &current, state)?;
         }
-        SendResult::Rejected { reason, .. } | SendResult::Ambiguous { reason } => {
+        SendResult::NotSent { reason } | SendResult::Rejected { reason, .. } | SendResult::Ambiguous { reason } => {
             uncertain(&tx, &current, state, &reason)?;
         }
         SendResult::Accepted { .. } => {
