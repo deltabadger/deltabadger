@@ -55,6 +55,7 @@ module EngineLease
 end
 
 Rails.application.config.after_initialize do
+  next if defined?(ExportScratch) && ExportScratch.active?
   next if Rails.env.test? || defined?(Rails::Console) || ENV['SECRET_KEY_BASE_DUMMY'].present?
 
   EngineLease.check_handover!

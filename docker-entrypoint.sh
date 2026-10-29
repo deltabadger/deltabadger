@@ -2,7 +2,7 @@
 set -e
 
 # Deltabadger Docker Entrypoint Script
-# Supports multiple process types: web, jobs, migrate, console, standalone
+# Supports multiple process types: web, jobs, migrate, console, standalone, export
 
 SECRETS_FILE="${SECRETS_FILE:-/app/storage/.secrets}"
 
@@ -232,16 +232,29 @@ cleanup_pid() {
 
 # Main entrypoint logic
 main() {
+    if [ "${1:-web}" = "export" ]; then
+        export EXPORT_ENTRYPOINT=1
+        bundle exec ruby -r ./lib/export_scratch -e 'ExportScratch.validate!'
+    fi
+
     # If running as root, fix permissions and drop to app user
     if [ "$(id -u)" = "0" ]; then
-        mkdir -p /app/storage /app/log
-        chown -R deltabadger:deltabadger /app/storage /app/log
+        mkdir -p /app/storage /app/log /export
+        chown -R deltabadger:deltabadger /app/storage /app/log /export
         exec gosu deltabadger "$0" "$@"
     fi
 
     local cmd="${1:-web}"
 
     case "$cmd" in
+        export)
+            # A scratch copy already has its effective keys. Never generate .secrets here.
+            if [ -f "$SECRETS_FILE" ]; then
+                load_secrets
+            fi
+            exec bundle exec rails export:portable
+            ;;
+
         standalone)
             echo "Starting Deltabadger (standalone mode)..."
             setup_secrets

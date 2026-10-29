@@ -154,8 +154,8 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create necessary directories
-RUN mkdir -p /app/tmp/pids /app/tmp/cache /app/tmp/sockets /app/log /app/storage && \
-    chown -R deltabadger:deltabadger /app/tmp /app/log /app/storage
+RUN mkdir -p /app/tmp/pids /app/tmp/cache /app/tmp/sockets /app/log /app/storage /export && \
+    chown -R deltabadger:deltabadger /app/tmp /app/log /app/storage /export
 
 # Don't switch to non-root user here - let entrypoint handle it
 # This allows the container to fix volume permissions when needed (e.g., Umbrel)
