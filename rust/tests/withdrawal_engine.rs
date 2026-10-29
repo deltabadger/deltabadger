@@ -686,7 +686,7 @@ async fn rust_log_provenance_and_secret_scrubbing() {
     assert!(safe.chars().count() <= 200);
 }
 #[tokio::test]
-async fn missing_key_refuses_recorded_rails_send_and_all_production_venues_stay_disabled() {
+async fn missing_key_refuses_recorded_rails_send() {
     let d = Db::new();
     let f = Fake::new(&d);
     d.c.execute("DELETE FROM api_keys", []).unwrap();
@@ -713,9 +713,6 @@ async fn missing_key_refuses_recorded_rails_send_and_all_production_venues_stay_
         cell["rule_logs"][0]["status"], "success",
         "D-RULE-NO-KEY-SENDS"
     );
-    for row in deltabadger::venue::registry::ROWS.iter() {
-        assert!(!row.withdraws);
-    }
 }
 #[tokio::test]
 async fn sizing_property_both_fee_semantics() {
@@ -1948,13 +1945,92 @@ async fn kraken_quote_over_budget_or_threshold_refuses_before_send() {
     }
 }
 #[test]
-fn kraken_g0_gate_does_not_enable_live_withdrawals() {
+fn l_kraken_capability_is_enabled_with_unknown_fee_semantics() {
     assert!(w::G0_ADAPTERS.contains(&"Exchanges::Kraken"));
-    assert!(
-        !deltabadger::venue::registry::row("Exchanges::Kraken")
-            .unwrap()
-            .withdraws
-    );
+    for row in &deltabadger::venue::registry::ROWS {
+        assert_eq!(row.withdraws, row.exchange_type == "Exchanges::Kraken", "{}", row.exchange_type);
+    }
+    assert_eq!(deltabadger::venue::registry::row("Exchanges::Kraken").unwrap().fee_on_top, None);
+}
+
+struct ScriptedKrakenFactory(ScriptedTransport);
+impl deltabadger::venue::VenueFactory for ScriptedKrakenFactory {
+    type V = KrakenVenue<ScriptedTransport>;
+    fn for_bot(&self, exchange: &str, credentials: Option<deltabadger::crypto::Credentials>) -> Self::V {
+        assert_eq!(exchange, "Exchanges::Kraken");
+        KrakenVenue::new(self.0.clone()).with_identity(&credentials.unwrap())
+    }
+}
+
+async fn kraken_engine_threshold(below: bool) {
+    use deltabadger::{engine::run, lease, store::{self, Paths}};
+    let dir = common::rails_install();
+    let paths = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&paths, now()).unwrap();
+    let opened = store::open(&paths).unwrap();
+    let cipher = common::seed::cipher();
+    let seed = common::seed::seed_kraken(&opened.primary, &cipher);
+    opened.primary.execute("UPDATE api_keys SET key_type=1 WHERE id=?1", [seed.api_key_id]).unwrap();
+    opened.primary.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,?3,?3)", params![seed.exchange_id,seed.btc,now().to_rfc3339()]).unwrap();
+    let settings = json!({"address_name":"cold","withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":if below {"0.1"} else {"0.01"}});
+    opened.primary.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(1,?1,'Rules::Withdrawal',1,?2,?3,?4,?5,?6,?6)", params![seed.user_id,seed.exchange_id,seed.btc,cipher.encrypt("destination"),settings.to_string(),now().to_rfc3339()]).unwrap();
+    opened.primary.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES(1,'start:l-kraken',?1)", [now().to_rfc3339()]).unwrap();
+    let t = if below {
+        ScriptedTransport::from_script(&json!({
+            "POST /0/private/BalanceEx":[{"status":200,"body":{"error":[],"result":{"XBT":{"balance":"0.05","hold_trade":"0"}}}}],
+            "POST /0/private/WithdrawAddresses":[{"status":200,"body":{"error":[],"result":[{"address":"destination","key":"cold","method":"Bitcoin","verified":true}]}}],
+            "POST /0/private/WithdrawInfo":[{"status":200,"body":{"error":[],"result":{"amount":"0.04","fee":"0.01"}}}]
+        }))
+    } else {
+        kraken_reads()
+    };
+    t.set_now(now());
+    t.reply(K_SEND, 200, json!({"error":[],"result":{"refid":"K-live-gate"}}));
+    let mut engine = run::Engine::new(opened.primary, ScriptedKrakenFactory(t.clone()), cipher, lock);
+    for _ in 0..2 {
+        run::step(&mut engine, &FixedClock(now())).await.unwrap();
+    }
+    let c = &engine.primary;
+    let count = |table: &str| c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get::<_,i64>(0)).unwrap();
+    assert_eq!(count("rule_logs"), 1);
+    assert_eq!(count("rust_withdrawal_intents"), 0);
+    assert_eq!(count("rust_rule_evaluations WHERE consumed_at IS NULL"), 0);
+    assert!(rules::status(c, 1).unwrap().is_none());
+    let (status, message, details): (i64, String, String) = c.query_row("SELECT status,message,details FROM rule_logs", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+    let details: Value = serde_json::from_str(&details).unwrap();
+    if below {
+        assert_eq!(kraken_sends(&t), 0);
+        assert_eq!(status, 0);
+        let vectors: Value = serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+        let oracle = &vectors["execute"].as_array().unwrap().iter().find(|cell| cell["case"] == "below_minimum_min_mode").unwrap()["rule_logs"][0];
+        assert_eq!(oracle["status"], "pending");
+        assert_eq!(message, oracle["message"]);
+        assert_eq!(details, oracle["details"]);
+        assert_eq!(count("rust_withdrawal_ids"), 0);
+    } else {
+        assert_eq!(kraken_sends(&t), 1);
+        assert_eq!(status, 1);
+        assert_eq!(details["withdrawal_id"], "K-live-gate");
+        assert_eq!(count("rust_withdrawal_ids"), 1);
+        let requests = t.requests();
+        let sent = requests.iter().find(|r| r.path == "/0/private/Withdraw").unwrap().body.as_ref().unwrap();
+        // D-RULE-KRAKEN-NO-LIVE-FIXTURE: None reserves the first fee and re-quotes the reduced amount.
+        assert_eq!(sent["amount"], "0.99");
+        assert_eq!(sent["max_fee"], "0.0099");
+        assert!(&n(sent["amount"].as_str().unwrap()) + &n(sent["max_fee"].as_str().unwrap()) <= n("1"));
+        let quotes: Vec<_> = requests.iter().filter(|r| r.path == "/0/private/WithdrawInfo").map(|r| r.body.as_ref().unwrap()["amount"].clone()).collect();
+        assert_eq!(quotes, vec![json!("1.0"), json!("0.99")]);
+    }
+}
+
+#[tokio::test]
+async fn l_kraken_engine_above_threshold_sends_once_and_reserves_fee() {
+    kraken_engine_threshold(false).await;
+}
+
+#[tokio::test]
+async fn l_kraken_engine_below_threshold_logs_without_sending() {
+    kraken_engine_threshold(true).await;
 }
 
 #[tokio::test]

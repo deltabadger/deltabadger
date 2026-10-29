@@ -589,11 +589,18 @@ async fn rendered_tile_edits_created_rule_amount_without_stopping() {
 
 #[tokio::test]
 async fn rendered_tile_toggle_on_reaches_start_capability_guard() {
+    // D-RULE-KRAKEN-NO-LIVE-FIXTURE: Kraken withdrawals are on, so its toggle starts the rule.
     let (i, _server) = identity_listing("Kraken", &["cold"]).await;
     let id = i.rule(2);
     let before = i.rows();
     let response = submit_rendered_tile(&i, id, None, Some(true)).await;
-    // D-RULE-UNSUPPORTED-START: all venues currently disable withdrawals.
+    assert!(response.status < 300, "{}: {}", response.status, response.body);
+    assert_ne!(i.rows(), before, "the Kraken rule is started");
+    // D-RULE-UNSUPPORTED-START: the venues still off refuse at the capability guard and change nothing.
+    let (i, _server) = identity_listing("Binance", &["cold"]).await;
+    let id = i.rule(2);
+    let before = i.rows();
+    let response = submit_rendered_tile(&i, id, None, Some(true)).await;
     assert_eq!(response.status, 422, "{}", response.body);
     assert!(response.body.contains("Withdrawals are not enabled for this exchange."));
     assert_eq!(i.rows(), before);
