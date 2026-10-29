@@ -198,6 +198,12 @@ impl ReqwestTransport {
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
     pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, passphrase: String::new(), refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca, ibkr: None } }
     /// Honeymaker::Clients::Binance's wire.
+    /// The request exactly as this transport would sign and send it, unsent. For the live withdrawal recorder's
+    /// --drop-reply, which sends it itself and discards the reply; production sends go through `send`.
+    pub fn signed_request(&self, r: &HttpRequest) -> reqwest::RequestBuilder {
+        let keys = super::sign::Keys { key: &self.key, secret: &self.secret, passphrase: &self.passphrase, ibkr: self.ibkr.as_deref() };
+        super::sign::request(self.wire, &self.client, r, keys, &*self.clock)
+    }
     pub fn binance(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Binance, ..Self::new(client, key, secret) } }
     /// Honeymaker::Clients::Kucoin's wire: the passphrase is HMAC'd with the secret, and neither is ever sent as it is.
     pub fn kucoin(client: reqwest::Client, key: String, secret: String, passphrase: String) -> Self {

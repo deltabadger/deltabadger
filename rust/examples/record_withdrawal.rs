@@ -258,78 +258,14 @@ trait DiscardReply: Transport {
 
 struct LiveTransport {
     inner: ReqwestTransport,
-    client: reqwest::Client,
-    class: String,
-    credentials: deltabadger::crypto::Credentials,
 }
 impl LiveTransport {
     fn withdrawal_request(
         &self,
         request: &HttpRequest,
     ) -> Result<reqwest::RequestBuilder, TransportError> {
-        let mut url = request.url();
-        if self.class == "Exchanges::Mexc" {
-            url.set_query(Some(&venue::binance::build_query(&request.query)));
-        }
-        let mut builder = self.client.post(url);
-        match self.class.as_str() {
-            "Exchanges::Kraken" => {
-                let mut fields = vec![(
-                    "nonce".into(),
-                    venue::kraken::next_nonce(&self.credentials.key).to_string(),
-                )];
-                fields.extend(
-                    request
-                        .body
-                        .as_ref()
-                        .and_then(Value::as_object)
-                        .into_iter()
-                        .flatten()
-                        .map(|(key, value)| {
-                            (
-                                key.clone(),
-                                value
-                                    .as_str()
-                                    .map_or_else(|| value.to_string(), str::to_owned),
-                            )
-                        }),
-                );
-                let form = venue::kraken::www_form(&fields);
-                for (key, value) in venue::kraken::private_headers(
-                    &request.path,
-                    &form,
-                    &self.credentials.key,
-                    &self.credentials.secret,
-                ) {
-                    builder = builder.header(key, value);
-                }
-                builder = builder.body(form);
-            }
-            "Exchanges::Binance" | "Exchanges::Mexc" => {
-                // The adapter already signed the query, exactly as for ReqwestTransport.
-                if !self.credentials.key.is_empty() && !self.credentials.secret.is_empty() {
-                    builder = builder.header(
-                        if self.class == "Exchanges::Binance" {
-                            "X-MBX-APIKEY"
-                        } else {
-                            "X-MEXC-APIKEY"
-                        },
-                        &self.credentials.key,
-                    );
-                }
-                builder = builder
-                    .header("Accept", "application/json")
-                    .header("Content-Type", "application/json");
-                if let Some(body) = &request.body {
-                    builder = builder.body(body.to_string());
-                }
-            }
-            _ => {
-                return Err(TransportError::NotSent(
-                    "unsupported recorder adapter".into(),
-                ))
-            }
-        }
+        // The same signed request as ReqwestTransport::send builds, for every recorder venue.
+        let builder = self.inner.signed_request(request);
         let remaining = request
             .not_after
             .and_then(|deadline| (deadline - self.now()).to_std().ok())
@@ -624,12 +560,7 @@ async fn run() -> Result<(), String> {
     secrets.extend([credentials.key.clone(), credentials.secret.clone()]);
     let control = Rc::new(Control::default());
     let transport = Recording {
-        inner: LiveTransport {
-            inner: transport,
-            client,
-            class: class.clone(),
-            credentials: credentials.clone(),
-        },
+        inner: LiveTransport { inner: transport },
         control: control.clone(),
         journal: journal.clone(),
         secrets,
@@ -934,82 +865,35 @@ mod tests {
     }
 
     #[test]
-    fn dropped_live_requests_keep_authentication_encoding_and_deadlines() {
-        let credentials = deltabadger::crypto::Credentials {
-            key: "test-key".into(),
-            secret: "dGVzdC1zZWNyZXQ=".into(),
-            passphrase: None,
-            redaction_values: vec![],
-            ibkr: None,
-        };
-        for class in ["Exchanges::Binance", "Exchanges::Mexc", "Exchanges::Kraken"] {
-            let live = LiveTransport {
-                inner: ReqwestTransport::refused("offline test"),
-                client: venue::http::client(),
-                class: class.into(),
-                credentials: credentials.clone(),
-            };
+    fn dropped_live_requests_are_the_transports_own_signed_requests_with_deadlines() {
+        let (key, secret) = ("test-key".to_string(), "dGVzdC1zZWNyZXQ=".to_string());
+        let client = venue::http::client();
+        for (class, inner) in [
+            ("Exchanges::Binance", ReqwestTransport::binance(client.clone(), key.clone(), secret.clone())),
+            ("Exchanges::Mexc", ReqwestTransport::mexc(client.clone(), key.clone(), secret.clone())),
+            ("Exchanges::Kraken", ReqwestTransport::new(client.clone(), key.clone(), secret.clone()).kraken()),
+            ("Exchanges::Gemini", ReqwestTransport::gemini(client.clone(), key.clone(), secret.clone())),
+        ] {
+            let live = LiveTransport { inner };
             let mut request = HttpRequest {
                 method: "POST",
                 base: "https://example.invalid".into(),
                 path: "/withdraw".into(),
-                query: vec![
-                    ("address", "a b/~".into()),
-                    ("signature", "signed-query".into()),
-                ],
-                body: None,
+                query: vec![("address", "a b/~".into())],
+                body: Some(json!({"asset":"XBT", "key":"cold", "amount":"0.0009"})),
                 not_after: Some(chrono::Utc::now() + chrono::Duration::seconds(10)),
             };
-            if class == "Exchanges::Kraken" {
-                request.query.clear();
-                request.body = Some(json!({"asset":"XBT", "key":"cold", "amount":"0.0009"}));
-            }
             let wire = live.withdrawal_request(&request).unwrap().build().unwrap();
-            assert_eq!(wire.method(), reqwest::Method::POST);
-            assert!(
-                wire.timeout().is_some_and(
-                    |left| !left.is_zero() && *left <= std::time::Duration::from_secs(10)
-                )
-            );
-            if class == "Exchanges::Kraken" {
-                let form = std::str::from_utf8(wire.body().unwrap().as_bytes().unwrap()).unwrap();
-                assert!(form.starts_with("nonce="));
-                assert!(form.ends_with("&asset=XBT&key=cold&amount=0.0009"));
-                for (key, value) in venue::kraken::private_headers(
-                    &request.path,
-                    form,
-                    &credentials.key,
-                    &credentials.secret,
-                ) {
-                    assert_eq!(wire.headers()[&key], value);
-                }
-            } else {
-                assert!(wire.body().is_none());
-                let header = if class == "Exchanges::Binance" {
-                    "X-MBX-APIKEY"
-                } else {
-                    "X-MEXC-APIKEY"
-                };
-                assert_eq!(wire.headers()[header], "test-key");
-                let expected = if class == "Exchanges::Binance" {
-                    request.url()
-                } else {
-                    let mut url = request.url();
-                    url.set_query(Some(&venue::binance::build_query(&request.query)));
-                    url
-                };
-                assert_eq!(*wire.url(), expected);
-            }
+            let own = live.inner.signed_request(&request).build().unwrap();
+            assert_eq!(wire.method(), reqwest::Method::POST, "{class}");
+            assert_eq!(wire.url(), own.url(), "{class}");
+            let names = |r: &reqwest::Request| { let mut n: Vec<_> = r.headers().keys().map(|k| k.to_string()).collect(); n.sort(); n };
+            assert_eq!(names(&wire), names(&own), "{class}: signed as the transport signs it");
+            assert!(wire.timeout().is_some_and(|left| !left.is_zero() && *left <= std::time::Duration::from_secs(10)), "{class}");
             request.not_after = Some(chrono::Utc::now() - chrono::Duration::seconds(1));
-            assert!(matches!(
-                live.withdrawal_request(&request),
-                Err(TransportError::NotSent(_))
-            ));
+            assert!(matches!(live.withdrawal_request(&request), Err(TransportError::NotSent(_))), "{class}");
             request.not_after = None;
-            assert!(matches!(
-                live.withdrawal_request(&request),
-                Err(TransportError::NotSent(_))
-            ));
+            assert!(matches!(live.withdrawal_request(&request), Err(TransportError::NotSent(_))), "{class}");
         }
     }
 
