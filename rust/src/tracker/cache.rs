@@ -310,10 +310,12 @@ mod tests {
     #[test]
     fn cache_real_split_walk_roundtrips_long_computed_decimals() {
         use crate::{figures::at::At,tracker::{fx::FxTable,prices::{NoFetch,PriceService,Reference},rows::{Kind,Stored},walk}};
-        let row=|id,kind,amount:&str,value:&str|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None};
-        let mut rows=vec![row(1,Kind::Buy,"9","100")];
-        for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0"));}
+        // Each adjustment on its own day: same-day splits are netted into one restatement (D-ALPACA-SPLIT-GROUPING),
+        // and the 287-character decimal needs three successive restatements.
+        let row=|id,kind,amount:&str,value:&str,days:i64|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None};
+        let mut rows=vec![row(1,Kind::Buy,"9","100",4)];
+        for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0",3-i));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;
         let mut ps=PriceService::new(&r,&fx,now().date_naive(),&mut none);
         let ids=std::collections::HashMap::from([("alpaca".to_string(),7)]);

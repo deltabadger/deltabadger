@@ -1941,11 +1941,37 @@ async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_
     assert_eq!(disposal.cost_basis,dec("450"));
     assert_eq!(disposal.acquired,Some(acquired));
     assert!(!engine.uncovered);
+    // Opening inference must see the same daily net as FIFO, in both account scopes.
+    use deltabadger::tracker::{fx::FxTable, prices::{Reference, PriceService, Unfetched}};
+    let reference = Reference::default();
+    let fx = FxTable::default();
+    let mut fetcher = Unfetched;
+    let mut ps = PriceService::new(&reference, &fx, acquired.utc().date_naive(), &mut fetcher);
+    for located in [false, true] {
+        let mut next_uid = rows.len();
+        let opened = walk::open_with_held(rows.clone(), &mut ps, located, &mut next_uid).unwrap();
+        assert!(!opened.iter().any(|row| row.opening), "split ordering must not invent an opening balance");
+        let mut engine = Engine::new(located);
+        engine.calculate(&opened).unwrap();
+        assert_eq!(engine.disposals[0].cost_basis,dec("450"));
+        assert_eq!(engine.disposals[0].acquired,Some(acquired));
+        assert!(!engine.uncovered);
+    }
 }
 fn event_split(id: &str, qty: &str, event: &str) -> Value {
     let mut leg = split(id,qty);
     leg["corporate_action_id"] = json!(event);
     leg
+}
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_reverse_arrival_preserves_fifo_basis() {
+    split_grouping_case(vec![vec![event_split("c","-20","two"),event_split("d","5","two")],
+        vec![event_split("a","-10","one"),event_split("b","20","one")]],"5",2).await;
+}
+#[tokio::test(flavor="current_thread")]
+async fn split_grouping_forward_arrival_preserves_fifo_basis() {
+    split_grouping_case(vec![vec![event_split("a","-10","one"),event_split("b","20","one")],
+        vec![event_split("c","-20","two"),event_split("d","5","two")]],"5",2).await;
 }
 #[tokio::test(flavor="current_thread")]
 async fn split_grouping_same_date_double_split() {

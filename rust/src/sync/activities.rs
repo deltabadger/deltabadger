@@ -245,7 +245,7 @@ pub fn leading_split(activities: &[Raw]) -> usize {
 /// D-ALPACA-SPLIT-GROUPING: activity IDs identify legs, not corporate actions. Prefer the
 /// event ID; some NTA payloads expose only group_id. Without either, retain a daily net
 /// adjustment and do not claim a ratio if multiple removals could represent separate events.
-fn split_event(raw: &Value) -> Option<(&str, &str)> {
+pub(crate) fn split_event(raw: &Value) -> Option<(&str, &str)> {
     ["corporate_action_id", "group_id"].into_iter().find_map(|key|
         raw[key].as_str().filter(|s| !s.trim().is_empty()).map(|id| (key, id)))
 }

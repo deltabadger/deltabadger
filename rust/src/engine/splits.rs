@@ -71,15 +71,19 @@ fn row_refusal(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<S
     let mut held: BTreeMap<i64,Vec<String>> = BTreeMap::new();
     for order in &orders { if let Some(id)=order.asset_id { held.entry(id).or_default().extend(order.base.clone()); } }
     let holdings: Vec<_> = held.into_iter().map(|(id,strings)| rails::Holding {key:id.to_string(),asset_id:Some(id),strings}).collect();
-    let mut groups: BTreeMap<(String,String),Vec<Value>> = BTreeMap::new();
+    type ReportKey = (String, String, Option<(String, String)>);
+    let mut groups: BTreeMap<ReportKey,Vec<Value>> = BTreeMap::new();
     for group in rails::groups(c,bot.user_id,&orders,&holdings).map_err(data)? {
         for row in group.rows {
             if row.at.utc()>now {continue;}
             let amount=c.query_row("SELECT base_amount FROM account_transactions WHERE id=?1",[row.id],|r| Ok(crate::ruby::from_sql(r.get_ref(0)?)))?.map_err(data)?.ok_or_else(|| data("missing split amount"))?;
-            groups.entry((row.base_currency,row.at.utc().format("%Y-%m-%d").to_string())).or_default().push(json!({"base_amount":amount.to_s_f(),"raw_data":row.raw_data}));
+            // D-ALPACA-SPLIT-GROUPING: each action must prove its own ratio. Distinct actions may compose;
+            // several reports of one action still fail the row-evidence gate.
+            let event = crate::sync::activities::split_event(&row.raw_data).map(|(key, id)| (key.to_string(), id.to_string()));
+            groups.entry((row.base_currency,row.at.utc().format("%Y-%m-%d").to_string(),event)).or_default().push(json!({"base_amount":amount.to_s_f(),"raw_data":row.raw_data}));
         }
     }
-    for ((symbol, day), rows) in groups {
+    for ((symbol, day, _), rows) in groups {
         let verdict = row_verdict(&rows);
         if verdict != "trusted" { return Ok(Some(format!("{symbol} {day}: {verdict}"))); }
     }

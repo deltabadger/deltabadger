@@ -48,17 +48,26 @@ pub fn factor(raw_data: &Value) -> Result<Option<Dec>, NumError> {
     new_count.div(&old_count).map(Some)
 }
 
-/// One factor, or none: a row that names no factor is silent, two rows naming different ones resolve to nothing.
+/// D-ALPACA-SPLIT-GROUPING: compose distinct corporate actions, resolving reports within each event first.
+/// Unidentified reports retain the legacy daily bucket; they cannot establish an additional distinct event.
 fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
-    let mut first = None;
+    let mut events = std::collections::BTreeMap::new();
     let mut conflict = false;
     for row in rows {
         budget::charge(1, 0)?;
+        let first = events.entry(crate::sync::activities::split_event(&row.raw_data)).or_insert(None);
         if let Some(f) = factor(&row.raw_data)? {
-            match &first { Some(previous) => conflict |= *previous != f, None => first = Some(f) }
+            match first { Some(previous) => conflict |= *previous != f, None => *first = Some(f) }
         }
     }
-    Ok(if conflict { None } else { first })
+    if conflict || events.is_empty() || (events.len() > 1 && events.contains_key(&None)) { return Ok(None); }
+    let mut composed = Dec::one();
+    for factor in events.into_values() {
+        budget::charge(1, 0)?;
+        let Some(factor) = factor else { return Ok(None) };
+        composed = (&composed * &factor)?;
+    }
+    Ok(Some(composed))
 }
 
 /// Bot::Restatable#grouped_split_rows: the marked rows this bot is eligible for, per holding and effective date
@@ -171,7 +180,7 @@ fn names(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<Spli
     Ok((rows, named))
 }
 
-/// Bot::Restatable#split_events: one event per holding and date whose reports agree on a factor, timed at the
+/// Bot::Restatable#split_events: one composed event per holding and date whose reports agree within each action, timed at the
 /// earliest instant the group reports, already in effect at `now`, oldest first.
 pub fn events(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
     let mut out: Vec<Event> = vec![];
