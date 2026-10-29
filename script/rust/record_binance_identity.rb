@@ -29,7 +29,9 @@ ms = 1_786_960_800_000
 base = { 'id' => 'd1', 'txId' => 'hash', 'coin' => 'BTC', 'network' => 'BTC', 'address' => 'addr', 'addressTag' => '',
          'amount' => '1', 'insertTime' => ms, 'status' => 1 }
 reward = { 'asset' => 'BTC', 'time' => ms, 'rewards' => '1', 'projectId' => 'p1', 'positionId' => 'pos1', 'type' => 'BONUS' }
-earn = reward.merge('purchaseAmount' => '1', 'amount' => '1')
+# Keep the legacy purchaseAmount alias for Rails' subscription mapper; product
+# evidence is source-specific, not inherited from an unrelated reward response.
+earn = { 'asset' => 'BTC', 'time' => ms, 'purchaseAmount' => '1', 'amount' => '1' }
 dust = { 'transId' => 'detail', 'fromAsset' => 'BTC', 'amount' => '1', 'transferedAmount' => '0.1', 'serviceChargeAmount' => '0.01' }
 parent = ->(id, *details) { { 'transId' => id, 'operateTime' => ms, 'userAssetDribbletDetails' => details } }
 withdrawal = base.merge('id' => 'w1', 'status' => 6, 'applyTime' => '2026-08-17 10:00:00', 'transactionFee' => '0.01')
@@ -45,8 +47,15 @@ cases = [
 ]
 %i[simple_earn_flexible_subscriptions simple_earn_flexible_redemptions simple_earn_locked_subscriptions simple_earn_locked_redemptions].each do |endpoint|
   id = endpoint.to_s.end_with?('subscriptions') ? 'purchaseId' : 'redeemId'
-  cases << [endpoint.to_s, { endpoint => { 'rows' => [earn.merge(id => 'one'), earn.merge(id => 'two')], 'total' => 2 } }]
-  cases << ["#{endpoint}_fallback", { endpoint => { 'rows' => [earn, earn.merge('asset' => 'ETH', 'projectId' => 'p2')], 'total' => 2 } }]
+  product = case endpoint
+            when :simple_earn_flexible_subscriptions then 'productId'
+            when :simple_earn_locked_redemptions then 'positionId'
+            else 'projectId'
+            end
+  row = earn.merge(product => 'p1')
+  row['positionId'] = 'pos1' if endpoint == :simple_earn_locked_subscriptions
+  cases << [endpoint.to_s, { endpoint => { 'rows' => [row.merge(id => 'one'), row.merge(id => 'two')], 'total' => 2 } }]
+  cases << ["#{endpoint}_fallback", { endpoint => { 'rows' => [row, row.merge('asset' => 'ETH', product => 'p2')], 'total' => 2 } }]
 end
 interest = { 'asset' => 'BTC', 'interest' => '0.01', 'interestAccuredTime' => ms, 'txId' => 'i1', 'type' => 'PERIODIC', 'isolatedSymbol' => 'BTCUSDT' }
 liquidation = { 'asset' => 'BTC', 'symbol' => 'BTCUSDT', 'orderId' => 1, 'qty' => '1', 'quoteAsset' => 'USDT', 'quoteQty' => '10', 'updatedTime' => ms }

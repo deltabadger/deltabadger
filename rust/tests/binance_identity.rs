@@ -6,14 +6,104 @@ mod common;
 fn raw() -> Value {
     json!({"id":"d1","txId":"hash","coin":"BTC","network":"BTC","address":"addr","addressTag":"",
         "amount":"1.00","insertTime":1786960800000_i64,"applyTime":"2026-08-17 10:00:00","transactionFee":"0.01",
-        "asset":"BTC","time":1786960800000_i64,"projectId":"p1","type":"BONUS","positionId":"pos1",
-        "purchaseId":"buy1","redeemId":"redeem1","rewards":"1","purchaseAmount":"1",
+        "asset":"BTC","time":1786960800000_i64,"projectId":"p1","productId":"p1","type":"BONUS","positionId":"pos1",
+        "purchaseId":"buy1","redeemId":"redeem1","rewards":"1","purchaseAmount":"1","principal":"1",
         "transId":"detail","fromAsset":"BTC","transferedAmount":"0.1","serviceChargeAmount":"0.01"})
 }
 fn event(source: Source, raw: &Value) -> Event {
     Event::read(source, raw, Context { parent: Some("parent1"), requested_type: Some("BONUS"), occurred_ms:Some(1786960800000) }).unwrap()
 }
 fn stored(event: Event) -> Candidate { Candidate { row_id: 7, event: Some(event), legacy_id: true } }
+
+#[test]
+fn incomplete_historical_reward_identity_is_uncertain() {
+    for (source, discriminator) in [(Source::LockedReward, "positionId"), (Source::FlexibleReward, "projectId")] {
+        let current = event(source, &raw());
+        for missing in [None, Some(Value::Null), Some(json!(""))] {
+            let mut historical = raw();
+            historical.as_object_mut().unwrap().remove(discriminator);
+            if let Some(value) = missing { historical[discriminator] = value; }
+            let prior = event(source, &historical);
+            assert!(prior.key().is_none());
+            assert_eq!(classify(std::slice::from_ref(&current), &[stored(prior.clone())]), [Decision::Unresolved]);
+            for (field, value) in [("asset", json!("ETH")), ("time", json!(1786960800001_i64))] {
+                let mut distinct = raw(); distinct[field] = value;
+                assert_eq!(classify(&[event(source, &distinct)], &[stored(prior.clone())]), [Decision::Missing], "known {field} differs");
+            }
+            assert_eq!(classify(&[prior.clone(), current.clone()], &[]), [Decision::Unresolved; 2]);
+            assert_eq!(classify(&[current.clone(), prior.clone()], &[]), [Decision::Unresolved; 2]);
+            assert_eq!(classify(&[prior], &[stored(current.clone())]), [Decision::Unresolved]);
+        }
+        let mut different = raw(); different[discriminator] = json!("other");
+        assert_eq!(classify(&[event(source, &different)], &[stored(current.clone())]), [Decision::Missing]);
+        let mut less_payload = raw(); less_payload.as_object_mut().unwrap().remove("principal");
+        assert_eq!(classify(&[current], &[stored(event(source, &less_payload))]), [Decision::Unresolved]);
+    }
+}
+
+#[test]
+fn keyless_historical_corrections_are_still_conflicts() {
+    for (source, id, amount) in [(Source::LockedReward, "positionId", "rewards"),
+        (Source::FlexibleReward, "projectId", "rewards"), (Source::Deposit, "id", "amount"),
+        (Source::Withdrawal, "id", "transactionFee")] {
+        let mut historical = raw(); historical.as_object_mut().unwrap().remove(id);
+        let prior = event(source, &historical);
+        let mut correction = raw(); correction[amount] = json!("2");
+        let current = event(source, &correction);
+        assert_eq!(classify(std::slice::from_ref(&current), &[stored(prior.clone())]), [Decision::Conflict], "{source:?}");
+        assert_eq!(classify(&[prior.clone(), current.clone()], &[]), [Decision::Conflict; 2]);
+        assert_eq!(classify(&[current, prior], &[]), [Decision::Conflict; 2]);
+    }
+}
+
+#[test]
+fn earn_response_models_use_source_specific_product_evidence() {
+    for (source, id, product) in [(Source::FlexibleSubscription, "purchaseId", "productId"),
+        (Source::FlexibleRedemption, "redeemId", "projectId"),
+        (Source::LockedSubscription, "purchaseId", "projectId"),
+        (Source::LockedRedemption, "redeemId", "positionId")] {
+        let mut raw = json!({"asset":"BTC", "amount":"1", "time":1786960800000_i64});
+        raw[id] = json!(123); raw[product] = json!("p1");
+        if source == Source::LockedSubscription { raw["positionId"] = json!(456); }
+        let a = event(source, &raw);
+        assert_eq!(classify(std::slice::from_ref(&a), &[]), [Decision::Missing]);
+        assert_eq!(classify(std::slice::from_ref(&a), &[stored(a.clone())]), [Decision::Existing(7)]);
+        let mut changed = raw.clone(); changed[product] = json!("p2");
+        assert_eq!(classify(&[event(source, &changed)], &[stored(a.clone())]), [Decision::Conflict]);
+        if source == Source::LockedSubscription {
+            let mut historical = raw.clone(); historical.as_object_mut().unwrap().remove("positionId");
+            assert_eq!(classify(std::slice::from_ref(&a), &[stored(event(source, &historical))]), [Decision::Unresolved]);
+            let mut changed = raw.clone(); changed["positionId"] = json!(789);
+            assert_eq!(classify(&[event(source, &changed)], &[stored(a.clone())]), [Decision::Conflict]);
+        }
+        let mut keyless = raw.clone(); keyless.as_object_mut().unwrap().remove(id);
+        let mut correction = raw.clone(); correction["amount"] = json!("2");
+        assert_eq!(classify(&[event(source, &correction)], &[stored(event(source, &keyless))]), [Decision::Conflict]);
+        for unrelated in ["productId", "projectId", "positionId"].into_iter().filter(|f| *f != product) {
+            let mut incomplete = raw.clone(); incomplete.as_object_mut().unwrap().remove(product);
+            incomplete[unrelated] = json!("p1");
+            assert!(Event::read(source, &incomplete, Context::default()).is_err(), "{source:?} cannot substitute {unrelated}");
+        }
+    }
+}
+
+#[test]
+fn incoming_dust_pair_requires_agreeing_economics_and_time() {
+    let out = event(Source::DustOut, &raw());
+    for field in ["amount", "transferedAmount", "serviceChargeAmount", "occurred_ms"] {
+        let mut changed = raw();
+        let at = if field == "occurred_ms" { 1786960800001 } else { changed[field] = json!("2"); 1786960800000 };
+        let inn = Event::read(Source::DustIn, &changed, Context { parent: Some("parent1"), occurred_ms: Some(at), ..Context::default() }).unwrap();
+        assert_eq!(out.pair_key(), inn.pair_key());
+        for pair in [vec![out.clone(), inn.clone()], vec![inn.clone(), out.clone()]] {
+            assert_eq!(classify(&pair, &[]), [Decision::Unresolved; 2], "{field}");
+            assert_eq!(classify(&pair, &[stored(out.clone()), stored(inn.clone())]), [Decision::Unresolved; 2], "{field}");
+        }
+    }
+    let mut formatted = raw();
+    formatted["amount"] = json!("1.000"); formatted["transferedAmount"] = json!("0.100"); formatted["serviceChargeAmount"] = json!("1e-2");
+    assert_eq!(classify(&[out, event(Source::DustIn, &formatted)], &[]), [Decision::Missing; 2]);
+}
 
 #[test]
 fn capital_ids_separate_sources_coins_networks_and_us_without_changing_payloads() {
@@ -59,7 +149,7 @@ fn rewards_and_earn_use_discriminators_and_refuse_corrections_or_indistinguishab
     assert!(a.key().is_none());
     assert_eq!(classify(std::slice::from_ref(&a), &[]),[Decision::Unresolved]);
     assert_eq!(classify(std::slice::from_ref(&a), &[stored(a.clone())]),[Decision::Existing(7)]);
-    for field in ["asset","projectId"] { let mut other=fallback.clone(); other[field]=json!("other");
+    for field in ["asset","productId"] { let mut other=fallback.clone(); other[field]=json!("other");
         assert_eq!(classify(&[event(Source::FlexibleSubscription,&other)], &[stored(a.clone())]),[Decision::Unresolved]); }
 }
 

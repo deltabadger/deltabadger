@@ -1,6 +1,6 @@
 {
   "sources": {
-    "script/rust/record_binance_identity.rb": "13477789dd9e776849addd2f00925d896fcfd745a2fe1952d187dc97bab66320",
+    "script/rust/record_binance_identity.rb": "a93e0fcc77b351763b9ff2ba4e23e2de2c206186b28545f6e0366e5a41fff6c4",
     "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
     "app/models/exchanges/binance_us.rb": "0a7814fb073bf00733986d2fb4a9c2d69d9a3be5e78c068aca153bc5966a16f7",
     "app/services/account_transaction_sync.rb": "b9c77c65b07bdedb77dafd2b13dc222ca8fd29b910b9ee3b7c37537a490dcba7",
@@ -985,23 +985,17 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "productId": "p1",
               "purchaseId": "one"
             },
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "productId": "p1",
               "purchaseId": "two"
             }
           ],
@@ -1024,12 +1018,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "productId": "p1",
             "purchaseId": "one"
           }
         },
@@ -1048,12 +1039,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "productId": "p1",
             "purchaseId": "two"
           }
         }
@@ -1077,12 +1065,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "productId": "p1",
             "purchaseId": "one"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1109,12 +1094,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "productId": "p1",
             "purchaseId": "two"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1135,22 +1117,16 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "productId": "p1"
             },
             {
               "asset": "ETH",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p2",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "productId": "p2"
             }
           ],
           "total": 2
@@ -1172,12 +1148,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "productId": "p1"
           }
         },
         {
@@ -1195,12 +1168,9 @@
           "raw_data": {
             "asset": "ETH",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p2",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "productId": "p2"
           }
         }
       ],
@@ -1223,12 +1193,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "productId": "p1"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
           "transaction_id": null,
@@ -1248,23 +1215,17 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "projectId": "p1",
               "redeemId": "one"
             },
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "projectId": "p1",
               "redeemId": "two"
             }
           ],
@@ -1287,12 +1248,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
             "redeemId": "one"
           }
         },
@@ -1311,12 +1269,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
             "redeemId": "two"
           }
         }
@@ -1340,12 +1295,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
             "redeemId": "one"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1372,12 +1324,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
             "redeemId": "two"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1398,22 +1347,16 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "projectId": "p1"
             },
             {
               "asset": "ETH",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p2",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "projectId": "p2"
             }
           ],
           "total": 2
@@ -1435,12 +1378,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "projectId": "p1"
           }
         },
         {
@@ -1458,12 +1398,9 @@
           "raw_data": {
             "asset": "ETH",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p2",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "projectId": "p2"
           }
         }
       ],
@@ -1486,12 +1423,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "projectId": "p1"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
           "transaction_id": null,
@@ -1511,23 +1445,19 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
               "purchaseId": "one"
             },
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "projectId": "p1",
+              "positionId": "pos1",
               "purchaseId": "two"
             }
           ],
@@ -1550,12 +1480,10 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
             "purchaseId": "one"
           }
         },
@@ -1574,12 +1502,10 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
             "purchaseId": "two"
           }
         }
@@ -1603,12 +1529,10 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
             "purchaseId": "one"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1635,12 +1559,10 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "projectId": "p1",
+            "positionId": "pos1",
             "purchaseId": "two"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1661,22 +1583,18 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "projectId": "p1",
+              "positionId": "pos1"
             },
             {
               "asset": "ETH",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p2",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "projectId": "p2",
+              "positionId": "pos1"
             }
           ],
           "total": 2
@@ -1698,12 +1616,10 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "projectId": "p1",
+            "positionId": "pos1"
           }
         },
         {
@@ -1721,12 +1637,10 @@
           "raw_data": {
             "asset": "ETH",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p2",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "projectId": "p2",
+            "positionId": "pos1"
           }
         }
       ],
@@ -1749,12 +1663,10 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "projectId": "p1",
+            "positionId": "pos1"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
           "transaction_id": null,
@@ -1774,23 +1686,17 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "positionId": "p1",
               "redeemId": "one"
             },
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
               "amount": "1",
+              "positionId": "p1",
               "redeemId": "two"
             }
           ],
@@ -1813,12 +1719,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "positionId": "p1",
             "redeemId": "one"
           }
         },
@@ -1837,12 +1740,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "positionId": "p1",
             "redeemId": "two"
           }
         }
@@ -1866,12 +1766,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "positionId": "p1",
             "redeemId": "one"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1898,12 +1795,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
             "amount": "1",
+            "positionId": "p1",
             "redeemId": "two"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
@@ -1924,22 +1818,16 @@
             {
               "asset": "BTC",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p1",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "positionId": "p1"
             },
             {
               "asset": "ETH",
               "time": 1786960800000,
-              "rewards": "1",
-              "projectId": "p2",
-              "positionId": "pos1",
-              "type": "BONUS",
               "purchaseAmount": "1",
-              "amount": "1"
+              "amount": "1",
+              "positionId": "p2"
             }
           ],
           "total": 2
@@ -1961,12 +1849,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "positionId": "p1"
           }
         },
         {
@@ -1984,12 +1869,9 @@
           "raw_data": {
             "asset": "ETH",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p2",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "positionId": "p2"
           }
         }
       ],
@@ -2012,12 +1894,9 @@
           "raw_data": {
             "asset": "BTC",
             "time": 1786960800000,
-            "rewards": "1",
-            "projectId": "p1",
-            "positionId": "pos1",
-            "type": "BONUS",
             "purchaseAmount": "1",
-            "amount": "1"
+            "amount": "1",
+            "positionId": "p1"
           },
           "transacted_at": "2026-08-17 10:00:00 UTC",
           "transaction_id": null,
