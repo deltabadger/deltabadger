@@ -2704,20 +2704,14 @@ async fn e1_signed_fields_and_absolute_send_bound() {
         t.network(e1_send_path(mexc), "pre_send", "expired");
         assert!(matches!(
             e1_send(mexc, &t, &r).await,
-            w::SendResult::Rejected {
-                definitive: true,
-                ..
-            }
+            w::SendResult::NotSent { .. }
         ));
         let mut invalid = r;
         invalid.created_at = "bad".into();
         let t = ScriptedTransport::default();
         assert!(matches!(
             e1_send(mexc, &t, &invalid).await,
-            w::SendResult::Rejected {
-                definitive: true,
-                ..
-            }
+            w::SendResult::NotSent { .. }
         ));
         assert!(t.requests().is_empty());
     }
@@ -3350,10 +3344,7 @@ async fn e1_missing_destination_network_and_wrong_wallet_are_never_sent() {
         t.set_now(now());
         assert!(matches!(
             e1_send(mexc, &t, &r).await,
-            w::SendResult::Rejected {
-                definitive: true,
-                ..
-            }
+            w::SendResult::NotSent { .. }
         ));
         assert!(matches!(
             e1_lookup(mexc, &t, &r).await,
@@ -3366,10 +3357,7 @@ async fn e1_missing_destination_network_and_wrong_wallet_are_never_sent() {
     r.wallet_type = Some(1);
     assert!(matches!(
         e1_send(false, &t, &r).await,
-        w::SendResult::Rejected {
-            definitive: true,
-            ..
-        }
+        w::SendResult::NotSent { .. }
     ));
     assert!(t.requests().is_empty(), "D-RULE-WALLET-SPOT");
 }
