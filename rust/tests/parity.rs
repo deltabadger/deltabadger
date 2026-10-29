@@ -1205,6 +1205,29 @@ async fn grid_outputs(command: &str, expected: usize) -> (tempfile::TempDir, Out
     dirs.sort();
     assert_eq!(dirs.len(), expected, "{command} has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    if matches!(command, "grid-venue-index" | "grid-wash-sale") {
+        // D-INDEX-TOP-N: record an independent Rails oracle with stablecoins removed from its
+        // ranking, retaining all original holdings, orders, scripts and settings. Comparing the
+        // entire result proves the replacement members' allocations and database effects too.
+        let excluded = tempfile::tempdir().unwrap();
+        let paired: Vec<_> = dirs.iter().filter(|d| {
+            let name = d.file_name().unwrap().to_string_lossy();
+            if command == "grid-wash-sale" { matches!(name.as_ref(), "wash-B5-binance" | "wash-B5-kraken") }
+            else { name.contains("-top-") }
+        }).collect();
+        if command == "grid-wash-sale" { assert_eq!(paired.len(), 1 + 1, "both index wash-sale cases need an eligible-ranking oracle"); }
+        for d in &paired {
+            let target = excluded.path().join(d.file_name().unwrap());
+            copy_dir(d, &target);
+            let c = rusqlite::Connection::open(target.join("production.sqlite3")).unwrap();
+            c.execute("UPDATE indices SET top_coins=(SELECT json_group_array(value) FROM json_each(indices.top_coins) WHERE value NOT IN ('usd-coin','tether'))",[]).unwrap();
+        }
+        rails(&["record", excluded.path().to_str().unwrap()]);
+        for d in &paired {
+            let name = d.file_name().unwrap();
+            std::fs::copy(excluded.path().join(name).join("rails.json"),rust_root.path().join(name).join("rails-non-stable.json")).unwrap();
+        }
+    }
     if command == "grid-basket" {
         let normalized = tempfile::tempdir().unwrap();
         let paired: Vec<_> = dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().contains("-zero_quote_exec-")).collect();
@@ -1851,7 +1874,7 @@ async fn rails_and_rust_decide_identically_across_the_index_grid() -> Result<(),
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.map_err(|e| format!("{e:?}"))?;
         let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
-        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        if let Err(e) = index_top_n(&rust_root.path().join(&name), &rails_out, &rust_out) { failures.push(format!("{name} (D-INDEX-TOP-N): {e}")); }
         // Pinned on Rails' side, so a vacuous pass is impossible: what each composition names really happened there.
         let members: Vec<&serde_json::Value> = rails_out["changes"]["bot_index_assets"].as_array().ok_or("expected JSON array")?.iter().collect();
         if name.contains("-duplicate-") && name.ends_with("-all_flat") {
@@ -2256,12 +2279,13 @@ fn kraken_limit_under_costmin(rails_out: &serde_json::Value, rust_out: &serde_js
 async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
     let (_copies, outputs) = grid_outputs("grid-venue-index", 333).await;
     let mut failures = vec![];
-    for (name, _dir, rails_out, rust_out) in &outputs {
+    for (name, dir, rails_out, rust_out) in &outputs {
         if KRAKEN_LIMIT_COSTMIN.contains(&name.as_str()) {
-            if let Err(e) = kraken_limit_under_costmin(rails_out, rust_out) { failures.push(format!("{name} (listed divergence D-KRAKEN-LIMIT-COSTMIN): {e}")); }
+            let result = index_top_n_pair(dir, rails_out, rust_out).and_then(|(rails,rust)| kraken_limit_under_costmin(&rails,&rust));
+            if let Err(e) = result { failures.push(format!("{name} (D-INDEX-TOP-N + D-KRAKEN-LIMIT-COSTMIN): {e}")); }
         } else if name.contains("spend_cap_applies") {
             if let Err(e) = index_cap_applies(rust_out) { failures.push(format!("{name} (listed divergence D-IDX-CAP): {e}\n  rust: {rust_out}")); }
-        } else if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        } else if let Err(e) = index_top_n(dir, rails_out, rust_out) { failures.push(format!("{name} (D-INDEX-TOP-N): {e}")); }
         // Pinned on Rails' side, so that two silent engines cannot pass: what each case names really happened there.
         let sent: Vec<String> = rails_out["sent"].as_array().ok_or("sent")?.iter()
             .map(|o| o.get("pair").or_else(|| o.get("symbol")).and_then(|v| v.as_str()).unwrap_or_default().to_string()).collect();
@@ -2321,6 +2345,52 @@ fn remainder_stop(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -
     if !stopped { return Err("the bot is not stopped with the amount-limit key".into()); }
     if !rust_out["mails"].as_array().is_some_and(|m| m.iter().any(|m| m["mail"] == "stopped_by_amount_limit")) { return Err("no amount-limit mail".into()); }
     Ok(())
+}
+
+/// D-INDEX-TOP-N: compare every effect with Rails on the eligible ranking; the only extra
+/// effect allowed is the explicit shortage activity line. The original recordings above still
+/// pin Rails' inclusion of USDC/USDT, so this cannot silently become an unnamed parity change.
+fn index_top_n(dir: &std::path::Path, rails: &serde_json::Value, rust: &serde_json::Value) -> Result<(), String> {
+    let (expected,actual) = index_top_n_pair(dir,rails,rust)?;
+    if expected!=actual { return Err(format!("effects differ\n  expected: {expected}\n  rust: {actual}")); }
+    Ok(())
+}
+
+fn index_top_n_pair(dir: &std::path::Path, rails: &serde_json::Value, rust: &serde_json::Value) -> Result<(serde_json::Value,serde_json::Value), String> {
+    use serde_json::Value;
+    let expected: Value = if dir.join("rails-non-stable.json").exists() {
+        let text = std::fs::read_to_string(dir.join("rails-non-stable.json")).map_err(|e|e.to_string())?;
+        r5_cleanup_expected(&serde_json::from_str(&text).map_err(|e|e.to_string())?,rust)
+    } else { rails.clone() };
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).map_err(|e|e.to_string())?;
+    let mut shortfalls = 0;
+    for log in rust["changes"]["bot_activity_logs"].as_array().ok_or("logs")? {
+        let row = &log["after"];
+        if row["event"] != "index_composition_shortfall" { continue; }
+        shortfalls += 1;
+        let available = row["details"]["available"].as_i64().ok_or("shortage available")?;
+        let requested = row["details"]["requested"].as_i64().ok_or("shortage requested")?;
+        let bot = deltabadger::engine::model::load_bot(&c,row["bot_id"].as_i64().ok_or("bot id")?).map_err(|e|format!("{e:?}"))?;
+        let n = if bot.hold_all() {
+            c.query_row("SELECT json_array_length(top_coins) FROM indices WHERE external_id=?1",[bot.index_external_id()],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())?
+        } else { bot.num_coins().ok_or("num coins")? };
+        let venue = deltabadger::engine::model::exchange_name(&c,&bot).map_err(|e|format!("{e:?}"))?;
+        let quote = deltabadger::engine::model::quote_symbol(&c,&bot).map_err(|e|format!("{e:?}"))?;
+        let message = format!("Index composition: {available} of {n} requested assets are tradable on {venue} in {quote}.");
+        if requested!=n || available<1 || available>=n || row["level"]!=1 || row["message"]!=message {
+            return Err(format!("invalid shortage line: {row}"));
+        }
+    }
+    let normalize = |out: &Value| {
+        let mut out = out.clone();
+        if shortfalls > 0 {
+            let logs = out["changes"]["bot_activity_logs"].as_array_mut().unwrap();
+            logs.retain(|row|row["after"]["event"]!="index_composition_shortfall");
+            for row in logs { row.as_object_mut().unwrap().remove("id"); row["after"].as_object_mut().unwrap().remove("id"); }
+        }
+        out
+    };
+    Ok((normalize(&expected),normalize(rust)))
 }
 
 /// D-IDX-CAP: the engine reads an index bot's spending cap. Spent long ago (60 bought since it was switched on, cap 10), the
@@ -2628,13 +2698,24 @@ fn unsent_lock_kept(rails_out: &serde_json::Value, rust_out: &serde_json::Value)
 /// the one-asset and ranked sale claims (S), the fill confirmation (F), the rebalance legs (R) and the signal bot (G), on
 /// Kraken, Binance and Alpaca, compared whole with `wash_sale_locks` in the snapshot (claim tokens as present or null).
 /// Divergences: D-WASH-UNSENT-KEEPS (S6 on Binance), and the sanctioned unknown outcome (S7: Rails writes a failed row,
-/// the engine keeps its intent), where both sides keep the lock alike.
+/// the engine keeps its intent), where both sides keep the lock alike. D-INDEX-TOP-N (B5 on Binance and Kraken)
+/// compares every effect, including wash-sale locks, with Rails on the non-stable ranking. The locked ETH stays unbought.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_guard_wash_sales_identically() {
     let (_copies, outputs) = grid_outputs("grid-wash-sale", 70).await;
     let mut failures = vec![];
     for (name, dir, rails_out, rust_out) in &outputs {
         let checked = match name.as_str() {
+            "wash-B5-binance" | "wash-B5-kraken" => {
+                assert!(dir.join("rails-non-stable.json").is_file(), "{name}: missing D-INDEX-TOP-N oracle");
+                let pairs = |out: &serde_json::Value| -> Vec<String> { out["sent"].as_array().unwrap().iter()
+                    .map(|o| o.get("pair").or_else(|| o.get("symbol")).and_then(|v| v.as_str()).unwrap().to_string()).collect() };
+                let (btc, sol) = if name == "wash-B5-binance" { ("BTCUSDT", "SOLUSDT") } else { ("XBTEUR", "SOLEUR") };
+                assert_eq!(pairs(rails_out), [btc], "{name}: pin the original Rails composition");
+                assert_eq!(pairs(rust_out), [btc, sol], "{name}: fill Top N while keeping the locked ETH unbought");
+                assert_eq!(rails_out["changes"]["wash_sale_locks"], rust_out["changes"]["wash_sale_locks"], "{name}: composition must not change the locks");
+                index_top_n(dir, rails_out, rust_out)
+            },
             "wash-S6-binance" => unsent_lock_kept(rails_out, rust_out),
             "wash-S7-alpaca" | "wash-S7-kraken" if rails_out["changes"]["wash_sale_locks"] != rust_out["changes"]["wash_sale_locks"] =>
                 Err("the locks differ".into()),

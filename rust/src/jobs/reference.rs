@@ -89,6 +89,7 @@ pub async fn run_once<T: Transport>(name: &str, api: Option<DataApi<T>>, cx: Cx<
 
 async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cx: Cx<'_>) -> Outcome {
     if kind == Kind::Prune { return prune(&cx).await; }
+    if kind == Kind::Indices && api.is_none() { return coingecko_indices(&LiveCoinGecko, &cx).await; }
     let Some(api) = api else { return Outcome::Failed(NOT_PORTED.into()) };
     let feeds = Feeds::Api(api);
     match kind {
@@ -270,6 +271,77 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         }).await {Ok(())=>{cx.wakers.wake_engine();Outcome::Done},Err(e)=>Outcome::Failed(e)},
         Err(m)=>Outcome::Transient(m)
     }
+}
+
+/// D-INDEX-TOP-N: the direct provider refreshes Top Coins through the same daily indices job,
+/// retry policy, provider fence and composition resync path as the data-api provider.
+pub trait CoinGecko {
+    fn markets<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>>;
+}
+
+struct LiveCoinGecko;
+impl CoinGecko for LiveCoinGecko {
+    fn markets<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>> {
+        Box::pin(async move {
+            let client = crate::venue::http::client();
+            // Clients::Coingecko.detect_plan: the pro ping selects the URL and key header.
+            let ping = client.get("https://pro-api.coingecko.com/api/v3/ping").header("x-cg-pro-api-key", key).send().await
+                .map_err(|_| ApiError::Transient("CoinGecko plan check failed".into()))?;
+            let (base, header) = if ping.status().is_success() { ("https://pro-api.coingecko.com", "x-cg-pro-api-key") }
+                else { ("https://api.coingecko.com", "x-cg-demo-api-key") };
+            let reply = client.get(format!("{base}/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false")).header(header, key)
+                .send().await.map_err(|_| ApiError::Transient("CoinGecko ranking request failed".into()))?;
+            let reply = crate::venue::http::read_limited(reply, MAX_REFERENCE_BODY).await
+                .map_err(|_| ApiError::Transient("CoinGecko ranking response unavailable".into()))?;
+            if reply.status != 200 { return Err(ApiError::Failed{status:Some(reply.status),message:format!("CoinGecko ranking HTTP {}",reply.status)}); }
+            serde_json::from_str(&reply.body).map_err(|_| ApiError::Failed{status:Some(200),message:"Unreadable CoinGecko ranking".into()})
+        })
+    }
+}
+
+pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome {
+    let captured = cx.db.run(|c, cipher| {
+        crate::engine::provider::bind_cipher(c,cipher).map_err(|e|format!("{e:?}"))?;
+        let key = crate::engine::provider::coingecko_key(c).map_err(|_|"index configuration unreadable")?
+            .ok_or_else(||NOT_PORTED.to_string())?;
+        let fingerprint = crate::engine::provider::fingerprint(c).map_err(|_|"index configuration unreadable")?
+            .ok_or("index provider not configured")?;
+        Ok((key,fingerprint))
+    }).await;
+    let (key,captured) = match captured { Ok(v)=>v, Err(e)=>return Outcome::Failed(e) };
+    let body = match fetch.markets(&key).await { Ok(body)=>body, Err(e)=>return api_failure(e) };
+    let Some(rows) = body.as_array().filter(|rows|!rows.is_empty() && rows.len()<=250) else {
+        return Outcome::Failed("CoinGecko ranking is empty or malformed; previous ranking kept".into());
+    };
+    let mut ids = vec![];
+    let mut weights = serde_json::Map::new();
+    for row in rows {
+        let (Some(id),Some(cap)) = (row["id"].as_str().filter(|s|!s.is_empty()),row["market_cap"].as_f64().filter(|n|n.is_finite() && *n>0.0)) else {
+            return Outcome::Failed("CoinGecko ranking has an invalid id or market cap; previous ranking kept".into());
+        };
+        if weights.insert(id.to_string(),json!(cap)).is_some() { return Outcome::Failed("CoinGecko ranking has duplicate ids; previous ranking kept".into()); }
+        ids.push(id.to_string());
+    }
+    let now = cx.clock.now();
+    let result = cx.db.run(move |c,_| crate::engine::model::locked(c,|tx| {
+        use crate::engine::{index,provider,EngineError};
+        if provider::fingerprint(tx)?.as_deref()!=Some(&captured) { return Err(EngineError::Data("index configuration changed during refresh".into())); }
+        let stamp = format_time(now);
+        // Keep existing asset identities and taxonomy. Fresh market caps are also used by the next composition step.
+        for (id,cap) in &weights { tx.execute("UPDATE assets SET market_cap=?1,updated_at=?2 WHERE external_id=?3",rusqlite::params![cap.as_f64(),stamp,id])?; }
+        let id: Option<i64> = tx.query_row("SELECT id FROM indices WHERE external_id='top-coins' ORDER BY id LIMIT 1",[],|r|r.get(0)).optional()?;
+        match id {
+            Some(id) => { tx.execute("UPDATE indices SET top_coins=?1,weights=?2,updated_at=?3 WHERE id=?4",rusqlite::params![json!(ids).to_string(),json!(weights).to_string(),stamp,id])?; }
+            None => { tx.execute("INSERT INTO indices (external_id,source,name,top_coins,weights,created_at,updated_at) VALUES ('top-coins','internal','Top Coins',?1,?2,?3,?3)",rusqlite::params![json!(ids).to_string(),json!(weights).to_string(),stamp])?; }
+        }
+        provider::record(tx,&captured,now)?;
+        // Only Top Coins was refreshed; direct-provider category indices remain unsupported.
+        let mut s=tx.prepare("SELECT id FROM bots WHERE type='Bots::DcaIndex' AND status NOT IN (3,7) AND exchange_id IS NOT NULL")?;
+        let bots=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+        for id in bots { if crate::engine::model::load_bot(tx,id)?.index_external_id()=="top-coins" { index::mark_resync(tx,id,now)?; } }
+        Ok(())
+    }).map_err(|e|format!("{e:?}"))).await;
+    match result { Ok(())=>{cx.wakers.wake_engine();Outcome::Done},Err(e)=>Outcome::Failed(e) }
 }
 
 /// ticker_data_from_listing_row (:677-704): the base from the row's public id ("crypto:bitcoin" → "bitcoin"), the pair from

@@ -7,6 +7,7 @@ use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::ScriptedTransport;
 use serde_json::{json, Value};
+use rusqlite::OptionalExtension;
 
 const SYMBOLS: [&str; 5] = ["AAA", "BBB", "CCC", "DDD", "EEE"];
 const T0: &str = "2026-09-01T14:00:00.5Z";
@@ -665,4 +666,61 @@ fn a_top_bot_and_a_category_bot_without_an_id_read_the_top_coins_row() {
     seed::insert_index(&o.primary, "top-coins", &["CCC.US", "AAA.US"], &json!({}));
     o.primary.execute("UPDATE indices SET source = 'internal' WHERE external_id = 'top-coins'", []).unwrap();
     assert_eq!(index::candidate_pairs(&o.primary, &bot()).unwrap(), vec!["AAA", "CCC"]);
+}
+
+/// D-INDEX-TOP-N: selection fills down the complete ranking after venue and taxonomy exclusions.
+#[tokio::test(flavor = "current_thread")]
+async fn top_twenty_fills_from_tradable_non_stable_assets_and_reports_shortage() {
+    use deltabadger::venue::fake::FakeVenue;
+    for available in [25, 16] {
+        let (_d, o, s) = common::install();
+        let c = &o.primary;
+        let mut venue = FakeVenue::new().balance_body("ZEUR", "100000", "0");
+        let mut ids = vec![];
+        let mut members = vec![];
+        for i in 0..30 {
+            let ext = if i == 0 { "usd-coin".into() } else { format!("coin-{i}") };
+            c.execute("INSERT INTO assets (external_id,symbol,name,category,market_cap,created_at,updated_at) VALUES (?1,?1,?1,?2,?3,'2026-01-01','2099-01-01')",
+                rusqlite::params![ext, if i == 0 { "Stablecoin" } else { "Cryptocurrency" }, 1000-i]).unwrap();
+            let asset = c.last_insert_rowid();
+            c.execute("INSERT INTO tickers (exchange_id,base_asset_id,quote_asset_id,ticker,base,quote,available,trading_enabled,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,'EUR',?6,1,8,2,2,0.001,0.01,'2026-01-01','2099-01-01')",
+                rusqlite::params![s.exchange_id,asset,s.quote,format!("C{i}EUR"),format!("C{i}"),if available == 25 { i % 6 != 5 } else { i < available }]).unwrap();
+            members.push((asset,c.last_insert_rowid()));
+            venue = venue.ticker(&format!("C{i}EUR"), "10", "10", "10");
+            ids.push(ext);
+        }
+        seed::insert_index(c, "top-coins", &ids.iter().map(String::as_str).collect::<Vec<_>>(), &json!({}));
+        c.execute("UPDATE indices SET source='internal'", []).unwrap();
+        let id = seed::index_bot(c, &s, "top-coins", 20, 1.0, false);
+        seed::fresh_stock_jobs(c,at(T0));
+        // The ten old members remain held until the next ordinary composition step.
+        for &(asset,ticker) in &members[..10] { seed::insert_member(c,id,asset,ticker,0.1,true,"2026-08-01",None); }
+        assert!(eligibility::bot_reasons(c,&model::load_bot(c,id).unwrap()).unwrap().is_empty(),"a formerly included stablecoin is a holding, not a reason to refuse the index bot");
+        assert_eq!(in_index(&o,id).len(),10);
+        let out = tick::tick(c,&venue,id,&FixedClock(at(T0)),&mut Attempts::default()).await.unwrap();
+        assert!(matches!(out,TickOutcome::Done{placed:true}), "{out:?}");
+        let chosen = in_index(&o,id);
+        assert_eq!(chosen.len(),20.min(available-1) as usize);
+        assert!(!chosen.iter().any(|(s,_)| s=="usd-coin"));
+        let expected: Vec<_> = (1..30).filter(|i|if available==25 {i%6!=5} else {*i<available}).take(20).map(|i|format!("coin-{i}")).collect();
+        assert_eq!(chosen.iter().map(|(s,_)|s.clone()).collect::<Vec<_>>(),expected);
+        let held: bool = c.query_row("SELECT in_index=0 FROM bot_index_assets WHERE bot_id=?1 AND asset_id=?2",(id,members[0].0),|r|r.get(0)).unwrap();
+        assert!(held,"the stablecoin holding remains recorded outside the corrected composition");
+        let note: Option<String> = c.query_row("SELECT message FROM bot_activity_logs WHERE bot_id=?1 AND event='index_composition_shortfall'",[id],|r|r.get(0)).optional().unwrap();
+        if available < 20 { assert!(note.unwrap().contains("15 of 20")); } else { assert!(note.is_none()); }
+        assert_eq!(venue.sent().len(),chosen.len(),"new members are bought by the ordinary tick");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_searches_beyond_three_times_n_and_skips_taxonomy_stablecoins() {
+    let (_d,o,_s,id,m) = universe(2,0.0,false);
+    o.primary.execute("UPDATE assets SET category='stablecoin' WHERE id=?1",[m[0].0]).unwrap();
+    let mut ids: Vec<String> = (0..8).map(|i|format!("unlisted-{i}")).collect();
+    ids.extend(SYMBOLS.iter().map(|s|format!("{s}.US")));
+    o.primary.execute("UPDATE indices SET source='coingecko',top_coins=?1",[json!(ids).to_string()]).unwrap();
+    let t = script([100.0;5]);
+    let out = tick::tick(&o.primary,&venue(&t),id,&FixedClock(at(T0)),&mut Attempts::default()).await.unwrap();
+    assert!(matches!(out,TickOutcome::Done{placed:true}),"{out:?}");
+    assert_eq!(in_index(&o,id).iter().map(|(s,_)|s.as_str()).collect::<Vec<_>>(),["BBB","CCC"]);
 }

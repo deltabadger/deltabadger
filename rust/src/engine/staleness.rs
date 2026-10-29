@@ -112,6 +112,13 @@ pub const INDICES: Source = Source {
     job: crate::jobs::reference::INDICES, newest_sql: "SELECT max(updated_at) FROM indices", per_exchange: false, gate: None, evidence: false,
 };
 
+/// D-INDEX-TOP-N: a category refresh cannot make an unchanged Top Coins ranking fresh.
+pub const TOP_COINS: Source = Source {
+    name: "Top Coins", column: "top-coins indices.updated_at",
+    newest_sql: "SELECT max(updated_at) FROM indices WHERE external_id='top-coins'",
+    ..INDICES
+};
+
 /// The crypto catalogue's market caps (import_assets!, market_data.rb:233-245, :885-886), daily at 00:20 + up to 5 min.
 pub const CRYPTO_ASSETS: Source = Source {
     name: "Crypto assets", column: "assets.updated_at",
@@ -129,7 +136,7 @@ pub const IBKR_TICKERS: Source = Source {
     job: crate::jobs::reference::IBKR, newest_sql: "", per_exchange: false, gate: None, evidence: true,
 };
 
-pub const SOURCES: [&Source; 6] = [&ALPACA_CRYPTO_TICKERS, &ALPACA_STOCK_TICKERS, &VENUE_TICKERS, &INDICES, &CRYPTO_ASSETS, &IBKR_TICKERS];
+pub const SOURCES: [&Source; 7] = [&ALPACA_CRYPTO_TICKERS, &ALPACA_STOCK_TICKERS, &VENUE_TICKERS, &INDICES, &CRYPTO_ASSETS, &IBKR_TICKERS, &TOP_COINS];
 
 /// Rails' last ownership window runs from `HANDED_BACK_AT` (written in the handback's own transaction) to `TAKEN_OVER_AT`
 /// (written with the claim). Both are plain `app_configs` rows owned by `lease.rs`.
@@ -169,9 +176,11 @@ fn trusted_column(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Resul
 /// the takeover (`seed`). A run that fails after committing some units moves neither. An evidence source reads its
 /// `source_at`; catalogue-fed evidence is judged by CATALOGUE_BOUND_SECS, and the clock expiring later counts.
 fn record_at(c: &Connection, s: &Source) -> Result<Option<Option<Clock>>, EngineError> {
+    let row_at = if s.name == TOP_COINS.name { Some(column_at(c,s,None)?) } else { None };
     Ok(crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.map(|st| {
         let catalogue = st.source_at.filter(|_| st.catalogue).map(|at| (at, CATALOGUE_BOUND_SECS));
         let hosted = if s.evidence { st.source_at.filter(|_| !st.catalogue) } else { st.last_success_at.max(st.rails_at) };
+        let hosted = match row_at { Some(row) => hosted.zip(row).map(|(run,row)|run.min(row)), None => hosted };
         newest(hosted.map(|at| (at, s.max_age_secs)), catalogue)
     }))
 }
@@ -208,6 +217,9 @@ fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> 
 /// The tick (tick.rs). Once the job has a record (seeded at the takeover), only its completed runs count: no complete
 /// refresh at all is stale. Before any takeover, the door's verdict (Unknown is not stale).
 fn source_stale(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    // An absent ranking is the composition step's explicit "Index not found" failure.
+    // Preserve that activity line instead of parking the bot without an execution result.
+    if s.name == TOP_COINS.name && column_at(c,s,None)?.is_none() { return Ok(None); }
     Ok(match record_at(c, s)? {
         Some(Some(at)) => judge(c, s, at, now),
         Some(None) => Some(Stale { source: s.name, message: format!(
@@ -235,6 +247,7 @@ fn targets(c: &Connection) -> Result<Vec<Target>, EngineError> {
         targets.push((&IBKR_TICKERS, Some(ibkr), String::new()));
     }
     targets.push((&INDICES, None, String::new()));
+    targets.push((&TOP_COINS, None, String::new()));
     targets.push((&CRYPTO_ASSETS, None, String::new()));
     Ok(targets)
 }
@@ -283,15 +296,17 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineE
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
     let index = bot.bot_type == "Bots::DcaIndex";
     // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
+    let ranking = if bot.index_external_id() == "top-coins" { &TOP_COINS } else { &INDICES };
+    let direct_top = index && bot.index_external_id() == "top-coins" && super::provider::coingecko_key(c)?.is_some();
     let market_cap = bot.bot_type == "Bots::DcaMultiAsset" && bot.weighting() == "market_cap";
     let crypto_member = || -> Result<bool, EngineError> {
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
         Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE category = 'Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))", [ids], |r| r.get(0))?)
     };
     let venue = model::exchange_type(c, bot)?;
-    if venue == "Exchanges::Ibkr" { return Ok(if index { vec![&IBKR_TICKERS, &INDICES] } else { vec![&IBKR_TICKERS] }); }
+    if venue == "Exchanges::Ibkr" { return Ok(if index { vec![&IBKR_TICKERS, ranking] } else { vec![&IBKR_TICKERS] }); }
     if venue != "Exchanges::Alpaca" {
-        return Ok(if index { vec![&INDICES, &CRYPTO_ASSETS] } else if market_cap && crypto_member()? { vec![&CRYPTO_ASSETS] } else { vec![] });
+        return Ok(if direct_top { vec![ranking] } else if index { vec![ranking, &CRYPTO_ASSETS] } else if market_cap && crypto_member()? { vec![&CRYPTO_ASSETS] } else { vec![] });
     }
     let mut sources = vec![];
     let (stocks, crypto): (bool, bool) = if index {
@@ -307,8 +322,8 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     };
     if stocks { sources.push(&ALPACA_STOCK_TICKERS); }
     if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
-    if index { sources.push(&INDICES); }
-    if (index || market_cap) && crypto { sources.push(&CRYPTO_ASSETS); }
+    if index { sources.push(ranking); }
+    if (index || market_cap) && crypto && !direct_top { sources.push(&CRYPTO_ASSETS); }
     Ok(sources)
 }
 

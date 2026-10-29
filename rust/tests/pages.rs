@@ -406,6 +406,9 @@ async fn run(dir: &Path) -> Value {
         };
         // D-IDX-FOLLOW-LATE: Rails derives a switched bot's members in the request; this crate's woken engine derives them.
         if step["resync"] == true {
+            let (after_request, _) = action_rows(dir, &app.cipher).unwrap();
+            assert_eq!(after_request["bot_activity_logs"], before.as_ref().expect("resync step has a snapshot").0["bot_activity_logs"],
+                "the follow-index request must not write activity; the engine has not resynced yet");
             let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
             deltabadger::parity::resync_marked(&c, &app.cipher, now).await.unwrap_or_else(|e| panic!("resync: {e:?}"));
         }
@@ -1287,6 +1290,52 @@ fn without_rust_tables(answer: &Value) -> Value {
     answer
 }
 
+/// D-INDEX-TOP-N + D-IDX-FOLLOW-LATE: this one unbounded follow resync seats four of ten
+/// requested stocks and records one shortage notice. The request itself logs nothing (asserted
+/// before run() invokes the engine). Validate the entire row and the next page's now-nonempty
+/// activity feed, then compare every other effect.
+fn index_shortfall_difference(name: &str, scenario: &Value, rails: &Value, rust: &mut Value) -> Result<(), String> {
+    if name != "follow_index_create_unbounded" { return Ok(()); }
+    let steps = scenario["steps"].as_array().ok_or("missing steps")?;
+    let resyncs: Vec<_> = steps.iter().enumerate().filter(|(_, step)| step["resync"] == true).collect();
+    let [(index, step)] = resyncs.as_slice() else { return Err("expected exactly one follow resync".into()) };
+    let index = *index;
+    if step["method"] != "POST" || step["path"] != "/bots/1/index" { return Err("unexpected resync request".into()); }
+    let at = scenario["at"].as_str().ok_or("missing clock")?.parse::<chrono::DateTime<chrono::Utc>>().map_err(|e| e.to_string())?
+        + chrono::Duration::seconds(steps[..=index].iter().map(|s| s["advance"].as_i64().unwrap_or(0)).sum());
+    let expected = json!([{"id":1,"bot_id":1,"created_at":deltabadger::codec::format_time(at),"event":"index_composition_shortfall",
+        "level":1,"message":"Index composition: 4 of 10 requested assets are tradable on Alpaca in USD.","details":{"available":4,"requested":10}}]);
+    for key in ["rows_before", "rows_after"] {
+        if rails["responses"][index][key]["bot_activity_logs"] != json!([]) { return Err("Rails follow activity changed".into()); }
+    }
+    if rust["responses"][index]["rows_before"]["bot_activity_logs"] != json!([])
+        || rust["responses"][index]["rows_after"]["bot_activity_logs"] != expected {
+        return Err(format!("D-INDEX-TOP-N: expected only the resync shortage notice: {}", rust["responses"][index]));
+    }
+    if steps.get(index + 1).is_none_or(|s| s["method"] != "GET" || s["path"] != "/bots/1") {
+        return Err("expected the bot page after the resync".into());
+    }
+    // With an activity row, the feed no longer needs its empty placeholder. Pin the exact
+    // element (including its whitespace nodes) and require the rest of this page to match.
+    let body = rails["responses"][index + 1]["body"].as_array().ok_or("missing bot page")?;
+    let placeholder = ["<tr id=\"orders_list_placeholder\">", "\" \"", "<td class=\"text-center text-inactive\" colspan=\"5\" style=\"padding-bottom: 2rem;\">", "\". . .\"", "</td>", "\" \"", "</tr>", "\" \""];
+    let positions: Vec<_> = body.iter().enumerate().filter(|(_, line)| line.as_str().is_some_and(|s| s.trim() == placeholder[0])).map(|(i, _)| i).collect();
+    let [start] = positions.as_slice() else { return Err("expected one empty-feed placeholder in Rails".into()) };
+    if body.get(*start..*start + placeholder.len()).is_none_or(|lines| !lines.iter().zip(placeholder).all(|(line, expected)| line.as_str().is_some_and(|s| s.trim() == expected))) {
+        return Err(format!("Rails empty-feed placeholder changed: {:?}", body.get(*start..*start + placeholder.len())));
+    }
+    let mut without_placeholder = body.clone();
+    without_placeholder.drain(*start..*start + placeholder.len());
+    if rust["responses"][index + 1]["body"] != json!(without_placeholder) {
+        let lines = |value: &Value| value.as_array().into_iter().flatten().map(|line| line.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>();
+        return Err(format!("the resynced bot page differs beyond its empty-feed placeholder: {}",
+            html::first_difference(&lines(&json!(without_placeholder)), &lines(&rust["responses"][index + 1]["body"])).unwrap_or_default()));
+    }
+    rust["responses"][index + 1]["body"] = json!(body);
+    rust["responses"][index]["rows_after"]["bot_activity_logs"] = json!([]);
+    Ok(())
+}
+
 /// D-6C-6/8: the request itself is durable engine work, instead of a Rails TTL-only spinner token.
 /// Assert that one field's complete shape before comparing every remaining row and the flash unchanged.
 fn liquidation_request_difference(name:&str,scenario:&Value,rails:&mut Value,rust:&mut Value)->Result<(),String> {
@@ -2158,7 +2207,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=liquidation_request_difference(&name,&scenario,&mut rails,&mut rust).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
@@ -2170,6 +2219,118 @@ async fn replay_page_shard(shard: usize) {
     }
     eprintln!("page shard {}: replay {:?}", shard + 1, replay.elapsed());
     assert!(failures.is_empty(), "{} failures across {} scenarios in shard {}:\n{}", failures.len(), dirs.len(), shard + 1, failures.join("\n"));
+}
+
+/// Replay the affected page flow in-process, including its real request and engine resync.
+/// Cable broadcasts remain covered by the full shard; this checks pages and all database effects
+/// without needing the shard's mock HTTP server or WebSocket listener.
+#[tokio::test(flavor = "current_thread")]
+async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
+    let name = "follow_index_create_unbounded";
+    let (_recording, root, dirs) = recorded_grid(name);
+    assert_eq!(dirs.len(), 1);
+    let dir = root.path().join(name);
+    let scenario = scenario(&dir);
+    let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dirs[0].join("rails.json")).unwrap()).unwrap();
+    assert_eq!(recorded["network"], json!([]));
+    let mut now: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
+    let clock = TestClock::starting(now);
+    let app = web::app_in(&dir, scenario["secret_key_base"].as_str().unwrap(), None, scenario["env"].as_object().unwrap_or(&serde_json::Map::new()), clock.clone());
+    app.attach_engine(Default::default());
+    app.attach_jobs(Default::default()).unwrap();
+    let mut browser = Browser::default();
+    let (mut theirs, mut ours) = (vec![], vec![]);
+    for (step, recorded) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
+        now += chrono::Duration::seconds(step["advance"].as_i64().unwrap_or(0));
+        clock.set(now);
+        let before = action_rows(&dir, &app.cipher).unwrap();
+        let headers: Vec<_> = step["headers"].as_object().unwrap().iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect();
+        let form: Option<Vec<_>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());
+        let csrf = match step["csrf"].as_str() {
+            Some("form") => Csrf::Form,
+            Some("both") if web::form_token(browser.page.as_deref().unwrap_or_default(), step["path"].as_str().unwrap()).is_some() => Csrf::Both,
+            Some("both") => Csrf::Header, // a modal keeps the parent page's meta token, as run() does
+            None => Csrf::None,
+            other => panic!("unexpected CSRF: {other:?}"),
+        };
+        let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
+        assert_genuine(&app, &browser, &answer, now, name);
+        let mut expected = rails_answer(recorded, step);
+        let mut actual = rust_answer(&answer, step);
+        assert_eq!(action_rows(&dir, &app.cipher).unwrap().0["bot_activity_logs"], before.0["bot_activity_logs"], "no request-side activity");
+        if step["resync"] == true {
+            let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+            deltabadger::parity::resync_marked(&c, &app.cipher, now).await.unwrap();
+        }
+        panels_published(&app).await;
+        if step["action_snapshot"] == true {
+            let after = action_rows(&dir, &app.cipher).unwrap();
+            actual["rows_before"] = before.0;
+            actual["other_rows_before"] = before.1;
+            actual["rows_after"] = after.0;
+            actual["other_rows_after"] = after.1;
+            actual["may_mutate"] = step["may_mutate"].clone();
+            without_ownership(&mut expected);
+            without_ownership(&mut actual);
+        }
+        // Use the full shard's existing, independently validated page divergences too.
+        without_broker_gate(&mut expected["body"]);
+        without_low_funds(&mut actual["body"]);
+        without_split_item(&mut actual["body"]);
+        let _ = index_rules(&mut actual["body"]);
+        let _ = signal_rules(&mut actual["body"]);
+        theirs.push(expected);
+        ours.push(actual);
+    }
+    let rails = json!({"responses":theirs});
+    let mut rust = json!({"responses":ours});
+    index_shortfall_difference(name, &scenario, &rails, &mut rust).unwrap();
+    for (expected, actual) in rails["responses"].as_array().unwrap().iter().zip(rust["responses"].as_array().unwrap()) {
+        for key in ["status", "headers", "body"] { assert_eq!(actual[key], expected[key], "{name}: {key}"); }
+    }
+    for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate().filter(|(_, s)| s["action_snapshot"] == true) {
+        assert_eq!(action_snapshot_difference(name, &rails["responses"][index], &rust["responses"][index]), None, "{step}");
+    }
+}
+
+#[test]
+fn index_shortfall_divergence_accepts_only_the_exact_resync_notice() {
+    let name = "follow_index_create_unbounded";
+    let scenario = json!({"at":"2026-09-10T12:00:30.123456Z", "steps":[{"method":"POST","path":"/bots/1/index","resync":true},{"method":"GET","path":"/bots/1"}]});
+    let rails = json!({"responses":[{"rows_before":{"bot_activity_logs":[]},"rows_after":{"bot_activity_logs":[]}},
+        {"body":["<tbody id=\"orders_list\">","<tr id=\"orders_list_placeholder\">","\" \"","<td class=\"text-center text-inactive\" colspan=\"5\" style=\"padding-bottom: 2rem;\">","\". . .\"","</td>","\" \"","</tr>","\" \"","</tbody>"]}]});
+    let note = json!({"id":1,"bot_id":1,"created_at":"2026-09-10 12:00:30.123456", "event":"index_composition_shortfall",
+        "level":1,"message":"Index composition: 4 of 10 requested assets are tradable on Alpaca in USD.","details":{"available":4,"requested":10}});
+    let mut rust = rails.clone();
+    rust["responses"][0]["rows_after"]["bot_activity_logs"] = json!([note]);
+    rust["responses"][1]["body"] = json!(["<tbody id=\"orders_list\">","</tbody>"]);
+    let mut normalized = rust.clone();
+    index_shortfall_difference(name, &scenario, &rails, &mut normalized).unwrap();
+    assert_eq!(normalized, rails);
+    for (field, bad) in [("id",json!(2)), ("bot_id",json!(2)), ("created_at",json!("2026-09-11")), ("event",json!("other")),
+        ("level",json!(0)), ("message",json!("wrong")), ("details",json!({"available":5,"requested":10}))] {
+        let mut changed = rust.clone();
+        changed["responses"][0]["rows_after"]["bot_activity_logs"][0][field] = bad;
+        assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err(), "{field}");
+    }
+    for notes in [json!([]), json!([note,note]), json!([note,{"id":2,"event":"unexpected"}])] {
+        let mut changed = rust.clone();
+        changed["responses"][0]["rows_after"]["bot_activity_logs"] = notes;
+        assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err());
+    }
+    let mut changed = rust.clone();
+    changed["responses"][0]["rows_before"]["bot_activity_logs"] = json!([note]);
+    assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err());
+    let mut changed = rust.clone();
+    let mut no_resync = scenario.clone();
+    no_resync["steps"][0]["resync"] = json!(false);
+    assert!(index_shortfall_difference(name, &no_resync, &rails, &mut changed).is_err());
+    let mut changed = rust.clone();
+    changed["responses"][1]["body"] = json!(["unexpected page"]);
+    assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err());
+    let mut changed = rust.clone();
+    index_shortfall_difference("follow_index_create", &scenario, &rails, &mut changed).unwrap();
+    assert_eq!(changed, rust, "no allowance for another page scenario");
 }
 
 // The response is deliberately identical: only a primary row is corrupted in each case.
