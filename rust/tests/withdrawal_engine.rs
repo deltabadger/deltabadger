@@ -2050,7 +2050,7 @@ async fn kraken_lookup_malformed_permission_and_cursor_cycles_stay_unknown() {
 }
 
 #[tokio::test]
-async fn kraken_method_is_immutable_and_missing_method_is_refused() {
+async fn kraken_method_is_immutable_and_an_entry_without_one_is_selected() {
     let d = kraken_db();
     let t = kraken_reads();
     let i = kraken_prepared(&d, &t).await;
@@ -2074,14 +2074,14 @@ async fn kraken_method_is_immutable_and_missing_method_is_refused() {
         &json!({"error":[],"result":[{"address":"destination","key":"cold","verified":true}]}),
     )
     .unwrap();
-    assert!(v::select(
+    // Rails lists an entry without a method too (kraken.rb:477); it is selected with no method to filter the lookup by.
+    assert!(matches!(v::select(
         v::Kind::Kraken,
         "XBT",
         &v::Stored::new("destination", None, None, Some("cold")),
         &entries,
         None
-    )
-    .is_err());
+    ), Ok(v::Destination::Kraken { method: None, .. })));
 }
 
 // R0: a recorder owns one scenario, never a synthetic rule or rule evaluation.
