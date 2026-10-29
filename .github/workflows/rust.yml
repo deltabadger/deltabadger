@@ -1,7 +1,9 @@
 name: Rust engine
 
 on:
+  # main only: a branch is checked by its pull request (pushing to it ran the same suite twice before).
   push:
+    branches: [main]
     paths:
       - 'rust/**'
       - '.github/workflows/rust.yml'
@@ -345,6 +347,11 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+
+# A new push to a pull request cancels its older run; main runs every commit to the end.
+concurrency:
+  group: rust-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust:

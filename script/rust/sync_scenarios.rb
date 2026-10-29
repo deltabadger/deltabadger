@@ -105,7 +105,7 @@ module SyncScenarios
           P.nta('ssp-add-2', 'SPLIT', symbol: 'KLAC', qty: '15', net_amount: '0', date: '2026-09-15')
         ])] },
       # A group that grows: the pair one night, the pair and a third leg the next. Rails reads the group as a duplicate of
-      # the pair it stored (the same first id) and keeps +5 and 3:2; the third leg is never counted. (A Rails defect, ported.)
+      # the pair it stored (the same first id) and keeps +5 and 3:2; the third leg is never counted. (Rails oracle for D-ALPACA-SPLIT-GROUPING.)
       { name: 'ledger-split_third_leg_later',
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30)) },
         steps: [P.ledger(night, [
@@ -137,7 +137,7 @@ module SyncScenarios
           P.nta('d2-add', 'SPLIT', symbol: 'AAPL', qty: '4', net_amount: '0', date: '2026-09-13')
         ])] },
       # Two legs of one split with other activities between them. Rails merges legs only while they are consecutive, so
-      # it stores them as two rows with no ratio and bumps the bot twice (a Rails defect, ported: see the plan).
+      # it stores them as two rows with no ratio and bumps the bot twice (Rails oracle for D-ALPACA-SPLIT-GROUPING).
       { name: 'ledger-split_legs_apart',
         setup: ->(ctx) { P.holder(ctx, 'QQQM', at: Time.utc(2026, 9, 2, 14, 30), amount: '2') },
         steps: [P.ledger(night, [
@@ -148,7 +148,7 @@ module SyncScenarios
         ])] },
       # A stored pair, then a read that holds one stored leg and one new leg, in either order. Rails knows a stored group
       # by its first id only: with the new leg first it stores the group beside the pair (the shared leg counted twice);
-      # with the stored leg first it skips the group (the new leg lost). (Rails defects, ported: see the plan.)
+      # with the stored leg first it skips the group (the new leg lost). (Rails oracle for D-ALPACA-SPLIT-GROUPING.)
       { name: 'ledger-split_overlap_new_leg_first',
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30)) },
         steps: [P.ledger(night, [P.nta('ssp-remove', 'SSP', symbol: 'KLAC', qty: '-10', net_amount: '0', date: '2026-09-15'),
@@ -156,7 +156,7 @@ module SyncScenarios
                 P.ledger(next_night, [P.nta('ssp-add-2', 'SPLIT', symbol: 'KLAC', qty: '15', net_amount: '0', date: '2026-09-15'),
                                       P.nta('ssp-add-1', 'SSP', symbol: 'KLAC', qty: '15', net_amount: '0', date: '2026-09-15')])] },
       # Two genuine splits of one symbol on one date, back to back: 10 become 20, then 20 become 60. Rails merges all four
-      # legs into one row and makes one ratio of them, 8:3, where the position went 6:1. (A Rails defect, ported.)
+      # legs into one row and makes one ratio of them, 8:3, where the position went 6:1. (Rails oracle for D-ALPACA-SPLIT-GROUPING.)
       { name: 'ledger-split_two_on_one_date',
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30)) },
         steps: [P.ledger(night, [P.nta('one-remove', 'SPLIT', symbol: 'KLAC', qty: '-10', net_amount: '0', date: '2026-09-15'),
@@ -165,7 +165,7 @@ module SyncScenarios
                                  P.nta('two-add', 'SPLIT', symbol: 'KLAC', qty: '60', net_amount: '0', date: '2026-09-15')])] },
       # The same, with ratios near one: 1000 become 1002, then 1002 become 1005. One row of +5 whose ratio, 287:286, is
       # (1002 + 1005) : (1000 + 1002). The position went 1.005; the stored ratio is 1.5 per mille off it, which a
-      # reader can still tell from the row's own numbers. (A Rails defect, ported.)
+      # reader can still tell from the row's own numbers. (Rails oracle for D-ALPACA-SPLIT-GROUPING.)
       { name: 'ledger-split_two_near_one_on_one_date',
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30), amount: '1000') },
         steps: [P.ledger(night, [P.nta('one-remove', 'SPLIT', symbol: 'KLAC', qty: '-1000', net_amount: '0', date: '2026-09-15'),
@@ -174,7 +174,7 @@ module SyncScenarios
                                  P.nta('two-add', 'SPLIT', symbol: 'KLAC', qty: '1005', net_amount: '0', date: '2026-09-15')])] },
       # And one no reader of the row can tell: 1000 become 100 (a reverse split), then 100 become 1005. One row of +5
       # whose ratio is (100 + 1005) : (1000 + 100), within a per mille of the 1.005 the position went: it looks like one
-      # split of 182:181, and is two. (A Rails defect, ported.)
+      # split of 182:181, and is two. (Rails oracle for D-ALPACA-SPLIT-GROUPING.)
       { name: 'ledger-split_two_alike_on_one_date',
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30), amount: '1000') },
         steps: [P.ledger(night, [P.nta('one-remove', 'SPLIT', symbol: 'KLAC', qty: '-1000', net_amount: '0', date: '2026-09-15'),
@@ -182,7 +182,7 @@ module SyncScenarios
                                  P.nta('two-remove', 'SPLIT', symbol: 'KLAC', qty: '-100', net_amount: '0', date: '2026-09-15'),
                                  P.nta('two-add', 'SPLIT', symbol: 'KLAC', qty: '1005', net_amount: '0', date: '2026-09-15')])] },
       # A leg that comes again under the same id with another quantity (a correction): the group's first id is stored,
-      # so Rails skips the group and the correction is not applied. (A Rails defect, ported.)
+      # so Rails skips the group and the correction is not applied. (Rails oracle for D-ALPACA-SPLIT-GROUPING.)
       { name: 'ledger-split_leg_changed',
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30)) },
         steps: [P.ledger(night, split_pair('KLAC', '-10', '100', '2026-09-15')),

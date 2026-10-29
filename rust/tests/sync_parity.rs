@@ -586,7 +586,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match transfer_watermarks(name, &rust_root.path().join(name), rails_out, rust_out).or_else(|| transfer_status_reads(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| listed_kraken(name, &rails_root.path().join(name), &rust_root.path().join(name), rails_out, rust_out)).or_else(|| bingx_page(name, rails_out, rust_out)).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
+        match alpaca_split_grouping(name, rails_out, rust_out).or_else(|| transfer_watermarks(name, &rust_root.path().join(name), rails_out, rust_out).or_else(|| transfer_status_reads(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| listed_kraken(name, &rails_root.path().join(name), &rust_root.path().join(name), rails_out, rust_out)).or_else(|| bingx_page(name, rails_out, rust_out)).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out))) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -597,6 +597,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_every_source", "binance-ledger-us_two_nights",
                       "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity", "kucoin-ledger-pages"].to_vec();
+    expected.extend_from_slice(&["ledger-asset_ids", "ledger-split_forward", "ledger-split_reverse", "ledger-split_three_legs", "ledger-split_third_leg_later", "ledger-split_fractional", "ledger-split_unmerged", "ledger-split_legs_apart", "ledger-split_overlap_new_leg_first", "ledger-split_two_on_one_date", "ledger-split_two_near_one_on_one_date", "ledger-split_two_alike_on_one_date", "ledger-split_leg_changed", "ledger-split_overlap_new_leg_last", "ledger-split_across_pages", "ledger-split_add_then_pair", "ledger-split_remove_then_pair", "ledger-split_pair_then_leg", "ledger-split_future", "ledger-split_untraded_symbol", "ledger-split_old", "ledger-split_holders", "ledger-split_nested_duplicate_keys"]);
     expected.push("bybit-ledger-stuck");
     expected.extend_from_slice(&["coinbase-ledger-size_in_quote","coinbase-ledger-quote_swap"]);
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
@@ -825,7 +826,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(rails_of("ledger-split_forward")["steps"][0]["generations"], json!([[1, 1], [2, 0]]), "legs that arrive together move the counter once");
     let untraded = rails_of("ledger-split_untraded_symbol");
     assert_eq!((rows(&untraded, "account_transactions").len(), rows(&untraded, "bots").len(), rows(&untraded, "bot_activity_logs").len()), (1, 0, 0));
-    // Split rows are Rails' own, defects included (the comparison above found every one identical). What Rails does
+    // Rails defect pins: alpaca_split_grouping above asserts the exact corrected Rust rows. What Rails does
     // with legs that do not arrive as one consecutive group, pinned here because the plan lists each with its amounts:
     // [tx_id, base_amount, ratio] of every split row, and the bot's counter after each sync.
     let splits = |name: &str| {
@@ -845,7 +846,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(splits("ledger-split_leg_changed"), (json!([["klac-remove", 90, "10:1"]]), json!([1, 1])), "a corrected leg under the same id: skipped");
     assert_eq!(splits("ledger-split_two_near_one_on_one_date"), (json!([["one-remove", 5, "287:286"]]), json!([1])), "1000 to 1002 to 1005: one row, 287:286 where the position went 1.005");
     assert_eq!(splits("ledger-split_two_alike_on_one_date"), (json!([["one-remove", 5, "182:181"]]), json!([1])), "1000 to 100 to 1005: one row that reads as one split of 182:181");
-    // The contract for Plan 2d, applied to what Rails stored (and Rust, identically): which groups of one symbol and
+    // The legacy-row contract, applied to what Rails stored: which groups of one symbol and
     // date a factor may be taken from, and which stored shapes say the split cannot be trusted.
     let verdicts = |name: &str| split_verdicts(&rails_of(name));
     for whole in ["forward", "reverse", "three_legs", "across_pages", "pair_then_leg", "future", "untraded_symbol", "old", "holders", "nested_duplicate_keys"] {
@@ -1410,4 +1411,80 @@ fn kraken_ledger_expected(name: &str) -> Option<KrakenLedger> {
             raised: [&[false], &[true]] },
         _ => return None,
     })
+}
+
+/// D-ALPACA-SPLIT-GROUPING: exact changes to the recorded Rails scenarios. Other
+/// columns, requests, key watermarks and unrelated rows still compare byte for byte.
+fn alpaca_split_grouping(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if !name.starts_with("ledger-") || !rows(rust,"account_transactions").iter().any(|r| r["after"]["raw_data"]["rust_split_legs"].is_array()) { return None; }
+    Some((|| {
+        let mut actual = rust.clone();
+        for change in actual["changes"]["account_transactions"].as_array_mut().unwrap() {
+            let row = &mut change["after"];
+            let Some(legs) = row["raw_data"]["rust_split_legs"].as_array().cloned() else { continue };
+            let mut ids = vec![];
+            let mut sum = deltabadger::ruby::BigDec::zero();
+            for text in legs {
+                let raw = deltabadger::sync::activities::Raw::parse(text.as_str().ok_or("leg text absent")?).ok_or("leg unreadable")??;
+                let id = raw.value["id"].clone();
+                check(!ids.contains(&id),"a retained leg was counted twice")?;
+                check(raw.value["symbol"] == row["base_currency"] && raw.value["date"] == row["raw_data"]["date"],"leg escaped its symbol/date")?;
+                sum = &sum + &raw.decimal("qty")?;
+                ids.push(id);
+            }
+            check(num(&row["base_amount"]) == Some(sum.to_f()),"stored net differs from retained legs")?;
+            if ids.len() > 1 { check(row["raw_data"]["merged_activity_ids"] == json!(ids),"merged IDs differ from retained legs")?; }
+            row["raw_data"].as_object_mut().unwrap().shift_remove("rust_split_legs");
+            let text = row["raw_data_text"].as_str().ok_or("raw text absent")?;
+            let end = text.rfind(",\"rust_split_legs\":").ok_or("provenance text absent")?;
+            row["raw_data_text"] = json!(format!("{}}}",&text[..end]));
+        }
+        // (Rails triples, Rust triples, retained leg IDs, counters after each sync).
+        let rule = match name {
+            "ledger-split_third_leg_later" | "ledger-split_overlap_new_leg_last" => Some((json!([["ssp-remove",5,"3:2"]]),json!([["ssp-remove",20,"3:1"]]),vec![vec!["ssp-remove","ssp-add-1","ssp-add-2"]],vec![1,2])),
+            "ledger-split_overlap_new_leg_first" => Some((json!([["ssp-remove",5,"3:2"],["ssp-add-2",30,null]]),json!([["ssp-remove",20,"3:1"]]),vec![vec!["ssp-remove","ssp-add-1","ssp-add-2"]],vec![1,2])),
+            "ledger-split_leg_changed" => Some((json!([["klac-remove",90,"10:1"]]),json!([["klac-remove",190,"20:1"]]),vec![vec!["klac-remove","klac-add"]],vec![1,2])),
+            "ledger-split_remove_then_pair" => Some((json!([["klac-remove",-10,null]]),json!([["klac-remove",90,"10:1"]]),vec![vec!["klac-remove","klac-add"]],vec![1,2])),
+            "ledger-split_add_then_pair" => Some((json!([["klac-add",100,null],["klac-remove",90,"10:1"]]),json!([["klac-add",90,"10:1"]]),vec![vec!["klac-add","klac-remove"]],vec![1,2])),
+            "ledger-split_legs_apart" => Some((json!([["x-remove",-2,null],["y-remove",-100,null],["x-add",4,null]]),json!([["x-remove",2,"2:1"],["y-remove",-100,null]]),vec![vec!["x-remove","x-add"],vec!["y-remove"]],vec![1])),
+            "ledger-split_two_on_one_date" => Some((json!([["one-remove",50,"8:3"]]),json!([["one-remove",50,null]]),vec![vec!["one-remove","one-add","two-remove","two-add"]],vec![1])),
+            "ledger-split_two_near_one_on_one_date" => Some((json!([["one-remove",5,"287:286"]]),json!([["one-remove",5,null]]),vec![vec!["one-remove","one-add","two-remove","two-add"]],vec![1])),
+            "ledger-split_two_alike_on_one_date" => Some((json!([["one-remove",5,"182:181"]]),json!([["one-remove",5,null]]),vec![vec!["one-remove","one-add","two-remove","two-add"]],vec![1])),
+            _ => None,
+        };
+        let Some((old,new,leg_ids,counters)) = rule else { return check(rails == &actual,"beyond retained split legs, Rails and Rust differ"); };
+        let triples = |out: &Value| json!(rows(out,"account_transactions").iter().filter(|r|r["after"]["entry_type"]==15).map(|r|json!([r["after"]["tx_id"],r["after"]["base_amount"],r["after"]["raw_data"]["split_ratio"]])).collect::<Vec<_>>());
+        check(triples(rails)==old,"Rails no longer exhibits the recorded split defect")?;
+        check(triples(&actual)==new,"Rust split rows do not match the named correction")?;
+        let mut expected = rails.clone();
+        let desired = new.as_array().unwrap();
+        let before_count = rows(&expected,"account_transactions").len();
+        expected["changes"]["account_transactions"].as_array_mut().unwrap().retain_mut(|change| {
+            let row = &mut change["after"];
+            if row["entry_type"] != 15 { return true; }
+            let Some(i) = desired.iter().position(|r|r[0]==row["tx_id"]) else { return false };
+            row["base_amount"] = desired[i][1].clone();
+            let raw = &mut row["raw_data"];
+            if leg_ids[i].len()>1 { raw["merged_activity_ids"] = json!(leg_ids[i]); }
+            raw.as_object_mut().unwrap().shift_remove("split_ratio");
+            if !desired[i][2].is_null() { raw["split_ratio"] = desired[i][2].clone(); }
+            row["description"] = json!(format!("Split ({}){}",row["base_currency"].as_str().unwrap(),desired[i][2].as_str().map(|r|format!(" {r}")).unwrap_or_default()));
+            row["raw_data_text"] = json!(row["raw_data"].to_string());
+            if counters.len()==2 {
+                // The recorded second sync time; the key stays untouched when its watermark does not move.
+                row["updated_at"] = json!("2026-09-21 02:00:07.500000");
+            }
+            true
+        });
+        let removed = before_count - rows(&expected,"account_transactions").len();
+        expected["splits_read"] = json!(rails["splits_read"].as_u64().unwrap()-removed as u64);
+        for (step,counter) in expected["steps"].as_array_mut().unwrap().iter_mut().zip(&counters) { step["generations"][0][1]=json!(counter); }
+        for bot in expected["changes"]["bots"].as_array_mut().unwrap() { bot["after"]["restatement_generation"]=json!(counters.last().unwrap()); }
+        for log in expected["changes"]["bot_activity_logs"].as_array_mut().unwrap() {
+            let details = &mut log["after"]["details"];
+            details.as_object_mut().unwrap().shift_remove("ratio");
+            if !desired[0][2].is_null() { details["ratio"] = desired[0][2].clone(); }
+        }
+        check(expected == actual, &format!("outside the exact split correction:\nexpected {expected}\nactual {actual}"))
+    })())
 }

@@ -636,10 +636,9 @@ async fn lifecycle_requests_leave_the_same_rows_on_all_three_surfaces() {
 }
 
 #[tokio::test]
-async fn starts_on_every_supported_venue_refuse_without_scheduling() {
+async fn starts_on_disabled_or_unsupported_venues_refuse_without_scheduling() {
     for (class, name, code) in [
         ("Binance", "Binance", "withdrawal_disabled"),
-        ("Kraken", "Kraken", "withdrawal_disabled"),
         ("Gemini", "Gemini", "withdrawal_disabled"),
         ("Mexc", "MEXC", "withdrawal_disabled"),
         ("BinanceUs", "Binance.US", "withdrawal_unsupported"),

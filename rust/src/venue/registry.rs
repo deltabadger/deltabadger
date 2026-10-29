@@ -55,7 +55,7 @@ impl Figures {
 }
 
 pub struct Row {
-    /// Withdrawal read contract; sends remain disabled until live verification.
+    /// Withdrawal read contract; sending is controlled by the per-venue L gate in `withdraws`.
     pub withdrawals: Option<super::withdrawal::Kind>,
     pub withdraws: bool,
     pub fee_on_top: Option<bool>,
@@ -89,7 +89,10 @@ pub static ROWS: [Row; 15] = [
     Row { withdrawals: None, withdraws: false, fee_on_top: None, exchange_type: crate::sync::ALPACA, name: "Alpaca", name_id: "alpaca", base: "", rules: Some(&venue_rules::ALPACA), passphrase: true,
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
           wizard: true, figures: Some(Figures::Alpaca), condition_candles: true },
-    Row { withdrawals: Some(super::withdrawal::Kind::Kraken), withdraws: false, fee_on_top: None, exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
+    // D-RULE-KRAKEN-NO-LIVE-FIXTURE: the 2026-10-29 owner ruling waives G-LIVE using E2's offline G0 tests
+    // and X0's recorded Rails classifier cells. Fee semantics, the live WithdrawStatus shape and a live max_fee
+    // refusal remain unproven; fee_on_top stays None so sizing reserves the fee conservatively.
+    Row { withdrawals: Some(super::withdrawal::Kind::Kraken), withdraws: true, fee_on_top: None, exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Kraken), ledger: Some(LedgerSync::Kraken), key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
     Row { withdrawals: Some(super::withdrawal::Kind::Binance), withdraws: false, fee_on_top: None, exchange_type: super::binance::BINANCE, name: "Binance", name_id: "binance", base: super::binance::URL, rules: Some(&venue_rules::BINANCE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
