@@ -155,6 +155,15 @@ fn sweep(dir: &std::path::Path) {
     }
 }
 
+/// The stored-history checks (`binance_writer::csv_refusal`): the saved history needs its repair. Every other refusal is
+/// the file's: cut short, edited or not this account's.
+fn refused_key(reason: &str) -> &'static str {
+    const HISTORY: [&str; 9] = ["unreadable identity metadata", "conflicting bucket digest", "unsupported bucket", "missing retained identity",
+        "duplicate or conflicting retained digest", "suppression has no retained reason", "unreadable retained identity evidence",
+        "CSV alias points to deleted row", "CSV group is already occupied"];
+    if HISTORY.contains(&reason) { "tracker.import.identity_refused_history" } else { "tracker.import.identity_refused_file" }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -173,13 +182,3 @@ mod tests {
         assert!(!super::token(Some("0123456789ABCDEF")) && !super::token(Some("0123456789abcde")) && !super::token(None));
     }
 }
-
-/// The stored-history checks (`binance_writer::csv_refusal`): the saved history needs its repair. Every other refusal is
-/// the file's: cut short, edited or not this account's.
-fn refused_key(reason: &str) -> &'static str {
-    const HISTORY: [&str; 9] = ["unreadable identity metadata", "conflicting bucket digest", "unsupported bucket", "missing retained identity",
-        "duplicate or conflicting retained digest", "suppression has no retained reason", "unreadable retained identity evidence",
-        "CSV alias points to deleted row", "CSV group is already occupied"];
-    if HISTORY.contains(&reason) { "tracker.import.identity_refused_history" } else { "tracker.import.identity_refused_file" }
-}
-
