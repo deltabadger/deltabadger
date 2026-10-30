@@ -215,7 +215,7 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         no_placement(&c, bot.id);
         assert_eq!(c.query_row("SELECT count(*) FROM account_balances", [], |r| r.get::<_,i64>(0)).unwrap(), 0, "no synthetic balances");
-        let transient: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id=?1 AND event='execution_failed_with_error' ORDER BY id DESC LIMIT 1", [bot.id], |r| r.get(0)).unwrap();
+        let transient: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id=?1 AND event='execution_failed' ORDER BY id DESC LIMIT 1", [bot.id], |r| r.get(0)).unwrap();
         assert!(transient.contains("KuCoin"), "refusal is visible: {transient}");
         assert!(!transient.contains("secret") && !transient.contains("passphrase"));
     }
@@ -665,4 +665,15 @@ fn kucoin_hf_independent_hmac_vectors_include_delete_query_and_exact_body() {
         }
     }
     assert_eq!(methods, BTreeSet::from(["DELETE", "GET", "POST"]));
+}
+
+/// An account-mode refusal is Rust's own text: it is the key check's log line (and the validator job's stored reason),
+/// while a venue's diagnostic keeps omitting its body.
+#[test]
+fn an_account_mode_refusal_is_the_key_checks_log_line() {
+    use deltabadger::web::settings::validator::Diagnostic;
+    let refusal = Diagnostic { text: deltabadger::venue::kucoin_account::UTA.into(), status: None, body: String::new(), refusal: true };
+    assert_eq!(refusal.log_text(), deltabadger::venue::kucoin_account::UTA);
+    let venue = Diagnostic { text: "venue text".into(), status: Some(500), body: r#"{"code":7}"#.into(), refusal: false };
+    assert!(!venue.log_text().contains("venue text"));
 }

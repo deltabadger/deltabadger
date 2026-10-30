@@ -1205,7 +1205,7 @@ fn handle_failure_inner(c: &model::FencedTransaction<'_>, bot_id: i64, fail: Fai
         Fail::Preflight(message) => {
             *attempts = Attempts::default();
             record_failure(c, bot_id, Some("transient"))?;
-            model::log_activity(c, bot_id, "execution_failed_with_error", Level::Error, json!({"error": message}), now)?;
+            model::log_activity(c, bot_id, "execution_failed", Level::Error, json!({"error": message}), now)?;
             Ok(TickOutcome::Rescheduled)
         }
         Fail::CredentialsChanged => Ok(TickOutcome::Skipped),

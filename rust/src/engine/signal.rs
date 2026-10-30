@@ -119,7 +119,7 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
     let prepared = super::placement::prepare(c, venue).await?;
     if let Err(e) = prepared {
         model::credential_write(c, &cx.credential_version, |tx| {
-            model::log_activity(tx, bot_id, "execution_failed_with_error", model::Level::Error, json!({"error": e.message()}), now)?;
+            model::log_activity(tx, bot_id, "execution_failed", model::Level::Error, json!({"error": e.message()}), now)?;
             consume(tx, bot_id, &call, None, now)
         })?;
         return Ok(Step::Ran);
