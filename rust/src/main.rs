@@ -1,4 +1,4 @@
-//! `deltabadger check | run | handback | serve | sync | repair-binance-history | resolve-withdrawal | resolve-placement | decide`.
+//! `deltabadger check | run | handback | serve | sync | repair-binance-history | resolve-withdrawal | resolve-placement | reconcile-order | decide`.
 //! - check: take the engine lock, check the Rails-prepared install read-only, list the Rust migrations `run`/`serve`
 //!   would apply, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
@@ -102,6 +102,27 @@ fn main() {
                 .unwrap_or_else(|e| fail(&format!("{e:?}")));
             println!("resolved");
         }
+        Some("reconcile-order") => {
+            const USAGE: &str = "usage: deltabadger reconcile-order <transaction_id> --evidence <file>";
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            let (tx_id, file) = match args.as_slice() {
+                [tx, flag, file] if flag == "--evidence" => (tx.parse::<i64>().unwrap_or_else(|_| fail(USAGE)), file),
+                _ => fail(USAGE),
+            };
+            refuse_url_overrides(&env);
+            let text = std::fs::metadata(file).ok().filter(|m| m.len() <= 1 << 20).and_then(|_| std::fs::read_to_string(file).ok())
+                .unwrap_or_else(|| fail(&format!("{file}: unreadable, or larger than 1 MiB")));
+            let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
+            let paths = Paths::from_env(&env, storage.as_ref());
+            let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            let o = store::open(&paths).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            match deltabadger::engine::reconcile::by_operator(&o.primary, tx_id, &text, chrono::Utc::now()) {
+                Ok(deltabadger::engine::reconcile::Operator::Reconciled) => println!("reconciled"),
+                Ok(deltabadger::engine::reconcile::Operator::AlreadyReconciled) => println!("already reconciled"),
+                Err(deltabadger::engine::EngineError::Data(m)) => fail(&m),
+                Err(e) => fail(&format!("{e:?}")),
+            }
+        }
         Some("decide") => {
             let args: Vec<String> = std::env::args().skip(2).collect();
             let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
@@ -118,7 +139,7 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | reconcile-order <transaction_id> --evidence <file> | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
     }

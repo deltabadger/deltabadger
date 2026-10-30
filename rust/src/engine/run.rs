@@ -358,6 +358,9 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
             Ok((txs, producer)) => {
                 let at = clock.now().timestamp_micros() + POLL_AFTER_US;
                 for tx in txs {
+                    // A poll already due for it keeps its deadline (an HF cancel acknowledged again each pass must not push
+                    // its settling read away), unless it was scheduled under other credentials.
+                    if e.polls.get(&tx).is_some_and(|p| p.current_for(&producer).is_fresh()) { continue; }
                     e.polls.insert(tx, model::Produced::new((id, at, Attempts::default()), producer.clone()));
                     e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
                 }
@@ -714,6 +717,7 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             Err(polling::PollFailure::Transient(m)) => { attempts.transient += 1; (attempts.transient < 3).then(|| (tick::retry_wait(attempts.transient, false), m)) }
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
             Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }
+            Err(polling::PollFailure::AwaitingReconciliation(..)) => None,
         };
         // Whatever the poll wrote, on success or on error, the bot is announced; nothing is read to decide.
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });

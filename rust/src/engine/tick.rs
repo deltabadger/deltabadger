@@ -160,6 +160,8 @@ enum Fail {
     Ambiguous(String),
     /// A transport failure after a committed order or flip: wait for the next checkpoint instead of replaying it.
     TransientAfterAction,
+    /// D-KUCOIN-HF-RETENTION: (transaction, why) an HF row this bot cannot tell holds its spending; nothing is written.
+    Unreconciled(i64, String),
 }
 
 type PriceKey = (i64, i64, PriceSide);
@@ -541,6 +543,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
             PollFailure::RateLimited(m) => Fail::RateLimited(m),
             PollFailure::Transient(m) => Fail::Transient(m),
             PollFailure::General(m) => Fail::General { errors: vec![m.clone()], message: m, failed_row: false },
+            PollFailure::AwaitingReconciliation(tx_id, why) => Fail::Unreconciled(tx_id, why),
             // A Merge or Split rewrote this bot's rows mid-sweep: its run is over, with no failure written.
             PollFailure::OwnerChanged(_) => return Err(EngineError::RunFenced),
         }));
@@ -1235,6 +1238,13 @@ fn handle_failure_inner(c: &model::FencedTransaction<'_>, bot_id: i64, fail: Fai
             record_failure(c, bot_id, Some("transient"))?;
             model::log_activity(c, bot_id, "execution_retrying", Level::Info, json!({ "error": m, "placement_transient": true }), now)?;
             Ok(TickOutcome::Rescheduled)
+        }
+        // The unresolved-order outcome (an intent's, below): nothing placed, no failure counted, one line per row.
+        Fail::Unreconciled(tx_id, why) => {
+            placement::log_once(&format!("{}{tx_id}", super::reconcile::UNRESOLVED), &format!(
+                "[engine] bot {bot_id}: KuCoin order of transaction {tx_id}: {why}; this bot places nothing until it is settled. \
+                 If KuCoin no longer serves it, run `deltabadger reconcile-order {tx_id} --evidence <file>`"));
+            Ok(TickOutcome::AwaitingReconciliation)
         }
         Fail::Ambiguous(m) => {
             *attempts = Attempts::default();

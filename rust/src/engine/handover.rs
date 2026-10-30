@@ -59,6 +59,8 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
+    // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
+    super::reconcile::mark_adopted(&tx, cipher, now)?;
     let claim = lease::claim(lock, &tx, cipher, version, now)?;
     // In the claim's own transaction, before the engine ticks or the web serves a request: every unresolved intent
     // carries what it was sent under (placement::backfill_snapshots).
@@ -402,6 +404,8 @@ fn refuse_pending_rotations(c: &Connection) -> Result<(), EngineError> {
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     // D-KUCOIN-HF-LEDGER: Rails reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }
+    let hf = super::reconcile::handback_refusals(c)?;
+    if !hf.is_empty() { return Err(EngineError::Ineligible(hf)); }
     let found = rust_only_conditions(c)?;
     if found.is_empty() { return Ok(()); }
     Err(EngineError::Ineligible(found.into_iter().map(|(id, key)| format!("bot {id}: {key} is on, and only this engine runs it on that kind of bot; switch it off before handing back")).collect()))

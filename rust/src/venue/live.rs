@@ -58,6 +58,7 @@ impl Venue for LiveVenue {
     async fn order_identified<F>(&self, id: &str, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { each!(self, v => v.order_identified(id, identify).await) }
     async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> { each!(self, v => v.order_by_client_id(id, symbol, since).await) }
+    async fn recovery_with(&self, intent: &serde_json::Value, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> { each!(self, v => v.recovery_with(intent, id, symbol, since).await) }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { each!(self, v => v.fills_from_trades(ids, since).await) }
     async fn balance(&self, s: &str, crypto: bool) -> Result<BigDec, VenueError> { each!(self, v => v.balance(s, crypto).await) }
     async fn free_base_balance(&self, t: &Ticker) -> Result<BigDec, VenueError> { each!(self, v => v.free_base_balance(t).await) }
@@ -72,6 +73,7 @@ impl Venue for LiveVenue {
     async fn order_with<F>(&self, r: &super::OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { each!(self, v => v.order_with(r, identify).await) }
     async fn cancel_with(&self, r: &super::OrderRef) -> Result<(), VenueError> { each!(self, v => v.cancel_with(r).await) }
+    async fn origin_with(&self, r: &super::OrderRef) -> Result<super::Origin, VenueError> { each!(self, v => v.origin_with(r).await) }
     async fn candles(&self, t: &Ticker, start_at: chrono::DateTime<chrono::Utc>, tf: crate::engine::candles::Timeframe)
         -> Result<Vec<crate::engine::candles::Candle>, VenueError> { each!(self, v => v.candles(t, start_at, tf).await) }
     async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, VenueError> { each!(self, v => v.withdrawal_addresses(coin).await) }

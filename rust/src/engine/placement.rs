@@ -282,6 +282,11 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         super::log(&format!("[engine] bot {}: {} order not placed: a reversal's cancels are not recorded yet", bot.id, plan.ticker.ticker));
         return Ok(Begun::Changed);
     }
+    // D-KUCOIN-HF-RETENTION: nor while one of its KuCoin orders cannot be told (reconcile::barrier), whatever its pair.
+    if let Some((tx_id, why)) = super::reconcile::barrier(&tx, bot.id)? {
+        super::log(&format!("[engine] bot {}: {} order not placed: KuCoin order of transaction {tx_id}: {why}", bot.id, plan.ticker.ticker));
+        return Ok(Begun::Changed);
+    }
     if let Some(version) = version {
         let fresh=match version {Some(v)=>model::credential_is_current(&tx,v)?,None=>false};
         if !fresh {
@@ -411,6 +416,11 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
     let tx = model::immediate(c)?;
     let current = model::load_bot(&tx, sized_from.id)?;
     if super::signal::blocked(&current) { return Ok(SignalClaim::Blocked); }
+    // D-KUCOIN-HF-RETENTION: an HF order this bot cannot tell blocks it as an unresolved intent does; the call waits.
+    if let Some((tx_id, why)) = super::reconcile::barrier(&tx, current.id)? {
+        super::log(&format!("[engine] bot {}: {} order not placed: KuCoin order of transaction {tx_id}: {why}", current.id, plan.ticker.ticker));
+        return Ok(SignalClaim::Blocked);
+    }
     // An IBKR order needs its venue's hold (begin_checked); a signal bot on IBKR is refused (eligibility::signal_admission).
     if model::exchange_type(&tx, &current)? == crate::venue::ibkr::IBKR {
         super::log(&format!("[engine] bot {}: {} order not placed: IBKR takes no signal orders", sized_from.id, plan.ticker.ticker));
@@ -799,9 +809,6 @@ pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
 /// key: Rails' unsaved fallback) is not compared.
 fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str> {
     let now = now?;
-    if let Some(sent) = intent["kucoin_account_mode"].as_str() {
-        if Some(sent) != now["kucoin_account_mode"].as_str() { return Some("under another or unprepared KuCoin account mode"); }
-    }
     let mode = |v: &Value| v["alpaca_live"].as_bool().unwrap_or(false);
     if mode(intent) != mode(&now) { return Some(if mode(intent) { "in Alpaca live mode and the key is now paper" } else { "in Alpaca paper mode and the key is now live" }); }
     if let (Some(sent), Some(host)) = (intent["host"].as_str(), now["host"].as_str()) {
@@ -818,7 +825,7 @@ fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str>
 }
 
 /// One line per unresolved order per process: recovery runs every tick.
-fn log_once(cl_ord_id: &str, line: &str) {
+pub(crate) fn log_once(cl_ord_id: &str, line: &str) {
     static SEEN: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> = std::sync::OnceLock::new();
     if SEEN.get_or_init(Default::default).lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(cl_ord_id.to_string()) { super::log(line); }
 }
@@ -833,12 +840,8 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
     let venue=&handle;
     let intent = Intent::from_json(c, bot, &raw,venue.producer())?;
-    if raw.get("kucoin_account_mode").is_some() {
-        if let Err(error) = prepare(c, venue).await? {
-            log_once(&intent.cl_ord_id, &format!("[engine] bot {}: recovery account preparation failed: {error:?}", bot.id));
-            return Ok(Recovery::Pending);
-        }
-    }
+    // D-KUCOIN-HF-RETENTION: a KuCoin intent is asked on its own family's route (Venue::recovery_with), so no preparation
+    // and no comparison with the account's mode now; its host and key must still be this venue's.
     if let Some(why) = identity_mismatch(&raw, venue.placement_identity()) {
         log_once(&intent.cl_ord_id, &format!("[engine] bot {}: its unresolved order was sent {why}; it is not looked up anywhere else; settle it with `deltabadger resolve-placement`", bot.id));
         return Ok(Recovery::Pending);
@@ -851,7 +854,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     let absent_from = if rules.deadline_sent { intent.deadline.checked_add_signed(Duration::seconds(ABSENCE_AFTER_SECONDS)).ok_or_else(super::schedule::time_range_error)? }
                       else { intent.at.max(process_start).checked_add_signed(Duration::try_seconds(rules.absence_margin_secs).ok_or_else(super::schedule::time_range_error)?).ok_or_else(super::schedule::time_range_error)? };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
-    match venue.recovery_result(&intent.cl_ord_id, &intent.symbol, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await.value {
+    match venue.recovery_result(&raw, &intent.cl_ord_id, &intent.symbol, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await.value {
         // An answer on the other side is not this intent's order: incomplete, so the intent stays.
         Ok(Some(state)) if state.sell != (intent.plan.side == Side::Sell) => {
             log_once(&intent.cl_ord_id, &format!("[engine] bot {}: the venue answered for its unresolved {} order with a {} order; it stays unresolved", bot.id, intent.plan.side.as_str(), if state.sell { "sell" } else { "buy" }));
