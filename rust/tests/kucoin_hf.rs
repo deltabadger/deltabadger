@@ -753,3 +753,90 @@ fn o04_o06_hf_status_answers_read_strictly() {
         assert!(parse_hf_order(&d, &record(&base), &pairs).is_err(), "{key}={value}");
     }
 }
+
+/// An HF-admitted venue (D-KUCOIN-HF-ORDERS, `allow_hf` until HF-5) prepared on a detected ClassicHf account.
+async fn hf_venue(t: &ScriptedTransport, version: CredentialVersion) -> KucoinVenue<ScriptedTransport> {
+    classic(t, true);
+    let v = KucoinVenue::new(t.clone(), URL).with_account_context(version, Resolver::default()).allow_hf();
+    v.prepare().await.unwrap();
+    v
+}
+fn submitted(c: &rusqlite::Connection) -> i64 { c.query_row("SELECT count(*) FROM transactions WHERE status = 0", [], |r| r.get(0)).unwrap() }
+fn posts(t: &ScriptedTransport) -> usize { t.requests().iter().filter(|r| r.method == "POST").count() }
+
+/// O01, r1.8: without `allow_hf` a ClassicHf account is refused before any intent; with it the intent records the HF
+/// family, the POST goes to the HF route with the intent's UUID, and the accepted order is one row.
+#[tokio::test(flavor = "current_thread")]
+async fn o01_an_hf_order_dispatches_only_when_admitted_and_is_recorded_once() {
+    use deltabadger::engine::{placement, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let clock = FixedClock(at);
+    // Not admitted: the production gate.
+    let (_dir, o, bot, _plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at); classic(&t, true);
+    let v = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
+    assert!(v.prepare().await.is_err(), "HF stays unconnected without allow_hf");
+    // Admitted.
+    let (dir, o, bot, plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at);
+    let v = hf_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &clock).unwrap() else { panic!() };
+    assert_eq!(model::load_bot(&o.primary, bot.id).unwrap().rust_placement().unwrap()["kucoin_account_mode"], "ClassicHf");
+    t.reply("POST /api/v1/hf/orders", 200, json!({"code":"200000","data":{"orderId":"670fd33bf9406e0007ab3945","clientOid":intent.cl_ord_id}}));
+    let sent = placement::send_recorded(&o.primary, &v, &bot, &intent, &clock).await.unwrap();
+    assert!(matches!(sent, placement::Sent::Accepted(ref id) if id == "670fd33bf9406e0007ab3945"), "{sent:?}");
+    let post = t.requests().into_iter().find(|r| r.method == "POST").unwrap();
+    assert_eq!((post.path.as_str(), &post.body.as_ref().unwrap()["clientOid"]), ("/api/v1/hf/orders", &json!(intent.cl_ord_id)));
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(submitted(&c), 1);
+    assert_eq!(c.query_row("SELECT external_id FROM transactions", [], |r| r.get::<_, String>(0)).unwrap(), "670fd33bf9406e0007ab3945", "the raw orderId");
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_none(), "the intent became the row");
+    // An intent sized on a classic account is never sent on the HF one (and the reverse).
+    let (_dir, o, bot, plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at); classic(&t, false);
+    let lf = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    lf.prepare().await.unwrap();
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, lf.placement_identity(), None, &clock).unwrap() else { panic!() };
+    let t2 = ScriptedTransport::default(); t2.set_now(at);
+    let hf = hf_venue(&t2, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    assert!(matches!(placement::send_recorded(&o.primary, &hf, &bot, &intent, &clock).await.unwrap(), placement::Sent::NotSent(_)));
+    assert_eq!(posts(&t) + posts(&t2), 0);
+}
+
+/// O02, r1.1, r2.3: every HF placement answer in errors.json, through the engine. A refusal clears the intent with no
+/// submitted row (the failed row every venue writes); NotSent writes nothing; Ambiguous keeps the intent, and a later
+/// tick, after reopening the store, sends no second POST.
+#[tokio::test(flavor = "current_thread")]
+async fn o02_every_hf_placement_answer_has_its_database_effect() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let clock = FixedClock(at);
+    let f = fixture("errors");
+    for c in f["cases"].as_array().unwrap() {
+        let (id, want) = (c["id"].as_str().unwrap(), &c["expect"]);
+        let (dir, o, bot, plan) = engine_setup();
+        let t = ScriptedTransport::default(); t.set_now(at);
+        let v = hf_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+        let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &clock).unwrap() else { panic!() };
+        let r = &c["response"];
+        match r["transport_error"].as_str() {
+            Some("NotSent") => { t.network("POST /api/v1/hf/orders", "pre_send", "refused"); }
+            Some(_) => { t.network("POST /api/v1/hf/orders", "post_send", "reset"); }
+            None if r["raw_body"].is_string() => { t.reply("POST /api/v1/hf/orders", r["status"].as_u64().unwrap() as u16, r["raw_body"].clone()); }
+            None => { t.reply("POST /api/v1/hf/orders", r["status"].as_u64().unwrap() as u16, r["body"].clone()); }
+        }
+        let sent = placement::send_recorded(&o.primary, &v, &bot, &intent, &clock).await.unwrap();
+        let class = match sent { placement::Sent::Rejected(_) => "Rejected", placement::Sent::NotSent(_) => "NotSent", placement::Sent::Ambiguous(_) => "Ambiguous", ref s => panic!("{id}: {s:?}") };
+        assert_eq!(class, want["classification"], "{id}");
+        let c2 = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert_eq!(submitted(&c2), 0, "{id}: no order row");
+        assert_eq!(model::load_bot(&c2, bot.id).unwrap().rust_placement().is_some(), want["intent"] == "retained", "{id}: the intent");
+        if want["intent"] == "retained" {
+            // Recovery asks the HF clientOid route; a miss never proves the order absent.
+            t.reply(&format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id), 200, json!({"code":"400100","msg":"order not exist"}));
+            tick::tick(&c2, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(30)), &mut Default::default()).await.unwrap();
+            assert_eq!(posts(&t), 1, "{id}: never a replacement POST");
+            assert!(model::load_bot(&c2, bot.id).unwrap().rust_placement().is_some(), "{id}: still held");
+        }
+    }
+}
