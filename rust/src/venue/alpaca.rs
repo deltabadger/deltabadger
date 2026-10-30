@@ -544,7 +544,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
 /// the second line. A passphrase that does not decrypt never reaches here: `model::credentials_for` fails that bot's tick.
 #[derive(Clone)]
 pub struct LiveFactory { client: reqwest::Client, hosts: Hosts, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>,
-    settings: Option<(std::path::PathBuf, Cipher)> }
+    settings: Option<(std::path::PathBuf, Cipher)>, kucoin_base: Option<String> }
 
 /// What a factory with no install to read `proxy_<venue>` from answers for a proxied venue: it cannot know whether a proxy
 /// is configured, so it never connects directly.
@@ -553,7 +553,7 @@ const SETTINGS_UNREAD: &str = "this process has no install to read the venue's p
 impl LiveFactory {
     /// Share the deadline producer clock with every real HTTP venue handle.
     pub fn with_clock(mut self,clock:std::sync::Arc<dyn crate::engine::Clock + Send + Sync>)->Self{self.clock=clock;self}
-    pub fn new() -> Self { Self { client: http::client(), hosts: Hosts::alpaca(), clock: std::sync::Arc::new(crate::engine::SystemClock), settings: None } }
+    pub fn new() -> Self { Self { client: http::client(), hosts: Hosts::alpaca(), clock: std::sync::Arc::new(crate::engine::SystemClock), settings: None, kucoin_base: None } }
     /// The engine's factory: each venue it builds reads its proxy from this install's database (`c`'s file) at that moment.
     pub fn for_install(c: &Connection, cipher: &Cipher) -> Self {
         Self { settings: c.path().filter(|p| !p.is_empty()).map(|p| (p.into(), cipher.clone())), ..Self::new() }
@@ -568,6 +568,8 @@ impl LiveFactory {
     }
     /// Local Alpaca hosts for native production-adapter tests; `Urls::pick` still chooses between them.
     #[doc(hidden)] pub fn with_hosts(hosts:Hosts)->Self{Self{hosts,..Self::new()}}
+    /// A local KuCoin host for native production-adapter tests: the venue, its identity and its account mode all use it.
+    #[doc(hidden)] pub fn with_kucoin_base(mut self, base: &str) -> Self { self.kucoin_base = Some(base.into()); self }
 }
 
 impl Default for LiveFactory {
@@ -651,7 +653,7 @@ impl VenueFactory for LiveFactory {
                 LiveVenue::Binance(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             super::kucoin::KUCOIN => {
-                let venue = super::kucoin::KucoinVenue::new(transport, row.base).with_pairs(pairs);
+                let venue = super::kucoin::KucoinVenue::new(transport, self.kucoin_base.as_deref().unwrap_or(row.base)).with_pairs(pairs);
                 LiveVenue::Kucoin(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             super::bitvavo::BITVAVO => {

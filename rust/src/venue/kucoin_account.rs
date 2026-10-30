@@ -1,5 +1,5 @@
 //! D-KUCOIN-HF-MODE: account evidence belongs to the captured credential version.
-//! HF-1 detects HF/UTA but does not connect their trading or history adapters.
+//! Classic (LF) and HF accounts trade; a Unified Trading Account is refused.
 use super::http::{self, HttpRequest, Transport};
 use super::VenueError;
 use crate::engine::model::{CredentialVersion, Produced};
@@ -11,7 +11,6 @@ pub const MODE: &str = "/api/ua/v2/account/mode";
 pub const OPENED: &str = "/api/v1/hf/accounts/opened";
 pub const MAX_AGE_SECONDS: i64 = 300;
 pub const UTA: &str = "KuCoin Unified Trading Accounts are not supported by this spot adapter.";
-pub const HF_UNCONNECTED: &str = "KuCoin HF trading and history are not connected in this build; order not sent.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccountMode { ClassicLf, ClassicHf, UnsupportedUta }
@@ -19,8 +18,9 @@ impl AccountMode {
     pub fn as_str(self) -> &'static str {
         match self { Self::ClassicLf => "ClassicLf", Self::ClassicHf => "ClassicHf", Self::UnsupportedUta => "UnsupportedUta" }
     }
-    pub fn require_classic(self) -> Result<(), VenueError> {
-        match self { Self::ClassicLf => Ok(()), Self::ClassicHf => Err(VenueError::Transient(HF_UNCONNECTED.into())), Self::UnsupportedUta => Err(VenueError::Transient(UTA.into())) }
+    /// The account modes this adapter supports: classic and HF. UTA is refused.
+    pub fn require_supported(self) -> Result<(), VenueError> {
+        match self { Self::ClassicLf | Self::ClassicHf => Ok(()), Self::UnsupportedUta => Err(VenueError::Transient(UTA.into())) }
     }
 }
 
