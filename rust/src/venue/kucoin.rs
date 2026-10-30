@@ -78,7 +78,7 @@ const HF_ORDERS: &str = "/api/v1/hf/orders";
 const HF_REFUSALS: [&str; 9] = ["400002", "400003", "400004", "400005", "400006", "400007", "400100", "200004", "429000"];
 
 #[derive(Clone)]
-pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool, hf: bool }
+pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool }
 
 /// Which order API an account's new orders use: the prepared detection's (ClassicHf: HF; anything else: classic).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -250,21 +250,16 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
 
 impl<T: Transport> KucoinVenue<T> {
     /// Classic wire adapter, also used by the unchanged Rails replay. Runtime construction attaches captured context.
-    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false, hf: false } }
+    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false } }
     pub fn with_account_context(mut self, version: crate::engine::model::CredentialVersion, resolver: super::kucoin_account::Resolver) -> Self {
         self.account = Some(AccountContext { version, resolver, prepared: Default::default() });
         self
     }
     pub(crate) fn with_missing_account_context(mut self) -> Self { self.missing_context = true; self }
-    /// D-KUCOIN-HF-ORDERS: admits a detected ClassicHf account (tests only, until HF-5 connects HF and removes this).
-    #[doc(hidden)]
-    pub fn allow_hf(mut self) -> Self { self.hf = true; self }
-    /// The modes this venue trades on: classic always, HF only when admitted.
-    fn admit(&self, mode: super::kucoin_account::AccountMode) -> Result<(), VenueError> {
-        if self.hf && mode == super::kucoin_account::AccountMode::ClassicHf { Ok(()) } else { mode.require_classic() }
-    }
-    /// The account's mode as the shared Resolver detects it for this credential, admitted or not: the history and balance
-    /// reads route on it (D-KUCOIN-HF-LEDGER); `prepare` keeps the trading gate.
+    /// The modes this venue trades on: classic and HF (D-KUCOIN-HF-ORDERS); UTA is refused.
+    fn admit(&self, mode: super::kucoin_account::AccountMode) -> Result<(), VenueError> { mode.require_supported() }
+    /// The account's mode as the shared Resolver detects it for this credential, UTA included: the history and balance
+    /// reads route on it (D-KUCOIN-HF-LEDGER); `prepare` refuses UTA.
     pub async fn account_mode(&self) -> Result<super::kucoin_account::AccountMode, VenueError> {
         if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
         let Some(account) = &self.account else { return Ok(super::kucoin_account::AccountMode::ClassicLf) };
@@ -452,11 +447,11 @@ impl<T: Transport> KucoinVenue<T> {
         }
     }
 
-    /// D-KUCOIN-HF-ORDERS: the stored HF order a ref names, when this venue may ask about it: HF admitted, and the ref's
+    /// D-KUCOIN-HF-ORDERS: the stored HF order a ref names, when this venue may ask about it: the ref's
     /// recorded host and key are this venue's own (never another account's order, never redirected by the current mode).
     fn hf_ref(&self, r: &super::OrderRef) -> Option<Result<HfOrder, ()>> {
         let record = r.record.as_ref().filter(|rec| rec["family"] == "ClassicHf")?;
-        let mine = self.hf && record["host"].as_str() == Some(self.base.as_str())
+        let mine = record["host"].as_str() == Some(self.base.as_str())
             && self.identity.as_ref().is_some_and(|i| i["key_fingerprint"] == record["key_fingerprint"]);
         let order = (|| Some(HfOrder { id: r.external_id.clone(), symbol: record["symbol"].as_str()?.into(), sell: record["sell"].as_bool()?, limit: record["limit"].as_bool()? }))();
         Some(order.filter(|_| mine).ok_or(()))
@@ -691,8 +686,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// is now (the caller has checked the intent's host and key are this venue's); one sent classic, on the classic route.
     async fn recovery_with(&self, intent: &Value, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         match intent["kucoin_account_mode"].as_str() {
-            Some("ClassicHf") if self.hf => self.hf_by_client_id(cl_ord_id, symbol).await,
-            Some("ClassicHf") => Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
+            Some("ClassicHf") => self.hf_by_client_id(cl_ord_id, symbol).await,
             Some(_) => self.classic_by_client_id(cl_ord_id, symbol, since).await,
             None => super::Venue::order_by_client_id(self, cl_ord_id, symbol, since).await,
         }
@@ -799,8 +793,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
             _ => Err(VenueError::Ambiguous(format!("KuCoin's answer to cancelling order {} cannot be told (HTTP {})", want.id, resp.status))),
         }
     }
-    /// D-KUCOIN-HF-RETENTION: an adopted row's route. The classic order route always, the HF one on an HF account (when HF is
-    /// admitted), each read for this id on the venue's own ticker for the row's pair, with its side and type: exactly one
+    /// D-KUCOIN-HF-RETENTION: an adopted row's route. The classic order route always, the HF one on an HF account, each read for this id on the venue's own ticker for the row's pair, with its side and type: exactly one
     /// positive answer proves that route. A miss, an unreadable answer, both, or no ticker prove nothing; a failure worth
     /// retrying is its error (the row waits, excluded, either way).
     async fn origin_with(&self, r: &super::OrderRef) -> Result<super::Origin, VenueError> {
@@ -811,11 +804,11 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
         let names = |o: &Value| o["id"].as_str() == Some(want.id.as_str()) && o["symbol"].as_str() == Some(symbol)
             && o["side"].as_str().is_some_and(|s| s.eq_ignore_ascii_case(if want.sell { "sell" } else { "buy" }))
             && limit_type(&o["type"]).ok() == Some(want.limit);
-        // The account decides which routes are asked: an HF account needs both (and HF admitted), a classic one the classic
+        // The account decides which routes are asked: an HF account needs both, a classic one the classic
         // route; a detection failure or UTA proves nothing.
         let hf_account = match self.account_mode().await {
             Ok(super::kucoin_account::AccountMode::ClassicLf) => false,
-            Ok(super::kucoin_account::AccountMode::ClassicHf) if self.hf => true,
+            Ok(super::kucoin_account::AccountMode::ClassicHf) => true,
             _ => return Ok(Origin::Unproven),
         };
         let classic = match self.get_order(&want.id).await {

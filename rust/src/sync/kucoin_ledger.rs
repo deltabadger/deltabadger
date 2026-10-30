@@ -284,7 +284,7 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
     let refused = match venue.account_mode().await {
         Ok(AccountMode::ClassicLf) => None,
         Ok(AccountMode::ClassicHf) => return sync_hf(db, &version, &venue, key, watermark, credentials, clock, wait, run).await,
-        Ok(mode) => mode.require_classic().err(),
+        Ok(mode) => mode.require_supported().err(),
         Err(e) => Some(e),
     };
     if let Some(e) = refused {

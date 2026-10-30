@@ -3950,15 +3950,30 @@ async fn validator_job_sends_a_venue_key_check_through_its_stored_proxy(){
     proxy.verify().await;
 }
 
-/// D-KUCOIN-HF-MODE: a correct KuCoin key on an HF or a Unified Trading Account is not saved, and the owner reads why.
+/// D-KUCOIN-HF-MODE: a correct KuCoin key on a Unified Trading Account is not saved, and the owner reads why. On an HF
+/// account a trading key needs KuCoin's Spot permission, read from one GET /api/v1/user/api-key (the identity read):
+/// without it the owner reads the existing missing-permission line; an answer that cannot be read is the existing failure.
 #[tokio::test(flavor="current_thread")]
-async fn a_kucoin_key_on_an_hf_or_unified_account_says_why_it_is_not_saved() {
+async fn a_kucoin_key_on_a_unified_account_or_an_hf_account_without_spot_says_why_it_is_not_saved() {
     use deltabadger::venue::kucoin_account::{MODE, OPENED};
-    for (mode, opened, says) in [("CLASSIC", Some(true), "newer trading account"), ("UNIFIED", None, "Unified Trading Account")] {
+    let permission = |p: serde_json::Value| serde_json::json!({"code":"200000","data":{"apiKey":"kc-key","permission":p,"uid":165111215,"isMaster":true}});
+    for (mode, opened, api_key, says, saved) in [
+        ("UNIFIED", None, None, "Unified Trading Account", false),
+        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General,Spot")))), "", true),
+        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!(" General , Spot ")))), "", true),
+        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General")))), "This key is missing: Spot", false),
+        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General,Spots,spot")))), "This key is missing: Spot", false),
+        ("CLASSIC", Some(true), Some((200, permission(serde_json::Value::Null))), "Failed to validate API key permissions", false),
+        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!(["Spot"])))), "Failed to validate API key permissions", false),
+        ("CLASSIC", Some(true), Some((500, permission(serde_json::json!("General,Spot")))), "Failed to validate API key permissions", false),
+    ] {
         let server=MockServer::start().await;
         Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"selfAccountMode":mode}}))).mount(&server).await;
         if let Some(opened) = opened {
             Mock::given(method("GET")).and(path(OPENED)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":opened}))).mount(&server).await;
+        }
+        if let Some((status, body)) = api_key.clone() {
+            Mock::given(method("GET")).and(path(deltabadger::identity::KUCOIN_PATH)).respond_with(ResponseTemplate::new(status).set_body_json(body)).mount(&server).await;
         }
         Mock::given(method("DELETE")).and(path("/api/v1/orders/000000000000000000000000")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
         let mut h=Harness::new(server.uri()).await;
@@ -3967,11 +3982,43 @@ async fn a_kucoin_key_on_an_hf_or_unified_account_says_why_it_is_not_saved() {
         let env=web::env(web::SECRET);
         h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap()
             .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_venue_key_urls(&server.uri(),&server.uri(),&server.uri()).unwrap();
+        let scheduler=deltabadger::jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),vec![],None);
+        h.app.attach_jobs(scheduler.wakers()).unwrap();
         h.browser.get(&h.app,"/bots/new").await;
         h.submit("POST","/bots/dca_single_assets/pick_exchange",&[("bots_dca_single_asset[exchange_id]",&kucoin.to_string())],Csrf::Header).await;
         h.browser.get(&h.app,"/bots/dca_single_assets/add_api_key/new").await;
         let response=h.submit("POST","/bots/dca_single_assets/add_api_key",&[("api_key[key]","kc-key"),("api_key[secret]","kc-secret"),("api_key[passphrase]","kc-pass")],Csrf::Header).await;
-        assert!(response.body.contains(says),"{mode}: {}",response.body);
-        assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),0,"{mode}: not saved as correct");
+        let case=format!("{mode} {api_key:?}");
+        assert!(response.body.contains(says),"{case}: {}",response.body);
+        assert!(!response.body.contains("newer trading account"),"{case}: the HF message is gone");
+        assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),i64::from(saved),"{case}: {}",response.body);
+        if api_key.is_some() {
+            let reads=server.received_requests().await.unwrap().iter().filter(|r|r.url.path()==deltabadger::identity::KUCOIN_PATH).count();
+            assert_eq!(reads,1,"{case}: one api-key read serves the identity and the permission");
+        }
     }
+}
+
+/// D-KUCOIN-HF-MODE: a read-only KuCoin key on an HF account is saved on the existing read check (balances need General,
+/// which is account-wide); no Spot permission is asked of it.
+#[tokio::test(flavor="current_thread")]
+async fn a_read_only_kucoin_key_on_an_hf_account_is_saved() {
+    use deltabadger::venue::kucoin_account::{MODE, OPENED};
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(OPENED)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":true}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v1/accounts")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":[]}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::identity::KUCOIN_PATH)).respond_with(ResponseTemplate::new(200).set_body_json(
+        serde_json::json!({"code":"200000","data":{"permission":"General","uid":165111215}}))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    h.c.execute("INSERT INTO exchanges(name,type,available,created_at,updated_at) VALUES('KuCoin','Exchanges::Kucoin',1,'2026-01-01','2026-01-01')",[]).unwrap();
+    let kucoin=h.c.last_insert_rowid();
+    let env=web::env(web::SECRET);
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap()
+        .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_venue_key_urls(&server.uri(),&server.uri(),&server.uri()).unwrap();
+    let scheduler=deltabadger::jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),vec![],None);
+    h.app.attach_jobs(scheduler.wakers()).unwrap();
+    h.browser.get(&h.app,&format!("/tracker/add_api_key/new?exchange_id={kucoin}&key_type=read_only")).await;
+    let response=h.submit("POST",&format!("/tracker/add_api_key?exchange_id={kucoin}&key_type=read_only"),&[("exchange_id",&kucoin.to_string()),("key_type","read_only"),("api_key[key]","kc-read"),("api_key[secret]","kc-secret"),("api_key[passphrase]","kc-pass")],Csrf::Header).await;
+    assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND key_type=2 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),1,"{} {}",response.status,response.body);
 }

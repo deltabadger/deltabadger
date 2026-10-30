@@ -232,6 +232,14 @@ pub fn gemini_request(base: &str, kind: i64) -> HttpRequest {
 
 /// #get_api_key_validity's probe: honeymaker's #cancel_order of the zero id, or #get_accounts(type: 'trade') for a withdrawal key
 /// and for a reading key's balance read.
+/// D-KUCOIN-HF-MODE: whether GET /api/v1/user/api-key names KuCoin's `Spot` permission (an exact comma-separated token).
+/// None when the answer cannot tell: not 2xx, not the success code, or `data.permission` not a string.
+pub fn spot_permission(status: u16, body: &str) -> Option<bool> {
+    let v: Value = serde_json::from_str(body).ok().filter(|_| (200..300).contains(&status))?;
+    if v["code"].as_str() != Some("200000") { return None; }
+    Some(v["data"]["permission"].as_str()?.split(',').any(|p| p.trim() == "Spot"))
+}
+
 pub fn kucoin_request(base: &str, kind: i64) -> HttpRequest {
     let (method, path, query) = if kind != 0 { ("GET", "/api/v1/accounts".to_string(), vec![("type", "trade".to_string())]) }
                                 else { ("DELETE", format!("/api/v1/orders/{KUCOIN_PROBE_ORDER}"), vec![]) };
@@ -771,16 +779,32 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
         let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
                       else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
         // D-KUCOIN-HF-MODE: Rails' check decides first (an incorrect key stays incorrect); a key it judges correct is
-        // then read for its account mode, and anything but a classic account is refused.
+        // then read for its account mode, and a Unified Trading Account is refused.
+        let mut hf = false;
         if let (Verdict::Valid(true), Some(version)) = (&verdict, version) {
             let resolver = crate::venue::kucoin_account::Resolver::shared();
             resolver.invalidate(base, version.id);
-            let mode = resolver.resolve(&transport, base, version).await.value.and_then(|d| d.mode.require_classic());
-            if let Err(e) = mode {
-                return (Validity::Pending(Diagnostic { text: e.message(), status: None, body: String::new(), refusal: true }), None);
+            match resolver.resolve(&transport, base, version).await.value.and_then(|d| d.mode.require_supported().map(|()| d.mode)) {
+                Err(e) => return (Validity::Pending(Diagnostic { text: e.message(), status: None, body: String::new(), refusal: true }), None),
+                Ok(mode) => hf = mode == crate::venue::kucoin_account::AccountMode::ClassicHf,
             }
         }
-        if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue, &transport, base, &credentials.secret).await; }
+        let verdict = if verdict == Verdict::Valid(true) && hf && kind == 0 {
+            // An HF account trades only with KuCoin's Spot permission: the identity read's one answer gives both, read
+            // before the transport scrubs a body that echoes the key.
+            let request = crate::identity::request(venue, &transport, base, &credentials.secret).expect("KuCoin has an identity read");
+            let read = transport.send_observed(&request, &|status, body| (crate::identity::kucoin_answer(status, body), spot_permission(status, body))).await;
+            let (identity, spot) = read.map_or((crate::identity::Observed::Failed("transport".into()), None), |(_, read)| read);
+            observed = Some(identity);
+            match spot {
+                Some(true) => verdict,
+                Some(false) => Verdict::Permissions { missing: vec!["Spot".into()], forbidden: vec![] },
+                None => Verdict::Failure("KuCoin did not say whether this key holds the Spot permission".into()),
+            }
+        } else {
+            if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue, &transport, base, &credentials.secret).await; }
+            verdict
+        };
         (answer, verdict)
     } else if scheme == Some(KeyCheck::Bitvavo) {
         let transport = ReqwestTransport::bitvavo(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);

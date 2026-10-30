@@ -1,4 +1,4 @@
-//! HF-0 contracts and HF-1 M01–M05 resolver/preparation behavior. HF order execution remains disconnected.
+//! KuCoin HF: HF-0 contracts, M01–M05 resolver/preparation, O/R rows on the real adapter, F01 through the production factory.
 mod common;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use hmac::{Hmac, Mac};
@@ -116,19 +116,14 @@ async fn m03_replaced_credential_material_requires_detection_and_keeps_old_prove
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn m04_preparation_keeps_immutable_family_and_hf_trading_disconnected() {
+async fn m04_preparation_records_the_detected_family() {
     let (_db, version) = credentials();
     for hf in [false, true] {
         let t = ScriptedTransport::default();
         classic(&t, hf);
         let v = KucoinVenue::new(t.clone(), URL).with_account_context(version.clone(), Resolver::default());
-        let prepared = v.prepare().await;
-        if hf {
-            assert!(format!("{:?}", prepared.unwrap_err()).contains("not connected"));
-        } else {
-            prepared.unwrap();
-            assert_eq!(v.placement_identity().unwrap()["kucoin_account_mode"], "ClassicLf");
-        }
+        v.prepare().await.unwrap();
+        assert_eq!(v.placement_identity().unwrap()["kucoin_account_mode"], if hf { "ClassicHf" } else { "ClassicLf" });
         assert_eq!(t.requests().len(), 2);
     }
 }
@@ -195,7 +190,7 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
     use deltabadger::engine::{tick, FixedClock};
     let f = fixture("account");
     let mut count = 0;
-    for c in f["cases"].as_array().unwrap().iter().filter(|c| c["expect"]["mode"] == "Unknown" || matches!(c["id"].as_str(), Some("detect_hf" | "detect_uta"))) {
+    for c in f["cases"].as_array().unwrap().iter().filter(|c| c["expect"]["mode"] == "Unknown" || c["id"] == "detect_uta") {
         count += 1;
         let (dir, o, bot, _) = engine_setup();
         let version = model::credential_version(&o.primary, &bot).unwrap().unwrap();
@@ -206,7 +201,6 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
         let path = c["request"]["path"].as_str().unwrap();
         if c["response"]["transport_error"].is_string() { t.network(&format!("GET {path}"), "post_send", "secret passphrase"); }
         else { t.reply(&format!("GET {path}"), c["response"]["status"].as_u64().unwrap() as u16, c["response"]["body"].clone()); }
-        if c["id"] == "detect_hf" { t.reply(&format!("GET {OPENED}"), 200, c["then"]["response"]["body"].clone()); }
         let venue = KucoinVenue::new(t.clone(), URL).with_account_context(version, Resolver::default());
         tick::tick(&o.primary, &venue, bot.id, &FixedClock(at), &mut Default::default()).await.unwrap();
         no_placement(&o.primary, bot.id);
@@ -219,7 +213,7 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
         assert!(transient.contains("KuCoin"), "refusal is visible: {transient}");
         assert!(!transient.contains("secret") && !transient.contains("passphrase"));
     }
-    assert_eq!(count, 7 + 6 + 2, "13 unknown-mode faults + HF + UTA");
+    assert_eq!(count, 7 + 6 + 1, "13 unknown-mode faults + UTA (an HF account trades: f01_*)");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -760,29 +754,23 @@ fn o04_o06_hf_status_answers_read_strictly() {
     }
 }
 
-/// An HF-admitted venue (D-KUCOIN-HF-ORDERS, `allow_hf` until HF-5) prepared on a detected ClassicHf account.
+/// A venue as `LiveFactory::for_kucoin` builds it, prepared on a detected ClassicHf account.
 async fn hf_venue(t: &ScriptedTransport, version: CredentialVersion) -> KucoinVenue<ScriptedTransport> {
     classic(t, true);
-    let v = KucoinVenue::new(t.clone(), URL).with_account_context(version, Resolver::default()).allow_hf();
+    let v = KucoinVenue::new(t.clone(), URL).with_account_context(version, Resolver::default());
     v.prepare().await.unwrap();
     v
 }
 fn submitted(c: &rusqlite::Connection) -> i64 { c.query_row("SELECT count(*) FROM transactions WHERE status = 0", [], |r| r.get(0)).unwrap() }
 fn posts(t: &ScriptedTransport) -> usize { t.requests().iter().filter(|r| r.method == "POST").count() }
 
-/// O01, r1.8: without `allow_hf` a ClassicHf account is refused before any intent; with it the intent records the HF
-/// family, the POST goes to the HF route with the intent's UUID, and the accepted order is one row.
+/// O01, r1.8: on a ClassicHf account the intent records the HF family, the POST goes to the HF route with the intent's
+/// UUID, and the accepted order is one row.
 #[tokio::test(flavor = "current_thread")]
-async fn o01_an_hf_order_dispatches_only_when_admitted_and_is_recorded_once() {
+async fn o01_an_hf_order_dispatches_on_the_hf_route_and_is_recorded_once() {
     use deltabadger::engine::{placement, FixedClock};
     let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
     let clock = FixedClock(at);
-    // Not admitted: the production gate.
-    let (_dir, o, bot, _plan) = engine_setup();
-    let t = ScriptedTransport::default(); t.set_now(at); classic(&t, true);
-    let v = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
-    assert!(v.prepare().await.is_err(), "HF stays unconnected without allow_hf");
-    // Admitted.
     let (dir, o, bot, plan) = engine_setup();
     let t = ScriptedTransport::default(); t.set_now(at);
     let v = hf_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
@@ -800,7 +788,7 @@ async fn o01_an_hf_order_dispatches_only_when_admitted_and_is_recorded_once() {
     // An intent sized on a classic account is never sent on the HF one (and the reverse).
     let (_dir, o, bot, plan) = engine_setup();
     let t = ScriptedTransport::default(); t.set_now(at); classic(&t, false);
-    let lf = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    let lf = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     lf.prepare().await.unwrap();
     let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, lf.placement_identity(), None, &clock).unwrap() else { panic!() };
     let t2 = ScriptedTransport::default(); t2.set_now(at);
@@ -866,7 +854,7 @@ async fn placed(key: &str, limit_plan: bool) -> (tempfile::TempDir, deltabadger:
     let (dir, o, bot, mut plan) = engine_setup();
     plan.limit = limit_plan;
     let t = ScriptedTransport::default(); t.set_now(at); classic(&t, true);
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds(key)).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds(key)).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     v.prepare().await.unwrap();
     let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
     t.reply("POST /api/v1/hf/orders", 200, json!({"code":"200000","data":{"orderId":"HF1","clientOid":intent.cl_ord_id}}));
@@ -909,7 +897,7 @@ async fn o08_hf_rows_are_read_by_their_record_never_the_bots_current_pair() {
     assert_eq!(row_exec(&o.primary, id).0, Some(0), "the HF row still waits, never abandoned");
     // Another key's venue does not read the HF row at all.
     let t2 = ScriptedTransport::default(); t2.set_now(now); classic(&t2, true);
-    let other = KucoinVenue::new(t2.clone(), URL).with_identity(&creds("KEY-B")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    let other = KucoinVenue::new(t2.clone(), URL).with_identity(&creds("KEY-B")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     other.prepare().await.unwrap();
     t2.reply("GET /api/v1/orders/CLASSIC1", 200, json!({"code":"400100","msg":"order not exist"}));
     let _ = polling::sweep(&o.primary, &other, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
@@ -1564,7 +1552,7 @@ async fn ambiguous_intent(key: &str) -> (tempfile::TempDir, deltabadger::store::
     let t0 = at("2026-10-30T12:00:00Z");
     let (dir, o, bot, plan) = engine_setup();
     let t = ScriptedTransport::default(); t.set_now(t0); classic(&t, true);
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds(key)).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds(key)).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     v.prepare().await.unwrap();
     let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(t0)).unwrap() else { panic!() };
     t.reply("POST /api/v1/hf/orders", 503, json!({"code":"230005","msg":"The system is busy, please try again later"}));
@@ -1610,12 +1598,12 @@ async fn r06_mode_or_key_change_never_redirects_recovery() {
     let version = model::credential_version(&o.primary, &bot).unwrap().unwrap();
     // A replacement key: no lookup anywhere, the intent stays.
     let t = ScriptedTransport::default(); t.set_now(later.0); classic(&t, true);
-    let other = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-B")).with_account_context(version.clone(), Resolver::default()).allow_hf();
+    let other = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-B")).with_account_context(version.clone(), Resolver::default());
     assert!(matches!(placement::recover(&o.primary, &other, &model::load_bot(&o.primary, bot.id).unwrap(), &later).await.unwrap(), placement::Recovery::Pending));
     assert!(!t.requests().iter().any(|r| r.path.contains("orders")), "no order lookup under another key");
     // The same key, the account now classic: the HF route of the intent, which finds it.
     let t = ScriptedTransport::default(); t.set_now(later.0); classic(&t, false);
-    let same = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(version, Resolver::default()).allow_hf();
+    let same = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(version, Resolver::default());
     t.reply(&format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id), 200,
             json!({"code":"200000","data":{"id":"HF9","clientOid":intent.cl_ord_id,"symbol":"BTC-EUR","type":"market","side":"buy","price":"0","size":"0.001","funds":"60",
                    "dealSize":"0","dealFunds":"0","active":true,"inOrderBook":false,"cancelExist":false,"createdAt":1793361600000_i64}}));
@@ -1702,7 +1690,7 @@ fn adopted(opened: bool) -> (tempfile::TempDir, deltabadger::store::Opened, mode
     // The venue's code for the pair differs from the asset's symbol (KuCoin's BCHSV for the BSV asset, here XBT for BTC).
     o.primary.execute_batch("UPDATE tickers SET ticker = 'XBT-EUR'").unwrap();
     let t = ScriptedTransport::default(); t.set_now(at("2026-10-30T12:00:00Z")); classic(&t, opened);
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     (dir, o, bot, t, v)
 }
 fn mark_unproven(c: &rusqlite::Connection, id: i64) {
@@ -1886,10 +1874,195 @@ async fn review_a_detection_failure_proves_no_origin() {
     o.primary.execute_batch("UPDATE tickers SET ticker = 'XBT-EUR'").unwrap();
     let t = ScriptedTransport::default(); t.set_now(at("2026-10-30T12:00:00Z"));
     t.network(&format!("GET {MODE}"), "pre_send", "timeout");
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
     mark_unproven(&o.primary, id);
     t.reply("GET /api/v1/orders/A1", 200, classic_order("A1", "XBT-EUR", true, "0", "0"));
     assert!(sweep(&o.primary, &v, bot.id).await.is_err());
     assert_eq!(origin(&o.primary, id).as_deref(), Some("unproven"));
+}
+
+// ---- HF-5: the production factory (grid-kucoin-hf) ------------------------------------------------------------------
+
+/// The engine as `serve` builds it: `LiveFactory::for_install` (here on a local KuCoin host), the shared resolver.
+async fn live_engine(server: &wiremock::MockServer, opened: bool, at: chrono::DateTime<chrono::Utc>)
+                     -> (tempfile::TempDir, deltabadger::store::Paths, deltabadger::engine::run::Engine<deltabadger::venue::alpaca::LiveFactory>, model::Bot) {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}))).mount(server).await;
+    Mock::given(method("GET")).and(path(OPENED)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":opened}))).mount(server).await;
+    Mock::given(method("GET")).and(path("/api/v1/market/orderbook/level2_20")).respond_with(ResponseTemplate::new(200).set_body_json(
+        json!({"code":"200000","data":{"time":1793361600000_i64,"sequence":"1","bids":[["49999","1.5"]],"asks":[["50000","0.3"]]}}))).mount(server).await;
+    // Funds only on the account the detected mode trades on.
+    let funded = |kind: &str| json!({"code":"200000","data":[{"currency":"EUR","type":kind,"available":"1000","holds":"0","balance":"1000"}]});
+    let kind = if opened { "trade_hf" } else { "trade" };
+    Mock::given(method("GET")).and(path("/api/v1/accounts")).and(wiremock::matchers::query_param("type", kind)).respond_with(ResponseTemplate::new(200).set_body_json(funded(kind))).mount(server).await;
+    Mock::given(method("GET")).and(path("/api/v1/accounts")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":[]}))).mount(server).await;
+    let (dir, o, bot, _) = engine_setup();
+    let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
+    let key = model::credential_version(&o.primary, &bot).unwrap().unwrap().id;
+    Resolver::shared().invalidate(&server.uri(), key);
+    drop(o);
+    let lock = deltabadger::lease::lock(&paths, at).unwrap();
+    let primary = deltabadger::store::open(&paths).unwrap().primary;
+    let factory = deltabadger::venue::alpaca::LiveFactory::for_install(&primary, &common::seed::cipher())
+        .with_clock(std::sync::Arc::new(deltabadger::engine::FixedClock(at))).with_kucoin_base(&server.uri());
+    (dir, paths, deltabadger::engine::run::Engine::new(primary, factory, common::seed::cipher(), lock), bot)
+}
+async fn sent(server: &wiremock::MockServer) -> Vec<String> {
+    server.received_requests().await.unwrap().iter().map(|r| format!("{} {}{}", r.method, r.url.path(), r.url.query().map(|q| format!("?{q}")).unwrap_or_default())).collect()
+}
+
+fn post_hf(server: &wiremock::MockServer, id: &str) -> wiremock::Mock {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    let _ = server;
+    Mock::given(method("POST")).and(path("/api/v1/hf/orders")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"orderId":id}})))
+}
+fn hf_status(id: &str, answer: Value) -> wiremock::Mock {
+    use wiremock::{matchers::{method, path, query_param}, Mock, ResponseTemplate};
+    Mock::given(method("GET")).and(path(format!("/api/v1/hf/orders/{id}"))).and(query_param("symbol", "BTC-EUR")).respond_with(ResponseTemplate::new(200).set_body_json(answer))
+}
+fn live_at(s: &str) -> deltabadger::engine::FixedClock { deltabadger::engine::FixedClock(s.parse().unwrap()) }
+
+/// F01 (grid-kucoin-hf): a DCA bot on a detected HF account, built by the production factory and run by the engine, places
+/// on the HF route with its intent's UUID, records the order once, and its poll settles it on the HF route.
+#[tokio::test(flavor = "current_thread")]
+async fn f01_dca_places_polls_and_settles_on_hf() {
+    let server = wiremock::MockServer::start().await;
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, _paths, mut e, bot) = live_engine(&server, true, at).await;
+    post_hf(&server, "HF-LIVE-1").mount(&server).await;
+    hf_status("HF-LIVE-1", hf_answer("HF-LIVE-1", false, false, "0.0012", "60")).mount(&server).await;
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:01:00Z")).await.unwrap();
+    let requests = server.received_requests().await.unwrap();
+    let posts: Vec<_> = requests.iter().filter(|r| r.method.as_str() == "POST").collect();
+    assert_eq!(posts.len(), 1, "{:#?}", sent(&server).await);
+    assert_eq!(posts[0].url.path(), "/api/v1/hf/orders");
+    let body: Value = serde_json::from_slice(&posts[0].body).unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let (id, ext): (i64, String) = c.query_row("SELECT id, external_id FROM transactions WHERE bot_id=?1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(ext, "HF-LIVE-1", "the raw orderId");
+    let record: Value = serde_json::from_str(&c.query_row("SELECT value FROM app_configs WHERE key=?1", [format!("rust_kucoin_order:{id}")], |r| r.get::<_, String>(0)).unwrap()).unwrap();
+    assert_eq!((&record["family"], &record["symbol"], &record["host"]), (&json!("ClassicHf"), &json!("BTC-EUR"), &json!(server.uri())));
+    assert!(body["clientOid"].as_str().is_some_and(|c| c.len() == 36), "the intent's UUID: {body}");
+    assert!(requests.iter().any(|r| r.url.path() == "/api/v1/hf/orders/HF-LIVE-1"), "polled on the HF route: {:#?}", sent(&server).await);
+    assert!(!requests.iter().any(|r| r.url.path().starts_with("/api/v1/orders") || r.url.path() == "/api/v1/fills"), "never the classic routes: {:#?}", sent(&server).await);
+    assert_eq!(row_exec(&c, id), (Some(2), Some(0.0012)), "closed with its exact execution");
+}
+
+/// F01: the same bot on a classic account keeps the classic route, writes no HF record, and asks no HF route.
+#[tokio::test(flavor = "current_thread")]
+async fn f01_classic_twin_keeps_the_classic_route() {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    let server = wiremock::MockServer::start().await;
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, _paths, mut e, bot) = live_engine(&server, false, at).await;
+    Mock::given(method("POST")).and(path("/api/v1/orders")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"orderId":"LF-1"}}))).mount(&server).await;
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
+    assert_eq!(sent(&server).await, ["GET /api/ua/v2/account/mode", "GET /api/v1/hf/accounts/opened", "GET /api/v1/market/orderbook/level2_20?symbol=BTC-EUR", "POST /api/v1/orders",
+                                   "GET /api/v1/accounts?type=trade"]);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(c.query_row("SELECT external_id FROM transactions WHERE bot_id=?1", [bot.id], |r| r.get::<_, String>(0)).unwrap(), "LF-1");
+    assert_eq!(c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE 'rust_kucoin_%'", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+}
+
+/// F01: a Unified Trading Account is still refused before anything is sized or sent.
+#[tokio::test(flavor = "current_thread")]
+async fn f01_uta_is_still_refused() {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    let server = wiremock::MockServer::start().await;
+    Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"selfAccountMode":"UNIFIED"}}))).mount(&server).await;
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, _paths, mut e, bot) = live_engine(&server, false, at).await;
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
+    assert_eq!(sent(&server).await, ["GET /api/ua/v2/account/mode"]);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    no_placement(&c, bot.id);
+    let details: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id=?1 AND event='execution_failed' ORDER BY id DESC LIMIT 1", [bot.id], |r| r.get(0)).unwrap();
+    assert!(details.contains("Unified Trading Accounts are not supported"), "{details}");
+}
+
+/// F01: a lost placement reply on an HF account keeps the intent; the next step finds the order on the HF clientOid route
+/// and books it once. One POST in all.
+#[tokio::test(flavor = "current_thread")]
+async fn f01_lost_reply_recovers_by_client_oid() {
+    use wiremock::{matchers::{method, path, query_param}, Mock, ResponseTemplate};
+    let server = wiremock::MockServer::start().await;
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, _paths, mut e, bot) = live_engine(&server, true, at).await;
+    Mock::given(method("POST")).and(path("/api/v1/hf/orders")).respond_with(ResponseTemplate::new(500).set_body_json(json!({"code":"500000","msg":"Internal Server Error"}))).mount(&server).await;
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let intent = model::load_bot(&c, bot.id).unwrap().rust_placement().expect("an ambiguous POST keeps the intent");
+    assert_eq!(intent["kucoin_account_mode"], "ClassicHf");
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    let cl = intent["cl_ord_id"].as_str().unwrap().to_string();
+    Mock::given(method("GET")).and(path(format!("/api/v1/hf/orders/client-order/{cl}"))).and(query_param("symbol", "BTC-EUR")).respond_with(ResponseTemplate::new(200).set_body_json(
+        json!({"code":"200000","data":{"id":"HF-LOST","clientOid":cl,"symbol":"BTC-EUR","type":"market","side":"buy","price":"0","size":"0.001","funds":"60",
+               "dealSize":"0.0012","dealFunds":"60","active":false,"inOrderBook":false,"cancelExist":false,"createdAt":1793361600000_i64}}))).mount(&server).await;
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:05:00Z")).await.unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_none(), "recovered: {:#?}", sent(&server).await);
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE external_id='HF-LOST'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+    assert_eq!(server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "POST").count(), 1, "never a second POST");
+}
+
+/// F01: an open row placed before the takeover (unproven route) is read on both routes; only the HF one knows it, so the
+/// row gets its HF record and its marker goes.
+#[tokio::test(flavor = "current_thread")]
+async fn f01_an_adopted_row_is_proven_on_hf() {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    let server = wiremock::MockServer::start().await;
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, _paths, mut e, bot) = live_engine(&server, true, at).await;
+    let tx = {
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        let tx = open_row(&c, &bot, "ADOPTED-1", "2026-10-29 12:00:00", json!({}));
+        mark_unproven(&c, tx);
+        tx
+    };
+    Mock::given(method("GET")).and(path("/api/v1/orders/ADOPTED-1")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
+    hf_status("ADOPTED-1", hf_answer("ADOPTED-1", true, false, "0", "0")).mount(&server).await;
+    post_hf(&server, "HF-NEXT").mount(&server).await;
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let record = deltabadger::venue::kucoin::order_record(&c, tx).unwrap();
+    assert_eq!(record.as_ref().map(|r| r["family"].clone()), Some(json!("ClassicHf")), "proven HF: {:#?}", sent(&server).await);
+    assert_eq!(c.query_row("SELECT count(*) FROM app_configs WHERE key=?1", [format!("rust_kucoin_origin:{tx}")], |r| r.get::<_, i64>(0)).unwrap(), 0, "the marker is gone");
+}
+
+/// F01/R08: once the engine has placed on an HF account, handing the install back to Rails is refused, naming the bot.
+#[tokio::test(flavor = "current_thread")]
+async fn f01_an_hf_bot_refuses_the_handback() {
+    let server = wiremock::MockServer::start().await;
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (_dir, paths, mut e, bot) = live_engine(&server, true, at).await;
+    post_hf(&server, "HF-BACK").mount(&server).await;
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
+    drop(e);
+    let lock = deltabadger::lease::lock(&paths, at).unwrap();
+    let o = deltabadger::store::open(&paths).unwrap();
+    let factory = deltabadger::venue::alpaca::LiveFactory::for_install(&o.primary, &common::seed::cipher()).with_kucoin_base(&server.uri());
+    let refused = deltabadger::engine::handover::hand_back(&lock, &o, &factory, &common::seed::cipher(), &live_at("2026-10-30T12:10:00Z")).await;
+    let why = format!("{:?}", refused.expect_err("an HF bot is Rust-only"));
+    assert!(why.contains(&format!("bot {}", bot.id)) && why.contains("HF"), "{why}");
+}
+
+/// R07 under HF-5: an adopted row is proven only on a detected account. A detection failure or a Unified account proves
+/// nothing, even when the classic route would name the order: the row stays unproven and is read nowhere.
+#[tokio::test(flavor = "current_thread")]
+async fn r07_an_undetected_or_unified_account_proves_no_route() {
+    for answer in [json!({"code":"500000","msg":"busy"}), json!({"code":"200000","data":{"selfAccountMode":"UNIFIED"}})] {
+        let (_dir, o, bot, _plan) = engine_setup();
+        o.primary.execute_batch("UPDATE tickers SET ticker = 'XBT-EUR'").unwrap();
+        let t = ScriptedTransport::default(); t.set_now(at("2026-10-30T12:00:00Z"));
+        t.reply(&format!("GET {MODE}"), 200, answer.clone());
+        let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
+        let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+        mark_unproven(&o.primary, id);
+        t.reply("GET /api/v1/orders/A1", 200, classic_order("A1", "XBT-EUR", true, "0", "0"));
+        assert!(sweep(&o.primary, &v, bot.id).await.is_err(), "{answer}");
+        assert_eq!(origin(&o.primary, id).as_deref(), Some("unproven"), "{answer}");
+        assert!(!t.requests().iter().any(|r| r.path.contains("A1")), "{answer}: no order read on an undetected route");
+    }
 }

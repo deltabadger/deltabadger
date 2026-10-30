@@ -314,10 +314,7 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
                 "[{venue_name}] API key validation failed: {}",
                 scrub(&diagnostic.log_text(),&redaction_material)
             ));
-            if diagnostic.refusal {
-                if diagnostic.text == crate::venue::kucoin_account::UTA { return Ok(Submitted::AccountMode("settings.kucoin.account_uta")); }
-                if diagnostic.text == crate::venue::kucoin_account::HF_UNCONNECTED { return Ok(Submitted::AccountMode("settings.kucoin.account_hf")); }
-            }
+            if diagnostic.refusal && diagnostic.text == crate::venue::kucoin_account::UTA { return Ok(Submitted::AccountMode("settings.kucoin.account_uta")); }
             return Ok(Submitted::Failed);
         }
         Validity::Correct | Validity::Account(_) | Validity::PendingActivation => {}
