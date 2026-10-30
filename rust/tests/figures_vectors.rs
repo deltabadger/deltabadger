@@ -214,6 +214,34 @@ use deltabadger::figures::db::Order;
 use deltabadger::figures::{splits, walk};
 
 #[test]
+fn pair_partial_fills_keep_executed_quantity_and_name_unavailable_value() {
+    use deltabadger::figures::{fill, FiguresError};
+    let dec = |s: &str| Some(Dec::parse(s).unwrap());
+    // Open and unknown rows both reach the reader with closed=false. Closed rows alone may use requested quantity.
+    for closed in [false, true] {
+        for sell in [false, true] {
+            for quote in [None, dec("0"), dec("39")] {
+                let mut row = Order {
+                    id: 1, at: At(0), exchange_id: None, raw: fill::Raw::new(dec("101"), dec("1"), dec("0.4"), quote.clone()),
+                    base: None, asset_id: None, sell, buy: !sell, closed, kind: "REGULAR".into(), abandoned_request: None,
+                };
+                let got = fill::pair_row(&row).unwrap().expect("D-PAIR-FILL-VALUE: count a confirmed partial fill");
+                assert_eq!(got.quantity.to_s_f(), "0.4");
+                assert_eq!(got.value.to_s_f(), if quote.as_ref().is_some_and(Dec::is_positive) { "39.0" } else { "40.4" });
+                row.raw = fill::Raw::new(None, dec("1"), dec("0.4"), None);
+                assert!(matches!(fill::pair_row(&row), Err(FiguresError::NotComputed(reason)) if reason == fill::VALUE_UNAVAILABLE));
+                row.raw = fill::Raw::new(dec("101"), dec("1"), dec("0"), None);
+                assert!(fill::pair_row(&row).unwrap().is_none(), "explicit zero execution never falls back to requested quantity");
+                row.raw = fill::Raw::new(dec("101"), dec("1"), None, None);
+                assert_eq!(fill::pair_row(&row).unwrap().map(|f| f.quantity.to_s_f()), closed.then(|| "1.0".into()));
+                row.raw = fill::Raw::new(dec("101"), None, dec("0.4"), None);
+                assert_eq!(fill::pair_row(&row).unwrap().unwrap().value.to_s_f(), "40.4");
+            }
+        }
+    }
+}
+
+#[test]
 fn an_order_row_is_read_as_filled_only_when_it_is_closed() {
     let v = vectors();
     let cases = v["confirmed_exec_amounts"].as_array().unwrap();

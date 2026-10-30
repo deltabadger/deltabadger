@@ -318,6 +318,19 @@ async fn figures_fragments_match_the_rails_page_partials() {
         if name == "boundaries" { boundaries(&dir); currencies += 100; continue; }
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
         let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        if ["pair_row_zero_proceeds", "pair_row_open_partial"].contains(&name) {
+            // D-PAIR-FILL-VALUE: keep Rails' omitted holding as evidence, then compare every rendered fragment and
+            // broadcast against Rails' own rendering with the executed value supplied by the counterfactual reader.
+            let quantity = |v: &Value| {
+                let doc = scraper::Html::parse_fragment(v["bots"]["1"]["metrics"].as_str().unwrap());
+                doc.select(&scraper::Selector::parse("tr[data-symbol] td:nth-child(3)").unwrap())
+                    .map(|e| deltabadger::figures::dec::Dec::parse(e.text().collect::<String>().trim()).unwrap().to_s_f()).collect::<Vec<_>>()
+            };
+            assert_eq!(quantity(&expected), vec!["1.0"], "{name}: Rails no longer omits the partial fill");
+            let normalized: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap();
+            assert_eq!(quantity(&normalized), vec![if name == "pair_row_open_partial" { "1.4" } else { "1.3" }]);
+            expected = normalized;
+        }
         if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { without_sell_while_halted(&mut expected); }
         if name.starts_with("fx_") { display_currency(name, &dir, &sc, &expected).await; currencies += 1; continue; }
         let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();

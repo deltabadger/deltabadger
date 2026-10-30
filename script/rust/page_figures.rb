@@ -343,32 +343,40 @@ module PageFigures
                                                                          'parity_scratch' => true, 'at' => Figures.time(sc['at']).utc.iso8601(9),
                                                                          'user_id' => user.id, 'bot_ids' => bots.map(&:id), 'script' => sc['script']
                                                                        }))
-      PageFigures.broadcasts = []
-      before_offset = bots.first.reload.redeploy_declined_offset
-      out = {}
-      Figures.travel_to(Figures.time(sc['at']), with_usec: true) do
-        out['cold'] = pages(user, bots) if FRAMED.include?(sc['name'])
-        out['bots'] = bot_fragments(user, bots)
-        bots.each do |bot|
-          bot.broadcast_pnl_update
-          if bot.respond_to?(:broadcast_metrics_panel)
-            bot.broadcast_metrics_panel
-            bot.broadcast_chart
-          else
-            bot.broadcast_metrics_update # a pair bot: its panel, then its chart
+      # D-PAIR-FILL-VALUE: record the unchanged page first, then Rails' rendering with normalized execution values.
+      readings = %w[pair_row_zero_proceeds pair_row_open_partial].include?(sc['name']) ? %w[rails normalized] : %w[rails]
+      readings.each do |reading|
+        Rails.cache.clear
+        Thread.current[:normalized_figure_rows] = reading == 'normalized'
+        PageFigures.broadcasts = []
+        before_offset = bots.first.reload.redeploy_declined_offset
+        out = {}
+        Figures.travel_to(Figures.time(sc['at']), with_usec: true) do
+          out['cold'] = pages(user, bots) if FRAMED.include?(sc['name'])
+          out['bots'] = bot_fragments(user, bots)
+          bots.each do |bot|
+            bot.broadcast_pnl_update
+            if bot.respond_to?(:broadcast_metrics_panel)
+              bot.broadcast_metrics_panel
+              bot.broadcast_chart
+            else
+              bot.broadcast_metrics_update # a pair bot: its panel, then its chart
+            end
           end
+          user.broadcast_global_pnl_update
+          out['account'] = account_fragment(user)
+          out['warm'] = pages(user, bots) if FRAMED.include?(sc['name'])
         end
-        user.broadcast_global_pnl_update
-        out['account'] = account_fragment(user)
-        out['warm'] = pages(user, bots) if FRAMED.include?(sc['name'])
-      end
-      raise 'unscripted market' unless ScriptedMarket.gaps.empty?
+        raise 'unscripted market' unless ScriptedMarket.gaps.empty?
 
-      out['broadcasts'] = PageFigures.broadcasts
-      out['offset'] = [before_offset.to_s, bots.first.reload.redeploy_declined_offset.to_s]
-      bots.first.update_columns(redeploy_declined_offset: before_offset) # give Rust the same input Rails read
-      out['requests'] = ScriptedMarket.requests.uniq.sort
-      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
+        out['broadcasts'] = PageFigures.broadcasts
+        out['offset'] = [before_offset.to_s, bots.first.reload.redeploy_declined_offset.to_s]
+        bots.first.update_columns(redeploy_declined_offset: before_offset) # give Rust the same input Rails read
+        out['requests'] = ScriptedMarket.requests.uniq.sort
+        File.write(File.join(dir, "#{reading}.json"), JSON.pretty_generate(out))
+      ensure
+        Thread.current[:normalized_figure_rows] = false
+      end
       ActiveRecord::Base.connection_pool.disconnect!
     end
   ensure

@@ -16,7 +16,8 @@ const SCENARIOS: usize = 167;
 /// The named divergences from Rails, each a defect there, asserted on their own (`the_named_divergences_hold`) and
 /// left out of the comparisons: D1, a closed row with no value reported is valued at the units it executed (Rails: at
 /// the units it asked for); D2, a fill with a zero or NULL price counts, priced at its value over its quantity (Rails
-/// values it at zero, or skips it).
+/// values it at zero, or skips it). D-PAIR-FILL-VALUE additionally counts executions without a positive reported
+/// quote: its exact Rails/Rust cells are asserted separately, and its computed figures join the normalized comparison.
 const DIVERGENT: [&str; 3] = ["pair_row_requested_fallback", "pair_row_zero_price", "pair_row_null_price_reported"];
 
 fn rails(args: &[&str]) {
@@ -304,10 +305,10 @@ fn the_accounts_totals_match_rails_in_every_scenario() {
 fn the_market_is_asked_for_exactly_what_rails_asks_it() {
     // Where a figure is not computed the library stops asking, so those scenarios are left out here.
     let whole = |s: &&Scenario| !s.rust.as_ref().is_ok_and(|out| out.to_string().contains("not_computed"));
-    // R3 additionally refuses the negative_fill scenario before asking the market.
-    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 11);
+    // R3 refuses negative_fill; D-PAIR-FILL-VALUE names the unpriceable pair fill before asking the market.
+    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 12);
     for scenario in grid().scenarios.iter().filter(whole) {
-        assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
+        assert_eq!(scenario.normalized["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
     let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
     assert_eq!(asked, 879, "requests on the Rails side");
@@ -370,6 +371,31 @@ fn the_named_divergences_hold() {
     assert_eq!(rust["average_buy_price"], serde_json::json!("100.66666666666666666666666666667"));
 }
 
+/// D-PAIR-FILL-VALUE: each affected Rails cell and the corrected or unavailable Rust metric.
+#[test]
+fn pair_fill_value_divergence_is_validated_against_rails() {
+    let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
+    let metrics = |v: &Value| serde_json::from_str::<Value>(v["bots"]["1"]["metrics"].as_str().unwrap()).unwrap();
+    // D-PAIR-FILL-VALUE: Rails omits these executions; Rust values the executed units at the stored price.
+    for (name, quantity, value) in [("pair_row_open_partial", "1.4", "140.4"), ("pair_row_zero_proceeds", "1.3", "130.6")] {
+        let s = of(name);
+        let (rails, rust) = (metrics(&s.rails), metrics(s.rust.as_ref().unwrap()));
+        assert_eq!(rails["total_base_amount"], "1.0", "{name}: Rails no longer omits the fill");
+        assert_eq!(rails["total_quote_amount_invested"], "100.0");
+        assert_eq!(rust["total_base_amount"], quantity);
+        assert_eq!(rust["total_quote_amount_invested"], value);
+        assert_eq!(rust["chart"]["labels"].as_array().unwrap().len(), 2);
+    }
+    let s = of("pair_row_nil_amounts");
+    assert!(metrics(&s.rails)["raised"].as_str().unwrap().contains("nil can't be coerced"));
+    let rust = metrics(s.rust.as_ref().unwrap());
+    assert_eq!(rust["total_base_amount"], "1.5");
+    assert_eq!(rust["total_quote_amount_invested"], "150.0");
+    let s = of("pair_row_nil_price_nil_quote");
+    assert!(metrics(&s.rails)["raised"].as_str().unwrap().contains("undefined method"));
+    assert_eq!(s.rust.as_ref().unwrap()["bots"]["1"]["metrics"], serde_json::json!({"not_computed": "executed fill value unavailable"}));
+}
+
 /// Beside the account's totals: the same holdings, by bot. A deleted bot is in no total and in no list.
 #[test]
 fn the_accounts_totals_name_what_they_leave_out() {
@@ -404,7 +430,7 @@ fn what_is_not_computed_is_named() {
     // A candle that is no number: the walk and the live figures stand, the chart and what is drawn from it do not.
     expected.extend([".bots.1.marked", ".bots.1.chart", ".pnl_history"].iter().map(|place| format!("candle_nan{place}: {number}")));
     // RULING-R2: the existing row_readings fixture has a positive execution without a price.
-    for name in ["row_readings","tax_lots","unpriced_rebalances","unpriced_sales"] {
+    for name in ["row_readings","tax_lots","unpriced_rebalances","unpriced_sales","pair_row_nil_price_nil_quote"] {
         expected.extend([".bots.1.metrics", ".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place|format!("{name}{place}: executed fill value unavailable")));
     }
     expected.extend([".bots.1.metrics", ".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place|format!("negative_fill{place}: negative fill field")));
@@ -425,7 +451,7 @@ fn what_is_not_computed_is_named() {
 }
 
 #[test]
-fn normalized_oracle_changes_only_the_named_r4_histories() {
+fn normalized_oracle_changes_only_the_named_fill_histories() {
     let mut changed=vec![];
     for scenario in &grid().scenarios {
         let mut original=scenario.rails.clone(); original.as_object_mut().unwrap().remove("seconds");
@@ -434,7 +460,10 @@ fn normalized_oracle_changes_only_the_named_r4_histories() {
     // Rails reads buys through Transaction.normalized_fill itself; what is left is a sale with no reported proceeds,
     // which Rails books P/L-neutral and judges "unknown" on purpose. B2b: random_6 and unpriced_sales differed from
     // Rails only in unpriced LIQUIDATION sells, which the counterfactual now reads raw, as Rails does (RULING-B2B-1 MQ6).
-    assert_eq!(changed, vec!["random_10", "random_12", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_22", "random_24", "random_3", "random_4", "random_7", "random_9"]);
+    // D-PAIR-FILL-VALUE and D1 additionally normalize these four row cases and six seeded pair histories.
+    assert_eq!(changed, vec!["pair_row_nil_amounts", "pair_row_open_partial", "pair_row_requested_fallback", "pair_row_zero_proceeds",
+        "random_10", "random_12", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_22", "random_24", "random_3", "random_4", "random_7", "random_9",
+        "random_pair_1", "random_pair_4", "random_pair_5", "random_pair_6", "random_pair_7", "random_pair_8"]);
 }
 
 /// KuCoin's candles (Exchanges::Kucoin#get_candles under CandleSeriesCache), one market cache across a scenario's steps:
