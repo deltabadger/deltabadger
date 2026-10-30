@@ -1307,3 +1307,33 @@ async fn a_slow_resume_does_not_block_an_authenticated_stop() {
     assert_eq!(model::load_bot(&o.primary, other).unwrap().status, deltabadger::enums::BotStatus::Stopped);
     assert!(pending(&o, id).is_null());
 }
+
+struct ScriptedFactory(ScriptedTransport);
+impl deltabadger::venue::VenueFactory for ScriptedFactory {
+    type V = AlpacaVenue<ScriptedTransport>;
+    fn for_bot(&self, _t: &str, _c: Option<deltabadger::crypto::Credentials>) -> Self::V { venue(&self.0) }
+}
+
+/// D-REBALANCE-INSTANT-BUY (AUDIT #7): once the sell has filled, the engine's next step places the owed buy, minutes
+/// after the sell, not at the next four-hourly fire. One try per sell: a step after it adds nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn the_owed_buy_goes_out_at_the_next_step_after_the_sell_fills() {
+    use deltabadger::engine::polling;
+    let (d, o, id, _, _) = swap_bot(stopped());
+    let t = script(json!({
+        "GET /v2/orders/OTX-1": [sold_btc("0.00421875", Some("64000"), "filled")],
+        "GET /v2/orders/OTX-2": [order("OTX-2", "filled", "ETH/USD", "buy", None, Some("270"), "0.108", Some("2500"))],
+    }));
+    assert!(matches!(evaluate(&o, &t, id, at(T0)).await, Outcome::Placed(_)));
+    polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, id).unwrap(), at(T0) + Duration::minutes(1)).await.unwrap();
+    assert_eq!(one::<i64>(&o, "SELECT external_status FROM transactions WHERE external_id = 'OTX-1'"), 2, "the sell filled");
+    let paths = store::Paths::from_env(&|_| None, d.path());
+    let when = at(T0) + Duration::minutes(2);
+    let lock = deltabadger::lease::lock(&paths, when).unwrap();
+    let mut e = deltabadger::engine::run::Engine::new(store::open(&paths).unwrap().primary, ScriptedFactory(t.clone()), seed::cipher(), lock);
+    deltabadger::engine::run::step(&mut e, &FixedClock(when)).await.unwrap();
+    assert_eq!(posted(&t).get(1), Some(&("ETH/USD".into(), "buy".into(), "270.00".into())), "the buy, two minutes after the sell");
+    assert_eq!(pending(&o, id)["phase"], "buying");
+    deltabadger::engine::run::step(&mut e, &FixedClock(when + Duration::minutes(1))).await.unwrap();
+    assert_eq!(posted(&t).len(), 2, "one buy, never a second");
+}

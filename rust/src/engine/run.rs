@@ -66,6 +66,8 @@ pub struct Engine<F: VenueFactory> {
     /// Bot::EvaluateRebalancersJob's next fire (`30 */4 * * *`), in memory: set at the first pass to the first fire after it,
     /// so a fire missed while the engine was down is not run late (Solid Queue does not backfill a recurring task either).
     rebalance_at: Option<i64>,
+    /// D-REBALANCE-INSTANT-BUY: the (bot, filled sell) pairs already run at once; one try per sell, then the fire's.
+    owed_buys: std::collections::HashSet<(i64, i64)>,
     /// The composition resyncs' retry waits and once-only logs.
     resyncs: Resyncs,
 }
@@ -88,7 +90,7 @@ impl<F: VenueFactory> Engine<F> {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
-               events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, resyncs: Resyncs::default() }
+               events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, owed_buys: Default::default(), resyncs: Resyncs::default() }
     }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
@@ -540,6 +542,17 @@ pub const REBALANCE_SCHEDULE: crate::jobs::schedule::Schedule = crate::jobs::sch
 
 /// Bot::EvaluateRebalancersJob#candidates: every rebalanceable bot that is neither deleted nor archived (a stopped one
 /// included), with the rule on or a swap pending.
+/// The swaps owing their buy: a pending rebalance still in its selling phase whose sell row is final (closed or
+/// cancelled), with no buy attempted yet. (bot id, sell transaction id).
+fn owed_buys(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
+    let mut s = c.prepare("SELECT b.id, t.id FROM bots b JOIN transactions t ON t.id = json_extract(b.transient_data, '$.rebalance_pending.sell_transaction_id') AND t.bot_id = b.id \
+                           WHERE json_extract(b.transient_data, '$.rebalance_pending.phase') = ?1 AND json_extract(b.transient_data, '$.rebalance_pending.buy_attempted') IS NOT 1 \
+                           AND t.status = 0 AND t.external_status IN (2, 3) AND b.status NOT IN (?2, ?3) ORDER BY b.id")?;
+    let rows = s.query_map(rusqlite::params![super::rebalance::PHASE_SELLING, crate::enums::BotStatus::Deleted as i64, crate::enums::BotStatus::Archived as i64],
+                           |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 fn rebalance_candidates(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots WHERE type IN ('Bots::DcaIndex', 'Bots::DcaMultiAsset') AND status NOT IN (?1, ?2) \
                            AND (json_extract(settings, '$.rebalance_enabled') IN (1, 'true') OR json_extract(transient_data, '$.rebalance_pending') IS NOT NULL) ORDER BY id")?;
@@ -551,6 +564,17 @@ fn rebalance_candidates(c: &Connection) -> Result<Vec<i64>, EngineError> {
 /// which is what BotJob's per-exchange concurrency key and the shared Bot::ActionJob group buy in Rails). Placed orders get
 /// their follow-up poll and are announced, as a tick's are. A bot's failure is logged; the next fire evaluates it again.
 async fn run_rebalances<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    // D-REBALANCE-INSTANT-BUY (AUDIT #7): a swap whose sell has filled buys at once, not at the next fire (Rails waits for
+    // it, up to four hours, while the proceeds sit idle). One try per sell: one that does not get on is the fire's again.
+    for (id, sell) in owed_buys(&e.primary)? {
+        if e.stopping() { break; }
+        if unreadable.iter().any(|(u, _)| *u == id) || !e.owed_buys.insert((id, sell)) { continue; }
+        match rebalance_bot(e, id, clock).await {
+            Ok(outcome) => super::log(&format!("bot {id}: rebalance buy after its sell {outcome:?}")),
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            Err(err) => super::log(&format!("[engine] bot {id}: rebalance buy after its sell failed: {err:?}; evaluated again at the next fire")),
+        }
+    }
     let now = clock.now();
     let due = *e.rebalance_at.get_or_insert_with(|| REBALANCE_SCHEDULE.next_fire(now).timestamp_micros());
     if now.timestamp_micros() < due { *wake = (*wake).min(due); return Ok(()); }
