@@ -363,9 +363,8 @@ jobs:
         include:
           - { name: linux-x86_64, os: ubuntu-24.04 }
           - { name: linux-arm64, os: ubuntu-24.04-arm }
-          # macos-arm64 is dropped until 3.0 (Jan, 2026-10-29): development runs on Apple Silicon, and macos-x86_64 and
-          # linux-arm64 run the Rails-free list on clean runners. Restore it before the 3.0 desktop release.
-          - { name: macos-x86_64, os: macos-15-intel }
+          # No macOS job until 3.0: development runs on Apple Silicon, and Intel Macs are not supported. Restore
+          # macos-arm64 before the 3.0 desktop release.
           - { name: windows-x86_64, os: windows-2025 }
     defaults:
       run:
