@@ -1554,3 +1554,99 @@ async fn a_refused_first_hf_cancel_is_a_failed_cancel() {
     assert_eq!(work(&o.primary, bot.id), (vec![], vec![]));
     assert_eq!(c_count(&o.primary, "order_cancel_failed"), 1);
 }
+
+// ---- HF-4: recovery and takeover (R01, R06) ------------------------------------------------------------------------
+
+/// An HF intent whose POST answered 230005 (ambiguous), on the seeded bot: (dir, store, bot, transport, venue, intent).
+async fn ambiguous_intent(key: &str) -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot, ScriptedTransport, KucoinVenue<ScriptedTransport>, deltabadger::engine::placement::Intent) {
+    use deltabadger::engine::{placement, FixedClock};
+    let t0 = at("2026-10-30T12:00:00Z");
+    let (dir, o, bot, plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(t0); classic(&t, true);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds(key)).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    v.prepare().await.unwrap();
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(t0)).unwrap() else { panic!() };
+    t.reply("POST /api/v1/hf/orders", 503, json!({"code":"230005","msg":"The system is busy, please try again later"}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(t0)).await.unwrap(), placement::Sent::Ambiguous(_)));
+    (dir, o, bot, t, v, *intent)
+}
+
+/// R01: misses, other orders' answers and failures past 1,200 s and past 7 days, each after reopening the store, never
+/// clear the intent, write a row or send a second POST.
+#[tokio::test(flavor = "current_thread")]
+async fn r01_misses_past_1200s_and_7_days_never_clear_or_repost() {
+    use deltabadger::engine::{tick, FixedClock};
+    let (dir, _o, bot, t, v, intent) = ambiguous_intent("KEY-A").await;
+    let key = format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id);
+    let mut other_symbol = json!({"code":"200000","data":{"id":"HF9","clientOid":intent.cl_ord_id,"symbol":"ETH-EUR","type":"market","side":"buy","price":"0","size":"0.001","funds":"60",
+        "dealSize":"0","dealFunds":"0","active":true,"inOrderBook":false,"cancelExist":false,"createdAt":1793361600000_i64}});
+    let mut other_client = other_symbol.clone();
+    other_client["data"]["symbol"] = json!("BTC-EUR"); other_client["data"]["clientOid"] = json!("someone-else");
+    other_symbol["data"]["clientOid"] = json!(intent.cl_ord_id);
+    t.reply(&key, 200, json!({"code":"400100","msg":"order not exist"}));
+    t.reply(&key, 200, other_symbol);
+    t.reply(&key, 200, other_client);
+    t.network(&key, "post_send", "reset");
+    t.reply(&key, 200, json!({"code":"400100","msg":"order not exist"}));
+    for after in [chrono::Duration::seconds(1201), chrono::Duration::seconds(1300), chrono::Duration::seconds(1400), chrono::Duration::days(7), chrono::Duration::days(8)] {
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        tick::tick(&c, &v, bot.id, &FixedClock(at("2026-10-30T12:00:00Z") + after), &mut Default::default()).await.unwrap();
+        assert_eq!(model::load_bot(&c, bot.id).unwrap().rust_placement().unwrap()["cl_ord_id"], intent.cl_ord_id, "{after}: the intent stays");
+        assert_eq!(submitted(&c), 0, "{after}: no row");
+        assert_eq!(posts(&t), 1, "{after}: never a second POST");
+    }
+}
+
+/// R06, r1.7: recovery asks the intent's own family under its own key, whatever the account's mode is now: after a
+/// ClassicHf → ClassicLf change the HF clientOid route still recovers it; a replacement key asks nowhere.
+#[tokio::test(flavor = "current_thread")]
+async fn r06_mode_or_key_change_never_redirects_recovery() {
+    use deltabadger::engine::{placement, FixedClock};
+    let later = FixedClock(at("2026-10-30T12:30:00Z"));
+    let (_dir, o, bot, _t, _v, intent) = ambiguous_intent("KEY-A").await;
+    let version = model::credential_version(&o.primary, &bot).unwrap().unwrap();
+    // A replacement key: no lookup anywhere, the intent stays.
+    let t = ScriptedTransport::default(); t.set_now(later.0); classic(&t, true);
+    let other = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-B")).with_account_context(version.clone(), Resolver::default()).allow_hf();
+    assert!(matches!(placement::recover(&o.primary, &other, &model::load_bot(&o.primary, bot.id).unwrap(), &later).await.unwrap(), placement::Recovery::Pending));
+    assert!(!t.requests().iter().any(|r| r.path.contains("orders")), "no order lookup under another key");
+    // The same key, the account now classic: the HF route of the intent, which finds it.
+    let t = ScriptedTransport::default(); t.set_now(later.0); classic(&t, false);
+    let same = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(version, Resolver::default()).allow_hf();
+    t.reply(&format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id), 200,
+            json!({"code":"200000","data":{"id":"HF9","clientOid":intent.cl_ord_id,"symbol":"BTC-EUR","type":"market","side":"buy","price":"0","size":"0.001","funds":"60",
+                   "dealSize":"0","dealFunds":"0","active":true,"inOrderBook":false,"cancelExist":false,"createdAt":1793361600000_i64}}));
+    assert!(matches!(placement::recover(&o.primary, &same, &model::load_bot(&o.primary, bot.id).unwrap(), &later).await.unwrap(), placement::Recovery::Recorded(_)));
+    assert!(!t.requests().iter().any(|r| r.path.starts_with("/api/v1/orders")), "never the classic route for an HF intent");
+    let id: i64 = o.primary.query_row("SELECT id FROM transactions WHERE external_id='HF9'", [], |r| r.get(0)).unwrap();
+    assert!(deltabadger::venue::kucoin::order_record(&o.primary, id).unwrap().is_some());
+}
+
+/// R06: after a shutdown longer than 7 days, an HF intent and an HF row KuCoin no longer serves both hold the bot: no
+/// POST, the intent kept, the row owed; `reconcile-order` settles the row; the intent still blocks until it is recovered.
+#[tokio::test(flavor = "current_thread")]
+async fn r06_shutdown_over_7_days_reconciles_before_spending() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let t0 = at("2026-10-30T12:00:00Z");
+    let (_d, _o2, _b, plan) = engine_setup();
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &model::load_bot(&o.primary, bot.id).unwrap(), &plan, v.placement_identity(), None, &FixedClock(t0)).unwrap() else { panic!() };
+    t.network("POST /api/v1/hf/orders", "post_send", "reset");
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(t0)).await.unwrap(), placement::Sent::Ambiguous(_)));
+    t.reply(&format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id), 200, json!({"code":"400100","msg":"order not exist"}));
+    not_found(&t, &ext);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    for days in [8, 9] {
+        tick::tick(&c, &v, bot.id, &FixedClock(t0 + chrono::Duration::days(days)), &mut Default::default()).await.unwrap();
+        assert_eq!(posts(&t), 2, "day {days}: the first order and the ambiguous one only");
+        assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_some());
+        assert_eq!(row_exec(&c, id).0, Some(0));
+    }
+    // The row: the operator's evidence.
+    deltabadger::engine::reconcile::by_operator(&c, id, &bundle(&c, id, "closed", "0.001", "60", eur("0.06"), attested("filled")).to_string(), t0 + chrono::Duration::days(9)).unwrap();
+    assert_eq!(row_exec(&c, id).0, Some(2));
+    // The intent still holds the bot.
+    tick::tick(&c, &v, bot.id, &FixedClock(t0 + chrono::Duration::days(10)), &mut Default::default()).await.unwrap();
+    assert_eq!(posts(&t), 2);
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_some());
+}

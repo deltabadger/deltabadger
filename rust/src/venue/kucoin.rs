@@ -490,6 +490,22 @@ impl<T: Transport> KucoinVenue<T> {
         parse_hf_order(&found, &want, &self.pairs).map(Some)
     }
 
+    /// The classic clientOid lookup (`order_by_client_id` on a classic account): the client-order route, then the done-orders
+    /// windows. A miss is never absence.
+    async fn classic_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        let mine = |o: &Value| o["clientOid"].as_str() == Some(cl_ord_id) && o["symbol"].as_str() == Some(symbol);
+        let found = |o: &Value| -> Result<OrderState, VenueError> { parse_order(o["id"].as_str().filter(|s| !s.is_empty()).ok_or_else(unreadable)?, o, &self.pairs) };
+        if let Ok(body) = self.get(format!("/api/v1/order/client-order/{cl_ord_id}"), vec![], http::MAX_BODY).await {
+            if code(&body).ok().as_deref() == Some(OK) && mine(&body["data"]) { return found(&body["data"]).map(Some); }
+        }
+        let mut hit = None;
+        let query = [("status", "done".to_string()), ("symbol", symbol.to_string())];
+        self.windows("/api/v1/orders", &query, since.timestamp_millis(), self.transport.now().timestamp_millis(), false, |o| {
+            if hit.is_none() && mine(o) { hit = Some(o.clone()); }
+        }).await?;
+        match hit { Some(o) => found(&o).map(Some), None => Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())) }
+    }
+
     /// Exchanges::Kucoin#order_data_from_fills: the summed sizes and funds, the price funds / size at the tick, closed.
     fn order_from_fills(&self, order_id: &str, fills: &[(String, Value)]) -> Result<OrderState, VenueError> {
         let (mut amount, mut quote) = (BigDec::zero(), BigDec::zero());
@@ -668,19 +684,19 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// a failed scan page is its own error.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         if self.family() == Family::Hf { return self.hf_by_client_id(cl_ord_id, symbol).await; }
-        let mine = |o: &Value| o["clientOid"].as_str() == Some(cl_ord_id) && o["symbol"].as_str() == Some(symbol);
-        let found = |o: &Value| -> Result<OrderState, VenueError> { parse_order(o["id"].as_str().filter(|s| !s.is_empty()).ok_or_else(unreadable)?, o, &self.pairs) };
-        if let Ok(body) = self.get(format!("/api/v1/order/client-order/{cl_ord_id}"), vec![], http::MAX_BODY).await {
-            if code(&body).ok().as_deref() == Some(OK) && mine(&body["data"]) { return found(&body["data"]).map(Some); }
-        }
-        let mut hit = None;
-        let query = [("status", "done".to_string()), ("symbol", symbol.to_string())];
-        self.windows("/api/v1/orders", &query, since.timestamp_millis(), self.transport.now().timestamp_millis(), false, |o| {
-            if hit.is_none() && mine(o) { hit = Some(o.clone()); }
-        }).await?;
-        match hit { Some(o) => found(&o).map(Some), None => Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())) }
+        self.classic_by_client_id(cl_ord_id, symbol, since).await
     }
 
+    /// D-KUCOIN-HF-RETENTION: an intent sent on an HF account is asked on the HF clientOid route, whatever the account's mode
+    /// is now (the caller has checked the intent's host and key are this venue's); one sent classic, on the classic route.
+    async fn recovery_with(&self, intent: &Value, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        match intent["kucoin_account_mode"].as_str() {
+            Some("ClassicHf") if self.hf => self.hf_by_client_id(cl_ord_id, symbol).await,
+            Some("ClassicHf") => Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
+            Some(_) => self.classic_by_client_id(cl_ord_id, symbol, since).await,
+            None => super::Venue::order_by_client_id(self, cl_ord_id, symbol, since).await,
+        }
+    }
     /// Exchanges::Kucoin#order_from_fills for each order #get_orders named missing (R0c): its fills by orderId in weekly windows
     /// from `since` (the oldest missing row, less an hour) to now, each fill once by tradeId. A fill books the order closed;
     /// no fill leaves it missing (Bot::StaleOrderResolver decides); a failed read fails, so nothing is written off.

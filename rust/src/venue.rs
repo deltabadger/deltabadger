@@ -235,6 +235,7 @@ impl<V:Venue> Venue for &V {
     async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).orders_identified(ids,identify).await}
     async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).order_identified(id,identify).await}
     async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{(*self).order_by_client_id(id,symbol,since).await}
+    async fn recovery_with(&self,intent:&serde_json::Value,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{(*self).recovery_with(intent,id,symbol,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{(*self).fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{(*self).balance(symbol,crypto).await}
     async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{(*self).free_base_balance(t).await}
@@ -267,6 +268,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_identified(ids,identify).await}
     async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_identified(id,identify).await}
     async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.order_by_client_id(id,symbol,since).await}
+    async fn recovery_with(&self,intent:&serde_json::Value,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.recovery_with(intent,id,symbol,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.venue.fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.venue.balance(symbol,crypto).await}
     async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{self.venue.free_base_balance(t).await}
@@ -297,7 +299,7 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn order_result<F>(&self,r:&OrderRef,identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.order_with(r,identify).await;crate::engine::model::Produced::new(value,origin)}
     async fn fills_result(&self,ids:&[String],since:DateTime<Utc>)->crate::engine::model::Produced<Result<Vec<OrderState>,VenueError>>{let origin=self.producer();let value=self.fills_from_trades(ids,since).await;crate::engine::model::Produced::new(value,origin)}
     async fn placement_result(&self,o:&NewOrder)->crate::engine::model::Produced<Result<String,VenueError>>{let origin=self.producer();let value=self.add_order(o).await;crate::engine::model::Produced::new(value,origin)}
-    async fn recovery_result(&self,id:&str,symbol:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.order_by_client_id(id,symbol,since).await;crate::engine::model::Produced::new(value,origin)}
+    async fn recovery_result(&self,intent:&serde_json::Value,id:&str,symbol:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.recovery_with(intent,id,symbol,since).await;crate::engine::model::Produced::new(value,origin)}
     async fn candles_result(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->crate::engine::model::Produced<Result<Vec<Candle>,VenueError>>{let origin=self.producer();let value=self.candles(t,start_at,tf).await;crate::engine::model::Produced::new(value,origin)}
 }
 impl<V:Venue> Attributed for Handle<V> {}
@@ -366,6 +368,11 @@ pub trait Venue {
     /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete. `symbol` is the pair
     /// the intent was sent for (Binance looks an order up per symbol; Kraken and Alpaca ignore it), never the bot's current one.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;
+    /// `order_by_client_id` for the unresolved `intent` as it was recorded: every venue but KuCoin asks as above; KuCoin
+    /// asks the intent's own family's route, whatever the account's mode is now (D-KUCOIN-HF-RETENTION).
+    async fn recovery_with(&self, _intent: &serde_json::Value, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        self.order_by_client_id(cl_ord_id, symbol, since).await
+    }
     /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there. An
     /// `Unknown` entry is an id the history could not rule a fill out for: it stays waiting, never abandoned.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError>;
