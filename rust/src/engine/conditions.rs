@@ -311,7 +311,7 @@ fn failure_raises(e: &VenueError, rules: &super::venue_rules::VenueRules) -> boo
 
 /// Read a rule without changing its latch or carry. The info worker uses this same comparison.
 #[allow(clippy::too_many_arguments)]
-async fn reading<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &ConditionRule, selling: bool, ticker: &Ticker, decimals: Option<i64>, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(bool, Option<Value>), VenueError>, EngineError> {
+async fn reading<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &ConditionRule, selling: bool, ticker: &Ticker, decimals: Option<i64>, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, display: bool) -> Result<Result<(bool, Option<Value>), VenueError>, EngineError> {
     let common = &rule.common;
     let origin = venue.producer();
     let cache = prices.technical(&origin);
@@ -328,6 +328,7 @@ async fn reading<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &Con
         }
         Reading::Drop(window) => {
             let reference = if selling { technical::low_of_last(venue, &cache, ticker, window, now).await }
+                else if display { technical::high_of_last_for_info(c, venue, &cache, ticker, window, now).await? }
                 else { technical::high_of_last(c, venue, &cache, ticker, window, now).await? };
             let reference = match reference { Ok(Some(p)) => p, Ok(None) => return Ok(Ok((false, None))), Err(e) => return Ok(Err(e)) };
             let factor = if selling { Num::Int(1).add(&common.limit) } else { Num::Int(1).sub(&common.limit) }.map_err(EngineError::Arithmetic)?;
@@ -354,7 +355,7 @@ pub async fn evaluate_rule<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, 
     if rule.after && rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
     let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, rule)? else { return Ok(Evaluated::Unavailable) };
     let origin = venue.producer();
-    let (met, info) = match reading(c, venue, bot, &condition, selling, &ticker, decimals, clock, prices, version).await? {
+    let (met, info) = match reading(c, venue, bot, &condition, selling, &ticker, decimals, clock, prices, version, false).await? {
         Ok(read) => read, Err(e) => return Ok(Evaluated::Failed(e)),
     };
     let now = clock.now();
@@ -525,7 +526,7 @@ pub async fn info<V: crate::venue::Venue>(c: &Connection, venue: &V, claim: &Inf
     info_rule(c, venue, claim, Rule::Price, clock, prices, version).await
 }
 
-pub async fn info_rule<V: crate::venue::Venue>(c: &Connection, venue: &V, claim: &InfoClaim, kind: Rule, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Option<Value>, EngineError> {
+pub async fn info_rule<V: crate::venue::Venue>(c: &Connection, venue: &V, claim: &InfoClaim, kind: Rule, clock: &dyn Clock, _prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Option<Value>, EngineError> {
     let name = kind.prefix(false);
     let (bot, side) = (&claim.bot, claim.side);
     let venue = &crate::venue::Handle::for_bot(venue, c, bot)?;
@@ -538,7 +539,10 @@ pub async fn info_rule<V: crate::venue::Venue>(c: &Connection, venue: &V, claim:
     let rule = &condition.common;
     let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, rule)? else { return served(c) };
     let origin = venue.producer();
-    let Ok((_, Some(info))) = reading(c, venue, bot, &condition, side == SELLING, &ticker, decimals, clock, prices, version).await? else { return served(c) };
+    // D-COND-INFO-READ-ONLY: only the display value is kept. Prices and technical readings must not warm or expire
+    // the engine's trading caches, and an ATH reading must not update the shared ticker row.
+    let prices = PriceCache::default();
+    let Ok((_, Some(info))) = reading(c, venue, bot, &condition, side == SELLING, &ticker, decimals, clock, &prices, version, true).await? else { return served(c) };
     let now = clock.now();
     model::credential_write(c, &origin, |tx| {
         let current = model::load_bot(tx, bot.id)?;

@@ -107,6 +107,47 @@ async fn each_inner_gate_waits_for_the_outer_latches_and_drop_nil_is_unmet() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn ath_info_preserves_ticker_state_and_the_next_gate_uses_its_own_reading() {
+    use deltabadger::enums::BotStatus;
+    for status in [BotStatus::Stopped, BotStatus::Scheduled] {
+        let (_d, o, s) = common::install();
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: status as i64, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+            .with("price_drop_limited", json!(true)).transient("missed_quote_amount", json!("37")));
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let ticker_state = || o.primary.query_row("SELECT ath, ath_updated_at, updated_at FROM tickers WHERE id = ?1", [s.ticker_id],
+            |r| Ok((r.get::<_, Option<f64>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, String>(2)?))).unwrap();
+        let before = ticker_state();
+        let prices = PriceCache::default();
+        let now = "2026-09-02T10:00:00Z".parse().unwrap();
+        let version = model::credential_version(&o.primary, &bot).unwrap();
+        conditions::want_info(&o.primary, id, None, "price_drop_limit", None, "en").unwrap();
+        let claim = conditions::info_claims(&o.primary, "price_drop_limit").unwrap().remove(0);
+        let display = FakeVenue::new().ticker("XBTEUR", "50000", "50000", "50000").candles_answer(Ok(candles(100000)));
+        let info = conditions::info_rule(&o.primary, &display, &claim, Rule::PriceDrop, &FixedClock(now), &prices, &version).await.unwrap().unwrap();
+        assert_eq!(info["condition_met"], json!(true));
+        assert_eq!(ticker_state(), before, "a page view must not advance the ATH history used by a tick");
+        let after = model::load_bot(&o.primary, id).unwrap();
+        let mut transient = after.transient.clone();
+        transient.as_object_mut().unwrap().remove(conditions::INFO_KEY);
+        transient.as_object_mut().unwrap().remove(conditions::INFO_WANTED_KEY);
+        assert_eq!(transient, bot.transient);
+        assert_eq!(after.status, bot.status);
+        assert_eq!(after.settings, bot.settings);
+        assert!(prices.get((s.exchange_id, s.ticker_id, deltabadger::venue::PriceSide::Last), now, &version).is_none(),
+            "display prices must not become the next tick's price");
+
+        // At the same instant, the engine's own feed has a lower high: the gate must be unmet.
+        o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", [BotStatus::Executing as i64, id]).unwrap();
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let trading = FakeVenue::new().ticker("XBTEUR", "50000", "50000", "50000").candles_answer(Ok(candles(60000)));
+        let (_, result) = conditions::gate(&o.primary, &trading, &bot, false, &FixedClock(now), &prices, &version).await.unwrap();
+        assert!(matches!(result, Evaluated::Unmet), "the display high must not latch a trading rule");
+        assert!(!trading.candle_reads().is_empty());
+        assert_eq!(ticker_state().0, Some(60000.0), "only the trading evaluation stores the ATH");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn candle_info_never_stamps_or_clears_trading_state() {
     let (_d, o, s) = common::install();
     for kind in [Rule::PriceDrop, Rule::MovingAverage, Rule::Indicator] {

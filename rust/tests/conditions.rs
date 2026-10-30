@@ -298,6 +298,40 @@ async fn a_stopped_page_view_changes_nothing_the_restart_and_tick_read() {
     assert_eq!(sent[0], sent[1], "viewed and unviewed twins trade alike");
 }
 
+/// D-COND-INFO-READ-ONLY: display reads cannot warm the trading cache, even within its five-second lifetime.
+#[tokio::test(flavor = "current_thread")]
+async fn a_page_view_cannot_supply_the_next_ticks_price() {
+    use deltabadger::engine::tick::{tick_recovering, TickContext};
+    for status in [BotStatus::Stopped, BotStatus::Scheduled] {
+        let mut outcomes = vec![];
+        for viewed in [false, true] {
+            let (_d, o, s) = common::install();
+            let id = stopped_rule(&o, &s, 60_000.0, |b| b.transient("missed_quote_amount", json!("30")));
+            o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", [status as i64, id]).unwrap();
+            let before = trading_state(&o.primary, id);
+            let prices = PriceCache::default();
+            if viewed {
+                want(&o.primary, id);
+                let display = FakeVenue::new();
+                display.script("/0/public/Ticker", kraken_body("50000"));
+                let info = serve(&o, &display, "2026-09-08T10:00:00Z", &prices).await;
+                assert_eq!(info[0].as_ref().unwrap().as_ref().unwrap()["condition_met"], json!(true));
+                assert_eq!(trading_state(&o.primary, id), before);
+            }
+            o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", [BotStatus::Scheduled as i64, id]).unwrap();
+            let bot = model::load_bot(&o.primary, id).unwrap();
+            let cx = TickContext { credential_version: model::credential_version(&o.primary, &bot).unwrap(), prices: &prices,
+                process_start: chrono::DateTime::<chrono::Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
+            let trading = FakeVenue::new().ticker("XXBTZEUR", "69990", "70000", "70000").balance_body("ZEUR", "100000", "0");
+            let result = tick_recovering(&o.primary, &trading, id, &FixedClock("2026-09-08T10:00:01Z".parse().unwrap()),
+                &mut Default::default(), &mut None, &cx).await.unwrap();
+            outcomes.push((format!("{result:?}"), trading.sent().len(), trading_state(&o.primary, id)));
+        }
+        assert_eq!(outcomes[0].1, 0, "the tick's price does not meet the rule");
+        assert_eq!(outcomes[0], outcomes[1], "viewed and unviewed bots must make the same next trade decision");
+    }
+}
+
 /// The claim is a version: a request that arrives while the price read is out survives the serve, and a settings change
 /// during the read discards the run (no info) and keeps the request.
 #[tokio::test(flavor = "current_thread")]
