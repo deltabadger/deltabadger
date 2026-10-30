@@ -1,0 +1,1240 @@
+{
+  "cases": [
+    {
+      "id": "reject_400002",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400002"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "KC-API-TIMESTAMP Invalid"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400002",
+          "msg": "KC-API-TIMESTAMP Invalid"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": true
+      }
+    },
+    {
+      "id": "reject_400003",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400003"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "KC-API-KEY does not exist"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400003",
+          "msg": "KC-API-KEY does not exist"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "reject_400004",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400004"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "KC-API-PASSPHRASE error"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400004",
+          "msg": "KC-API-PASSPHRASE error"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "reject_400005",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400005"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "Signature error"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400005",
+          "msg": "Signature error"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "reject_400006",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400006"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "The requested ip address is not on the api whitelist"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400006",
+          "msg": "The requested ip address is not on the api whitelist"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "reject_400007",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400007"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "Access Denied"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400007",
+          "msg": "Access Denied"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "reject_400100",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400100"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "Parameter Error"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400100",
+          "msg": "Parameter Error"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "reject_200004",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "200004"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "Balance insufficient"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "200004",
+          "msg": "Balance insufficient"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "reject_429000",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "429000"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "rate limit exceeded"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 429,
+        "body": {
+          "code": "429000",
+          "msg": "rate limit exceeded"
+        }
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "http_429",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy."
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 429,
+        "raw_body": "rate limited"
+      },
+      "expect": {
+        "classification": "Rejected",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "duplicate_client_oid",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400100"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "clientOid already exists"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400100",
+          "msg": "clientOid already exists"
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "unknown_code",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "499999"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "unknown"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "499999",
+          "msg": "unknown"
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "missing_code",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "remove": true
+          },
+          {
+            "path": "/data/clientOid",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "success_missing_id",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "remove": true
+          },
+          {
+            "path": "/data/orderId",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {}
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "success_empty_id",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "remove": true
+          },
+          {
+            "path": "/data/orderId",
+            "value": ""
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": ""
+          }
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "success_conflicting_client_oid",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "value": "another-intent"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945",
+            "clientOid": "another-intent"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "truncated_success",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy."
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "raw_body": "{\"code\":\"200000\",\"data\":"
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "lost_reply",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy."
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "transport_error": "MaybeSent"
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "generic_503",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy."
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 503,
+        "raw_body": "unavailable"
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "not_sent",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy."
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "transport_error": "NotSent"
+      },
+      "expect": {
+        "classification": "NotSent",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "cleared",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "internal_200",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "500000"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "Internal Server Error"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "500000",
+          "msg": "Internal Server Error"
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "internal_500",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "500000"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "Internal Server Error"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "code": "500000",
+          "msg": "Internal Server Error"
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "busy_200",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "230005"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "The system is busy, please try again later"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "230005",
+          "msg": "The system is busy, please try again later"
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    },
+    {
+      "id": "busy_503",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors",
+          "http_errors",
+          "rate_limit"
+        ],
+        "note": "Synthetic HTTP/transport placement refusal or uncertainty. Code/message pairs come from the cited error table except duplicate-clientOid, unknown and rate-limit messages; those messages are deliberate synthetic variants. Rate-limit documentation pins HTTP 429/code 429000 only. State effects are the reviewed conservative policy.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "230005"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "The system is busy, please try again later"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 503,
+        "body": {
+          "code": "230005",
+          "msg": "The system is busy, please try again later"
+        }
+      },
+      "expect": {
+        "classification": "Ambiguous",
+        "transaction_rows_delta": 0,
+        "reserve_credit": "0",
+        "intent": "retained",
+        "replacement_posts": 0,
+        "reschedule": false
+      }
+    }
+  ],
+  "documented_messages": {
+    "400002": "KC-API-TIMESTAMP Invalid",
+    "400003": "KC-API-KEY does not exist",
+    "400004": "KC-API-PASSPHRASE error",
+    "400005": "Signature error",
+    "400006": "The requested ip address is not on the api whitelist",
+    "400007": "Access Denied",
+    "400100": "Parameter Error",
+    "200004": "Balance insufficient",
+    "500000": "Internal Server Error",
+    "230005": "The system is busy, please try again later"
+  },
+  "synthetic_messages": {
+    "429000": "rate limit exceeded",
+    "400100_duplicate": "clientOid already exists",
+    "499999": "unknown"
+  }
+}
