@@ -246,6 +246,7 @@ impl<V:Venue> Venue for &V {
     async fn orders_with<F>(&self,refs:&[OrderRef],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).orders_with(refs,identify).await}
     async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).order_with(r,identify).await}
     async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{(*self).cancel_with(r).await}
+    async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{(*self).origin_with(r).await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{(*self).candles(t,start_at,tf).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{(*self).withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{(*self).withdrawal_networks(coin).await}
@@ -279,6 +280,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn orders_with<F>(&self,refs:&[OrderRef],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_with(refs,identify).await}
     async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_with(r,identify).await}
     async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{self.venue.cancel_with(r).await}
+    async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{self.venue.origin_with(r).await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.venue.candles(t,start_at,tf).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.venue.withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.venue.withdrawal_networks(coin).await}
@@ -303,6 +305,13 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn candles_result(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->crate::engine::model::Produced<Result<Vec<Candle>,VenueError>>{let origin=self.producer();let value=self.candles(t,start_at,tf).await;crate::engine::model::Produced::new(value,origin)}
 }
 impl<V:Venue> Attributed for Handle<V> {}
+/// The family an adopted row's record names until its route is proven.
+pub const ADOPTED: &str = "Adopted";
+
+/// D-KUCOIN-HF-RETENTION: what a positive answer proved of an adopted row's route: classic, or HF (its record to write).
+#[derive(Clone, Debug, PartialEq)]
+pub enum Origin { Classic, Hf(serde_json::Value), Unproven }
+
 /// An order a row holds, with the record its venue wrote beside the row when it was accepted (D-KUCOIN-HF-ORDERS: a
 /// KuCoin HF order's route, symbol, side, type and key; None for every other row).
 #[derive(Clone, Debug, PartialEq)]
@@ -310,8 +319,21 @@ pub struct OrderRef { pub external_id: String, pub record: Option<serde_json::Va
 impl OrderRef {
     /// The order of row `tx_id`, with its record.
     pub fn load(c: &rusqlite::Connection, tx_id: i64, external_id: &str) -> Result<Self, crate::engine::EngineError> {
-        Ok(Self { external_id: external_id.into(), record: kucoin::order_record(c, tx_id).map_err(crate::engine::EngineError::Data)? })
+        let record = kucoin::order_record(c, tx_id).map_err(crate::engine::EngineError::Data)?;
+        if record.is_some() { return Ok(Self { external_id: external_id.into(), record }); }
+        // D-KUCOIN-HF-RETENTION: a row adopted with no provenance (reconcile::ORIGIN unproven) is named by its own pair on
+        // its venue (the ticker of its exchange and asset ids; none when that is not exactly one) and its side and type.
+        let unproven = crate::app_config::get_plain(c, &format!("{}{tx_id}", crate::engine::reconcile::ORIGIN)).map_err(crate::engine::EngineError::Data)?
+            .is_some_and(|v| v.contains("\"unproven\""));
+        if !unproven { return Ok(Self { external_id: external_id.into(), record: None }); }
+        let (symbol, sell, limit): (Option<String>, bool, bool) = c.query_row(
+            "SELECT (SELECT CASE WHEN count(*) = 1 THEN max(k.ticker) END FROM tickers k WHERE k.exchange_id = t.exchange_id AND k.base_asset_id = t.base_asset_id \
+             AND k.quote_asset_id = t.quote_asset_id), coalesce(t.side, 0) = 1, coalesce(t.order_type, 0) = 1 FROM transactions t WHERE t.id = ?1",
+            [tx_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        Ok(Self { external_id: external_id.into(), record: Some(serde_json::json!({ "family": ADOPTED, "symbol": symbol, "sell": sell, "limit": limit })) })
     }
+    /// D-KUCOIN-HF-RETENTION: a row adopted with no provenance, its route not proven yet (`Venue::origin_with`).
+    pub fn adopted(&self) -> bool { self.record.as_ref().is_some_and(|r| r["family"] == ADOPTED) }
     /// D-KUCOIN-HF-RETENTION: a KuCoin HF row (its record's family), whose unread state is an obligation.
     pub fn hf(&self) -> bool { self.record.as_ref().is_some_and(|r| r["family"] == "ClassicHf") }
 }
@@ -365,6 +387,9 @@ pub trait Venue {
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { self.order_identified(&r.external_id, identify).await }
     /// `cancel` with the row's record, as `orders_with`.
     async fn cancel_with(&self, r: &OrderRef) -> Result<(), VenueError> { self.cancel(&r.external_id).await }
+    /// D-KUCOIN-HF-RETENTION: the route of an adopted row (`OrderRef::adopted`), proven only by a positive answer naming it.
+    /// Only KuCoin rows are adopted so; any other venue proves nothing.
+    async fn origin_with(&self, _r: &OrderRef) -> Result<Origin, VenueError> { Ok(Origin::Unproven) }
     /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete. `symbol` is the pair
     /// the intent was sent for (Binance looks an order up per symbol; Kraken and Alpaca ignore it), never the bot's current one.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;

@@ -73,6 +73,7 @@ impl Venue for LiveVenue {
     async fn order_with<F>(&self, r: &super::OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { each!(self, v => v.order_with(r, identify).await) }
     async fn cancel_with(&self, r: &super::OrderRef) -> Result<(), VenueError> { each!(self, v => v.cancel_with(r).await) }
+    async fn origin_with(&self, r: &super::OrderRef) -> Result<super::Origin, VenueError> { each!(self, v => v.origin_with(r).await) }
     async fn candles(&self, t: &Ticker, start_at: chrono::DateTime<chrono::Utc>, tf: crate::engine::candles::Timeframe)
         -> Result<Vec<crate::engine::candles::Candle>, VenueError> { each!(self, v => v.candles(t, start_at, tf).await) }
     async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, VenueError> { each!(self, v => v.withdrawal_addresses(coin).await) }

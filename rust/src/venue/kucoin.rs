@@ -752,9 +752,11 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// venue may not ask about, or whose answer cannot be told, is excluded: present, never missing or abandoned.
     async fn orders_with<F>(&self, refs: &[super::OrderRef], identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
-        let classic: Vec<String> = refs.iter().filter(|r| self.hf_ref(r).is_none()).map(|r| r.external_id.clone()).collect();
+        let classic: Vec<String> = refs.iter().filter(|r| self.hf_ref(r).is_none() && !r.adopted()).map(|r| r.external_id.clone()).collect();
         let (mut found, mut excluded) = if classic.is_empty() { (vec![], vec![]) } else { super::Venue::orders_identified(self, &classic, identify).await? };
         for r in refs {
+            // D-KUCOIN-HF-RETENTION: an adopted row whose route is unproven is read on neither route: it waits, excluded.
+            if r.adopted() { excluded.push(r.external_id.clone()); continue; }
             match self.hf_ref(r) {
                 None => {}
                 // A bulk read never fails the sweep for one HF row: it waits, excluded.
@@ -766,6 +768,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     }
     async fn order_with<F>(&self, r: &super::OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        if r.adopted() { return Ok((vec![], vec![r.external_id.clone()])); }
         match self.hf_ref(r) {
             None => super::Venue::order_identified(self, &r.external_id, identify).await,
             // One order's read keeps a retryable failure, so the follow-up is retried, never dropped.
@@ -777,6 +780,8 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// this order; an error envelope is the venue's refusal; anything else (lost, 5xx, unreadable, another id) is
     /// Ambiguous. An accepted cancel is a request, never a terminal state: the row's poll settles it.
     async fn cancel_with(&self, r: &super::OrderRef) -> Result<(), VenueError> {
+        // D-KUCOIN-HF-RETENTION: never cancelled on a route its order is not proven to be on.
+        if r.adopted() { return Err(VenueError::Ambiguous("KuCoin order route unproven".into())); }
         let want = match self.hf_ref(r) {
             None => return super::Venue::cancel(self, &r.external_id).await,
             Some(Ok(want)) => want,
@@ -794,4 +799,31 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
             _ => Err(VenueError::Ambiguous(format!("KuCoin's answer to cancelling order {} cannot be told (HTTP {})", want.id, resp.status))),
         }
     }
+    /// D-KUCOIN-HF-RETENTION: an adopted row's route. The classic order route always, the HF one on an HF account (when HF is
+    /// admitted), each read for this id on the venue's own ticker for the row's pair, with its side and type: exactly one
+    /// positive answer proves that route. A miss, an unreadable answer, both, or no ticker prove nothing; a failure worth
+    /// retrying is its error (the row waits, excluded, either way).
+    async fn origin_with(&self, r: &super::OrderRef) -> Result<super::Origin, VenueError> {
+        use super::Origin;
+        let Some(rec) = r.record.as_ref().filter(|_| r.adopted()) else { return Ok(Origin::Unproven) };
+        let Some(symbol) = rec["symbol"].as_str() else { return Ok(Origin::Unproven) };
+        let want = HfOrder { id: r.external_id.clone(), symbol: symbol.into(), sell: rec["sell"] == true, limit: rec["limit"] == true };
+        let names = |o: &Value| o["id"].as_str() == Some(want.id.as_str()) && o["symbol"].as_str() == Some(symbol)
+            && o["side"].as_str().is_some_and(|s| s.eq_ignore_ascii_case(if want.sell { "sell" } else { "buy" }))
+            && limit_type(&o["type"]).ok() == Some(want.limit);
+        let classic = match self.get_order(&want.id).await {
+            Ok(found) => found.as_ref().is_some_and(names),
+            Err(e @ VenueError::Transient(_)) => return Err(e),
+            Err(VenueError::Rejected(m)) if RULES.is_throttle(&m) || RULES.is_transient(&m) => return Err(VenueError::Rejected(m)),
+            Err(_) => false,
+        };
+        let hf = self.hf && matches!(self.account_mode().await, Ok(super::kucoin_account::AccountMode::ClassicHf)) && self.hf_order(&want).await?.is_some();
+        Ok(match (classic, hf) {
+            (true, false) => Origin::Classic,
+            (false, true) => Origin::Hf(serde_json::json!({ "family": "ClassicHf", "symbol": symbol, "sell": want.sell, "limit": want.limit, "host": self.base,
+                "key_fingerprint": self.identity.as_ref().map_or(Value::Null, |i| i["key_fingerprint"].clone()), "deal_size": "0", "deal_funds": "0" })),
+            _ => Origin::Unproven,
+        })
+    }
+
 }

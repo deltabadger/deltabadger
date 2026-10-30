@@ -279,6 +279,17 @@ fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now:
     Ok(())
 }
 
+/// D-KUCOIN-HF-RETENTION (§5): an adopted row asks for its route before it is read; a proven route is kept
+/// (reconcile::prove). Unproven, or a failure, leaves it adopted: excluded from the read, holding its bot.
+async fn prove_origin<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, r: &mut crate::venue::OrderRef,
+                                             version: &Option<model::CredentialVersion>, now: DateTime<Utc>) -> Result<(), EngineError> {
+    if !r.adopted() { return Ok(()); }
+    match venue.origin_with(r).await {
+        Ok(origin) if origin != crate::venue::Origin::Unproven => { r.record = super::reconcile::prove(c, bot_id, tx_id, &origin, version, now)?; Ok(()) }
+        _ => Ok(()),
+    }
+}
+
 /// Bot::FetchAndUpdateOpenOrdersJob for one bot. Errors carry Rails' messages; orders updated before an
 /// error stay updated, as each Rails update! commits on its own.
 pub async fn sweep<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: DateTime<Utc>) -> Result<(), PollFailure> {
@@ -313,7 +324,8 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     let mut found: Vec<OrderState> = vec![];
     let mut skipped = vec![];
     // Each row with what its venue recorded at acceptance (D-KUCOIN-HF-ORDERS: a KuCoin HF order's route).
-    let refs = rows.iter().map(|(id, ext, _)| crate::venue::OrderRef::load(c, *id, ext)).collect::<Result<Vec<_>, _>>().map_err(db)?;
+    let mut refs = rows.iter().map(|(id, ext, _)| crate::venue::OrderRef::load(c, *id, ext)).collect::<Result<Vec<_>, _>>().map_err(db)?;
+    for (r, (id, _, _)) in refs.iter_mut().zip(&rows) { prove_origin(c, venue, bot.id, *id, r, &version, now).await.map_err(db)?; }
     for batch in refs.chunks(50) {
         let (orders, excluded) = venue.orders_result(batch, |ext, pair, class| {
             let Some((id, _, _)) = rows.iter().find(|(_, e, _)| e == ext) else { return Ok(false); };
@@ -423,7 +435,8 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(None) };
     let rules = venue.rules();
     let version = venue.producer();
-    let order = crate::venue::OrderRef::load(c, id, &ext).map_err(poll_error)?;
+    let mut order = crate::venue::OrderRef::load(c, id, &ext).map_err(poll_error)?;
+    prove_origin(c, venue, bot.id, id, &mut order, &version, now).await.map_err(poll_error)?;
     let answer = venue.order_result(&order, |_, pair, class| {
         order_identified(c, bot, id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
     }).await.value;

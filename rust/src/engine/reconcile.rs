@@ -408,3 +408,63 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
     tx.commit()?;
     Ok(Operator::Reconciled)
 }
+
+/// D-KUCOIN-HF-RETENTION (§5): keeps what `Venue::origin_with` proved of adopted row `tx_id`, in one fenced write: classic,
+/// its mark; HF, its record (dealt totals floored at the row's own execution and its known fills, so no smaller answer
+/// replaces what the row already holds) and no mark. Returns the record the row is read by from now on (None: classic).
+pub(crate) fn prove(c: &Connection, bot_id: i64, tx_id: i64, origin: &crate::venue::Origin, version: &Option<model::CredentialVersion>, now: DateTime<Utc>) -> Result<Option<Value>, EngineError> {
+    use crate::venue::Origin;
+    model::credential_write(c, version, |tx| {
+        super::polling::require_owner(tx, bot_id, tx_id)?;
+        let key = format!("{ORIGIN}{tx_id}");
+        match origin {
+            Origin::Unproven => Err(data("an unproven origin is not kept".into())),
+            Origin::Classic => {
+                crate::app_config::set_plain(tx, &key, r#"{"origin":"classic"}"#, now).map_err(data)?;
+                Ok(None)
+            }
+            Origin::Hf(record) => {
+                let row = crate::figures::fill::stored_order(tx, tx_id)?;
+                let ext: String = tx.query_row("SELECT external_id FROM transactions WHERE id = ?1", [tx_id], |r| r.get(0))?;
+                let (user, exchange) = owner(tx, tx_id)?;
+                let known = known_fills(tx, user, exchange, &ext)?;
+                let floor = |a: Option<BigDec>, b: &BigDec| a.filter(|a| a > b).unwrap_or_else(|| b.clone());
+                let mut record = record.clone();
+                record["deal_size"] = json!(floor(row.amount_exec, &known.size).to_s_f());
+                record["deal_funds"] = json!(floor(row.quote_amount_exec, &known.funds).to_s_f());
+                crate::app_config::set_plain(tx, &format!("{}{tx_id}", crate::venue::kucoin::ORDER_RECORD), &record.to_string(), now).map_err(data)?;
+                crate::app_config::delete(tx, &key).map_err(data)?;
+                Ok(Some(record))
+            }
+        }
+    })
+}
+
+/// D-KUCOIN-HF-RETENTION (r2.6): in the claim's transaction, before the claim moves `rust_taken_over_at`, every open KuCoin
+/// row with no HF record and no mark is marked by who placed it: `classic` when it was created in this engine's ownership
+/// window (after the last takeover and before a handback since; Rust places HF orders only with a record), `unproven`
+/// otherwise (a Rails window, or older than any recorded takeover). A mark is never rewritten. Returns the rows marked.
+pub(crate) fn mark_adopted(c: &Connection, cipher: &crate::crypto::Cipher, now: DateTime<Utc>) -> Result<usize, EngineError> {
+    use crate::lease;
+    let after_crash = lease::read(c, cipher)?.is_some_and(|v| v["engine"] == "rust");
+    let (taken, back) = (lease::plain_at(c, lease::TAKEN_OVER_AT)?, lease::plain_at(c, lease::HANDED_BACK_AT)?);
+    // [start, end): this engine's last window. A crash restart is still in it; any other claim follows a window that ended
+    // at its handback (none recorded: no window can be proven).
+    let window = taken.map(|start| {
+        let end = back.filter(|b| *b > start);
+        (start, if after_crash { end } else { Some(end.unwrap_or(start)) })
+    });
+    let mut s = c.prepare(&format!(
+        "SELECT t.id, t.created_at FROM transactions t JOIN exchanges e ON e.id = t.exchange_id WHERE e.type = 'Exchanges::Kucoin' AND t.status = 0 \
+         AND t.external_status IN (0, 1) AND t.external_id IS NOT NULL AND t.external_id NOT LIKE 'imported_%' \
+         AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key IN ('{}' || t.id, '{ORIGIN}' || t.id)) ORDER BY t.id", crate::venue::kucoin::ORDER_RECORD))?;
+    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for (id, created) in &rows {
+        let created = crate::codec::parse_time(created).map_err(|e| data(format!("transaction {id}: {e:?}")))?;
+        let ours = window.is_some_and(|(start, end)| created >= start && end.is_none_or(|end| created < end));
+        let mark = if ours { r#"{"origin":"classic"}"# } else { r#"{"origin":"unproven"}"# };
+        crate::app_config::set_plain(c, &format!("{ORIGIN}{id}"), mark, now).map_err(data)?;
+    }
+    Ok(rows.len())
+}

@@ -1650,3 +1650,121 @@ async fn r06_shutdown_over_7_days_reconciles_before_spending() {
     assert_eq!(posts(&t), 2);
     assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_some());
 }
+
+// ---- HF-4: rows adopted without provenance (R07) -------------------------------------------------------------------
+
+fn origin(c: &rusqlite::Connection, id: i64) -> Option<String> {
+    deltabadger::app_config::get_plain(c, &format!("{}{id}", deltabadger::engine::reconcile::ORIGIN)).unwrap()
+        .and_then(|v| serde_json::from_str::<Value>(&v).ok()).and_then(|v| v["origin"].as_str().map(str::to_string))
+}
+fn open_row(c: &rusqlite::Connection, bot: &model::Bot, ext: &str, created: &str, extra: Value) -> i64 {
+    let mut row = json!({"external_id": ext, "created_at": created, "external_status": 0});
+    for (k, v) in extra.as_object().unwrap() { row[k] = v.clone(); }
+    common::seed::insert_row(c, &common::seed::Seeded { user_id: 1, exchange_id: bot.exchange_id, btc: 1, quote: 2, ticker_id: 1, api_key_id: 1 }, bot.id, 1, &row)
+}
+
+/// R07, r2.6: each claim marks the open KuCoin rows it finds without a record or a mark: classic when Rust placed them
+/// (created in a Rust ownership window), unproven otherwise. A mark is never written twice, so a known-classic row stays
+/// known through restarts and a Rails window.
+#[tokio::test(flavor = "current_thread")]
+async fn r07_takeover_marks_rows_by_who_placed_them() {
+    use deltabadger::{engine::handover, lease};
+    let (dir, o, bot, _plan) = engine_setup();
+    let l = lease::lock(&deltabadger::store::Paths::from_env(&|_| None, dir.path()), at("2026-10-30T10:00:00Z")).unwrap();
+    let rails = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    let closed = open_row(&o.primary, &bot, "A2", "2026-10-01 10:00:00", json!({"external_status": 2}));
+    handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T10:00:00Z")).unwrap();
+    assert_eq!((origin(&o.primary, rails).as_deref(), origin(&o.primary, closed)), (Some("unproven"), None));
+    let rust = open_row(&o.primary, &bot, "B1", "2026-10-30 11:00:00", json!({}));
+    handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T11:30:00Z")).unwrap();
+    assert_eq!(origin(&o.primary, rust).as_deref(), Some("classic"), "placed while Rust owned the install");
+    assert_eq!(origin(&o.primary, rails).as_deref(), Some("unproven"));
+    // Handed back at 12:00; Rails places C1; Rust takes over again.
+    let tx = model::immediate(&o.primary).unwrap();
+    lease::hand_back(&l, &tx, &common::seed::cipher(), at("2026-10-30T12:00:00Z")).unwrap();
+    deltabadger::app_config::set_plain(&tx, lease::HANDED_BACK_AT, "2026-10-30T12:00:00.000Z", at("2026-10-30T12:00:00Z")).unwrap();
+    tx.commit().unwrap();
+    let by_rails = open_row(&o.primary, &bot, "C1", "2026-10-30 12:30:00", json!({}));
+    handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T13:00:00Z")).unwrap();
+    assert_eq!(origin(&o.primary, by_rails).as_deref(), Some("unproven"), "placed in the Rails window");
+    assert_eq!(origin(&o.primary, rust).as_deref(), Some("classic"), "never re-marked");
+}
+
+fn classic_order(id: &str, symbol: &str, active: bool, size: &str, funds: &str) -> Value {
+    json!({"code":"200000","data":{ "id": id, "symbol": symbol, "opType": "DEAL", "type": "market", "side": "buy", "price": "0", "size": "0", "funds": "60",
+        "dealFunds": funds, "dealSize": size, "fee": "0.06", "feeCurrency": "EUR", "clientOid": "x", "isActive": active, "cancelExist": false, "createdAt": 1790000000000u64 }})
+}
+fn adopted(opened: bool) -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot, ScriptedTransport, KucoinVenue<ScriptedTransport>) {
+    let (dir, o, bot, _plan) = engine_setup();
+    // The venue's code for the pair differs from the asset's symbol (KuCoin's BCHSV for the BSV asset, here XBT for BTC).
+    o.primary.execute_batch("UPDATE tickers SET ticker = 'XBT-EUR'").unwrap();
+    let t = ScriptedTransport::default(); t.set_now(at("2026-10-30T12:00:00Z")); classic(&t, opened);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    (dir, o, bot, t, v)
+}
+fn mark_unproven(c: &rusqlite::Connection, id: i64) {
+    deltabadger::app_config::set_plain(c, &format!("{}{id}", deltabadger::engine::reconcile::ORIGIN), r#"{"origin":"unproven"}"#, at("2026-10-30T10:00:00Z")).unwrap();
+}
+
+async fn sweep(c: &rusqlite::Connection, v: &KucoinVenue<ScriptedTransport>, bot: i64) -> Result<(), deltabadger::engine::polling::PollFailure> {
+    deltabadger::engine::polling::sweep(c, v, &model::load_bot(c, bot).unwrap(), at("2026-11-20T12:00:00Z")).await
+}
+
+/// R07, r1.5, r2.3, r4: an adopted row's route is proven only by a positive answer naming it on that route, on the venue's
+/// own ticker for its pair, in every account mode; until then it holds its bot and is never abandoned or cancelled.
+#[tokio::test(flavor = "current_thread")]
+async fn r07_adopted_rows_need_a_positive_route() {
+    use deltabadger::engine::polling;
+    let now = at("2026-11-20T12:00:00Z");
+    // A classic account; the classic route names it: classic from now on, today's path.
+    let (_d, o, bot, t, v) = adopted(false);
+    let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    mark_unproven(&o.primary, id);
+    t.reply("GET /api/v1/orders/A1", 200, classic_order("A1", "XBT-EUR", true, "0", "0"));
+    sweep(&o.primary, &v, bot.id).await.unwrap();
+    assert_eq!(origin(&o.primary, id).as_deref(), Some("classic"));
+    assert_eq!(row_exec(&o.primary, id).0, Some(1));
+    // A classic account; nothing names it: held, never fills-closed or abandoned (it is 50 days old).
+    let (_d, o, bot, t, v) = adopted(false);
+    let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    mark_unproven(&o.primary, id);
+    t.reply("GET /api/v1/orders/A1", 404, json!({"code":"400100","msg":"order not exist."}));
+    assert!(matches!(sweep(&o.primary, &v, bot.id).await, Err(polling::PollFailure::AwaitingReconciliation(tx, _)) if tx == id));
+    assert_eq!((row_exec(&o.primary, id).0, origin(&o.primary, id).as_deref()), (Some(0), Some("unproven")));
+    assert!(!t.requests().iter().any(|r| r.path.contains("fills")), "no fills fallback");
+    assert!(!begins(&o.primary, bot.id, now));
+    let r = deltabadger::venue::OrderRef::load(&o.primary, id, "A1").unwrap();
+    assert!(matches!(v.cancel_with(&r).await, Err(deltabadger::venue::VenueError::Ambiguous(_))), "never cancelled on a guessed route");
+    assert!(!t.requests().iter().any(|r| r.method == "DELETE"));
+    // An HF account; the HF route names it on the venue's ticker: its record, with the row's execution as the floor.
+    let (_d, o, bot, t, v) = adopted(true);
+    let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({"amount_exec": "0.0004", "quote_amount_exec": "24"}));
+    mark_unproven(&o.primary, id);
+    t.reply("GET /api/v1/orders/A1", 404, json!({"code":"400100","msg":"order not exist."}));
+    let mut hf = hf_answer("A1", true, false, "0.0004", "24");
+    hf["data"]["symbol"] = json!("XBT-EUR");
+    let mut lower = hf.clone(); lower["data"]["dealSize"] = json!("0.0003"); lower["data"]["dealFunds"] = json!("18");
+    t.reply("GET /api/v1/hf/orders/A1?symbol=XBT-EUR", 200, hf.clone());
+    t.reply("GET /api/v1/hf/orders/A1?symbol=XBT-EUR", 200, hf);
+    t.reply("GET /api/v1/hf/orders/A1?symbol=XBT-EUR", 200, lower);
+    sweep(&o.primary, &v, bot.id).await.unwrap();
+    let rec = deltabadger::venue::kucoin::order_record(&o.primary, id).unwrap().unwrap();
+    assert_eq!((&rec["family"], &rec["symbol"], &rec["deal_size"]), (&json!("ClassicHf"), &json!("XBT-EUR"), &json!("0.0004")));
+    assert_eq!(origin(&o.primary, id), None, "the record is its origin");
+    let classic_reads = t.requests().iter().filter(|r| r.path == "/api/v1/orders/A1").count();
+    assert!(sweep(&o.primary, &v, bot.id).await.is_err(), "a lower answer than the row's own execution owes");
+    assert_eq!(t.requests().iter().filter(|r| r.path == "/api/v1/orders/A1").count(), classic_reads, "the HF route from now on");
+    assert_eq!(row_exec(&o.primary, id), (Some(1), Some(0.0004)));
+    // An HF account; neither route names it: held. A row whose pair maps to no ticker asks nowhere and is held.
+    let (_d, o, bot, t, v) = adopted(true);
+    let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    mark_unproven(&o.primary, id);
+    t.reply("GET /api/v1/orders/A1", 404, json!({"code":"400100","msg":"order not exist."}));
+    t.reply("GET /api/v1/hf/orders/A1?symbol=XBT-EUR", 200, json!({"code":"400100","msg":"order not exist"}));
+    assert!(sweep(&o.primary, &v, bot.id).await.is_err());
+    assert_eq!(origin(&o.primary, id).as_deref(), Some("unproven"));
+    o.primary.execute("UPDATE transactions SET base_asset_id = NULL WHERE id = ?1", [id]).unwrap();
+    let before = t.requests().len();
+    assert!(sweep(&o.primary, &v, bot.id).await.is_err());
+    assert_eq!(t.requests().iter().skip(before).filter(|r| r.path.contains("A1")).count(), 0, "an unmapped pair asks nowhere");
+}
