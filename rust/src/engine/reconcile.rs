@@ -237,6 +237,8 @@ struct Source { kind: String, #[serde(default)] note: Option<String>, sha256: St
 struct ListedFill { id: String, base: String, quote: String, fee: String, fee_currency: String }
 
 type Fees = std::collections::BTreeMap<String, BigDec>;
+/// A row as `by_operator` reads it: bot, external id, status, created_at, exchange type.
+type RowFacts = (Option<i64>, Option<String>, Option<i64>, String, String);
 
 /// Fees by currency, zero amounts left out (so `[]` and a zero fee agree).
 fn fee_map(fees: impl IntoIterator<Item = (String, BigDec)>) -> Fees {
@@ -331,7 +333,7 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
     let b: Bundle = serde_json::from_str(text).map_err(|e| refuse(vec![format!("unreadable evidence: {e}")]))?;
     let (facts, fees, terminal_at) = validate(&b, tx_id, now).map_err(refuse)?;
     let tx = model::immediate(c)?;
-    let row: Option<(Option<i64>, Option<String>, Option<i64>, String, String)> = tx.query_row(
+    let row: Option<RowFacts> = tx.query_row(
         "SELECT t.bot_id, t.external_id, t.status, t.created_at, e.type FROM transactions t JOIN exchanges e ON e.id = t.exchange_id WHERE t.id = ?1",
         [tx_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).optional()?;
     let Some((Some(bot_id), external_id, status, created_at, exchange)) = row else { return Err(refuse(vec!["no such order row".into()])) };
@@ -353,8 +355,8 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
     // A settled row: the same facts are a replay (an API settlement takes the fees once); anything else is a conflict.
     if let Some(settled) = settled(&tx, tx_id, &record)? {
         if settled.facts != facts { return Err(refuse(vec![format!("conflict: the order is already settled as {} {} / {}", settled.facts.status, settled.facts.size.to_s_f(), settled.facts.funds.to_s_f())])); }
-        match settled.receipt {
-            Some(mut r) => {
+        // None: settled before receipts; the gate below confirms it and settles what it still owes.
+        if let Some(mut r) = settled.receipt {
                 if r["fees"].is_null() {
                     for (k, v) in extra.as_object().expect("an object") { r[k] = v.clone(); }
                     crate::app_config::set_plain(&tx, &format!("{RECEIPT}{tx_id}"), &r.to_string(), now).map_err(data)?;
@@ -364,8 +366,6 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
                 clear(&tx, tx_id)?;
                 tx.commit()?;
                 return Ok(Operator::AlreadyReconciled);
-            }
-            None => {} // settled before receipts: the gate below confirms it and settles what it still owes
         }
     } else if status != Some(0) {
         return Err(refuse(vec!["the row is not a submitted order".into()]));

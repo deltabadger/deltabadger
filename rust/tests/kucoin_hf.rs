@@ -1176,6 +1176,7 @@ async fn r05_a_settled_row_takes_only_its_own_facts() {
     assert!(obligation(&c, id).is_none() && begins(&c, bot.id, now), "a settled row owes nothing for a missing answer");
 }
 
+#[allow(clippy::too_many_arguments)]
 fn known_fill(c: &rusqlite::Connection, user: i64, exchange: i64, trade: &str, order: &str, size: &str, funds: &str, fee: &str) {
     let raw = json!({"symbol":"BTC-EUR","tradeId":trade,"orderId":order,"side":"buy","size":size,"funds":funds,"fee":fee,"feeCurrency":"EUR","createdAt":1793361600000_i64,"family":"ClassicHf"});
     c.execute("INSERT INTO account_transactions (user_id, exchange_id, base_amount, base_currency, entry_type, transacted_at, created_at, updated_at, raw_data, tx_id) \
