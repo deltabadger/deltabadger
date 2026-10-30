@@ -424,7 +424,10 @@ impl<T: Transport> KucoinVenue<T> {
                 match &b["data"]["orderId"] { Value::String(id) if !id.is_empty() && !other => Ok(id.clone()), _ => Err(VenueError::Ambiguous(NO_ORDER_ID.into())) }
             }
             (Some(b), Some("400100")) if b["msg"].as_str().is_some_and(|m| m.to_lowercase().contains("clientoid")) => Err(VenueError::Ambiguous(api_error(b))),
-            (Some(b), Some(c)) if HF_REFUSALS.contains(&c) => Err(refused(b)),
+            // 400002 is the safe rejection whatever its text: the engine's own marker carries it (placement::safe_rejection).
+            (Some(b), Some("400002")) if resp.status < 500 => Err(VenueError::Rejected(vec!["Invalid KC-API-TIMESTAMP".into(), api_error(b)])),
+            // A server error is never a refusal, whatever code it carries.
+            (Some(b), Some(c)) if HF_REFUSALS.contains(&c) && resp.status < 500 => Err(refused(b)),
             (_, _) if resp.status == 429 => Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&resp.body)])),
             (Some(b), _) => Err(VenueError::Ambiguous(api_error(b))),
             (None, _) => Err(VenueError::Ambiguous(format!("KuCoin answered HTTP {} with an unreadable body", resp.status))),
@@ -441,12 +444,18 @@ impl<T: Transport> KucoinVenue<T> {
         Some(order.filter(|_| mine).ok_or(()))
     }
 
-    /// D-KUCOIN-HF-ORDERS: one stored HF order, `GET /api/v1/hf/orders/{id}?symbol=`. None when it cannot be told: not
-    /// found, refused, failed or unreadable. The row then waits (an excluded id: never missing, never abandoned).
-    async fn hf_order(&self, want: &HfOrder) -> Option<OrderState> {
+    /// D-KUCOIN-HF-ORDERS: one stored HF order, `GET /api/v1/hf/orders/{id}?symbol=`. A failure worth retrying (transport,
+    /// throttle, transient text) is its error; any other answer that cannot be told (not found, refused, unreadable) is
+    /// None, and the row waits (an excluded id: never missing, never abandoned).
+    async fn hf_order(&self, want: &HfOrder) -> Result<Option<OrderState>, VenueError> {
         let r = HttpRequest { method: "GET", base: self.base.clone(), path: format!("{HF_ORDERS}/{}", want.id), query: vec![("symbol", want.symbol.clone())], body: None, not_after: None };
-        let body = self.call(&r, false, http::MAX_BODY).await.ok().filter(|b| code(b).ok().as_deref() == Some(OK))?;
-        parse_hf_order(&body["data"], want, &self.pairs).ok()
+        match self.call(&r, false, http::MAX_BODY).await {
+            Ok(body) if code(&body).ok().as_deref() == Some(OK) => Ok(parse_hf_order(&body["data"], want, &self.pairs).ok()),
+            Ok(_) => Ok(None),
+            Err(e @ VenueError::Transient(_)) => Err(e),
+            Err(VenueError::Rejected(m)) if RULES.is_throttle(&m) || RULES.is_transient(&m) => Err(VenueError::Rejected(m)),
+            Err(_) => Ok(None),
+        }
     }
 
     /// D-KUCOIN-HF-ORDERS: recovery's exact lookup, `GET /api/v1/hf/orders/client-order/{clientOid}?symbol=`. Only an
@@ -714,7 +723,8 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
         for r in refs {
             match self.hf_ref(r) {
                 None => {}
-                Some(Ok(want)) => match self.hf_order(&want).await { Some(s) => found.push(s), None => excluded.push(r.external_id.clone()) },
+                // A bulk read never fails the sweep for one HF row: it waits, excluded.
+                Some(Ok(want)) => match self.hf_order(&want).await { Ok(Some(s)) => found.push(s), Ok(None) | Err(_) => excluded.push(r.external_id.clone()) },
                 Some(Err(())) => excluded.push(r.external_id.clone()),
             }
         }
@@ -722,8 +732,12 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     }
     async fn order_with<F>(&self, r: &super::OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
-        if self.hf_ref(r).is_none() { return super::Venue::order_identified(self, &r.external_id, identify).await; }
-        super::Venue::orders_with(self, std::slice::from_ref(r), identify).await
+        match self.hf_ref(r) {
+            None => super::Venue::order_identified(self, &r.external_id, identify).await,
+            // One order's read keeps a retryable failure, so the follow-up is retried, never dropped.
+            Some(Ok(want)) => match self.hf_order(&want).await? { Some(s) => Ok((vec![s], vec![])), None => Ok((vec![], vec![r.external_id.clone()])) },
+            Some(Err(())) => Ok((vec![], vec![r.external_id.clone()])),
+        }
     }
     /// D-KUCOIN-HF-ORDERS: an HF row's cancel, `DELETE /api/v1/hf/orders/{id}?symbol=`. Accepted only on 200000 naming
     /// this order; an error envelope is the venue's refusal; anything else (lost, 5xx, unreadable, another id) is
