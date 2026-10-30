@@ -181,6 +181,14 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
         } else {
             let out = if [BINANCE, BINANCE_US].contains(&key.exchange_type.as_str()) {
                 crate::sync::binance_writer::store_csv(&fenced, cipher, &key, &rows, now)?
+            } else if key.exchange_type == KUCOIN {
+                // D-KUCOIN-HF-LEDGER: each row's exact decimals ride with it, and an HF-enabled history judges the
+                // seconds the file touched before the import commits.
+                let rows: Vec<Entry> = rows.into_iter().map(crate::sync::kucoin_hf::with_amounts).collect();
+                let seconds = crate::sync::kucoin_hf::seconds_of(&rows);
+                let out = ledger::store_file(&fenced, &key, rows, now)?;
+                crate::sync::kucoin_hf::flush(&fenced, &key, seconds, now)?;
+                out
             } else { ledger::store_file(&fenced, &key, rows, now)? };
             (imported, duplicates, skipped) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped);
         }

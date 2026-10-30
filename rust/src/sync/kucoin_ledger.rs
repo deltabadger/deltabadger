@@ -41,7 +41,7 @@ const WINDOW_MS: i64 = 7 * 86_400_000;
 const RANGE_CAP: i64 = 50_000;
 const MIN_RANGE_MS: i64 = 3_600_000;
 /// Exchanges::Kucoin::LEDGER_THROTTLE_RETRIES and LEDGER_THROTTLE_WAIT.
-const THROTTLE_RETRIES: usize = 6;
+pub(super) const THROTTLE_RETRIES: usize = 6;
 pub const THROTTLE_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
 pub const OVERLAP_HOURS: i64 = 25;
 const PAGE_SIZE: &str = "500";
@@ -216,10 +216,12 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     }
     fn page_rows(&self) -> usize { PAGE_ROWS }
     /// The file's takeover for every source the walk has finished (plan KI §5): those before the one its cursor reads.
-    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, _, now| {
+    /// On an HF-enabled history, the page's fills are judged by the one-trade rule in the same transaction.
+    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, _, rows, now| {
         let at = cursor["source"].as_str().and_then(Source::named).unwrap_or(Source::Fills);
         let finished: Vec<&str> = [Source::Fills, Source::Deposits, Source::Withdrawals].into_iter().take_while(|s| *s != at).map(Source::name).collect();
-        crate::tracker::import::kucoin::take_over(c, key, &finished, now)
+        crate::tracker::import::kucoin::take_over(c, key, &finished, now)?;
+        super::kucoin_hf::flush(c, key, super::kucoin_hf::seconds_of(rows), now).map(|_| ())
     };
     /// Every try at the transport's whole budget, and the throttle waits between them.
     fn request_reserve(&self) -> std::time::Duration { crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + self.wait * THROTTLE_RETRIES as u32 }
@@ -268,7 +270,6 @@ pub async fn sync<T: Transport>(db: &Db, transport: T, key_id: i64, credentials:
 pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, credentials: &Credentials, clock: &dyn Clock, wait: std::time::Duration, run: &continuation::Run<'_>)
                                        -> Result<Result<Outcome, Failure>, SyncError> {
     let version = capture_bound_version(db, key_id, credentials).await?;
-    let now = clock.now();
     let captured = version.clone();
     let (key, produced) = phase(db, move |c| {
         let key = load_key_of(c, key_id, &[KUCOIN])?;
@@ -277,12 +278,47 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
         Ok((key, produced))
     }).await?;
     let watermark = if produced { key.last_synced_at } else { None };
-    use crate::venue::Venue;
+    use crate::venue::kucoin_account::AccountMode;
     let venue = KucoinVenue::new(transport, URL).with_account_context(version.clone(), crate::venue::kucoin_account::Resolver::shared());
-    if let Err(e) = venue.prepare().await {
+    // D-KUCOIN-HF-LEDGER: the history routes on the detected mode; trading keeps `prepare`'s gate.
+    let refused = match venue.account_mode().await {
+        Ok(AccountMode::ClassicLf) => None,
+        Ok(AccountMode::ClassicHf) => return sync_hf(db, &version, &venue, key, watermark, credentials, clock, wait, run).await,
+        Ok(mode) => mode.require_classic().err(),
+        Err(e) => Some(e),
+    };
+    if let Some(e) = refused {
         let credentials = credentials.clone();
         let error = super::commit_for(db, &version, move |c| super::record_sync_error(c, key_id, &e.message(), &credentials)).await?;
         return Ok(Err(Failure { error, raised: false }));
     }
-    continuation::sync(db, &version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, now, run, |begin| Walk::new(&venue, wait, begin)).await
+    continuation::sync(db, &version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(&venue, wait, begin)).await
+}
+
+/// An HF account's run: the migration on its first detection, the HF unit within half the deadline, then the classic
+/// walk unchanged. An HF failure survives the classic walk: recorded after its finalizer, and the job fails; when both
+/// fail, the classic failure is recorded and the HF one logged. An unfinished unit leaves the run incomplete, so the
+/// chain wakes the next.
+#[allow(clippy::too_many_arguments)]
+async fn sync_hf<T: Transport>(db: &Db, version: &crate::engine::model::CredentialVersion, venue: &KucoinVenue<T>, key: super::Key, watermark: Option<chrono::DateTime<chrono::Utc>>,
+                               credentials: &Credentials, clock: &dyn Clock, wait: std::time::Duration, run: &continuation::Run<'_>) -> Result<Result<Outcome, Failure>, SyncError> {
+    let now = clock.now();
+    let migrating = key.clone();
+    super::commit_for(db, version, move |c| super::kucoin_hf::migrate(c, &migrating, now).map(|_| ())).await?;
+    let hf = super::kucoin_hf_ledger::run(db, version, venue, &key, clock, wait, run).await?;
+    let key_id = key.id;
+    let classic = continuation::sync(db, version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(venue, wait, begin)).await?;
+    match (hf, classic) {
+        (super::kucoin_hf_ledger::Ended::Failed(text), Ok(_)) => {
+            let credentials = credentials.clone();
+            let error = super::commit_for(db, version, move |c| super::record_sync_error(c, key_id, &text, &credentials)).await?;
+            Ok(Err(Failure { error, raised: false }))
+        }
+        (super::kucoin_hf_ledger::Ended::Failed(text), Err(failure)) => {
+            crate::engine::log(&format!("[kucoin] HF fills of api key {key_id} failed too: {text}"));
+            Ok(Err(failure))
+        }
+        (super::kucoin_hf_ledger::Ended::Paused, Ok(mut outcome)) => { outcome.complete = false; Ok(Ok(outcome)) }
+        (_, classic) => Ok(classic),
+    }
 }

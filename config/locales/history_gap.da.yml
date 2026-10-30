@@ -4,7 +4,7 @@ da:
             button: "Importér historik"
             title: "Gør din historik fra %{exchange} komplet"
             why_kucoin_reach: "KuCoins API returnerer handler, indbetalinger og udbetalinger kun for omtrent de seneste 12 måneder."
-            why_kucoin_hf_convert: "Handler på KuCoins HF-handelskonto og Convert-byt kan slet ikke læses, uanset hvor nye de er."
+            why_kucoin_hf_convert: "Convert-byt kan slet ikke læses, uanset hvor nye de er."
             why_kucoin_transfers: "Ældre indbetalinger og udbetalinger mangler også."
             why_binance: "Binances API returnerer kun handler for par, der stadig er noteret, og Convert, støvkonverteringer og Simple Earn kun fra de datoer, Binance gemmer dem fra. Margin og futures læses ikke."
             why_other: "%{exchange} indeholder mere, end den historik Deltabadger kunne læse derfra forklarer."

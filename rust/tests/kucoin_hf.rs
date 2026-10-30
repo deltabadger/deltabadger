@@ -347,14 +347,15 @@ async fn m04_signal_rebalance_liquidation_and_redeploy_prepare_before_sizing() {
 async fn m03_detection_and_balance_races_preserve_stored_balances_and_watermark() {
     use deltabadger::engine::FixedClock;
     use deltabadger::sync::{self, balances};
-    for phase in ["detection", "balance", "failure", "hf", "ledger", "checkpoint"] {
+    // An HF account's balances are read since HF-3 (`trade_hf`, kucoin_hf_sync.rs): no longer a refusal to race.
+    for phase in ["detection", "balance", "failure", "ledger", "checkpoint"] {
         let (dir, o, bot, plan) = engine_setup();
         let version = model::credential_version(&o.primary, &bot).unwrap().unwrap();
         let key = version.id;
         o.primary.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,synced_at,created_at,updated_at) VALUES(?1,?2,?3,17,3,'2026-10-29','2026-10-29','2026-10-29')", rusqlite::params![bot.user_id, bot.exchange_id, plan.ticker.base_asset_id]).unwrap();
         let credentials = sync::validation_material(&o.primary, &common::seed::cipher(), key).unwrap().0;
         let t = ScriptedTransport::default();
-        classic(&t, phase == "hf");
+        classic(&t, false);
         t.reply("GET /api/v1/accounts", 200, json!({"code":"200000","data":[{"currency":"BTC","available":"99","holds":"0"}]}));
         for endpoint in [sync::kucoin_ledger::FILLS_PATH, sync::kucoin_ledger::DEPOSITS_PATH, sync::kucoin_ledger::WITHDRAWALS_PATH] {
             t.reply(&format!("GET {endpoint}"), 200, json!({"code":"200000","data":{"currentPage":1,"totalPage":1,"totalNum":0,"items":[]}}));

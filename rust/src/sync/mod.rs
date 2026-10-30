@@ -31,6 +31,8 @@ pub mod bitrue_ledger;
 pub mod bingx_ledger;
 pub mod kraken_ledger;
 pub mod kucoin_ledger;
+pub mod kucoin_hf;
+pub mod kucoin_hf_ledger;
 pub mod gemini_ledger;
 pub mod hyperliquid_ledger;
 pub mod cache;
