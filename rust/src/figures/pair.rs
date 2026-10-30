@@ -1,6 +1,6 @@
 //! Bots::DcaSingleAsset::Measurable, which Bots::Signal includes: a pair bot's walk over its orders (`metrics`), the
 //! live pass (`live`) and the chart marked at market (`marked_at`), its three cache layers. Each is computed as Rails
-//! computes it, apart from the named divergences D1 and D2 (`fill::pair_row`). The figures ride in `walk::Metrics`, so
+//! computes it, apart from D1, D2 and D-PAIR-FILL-VALUE (`fill::pair_row`). The figures ride in `walk::Metrics`, so
 //! the totals, the chart page and every reader keep one implementation; `Pair::to_json` writes Rails' own hash.
 use super::at::At;
 use super::db::{self, Bot, Kind, Subject};

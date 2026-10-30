@@ -144,9 +144,8 @@ async fn four_reads_match_rails() {
             assert!(oracle_texts[2].contains("Started: 2026-03-02 15:30 CET"),"{name}: older condition");
         }
         if ["m3_pair_locked","m3_signal_locked"].contains(&name){assert!(oracle_texts[0].contains("Locked out of buying (wash sale): AAA 10d"));}
-        // A pair reads a cancelled partial with no value as Rails does (PF1, fill::pair_row): skipped, so only the
-        // compositions keep the normalized figure.
-        if name.ends_with("_known_price") && !["m3_r4_single_known_price","m3_r4_signal_known_price"].contains(&name) && EXPECTED_READS.len()==4 {
+        // D-PAIR-FILL-VALUE: pairs and compositions both count a partial execution with a known price.
+        if name.ends_with("_known_price") && EXPECTED_READS.len()==4 {
             let texts=got["responses"].to_string();
             assert!(texts.contains("Global P/L: +15.0%") && texts.contains("+$30.0"),"{name}: normalized $230/+15% required");
         }
@@ -169,7 +168,10 @@ async fn four_reads_match_rails() {
             "m3_r3_index_legacy_buy"=>vec![("Holdings (sellable with liquidate_exited_asset): AAA\n",""),("--- Performance ---\nTotal invested: 200.0 USD\nCurrent value: 200.0 USD\nP/L: +0.0%","Metrics unavailable: executed fill value unavailable"),("Global P/L: +20.0%\nProfit (USD): +$40.0","Global P/L: Not available (executed fill value unavailable)"),("- Basket (ID 1) (N/A) | scheduled | P/L: +0.0% | Invested: 200.0 USD","- Basket (ID 1) (N/A) | scheduled | Metrics unavailable: executed fill value unavailable")],
             "m3_r3_basket_partial_sell"=>vec![("Holdings (sellable with liquidate_exited_asset): AAA\n",""),("--- Performance ---\nTotal invested: 200.0 USD\nCurrent value: 200.0 USD\nP/L: +0.0%\nAverage buy price: 100.0 USD\nTotal acquired: 1.0 AAA","Metrics unavailable: executed fill value unavailable"),("Global P/L: +10.0%\nProfit (USD): +$20.0","Global P/L: Not available (executed fill value unavailable)"),("- Basket (ID 1) (AAA/USD) | scheduled | P/L: +0.0% | Invested: 200.0 USD","- Basket (ID 1) (AAA/USD) | scheduled | Metrics unavailable: executed fill value unavailable")],
             "m3_r3_index_partial_sell"=>vec![("Holdings (sellable with liquidate_exited_asset): AAA\n",""),("--- Performance ---\nTotal invested: 200.0 USD\nCurrent value: 200.0 USD\nP/L: +0.0%","Metrics unavailable: executed fill value unavailable"),("Global P/L: +10.0%\nProfit (USD): +$20.0","Global P/L: Not available (executed fill value unavailable)"),("- Basket (ID 1) (N/A) | scheduled | P/L: +0.0% | Invested: 200.0 USD","- Basket (ID 1) (N/A) | scheduled | Metrics unavailable: executed fill value unavailable")],
-            "m3_null_fill_price"|"m3_basket_null_fill"=>vec![("Current value: 200.0 USD\nP/L: +0.0%","Current value: 220.0 USD\nP/L: +10.0%"),("Total acquired: 2.0 AAA","Total acquired: 1.0 AAA"),("Global P/L: +20.0%\nProfit (USD): +$40.0","Global P/L: +15.0%\nProfit (USD): +$30.0"),("P/L: +0.0% | Invested: 200.0 USD","P/L: +10.0% | Invested: 200.0 USD")],
+            "m3_null_fill_price"|"m3_basket_null_fill"|"m3_r4_single_known_price"|"m3_r4_signal_known_price"|"m3_pf1_open_partial"|"m3_pf1_zero_quote"=>vec![("Current value: 200.0 USD\nP/L: +0.0%","Current value: 220.0 USD\nP/L: +10.0%"),("Total acquired: 2.0 AAA","Total acquired: 1.0 AAA"),("Global P/L: +20.0%\nProfit (USD): +$40.0","Global P/L: +15.0%\nProfit (USD): +$30.0"),("P/L: +0.0% | Invested: 200.0 USD","P/L: +10.0% | Invested: 200.0 USD")],
+            "m3_r3_single_partial_sell"|"m3_r3_signal_partial_sell"=>vec![("--- Performance ---\nTotal invested: 200.0 USD\nCurrent value: 200.0 USD\nP/L: +0.0%\nAverage buy price: 100.0 USD\nTotal acquired: 2.0 AAA","Metrics unavailable: executed fill value unavailable"),("Global P/L: +20.0%\nProfit (USD): +$40.0","Global P/L: Not available (executed fill value unavailable)"),("- Basket (ID 1) (AAA/USD) | scheduled | P/L: +0.0% | Invested: 200.0 USD","- Basket (ID 1) (AAA/USD) | scheduled | Metrics unavailable: executed fill value unavailable")],
+            "m3_pf1_nil_amounts"=>vec![("Metrics unavailable: nil can't be coerced into BigDecimal","--- Performance ---\nTotal invested: 200.0 USD\nCurrent value: 220.0 USD\nP/L: +10.0%\nAverage buy price: 100.0 USD\nTotal acquired: 1.0 AAA")],
+            "m3_pf1_nil_price_nil_quote"=>vec![("Metrics unavailable: undefined method '*' for nil","Metrics unavailable: executed fill value unavailable")],
             "m3_r4_basket_known_price"=>vec![("Current value: 200.0 USD\nP/L: +0.0%","Current value: 220.0 USD\nP/L: +10.0%"),("Global P/L: +10.0%\nProfit (USD): +$20.0","Global P/L: +15.0%\nProfit (USD): +$30.0"),("P/L: +0.0% | Invested: 200.0 USD","P/L: +10.0% | Invested: 200.0 USD")],
             "m3_r4_index_known_price"=>vec![("Current value: 200.0 USD\nP/L: +0.0%","Current value: 220.0 USD\nP/L: +10.0%"),("Global P/L: +10.0%\nProfit (USD): +$20.0","Global P/L: +15.0%\nProfit (USD): +$30.0"),("P/L: +0.0% | Invested: 200.0 USD","P/L: +10.0% | Invested: 200.0 USD")],
             "m3_index_null_fill"=>vec![("Current value: 200.0 USD\nP/L: +0.0%","Current value: 220.0 USD\nP/L: +10.0%"),("Global P/L: +20.0%\nProfit (USD): +$40.0","Global P/L: +15.0%\nProfit (USD): +$30.0"),("P/L: +0.0% | Invested: 200.0 USD","P/L: +10.0% | Invested: 200.0 USD")],
@@ -178,6 +180,18 @@ async fn four_reads_match_rails() {
             _=>vec![],
         };
         for (from,to) in replacements { assert_eq!(replace_text(&mut want,from,to),2,"one response and its stored message: {name}"); }
+        if ["m3_pf1_nil_amounts", "m3_pf1_nil_price_nil_quote"].contains(&name) {
+            // D-PAIR-FILL-VALUE: Rails' summary raises. Rust returns either the priced-fill control's figures or an
+            // explicit unavailable result. Only this exact result changes; response metadata and stored rows still compare.
+            let summary = if name == "m3_pf1_nil_amounts" {
+                "Global P/L: +15.0%\nProfit (USD): +$30.0\n\n--- Per-Bot Summary ---\n- Basket (ID 1) (AAA/USD) | scheduled | P/L: +10.0% | Invested: 200.0 USD"
+            } else {
+                "Global P/L: Not available (executed fill value unavailable)\n\n--- Per-Bot Summary ---\n- Basket (ID 1) (AAA/USD) | scheduled | Metrics unavailable: executed fill value unavailable"
+            };
+            let from = json!({"isError":true,"content":[{"type":"text","text":"An unexpected error occurred."}]});
+            let to = json!({"content":[{"type":"text","text":format!("Portfolio Summary\n================\nTotal bots: 1 (1 active, 0 stopped, 0 not started)\n\n{summary}")}]});
+            assert_eq!(replace_json(&mut want, &from, &to), 2, "{name}: exact Rails error in response and stored message");
+        }
         if name.ends_with("_label") {
             // Both sides name the bot in the response and leave the stored label and updated_at alone.
             let original=if name.ends_with("_null_label"){Value::Null}else{json!("   ")};
@@ -229,6 +243,22 @@ async fn four_reads_match_rails() {
 }
 
 // Only exact, scenario-specific authorized text divergences change here.
+fn replace_json(value: &mut Value, from: &Value, to: &Value) -> usize {
+    if value == from { *value = to.clone(); return 1; }
+    match value {
+        Value::String(text) => {
+            if let Ok(mut inner) = serde_json::from_str::<Value>(text) {
+                let n = replace_json(&mut inner, from, to);
+                if n > 0 { *text = inner.to_string(); }
+                n
+            } else { 0 }
+        }
+        Value::Array(a) => a.iter_mut().map(|v| replace_json(v, from, to)).sum(),
+        Value::Object(o) => o.values_mut().map(|v| replace_json(v, from, to)).sum(),
+        _ => 0,
+    }
+}
+
 fn replace_text(value:&mut Value,from:&str,to:&str)->usize {
     match value {
         Value::String(text)=>{

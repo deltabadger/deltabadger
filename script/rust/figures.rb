@@ -1406,8 +1406,8 @@ module Figures
   # RULING-B2B-1 MQ6: the counterfactual reads every buy and REGULAR sell normalized (B2-1), but a LIQUIDATION, and a
   # REBALANCE sell that reported proceeds, keep the walk's raw-proceeds gates, as the Rust walk does (an unpriced REBALANCE
   # sell stays normalized, R4). Only the walk's pluck names both columns.
-  # A pair bot's rows are read raw on both readings: its walk is compared with Rails' own, and its named divergences
-  # (rust/tests/figures.rs, D1 and D2) are asserted apart.
+  # Pair rows retain their own price (D2 is asserted separately); the counterfactual supplies missing executed value
+  # for D-PAIR-FILL-VALUE and D1. The first recording remains Rails' unchanged behavior.
   def self.pair_rows?(relation)
     bot_id = relation.where_values_hash['bot_id']
     bot_id.present? && Bot.where(id: bot_id, type: %w[Bots::DcaSingleAsset Bots::Signal]).exists?
@@ -1435,20 +1435,30 @@ module Figures
   end
   ActiveRecord::Relation.prepend(RawSpecialSells)
 
-  # Outermost: a pair bot's rows are read raw on both readings (`pair_rows?`).
-  module RawPairRows
+  # Outermost: normalize only the execution columns; pair accounting uses the row's stored price.
+  module NormalizedPairRows
     def pluck(*columns)
       return super unless Thread.current[:normalized_figure_rows] && klass == Transaction && Figures.pair_rows?(self)
 
-      begin
+      raw = begin
         Thread.current[:normalized_figure_rows] = false
         super
       ensure
         Thread.current[:normalized_figure_rows] = true
       end
+      return raw unless %i[amount_exec quote_amount_exec price external_status].all? { |column| columns.include?(column) }
+
+      raw.map do |row|
+        values = columns.zip(row).to_h
+        quantity = values[:amount_exec] || (values[:external_status] == 'closed' ? values[:amount] : nil)
+        next row unless quantity.to_d.positive? && !values[:quote_amount_exec].to_d.positive? && values[:price].to_d.positive?
+
+        normalized = { amount_exec: quantity, quote_amount_exec: values[:price] * quantity }
+        columns.each_with_index.map { |column, i| normalized.fetch(column, row[i]) }
+      end
     end
   end
-  ActiveRecord::Relation.prepend(RawPairRows)
+  ActiveRecord::Relation.prepend(NormalizedPairRows)
 
   # One scenario's figures, with every request it made. A scenario in steps keeps one cache across them (the clock moves,
   # the cache is not cleared): its figures are the last step's, and each step's requests are listed apart.
