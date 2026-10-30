@@ -223,7 +223,12 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
         None => None,
     };
     let mut out = none;
-    match run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)? {
+    let answer=match run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at) {
+        Ok(answer)=>answer,
+        Err(error) if error.0.starts_with("Binance A12 unresolved:")=> {out["error"]=json!(error.0);return Ok(out);},
+        Err(error)=>return Err(error),
+    };
+    match answer {
         Answer::Error(error) => out["error"] = json!(error),
         Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.id).collect::<Vec<_>>()),
         Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, .. } =>
@@ -245,6 +250,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     // The same exclusive lock every command takes, judged at the real clock.
     let _lock = lease::lock(&paths, Utc::now()).map_err(|e| SyncError(format!("{e:?}")))?;
     let opened = store::open(&paths).map_err(|e| SyncError(format!("{e:?}")))?;
+    lease::claim(&_lock, &opened.primary, &cipher, "sync-parity", Utc::now()).map_err(|e| SyncError(format!("{e:?}")))?;
     // The oracle fixture explicitly describes a single known account. Bind its seeded
     // incremental watermark to that producer; unknown real installations reread fully.
     let producer=crate::engine::model::credential_version_by_id(&opened.primary,key_id)?.ok_or_else(||data("credential producer"))?;

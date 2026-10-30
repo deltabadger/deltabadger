@@ -166,7 +166,9 @@ pub fn write(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, forma
             let out = kucoin::store(&fenced, &key, &kucoin_rows, now)?;
             (imported, duplicates, skipped, generic) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped, generic + out.generic);
         } else {
-            let out = ledger::store_file(&fenced, &key, rows, now)?;
+            let out = if [BINANCE, BINANCE_US].contains(&key.exchange_type.as_str()) {
+                crate::sync::binance_writer::store_csv(&fenced, cipher, &key, &rows, now)?
+            } else { ledger::store_file(&fenced, &key, rows, now)? };
             (imported, duplicates, skipped) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped);
         }
         // Recorded only: the rows went where they always go, whatever account the file names.

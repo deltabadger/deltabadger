@@ -194,6 +194,9 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         if identity_key { deltabadger::identity::key(&c,&app.cipher,app.now()).unwrap(); }
         let key_before = deltabadger::app_config::get_plain(&c,deltabadger::identity::KEY_CONFIG).unwrap();
         same_rows(snapshot(&c),before,&format!("{name} before"));
+        let lock=name.starts_with("import").then(||deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_|None,dir.path()),app.now()).unwrap());
+        if let Some(lock)=&lock {deltabadger::lease::claim(lock,&c,&app.cipher,"test",app.now()).unwrap();}
+        let ownership:Vec<_>=snapshot(&c)["app_configs"].as_array().unwrap().iter().filter(|r|[deltabadger::lease::KEY,deltabadger::lease::TAKEN_OVER_AT].contains(&r["key"].as_str().unwrap_or_default())).cloned().collect();
         let (owner,hash): (i64,String) = c.query_row("SELECT id,encrypted_password FROM users ORDER BY id LIMIT 1",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
         let token = csrf::new_token();
         let data = session::SessionData { user: Some((owner,hash.chars().take(29).collect())), csrf: Some(token.clone()), ..Default::default() };
@@ -255,7 +258,18 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             if expected.get("exception").is_none() { assert_eq!(answer.header(header),expected["headers"][header].as_str(),"{name}: {header}"); }
         }
         if name.starts_with("export_") { assert_eq!(answer.header("content-disposition"),expected["headers"]["content-disposition"].as_str(),"{name}: disposition"); }
-        same_rows(snapshot(&c),combined(expected,"after"),&format!("{name} after"));
+        let actual=snapshot(&c);let mut expected_after=combined(expected,"after");
+        let configs=expected_after["app_configs"].as_array_mut().unwrap();
+        if lock.is_some() {configs.retain(|r|![deltabadger::lease::KEY,deltabadger::lease::TAKEN_OVER_AT].contains(&r["key"].as_str().unwrap_or_default()));configs.extend(ownership);}
+        let a12:Vec<_>=actual["app_configs"].as_array().unwrap().iter().filter(|r|r["key"].as_str().unwrap_or_default().starts_with("rust_binance_a12_v1:")).cloned().collect();
+        assert_eq!(a12.len(),usize::from(IDENTITY_CASES.contains(&name)),"{name}: exact A12 effects");
+        if let Some(marker)=a12.first() {
+            assert_eq!(marker["key"],deltabadger::sync::binance_writer::MARKER);assert_eq!(marker["value"],"1");
+            assert_eq!(marker["created_at"],deltabadger::sync::sql_time(app.now()));assert_eq!(marker["updated_at"],marker["created_at"]);
+            configs.push(marker.clone());
+        }
+        configs.sort_by_key(|r|r["id"].as_i64());
+        same_rows(actual,expected_after,&format!("{name} after"));
         rust_effects(&c,name,key_before);
     }
 }
