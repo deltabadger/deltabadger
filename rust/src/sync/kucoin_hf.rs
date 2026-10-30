@@ -50,9 +50,10 @@ pub fn enabled(c: &Connection, user_id: i64, exchange_id: i64) -> Result<bool, S
     Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3)", params![user_id, exchange_id, ENABLED], |r| r.get(0))?)
 }
 
-/// Whether any history is HF-enabled (the handback refuses then).
+/// Whether any history is HF-enabled (the handback refuses then). An install Rust never migrated has no table, so none.
 pub fn any_enabled(c: &Connection) -> Result<bool, SyncError> {
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE source = ?1)", [ENABLED], |r| r.get(0))?)
+    let table: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kucoin_coverage')", [], |r| r.get(0))?;
+    Ok(table && c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE source = ?1)", [ENABLED], |r| r.get(0))?)
 }
 
 /// The spans of `source` (a `missing:` prefix matches every pair), oldest first.
