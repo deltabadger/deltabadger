@@ -38,7 +38,7 @@ pbkdf2 = { version = "0.12", features = ["hmac"] }
 rand = "0.8"
 regex = "1"
 # hooks: the tracker's history-gap step caps its own SQL with a progress handler (tracker::gaps).
-rusqlite = { version = "0.37", features = ["bundled", "functions", "hooks"] }
+rusqlite = { version = "0.37", features = ["bundled", "functions", "hooks", "backup"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 rust_decimal = { version = "1", features = ["std"] }
 serde_json = { version = "1", features = ["float_roundtrip", "preserve_order", "raw_value"] }

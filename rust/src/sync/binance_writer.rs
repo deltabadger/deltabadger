@@ -43,7 +43,7 @@ pub(crate) fn csv_refusal(error: &SyncError) -> Option<&str> {
 }
 fn hash(s: &str) -> String { hex::encode(Sha256::digest(s.as_bytes())) }
 fn scope(key: &Key) -> String { format!("{PREFIX}{}:{}:",key.user_id,key.exchange_id) }
-fn bucket_id(e: &Entry) -> Result<String,SyncError> {
+pub(super) fn bucket_id(e: &Entry) -> Result<String,SyncError> {
     let id=e.tx_id.as_deref().filter(|s|!s.trim().is_empty()).ok_or_else(||refused("missing legacy bucket"))?;
     Ok(if id.starts_with("dust-") { id.strip_suffix("-in").or_else(||id.strip_suffix("-out")).unwrap_or(id) }else{id}.into())
 }
@@ -72,7 +72,7 @@ fn ownership(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key) -> Result<()
         return Err(refused("Rust ownership required"));
     } Ok(())
 }
-fn mark(c: &FencedTransaction<'_>, now: DateTime<Utc>) -> Result<(),SyncError> {
+pub(super) fn mark(c: &FencedTransaction<'_>, now: DateTime<Utc>) -> Result<(),SyncError> {
     if !written(c)? {app_config::set_plain(c,MARKER,"1",now).map_err(SyncError)?;} Ok(())
 }
 fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
@@ -82,7 +82,7 @@ fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
     c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1",[owner])?;
     c.execute("DELETE FROM portfolio_venue_snapshots WHERE user_id=?1",[owner])?; Ok(())
 }
-fn image(c: &Connection, id: i64) -> Result<Value,rusqlite::Error> {
+pub(super) fn image(c: &Connection, id: i64) -> Result<Value,rusqlite::Error> {
     let mut s=c.prepare("SELECT * FROM account_transactions WHERE id=?1")?;
     let names=s.column_names().iter().map(|n|n.to_string()).collect::<Vec<_>>();
     s.query_row([id],|r| {let mut out=serde_json::Map::new();for (i,n) in names.iter().enumerate() {

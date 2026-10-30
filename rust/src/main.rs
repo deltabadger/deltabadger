@@ -1,4 +1,4 @@
-//! `deltabadger check | run | handback | serve | sync | resolve-withdrawal | resolve-placement | decide`.
+//! `deltabadger check | run | handback | serve | sync | repair-binance-history | resolve-withdrawal | resolve-placement | decide`.
 //! - check: take the engine lock, check the Rails-prepared install read-only, list the Rust migrations `run`/`serve`
 //!   would apply, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
@@ -60,6 +60,7 @@ fn main() {
         Some("run") => std::process::exit(run_engine(&env)),
         Some("handback") => std::process::exit(hand_back(&env)),
         Some("sync") => std::process::exit(sync_by_hand(&env)),
+        Some("repair-binance-history") => std::process::exit(repair_binance_history(&env)),
         Some("serve") => std::process::exit(serve(&env)),
         Some("resolve-withdrawal") => {
             use deltabadger::engine::withdrawal::{self,Target};
@@ -117,7 +118,7 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
     }
@@ -408,6 +409,68 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         }
     }
     code
+}
+
+/// Operator-only maintenance; the install lock excludes run/serve, sync and import.
+fn repair_binance_history(env:&dyn Fn(&str)->Option<String>)->i32 {
+    use deltabadger::{sync::{self,binance_repair as repair,binance_ledger::Pacing,jobs::Connect},venue::binance::{self,BinanceVenue}};
+    use std::io::Write;
+    const USAGE:&str="usage: deltabadger repair-binance-history --dry-run --key ID --manifest FILE --backup FILE | --apply --manifest FILE --approve DIGEST | --inventory";
+    let new_file=|path:&str| {
+        let mut options=std::fs::OpenOptions::new();options.write(true).create_new(true);
+        #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.mode(0o600);}
+        options.open(path)
+    };
+    let args:Vec<String>=std::env::args().skip(2).collect();
+    let mode=args.first().map(String::as_str).unwrap_or_else(||fail(USAGE));
+    let mut options=std::collections::BTreeMap::new();
+    if args.len().is_multiple_of(2) {fail(USAGE)}
+    for pair in args[1..].chunks_exact(2) {if options.insert(pair[0].as_str(),pair[1].as_str()).is_some(){fail(USAGE)}}
+    let allowed:&[&str]=match mode {"--dry-run"=>&["--key","--manifest","--backup"],"--apply"=>&["--manifest","--approve"],"--inventory"=>&[],_=>fail(USAGE)};
+    if options.len()!=allowed.len() || options.keys().any(|k|!allowed.contains(k)){fail(USAGE)}
+    let (_lock,o,cipher)=open_install(env,false);let c=&o.primary;
+    repair::require_ownership(c,&cipher).unwrap_or_else(|e|fail(&e.0));
+    let inventory=repair::inventory(c).unwrap_or_else(|e|fail(&e.0));
+    if mode=="--inventory" {println!("{}",serde_json::to_string_pretty(&inventory).expect("inventory"));return 0}
+    for account in inventory.iter().filter(|a|a.key_id.is_none()) {eprintln!("user {} venue {}: awaiting credentials; history remains incomplete",account.user_id,account.exchange_id);}
+    let approved:Option<repair::Manifest>=if mode=="--apply" {
+        let bytes=std::fs::read(options["--manifest"]).unwrap_or_else(|_|fail("cannot read repair manifest"));
+        let m:repair::Manifest=serde_json::from_slice(&bytes).unwrap_or_else(|_|fail("invalid repair manifest"));
+        if m.digest()!=options["--approve"] {fail("approved digest does not match manifest")};Some(m)
+    }else{None};
+    let key_id=approved.as_ref().map(|m|m.key_id).unwrap_or_else(||options["--key"].parse().unwrap_or_else(|_|fail(USAGE)));
+    let key=sync::load_key_of(c,key_id,&[binance::BINANCE,binance::BINANCE_US]).unwrap_or_else(|e|fail(&e.0));
+    let (credentials,version)=sync::credentials_with_version(c,&cipher,key_id).unwrap_or_else(|e|fail(&e.0));
+    let cutoff=approved.as_ref().map_or_else(chrono::Utc::now,|m|m.cutoff.parse().unwrap_or_else(|_|fail("invalid cutoff")));
+    if approved.is_none() {
+        // create_new prevents overwriting either the source database or an earlier backup.
+        let _file=new_file(options["--backup"]).unwrap_or_else(|_|fail("backup must be a new writable file"));
+        c.backup(rusqlite::MAIN_DB,options["--backup"],None).unwrap_or_else(|_|fail("consistent backup failed"));
+    }
+    let name=if key.exchange_type==binance::BINANCE_US {"binance_us"}else{"binance"};
+    let stored=deltabadger::app_config::get(c,&cipher,&format!("proxy_{name}")).unwrap_or_else(|_|fail("unreadable proxy configuration"));
+    let proxy=deltabadger::venue::http::proxy_for(name,stored,env);
+    let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime");
+    let fetched=rt.block_on(async {
+        let transport=LiveFactory::new().binance_transport(&credentials,proxy.as_deref());
+        let venue=BinanceVenue::new(transport,binance::host(&key.exchange_type).expect("supported venue").0,&credentials.secret);
+        repair::fetch(&venue,&SystemClock,cutoff,key.exchange_type==binance::BINANCE_US,Pacing::LIVE).await
+    });
+    let m=approved.unwrap_or_else(||repair::dry_run(c,&cipher,&key,&version,cutoff,&fetched).unwrap_or_else(|e|fail(&e.0)));
+    if mode=="--dry-run" {
+        let mut file=new_file(options["--manifest"]).unwrap_or_else(|_|fail("manifest must be a new writable file"));
+        file.write_all(serde_json::to_string_pretty(&m).expect("manifest").as_bytes()).unwrap_or_else(|_|fail("cannot write manifest"));file.sync_all().unwrap_or_else(|_|fail("cannot persist manifest"));
+        println!("approval digest: {}",m.digest());
+    } else {
+        repair::validate(c,&cipher,&key,&m,options["--approve"],&fetched).unwrap_or_else(|e|fail(&e.0));
+        let mut inserted=0;
+        for n in 0..m.batches.len() {inserted+=repair::apply_batch(c,&cipher,&key,&m,options["--approve"],&fetched,n).unwrap_or_else(|e|fail(&e.0));}
+        println!("inserted {inserted} rows; committed batches verified");
+    }
+    println!("{}",serde_json::to_string_pretty(&m.tally).expect("tally"));
+    let gaps=m.coverage.iter().filter(|w|w.unresolved.is_some()).count();
+    println!("{} unresolved buckets; {gaps} unreachable/excluded intervals; suppressed events remain unrecovered; no whole-history completion claim",m.unresolved.len());
+    0
 }
 
 /// Rails would open the database a URL names; this build only knows paths. Refusing keeps both engines' lock next to

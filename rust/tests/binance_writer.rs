@@ -32,7 +32,7 @@ fn write(c: &Connection, key: &sync::Key, rows: &[writer::Input]) -> Result<sync
     tx.commit()?;Ok(out)
 }
 fn state(c: &Connection) -> Value {
-    let tables=["account_transactions","app_configs","portfolio_snapshots","portfolio_venue_snapshots"];
+    let tables=["account_transactions","app_configs","portfolio_snapshots","portfolio_venue_snapshots","api_keys","transactions"];
     json!(tables.map(|table| { let mut s=c.prepare(&format!("SELECT * FROM {table} ORDER BY id")).unwrap(); let n=s.column_count();
         s.query_map([],|r|Ok((0..n).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap() }))
 }
@@ -353,32 +353,37 @@ fn accounting(c:&Connection,owner:i64,expected:&Value) {
     assert_eq!(realised.to_s_f(),expected["realised"]);
 }
 
+fn accounting_history(fixture:&Value,colliding:bool,earn:bool)->(Value,String) {
+    let mut state=json!({"deposits":[],"withdrawals":[],"earn":{"locked_rewardsRecord":[],"flexible_subscriptionRecord":[],"flexible_redemptionRecord":[]},"dust":[]});
+    let mut file=deltabadger::web::tracker::CSV_HEADERS.join(",")+"\n";
+    for (n,r) in fixture["accounting"][0]["rows"].as_array().unwrap().iter().enumerate() {
+        let kind=r["entry_type"].as_str().unwrap();let coin=r["base_currency"].as_str().unwrap();let amount=r["base_amount"].as_str().unwrap();
+        let at:DateTime<Utc>=r["transacted_at"].as_str().unwrap().parse().unwrap();let ms=at.timestamp_millis();
+        match kind {
+            "deposit"|"withdrawal" if earn && [3,4].contains(&n)=> {
+                let source=if kind=="deposit" {"flexible_redemptionRecord"}else{"flexible_subscriptionRecord"};
+                state["earn"][source].as_array_mut().unwrap().push(json!({"asset":coin,"time":ms,"amount":amount,"purchaseAmount":amount,"purchaseId":"purchase","redeemId":"redeem","projectId":"project","productId":"product"}));
+            },
+            "deposit"|"withdrawal"=> {
+                let raw=json!({"id":format!("{n}"),"txId":format!("chain-{n}"),"coin":coin,"network":coin,"address":"addr","addressTag":"","amount":amount,
+                    "insertTime":ms,"applyTime":at.format("%Y-%m-%d %H:%M:%S").to_string(),"transactionFee":"0","status":if kind=="deposit" {1}else{6}});
+                state[if kind=="deposit" {"deposits"}else{"withdrawals"}].as_array_mut().unwrap().push(raw);
+            },
+            "staking_reward"=>state["earn"]["locked_rewardsRecord"].as_array_mut().unwrap().push(json!({"positionId":"reward","asset":coin,"time":ms,"rewards":amount})),
+            "swap_out" if r["group_id"].as_str().unwrap().starts_with("dust")=>state["dust"].as_array_mut().unwrap().push(json!({"transId":format!("parent-{coin}"),"operateTime":ms,"userAssetDribbletDetails":[{"transId":if colliding {"detail"}else{coin},"fromAsset":coin,"amount":amount,"transferedAmount":"0.1","serviceChargeAmount":"0.01"}]})),
+            "swap_in" if coin=="BNB"=>{},
+            _=>{let quoted=["buy","sell"].contains(&kind);file+=&format!("{},{kind},{coin},{amount},{},{},,,binance,seed-{n},{},\n",at.to_rfc3339(),if quoted {"USD"}else{""},if quoted {r["fiat_value"].as_str().unwrap()}else{""},r["group_id"].as_str().unwrap_or(""));}
+        }
+    }
+    (state,file)
+}
+
 #[tokio::test(flavor="current_thread")]
 async fn live_history_csv_and_seeded_rollback_match_exact_recorded_accounting() {
     let fixture:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
     for (colliding,earn,file_only) in [(false,false,false),(false,true,false),(true,false,false),(true,true,false),(false,false,true)] {
         let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let lock=claim(c,dir.path());
-        let mut state=json!({"deposits":[],"withdrawals":[],"earn":{"locked_rewardsRecord":[],"flexible_subscriptionRecord":[],"flexible_redemptionRecord":[]},"dust":[]});
-        let mut file=deltabadger::web::tracker::CSV_HEADERS.join(",")+"\n";
-        for (n,r) in fixture["accounting"][0]["rows"].as_array().unwrap().iter().enumerate() {
-            let kind=r["entry_type"].as_str().unwrap();let coin=r["base_currency"].as_str().unwrap();let amount=r["base_amount"].as_str().unwrap();
-            let at:DateTime<Utc>=r["transacted_at"].as_str().unwrap().parse().unwrap();let ms=at.timestamp_millis();
-            match kind {
-                "deposit"|"withdrawal" if earn && [3,4].contains(&n)=> {
-                    let source=if kind=="deposit" {"flexible_redemptionRecord"}else{"flexible_subscriptionRecord"};
-                    state["earn"][source].as_array_mut().unwrap().push(json!({"asset":coin,"time":ms,"amount":amount,"purchaseAmount":amount,"purchaseId":"purchase","redeemId":"redeem","projectId":"project","productId":"product"}));
-                },
-                "deposit"|"withdrawal"=> {
-                    let raw=json!({"id":format!("{n}"),"txId":format!("chain-{n}"),"coin":coin,"network":coin,"address":"addr","addressTag":"","amount":amount,
-                        "insertTime":ms,"applyTime":at.format("%Y-%m-%d %H:%M:%S").to_string(),"transactionFee":"0","status":if kind=="deposit" {1}else{6}});
-                    state[if kind=="deposit" {"deposits"}else{"withdrawals"}].as_array_mut().unwrap().push(raw);
-                },
-                "staking_reward"=>state["earn"]["locked_rewardsRecord"].as_array_mut().unwrap().push(json!({"positionId":"reward","asset":coin,"time":ms,"rewards":amount})),
-                "swap_out" if r["group_id"].as_str().unwrap().starts_with("dust")=>state["dust"].as_array_mut().unwrap().push(json!({"transId":format!("parent-{coin}"),"operateTime":ms,"userAssetDribbletDetails":[{"transId":if colliding {"detail"}else{coin},"fromAsset":coin,"amount":amount,"transferedAmount":"0.1","serviceChargeAmount":"0.01"}]})),
-                "swap_in" if coin=="BNB"=>{},
-                _=>{let quoted=["buy","sell"].contains(&kind);file+=&format!("{},{kind},{coin},{amount},{},{},,,binance,seed-{n},{},\n",at.to_rfc3339(),if quoted {"USD"}else{""},if quoted {r["fiat_value"].as_str().unwrap()}else{""},r["group_id"].as_str().unwrap_or(""));}
-            }
-        }
+        let (mut state,file)=accounting_history(&fixture,colliding,earn);
         import(c,&key,"deltabadger",&file).unwrap();
         for k in [deltabadger::tracker::cache::key(key.user_id),deltabadger::tracker::backfill::history_key(key.user_id),deltabadger::tracker::backfill::price_key(key.user_id)] {app_config::set_plain(c,&k,"stale",now()).unwrap();}
         c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES (?1,'2099-01-01','2099-01-01','2099-01-01')",[key.user_id]).unwrap();
@@ -606,4 +611,250 @@ async fn production_import_route_keeps_unexpected_database_errors_as_errors() {
     let (content_type,body)=web::multipart(&[("format","binance")],&[("file","history_UTC.csv",file.as_bytes())]);
     let answer=browser.send_bytes(&app,"POST","/tracker/import",Some(body),Csrf::Header,&[("content-type",&content_type)]).await;
     assert_eq!(answer.status,500,"{}",answer.body);assert_eq!(state(c),before);
+}
+
+// PR 3: maintenance uses the live guarded writer, without normal-sync mutation paths.
+use deltabadger::sync::binance_repair as repair;
+fn evidence(rows: Vec<writer::Input>) -> repair::Evidence { repair::Evidence { inputs: rows, coverage: vec![] } }
+fn plan(c: &Connection, key: &sync::Key, fetched: &repair::Evidence) -> repair::Manifest {
+    let version=model::credential_version_by_id(c,key.id).unwrap().unwrap();
+    repair::dry_run(c,&common::seed::cipher(),key,&version,now(),fetched).unwrap()
+}
+fn apply(c: &Connection,key: &sync::Key,m:&repair::Manifest,fetched:&repair::Evidence) -> Result<usize,sync::SyncError> {
+    let mut inserted=0;for n in 0..m.batches.len() {inserted+=repair::apply_batch(c,&common::seed::cipher(),key,m,&m.digest(),fetched,n)?;}Ok(inserted)
+}
+
+#[test]
+fn repair_dry_run_is_read_only_apply_preserves_survivors_and_retry_is_noop() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let lock=claim(c,dir.path());
+    let a=input(Source::Deposit,"d1","","BTC");let b=input(Source::Deposit,"d2","","BTC");
+    write(c,&key,std::slice::from_ref(&a)).unwrap();
+    c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();
+    c.execute("UPDATE account_transactions SET manual_values='{\"price\":\"12.34\"}',transfer_link_rejected=1,api_key_id=NULL",[]).unwrap();
+    let fetched=evidence(vec![b,a]);let before=state(c);let changes=c.total_changes();let m=plan(c,&key,&fetched);
+    let roundtrip:repair::Manifest=serde_json::from_str(&serde_json::to_string_pretty(&m).unwrap()).unwrap();assert_eq!(roundtrip.digest(),m.digest());
+    assert_eq!(state(c),before);assert_eq!(c.total_changes(),changes,"dry run never executes a write on the source connection");
+    assert_eq!(m.batches.iter().map(|b|b.inserted.len()).sum::<usize>(),1);
+    assert!(repair::apply_batch(c,&common::seed::cipher(),&key,&m,"wrong digest",&fetched,0).is_err());assert_eq!(state(c),before);
+    assert_eq!(apply(c,&key,&m,&fetched).unwrap(),1);assert_eq!(count(c),2);
+    let after=state(c);let changes=c.total_changes();assert_eq!(apply(c,&key,&m,&fetched).unwrap(),0);assert_eq!(state(c),after);assert_eq!(c.total_changes(),changes);
+    assert!(lease::hand_back(&lock,c,&common::seed::cipher(),now()).is_err());
+    let fresh=plan(c,&key,&fetched);assert!(fresh.batches.is_empty());assert_eq!(state(c),after);
+}
+
+#[test]
+fn repair_crash_commits_whole_buckets_with_journal_and_cache_invalidation() {
+    for trigger in ["CREATE TEMP TRIGGER crash BEFORE INSERT ON app_configs WHEN NEW.key LIKE 'rust_binance_a12_v1:repair:%' BEGIN SELECT RAISE(ABORT,'journal'); END",
+        "CREATE TEMP TRIGGER crash BEFORE DELETE ON app_configs BEGIN SELECT RAISE(ABORT,'cache'); END",
+        "CREATE TEMP TRIGGER crash BEFORE INSERT ON account_transactions WHEN NEW.entry_type=2 BEGIN SELECT RAISE(ABORT,'second leg'); END"] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let mut deposit=input(Source::Deposit,"d1","","BTC");deposit.entry.tx_id=Some("a-hash".into());
+        let mut raw=deposit.entry.raw.value.clone();raw["txId"]=json!("a-hash");deposit.event=Event::read(Source::Deposit,&raw,Context::default()).unwrap();deposit.entry.raw=Raw::from_value(raw);
+        let fetched=evidence([vec![deposit],pair("parent","ETH")].concat());
+        let cache=deltabadger::tracker::cache::key(key.user_id);app_config::set_plain(c,&cache,"stale",now()).unwrap();
+        c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES (?1,'2099-01-01','2099-01-01','2099-01-01')",[key.user_id]).unwrap();
+        let m=plan(c,&key,&fetched);assert_eq!(m.batches.len(),2);
+        repair::apply_batch(c,&common::seed::cipher(),&key,&m,&m.digest(),&fetched,0).unwrap();
+        app_config::set_plain(c,&cache,"stale",now()).unwrap();let before=state(c);
+        c.execute_batch(trigger).unwrap();assert!(repair::apply_batch(c,&common::seed::cipher(),&key,&m,&m.digest(),&fetched,1).is_err());assert_eq!(state(c),before);
+        c.execute_batch("DROP TRIGGER crash").unwrap();let reopened=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert_eq!(apply(&reopened,&key,&m,&fetched).unwrap(),2);assert_eq!(count(c),3);
+        assert!(app_config::get_plain(c,&cache).unwrap().is_none());let after=state(c);assert_eq!(apply(c,&key,&m,&fetched).unwrap(),0);assert_eq!(state(c),after);
+    }
+}
+
+#[test]
+fn repair_refuses_changed_credentials_ownership_evidence_and_survivors() {
+    for change in ["credentials","ownership","survivor","evidence","suppression"] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let a=input(Source::Deposit,"d1","","BTC");write(c,&key,std::slice::from_ref(&a)).unwrap();
+        let mut fetched=evidence(vec![a,input(Source::Deposit,"d2","","BTC")]);let m=plan(c,&key,&fetched);
+        match change {
+            "credentials"=>{c.execute("UPDATE api_keys SET key='rotated' WHERE id=?1",[key.id]).unwrap();},
+            "ownership"=>{c.execute("DELETE FROM app_configs WHERE key='engine_lease'",[]).unwrap();},
+            "survivor"=>{c.execute("UPDATE account_transactions SET manual_values='{\"price\":\"42\"}'",[]).unwrap();},
+            "evidence"=>{fetched.inputs.push(input(Source::Deposit,"d3","","BTC"));},
+            "suppression"=>{suppress(c,"BTC");},_=>unreachable!()
+        }
+        let before=state(c);assert!(apply(c,&key,&m,&fetched).is_err(),"{change}");assert_eq!(state(c),before);
+    }
+}
+
+#[test]
+fn repair_reports_ambiguous_buckets_and_accounts_without_credentials() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let a=input(Source::Deposit,"d1","","BTC");write(c,&key,std::slice::from_ref(&a)).unwrap();
+    c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'",[]).unwrap();
+    c.execute("UPDATE account_transactions SET raw_data='{}'",[]).unwrap();let before=state(c);
+    let fetched=evidence(vec![a,input(Source::Deposit,"d2","","BTC")]);let m=plan(c,&key,&fetched);
+    assert_eq!(m.unresolved.len(),1);assert!(m.batches.is_empty());assert_eq!(state(c),before);
+    c.execute("UPDATE account_transactions SET api_key_id=NULL",[]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE id=?1",[key.id]).unwrap();
+    let inventory=repair::inventory(c).unwrap();assert!(inventory.iter().any(|a|a.user_id==key.user_id && a.exchange_id==key.exchange_id && a.key_id.is_none()));
+}
+
+#[derive(Clone)]
+struct RepairVenue { state:Option<Value>, mode:&'static str, calls:std::rc::Rc<std::cell::RefCell<Vec<deltabadger::venue::http::HttpRequest>>> }
+impl deltabadger::venue::http::Transport for RepairVenue {
+    async fn send(&self,r:&deltabadger::venue::http::HttpRequest)->Result<deltabadger::venue::http::HttpResponse,deltabadger::venue::http::TransportError> {
+        use sync::binance_ledger as b;
+        self.calls.borrow_mut().push(r.clone());
+        let q=|key:&str|r.query.iter().find(|(k,_)|*k==key).unwrap().1.parse::<i64>().unwrap();
+        let start=q("startTime");let end=q("endTime");
+        if let Some(state)=&self.state {
+            let source=if r.path==b::DEPOSITS_PATH {&state["deposits"]}else if r.path==b::WITHDRAWALS_PATH {&state["withdrawals"]}else if r.path==b::DUST_PATH {&state["dust"]}else {
+                let parts:Vec<_>=r.path.split('/').collect();&state["earn"][format!("{}_{}",parts[4],parts[6])]
+            };
+            let rows:Vec<_>=source.as_array().into_iter().flatten().filter(|v| {
+                let at=v["insertTime"].as_i64().or_else(||v["operateTime"].as_i64()).or_else(||v["time"].as_i64()).or_else(||v["applyTime"].as_str().and_then(b::apply_time).map(|t|t.timestamp_millis())).unwrap();at>=start && at<=end
+            }).cloned().collect();
+            let body=if [b::DEPOSITS_PATH,b::WITHDRAWALS_PATH].contains(&r.path.as_str()){json!(rows)}else if r.path==b::DUST_PATH {json!({"userAssetDribblets":rows})}else{json!({"total":rows.len(),"rows":rows})};
+            return Ok(deltabadger::venue::http::HttpResponse{status:200,body:body.to_string()});
+        }
+        let mut raw=input(Source::Deposit,"d1","","BTC").entry.raw.value;raw["status"]=json!(1);
+        let body=if r.path==b::DEPOSITS_PATH && start<=1786960800000 && end>=1786960800000 {
+            match self.mode {"unavailable"=>return Ok(deltabadger::venue::http::HttpResponse{status:403,body:"secret diagnostic".into()}),
+                "malformed"=>json!({}),"repeat"=>json!(vec![raw;1000]),_=>json!([raw])}
+        }else if [b::DEPOSITS_PATH,b::WITHDRAWALS_PATH].contains(&r.path.as_str()){json!([])}
+        else if r.path==b::DUST_PATH {if self.mode=="missing" {json!({})}else{json!({"userAssetDribblets":[]})}}
+        else {if self.mode=="missing" {json!({"rows":[]})}else{json!({"total":0,"rows":[]})}};
+        Ok(deltabadger::venue::http::HttpResponse{status:200,body:body.to_string()})
+    }
+}
+#[tokio::test(flavor="current_thread")]
+async fn repair_fetch_scans_full_history_and_never_completes_unavailable_windows() {
+    use deltabadger::venue::binance::{BinanceVenue,URL,US_URL};use sync::binance_ledger as b;
+    for (mode,us) in [("ok",false),("ok",true),("unavailable",false),("malformed",true),("repeat",true),("missing",false)] {
+        let calls=std::rc::Rc::new(std::cell::RefCell::new(vec![]));let transport=RepairVenue{state:None,mode,calls:calls.clone()};
+        let venue=BinanceVenue::new(transport,if us {US_URL}else{URL},"test-secret");
+        let e=repair::fetch(&venue,&FixedClock(now()),now(),us,b::Pacing::NONE).await;
+        assert_eq!(e.inputs.len(),if ["ok","missing"].contains(&mode){1}else{0});
+        let calls=calls.borrow();assert_eq!(calls[0].query.iter().find(|(k,_)|*k=="startTime").unwrap().1,b::HISTORY_FROM_MS.to_string());
+        assert!(calls.iter().all(|r|!r.path.contains("margin") && !r.path.contains("futures") && !r.path.contains("myTrades")));
+        if us {assert!(calls.iter().all(|r|[b::DEPOSITS_PATH,b::WITHDRAWALS_PATH].contains(&r.path.as_str())));}
+        if ["unavailable","malformed","repeat"].contains(&mode) {assert!(e.coverage.iter().any(|w|w.source==b::DEPOSITS_PATH && w.unresolved.is_some()));}
+        if mode=="missing" {assert!(e.coverage.iter().filter(|w|w.source.contains("simple-earn") || w.source==b::DUST_PATH).all(|w|w.unresolved.is_some()));}
+        assert!(!serde_json::to_string(&e.coverage).unwrap().contains("secret diagnostic"));
+    }
+}
+
+#[test]
+fn repair_metadata_only_marker_is_atomic_and_suppressions_remain_unrecovered() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let fetched=evidence(vec![input(Source::Deposit,"d1","","BTC")]);write(c,&key,&fetched.inputs).unwrap();
+    c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();let m=plan(c,&key,&fetched);
+    assert_eq!(m.batches.len(),1);assert_eq!(m.tally.missing,0);
+    let before=state(c);c.execute_batch("CREATE TEMP TRIGGER crash BEFORE INSERT ON app_configs WHEN NEW.key='rust_binance_a12_v1:install_written' BEGIN SELECT RAISE(ABORT,'marker'); END").unwrap();
+    assert!(apply(c,&key,&m,&fetched).is_err());assert_eq!(state(c),before);c.execute_batch("DROP TRIGGER crash").unwrap();
+    assert_eq!(apply(c,&key,&m,&fetched).unwrap(),0);assert!(writer::written(c).unwrap());
+    suppress(c,"BTC");let before=state(c);let m=plan(c,&key,&fetched);assert_eq!(m.tally.suppressed,1);assert!(m.batches.is_empty());assert_eq!(state(c),before);
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn repair_matches_recorded_accounting_for_collision_free_and_lost_dust_siblings() {
+    use deltabadger::venue::binance::{BinanceVenue,URL};
+    let fixture:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
+    for (colliding,earn) in [(false,false),(false,true),(true,false),(true,true)] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let lock=claim(c,dir.path());
+        let (venue_state,file)=accounting_history(&fixture,colliding,earn);import(c,&key,"deltabadger",&file).unwrap();
+        let venue=BinanceVenue::new(RepairVenue{state:Some(venue_state),mode:"ok",calls:Default::default()},URL,"test-secret");
+        let fetched=repair::fetch(&venue,&FixedClock(now()),now(),false,sync::binance_ledger::Pacing::NONE).await;
+        write(c,&key,&fetched.inputs).unwrap();
+        // Model an install with a completed normal sync. Repair must preserve this provenance,
+        // not pretend its affected-source-only scan completed a full sync for a rotated key.
+        let version=model::credential_version_by_id(c,key.id).unwrap().unwrap();let tx=model::immediate(c).unwrap();
+        sync::cache::record_ledger(&model::fence_versions(&tx,std::slice::from_ref(&version)).unwrap(),key.id,&version,now()).unwrap();tx.commit().unwrap();
+        // Reproduce Rails' retained rows: the unique legacy IDs discard the sibling pair.
+        c.execute("DELETE FROM account_transactions WHERE tx_id LIKE 'dust-a12-v1-%'",[]).unwrap();
+        c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();
+        c.execute("UPDATE account_transactions SET group_id='dust_detail' WHERE tx_id LIKE 'dust-detail-%'",[]).unwrap();
+        if !colliding {accounting(c,key.user_id,&fixture["accounting"][0]);}
+        let m=plan(c,&key,&fetched);assert!(m.unresolved.is_empty(),"{:?}",m.unresolved);assert_eq!(m.tally.missing,if colliding {2}else{0});
+        assert_eq!(apply(c,&key,&m,&fetched).unwrap(),if colliding {2}else{0});accounting(c,key.user_id,&fixture["accounting"][0]);
+        let before=state(c);assert_eq!(apply(c,&key,&m,&fetched).unwrap(),0);assert_eq!(state(c),before);
+        if colliding {rebuild_from_cold(c,dir.path(),key.user_id).await;}
+        let csv=dust_file(&["BTC","ETH"]).replace("2026-08-17 10:00:00","2026-08-08 00:00:00");
+        import(c,&key,"binance",&csv).unwrap();accounting(c,key.user_id,&fixture["accounting"][0]);
+        drop(lock);let lock=lease::lock(&store::Paths::from_env(&|_|None,dir.path()),now()).unwrap();
+        let reopened=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert!(lease::hand_back(&lock,&reopened,&common::seed::cipher(),now()).is_err());
+    }
+}
+
+#[test]
+fn repair_rechecks_each_batch_after_credentials_or_ownership_change() {
+    for change in ["credentials","ownership","parallel import"] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let fetched=evidence([vec![input(Source::Deposit,"d1","","BTC")],pair("p","ETH")].concat());let m=plan(c,&key,&fetched);
+        repair::apply_batch(c,&common::seed::cipher(),&key,&m,&m.digest(),&fetched,0).unwrap();
+        match change {
+            "credentials"=>{c.execute("UPDATE api_keys SET key='rotated'",[]).unwrap();},
+            "ownership"=>{c.execute("DELETE FROM app_configs WHERE key='engine_lease'",[]).unwrap();},
+            _=>{write(c,&key,&[input(Source::Deposit,"parallel","","LTC")]).unwrap();},
+        }
+        let before=state(c);assert!(repair::apply_batch(c,&common::seed::cipher(),&key,&m,&m.digest(),&fetched,1).is_err());assert_eq!(state(c),before);
+    }
+}
+
+#[test]
+fn repair_preserves_manual_inverse_and_bot_links_byte_for_byte() {
+    use common::seed::{BotSpec,TxSpec,insert_bot,insert_tx};
+    for inverse in [false,true] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let original=input(Source::Deposit,"d1","","BTC");write(c,&key,std::slice::from_ref(&original)).unwrap();
+        c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();
+        let id:i64=c.query_row("SELECT id FROM account_transactions",[],|r|r.get(0)).unwrap();
+        c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,tx_id,raw_data,transacted_at,created_at,updated_at) SELECT user_id,exchange_id,5,base_currency,base_amount,'other','{}',transacted_at,created_at,updated_at FROM account_transactions",[]).unwrap();let other=c.last_insert_rowid();
+        let bot=insert_bot(c,&s,&BotSpec::weekly(60.0,"2026-09-01 10:00:00"));
+        let bot_tx=insert_tx(c,&s,bot,&TxSpec{status:2,external_status:None,external_id:None,order_type:1,amount:Some("1"),quote_amount:None,price:None,quote_amount_exec:None,amount_exec:None,created_at:"2026-08-17 10:00:00".into()});
+        c.execute("UPDATE account_transactions SET transaction_id=?1,manual_values='{\"price\":\"42\"}',api_key_id=NULL WHERE id=?2",params![bot_tx,id]).unwrap();
+        c.execute("UPDATE account_transactions SET linked_transaction_id=?1 WHERE id=?2",if inverse {[id,other]}else{[other,id]}).unwrap();
+        let before=state(c);let fetched=evidence(vec![original,input(Source::Deposit,"d2","","BTC")]);let m=plan(c,&key,&fetched);
+        assert_eq!(apply(c,&key,&m,&fetched).unwrap(),1);let after=state(c);
+        assert_eq!(&after[0].as_array().unwrap()[..2],before[0].as_array().unwrap());assert_eq!(after[4],before[4]);assert_eq!(after[5],before[5]);
+    }
+}
+
+#[test]
+fn repair_refuses_nil_twins_changed_amounts_deleted_aliases_and_partial_pairs() {
+    for case in ["nil twin","changed amount","deleted alias","partial pair","missing ID"] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let mut fetched=evidence(if case=="partial pair" {pair("p","BTC")}else{vec![input(Source::Deposit,"d1","","BTC")]});write(c,&key,&fetched.inputs).unwrap();
+        match case {
+            "nil twin"=>{c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'",[]).unwrap();c.execute("UPDATE account_transactions SET tx_id=NULL",[]).unwrap();},
+            "changed amount"=>{c.execute("UPDATE account_transactions SET raw_data=json_set(raw_data,'$.amount','2')",[]).unwrap();},
+            "deleted alias"=>{c.execute("DELETE FROM account_transactions",[]).unwrap();},
+            "partial pair"=>{c.execute("DELETE FROM account_transactions WHERE entry_type=2",[]).unwrap();},
+            _=>{let i=&mut fetched.inputs[0];i.entry.raw.value["id"]=Value::Null;i.event=Event::read(Source::Deposit,&i.entry.raw.value,Context::default()).unwrap();},
+        }
+        let before=state(c);let m=plan(c,&key,&fetched);assert!(!m.unresolved.is_empty(),"{case}");assert!(m.batches.is_empty());assert_eq!(state(c),before);
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn repair_then_restart_refuses_the_handback_command() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let lock=claim(c,dir.path());
+    let fetched=evidence(pair("p","BTC"));let m=plan(c,&key,&fetched);apply(c,&key,&m,&fetched).unwrap();drop(lock);
+    let before=state(c);
+    // A pinned cutoff at the opening has no reachable HTTP windows. Exercise the real
+    // approved apply command after restart without live credentials or network traffic.
+    let cutoff=DateTime::from_timestamp_millis(sync::binance_ledger::HISTORY_FROM_MS).unwrap();
+    let venue=deltabadger::venue::binance::BinanceVenue::new(RepairVenue{state:None,mode:"ok",calls:Default::default()},deltabadger::venue::binance::URL,"test-secret");
+    let empty=repair::fetch(&venue,&FixedClock(now()),cutoff,false,sync::binance_ledger::Pacing::NONE).await;
+    let version=model::credential_version_by_id(c,key.id).unwrap().unwrap();
+    let m=repair::dry_run(c,&common::seed::cipher(),&key,&version,cutoff,&empty).unwrap();let path=dir.path().join("approved.json");std::fs::write(&path,serde_json::to_vec(&m).unwrap()).unwrap();
+    let out=std::process::Command::new(env!("CARGO_BIN_EXE_deltabadger")).args(["repair-binance-history","--apply","--manifest",path.to_str().unwrap(),"--approve",&m.digest()])
+        .env("STORAGE_DIR",dir.path()).env("SECRET_KEY_BASE","engine-test-secret").env_remove("DATABASE_URL").env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").output().unwrap();
+    assert!(out.status.success(),"{}",String::from_utf8_lossy(&out.stderr));assert_eq!(state(c),before);
+    let out=std::process::Command::new(env!("CARGO_BIN_EXE_deltabadger")).arg("handback").env("STORAGE_DIR",dir.path()).env("SECRET_KEY_BASE","engine-test-secret")
+        .env_remove("DATABASE_URL").env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").output().unwrap();
+    assert!(!out.status.success());assert!(String::from_utf8_lossy(&out.stderr).contains("Binance"),"{}",String::from_utf8_lossy(&out.stderr));assert_eq!(state(c),before);
+}
+
+#[test]
+fn repair_refuses_evidence_overlapping_an_unreachable_window() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let mut fetched=evidence(vec![input(Source::Deposit,"d1","","BTC")]);let at=fetched.inputs[0].entry.transacted_at.unwrap().timestamp_millis();
+    fetched.coverage.push(repair::Window{source:sync::binance_ledger::DEPOSITS_PATH.into(),kind:None,start:at-1000,end:at,pages:vec![],unresolved:Some("venue window unavailable".into())});
+    let before=state(c);let m=plan(c,&key,&fetched);assert_eq!(m.tally.unresolved,1);assert!(m.batches.is_empty());assert_eq!(state(c),before);
 }
