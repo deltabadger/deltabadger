@@ -547,7 +547,12 @@ fn kucoin_hf_status_cancel_and_identity_contract_is_conservative() {
 
 #[test]
 fn kucoin_hf_placement_classification_pins_database_obligations() {
-    let f = fixture("errors");
+    let mut f = fixture("errors");
+    // P1: a server error never refuses, whatever code it carries.
+    let mut served = f["cases"].as_array().unwrap().iter().find(|c| c["id"] == "reject_200004").unwrap().clone();
+    served["id"] = json!("reject_200004_at_503"); served["response"]["status"] = json!(503);
+    served["expect"]["classification"] = json!("Ambiguous"); served["expect"]["intent"] = json!("retained");
+    f["cases"].as_array_mut().unwrap().push(served);
     for c in f["cases"].as_array().unwrap() {
         let e = &c["expect"];
         assert_eq!(e["transaction_rows_delta"], 0);
@@ -676,4 +681,346 @@ fn an_account_mode_refusal_is_the_key_checks_log_line() {
     assert_eq!(refusal.log_text(), deltabadger::venue::kucoin_account::UTA);
     let venue = Diagnostic { text: "venue text".into(), status: Some(500), body: r#"{"code":7}"#.into(), refusal: false };
     assert!(!venue.log_text().contains("venue text"));
+}
+
+/// O03: every HF signing vector through the real transport. The sent URL (form-encoded, in the given order), the exact
+/// body bytes and every signed header match the independent HMAC expectations; classic signing is untouched (tests/kucoin.rs).
+#[tokio::test(flavor = "current_thread")]
+async fn o03_the_transport_signs_every_hf_vector() {
+    use deltabadger::venue::http::{self as wire, HttpRequest, Transport};
+    use wiremock::{matchers::any, Mock, MockServer, ResponseTemplate};
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/kucoin_hf/signing.json")).unwrap();
+    let k = &fixture["credentials"];
+    let at = chrono::DateTime::from_timestamp_millis(fixture["timestamp"].as_str().unwrap().parse().unwrap()).unwrap();
+    for c in fixture["cases"].as_array().unwrap() {
+        let server = MockServer::start().await;
+        Mock::given(any()).respond_with(ResponseTemplate::new(200).set_body_string(r#"{"code":"200000","data":{}}"#)).mount(&server).await;
+        let t = wire::ReqwestTransport::kucoin(wire::client(), k["key"].as_str().unwrap().into(), k["secret"].as_str().unwrap().into(), k["passphrase"].as_str().unwrap().into())
+            .with_clock(std::sync::Arc::new(deltabadger::engine::FixedClock(at)));
+        let q = &c["request"];
+        let method: &'static str = match q["method"].as_str().unwrap() { "GET" => "GET", "POST" => "POST", "DELETE" => "DELETE", m => panic!("{m}") };
+        let query = q["query"].as_array().unwrap().iter()
+            .map(|p| (&*Box::leak(p[0].as_str().unwrap().to_string().into_boxed_str()), p[1].as_str().unwrap().to_string())).collect();
+        let body = q["body_bytes"].as_str().filter(|b| !b.is_empty()).map(|b| serde_json::from_str(b).unwrap());
+        t.send(&HttpRequest { method, base: server.uri(), path: q["path"].as_str().unwrap().into(), query, body, not_after: None }).await.unwrap();
+        let got = server.received_requests().await.unwrap();
+        let (got, id) = (&got[0], c["id"].as_str().unwrap());
+        let want_url = reqwest::Url::parse(c["expect"]["transport_url"].as_str().unwrap()).unwrap();
+        assert_eq!((got.url.path(), got.url.query()), (want_url.path(), want_url.query()), "{id}: the URL sent");
+        assert_eq!(String::from_utf8(got.body.clone()).unwrap(), q["body_bytes"].as_str().unwrap(), "{id}: the body sent");
+        for (name, value) in c["expect"]["headers"].as_object().unwrap() {
+            assert_eq!(got.headers.get(name.as_str()).map(|h| h.to_str().unwrap()), value.as_str(), "{id}: {name}");
+        }
+    }
+}
+
+/// O04–O06, r1.2, r3.2: every HF status answer, read against its own order record, then settled at the case's clock.
+/// Unresolved is unreadable: the row waits, nothing is settled.
+#[test]
+fn o04_o06_hf_status_answers_read_strictly() {
+    use deltabadger::venue::{binance::{Pair, Pairs}, kucoin::{parse_hf_order, HfOrder}, OrderStatus};
+    let mut pairs = Pairs::default();
+    pairs.by_symbol.insert("BTC-USDT".into(), Pair { base: "BTC".into(), quote: "USDT".into(), price_decimals: 1 });
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/kucoin_hf/orders.json")).unwrap();
+    let record = |d: &Value| HfOrder { id: d["id"].as_str().unwrap().into(), symbol: d["symbol"].as_str().unwrap().into(),
+                                       sell: d["side"] == "sell", limit: d["type"] == "limit" };
+    let mut seen = 0;
+    for c in fixture["cases"].as_array().unwrap().iter().filter(|c| c["id"].as_str().unwrap().starts_with("status_")) {
+        let (id, data, want) = (c["id"].as_str().unwrap(), &c["response"]["body"]["data"], &c["expect"]);
+        let now = chrono::DateTime::from_timestamp_millis(c["given"]["now_ms"].as_i64().unwrap()).unwrap();
+        let read = parse_hf_order(data, &record(data), &pairs).map(|s| s.settled(now));
+        match want["status"].as_str().unwrap() {
+            "Unresolved" => assert!(read.is_err(), "{id}: {read:?}"),
+            status => {
+                let s = read.unwrap_or_else(|e| panic!("{id}: {e:?}"));
+                let expected = match status { "Open" => OrderStatus::Open, "Closed" => OrderStatus::Closed, "Cancelled" => OrderStatus::Cancelled, "Unknown" => OrderStatus::Unknown, o => panic!("{o}") };
+                assert_eq!(s.status, expected, "{id}");
+                assert_eq!(s.amount_exec.to_s_f(), deltabadger::ruby::BigDec::parse(want["gross_base"].as_str().unwrap()).unwrap().to_s_f(), "{id}: base");
+                assert_eq!(s.quote_amount_exec.unwrap().to_s_f(), deltabadger::ruby::BigDec::parse(want["gross_quote"].as_str().unwrap()).unwrap().to_s_f(), "{id}: quote");
+                if let Some(p) = want["price"].as_str() { assert_eq!(s.price.unwrap().to_s_f(), p, "{id}: price"); }
+            }
+        }
+        seen += 1;
+    }
+    assert_eq!(seen, 14);
+    // r1.2: totals that disagree, or are negative, and an inactive order still in the book, are never a state.
+    let base = fixture["cases"].as_array().unwrap().iter().find(|c| c["id"] == "status_filled").unwrap()["response"]["body"]["data"].clone();
+    for (key, value) in [("dealFunds", json!("0")), ("dealSize", json!("0")), ("dealSize", json!("-0.00001")), ("dealFunds", json!("-1")), ("inOrderBook", json!(true)),
+                         ("active", json!("false")), ("inOrderBook", Value::Null), ("cancelExist", json!(0))] {
+        let mut d = base.clone(); d[key] = value.clone();
+        assert!(parse_hf_order(&d, &record(&base), &pairs).is_err(), "{key}={value}");
+    }
+    let mut cancelled = base.clone(); cancelled["cancelExist"] = json!(true); cancelled["inOrderBook"] = json!(true);
+    assert!(parse_hf_order(&cancelled, &record(&base), &pairs).is_err(), "cancelled yet in the book");
+    // r3.2: an answer for another id, symbol, side or type is not this order, whatever its state.
+    for (key, value) in [("id", json!("other")), ("symbol", json!("ETH-USDT")), ("side", json!("sell")), ("type", json!("market"))] {
+        let mut d = base.clone(); d[key] = value.clone();
+        assert!(parse_hf_order(&d, &record(&base), &pairs).is_err(), "{key}={value}");
+    }
+}
+
+/// An HF-admitted venue (D-KUCOIN-HF-ORDERS, `allow_hf` until HF-5) prepared on a detected ClassicHf account.
+async fn hf_venue(t: &ScriptedTransport, version: CredentialVersion) -> KucoinVenue<ScriptedTransport> {
+    classic(t, true);
+    let v = KucoinVenue::new(t.clone(), URL).with_account_context(version, Resolver::default()).allow_hf();
+    v.prepare().await.unwrap();
+    v
+}
+fn submitted(c: &rusqlite::Connection) -> i64 { c.query_row("SELECT count(*) FROM transactions WHERE status = 0", [], |r| r.get(0)).unwrap() }
+fn posts(t: &ScriptedTransport) -> usize { t.requests().iter().filter(|r| r.method == "POST").count() }
+
+/// O01, r1.8: without `allow_hf` a ClassicHf account is refused before any intent; with it the intent records the HF
+/// family, the POST goes to the HF route with the intent's UUID, and the accepted order is one row.
+#[tokio::test(flavor = "current_thread")]
+async fn o01_an_hf_order_dispatches_only_when_admitted_and_is_recorded_once() {
+    use deltabadger::engine::{placement, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let clock = FixedClock(at);
+    // Not admitted: the production gate.
+    let (_dir, o, bot, _plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at); classic(&t, true);
+    let v = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
+    assert!(v.prepare().await.is_err(), "HF stays unconnected without allow_hf");
+    // Admitted.
+    let (dir, o, bot, plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at);
+    let v = hf_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &clock).unwrap() else { panic!() };
+    assert_eq!(model::load_bot(&o.primary, bot.id).unwrap().rust_placement().unwrap()["kucoin_account_mode"], "ClassicHf");
+    t.reply("POST /api/v1/hf/orders", 200, json!({"code":"200000","data":{"orderId":"670fd33bf9406e0007ab3945","clientOid":intent.cl_ord_id}}));
+    let sent = placement::send_recorded(&o.primary, &v, &bot, &intent, &clock).await.unwrap();
+    assert!(matches!(sent, placement::Sent::Accepted(ref id) if id == "670fd33bf9406e0007ab3945"), "{sent:?}");
+    let post = t.requests().into_iter().find(|r| r.method == "POST").unwrap();
+    assert_eq!((post.path.as_str(), &post.body.as_ref().unwrap()["clientOid"]), ("/api/v1/hf/orders", &json!(intent.cl_ord_id)));
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(submitted(&c), 1);
+    assert_eq!(c.query_row("SELECT external_id FROM transactions", [], |r| r.get::<_, String>(0)).unwrap(), "670fd33bf9406e0007ab3945", "the raw orderId");
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_none(), "the intent became the row");
+    // An intent sized on a classic account is never sent on the HF one (and the reverse).
+    let (_dir, o, bot, plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at); classic(&t, false);
+    let lf = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    lf.prepare().await.unwrap();
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, lf.placement_identity(), None, &clock).unwrap() else { panic!() };
+    let t2 = ScriptedTransport::default(); t2.set_now(at);
+    let hf = hf_venue(&t2, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    assert!(matches!(placement::send_recorded(&o.primary, &hf, &bot, &intent, &clock).await.unwrap(), placement::Sent::NotSent(_)));
+    assert_eq!(posts(&t) + posts(&t2), 0);
+}
+
+/// O02, r1.1, r2.3: every HF placement answer in errors.json, through the engine. A refusal clears the intent with no
+/// submitted row (the failed row every venue writes); NotSent writes nothing; Ambiguous keeps the intent, and a later
+/// tick, after reopening the store, sends no second POST.
+#[tokio::test(flavor = "current_thread")]
+async fn o02_every_hf_placement_answer_has_its_database_effect() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let clock = FixedClock(at);
+    let mut f = fixture("errors");
+    // P1: a server error never refuses, whatever code it carries.
+    let mut served = f["cases"].as_array().unwrap().iter().find(|c| c["id"] == "reject_200004").unwrap().clone();
+    served["id"] = json!("reject_200004_at_503"); served["response"]["status"] = json!(503);
+    served["expect"]["classification"] = json!("Ambiguous"); served["expect"]["intent"] = json!("retained");
+    f["cases"].as_array_mut().unwrap().push(served);
+    for c in f["cases"].as_array().unwrap() {
+        let (id, want) = (c["id"].as_str().unwrap(), &c["expect"]);
+        let (dir, o, bot, plan) = engine_setup();
+        let t = ScriptedTransport::default(); t.set_now(at);
+        let v = hf_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+        let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &clock).unwrap() else { panic!() };
+        let r = &c["response"];
+        match r["transport_error"].as_str() {
+            Some("NotSent") => { t.network("POST /api/v1/hf/orders", "pre_send", "refused"); }
+            Some(_) => { t.network("POST /api/v1/hf/orders", "post_send", "reset"); }
+            None if r["raw_body"].is_string() => { t.reply("POST /api/v1/hf/orders", r["status"].as_u64().unwrap() as u16, r["raw_body"].clone()); }
+            None => { t.reply("POST /api/v1/hf/orders", r["status"].as_u64().unwrap() as u16, r["body"].clone()); }
+        }
+        let sent = placement::send_recorded(&o.primary, &v, &bot, &intent, &clock).await.unwrap();
+        let class = match sent { placement::Sent::Rejected(_) => "Rejected", placement::Sent::NotSent(_) => "NotSent", placement::Sent::Ambiguous(_) => "Ambiguous", ref s => panic!("{id}: {s:?}") };
+        assert_eq!(class, want["classification"], "{id}");
+        let c2 = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert_eq!(submitted(&c2), 0, "{id}: no order row");
+        if want["reschedule"] == true {
+            assert_eq!(c2.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "{id}: a safe rejection writes no row at all");
+        }
+        assert_eq!(model::load_bot(&c2, bot.id).unwrap().rust_placement().is_some(), want["intent"] == "retained", "{id}: the intent");
+        if want["intent"] == "retained" {
+            // Recovery asks the HF clientOid route; a miss never proves the order absent.
+            t.reply(&format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id), 200, json!({"code":"400100","msg":"order not exist"}));
+            tick::tick(&c2, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(30)), &mut Default::default()).await.unwrap();
+            assert_eq!(posts(&t), 1, "{id}: never a replacement POST");
+            assert!(model::load_bot(&c2, bot.id).unwrap().rust_placement().is_some(), "{id}: still held");
+        }
+    }
+}
+
+fn creds(key: &str) -> deltabadger::crypto::Credentials {
+    deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: "s".into(), passphrase: Some("p".into()), redaction_values: vec![] }
+}
+/// An admitted HF venue sending with key `key`, after one accepted HF order for the seeded bot: (dir, store, bot, transport,
+/// venue, transaction id, external id).
+async fn placed(key: &str, limit_plan: bool) -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot, ScriptedTransport, KucoinVenue<ScriptedTransport>, i64, String) {
+    use deltabadger::engine::{placement, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, o, bot, mut plan) = engine_setup();
+    plan.limit = limit_plan;
+    let t = ScriptedTransport::default(); t.set_now(at); classic(&t, true);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds(key)).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    v.prepare().await.unwrap();
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
+    t.reply("POST /api/v1/hf/orders", 200, json!({"code":"200000","data":{"orderId":"HF1","clientOid":intent.cl_ord_id}}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at)).await.unwrap(), placement::Sent::Accepted(_)));
+    let id = o.primary.query_row("SELECT id FROM transactions WHERE external_id='HF1'", [], |r| r.get(0)).unwrap();
+    (dir, o, bot, t, v, id, "HF1".into())
+}
+fn hf_answer(id: &str, active: bool, cancelled: bool, size: &str, funds: &str) -> Value {
+    json!({"code":"200000","data":{"id":id,"symbol":"BTC-EUR","type":"market","side":"buy","price":"0","size":"0.001","funds":"60",
+        "dealSize":size,"dealFunds":funds,"active":active,"inOrderBook":false,"cancelExist":cancelled,"createdAt":1793361600000_i64}})
+}
+fn row_exec(c: &rusqlite::Connection, id: i64) -> (Option<i64>, Option<f64>) {
+    c.query_row("SELECT external_status, amount_exec FROM transactions WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+/// O08, r1.3, r1.5, r2.1: the record is written with the row; polls read an HF row by its stored symbol on the HF route
+/// even after the bot's pair changes; a classic row beside it keeps the classic route and its fills fallback; an HF row
+/// the venue cannot read is never sent to the fills fallback nor abandoned, however old; another key never reads it.
+#[tokio::test(flavor = "current_thread")]
+async fn o08_hf_rows_are_read_by_their_record_never_the_bots_current_pair() {
+    use deltabadger::engine::polling;
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let record = deltabadger::venue::kucoin::order_record(&o.primary, id).unwrap().unwrap();
+    assert_eq!((&record["family"], &record["symbol"], &record["sell"], &record["limit"], &record["host"]), (&json!("ClassicHf"), &json!("BTC-EUR"), &json!(false), &json!(false), &json!(URL)));
+    assert!(record["key_fingerprint"].is_string());
+    o.primary.execute_batch("UPDATE tickers SET ticker='ETH-EUR'").unwrap();
+    // A classic row beside it, and both rows old enough to be abandoned if missing.
+    common::seed::insert_row(&o.primary, &common::seed::Seeded { user_id: 1, exchange_id: bot.exchange_id, btc: 1, quote: 2, ticker_id: 1, api_key_id: 1 }, bot.id, 1,
+                             &json!({"external_id": "CLASSIC1", "created_at": "2026-09-01 10:00:00"}));
+    o.primary.execute("UPDATE transactions SET created_at='2026-09-01 10:00:00'", []).unwrap();
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, json!({"code":"400100","msg":"order not exist"}));
+    t.reply("GET /api/v1/orders/CLASSIC1", 200, json!({"code":"400100","msg":"order not exist"}));
+    let now = "2026-10-30T12:05:00Z".parse().unwrap();
+    let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    let asked: Vec<String> = t.requests().iter().map(|r| format!("{} {}{}", r.method, r.path, r.query.iter().map(|(k, v)| format!("?{k}={v}")).collect::<String>())).collect();
+    assert!(asked.contains(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR")), "{asked:?}");
+    assert!(!asked.iter().any(|a| a.contains("ETH-EUR")), "never the bot's current pair: {asked:?}");
+    assert!(!asked.iter().any(|a| a.starts_with("GET /api/v1/orders/HF1")), "never the classic route for an HF row");
+    assert!(!asked.iter().any(|a| a.contains("/fills") && a.contains("HF1")), "no fills fallback for an HF row: {asked:?}");
+    assert_eq!(row_exec(&o.primary, id).0, Some(0), "the HF row still waits, never abandoned");
+    // Another key's venue does not read the HF row at all.
+    let t2 = ScriptedTransport::default(); t2.set_now(now); classic(&t2, true);
+    let other = KucoinVenue::new(t2.clone(), URL).with_identity(&creds("KEY-B")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    other.prepare().await.unwrap();
+    t2.reply("GET /api/v1/orders/CLASSIC1", 200, json!({"code":"400100","msg":"order not exist"}));
+    let _ = polling::sweep(&o.primary, &other, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    assert!(!t2.requests().iter().any(|r| r.path.contains("HF1")), "another key never asks about this order");
+}
+
+/// r3.1, r4: an HF row's dealt totals never go down, compared as exact decimals (the row's columns are f64).
+#[tokio::test(flavor = "current_thread")]
+async fn r3_hf_dealt_totals_never_go_down_and_compare_exactly() {
+    use deltabadger::engine::polling;
+    let now: chrono::DateTime<chrono::Utc> = "2026-10-30T12:05:00Z".parse().unwrap();
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let key = format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+    macro_rules! sweep { ($c:expr) => { polling::sweep($c, &v, &model::load_bot($c, bot.id).unwrap(), now) } }
+    // One answer per sweep, in order (a scripted key repeats its last answer).
+    for (active, cancelled, size, funds) in [(true, false, "0.0004", "0.99999999999999999"), (false, true, "0", "0"),
+                                             (false, true, "0.0004", "0.99999999999999998"), (false, true, "0.0004", "0.99999999999999999")] {
+        t.reply(&key, 200, hf_answer(&ext, active, cancelled, size, funds));
+    }
+    let _ = sweep!(&o.primary).await;
+    assert_eq!(row_exec(&o.primary, id).0, Some(1), "open with a partial fill");
+    // Lower totals, also after reopening the store: nothing applied, the row stays open.
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id), (Some(1), Some(0.0004)));
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id).0, Some(1), "one unit lower at the 17th decimal is refused");
+    // The identical exact total (1.0 in the f64 column) settles.
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id).0, Some(3), "cancelled with what it dealt");
+}
+
+/// O07: every HF cancel answer, through the venue: only 200000 naming this order is accepted (a request, not a state);
+/// a 4xx with a code is the venue's refusal; everything else cannot be told.
+#[tokio::test(flavor = "current_thread")]
+async fn o07_every_hf_cancel_answer_is_classified() {
+    use deltabadger::venue::{OrderRef, VenueError};
+    let f = fixture("orders");
+    for c in f["cases"].as_array().unwrap().iter().filter(|c| c["id"].as_str().unwrap().starts_with("cancel_")) {
+        let (_dir, o, _bot, t, v, id, ext) = placed("KEY-A", false).await;
+        let key = format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+        let r = &c["response"];
+        let mut body = r["body"].clone();
+        if body["data"]["orderId"] == "670fd33bf9406e0007ab3945" { body["data"]["orderId"] = json!(ext); }
+        match r["transport_error"].as_str() {
+            Some(_) => { t.network(&key, "post_send", "reset"); }
+            None if r["raw_body"].is_string() => { t.reply(&key, r["status"].as_u64().unwrap() as u16, r["raw_body"].clone()); }
+            None => { t.reply(&key, r["status"].as_u64().unwrap() as u16, body); }
+        }
+        let got = v.cancel_with(&OrderRef::load(&o.primary, id, &ext).unwrap()).await;
+        let class = match got { Ok(()) => "acknowledged", Err(VenueError::Rejected(_)) => "rejected", Err(_) => "uncertain" };
+        assert_eq!(class, c["expect"]["cancellation"], "{}", c["id"]);
+    }
+}
+
+/// r1.7: an HF cancel that cannot be told keeps the reversal's cancel entry (the placement barrier) and its reserve;
+/// a later pass that reads the order cancelled settles it once.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_7_an_uncertain_hf_cancel_keeps_its_obligation() {
+    use deltabadger::engine::reversal;
+    let now: chrono::DateTime<chrono::Utc> = "2026-10-30T12:05:00Z".parse().unwrap();
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    o.primary.execute(&format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{}',json(?1),'$.{}',json(?2)) WHERE id=?3", reversal::CANCELS, reversal::RESERVE_PENDING),
+                      rusqlite::params![json!([{"id": id, "registered": true}]).to_string(), json!([id]).to_string(), bot.id]).unwrap();
+    let pending = |c: &rusqlite::Connection| { let b = model::load_bot(c, bot.id).unwrap(); (b.transient[reversal::CANCELS].as_array().map_or(0, Vec::len), b.transient[reversal::RESERVE_PENDING].as_array().map_or(0, Vec::len)) };
+    t.network(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), "post_send", "reset");
+    let handle = deltabadger::venue::Handle::attributed(&v);
+    assert!(reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap().is_empty());
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(pending(&c), (1, 1), "the cancel entry and the reserve stay");
+    // The next pass: the cancel cannot be told again, but the order reads cancelled.
+    t.reply(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 503, json!("unavailable"));
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0", "0"));
+    assert_eq!(reversal::cancel_captured(&c, &handle, bot.id, now).await.unwrap(), vec![id]);
+    assert_eq!(pending(&c).0, 0, "the entry is settled once");
+}
+
+/// r1.4: recovery of an HF intent takes an answer only for an order of the intent's side and type; a market answer for a
+/// limit intent leaves it unresolved, and the matching answer recovers one row with no second POST.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_4_hf_recovery_checks_the_order_type() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, o, bot, mut plan) = engine_setup();
+    plan.limit = true;
+    let t = ScriptedTransport::default(); t.set_now(at);
+    let v = hf_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
+    t.reply("POST /api/v1/hf/orders", 503, json!({"code":"230005","msg":"The system is busy, please try again later"}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at)).await.unwrap(), placement::Sent::Ambiguous(_)));
+    let key = format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id);
+    let answer = |kind: &str| json!({"code":"200000","data":{"id":"HF9","clientOid":intent.cl_ord_id,"symbol":"BTC-EUR","type":kind,"side":"buy","price":"50000","size":"0.001","funds":"50",
+        "dealSize":"0","dealFunds":"0","active":true,"inOrderBook":true,"cancelExist":false,"createdAt":1793361600000_i64}});
+    t.reply(&key, 200, answer("market"));
+    t.reply(&key, 200, answer("limit"));
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    tick::tick(&c, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(30)), &mut Default::default()).await.unwrap();
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_some(), "another type is not this order");
+    assert_eq!(submitted(&c), 0);
+    tick::tick(&c, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(60)), &mut Default::default()).await.unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE status=0 AND external_id='HF9'", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "recovered once");
+    assert_eq!(posts(&t), 1, "no second POST");
+    assert!(deltabadger::venue::kucoin::order_record(&c, c.query_row("SELECT id FROM transactions WHERE external_id='HF9'", [], |r| r.get(0)).unwrap()).unwrap().is_some(), "the recovered row has its record");
+}
+
+/// One HF order's read keeps a retryable failure (the follow-up is retried); a bulk read leaves that row excluded.
+#[tokio::test(flavor = "current_thread")]
+async fn a_single_hf_read_keeps_a_retryable_failure() {
+    use deltabadger::venue::OrderRef;
+    let (_dir, o, _bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let order = OrderRef::load(&o.primary, id, &ext).unwrap();
+    t.network(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), "pre_send", "timeout");
+    assert!(matches!(v.order_with(&order, |_, _, _| Ok(true)).await, Err(deltabadger::venue::VenueError::Transient(_))));
+    assert_eq!(v.orders_with(std::slice::from_ref(&order), |_, _, _| Ok(true)).await.unwrap(), (vec![], vec![ext.clone()]));
 }

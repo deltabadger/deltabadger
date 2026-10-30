@@ -49,8 +49,15 @@ const MAX_PAGES: i64 = 100;
 /// Honeymaker's #get_public paths: sent with its unauthenticated headers.
 pub fn is_public(path: &str) -> bool { path.starts_with("/api/v1/market/") || path.starts_with("/api/v2/symbols") }
 
-/// The query as honeymaker signs it and Faraday sends it (Faraday::Utils.build_query: sorted, escaped).
-pub fn query_text(r: &HttpRequest) -> String { build_query(&r.query) }
+/// The query as it is signed: classic as honeymaker signs it and Faraday sends it (Faraday::Utils.build_query: sorted,
+/// escaped); an HF route as sent, in order and unescaped.
+pub fn query_text(r: &HttpRequest) -> String {
+    if hf(&r.path) { r.query.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join("&") } else { build_query(&r.query) }
+}
+
+/// D-KUCOIN-HF-ORDERS: an HF route's request. Its parameters are signed as sent (in order, unescaped; the URL encodes
+/// them separately), and a DELETE signs its query (`sign::KUCOIN_HF`).
+pub fn hf(path: &str) -> bool { path.starts_with("/api/v1/hf/") }
 
 /// The body bytes: #post_signed signs `body.compact.to_json` and Faraday's JSON middleware sends the same; the fields keep
 /// the order the client built them in (serde_json's preserve_order).
@@ -60,11 +67,22 @@ pub fn body_text(r: &HttpRequest) -> Option<String> { r.body.as_ref().map(Value:
 /// a public read.
 pub fn headers(r: &HttpRequest, key: &str, secret: &str, passphrase: &str, timestamp_ms: i64) -> Vec<(String, String)> {
     if is_public(&r.path) { return super::sign::json_headers(); }
-    super::sign::prehash(&super::sign::KUCOIN, r, &query_text(r), key, secret, passphrase, timestamp_ms)
+    let scheme = if hf(&r.path) { &super::sign::KUCOIN_HF } else { &super::sign::KUCOIN };
+    super::sign::prehash(scheme, r, &query_text(r), key, secret, passphrase, timestamp_ms)
 }
 
+/// D-KUCOIN-HF-ORDERS: the HF order route.
+const HF_ORDERS: &str = "/api/v1/hf/orders";
+/// HF placement codes that prove nothing was placed: authentication and permission (400003–400007), invalid parameters
+/// (400100, unless a duplicate clientOid), insufficient balance (200004), rate limit (429000), and 400002's safe rejection.
+const HF_REFUSALS: [&str; 9] = ["400002", "400003", "400004", "400005", "400006", "400007", "400100", "200004", "429000"];
+
 #[derive(Clone)]
-pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool }
+pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool, hf: bool }
+
+/// Which order API an account's new orders use: the prepared detection's (ClassicHf: HF; anything else: classic).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Family { Classic, Hf }
 
 #[derive(Clone)]
 struct AccountContext {
@@ -139,6 +157,72 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
                     amount_exec, quote_amount_exec: Some(deal_funds.unwrap_or_else(BigDec::zero)), limit, sell, pair: Some(symbol.into()), asset_class: None })
 }
 
+/// D-KUCOIN-HF-ORDERS: a stored HF order as its record names it. Every answer must be this order before its state is
+/// read: its id, symbol, side and type.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HfOrder { pub id: String, pub symbol: String, pub sell: bool, pub limit: bool }
+
+/// D-KUCOIN-HF-ORDERS: an HF order's record (`rust_kucoin_order:<transaction id>`), written with its row from the intent
+/// it was sent for: family, the exact wire symbol, side, type and the sending key (`host`, `key_fingerprint`), and the
+/// last applied exact dealt totals. A row without one is a classic row (every row before HF-2).
+pub const ORDER_RECORD: &str = "rust_kucoin_order:";
+
+/// Writes the record of the row the bot's unresolved intent just became, when that intent was sent on an HF account.
+pub fn record_order(c: &rusqlite::Connection, tx_id: i64, intent: &Value, now: DateTime<Utc>) -> Result<(), String> {
+    if intent["kucoin_account_mode"] != "ClassicHf" { return Ok(()); }
+    let record = serde_json::json!({"family": "ClassicHf", "symbol": intent["symbol"], "sell": intent["side"] == "sell",
+        "limit": intent["limit"], "host": intent["host"], "key_fingerprint": intent["key_fingerprint"], "deal_size": "0", "deal_funds": "0"});
+    crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)
+}
+
+/// The row's HF order record, if it has one.
+pub fn order_record(c: &rusqlite::Connection, tx_id: i64) -> Result<Option<Value>, String> {
+    Ok(crate::app_config::get_plain(c, &format!("{ORDER_RECORD}{tx_id}"))?.and_then(|s| serde_json::from_str(&s).ok()))
+}
+
+/// D-KUCOIN-HF-ORDERS: an HF row's dealt totals never go down. False (nothing applied) when either is lower than the
+/// record's last applied exact totals; else the record keeps these, in the caller's transaction. Exact decimals, never the
+/// row's f64 columns. A row without a record (classic) is always true.
+pub fn advance_totals(c: &rusqlite::Connection, tx_id: i64, size: &BigDec, funds: Option<&BigDec>, now: DateTime<Utc>) -> Result<bool, String> {
+    let Some(mut record) = order_record(c, tx_id)? else { return Ok(true) };
+    let prior = |key: &str| record[key].as_str().and_then(|v| BigDec::parse(v).ok()).ok_or_else(|| format!("unreadable {key} in {ORDER_RECORD}{tx_id}"));
+    let funds = funds.cloned().unwrap_or_else(BigDec::zero);
+    let (old_size, old_funds) = (prior("deal_size")?, prior("deal_funds")?);
+    if *size < old_size || funds < old_funds { return Ok(false); }
+    if *size != old_size || funds != old_funds {
+        record["deal_size"] = size.to_s_f().into();
+        record["deal_funds"] = funds.to_s_f().into();
+        crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)?;
+    }
+    Ok(true)
+}
+
+/// D-KUCOIN-HF-ORDERS: an HF order answer (`GET /api/v1/hf/orders/…`). Never reads `isActive`. Unreadable (Ambiguous, the
+/// row waits) unless it is `want`, its `active`, `inOrderBook` and `cancelExist` are JSON booleans, and `dealSize` and
+/// `dealFunds` are decimals, both ≥ 0, positive together. Then: inactive yet in the book is unreadable; active is Open;
+/// cancelled is Cancelled with what it dealt; inactive with a fill is Closed; inactive with nothing dealt is Unknown, a
+/// market order's carrying `zero_fill_at` (createdAt) for the delayed settle (D-KUCOIN-ZERO-FILL-FUNDS). The price as
+/// `parse_order`'s.
+pub fn parse_hf_order(o: &Value, want: &HfOrder, pairs: &Pairs) -> Result<OrderState, VenueError> {
+    let text = |key: &str| o[key].as_str().ok_or_else(unreadable);
+    let flag = |key: &str| o[key].as_bool().ok_or_else(unreadable);
+    let side = text("side")?.to_lowercase();
+    if text("id")? != want.id || text("symbol")? != want.symbol || side != if want.sell { "sell" } else { "buy" }
+        || limit_type(field(o, "type")?).map_err(|_| unreadable())? != want.limit {
+        return Err(unreadable());
+    }
+    let (active, in_book, cancelled) = (flag("active")?, flag("inOrderBook")?, flag("cancelExist")?);
+    let (size, funds) = (required(field(o, "dealSize")?)?, required(field(o, "dealFunds")?)?);
+    if size < BigDec::zero() || funds < BigDec::zero() || size.is_positive() != funds.is_positive() || (!active && in_book) { return Err(unreadable()); }
+    let status = if active { OrderStatus::Open } else if cancelled { OrderStatus::Cancelled }
+                 else if size.is_positive() { OrderStatus::Closed } else { OrderStatus::Unknown };
+    let zero_fill_at = (status == OrderStatus::Unknown && !want.limit).then(|| o["createdAt"].as_i64().and_then(DateTime::from_timestamp_millis)).flatten();
+    let mut price = if size.is_positive() { funds.div(&size).ok_or_else(unreadable)? } else { optional(&o["price"])?.unwrap_or_else(BigDec::zero) };
+    if price.is_positive() { if let Some(p) = pairs.by_symbol.get(&want.symbol) { price = price.round(p.price_decimals); } }
+    Ok(OrderState { zero_fill_at, txid: want.id.clone(), status, price: (!price.is_zero()).then_some(price), amount: optional(&o["size"])?, quote_amount: optional(&o["funds"])?,
+                    amount_exec: size, quote_amount_exec: Some(funds), limit: want.limit, sell: want.sell, pair: Some(want.symbol.clone()), asset_class: None })
+}
+
 /// The prices of an allTickers answer, as Exchanges::Kucoin#get_tickers_prices reads them: every `data.ticker` row by its
 /// `dig_or_raise`d `symbol`, its `last` kept only when positive, a later row for a symbol replacing an earlier one. No
 /// `data.ticker` is Rails' "Failed to get KuCoin tickers". Shared by the engine (`tickers_prices`) and the figures.
@@ -166,18 +250,30 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
 
 impl<T: Transport> KucoinVenue<T> {
     /// Classic wire adapter, also used by the unchanged Rails replay. Runtime construction attaches captured context.
-    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false } }
+    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false, hf: false } }
     pub fn with_account_context(mut self, version: crate::engine::model::CredentialVersion, resolver: super::kucoin_account::Resolver) -> Self {
         self.account = Some(AccountContext { version, resolver, prepared: Default::default() });
         self
     }
     pub(crate) fn with_missing_account_context(mut self) -> Self { self.missing_context = true; self }
+    /// D-KUCOIN-HF-ORDERS: admits a detected ClassicHf account (tests only, until HF-5 connects HF and removes this).
+    #[doc(hidden)]
+    pub fn allow_hf(mut self) -> Self { self.hf = true; self }
+    /// The modes this venue trades on: classic always, HF only when admitted.
+    fn admit(&self, mode: super::kucoin_account::AccountMode) -> Result<(), VenueError> {
+        if self.hf && mode == super::kucoin_account::AccountMode::ClassicHf { Ok(()) } else { mode.require_classic() }
+    }
+    /// The order API of new orders and balances: the prepared detection's. Unprepared (the Rails replay): classic.
+    pub fn family(&self) -> Family {
+        let prepared = self.account.as_ref().and_then(|a| *a.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
+        if prepared.is_some_and(|d| d.mode == super::kucoin_account::AccountMode::ClassicHf) { Family::Hf } else { Family::Classic }
+    }
     fn prepared_for_send(&self) -> Result<(), VenueError> {
         if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
         if let Some(account) = &self.account {
             let prepared = *account.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             match prepared {
-                Some(d) if account.resolver.is_current(&self.transport, &self.base, &account.version, d) => d.mode.require_classic()?,
+                Some(d) if account.resolver.is_current(&self.transport, &self.base, &account.version, d) => self.admit(d.mode)?,
                 _ => return Err(super::kucoin_account::refusal("account preparation missing, expired or invalidated")),
             }
         }
@@ -237,7 +333,9 @@ impl<T: Transport> KucoinVenue<T> {
     /// balances, else "Failed to get KuCoin balances: <code> <msg>".
     async fn accounts(&self) -> Result<Vec<Value>, VenueError> {
         super::Venue::prepare(self).await?;
-        let body = self.get("/api/v1/accounts".into(), vec![("type", "trade".into())], http::MAX_BODY).await?;
+        // D-KUCOIN-HF-ORDERS: an HF account's funds are its trade_hf account's.
+        let kind = if self.family() == Family::Hf { "trade_hf" } else { "trade" };
+        let body = self.get("/api/v1/accounts".into(), vec![("type", kind.into())], http::MAX_BODY).await?;
         if body["data"].is_null() || code(&body).ok().as_deref() != Some(OK) {
             return Err(VenueError::Rejected(vec![format!("Failed to get KuCoin balances: {}", code_and_msg(&body))]));
         }
@@ -306,6 +404,74 @@ impl<T: Transport> KucoinVenue<T> {
         Ok(())
     }
 
+    /// D-KUCOIN-HF-ORDERS: an HF placement's answer, its status and envelope read together. Accepted only on 200000 with
+    /// an orderId and no other clientOid. Refused only by a code that proves nothing was placed (HF_REFUSALS, 400100
+    /// unless it names a duplicate clientOid, HTTP 429), and 400002 as the safe rejection it is. A transport that sent
+    /// nothing is Transient (NotSent: no row). Every other answer (5xx, 500000/230005, an unknown or missing code, a
+    /// duplicate clientOid, unreadable) is Ambiguous: the intent stays and no replacement is sent.
+    async fn hf_placed(&self, r: &HttpRequest, cl_ord_id: &str) -> Result<String, VenueError> {
+        let resp = match self.transport.send_limited(r, http::MAX_BODY).await {
+            Err(http::TransportError::NotSent(m)) => return Err(VenueError::Transient(self.transport.redact_diagnostic(&m))),
+            Err(e) => return Err(http::transport_failure(e, true, |m| self.transport.redact_diagnostic(&m))),
+            Ok(resp) => resp,
+        };
+        let body = http::decode_json(&resp.body).ok();
+        let code = body.as_ref().and_then(|b| code(b).ok());
+        let refused = |b: &Value| VenueError::Rejected(vec![api_error(b)]);
+        match (body.as_ref(), code.as_deref()) {
+            (Some(b), Some(OK)) if (200..300).contains(&resp.status) => {
+                let other = b["data"]["clientOid"].as_str().is_some_and(|c| c != cl_ord_id);
+                match &b["data"]["orderId"] { Value::String(id) if !id.is_empty() && !other => Ok(id.clone()), _ => Err(VenueError::Ambiguous(NO_ORDER_ID.into())) }
+            }
+            (Some(b), Some("400100")) if b["msg"].as_str().is_some_and(|m| m.to_lowercase().contains("clientoid")) => Err(VenueError::Ambiguous(api_error(b))),
+            // 400002 is the safe rejection whatever its text: the engine's own marker carries it (placement::safe_rejection).
+            (Some(b), Some("400002")) if resp.status < 500 => Err(VenueError::Rejected(vec!["Invalid KC-API-TIMESTAMP".into(), api_error(b)])),
+            // A server error is never a refusal, whatever code it carries.
+            (Some(b), Some(c)) if HF_REFUSALS.contains(&c) && resp.status < 500 => Err(refused(b)),
+            (_, _) if resp.status == 429 => Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&resp.body)])),
+            (Some(b), _) => Err(VenueError::Ambiguous(api_error(b))),
+            (None, _) => Err(VenueError::Ambiguous(format!("KuCoin answered HTTP {} with an unreadable body", resp.status))),
+        }
+    }
+
+    /// D-KUCOIN-HF-ORDERS: the stored HF order a ref names, when this venue may ask about it: HF admitted, and the ref's
+    /// recorded host and key are this venue's own (never another account's order, never redirected by the current mode).
+    fn hf_ref(&self, r: &super::OrderRef) -> Option<Result<HfOrder, ()>> {
+        let record = r.record.as_ref().filter(|rec| rec["family"] == "ClassicHf")?;
+        let mine = self.hf && record["host"].as_str() == Some(self.base.as_str())
+            && self.identity.as_ref().is_some_and(|i| i["key_fingerprint"] == record["key_fingerprint"]);
+        let order = (|| Some(HfOrder { id: r.external_id.clone(), symbol: record["symbol"].as_str()?.into(), sell: record["sell"].as_bool()?, limit: record["limit"].as_bool()? }))();
+        Some(order.filter(|_| mine).ok_or(()))
+    }
+
+    /// D-KUCOIN-HF-ORDERS: one stored HF order, `GET /api/v1/hf/orders/{id}?symbol=`. A failure worth retrying (transport,
+    /// throttle, transient text) is its error; any other answer that cannot be told (not found, refused, unreadable) is
+    /// None, and the row waits (an excluded id: never missing, never abandoned).
+    async fn hf_order(&self, want: &HfOrder) -> Result<Option<OrderState>, VenueError> {
+        let r = HttpRequest { method: "GET", base: self.base.clone(), path: format!("{HF_ORDERS}/{}", want.id), query: vec![("symbol", want.symbol.clone())], body: None, not_after: None };
+        match self.call(&r, false, http::MAX_BODY).await {
+            Ok(body) if code(&body).ok().as_deref() == Some(OK) => Ok(parse_hf_order(&body["data"], want, &self.pairs).ok()),
+            Ok(_) => Ok(None),
+            Err(e @ VenueError::Transient(_)) => Err(e),
+            Err(VenueError::Rejected(m)) if RULES.is_throttle(&m) || RULES.is_transient(&m) => Err(VenueError::Rejected(m)),
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// D-KUCOIN-HF-ORDERS: recovery's exact lookup, `GET /api/v1/hf/orders/client-order/{clientOid}?symbol=`. Only an
+    /// answer naming this clientOid and symbol is the order (then read as `parse_hf_order` reads it); a miss or any failure
+    /// is never absence (ABSENCE_UNPROVEN): the intent stays. There is no done-orders scan on HF.
+    async fn hf_by_client_id(&self, cl_ord_id: &str, symbol: &str) -> Result<Option<OrderState>, VenueError> {
+        let r = HttpRequest { method: "GET", base: self.base.clone(), path: format!("{HF_ORDERS}/client-order/{cl_ord_id}"), query: vec![("symbol", symbol.into())], body: None, not_after: None };
+        let found = match self.call(&r, false, http::MAX_BODY).await {
+            Ok(b) if code(&b).ok().as_deref() == Some(OK) && b["data"]["clientOid"].as_str() == Some(cl_ord_id) && b["data"]["symbol"].as_str() == Some(symbol) => b["data"].clone(),
+            _ => return Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
+        };
+        let want = HfOrder { id: found["id"].as_str().filter(|s| !s.is_empty()).ok_or_else(unreadable)?.into(), symbol: symbol.into(),
+                             sell: found["side"].as_str().is_some_and(|s| s.eq_ignore_ascii_case("sell")), limit: limit_type(field(&found, "type")?).map_err(|_| unreadable())? };
+        parse_hf_order(&found, &want, &self.pairs).map(Some)
+    }
+
     /// Exchanges::Kucoin#order_data_from_fills: the summed sizes and funds, the price funds / size at the tick, closed.
     fn order_from_fills(&self, order_id: &str, fills: &[(String, Value)]) -> Result<OrderState, VenueError> {
         let (mut amount, mut quote) = (BigDec::zero(), BigDec::zero());
@@ -330,14 +496,16 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
             if prepared.is_some_and(|old| old.mode != detected.mode) {
                 return Err(super::kucoin_account::refusal("account mode changed since preparation"));
             }
-            detected.mode.require_classic()?;
+            self.admit(detected.mode)?;
             *prepared = Some(detected);
         }
         Ok(self.producer())
     }
     async fn validate_preparation(&self, identity: Option<&Value>) -> Result<(), VenueError> {
         self.prepare().await?;
-        if self.account.is_some() && identity.and_then(|i| i["kucoin_account_mode"].as_str()) != Some("ClassicLf") {
+        // The intent's family must be the prepared one: an order is sent only on the account family it was sized for.
+        let prepared = self.account.as_ref().and_then(|a| *a.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner)).map(|d| d.mode.as_str());
+        if self.account.is_some() && (prepared.is_none() || identity.and_then(|i| i["kucoin_account_mode"].as_str()) != prepared) {
             return Err(super::kucoin_account::refusal("intent has no matching prepared account mode"));
         }
         self.prepared_for_send()
@@ -444,8 +612,10 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
             OrderKind::Crossed { .. } => return Err(super::not_crossing("KuCoin")),
         }
         // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.
+        let hf = self.family() == Family::Hf;
         let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s")),
-                              ..self.request("POST", "/api/v1/orders".into(), vec![], Some(Value::Object(body))) };
+                              ..self.request("POST", if hf { HF_ORDERS } else { "/api/v1/orders" }.into(), vec![], Some(Value::Object(body))) };
+        if hf { return self.hf_placed(&r, &o.cl_ord_id).await; }
         let answer = self.call(&r, true, http::MAX_BODY).await?;
         if code(&answer)? != OK { return Err(VenueError::Rejected(vec![api_error(&answer)])); }
         match &answer["data"]["orderId"] {
@@ -479,6 +649,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// windows from `since` to now, every page, matching clientOid. Neither finding it is never absence (ABSENCE_UNPROVEN);
     /// a failed scan page is its own error.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        if self.family() == Family::Hf { return self.hf_by_client_id(cl_ord_id, symbol).await; }
         let mine = |o: &Value| o["clientOid"].as_str() == Some(cl_ord_id) && o["symbol"].as_str() == Some(symbol);
         let found = |o: &Value| -> Result<OrderState, VenueError> { parse_order(o["id"].as_str().filter(|s| !s.is_empty()).ok_or_else(unreadable)?, o, &self.pairs) };
         if let Ok(body) = self.get(format!("/api/v1/order/client-order/{cl_ord_id}"), vec![], http::MAX_BODY).await {
@@ -541,5 +712,52 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         let body = self.call(&self.request("DELETE", format!("/api/v1/orders/{txid}"), vec![], None), false, http::MAX_BODY).await?;
         if code(&body)? == OK { Ok(()) } else { Err(VenueError::Rejected(vec![api_error(&body)])) }
+    }
+
+    /// D-KUCOIN-HF-ORDERS: classic rows as `orders_identified`; each HF row on its own route, by its record. An HF row this
+    /// venue may not ask about, or whose answer cannot be told, is excluded: present, never missing or abandoned.
+    async fn orders_with<F>(&self, refs: &[super::OrderRef], identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        let classic: Vec<String> = refs.iter().filter(|r| self.hf_ref(r).is_none()).map(|r| r.external_id.clone()).collect();
+        let (mut found, mut excluded) = if classic.is_empty() { (vec![], vec![]) } else { super::Venue::orders_identified(self, &classic, identify).await? };
+        for r in refs {
+            match self.hf_ref(r) {
+                None => {}
+                // A bulk read never fails the sweep for one HF row: it waits, excluded.
+                Some(Ok(want)) => match self.hf_order(&want).await { Ok(Some(s)) => found.push(s), Ok(None) | Err(_) => excluded.push(r.external_id.clone()) },
+                Some(Err(())) => excluded.push(r.external_id.clone()),
+            }
+        }
+        Ok((found, excluded))
+    }
+    async fn order_with<F>(&self, r: &super::OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        match self.hf_ref(r) {
+            None => super::Venue::order_identified(self, &r.external_id, identify).await,
+            // One order's read keeps a retryable failure, so the follow-up is retried, never dropped.
+            Some(Ok(want)) => match self.hf_order(&want).await? { Some(s) => Ok((vec![s], vec![])), None => Ok((vec![], vec![r.external_id.clone()])) },
+            Some(Err(())) => Ok((vec![], vec![r.external_id.clone()])),
+        }
+    }
+    /// D-KUCOIN-HF-ORDERS: an HF row's cancel, `DELETE /api/v1/hf/orders/{id}?symbol=`. Accepted only on 200000 naming
+    /// this order; an error envelope is the venue's refusal; anything else (lost, 5xx, unreadable, another id) is
+    /// Ambiguous. An accepted cancel is a request, never a terminal state: the row's poll settles it.
+    async fn cancel_with(&self, r: &super::OrderRef) -> Result<(), VenueError> {
+        let want = match self.hf_ref(r) {
+            None => return super::Venue::cancel(self, &r.external_id).await,
+            Some(Ok(want)) => want,
+            Some(Err(())) => return Err(VenueError::Ambiguous("KuCoin HF order record does not match this venue".into())),
+        };
+        let req = HttpRequest { method: "DELETE", base: self.base.clone(), path: format!("{HF_ORDERS}/{}", want.id), query: vec![("symbol", want.symbol.clone())], body: None, not_after: None };
+        let resp = match self.transport.send_limited(&req, http::MAX_BODY).await {
+            Ok(resp) => resp,
+            Err(e) => return Err(VenueError::Ambiguous(self.transport.redact_diagnostic(&format!("{e:?}")))),
+        };
+        let body = http::decode_json(&resp.body).ok();
+        match (resp.status, body.as_ref().and_then(|b| code(b).ok()).as_deref()) {
+            (200..=299, Some(OK)) if body.as_ref().is_some_and(|b| b["data"]["orderId"].as_str() == Some(want.id.as_str())) => Ok(()),
+            (400..=499, Some(c)) if c != OK => Err(VenueError::Rejected(vec![api_error(body.as_ref().expect("a code was read"))])),
+            _ => Err(VenueError::Ambiguous(format!("KuCoin's answer to cancelling order {} cannot be told (HTTP {})", want.id, resp.status))),
+        }
     }
 }
