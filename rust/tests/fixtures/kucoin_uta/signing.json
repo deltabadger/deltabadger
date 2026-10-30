@@ -1,0 +1,267 @@
+{
+  "credentials": {
+    "key": "UTA0-EXAMPLE-KEY",
+    "secret": "UTA0-example-secret",
+    "passphrase": "UTA0 example passphrase"
+  },
+  "timestamp": "1764741957000",
+  "oracle": "Python standard-library hmac/SHA256 + Base64, independent of Rust signer and Rails",
+  "cases": [
+    {
+      "id": "sign_get_balance",
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/unified/account/balance",
+        "query": [],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp, coherent request bytes."
+      },
+      "expect": {
+        "prehash": "1764741957000GET/api/ua/v2/unified/account/balance",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/unified/account/balance",
+        "headers": {
+          "KC-API-KEY": "UTA0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1764741957000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "+A+Pb5dtlArMGL8HdTwpg0c1wK7iTzHtuc0/ugPbKxg=",
+          "KC-API-PASSPHRASE": "4CEzKcRHg4e70b6UyJ85MRDZ+WMDctb9YpNKd9qqbd0="
+        }
+      }
+    },
+    {
+      "id": "sign_get_detail_order",
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp, coherent request bytes."
+      },
+      "expect": {
+        "prehash": "1764741957000GET/api/ua/v2/unified/order/detail?tradeType=SPOT&symbol=BTC-USDT&orderId=385577101236916224",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/unified/order/detail?tradeType=SPOT&symbol=BTC-USDT&orderId=385577101236916224",
+        "headers": {
+          "KC-API-KEY": "UTA0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1764741957000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "mtO5eXOlE8WFxNkkrRknvTDLKIPPJKhij3r4FNYmUCs=",
+          "KC-API-PASSPHRASE": "4CEzKcRHg4e70b6UyJ85MRDZ+WMDctb9YpNKd9qqbd0="
+        }
+      }
+    },
+    {
+      "id": "sign_get_detail_client",
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "clientOid",
+            "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp, coherent request bytes."
+      },
+      "expect": {
+        "prehash": "1764741957000GET/api/ua/v2/unified/order/detail?tradeType=SPOT&symbol=BTC-USDT&clientOid=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/unified/order/detail?tradeType=SPOT&symbol=BTC-USDT&clientOid=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+        "headers": {
+          "KC-API-KEY": "UTA0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1764741957000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "Ukz6FQ1nxlgXLumAhPGr4kejvgT6VmHtWA3UuLJDcpU=",
+          "KC-API-PASSPHRASE": "4CEzKcRHg4e70b6UyJ85MRDZ+WMDctb9YpNKd9qqbd0="
+        }
+      }
+    },
+    {
+      "id": "sign_get_execution_cursor",
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "startAt",
+            "1764741957000"
+          ],
+          [
+            "endAt",
+            "1765346756999"
+          ],
+          [
+            "pageSize",
+            "200"
+          ],
+          [
+            "lastId",
+            "10000000138744534"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp, coherent request bytes."
+      },
+      "expect": {
+        "prehash": "1764741957000GET/api/ua/v2/unified/order/execution?tradeType=SPOT&startAt=1764741957000&endAt=1765346756999&pageSize=200&lastId=10000000138744534",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/unified/order/execution?tradeType=SPOT&startAt=1764741957000&endAt=1765346756999&pageSize=200&lastId=10000000138744534",
+        "headers": {
+          "KC-API-KEY": "UTA0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1764741957000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "U0HYjtd9tEDpkmrGwUAcMl8ckGIgbs7lB4BhACkPHi0=",
+          "KC-API-PASSPHRASE": "4CEzKcRHg4e70b6UyJ85MRDZ+WMDctb9YpNKd9qqbd0="
+        }
+      }
+    },
+    {
+      "id": "sign_post_place",
+      "request": {
+        "method": "POST",
+        "path": "/api/ua/v2/unified/order/place",
+        "query": [],
+        "body_bytes": "{\"tradeType\":\"SPOT\",\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02\",\"symbol\":\"BTC-USDT\",\"side\":\"BUY\",\"orderType\":\"MARKET\",\"size\":\"100.5\",\"sizeUnit\":\"QUOTECCY\"}"
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp, coherent request bytes."
+      },
+      "expect": {
+        "prehash": "1764741957000POST/api/ua/v2/unified/order/place{\"tradeType\":\"SPOT\",\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02\",\"symbol\":\"BTC-USDT\",\"side\":\"BUY\",\"orderType\":\"MARKET\",\"size\":\"100.5\",\"sizeUnit\":\"QUOTECCY\"}",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/unified/order/place",
+        "headers": {
+          "KC-API-KEY": "UTA0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1764741957000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "Zz/7gc3p0/BraIrP783WREBW4+MnUm3v+c6s2BR3840=",
+          "KC-API-PASSPHRASE": "4CEzKcRHg4e70b6UyJ85MRDZ+WMDctb9YpNKd9qqbd0="
+        }
+      }
+    },
+    {
+      "id": "sign_post_cancel",
+      "request": {
+        "method": "POST",
+        "path": "/api/ua/v2/unified/order/cancel",
+        "query": [],
+        "body_bytes": "{\"tradeType\":\"SPOT\",\"symbol\":\"BTC-USDT\",\"orderId\":\"385577101236916224\"}"
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp, coherent request bytes."
+      },
+      "expect": {
+        "prehash": "1764741957000POST/api/ua/v2/unified/order/cancel{\"tradeType\":\"SPOT\",\"symbol\":\"BTC-USDT\",\"orderId\":\"385577101236916224\"}",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/unified/order/cancel",
+        "headers": {
+          "KC-API-KEY": "UTA0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1764741957000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "o6eyJkSAzx1PodvHUSbhJ7yAWBcrHarB4lYOvqsKUqA=",
+          "KC-API-PASSPHRASE": "4CEzKcRHg4e70b6UyJ85MRDZ+WMDctb9YpNKd9qqbd0="
+        }
+      }
+    },
+    {
+      "id": "sign_get_unescaped_query",
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "remark",
+            "a b!@#"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Encoding probe: the prehash uses the un-encoded query, the URL is form-encoded; tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1764741957000GET/api/ua/v2/unified/order/execution?tradeType=SPOT&symbol=BTC-USDT&remark=a b!@#",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/unified/order/execution?tradeType=SPOT&symbol=BTC-USDT&remark=a+b%21%40%23",
+        "headers": {
+          "KC-API-KEY": "UTA0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1764741957000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "pIUnqabTgf2iHTOJGZB1+2UaQsJj7TXfvsEHUZsqGSE=",
+          "KC-API-PASSPHRASE": "4CEzKcRHg4e70b6UyJ85MRDZ+WMDctb9YpNKd9qqbd0="
+        }
+      }
+    }
+  ]
+}

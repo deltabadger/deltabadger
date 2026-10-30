@@ -1,0 +1,2504 @@
+{
+  "identity": {
+    "orderId": "385577101236916224",
+    "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+    "symbol": "BTC-USDT",
+    "tradeType": "SPOT"
+  },
+  "cases": [
+    {
+      "id": "place_buy_market_base",
+      "response": {
+        "code": "200000",
+        "data": {
+          "orderId": "385577101236916224",
+          "tradeType": "SPOT",
+          "ts": 1764741957000000000,
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "SPOT body from the documented fields; clientOid is the persisted intent UUID; size already sized."
+      },
+      "expect": {
+        "path": "/api/ua/v2/unified/order/place",
+        "body": {
+          "tradeType": "SPOT",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "MARKET",
+          "size": "0.002",
+          "sizeUnit": "BASECCY"
+        },
+        "outcome": "accepted",
+        "intent_kept": false,
+        "rows": 1
+      }
+    },
+    {
+      "id": "place_buy_market_quote",
+      "response": {
+        "code": "200000",
+        "data": {
+          "orderId": "385577101236916224",
+          "tradeType": "SPOT",
+          "ts": 1764741957000000000,
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "SPOT body from the documented fields; clientOid is the persisted intent UUID; size already sized."
+      },
+      "expect": {
+        "path": "/api/ua/v2/unified/order/place",
+        "body": {
+          "tradeType": "SPOT",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "MARKET",
+          "size": "100.5",
+          "sizeUnit": "QUOTECCY"
+        },
+        "outcome": "accepted",
+        "intent_kept": false,
+        "rows": 1
+      }
+    },
+    {
+      "id": "place_buy_limit",
+      "response": {
+        "code": "200000",
+        "data": {
+          "orderId": "385577101236916224",
+          "tradeType": "SPOT",
+          "ts": 1764741957000000000,
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "SPOT body from the documented fields; clientOid is the persisted intent UUID; size already sized."
+      },
+      "expect": {
+        "path": "/api/ua/v2/unified/order/place",
+        "body": {
+          "tradeType": "SPOT",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000"
+        },
+        "outcome": "accepted",
+        "intent_kept": false,
+        "rows": 1
+      }
+    },
+    {
+      "id": "place_sell_market_base",
+      "response": {
+        "code": "200000",
+        "data": {
+          "orderId": "385577101236916224",
+          "tradeType": "SPOT",
+          "ts": 1764741957000000000,
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "SPOT body from the documented fields; clientOid is the persisted intent UUID; size already sized."
+      },
+      "expect": {
+        "path": "/api/ua/v2/unified/order/place",
+        "body": {
+          "tradeType": "SPOT",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "orderType": "MARKET",
+          "size": "0.002",
+          "sizeUnit": "BASECCY"
+        },
+        "outcome": "accepted",
+        "intent_kept": false,
+        "rows": 1
+      }
+    },
+    {
+      "id": "place_sell_market_quote",
+      "response": {
+        "code": "200000",
+        "data": {
+          "orderId": "385577101236916224",
+          "tradeType": "SPOT",
+          "ts": 1764741957000000000,
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "SPOT body from the documented fields; clientOid is the persisted intent UUID; size already sized."
+      },
+      "expect": {
+        "path": "/api/ua/v2/unified/order/place",
+        "body": {
+          "tradeType": "SPOT",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "orderType": "MARKET",
+          "size": "100.5",
+          "sizeUnit": "QUOTECCY"
+        },
+        "outcome": "accepted",
+        "intent_kept": false,
+        "rows": 1
+      }
+    },
+    {
+      "id": "place_sell_limit",
+      "response": {
+        "code": "200000",
+        "data": {
+          "orderId": "385577101236916224",
+          "tradeType": "SPOT",
+          "ts": 1764741957000000000,
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "SPOT body from the documented fields; clientOid is the persisted intent UUID; size already sized."
+      },
+      "expect": {
+        "path": "/api/ua/v2/unified/order/place",
+        "body": {
+          "tradeType": "SPOT",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000"
+        },
+        "outcome": "accepted",
+        "intent_kept": false,
+        "rows": 1
+      }
+    },
+    {
+      "id": "status_live",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 2,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Open"
+      }
+    },
+    {
+      "id": "status_partial_live",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 4,
+          "filledSize": "0.001",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Open",
+        "filled_size": "0.001"
+      }
+    },
+    {
+      "id": "status_filled",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Closed",
+        "filled_size": "0.002"
+      }
+    },
+    {
+      "id": "status_cancelled",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 5,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0.002",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Cancelled",
+        "filled_size": "0"
+      }
+    },
+    {
+      "id": "status_partial_cancelled",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 6,
+          "filledSize": "0.001",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0.001",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Cancelled",
+        "filled_size": "0.001"
+      }
+    },
+    {
+      "id": "status_filled_without_size",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_partial_cancelled_without_size",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 6,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_live_with_size",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 2,
+          "filledSize": "0.001",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_partial_live_without_size",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 4,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_cancelled_with_size",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 5,
+          "filledSize": "0.001",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_status_triggered",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 1,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_status_unknown",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 7,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_status_string",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": "3",
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_status_missing",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_filled_size_number",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": 0.002,
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_other_symbol",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "ETH-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_other_side",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_other_type",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "MARKET",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_other_order",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916225",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "status_futures_trade_type",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "FUTURES",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 3,
+          "filledSize": "0.002",
+          "avgPrice": "50000",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Integer status 2-6 (SPOT); filledSize must agree with the status; identity checked against the stored record."
+      },
+      "expect": {
+        "state": "Unreadable",
+        "reserve_credit": "0"
+      }
+    },
+    {
+      "id": "totals_two_pages",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280800",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "base": "0.002",
+        "quote": "100.2",
+        "fees": {
+          "USDT": "0.1"
+        },
+        "price": "50100"
+      }
+    },
+    {
+      "id": "totals_boundary_repeat",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280800",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "base": "0.002",
+        "quote": "100.2",
+        "fees": {
+          "USDT": "0.1"
+        },
+        "price": "50100"
+      }
+    },
+    {
+      "id": "totals_conflicting_repeat",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.13",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280800",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Unreadable"
+      }
+    },
+    {
+      "id": "totals_repeat_matches_size",
+      "filled_size": "0.0024",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 12,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Waiting",
+        "why": "one fill read twice is counted once, so it no longer matches filledSize"
+      }
+    },
+    {
+      "id": "totals_foreign_order",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916226",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280802",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957500000000,
+                "fee": "0.001",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Unreadable"
+      }
+    },
+    {
+      "id": "totals_foreign_symbol",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "ETH-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280800",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Unreadable"
+      }
+    },
+    {
+      "id": "totals_other_side",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "SELL",
+                "tradeId": "1943106280800",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Unreadable"
+      }
+    },
+    {
+      "id": "totals_zero_value",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280800",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "0",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Unreadable"
+      }
+    },
+    {
+      "id": "totals_missing_trade_id",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Unreadable"
+      }
+    },
+    {
+      "id": "totals_short_of_filled_size",
+      "filled_size": "0.002",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Waiting",
+        "why": "executions sum to less than filledSize"
+      }
+    },
+    {
+      "id": "totals_above_filled_size",
+      "filled_size": "0.0015",
+      "pages": [
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": [
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280799",
+                "size": "0.0012",
+                "price": "50000",
+                "value": "60.12",
+                "executionTime": 1764741957500000000,
+                "fee": "0.06",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              },
+              {
+                "tradeType": "SPOT",
+                "orderId": "385577101236916224",
+                "symbol": "BTC-USDT",
+                "orderType": "LIMIT",
+                "side": "BUY",
+                "tradeId": "1943106280800",
+                "size": "0.0008",
+                "price": "50000",
+                "value": "40.08",
+                "executionTime": 1764741957700000000,
+                "fee": "0.04",
+                "feeCurrency": "USDT",
+                "tax": "",
+                "liquidityRole": "TAKER",
+                "fillType": "NORMAL",
+                "clientOid": ""
+              }
+            ]
+          }
+        },
+        {
+          "code": "200000",
+          "data": {
+            "tradeType": "SPOT",
+            "lastId": 11,
+            "items": []
+          }
+        }
+      ],
+      "request": {
+        "path": "/api/ua/v2/unified/order/execution",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "orderId",
+            "385577101236916224"
+          ]
+        ]
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "execution",
+          "detail"
+        ],
+        "note": "No cumulative quote on the order: quote = sum of validated, tradeId-deduplicated execution values; sizes must sum to filledSize exactly."
+      },
+      "expect": {
+        "state": "Unreadable"
+      }
+    },
+    {
+      "id": "recovery_found",
+      "request": {
+        "path": "/api/ua/v2/unified/order/detail",
+        "query": [
+          [
+            "tradeType",
+            "SPOT"
+          ],
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "clientOid",
+            "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02"
+          ]
+        ]
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 2,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "clientOid lookup naming our clientOid and symbol is the order."
+      },
+      "expect": {
+        "state": "Open",
+        "intent_kept": false
+      }
+    },
+    {
+      "id": "recovery_other_client_oid",
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a03",
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "orderType": "LIMIT",
+          "size": "0.002",
+          "sizeUnit": "BASECCY",
+          "price": "50000",
+          "status": 2,
+          "filledSize": "0",
+          "avgPrice": "",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "cancelSize": "0",
+          "orderTime": 1764741957000000000,
+          "updatedTime": 1764741958000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail"
+        ],
+        "note": "Another clientOid is never our order."
+      },
+      "expect": {
+        "state": "Unproven",
+        "intent_kept": true
+      }
+    },
+    {
+      "id": "recovery_not_found",
+      "status": 200,
+      "response": {
+        "code": "110103",
+        "msg": "The orderId parameter does not exist."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "detail",
+          "errors"
+        ],
+        "note": "A miss proves nothing: cancelled no-fill orders are kept 2 h and wider ranges are silently clamped."
+      },
+      "expect": {
+        "state": "Unproven",
+        "intent_kept": true
+      }
+    },
+    {
+      "id": "cancel_accepted",
+      "request": {
+        "path": "/api/ua/v2/unified/order/cancel",
+        "body": {
+          "tradeType": "SPOT",
+          "symbol": "BTC-USDT",
+          "orderId": "385577101236916224"
+        }
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916224",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "ts": 1764741959000000000
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "Acknowledgement names our order; a request, never a terminal state."
+      },
+      "expect": {
+        "outcome": "requested",
+        "obligation_kept": true
+      }
+    },
+    {
+      "id": "cancel_other_order",
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "orderId": "385577101236916225",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "ts": 0
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "An acknowledgement for another id cannot be told."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "obligation_kept": true
+      }
+    },
+    {
+      "id": "cancel_refused",
+      "status": 200,
+      "response": {
+        "code": "110103",
+        "msg": "The orderId parameter does not exist."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel",
+          "errors"
+        ],
+        "note": "An error envelope refuses the cancel; the order stays open."
+      },
+      "expect": {
+        "outcome": "refused",
+        "obligation_kept": true
+      }
+    },
+    {
+      "id": "cancel_server_error",
+      "status": 504,
+      "response": {
+        "code": "504000",
+        "msg": "Gateway timeout."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel",
+          "errors"
+        ],
+        "note": "A 5xx or lost reply cannot be told."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "obligation_kept": true
+      }
+    }
+  ],
+  "source_examples": {
+    "place": "                    code: '200000'\n                    data:\n                      orderId: '385543068587233280'\n                      tradeType: SPOT\n                      ts: 1764733832617000000\n                      clientOid: null\n                '2':\n                  summary: Unified Spot Market\n                  value:\n                    code: '200000'\n                    data:\n                      orderId: '385594240408768512'\n                      tradeType: SPOT\n                      ts: 1764746032910000000\n                      clientOid: null\n                '3':\n                  summary: Unified Futures Limit\n                  value:\n                    code: '200000'\n                    data:\n                      orderId: '390616992635240448'\n                      tradeType: FUTURES\n                      ts: 1765943550357000000\n                      clientOid: null\n                '4':\n                  summary: Unified Futures Market\n                  value:\n                    code: '200000'\n                    data:\n                      orderId: '408343280070234112'\n                      tradeType: FUTURES\n                      ts: 1770169826630000000\n                      clientOid: null\n                '5':\n                  summary: Unified Margin\n                  value:\n                    code: '200000'\n                    data:\n                      orderId: '433134780977078272'\n                      tradeType: MARGIN\n                      ts: 1776080581042000000\n                      clientOid: 9b5620d9-ef1c-4ab5-89d1-717b2602d445\n",
+    "cancel": "                code: '200000'\n                data:\n                  orderId: '385577101236916224'\n                  tradeType: SPOT\n                  ts: 1764741957435000000\n                  clientOid: 451345g234rwegrwe24\n",
+    "detail": "                code: '200000'\n                data:\n                  orderId: '402665260420558848'\n                  symbol: XBTUSDTM\n                  orderType: MARKET\n                  side: BUY\n                  size: '1'\n                  price: ''\n                  timeInForce: GTC\n                  tags: ''\n                  orderTime: 1768816081243361300\n                  stp: ''\n                  cancelAfter: null\n                  postOnly: false\n                  reduceOnly: false\n                  triggerDirection: ''\n                  triggerPrice: ''\n                  triggerPriceType: ''\n                  tpTriggerPrice: ''\n                  tpTriggerPriceType: ''\n                  slTriggerPrice: ''\n                  slTriggerPriceType: ''\n                  filledSize: '1'\n                  avgPrice: '93026.2'\n                  fee: '0.05581572'\n                  feeCurrency: USDT\n                  tax: '0'\n                  updatedTime: 1768816081248000000\n                  triggerOrderId: ''\n                  cancelReason: ''\n                  cancelSize: '0'\n                  clientOid: test20938451234982234374024\n                  sizeUnit: UNIT\n                  tradeType: FUTURES\n                  tradeId: '1907914684480'\n                  status: 3\n                  brokerTag: KuCoinPartner\n"
+  }
+}

@@ -1,0 +1,356 @@
+{
+  "cases": [
+    {
+      "id": "place_key_missing",
+      "status": 200,
+      "response": {
+        "code": "400003",
+        "msg": "The API key does not exist or site mismatch."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Documented authentication refusal."
+      },
+      "expect": {
+        "outcome": "rejected",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_signature",
+      "status": 401,
+      "response": {
+        "code": "400005",
+        "msg": "Invalid KC-API-SIGN"
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Gateway auth codes 400003-400007 prove nothing was placed."
+      },
+      "expect": {
+        "outcome": "rejected",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_permission",
+      "status": 200,
+      "response": {
+        "code": "400007",
+        "msg": "The API key does not have permission to access this resource."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "A key without Unified is refused before placement."
+      },
+      "expect": {
+        "outcome": "rejected",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_insufficient_funds",
+      "status": 200,
+      "response": {
+        "code": "116355",
+        "msg": "Insufficient funds."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Documented UTA insufficient-funds code."
+      },
+      "expect": {
+        "outcome": "rejected",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_throttle_user",
+      "status": 429,
+      "response": {
+        "code": "429000",
+        "msg": "Too many requests. User-level rate limit exceeded, please retry later."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Throttle: nothing placed."
+      },
+      "expect": {
+        "outcome": "rejected",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_throttle_system",
+      "status": 200,
+      "response": {
+        "code": "429001",
+        "msg": "Too many requests. System-level rate limit exceeded, please retry later."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "System throttle: nothing placed."
+      },
+      "expect": {
+        "outcome": "rejected",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_throttle_http",
+      "status": 429,
+      "response": null,
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "HTTP 429 without a body."
+      },
+      "expect": {
+        "outcome": "rejected",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_safe_reschedule",
+      "status": 200,
+      "response": {
+        "code": "400002",
+        "msg": "Invalid KC-API-TIMESTAMP"
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Timestamp refusal keeps the classic safe-reschedule meaning."
+      },
+      "expect": {
+        "outcome": "safe",
+        "intent_kept": false,
+        "rows": 0,
+        "replacement_blocked": false
+      }
+    },
+    {
+      "id": "place_system_busy",
+      "status": 200,
+      "response": {
+        "code": "166115",
+        "msg": "System busy. Please try again later."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Busy may or may not have placed."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    },
+    {
+      "id": "place_request_timeout",
+      "status": 200,
+      "response": {
+        "code": "111201",
+        "msg": "Request timeout."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "A timeout after send cannot be told."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    },
+    {
+      "id": "place_gateway_timeout",
+      "status": 504,
+      "response": {
+        "code": "504000",
+        "msg": "Gateway timeout."
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "A gateway timeout cannot be told."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    },
+    {
+      "id": "place_server_error_no_body",
+      "status": 500,
+      "response": null,
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "5xx without a readable code."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    },
+    {
+      "id": "place_unknown_code",
+      "status": 200,
+      "response": {
+        "code": "999999",
+        "msg": "unexpected"
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "An undocumented code never proves a refusal."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    },
+    {
+      "id": "place_success_without_order_id",
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "tradeType": "SPOT",
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02",
+          "ts": 1
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Success with no orderId."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    },
+    {
+      "id": "place_success_other_client_oid",
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "orderId": "385577101236916224",
+          "tradeType": "SPOT",
+          "clientOid": "someone-else",
+          "ts": 1
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Another clientOid cannot be ours."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    },
+    {
+      "id": "place_malformed_success",
+      "status": 200,
+      "response": "{\"code\":\"200000\",\"data\":",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place",
+          "errors"
+        ],
+        "note": "Truncated 2xx body."
+      },
+      "expect": {
+        "outcome": "ambiguous",
+        "intent_kept": true,
+        "rows": 0,
+        "replacement_blocked": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "cases": [
+    {
+      "id": "spot_plain",
+      "request": {
+        "path": "/api/ua/v2/unified/account/balance",
+        "query": []
+      },
+      "response": {
+        "code": "200000",
+        "data": {
+          "accountType": "UNIFIED",
+          "ts": 1776089058432,
+          "accounts": [
+            {
+              "currencies": [
+                {
+                  "currency": "BTC",
+                  "equity": "0.5",
+                  "hold": "0.1",
+                  "balance": "0.5",
+                  "available": "0.4",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                },
+                {
+                  "currency": "USDT",
+                  "equity": "1000",
+                  "hold": "0",
+                  "balance": "1000",
+                  "available": "1000",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balance"
+        ],
+        "note": "Holdings are balance; spendable is min(available, balance - hold)."
+      },
+      "expect": {
+        "held": {
+          "BTC": "0.5",
+          "USDT": "1000"
+        },
+        "spendable": {
+          "BTC": "0.4",
+          "USDT": "1000"
+        }
+      }
+    },
+    {
+      "id": "positive_unpnl",
+      "response": {
+        "code": "200000",
+        "data": {
+          "accountType": "UNIFIED",
+          "ts": 1776089058432,
+          "accounts": [
+            {
+              "currencies": [
+                {
+                  "currency": "USDT",
+                  "equity": "3054.8568208133",
+                  "hold": "0.0000000000",
+                  "balance": "3052.9434208133",
+                  "available": "3054.8568208133",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balance"
+        ],
+        "note": "available = equity - hold includes positive unPnL; it is never spent."
+      },
+      "expect": {
+        "held": {
+          "USDT": "3052.9434208133"
+        },
+        "spendable": {
+          "USDT": "3052.9434208133"
+        }
+      }
+    },
+    {
+      "id": "negative_unpnl",
+      "response": {
+        "code": "200000",
+        "data": {
+          "accountType": "UNIFIED",
+          "ts": 1776089058432,
+          "accounts": [
+            {
+              "currencies": [
+                {
+                  "currency": "USDT",
+                  "equity": "95",
+                  "hold": "5",
+                  "balance": "100",
+                  "available": "90",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balance"
+        ],
+        "note": "A negative unPnL lowers available below balance - hold."
+      },
+      "expect": {
+        "held": {
+          "USDT": "100"
+        },
+        "spendable": {
+          "USDT": "90"
+        }
+      }
+    },
+    {
+      "id": "liability",
+      "response": {
+        "code": "200000",
+        "data": {
+          "accountType": "UNIFIED",
+          "ts": 1776089058432,
+          "accounts": [
+            {
+              "currencies": [
+                {
+                  "currency": "USDT",
+                  "equity": "-10",
+                  "hold": "0",
+                  "balance": "-10",
+                  "available": "0",
+                  "liability": "10",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balance"
+        ],
+        "note": "Any liability refuses the read; previous rows stay."
+      },
+      "expect": {
+        "refused": true
+      }
+    },
+    {
+      "id": "negative_balance",
+      "response": {
+        "code": "200000",
+        "data": {
+          "accountType": "UNIFIED",
+          "ts": 1776089058432,
+          "accounts": [
+            {
+              "currencies": [
+                {
+                  "currency": "BTC",
+                  "equity": "0",
+                  "hold": "0",
+                  "balance": "-0.001",
+                  "available": "0",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                },
+                {
+                  "currency": "USDT",
+                  "equity": "10",
+                  "hold": "0",
+                  "balance": "10",
+                  "available": "10",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balance"
+        ],
+        "note": "A negative balance refuses the read; previous rows stay."
+      },
+      "expect": {
+        "refused": true
+      }
+    },
+    {
+      "id": "malformed",
+      "response": {
+        "code": "200000",
+        "data": {
+          "accountType": "UNIFIED",
+          "ts": 1776089058432,
+          "accounts": [
+            {
+              "currencies": [
+                {
+                  "currency": "USDT",
+                  "equity": "10",
+                  "hold": "0",
+                  "balance": "x",
+                  "available": "10",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balance"
+        ],
+        "note": "An unreadable amount refuses the read; previous rows stay."
+      },
+      "expect": {
+        "refused": true
+      }
+    }
+  ],
+  "source_examples": {
+    "balance": "                code: '200000'\n                data:\n                  accountType: UNIFIED\n                  ts: 1776089058432\n                  accounts:\n                    - currencies:\n                        - currency: USDT\n                          equity: '3054.8568208133'\n                          hold: '0.0000000000'\n                          balance: '3052.9434208133'\n                          available: '3054.8568208133'\n                          liability: '0.0000000000'\n                          potentialBorrow: '0.0000000000'\n                          collateralStatus: '1'\n"
+  }
+}
