@@ -4,7 +4,7 @@ de:
             button: "Historie importieren"
             title: "Vervollständige deine %{exchange}-Historie"
             why_kucoin_reach: "Die API von KuCoin liefert Trades, Einzahlungen und Auszahlungen nur für etwa die letzten 12 Monate."
-            why_kucoin_hf_convert: "Trades im HF-Trading-Konto von KuCoin und Convert-Tausche lassen sich gar nicht auslesen, egal wie neu sie sind."
+            why_kucoin_hf_convert: "Convert-Tausche lassen sich gar nicht auslesen, egal wie neu sie sind."
             why_kucoin_transfers: "Ein- und Auszahlungen, die älter sind, fehlen ebenfalls."
             why_binance: "Die API von Binance liefert Trades nur für Paare, die noch gelistet sind, und Convert, Dust-Umwandlungen und Simple Earn nur ab den Daten, ab denen Binance sie aufbewahrt. Margin und Futures werden nicht gelesen."
             why_other: "%{exchange} hält mehr, als die Historie erklärt, die Deltabadger von dort lesen konnte."

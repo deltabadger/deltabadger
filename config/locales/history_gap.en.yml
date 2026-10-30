@@ -4,7 +4,7 @@ en:
             button: "Import history"
             title: "Complete your %{exchange} history"
             why_kucoin_reach: "KuCoin's API returns only about the last 12 months of trades, deposits and withdrawals."
-            why_kucoin_hf_convert: "Trades on KuCoin's HF trading account and Convert swaps can't be read at all, however recent."
+            why_kucoin_hf_convert: "Convert swaps can't be read at all, however recent."
             why_kucoin_transfers: "Deposits and withdrawals older than that window are missing as well."
             why_binance: "Binance's API returns trades only for pairs it still lists, and Convert, dust conversions and Simple Earn only from the dates Binance keeps them. Margin and futures aren't read."
             why_other: "%{exchange} holds more than the history Deltabadger could read from it."

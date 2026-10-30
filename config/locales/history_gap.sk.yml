@@ -4,7 +4,7 @@ sk:
             button: "Importovať históriu"
             title: "Doplň svoju históriu z %{exchange}"
             why_kucoin_reach: "API KuCoinu vracia obchody, vklady a výbery len približne za posledných 12 mesiacov."
-            why_kucoin_hf_convert: "Obchody na obchodnom účte HF v KuCoine a výmeny Convert sa nedajú prečítať vôbec, ani tie najnovšie."
+            why_kucoin_hf_convert: "Výmeny Convert sa nedajú prečítať vôbec, ani tie najnovšie."
             why_kucoin_transfers: "Chýbajú aj staršie vklady a výbery."
             why_binance: "API Binance vracia obchody len pre páry, ktoré sú stále kótované, a Convert, prevody prachu a Simple Earn len od dátumov, od ktorých ich Binance uchováva. Margin a futures sa nenačítavajú."
             why_other: "Na %{exchange} je viac, než vysvetľuje história, ktorú odtiaľ Deltabadger dokázal načítať."

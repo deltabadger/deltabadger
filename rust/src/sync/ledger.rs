@@ -708,6 +708,9 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         for e in batch.iter() { coinbase_rekey(c, key, e, &p.merged)?; }
     }
     if p.pending.is_none() { p.pending = Some(super::pending_transfers::Legacy::load(c,key)?); }
+    // D-KUCOIN-HF-LEDGER: on an HF-enabled KuCoin history the fill-class entries are allocated by exact key, never by
+    // the inherited same-event heuristic.
+    let hf = super::kucoin_hf::Allocation::new(c, key, &batch, range.clone(), now)?;
     for (n, index) in range.enumerate() {
         let original = &batch[index];
         let (entry, update, unchanged) = if split(original) && original.raw.value["rust_split_legs"].is_array() {
@@ -728,13 +731,15 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             }
         }
         let tx_id = present(&e.tx_id);
+        let decided = hf.as_ref().and_then(|a| a.0.get(&index).copied());
+        if decided == Some(true) { p.out.duplicates += 1; continue; }
         // A row its id already names is not one of the identical rows counted.
-        let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {
+        let repeat = if decided.is_some() || known_id(c, key, tx_id, &p.merged)? { 0 } else {
             let seen = p.repeats.entry((e.entry_type, e.base_currency.clone(), e.base_amount.clone(), e.transacted_at)).or_insert(0);
             *seen += 1;
             *seen - 1
         };
-        if update.is_none() && duplicate(c, key, &p, index, tx_id, repeat)? { p.out.duplicates += 1; continue; }
+        if update.is_none() && decided.is_none() && duplicate(c, key, &p, index, tx_id, repeat)? { p.out.duplicates += 1; continue; }
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
         let (Some(base_currency), Some(at)) = (present(&e.base_currency), e.transacted_at) else {

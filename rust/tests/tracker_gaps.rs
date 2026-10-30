@@ -555,7 +555,7 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     assert_eq!(run(&fx).await, Outcome::Done);
     let (owner, id) = (fx.owner(), fx.s.exchange_id);
     let app = app(&fx);
-    let gaps_read = format!("SELECT key,value FROM app_configs WHERE key IN ('rust_tracker_gaps.{owner}','rust_binance_repair_gaps.{owner}')");
+    let gaps_read = format!("SELECT key,value FROM app_configs WHERE key IN ('rust_tracker_gaps.{owner}','rust_binance_repair_gaps.{owner}','rust_kucoin_hf_gap.{owner}')");
     let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
     let revision = format!("SELECT COUNT(*), MAX(updated_at) FROM account_balances WHERE user_id = {owner} AND exchange_id = {id}");
@@ -626,6 +626,7 @@ async fn the_modal_says_why_shows_the_evidence_and_the_steps_per_venue() {
     for key in ["why_kucoin_reach", "why_kucoin_hf_convert", "why_kucoin_transfers", "steps_kucoin_1", "steps_kucoin_2", "steps_kucoin_3", "csv_example_caption.swap", "template_hint"] {
         assert!(k.contains(&deltabadger::web::i18n::t("en", &format!("tracker.history_gap.{key}"), &[])), "{key}");
     }
+    assert!(!k.contains("HF trading account"), "HF trades are read now: only Convert stays unreadable");
     assert!(k.contains("<li>KuCoin reports 7.40 ETH; the history accounts for 0. The difference is taken as having arrived at its price ($14,800.00).</li>"), "{k}");
     assert!(k.contains("2022-05-10T12:00:00Z,swap_out,BTC,0.5,,,,,kucoin,,kucoin-2022-05-10,"));
     assert!(k.contains("<a class=\"rbutton\" data-turbo-frame=\"modal\" href=\"/tracker/import/new\">Import a file</a>"));

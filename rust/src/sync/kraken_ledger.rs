@@ -283,7 +283,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn request_reserve(&self) -> std::time::Duration { crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + self.wait * THROTTLE_RETRIES as u32 }
     const KRAKEN_REPAIR: bool = true;
     /// At the import's completion (its done cursor), the repairs deferred on its pages converge (r3 row 5).
-    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, stamp, now| if cursor["source"] == "done" { converge(c, key, stamp, now) } else { Ok(()) };
+    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, stamp, _, now| if cursor["source"] == "done" { converge(c, key, stamp, now) } else { Ok(()) };
     async fn step(&mut self) -> Result<Vec<Entry>, Fail> {
         let mut retried = 0usize;
         let (rows, next) = loop {

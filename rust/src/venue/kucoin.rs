@@ -263,6 +263,13 @@ impl<T: Transport> KucoinVenue<T> {
     fn admit(&self, mode: super::kucoin_account::AccountMode) -> Result<(), VenueError> {
         if self.hf && mode == super::kucoin_account::AccountMode::ClassicHf { Ok(()) } else { mode.require_classic() }
     }
+    /// The account's mode as the shared Resolver detects it for this credential, admitted or not: the history and balance
+    /// reads route on it (D-KUCOIN-HF-LEDGER); `prepare` keeps the trading gate.
+    pub async fn account_mode(&self) -> Result<super::kucoin_account::AccountMode, VenueError> {
+        if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
+        let Some(account) = &self.account else { return Ok(super::kucoin_account::AccountMode::ClassicLf) };
+        Ok(account.resolver.resolve(&self.transport, &self.base, &account.version).await.value?.mode)
+    }
     /// The order API of new orders and balances: the prepared detection's. Unprepared (the Rails replay): classic.
     pub fn family(&self) -> Family {
         let prepared = self.account.as_ref().and_then(|a| *a.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
@@ -321,6 +328,17 @@ impl<T: Transport> KucoinVenue<T> {
     /// `limit` bytes, unparsed (`Ok`), else the failure's text: the answer's body, or Faraday's (or the transport's) message.
     pub async fn read_text(&self, path: &str, query: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> {
         let r = self.request("GET", path.into(), query, None);
+        match self.transport.send_limited(&r, limit).await {
+            Err(TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(self.transport.redact_diagnostic(&m)),
+            Ok(resp) if (200..300).contains(&resp.status) => Ok(resp.body),
+            Ok(resp) if !resp.body.is_empty() => Err(resp.body),
+            Ok(resp) => Err(format!("the server responded with status {} for GET {}", resp.status, r.url())),
+        }
+    }
+
+    /// `read_text` with the query sent in the order given: an HF route signs its parameters as sent (D-KUCOIN-HF-ORDERS).
+    pub async fn read_text_in_order(&self, path: &str, query: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> {
+        let r = HttpRequest { method: "GET", base: self.base.clone(), path: path.into(), query, body: None, not_after: None };
         match self.transport.send_limited(&r, limit).await {
             Err(TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(self.transport.redact_diagnostic(&m)),
             Ok(resp) if (200..300).contains(&resp.status) => Ok(resp.body),

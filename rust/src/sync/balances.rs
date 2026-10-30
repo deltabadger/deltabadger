@@ -314,7 +314,7 @@ pub(crate) async fn sync_binance_captured<T: Transport>(db: &Db, transport: T, h
 pub const KUCOIN_ACCOUNTS_PATH: &str = "/api/v1/accounts";
 
 /// One balance sync of one KuCoin key, as AccountBalance::SyncJob runs it for that key: Exchanges::Kucoin#get_balances
-/// (the classic `trade` account, as Rails reads it) then AccountBalance::Sync. Read only: one signed GET. A failure records
+/// (the classic `trade` account, as Rails reads it; an HF account's `trade_hf`) then AccountBalance::Sync. Read only: one signed GET. A failure records
 /// the venue's text; KuCoin's invalid-key words mark the key incorrect unless they name a missing permission
 /// (ApiKeyFailureHandling#failure_reason).
 pub async fn sync_kucoin<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
@@ -329,10 +329,16 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
     use crate::venue::kucoin::{KucoinVenue, KUCOIN, URL};
     let captured = version.clone();
     let read = move |_: String| async move {
-        use crate::venue::Venue;
+        use crate::venue::kucoin_account::AccountMode;
         let venue = KucoinVenue::new(transport, URL).with_account_context(captured, crate::venue::kucoin_account::Resolver::shared());
-        if let Err(e) = venue.prepare().await { return Ok(Err(e.message())); }
-        Ok(venue.read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", "trade".to_string())], MAX_BINANCE_ACCOUNT_BYTES).await)
+        // D-KUCOIN-HF-LEDGER: an HF account's funds are its trade_hf account's; UTA (or no detection) is refused.
+        let kind = match venue.account_mode().await {
+            Ok(AccountMode::ClassicLf) => "trade",
+            Ok(AccountMode::ClassicHf) => "trade_hf",
+            Ok(mode @ AccountMode::UnsupportedUta) => return Ok(Err(mode.require_classic().err().map(|e| e.message()).unwrap_or_default())),
+            Err(e) => return Ok(Err(e.message())),
+        };
+        Ok(venue.read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", kind.to_string())], MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     let venue = VenueBalances { names: binance_names, record: None, types: &[KUCOIN], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::KUCOIN, venue, text), held: kucoin_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await

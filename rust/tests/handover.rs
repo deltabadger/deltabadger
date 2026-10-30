@@ -894,3 +894,21 @@ fn withdrawal_cli_migrates_and_seeds_before_any_takeover() {
     assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rule_log_origins"),1);
     assert!(lease::read(&c,&seed::cipher()).unwrap().is_none(),"resolution does not take ownership");
 }
+
+/// D-KUCOIN-HF-LEDGER: a KuCoin history the HF migration marked is Rust's (Rails reads neither HF fills nor the one-trade
+/// rule), through a later ClassicLf too: the marker alone refuses the handback, before and inside its transaction.
+#[tokio::test(flavor = "current_thread")]
+async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_one_hands_back() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap();
+    let refused = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
+    assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF history is Rust-only".to_string()]), "{refused:?}");
+    o.primary.execute("DELETE FROM kucoin_coverage", []).unwrap();
+    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
+}

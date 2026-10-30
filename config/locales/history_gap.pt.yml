@@ -4,7 +4,7 @@ pt:
             button: "Importar histórico"
             title: "Completa o teu histórico da %{exchange}"
             why_kucoin_reach: "A API da KuCoin só devolve cerca dos últimos 12 meses de negociações, depósitos e levantamentos."
-            why_kucoin_hf_convert: "As negociações da conta de trading HF da KuCoin e as trocas Convert não podem ser lidas de todo, por mais recentes que sejam."
+            why_kucoin_hf_convert: "As trocas Convert não podem ser lidas de todo, por mais recentes que sejam."
             why_kucoin_transfers: "Também faltam os depósitos e levantamentos mais antigos."
             why_binance: "A API da Binance só devolve negociações dos pares ainda listados, e Convert, conversões de poeira e Simple Earn apenas a partir das datas que a Binance guarda. Margem e futuros não são lidos."
             why_other: "A %{exchange} detém mais do que explica o histórico que a Deltabadger conseguiu ler de lá."

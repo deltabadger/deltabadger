@@ -4,7 +4,7 @@ pl:
             button: "Importuj historię"
             title: "Uzupełnij historię z %{exchange}"
             why_kucoin_reach: "API KuCoin zwraca transakcje, wpłaty i wypłaty tylko z mniej więcej ostatnich 12 miesięcy."
-            why_kucoin_hf_convert: "Transakcji z konta handlowego HF w KuCoin ani wymian Convert nie da się w ogóle odczytać, nawet tych najnowszych."
+            why_kucoin_hf_convert: "Wymian Convert nie da się w ogóle odczytać, nawet tych najnowszych."
             why_kucoin_transfers: "Brakuje też starszych wpłat i wypłat."
             why_binance: "API Binance zwraca transakcje tylko dla par, które są nadal notowane, a Convert, zamiany pyłu i Simple Earn dopiero od dat, od których Binance je przechowuje. Margin i kontrakty futures nie są odczytywane."
             why_other: "%{exchange} ma więcej, niż wynika z historii, którą Deltabadger zdołał stamtąd odczytać."

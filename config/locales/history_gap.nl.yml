@@ -4,7 +4,7 @@ nl:
             button: "Historie importeren"
             title: "Maak je %{exchange}-historie compleet"
             why_kucoin_reach: "De API van KuCoin geeft trades, stortingen en opnames maar van ongeveer de laatste 12 maanden."
-            why_kucoin_hf_convert: "Trades op de HF-handelsrekening van KuCoin en Convert-ruilen zijn helemaal niet uit te lezen, hoe recent ook."
+            why_kucoin_hf_convert: "Convert-ruilen zijn helemaal niet uit te lezen, hoe recent ook."
             why_kucoin_transfers: "Oudere stortingen en opnames ontbreken ook."
             why_binance: "De API van Binance geeft trades alleen voor paren die nog genoteerd zijn, en Convert, dust-omzettingen en Simple Earn pas vanaf de data die Binance bewaart. Margin en futures worden niet gelezen."
             why_other: "%{exchange} bevat meer dan de historie verklaart die Deltabadger daar kon lezen."

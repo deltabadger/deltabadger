@@ -90,13 +90,13 @@ pub(super) trait Walk {
     /// What a checkpoint whose cursor is `cursor` (the walk's own) does once its page is stored, in the same transaction:
     /// KuCoin's takeover of the file's entries a finished source proves (plan KI §5). The finishing unit passes the done
     /// walk's cursor. A fn pointer, so the 'static store closure need not name the walk's type.
-    const CHECKPOINT: Checkpoint = |_, _, _, _, _| Ok(());
+    const CHECKPOINT: Checkpoint = |_, _, _, _, _, _| Ok(());
     /// The store repairs the rows an earlier sync wrote under the ids this walk reads (Kraken's, D-KR-5).
     const KRAKEN_REPAIR: bool = false;
 }
 
-/// (connection, key, the walk's cursor, the import's credential stamp, now).
-pub(super) type Checkpoint = fn(&Connection, &Key, &Value, &Value, DateTime<Utc>) -> Result<(), SyncError>;
+/// (transaction, key, the walk's cursor, the import's credential stamp, the page's rows, now).
+pub(super) type Checkpoint = fn(&crate::engine::model::FencedTransaction<'_>, &Key, &Value, &Value, &[Entry], DateTime<Utc>) -> Result<(), SyncError>;
 
 /// Where a walk begins: a fresh import from `start` (None: the venue's whole history) to `end`, or a recorded cursor.
 pub(super) struct Begin<'a> { pub start: Option<DateTime<Utc>>, pub end: DateTime<Utc>, pub cursor: Option<&'a Value>, pub transfers: super::pending_transfers::Watch }
@@ -288,11 +288,11 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         r.max_seen = [r.max_seen, rows.iter().filter_map(|e| e.transacted_at).max()].into_iter().flatten().max();
         r.units = budget.millis();
         let (k, p, st, observed) = (key.clone(), progress.over(Arc::new(rows)), stamp.clone(), transfers.clone());
-        let (p, r) = budget.timed(units, super::commit_for(db, version, move |c| {
+        let committed = budget.timed(units, super::commit_for(db, version, move |c| {
             let mut r = r;
             let to = p.batch.len();
             let p = ledger::store(c, &k, 0..to, None, p, now)?;
-            checkpoint(c, &k, &r.cursor, &st, now)?;
+            checkpoint(c, &k, &r.cursor, &st, &p.batch, now)?;
             observed.save(c, &k, &st, &r.cursor, now)?;
             // The store's dedup state after this page, verbatim.
             r.ours = id_runs(&p.stored);
@@ -300,7 +300,13 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
             r.min_skipped = [r.min_skipped, p.min_skipped].into_iter().flatten().min();
             save(c, key_id, &r, now)?;
             Ok((p, r))
-        })).await?;
+        })).await;
+        // D-KUCOIN-HF-LEDGER: a page meeting a stored fill read differently fails, nothing of it written; the import keeps
+        // its record and resumes at the page.
+        let (p, r) = match committed {
+            Err(SyncError(text)) if text.starts_with(super::kucoin_hf::CONFLICT) => return fail(text, false, Some(record)).await,
+            other => other?,
+        };
         progress = p;
         record = r;
         stored_segments += 1;
@@ -329,7 +335,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     let producer = version.clone();
     let finished_key = key.clone();
     super::commit_for(db, version, move |c| {
-        checkpoint(c, &finished_key, &done_cursor, &stamp, now)?;
+        checkpoint(c, &finished_key, &done_cursor, &stamp, &[], now)?;
         transfers.save(c, &finished_key, &stamp, &done_cursor, now)?;
         super::cache::record_ledger(c, key_id, &producer, now)?;
         if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = ?4, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id, warning])?; }

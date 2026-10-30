@@ -83,6 +83,12 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("rule_log_id", "INTEGER", false), ("owner", "TEXT", true), ("client_id", "TEXT", false), ("created_at", "TEXT", true)], unique_indexes: &[] }),
     ("20261028000001", TableContract { name: "rust_withdrawal_candidates", columns: &[
         ("owner", "TEXT", true), ("client_id", "TEXT", true), ("candidates", "TEXT", true)], unique_indexes: &[&["owner"]] }),
+    ("20261030000001", TableContract { name: "kucoin_coverage", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("source", "TEXT", true), ("start_at", "TEXT", true),
+        ("end_at", "TEXT", true), ("updated_at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261030000001", TableContract { name: "kucoin_withheld_fills", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("tx_id", "TEXT", true), ("transacted_at", "TEXT", true),
+        ("entry", "TEXT", true), ("created_at", "TEXT", true)], unique_indexes: &[&["user_id", "exchange_id", "tx_id"]] }),
 
 ];
 
