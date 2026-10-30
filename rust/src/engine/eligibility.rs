@@ -520,7 +520,11 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         // No Rails bot path reads instrument_type (only tax does): a Cryptocurrency marked tokenized (PAXG, XAUT) trades as
         // any coin. A tokenized stock (the catalogue's category, or a tokenized instrument of another category) is refused until
         // a recorded vector proves its venue (B2). D-TOK-KRAKEN: Rails cannot trade one on Kraken; refused rather than copied.
-        let crypto = category.as_deref() == Some("Cryptocurrency");
+        // D-INDEX-TOP-N: an old stablecoin member remains a holding when composition removes it.
+        // It must not refuse takeover/resync; index selection never seats it for a new buy.
+        let index_stablecoin = bot.bot_type == "Bots::DcaIndex"
+            && super::index::stablecoin(category.as_deref(), external_id.as_deref().unwrap_or_default());
+        let crypto = category.as_deref() == Some("Cryptocurrency") || index_stablecoin;
         let tokenized = category.as_deref() == Some("Tokenized Stock") || (!crypto && instrument.as_deref() == Some("tokenized"));
         let stock = alpaca && category.as_deref() == Some("Stock") && matches!(instrument.as_deref(), Some("stock" | "etf"))
             && !external_id.as_deref().unwrap_or_default().starts_with("alpaca_");
@@ -793,12 +797,13 @@ fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
     }).collect())))
 }
 
-/// Bots::DcaIndex within what this build ports: a data-api install (MarketData.get_top_coins reads the local row only there;
-/// on a CoinGecko one it calls CoinGecko live), USD on Alpaca, a Top coins or category index, a readable count and
+/// Bots::DcaIndex within what this build ports: data-api indices, or the daily direct CoinGecko Top Coins
+/// ranking (D-INDEX-TOP-N), USD on Alpaca, a Top coins or category index, a readable count and
 /// flattening. A missing `indices` row is the tick's own Failure ("Index not found"), never an install refusal. Returns the
 /// assets of every bot_index_assets row, in or out of the index, for member_reasons.
 fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
-    if super::provider::config(c)?.is_none() { r.push("index requires a configured deltabadger market-data provider".into()); }
+    let direct_top = bot.index_external_id() == "top-coins" && super::provider::coingecko_key(c)?.is_some();
+    if super::provider::config(c)?.is_none() && !direct_top { r.push("index requires a configured deltabadger market-data provider".into()); }
     // member_reasons checks the quote only through a member's ticker, so a bot with no members yet is checked here.
     if alpaca && model::quote_symbol(c, bot)? != "USD" { r.push(format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?)); }
     if !matches!(bot.index_type(), Some("top" | "category")) { r.push(format!("index_type {:?} (only Top coins or a category index)", bot.index_type())); }
