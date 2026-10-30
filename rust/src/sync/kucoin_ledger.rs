@@ -277,6 +277,12 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
         Ok((key, produced))
     }).await?;
     let watermark = if produced { key.last_synced_at } else { None };
-    let venue = KucoinVenue::new(transport, URL);
+    use crate::venue::Venue;
+    let venue = KucoinVenue::new(transport, URL).with_account_context(version.clone(), crate::venue::kucoin_account::Resolver::shared());
+    if let Err(e) = venue.prepare().await {
+        let credentials = credentials.clone();
+        let error = super::commit_for(db, &version, move |c| super::record_sync_error(c, key_id, &e.message(), &credentials)).await?;
+        return Ok(Err(Failure { error, raised: false }));
+    }
     continuation::sync(db, &version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, now, run, |begin| Walk::new(&venue, wait, begin)).await
 }

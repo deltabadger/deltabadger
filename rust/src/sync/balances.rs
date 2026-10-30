@@ -327,8 +327,12 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
                                                        clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
                                                        -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::kucoin::{KucoinVenue, KUCOIN, URL};
+    let captured = version.clone();
     let read = move |_: String| async move {
-        Ok(KucoinVenue::new(transport, URL).read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", "trade".to_string())], MAX_BINANCE_ACCOUNT_BYTES).await)
+        use crate::venue::Venue;
+        let venue = KucoinVenue::new(transport, URL).with_account_context(captured, crate::venue::kucoin_account::Resolver::shared());
+        if let Err(e) = venue.prepare().await { return Ok(Err(e.message())); }
+        Ok(venue.read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", "trade".to_string())], MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     let venue = VenueBalances { names: binance_names, record: None, types: &[KUCOIN], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::KUCOIN, venue, text), held: kucoin_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await

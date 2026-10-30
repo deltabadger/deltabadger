@@ -21,7 +21,7 @@ impl Verdict {
             Verdict::Valid(true) => Validity::Correct,
             Verdict::Valid(false) => Validity::Incorrect,
             Verdict::Permissions { missing, forbidden } => Validity::Permissions { missing, forbidden },
-            Verdict::Failure(text) => Validity::Pending(Diagnostic { text, status, body: body.into() }),
+            Verdict::Failure(text) => Validity::Pending(Diagnostic { text, status, body: body.into(), refusal: false }),
         }
     }
 }
@@ -718,7 +718,7 @@ pub async fn ibkr_check<T: Transport, C: crate::engine::Clock + ?Sized>(session:
 /// The IBKR key check of `credentials` (made under `producer`) through `client` to `base`, as a Validity. The check has a
 /// login of its own: an LST minted for credentials being checked is never kept for another.
 pub(crate) async fn ibkr_validity(base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, producer: &crate::engine::model::CredentialVersion) -> Validity {
-    let failure = |text: String| Validity::Pending(Diagnostic { text, status: None, body: String::new() });
+    let failure = |text: String| Validity::Pending(Diagnostic { text, status: None, body: String::new(), refusal: false });
     let Some(material) = credentials.ibkr.as_deref() else { return failure("the IBKR connection is incomplete".into()) };
     let login = match crate::venue::ibkr::Login::new(material.clone(), producer.clone()) {
         Ok(login) => std::sync::Arc::new(login),
@@ -745,13 +745,19 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
 /// None: no read was made.
 pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64)
                               -> (Validity, Option<crate::identity::Observed>) {
+    check_identified_captured(venue, base, client, credentials, kind, None).await
+}
+
+pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64,
+                                              version: Option<&crate::engine::model::CredentialVersion>)
+                                              -> (Validity, Option<crate::identity::Observed>) {
     use crate::venue::http::ReqwestTransport;
     let (venue_type, mut observed) = (venue, None);
     let redaction = credentials.redaction_values.clone();
     use crate::venue::registry::KeyCheck;
     let scheme = crate::venue::registry::row(venue).and_then(|r| r.key_check);
     // IBKR's is checked through its validation handle (`ValidationHandle::check_via`), which knows the credential version.
-    if scheme == Some(KeyCheck::Ibkr) { return (Validity::Pending(Diagnostic { text: "IBKR keys are checked through their handle".into(), status: None, body: String::new() }), None); }
+    if scheme == Some(KeyCheck::Ibkr) { return (Validity::Pending(Diagnostic { text: "IBKR keys are checked through their handle".into(), status: None, body: String::new(), refusal: false }), None); }
     let (answer, verdict) = if scheme == Some(KeyCheck::Kraken) {
         let transport = ReqwestTransport::new(client, credentials.key.clone(), credentials.secret.clone()).kraken().with_sensitive_values(redaction);
         let answer = transport.send(&kraken_request(base)).await;
@@ -764,6 +770,16 @@ pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, 
         let answer = transport.send(&request).await;
         let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
                       else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
+        // D-KUCOIN-HF-MODE: Rails' check decides first (an incorrect key stays incorrect); a key it judges correct is
+        // then read for its account mode, and anything but a classic account is refused.
+        if let (Verdict::Valid(true), Some(version)) = (&verdict, version) {
+            let resolver = crate::venue::kucoin_account::Resolver::shared();
+            resolver.invalidate(base, version.id);
+            let mode = resolver.resolve(&transport, base, version).await.value.and_then(|d| d.mode.require_classic());
+            if let Err(e) = mode {
+                return (Validity::Pending(Diagnostic { text: e.message(), status: None, body: String::new(), refusal: true }), None);
+            }
+        }
         if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue, &transport, base, &credentials.secret).await; }
         (answer, verdict)
     } else if scheme == Some(KeyCheck::Bitvavo) {

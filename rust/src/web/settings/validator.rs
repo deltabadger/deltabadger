@@ -41,17 +41,19 @@ impl ValidationHandle {
     pub(crate) async fn check_via(&self,venue:&str,base:&str,egress:Result<reqwest::Client,String>,kind:i64)->Checked {
         let (value,observed)=match egress {
             Ok(client) if venue==crate::venue::ibkr::IBKR=>(super::key_check::ibkr_validity(base,client,&self.credentials,&self.producer).await,None),
-            Ok(client)=>super::key_check::check_identified(venue,base,client,&self.credentials,kind).await,
-            Err(why)=>(Validity::Pending(Diagnostic{text:why,status:None,body:String::new()}),None),
+            Ok(client)=>super::key_check::check_identified_captured(venue,base,client,&self.credentials,kind,Some(&self.producer)).await,
+            Err(why)=>(Validity::Pending(Diagnostic{text:why,status:None,body:String::new(),refusal:false}),None),
         };
         (crate::engine::model::Produced::new(value,Some(self.producer.clone())),observed)
     }
 }
 /// A key check's verdict, and its account-identity read when one was made. Both are published under the verdict's fence.
 pub(crate) type Checked=(crate::engine::model::Produced<Validity>,Option<crate::identity::Observed>);
-pub struct Diagnostic { pub text: String, pub status: Option<u16>, pub body: String }
+/// `refusal`: Rust's own refusal made before any request (KuCoin account mode). Its text is trusted and is the log line;
+/// a venue's text never is.
+pub struct Diagnostic { pub text: String, pub status: Option<u16>, pub body: String, pub refusal: bool }
 impl Diagnostic {
-    pub fn log_text(&self)->String { crate::venue::http::diagnostic(self.status,&self.body) }
+    pub fn log_text(&self)->String { if self.refusal { return self.text.clone() } crate::venue::http::diagnostic(self.status,&self.body) }
 }
 // Retain numeric metadata only before the whole-text decision can discard a secret-bearing body.
 fn log_body(body:&str)->String{
@@ -61,7 +63,7 @@ fn log_body(body:&str)->String{
     }
 }
 fn pending(status:Option<u16>,body:&str,text:impl Into<String>)->Validity {
-    Validity::Pending(Diagnostic{status,body:body.into(),text:text.into()})
+    Validity::Pending(Diagnostic{status,body:body.into(),text:text.into(),refusal:false})
 }
 pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<Validity, WebError> {
     let client = reqwest::Client::builder()

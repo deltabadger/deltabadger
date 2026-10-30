@@ -26,3 +26,12 @@ pub fn script(over: Value) -> ScriptedTransport {
 }
 
 pub fn venue(t: &ScriptedTransport) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper"))) }
+
+/// HF-1 detection prefix for classic history regressions. Kept separate from their page clocks/cursors.
+pub fn kucoin_classic_detection(r: &deltabadger::venue::http::HttpRequest) -> Option<deltabadger::venue::http::HttpResponse> {
+    use deltabadger::venue::kucoin_account::{MODE, OPENED};
+    let data = match r.path.as_str() { MODE => json!({"selfAccountMode":"CLASSIC"}), OPENED => json!(false), _ => return None };
+    assert_eq!(r.method, "GET");
+    assert!(r.query.is_empty() && r.body.is_none());
+    Some(deltabadger::venue::http::HttpResponse { status: 200, body: json!({"code":"200000","data":data}).to_string() })
+}

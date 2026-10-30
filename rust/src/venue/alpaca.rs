@@ -591,6 +591,14 @@ impl LiveFactory {
 
 impl VenueFactory for LiveFactory {
     type V = super::live::LiveVenue;
+    fn for_kucoin(&self, credentials: Option<Credentials>, sensitive: Vec<String>, version: Option<crate::engine::model::CredentialVersion>) -> Self::V {
+        let venue = self.for_bot_with_redaction(super::kucoin::KUCOIN, credentials, sensitive);
+        match (venue, version) {
+            (super::live::LiveVenue::Kucoin(v), Some(version)) => super::live::LiveVenue::Kucoin(v.with_account_context(version, super::kucoin_account::Resolver::shared())),
+            (super::live::LiveVenue::Kucoin(v), None) => super::live::LiveVenue::Kucoin(v.with_missing_account_context()),
+            (v, _) => v,
+        }
+    }
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V {
         self.for_bot_with_redaction(exchange_type,credentials,Vec::new())
     }
