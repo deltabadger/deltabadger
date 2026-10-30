@@ -815,6 +815,31 @@ async fn a_cap_switched_on_during_the_handback_is_caught_inside_the_ownership_tr
     assert_eq!(model::load_bot(&o.primary, b).unwrap().status, status, "the transaction's status writes rolled back");
 }
 
+/// D-KUCOIN-HF-RETENTION (R08): an HF order record written after the first check (here while the handback settles another
+/// bot's order) refuses inside the ownership transaction; nothing of that transaction lands.
+#[tokio::test(flavor = "current_thread")]
+async fn an_hf_order_recorded_during_the_handback_is_caught_inside_the_ownership_transaction() {
+    let (dir, l, o, s, index) = taken_over_with_index();
+    let row = seed::insert_row(&o.primary, &s, index, s.btc, &json!({"external_id": "HF1", "external_status": 2, "created_at": "2026-09-01 10:00:00"}));
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
+        &deltabadger::ruby::BigDec::from_i64(50_000), &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
+    let intent = placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
+    let db = dir.path().join("production.sqlite3");
+    let record = move || {
+        rusqlite::Connection::open(&db).unwrap().execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, '{\"family\":\"ClassicHf\"}', '2026-09-01', '2026-09-01') ON CONFLICT(key) DO NOTHING",
+            [format!("{}{row}", deltabadger::venue::kucoin::ORDER_RECORD)]).unwrap();
+    };
+    let closed = json!({ "error": [], "result": { "closed": { "OTX-H": { "cl_ord_id": intent.cl_ord_id, "status": "closed", "price": "50000",
+        "vol": "60", "vol_exec": "0.0012", "cost": "60", "oflags": "viqc", "descr": { "type": "buy", "ordertype": "market", "price": "0" } } } } });
+    let venue = FakeVenue::from_script(&json!({ "http": { "/0/private/ClosedOrders": [closed] } })).on_lookup(record.clone()).on_query(record);
+    let r = handover::hand_back(&l, &o, &FakeFactory(venue), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
+    assert!(matches!(r, Err(EngineError::Ineligible(ref p)) if p.iter().any(|m| m == &format!("bot {index}: KuCoin HF orders are Rust-only"))), "{r:?}");
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "the lease never moved");
+}
+
 #[test]
 fn composition_jobs_on_any_bot_refuse_takeover_before_claim() {
     for class in ["LiquidateExited", "Redeploy", "DeclineRedeploy", "ResolveLiquidation", "ResolveRedeploy"] {

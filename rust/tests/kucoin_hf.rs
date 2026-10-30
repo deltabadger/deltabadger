@@ -1768,3 +1768,29 @@ async fn r07_adopted_rows_need_a_positive_route() {
     assert!(sweep(&o.primary, &v, bot.id).await.is_err());
     assert_eq!(t.requests().iter().skip(before).filter(|r| r.path.contains("A1")).count(), 0, "an unmapped pair asks nowhere");
 }
+
+// ---- HF-4: handback (R08) ------------------------------------------------------------------------------------------
+
+async fn refused(dir: &tempfile::TempDir, o: &deltabadger::store::Opened, want: &str) {
+    use deltabadger::engine::{handover, EngineError, FixedClock};
+    use deltabadger::lease;
+    let now = at("2026-10-30T13:00:00Z");
+    let l = lease::lock(&deltabadger::store::Paths::from_env(&|_| None, dir.path()), now).unwrap();
+    handover::take_over(&l, o, &common::seed::cipher(), "test", now).unwrap();
+    let r = handover::hand_back(&l, o, &deltabadger::venue::fake::FakeFactory::default(), &common::seed::cipher(), &FixedClock(now)).await;
+    assert!(matches!(&r, Err(EngineError::Ineligible(p)) if p.iter().any(|m| m.contains(want))), "{want}: {r:?}");
+    assert_eq!(lease::read(&o.primary, &common::seed::cipher()).unwrap().unwrap()["engine"], "rust", "{want}: the lease never moved");
+}
+
+/// R08: Rails trades no HF account and reads no route proof: an HF order row, an HF intent and an adopted row whose route
+/// is unproven each refuse the handback, naming the bot; the lease stays Rust's.
+#[tokio::test(flavor = "current_thread")]
+async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
+    let (dir, o, bot, _t, _v, _id, _ext) = placed("KEY-A", false).await;
+    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+    let (dir, o, bot, _t, _v, _intent) = ambiguous_intent("KEY-A").await;
+    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+    let (dir, o, bot, _plan) = engine_setup();
+    let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    refused(&dir, &o, &format!("bot {}: the route of KuCoin order A1 (transaction {id}) is unproven", bot.id)).await;
+}

@@ -468,3 +468,23 @@ pub(crate) fn mark_adopted(c: &Connection, cipher: &crate::crypto::Cipher, now: 
     }
     Ok(rows.len())
 }
+
+/// D-KUCOIN-HF-RETENTION (R08): what Rails could not manage after a handback. A bot with an HF order (any row with an HF
+/// record, or an unresolved intent sent on an HF account): Rails trades only classic, so the account is Rust's. An adopted
+/// row whose route is unproven: Rails would read it on a guessed route. One line each, by bot.
+pub(crate) fn handback_refusals(c: &Connection) -> Result<Vec<String>, EngineError> {
+    let prefix = crate::venue::kucoin::ORDER_RECORD;
+    let upper = format!("{};", &prefix[..prefix.len() - 1]);
+    let mut s = c.prepare("SELECT DISTINCT t.bot_id FROM app_configs k JOIN transactions t ON t.id = CAST(substr(k.key, ?2) AS INTEGER) \
+                           WHERE k.key >= ?1 AND k.key < ?3 AND t.bot_id IS NOT NULL \
+                           UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement.kucoin_account_mode') = 'ClassicHf' ORDER BY 1")?;
+    let mut found: Vec<String> = s.query_map(params![prefix, prefix.len() as i64 + 1, upper], |r| r.get::<_, i64>(0))?
+        .map(|id| id.map(|id| format!("bot {id}: KuCoin HF orders are Rust-only"))).collect::<Result<_, _>>()?;
+    let upper = format!("{};", &ORIGIN[..ORIGIN.len() - 1]);
+    let mut s = c.prepare("SELECT t.bot_id, t.id, t.external_id FROM app_configs k JOIN transactions t ON t.id = CAST(substr(k.key, ?2) AS INTEGER) \
+                           WHERE k.key >= ?1 AND k.key < ?3 AND json_extract(k.value, '$.origin') = 'unproven' ORDER BY t.id")?;
+    found.extend(s.query_map(params![ORIGIN, ORIGIN.len() as i64 + 1, upper], |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?)))?
+        .map(|row| row.map(|(bot, id, ext)| format!("bot {}: the route of KuCoin order {} (transaction {id}) is unproven", bot.unwrap_or_default(), ext.unwrap_or_default())))
+        .collect::<Result<Vec<_>, _>>()?);
+    Ok(found)
+}
