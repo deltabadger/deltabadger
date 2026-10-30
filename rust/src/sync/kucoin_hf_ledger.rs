@@ -49,12 +49,12 @@ pub(super) enum Ended { Complete, Paused, Failed(String) }
 
 /// The unit's progress: its bounds, symbols and where it stands.
 #[derive(Clone, Debug)]
-struct Unit { start: DateTime<Utc>, end: DateTime<Utc>, symbols: Option<Vec<String>>, index: usize, last_id: Option<u64> }
+struct Unit { start: DateTime<Utc>, end: DateTime<Utc>, symbols: Option<Vec<String>>, index: usize, last_id: Option<u64>, pages: usize }
 
 impl Unit {
     fn json(&self, stamp: &Value) -> Value {
         json!({ "credential": stamp, "start": sql_time(self.start), "end": sql_time(self.end), "symbols": self.symbols, "index": self.index,
-                "last_id": self.last_id.map(|i| i.to_string()) })
+                "last_id": self.last_id.map(|i| i.to_string()), "pages": self.pages })
     }
 }
 
@@ -76,7 +76,7 @@ fn load(c: &Connection, key: &Key, stamp: &Value) -> Result<Loaded, SyncError> {
         if !crate::engine::model::stamp_current_for(&v["credential"], stamp).is_fresh() { return None; }
         let t = |k: &str| v[k].as_str().and_then(|s| crate::codec::parse_time(s).ok());
         Some(Unit { start: t("start")?, end: t("end")?, symbols: serde_json::from_value(v["symbols"].clone()).ok().flatten(), index: v["index"].as_u64()? as usize,
-                    last_id: v["last_id"].as_str().and_then(|s| s.parse().ok()) })
+                    last_id: v["last_id"].as_str().and_then(|s| s.parse().ok()), pages: v["pages"].as_u64().unwrap_or(0) as usize })
     });
     Ok((open, certified, unit))
 }
@@ -189,11 +189,11 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venu
     let within = |start: DateTime<Utc>, at: DateTime<Utc>| at - RETENTION < start;
     // Establish: the open attempt while it is within retention, else a fresh unit (an expired one closed first).
     let (span, mut unit) = match open {
-        Some(span) if within(span.0, now) => (span, recorded.filter(|u| (u.start, u.end) == span).unwrap_or(Unit { start: span.0, end: span.1, symbols: None, index: 0, last_id: None })),
+        Some(span) if within(span.0, now) => (span, recorded.filter(|u| (u.start, u.end) == span).unwrap_or(Unit { start: span.0, end: span.1, symbols: None, index: 0, last_id: None, pages: 0 })),
         _ => {
             let start = [Some(end - RETENTION + MARGIN), certified.map(|c| c - OVERLAP)].into_iter().flatten().max().expect("a start");
             let span = (start, end);
-            let unit = Unit { start, end, symbols: None, index: 0, last_id: None };
+            let unit = Unit { start, end, symbols: None, index: 0, last_id: None, pages: 0 };
             let (k, u, s) = (key.clone(), unit.clone(), stamp.clone());
             commit_for(db, version, move |c| {
                 if let Some(old) = open { close(c, &k, old, false, now)?; }
@@ -228,7 +228,6 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venu
     };
     let reserve = crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + wait * THROTTLE_RETRIES as u32 + super::continuation::FINALIZE_FLOOR;
     let mut first = true;
-    let mut pages = 0;
     while unit.index < symbols.len() {
         if clock.now() - RETENTION >= span.0 {
             return fail("the KuCoin HF unit left KuCoin's retention before it finished; what it did not read shows as a gap".into()).await;
@@ -241,12 +240,10 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venu
         let data = match read(venue, wait, FILLS_PATH, query).await { Ok(d) => d, Err(text) => return fail(text).await };
         let (entries, next) = match page(&data, symbol, span, unit.last_id) {
             Err(text) => return fail(text).await,
-            Ok(None) => { pages = 0; (vec![], Unit { index: unit.index + 1, last_id: None, ..unit.clone() }) }
-            Ok(Some((entries, last))) => {
-                pages += 1;
-                if pages > MAX_PAGES { return fail(format!("Too many pages of KuCoin {FILLS_PATH} for {symbol}")).await; }
-                (entries, Unit { last_id: Some(last), ..unit.clone() })
-            }
+            Ok(None) => (vec![], Unit { index: unit.index + 1, last_id: None, pages: 0, ..unit.clone() }),
+            // The symbol's pages, counted across runs (the progress keeps the count).
+            Ok(Some(_)) if unit.pages >= MAX_PAGES => return fail(format!("Too many pages of KuCoin {FILLS_PATH} for {symbol}")).await,
+            Ok(Some((entries, last))) => (entries, Unit { last_id: Some(last), pages: unit.pages + 1, ..unit.clone() }),
         };
         if let Err(text) = publish(db, version, &key, entries, next.clone(), stamp.clone(), now).await? { return fail(text).await; }
         unit = next;

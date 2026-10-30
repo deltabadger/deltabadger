@@ -328,8 +328,10 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         }
     }
     crate::sync::kucoin_hf::export_period(c, key, rows, now)?;
-    if touched.is_empty() { return Ok(out); }
-    if crate::sync::kucoin_hf::enabled(c, key.user_id, key.exchange_id)? {
+    let hf = crate::sync::kucoin_hf::enabled(c, key.user_id, key.exchange_id)?;
+    // A file of rows all held may still bridge two exports: the gap follows its period.
+    if touched.is_empty() { if hf { crate::sync::kucoin_hf::refresh_gap(c, key, now)?; } return Ok(out); }
+    if hf {
         let stored = crate::sync::kucoin_hf::flush(c, key, touched, now)?;
         (out.imported, out.duplicates, out.skipped, out.generic) = (stored.imported, out.duplicates + stored.duplicates, stored.skipped, stored.generic);
         return Ok(out);

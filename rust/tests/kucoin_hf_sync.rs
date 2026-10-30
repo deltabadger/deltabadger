@@ -772,3 +772,25 @@ async fn budget_one_symbol_crossing_three_deadlines_resumes_at_its_cursor_and_a_
     assert_eq!(fx.trades().len(), 250);
 }
 
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_classic_page_reading_one_id_two_ways_fails_with_nothing_written() {
+    let fx = Fx::new();
+    let api = Api::new("hf", &["BTC-USDT"]);
+    api.classic(vec![classic_fill("9", "1", "100", "0.1", "2026-10-29T10:00:00Z"), classic_fill("9", "2", "200", "0.2", "2026-10-29T10:00:00Z")]);
+    assert!(fx.sync(&api).await.is_err());
+    assert!(fx.trades().is_empty());
+    assert!(fx.error().is_some_and(|e| e.contains("read two ways")));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_export_of_rows_all_held_still_bridges_the_gap() {
+    let fx = Fx::new();
+    assert_eq!(fx.sync(&Api::new("hf", &["BTC-USDT"])).await, Ok(true));
+    let (a, b) = (buy_legs("1", "1", "0", "2026-09-01 00:00:00"), buy_legs("1", "1", "0", "2026-10-24 00:00:00"));
+    fx.import(&file(std::slice::from_ref(&a)));
+    fx.import(&file(std::slice::from_ref(&b)));
+    assert!(fx.uncovered().as_array().is_some_and(|u| !u.is_empty()));
+    fx.import(&file(&[a, b]));
+    assert_eq!(fx.uncovered(), json!([]));
+}

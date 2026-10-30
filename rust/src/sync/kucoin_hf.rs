@@ -34,6 +34,8 @@ pub const CONFLICT: &str = "KuCoin fill conflict: ";
 pub const FILL_TYPES: [i64; 4] = [BUY, SELL, FEE, ADJUSTMENT];
 
 /// The derived gap row: `{exchange_id: {key, credential, uncovered: [[start, end], …]}}`, rebuilt if lost.
+/// The spans the gap row lists (about 50 bytes each); `spans` counts them all.
+const MAX_SPANS: usize = 500;
 pub fn gap_key(user_id: i64) -> String { format!("rust_kucoin_hf_gap.{user_id}") }
 
 /// A KuCoin fill-class row with neither this importer's provenance nor the API's: restored, or entered by the user.
@@ -385,11 +387,14 @@ pub fn conflict(c: &Connection, key: &Key, e: &Entry) -> Result<Option<Result<()
     };
     let raw: Value = stored.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
     if raw.get("createdAt").is_none() || !api_entry(e) { return Ok(Some(Ok(()))); }
-    let new = &e.raw.value;
+    Ok(Some(if same_fill(&raw, &e.raw.value) { Ok(()) } else { Err(format!("{CONFLICT}{tx_id} differs from the one already stored")) }))
+}
+
+/// Two API reads of one fill agree: side, size, funds, fee, feeCurrency (decimals by value) and the createdAt second.
+fn same_fill(a: &Value, b: &Value) -> bool {
     let ms = |v: &Value| v["createdAt"].as_i64().map(|m| m.div_euclid(1000));
     let text = |v: &Value, k: &str| match &v[k] { Value::String(s) => BigDec::parse(s).map(|d| d.to_s_f()).unwrap_or_else(|_| s.clone()), other => other.to_string() };
-    let same = ["side", "size", "funds", "fee", "feeCurrency"].iter().all(|k| text(&raw, k) == text(new, k)) && ms(&raw) == ms(new);
-    Ok(Some(if same { Ok(()) } else { Err(format!("{CONFLICT}{tx_id} differs from the one already stored")) }))
+    ["side", "size", "funds", "fee", "feeCurrency"].iter().all(|k| text(a, k) == text(b, k)) && ms(a) == ms(b)
 }
 
 impl Allocation {
@@ -399,7 +404,7 @@ impl Allocation {
     pub(crate) fn new(c: &Connection, key: &Key, batch: &[Entry], range: std::ops::Range<usize>, now: DateTime<Utc>) -> Result<Option<Self>, SyncError> {
         if key.exchange_type != crate::venue::kucoin::KUCOIN || !enabled(c, key.user_id, key.exchange_id)? { return Ok(None); }
         let mut out = HashMap::new();
-        let mut seen: HashSet<String> = HashSet::new();
+        let mut seen: HashMap<String, usize> = HashMap::new();
         let mut restores: BTreeMap<DateTime<Utc>, Vec<usize>> = BTreeMap::new();
         let present = |e: &Entry| e.tx_id.as_deref().filter(|t| !crate::ruby::blank(t)).map(str::to_string);
         for i in range {
@@ -407,7 +412,15 @@ impl Allocation {
             if !FILL_TYPES.contains(&e.entry_type) { continue; }
             let id = present(e);
             if let Some(id) = &id {
-                if !seen.insert(id.clone()) { out.insert(i, true); continue; }
+                // The same id twice in one batch: one fill, unless the API read it two ways (the page fails).
+                if let Some(&first) = seen.get(id) {
+                    if api_entry(e) && api_entry(&batch[first]) && !same_fill(&batch[first].raw.value, &e.raw.value) {
+                        return Err(SyncError(format!("{CONFLICT}{id} read two ways in one page")));
+                    }
+                    out.insert(i, true);
+                    continue;
+                }
+                seen.insert(id.clone(), i);
             }
             if api_entry(e) || file_entry(e) {
                 let held = match &id { Some(_) => match conflict(c, key, e)? { Some(Ok(())) => true, Some(Err(why)) => return Err(SyncError(why)), None => false }, None => false };
@@ -549,8 +562,9 @@ pub fn refresh_gap(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> 
         _ => None,
     };
     match (reading, credential) {
-        (Some(k), Some(credential)) => row[&id] = json!({ "key": k.id, "credential": credential,
-                                                          "uncovered": uncovered.iter().map(|(a, b)| json!([sql_time(*a), sql_time(*b)])).collect::<Vec<_>>() }),
+        // The row stays readable (gaps::MAX_ROW): the first spans, and how many there are.
+        (Some(k), Some(credential)) => row[&id] = json!({ "key": k.id, "credential": credential, "spans": uncovered.len(),
+                                                          "uncovered": uncovered.iter().take(MAX_SPANS).map(|(a, b)| json!([sql_time(*a), sql_time(*b)])).collect::<Vec<_>>() }),
         (None, _) => { row.as_object_mut().expect("an object").remove(&id); }
         // A file import before any sync wrote the row: the next sync writes it.
         (Some(_), None) => return Ok(()),
