@@ -1,0 +1,3543 @@
+{
+  "examples": {
+    "fills": {
+      "source": "fills",
+      "request_examples": [
+        "curl --location --request GET 'https://api.kucoin.com/api/v1/hf/fills?symbol=BTC-USDT&orderId&side&type&lastId=254062248624417&limit=100&startAt=1728663338000&endAt=1728692138000'"
+      ],
+      "response_text": "{\n    \"code\": \"200000\",\n    \"data\": {\n        \"items\": [\n            {\n                \"id\": 19814995255305,\n                \"orderId\": \"6717422bd51c29000775ea03\",\n                \"counterOrderId\": \"67174228135f9e000709da8c\",\n                \"tradeId\": 11029373945659392,\n                \"symbol\": \"BTC-USDT\",\n                \"side\": \"buy\",\n                \"liquidity\": \"taker\",\n                \"type\": \"limit\",\n                \"forceTaker\": false,\n                \"price\": \"67717.6\",\n                \"size\": \"0.00001\",\n                \"funds\": \"0.677176\",\n                \"fee\": \"0.000677176\",\n                \"feeRate\": \"0.001\",\n                \"feeCurrency\": \"USDT\",\n                \"stop\": \"\",\n                \"tradeType\": \"TRADE\",\n                \"taxRate\": \"0\",\n                \"tax\": \"0\",\n                \"createdAt\": 1729577515473\n            }\n        ],\n        \"lastId\": 19814995255305\n    }\n}",
+      "body": {
+        "code": "200000",
+        "data": {
+          "items": [
+            {
+              "id": 19814995255305,
+              "orderId": "6717422bd51c29000775ea03",
+              "counterOrderId": "67174228135f9e000709da8c",
+              "tradeId": 11029373945659392,
+              "symbol": "BTC-USDT",
+              "side": "buy",
+              "liquidity": "taker",
+              "type": "limit",
+              "forceTaker": false,
+              "price": "67717.6",
+              "size": "0.00001",
+              "funds": "0.677176",
+              "fee": "0.000677176",
+              "feeRate": "0.001",
+              "feeCurrency": "USDT",
+              "stop": "",
+              "tradeType": "TRADE",
+              "taxRate": "0",
+              "tax": "0",
+              "createdAt": 1729577515473
+            }
+          ],
+          "lastId": 19814995255305
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "pages_boundary_and_large_ids",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. "
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  },
+                  {
+                    "id": 9007199254741999,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659394,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515899
+                  },
+                  {
+                    "id": 9007199254741998,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659395,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515898
+                  },
+                  {
+                    "id": 9007199254741997,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659396,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515897
+                  },
+                  {
+                    "id": 9007199254741996,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659397,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515896
+                  },
+                  {
+                    "id": 9007199254741995,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659398,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515895
+                  },
+                  {
+                    "id": 9007199254741994,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659399,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515894
+                  },
+                  {
+                    "id": 9007199254741993,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659400,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515893
+                  },
+                  {
+                    "id": 9007199254741992,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659401,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515892
+                  },
+                  {
+                    "id": 9007199254741991,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659402,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515891
+                  },
+                  {
+                    "id": 9007199254741990,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659403,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515890
+                  },
+                  {
+                    "id": 9007199254741989,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659404,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515889
+                  },
+                  {
+                    "id": 9007199254741988,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659405,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515888
+                  },
+                  {
+                    "id": 9007199254741987,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659406,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515887
+                  },
+                  {
+                    "id": 9007199254741986,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659407,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515886
+                  },
+                  {
+                    "id": 9007199254741985,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659408,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515885
+                  },
+                  {
+                    "id": 9007199254741984,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659409,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515884
+                  },
+                  {
+                    "id": 9007199254741983,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659410,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515883
+                  },
+                  {
+                    "id": 9007199254741982,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659411,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515882
+                  },
+                  {
+                    "id": 9007199254741981,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659412,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515881
+                  },
+                  {
+                    "id": 9007199254741980,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659413,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515880
+                  },
+                  {
+                    "id": 9007199254741979,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659414,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515879
+                  },
+                  {
+                    "id": 9007199254741978,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659415,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515878
+                  },
+                  {
+                    "id": 9007199254741977,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659416,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515877
+                  },
+                  {
+                    "id": 9007199254741976,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659417,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515876
+                  },
+                  {
+                    "id": 9007199254741975,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659418,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515875
+                  },
+                  {
+                    "id": 9007199254741974,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659419,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515874
+                  },
+                  {
+                    "id": 9007199254741973,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659420,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515873
+                  },
+                  {
+                    "id": 9007199254741972,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659421,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515872
+                  },
+                  {
+                    "id": 9007199254741971,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659422,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515871
+                  },
+                  {
+                    "id": 9007199254741970,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659423,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515870
+                  },
+                  {
+                    "id": 9007199254741969,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659424,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515869
+                  },
+                  {
+                    "id": 9007199254741968,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659425,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515868
+                  },
+                  {
+                    "id": 9007199254741967,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659426,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515867
+                  },
+                  {
+                    "id": 9007199254741966,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659427,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515866
+                  },
+                  {
+                    "id": 9007199254741965,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659428,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515865
+                  },
+                  {
+                    "id": 9007199254741964,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659429,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515864
+                  },
+                  {
+                    "id": 9007199254741963,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659430,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515863
+                  },
+                  {
+                    "id": 9007199254741962,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659431,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515862
+                  },
+                  {
+                    "id": 9007199254741961,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659432,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515861
+                  },
+                  {
+                    "id": 9007199254741960,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659433,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515860
+                  },
+                  {
+                    "id": 9007199254741959,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659434,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515859
+                  },
+                  {
+                    "id": 9007199254741958,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659435,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515858
+                  },
+                  {
+                    "id": 9007199254741957,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659436,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515857
+                  },
+                  {
+                    "id": 9007199254741956,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659437,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515856
+                  },
+                  {
+                    "id": 9007199254741955,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659438,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515855
+                  },
+                  {
+                    "id": 9007199254741954,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659439,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515854
+                  },
+                  {
+                    "id": 9007199254741953,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659440,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515853
+                  },
+                  {
+                    "id": 9007199254741952,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659441,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515852
+                  },
+                  {
+                    "id": 9007199254741951,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659442,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515851
+                  },
+                  {
+                    "id": 9007199254741950,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659443,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515850
+                  },
+                  {
+                    "id": 9007199254741949,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659444,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515849
+                  },
+                  {
+                    "id": 9007199254741948,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659445,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515848
+                  },
+                  {
+                    "id": 9007199254741947,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659446,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515847
+                  },
+                  {
+                    "id": 9007199254741946,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659447,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515846
+                  },
+                  {
+                    "id": 9007199254741945,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659448,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515845
+                  },
+                  {
+                    "id": 9007199254741944,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659449,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515844
+                  },
+                  {
+                    "id": 9007199254741943,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659450,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515843
+                  },
+                  {
+                    "id": 9007199254741942,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659451,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515842
+                  },
+                  {
+                    "id": 9007199254741941,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659452,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515841
+                  },
+                  {
+                    "id": 9007199254741940,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659453,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515840
+                  },
+                  {
+                    "id": 9007199254741939,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659454,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515839
+                  },
+                  {
+                    "id": 9007199254741938,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659455,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515838
+                  },
+                  {
+                    "id": 9007199254741937,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659456,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515837
+                  },
+                  {
+                    "id": 9007199254741936,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659457,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515836
+                  },
+                  {
+                    "id": 9007199254741935,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659458,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515835
+                  },
+                  {
+                    "id": 9007199254741934,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659459,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515834
+                  },
+                  {
+                    "id": 9007199254741933,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659460,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515833
+                  },
+                  {
+                    "id": 9007199254741932,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659461,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515832
+                  },
+                  {
+                    "id": 9007199254741931,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659462,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515831
+                  },
+                  {
+                    "id": 9007199254741930,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659463,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515830
+                  },
+                  {
+                    "id": 9007199254741929,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659464,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515829
+                  },
+                  {
+                    "id": 9007199254741928,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659465,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515828
+                  },
+                  {
+                    "id": 9007199254741927,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659466,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515827
+                  },
+                  {
+                    "id": 9007199254741926,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659467,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515826
+                  },
+                  {
+                    "id": 9007199254741925,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659468,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515825
+                  },
+                  {
+                    "id": 9007199254741924,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659469,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515824
+                  },
+                  {
+                    "id": 9007199254741923,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659470,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515823
+                  },
+                  {
+                    "id": 9007199254741922,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659471,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515822
+                  },
+                  {
+                    "id": 9007199254741921,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659472,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515821
+                  },
+                  {
+                    "id": 9007199254741920,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659473,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515820
+                  },
+                  {
+                    "id": 9007199254741919,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659474,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515819
+                  },
+                  {
+                    "id": 9007199254741918,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659475,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515818
+                  },
+                  {
+                    "id": 9007199254741917,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659476,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515817
+                  },
+                  {
+                    "id": 9007199254741916,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659477,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515816
+                  },
+                  {
+                    "id": 9007199254741915,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659478,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515815
+                  },
+                  {
+                    "id": 9007199254741914,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659479,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515814
+                  },
+                  {
+                    "id": 9007199254741913,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659480,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515813
+                  },
+                  {
+                    "id": 9007199254741912,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659481,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515812
+                  },
+                  {
+                    "id": 9007199254741911,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659482,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515811
+                  },
+                  {
+                    "id": 9007199254741910,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659483,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515810
+                  },
+                  {
+                    "id": 9007199254741909,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659484,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515809
+                  },
+                  {
+                    "id": 9007199254741908,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659485,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515808
+                  },
+                  {
+                    "id": 9007199254741907,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659486,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515807
+                  },
+                  {
+                    "id": 9007199254741906,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659487,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515806
+                  },
+                  {
+                    "id": 9007199254741905,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659488,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515805
+                  },
+                  {
+                    "id": 9007199254741904,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659489,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515804
+                  },
+                  {
+                    "id": 9007199254741903,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659490,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515803
+                  },
+                  {
+                    "id": 9007199254741902,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659491,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515802
+                  },
+                  {
+                    "id": 9007199254741901,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659492,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515801
+                  }
+                ],
+                "lastId": 9007199254741901
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254741901"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254741901,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659492,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515801
+                  },
+                  {
+                    "id": 9007199254741900,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659493,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515800
+                  },
+                  {
+                    "id": 9007199254741899,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659494,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515799
+                  }
+                ],
+                "lastId": 9007199254741899
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254741899"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [],
+                "lastId": null
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "complete",
+        "watermark": 1729577516000,
+        "visible_api_rows_delta": 102,
+        "csv_rows_deleted": 0,
+        "unique_fills": 102,
+        "gross_totals": [
+          "0.00102",
+          "69.071952",
+          "0.069071952"
+        ]
+      }
+    },
+    {
+      "id": "cursor_repeated",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: cursor_repeated; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254742000"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254741999,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659394,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515899
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "cursor_repeated"
+      }
+    },
+    {
+      "id": "cursor_missing",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: cursor_missing; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254742000"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254741999,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659394,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515899
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "cursor_missing"
+      }
+    },
+    {
+      "id": "malformed_page",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: malformed_page; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254742000"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": "invalid",
+                "lastId": 9007199254741999
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "malformed_page"
+      }
+    },
+    {
+      "id": "failed_page",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: failed_page; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254742000"
+              ]
+            ]
+          },
+          "response": {
+            "status": 503,
+            "raw_body": "unavailable"
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "failed_page"
+      }
+    },
+    {
+      "id": "throttle_exhausted",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: throttle_exhausted; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254742000"
+              ]
+            ]
+          },
+          "response": {
+            "status": 429,
+            "body": {
+              "code": "429000",
+              "msg": "rate limit exceeded"
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "throttle_exhausted"
+      }
+    },
+    {
+      "id": "retention_expired_on_resume",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: retention_expired_on_resume; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT",
+        "resume_now_ms": 1730182316001,
+        "requests_after_resume": 0
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254742000"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254741999,
+                    "orderId": "hf-history-sell",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659394,
+                    "symbol": "BTC-USDT",
+                    "side": "sell",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515899
+                  }
+                ],
+                "lastId": 9007199254741999
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "retention_expired_on_resume"
+      }
+    },
+    {
+      "id": "symbol_unavailable",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: symbol_unavailable; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1729577515000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [
+                  {
+                    "id": 9007199254742000,
+                    "orderId": "hf-history-buy",
+                    "counterOrderId": "67174228135f9e000709da8c",
+                    "tradeId": 11029373945659393,
+                    "symbol": "BTC-USDT",
+                    "side": "buy",
+                    "liquidity": "taker",
+                    "type": "limit",
+                    "forceTaker": false,
+                    "price": "67717.6",
+                    "size": "0.00001",
+                    "funds": "0.677176",
+                    "fee": "0.000677176",
+                    "feeRate": "0.001",
+                    "feeCurrency": "USDT",
+                    "stop": "",
+                    "tradeType": "TRADE",
+                    "taxRate": "0",
+                    "tax": "0",
+                    "createdAt": 1729577515900
+                  }
+                ],
+                "lastId": 9007199254742000
+              }
+            }
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1729577515000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ],
+              [
+                "lastId",
+                "9007199254742000"
+              ]
+            ]
+          },
+          "response": {
+            "status": 400,
+            "body": {
+              "code": "900001",
+              "msg": "symbol does not exist"
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "symbol_unavailable"
+      }
+    },
+    {
+      "id": "clamped_eight_day_query",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_request",
+          "sdk_fills_response",
+          "sdk_fills_item"
+        ],
+        "note": "Generate 102 fills from the documented item: sequential exact integer id/tradeId above 2^53, separate buy/sell history orders (independent of placement scenarios), alternating sides and timestamps within one whole second. Repeat the page boundary; finish only on empty items. Fault walks use two one-fill pages instead. Fault mutation: clamped_eight_day_query; captured page one remains outside the visible ledger."
+      },
+      "given": {
+        "interval_ms": [
+          1728886316000,
+          1729577516000
+        ],
+        "now_ms": 1729577516000,
+        "symbol": "BTC-USDT"
+      },
+      "pages": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/api/v1/hf/fills",
+            "query": [
+              [
+                "symbol",
+                "BTC-USDT"
+              ],
+              [
+                "startAt",
+                "1728886316000"
+              ],
+              [
+                "endAt",
+                "1729577515999"
+              ],
+              [
+                "limit",
+                "100"
+              ]
+            ]
+          },
+          "response": {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "items": [],
+                "lastId": null
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "coverage": "incomplete",
+        "watermark": "unchanged",
+        "visible_api_rows_delta": 0,
+        "csv_rows_deleted": 0,
+        "unique_fills": null,
+        "gross_totals": null,
+        "error": "clamped_eight_day_query"
+      }
+    },
+    {
+      "id": "symbol_scoped_trade_identity",
+      "endpoint": "fills",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "fills",
+          "sdk_fills_item"
+        ],
+        "note": "Two symbol walks share tradeId but have distinct cursor IDs and orders. Never deduplicate across symbols by tradeId alone."
+      },
+      "items": [
+        {
+          "id": 9007199254742000,
+          "orderId": "hf-history-buy",
+          "counterOrderId": "67174228135f9e000709da8c",
+          "tradeId": 11029373945659393,
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "liquidity": "taker",
+          "type": "limit",
+          "forceTaker": false,
+          "price": "67717.6",
+          "size": "0.00001",
+          "funds": "0.677176",
+          "fee": "0.000677176",
+          "feeRate": "0.001",
+          "feeCurrency": "USDT",
+          "stop": "",
+          "tradeType": "TRADE",
+          "taxRate": "0",
+          "tax": "0",
+          "createdAt": 1729577515900
+        },
+        {
+          "id": 9007199254742001,
+          "orderId": "different-order",
+          "counterOrderId": "67174228135f9e000709da8c",
+          "tradeId": 11029373945659393,
+          "symbol": "ETH-USDT",
+          "side": "buy",
+          "liquidity": "taker",
+          "type": "limit",
+          "forceTaker": false,
+          "price": "67717.6",
+          "size": "0.00001",
+          "funds": "0.677176",
+          "fee": "0.000677176",
+          "feeRate": "0.001",
+          "feeCurrency": "USDT",
+          "stop": "",
+          "tradeType": "TRADE",
+          "taxRate": "0",
+          "tax": "0",
+          "createdAt": 1729577515900
+        }
+      ],
+      "expect": {
+        "ledger_ids": [
+          "BTC-USDT-11029373945659393",
+          "ETH-USDT-11029373945659393"
+        ],
+        "unique_fills": 2
+      }
+    }
+  ]
+}

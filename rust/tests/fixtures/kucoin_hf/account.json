@@ -1,0 +1,938 @@
+{
+  "examples": {
+    "mode": {
+      "source": "mode",
+      "request_examples": [
+        "curl --location --request GET 'https://api.kucoin.com/api/ua/v2/account/mode'"
+      ],
+      "response_text": "{\n    \"code\": \"200000\",\n    \"data\": {\n        \"selfAccountMode\": \"CLASSIC\",\n        \"unifiedSubAccount\": [],\n        \"classicSubAccount\": [\n            252118980\n        ]\n    }\n}",
+      "body": {
+        "code": "200000",
+        "data": {
+          "selfAccountMode": "CLASSIC",
+          "unifiedSubAccount": [],
+          "classicSubAccount": [
+            252118980
+          ]
+        }
+      }
+    },
+    "opened": {
+      "source": "opened",
+      "request_examples": [
+        "curl --location --request GET 'https://api.kucoin.com/api/v1/hf/accounts/opened'"
+      ],
+      "response_text": "{\"code\":\"200000\",\"data\":false}",
+      "body": {
+        "code": "200000",
+        "data": false
+      }
+    },
+    "balances": {
+      "source": "balances",
+      "request_examples": [
+        "curl --location --request GET 'https://api.kucoin.com/api/v1/accounts?currency=USDT&type=main'"
+      ],
+      "response_text": "{\n    \"code\": \"200000\",\n    \"data\": [\n        {\n            \"id\": \"548674591753\",\n            \"currency\": \"USDT\",\n            \"type\": \"trade\",\n            \"balance\": \"26.66759503\",\n            \"available\": \"26.66759503\",\n            \"holds\": \"0\"\n        },\n        {\n            \"id\": \"63355cd156298d0001b66e61\",\n            \"currency\": \"USDT\",\n            \"type\": \"main\",\n            \"balance\": \"0.01\",\n            \"available\": \"0.01\",\n            \"holds\": \"0\"\n        }\n    ]\n}",
+      "body": {
+        "code": "200000",
+        "data": [
+          {
+            "id": "548674591753",
+            "currency": "USDT",
+            "type": "trade",
+            "balance": "26.66759503",
+            "available": "26.66759503",
+            "holds": "0"
+          },
+          {
+            "id": "63355cd156298d0001b66e61",
+            "currency": "USDT",
+            "type": "main",
+            "balance": "0.01",
+            "available": "0.01",
+            "holds": "0"
+          }
+        ]
+      }
+    },
+    "apikey": {
+      "source": "apikey",
+      "request_examples": [
+        "curl --location --request GET 'https://api.kucoin.com/api/v1/user/api-key'"
+      ],
+      "response_text": "{\n    \"code\": \"200000\",\n    \"data\": {\n        \"remark\": \"No ip\",\n        \"apiKey\": \"68d4a2645******3841d\",\n        \"apiVersion\": 3,\n        \"permission\": \"General,Futures,Unified,Spot,Earn,InnerTransfer,Margin\",\n        \"createdAt\": 1758765668000,\n        \"uid\": 165***215,\n        \"isMaster\": true,\n        \"region\": \"PW\",\n        \"kycStatus\": 1,\n        \"siteType\": \"global\"\n    }\n}"
+    }
+  },
+  "cases": [
+    {
+      "id": "detect_classic",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode",
+          "opened"
+        ],
+        "note": "Keep only selfAccountMode; vary CLASSIC/UNIFIED and the separately returned opened boolean.",
+        "response_edits": [
+          {
+            "path": "/data/classicSubAccount",
+            "remove": true
+          },
+          {
+            "path": "/data/unifiedSubAccount",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "selfAccountMode": "CLASSIC"
+          }
+        }
+      },
+      "expect": {
+        "mode": "ClassicLf",
+        "placement_posts": 0,
+        "opened_requests": 1
+      },
+      "then": {
+        "request": {
+          "method": "GET",
+          "path": "/api/v1/hf/accounts/opened",
+          "query": []
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": false
+          }
+        }
+      }
+    },
+    {
+      "id": "detect_hf",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode",
+          "opened"
+        ],
+        "note": "Keep only selfAccountMode; vary CLASSIC/UNIFIED and the separately returned opened boolean.",
+        "response_edits": [
+          {
+            "path": "/data/classicSubAccount",
+            "remove": true
+          },
+          {
+            "path": "/data/unifiedSubAccount",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "selfAccountMode": "CLASSIC"
+          }
+        }
+      },
+      "expect": {
+        "mode": "ClassicHf",
+        "placement_posts": 0,
+        "opened_requests": 1
+      },
+      "then": {
+        "request": {
+          "method": "GET",
+          "path": "/api/v1/hf/accounts/opened",
+          "query": []
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": true
+          }
+        }
+      }
+    },
+    {
+      "id": "detect_uta",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode",
+          "opened"
+        ],
+        "note": "Keep only selfAccountMode; vary CLASSIC/UNIFIED and the separately returned opened boolean.",
+        "response_edits": [
+          {
+            "path": "/data/classicSubAccount",
+            "remove": true
+          },
+          {
+            "path": "/data/selfAccountMode",
+            "value": "UNIFIED"
+          },
+          {
+            "path": "/data/unifiedSubAccount",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "selfAccountMode": "UNIFIED"
+          }
+        }
+      },
+      "expect": {
+        "mode": "UnsupportedUta",
+        "placement_posts": 0,
+        "opened_requests": 0
+      }
+    },
+    {
+      "id": "mode_unknown",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/data/classicSubAccount",
+            "remove": true
+          },
+          {
+            "path": "/data/selfAccountMode",
+            "value": "FUTURE"
+          },
+          {
+            "path": "/data/unifiedSubAccount",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "selfAccountMode": "FUTURE"
+          }
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "mode_missing",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/data/classicSubAccount",
+            "remove": true
+          },
+          {
+            "path": "/data/selfAccountMode",
+            "remove": true
+          },
+          {
+            "path": "/data/unifiedSubAccount",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {}
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "mode_timeout",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic."
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "transport_error": "MaybeSent"
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "mode_401",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400003"
+          },
+          {
+            "path": "/data",
+            "value": null
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 401,
+        "body": {
+          "code": "400003",
+          "data": null
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "mode_403",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400007"
+          },
+          {
+            "path": "/data",
+            "value": null
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "code": "400007",
+          "data": null
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "mode_429",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "429000"
+          },
+          {
+            "path": "/data",
+            "value": null
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 429,
+        "body": {
+          "code": "429000",
+          "data": null
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "mode_error_envelope",
+      "endpoint": "mode",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "mode"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "500000"
+          },
+          {
+            "path": "/data/classicSubAccount",
+            "remove": true
+          },
+          {
+            "path": "/data/unifiedSubAccount",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "500000",
+          "data": {
+            "selfAccountMode": "CLASSIC"
+          }
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "opened_null",
+      "endpoint": "opened",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "opened"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "value": null
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/accounts/opened",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": null
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      },
+      "given": {
+        "selfAccountMode": "CLASSIC"
+      }
+    },
+    {
+      "id": "opened_string",
+      "endpoint": "opened",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "opened"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "value": "true"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/accounts/opened",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": "true"
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      },
+      "given": {
+        "selfAccountMode": "CLASSIC"
+      }
+    },
+    {
+      "id": "opened_number",
+      "endpoint": "opened",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "opened"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "value": 1
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/accounts/opened",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": 1
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      },
+      "given": {
+        "selfAccountMode": "CLASSIC"
+      }
+    },
+    {
+      "id": "opened_object",
+      "endpoint": "opened",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "opened"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "value": {
+              "opened": true
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/accounts/opened",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "opened": true
+          }
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      },
+      "given": {
+        "selfAccountMode": "CLASSIC"
+      }
+    },
+    {
+      "id": "opened_absent",
+      "endpoint": "opened",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "opened"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "remove": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/accounts/opened",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000"
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      },
+      "given": {
+        "selfAccountMode": "CLASSIC"
+      }
+    },
+    {
+      "id": "opened_error_envelope",
+      "endpoint": "opened",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "opened"
+        ],
+        "note": "Fault injection; no fallback mode, no new intent and no synthetic balance. Transport/status are synthetic.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "500000"
+          },
+          {
+            "path": "/data",
+            "value": true
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/accounts/opened",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "500000",
+          "data": true
+        }
+      },
+      "expect": {
+        "mode": "Unknown",
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      },
+      "given": {
+        "selfAccountMode": "CLASSIC"
+      }
+    },
+    {
+      "id": "balances_holds",
+      "endpoint": "balances",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balances",
+          "sdk_balances"
+        ],
+        "note": "Select trade_hf, introduce nonzero held funds. locked is a compatibility alias policy, not a documented SDK field.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "value": [
+              {
+                "id": "548674591753",
+                "currency": "USDT",
+                "type": "trade_hf",
+                "balance": "26.66759503",
+                "available": "25.12345678",
+                "holds": "1.54413825"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/accounts",
+        "query": [
+          [
+            "type",
+            "trade_hf"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": [
+            {
+              "id": "548674591753",
+              "currency": "USDT",
+              "type": "trade_hf",
+              "balance": "26.66759503",
+              "available": "25.12345678",
+              "holds": "1.54413825"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "placement_posts": 0,
+        "available": "25.12345678",
+        "tracker_total": "26.66759503"
+      }
+    },
+    {
+      "id": "balances_locked",
+      "endpoint": "balances",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balances",
+          "sdk_balances"
+        ],
+        "note": "Select trade_hf, introduce nonzero held funds. locked is a compatibility alias policy, not a documented SDK field.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "value": [
+              {
+                "id": "548674591753",
+                "currency": "USDT",
+                "type": "trade_hf",
+                "balance": "26.66759503",
+                "available": "25.12345678",
+                "locked": "1.54413825"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/accounts",
+        "query": [
+          [
+            "type",
+            "trade_hf"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": [
+            {
+              "id": "548674591753",
+              "currency": "USDT",
+              "type": "trade_hf",
+              "balance": "26.66759503",
+              "available": "25.12345678",
+              "locked": "1.54413825"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "placement_posts": 0,
+        "available": "25.12345678",
+        "tracker_total": "26.66759503"
+      }
+    },
+    {
+      "id": "balances_fail_503",
+      "endpoint": "balances",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "balances"
+        ],
+        "note": "Read failure must preserve stored balances."
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/accounts",
+        "query": [
+          [
+            "type",
+            "trade_hf"
+          ]
+        ]
+      },
+      "response": {
+        "status": 503,
+        "raw_body": "unavailable"
+      },
+      "expect": {
+        "placement_posts": 0,
+        "placement_intents_created": 0,
+        "preserve_stored_balances": true
+      }
+    },
+    {
+      "id": "permissions_spot",
+      "endpoint": "apikey",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey"
+        ],
+        "note": "Minimal SDK-shaped permission response; omit all unrelated fields, including the invalid redacted uid in the source example."
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/user/api-key",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "permission": "General,Spot"
+          }
+        }
+      },
+      "expect": {
+        "placement_posts": 0,
+        "trading_allowed": true
+      }
+    },
+    {
+      "id": "permissions_general_only",
+      "endpoint": "apikey",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey"
+        ],
+        "note": "Minimal SDK-shaped permission response; omit all unrelated fields, including the invalid redacted uid in the source example."
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/user/api-key",
+        "query": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "permission": "General"
+          }
+        }
+      },
+      "expect": {
+        "placement_posts": 0,
+        "trading_allowed": false
+      }
+    }
+  ]
+}
