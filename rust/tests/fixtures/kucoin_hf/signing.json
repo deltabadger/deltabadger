@@ -1,0 +1,341 @@
+{
+  "credentials": {
+    "key": "HF0-EXAMPLE-KEY",
+    "secret": "HF0-example-secret",
+    "passphrase": "HF0 example passphrase"
+  },
+  "timestamp": "1729577515000",
+  "oracle": "Python standard-library hmac/SHA256 + Base64, independent of Rust signer and Rails",
+  "cases": [
+    {
+      "id": "sign_get_mode",
+      "request": {
+        "method": "GET",
+        "path": "/api/ua/v2/account/mode",
+        "query": [],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000GET/api/ua/v2/account/mode",
+        "transport_url": "https://api.kucoin.com/api/ua/v2/account/mode",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "bm169qeJE8QptwzEPgAsOd2XSuoaI+m2ksRq9yBgz/Q=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_get_opened",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/accounts/opened",
+        "query": [],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000GET/api/v1/hf/accounts/opened",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/accounts/opened",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "LEAO4QI98xkOB5IB8shXQgSzUyk7uOf92ldrc9geDbs=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_get_balances",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/accounts",
+        "query": [
+          [
+            "type",
+            "trade_hf"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000GET/api/v1/accounts?type=trade_hf",
+        "transport_url": "https://api.kucoin.com/api/v1/accounts?type=trade_hf",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "PvnA/WtnE4HU9wAZB8jQ0PFnwjg1LpHbwqyNPGYnyb4=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_get_status_id",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000GET/api/v1/hf/orders/670fd33bf9406e0007ab3945?symbol=BTC-USDT",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/orders/670fd33bf9406e0007ab3945?symbol=BTC-USDT",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "9pGHz3LdzGkRMJqfgCIAqMT5X6jVC3ul1/4HHJ8vn+M=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_get_status_client",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000GET/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01?symbol=BTC-USDT",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01?symbol=BTC-USDT",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "YEL5JdLCYzSofRs+JLgFNE9Wf6ImUxngMFY8DoSgCR4=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_get_fills_cursor",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/fills",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "startAt",
+            "1729577515000"
+          ],
+          [
+            "endAt",
+            "1729577515999"
+          ],
+          [
+            "limit",
+            "100"
+          ],
+          [
+            "lastId",
+            "9007199254741901"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000GET/api/v1/hf/fills?symbol=BTC-USDT&startAt=1729577515000&endAt=1729577515999&limit=100&lastId=9007199254741901",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/fills?symbol=BTC-USDT&startAt=1729577515000&endAt=1729577515999&limit=100&lastId=9007199254741901",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "yxtZZevJkLyR6oU7eeTw5ilqPz59fkAcdHR1Okkqf9Y=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_post_market",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body_bytes": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"symbol\":\"BTC-USDT\",\"side\":\"buy\",\"type\":\"market\",\"funds\":\"1\"}"
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000POST/api/v1/hf/orders{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"symbol\":\"BTC-USDT\",\"side\":\"buy\",\"type\":\"market\",\"funds\":\"1\"}",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/orders",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "Rwdy/vf6vJ2dJCPR8ChkAGP14QbWraNbqi+CesrFWhg=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_post_limit",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body_bytes": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"symbol\":\"BTC-USDT\",\"side\":\"buy\",\"type\":\"limit\",\"size\":\"0.00001\",\"price\":\"67717.6\"}"
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000POST/api/v1/hf/orders{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"symbol\":\"BTC-USDT\",\"side\":\"buy\",\"type\":\"limit\",\"size\":\"0.00001\",\"price\":\"67717.6\"}",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/orders",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "hbTsyBIAYLVXQ+4gX+1N6YfdfQlqbeVGclrzdyrhcdM=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_delete_symbol",
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000DELETE/api/v1/hf/orders/670fd33bf9406e0007ab3945?symbol=BTC-USDT",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/orders/670fd33bf9406e0007ab3945?symbol=BTC-USDT",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "2kL9wrlcvkPu5R4dGN4zuDNF5MCAQPn0+INFM1fmhTw=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    },
+    {
+      "id": "sign_get_unescaped_query",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ],
+          [
+            "remark",
+            "space +/%?=é"
+          ]
+        ],
+        "body_bytes": ""
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "authentication",
+          "sdk_signer"
+        ],
+        "note": "Throwaway credentials, frozen timestamp and coherent request bytes. Extra remark in the encoding probe tests authentication only, not endpoint parameter acceptance."
+      },
+      "expect": {
+        "prehash": "1729577515000GET/api/v1/hf/orders/670fd33bf9406e0007ab3945?symbol=BTC-USDT&remark=space +/%?=é",
+        "transport_url": "https://api.kucoin.com/api/v1/hf/orders/670fd33bf9406e0007ab3945?symbol=BTC-USDT&remark=space+%2B%2F%25%3F%3D%C3%A9",
+        "headers": {
+          "KC-API-KEY": "HF0-EXAMPLE-KEY",
+          "KC-API-TIMESTAMP": "1729577515000",
+          "KC-API-KEY-VERSION": "2",
+          "KC-API-SIGN": "3GBoXHMiP2iyR0OMZi2yyZ40f4rFK2vv/f5maa32b6I=",
+          "KC-API-PASSPHRASE": "FLZY7kjouFXwzAfVO6xe+EqpMmPnZFjOVanTGXImeMo="
+        }
+      }
+    }
+  ]
+}

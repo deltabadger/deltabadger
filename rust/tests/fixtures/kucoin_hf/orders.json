@@ -1,0 +1,3263 @@
+{
+  "identity": {
+    "orderId": "670fd33bf9406e0007ab3945",
+    "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+    "symbol": "BTC-USDT",
+    "side": "buy",
+    "type": "limit"
+  },
+  "examples": {
+    "place": {
+      "source": "place",
+      "request_examples": [
+        "//limit order\n{\n    \"type\": \"limit\",\n    \"symbol\": \"BTC-USDT\",\n    \"side\": \"buy\",\n    \"price\": \"50000\",\n    \"size\": \"0.00001\",\n    \"clientOid\": \"5c52e11203aa677f33e493fb\",\n    \"remark\": \"order remarks\"\n}\n\n//market order 1\n// {\n//     \"type\": \"market\",\n//     \"symbol\": \"BTC-USDT\",\n//     \"side\": \"buy\",\n//     \"size\": \"0.00001\",\n//     \"clientOid\": \"5c52e11203aa677f33e493fc\",\n//     \"remark\": \"order remarks\"\n// }\n\n//market order 2\n// {\n//     \"type\": \"market\",\n//     \"symbol\": \"BTC-USDT\",\n//     \"side\": \"buy\",\n//     \"funds\": \"1\",\n//     \"clientOid\": \"5c52e11203aa677f33e493fc\",\n//     \"remark\": \"order remarks\"\n// }\n",
+        "curl --location --request POST 'https://api.kucoin.com/api/v1/hf/orders' \\\n--header 'Content-Type: application/json' \\\n--data-raw '//limit order\n{\n    \"type\": \"limit\",\n    \"symbol\": \"BTC-USDT\",\n    \"side\": \"buy\",\n    \"price\": \"50000\",\n    \"size\": \"0.00001\",\n    \"clientOid\": \"5c52e11203aa677f33e493fb\",\n    \"remark\": \"order remarks\"\n}\n\n//market order 1\n// {\n//     \"type\": \"market\",\n//     \"symbol\": \"BTC-USDT\",\n//     \"side\": \"buy\",\n//     \"size\": \"0.00001\",\n//     \"clientOid\": \"5c52e11203aa677f33e493fc\",\n//     \"remark\": \"order remarks\"\n// }\n\n//market order 2\n// {\n//     \"type\": \"market\",\n//     \"symbol\": \"BTC-USDT\",\n//     \"side\": \"buy\",\n//     \"funds\": \"1\",\n//     \"clientOid\": \"5c52e11203aa677f33e493fc\",\n//     \"remark\": \"order remarks\"\n// }'"
+      ],
+      "response_text": "{\"code\":\"200000\",\"data\":{\"orderId\":\"670fd33bf9406e0007ab3945\",\"clientOid\":\"5c52e11203aa677f33e493fb\"}}",
+      "body": {
+        "code": "200000",
+        "data": {
+          "orderId": "670fd33bf9406e0007ab3945",
+          "clientOid": "5c52e11203aa677f33e493fb"
+        }
+      }
+    },
+    "status_id": {
+      "source": "status_id",
+      "request_examples": [
+        "curl --location --request GET 'https://api.kucoin.com/api/v1/hf/orders/6717422bd51c29000775ea03?symbol=BTC-USDT'"
+      ],
+      "response_text": "{\n    \"code\": \"200000\",\n    \"data\": {\n        \"id\": \"68a3e81d2a090d00070575f7\",\n        \"symbol\": \"BTC-USDT\",\n        \"opType\": \"DEAL\",\n        \"type\": \"limit\",\n        \"side\": \"buy\",\n        \"price\": \"100000\",\n        \"size\": \"0.00001\",\n        \"funds\": \"1\",\n        \"dealSize\": \"0\",\n        \"dealFunds\": \"0\",\n        \"fee\": \"0\",\n        \"feeCurrency\": \"USDT\",\n        \"stp\": null,\n        \"timeInForce\": \"GTC\",\n        \"postOnly\": false,\n        \"hidden\": false,\n        \"iceberg\": false,\n        \"visibleSize\": \"0\",\n        \"cancelAfter\": 0,\n        \"channel\": \"API\",\n        \"clientOid\": \"5c52e11203aa677f33e493fb\",\n        \"remark\": \"order remarks\",\n        \"tags\": null,\n        \"cancelExist\": true,\n        \"createdAt\": 1755572253338,\n        \"lastUpdatedAt\": 1755572263485,\n        \"tradeType\": \"TRADE\",\n        \"inOrderBook\": false,\n        \"cancelledSize\": \"0.00001\",\n        \"cancelledFunds\": \"1\",\n        \"remainSize\": \"0\",\n        \"remainFunds\": \"0\",\n        \"tax\": \"0\",\n        \"cancelReason\": 0,\n        \"active\": false\n    }\n}",
+      "body": {
+        "code": "200000",
+        "data": {
+          "id": "68a3e81d2a090d00070575f7",
+          "symbol": "BTC-USDT",
+          "opType": "DEAL",
+          "type": "limit",
+          "side": "buy",
+          "price": "100000",
+          "size": "0.00001",
+          "funds": "1",
+          "dealSize": "0",
+          "dealFunds": "0",
+          "fee": "0",
+          "feeCurrency": "USDT",
+          "stp": null,
+          "timeInForce": "GTC",
+          "postOnly": false,
+          "hidden": false,
+          "iceberg": false,
+          "visibleSize": "0",
+          "cancelAfter": 0,
+          "channel": "API",
+          "clientOid": "5c52e11203aa677f33e493fb",
+          "remark": "order remarks",
+          "tags": null,
+          "cancelExist": true,
+          "createdAt": 1755572253338,
+          "lastUpdatedAt": 1755572263485,
+          "tradeType": "TRADE",
+          "inOrderBook": false,
+          "cancelledSize": "0.00001",
+          "cancelledFunds": "1",
+          "remainSize": "0",
+          "remainFunds": "0",
+          "tax": "0",
+          "cancelReason": 0,
+          "active": false
+        }
+      }
+    },
+    "status_client": {
+      "source": "status_client",
+      "request_examples": [
+        "curl --location --request GET 'https://api.kucoin.com/api/v1/hf/orders/client-order/5c52e11203aa677f33e493fb?symbol=BTC-USDT'"
+      ],
+      "response_text": "{\n    \"code\": \"200000\",\n    \"data\": {\n        \"id\": \"695f59478203450007f77322\",\n        \"symbol\": \"BTC-USDT\",\n        \"opType\": \"DEAL\",\n        \"type\": \"market\",\n        \"side\": \"buy\",\n        \"price\": \"0\",\n        \"size\": \"0\",\n        \"funds\": \"0.1\",\n        \"dealSize\": \"0.00000111\",\n        \"dealFunds\": \"0.099942957\",\n        \"fee\": \"0.000099942957\",\n        \"feeCurrency\": \"USDT\",\n        \"stp\": null,\n        \"timeInForce\": \"GTC\",\n        \"postOnly\": false,\n        \"hidden\": false,\n        \"iceberg\": false,\n        \"visibleSize\": \"0\",\n        \"cancelAfter\": 0,\n        \"channel\": \"API\",\n        \"clientOid\": \"9a1840ed0b5746459ede8e6f232daf2d\",\n        \"remark\": null,\n        \"tags\": null,\n        \"cancelExist\": true,\n        \"createdAt\": 1767856455976,\n        \"lastUpdatedAt\": 1767856456017,\n        \"tradeType\": \"TRADE\",\n        \"inOrderBook\": false,\n        \"cancelledSize\": \"0\",\n        \"cancelledFunds\": \"0.000057043\",\n        \"remainSize\": \"0\",\n        \"remainFunds\": null,\n        \"tax\": \"0\",\n        \"cancelReason\": 11,\n        \"active\": false\n    }\n}",
+      "body": {
+        "code": "200000",
+        "data": {
+          "id": "695f59478203450007f77322",
+          "symbol": "BTC-USDT",
+          "opType": "DEAL",
+          "type": "market",
+          "side": "buy",
+          "price": "0",
+          "size": "0",
+          "funds": "0.1",
+          "dealSize": "0.00000111",
+          "dealFunds": "0.099942957",
+          "fee": "0.000099942957",
+          "feeCurrency": "USDT",
+          "stp": null,
+          "timeInForce": "GTC",
+          "postOnly": false,
+          "hidden": false,
+          "iceberg": false,
+          "visibleSize": "0",
+          "cancelAfter": 0,
+          "channel": "API",
+          "clientOid": "9a1840ed0b5746459ede8e6f232daf2d",
+          "remark": null,
+          "tags": null,
+          "cancelExist": true,
+          "createdAt": 1767856455976,
+          "lastUpdatedAt": 1767856456017,
+          "tradeType": "TRADE",
+          "inOrderBook": false,
+          "cancelledSize": "0",
+          "cancelledFunds": "0.000057043",
+          "remainSize": "0",
+          "remainFunds": null,
+          "tax": "0",
+          "cancelReason": 11,
+          "active": false
+        }
+      }
+    },
+    "cancel": {
+      "source": "cancel",
+      "request_examples": [
+        "curl --location --request DELETE 'https://api.kucoin.com/api/v1/hf/orders/671124f9365ccb00073debd4?symbol=BTC-USDT'"
+      ],
+      "response_text": "{\n    \"code\": \"200000\",\n    \"data\": {\n        \"orderId\": \"671124f9365ccb00073debd4\"\n    }\n}",
+      "body": {
+        "code": "200000",
+        "data": {
+          "orderId": "671124f9365ccb00073debd4"
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "place_buy_market_size",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "Persisted UUID replaces example clientOid; explicit buy/sell size/funds/limit request variants. Values are already sized; HF-2 must reuse classic sizing.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "size": "0.00001"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Accepted",
+        "placement_posts": 1,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row",
+        "raw_order_id": "670fd33bf9406e0007ab3945"
+      }
+    },
+    {
+      "id": "place_buy_market_funds",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "Persisted UUID replaces example clientOid; explicit buy/sell size/funds/limit request variants. Values are already sized; HF-2 must reuse classic sizing.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Accepted",
+        "placement_posts": 1,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row",
+        "raw_order_id": "670fd33bf9406e0007ab3945"
+      }
+    },
+    {
+      "id": "place_buy_limit",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "Persisted UUID replaces example clientOid; explicit buy/sell size/funds/limit request variants. Values are already sized; HF-2 must reuse classic sizing.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "buy",
+          "type": "limit",
+          "size": "0.00001",
+          "price": "67717.6"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Accepted",
+        "placement_posts": 1,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row",
+        "raw_order_id": "670fd33bf9406e0007ab3945"
+      }
+    },
+    {
+      "id": "place_sell_market_size",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "Persisted UUID replaces example clientOid; explicit buy/sell size/funds/limit request variants. Values are already sized; HF-2 must reuse classic sizing.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "sell",
+          "type": "market",
+          "size": "0.00001"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Accepted",
+        "placement_posts": 1,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row",
+        "raw_order_id": "670fd33bf9406e0007ab3945"
+      }
+    },
+    {
+      "id": "place_sell_market_funds",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "Persisted UUID replaces example clientOid; explicit buy/sell size/funds/limit request variants. Values are already sized; HF-2 must reuse classic sizing.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "sell",
+          "type": "market",
+          "funds": "1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Accepted",
+        "placement_posts": 1,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row",
+        "raw_order_id": "670fd33bf9406e0007ab3945"
+      }
+    },
+    {
+      "id": "place_sell_limit",
+      "endpoint": "place",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "place"
+        ],
+        "note": "Persisted UUID replaces example clientOid; explicit buy/sell size/funds/limit request variants. Values are already sized; HF-2 must reuse classic sizing.",
+        "response_edits": [
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/hf/orders",
+        "query": [],
+        "body": {
+          "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+          "symbol": "BTC-USDT",
+          "side": "sell",
+          "type": "limit",
+          "size": "0.00001",
+          "price": "67717.6"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          }
+        }
+      },
+      "expect": {
+        "classification": "Accepted",
+        "placement_posts": 1,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row",
+        "raw_order_id": "670fd33bf9406e0007ab3945"
+      }
+    },
+    {
+      "id": "status_active_before_book",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/active",
+            "value": true
+          },
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/remainSize",
+            "value": "0.00001"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0.00001",
+            "remainFunds": "0.677176",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": true
+          }
+        }
+      },
+      "expect": {
+        "status": "Open",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_active_in_book",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/active",
+            "value": true
+          },
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/inOrderBook",
+            "value": true
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/remainSize",
+            "value": "0.00001"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": true,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0.00001",
+            "remainFunds": "0.677176",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": true
+          }
+        }
+      },
+      "expect": {
+        "status": "Open",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_filled",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0.00001"
+          },
+          {
+            "path": "/data/fee",
+            "value": "0.000677176"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0.00001",
+            "dealFunds": "0.677176",
+            "fee": "0.000677176",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Closed",
+        "gross_base": "0.00001",
+        "gross_quote": "0.677176",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_cancelled_partial",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0.4063056"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0.000006"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0.2708704"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0.000004"
+          },
+          {
+            "path": "/data/fee",
+            "value": "0.0002708704"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0.000004",
+            "dealFunds": "0.2708704",
+            "fee": "0.0002708704",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": true,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0.000006",
+            "cancelledFunds": "0.4063056",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Cancelled",
+        "gross_base": "0.000004",
+        "gross_quote": "0.2708704",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_missing_active",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/active",
+            "remove": true
+          },
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0
+          }
+        }
+      },
+      "expect": {
+        "status": "Unresolved",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_string_active",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/active",
+            "value": "false"
+          },
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": "false"
+          }
+        }
+      },
+      "expect": {
+        "status": "Unresolved",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_inactive_in_book",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/inOrderBook",
+            "value": true
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": true,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Unresolved",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_missing_execution",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "remove": true
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Unresolved",
+        "gross_base": "0",
+        "gross_quote": null,
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_conflicting_execution",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "1"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "1",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Unresolved",
+        "gross_base": "0",
+        "gross_quote": "1",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_price_round_half_up",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0.6771765"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0.00001"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.6771765"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.65"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.65",
+            "size": "0.00001",
+            "funds": "0.6771765",
+            "dealSize": "0.00001",
+            "dealFunds": "0.6771765",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Closed",
+        "gross_base": "0.00001",
+        "gross_quote": "0.6771765",
+        "reserve_credit": "0",
+        "price": "67717.7",
+        "price_decimals": 1
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_zero_59s",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "0"
+          },
+          {
+            "path": "/data/type",
+            "value": "market"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "market",
+            "side": "buy",
+            "price": "0",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Unknown",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577574000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_zero_60s",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "0"
+          },
+          {
+            "path": "/data/type",
+            "value": "market"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "market",
+            "side": "buy",
+            "price": "0",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Unknown",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_zero_after_60s",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "0"
+          },
+          {
+            "path": "/data/type",
+            "value": "market"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "market",
+            "side": "buy",
+            "price": "0",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Closed",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575001,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "status_zero_limit",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id",
+          "sdk_status"
+        ],
+        "note": "Coherent immutable identity, timestamp and execution/remaining/cancelled amounts; typed HF flag and zero-fill policy variants. No parser execution implied.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "status": "Unknown",
+        "gross_base": "0",
+        "gross_quote": "0",
+        "reserve_credit": "0"
+      },
+      "given": {
+        "now_ms": 1729577575000,
+        "price_decimals": 1
+      }
+    },
+    {
+      "id": "lookup_matching_status_id",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id"
+        ],
+        "note": "Coherent positive lookup by each identifier; acceptance is recovered once, without another POST.",
+        "response_edits": [
+          {
+            "path": "/data/active",
+            "value": true
+          },
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/remainSize",
+            "value": "0.00001"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0.00001",
+            "remainFunds": "0.677176",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": true
+          }
+        }
+      },
+      "expect": {
+        "identity_matches": true,
+        "recovered": true,
+        "placement_posts": 0,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row"
+      }
+    },
+    {
+      "id": "lookup_matching_status_client",
+      "endpoint": "status_client",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_client"
+        ],
+        "note": "Coherent positive lookup by each identifier; acceptance is recovered once, without another POST.",
+        "response_edits": [
+          {
+            "path": "/data/active",
+            "value": true
+          },
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelReason",
+            "value": 0
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/fee",
+            "value": "0"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/remainSize",
+            "value": "0.00001"
+          },
+          {
+            "path": "/data/remark",
+            "value": "order remarks"
+          },
+          {
+            "path": "/data/size",
+            "value": "0.00001"
+          },
+          {
+            "path": "/data/type",
+            "value": "limit"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0.00001",
+            "remainFunds": "0.677176",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": true
+          }
+        }
+      },
+      "expect": {
+        "identity_matches": true,
+        "recovered": true,
+        "placement_posts": 0,
+        "transaction_rows_delta": 1,
+        "intent": "transferred_to_row"
+      }
+    },
+    {
+      "id": "lookup_wrong_id",
+      "endpoint": "status_id",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_id"
+        ],
+        "note": "Identity mismatch or absent lookup is not proof of non-placement.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/cancelledSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "different-order"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "different-order",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "intent": "retained",
+        "placement_posts": 0,
+        "transaction_rows_delta": 0
+      }
+    },
+    {
+      "id": "lookup_wrong_client_oid",
+      "endpoint": "status_client",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_client"
+        ],
+        "note": "Identity mismatch or absent lookup is not proof of non-placement.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelReason",
+            "value": 0
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "different-intent"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/fee",
+            "value": "0"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/remark",
+            "value": "order remarks"
+          },
+          {
+            "path": "/data/size",
+            "value": "0.00001"
+          },
+          {
+            "path": "/data/type",
+            "value": "limit"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "different-intent",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "intent": "retained",
+        "placement_posts": 0,
+        "transaction_rows_delta": 0
+      }
+    },
+    {
+      "id": "lookup_wrong_symbol",
+      "endpoint": "status_client",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_client"
+        ],
+        "note": "Identity mismatch or absent lookup is not proof of non-placement.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelReason",
+            "value": 0
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/fee",
+            "value": "0"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/remark",
+            "value": "order remarks"
+          },
+          {
+            "path": "/data/size",
+            "value": "0.00001"
+          },
+          {
+            "path": "/data/symbol",
+            "value": "ETH-USDT"
+          },
+          {
+            "path": "/data/type",
+            "value": "limit"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "ETH-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "intent": "retained",
+        "placement_posts": 0,
+        "transaction_rows_delta": 0
+      }
+    },
+    {
+      "id": "lookup_wrong_side",
+      "endpoint": "status_client",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_client"
+        ],
+        "note": "Identity mismatch or absent lookup is not proof of non-placement.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelReason",
+            "value": 0
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/fee",
+            "value": "0"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/remark",
+            "value": "order remarks"
+          },
+          {
+            "path": "/data/side",
+            "value": "sell"
+          },
+          {
+            "path": "/data/size",
+            "value": "0.00001"
+          },
+          {
+            "path": "/data/type",
+            "value": "limit"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "limit",
+            "side": "sell",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "intent": "retained",
+        "placement_posts": 0,
+        "transaction_rows_delta": 0
+      }
+    },
+    {
+      "id": "lookup_wrong_type",
+      "endpoint": "status_client",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_client"
+        ],
+        "note": "Identity mismatch or absent lookup is not proof of non-placement.",
+        "response_edits": [
+          {
+            "path": "/data/cancelExist",
+            "value": false
+          },
+          {
+            "path": "/data/cancelReason",
+            "value": 0
+          },
+          {
+            "path": "/data/cancelledFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/clientOid",
+            "value": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01"
+          },
+          {
+            "path": "/data/createdAt",
+            "value": 1729577515000
+          },
+          {
+            "path": "/data/dealFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/dealSize",
+            "value": "0"
+          },
+          {
+            "path": "/data/fee",
+            "value": "0"
+          },
+          {
+            "path": "/data/funds",
+            "value": "0.677176"
+          },
+          {
+            "path": "/data/id",
+            "value": "670fd33bf9406e0007ab3945"
+          },
+          {
+            "path": "/data/lastUpdatedAt",
+            "value": 1729577515100
+          },
+          {
+            "path": "/data/price",
+            "value": "67717.6"
+          },
+          {
+            "path": "/data/remainFunds",
+            "value": "0"
+          },
+          {
+            "path": "/data/remark",
+            "value": "order remarks"
+          },
+          {
+            "path": "/data/size",
+            "value": "0.00001"
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "id": "670fd33bf9406e0007ab3945",
+            "symbol": "BTC-USDT",
+            "opType": "DEAL",
+            "type": "market",
+            "side": "buy",
+            "price": "67717.6",
+            "size": "0.00001",
+            "funds": "0.677176",
+            "dealSize": "0",
+            "dealFunds": "0",
+            "fee": "0",
+            "feeCurrency": "USDT",
+            "stp": null,
+            "timeInForce": "GTC",
+            "postOnly": false,
+            "hidden": false,
+            "iceberg": false,
+            "visibleSize": "0",
+            "cancelAfter": 0,
+            "channel": "API",
+            "clientOid": "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+            "remark": "order remarks",
+            "tags": null,
+            "cancelExist": false,
+            "createdAt": 1729577515000,
+            "lastUpdatedAt": 1729577515100,
+            "tradeType": "TRADE",
+            "inOrderBook": false,
+            "cancelledSize": "0",
+            "cancelledFunds": "0",
+            "remainSize": "0",
+            "remainFunds": "0",
+            "tax": "0",
+            "cancelReason": 0,
+            "active": false
+          }
+        }
+      },
+      "expect": {
+        "intent": "retained",
+        "placement_posts": 0,
+        "transaction_rows_delta": 0
+      }
+    },
+    {
+      "id": "lookup_missing",
+      "endpoint": "status_client",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "status_client"
+        ],
+        "note": "Identity mismatch or absent lookup is not proof of non-placement.",
+        "response_edits": [
+          {
+            "path": "/data",
+            "value": null
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/hf/orders/client-order/5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": null
+        }
+      },
+      "expect": {
+        "intent": "retained",
+        "placement_posts": 0,
+        "transaction_rows_delta": 0
+      }
+    },
+    {
+      "id": "cancel_ack",
+      "endpoint": "cancel",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "Cancel response concerns the request only; preserve the order/reserve until a final status read.",
+        "response_edits": [
+          {
+            "path": "/data/orderId",
+            "value": "670fd33bf9406e0007ab3945"
+          }
+        ]
+      },
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "670fd33bf9406e0007ab3945"
+          }
+        }
+      },
+      "expect": {
+        "cancellation": "acknowledged",
+        "terminal_proven": false,
+        "reserve_credit": "0",
+        "poll_required": true
+      }
+    },
+    {
+      "id": "cancel_wrong_id",
+      "endpoint": "cancel",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "Cancel response concerns the request only; preserve the order/reserve until a final status read.",
+        "response_edits": [
+          {
+            "path": "/data/orderId",
+            "value": "different-order"
+          }
+        ]
+      },
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "code": "200000",
+          "data": {
+            "orderId": "different-order"
+          }
+        }
+      },
+      "expect": {
+        "cancellation": "uncertain",
+        "terminal_proven": false,
+        "reserve_credit": "0",
+        "poll_required": true
+      }
+    },
+    {
+      "id": "cancel_refused",
+      "endpoint": "cancel",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "Cancel response concerns the request only; preserve the order/reserve until a final status read.",
+        "response_edits": [
+          {
+            "path": "/code",
+            "value": "400100"
+          },
+          {
+            "path": "/data",
+            "remove": true
+          },
+          {
+            "path": "/msg",
+            "value": "Parameter Error"
+          }
+        ]
+      },
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "400100",
+          "msg": "Parameter Error"
+        }
+      },
+      "expect": {
+        "cancellation": "rejected",
+        "terminal_proven": false,
+        "reserve_credit": "0",
+        "poll_required": true
+      }
+    },
+    {
+      "id": "cancel_lost_reply",
+      "endpoint": "cancel",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "Cancel response concerns the request only; preserve the order/reserve until a final status read."
+      },
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "transport_error": "MaybeSent"
+      },
+      "expect": {
+        "cancellation": "uncertain",
+        "terminal_proven": false,
+        "reserve_credit": "0",
+        "poll_required": true
+      }
+    },
+    {
+      "id": "cancel_503",
+      "endpoint": "cancel",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "Cancel response concerns the request only; preserve the order/reserve until a final status read."
+      },
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 503,
+        "raw_body": "unavailable"
+      },
+      "expect": {
+        "cancellation": "uncertain",
+        "terminal_proven": false,
+        "reserve_credit": "0",
+        "poll_required": true
+      }
+    },
+    {
+      "id": "cancel_unreadable",
+      "endpoint": "cancel",
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "cancel"
+        ],
+        "note": "Cancel response concerns the request only; preserve the order/reserve until a final status read."
+      },
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/hf/orders/670fd33bf9406e0007ab3945",
+        "query": [
+          [
+            "symbol",
+            "BTC-USDT"
+          ]
+        ]
+      },
+      "response": {
+        "status": 200,
+        "raw_body": "{"
+      },
+      "expect": {
+        "cancellation": "uncertain",
+        "terminal_proven": false,
+        "reserve_credit": "0",
+        "poll_required": true
+      }
+    }
+  ]
+}
