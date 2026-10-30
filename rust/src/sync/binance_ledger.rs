@@ -117,7 +117,7 @@ const DUST_LIMIT: usize = 100;
 const FIAT_ROWS: usize = 500;
 const EARN_SIZE: usize = 100;
 /// #import_earn_rewards and #import_earn_subscriptions: path, entry type, tx_id prefix and the amount's field.
-const EARN: [(&str, i64, &str, &str); 6] = [
+pub(super) const EARN: [(&str, i64, &str, &str); 6] = [
     ("/sapi/v1/simple-earn/flexible/history/rewardsRecord", STAKING_REWARD, "flex-reward", "rewards"),
     ("/sapi/v1/simple-earn/locked/history/rewardsRecord", STAKING_REWARD, "lock-reward", "rewards"),
     ("/sapi/v1/simple-earn/flexible/history/subscriptionRecord", WITHDRAWAL, "flex-sub", "purchaseAmount"),
@@ -532,23 +532,10 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
         let dribblets = listed(&page, "userAssetDribblets", "dust conversion")?;
         if dribblets.len() >= DUST_LIMIT { return Err(("more dust conversions in one window than Binance answers at once: nothing was stored".into(), true)); }
         for dribblet in &dribblets {
-            let at = millis_at(dribblet, &["operateTime"], "dust conversion")?;
-            for detail in &listed(dribblet, "userAssetDribbletDetails", "dust conversion detail")? {
-                let id = text(detail.value.get("transId")).ok_or_else(|| ("unreadable dust conversion transId".to_string(), true))?;
-                let group = Some(format!("dust_{id}"));
-                let mut out = entry(SWAP_OUT, &coin(detail, "fromAsset", "dust conversion")?, amount(detail, "amount", "dust conversion")?, detail, at);
-                (out.tx_id, out.group_id, out.description) = (Some(format!("dust-{id}-out")), group.clone(), Some("Dust conversion".into()));
-                let mut inn = entry(SWAP_IN, "BNB", amount(detail, "transferedAmount", "dust conversion")?, detail, at);
-                (inn.fee_currency, inn.fee_amount) = (Some("BNB".into()), Some(amount(detail, "serviceChargeAmount", "dust conversion")?));
-                (inn.tx_id, inn.group_id, inn.description) = (Some(format!("dust-{id}-in")), group, Some("Dust conversion".into()));
-                let parent = text(dribblet.value.get("transId"));
-                let context = Context { parent: parent.as_deref(), occurred_ms: Some(binance_writer::identity_ms(at)), ..Context::default() };
-                identities.push((entries.len(), identified(out.clone(), Source::DustOut, context)?));
-                identities.push((entries.len()+1, identified(inn.clone(), Source::DustIn, context)?));
-                entries.extend([out, inn]);
-            }
+            for i in repair_map(DUST_PATH, None, dribblet)? { identities.push((entries.len(), i.clone())); entries.push(i.entry); }
         }
     }
+
     for (start, end) in windows(since.unwrap_or(HISTORY_FROM_MS), now, DIVIDEND_DAYS) {
         let page = object_at(venue, clock, DIVIDEND_PATH, vec![("startTime", start.to_string()), ("endTime", end.to_string()), ("limit", DIVIDEND_LIMIT.to_string()), recv()]).await?;
         let rows = listed(&page, "rows", "dividend")?;
@@ -561,12 +548,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
         }
     }
     let mut calls = 0;
-    for (path, entry_type, prefix, field) in EARN {
-        let (id_keys, time_keys, description): (&[&str], &[&str], String) = if entry_type == STAKING_REWARD {
-            (&["time", "id"], &["time", "deliverDate"], "Earn reward".into())
-        } else {
-            (&["purchaseId", "redeemId", "time"], &["time", "createTime"], format!("Earn {}", prefix.replace('-', " ")))
-        };
+    for (path, _, _, _) in EARN {
         let kinds: &[Option<&str>] = if path == EARN[0].0 { &[Some(FLEXIBLE_REWARD_TYPES[0]), Some(FLEXIBLE_REWARD_TYPES[1]), Some(FLEXIBLE_REWARD_TYPES[2])] } else { &[None] };
         for (start, end) in binance_only(since.unwrap_or(EARN_FROM_MS), EARN_DAYS) { for kind in kinds {
             let mut current = 1;
@@ -579,22 +561,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
                 let rows = listed(&page, "rows", "earn record")?;
                 if rows.is_empty() { break; }
                 for row in &rows {
-                    let asset = coin(row, "asset", "earn record")?;
-                    let id = id_keys.iter().find_map(|k| text(row.value.get(*k))).ok_or_else(|| (format!("unreadable earn record {}", id_keys[0]), true))?;
-                    let tx_id = if entry_type == STAKING_REWARD { format!("{prefix}-{id}-{asset}") } else { format!("{prefix}-{id}") };
-                    // Rails' field, else the one Binance documents for locked rewards and every subscription and
-                    // redemption (`amount`; Rails reads nil there and stores 0).
-                    let quantity = if row.value.get(field).is_some_and(|v| !v.is_null()) { amount(row, field, "earn record")? } else { amount(row, "amount", "earn record")? };
-                    let mut e = entry(entry_type, &asset, quantity, row, millis_at(row, time_keys, "earn record")?);
-                    (e.tx_id, e.description) = (Some(tx_id), Some(description.clone()));
-                    let source = match prefix {
-                        "flex-reward" => Source::FlexibleReward, "lock-reward" => Source::LockedReward,
-                        "flex-sub" => Source::FlexibleSubscription, "flex-redeem" => Source::FlexibleRedemption,
-                        "lock-sub" => Source::LockedSubscription, "lock-redeem" => Source::LockedRedemption,
-                        _ => unreachable!("the fixed Earn endpoint table"),
-                    };
-                    identities.push((entries.len(), identified(e.clone(), source, Context { requested_type: *kind, ..Context::default() })?));
-                    entries.push(e);
+                    for i in repair_map(path, *kind, row)? { identities.push((entries.len(), i.clone())); entries.push(i.entry); }
                 }
                 if (current * EARN_SIZE) as i64 >= total(&page) { break; }
                 current += 1;
@@ -602,6 +569,58 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
         } }
     }
     Ok((entries, identities))
+}
+
+/// The maintenance reader shares the exact live mappings, without any live write phases.
+pub(super) fn repair_map(path:&str, kind:Option<&str>, raw:&Raw)->Result<Vec<Input>,Fail> {
+    let mut result=vec![];
+    if [DEPOSITS_PATH,WITHDRAWALS_PATH].contains(&path) {
+        let mut transfers=Transfers::default();
+        if path==DEPOSITS_PATH {deposit(raw,&mut transfers)?;}else{withdrawal(raw,&mut transfers)?;}
+        if transfers.pending.is_some() {return Err(("unsettled transfer".into(),true))}
+        for entry in transfers.entries {let source=if entry.entry_type==DEPOSIT {Source::Deposit}else{Source::Withdrawal};result.push(identified(entry,source,Context::default())?);}
+    } else if path==DUST_PATH {
+        let dribblet=raw;
+        let at = millis_at(dribblet, &["operateTime"], "dust conversion")?;
+        for detail in &listed(dribblet, "userAssetDribbletDetails", "dust conversion detail")? {
+            let id = text(detail.value.get("transId")).ok_or_else(|| ("unreadable dust conversion transId".to_string(), true))?;
+            let group = Some(format!("dust_{id}"));
+            let mut out = entry(SWAP_OUT, &coin(detail, "fromAsset", "dust conversion")?, amount(detail, "amount", "dust conversion")?, detail, at);
+            (out.tx_id, out.group_id, out.description) = (Some(format!("dust-{id}-out")), group.clone(), Some("Dust conversion".into()));
+            let mut inn = entry(SWAP_IN, "BNB", amount(detail, "transferedAmount", "dust conversion")?, detail, at);
+            (inn.fee_currency, inn.fee_amount) = (Some("BNB".into()), Some(amount(detail, "serviceChargeAmount", "dust conversion")?));
+            (inn.tx_id, inn.group_id, inn.description) = (Some(format!("dust-{id}-in")), group, Some("Dust conversion".into()));
+            let parent = text(dribblet.value.get("transId"));
+            let context = Context { parent: parent.as_deref(), occurred_ms: Some(binance_writer::identity_ms(at)), ..Context::default() };
+            result.push(identified(out, Source::DustOut, context)?);
+            result.push(identified(inn, Source::DustIn, context)?);
+
+        }
+    } else {
+        let (_,entry_type,prefix,field)=EARN.into_iter().find(|e|e.0==path).ok_or_else(||("unknown repair source".into(),true))?;
+        let (id_keys, time_keys, description): (&[&str], &[&str], String) = if entry_type == STAKING_REWARD {
+            (&["time", "id"], &["time", "deliverDate"], "Earn reward".into())
+        } else {
+            (&["purchaseId", "redeemId", "time"], &["time", "createTime"], format!("Earn {}", prefix.replace('-', " ")))
+        };
+        let row=raw;
+        let asset = coin(row, "asset", "earn record")?;
+        let id = id_keys.iter().find_map(|k| text(row.value.get(*k))).ok_or_else(|| (format!("unreadable earn record {}", id_keys[0]), true))?;
+        let tx_id = if entry_type == STAKING_REWARD { format!("{prefix}-{id}-{asset}") } else { format!("{prefix}-{id}") };
+        // Rails' field, else the one Binance documents for locked rewards and every subscription and
+        // redemption (`amount`; Rails reads nil there and stores 0).
+        let quantity = if row.value.get(field).is_some_and(|v| !v.is_null()) { amount(row, field, "earn record")? } else { amount(row, "amount", "earn record")? };
+        let mut e = entry(entry_type, &asset, quantity, row, millis_at(row, time_keys, "earn record")?);
+        (e.tx_id, e.description) = (Some(tx_id), Some(description.clone()));
+        let source = match prefix {
+            "flex-reward" => Source::FlexibleReward, "lock-reward" => Source::LockedReward,
+            "flex-sub" => Source::FlexibleSubscription, "flex-redeem" => Source::FlexibleRedemption,
+            "lock-sub" => Source::LockedSubscription, "lock-redeem" => Source::LockedRedemption,
+            _ => unreachable!("the fixed Earn endpoint table"),
+        };
+        result.push(identified(e, source, Context { requested_type: kind, ..Context::default() })?);
+
+    } Ok(result)
 }
 
 fn identified(entry: Entry, source: Source, context: Context<'_>) -> Result<Input, Fail> {

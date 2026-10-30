@@ -555,7 +555,7 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     assert_eq!(run(&fx).await, Outcome::Done);
     let (owner, id) = (fx.owner(), fx.s.exchange_id);
     let app = app(&fx);
-    let gaps_read = format!("SELECT value FROM app_configs WHERE key = 'rust_tracker_gaps.{owner}'");
+    let gaps_read = format!("SELECT key,value FROM app_configs WHERE key IN ('rust_tracker_gaps.{owner}','rust_binance_repair_gaps.{owner}')");
     let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
     let revision = format!("SELECT COUNT(*), MAX(updated_at) FROM account_balances WHERE user_id = {owner} AND exchange_id = {id}");
@@ -811,3 +811,22 @@ try {
 browser.kill();
 process.exit(failed ? 1 : 0);
 "#####;
+
+#[tokio::test(flavor = "current_thread")]
+async fn repair_diagnostics_use_the_existing_import_line_without_a_balance_gap() {
+    let fx = alpaca_synced("0.01").await;
+    assert_eq!(run(&fx).await, Outcome::Done);
+    let c = fx.c();
+    c.execute("UPDATE exchanges SET type='Exchanges::Binance',name='Binance' WHERE id=?1", [fx.s.exchange_id]).unwrap();
+    let producer = deltabadger::sync::cache::capture_read(&c, fx.owner(), Some(fx.s.exchange_id)).unwrap().producer_stamps()[0].clone();
+    let stored = json!({fx.s.exchange_id.to_string(): {"credential": producer, "unresolved": 1, "version": deltabadger::sync::binance_repair::REPAIR_VERSION}});
+    deltabadger::app_config::set_plain(&c, &deltabadger::sync::binance_repair::gap_key(fx.owner()), &stored.to_string(), at()).unwrap();
+    let app = app(&fx);
+    let body = get(&fx, &app, "/tracker").await.body;
+    assert!(line(&body, fx.s.exchange_id).is_some(), "a repair diagnostic needs no estimated balance deficit");
+    assert!(body.contains(&deltabadger::web::i18n::t("en", "tracker.history_gap.button", &[])));
+    let modal = get(&fx, &app, &format!("/tracker/history_gap?exchange_id={}", fx.s.exchange_id)).await;
+    assert_eq!(modal.status, 200);
+    assert!(modal.body.contains(&deltabadger::web::i18n::t("en", "tracker.history_gap.why_binance", &[])));
+    assert!(!modal.body.contains("What the tracker found"), "the repair invents no monetary estimate");
+}

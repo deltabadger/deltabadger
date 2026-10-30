@@ -220,7 +220,7 @@ fn proxied(venue: &str) -> Option<&'static str> {
 
 /// The venue type of a key and, for Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX, the proxy its reads go through: AppConfig
 /// `proxy_<name>` (decrypted) or ENV `PROXY_<NAME>`, as ExchangeProxy.for resolves it.
-async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncError> {
+pub(crate) async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncError> {
     let (venue, stored) = db.run(move |c, cipher| {
         let venue: String = c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1", [key], |r| r.get(0)).map_err(|e| e.to_string())?;
         let Some(name) = proxied(&venue) else { return Ok((venue, None)) };
