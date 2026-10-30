@@ -131,6 +131,7 @@ pub fn known_fills(c: &Connection, user_id: i64, exchange_id: i64, order_id: &st
             *sum = &*sum + &fee;
         }
     }
+    known.fees.retain(|_, v| !v.is_zero()); // a zero fee is none, as a bundle's fees read (fee_map)
     Ok(known)
 }
 
@@ -153,6 +154,14 @@ pub(crate) enum Admit {
 /// A terminal answer ends the row's reversal cancel here, before its settlement credits the reserve.
 pub(crate) fn admit(c: &Connection, bot_id: i64, tx_id: i64, external_id: &str, record: &Value, s: &OrderState, now: DateTime<Utc>) -> Result<Admit, EngineError> {
     let facts = Facts::of(s);
+    // The fills the ledger already holds bound every answer, a replay of a settlement included.
+    let (user, exchange) = owner(c, tx_id)?;
+    let known = known_fills(c, user, exchange, external_id)?;
+    let funds = s.quote_amount_exec.clone().unwrap_or_else(BigDec::zero);
+    if !matches!(s.status, OrderStatus::Unknown | OrderStatus::Failed) && (s.amount_exec < known.size || funds < known.funds) {
+        mark(c, tx_id, "KuCoin answered less than the fills already recorded for it", now)?;
+        return Ok(Admit::Done);
+    }
     if let Some(settled) = settled(c, tx_id, record)? {
         if facts.as_ref() == Some(&settled.facts) {
             if settled.receipt.is_none() {
@@ -169,15 +178,8 @@ pub(crate) fn admit(c: &Connection, bot_id: i64, tx_id: i64, external_id: &str, 
         mark(c, tx_id, "its state cannot be told yet", now)?;
         return Ok(Admit::Done);
     }
-    let funds = s.quote_amount_exec.clone().unwrap_or_else(BigDec::zero);
     if s.amount_exec < decimal(record, "deal_size", tx_id)? || funds < decimal(record, "deal_funds", tx_id)? {
         mark(c, tx_id, "KuCoin answered lower dealt totals than it already reported", now)?;
-        return Ok(Admit::Done);
-    }
-    let (user, exchange) = owner(c, tx_id)?;
-    let known = known_fills(c, user, exchange, external_id)?;
-    if s.amount_exec < known.size || funds < known.funds {
-        mark(c, tx_id, "KuCoin answered less than the fills already recorded for it", now)?;
         return Ok(Admit::Done);
     }
     let terminal = facts.is_some();
@@ -350,6 +352,10 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
         why.push("account is not the one the order was placed with".into());
     }
     if !why.is_empty() { return Err(refuse(why)); }
+    let (user, exchange_id) = owner(&tx, tx_id)?;
+    let known = known_fills(&tx, user, exchange_id, &b.order.id)?;
+    if facts.size < known.size || facts.funds < known.funds { return Err(refuse(vec!["executed is lower than the fills already recorded for it".into()])); }
+    if known.fees.iter().any(|(currency, amount)| fees.get(currency).is_none_or(|f| f < amount)) { return Err(refuse(vec!["fees are lower than the fills already recorded for it".into()])); }
     let evidence = serde_json::to_value(&b).map_err(|e| data(e.to_string()))?;
     let extra = json!({ "fees": fees_json(&fees), "sha256": b.source.sha256.to_lowercase(), "evidence": evidence });
     // A settled row: the same facts are a replay (an API settlement takes the fees once); anything else is a conflict.
@@ -374,10 +380,6 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
     if terminal_at < created { return Err(refuse(vec!["terminal.at is before the order was placed".into()])); }
     let recorded = (decimal(&record, "deal_size", tx_id)?, decimal(&record, "deal_funds", tx_id)?);
     if facts.size < recorded.0 || facts.funds < recorded.1 { return Err(refuse(vec!["executed is lower than KuCoin already reported for it".into()])); }
-    let (user, exchange_id) = owner(&tx, tx_id)?;
-    let known = known_fills(&tx, user, exchange_id, &b.order.id)?;
-    if facts.size < known.size || facts.funds < known.funds { return Err(refuse(vec!["executed is lower than the fills already recorded for it".into()])); }
-    if known.fees.iter().any(|(currency, amount)| fees.get(currency).is_none_or(|f| f < amount)) { return Err(refuse(vec!["fees are lower than the fills already recorded for it".into()])); }
     let price = if facts.size.is_positive() {
         let decimals: Option<i64> = tx.query_row("SELECT k.price_decimals FROM tickers k JOIN transactions t ON t.exchange_id = k.exchange_id AND t.base_asset_id = k.base_asset_id \
                                                   AND t.quote_asset_id = k.quote_asset_id WHERE t.id = ?1", [tx_id], |r| r.get(0)).optional()?;
@@ -434,6 +436,8 @@ pub(crate) fn prove(c: &Connection, bot_id: i64, tx_id: i64, origin: &crate::ven
                 record["deal_funds"] = json!(floor(row.quote_amount_exec, &known.funds).to_s_f());
                 crate::app_config::set_plain(tx, &format!("{}{tx_id}", crate::venue::kucoin::ORDER_RECORD), &record.to_string(), now).map_err(data)?;
                 crate::app_config::delete(tx, &key).map_err(data)?;
+                // The barrier moves, never lapses: the row owes until an HF answer of it applies.
+                mark(tx, tx_id, "its route is proven, its state not read yet", now)?;
                 Ok(Some(record))
             }
         }
@@ -469,22 +473,16 @@ pub(crate) fn mark_adopted(c: &Connection, cipher: &crate::crypto::Cipher, now: 
     Ok(rows.len())
 }
 
-/// D-KUCOIN-HF-RETENTION (R08): what Rails could not manage after a handback. A bot with an HF order (any row with an HF
-/// record, or an unresolved intent sent on an HF account): Rails trades only classic, so the account is Rust's. An adopted
-/// row whose route is unproven: Rails would read it on a guessed route. One line each, by bot.
+/// D-KUCOIN-HF-RETENTION (R08): what Rails could not manage after a handback: a bot with an HF order (any row with an HF
+/// record, or an unresolved intent sent on an HF account). Rails trades only classic, so that account is Rust's. An adopted
+/// row whose route is unproven is not refused: Rails placed it, on its own route, and reads it as it always did.
 pub(crate) fn handback_refusals(c: &Connection) -> Result<Vec<String>, EngineError> {
     let prefix = crate::venue::kucoin::ORDER_RECORD;
     let upper = format!("{};", &prefix[..prefix.len() - 1]);
     let mut s = c.prepare("SELECT DISTINCT t.bot_id FROM app_configs k JOIN transactions t ON t.id = CAST(substr(k.key, ?2) AS INTEGER) \
                            WHERE k.key >= ?1 AND k.key < ?3 AND t.bot_id IS NOT NULL \
                            UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement.kucoin_account_mode') = 'ClassicHf' ORDER BY 1")?;
-    let mut found: Vec<String> = s.query_map(params![prefix, prefix.len() as i64 + 1, upper], |r| r.get::<_, i64>(0))?
+    let found = s.query_map(params![prefix, prefix.len() as i64 + 1, upper], |r| r.get::<_, i64>(0))?
         .map(|id| id.map(|id| format!("bot {id}: KuCoin HF orders are Rust-only"))).collect::<Result<_, _>>()?;
-    let upper = format!("{};", &ORIGIN[..ORIGIN.len() - 1]);
-    let mut s = c.prepare("SELECT t.bot_id, t.id, t.external_id FROM app_configs k JOIN transactions t ON t.id = CAST(substr(k.key, ?2) AS INTEGER) \
-                           WHERE k.key >= ?1 AND k.key < ?3 AND json_extract(k.value, '$.origin') = 'unproven' ORDER BY t.id")?;
-    found.extend(s.query_map(params![ORIGIN, ORIGIN.len() as i64 + 1, upper], |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?)))?
-        .map(|row| row.map(|(bot, id, ext)| format!("bot {}: the route of KuCoin order {} (transaction {id}) is unproven", bot.unwrap_or_default(), ext.unwrap_or_default())))
-        .collect::<Result<Vec<_>, _>>()?);
     Ok(found)
 }

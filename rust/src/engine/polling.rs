@@ -326,19 +326,29 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     // Each row with what its venue recorded at acceptance (D-KUCOIN-HF-ORDERS: a KuCoin HF order's route).
     let mut refs = rows.iter().map(|(id, ext, _)| crate::venue::OrderRef::load(c, *id, ext)).collect::<Result<Vec<_>, _>>().map_err(db)?;
     for (r, (id, _, _)) in refs.iter_mut().zip(&rows) { prove_origin(c, venue, bot.id, *id, r, &version, now).await.map_err(db)?; }
+    let mut settles_at: Option<DateTime<Utc>> = None;
     for batch in refs.chunks(50) {
         let (orders, excluded) = venue.orders_result(batch, |ext, pair, class| {
             let Some((id, _, _)) = rows.iter().find(|(_, e, _)| e == ext) else { return Ok(false); };
             order_identified(c, bot, *id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
         }).await.value.map_err(|e| classify(e, &ids, venue.rules()))?;
-        found.extend(orders.into_iter().map(|o| o.settled(now)));
-        skipped.extend(excluded);
-    }
-    // D-KUCOIN-HF-RETENTION: an HF row the venue could not tell owes until a read applies (reconcile::unread).
-    for (r, (id, _, _)) in refs.iter().zip(&rows) {
-        if r.hf() && skipped.contains(&r.external_id) && !found.iter().any(|o| o.txid == r.external_id) {
+        // D-KUCOIN-HF-RETENTION: an HF row's answer is applied, and an HF row this read could not tell owes, before any later
+        // read can fail the poll (reconcile::admit, reconcile::unread). Either way it is out of the missing-order paths.
+        for o in orders.into_iter().map(|o| o.settled(now)) {
+            match batch.iter().zip(&rows).find(|(r, _)| r.hf() && r.external_id == o.txid) {
+                Some((_, (id, _, _))) => {
+                    apply_committed(c, bot.id, *id, &o, now, mode, &version).map_err(db)?;
+                    if o.status == OrderStatus::Unknown { settles_at = settles_at.into_iter().chain(o.settles_at()).min(); }
+                    skipped.push(o.txid);
+                }
+                None => found.push(o),
+            }
+        }
+        for r in batch.iter().filter(|r| r.hf() && excluded.contains(&r.external_id)) {
+            let Some((id, _, _)) = rows.iter().find(|(_, e, _)| *e == r.external_id) else { continue };
             super::reconcile::unread(c, bot.id, *id, "KuCoin could not tell this order's state", &version, now).map_err(db)?;
         }
+        skipped.extend(excluded);
     }
     // A venue that never names missing ids (VenueRules::reports_missing false: Binance) leaves an unreported row waiting:
     // no trade recovery, no abandonment.
@@ -379,16 +389,9 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
             }).map_err(db)?;
         }
     }
-    let mut settles_at: Option<DateTime<Utc>> = None;
     for state in &found {
         let Some((id, _, _)) = rows.iter().find(|(_, e, _)| e == &state.txid) else { continue };
         if state.status == OrderStatus::Unknown {
-            // An HF row's unknown state is its obligation (reconcile::admit), never a failed sweep.
-            if refs.iter().any(|r| r.hf() && r.external_id == state.txid) {
-                apply_committed(c, bot.id, *id, state, now, mode, &version).map_err(db)?;
-                settles_at = settles_at.into_iter().chain(state.settles_at()).min();
-                continue;
-            }
             if strict { return Err(PollFailure::General(format!("Order {} status is unknown.", state.txid))); }
             settles_at = settles_at.into_iter().chain(state.settles_at()).min();
             continue;

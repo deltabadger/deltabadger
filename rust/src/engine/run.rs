@@ -358,6 +358,9 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
             Ok((txs, producer)) => {
                 let at = clock.now().timestamp_micros() + POLL_AFTER_US;
                 for tx in txs {
+                    // A poll already due for it keeps its deadline (an HF cancel acknowledged again each pass must not push
+                    // its settling read away), unless it was scheduled under other credentials.
+                    if e.polls.get(&tx).is_some_and(|p| p.current_for(&producer).is_fresh()) { continue; }
                     e.polls.insert(tx, model::Produced::new((id, at, Attempts::default()), producer.clone()));
                     e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
                 }

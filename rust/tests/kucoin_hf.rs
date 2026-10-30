@@ -1785,8 +1785,8 @@ async fn refused(dir: &tempfile::TempDir, o: &deltabadger::store::Opened, want: 
     assert_eq!(lease::read(&o.primary, &common::seed::cipher()).unwrap().unwrap()["engine"], "rust", "{want}: the lease never moved");
 }
 
-/// R08: Rails trades no HF account and reads no route proof: an HF order row, an HF intent and an adopted row whose route
-/// is unproven each refuse the handback, naming the bot; the lease stays Rust's.
+/// R08: Rails trades no HF account: an HF order row and an HF intent each refuse the handback, naming the bot; the lease
+/// stays Rust's. An adopted row whose route is unproven hands back: Rails placed it on its own route.
 #[tokio::test(flavor = "current_thread")]
 async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
     let (dir, o, bot, _t, _v, _id, _ext) = placed("KEY-A", false).await;
@@ -1795,7 +1795,11 @@ async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
     refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
     let (dir, o, bot, _plan) = engine_setup();
     let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
-    refused(&dir, &o, &format!("bot {}: the route of KuCoin order A1 (transaction {id}) is unproven", bot.id)).await;
+    let now = at("2026-10-30T13:00:00Z");
+    let l = deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_| None, dir.path()), now).unwrap();
+    deltabadger::engine::handover::take_over(&l, &o, &common::seed::cipher(), "test", now).unwrap();
+    assert_eq!(origin(&o.primary, id).as_deref(), Some("unproven"));
+    deltabadger::engine::handover::hand_back(&l, &o, &deltabadger::venue::fake::FakeFactory::default(), &common::seed::cipher(), &deltabadger::engine::FixedClock(now)).await.unwrap();
 }
 
 /// §7: on an install whose Rust tables were never created, every HF-4 read stands (known fills read the visible ledger
@@ -1809,4 +1813,83 @@ async fn unmigrated_install_reads_stand() {
     assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext).unwrap().size.to_s_f(), "0.0002");
     assert!(reconcile::barrier(&o.primary, bot.id).unwrap().is_none());
     assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.001", "60", eur("0.06"), attested("x"))).unwrap(), reconcile::Operator::Reconciled);
+}
+
+// ---- HF-4 branch review ---------------------------------------------------------------------------------------------
+
+/// Review P1.1: the known fills bound a replay too, through the poll (a row settled before receipts) and the operator
+/// (an API receipt taking fees): neither settles below them, nor credits the reserve.
+#[tokio::test(flavor = "current_thread")]
+async fn review_known_fills_bound_a_replay() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    for _ in 0..2 { t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, false, "0.0004", "24")); }
+    polling::follow_up(&o.primary, &v, bot.id, id, now).await.unwrap();
+    // The operator's equal facts, with a fill recorded since that exceeds them: refused, the obligation stands.
+    known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0005", "30", "0.03");
+    assert!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.0004", "24", eur("0.03"), attested("x"))).is_err());
+    // Settled before receipts, with reversal work still open: the replay owes and discharges nothing.
+    deltabadger::app_config::delete(&o.primary, &format!("{}{id}", deltabadger::engine::reconcile::RECEIPT)).unwrap();
+    reversal_work(&o.primary, bot.id, id);
+    polling::refresh(&o.primary, &v, bot.id, id, now).await.unwrap();
+    assert!(obligation(&o.primary, id).is_some() && receipt(&o.primary, id).is_none());
+    assert_eq!(work(&o.primary, bot.id), (vec![id], vec![id]), "nothing discharged");
+}
+
+/// Review P1.2: an HF row's unknown answer owes even when a classic row's fills read then fails the poll.
+#[tokio::test(flavor = "current_thread")]
+async fn review_an_hf_obligation_survives_a_later_classic_failure() {
+    use deltabadger::engine::polling;
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", true).await;
+    let mut unknown = hf_answer(&ext, false, false, "0", "0");
+    unknown["data"]["type"] = json!("limit");
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, unknown);
+    open_row(&o.primary, &bot, "CLASSIC1", "2026-10-30 11:00:00", json!({}));
+    t.reply("GET /api/v1/orders/CLASSIC1", 404, json!({"code":"400100","msg":"order not exist."}));
+    t.network("GET /api/v1/fills", "pre_send", "timeout");
+    assert!(polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), at("2026-10-30T12:05:00Z")).await.is_err());
+    assert!(obligation(&o.primary, id).is_some(), "owed before the classic read failed");
+    assert!(!begins(&o.primary, bot.id, at("2026-10-30T12:05:00Z")));
+}
+
+/// Review P1.3: proving an adopted row's HF route moves its barrier to an obligation; a failed read of its state after
+/// that leaves the bot held.
+#[tokio::test(flavor = "current_thread")]
+async fn review_a_proven_hf_route_never_lapses_the_barrier() {
+    let (_d, o, bot, t, v) = adopted(true);
+    let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    mark_unproven(&o.primary, id);
+    t.reply("GET /api/v1/orders/A1", 404, json!({"code":"400100","msg":"order not exist."}));
+    let mut hf = hf_answer("A1", true, false, "0", "0");
+    hf["data"]["symbol"] = json!("XBT-EUR");
+    t.reply("GET /api/v1/hf/orders/A1?symbol=XBT-EUR", 200, hf);
+    t.network("GET /api/v1/hf/orders/A1?symbol=XBT-EUR", "pre_send", "timeout");
+    let _ = sweep(&o.primary, &v, bot.id).await;
+    assert!(deltabadger::venue::kucoin::order_record(&o.primary, id).unwrap().is_some());
+    assert!(obligation(&o.primary, id).is_some() && !begins(&o.primary, bot.id, at("2026-11-20T12:00:00Z")));
+}
+
+/// Review P2.5: a recorded fill with a zero fee needs no fee in the bundle.
+#[tokio::test(flavor = "current_thread")]
+async fn review_a_zero_fee_fill_needs_no_fee() {
+    let (_dir, o, bot, _t, _v, id, ext) = placed("KEY-A", false).await;
+    known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0004", "24", "0");
+    assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.0004", "24", json!([]), attested("x"))).unwrap(),
+               deltabadger::engine::reconcile::Operator::Reconciled);
+}
+
+/// Review P2.6: an account whose mode cannot be told proves no route, even with a classic answer naming the order.
+#[tokio::test(flavor = "current_thread")]
+async fn review_a_detection_failure_proves_no_origin() {
+    let (_dir, o, bot, _plan) = engine_setup();
+    o.primary.execute_batch("UPDATE tickers SET ticker = 'XBT-EUR'").unwrap();
+    let t = ScriptedTransport::default(); t.set_now(at("2026-10-30T12:00:00Z"));
+    t.network(&format!("GET {MODE}"), "pre_send", "timeout");
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    mark_unproven(&o.primary, id);
+    t.reply("GET /api/v1/orders/A1", 200, classic_order("A1", "XBT-EUR", true, "0", "0"));
+    assert!(sweep(&o.primary, &v, bot.id).await.is_err());
+    assert_eq!(origin(&o.primary, id).as_deref(), Some("unproven"));
 }

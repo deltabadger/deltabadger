@@ -811,13 +811,20 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
         let names = |o: &Value| o["id"].as_str() == Some(want.id.as_str()) && o["symbol"].as_str() == Some(symbol)
             && o["side"].as_str().is_some_and(|s| s.eq_ignore_ascii_case(if want.sell { "sell" } else { "buy" }))
             && limit_type(&o["type"]).ok() == Some(want.limit);
+        // The account decides which routes are asked: an HF account needs both (and HF admitted), a classic one the classic
+        // route; a detection failure or UTA proves nothing.
+        let hf_account = match self.account_mode().await {
+            Ok(super::kucoin_account::AccountMode::ClassicLf) => false,
+            Ok(super::kucoin_account::AccountMode::ClassicHf) if self.hf => true,
+            _ => return Ok(Origin::Unproven),
+        };
         let classic = match self.get_order(&want.id).await {
             Ok(found) => found.as_ref().is_some_and(names),
             Err(e @ VenueError::Transient(_)) => return Err(e),
             Err(VenueError::Rejected(m)) if RULES.is_throttle(&m) || RULES.is_transient(&m) => return Err(VenueError::Rejected(m)),
             Err(_) => false,
         };
-        let hf = self.hf && matches!(self.account_mode().await, Ok(super::kucoin_account::AccountMode::ClassicHf)) && self.hf_order(&want).await?.is_some();
+        let hf = hf_account && self.hf_order(&want).await?.is_some();
         Ok(match (classic, hf) {
             (true, false) => Origin::Classic,
             (false, true) => Origin::Hf(serde_json::json!({ "family": "ClassicHf", "symbol": symbol, "sell": want.sell, "limit": want.limit, "host": self.base,
