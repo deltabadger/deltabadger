@@ -122,6 +122,17 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
     Ok(cancelled)
 }
 
+/// D-KUCOIN-HF-RETENTION: the cancel entry of an order whose terminal state is proven (reconcile::admit), in the caller's
+/// transaction: nothing is left to cancel. A reserve the reversal registered stays for `settle`, which then credits it.
+pub(crate) fn drop_cancel(c: &Connection, bot_id: i64, tx_id: i64) -> Result<(), EngineError> {
+    let bot = model::load_bot(c, bot_id)?;
+    let mut cancels = entries(&bot);
+    let before = cancels.len();
+    cancels.retain(|e| e["id"] != tx_id);
+    if cancels.len() == before { return Ok(()); }
+    write(c, bot_id, &ids(bot.transient.get(RESERVE_PENDING)), &cancels)
+}
+
 fn mark_sent(c: &Connection, bot_id: i64, id: i64) -> Result<(), EngineError> {
     model::locked(c, |tx| {
         let mut cancels = entries(&model::load_bot(tx, bot_id)?);

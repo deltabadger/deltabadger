@@ -310,6 +310,8 @@ impl OrderRef {
     pub fn load(c: &rusqlite::Connection, tx_id: i64, external_id: &str) -> Result<Self, crate::engine::EngineError> {
         Ok(Self { external_id: external_id.into(), record: kucoin::order_record(c, tx_id).map_err(crate::engine::EngineError::Data)? })
     }
+    /// D-KUCOIN-HF-RETENTION: a KuCoin HF row (its record's family), whose unread state is an obligation.
+    pub fn hf(&self) -> bool { self.record.as_ref().is_some_and(|r| r["family"] == "ClassicHf") }
 }
 
 pub trait Venue {

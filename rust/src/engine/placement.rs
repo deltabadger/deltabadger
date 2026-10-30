@@ -282,6 +282,11 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         super::log(&format!("[engine] bot {}: {} order not placed: a reversal's cancels are not recorded yet", bot.id, plan.ticker.ticker));
         return Ok(Begun::Changed);
     }
+    // D-KUCOIN-HF-RETENTION: nor while one of its KuCoin orders cannot be told (reconcile::barrier), whatever its pair.
+    if let Some((tx_id, why)) = super::reconcile::barrier(&tx, bot.id)? {
+        super::log(&format!("[engine] bot {}: {} order not placed: KuCoin order of transaction {tx_id}: {why}", bot.id, plan.ticker.ticker));
+        return Ok(Begun::Changed);
+    }
     if let Some(version) = version {
         let fresh=match version {Some(v)=>model::credential_is_current(&tx,v)?,None=>false};
         if !fresh {
@@ -411,6 +416,11 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
     let tx = model::immediate(c)?;
     let current = model::load_bot(&tx, sized_from.id)?;
     if super::signal::blocked(&current) { return Ok(SignalClaim::Blocked); }
+    // D-KUCOIN-HF-RETENTION: an HF order this bot cannot tell blocks it as an unresolved intent does; the call waits.
+    if let Some((tx_id, why)) = super::reconcile::barrier(&tx, current.id)? {
+        super::log(&format!("[engine] bot {}: {} order not placed: KuCoin order of transaction {tx_id}: {why}", current.id, plan.ticker.ticker));
+        return Ok(SignalClaim::Blocked);
+    }
     // An IBKR order needs its venue's hold (begin_checked); a signal bot on IBKR is refused (eligibility::signal_admission).
     if model::exchange_type(&tx, &current)? == crate::venue::ibkr::IBKR {
         super::log(&format!("[engine] bot {}: {} order not placed: IBKR takes no signal orders", sized_from.id, plan.ticker.ticker));
@@ -818,7 +828,7 @@ fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str>
 }
 
 /// One line per unresolved order per process: recovery runs every tick.
-fn log_once(cl_ord_id: &str, line: &str) {
+pub(crate) fn log_once(cl_ord_id: &str, line: &str) {
     static SEEN: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> = std::sync::OnceLock::new();
     if SEEN.get_or_init(Default::default).lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(cl_ord_id.to_string()) { super::log(line); }
 }

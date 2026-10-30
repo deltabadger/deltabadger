@@ -1025,3 +1025,228 @@ async fn a_single_hf_read_keeps_a_retryable_failure() {
     assert!(matches!(v.order_with(&order, |_, _, _| Ok(true)).await, Err(deltabadger::venue::VenueError::Transient(_))));
     assert_eq!(v.orders_with(std::slice::from_ref(&order), |_, _, _| Ok(true)).await.unwrap(), (vec![], vec![ext.clone()]));
 }
+
+// ---- HF-4 (D-KUCOIN-HF-RETENTION): obligations, receipts, the spending barrier -------------------------------------
+
+fn obligation(c: &rusqlite::Connection, id: i64) -> Option<Value> { deltabadger::engine::reconcile::obligation(c, id).unwrap() }
+fn receipt(c: &rusqlite::Connection, id: i64) -> Option<Value> { deltabadger::engine::reconcile::receipt(c, id).unwrap() }
+fn begins(c: &rusqlite::Connection, bot: i64, at: chrono::DateTime<chrono::Utc>) -> bool {
+    use deltabadger::engine::{placement, FixedClock};
+    let (_d, _o, _b, plan) = engine_setup();
+    let b = model::load_bot(c, bot).unwrap();
+    let begun = placement::begin_held(c, &b, &plan, None, None, &FixedClock(at)).unwrap();
+    let placed = matches!(begun, placement::Begun::Intent(_));
+    if placed { placement::drop_intent(c, bot).unwrap(); }
+    placed
+}
+fn not_found(t: &ScriptedTransport, ext: &str) { t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, json!({"code":"400100","msg":"order not exist"})); }
+fn at(s: &str) -> chrono::DateTime<chrono::Utc> { s.parse().unwrap() }
+
+/// R02: an HF row KuCoin no longer serves, at ages around 2, 7 and 14 days, is never abandoned or closed from fills; it
+/// owes (an obligation) and its bot places nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn r02_ages_around_2_7_14_days_never_abandon_or_close() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    for days in [2, 7, 14] {
+        for secs in [-1, 0, 1] {
+            let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+            let created = now - chrono::Duration::days(days) + chrono::Duration::seconds(secs);
+            o.primary.execute("UPDATE transactions SET created_at = ?1", [created.format("%Y-%m-%d %H:%M:%S").to_string()]).unwrap();
+            not_found(&t, &ext);
+            let r = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+            assert!(matches!(r, Err(polling::PollFailure::AwaitingReconciliation(tx, _)) if tx == id), "{days}d{secs:+}s: {r:?}");
+            let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+            assert_eq!(row_exec(&c, id).0, Some(0), "{days}d{secs:+}s: still waiting");
+            assert!(!t.requests().iter().any(|r| r.path.contains("fills")), "no fills fallback");
+            assert!(obligation(&c, id).is_some(), "{days}d{secs:+}s: an obligation");
+            assert!(!begins(&c, bot.id, now), "{days}d{secs:+}s: no new spending");
+        }
+    }
+}
+
+/// R02: a resting order a month old is still read, its exact partial fill kept, and owes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn r02_an_old_resting_order_is_still_read() {
+    use deltabadger::engine::polling;
+    let now = at("2026-11-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, true, false, "0.0004", "24"));
+    polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await.unwrap();
+    assert_eq!(row_exec(&o.primary, id), (Some(1), Some(0.0004)));
+    assert!(obligation(&o.primary, id).is_none());
+    assert!(begins(&o.primary, bot.id, now));
+}
+
+/// R02/R06, r1.1, r3.3: the obligation holds the bot's spending wherever an intent is born (DCA, signal) and whatever
+/// pair; the tick ends AwaitingReconciliation with no POST; a read that applies ends it; a row moved to another bot (Merge,
+/// Split) moves it.
+#[tokio::test(flavor = "current_thread")]
+async fn r02_r06_an_unreadable_hf_row_holds_new_spending() {
+    use deltabadger::engine::{placement, polling, tick, FixedClock};
+    let now = at("2026-11-08T12:05:00Z");
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    // One answer per read, in order (a lone scripted answer repeats).
+    not_found(&t, &ext);
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, true, false, "0", "0"));
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let outcome = tick::tick(&c, &v, bot.id, &FixedClock(now), &mut Default::default()).await.unwrap();
+    assert!(matches!(outcome, tick::TickOutcome::AwaitingReconciliation), "{outcome:?}");
+    assert_eq!(posts(&t), 1, "no new order");
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_none(), "no intent");
+    // The signal path refuses too.
+    let (_d, _o, _b, plan) = engine_setup();
+    let b = model::load_bot(&c, bot.id).unwrap();
+    let version = model::credential_version(&c, &b).unwrap();
+    assert!(matches!(placement::begin_signal(&c, &b, &plan, None, &version, None, &FixedClock(now)).unwrap(), placement::SignalClaim::Blocked));
+    // Another bot owning the row (Merge/Split moved it) holds it; the first bot is free.
+    let other = common::seed::insert_bot(&c, &common::seed::Seeded { user_id: 1, exchange_id: bot.exchange_id, btc: 1, quote: 2, ticker_id: 1, api_key_id: 1 }, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("UPDATE transactions SET bot_id = ?1 WHERE id = ?2", [other, id]).unwrap();
+    assert!(begins(&c, bot.id, now) && !begins(&c, other, now), "the obligation follows its row");
+    c.execute("UPDATE transactions SET bot_id = ?1 WHERE id = ?2", [bot.id, id]).unwrap();
+    // A read that applies ends it.
+    polling::sweep(&c, &v, &model::load_bot(&c, bot.id).unwrap(), now).await.unwrap();
+    assert!(obligation(&c, id).is_none() && begins(&c, bot.id, now));
+}
+
+/// r1.1, r3.1: lower totals and an unknown state each owe (no longer a silent skip), and hold the spending.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_lower_totals_and_unknown_states_owe() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let key = format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+    t.reply(&key, 200, hf_answer(&ext, true, false, "0.0004", "24"));
+    t.reply(&key, 200, hf_answer(&ext, true, false, "0.0003", "18"));
+    polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await.unwrap();
+    let r = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    assert!(matches!(r, Err(polling::PollFailure::AwaitingReconciliation(..))), "{r:?}");
+    assert_eq!(row_exec(&o.primary, id), (Some(1), Some(0.0004)), "the lower answer wrote nothing");
+    assert!(!begins(&o.primary, bot.id, now));
+    // A limit order KuCoin ended with nothing dealt and no cancel is Unknown: owed, not a failed sweep.
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", true).await;
+    let mut unknown = hf_answer(&ext, false, false, "0", "0");
+    unknown["data"]["type"] = json!("limit");
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, unknown);
+    let r = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    assert!(matches!(r, Err(polling::PollFailure::AwaitingReconciliation(tx, _)) if tx == id), "{r:?}");
+    assert!(!begins(&o.primary, bot.id, now));
+}
+
+/// r3.2: a failed follow-up read owes before its retry.
+#[tokio::test(flavor = "current_thread")]
+async fn r3_a_failed_follow_up_read_owes() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    t.network(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), "pre_send", "timeout");
+    assert!(matches!(polling::follow_up(&o.primary, &v, bot.id, id, now).await, Err(polling::PollFailure::Transient(_))));
+    assert!(obligation(&o.primary, id).is_some());
+    assert!(!begins(&o.primary, bot.id, now));
+}
+
+/// R05, r1.2, r2.5: a settled row keeps its settlement. An open or higher answer afterwards writes nothing and owes; the
+/// settled facts again end that; a read KuCoin can no longer serve owes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn r05_a_settled_row_takes_only_its_own_facts() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let key = format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+    for (active, cancelled, size, funds) in [(false, true, "0.0004", "24"), (true, false, "0.0004", "24"), (false, true, "0.0005", "30"), (false, true, "0.0004", "24")] {
+        t.reply(&key, 200, hf_answer(&ext, active, cancelled, size, funds));
+    }
+    polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await.unwrap();
+    assert_eq!(row_exec(&o.primary, id), (Some(3), Some(0.0004)));
+    let settled = receipt(&o.primary, id).unwrap();
+    assert_eq!((&settled["status"], &settled["deal_size"], &settled["source"]), (&json!("cancelled"), &json!("0.0004"), &json!("api")));
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    for _ in 0..2 {
+        polling::refresh(&c, &v, bot.id, id, now).await.unwrap();
+        assert_eq!(row_exec(&c, id), (Some(3), Some(0.0004)), "never reopened or raised");
+        assert!(obligation(&c, id).is_some() && !begins(&c, bot.id, now));
+    }
+    polling::refresh(&c, &v, bot.id, id, now).await.unwrap();
+    assert!(obligation(&c, id).is_none(), "its own facts end the obligation");
+    assert_eq!(receipt(&c, id).unwrap(), settled, "the receipt is unchanged");
+    not_found(&t, &ext);
+    for _ in 0..2 { let _ = polling::refresh(&c, &v, bot.id, id, now).await; }
+    assert!(obligation(&c, id).is_none() && begins(&c, bot.id, now), "a settled row owes nothing for a missing answer");
+}
+
+fn known_fill(c: &rusqlite::Connection, user: i64, exchange: i64, trade: &str, order: &str, size: &str, funds: &str, fee: &str) {
+    let raw = json!({"symbol":"BTC-EUR","tradeId":trade,"orderId":order,"side":"buy","size":size,"funds":funds,"fee":fee,"feeCurrency":"EUR","createdAt":1793361600000_i64,"family":"ClassicHf"});
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, base_amount, base_currency, entry_type, transacted_at, created_at, updated_at, raw_data, tx_id) \
+               VALUES (?1, ?2, ?3, 'BTC', 0, '2026-10-30 12:00:00', '2026-10-30 12:00:00', '2026-10-30 12:00:00', ?4, ?5)",
+              rusqlite::params![user, exchange, size, raw.to_string(), format!("BTC-EUR-{trade}")]).unwrap();
+}
+
+/// r1.3, r2.7, r2.8: a terminal answer below the order's known fills (the owner's, on the row's exchange) owes and settles
+/// nothing; another user's fill of the same order id is not this order's; fees count as their absolute value.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_known_fills_bound_a_settlement() {
+    use deltabadger::engine::{polling, reconcile};
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0003", "18", "-0.018");
+    known_fill(&o.primary, 1, bot.exchange_id, "2", &ext, "0.0002", "12", "0.012");
+    o.primary.execute_batch("CREATE TEMP TABLE u AS SELECT * FROM users WHERE id = 1; UPDATE u SET id = 2, email = 'two@example.test'; INSERT INTO users SELECT * FROM u;").unwrap();
+    known_fill(&o.primary, 2, bot.exchange_id, "3", &ext, "0.9", "9000", "9");
+    let k = reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext).unwrap();
+    assert_eq!((k.size.to_s_f(), k.funds.to_s_f(), k.fees["EUR"].to_s_f()), ("0.0005".into(), "30.0".into(), "0.03".into()));
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0004", "24"));
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0005", "30"));
+    assert!(polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await.is_err());
+    assert_eq!(row_exec(&o.primary, id).0, Some(0), "not settled below its known fills");
+    assert!(receipt(&o.primary, id).is_none() && obligation(&o.primary, id).is_some());
+    polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await.unwrap();
+    assert_eq!(row_exec(&o.primary, id).0, Some(3));
+}
+
+fn reversal_work(c: &rusqlite::Connection, bot: i64, id: i64) {
+    use deltabadger::engine::reversal;
+    c.execute(&format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{}',json(?1),'$.{}',json(?2)) WHERE id=?3", reversal::CANCELS, reversal::RESERVE_PENDING),
+              rusqlite::params![json!([{"id": id, "registered": true, "sent": true}]).to_string(), json!([id]).to_string(), bot]).unwrap();
+}
+fn work(c: &rusqlite::Connection, bot: i64) -> (Vec<i64>, Vec<i64>) { deltabadger::engine::reversal::work(&model::load_bot(c, bot).unwrap()) }
+
+/// §3 step 3: a proven terminal read ends the reversal's cancel and credits the reserve in the same settlement, also for a
+/// Closed answer (today's cancel retry knows only Cancelled).
+#[tokio::test(flavor = "current_thread")]
+async fn r05_a_terminal_read_ends_the_cancel_and_settles_the_reserve_once() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    reversal_work(&o.primary, bot.id, id);
+    let carry = |c: &rusqlite::Connection| model::load_bot(c, bot.id).unwrap().transient["missed_quote_amount"].clone();
+    let before = carry(&o.primary);
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, false, "0.0004", "24"));
+    polling::follow_up(&o.primary, &v, bot.id, id, now).await.unwrap();
+    assert_eq!(row_exec(&o.primary, id).0, Some(2));
+    assert_eq!(work(&o.primary, bot.id), (vec![], vec![]), "the cancel and the reserve settled");
+    let after = carry(&o.primary);
+    assert_ne!(after, before, "the unspent reserve returned");
+    polling::refresh(&o.primary, &v, bot.id, id, now).await.unwrap();
+    assert_eq!(carry(&o.primary), after, "credited once");
+}
+
+/// r2.4: a terminal HF row settled before receipts takes its own facts once: its receipt, and what it still owed.
+#[tokio::test(flavor = "current_thread")]
+async fn r2_a_terminal_row_without_a_receipt_settles_what_it_still_owes() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    for (size, funds) in [("0.0004", "24"), ("0.0005", "30"), ("0.0004", "24")] {
+        t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, false, size, funds));
+    }
+    polling::follow_up(&o.primary, &v, bot.id, id, now).await.unwrap();
+    // As HF-3 left it: no receipt, and a reversal's work still open.
+    deltabadger::app_config::delete(&o.primary, &format!("{}{id}", deltabadger::engine::reconcile::RECEIPT)).unwrap();
+    reversal_work(&o.primary, bot.id, id);
+    polling::refresh(&o.primary, &v, bot.id, id, now).await.unwrap();
+    assert!(obligation(&o.primary, id).is_some() && receipt(&o.primary, id).is_none(), "other facts: a conflict");
+    assert_eq!(work(&o.primary, bot.id).1, vec![id]);
+    polling::refresh(&o.primary, &v, bot.id, id, now).await.unwrap();
+    assert!(obligation(&o.primary, id).is_none() && receipt(&o.primary, id).is_some());
+    assert_eq!(work(&o.primary, bot.id), (vec![], vec![]));
+}

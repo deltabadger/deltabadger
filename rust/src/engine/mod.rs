@@ -82,6 +82,7 @@ pub mod signal;
 pub mod wash;
 
 pub mod reversal;
+pub mod reconcile;
 pub mod conditions;
 pub mod candles;
 
