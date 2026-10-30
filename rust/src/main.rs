@@ -205,6 +205,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     // The self-hosted catalogue (Ibkr plan R2): the bundle at every start, the public snapshot daily.
     registered.extend(jobs::reference::catalogue_jobs(env, std::path::PathBuf::from(jobs::reference::BUNDLE), jobs::reference::LiveFetch::default()));
     registered.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
+    // D-BINANCE-ORDER-LINK: stored Binance fills link to their bot orders, at every start.
+    registered.push(Box::new(deltabadger::sync::binance_order_links::OrderLinks));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
     let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env, rates.clone())).collect();
@@ -212,6 +214,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
     if resume_setup { scheduler.wakers().wake(jobs::setup_sync::NAME, None, None); }
     scheduler.wakers().wake(jobs::reference::BOOTSTRAP, None, None);
+    scheduler.wakers().wake(deltabadger::sync::binance_order_links::JOB, None, None);
     for key in unbound {
         scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
     }
