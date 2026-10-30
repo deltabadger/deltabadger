@@ -3949,3 +3949,29 @@ async fn validator_job_sends_a_venue_key_check_through_its_stored_proxy(){
     assert!(venue.received_requests().await.unwrap().is_empty(),"the check never goes around the configured proxy");
     proxy.verify().await;
 }
+
+/// D-KUCOIN-HF-MODE: a correct KuCoin key on an HF or a Unified Trading Account is not saved, and the owner reads why.
+#[tokio::test(flavor="current_thread")]
+async fn a_kucoin_key_on_an_hf_or_unified_account_says_why_it_is_not_saved() {
+    use deltabadger::venue::kucoin_account::{MODE, OPENED};
+    for (mode, opened, says) in [("CLASSIC", Some(true), "newer trading account"), ("UNIFIED", None, "Unified Trading Account")] {
+        let server=MockServer::start().await;
+        Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"selfAccountMode":mode}}))).mount(&server).await;
+        if let Some(opened) = opened {
+            Mock::given(method("GET")).and(path(OPENED)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":opened}))).mount(&server).await;
+        }
+        Mock::given(method("DELETE")).and(path("/api/v1/orders/000000000000000000000000")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
+        let mut h=Harness::new(server.uri()).await;
+        h.c.execute("INSERT INTO exchanges(name,type,available,created_at,updated_at) VALUES('KuCoin','Exchanges::Kucoin',1,'2026-01-01','2026-01-01')",[]).unwrap();
+        let kucoin=h.c.last_insert_rowid();
+        let env=web::env(web::SECRET);
+        h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap()
+            .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_venue_key_urls(&server.uri(),&server.uri(),&server.uri()).unwrap();
+        h.browser.get(&h.app,"/bots/new").await;
+        h.submit("POST","/bots/dca_single_assets/pick_exchange",&[("bots_dca_single_asset[exchange_id]",&kucoin.to_string())],Csrf::Header).await;
+        h.browser.get(&h.app,"/bots/dca_single_assets/add_api_key/new").await;
+        let response=h.submit("POST","/bots/dca_single_assets/add_api_key",&[("api_key[key]","kc-key"),("api_key[secret]","kc-secret"),("api_key[passphrase]","kc-pass")],Csrf::Header).await;
+        assert!(response.body.contains(says),"{mode}: {}",response.body);
+        assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),0,"{mode}: not saved as correct");
+    }
+}

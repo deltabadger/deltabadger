@@ -593,9 +593,9 @@ async fn production_import_route_explains_identity_refusals_after_rollback() {
         let answer=browser.send_bytes(&app,"POST","/tracker/import",Some(body),Csrf::Header,&[("content-type",&content_type)]).await;
         assert_eq!(answer.status,422,"{reason}: {}",answer.body);
         assert!(answer.body.contains("id=\"modal\""));
-        assert!(answer.body.contains(reason),"{reason}: {}",answer.body);
-        assert!(answer.body.contains("No transactions were imported"));
-        assert!(answer.body.contains("complete, unchanged export"));
+        // Every one of these is the file's: the user reads what to do, never our check's name (that goes to the log).
+        assert!(!answer.body.contains(reason),"{reason}: {}",answer.body);
+        assert!(answer.body.contains("Nothing imported. This file doesn&#39;t match your Binance history") || answer.body.contains("Nothing imported. This file doesn't match your Binance history"),"{reason}: {}",answer.body);
         assert_eq!(state(c),before,"{reason}: the whole file must roll back before validation is shown");
     }
 }

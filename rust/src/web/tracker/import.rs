@@ -129,8 +129,11 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
             unrouted: (!unrouted.is_empty()).then(|| i18n::t(ctx.locale, "tracker.import.unrouted", &[("exchanges", i18n::Arg::Text(&unrouted.join(", ")))])),
             unrecognised: (!unrecognised.is_empty()).then(|| i18n::t(ctx.locale, "tracker.import.unrecognised", &[("operations", i18n::Arg::Text(&unrecognised.join(", ")))])),
         }),
-        Answer::Refused(reason) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Refused(
-            i18n::text(ctx.locale, "tracker.import.identity_refused", &[("reason", i18n::Arg::Text(&reason))]))),
+        Answer::Refused(reason) => {
+            // The reason names one of our own checks, not Binance's answer: the log keeps it, the user reads what to do.
+            crate::engine::log(&format!("[Binance] import refused: {reason}"));
+            render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Refused(i18n::text(ctx.locale, refused_key(&reason), &[])))
+        }
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
         Answer::Ambiguous(keys) => {
             let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.id.to_string().into(), label: k.exchange_name.clone(), active: i == 0, href: None }).collect();
@@ -155,6 +158,14 @@ fn sweep(dir: &std::path::Path) {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn a_stored_history_refusal_asks_for_the_repair_and_every_other_for_a_fresh_export() {
+        assert_eq!(super::refused_key("missing retained identity"), "tracker.import.identity_refused_history");
+        assert_eq!(super::refused_key("CSV group is already occupied"), "tracker.import.identity_refused_history");
+        assert_eq!(super::refused_key("partial CSV dust pair"), "tracker.import.identity_refused_file");
+        assert_eq!(super::refused_key("exported identity has no retained binding"), "tracker.import.identity_refused_file");
+    }
+
+    #[test]
     fn blank_and_token_follow_rails() {
         assert!(super::blank(b"") && super::blank(b" \r\n\t\x0b\x0c"));
         assert!(!super::blank(b"\xef\xbb\xbf") && !super::blank(b"a"));
@@ -162,3 +173,13 @@ mod tests {
         assert!(!super::token(Some("0123456789ABCDEF")) && !super::token(Some("0123456789abcde")) && !super::token(None));
     }
 }
+
+/// The stored-history checks (`binance_writer::csv_refusal`): the saved history needs its repair. Every other refusal is
+/// the file's: cut short, edited or not this account's.
+fn refused_key(reason: &str) -> &'static str {
+    const HISTORY: [&str; 9] = ["unreadable identity metadata", "conflicting bucket digest", "unsupported bucket", "missing retained identity",
+        "duplicate or conflicting retained digest", "suppression has no retained reason", "unreadable retained identity evidence",
+        "CSV alias points to deleted row", "CSV group is already occupied"];
+    if HISTORY.contains(&reason) { "tracker.import.identity_refused_history" } else { "tracker.import.identity_refused_file" }
+}
+

@@ -184,6 +184,7 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
             }
             Submitted::Incorrect | Submitted::Permissions(..) => (flash::ALERT, i18n::text(ctx.locale, "settings.ibkr.rejected", &[])),
             Submitted::Failed => (flash::ALERT, i18n::text(ctx.locale, "settings.ibkr.validation_failed", &[])),
+            Submitted::AccountMode(message) => (flash::ALERT, i18n::text(ctx.locale, message, &[])),
             Submitted::Refused(reason) => (flash::ALERT, keys::refusal_text(&ctx, &reason)),
         }
     };
