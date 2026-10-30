@@ -182,7 +182,7 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
     let bindings:Vec<_>=buckets(c,key)?.into_iter().flat_map(|b|b.bindings).collect();
     let mut units:BTreeMap<String,Vec<&Entry>>=BTreeMap::new();
     for (n,e) in entries.iter().enumerate(){units.entry(e.group_id.clone().unwrap_or_else(||format!("row:{n}"))).or_default().push(e);}
-    let mut out=Outcome::default();let mut used=HashSet::new();let mut changed=false;
+    let mut out=Outcome::default();let mut used=HashSet::new();let mut fallback=vec![];
     for rows in units.values() {
         let dust=rows.iter().any(|e|e.group_id.as_deref().is_some_and(|g|g.starts_with("dust")));
         if dust && (rows.len()!=2 || rows.iter().filter(|e|e.entry_type==2).count()!=1 || rows.iter().filter(|e|e.entry_type==3).count()!=1) {return Err(refused("partial CSV dust pair"))}
@@ -197,10 +197,16 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
                 BigDec::parse(amount).is_ok_and(|n|if dust && e.entry_type==2 {let unit=BigDec::parse("0.00000001").unwrap();e.base_amount>=&n-&unit && e.base_amount<=&n+&unit}
                     else if a.kind==5 {a.raw["transactionFee"].as_str().and_then(|v|BigDec::parse(v).ok()).is_some_and(|fee|e.base_amount==&n+&fee)}else{e.base_amount==n})
         };
-        let candidates:Vec<Vec<&Binding>>=bindings.iter().filter(|a|fits(a,rows[0])).filter_map(|a| {
-            let matches:Vec<_>=rows.iter().map(|e|bindings.iter().filter(|b|(!dust || b.event.pair_key()==a.event.pair_key()) && fits(b,e)).collect::<Vec<_>>()).collect();
-            matches.iter().all(|m|m.len()==1).then(||matches.into_iter().map(|m|m[0]).collect())
-        }).collect();
+        let candidates:Vec<Vec<&Binding>>=if dust {
+            bindings.iter().filter(|a|fits(a,rows[0])).filter_map(|a| {
+                let matches:Vec<_>=rows.iter().map(|e|bindings.iter().filter(|b|b.event.pair_key()==a.event.pair_key() && fits(b,e)).collect::<Vec<_>>()).collect();
+                matches.iter().all(|m|m.len()==1).then(||matches.into_iter().map(|m|m[0]).collect())
+            }).collect()
+        }else{
+            let matches:Vec<_>=rows.iter().map(|e|bindings.iter().filter(|a|fits(a,e)).collect::<Vec<_>>()).collect();
+            if matches.iter().any(|m|m.len()>1) {return Err(refused("ambiguous CSV identity"))}
+            if matches.iter().all(|m|m.len()==1) {vec![matches.into_iter().map(|m|m[0]).collect()]}else{vec![]}
+        };
         if candidates.len()>1 {return Err(refused("ambiguous CSV identity"))}
         if let Some(pair)=candidates.first() {
             if pair.iter().any(|a|a.suppressed) {if pair.iter().any(|a|!a.suppressed){return Err(refused("partial suppressed pair"))}out.skipped+=rows.len();continue}
@@ -222,8 +228,13 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
             e.transacted_at.is_none_or(|t|window(a).is_none_or(|(from,to)|t.timestamp_millis()>=from && t.timestamp_millis()<=to))
         })) {return Err(refused("CSV cannot exclude a suppressed event"))}
         if dust {return Err(refused("CSV dust identity has no proven whole-pair match"))}
-        let before=c.total_changes();let result=ledger::store_file(c,key,rows.iter().map(|e|(*e).clone()).collect(),now)?;
-        changed|=c.total_changes()!=before;out.imported+=result.imported;out.duplicates+=result.duplicates;out.skipped+=result.skipped;
+        fallback.extend(rows.iter().map(|e|(*e).clone()));
     }
-    if changed {mark(c,now)?;invalidate(c,key.user_id)?;} Ok(out)
+    // Keep the ledger's stored-row and repeat counters for the whole file.
+    if !fallback.is_empty() {
+        let before=c.total_changes();let result=ledger::store_file(c,key,fallback,now)?;
+        out.imported+=result.imported;out.duplicates+=result.duplicates;out.skipped+=result.skipped;
+        if c.total_changes()!=before {mark(c,now)?;invalidate(c,key.user_id)?;}
+    }
+    Ok(out)
 }
