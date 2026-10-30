@@ -1972,6 +1972,7 @@ async fn r_replacement_invalidates_the_engines_cached_market_wait() {
 async fn a_kucoin_key_saved_at_runtime_wakes_its_ledger_and_balance_syncs() {
     use deltabadger::jobs;
     let server=MockServer::start().await;
+    kucoin_classic_detection(&server).await;
     // The trading probe cancels a dummy order id; any venue code but the rejected/inconclusive ones passes it.
     Mock::given(method("DELETE")).and(path("/api/v1/orders/000000000000000000000000")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -3901,6 +3902,7 @@ async fn validator_job_matches_rails_on_every_checked_venue(){
         let h=Harness::new(server.uri()).await;
         let kind=match case["key_type"].as_str().unwrap(){"trading"=>0,"withdrawal"=>1,_=>2};
         let kucoin=text("venue")=="Exchanges::Kucoin";
+        if kucoin { kucoin_classic_detection(&server).await; }
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3",(text("venue"),text("name"),h.seed.exchange_id)).unwrap();
         h.c.execute("UPDATE api_keys SET status=0,key_type=?1,key=?2,secret=?3,passphrase=?4 WHERE id=?5",(kind,h.app.cipher.encrypt("test-key"),h.app.cipher.encrypt("dGVzdC1zZWNyZXQ="),kucoin.then(||h.app.cipher.encrypt("test-passphrase")),h.seed.api_key_id)).unwrap();
         let notify=Arc::new(tokio::sync::Notify::new());h.app.attach_engine(notify.clone());
@@ -3918,6 +3920,15 @@ async fn validator_job_matches_rails_on_every_checked_venue(){
     }
 }
 fn text_or_empty(value:&serde_json::Value)->String{value.as_str().unwrap_or_default().to_string()}
+
+async fn kucoin_classic_detection(server: &MockServer) {
+    use deltabadger::venue::kucoin_account::{MODE, OPENED};
+    for (endpoint, data) in [(MODE, serde_json::json!({"selfAccountMode":"CLASSIC"})), (OPENED, serde_json::json!(false))] {
+        Mock::given(method("GET")).and(path(endpoint))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":data})))
+            .expect(1).mount(server).await;
+    }
+}
 
 /// The validator's check goes through the venue's stored proxy (AppConfig proxy_kraken, ExchangeProxy.for): a local proxy
 /// answers it, and the venue's own host sees nothing.

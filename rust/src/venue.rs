@@ -11,6 +11,7 @@ pub mod bitget;
 pub mod bybit;
 pub mod kraken;
 pub mod kucoin;
+pub mod kucoin_account;
 pub mod gemini;
 pub mod hyperliquid;
 pub mod ibkr;
@@ -168,6 +169,13 @@ pub enum VenueError {
 }
 
 impl VenueError {
+    /// A diagnostic for an activity or preflight refusal, without Rust enum formatting.
+    pub fn message(&self) -> String {
+        match self {
+            Self::Transient(message) | Self::Ambiguous(message) => message.clone(),
+            Self::Rejected(errors) | Self::Unauthorized(errors) | Self::Coded { errors, .. } => crate::ruby::to_sentence(errors),
+        }
+    }
     /// The refusal's text, for `Rejected` and `Unauthorized` alike.
     pub fn rejection(&self) -> Option<&[String]> { match self { Self::Rejected(e) | Self::Unauthorized(e) | Self::Coded { errors: e, .. } => Some(e), _ => None } }
 }
@@ -199,13 +207,18 @@ pub struct PlacementHold {
 /// The raw transport is private: production consumers use the attributed methods below.
 pub struct Handle<V> { venue:V, producer:Option<crate::engine::model::CredentialVersion> }
 impl<V:Venue> Handle<V> {
-    pub(crate) fn new(venue:V,producer:Option<crate::engine::model::CredentialVersion>)->Self { Self{venue,producer} }
+    pub(crate) fn new(venue:V,producer:Option<crate::engine::model::CredentialVersion>)->Self {
+        let producer = venue.producer().or(producer);
+        Self{venue,producer}
+    }
     pub(crate) fn for_bot(venue:V,c:&rusqlite::Connection,bot:&crate::engine::model::Bot)->Result<Self,crate::engine::EngineError>{
         let producer=match venue.producer(){Some(origin)=>Some(origin),None=>crate::engine::model::credential_version(c,bot)?};
         Ok(Self::new(venue,producer))
     }
 }
 impl<V:Venue> Venue for &V {
+    async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{(*self).prepare().await}
+    async fn validate_preparation(&self,identity:Option<&serde_json::Value>)->Result<(),VenueError>{(*self).validate_preparation(identity).await}
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{(*self).producer()}
     fn placement_identity(&self)->Option<serde_json::Value>{(*self).placement_identity()}
     async fn placement_hold(&self,t:&Ticker,s:Side)->Result<Option<PlacementHold>,VenueError>{(*self).placement_hold(t,s).await}
@@ -233,6 +246,8 @@ impl<V:Venue> Venue for &V {
     async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{(*self).withdrawal_lookup(r).await}
 }
 impl<V:Venue> Venue for Handle<V> {
+    async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{self.venue.prepare().await}
+    async fn validate_preparation(&self,identity:Option<&serde_json::Value>)->Result<(),VenueError>{self.venue.validate_preparation(identity).await}
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
     fn placement_identity(&self)->Option<serde_json::Value>{self.venue.placement_identity()}
     async fn placement_hold(&self,t:&Ticker,s:Side)->Result<Option<PlacementHold>,VenueError>{self.venue.placement_hold(t,s).await}
@@ -277,6 +292,10 @@ pub trait Attributed:Venue + sealed::Sealed {
 }
 impl<V:Venue> Attributed for Handle<V> {}
 pub trait Venue {
+    /// Resolve immutable account context before sizing. Most venues need no preparation.
+    async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{Ok(None)}
+    /// Refresh expired evidence before the dispatch credential fence; never change the intent's family.
+    async fn validate_preparation(&self,_identity:Option<&serde_json::Value>)->Result<(),VenueError>{Ok(())}
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
     /// The key an order is sent under, as an intent records it and recovery compares it (`alpaca::placement_identity`,
     /// `key_identity`): an object of fields merged into the intent. None where a venue has nothing to tell (no key, a
@@ -368,6 +387,9 @@ pub trait VenueFactory {
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V;
     /// Full stored material is used only to redact diagnostics, never venue financial data.
     fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,_sensitive:Vec<String>)->Self::V{self.for_bot(exchange_type,credentials)}
+    fn for_kucoin(&self,credentials:Option<Credentials>,sensitive:Vec<String>,_version:Option<crate::engine::model::CredentialVersion>)->Self::V{
+        self.for_bot_with_redaction(kucoin::KUCOIN,credentials,sensitive)
+    }
     /// An IBKR bot's venue: its key's login (by `version`) and `account`, the (account id, account_ref) the bot reaches IBKR
     /// as once `ibkr_account::check_bot_account` passes, else why not (every call is then refused).
     fn for_ibkr(&self,credentials:Option<Credentials>,sensitive:Vec<String>,_version:Option<crate::engine::model::CredentialVersion>,_account:Result<(String,String),String>)->Self::V{

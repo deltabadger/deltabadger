@@ -275,6 +275,12 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let fake = step.get("binance_state").map(|state| FakeBinance { state: Arc::new(state.clone()), requests: Default::default() });
         let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else if bitvavo { &step["bitvavo"] }
                                                        else if gemini { &step["gemini"] } else if bitget { &step["bitget"] } else if mexc { &step["mexc"] } else if hyperliquid { &step["hyperliquid"] } else if bybit { &step["bybit"] } else if bitrue { &step["bitrue"] } else if coinbase { &step["coinbase"] } else if bingx { &step["bingx"] } else if kraken { &step["kraken"] } else { &step["alpaca"] });
+        if kucoin {
+            use crate::venue::kucoin_account::{Resolver, MODE, OPENED};
+            transport.reply(&format!("GET {MODE}"), 200, json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}));
+            transport.reply(&format!("GET {OPENED}"), 200, json!({"code":"200000","data":false}));
+            Resolver::shared().invalidate(crate::venue::kucoin::URL, key_id);
+        }
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
@@ -315,7 +321,17 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
         } };
         // As Rails' harness logs them: "METHOD path" and the query pairs, sorted.
-        let sent = match &fake { Some(fake) => fake.requests.borrow().clone(), None => transport.requests() };
+        let mut sent = match &fake { Some(fake) => fake.requests.borrow().clone(), None => transport.requests() };
+        // M05: assert the new prefix independently; compare every subsequent request and DB effect
+        // with the original Rails vectors. No detection request is covered by a parity exemption.
+        if kucoin && matches!(step["kind"].as_str(), Some("balances" | "ledger")) {
+            use crate::venue::kucoin_account::{MODE, OPENED};
+            if sent.len() < 2 || sent[0].path != MODE || sent[1].path != OPENED
+                || sent[..2].iter().any(|r| r.method != "GET" || !r.query.is_empty() || r.body.is_some()) {
+                return Err(data("KuCoin classic detection prefix differs"));
+            }
+            sent.drain(..2);
+        }
         let mut requests: Vec<Value> = sent.iter().map(|r| {
             let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
             // Gemini's params travel in its signed payload (the harness logs them as Rails' does: each value's `to_s`).

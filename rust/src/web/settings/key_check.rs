@@ -745,6 +745,12 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
 /// None: no read was made.
 pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64)
                               -> (Validity, Option<crate::identity::Observed>) {
+    check_identified_captured(venue, base, client, credentials, kind, None).await
+}
+
+pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64,
+                                              version: Option<&crate::engine::model::CredentialVersion>)
+                                              -> (Validity, Option<crate::identity::Observed>) {
     use crate::venue::http::ReqwestTransport;
     let (venue_type, mut observed) = (venue, None);
     let redaction = credentials.redaction_values.clone();
@@ -760,6 +766,14 @@ pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, 
     } else if scheme == Some(KeyCheck::Kucoin) {
         let passphrase = credentials.passphrase.clone().unwrap_or_default();
         let transport = ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
+        if let Some(version) = version {
+            let resolver = crate::venue::kucoin_account::Resolver::shared();
+            resolver.invalidate(base, version.id);
+            let mode = resolver.resolve(&transport, base, version).await.value.and_then(|d| d.mode.require_classic());
+            if let Err(e) = mode {
+                return (Validity::Pending(Diagnostic { text: e.message(), status: None, body: String::new() }), None);
+            }
+        }
         let request = kucoin_request(base, kind);
         let answer = transport.send(&request).await;
         let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }

@@ -116,6 +116,14 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
     if blocked(&bot) { return Ok(Step::Waiting(expires_at(&call))); }
     if model::key_pending(c, &bot)? { return refuse(Some("signal_api_key_pending")); }
     let ticker = model::ticker_for(c, &bot)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no ticker")))?;
+    let prepared = super::placement::prepare(c, venue).await?;
+    if let Err(e) = prepared {
+        model::credential_write(c, &cx.credential_version, |tx| {
+            model::log_activity(tx, bot_id, "execution_failed_with_error", model::Level::Error, json!({"error": e.message()}), now)?;
+            consume(tx, bot_id, &call, None, now)
+        })?;
+        return Ok(Step::Ran);
+    }
     // Exchange#market_open?: all crypto is open; Exchanges::Alpaca asks its clock. A clock that cannot be read places
     // nothing (clock.rs fails closed); Rails reads most of those as open.
     if venue.rules().market_hours && !model::all_crypto(c, &bot)? {

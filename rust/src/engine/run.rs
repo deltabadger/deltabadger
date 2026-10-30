@@ -112,6 +112,8 @@ pub(crate) fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, ciph
     let exchange = model::exchange_type(primary, bot)?;
     let venue = if exchange == crate::venue::ibkr::IBKR {
         factory.for_ibkr(credentials, sensitive, version.clone(), crate::venue::ibkr_account::bot_binding(primary, cipher, bot.id)?)
+    } else if exchange == crate::venue::kucoin::KUCOIN {
+        factory.for_kucoin(credentials, sensitive, version.clone())
     } else { factory.for_bot_with_redaction(&exchange, credentials, sensitive) };
     Ok((crate::venue::Handle::new(venue,version.clone()),version))
 }

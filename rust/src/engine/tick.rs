@@ -151,6 +151,7 @@ fn drain_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>, own
 }
 
 enum Fail {
+    Preflight(String),
     CredentialsChanged,
     Transient(String),
     RateLimited(String),
@@ -452,6 +453,8 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
 async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<Ran, Fail>, EngineError> {
     let bot_id = bot.id;
     model::require_run(c, bot)?;
+    let prepared = super::placement::prepare(c, venue).await?;
+    if let Err(e) = prepared { return Ok(Err(Fail::Preflight(e.message()))); }
     // Bot::Rebalanceable's first stand-down: a swap in flight owes its buy the proceeds of its sell, so the DCA leg places
     // nothing, reads nothing and sweeps nothing (rebalanceable.rb:64-68). Success: the contribution is carried by the interval
     // count.
@@ -1199,6 +1202,12 @@ fn handle_failure_inner(c: &model::FencedTransaction<'_>, bot_id: i64, fail: Fai
     let now = clock.now();
     if !model::transition_working(c, bot_id, BotStatus::Retrying, now)? { return Ok(TickOutcome::Skipped); }
     match fail {
+        Fail::Preflight(message) => {
+            *attempts = Attempts::default();
+            record_failure(c, bot_id, Some("transient"))?;
+            model::log_activity(c, bot_id, "execution_failed_with_error", Level::Error, json!({"error": message}), now)?;
+            Ok(TickOutcome::Rescheduled)
+        }
         Fail::CredentialsChanged => Ok(TickOutcome::Skipped),
         // `rescue TransientNetworkError, RateLimitedError`: :transient is recorded, then retry_on counts per handler.
         Fail::Transient(m) => {

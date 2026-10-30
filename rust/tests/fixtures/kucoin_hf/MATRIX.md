@@ -1,9 +1,10 @@
 # KuCoin HF contract and acceptance matrix
 
-HF-0 implements only the fixture/contract checks in `rust/tests/kucoin_hf.rs`.
-The behavior rows below are acceptance specifications for HF-1–5, not passing
-adapter, database, concurrency or parity tests. They carry forward the reviewed
-AUDIT #10 plan, including the history-import rulings. No HF runtime path is enabled.
+HF-0 supplies the fixture/contract checks in `rust/tests/kucoin_hf.rs`.
+HF-1 activates M01–M05 below: version-bound detection, preparation and classic
+regressions. HF trading, balances and history remain disconnected; detected HF
+and UTA accounts are refused. The remaining rows are acceptance specifications
+for HF-2–5 and carry forward the reviewed history-import rulings.
 
 `manifest.json` cites the fetched official documentation and SDK revision/file
 hashes, lists endpoint contracts, and pins the generator and generated files.
@@ -38,7 +39,8 @@ not call the classic signer and cannot establish HF transport correctness yet.
 
 ## Activation and assertions for implementation slices
 
-All rows below are **deferred behavior assertions**. In the named slice, first
+M01–M05 are implemented by the HF-1 tests listed below. Other rows remain
+**deferred behavior assertions**. In the named slice, first
 write the indicated failing test using these assets and `ScriptedTransport`, then
 implement the behavior and include the test in the normal suite. Do not replace
 these with ignored always-passing tests or a fake HF implementation in a test.
@@ -51,6 +53,30 @@ balances, ledger rows, cursors and diagnostics against expectations. It must nev
 call an invented Rails HF path. Preserve exact decimal strings and raw IDs. Every
 money-path test inspects persisted effects, including after reopening the store;
 an adapter error alone does not satisfy the row.
+
+HF-1 executable coverage:
+
+- `kucoin_hf::m01_*`: all 16 detection fixtures; all 15 refusing cases through
+  the engine, with no intent/order row or trading request and a persisted reason.
+- `kucoin_hf::m02_*`: overlapping single-flight calls, host/key/version isolation,
+  exact five-minute expiry, failure without stale fallback, restart and validation
+  invalidation during an in-flight read.
+- `kucoin_hf::m03_*`: key/secret/passphrase replacement, immutable `Produced`
+  provenance, rotation during detection/dispatch refresh and balance publication,
+  and fenced sync error/watermark writes. Existing placement result fences remain
+  authoritative; an accepted order remains an immutable fact after rotation.
+- `kucoin_hf::m04_*`: DCA/signal/rebalance/liquidation/redeploy preflight, persisted
+  family and UUID, same-family refresh, changed-family refusal, and retention of
+  an earlier ambiguous intent when refresh fails.
+- `parity` / `common::venue_grid`: all 172 classic grid cases run with and without
+  preparation, comparing every subsequent request and the original DB/decision
+  output. Mode/opened request pairs are asserted separately. `sync_parity`
+  independently asserts that prefix before comparing unchanged classic sync
+  requests and effects. Settings validation adds the same classic prefix while
+  preserving the recorded permission verdicts.
+
+These are executable checks, not a claim that socket-dependent gates ran inside
+the sandbox; the worktree report records the actual gate results.
 
 | ID / slice / target | Fixture or setup and trigger | Required observed assertions |
 |---|---|---|
@@ -108,6 +134,5 @@ an adapter error alone does not satisfy the row.
 D-KUCOIN-HF-MODE is validated by M01–M05 and F01;
 D-KUCOIN-HF-ORDERS by O01–O08 and R01;
 D-KUCOIN-HF-RETENTION by R01–R08;
-D-KUCOIN-HF-LEDGER by L01–L10. These are future behavior divergences;
-HF-0 introduces none into production. The matrix supplies the review checklist,
-not a claim that those validators already exist.
+D-KUCOIN-HF-LEDGER by L01–L10. HF-1 introduces only the mode/preflight portion of
+D-KUCOIN-HF-MODE. HF balance routing and all other divergences remain deferred.

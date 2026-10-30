@@ -21,11 +21,13 @@ pub fn ending<'a>(suffixes: &'a [&'a str]) -> impl Fn(&str) -> bool + 'a { move 
 pub async fn run_venue_grid(grid: &str, expected: usize, validators: &[Validator<'_>]) -> Vec<(String, Value)> {
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
+    let prepared_root = tempfile::tempdir().unwrap();
     built_grid(grid, rails_root.path());
     let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), expected, "{grid} has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    if grid == "grid-kucoin" { for d in &dirs { copy_dir(d, &prepared_root.path().join(d.file_name().unwrap())); } }
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut failures = vec![];
     let mut outputs = vec![];
@@ -33,7 +35,27 @@ pub async fn run_venue_grid(grid: &str, expected: usize, validators: &[Validator
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_dir = rust_root.path().join(&name);
-        let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        let rust_out = if grid == "grid-kucoin" {
+            let mut classic = deltabadger::parity::decide_kucoin_context(&rust_dir, false).await.unwrap();
+            let mut prepared = deltabadger::parity::decide_kucoin_context(&prepared_root.path().join(&name), true).await.unwrap();
+            let original = classic.as_object_mut().unwrap().remove("kucoin_requests").unwrap();
+            let requests = prepared.as_object_mut().unwrap().remove("kucoin_requests").unwrap();
+            use deltabadger::venue::kucoin_account::{MODE, OPENED};
+            let (mut reads, mut subsequent) = (vec![], vec![]);
+            for request in requests.as_array().unwrap() {
+                if matches!(request["path"].as_str(), Some(MODE | OPENED)) { reads.push(request); }
+                else { subsequent.push(request.clone()); }
+            }
+            assert!(!reads.is_empty() && reads.len() % 2 == 0, "{name}: complete mode/opened pairs");
+            for pair in reads.chunks_exact(2) {
+                for (request, path) in pair.iter().zip([MODE, OPENED]) {
+                    assert_eq!(**request, serde_json::json!({"method":"GET","path":path,"query":[],"body":null}), "{name}");
+                }
+            }
+            assert_eq!(Value::Array(subsequent), original, "{name}: every classic request after detection");
+            assert_eq!(prepared, classic, "{name}: exact classic DB effects and decisions with preparation");
+            classic
+        } else { deltabadger::parity::decide(&rust_dir).await.unwrap() };
         let expected = r5_cleanup_expected(&rails_out, &rust_out);
         match validators.iter().find(|v| (v.names)(&name)) {
             Some(v) => if let Err(e) = (v.check)(&name, &rust_dir, &expected, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")) },

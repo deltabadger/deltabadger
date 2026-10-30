@@ -208,6 +208,16 @@ fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
 }
 
 pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
+    decide_context(dir, None).await
+}
+
+/// M05: the same classic scenario with or without version-bound account preparation. Includes
+/// requests for the wrapper regression to compare independently of the Rails decision output.
+pub async fn decide_kucoin_context(dir: &Path, prepared: bool) -> Result<Value, EngineError> {
+    decide_context(dir, Some(prepared)).await
+}
+
+async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Value, EngineError> {
     let read = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| EngineError::Data(e.to_string()))?;
     let scenario: Value = serde_json::from_str(&read).map_err(|e| EngineError::Data(e.to_string()))?;
     if scenario["parity_scratch"] != true {
@@ -294,6 +304,17 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Kucoin'", [], |r| r.get(0))?;
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::kucoin::KucoinVenue::new(transport.clone(), crate::venue::kucoin::URL).with_pairs(pairs);
+        let venue = if kucoin_prepared == Some(true) {
+            use crate::venue::kucoin_account::{Resolver, MODE, OPENED};
+            transport.set_now(start);
+            transport.reply(&format!("GET {MODE}"), 200, json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}));
+            transport.reply(&format!("GET {OPENED}"), 200, json!({"code":"200000","data":false}));
+            let bot = crate::engine::model::load_bot(&o.primary, bot_id)?;
+            let version = crate::venue::Handle::for_bot(&venue, &o.primary, &bot)?.producer().ok_or_else(|| EngineError::Data("classic wrapper requires stored key".into()))?;
+            let venue = venue.with_account_context(version, Resolver::default());
+            venue.prepare().await.map_err(|e| EngineError::Data(format!("{e:?}")))?;
+            venue
+        } else { venue };
         let posted = || kucoin_sent(&transport).len();
         let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
@@ -301,6 +322,15 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": kucoin_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
+        if kucoin_prepared.is_some() {
+            out["kucoin_requests"] = json!(transport.requests().iter().map(|r| {
+                let mut body = r.body.clone();
+                if let Some(oid) = body.as_mut().and_then(|b| b.get_mut("clientOid")) { *oid = json!("$clientOid"); }
+                let path = r.path.rsplit_once('/').filter(|(_, tail)| uuid::Uuid::parse_str(tail).is_ok())
+                    .map_or_else(|| r.path.clone(), |(prefix, _)| format!("{prefix}/$clientOid"));
+                json!({"method": r.method, "path": path, "query": r.query, "body": body})
+            }).collect::<Vec<_>>());
+        }
         return Ok(out);
     }
     if scenario["venue"] == "bitget" {

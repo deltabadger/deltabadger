@@ -41,7 +41,7 @@ impl ValidationHandle {
     pub(crate) async fn check_via(&self,venue:&str,base:&str,egress:Result<reqwest::Client,String>,kind:i64)->Checked {
         let (value,observed)=match egress {
             Ok(client) if venue==crate::venue::ibkr::IBKR=>(super::key_check::ibkr_validity(base,client,&self.credentials,&self.producer).await,None),
-            Ok(client)=>super::key_check::check_identified(venue,base,client,&self.credentials,kind).await,
+            Ok(client)=>super::key_check::check_identified_captured(venue,base,client,&self.credentials,kind,Some(&self.producer)).await,
             Err(why)=>(Validity::Pending(Diagnostic{text:why,status:None,body:String::new()}),None),
         };
         (crate::engine::model::Produced::new(value,Some(self.producer.clone())),observed)
