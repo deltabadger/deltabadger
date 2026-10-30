@@ -65,13 +65,6 @@ jobs:
             asset_id: darwin-aarch64
             installer_name: Deltabadger_darwin-aarch64.dmg
             updater_name: Deltabadger_darwin-aarch64.app.tar.gz
-          # macos-13 was the Intel image until GitHub retired it on 2025-12-04. macos-15-intel is
-          # the standard-runner replacement; Intel macOS hosting ends with that image in 2027.
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            asset_id: darwin-x86_64
-            installer_name: Deltabadger_darwin-x86_64.dmg
-            updater_name: Deltabadger_darwin-x86_64.app.tar.gz
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             asset_id: windows-x86_64
@@ -126,12 +119,8 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
         run: |
-          case "$TARGET" in
-            aarch64-apple-darwin) expected=arm64 ;;
-            x86_64-apple-darwin) expected=x86_64 ;;
-            *) exit 1 ;;
-          esac
-          test "$(uname -m)" = "$expected"
+          test "$TARGET" = aarch64-apple-darwin
+          test "$(uname -m)" = arm64
 
       - name: Verify native Windows runner architecture
         if: runner.os == 'Windows'
@@ -268,9 +257,6 @@ jobs:
           test -f release-assets/Deltabadger_darwin-aarch64.dmg
           test -f release-assets/Deltabadger_darwin-aarch64.app.tar.gz
           test -s release-assets/Deltabadger_darwin-aarch64.app.tar.gz.sig
-          test -f release-assets/Deltabadger_darwin-x86_64.dmg
-          test -f release-assets/Deltabadger_darwin-x86_64.app.tar.gz
-          test -s release-assets/Deltabadger_darwin-x86_64.app.tar.gz.sig
           test -f release-assets/Deltabadger_windows-x86_64-setup.exe
           test -f release-assets/Deltabadger_windows-x86_64.nsis.zip
           test -s release-assets/Deltabadger_windows-x86_64.nsis.zip.sig
@@ -285,15 +271,12 @@ jobs:
           version=${TAG#v}
           release_url="https://github.com/$REPOSITORY/releases/download/$TAG"
           arm_signature=$(<release-assets/Deltabadger_darwin-aarch64.app.tar.gz.sig)
-          intel_signature=$(<release-assets/Deltabadger_darwin-x86_64.app.tar.gz.sig)
           windows_signature=$(<release-assets/Deltabadger_windows-x86_64.nsis.zip.sig)
           jq -n \
             --arg version "$version" \
             --arg pub_date "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --arg arm_url "$release_url/Deltabadger_darwin-aarch64.app.tar.gz" \
             --arg arm_signature "$arm_signature" \
-            --arg intel_url "$release_url/Deltabadger_darwin-x86_64.app.tar.gz" \
-            --arg intel_signature "$intel_signature" \
             --arg windows_url "$release_url/Deltabadger_windows-x86_64.nsis.zip" \
             --arg windows_signature "$windows_signature" \
             '{
@@ -303,10 +286,6 @@ jobs:
                 "darwin-aarch64": {
                   url: $arm_url,
                   signature: $arm_signature
-                },
-                "darwin-x86_64": {
-                  url: $intel_url,
-                  signature: $intel_signature
                 },
                 "windows-x86_64": {
                   url: $windows_url,
