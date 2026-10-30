@@ -1250,3 +1250,236 @@ async fn r2_a_terminal_row_without_a_receipt_settles_what_it_still_owes() {
     assert!(obligation(&o.primary, id).is_none() && receipt(&o.primary, id).is_some());
     assert_eq!(work(&o.primary, bot.id), (vec![], vec![]));
 }
+
+// ---- HF-4: `deltabadger reconcile-order` (R03–R05) ------------------------------------------------------------------
+
+/// A v1 evidence bundle for row `id`'s HF order, from its record (`order_record`).
+fn bundle(c: &rusqlite::Connection, id: i64, state: &str, base: &str, quote: &str, fees: Value, source: Value) -> Value {
+    let rec = deltabadger::venue::kucoin::order_record(c, id).unwrap().unwrap();
+    let ext: String = c.query_row("SELECT external_id FROM transactions WHERE id=?1", [id], |r| r.get(0)).unwrap();
+    json!({ "version": 1, "transaction_id": id,
+            "account": { "host": rec["host"], "key_fingerprint": rec["key_fingerprint"] },
+            "order": { "id": ext, "symbol": rec["symbol"], "side": if rec["sell"] == true { "sell" } else { "buy" },
+                       "type": if rec["limit"] == true { "limit" } else { "market" }, "family": "ClassicHf" },
+            "terminal": { "state": state, "at": "2026-10-30T12:01:00Z" },
+            "executed": { "base": base, "quote": quote }, "fees": fees, "source": source })
+}
+fn attested(raw: &str) -> Value {
+    json!({ "kind": "exchange_order_record", "note": "KuCoin order history, exported", "sha256": hex::encode(Sha256::digest(raw.as_bytes())), "raw": raw })
+}
+fn eur(amount: &str) -> Value { json!([{ "currency": "EUR", "amount": amount }]) }
+fn reconcile(c: &rusqlite::Connection, id: i64, b: &Value) -> Result<deltabadger::engine::reconcile::Operator, deltabadger::engine::EngineError> {
+    deltabadger::engine::reconcile::by_operator(c, id, &b.to_string(), at("2026-10-30T13:00:00Z"))
+}
+/// Everything a refused reconciliation must leave as it was.
+fn snapshot(c: &rusqlite::Connection) -> String {
+    let q = |sql: &str| -> Vec<String> { let mut s = c.prepare(sql).unwrap(); s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap).collect() };
+    [q("SELECT json_array(id, status, external_status, amount_exec, quote_amount_exec, price, error_messages) FROM transactions ORDER BY id"),
+     q("SELECT json_array(id, status, transient_data) FROM bots ORDER BY id"),
+     q("SELECT json_array(key, value) FROM app_configs WHERE key NOT LIKE 'rust_job%' ORDER BY key"),
+     q("SELECT json_array(id, event) FROM bot_activity_logs ORDER BY id")].concat().join("\n")
+}
+
+/// R03: an operator's bundle settles an existing HF row with no intent, no new row and no request: a cancelled partial buy
+/// (its reversal's cancel ended and its reserve credited once), a filled sell, a market buy's proven zero fill.
+#[tokio::test(flavor = "current_thread")]
+async fn r03_operator_settles_filled_sell_cancelled_partial_buy_and_zero_fill() {
+    use deltabadger::engine::reconcile::Operator;
+    // Cancelled partial buy.
+    let (dir, o, bot, t, _v, id, _ext) = placed("KEY-A", false).await;
+    reversal_work(&o.primary, bot.id, id);
+    let sent = t.requests().len();
+    let rows: i64 = o.primary.query_row("SELECT count(*) FROM transactions", [], |r| r.get(0)).unwrap();
+    let b = bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.024"), attested("order HF1 cancelled, dealt 0.0004 for 24 EUR"));
+    assert_eq!(reconcile(&o.primary, id, &b).unwrap(), Operator::Reconciled);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(row_exec(&c, id), (Some(3), Some(0.0004)));
+    assert_eq!(work(&c, bot.id), (vec![], vec![]), "cancel ended, reserve credited");
+    let r = receipt(&c, id).unwrap();
+    assert_eq!((&r["source"], &r["fees"], &r["status"]), (&json!("operator"), &eur("0.024"), &json!("cancelled")));
+    assert!(r["sha256"].is_string() && r["evidence"]["order"]["id"] == "HF1");
+    assert_eq!(t.requests().len(), sent, "no request");
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap(), rows, "no new row");
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_none(), "no intent");
+    assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='placement_ambiguous' AND json_extract(details,'$.resolution')='reconciled'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+    // Filled sell.
+    let (_dir, o, _bot, _t, _v, id, _ext) = placed("KEY-A", false).await;
+    let key = format!("{}{id}", deltabadger::venue::kucoin::ORDER_RECORD);
+    let mut rec = deltabadger::venue::kucoin::order_record(&o.primary, id).unwrap().unwrap();
+    rec["sell"] = json!(true);
+    deltabadger::app_config::set_plain(&o.primary, &key, &rec.to_string(), at("2026-10-30T12:00:00Z")).unwrap();
+    o.primary.execute("UPDATE transactions SET side = 1 WHERE id = ?1", [id]).unwrap();
+    assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.001", "60", eur("0.06"), attested("sold"))).unwrap(), Operator::Reconciled);
+    assert_eq!(row_exec(&o.primary, id), (Some(2), Some(0.001)));
+    // A market buy's proven zero fill: the existing zero-fill reading (the row fails with the venue's refusal); replay is a no-op.
+    let (_dir, o, _bot, _t, _v, id, _ext) = placed("KEY-A", false).await;
+    let b = bundle(&o.primary, id, "closed", "0", "0", json!([]), attested("done, nothing dealt"));
+    assert_eq!(reconcile(&o.primary, id, &b).unwrap(), Operator::Reconciled);
+    let (status, external): (i64, i64) = o.primary.query_row("SELECT status, external_status FROM transactions WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((status, external), (1, 2));
+    assert_eq!(reconcile(&o.primary, id, &b).unwrap(), Operator::AlreadyReconciled);
+}
+
+/// R03: a retained order-detail answer and a full-order execution list are evidence; each must agree with the bundle.
+#[tokio::test(flavor = "current_thread")]
+async fn r03_api_order_detail_and_execution_list_bundles() {
+    use deltabadger::engine::reconcile::Operator;
+    let (_dir, o, _bot, _t, _v, id, ext) = placed("KEY-A", false).await;
+    let mut detail = hf_answer(&ext, false, true, "0.0004", "24");
+    detail["data"]["fee"] = json!("-0.024"); detail["data"]["feeCurrency"] = json!("EUR");
+    let raw = detail.to_string();
+    let source = json!({ "kind": "api_order_detail", "sha256": hex::encode(Sha256::digest(raw.as_bytes())), "raw": raw });
+    assert!(reconcile(&o.primary, id, &bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.03"), source.clone())).is_err(), "fees differ from the detail");
+    assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.024"), source)).unwrap(), Operator::Reconciled);
+    let (_dir, o, _bot, _t, _v, id, _ext) = placed("KEY-A", false).await;
+    let raw = "fill 1; fill 2";
+    let list = |coverage: Option<&str>| { let mut s = json!({ "kind": "execution_list", "sha256": hex::encode(Sha256::digest(raw.as_bytes())), "raw": raw,
+        "fills": [{"id":"1","base":"0.0003","quote":"18","fee":"0.018","fee_currency":"EUR"},{"id":"2","base":"0.0001","quote":"6","fee":"0.006","fee_currency":"EUR"}] });
+        if let Some(cov) = coverage { s["coverage"] = json!(cov); } s };
+    assert!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.0004", "24", eur("0.024"), list(None))).is_err(), "a trade list without full-order coverage");
+    assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.0004", "24", eur("0.024"), list(Some("full_order")))).unwrap(), Operator::Reconciled);
+}
+
+/// R04: every incomplete, contradicting or foreign bundle is refused, naming why, with nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn r04_refusals_write_nothing() {
+    let (_dir, o, bot, _t, _v, id, ext) = placed("KEY-A", false).await;
+    reversal_work(&o.primary, bot.id, id);
+    known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0002", "12", "0.02");
+    let good = bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.024"), attested("x"));
+    let with = |path: &str, v: Value| { let mut b = good.clone(); *b.pointer_mut(path).unwrap() = v; b };
+    let ack = json!({"code":"200000","data":{"orderId": ext}}).to_string();
+    let mut cases: Vec<(&str, Value)> = vec![
+        ("version", with("/version", json!(2))),
+        ("another transaction", with("/transaction_id", json!(id + 1))),
+        ("another host", with("/account/host", json!("https://api.example.test"))),
+        ("another key", with("/account/key_fingerprint", json!("00"))),
+        ("another order", with("/order/id", json!("HF2"))),
+        ("another symbol", with("/order/symbol", json!("ETH-EUR"))),
+        ("another side", with("/order/side", json!("sell"))),
+        ("another type", with("/order/type", json!("limit"))),
+        ("classic family", with("/order/family", json!("Classic"))),
+        ("no terminal proof", with("/terminal/state", json!("open"))),
+        ("missing totals", with("/executed/base", json!(""))),
+        ("negative totals", with("/executed/quote", json!("-24"))),
+        ("one total zero", with("/executed/quote", json!("0"))),
+        ("bad time", with("/terminal/at", json!("yesterday"))),
+        ("bad hash", with("/source/sha256", json!("00"))),
+        ("trade-only CSV", with("/source/kind", json!("trade_csv"))),
+        ("a cancel acknowledgement as the detail", with("/source", json!({"kind":"api_order_detail","sha256":hex::encode(Sha256::digest(ack.as_bytes())),"raw":ack}))),
+        ("fewer than the known fills' fees", with("/fees", eur("0.01"))),
+        ("below the known fills", bundle(&o.primary, id, "cancelled", "0.0001", "6", eur("0.024"), attested("x"))),
+        ("a zero below the known fills", with("/executed", json!({"base":"0","quote":"0"}))),
+    ];
+    let mut unknown = good.clone(); unknown["extra"] = json!(1);
+    cases.push(("an unknown field", unknown));
+    cases.push(("a duplicate fee currency", with("/fees", json!([{"currency":"EUR","amount":"0.01"},{"currency":"EUR","amount":"0.014"}]))));
+    let before = snapshot(&o.primary);
+    for (name, b) in &cases {
+        let r = reconcile(&o.primary, id, b);
+        assert!(r.is_err(), "{name}: {r:?}");
+        assert_eq!(snapshot(&o.primary), before, "{name}: nothing written");
+    }
+    // A cancelled zero is a limit order's proven zero, a closed zero a market one's; a closed zero on a limit row is refused.
+    let (_dir, o, _bot, _t, _v, id, _ext) = placed("KEY-A", true).await;
+    let before = snapshot(&o.primary);
+    assert!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0", "0", json!([]), attested("x"))).is_err());
+    assert_eq!(snapshot(&o.primary), before);
+    // A classic row has no recorded route.
+    let (_dir, o, bot, _t, _v, _id, _ext) = placed("KEY-A", false).await;
+    let classic = common::seed::insert_row(&o.primary, &common::seed::Seeded { user_id: 1, exchange_id: bot.exchange_id, btc: 1, quote: 2, ticker_id: 1, api_key_id: 1 }, bot.id, 1,
+                                           &json!({"external_id": "CLASSIC1", "created_at": "2026-10-30 12:00:00"}));
+    let mut b = bundle(&o.primary, _id, "closed", "0.001", "60", eur("0"), attested("x"));
+    b["transaction_id"] = json!(classic); b["order"]["id"] = json!("CLASSIC1");
+    let err = format!("{:?}", reconcile(&o.primary, classic, &b).unwrap_err());
+    assert!(err.contains("not an HF order with a recorded route"), "{err}");
+}
+
+/// R04: `resolve-placement` settles only an intent: for an HF row that is no longer one, it refuses.
+#[tokio::test(flavor = "current_thread")]
+async fn r04_resolve_placement_refuses_an_hf_row() {
+    use deltabadger::engine::placement::{self, OperatorResolution};
+    let (_dir, o, bot, _t, _v, id, ext) = placed("KEY-A", false).await;
+    let before = snapshot(&o.primary);
+    assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::Placed(ext), at("2026-10-30T13:00:00Z")).is_err());
+    assert_eq!(snapshot(&o.primary), before);
+    assert_eq!(row_exec(&o.primary, id).0, Some(0));
+}
+
+/// R05, r1.6: the same bundle again is a no-op; other facts or fees are a conflict with nothing written; an API settlement
+/// takes an operator's fees once; a poll answer that contradicts an operator's settlement changes nothing and owes.
+#[tokio::test(flavor = "current_thread")]
+async fn r05_replay_conflict_and_fee_supplement() {
+    use deltabadger::engine::{polling, reconcile::Operator};
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    reversal_work(&o.primary, bot.id, id);
+    let b = bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.024"), attested("x"));
+    assert_eq!(reconcile(&o.primary, id, &b).unwrap(), Operator::Reconciled);
+    let carry = model::load_bot(&o.primary, bot.id).unwrap().transient["missed_quote_amount"].clone();
+    let settled = snapshot(&o.primary);
+    assert_eq!(reconcile(&o.primary, id, &b).unwrap(), Operator::AlreadyReconciled);
+    assert_eq!(snapshot(&o.primary), settled, "a replay writes nothing");
+    for other in [bundle(&o.primary, id, "cancelled", "0.0005", "30", eur("0.024"), attested("x")), bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.03"), attested("x"))] {
+        assert!(format!("{:?}", reconcile(&o.primary, id, &other).unwrap_err()).contains("conflict"));
+        assert_eq!(snapshot(&o.primary), settled);
+    }
+    assert_eq!(model::load_bot(&o.primary, bot.id).unwrap().transient["missed_quote_amount"], carry, "credited once");
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0005", "30"));
+    let _ = polling::refresh(&o.primary, &v, bot.id, id, at("2026-10-30T13:05:00Z")).await;
+    assert_eq!(row_exec(&o.primary, id), (Some(3), Some(0.0004)));
+    assert!(obligation(&o.primary, id).is_some());
+    // Settled by the API (no fees), then the operator's equal facts: the fees join the receipt, nothing else.
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0004", "24"));
+    polling::follow_up(&o.primary, &v, bot.id, id, at("2026-10-30T12:05:00Z")).await.unwrap();
+    assert!(receipt(&o.primary, id).unwrap()["fees"].is_null());
+    assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.024"), attested("x"))).unwrap(), Operator::AlreadyReconciled);
+    assert_eq!(receipt(&o.primary, id).unwrap()["fees"], eur("0.024"));
+    assert_eq!(c_count(&o.primary, "placement_ambiguous"), 0, "no settlement line for a supplement");
+}
+fn c_count(c: &rusqlite::Connection, event: &str) -> i64 { c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event=?1", [event], |r| r.get(0)).unwrap() }
+
+/// r1.8: a reconciled buy that spends the quote cap stops the bot and owes its mail, in the settlement's transaction; a
+/// replay owes nothing again.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_a_reconciled_fill_that_spends_the_cap_stops_the_bot() {
+    use deltabadger::engine::reconcile::Operator;
+    let (_dir, o, bot, _t, _v, id, _ext) = placed("KEY-A", false).await;
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 20), \
+                       transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-09-01T00:00:00.000Z') WHERE id = ?1", [bot.id]).unwrap();
+    let b = bundle(&o.primary, id, "closed", "0.0004", "24", eur("0.024"), attested("x"));
+    assert_eq!(reconcile(&o.primary, id, &b).unwrap(), Operator::Reconciled);
+    assert_eq!(model::load_bot(&o.primary, bot.id).unwrap().status, deltabadger::enums::BotStatus::Stopped);
+    let stops = c_count(&o.primary, "stopped");
+    assert_eq!(reconcile(&o.primary, id, &b).unwrap(), Operator::AlreadyReconciled);
+    assert_eq!(c_count(&o.primary, "stopped"), stops);
+}
+
+/// R03/R04 through the binary: usage, a refused bundle (exit 1, the reason, nothing written), then the settlement and its
+/// replay. The engine's lock is taken, as `resolve-placement` takes it.
+#[tokio::test(flavor = "current_thread")]
+async fn reconcile_order_cli() {
+    let (dir, o, _bot, _t, _v, id, _ext) = placed("KEY-A", false).await;
+    let run = |args: &[&str]| std::process::Command::new(env!("CARGO_BIN_EXE_deltabadger")).args(args).env("STORAGE_DIR", dir.path())
+        .env_remove("DATABASE_URL").env_remove("PRIMARY_DATABASE_URL").env_remove("QUEUE_DATABASE_URL").output().unwrap();
+    for args in [vec!["reconcile-order"], vec!["reconcile-order", "x", "--evidence", "f"], vec!["reconcile-order", "1", "--proof", "f"]] {
+        let out = run(&args);
+        assert_eq!(out.status.code(), Some(1));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("usage: deltabadger reconcile-order"), "{args:?}");
+    }
+    let file = dir.path().join("evidence.json");
+    let good = bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.024"), attested("x"));
+    let mut bad = good.clone(); bad["order"]["symbol"] = json!("ETH-EUR");
+    std::fs::write(&file, bad.to_string()).unwrap();
+    let before = snapshot(&o.primary);
+    let out = run(&["reconcile-order", &id.to_string(), "--evidence", file.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("order.symbol is not the order's"), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(snapshot(&o.primary), before);
+    std::fs::write(&file, good.to_string()).unwrap();
+    for want in ["reconciled", "already reconciled"] {
+        let out = run(&["reconcile-order", &id.to_string(), "--evidence", file.to_str().unwrap()]);
+        assert_eq!((out.status.code(), String::from_utf8_lossy(&out.stdout).trim()), (Some(0), want), "{}", String::from_utf8_lossy(&out.stderr));
+    }
+    assert_eq!(row_exec(&o.primary, id).0, Some(3));
+}

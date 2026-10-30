@@ -203,3 +203,208 @@ pub(crate) fn unread(c: &Connection, bot_id: i64, tx_id: i64, why: &str, version
         mark(tx, tx_id, why, now)
     })
 }
+
+// ---- `deltabadger reconcile-order <transaction_id> --evidence <file>` ------------------------------------------------
+
+/// What `by_operator` did.
+#[derive(Debug, PartialEq)]
+pub enum Operator { Reconciled, AlreadyReconciled }
+
+/// Evidence bundle v1 (HF-4 plan §4). No field holds a credential.
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Bundle { version: u32, transaction_id: i64, account: Account, order: Order, terminal: Terminal, executed: Executed, fees: Vec<Fee>, source: Source }
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Account { host: String, key_fingerprint: String }
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Order { id: String, symbol: String, side: String, #[serde(rename = "type")] kind: String, family: String }
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Terminal { state: String, at: String }
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Executed { base: String, quote: String }
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Fee { currency: String, amount: String }
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct Source { kind: String, #[serde(default)] note: Option<String>, sha256: String, raw: String, #[serde(default)] coverage: Option<String>, #[serde(default)] fills: Option<Vec<ListedFill>> }
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct ListedFill { id: String, base: String, quote: String, fee: String, fee_currency: String }
+
+type Fees = std::collections::BTreeMap<String, BigDec>;
+
+/// Fees by currency, zero amounts left out (so `[]` and a zero fee agree).
+fn fee_map(fees: impl IntoIterator<Item = (String, BigDec)>) -> Fees {
+    let mut m = Fees::new();
+    for (currency, amount) in fees {
+        let sum = m.entry(currency).or_insert_with(BigDec::zero);
+        *sum = &*sum + &amount;
+    }
+    m.retain(|_, v| !v.is_zero());
+    m
+}
+fn fees_json(m: &Fees) -> Value { Value::Array(m.iter().map(|(c, a)| json!({ "currency": c, "amount": a.to_s_f() })).collect()) }
+fn abs(d: BigDec) -> BigDec { if d < BigDec::zero() { &BigDec::zero() - &d } else { d } }
+
+/// The bundle's own checks, before anything is read: every problem found, or the facts and fees it proves.
+fn validate(b: &Bundle, tx_id: i64, now: DateTime<Utc>) -> Result<(Facts, Fees, DateTime<Utc>), Vec<String>> {
+    let mut why = vec![];
+    let dec = |v: &str, name: &str, why: &mut Vec<String>| match BigDec::parse(v) {
+        Ok(d) if d >= BigDec::zero() => Some(d),
+        _ => { why.push(format!("{name} must be an exact non-negative decimal, not {v:?}")); None }
+    };
+    if b.version != 1 { why.push(format!("version must be 1, not {}", b.version)); }
+    if b.transaction_id != tx_id { why.push(format!("transaction_id {} is not transaction {tx_id}", b.transaction_id)); }
+    if b.order.family != "ClassicHf" { why.push("order.family must be ClassicHf".into()); }
+    let status = match b.terminal.state.as_str() { "closed" => Some("closed"), "cancelled" => Some("cancelled"),
+        other => { why.push(format!("terminal.state must be closed or cancelled, not {other:?} (no terminal proof)")); None } };
+    let at = crate::codec::parse_time(&b.terminal.at).map_err(|_| why.push(format!("terminal.at {:?} is not a time", b.terminal.at))).ok();
+    if at.is_some_and(|t| t > now) { why.push("terminal.at is in the future".into()); }
+    let (size, funds) = (dec(&b.executed.base, "executed.base", &mut why), dec(&b.executed.quote, "executed.quote", &mut why));
+    if let (Some(s), Some(f)) = (&size, &funds) {
+        if s.is_positive() != f.is_positive() { why.push("executed.base and executed.quote must be positive together".into()); }
+        if !s.is_positive() && status == Some("closed") && b.order.kind != "market" { why.push("a limit order's proven zero fill is cancelled, not closed".into()); }
+    }
+    let mut fees = vec![];
+    for f in &b.fees {
+        if fees.iter().any(|(c, _): &(String, BigDec)| c == &f.currency) { why.push(format!("fee currency {} is listed twice", f.currency)); }
+        if let Some(a) = dec(&f.amount, "fees.amount", &mut why) { fees.push((f.currency.clone(), a)); }
+    }
+    let fees = fee_map(fees);
+    use sha2::{Digest, Sha256};
+    if hex::encode(Sha256::digest(b.source.raw.as_bytes())) != b.source.sha256.to_lowercase() { why.push("source.sha256 is not the hash of source.raw".into()); }
+    if let (Some(status), Some(size), Some(funds)) = (status, size, funds) {
+        let facts = Facts { status, size, funds };
+        match b.source.kind.as_str() {
+            "exchange_order_record" => {}
+            "api_order_detail" => match api_detail(b, &facts, &fees, now) { Ok(()) => {}, Err(e) => why.push(e) },
+            "execution_list" => match listed(b, &facts, &fees) { Ok(()) => {}, Err(e) => why.push(e) },
+            other => why.push(format!("source.kind {other:?} is not evidence of a final order (api_order_detail, exchange_order_record or execution_list)")),
+        }
+        if why.is_empty() { if let Some(at) = at { return Ok((facts, fees, at)); } }
+    }
+    Err(why)
+}
+
+/// A retained HF order-detail answer: read as the poll reads it, it must give this terminal state, these totals and fees.
+fn api_detail(b: &Bundle, facts: &Facts, fees: &Fees, now: DateTime<Utc>) -> Result<(), String> {
+    let body: Value = serde_json::from_str(&b.source.raw).map_err(|_| "source.raw is not a KuCoin answer".to_string())?;
+    if body["code"] != "200000" { return Err("source.raw is not a successful KuCoin order answer".into()); }
+    let want = crate::venue::kucoin::HfOrder { id: b.order.id.clone(), symbol: b.order.symbol.clone(), sell: b.order.side == "sell", limit: b.order.kind == "limit" };
+    let state = crate::venue::kucoin::parse_hf_order(&body["data"], &want, &Default::default()).map_err(|_| "source.raw is not this order's detail".to_string())?.settled(now);
+    if Facts::of(&state).as_ref() != Some(facts) { return Err("source.raw does not show this terminal state and these totals".into()); }
+    let fee = body["data"]["fee"].as_str().and_then(|s| BigDec::parse(s).ok()).map(abs);
+    let raw_fees = fee_map(body["data"]["feeCurrency"].as_str().zip(fee).map(|(c, a)| (c.to_string(), a)));
+    if &raw_fees != fees { return Err("fees differ from source.raw's fee".into()); }
+    Ok(())
+}
+
+/// An execution list proves totals only as the order's full list: unique fill ids summing exactly to the bundle.
+fn listed(b: &Bundle, facts: &Facts, fees: &Fees) -> Result<(), String> {
+    if b.source.coverage.as_deref() != Some("full_order") { return Err("an execution list needs coverage \"full_order\" (a trade list alone proves no final total)".into()); }
+    let fills = b.source.fills.as_deref().filter(|f| !f.is_empty()).ok_or("an execution list needs its fills")?;
+    let mut ids = std::collections::BTreeSet::new();
+    let (mut size, mut funds, mut fee) = (BigDec::zero(), BigDec::zero(), vec![]);
+    for f in fills {
+        if !ids.insert(&f.id) { return Err(format!("fill {} is listed twice", f.id)); }
+        let n = |v: &str| BigDec::parse(v).ok().filter(|d| *d >= BigDec::zero()).ok_or_else(|| format!("fill {}: {v:?} is not an exact non-negative decimal", f.id));
+        size = &size + &n(&f.base)?;
+        funds = &funds + &n(&f.quote)?;
+        fee.push((f.fee_currency.clone(), abs(BigDec::parse(&f.fee).map_err(|_| format!("fill {}: unreadable fee", f.id))?)));
+    }
+    if size != facts.size || funds != facts.funds { return Err("the listed fills do not sum to executed".into()); }
+    if &fee_map(fee) != fees { return Err("the listed fills' fees do not sum to fees".into()); }
+    Ok(())
+}
+
+/// `deltabadger reconcile-order`: an operator's evidence settles an existing HF row whose order KuCoin no longer serves.
+/// Never a request, an intent or a row. The bundle is checked first; then, in one write transaction under the engine's
+/// lock (the caller holds it), the row, its record, its settlement and its known fills; then the settlement gate every HF
+/// answer passes (`polling::apply_evidenced_in`), the cap's stop and mail, and the operator's activity line.
+pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -> Result<Operator, EngineError> {
+    let refuse = |why: Vec<String>| EngineError::Data(format!("transaction {tx_id} not reconciled: {}", why.join("; ")));
+    let b: Bundle = serde_json::from_str(text).map_err(|e| refuse(vec![format!("unreadable evidence: {e}")]))?;
+    let (facts, fees, terminal_at) = validate(&b, tx_id, now).map_err(refuse)?;
+    let tx = model::immediate(c)?;
+    let row: Option<(Option<i64>, Option<String>, Option<i64>, String, String)> = tx.query_row(
+        "SELECT t.bot_id, t.external_id, t.status, t.created_at, e.type FROM transactions t JOIN exchanges e ON e.id = t.exchange_id WHERE t.id = ?1",
+        [tx_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).optional()?;
+    let Some((Some(bot_id), external_id, status, created_at, exchange)) = row else { return Err(refuse(vec!["no such order row".into()])) };
+    if exchange != "Exchanges::Kucoin" { return Err(refuse(vec!["not a KuCoin row".into()])); }
+    let Some(record) = crate::venue::kucoin::order_record(&tx, tx_id).map_err(data)?.filter(|r| r["family"] == "ClassicHf") else {
+        return Err(refuse(vec!["not an HF order with a recorded route (only a positive identity match establishes one)".into()]));
+    };
+    let mut why = vec![];
+    if external_id.as_deref() != Some(b.order.id.as_str()) { why.push("order.id is not the row's order".into()); }
+    if record["symbol"].as_str() != Some(b.order.symbol.as_str()) { why.push("order.symbol is not the order's".into()); }
+    if record["sell"].as_bool() != Some(b.order.side == "sell") || !matches!(b.order.side.as_str(), "buy" | "sell") { why.push("order.side is not the order's".into()); }
+    if record["limit"].as_bool() != Some(b.order.kind == "limit") || !matches!(b.order.kind.as_str(), "market" | "limit") { why.push("order.type is not the order's".into()); }
+    if record["host"].as_str() != Some(b.account.host.as_str()) || record["key_fingerprint"].as_str() != Some(b.account.key_fingerprint.as_str()) {
+        why.push("account is not the one the order was placed with".into());
+    }
+    if !why.is_empty() { return Err(refuse(why)); }
+    let evidence = serde_json::to_value(&b).map_err(|e| data(e.to_string()))?;
+    let extra = json!({ "fees": fees_json(&fees), "sha256": b.source.sha256.to_lowercase(), "evidence": evidence });
+    // A settled row: the same facts are a replay (an API settlement takes the fees once); anything else is a conflict.
+    if let Some(settled) = settled(&tx, tx_id, &record)? {
+        if settled.facts != facts { return Err(refuse(vec![format!("conflict: the order is already settled as {} {} / {}", settled.facts.status, settled.facts.size.to_s_f(), settled.facts.funds.to_s_f())])); }
+        match settled.receipt {
+            Some(mut r) => {
+                if r["fees"].is_null() {
+                    for (k, v) in extra.as_object().expect("an object") { r[k] = v.clone(); }
+                    crate::app_config::set_plain(&tx, &format!("{RECEIPT}{tx_id}"), &r.to_string(), now).map_err(data)?;
+                } else if r["fees"] != extra["fees"] {
+                    return Err(refuse(vec!["conflict: the order is already settled with other fees".into()]));
+                }
+                clear(&tx, tx_id)?;
+                tx.commit()?;
+                return Ok(Operator::AlreadyReconciled);
+            }
+            None => {} // settled before receipts: the gate below confirms it and settles what it still owes
+        }
+    } else if status != Some(0) {
+        return Err(refuse(vec!["the row is not a submitted order".into()]));
+    }
+    let created = crate::codec::parse_time(&created_at).map_err(|e| data(format!("{e:?}")))?;
+    if terminal_at < created { return Err(refuse(vec!["terminal.at is before the order was placed".into()])); }
+    let recorded = (decimal(&record, "deal_size", tx_id)?, decimal(&record, "deal_funds", tx_id)?);
+    if facts.size < recorded.0 || facts.funds < recorded.1 { return Err(refuse(vec!["executed is lower than KuCoin already reported for it".into()])); }
+    let (user, exchange_id) = owner(&tx, tx_id)?;
+    let known = known_fills(&tx, user, exchange_id, &b.order.id)?;
+    if facts.size < known.size || facts.funds < known.funds { return Err(refuse(vec!["executed is lower than the fills already recorded for it".into()])); }
+    if known.fees.iter().any(|(currency, amount)| fees.get(currency).is_none_or(|f| f < amount)) { return Err(refuse(vec!["fees are lower than the fills already recorded for it".into()])); }
+    let price = if facts.size.is_positive() {
+        let decimals: Option<i64> = tx.query_row("SELECT k.price_decimals FROM tickers k JOIN transactions t ON t.exchange_id = k.exchange_id AND t.base_asset_id = k.base_asset_id \
+                                                  AND t.quote_asset_id = k.quote_asset_id WHERE t.id = ?1", [tx_id], |r| r.get(0)).optional()?;
+        facts.funds.div(&facts.size).map(|p| match decimals { Some(d) => p.round(u8::try_from(d).unwrap_or(u8::MAX)), None => p })
+    } else { None };
+    // A market order closed with nothing dealt is the existing zero-fill reading (D-KUCOIN-ZERO-FILL-FUNDS: `closed_empty`).
+    let zero_fill_at = (facts.status == "closed" && !facts.size.is_positive()).then_some(terminal_at);
+    let state = OrderState { zero_fill_at, txid: b.order.id.clone(), status: if facts.status == "closed" { OrderStatus::Closed } else { OrderStatus::Cancelled },
+                             price, amount: None, quote_amount: None, amount_exec: facts.size.clone(), quote_amount_exec: Some(facts.funds.clone()),
+                             limit: b.order.kind == "limit", sell: b.order.side == "sell", pair: Some(b.order.symbol.clone()), asset_class: None };
+    let fenced = model::check_credential_result(&tx, &None)?;
+    let cap = super::polling::apply_evidenced_in(&fenced, bot_id, tx_id, &state, "operator", extra.clone(), now)?;
+    // The gate may still refuse (an obligation it found): then nothing of this commits.
+    let Some(mut r) = receipt(&tx, tx_id)? else { return Err(refuse(vec![obligation(&tx, tx_id)?.and_then(|o| o["why"].as_str().map(str::to_string)).unwrap_or_else(|| "it did not settle".into())])) };
+    if r["source"] != "operator" {
+        // Settled before receipts: the gate confirmed it as the API's; the operator's evidence is the receipt.
+        for (k, v) in extra.as_object().expect("an object") { r[k] = v.clone(); }
+        r["source"] = json!("operator");
+        crate::app_config::set_plain(&tx, &format!("{RECEIPT}{tx_id}"), &r.to_string(), now).map_err(data)?;
+    }
+    if let Some(cap) = cap {
+        super::amount_limit::owe_mail(&tx, bot_id, cap, now)?;
+        super::tick::stop_for_amount_limit(&tx, bot_id, cap, now)?;
+    }
+    model::log_activity(&tx, bot_id, "placement_ambiguous", model::Level::Warning,
+        json!({ "error": "resolved by the operator", "resolution": "reconciled", "source": "operator", "order_id": b.order.id }), now)?;
+    drop(fenced);
+    tx.commit()?;
+    Ok(Operator::Reconciled)
+}
