@@ -745,7 +745,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             continue;
         };
         let no_fee = e.fee_amount.as_ref().is_none_or(BigDec::is_zero);
-        let bot_order = if [BUY, SELL, 2, 3].contains(&e.entry_type) { bot_order(c, key.exchange_id, tx_id, &e.raw.value)? } else { None };
+        let bot_order = if [BUY, SELL, 2, 3].contains(&e.entry_type) { bot_order(c, key, tx_id, &e.raw.value)? } else { None };
         if let Some(id) = update {
             c.execute("UPDATE account_transactions SET base_amount=?1, description=?2, raw_data=?3, updated_at=?4 WHERE id=?5",
                       params![amount_sql(&key.exchange_type, &e.base_amount), e.description, e.raw.text(), sql_time(now), id])?;
@@ -777,7 +777,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
 /// Import::Run#write for one account: AccountTransactionSync#store! over what a file holds for it, inside the caller's
 /// transaction (the one the whole file is written in). The watermark, the recent assets and the transfer matcher are
 /// the sync's alone: an import moves none of them.
-pub(crate) fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+pub fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
     FileWriter::new(c, key)?.store(c, key, entries, now)
 }
 
@@ -1182,9 +1182,18 @@ fn legacy_token_swap(c: &Connection, key: &Key, p: &Progress, index: usize, repe
 }
 
 /// #match_bot_transaction!: the bot order this row is, by the row's own id, then by the order the fill names.
-fn bot_order(c: &Connection, exchange_id: i64, tx_id: Option<&str>, raw: &Value) -> Result<Option<i64>, SyncError> {
+/// D-LEDGER-ORDER-OWNER: only the row owner's bots' orders (Rails scopes by exchange alone, so on a shared install
+/// another user's order with the same id linked). D-BINANCE-ORDER-LINK: a Binance fill links only through its own
+/// resolver (`binance_order_links`), never by these lookups.
+fn bot_order(c: &Connection, key: &Key, tx_id: Option<&str>, raw: &Value) -> Result<Option<i64>, SyncError> {
+    if super::binance_order_links::venue(&key.exchange_type) {
+        if let Some(fill) = super::binance_order_links::fill_order(tx_id, raw) {
+            return Ok(match fill { Some(external) => super::binance_order_links::order(c, key.user_id, key.exchange_id, &external)?, None => None });
+        }
+    }
     for id in [tx_id, raw["order_id"].as_str().filter(|s| !blank(s))].into_iter().flatten() {
-        let found: Option<i64> = c.query_row("SELECT id FROM transactions WHERE external_id = ?1 AND exchange_id = ?2 LIMIT 1", params![id, exchange_id], |r| r.get(0)).optional()?;
+        let found: Option<i64> = c.query_row("SELECT id FROM transactions WHERE external_id = ?1 AND exchange_id = ?2 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?3) LIMIT 1",
+                                             params![id, key.exchange_id, key.user_id], |r| r.get(0)).optional()?;
         if found.is_some() { return Ok(found); }
     }
     Ok(None)
