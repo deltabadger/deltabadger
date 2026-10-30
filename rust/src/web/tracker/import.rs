@@ -21,6 +21,7 @@ struct New<'a> { ctx: &'a Ctx, csrf: String, formats: String, default_format: &'
 /// What create.html.erb says when no rows landed.
 enum Body {
     Error(String),
+    Refused(String),
     Ambiguous { csrf: String, token: String, format: &'static str, accounts: String, first: String },
     NothingNew { skipped: Option<String>, unrouted: Option<String>, unrecognised: Option<String> },
 }
@@ -128,6 +129,8 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
             unrouted: (!unrouted.is_empty()).then(|| i18n::t(ctx.locale, "tracker.import.unrouted", &[("exchanges", i18n::Arg::Text(&unrouted.join(", ")))])),
             unrecognised: (!unrecognised.is_empty()).then(|| i18n::t(ctx.locale, "tracker.import.unrecognised", &[("operations", i18n::Arg::Text(&unrecognised.join(", ")))])),
         }),
+        Answer::Refused(reason) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Refused(
+            i18n::text(ctx.locale, "tracker.import.identity_refused", &[("reason", i18n::Arg::Text(&reason))]))),
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
         Answer::Ambiguous(keys) => {
             let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.id.to_string().into(), label: k.exchange_name.clone(), active: i == 0, href: None }).collect();

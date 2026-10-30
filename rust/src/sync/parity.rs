@@ -223,13 +223,10 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
         None => None,
     };
     let mut out = none;
-    let answer=match run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at) {
-        Ok(answer)=>answer,
-        Err(error) if error.0.starts_with("Binance A12 unresolved:")=> {out["error"]=json!(error.0);return Ok(out);},
-        Err(error)=>return Err(error),
-    };
+    let answer=run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)?;
     match answer {
         Answer::Error(error) => out["error"] = json!(error),
+        Answer::Refused(reason) => out["error"] = json!(format!("Binance A12 unresolved: {reason}")),
         Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.id).collect::<Vec<_>>()),
         Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, .. } =>
             out = json!({ "imported": imported, "duplicates": duplicates, "skipped": skipped, "unrecognised": unrecognised, "unrouted": unrouted, "error": null, "ambiguous": null }),

@@ -24,6 +24,23 @@ struct Binding { event: Event, row_id: i64, raw: Value, at: i64, kind: i64, coin
 #[derive(Serialize, Deserialize)]
 struct Bucket { version: u8, legacy: String, bindings: Vec<Binding> }
 fn refused(reason: &str) -> SyncError { SyncError(format!("Binance A12 unresolved: {reason}")) }
+/// Only named import identity refusals are validation failures. Ownership, SQL and
+/// unexpected errors remain errors even if they mention A12.
+pub(crate) fn csv_refusal(error: &SyncError) -> Option<&str> {
+    let reason = error.0.strip_prefix("Binance A12 unresolved: ")?;
+    matches!(reason,
+        "unreadable identity metadata" | "conflicting bucket digest" | "unsupported bucket" |
+        "missing retained identity" | "duplicate or conflicting retained digest" |
+        "suppression has no retained reason" | "unreadable retained identity evidence" |
+        "partial CSV dust pair" | "exported identity has no retained binding" | "exported CSV identity changed" |
+        "ambiguous CSV identity" | "partial suppressed pair" | "CSV identities are not one-to-one" |
+        "CSV alias points to deleted row" | "CSV alias changed" | "missing CSV candidate raw data" |
+        "unreadable CSV candidate raw data" | "CSV candidate identity changed" | "CSV candidate is not one whole pair" |
+        "CSV cannot exclude a suppressed event" | "missing CSV outgoing leg" | "missing CSV incoming leg" |
+        "ambiguous CSV dust pair" | "partial existing CSV dust pair" | "ambiguous CSV dust identity" |
+        "CSV dust identity has no proven whole-pair match" | "CSV group is already occupied"
+    ).then_some(reason)
+}
 fn hash(s: &str) -> String { hex::encode(Sha256::digest(s.as_bytes())) }
 fn scope(key: &Key) -> String { format!("{PREFIX}{}:{}:",key.user_id,key.exchange_id) }
 fn bucket_id(e: &Entry) -> Result<String,SyncError> {
@@ -65,13 +82,13 @@ fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
     c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1",[owner])?;
     c.execute("DELETE FROM portfolio_venue_snapshots WHERE user_id=?1",[owner])?; Ok(())
 }
-fn image(c: &Connection, id: i64) -> Result<Value,SyncError> {
+fn image(c: &Connection, id: i64) -> Result<Value,rusqlite::Error> {
     let mut s=c.prepare("SELECT * FROM account_transactions WHERE id=?1")?;
     let names=s.column_names().iter().map(|n|n.to_string()).collect::<Vec<_>>();
-    Ok(s.query_row([id],|r| {let mut out=serde_json::Map::new();for (i,n) in names.iter().enumerate() {
+    s.query_row([id],|r| {let mut out=serde_json::Map::new();for (i,n) in names.iter().enumerate() {
         let v=match r.get_ref(i)? {rusqlite::types::ValueRef::Null=>Value::Null,rusqlite::types::ValueRef::Integer(n)=>json!(n),
             rusqlite::types::ValueRef::Real(n)=>json!(n),rusqlite::types::ValueRef::Text(s)=>json!(String::from_utf8_lossy(s)),rusqlite::types::ValueRef::Blob(b)=>json!(hex::encode(b))};out.insert(n.clone(),v);
-    }Ok(Value::Object(out))})?)
+    }Ok(Value::Object(out))})
 }
 fn load(c: &Connection, name: &str, legacy: &str) -> Result<Bucket,SyncError> {
     let text:Option<Option<String>>=c.query_row("SELECT value FROM app_configs WHERE key=?1",[name],|r|r.get(0)).optional()?;
@@ -216,7 +233,8 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         let exact = |a:&Binding,e:&Entry| -> bool {
             a.kind == e.entry_type && e.base_currency.as_deref() == Some(&a.coin) &&
                 a.after["base_amount"].as_f64().and_then(|v|BigDec::from_f64(v).ok()).is_some_and(|v|v==e.base_amount) && e.group_id==a.group &&
-                e.transacted_at.is_some_and(|t|a.after["transacted_at"].as_str().and_then(|s|crate::codec::parse_time(s).ok())==Some(t)) &&
+                // The app export writes whole seconds, truncating fractional ledger timestamps.
+                e.transacted_at.is_some_and(|t|a.after["transacted_at"].as_str().and_then(|s|crate::codec::parse_time(s).ok()).is_some_and(|stored|stored.timestamp()==t.timestamp())) &&
                 e.fee_currency==a.after["fee_currency"].as_str().map(str::to_string) &&
                 e.fee_amount.as_ref().map(BigDec::to_s_f)==a.after["fee_amount"].as_f64().map(|v|BigDec::from_f64(v).map(|d|d.to_s_f())).transpose().ok().flatten()
         };
@@ -250,7 +268,11 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         if let Some(pair)=candidates.first() {
             if pair.iter().any(|a|a.suppressed) {if pair.iter().any(|a|!a.suppressed){return Err(refused("partial suppressed pair"))}out.skipped+=rows.len();continue}
             if pair.iter().any(|a|!used.insert(a.row_id)) {return Err(refused("CSV identities are not one-to-one"))}
-            for a in pair {let row=image(c,a.row_id).map_err(|_|refused("CSV alias points to deleted row"))?;
+            for a in pair {let row=match image(c,a.row_id) {
+                Ok(row)=>row,
+                Err(rusqlite::Error::QueryReturnedNoRows)=>return Err(refused("CSV alias points to deleted row")),
+                Err(error)=>return Err(error.into()),
+            };
                 if row["user_id"]!=key.user_id || row["exchange_id"]!=key.exchange_id || row["tx_id"]!=a.tx_id || row["group_id"]!=json!(a.group) {return Err(refused("CSV alias changed"))}
                 let mut raw:Value=serde_json::from_str(row["raw_data"].as_str().ok_or_else(||refused("missing CSV candidate raw data"))?).map_err(|_|refused("unreadable CSV candidate raw data"))?;
                 if let Some(raw)=raw.as_object_mut(){raw.remove("file_twin_at");}
@@ -308,7 +330,9 @@ fn csv_dust(c:&FencedTransaction<'_>, key:&Key, rows:&[&Entry], used:&mut HashSe
         let same=|a:&Value,e:&Entry| {
             let decimal=|k:&str| a[k].as_f64().and_then(|v|BigDec::from_f64(v).ok());
             a["tx_id"]==serde_json::json!(e.tx_id) && a["entry_type"]==e.entry_type && a["base_currency"]==serde_json::json!(e.base_currency) &&
-                decimal("base_amount").as_ref()==Some(&e.base_amount) && decimal("fee_amount")==e.fee_amount &&
+                // Compare both sides through the same double/16-significant-digit readback as storage.
+                decimal("base_amount")==BigDec::from_f64(e.base_amount.to_f()).ok() &&
+                decimal("fee_amount")==e.fee_amount.as_ref().and_then(|v|BigDec::from_f64(v.to_f()).ok()) &&
                 a["fee_currency"]==serde_json::json!(e.fee_currency) && a["transacted_at"]==super::sql_time(at)
         };
         if rows.iter().all(|e|stored.iter().filter(|a|same(a,e)).count()==1) {

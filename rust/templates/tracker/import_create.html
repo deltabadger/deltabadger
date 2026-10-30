@@ -13,6 +13,8 @@
     </div>
 {% match body %}{% when Body::Error with (error) %}
       <p class="tracker-empty">{{ ctx.t(error)|safe }}</p>
+{%- when Body::Refused with (message) %}
+      <p class="tracker-empty">{{ message }}</p>
 {%- when Body::Ambiguous with { csrf, token, format, accounts, first } %}
       <form class="form" data-turbo-frame="modal_content" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
         <input type="hidden" name="token" id="token" value="{{ token }}" />

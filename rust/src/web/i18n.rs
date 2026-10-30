@@ -11,6 +11,7 @@ pub const DEFAULT: &str = "en";
 /// ActiveModel's "taken" message, and the dotiw gem's unit names (`distance_of_time_in_words`) in the
 /// ten of this app's locales the gem has a file for.
 const FROM_GEMS: &[(&str, &str)] = &[
+    ("en.tracker.import.identity_refused", "No transactions were imported. Binance history could not be matched safely: %{reason}. Retry with a complete, unchanged export. If this persists, ask the administrator to review the retained Binance history."),
     ("en.rules.tile.withdrawal_unconfirmed", "Withdrawal status unconfirmed — not retried, to avoid sending it twice. Check %{exchange}."),
     ("en.errors.messages.taken", "has already been taken"),
     ("da.datetime.dotiw.days.one", "1 dag"), ("da.datetime.dotiw.days.other", "%{count} dage"), ("da.datetime.dotiw.hours.one", "1 time"),
