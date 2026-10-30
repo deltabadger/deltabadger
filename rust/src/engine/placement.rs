@@ -538,6 +538,19 @@ fn skips_below_minimum(intent: &Intent) -> bool {
 /// withdraw the order, as a stop landing during Clients::Ibkr's IbkrLock wait does not in Rails. STOP can
 /// invalidate this run while the response is in flight; the accepted order still gets recorded.
 pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
+    // Preparation may perform HTTP. Refresh before the existing dispatch fence, so a rotation during
+    // detection cannot authorize a send. The committed family, not the latest account mode, is authoritative.
+    let bot = model::load_bot(c, intent.bot_id)?;
+    if let Err(error) = venue.validate_preparation(bot.rust_placement().as_ref()).await {
+        let dispatched = model::credential_write(c, &intent.credential_version, |tx| {
+            let raw = model::load_bot(tx, intent.bot_id)?.rust_placement();
+            Ok(raw.is_some_and(|v| v["cl_ord_id"] == intent.cl_ord_id && v["dispatched"] == true))
+        })?;
+        // A failed read proves nothing about an earlier dispatch. Only this unsent invocation
+        // is refused; an existing ambiguous placement remains an obligation.
+        if dispatched { return Ok(Sent::Ambiguous(format!("{}; previous dispatch remains unresolved", error.message()))); }
+        return Ok(Sent::NotSent(error.message()));
+    }
     {
         let tx = model::immediate(c)?;
         if !intent_owned(&tx, intent)? || !still_pending(&tx, intent.bot_id, &intent.cl_ord_id)? {
@@ -557,6 +570,16 @@ pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &
         tx.commit()?;
     }
     Ok(send_to_venue(venue, intent, clock).await)
+}
+
+/// Preparation carries its original producer across HTTP, just like balances and prices. A no-op
+/// preparation does not introduce a credential requirement for other venues or the classic replay.
+pub(crate) async fn prepare<V: Venue>(c: &Connection, venue: &V) -> Result<Result<(), VenueError>, EngineError> {
+    let origin = venue.producer();
+    let result = venue.prepare().await;
+    let version = match &result { Ok(version) => version.clone(), Err(_) => origin };
+    if version.is_some() { model::credential_write(c, &version, |_| Ok(()))?; }
+    Ok(result.map(|_| ()))
 }
 
 /// An accepted order is an immutable fact, even when STOP/restart changed the run meanwhile.
@@ -776,6 +799,9 @@ pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
 /// key: Rails' unsaved fallback) is not compared.
 fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str> {
     let now = now?;
+    if let Some(sent) = intent["kucoin_account_mode"].as_str() {
+        if Some(sent) != now["kucoin_account_mode"].as_str() { return Some("under another or unprepared KuCoin account mode"); }
+    }
     let mode = |v: &Value| v["alpaca_live"].as_bool().unwrap_or(false);
     if mode(intent) != mode(&now) { return Some(if mode(intent) { "in Alpaca live mode and the key is now paper" } else { "in Alpaca paper mode and the key is now live" }); }
     if let (Some(sent), Some(host)) = (intent["host"].as_str(), now["host"].as_str()) {
@@ -807,6 +833,12 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
     let venue=&handle;
     let intent = Intent::from_json(c, bot, &raw,venue.producer())?;
+    if raw.get("kucoin_account_mode").is_some() {
+        if let Err(error) = prepare(c, venue).await? {
+            log_once(&intent.cl_ord_id, &format!("[engine] bot {}: recovery account preparation failed: {error:?}", bot.id));
+            return Ok(Recovery::Pending);
+        }
+    }
     if let Some(why) = identity_mismatch(&raw, venue.placement_identity()) {
         log_once(&intent.cl_ord_id, &format!("[engine] bot {}: its unresolved order was sent {why}; it is not looked up anywhere else; settle it with `deltabadger resolve-placement`", bot.id));
         return Ok(Recovery::Pending);

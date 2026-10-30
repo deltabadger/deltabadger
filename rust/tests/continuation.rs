@@ -87,6 +87,7 @@ struct Venue { account: Rc<Account>, per_page: usize, watch: Rc<Watch>, latency:
 
 impl Transport for Venue {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if let Some(answer) = common::scripted::kucoin_classic_detection(r) { return Ok(answer); }
         let n = self.log.borrow().len();
         self.pending.borrow_mut().retain(|(at, path, row)| if *at <= n { self.arrived.borrow_mut().push((path, row.clone())); false } else { true });
         self.watch.at.set(self.watch.at.get() + (self.latency)(n));

@@ -594,6 +594,8 @@ pub(crate) async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V,
 /// effort: a failure is logged and the stored composition stands. Written only while the stored composition is still the
 /// claim's (false: it changed, the pass ends); the claim then moves to what was written.
 pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &mut Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<bool, EngineError> {
+    let prepared = super::placement::prepare(c, venue).await?;
+    if let Err(e) = prepared { return Err(EngineError::Data(e.message())); }
     let bot = &claim.bot;
     let refreshed = if bot.bot_type == "Bots::DcaIndex" {
         match super::index::refresh_for_rebalance(c, venue, bot, &claim.composition, clock, cx.prices, &cx.credential_version).await {

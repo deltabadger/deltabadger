@@ -32,7 +32,7 @@
     },
     {
       "file": "parity.rs",
-      "function": "decide",
+      "function": "decide_context",
       "builds": "recorded fixture and direct-entry Handle"
     },
     {

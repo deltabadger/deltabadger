@@ -64,7 +64,14 @@ pub fn headers(r: &HttpRequest, key: &str, secret: &str, passphrase: &str, times
 }
 
 #[derive(Clone)]
-pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value> }
+pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool }
+
+#[derive(Clone)]
+struct AccountContext {
+    version: crate::engine::model::CredentialVersion,
+    resolver: super::kucoin_account::Resolver,
+    prepared: std::sync::Arc<std::sync::Mutex<Option<super::kucoin_account::Detection>>>,
+}
 
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
 
@@ -158,7 +165,24 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
 }
 
 impl<T: Transport> KucoinVenue<T> {
-    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None } }
+    /// Classic wire adapter, also used by the unchanged Rails replay. Runtime construction attaches captured context.
+    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false } }
+    pub fn with_account_context(mut self, version: crate::engine::model::CredentialVersion, resolver: super::kucoin_account::Resolver) -> Self {
+        self.account = Some(AccountContext { version, resolver, prepared: Default::default() });
+        self
+    }
+    pub(crate) fn with_missing_account_context(mut self) -> Self { self.missing_context = true; self }
+    fn prepared_for_send(&self) -> Result<(), VenueError> {
+        if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
+        if let Some(account) = &self.account {
+            let prepared = *account.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            match prepared {
+                Some(d) if account.resolver.is_current(&self.transport, &self.base, &account.version, d) => d.mode.require_classic()?,
+                _ => return Err(super::kucoin_account::refusal("account preparation missing, expired or invalidated")),
+            }
+        }
+        Ok(())
+    }
     /// The key this venue sends with (`venue::key_identity`), recorded in each intent and compared before a recovery asks.
     pub fn with_identity(mut self, credentials: &crate::crypto::Credentials) -> Self { self.identity = Some(super::key_identity(&self.base, credentials)); self }
     /// Another host: local test servers only.
@@ -212,6 +236,7 @@ impl<T: Transport> KucoinVenue<T> {
     /// Clients::Kucoin#get_accounts(type: 'trade') as Exchanges::Kucoin#get_balances reads it: only the success code means
     /// balances, else "Failed to get KuCoin balances: <code> <msg>".
     async fn accounts(&self) -> Result<Vec<Value>, VenueError> {
+        super::Venue::prepare(self).await?;
         let body = self.get("/api/v1/accounts".into(), vec![("type", "trade".into())], http::MAX_BODY).await?;
         if body["data"].is_null() || code(&body).ok().as_deref() != Some(OK) {
             return Err(VenueError::Rejected(vec![format!("Failed to get KuCoin balances: {}", code_and_msg(&body))]));
@@ -296,6 +321,27 @@ impl<T: Transport> KucoinVenue<T> {
 }
 
 impl<T: Transport> super::Venue for KucoinVenue<T> {
+    fn producer(&self) -> Option<crate::engine::model::CredentialVersion> { self.account.as_ref().map(|a| a.version.clone()) }
+    async fn prepare(&self) -> Result<Option<crate::engine::model::CredentialVersion>, VenueError> {
+        if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
+        if let Some(account) = &self.account {
+            let detected = account.resolver.resolve(&self.transport, &self.base, &account.version).await.value?;
+            let mut prepared = account.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if prepared.is_some_and(|old| old.mode != detected.mode) {
+                return Err(super::kucoin_account::refusal("account mode changed since preparation"));
+            }
+            detected.mode.require_classic()?;
+            *prepared = Some(detected);
+        }
+        Ok(self.producer())
+    }
+    async fn validate_preparation(&self, identity: Option<&Value>) -> Result<(), VenueError> {
+        self.prepare().await?;
+        if self.account.is_some() && identity.and_then(|i| i["kucoin_account_mode"].as_str()) != Some("ClassicLf") {
+            return Err(super::kucoin_account::refusal("intent has no matching prepared account mode"));
+        }
+        self.prepared_for_send()
+    }
     /// Exchanges::Kucoin#get_candles: windows of 1500 periods from the start (`startAt`/`endAt` in whole seconds, a month's
     /// 1500 calendar months), each ending at now at the latest, at most MAX_CANDLE_PAGES of them (then what was read, as
     /// Rails' cap). Each window's candles in time order; the next window from a second after its latest, or a second after
@@ -339,7 +385,15 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     }
 
     fn rules(&self) -> &'static VenueRules { &RULES }
-    fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
+    fn placement_identity(&self) -> Option<Value> {
+        let mut identity = self.identity.clone();
+        if let Some(account) = &self.account {
+            if let Some(d) = *account.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner) {
+                identity.get_or_insert_with(|| serde_json::json!({}))["kucoin_account_mode"] = d.mode.as_str().into();
+            }
+        }
+        identity
+    }
 
     /// #get_ask_price / #get_bid_price through #get_bid_ask_price (level2_20: the first bid and ask, price and size), and
     /// #get_last_price (allTickers, the symbol's `last`; null is 0). A zero price raises "Wrong … price", naming the pair.
@@ -374,6 +428,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// error envelope is honeymaker's api_error text (the placement layer reads 500000/230005 as unknown, 400002 as safe);
     /// a success without an orderId, or an answer without a code, may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
+        self.prepared_for_send()?;
         let mut body = serde_json::Map::new();
         for (k, v) in [("clientOid", o.cl_ord_id.as_str()), ("side", o.side.as_str()), ("symbol", o.pair.as_str())] { body.insert(k.into(), v.into()); }
         match &o.kind {

@@ -387,11 +387,19 @@ fn accounts(eur: Option<&str>) -> Value {
     if let Some(eur) = eur { rows.push(json!({ "id": "a2", "currency": "EUR", "type": "trade", "balance": eur, "available": eur, "holds": "0" })); }
     json!({ "code": "200000", "data": rows })
 }
+fn balance_transport(eur: Option<&str>) -> ScriptedTransport {
+    use deltabadger::venue::kucoin_account::{MODE, OPENED};
+    let t = ScriptedTransport::default();
+    t.reply(&format!("GET {MODE}"), 200, json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}));
+    t.reply(&format!("GET {OPENED}"), 200, json!({"code":"200000","data":false}));
+    t.reply("GET /api/v1/accounts", 200, accounts(eur));
+    t
+}
 impl Kc {
     fn db(&self) -> Db { Db::new(store::open(&Paths::from_env(&|_| None, self.dir.path())).unwrap().primary, seed::cipher()) }
     /// One complete KuCoin balance sync of the bot's key, EUR as given (absent: KuCoin dropped a zero balance).
     async fn synced(&self, eur: Option<&str>) {
-        let t = ScriptedTransport::from_script(&json!({ "GET /api/v1/accounts": [{ "status": 200, "body": accounts(eur) }] }));
+        let t = balance_transport(eur);
         let done = deltabadger::sync::balances::sync_kucoin(&self.db(), t, &deltabadger::sync::balances::NoPrices, self.s.api_key_id, &creds(), &FixedClock(at(NOW))).await;
         assert!(matches!(done, Ok(Ok(_))), "{:?}", done.map(|d| d.err().map(|f| f.error)));
     }
@@ -501,7 +509,7 @@ impl Job for LowSync {
             let (db, clock) = (cx.db.clone(), cx.clock);
             let marked = deltabadger::sync::jobs::BalanceSync::new(NoVenues, std::rc::Rc::new(deltabadger::sync::balances::NoPrices), self.key).run_attributed(cx, wakes).await;
             assert!(matches!(marked.value, Outcome::Failed(_)), "the substituted fetch is refused: {:?}", marked.value);
-            let t = ScriptedTransport::from_script(&json!({ "GET /api/v1/accounts": [{ "status": 200, "body": accounts(Some("1")) }] }));
+            let t = balance_transport(Some("1"));
             let done = deltabadger::sync::balances::sync_kucoin(&db, t, &deltabadger::sync::balances::NoPrices, self.key, &creds(), clock).await;
             assert!(matches!(done, Ok(Ok(_))));
             marked.map(|_| Outcome::Done)

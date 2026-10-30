@@ -394,3 +394,15 @@ fn run_and_serve_refuse_stale_reference_data_while_rails_owns_the_install() -> R
     }
     Ok(())
 }
+
+#[test]
+fn binance_repair_requires_explicit_mode_approval_and_rust_ownership() {
+    let (dir,o,_)=common::install();
+    for args in [vec!["repair-binance-history"],vec!["repair-binance-history","--apply","--manifest","missing"],
+        vec!["repair-binance-history","--dry-run","--key","1","--manifest","m","--backup","b","--apply"]] {
+        let out=cli(dir.path(),&args).output().unwrap();assert!(!out.status.success());assert!(stderr(&out).contains("usage:"));
+    }
+    let out=cli(dir.path(),&["repair-binance-history","--inventory"]).output().unwrap();
+    assert!(!out.status.success());assert!(stderr(&out).contains("Rust ownership required"));
+    assert!(deltabadger::lease::read(&o.primary,&seed::cipher()).unwrap().is_none());
+}

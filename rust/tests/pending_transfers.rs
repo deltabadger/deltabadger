@@ -27,6 +27,7 @@ fn row(name: &str, deposit: bool, id: &str, at: i64, complete: bool) -> Value {
 }
 impl Transport for Venue {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if let Some(answer) = common::scripted::kucoin_classic_detection(r) { return Ok(answer); }
         self.requests.borrow_mut().push(r.clone());
         let q = |k: &str| r.query.iter().find(|(a,_)| *a == k).map(|(_,v)| v.as_str());
         let path = r.path.as_str();

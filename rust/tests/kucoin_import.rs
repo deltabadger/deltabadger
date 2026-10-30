@@ -344,6 +344,7 @@ fn ms(utc: &str) -> i64 { utc.parse::<DateTime<Utc>>().unwrap().timestamp_millis
 struct Api { fills: Rc<Vec<Value>>, deposits: Rc<Vec<Value>>, withdrawals: Rc<Vec<Value>>, per_page: usize }
 impl Transport for Api {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if let Some(answer) = common::scripted::kucoin_classic_detection(r) { return Ok(answer); }
         use deltabadger::sync::kucoin_ledger::{DEPOSITS_PATH, FILLS_PATH, WITHDRAWALS_PATH};
         let q = |k: &str| r.query.iter().find(|(name, _)| *name == k).map(|(_, v)| v.parse::<i64>().unwrap());
         let at = |v: &Value| v["createdAt"].as_i64().unwrap();
