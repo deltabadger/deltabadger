@@ -708,3 +708,48 @@ async fn o03_the_transport_signs_every_hf_vector() {
         }
     }
 }
+
+/// O04–O06, r1.2, r3.2: every HF status answer, read against its own order record, then settled at the case's clock.
+/// Unresolved is unreadable: the row waits, nothing is settled.
+#[test]
+fn o04_o06_hf_status_answers_read_strictly() {
+    use deltabadger::venue::{binance::{Pair, Pairs}, kucoin::{parse_hf_order, HfOrder}, OrderStatus};
+    let mut pairs = Pairs::default();
+    pairs.by_symbol.insert("BTC-USDT".into(), Pair { base: "BTC".into(), quote: "USDT".into(), price_decimals: 1 });
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/kucoin_hf/orders.json")).unwrap();
+    let record = |d: &Value| HfOrder { id: d["id"].as_str().unwrap().into(), symbol: d["symbol"].as_str().unwrap().into(),
+                                       sell: d["side"] == "sell", limit: d["type"] == "limit" };
+    let mut seen = 0;
+    for c in fixture["cases"].as_array().unwrap().iter().filter(|c| c["id"].as_str().unwrap().starts_with("status_")) {
+        let (id, data, want) = (c["id"].as_str().unwrap(), &c["response"]["body"]["data"], &c["expect"]);
+        let now = chrono::DateTime::from_timestamp_millis(c["given"]["now_ms"].as_i64().unwrap()).unwrap();
+        let read = parse_hf_order(data, &record(data), &pairs).map(|s| s.settled(now));
+        match want["status"].as_str().unwrap() {
+            "Unresolved" => assert!(read.is_err(), "{id}: {read:?}"),
+            status => {
+                let s = read.unwrap_or_else(|e| panic!("{id}: {e:?}"));
+                let expected = match status { "Open" => OrderStatus::Open, "Closed" => OrderStatus::Closed, "Cancelled" => OrderStatus::Cancelled, "Unknown" => OrderStatus::Unknown, o => panic!("{o}") };
+                assert_eq!(s.status, expected, "{id}");
+                assert_eq!(s.amount_exec.to_s_f(), deltabadger::ruby::BigDec::parse(want["gross_base"].as_str().unwrap()).unwrap().to_s_f(), "{id}: base");
+                assert_eq!(s.quote_amount_exec.unwrap().to_s_f(), deltabadger::ruby::BigDec::parse(want["gross_quote"].as_str().unwrap()).unwrap().to_s_f(), "{id}: quote");
+                if let Some(p) = want["price"].as_str() { assert_eq!(s.price.unwrap().to_s_f(), p, "{id}: price"); }
+            }
+        }
+        seen += 1;
+    }
+    assert_eq!(seen, 14);
+    // r1.2: totals that disagree, or are negative, and an inactive order still in the book, are never a state.
+    let base = fixture["cases"].as_array().unwrap().iter().find(|c| c["id"] == "status_filled").unwrap()["response"]["body"]["data"].clone();
+    for (key, value) in [("dealFunds", json!("0")), ("dealSize", json!("0")), ("dealSize", json!("-0.00001")), ("dealFunds", json!("-1")), ("inOrderBook", json!(true)),
+                         ("active", json!("false")), ("inOrderBook", Value::Null), ("cancelExist", json!(0))] {
+        let mut d = base.clone(); d[key] = value.clone();
+        assert!(parse_hf_order(&d, &record(&base), &pairs).is_err(), "{key}={value}");
+    }
+    let mut cancelled = base.clone(); cancelled["cancelExist"] = json!(true); cancelled["inOrderBook"] = json!(true);
+    assert!(parse_hf_order(&cancelled, &record(&base), &pairs).is_err(), "cancelled yet in the book");
+    // r3.2: an answer for another id, symbol, side or type is not this order, whatever its state.
+    for (key, value) in [("id", json!("other")), ("symbol", json!("ETH-USDT")), ("side", json!("sell")), ("type", json!("market"))] {
+        let mut d = base.clone(); d[key] = value.clone();
+        assert!(parse_hf_order(&d, &record(&base), &pairs).is_err(), "{key}={value}");
+    }
+}

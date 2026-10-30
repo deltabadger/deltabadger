@@ -147,6 +147,37 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
                     amount_exec, quote_amount_exec: Some(deal_funds.unwrap_or_else(BigDec::zero)), limit, sell, pair: Some(symbol.into()), asset_class: None })
 }
 
+/// D-KUCOIN-HF-ORDERS: a stored HF order as its record names it. Every answer must be this order before its state is
+/// read: its id, symbol, side and type.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HfOrder { pub id: String, pub symbol: String, pub sell: bool, pub limit: bool }
+
+/// D-KUCOIN-HF-ORDERS: an HF order answer (`GET /api/v1/hf/orders/…`). Never reads `isActive`. Unreadable (Ambiguous, the
+/// row waits) unless it is `want`, its `active`, `inOrderBook` and `cancelExist` are JSON booleans, and `dealSize` and
+/// `dealFunds` are decimals, both ≥ 0, positive together. Then: inactive yet in the book is unreadable; active is Open;
+/// cancelled is Cancelled with what it dealt; inactive with a fill is Closed; inactive with nothing dealt is Unknown, a
+/// market order's carrying `zero_fill_at` (createdAt) for the delayed settle (D-KUCOIN-ZERO-FILL-FUNDS). The price as
+/// `parse_order`'s.
+pub fn parse_hf_order(o: &Value, want: &HfOrder, pairs: &Pairs) -> Result<OrderState, VenueError> {
+    let text = |key: &str| o[key].as_str().ok_or_else(unreadable);
+    let flag = |key: &str| o[key].as_bool().ok_or_else(unreadable);
+    let side = text("side")?.to_lowercase();
+    if text("id")? != want.id || text("symbol")? != want.symbol || side != if want.sell { "sell" } else { "buy" }
+        || limit_type(field(o, "type")?).map_err(|_| unreadable())? != want.limit {
+        return Err(unreadable());
+    }
+    let (active, in_book, cancelled) = (flag("active")?, flag("inOrderBook")?, flag("cancelExist")?);
+    let (size, funds) = (required(field(o, "dealSize")?)?, required(field(o, "dealFunds")?)?);
+    if size < BigDec::zero() || funds < BigDec::zero() || size.is_positive() != funds.is_positive() || (!active && in_book) { return Err(unreadable()); }
+    let status = if active { OrderStatus::Open } else if cancelled { OrderStatus::Cancelled }
+                 else if size.is_positive() { OrderStatus::Closed } else { OrderStatus::Unknown };
+    let zero_fill_at = (status == OrderStatus::Unknown && !want.limit).then(|| o["createdAt"].as_i64().and_then(DateTime::from_timestamp_millis)).flatten();
+    let mut price = if size.is_positive() { funds.div(&size).ok_or_else(unreadable)? } else { optional(&o["price"])?.unwrap_or_else(BigDec::zero) };
+    if price.is_positive() { if let Some(p) = pairs.by_symbol.get(&want.symbol) { price = price.round(p.price_decimals); } }
+    Ok(OrderState { zero_fill_at, txid: want.id.clone(), status, price: (!price.is_zero()).then_some(price), amount: optional(&o["size"])?, quote_amount: optional(&o["funds"])?,
+                    amount_exec: size, quote_amount_exec: Some(funds), limit: want.limit, sell: want.sell, pair: Some(want.symbol.clone()), asset_class: None })
+}
+
 /// The prices of an allTickers answer, as Exchanges::Kucoin#get_tickers_prices reads them: every `data.ticker` row by its
 /// `dig_or_raise`d `symbol`, its `last` kept only when positive, a later row for a symbol replacing an earlier one. No
 /// `data.ticker` is Rails' "Failed to get KuCoin tickers". Shared by the engine (`tickers_prices`) and the figures.
