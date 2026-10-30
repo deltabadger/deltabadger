@@ -1,0 +1,192 @@
+{
+  "cases": [
+    {
+      "id": "trading_unified",
+      "kind": 0,
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "remark": "UTA-0",
+          "apiKey": "UTA0-EXAMPLE-KEY",
+          "apiVersion": 3,
+          "permission": "General,Unified",
+          "isMaster": true
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey",
+          "introduction"
+        ],
+        "note": "A UTA trading key needs Unified (place and cancel)."
+      },
+      "expect": {
+        "verdict": "Correct",
+        "requests": 1
+      }
+    },
+    {
+      "id": "trading_spot_only",
+      "kind": 0,
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "remark": "UTA-0",
+          "apiKey": "UTA0-EXAMPLE-KEY",
+          "apiVersion": 3,
+          "permission": "General,Spot",
+          "isMaster": true
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey",
+          "introduction"
+        ],
+        "note": "Spot alone does not trade on UTA."
+      },
+      "expect": {
+        "verdict": "Permissions",
+        "missing": [
+          "Unified"
+        ]
+      }
+    },
+    {
+      "id": "trading_token_exact",
+      "kind": 0,
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "remark": "UTA-0",
+          "apiKey": "UTA0-EXAMPLE-KEY",
+          "apiVersion": 3,
+          "permission": "General, Unified2,unified",
+          "isMaster": true
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey",
+          "introduction"
+        ],
+        "note": "Tokens are compared exactly after trimming."
+      },
+      "expect": {
+        "verdict": "Permissions",
+        "missing": [
+          "Unified"
+        ]
+      }
+    },
+    {
+      "id": "trading_trimmed",
+      "kind": 0,
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "remark": "UTA-0",
+          "apiKey": "UTA0-EXAMPLE-KEY",
+          "apiVersion": 3,
+          "permission": "General, Unified ",
+          "isMaster": true
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey",
+          "introduction"
+        ],
+        "note": "Surrounding spaces are trimmed."
+      },
+      "expect": {
+        "verdict": "Correct"
+      }
+    },
+    {
+      "id": "trading_error_status",
+      "kind": 0,
+      "status": 500,
+      "response": {
+        "code": "200000",
+        "data": {
+          "remark": "UTA-0",
+          "apiKey": "UTA0-EXAMPLE-KEY",
+          "apiVersion": 3,
+          "permission": "General,Unified",
+          "isMaster": true
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey",
+          "introduction"
+        ],
+        "note": "A non-2xx answer is a failed check, even with a success-shaped body."
+      },
+      "expect": {
+        "verdict": "Failed"
+      }
+    },
+    {
+      "id": "trading_no_permission_field",
+      "kind": 0,
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "apiKey": "UTA0-EXAMPLE-KEY"
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey",
+          "introduction"
+        ],
+        "note": "No permission string is a failed check."
+      },
+      "expect": {
+        "verdict": "Failed"
+      }
+    },
+    {
+      "id": "read_general",
+      "kind": 2,
+      "status": 200,
+      "response": {
+        "code": "200000",
+        "data": {
+          "remark": "UTA-0",
+          "apiKey": "UTA0-EXAMPLE-KEY",
+          "apiVersion": 3,
+          "permission": "General",
+          "isMaster": true
+        }
+      },
+      "provenance": {
+        "kind": "synthetic-variant",
+        "sources": [
+          "apikey",
+          "introduction"
+        ],
+        "note": "A read key needs General only."
+      },
+      "expect": {
+        "verdict": "Correct"
+      }
+    }
+  ],
+  "source_examples": {
+    "apikey_ua": "                code: '200000'\n                data:\n                  remark: 文档专用\n                  apiKey: '********'\n                  apiVersion: 3\n                  permission: General,Futures,Unified,Spot,Earn,InnerTransfer,Margin\n                  createdAt: 1770014893000\n                  uid: 157***400\n                  isMaster: true\n                  region: ID\n                  kycStatus: 1\n                  siteType: global\n"
+  }
+}
