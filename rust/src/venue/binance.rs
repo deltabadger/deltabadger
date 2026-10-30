@@ -130,6 +130,16 @@ impl<T: Transport> BinanceVenue<T> {
         self.get(self.signed("GET", path, params, now), limit).await
     }
 
+    /// History repair needs the status to distinguish retryable reads from unavailable historical
+    /// windows. No response diagnostic escapes this boundary; normal sync keeps its Rails contract.
+    pub(crate) async fn history_get(&self, path: &str, params: Vec<(&'static str, String)>, now: DateTime<Utc>, limit: usize) -> Result<String, Option<u16>> {
+        match self.transport.send_limited(&self.signed("GET", path, params, now), limit).await {
+            Ok(response) if (200..300).contains(&response.status) => Ok(response.body),
+            Ok(response) => Err(Some(response.status)),
+            Err(_) => Err(None),
+        }
+    }
+
     /// An unsigned GET (honeymaker's #exchange_information): the params sorted, no key, no signature.
     pub async fn public_get(&self, path: &str, params: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> { self.get(self.request("GET", path, params), limit).await }
 

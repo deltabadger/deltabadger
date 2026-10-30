@@ -9,8 +9,9 @@
 //! owner's history (`history_version`): that count is inside the cap, so a very large history can end the step before
 //! it judges a venue, which leaves no row and loses nothing else.
 //!
-//! Pages only read the row (`read`): one query on a clean account, and on any doubt (another publication, balances
-//! synced since, another key, anything malformed) no line, and the page is as it was.
+//! Pages only read stored diagnostics (`read`): one query on a clean account. Balance-derived gaps
+//! require the same publication and balances; Binance repair gaps carry their credential fence and
+//! remain visible without a monetary estimate or a warm publication.
 use super::cache::{self, Fingerprint, Published};
 use super::figures::{self, Balance, Note};
 use super::import::run::Reading;
@@ -272,10 +273,31 @@ fn decode(raw: &str, from: &Fingerprint, scope: Option<i64>) -> Option<Vec<Decod
 /// warm, and then nothing is read). `reading` is the user's `ApiKey.reading`, when the caller holds it already.
 /// Queries: the row; with a gap stored, the reading keys once and two per gap venue (its balances' revision).
 pub fn read(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&Fingerprint>, reading: Option<&[Reading]>) -> Result<Vec<StoredGap>, FiguresError> {
-    let Some(from) = published else { return Ok(vec![]) };
     if seam::SKIP_READ.load(SeqCst) { return Ok(vec![]); }
-    let Some(raw) = crate::app_config::get_plain(c, &key(owner)).map_err(FiguresError::Data)? else { return Ok(vec![]) };
-    let Some(stored) = decode(&raw, from, scope) else { return Ok(vec![]) };
+    // Both sources share one indexed lookup, retaining the clean page's one-query budget.
+    let mut statement = c.prepare("SELECT key,value FROM app_configs WHERE key IN (?1,?2)")?;
+    let rows = statement.query_map([key(owner), crate::sync::binance_repair::gap_key(owner)], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?
+        .collect::<Result<HashMap<_, _>, _>>()?;
+    let mut out = read_derived(c, owner, scope, published, reading, rows.get(&key(owner)).and_then(Option::as_deref))?;
+    let raw = rows.get(&crate::sync::binance_repair::gap_key(owner)).and_then(Option::as_deref);
+    let Some(stored) = raw.filter(|s| s.len() <= MAX_ROW).and_then(|s| serde_json::from_str::<Value>(s).ok()).filter(Value::is_object) else { return Ok(out) };
+    let loaded;
+    let reading = match reading { Some(r) => r, None => { loaded = super::import::run::reading(c, owner).map_err(|e| FiguresError::Data(e.0))?; &loaded } };
+    for k in reading {
+        if scope.is_some_and(|id| id != k.exchange_id) || out.iter().any(|g| g.exchange_id == k.exchange_id) { continue; }
+        let gap = &stored[k.exchange_id.to_string()];
+        if gap["unresolved"].as_u64().unwrap_or(0) == 0 { continue; }
+        let Some(version) = crate::engine::model::CredentialVersion::from_stamp(&gap["credential"]) else { continue };
+        if version.id != k.id || !crate::engine::model::credential_is_current(c, &version).map_err(|_| data("repair credential unavailable"))? { continue; }
+        out.push(StoredGap { exchange_id: k.exchange_id, key: k.id, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: Dec::zero(), notes: vec![] });
+    }
+    Ok(out)
+}
+
+fn read_derived(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&Fingerprint>, reading: Option<&[Reading]>, raw: Option<&str>) -> Result<Vec<StoredGap>, FiguresError> {
+    let Some(from) = published else { return Ok(vec![]) };
+    let Some(raw) = raw else { return Ok(vec![]) };
+    let Some(stored) = decode(raw, from, scope) else { return Ok(vec![]) };
     if stored.is_empty() { return Ok(vec![]); }
     let loaded;
     let reading = match reading { Some(r) => r, None => { loaded = super::import::run::reading(c, owner).map_err(|e| FiguresError::Data(e.0))?; &loaded } };

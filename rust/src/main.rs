@@ -202,6 +202,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
+    registered.push(Box::new(deltabadger::sync::binance_repair::HistoryRepair::new(LiveFactory::new())));
     registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
     // The self-hosted catalogue (Ibkr plan R2): the bundle at every start, the public snapshot daily.
     registered.extend(jobs::reference::catalogue_jobs(env, std::path::PathBuf::from(jobs::reference::BUNDLE), jobs::reference::LiveFetch::default()));
@@ -213,6 +214,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
     if resume_setup { scheduler.wakers().wake(jobs::setup_sync::NAME, None, None); }
     scheduler.wakers().wake(jobs::reference::BOOTSTRAP, None, None);
+    scheduler.wakers().wake(deltabadger::sync::binance_repair::JOB, Some(&deltabadger::sync::binance_repair::REPAIR_VERSION.to_string()), None);
     for key in unbound {
         scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
     }
@@ -464,7 +466,9 @@ fn repair_binance_history(env:&dyn Fn(&str)->Option<String>)->i32 {
     } else {
         repair::validate(c,&cipher,&key,&m,options["--approve"],&fetched).unwrap_or_else(|e|fail(&e.0));
         let mut inserted=0;
-        for n in 0..m.batches.len() {inserted+=repair::apply_batch(c,&cipher,&key,&m,options["--approve"],&fetched,n).unwrap_or_else(|e|fail(&e.0));}
+        let mut session=repair::ApplySession::new(&m,options["--approve"],&fetched).unwrap_or_else(|e|fail(&e.0));
+        for n in 0..m.batches.len() {inserted+=session.apply_batch(c,&cipher,&key,n).unwrap_or_else(|e|fail(&e.0));}
+        session.verify(c,&cipher,&key).unwrap_or_else(|e|fail(&e.0));
         println!("inserted {inserted} rows; committed batches verified");
     }
     println!("{}",serde_json::to_string_pretty(&m.tally).expect("tally"));

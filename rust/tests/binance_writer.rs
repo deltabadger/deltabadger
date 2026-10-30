@@ -699,6 +699,7 @@ impl deltabadger::venue::http::Transport for RepairVenue {
     async fn send(&self,r:&deltabadger::venue::http::HttpRequest)->Result<deltabadger::venue::http::HttpResponse,deltabadger::venue::http::TransportError> {
         use sync::binance_ledger as b;
         self.calls.borrow_mut().push(r.clone());
+        if ["transient","forbidden"].contains(&self.mode) {return Ok(deltabadger::venue::http::HttpResponse{status:if self.mode=="forbidden" {403}else{503},body:"secret diagnostic".into()})}
         let q=|key:&str|r.query.iter().find(|(k,_)|*k==key).unwrap().1.parse::<i64>().unwrap();
         let start=q("startTime");let end=q("endTime");
         if let Some(state)=&self.state {
@@ -713,7 +714,7 @@ impl deltabadger::venue::http::Transport for RepairVenue {
         }
         let mut raw=input(Source::Deposit,"d1","","BTC").entry.raw.value;raw["status"]=json!(1);
         let body=if r.path==b::DEPOSITS_PATH && start<=1786960800000 && end>=1786960800000 {
-            match self.mode {"unavailable"=>return Ok(deltabadger::venue::http::HttpResponse{status:403,body:"secret diagnostic".into()}),
+            match self.mode {"unavailable"=>return Ok(deltabadger::venue::http::HttpResponse{status:410,body:"secret diagnostic".into()}),
                 "malformed"=>json!({}),"repeat"=>json!(vec![raw;1000]),_=>json!([raw])}
         }else if [b::DEPOSITS_PATH,b::WITHDRAWALS_PATH].contains(&r.path.as_str()){json!([])}
         else if r.path==b::DUST_PATH {if self.mode=="missing" {json!({})}else{json!({"userAssetDribblets":[]})}}
@@ -857,4 +858,168 @@ fn repair_refuses_evidence_overlapping_an_unreachable_window() {
     let mut fetched=evidence(vec![input(Source::Deposit,"d1","","BTC")]);let at=fetched.inputs[0].entry.transacted_at.unwrap().timestamp_millis();
     fetched.coverage.push(repair::Window{source:sync::binance_ledger::DEPOSITS_PATH.into(),kind:None,start:at-1000,end:at,pages:vec![],unresolved:Some("venue window unavailable".into())});
     let before=state(c);let m=plan(c,&key,&fetched);assert_eq!(m.tally.unresolved,1);assert!(m.batches.is_empty());assert_eq!(state(c),before);
+}
+
+// The update schedules the repair; these tests use the same job and guarded apply path.
+impl repair::HistoryReader for RepairVenue {
+    async fn read(&self, key: &sync::Key, _: &deltabadger::crypto::Credentials, _: Option<&str>, clock: &dyn deltabadger::engine::Clock, cutoff: DateTime<Utc>) -> repair::Evidence {
+        let venue=deltabadger::venue::binance::BinanceVenue::new(self.clone(),deltabadger::venue::binance::URL,"test-secret");
+        repair::fetch(&venue,clock,cutoff,key.exchange_type==deltabadger::venue::binance::BINANCE_US,sync::binance_ledger::Pacing::NONE).await
+    }
+}
+fn repair_job(mode: &'static str) -> repair::HistoryRepair<RepairVenue> {
+    repair::HistoryRepair::new(RepairVenue{state:None,mode,calls:Default::default()})
+}
+async fn run_repair(job: &impl deltabadger::jobs::Job, c: Connection) -> deltabadger::jobs::Outcome {
+    job.run(deltabadger::jobs::Cx{db:deltabadger::jobs::Db::new(c,common::seed::cipher()),clock:&FixedClock(now()),wakers:Default::default()},vec![]).await
+}
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_runs_once_per_install_version_and_new_version_runs_again() {
+    use deltabadger::jobs::{Outcome,state};
+    for venue in [deltabadger::venue::binance::BINANCE,deltabadger::venue::binance::BINANCE_US] {
+        let (dir,o,s)=common::install();let key=key(&o.primary,&s);
+        o.primary.execute("UPDATE exchanges SET type=?1 WHERE id=?2",(venue,key.exchange_id)).unwrap();let _lock=claim(&o.primary,dir.path());
+        let job=repair_job("ok");let calls=job.reader.calls.clone();
+        assert_eq!(run_repair(&job,o.primary).await,Outcome::Done);
+        let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert_eq!(count(&c),1);
+        let saved=state::read(&c,repair::JOB,Some(&repair::REPAIR_VERSION.to_string())).unwrap();
+        assert_eq!(saved.revision,Some(repair::REPAIR_VERSION));assert!(saved.last_success_at.is_some());
+        let before=state(&c);let requests=calls.borrow().len();
+        assert_eq!(run_repair(&job,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::NothingNew);
+        assert_eq!(calls.borrow().len(),requests);assert_eq!(state(&c),before);
+        let next=job.with_version(repair::REPAIR_VERSION+1);
+        assert_eq!(run_repair(&next,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::Done);
+        assert!(calls.borrow().len()>requests);assert_eq!(count(&c),1);
+        assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().iter().any(|g|g.exchange_id==key.exchange_id),"retention/excluded windows reach the existing Import history line");
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_without_a_binance_key_or_rust_ownership_does_nothing() {
+    use deltabadger::jobs::{Outcome,state};
+    for owned in [false,true] {
+        let (dir,o,s)=common::install();let lock=owned.then(||claim(&o.primary,dir.path()));
+        if !owned {key(&o.primary,&s);}
+        let job=repair_job("ok");let calls=job.reader.calls.clone();
+        assert_eq!(run_repair(&job,o.primary).await,Outcome::NothingNew);
+        let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert!(calls.borrow().is_empty());assert!(state::find(&c,repair::JOB,Some(&repair::REPAIR_VERSION.to_string())).unwrap().is_none());
+        drop(lock);
+    }
+}
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_crash_after_committed_bucket_resumes_on_restart() {
+    use deltabadger::jobs::Outcome;
+    let (dir,o,s)=common::install();let c=&o.primary;key(c,&s);let _lock=claim(c,dir.path());
+    let mut a=input(Source::Deposit,"d1","","BTC").entry.raw.value;a["status"]=json!(1);
+    let mut b=a.clone();b["id"]=json!("d2");b["txId"]=json!("second");
+    let job=repair::HistoryRepair::new(RepairVenue{state:Some(json!({"deposits":[a,b]})),mode:"ok",calls:Default::default()});
+    c.execute_batch("CREATE TEMP TRIGGER repair_crash BEFORE INSERT ON account_transactions WHEN NEW.tx_id='second' BEGIN SELECT RAISE(ABORT,'crash'); END").unwrap();
+    assert!(matches!(run_repair(&job,o.primary).await,Outcome::Transient(_)));
+    let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();assert_eq!(count(&c),1);
+    assert!(c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:repair:%'",[],|r|r.get::<_,i64>(0)).unwrap()>0);
+    assert_eq!(run_repair(&job,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::Done);assert_eq!(count(&c),2);
+    assert_eq!(run_repair(&job,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::NothingNew);assert_eq!(count(&c),2);
+}
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_unresolved_identity_is_visible_on_the_gap_line() {
+    let (dir,o,s)=common::install();let key=key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
+    let a=input(Source::Deposit,"d1","","BTC");write(&o.primary,&key,std::slice::from_ref(&a)).unwrap();
+    o.primary.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'",[]).unwrap();
+    o.primary.execute("UPDATE account_transactions SET raw_data='{}'",[]).unwrap();
+    struct Ambiguous;
+    impl repair::HistoryReader for Ambiguous {
+        async fn read(&self,_:&sync::Key,_:&deltabadger::crypto::Credentials,_:Option<&str>,_:&dyn deltabadger::engine::Clock,_:DateTime<Utc>)->repair::Evidence {
+            evidence(vec![input(Source::Deposit,"d1","","BTC"),input(Source::Deposit,"d2","","BTC")])
+        }
+    }
+    assert_eq!(run_repair(&repair::HistoryRepair::new(Ambiguous),o.primary).await,deltabadger::jobs::Outcome::Done);
+    let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let gaps=deltabadger::tracker::gaps::read(&c,key.user_id,Some(key.exchange_id),None,None).unwrap();assert_eq!(gaps.len(),1);
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id+1,None,None,None).unwrap().is_empty());
+    c.execute("UPDATE api_keys SET key='rotated' WHERE id=?1",[key.id]).unwrap();
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().is_empty(),"the diagnostic is credential fenced");
+}
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_venue_failure_uses_scheduler_retry_without_blocking_start() {
+    use deltabadger::jobs::{Job,Outcome,Retry,Scheduler};
+    let (dir,o,s)=common::install();key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
+    let job=repair_job("transient");let calls=job.reader.calls.clone();
+    assert_eq!(job.spec().retry,Retry::Polynomial{attempts:5});
+    let spec=job.spec();let scheduler=Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(job)],None);
+    scheduler.wakers().wake(spec.name,spec.scope.as_deref(),None);
+    assert!(calls.borrow().is_empty(),"construction performs no venue reads");
+    let (stop,rx)=tokio::sync::watch::channel(false);
+    let clock=deltabadger::engine::SystemClock;
+    let (out,())=tokio::join!(scheduler.run(rx,&clock),async {
+        tokio::time::timeout(std::time::Duration::from_secs(15),async {
+            loop {if calls.borrow().len()>=2 {break} tokio::time::sleep(std::time::Duration::from_millis(20)).await;}
+        }).await.unwrap();stop.send(true).unwrap();
+    });out.unwrap();
+    let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert!(deltabadger::jobs::state::read(&c,repair::JOB,Some(&repair::REPAIR_VERSION.to_string())).unwrap().last_success_at.is_none());
+    assert_eq!(run_repair(&repair_job("ok"),c).await,Outcome::Done);
+}
+
+#[test]
+fn repair_session_keeps_guards_between_batches_and_avoids_repeated_full_scans() {
+    for change in ["none","same connection","other connection","trigger"] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let fetched=evidence((0..12).map(|n|input(Source::Deposit,&format!("d{n}"),"",&format!("COIN{n}"))).collect());
+        let m=plan(c,&key,&fetched);let mut session=repair::ApplySession::new(&m,&m.digest(),&fetched).unwrap();
+        session.apply_batch(c,&common::seed::cipher(),&key,0).unwrap();
+        match change {
+            "same connection"=>{c.execute("UPDATE account_transactions SET manual_values='{}x'",[]).unwrap();},
+            "other connection"=>{Connection::open(c.path().unwrap()).unwrap().execute("UPDATE account_transactions SET manual_values='{}x'",[]).unwrap();},
+            "trigger"=>{c.execute_batch("CREATE TEMP TRIGGER alter_survivor AFTER INSERT ON account_transactions BEGIN UPDATE account_transactions SET transfer_link_rejected=1; END").unwrap();},_=>{}
+        }
+        let before=state(c);
+        if change=="none" {
+            for n in 1..m.batches.len(){session.apply_batch(c,&common::seed::cipher(),&key,n).unwrap();}
+            session.verify(c,&common::seed::cipher(),&key).unwrap();assert_eq!(count(c),12);
+            assert_eq!(session.full_checks(),2,"one initial validation and one final verification, independent of bucket count");
+        } else {assert!(session.apply_batch(c,&common::seed::cipher(),&key,1).is_err());assert_eq!(state(c),before);}
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_unavailable_windows_finish_without_claiming_recovery() {
+    let (dir,o,s)=common::install();let key=key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
+    assert_eq!(run_repair(&repair_job("unavailable"),o.primary).await,deltabadger::jobs::Outcome::Done);
+    let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();assert_eq!(count(&c),0);
+    assert_eq!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().len(),1);
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_authentication_failure_does_not_complete_the_version() {
+    let (dir,o,s)=common::install();key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
+    assert!(matches!(run_repair(&repair_job("forbidden"),o.primary).await,deltabadger::jobs::Outcome::Transient(_)));
+    let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert!(deltabadger::jobs::state::read(&c,repair::JOB,Some(&repair::REPAIR_VERSION.to_string())).unwrap().last_success_at.is_none());
+    assert_eq!(run_repair(&repair_job("ok"),c).await,deltabadger::jobs::Outcome::Done);
+}
+
+#[test]
+fn repair_session_zero_batch_completion_refuses_a_changed_account_scope() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let fetched=evidence(vec![]);let manifest=plan(c,&key,&fetched);assert!(manifest.batches.is_empty());
+    let mut session=repair::ApplySession::new(&manifest,&manifest.digest(),&fetched).unwrap();
+    c.execute("INSERT INTO exchanges(name,type,created_at,updated_at) VALUES ('Other Binance','Exchanges::BinanceUs','2026-01-01','2026-01-01')",[]).unwrap();
+    c.execute("UPDATE api_keys SET exchange_id=?1 WHERE id=?2",(c.last_insert_rowid(),key.id)).unwrap();
+    let before=state(c);
+    assert!(session.verify(c,&common::seed::cipher(),&key).is_err());assert_eq!(state(c),before);
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn repair_update_install_completion_rechecks_each_accounts_scope() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    c.execute("INSERT INTO exchanges(name,type,created_at,updated_at) VALUES ('Other Binance','Exchanges::BinanceUs','2026-01-01','2026-01-01')",[]).unwrap();
+    let exchange=c.last_insert_rowid();
+    c.execute_batch(&format!("CREATE TEMP TRIGGER move_scope AFTER INSERT ON app_configs WHEN NEW.key LIKE 'rust_job.binance_history_repair_account:%' BEGIN UPDATE api_keys SET exchange_id={exchange} WHERE id={}; END",key.id)).unwrap();
+    let job=repair::HistoryRepair::new(RepairVenue{state:Some(json!({})),mode:"ok",calls:Default::default()});
+    assert!(matches!(run_repair(&job,o.primary).await,deltabadger::jobs::Outcome::Transient(_)));
+    let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert!(deltabadger::jobs::state::read(&c,repair::JOB,Some(&repair::REPAIR_VERSION.to_string())).unwrap().last_success_at.is_none());
+    assert_eq!(run_repair(&job,c).await,deltabadger::jobs::Outcome::Done);
 }
