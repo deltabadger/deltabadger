@@ -1588,6 +1588,8 @@ async fn r01_misses_past_1200s_and_7_days_never_clear_or_repost() {
     t.reply(&key, 200, other_client);
     t.network(&key, "post_send", "reset");
     t.reply(&key, 200, json!({"code":"400100","msg":"order not exist"}));
+    // MATRIX R01: absence stays unprovable. A KuCoin miss is always ABSENCE_UNPROVEN, so the rule is pinned by itself too.
+    assert!(!deltabadger::engine::venue_rules::KUCOIN.absence_provable);
     for after in [chrono::Duration::seconds(1201), chrono::Duration::seconds(1300), chrono::Duration::seconds(1400), chrono::Duration::days(7), chrono::Duration::days(8)] {
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         tick::tick(&c, &v, bot.id, &FixedClock(at("2026-10-30T12:00:00Z") + after), &mut Default::default()).await.unwrap();
@@ -1793,4 +1795,17 @@ async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
     let (dir, o, bot, _plan) = engine_setup();
     let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
     refused(&dir, &o, &format!("bot {}: the route of KuCoin order A1 (transaction {id}) is unproven", bot.id)).await;
+}
+
+/// §7: on an install whose Rust tables were never created, every HF-4 read stands (known fills read the visible ledger
+/// alone; the barrier, the handback refusals and the takeover marks read Rails' tables).
+#[tokio::test(flavor = "current_thread")]
+async fn unmigrated_install_reads_stand() {
+    use deltabadger::engine::reconcile;
+    let (_dir, o, bot, _t, _v, id, ext) = placed("KEY-A", false).await;
+    o.primary.execute_batch("DROP TABLE IF EXISTS kucoin_withheld_fills; DROP TABLE IF EXISTS kucoin_coverage;").unwrap();
+    known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0002", "12", "0.02");
+    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext).unwrap().size.to_s_f(), "0.0002");
+    assert!(reconcile::barrier(&o.primary, bot.id).unwrap().is_none());
+    assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.001", "60", eur("0.06"), attested("x"))).unwrap(), reconcile::Operator::Reconciled);
 }
