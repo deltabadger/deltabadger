@@ -42,35 +42,41 @@ pub fn order(c: &Connection, owner: i64, exchange_id: i64, external_id: &str) ->
         .query_row(params![external_id, exchange_id, owner], |r| r.get(0)).optional()
 }
 
-/// One pass over every stored Binance/Binance.US trade row with no link, by id, 500 rows per transaction. The cursor
-/// moves past every row it reads, linked or not, so rows that never link don't hold it. Only `transaction_id` and
-/// `updated_at` are written, and only where the link is still NULL. Returns the rows linked.
+/// One pass over every stored Binance/Binance.US trade row with no link, by id. The cursor moves past every row it
+/// reads, linked or not, so rows that never link don't hold it. Returns the rows linked.
 pub fn link_stored(c: &Connection, cipher: &crate::crypto::Cipher, now: chrono::DateTime<chrono::Utc>) -> Result<usize, String> {
-    let (mut cursor, mut linked) = (0_i64, 0);
-    loop {
-        let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
-        // The job runs only while Rust holds the instance; a handback mid-pass stops it before the next write.
-        if !crate::lease::read(&tx, cipher).map_err(|_| "unreadable ownership".to_string())?.is_some_and(|v| v["engine"] == "rust") { return Ok(linked) }
-        let rows: Vec<(i64, i64, i64, Option<String>, String)> = {
-            let mut s = tx.prepare_cached("SELECT t.id, t.user_id, t.exchange_id, t.tx_id, t.raw_data FROM account_transactions t \
-                JOIN exchanges e ON e.id = t.exchange_id WHERE t.id > ?1 AND t.transaction_id IS NULL AND e.type IN (?2, ?3) \
-                AND t.entry_type IN (?4, ?5, ?6, ?7) ORDER BY t.id LIMIT ?8").map_err(|e| e.to_string())?;
-            let rows = s.query_map(params![cursor, BINANCE, BINANCE_US, BUY, SELL, SWAP_IN, SWAP_OUT, BATCH],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default())))
-                .map_err(|e| e.to_string())?;
-            rows.collect::<Result<_, _>>().map_err(|e| e.to_string())?
-        };
-        let Some(&(last, ..)) = rows.last() else { return Ok(linked) };
-        for (id, owner, exchange, tx_id, raw) in rows {
-            let Ok(raw) = serde_json::from_str::<Value>(&raw) else { continue };
-            let Some(Some(external)) = fill_order(tx_id.as_deref(), &raw) else { continue };
-            let Some(order) = order(&tx, owner, exchange, &external).map_err(|e| e.to_string())? else { continue };
-            linked += tx.execute("UPDATE account_transactions SET transaction_id = ?1, updated_at = ?2 WHERE id = ?3 AND transaction_id IS NULL",
-                                 params![order, super::sql_time(now), id]).map_err(|e| e.to_string())?;
-        }
-        tx.commit().map_err(|e| e.to_string())?;
-        cursor = last;
+    let (mut cursor, mut linked) = (0, 0);
+    while let Some((last, n)) = link_batch(c, cipher, cursor, now)? { cursor = last; linked += n; }
+    Ok(linked)
+}
+
+/// One batch of `link_stored`: the 500 unlinked trade rows after `cursor`, in one immediate transaction (a concurrent
+/// writer can't invalidate its read before its writes). Only `transaction_id` and `updated_at` are written, and only
+/// where the link is still NULL. None: no rows left, or Rust no longer holds the instance. Some: (last id read, linked).
+pub fn link_batch(c: &Connection, cipher: &crate::crypto::Cipher, cursor: i64, now: chrono::DateTime<chrono::Utc>) -> Result<Option<(i64, usize)>, String> {
+    let tx = crate::engine::model::immediate_retry_busy(c).map_err(|e| format!("{e:?}"))?;
+    // The job runs only while Rust holds the instance; a handback mid-pass stops it before the next write.
+    if !crate::lease::read(&tx, cipher).map_err(|_| "unreadable ownership".to_string())?.is_some_and(|v| v["engine"] == "rust") { return Ok(None) }
+    let rows: Vec<(i64, i64, i64, Option<String>, String)> = {
+        let mut s = tx.prepare_cached("SELECT t.id, t.user_id, t.exchange_id, t.tx_id, t.raw_data FROM account_transactions t \
+            JOIN exchanges e ON e.id = t.exchange_id WHERE t.id > ?1 AND t.transaction_id IS NULL AND e.type IN (?2, ?3) \
+            AND t.entry_type IN (?4, ?5, ?6, ?7) ORDER BY t.id LIMIT ?8").map_err(|e| e.to_string())?;
+        let rows = s.query_map(params![cursor, BINANCE, BINANCE_US, BUY, SELL, SWAP_IN, SWAP_OUT, BATCH],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default())))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())?
+    };
+    let Some(&(last, ..)) = rows.last() else { return Ok(None) };
+    let mut linked = 0;
+    for (id, owner, exchange, tx_id, raw) in rows {
+        let Ok(raw) = serde_json::from_str::<Value>(&raw) else { continue };
+        let Some(Some(external)) = fill_order(tx_id.as_deref(), &raw) else { continue };
+        let Some(order) = order(&tx, owner, exchange, &external).map_err(|e| e.to_string())? else { continue };
+        linked += tx.execute("UPDATE account_transactions SET transaction_id = ?1, updated_at = ?2 WHERE id = ?3 AND transaction_id IS NULL",
+                             params![order, super::sql_time(now), id]).map_err(|e| e.to_string())?;
     }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(Some((last, linked)))
 }
 
 /// The stored-history pass as a job: woken at every start, so an order recorded after its fill links at the next one.
@@ -79,16 +85,23 @@ pub struct OrderLinks;
 impl crate::jobs::Job for OrderLinks {
     fn spec(&self) -> crate::jobs::Spec {
         use crate::jobs::{schedule::Jitter, Retry, Spec};
-        Spec { name: JOB, scope: None, schedule: None, jitter: Jitter::NONE, retry: Retry::None, deadline: super::jobs::LEDGER_DEADLINE }
+        Spec { name: JOB, scope: None, schedule: None, jitter: Jitter::NONE, retry: Retry::Polynomial { attempts: 5 }, deadline: super::jobs::LEDGER_DEADLINE }
     }
     fn run<'a>(&'a self, cx: crate::jobs::Cx<'a>, _: Vec<crate::jobs::Wake>) -> crate::jobs::JobFuture<'a> {
         Box::pin(async move {
             let now = cx.clock.now();
-            match cx.db.run(move |c, cipher| link_stored(c, cipher, now)).await {
-                Ok(0) => crate::jobs::Outcome::NothingNew,
-                Ok(n) => { crate::engine::log(&format!("[Binance] linked {n} stored fills to their bot orders")); crate::jobs::Outcome::Done }
-                Err(e) => crate::jobs::Outcome::Failed(e),
+            let (mut cursor, mut linked) = (0, 0);
+            // One database unit per batch: a stop or the deadline lands between batches, and other writers get a turn.
+            loop {
+                match cx.db.run(move |c, cipher| link_batch(c, cipher, cursor, now)).await {
+                    Ok(Some((last, n))) => { cursor = last; linked += n; tokio::time::sleep(super::WRITE_GAP).await; }
+                    Ok(None) => break,
+                    Err(e) => return crate::jobs::Outcome::Transient(e),
+                }
             }
+            if linked == 0 { return crate::jobs::Outcome::NothingNew }
+            crate::engine::log(&format!("[Binance] linked {linked} stored fills to their bot orders"));
+            crate::jobs::Outcome::Done
         })
     }
 }

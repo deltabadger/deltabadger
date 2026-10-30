@@ -132,3 +132,18 @@ fn another_users_order_never_links_on_any_venue() {
     tx.commit().unwrap();
     assert_eq!(c.query_row("SELECT transaction_id FROM account_transactions WHERE tx_id='OXYZ-1'", [], |r| r.get::<_, Option<i64>>(0)).unwrap(), None);
 }
+
+/// The job the scheduler wakes at start: one database unit per batch, the same links as the pass.
+#[tokio::test(flavor = "current_thread")]
+async fn the_startup_job_links_stored_fills_through_the_scheduler_interface() {
+    use deltabadger::jobs::{Cx, Db, Job, Outcome};
+    let (dir, o, s) = common::install(); let c = &o.primary; binance(c, &s); let _lock = claim(c, dir.path());
+    let b = bot(c, &s); let id = order(c, &s, b, "BTCUSDT-12", 0);
+    let rows: Vec<i64> = (1..=3).map(|n| row(c, &s, 0, Some(&format!("BTCUSDT-12-{n}")), &fill(json!(12), json!(n)))).collect();
+    let clock = deltabadger::engine::FixedClock(now());
+    let run = || async { links::OrderLinks.run(Cx { db: Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), common::seed::cipher()),
+                                                   clock: &clock, wakers: Default::default() }, vec![]).await };
+    assert_eq!(run().await, Outcome::Done);
+    for r in rows { assert_eq!(link(c, r), Some(id)); }
+    assert_eq!(run().await, Outcome::NothingNew, "a second start writes nothing");
+}
