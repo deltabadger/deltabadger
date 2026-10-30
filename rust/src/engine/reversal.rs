@@ -85,8 +85,11 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
             Some(ext) => {
                 if !was_sent { mark_sent(c, bot_id, id)?; }
                 let order = crate::venue::OrderRef::load(c, id, &ext)?;
-                // D-KUCOIN-HF-ORDERS: an HF cancel that cannot be told (lost, 5xx, unreadable) keeps its entry and reserve:
-                // the next pass asks again. Only the venue's refusal is a failed cancel, as Rails reads one.
+                // D-KUCOIN-HF-RETENTION: an HF cancel ends only in the order's settlement (reconcile::admit), never here.
+                if order.hf() {
+                    if hf_cancel(c, venue, bot_id, id, &order, was_sent, now).await? { cancelled.push(id); }
+                    continue;
+                }
                 let uncertain = |e: &VenueError| order.record.is_some() && !matches!(e, VenueError::Rejected(_));
                 match venue.cancel_with(&order).await {
                     Ok(()) => Outcome::Cancelled,
@@ -131,6 +134,45 @@ pub(crate) fn drop_cancel(c: &Connection, bot_id: i64, tx_id: i64) -> Result<(),
     cancels.retain(|e| e["id"] != tx_id);
     if cancels.len() == before { return Ok(()); }
     write(c, bot_id, &ids(bot.transient.get(RESERVE_PENDING)), &cancels)
+}
+
+/// One HF row's cancel pass: true when its row is to be polled. An acknowledged cancel is a request: the entry and its
+/// reserve stay for the poll that reads the final state. Only the venue refusing the first request is a failed cancel (as
+/// Rails reads one); once one may have gone out, a refusal tells nothing of it. Otherwise the order is read: a final
+/// state settles it through the gate, which ends the entry and credits the reserve; anything else keeps both.
+async fn hf_cancel<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, id: i64, order: &crate::venue::OrderRef, was_sent: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    match venue.cancel_with(order).await {
+        Ok(()) => return Ok(true),
+        Err(VenueError::Rejected(e)) if !was_sent => {
+            super::log(&format!("[engine] bot {bot_id}: could not cancel order {} while reversing: {e:?}", order.external_id));
+            model::credential_write(c, &venue.producer(), |tx| {
+                let bot = model::load_bot(tx, bot_id)?;
+                let mut cancels = entries(&bot);
+                let registered = cancels.iter().any(|e| e["id"] == id && e["registered"] == true);
+                cancels.retain(|e| e["id"] != id);
+                let mut pending = ids(bot.transient.get(RESERVE_PENDING));
+                if registered { pending.retain(|p| *p != id); }
+                tx.execute("INSERT INTO bot_activity_logs (bot_id, event, level, message, details, created_at) VALUES (?1, 'order_cancel_failed', ?2, ?3, ?4, ?5)",
+                    params![bot_id, Level::Warning as i64, format!("Could not cancel order {} while reversing — it may still be open on the exchange.", order.external_id),
+                            json!({ "order_id": order.external_id }).to_string(), crate::codec::format_time(now)])?;
+                write(tx, bot_id, &pending, &cancels)
+            })?;
+            return Ok(false);
+        }
+        Err(_) => {}
+    }
+    let Ok((found, _)) = venue.order_result(order, |_, _, _| Ok(true)).await.value else { return Ok(false) };
+    let Some(state) = found.into_iter().find(|o| o.txid == order.external_id).map(|o| o.settled(now)) else { return Ok(false) };
+    if !matches!(state.status, OrderStatus::Closed | OrderStatus::Cancelled) { return Ok(false); }
+    model::credential_write(c, &venue.producer(), |tx| {
+        // As recovery applies a fill: its amount-limit stop and mail land with it.
+        if let Some(cap) = super::polling::apply_in(tx, bot_id, id, &state, true, now)? {
+            super::amount_limit::owe_mail(tx, bot_id, cap, now)?;
+            super::tick::stop_for_amount_limit(tx, bot_id, cap, now)?;
+        }
+        Ok(())
+    })?;
+    Ok(true)
 }
 
 fn mark_sent(c: &Connection, bot_id: i64, id: i64) -> Result<(), EngineError> {

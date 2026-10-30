@@ -976,13 +976,15 @@ async fn r1_7_an_uncertain_hf_cancel_keeps_its_obligation() {
                       rusqlite::params![json!([{"id": id, "registered": true}]).to_string(), json!([id]).to_string(), bot.id]).unwrap();
     let pending = |c: &rusqlite::Connection| { let b = model::load_bot(c, bot.id).unwrap(); (b.transient[reversal::CANCELS].as_array().map_or(0, Vec::len), b.transient[reversal::RESERVE_PENDING].as_array().map_or(0, Vec::len)) };
     t.network(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), "post_send", "reset");
+    // HF-4: an uncertain cancel reads the order at once; first it cannot be told, then it reads cancelled.
+    not_found(&t, &ext);
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0", "0"));
     let handle = deltabadger::venue::Handle::attributed(&v);
     assert!(reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap().is_empty());
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(pending(&c), (1, 1), "the cancel entry and the reserve stay");
     // The next pass: the cancel cannot be told again, but the order reads cancelled.
     t.reply(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 503, json!("unavailable"));
-    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0", "0"));
     assert_eq!(reversal::cancel_captured(&c, &handle, bot.id, now).await.unwrap(), vec![id]);
     assert_eq!(pending(&c).0, 0, "the entry is settled once");
 }
@@ -1085,7 +1087,7 @@ async fn r02_an_old_resting_order_is_still_read() {
 async fn r02_r06_an_unreadable_hf_row_holds_new_spending() {
     use deltabadger::engine::{placement, polling, tick, FixedClock};
     let now = at("2026-11-08T12:05:00Z");
-    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let (dir, _o, bot, t, v, id, ext) = placed("KEY-A", false).await;
     // One answer per read, in order (a lone scripted answer repeats).
     not_found(&t, &ext);
     t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, true, false, "0", "0"));
@@ -1482,4 +1484,73 @@ async fn reconcile_order_cli() {
         assert_eq!((out.status.code(), String::from_utf8_lossy(&out.stdout).trim()), (Some(0), want), "{}", String::from_utf8_lossy(&out.stderr));
     }
     assert_eq!(row_exec(&o.primary, id).0, Some(3));
+}
+
+// ---- HF-4: reversal cancels of HF rows end only in a settlement (r1.4, r2.2) ----------------------------------------
+
+/// r1.4: an acknowledged HF cancel is a request: the entry and the reserve stay while the order reads open; the follow-up
+/// read of its cancelled partial settles both once, with the exact execution.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_4_an_acknowledged_hf_cancel_waits_for_the_orders_final_state() {
+    use deltabadger::engine::{polling, reversal};
+    let now = at("2026-10-30T12:05:00Z");
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    reversal_work(&o.primary, bot.id, id);
+    o.primary.execute(&format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{}',json(?1)) WHERE id=?2", reversal::CANCELS),
+                      rusqlite::params![json!([{"id": id, "registered": true, "sent": false}]).to_string(), bot.id]).unwrap();
+    t.reply(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, json!({"code":"200000","data":{"orderId": ext}}));
+    let key = format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+    t.reply(&key, 200, hf_answer(&ext, true, false, "0.0002", "12"));
+    t.reply(&key, 200, hf_answer(&ext, false, true, "0.0004", "24"));
+    let handle = deltabadger::venue::Handle::attributed(&v);
+    assert_eq!(reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap(), vec![id], "polled after its cancel");
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(work(&c, bot.id), (vec![id], vec![id]), "an acknowledgement settles nothing");
+    polling::follow_up(&c, &v, bot.id, id, now).await.unwrap();
+    assert_eq!(work(&c, bot.id), (vec![id], vec![id]), "still open: nothing settles");
+    let carry = model::load_bot(&c, bot.id).unwrap().transient["missed_quote_amount"].clone();
+    polling::follow_up(&c, &v, bot.id, id, now).await.unwrap();
+    assert_eq!(row_exec(&c, id), (Some(3), Some(0.0004)));
+    assert_eq!(work(&c, bot.id), (vec![], vec![]), "settled once");
+    assert_ne!(model::load_bot(&c, bot.id).unwrap().transient["missed_quote_amount"], carry);
+}
+
+/// r2.2: once a cancel may have gone out (lost, or acknowledged), a refused retry with the order unreadable keeps the
+/// entry and the reserve: the refusal does not tell what the first request did.
+#[tokio::test(flavor = "current_thread")]
+async fn r2_2_a_refused_retry_never_drops_an_earlier_cancel() {
+    use deltabadger::engine::reversal;
+    let now = at("2026-10-30T12:05:00Z");
+    for first in ["lost", "acknowledged"] {
+        let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+        reversal_work(&o.primary, bot.id, id);
+        o.primary.execute(&format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{}',json(?1)) WHERE id=?2", reversal::CANCELS),
+                          rusqlite::params![json!([{"id": id, "registered": true, "sent": false}]).to_string(), bot.id]).unwrap();
+        let del = format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+        if first == "lost" { t.network(&del, "post_send", "reset"); } else { t.reply(&del, 200, json!({"code":"200000","data":{"orderId": ext}})); }
+        t.reply(&del, 400, json!({"code":"400100","msg":"order not exist"}));
+        not_found(&t, &ext);
+        let handle = deltabadger::venue::Handle::attributed(&v);
+        let _ = reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap();
+        let _ = reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap();
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert_eq!(work(&c, bot.id), (vec![id], vec![id]), "{first}: entry and reserve kept");
+        assert_eq!(c_count(&c, "order_cancel_failed"), 0, "{first}: not a failed cancel");
+    }
+}
+
+/// The venue refusing the FIRST HF cancel keeps today's reading (a failed cancel: the order may still be live).
+#[tokio::test(flavor = "current_thread")]
+async fn a_refused_first_hf_cancel_is_a_failed_cancel() {
+    use deltabadger::engine::reversal;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    reversal_work(&o.primary, bot.id, id);
+    o.primary.execute(&format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{}',json(?1)) WHERE id=?2", reversal::CANCELS),
+                      rusqlite::params![json!([{"id": id, "registered": true, "sent": false}]).to_string(), bot.id]).unwrap();
+    t.reply(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 400, json!({"code":"400100","msg":"order not exist"}));
+    let handle = deltabadger::venue::Handle::attributed(&v);
+    assert!(reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap().is_empty());
+    assert_eq!(work(&o.primary, bot.id), (vec![], vec![]));
+    assert_eq!(c_count(&o.primary, "order_cancel_failed"), 1);
 }
