@@ -766,7 +766,13 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
     } else if scheme == Some(KeyCheck::Kucoin) {
         let passphrase = credentials.passphrase.clone().unwrap_or_default();
         let transport = ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
-        if let Some(version) = version {
+        let request = kucoin_request(base, kind);
+        let answer = transport.send(&request).await;
+        let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
+                      else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
+        // D-KUCOIN-HF-MODE: Rails' check decides first (an incorrect key stays incorrect); a key it judges correct is
+        // then read for its account mode, and anything but a classic account is refused.
+        if let (Verdict::Valid(true), Some(version)) = (&verdict, version) {
             let resolver = crate::venue::kucoin_account::Resolver::shared();
             resolver.invalidate(base, version.id);
             let mode = resolver.resolve(&transport, base, version).await.value.and_then(|d| d.mode.require_classic());
@@ -774,10 +780,6 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
                 return (Validity::Pending(Diagnostic { text: e.message(), status: None, body: String::new(), refusal: true }), None);
             }
         }
-        let request = kucoin_request(base, kind);
-        let answer = transport.send(&request).await;
-        let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
-                      else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
         if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue, &transport, base, &credentials.secret).await; }
         (answer, verdict)
     } else if scheme == Some(KeyCheck::Bitvavo) {

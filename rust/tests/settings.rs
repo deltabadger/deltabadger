@@ -3902,7 +3902,8 @@ async fn validator_job_matches_rails_on_every_checked_venue(){
         let h=Harness::new(server.uri()).await;
         let kind=match case["key_type"].as_str().unwrap(){"trading"=>0,"withdrawal"=>1,_=>2};
         let kucoin=text("venue")=="Exchanges::Kucoin";
-        if kucoin { kucoin_classic_detection(&server).await; }
+        // D-KUCOIN-HF-MODE: only a key Rails' check judges correct is read for its account mode.
+        if kucoin && case["status"]=="correct" { kucoin_classic_detection(&server).await; }
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3",(text("venue"),text("name"),h.seed.exchange_id)).unwrap();
         h.c.execute("UPDATE api_keys SET status=0,key_type=?1,key=?2,secret=?3,passphrase=?4 WHERE id=?5",(kind,h.app.cipher.encrypt("test-key"),h.app.cipher.encrypt("dGVzdC1zZWNyZXQ="),kucoin.then(||h.app.cipher.encrypt("test-passphrase")),h.seed.api_key_id)).unwrap();
         let notify=Arc::new(tokio::sync::Notify::new());h.app.attach_engine(notify.clone());

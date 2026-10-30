@@ -494,7 +494,8 @@ async fn a_reading_kucoin_key_gets_a_ledger_job_and_a_balance_job_that_reach_kuc
     for outcome in [LedgerSync::new(venues.clone(), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await,
                     BalanceSync::new(venues.clone(), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await] {
         let Outcome::Failed(why) = outcome else { panic!("{outcome:?}") };
-        assert!(why.contains("KuCoin is not connected here"), "{why}");
+        // D-KUCOIN-HF-MODE: a KuCoin run reads the account mode first; this transport answers nothing.
+        assert!(why.contains("KuCoin account mode could not be determined"), "{why}");
     }
     assert!(venues.0.requests().is_empty(), "nothing went to Alpaca");
     // ApiKey.reading: a trading key lacking a permission KuCoin names gives way to the read-only key.
