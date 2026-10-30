@@ -3959,6 +3959,7 @@ async fn a_kucoin_key_on_a_unified_account_or_an_hf_account_without_spot_says_wh
     let permission = |p: serde_json::Value| serde_json::json!({"code":"200000","data":{"apiKey":"kc-key","permission":p,"uid":165111215,"isMaster":true}});
     for (mode, opened, api_key, says, saved) in [
         ("UNIFIED", None, None, "Unified Trading Account", false),
+        ("CLASSIC", Some(false), Some((200, permission(serde_json::json!("General")))), "", true),
         ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General,Spot")))), "", true),
         ("CLASSIC", Some(true), Some((200, permission(serde_json::json!(" General , Spot ")))), "", true),
         ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General")))), "This key is missing: Spot", false),
@@ -3992,6 +3993,13 @@ async fn a_kucoin_key_on_a_unified_account_or_an_hf_account_without_spot_says_wh
         assert!(response.body.contains(says),"{case}: {}",response.body);
         assert!(!response.body.contains("newer trading account"),"{case}: the HF message is gone");
         assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),i64::from(saved),"{case}: {}",response.body);
+        if saved {
+            // The account id is read from the answer before the transport scrubs it (the body echoes the key), the same
+            // on a classic and an HF account.
+            let key=deltabadger::identity::existing_key(&h.c,&h.app.cipher).expect("an identity key");
+            let stored:Option<String>=h.c.query_row("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id=o.api_key_id WHERE k.exchange_id=?1",[kucoin],|r|r.get(0)).unwrap();
+            assert_eq!(stored,Some(key.fingerprint_text("Exchanges::Kucoin","165111215")),"{case}");
+        }
         if api_key.is_some() {
             let reads=server.received_requests().await.unwrap().iter().filter(|r|r.url.path()==deltabadger::identity::KUCOIN_PATH).count();
             assert_eq!(reads,1,"{case}: one api-key read serves the identity and the permission");

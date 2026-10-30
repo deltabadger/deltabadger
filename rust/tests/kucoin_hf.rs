@@ -1940,6 +1940,7 @@ async fn f01_dca_places_polls_and_settles_on_hf() {
     assert_eq!(posts[0].url.path(), "/api/v1/hf/orders");
     let body: Value = serde_json::from_slice(&posts[0].body).unwrap();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1", [bot.id], |r| r.get::<_, i64>(0)).unwrap(), 1, "one row");
     let (id, ext): (i64, String) = c.query_row("SELECT id, external_id FROM transactions WHERE bot_id=?1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(ext, "HF-LIVE-1", "the raw orderId");
     let record: Value = serde_json::from_str(&c.query_row("SELECT value FROM app_configs WHERE key=?1", [format!("rust_kucoin_order:{id}")], |r| r.get::<_, String>(0)).unwrap()).unwrap();
@@ -1947,7 +1948,19 @@ async fn f01_dca_places_polls_and_settles_on_hf() {
     assert!(body["clientOid"].as_str().is_some_and(|c| c.len() == 36), "the intent's UUID: {body}");
     assert!(requests.iter().any(|r| r.url.path() == "/api/v1/hf/orders/HF-LIVE-1"), "polled on the HF route: {:#?}", sent(&server).await);
     assert!(!requests.iter().any(|r| r.url.path().starts_with("/api/v1/orders") || r.url.path() == "/api/v1/fills"), "never the classic routes: {:#?}", sent(&server).await);
-    assert_eq!(row_exec(&c, id), (Some(2), Some(0.0012)), "closed with its exact execution");
+    let settled = |c: &rusqlite::Connection| -> (i64, Option<i64>, String, String, Option<Value>) {
+        c.query_row("SELECT count(*), max(external_status), max(CAST(amount_exec AS TEXT)), max(CAST(quote_amount_exec AS TEXT)) FROM transactions WHERE bot_id=?1", [bot.id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, receipt(c, id)))).unwrap()
+    };
+    let first = settled(&c);
+    assert_eq!((first.0, first.1, first.2.as_str(), first.3.as_str()), (1, Some(2), "0.0012", "60"), "closed with its exact base and quote");
+    let receipt_v = first.4.clone().expect("the settlement's receipt");
+    assert_eq!((&receipt_v["status"], &receipt_v["deal_size"], &receipt_v["deal_funds"]), (&json!("closed"), &json!("0.0012"), &json!("60.0")));
+    // Processing again (a later step, after reopening) changes nothing and sends no second POST.
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:10:00Z")).await.unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(settled(&c), first, "settled once");
+    assert_eq!(server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "POST").count(), 1);
 }
 
 /// F01: the same bot on a classic account keeps the classic route, writes no HF record, and asks no HF route.
