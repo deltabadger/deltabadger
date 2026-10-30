@@ -677,3 +677,34 @@ fn an_account_mode_refusal_is_the_key_checks_log_line() {
     let venue = Diagnostic { text: "venue text".into(), status: Some(500), body: r#"{"code":7}"#.into(), refusal: false };
     assert!(!venue.log_text().contains("venue text"));
 }
+
+/// O03: every HF signing vector through the real transport. The sent URL (form-encoded, in the given order), the exact
+/// body bytes and every signed header match the independent HMAC expectations; classic signing is untouched (tests/kucoin.rs).
+#[tokio::test(flavor = "current_thread")]
+async fn o03_the_transport_signs_every_hf_vector() {
+    use deltabadger::venue::http::{self as wire, HttpRequest, Transport};
+    use wiremock::{matchers::any, Mock, MockServer, ResponseTemplate};
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/kucoin_hf/signing.json")).unwrap();
+    let k = &fixture["credentials"];
+    let at = chrono::DateTime::from_timestamp_millis(fixture["timestamp"].as_str().unwrap().parse().unwrap()).unwrap();
+    for c in fixture["cases"].as_array().unwrap() {
+        let server = MockServer::start().await;
+        Mock::given(any()).respond_with(ResponseTemplate::new(200).set_body_string(r#"{"code":"200000","data":{}}"#)).mount(&server).await;
+        let t = wire::ReqwestTransport::kucoin(wire::client(), k["key"].as_str().unwrap().into(), k["secret"].as_str().unwrap().into(), k["passphrase"].as_str().unwrap().into())
+            .with_clock(std::sync::Arc::new(deltabadger::engine::FixedClock(at)));
+        let q = &c["request"];
+        let method: &'static str = match q["method"].as_str().unwrap() { "GET" => "GET", "POST" => "POST", "DELETE" => "DELETE", m => panic!("{m}") };
+        let query = q["query"].as_array().unwrap().iter()
+            .map(|p| (&*Box::leak(p[0].as_str().unwrap().to_string().into_boxed_str()), p[1].as_str().unwrap().to_string())).collect();
+        let body = q["body_bytes"].as_str().filter(|b| !b.is_empty()).map(|b| serde_json::from_str(b).unwrap());
+        t.send(&HttpRequest { method, base: server.uri(), path: q["path"].as_str().unwrap().into(), query, body, not_after: None }).await.unwrap();
+        let got = server.received_requests().await.unwrap();
+        let (got, id) = (&got[0], c["id"].as_str().unwrap());
+        let want_url = reqwest::Url::parse(c["expect"]["transport_url"].as_str().unwrap()).unwrap();
+        assert_eq!((got.url.path(), got.url.query()), (want_url.path(), want_url.query()), "{id}: the URL sent");
+        assert_eq!(String::from_utf8(got.body.clone()).unwrap(), q["body_bytes"].as_str().unwrap(), "{id}: the body sent");
+        for (name, value) in c["expect"]["headers"].as_object().unwrap() {
+            assert_eq!(got.headers.get(name.as_str()).map(|h| h.to_str().unwrap()), value.as_str(), "{id}: {name}");
+        }
+    }
+}
