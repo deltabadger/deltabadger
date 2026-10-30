@@ -96,7 +96,11 @@ fn unresolved_windows(m:&mut Manifest,input:&[Input],reason:&str) {
 /// No source writes, including a marker, checkpoint, timestamp or cache change.
 pub fn dry_run(c:&Connection,cipher:&Cipher,key:&Key,version:&CredentialVersion,cutoff:DateTime<Utc>,e:&Evidence)->Result<Manifest,SyncError> {
     let mut copy=Connection::open_in_memory()?;
-    rusqlite::backup::Backup::new(c,&mut copy)?.run_to_completion(256,std::time::Duration::from_millis(5),None)?;
+    // One step: the copy holds one read snapshot, so concurrent engine and web writes (WAL) never restart it.
+    match rusqlite::backup::Backup::new(c,&mut copy)?.step(-1)? {
+        rusqlite::backup::StepResult::Done=>{}
+        _=>return Err(refuse("ledger busy; retry")),
+    }
     require_ownership(&copy,cipher)?;integrity(&copy)?;
     if !model::credential_is_current(&copy,version)? {return Err(refuse("credentials changed"))}
     require_scope(&copy,key)?;
@@ -291,6 +295,8 @@ pub fn apply_batch(c:&Connection,cipher:&Cipher,key:&Key,m:&Manifest,approved:&s
 /// never venue response bodies (which can echo credentials).
 pub async fn fetch<T:crate::venue::http::Transport>(venue:&crate::venue::binance::BinanceVenue<T>,clock:&dyn crate::engine::Clock,cutoff:DateTime<Utc>,us:bool,pacing:super::binance_ledger::Pacing)->Evidence {
     use super::binance_ledger as b;
+    // Every entry fetched so far, kept as windows arrive rather than rebuilt for each one.
+    let mut prior=std::collections::HashSet::new();
     let mut e=Evidence{inputs:vec![],coverage:vec![Window{source:"margin/futures".into(),kind:None,start:b::HISTORY_FROM_MS,end:cutoff.timestamp_millis(),pages:vec![],unresolved:Some("excluded under Q2/Q11; losses unresolved".into())}]};
     let mut sources=vec![(b::DEPOSITS_PATH,None,b::HISTORY_FROM_MS,89),(b::WITHDRAWALS_PATH,None,b::HISTORY_FROM_MS,89)];
     if !us {
@@ -348,8 +354,9 @@ pub async fn fetch<T:crate::venue::http::Transport>(venue:&crate::venue::binance
             if w.unresolved.is_none() {
                 // Inclusive abutting windows can repeat their boundary record. Preserve multiplicity
                 // within an answer: two indistinguishable rewards must still be unresolved.
-                let prior:std::collections::HashSet<_>=e.inputs.iter().map(|i|format!("{:?}",i.entry)).collect();
-                e.inputs.extend(window_inputs.into_iter().filter(|i|!prior.contains(&format!("{:?}",i.entry))));
+                let fresh:Vec<_>=window_inputs.into_iter().filter(|i|!prior.contains(&format!("{:?}",i.entry))).collect();
+                prior.extend(fresh.iter().map(|i|format!("{:?}",i.entry)));
+                e.inputs.extend(fresh);
             }
             e.coverage.push(w);
         }
