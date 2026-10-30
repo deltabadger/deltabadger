@@ -65,6 +65,10 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
 
 fn apply_order_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, execution_only: bool) -> Result<Option<Cap>, EngineError> {
     require_owner(c, bot_id, tx_id)?;
+    if !crate::venue::kucoin::advance_totals(c, tx_id, &s.amount_exec, s.quote_amount_exec.as_ref(), now).map_err(EngineError::Data)? {
+        super::log(&format!("[engine] bot {bot_id}: KuCoin answered transaction {tx_id} with lower dealt totals than it already reported; the row waits"));
+        return Ok(None);
+    }
     let row = crate::figures::fill::stored_order(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
     // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
@@ -274,7 +278,9 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     let ids: Vec<String> = rows.iter().map(|(_, e, _)| e.clone()).collect();
     let mut found: Vec<OrderState> = vec![];
     let mut skipped = vec![];
-    for batch in ids.chunks(50) {
+    // Each row with what its venue recorded at acceptance (D-KUCOIN-HF-ORDERS: a KuCoin HF order's route).
+    let refs = rows.iter().map(|(id, ext, _)| crate::venue::OrderRef::load(c, *id, ext)).collect::<Result<Vec<_>, _>>().map_err(db)?;
+    for batch in refs.chunks(50) {
         let (orders, excluded) = venue.orders_result(batch, |ext, pair, class| {
             let Some((id, _, _)) = rows.iter().find(|(_, e, _)| e == ext) else { return Ok(false); };
             order_identified(c, bot, *id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
@@ -371,7 +377,8 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(None) };
     let rules = venue.rules();
     let version = venue.producer();
-    let state = match venue.order_result(&ext, |_, pair, class| {
+    let order = crate::venue::OrderRef::load(c, id, &ext).map_err(poll_error)?;
+    let state = match venue.order_result(&order, |_, pair, class| {
         order_identified(c, bot, id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
     }).await.value {
         Ok((_, skipped)) if skipped.contains(&ext) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: unsupported class or unmapped/ambiguous order identity"))),

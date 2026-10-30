@@ -7,7 +7,7 @@ use super::model::{self, Level};
 use super::{accounting, EngineError};
 use crate::enums::TxExternalStatus;
 use crate::ruby::{BigDec, Num};
-use crate::venue::{Attributed, OrderStatus, Venue};
+use crate::venue::{Attributed, OrderStatus, Venue, VenueError};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
@@ -84,12 +84,18 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
             None => Outcome::Failed, // no order to cancel: nothing is restored for it
             Some(ext) => {
                 if !was_sent { mark_sent(c, bot_id, id)?; }
-                match venue.cancel(&ext).await {
+                let order = crate::venue::OrderRef::load(c, id, &ext)?;
+                // D-KUCOIN-HF-ORDERS: an HF cancel that cannot be told (lost, 5xx, unreadable) keeps its entry and reserve:
+                // the next pass asks again. Only the venue's refusal is a failed cancel, as Rails reads one.
+                let uncertain = |e: &VenueError| order.record.is_some() && !matches!(e, VenueError::Rejected(_));
+                match venue.cancel_with(&order).await {
                     Ok(()) => Outcome::Cancelled,
-                    Err(e) if was_sent => match venue.order_result(&ext, |_, _, _| Ok(true)).await.value {
+                    Err(e) if was_sent => match venue.order_result(&order, |_, _, _| Ok(true)).await.value {
                         Ok((found, _)) if found.iter().any(|o| o.txid == ext && o.status == OrderStatus::Cancelled) => Outcome::Cancelled,
+                        _ if uncertain(&e) => continue,
                         _ => { super::log(&format!("[engine] bot {bot_id}: could not cancel order {ext} while reversing: {e:?}")); Outcome::Failed }
                     },
+                    Err(e) if uncertain(&e) => continue,
                     Err(e) => { super::log(&format!("[engine] bot {bot_id}: could not cancel order {ext} while reversing: {e:?}")); Outcome::Failed }
                 }
             }

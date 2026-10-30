@@ -162,6 +162,41 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
 #[derive(Clone, Debug, PartialEq)]
 pub struct HfOrder { pub id: String, pub symbol: String, pub sell: bool, pub limit: bool }
 
+/// D-KUCOIN-HF-ORDERS: an HF order's record (`rust_kucoin_order:<transaction id>`), written with its row from the intent
+/// it was sent for: family, the exact wire symbol, side, type and the sending key (`host`, `key_fingerprint`), and the
+/// last applied exact dealt totals. A row without one is a classic row (every row before HF-2).
+pub const ORDER_RECORD: &str = "rust_kucoin_order:";
+
+/// Writes the record of the row the bot's unresolved intent just became, when that intent was sent on an HF account.
+pub fn record_order(c: &rusqlite::Connection, tx_id: i64, intent: &Value, now: DateTime<Utc>) -> Result<(), String> {
+    if intent["kucoin_account_mode"] != "ClassicHf" { return Ok(()); }
+    let record = serde_json::json!({"family": "ClassicHf", "symbol": intent["symbol"], "sell": intent["side"] == "sell",
+        "limit": intent["limit"], "host": intent["host"], "key_fingerprint": intent["key_fingerprint"], "deal_size": "0", "deal_funds": "0"});
+    crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)
+}
+
+/// The row's HF order record, if it has one.
+pub fn order_record(c: &rusqlite::Connection, tx_id: i64) -> Result<Option<Value>, String> {
+    Ok(crate::app_config::get_plain(c, &format!("{ORDER_RECORD}{tx_id}"))?.and_then(|s| serde_json::from_str(&s).ok()))
+}
+
+/// D-KUCOIN-HF-ORDERS: an HF row's dealt totals never go down. False (nothing applied) when either is lower than the
+/// record's last applied exact totals; else the record keeps these, in the caller's transaction. Exact decimals, never the
+/// row's f64 columns. A row without a record (classic) is always true.
+pub fn advance_totals(c: &rusqlite::Connection, tx_id: i64, size: &BigDec, funds: Option<&BigDec>, now: DateTime<Utc>) -> Result<bool, String> {
+    let Some(mut record) = order_record(c, tx_id)? else { return Ok(true) };
+    let prior = |key: &str| record[key].as_str().and_then(|v| BigDec::parse(v).ok()).ok_or_else(|| format!("unreadable {key} in {ORDER_RECORD}{tx_id}"));
+    let funds = funds.cloned().unwrap_or_else(BigDec::zero);
+    let (old_size, old_funds) = (prior("deal_size")?, prior("deal_funds")?);
+    if *size < old_size || funds < old_funds { return Ok(false); }
+    if *size != old_size || funds != old_funds {
+        record["deal_size"] = size.to_s_f().into();
+        record["deal_funds"] = funds.to_s_f().into();
+        crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)?;
+    }
+    Ok(true)
+}
+
 /// D-KUCOIN-HF-ORDERS: an HF order answer (`GET /api/v1/hf/orders/…`). Never reads `isActive`. Unreadable (Ambiguous, the
 /// row waits) unless it is `want`, its `active`, `inOrderBook` and `cancelExist` are JSON booleans, and `dealSize` and
 /// `dealFunds` are decimals, both ≥ 0, positive together. Then: inactive yet in the book is unreadable; active is Open;
@@ -394,6 +429,24 @@ impl<T: Transport> KucoinVenue<T> {
             (Some(b), _) => Err(VenueError::Ambiguous(api_error(b))),
             (None, _) => Err(VenueError::Ambiguous(format!("KuCoin answered HTTP {} with an unreadable body", resp.status))),
         }
+    }
+
+    /// D-KUCOIN-HF-ORDERS: the stored HF order a ref names, when this venue may ask about it: HF admitted, and the ref's
+    /// recorded host and key are this venue's own (never another account's order, never redirected by the current mode).
+    fn hf_ref(&self, r: &super::OrderRef) -> Option<Result<HfOrder, ()>> {
+        let record = r.record.as_ref().filter(|rec| rec["family"] == "ClassicHf")?;
+        let mine = self.hf && record["host"].as_str() == Some(self.base.as_str())
+            && self.identity.as_ref().is_some_and(|i| i["key_fingerprint"] == record["key_fingerprint"]);
+        let order = (|| Some(HfOrder { id: r.external_id.clone(), symbol: record["symbol"].as_str()?.into(), sell: record["sell"].as_bool()?, limit: record["limit"].as_bool()? }))();
+        Some(order.filter(|_| mine).ok_or(()))
+    }
+
+    /// D-KUCOIN-HF-ORDERS: one stored HF order, `GET /api/v1/hf/orders/{id}?symbol=`. None when it cannot be told: not
+    /// found, refused, failed or unreadable. The row then waits (an excluded id: never missing, never abandoned).
+    async fn hf_order(&self, want: &HfOrder) -> Option<OrderState> {
+        let r = HttpRequest { method: "GET", base: self.base.clone(), path: format!("{HF_ORDERS}/{}", want.id), query: vec![("symbol", want.symbol.clone())], body: None, not_after: None };
+        let body = self.call(&r, false, http::MAX_BODY).await.ok().filter(|b| code(b).ok().as_deref() == Some(OK))?;
+        parse_hf_order(&body["data"], want, &self.pairs).ok()
     }
 
     /// D-KUCOIN-HF-ORDERS: recovery's exact lookup, `GET /api/v1/hf/orders/client-order/{clientOid}?symbol=`. Only an
@@ -650,5 +703,47 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         let body = self.call(&self.request("DELETE", format!("/api/v1/orders/{txid}"), vec![], None), false, http::MAX_BODY).await?;
         if code(&body)? == OK { Ok(()) } else { Err(VenueError::Rejected(vec![api_error(&body)])) }
+    }
+
+    /// D-KUCOIN-HF-ORDERS: classic rows as `orders_identified`; each HF row on its own route, by its record. An HF row this
+    /// venue may not ask about, or whose answer cannot be told, is excluded: present, never missing or abandoned.
+    async fn orders_with<F>(&self, refs: &[super::OrderRef], identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        let classic: Vec<String> = refs.iter().filter(|r| self.hf_ref(r).is_none()).map(|r| r.external_id.clone()).collect();
+        let (mut found, mut excluded) = if classic.is_empty() { (vec![], vec![]) } else { super::Venue::orders_identified(self, &classic, identify).await? };
+        for r in refs {
+            match self.hf_ref(r) {
+                None => {}
+                Some(Ok(want)) => match self.hf_order(&want).await { Some(s) => found.push(s), None => excluded.push(r.external_id.clone()) },
+                Some(Err(())) => excluded.push(r.external_id.clone()),
+            }
+        }
+        Ok((found, excluded))
+    }
+    async fn order_with<F>(&self, r: &super::OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        if self.hf_ref(r).is_none() { return super::Venue::order_identified(self, &r.external_id, identify).await; }
+        super::Venue::orders_with(self, std::slice::from_ref(r), identify).await
+    }
+    /// D-KUCOIN-HF-ORDERS: an HF row's cancel, `DELETE /api/v1/hf/orders/{id}?symbol=`. Accepted only on 200000 naming
+    /// this order; an error envelope is the venue's refusal; anything else (lost, 5xx, unreadable, another id) is
+    /// Ambiguous. An accepted cancel is a request, never a terminal state: the row's poll settles it.
+    async fn cancel_with(&self, r: &super::OrderRef) -> Result<(), VenueError> {
+        let want = match self.hf_ref(r) {
+            None => return super::Venue::cancel(self, &r.external_id).await,
+            Some(Ok(want)) => want,
+            Some(Err(())) => return Err(VenueError::Ambiguous("KuCoin HF order record does not match this venue".into())),
+        };
+        let req = HttpRequest { method: "DELETE", base: self.base.clone(), path: format!("{HF_ORDERS}/{}", want.id), query: vec![("symbol", want.symbol.clone())], body: None, not_after: None };
+        let resp = match self.transport.send_limited(&req, http::MAX_BODY).await {
+            Ok(resp) => resp,
+            Err(e) => return Err(VenueError::Ambiguous(self.transport.redact_diagnostic(&format!("{e:?}")))),
+        };
+        let body = http::decode_json(&resp.body).ok();
+        match (resp.status, body.as_ref().and_then(|b| code(b).ok()).as_deref()) {
+            (200..=299, Some(OK)) if body.as_ref().is_some_and(|b| b["data"]["orderId"].as_str() == Some(want.id.as_str())) => Ok(()),
+            (400..=499, Some(c)) if c != OK => Err(VenueError::Rejected(vec![api_error(body.as_ref().expect("a code was read"))])),
+            _ => Err(VenueError::Ambiguous(format!("KuCoin's answer to cancelling order {} cannot be told (HTTP {})", want.id, resp.status))),
+        }
     }
 }

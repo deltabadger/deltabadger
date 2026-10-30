@@ -840,3 +840,163 @@ async fn o02_every_hf_placement_answer_has_its_database_effect() {
         }
     }
 }
+
+fn creds(key: &str) -> deltabadger::crypto::Credentials {
+    deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: "s".into(), passphrase: Some("p".into()), redaction_values: vec![] }
+}
+/// An admitted HF venue sending with key `key`, after one accepted HF order for the seeded bot: (dir, store, bot, transport,
+/// venue, transaction id, external id).
+async fn placed(key: &str, limit_plan: bool) -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot, ScriptedTransport, KucoinVenue<ScriptedTransport>, i64, String) {
+    use deltabadger::engine::{placement, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, o, bot, mut plan) = engine_setup();
+    plan.limit = limit_plan;
+    let t = ScriptedTransport::default(); t.set_now(at); classic(&t, true);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds(key)).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    v.prepare().await.unwrap();
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
+    t.reply("POST /api/v1/hf/orders", 200, json!({"code":"200000","data":{"orderId":"HF1","clientOid":intent.cl_ord_id}}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at)).await.unwrap(), placement::Sent::Accepted(_)));
+    let id = o.primary.query_row("SELECT id FROM transactions WHERE external_id='HF1'", [], |r| r.get(0)).unwrap();
+    (dir, o, bot, t, v, id, "HF1".into())
+}
+fn hf_answer(id: &str, active: bool, cancelled: bool, size: &str, funds: &str) -> Value {
+    json!({"code":"200000","data":{"id":id,"symbol":"BTC-EUR","type":"market","side":"buy","price":"0","size":"0.001","funds":"60",
+        "dealSize":size,"dealFunds":funds,"active":active,"inOrderBook":false,"cancelExist":cancelled,"createdAt":1793361600000_i64}})
+}
+fn row_exec(c: &rusqlite::Connection, id: i64) -> (Option<i64>, Option<f64>) {
+    c.query_row("SELECT external_status, amount_exec FROM transactions WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+/// O08, r1.3, r1.5, r2.1: the record is written with the row; polls read an HF row by its stored symbol on the HF route
+/// even after the bot's pair changes; a classic row beside it keeps the classic route and its fills fallback; an HF row
+/// the venue cannot read is never sent to the fills fallback nor abandoned, however old; another key never reads it.
+#[tokio::test(flavor = "current_thread")]
+async fn o08_hf_rows_are_read_by_their_record_never_the_bots_current_pair() {
+    use deltabadger::engine::polling;
+    let (_dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let record = deltabadger::venue::kucoin::order_record(&o.primary, id).unwrap().unwrap();
+    assert_eq!((&record["family"], &record["symbol"], &record["sell"], &record["limit"], &record["host"]), (&json!("ClassicHf"), &json!("BTC-EUR"), &json!(false), &json!(false), &json!(URL)));
+    assert!(record["key_fingerprint"].is_string());
+    o.primary.execute_batch("UPDATE tickers SET ticker='ETH-EUR'").unwrap();
+    // A classic row beside it, and both rows old enough to be abandoned if missing.
+    common::seed::insert_row(&o.primary, &common::seed::Seeded { user_id: 1, exchange_id: bot.exchange_id, btc: 1, quote: 2, ticker_id: 1, api_key_id: 1 }, bot.id, 1,
+                             &json!({"external_id": "CLASSIC1", "created_at": "2026-09-01 10:00:00"}));
+    o.primary.execute("UPDATE transactions SET created_at='2026-09-01 10:00:00'", []).unwrap();
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, json!({"code":"400100","msg":"order not exist"}));
+    t.reply("GET /api/v1/orders/CLASSIC1", 200, json!({"code":"400100","msg":"order not exist"}));
+    let now = "2026-10-30T12:05:00Z".parse().unwrap();
+    let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    let asked: Vec<String> = t.requests().iter().map(|r| format!("{} {}{}", r.method, r.path, r.query.iter().map(|(k, v)| format!("?{k}={v}")).collect::<String>())).collect();
+    assert!(asked.contains(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR")), "{asked:?}");
+    assert!(!asked.iter().any(|a| a.contains("ETH-EUR")), "never the bot's current pair: {asked:?}");
+    assert!(!asked.iter().any(|a| a.starts_with("GET /api/v1/orders/HF1")), "never the classic route for an HF row");
+    assert!(!asked.iter().any(|a| a.contains("/fills") && a.contains("HF1")), "no fills fallback for an HF row: {asked:?}");
+    assert_eq!(row_exec(&o.primary, id).0, Some(0), "the HF row still waits, never abandoned");
+    // Another key's venue does not read the HF row at all.
+    let t2 = ScriptedTransport::default(); t2.set_now(now); classic(&t2, true);
+    let other = KucoinVenue::new(t2.clone(), URL).with_identity(&creds("KEY-B")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_hf();
+    other.prepare().await.unwrap();
+    t2.reply("GET /api/v1/orders/CLASSIC1", 200, json!({"code":"400100","msg":"order not exist"}));
+    let _ = polling::sweep(&o.primary, &other, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    assert!(!t2.requests().iter().any(|r| r.path.contains("HF1")), "another key never asks about this order");
+}
+
+/// r3.1, r4: an HF row's dealt totals never go down, compared as exact decimals (the row's columns are f64).
+#[tokio::test(flavor = "current_thread")]
+async fn r3_hf_dealt_totals_never_go_down_and_compare_exactly() {
+    use deltabadger::engine::polling;
+    let now: chrono::DateTime<chrono::Utc> = "2026-10-30T12:05:00Z".parse().unwrap();
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    let key = format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+    macro_rules! sweep { ($c:expr) => { polling::sweep($c, &v, &model::load_bot($c, bot.id).unwrap(), now) } }
+    // One answer per sweep, in order (a scripted key repeats its last answer).
+    for (active, cancelled, size, funds) in [(true, false, "0.0004", "0.99999999999999999"), (false, true, "0", "0"),
+                                             (false, true, "0.0004", "0.99999999999999998"), (false, true, "0.0004", "0.99999999999999999")] {
+        t.reply(&key, 200, hf_answer(&ext, active, cancelled, size, funds));
+    }
+    let _ = sweep!(&o.primary).await;
+    assert_eq!(row_exec(&o.primary, id).0, Some(1), "open with a partial fill");
+    // Lower totals, also after reopening the store: nothing applied, the row stays open.
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id), (Some(1), Some(0.0004)));
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id).0, Some(1), "one unit lower at the 17th decimal is refused");
+    // The identical exact total (1.0 in the f64 column) settles.
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id).0, Some(3), "cancelled with what it dealt");
+}
+
+/// O07: every HF cancel answer, through the venue: only 200000 naming this order is accepted (a request, not a state);
+/// a 4xx with a code is the venue's refusal; everything else cannot be told.
+#[tokio::test(flavor = "current_thread")]
+async fn o07_every_hf_cancel_answer_is_classified() {
+    use deltabadger::venue::{OrderRef, VenueError};
+    let f = fixture("orders");
+    for c in f["cases"].as_array().unwrap().iter().filter(|c| c["id"].as_str().unwrap().starts_with("cancel_")) {
+        let (_dir, o, _bot, t, v, id, ext) = placed("KEY-A", false).await;
+        let key = format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR");
+        let r = &c["response"];
+        let mut body = r["body"].clone();
+        if body["data"]["orderId"] == "670fd33bf9406e0007ab3945" { body["data"]["orderId"] = json!(ext); }
+        match r["transport_error"].as_str() {
+            Some(_) => { t.network(&key, "post_send", "reset"); }
+            None if r["raw_body"].is_string() => { t.reply(&key, r["status"].as_u64().unwrap() as u16, r["raw_body"].clone()); }
+            None => { t.reply(&key, r["status"].as_u64().unwrap() as u16, body); }
+        }
+        let got = v.cancel_with(&OrderRef::load(&o.primary, id, &ext).unwrap()).await;
+        let class = match got { Ok(()) => "acknowledged", Err(VenueError::Rejected(_)) => "rejected", Err(_) => "uncertain" };
+        assert_eq!(class, c["expect"]["cancellation"], "{}", c["id"]);
+    }
+}
+
+/// r1.7: an HF cancel that cannot be told keeps the reversal's cancel entry (the placement barrier) and its reserve;
+/// a later pass that reads the order cancelled settles it once.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_7_an_uncertain_hf_cancel_keeps_its_obligation() {
+    use deltabadger::engine::reversal;
+    let now: chrono::DateTime<chrono::Utc> = "2026-10-30T12:05:00Z".parse().unwrap();
+    let (dir, o, bot, t, v, id, ext) = placed("KEY-A", false).await;
+    o.primary.execute(&format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{}',json(?1),'$.{}',json(?2)) WHERE id=?3", reversal::CANCELS, reversal::RESERVE_PENDING),
+                      rusqlite::params![json!([{"id": id, "registered": true}]).to_string(), json!([id]).to_string(), bot.id]).unwrap();
+    let pending = |c: &rusqlite::Connection| { let b = model::load_bot(c, bot.id).unwrap(); (b.transient[reversal::CANCELS].as_array().map_or(0, Vec::len), b.transient[reversal::RESERVE_PENDING].as_array().map_or(0, Vec::len)) };
+    t.network(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), "post_send", "reset");
+    let handle = deltabadger::venue::Handle::attributed(&v);
+    assert!(reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap().is_empty());
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(pending(&c), (1, 1), "the cancel entry and the reserve stay");
+    // The next pass: the cancel cannot be told again, but the order reads cancelled.
+    t.reply(&format!("DELETE /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 503, json!("unavailable"));
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0", "0"));
+    assert_eq!(reversal::cancel_captured(&c, &handle, bot.id, now).await.unwrap(), vec![id]);
+    assert_eq!(pending(&c).0, 0, "the entry is settled once");
+}
+
+/// r1.4: recovery of an HF intent takes an answer only for an order of the intent's side and type; a market answer for a
+/// limit intent leaves it unresolved, and the matching answer recovers one row with no second POST.
+#[tokio::test(flavor = "current_thread")]
+async fn r1_4_hf_recovery_checks_the_order_type() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, o, bot, mut plan) = engine_setup();
+    plan.limit = true;
+    let t = ScriptedTransport::default(); t.set_now(at);
+    let v = hf_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
+    t.reply("POST /api/v1/hf/orders", 503, json!({"code":"230005","msg":"The system is busy, please try again later"}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at)).await.unwrap(), placement::Sent::Ambiguous(_)));
+    let key = format!("GET /api/v1/hf/orders/client-order/{}?symbol=BTC-EUR", intent.cl_ord_id);
+    let answer = |kind: &str| json!({"code":"200000","data":{"id":"HF9","clientOid":intent.cl_ord_id,"symbol":"BTC-EUR","type":kind,"side":"buy","price":"50000","size":"0.001","funds":"50",
+        "dealSize":"0","dealFunds":"0","active":true,"inOrderBook":true,"cancelExist":false,"createdAt":1793361600000_i64}});
+    t.reply(&key, 200, answer("market"));
+    t.reply(&key, 200, answer("limit"));
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    tick::tick(&c, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(30)), &mut Default::default()).await.unwrap();
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_some(), "another type is not this order");
+    assert_eq!(submitted(&c), 0);
+    tick::tick(&c, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(60)), &mut Default::default()).await.unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE status=0 AND external_id='HF9'", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "recovered once");
+    assert_eq!(posts(&t), 1, "no second POST");
+    assert!(deltabadger::venue::kucoin::order_record(&c, c.query_row("SELECT id FROM transactions WHERE external_id='HF9'", [], |r| r.get(0)).unwrap()).unwrap().is_some(), "the recovered row has its record");
+}

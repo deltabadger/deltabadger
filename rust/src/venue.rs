@@ -211,6 +211,10 @@ impl<V:Venue> Handle<V> {
         let producer = venue.producer().or(producer);
         Self{venue,producer}
     }
+    /// Tests only: a venue that carries its own producer (a KuCoin venue with account context), so no answer is attributed
+    /// to anything but the credentials it captured.
+    #[doc(hidden)]
+    pub fn attributed(venue:V)->Self { assert!(venue.producer().is_some(), "a venue without its own producer"); Self::new(venue,None) }
     pub(crate) fn for_bot(venue:V,c:&rusqlite::Connection,bot:&crate::engine::model::Bot)->Result<Self,crate::engine::EngineError>{
         let producer=match venue.producer(){Some(origin)=>Some(origin),None=>crate::engine::model::credential_version(c,bot)?};
         Ok(Self::new(venue,producer))
@@ -238,6 +242,9 @@ impl<V:Venue> Venue for &V {
     async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{(*self).settled_quote_balance(t,catalog).await}
     async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{(*self).tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{(*self).cancel(txid).await}
+    async fn orders_with<F>(&self,refs:&[OrderRef],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).orders_with(refs,identify).await}
+    async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).order_with(r,identify).await}
+    async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{(*self).cancel_with(r).await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{(*self).candles(t,start_at,tf).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{(*self).withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{(*self).withdrawal_networks(coin).await}
@@ -267,6 +274,9 @@ impl<V:Venue> Venue for Handle<V> {
     async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.settled_quote_balance(t,catalog).await}
     async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{self.venue.tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.venue.cancel(txid).await}
+    async fn orders_with<F>(&self,refs:&[OrderRef],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_with(refs,identify).await}
+    async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_with(r,identify).await}
+    async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{self.venue.cancel_with(r).await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.venue.candles(t,start_at,tf).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.venue.withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.venue.withdrawal_networks(coin).await}
@@ -283,14 +293,25 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn free_base_result<F>(&self,t:&Ticker,catalog:F)->crate::engine::model::Produced<Result<BigDec,VenueError>> where F:FnOnce()->Result<Catalog,VenueError>{let origin=self.producer();let value=self.free_base_identified(t,catalog).await;crate::engine::model::Produced::new(value,origin)}
     async fn settled_quote_result<F>(&self,t:&Ticker,catalog:F)->crate::engine::model::Produced<Result<BigDec,VenueError>> where F:FnOnce()->Result<Catalog,VenueError>{let origin=self.producer();let value=self.settled_quote_balance(t,catalog).await;crate::engine::model::Produced::new(value,origin)}
     async fn balance_result(&self,s:&str,crypto:bool)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.balance(s,crypto).await;crate::engine::model::Produced::new(value,origin)}
-    async fn orders_result<F>(&self,ids:&[String],identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.orders_identified(ids,identify).await;crate::engine::model::Produced::new(value,origin)}
-    async fn order_result<F>(&self,id:&str,identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.order_identified(id,identify).await;crate::engine::model::Produced::new(value,origin)}
+    async fn orders_result<F>(&self,refs:&[OrderRef],identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.orders_with(refs,identify).await;crate::engine::model::Produced::new(value,origin)}
+    async fn order_result<F>(&self,r:&OrderRef,identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.order_with(r,identify).await;crate::engine::model::Produced::new(value,origin)}
     async fn fills_result(&self,ids:&[String],since:DateTime<Utc>)->crate::engine::model::Produced<Result<Vec<OrderState>,VenueError>>{let origin=self.producer();let value=self.fills_from_trades(ids,since).await;crate::engine::model::Produced::new(value,origin)}
     async fn placement_result(&self,o:&NewOrder)->crate::engine::model::Produced<Result<String,VenueError>>{let origin=self.producer();let value=self.add_order(o).await;crate::engine::model::Produced::new(value,origin)}
     async fn recovery_result(&self,id:&str,symbol:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.order_by_client_id(id,symbol,since).await;crate::engine::model::Produced::new(value,origin)}
     async fn candles_result(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->crate::engine::model::Produced<Result<Vec<Candle>,VenueError>>{let origin=self.producer();let value=self.candles(t,start_at,tf).await;crate::engine::model::Produced::new(value,origin)}
 }
 impl<V:Venue> Attributed for Handle<V> {}
+/// An order a row holds, with the record its venue wrote beside the row when it was accepted (D-KUCOIN-HF-ORDERS: a
+/// KuCoin HF order's route, symbol, side, type and key; None for every other row).
+#[derive(Clone, Debug, PartialEq)]
+pub struct OrderRef { pub external_id: String, pub record: Option<serde_json::Value> }
+impl OrderRef {
+    /// The order of row `tx_id`, with its record.
+    pub fn load(c: &rusqlite::Connection, tx_id: i64, external_id: &str) -> Result<Self, crate::engine::EngineError> {
+        Ok(Self { external_id: external_id.into(), record: kucoin::order_record(c, tx_id).map_err(crate::engine::EngineError::Data)? })
+    }
+}
+
 pub trait Venue {
     /// Resolve immutable account context before sizing. Most venues need no preparation.
     async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{Ok(None)}
@@ -329,6 +350,17 @@ pub trait Venue {
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         self.orders_identified(&[txid.to_string()], identify).await
     }
+    /// `orders_identified` with what each row recorded when it was accepted (`OrderRef::record`): every venue but KuCoin
+    /// reads the ids alone (D-KUCOIN-HF-ORDERS).
+    async fn orders_with<F>(&self, refs: &[OrderRef], identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        self.orders_identified(&refs.iter().map(|r| r.external_id.clone()).collect::<Vec<_>>(), identify).await
+    }
+    /// `order_identified` with the row's record, as `orders_with`.
+    async fn order_with<F>(&self, r: &OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { self.order_identified(&r.external_id, identify).await }
+    /// `cancel` with the row's record, as `orders_with`.
+    async fn cancel_with(&self, r: &OrderRef) -> Result<(), VenueError> { self.cancel(&r.external_id).await }
     /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete. `symbol` is the pair
     /// the intent was sent for (Binance looks an order up per symbol; Kraken and Alpaca ignore it), never the bot's current one.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;

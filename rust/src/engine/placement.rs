@@ -857,6 +857,11 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             log_once(&intent.cl_ord_id, &format!("[engine] bot {}: the venue answered for its unresolved {} order with a {} order; it stays unresolved", bot.id, intent.plan.side.as_str(), if state.sell { "sell" } else { "buy" }));
             Ok(Recovery::Pending)
         }
+        // D-KUCOIN-HF-ORDERS: an HF intent's order is also of its type; a market answer for a limit intent is another order.
+        Ok(Some(state)) if state.limit != intent.plan.limit && bot.rust_placement().is_some_and(|raw| raw["kucoin_account_mode"] == "ClassicHf") => {
+            log_once(&intent.cl_ord_id, &format!("[engine] bot {}: the venue answered for its unresolved {} order with an order of another type; it stays unresolved", bot.id, if intent.plan.limit { "limit" } else { "market" }));
+            Ok(Recovery::Pending)
+        }
         Ok(Some(state)) => {
             let now = clock.now();
             // D-KUCOIN-ZERO-FILL-FUNDS: an old zero-fill answer is Closed; a young one leaves the row waiting for its polls.

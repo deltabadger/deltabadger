@@ -294,6 +294,10 @@ pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &Ord
     c.execute("UPDATE transactions SET run_identity=?2 WHERE id=?1 AND run_identity IS NULL", params![id, run.map(|r| r.order_json().to_string())])?;
     // Every caller writes the row of the bot's unresolved intent before removing it: its IBKR reservation names the row.
     if super::model::exchange_type(c, bot)? == crate::venue::ibkr::IBKR { crate::venue::ibkr_reservations::link(c, bot.id, id)?; }
+    // D-KUCOIN-HF-ORDERS: an order sent on a KuCoin HF account keeps its route, symbol, side, type and key with its row.
+    if let Some(intent) = super::model::load_bot(c, bot.id)?.rust_placement() {
+        crate::venue::kucoin::record_order(c, id, &intent, created_at).map_err(EngineError::Data)?;
+    }
     Ok(id)
 }
 
