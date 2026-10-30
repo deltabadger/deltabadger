@@ -196,6 +196,7 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
             key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&venue.class), &venue.name, 0, &missing, &forbidden)
         }
         keys::Submitted::Failed => i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[]),
+        keys::Submitted::AccountMode(message) => i18n::text(ctx.locale, message, &[]),
         keys::Submitted::Refused(reason) => i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]),
     };
     let (inner, view) = (app.clone(), ctx.clone());
