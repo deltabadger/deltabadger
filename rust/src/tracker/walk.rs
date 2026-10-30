@@ -567,6 +567,11 @@ impl Engine {
         *entry = (&*entry + amount)?;
         Ok(())
     }
+    /// Remaining FIFO quantities and unit bases, grouped by asset and optional venue.
+    pub fn remaining_lots(&self) -> impl Iterator<Item = (&str, Option<&str>, Vec<(&Dec, &Dec)>)> {
+        self.lots.iter().map(|((venue, asset), lots)|
+            (asset.as_str(), venue.as_deref(), lots.iter().map(|lot| (&lot.amount, &lot.cost_per_unit)).collect()))
+    }
     pub fn roc_at(&self, venue: &str) -> Dec { self.roc.get(&Some(venue.to_string())).cloned().unwrap_or_else(Dec::zero) }
     pub fn fee_asset_realised_at(&self, venue: &str) -> Dec { self.fee_realised.get(&Some(venue.to_string())).cloned().unwrap_or_else(Dec::zero) }
 

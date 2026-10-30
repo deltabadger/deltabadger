@@ -26,6 +26,8 @@ pub enum Answer {
     Error(&'static str),
     /// `ambiguous: true` and the accounts the file could be from; nothing written.
     Ambiguous(Vec<Reading>),
+    /// A named Binance identity refusal, returned only after the entire write has rolled back.
+    Refused(String),
     /// The counts of the one write, with the readers' unrecognised operations and the venues no account takes.
     /// `generic`: of the imported entries, those a KuCoin file could only label generically (D-IMPORT-WARNINGS).
     Written { imported: usize, duplicates: usize, skipped: usize, unrecognised: Vec<String>, unrouted: Vec<String>, generic: usize },
@@ -127,6 +129,17 @@ pub fn import(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, form
 /// question was answered with: taken only when it is one of the accounts offered. Routing and writing run under one
 /// write lock (`BEGIN IMMEDIATE`).
 pub fn write(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
+    match write_transaction(c, cipher, user_id, format, file, chosen, now) {
+        Err(error) => match crate::sync::binance_writer::csv_refusal(&error) {
+            Some(reason) => Ok(Answer::Refused(reason.to_owned())),
+            None => Err(error),
+        },
+        answer => answer,
+    }
+}
+
+// Returning an error drops the transaction before `write` translates a named refusal.
+fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
     let Read { entries, unrecognised, rows: kucoin_rows, account_id } = file;
     let tx = model::immediate(c)?;
     let keys = reading(&tx, user_id)?;
@@ -166,7 +179,9 @@ pub fn write(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, forma
             let out = kucoin::store(&fenced, &key, &kucoin_rows, now)?;
             (imported, duplicates, skipped, generic) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped, generic + out.generic);
         } else {
-            let out = ledger::store_file(&fenced, &key, rows, now)?;
+            let out = if [BINANCE, BINANCE_US].contains(&key.exchange_type.as_str()) {
+                crate::sync::binance_writer::store_csv(&fenced, cipher, &key, &rows, now)?
+            } else { ledger::store_file(&fenced, &key, rows, now)? };
             (imported, duplicates, skipped) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped);
         }
         // Recorded only: the rows went where they always go, whatever account the file names.

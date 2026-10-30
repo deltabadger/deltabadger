@@ -431,6 +431,8 @@ fn both_binance_header_spellings_are_read_and_bad_ids_refuse_the_file_even_on_sk
 fn an_import_establishes_the_account_and_later_keys_are_observed_against_it() {
     let fx = Fx::new();
     let trading = fx.key(BINANCE, 0, "bn-a");
+    let lock=deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_|None,fx.dir.path()),now()).unwrap();
+    deltabadger::lease::claim(&lock,&fx.c,&fx.cipher,"test",now()).unwrap();
     let text = fixture()["binance_export"].as_str().unwrap().to_string();
     let answer = run::import(&fx.c, &fx.cipher, fx.user, "binance", text.as_bytes(), Some("+00:00"), None, now()).unwrap();
     assert!(matches!(answer, run::Answer::Written { imported: 1, .. }), "{answer:?}");

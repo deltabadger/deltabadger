@@ -1,5 +1,4 @@
-//! A12 guarded identity writer foundation; not connected to live sync or file import yet.
-//! PR 2's release boundary requires the remaining integration and accounting gates first.
+//! A12 identity writer shared by live Binance sync and file import.
 //! Network work and input assembly happen outside the transaction.
 //! The caller supplies complete collision buckets; errors must roll back the enclosing transaction.
 use super::{activities::Entry, binance_identity::{classify, Candidate, Decision, Event}, ledger::{self, Outcome}, Key, SyncError};
@@ -11,6 +10,9 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashSet};
 
+/// Undo only Ruby's sub-millisecond floating-point timestamp rounding. Canonical
+/// source evidence keeps integer milliseconds; ledger timestamps remain unchanged.
+pub(crate) fn identity_ms(at: DateTime<Utc>) -> i64 { (at.timestamp_micros()+500).div_euclid(1000) }
 pub const MARKER: &str = "rust_binance_a12_v1:install_written";
 const PREFIX: &str = "rust_binance_a12_v1:bucket:";
 const LIMIT: usize = 1000;
@@ -22,12 +24,45 @@ struct Binding { event: Event, row_id: i64, raw: Value, at: i64, kind: i64, coin
 #[derive(Serialize, Deserialize)]
 struct Bucket { version: u8, legacy: String, bindings: Vec<Binding> }
 fn refused(reason: &str) -> SyncError { SyncError(format!("Binance A12 unresolved: {reason}")) }
+/// Only named import identity refusals are validation failures. Ownership, SQL and
+/// unexpected errors remain errors even if they mention A12.
+pub(crate) fn csv_refusal(error: &SyncError) -> Option<&str> {
+    let reason = error.0.strip_prefix("Binance A12 unresolved: ")?;
+    matches!(reason,
+        "unreadable identity metadata" | "conflicting bucket digest" | "unsupported bucket" |
+        "missing retained identity" | "duplicate or conflicting retained digest" |
+        "suppression has no retained reason" | "unreadable retained identity evidence" |
+        "partial CSV dust pair" | "exported identity has no retained binding" | "exported CSV identity changed" |
+        "ambiguous CSV identity" | "partial suppressed pair" | "CSV identities are not one-to-one" |
+        "CSV alias points to deleted row" | "CSV alias changed" | "missing CSV candidate raw data" |
+        "unreadable CSV candidate raw data" | "CSV candidate identity changed" | "CSV candidate is not one whole pair" |
+        "CSV cannot exclude a suppressed event" | "missing CSV outgoing leg" | "missing CSV incoming leg" |
+        "ambiguous CSV dust pair" | "partial existing CSV dust pair" | "ambiguous CSV dust identity" |
+        "CSV dust identity has no proven whole-pair match" | "CSV group is already occupied"
+    ).then_some(reason)
+}
 fn hash(s: &str) -> String { hex::encode(Sha256::digest(s.as_bytes())) }
 fn scope(key: &Key) -> String { format!("{PREFIX}{}:{}:",key.user_id,key.exchange_id) }
 fn bucket_id(e: &Entry) -> Result<String,SyncError> {
     let id=e.tx_id.as_deref().filter(|s|!s.trim().is_empty()).ok_or_else(||refused("missing legacy bucket"))?;
     Ok(if id.starts_with("dust-") { id.strip_suffix("-in").or_else(||id.strip_suffix("-out")).unwrap_or(id) }else{id}.into())
 }
+/// Preserve complete legacy collision buckets across bounded write transactions.
+pub(crate) fn batches(input: Vec<(usize, Input)>) -> Result<BTreeMap<usize, Vec<Input>>, SyncError> {
+    let mut groups: BTreeMap<String, (usize, usize, Vec<Input>)> = BTreeMap::new();
+    for (n, i) in input {let group=groups.entry(bucket_id(&i.entry)?).or_insert_with(|| (n,n,vec![]));group.1=n;group.2.push(i);}
+    if groups.values().any(|(_, _, g)| g.len() > LIMIT) { return Err(refused("collision bucket exceeds bound")); }
+    let mut groups:Vec<_>=groups.into_values().collect();groups.sort_by_key(|(first,_,_)|*first);
+    let mut batches:BTreeMap<usize,Vec<Input>>=BTreeMap::new();let mut end=None;
+    for (first,last,mut group) in groups {
+        if batches.last_key_value().is_some_and(|(_,b)|end==Some(first) && b.len()+group.len()<=100) {
+            batches.last_entry().unwrap().get_mut().append(&mut group);
+        }else{batches.insert(first,group);}
+        end=Some(last+1);
+    }
+    Ok(batches)
+}
+
 pub fn written(c: &Connection) -> rusqlite::Result<bool> {
     c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key=?1)",[MARKER],|r|r.get(0))
 }
@@ -47,13 +82,13 @@ fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
     c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1",[owner])?;
     c.execute("DELETE FROM portfolio_venue_snapshots WHERE user_id=?1",[owner])?; Ok(())
 }
-fn image(c: &Connection, id: i64) -> Result<Value,SyncError> {
+fn image(c: &Connection, id: i64) -> Result<Value,rusqlite::Error> {
     let mut s=c.prepare("SELECT * FROM account_transactions WHERE id=?1")?;
     let names=s.column_names().iter().map(|n|n.to_string()).collect::<Vec<_>>();
-    Ok(s.query_row([id],|r| {let mut out=serde_json::Map::new();for (i,n) in names.iter().enumerate() {
+    s.query_row([id],|r| {let mut out=serde_json::Map::new();for (i,n) in names.iter().enumerate() {
         let v=match r.get_ref(i)? {rusqlite::types::ValueRef::Null=>Value::Null,rusqlite::types::ValueRef::Integer(n)=>json!(n),
             rusqlite::types::ValueRef::Real(n)=>json!(n),rusqlite::types::ValueRef::Text(s)=>json!(String::from_utf8_lossy(s)),rusqlite::types::ValueRef::Blob(b)=>json!(hex::encode(b))};out.insert(n.clone(),v);
-    }Ok(Value::Object(out))})?)
+    }Ok(Value::Object(out))})
 }
 fn load(c: &Connection, name: &str, legacy: &str) -> Result<Bucket,SyncError> {
     let text:Option<Option<String>>=c.query_row("SELECT value FROM app_configs WHERE key=?1",[name],|r|r.get(0)).optional()?;
@@ -81,19 +116,23 @@ fn buckets(c: &Connection, key: &Key) -> Result<Vec<Bucket>,SyncError> {
 pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Input], now: DateTime<Utc>) -> Result<Outcome,SyncError> {
     ownership(c,cipher,key)?;
     let retained=buckets(c,key)?;
-    let mut groups:BTreeMap<String,Vec<&Input>>=BTreeMap::new();
-    for i in input {if i.event.key().is_none() {return Err(refused("missing stable identity"))}
+    let mut groups:BTreeMap<String,(usize,Vec<&Input>)>=BTreeMap::new();
+    for (n,i) in input.iter().enumerate() {if i.event.key().is_none() {return Err(refused("missing stable identity"))}
         let at=i.entry.transacted_at.ok_or_else(||refused("missing time"))?;
-        if !i.event.legacy(&i.entry.raw.value,at.timestamp_millis()).is_ok_and(|e|e.equivalent(&i.event)) {return Err(refused("input context disagrees with raw identity"))}
+        if !i.event.legacy(&i.entry.raw.value,identity_ms(at)).is_ok_and(|e|e.equivalent(&i.event)) {return Err(refused("input context disagrees with raw identity"))}
         let legacy=bucket_id(&i.entry)?;
         if retained.iter().any(|b|b.legacy!=legacy && b.bindings.iter().any(|a|a.event.key().is_some_and(|k|k.digest()==i.event.key().unwrap().digest()))) {
             return Err(refused("canonical identity moved to another legacy bucket"));
         }
-        groups.entry(legacy).or_default().push(i);}
+        groups.entry(legacy).or_insert_with(||(n,vec![])).1.push(i);}
     let mut out=Outcome::default();
-    for (legacy,mut items) in groups {
+    let mut groups:Vec<_>=groups.into_iter().collect();groups.sort_by_key(|(_, (n,_))|*n);
+    for (legacy,(_,mut items)) in groups {
         if items.len()>LIMIT {return Err(refused("collision bucket exceeds bound"))}
-        items.sort_by(|a,b|a.event.key().unwrap().tuple().cmp(b.event.key().unwrap().tuple()));
+        items.sort_by(|a,b| {
+            let order=|i:&Input|(i.event.pair_key().unwrap_or_else(||i.event.key().unwrap()).tuple().to_string(),i.entry.entry_type==2);
+            order(a).cmp(&order(b))
+        });
         let name=format!("{}{}",scope(key),hash(&legacy));let mut b=load(c,&name,&legacy)?;
         let before=serde_json::to_string(&b).expect("bucket");
         let mut live=vec![];
@@ -127,7 +166,7 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
             }
             let raw=decoded.ok_or_else(||refused("unreadable legacy raw data"))?;
             if !ids.contains(txid.as_deref().unwrap()) && !capital_ids.contains(&json!([kind,super::binance_ledger::text(raw.get("id"))])) {continue}
-            let mut matches:Vec<Event>=live.iter().filter(|i|i.entry.entry_type==kind).filter_map(|i|i.event.legacy(&raw,at.timestamp_millis()).ok())
+            let mut matches:Vec<Event>=live.iter().filter(|i|i.entry.entry_type==kind).filter_map(|i|i.event.legacy(&raw,identity_ms(at)).ok())
                 .filter(|e|e.pair_key().is_none() || live.iter().any(|i|i.event.equivalent(e))).collect();
             matches.dedup_by(|a,b|a.equivalent(b));
             if matches.len()!=1 {return Err(refused("legacy survivor is not uniquely identified"))}
@@ -153,7 +192,7 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
                 },_=>unreachable!(),
             };
             let after=image(c,id)?;
-            b.bindings.push(Binding {event:i.event.clone(),row_id:id,raw:i.entry.raw.value.clone(),at:i.entry.transacted_at.ok_or_else(||refused("missing time"))?.timestamp_millis(),
+            b.bindings.push(Binding {event:i.event.clone(),row_id:id,raw:i.entry.raw.value.clone(),at:identity_ms(i.entry.transacted_at.ok_or_else(||refused("missing time"))?),
                 kind:e.entry_type,coin:e.base_currency.clone().ok_or_else(||refused("missing coin"))?,amount:e.base_amount.to_s_f(),
                 net:(&e.base_amount-&e.fee_amount.clone().unwrap_or_else(BigDec::zero)).to_s_f(),tx_id:after["tx_id"].as_str().ok_or_else(||refused("nil anchor"))?.into(),
                 group:after["group_id"].as_str().map(str::to_string),inserted,suppressed:false,suppression_reason:None,after});
@@ -180,17 +219,35 @@ fn insert(c: &FencedTransaction<'_>, key: &Key, e: &Entry, now: DateTime<Utc>) -
 pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries: &[Entry], now: DateTime<Utc>) -> Result<Outcome,SyncError> {
     ownership(c,cipher,key)?;
     let bindings:Vec<_>=buckets(c,key)?.into_iter().flat_map(|b|b.bindings).collect();
-    let mut units:BTreeMap<String,Vec<&Entry>>=BTreeMap::new();
-    for (n,e) in entries.iter().enumerate(){units.entry(e.group_id.clone().unwrap_or_else(||format!("row:{n}"))).or_default().push(e);}
+    let mut units:BTreeMap<String,(usize,Vec<&Entry>)>=BTreeMap::new();
+    for (n,e) in entries.iter().enumerate(){units.entry(e.group_id.clone().unwrap_or_else(||format!("row:{n}"))).or_insert_with(||(n,vec![])).1.push(e);}
     let mut out=Outcome::default();let mut used=HashSet::new();let mut fallback=vec![];
-    for rows in units.values() {
-        let dust=rows.iter().any(|e|e.group_id.as_deref().is_some_and(|g|g.starts_with("dust")));
+    let mut units:Vec<_>=units.into_values().collect();units.sort_by_key(|(n,_)|*n);
+    for (_,rows) in &units {
+        let dust=rows.iter().any(|e|e.group_id.as_deref().is_some_and(|g|g.starts_with("dust")) || e.raw.value["operation"]=="Small Assets Exchange BNB");
         if dust && (rows.len()!=2 || rows.iter().filter(|e|e.entry_type==2).count()!=1 || rows.iter().filter(|e|e.entry_type==3).count()!=1) {return Err(refused("partial CSV dust pair"))}
         let window=|a:&Binding|->Option<(i64,i64)> {
             if a.kind==5 {let at=chrono::NaiveDateTime::parse_from_str(a.raw["completeTime"].as_str()?,"%Y-%m-%d %H:%M:%S").ok()?.and_utc().timestamp_millis();Some((at-1000,at+1000))}
             else if a.kind==4 {Some((a.at,a.at+600_000))}else{Some((a.at-1000,a.at+1000))}
         };
+        let exact = |a:&Binding,e:&Entry| -> bool {
+            a.kind == e.entry_type && e.base_currency.as_deref() == Some(&a.coin) &&
+                a.after["base_amount"].as_f64().and_then(|v|BigDec::from_f64(v).ok()).is_some_and(|v|v==e.base_amount) && e.group_id==a.group &&
+                // The app export writes whole seconds, truncating fractional ledger timestamps.
+                e.transacted_at.is_some_and(|t|a.after["transacted_at"].as_str().and_then(|s|crate::codec::parse_time(s).ok()).is_some_and(|stored|stored.timestamp()==t.timestamp())) &&
+                e.fee_currency==a.after["fee_currency"].as_str().map(str::to_string) &&
+                e.fee_amount.as_ref().map(BigDec::to_s_f)==a.after["fee_amount"].as_f64().map(|v|BigDec::from_f64(v).map(|d|d.to_s_f())).transpose().ok().flatten()
+        };
+        for e in rows {
+            if e.tx_id.as_deref().is_some_and(|id|(id.starts_with("binance-a12-v1:") || id.starts_with("dust-a12-v1-")) && !bindings.iter().any(|a|a.tx_id==id)) {
+                return Err(refused("exported identity has no retained binding"));
+            }
+            if let Some(a)=e.tx_id.as_ref().and_then(|id|bindings.iter().find(|a| &a.tx_id==id)) {
+                if !exact(a,e) {return Err(refused("exported CSV identity changed"));}
+            }
+        }
         let fits=|a:&Binding,e:&Entry|->bool {
+            if let Some(id)=&e.tx_id {return id==&a.tx_id && exact(a,e)}
             let same_kind=a.kind==e.entry_type || ([6,7].contains(&a.kind) && [6,7].contains(&e.entry_type));
             let amount=if dust && e.entry_type==2 {&a.net}else{&a.amount};
             same_kind && e.base_currency.as_deref()==Some(&a.coin) && e.transacted_at.is_some_and(|t|window(a).is_some_and(|(from,to)|t.timestamp_millis()>=from && t.timestamp_millis()<=to)) &&
@@ -211,7 +268,11 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         if let Some(pair)=candidates.first() {
             if pair.iter().any(|a|a.suppressed) {if pair.iter().any(|a|!a.suppressed){return Err(refused("partial suppressed pair"))}out.skipped+=rows.len();continue}
             if pair.iter().any(|a|!used.insert(a.row_id)) {return Err(refused("CSV identities are not one-to-one"))}
-            for a in pair {let row=image(c,a.row_id).map_err(|_|refused("CSV alias points to deleted row"))?;
+            for a in pair {let row=match image(c,a.row_id) {
+                Ok(row)=>row,
+                Err(rusqlite::Error::QueryReturnedNoRows)=>return Err(refused("CSV alias points to deleted row")),
+                Err(error)=>return Err(error.into()),
+            };
                 if row["user_id"]!=key.user_id || row["exchange_id"]!=key.exchange_id || row["tx_id"]!=a.tx_id || row["group_id"]!=json!(a.group) {return Err(refused("CSV alias changed"))}
                 let mut raw:Value=serde_json::from_str(row["raw_data"].as_str().ok_or_else(||refused("missing CSV candidate raw data"))?).map_err(|_|refused("unreadable CSV candidate raw data"))?;
                 if let Some(raw)=raw.as_object_mut(){raw.remove("file_twin_at");}
@@ -227,7 +288,11 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
             e.base_currency.as_deref().is_none_or(|coin|coin==a.coin) &&
             e.transacted_at.is_none_or(|t|window(a).is_none_or(|(from,to)|t.timestamp_millis()>=from && t.timestamp_millis()<=to))
         })) {return Err(refused("CSV cannot exclude a suppressed event"))}
-        if dust {return Err(refused("CSV dust identity has no proven whole-pair match"))}
+        if dust {
+            let imported = csv_dust(c, key, rows, &mut used, now)?;
+            if imported {out.imported+=2;mark(c,now)?;invalidate(c,key.user_id)?;}else{out.duplicates+=2;}
+            continue;
+        }
         fallback.extend(rows.iter().map(|e|(*e).clone()));
     }
     // Keep the ledger's stored-row and repeat counters for the whole file.
@@ -237,4 +302,50 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         if c.total_changes()!=before {mark(c,now)?;invalidate(c,key.user_id)?;}
     }
     Ok(out)
+}
+
+
+/// File-only dust has no venue parent ID. Keep its tx_ids nil, so a later API read
+/// must resolve the possible CSV twin instead of speculatively creating another pair.
+fn csv_dust(c:&FencedTransaction<'_>, key:&Key, rows:&[&Entry], used:&mut HashSet<i64>, now:DateTime<Utc>) -> Result<bool,SyncError> {
+    let out=rows.iter().find(|e|e.entry_type==3).ok_or_else(||refused("missing CSV outgoing leg"))?;
+    let inn=rows.iter().find(|e|e.entry_type==2).ok_or_else(||refused("missing CSV incoming leg"))?;
+    if inn.base_currency.as_deref()!=Some("BNB") || out.base_currency.as_deref()==Some("BNB") ||
+        out.transacted_at.is_none() || out.transacted_at!=inn.transacted_at || !out.base_amount.is_positive() || !inn.base_amount.is_positive() {
+        return Err(refused("ambiguous CSV dust pair"));
+    }
+    let at=out.transacted_at.unwrap();
+    let partial:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id=?1 AND a.exchange_id=?2 AND a.group_id LIKE 'dust%' AND a.transacted_at BETWEEN ?3 AND ?4 AND (SELECT count(*) FROM account_transactions b WHERE b.user_id=a.user_id AND b.exchange_id=a.exchange_id AND b.group_id=a.group_id)!=2)",
+        params![key.user_id,key.exchange_id,super::sql_time(at-chrono::Duration::seconds(1)),super::sql_time(at+chrono::Duration::seconds(1))],|r|r.get(0))?;
+    if partial {return Err(refused("partial existing CSV dust pair"));}
+    let mut stmt=c.prepare("SELECT id,group_id FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND transacted_at BETWEEN ?3 AND ?4 AND entry_type=3 AND base_currency=?5 AND base_amount=?6")?;
+    let candidates=stmt.query_map(params![key.user_id,key.exchange_id,super::sql_time(at-chrono::Duration::seconds(1)),super::sql_time(at+chrono::Duration::seconds(1)),out.base_currency,ledger::amount_sql(&key.exchange_type,&out.base_amount)],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+    if !candidates.is_empty() {
+        if candidates.len()!=1 {return Err(refused("ambiguous CSV dust identity"));}
+        let (id,Some(group))=&candidates[0] else {return Err(refused("partial existing CSV dust pair"));};
+        let mut stmt=c.prepare("SELECT id FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3 ORDER BY id")?;
+        let ids=stmt.query_map(params![key.user_id,key.exchange_id,group],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+        if ids.len()!=2 || !ids.contains(id) {return Err(refused("partial existing CSV dust pair"));}
+        let stored=ids.iter().map(|id|image(c,*id)).collect::<Result<Vec<_>,_>>()?;
+        let same=|a:&Value,e:&Entry| {
+            let decimal=|k:&str| a[k].as_f64().and_then(|v|BigDec::from_f64(v).ok());
+            a["tx_id"]==serde_json::json!(e.tx_id) && a["entry_type"]==e.entry_type && a["base_currency"]==serde_json::json!(e.base_currency) &&
+                // Compare both sides through the same double/16-significant-digit readback as storage.
+                decimal("base_amount")==BigDec::from_f64(e.base_amount.to_f()).ok() &&
+                decimal("fee_amount")==e.fee_amount.as_ref().and_then(|v|BigDec::from_f64(v.to_f()).ok()) &&
+                a["fee_currency"]==serde_json::json!(e.fee_currency) && a["transacted_at"]==super::sql_time(at)
+        };
+        if rows.iter().all(|e|stored.iter().filter(|a|same(a,e)).count()==1) {
+            if ids.iter().any(|id|!used.insert(*id)) {return Err(refused("CSV identities are not one-to-one"));}
+            return Ok(false);
+        }
+        return Err(refused("CSV dust identity has no proven whole-pair match"));
+    }
+    if rows.iter().any(|e|e.tx_id.as_deref().is_some_and(|id|id.contains("a12"))) {return Err(refused("exported identity has no retained binding"));}
+    let tuple=serde_json::json!([key.user_id,key.exchange_id,out.group_id,out.base_currency,out.base_amount.to_s_f(),inn.base_amount.to_s_f(),at.timestamp_micros()]).to_string();
+    let group=format!("dustcsv_a12_v1_{}",hash(&tuple));
+    let occupied:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3)",params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
+    if occupied {return Err(refused("CSV group is already occupied"));}
+    for e in rows {let mut e=(*e).clone();e.group_id=Some(group.clone());used.insert(insert(c,key,&e,now)?);}
+    Ok(true)
 }

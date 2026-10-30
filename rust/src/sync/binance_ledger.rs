@@ -1,7 +1,8 @@
 //! AccountTransaction::SyncJob for a Binance key: Exchanges::Binance#get_ledger (deposits, withdrawals, spot trades,
 //! converts, fiat payments, dust, dividends, Simple Earn rewards, subscriptions and redemptions), its row mapping, then
 //! AccountTransactionSync#store! and TransferMatcher.run! as ledger.rs ports them. Read only: signed GETs and the
-//! public exchange information. Rows, tx_ids, group ids, fees and raw_data are Rails' to the byte (D2b ruling Q9).
+//! public exchange information. A12 supersedes Q9 for identity collisions: retain legacy rows,
+//! assign only missing siblings new IDs, and give every newly inserted dust pair a distinct group.
 //!
 //! Where it reads more than Rails (D2b rulings; each a listed divergence in rust/tests/sync_parity.rs, Rails' result
 //! beside Rust's, and a Rails defect to fix so the engines converge):
@@ -34,6 +35,7 @@
 //!   (converts, fiat payments, dust and Simple Earn: its `import_*` overrides are no-ops; margin and futures are read for
 //!   neither): deposits, withdrawals, spot trades and dividends (`others`' `us`).
 use super::activities::{Entry, Raw};
+use super::{binance_identity::{Context, Event, Source}, binance_writer::{self, Input}};
 use super::ledger::{self, Outcome, Progress};
 use super::wire::{self, Budget, Node};
 use super::{capture_bound_version, load_key_of, phase, record_sync_error, sql_time, Failure, Key, SyncError};
@@ -359,7 +361,7 @@ fn held(text: &str) -> Result<Vec<String>, Fail> {
 }
 
 /// `seen`: the newest row time Rails' read of the same venue returns (AccountTransactionSync's `max_seen`).
-struct Fetched { entries: Vec<Entry>, pending: Option<DateTime<Utc>>, seen: Option<DateTime<Utc>> }
+struct Fetched { entries: Vec<Entry>, identities: Vec<(usize, Input)>, pending: Option<DateTime<Utc>>, seen: Option<DateTime<Utc>> }
 
 /// Every read of the run; no database handle in reach.
 async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, from: i64, start: &Start, full: bool) -> Result<Fetched, Fail> {
@@ -402,6 +404,10 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
     let mut seen = t.entries.iter().filter_map(|e| e.transacted_at).max();
     // Rails' trade read starts at the floored start (an incremental sync), or reads the latest page (a full one).
     let rails_from = (!full).then(|| from.max(ms(now - Duration::days(LEDGER_WINDOW_DAYS))));
+    let mut identities = t.entries.iter().cloned().enumerate().map(|(n, entry)| {
+        let source = if entry.entry_type == DEPOSIT { Source::Deposit } else { Source::Withdrawal };
+        identified(entry, source, Context::default()).map(|i| (n, i))
+    }).collect::<Result<Vec<_>, _>>()?;
     let mut entries = t.entries;
     let mut calls = 0;
     for name in &candidates {
@@ -429,11 +435,12 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
         let newest = if rails_reads { rails_trades_seen(start.stored.get(name).map_or(&[][..], Vec::as_slice), &read, rails_from) } else { read.iter().map(|r| r.1).max() };
         seen = seen.max(newest);
     }
-    let rest = others(venue, clock, pacing, (!full).then_some(from), us).await?;
+    let (rest, other_identities) = others(venue, clock, pacing, (!full).then_some(from), us).await?;
     seen = seen.max(rest.iter().filter_map(|e| e.transacted_at).max());
+    identities.extend(other_identities.into_iter().map(|(n, i)| (n + entries.len(), i)));
     entries.extend(rest);
     if entries.len() > MAX_ENTRIES { return Err((format!("more than {MAX_ENTRIES} ledger entries in one run"), true)); }
-    Ok(Fetched { entries, pending: t.pending, seen })
+    Ok(Fetched { entries, identities, pending: t.pending, seen })
 }
 
 /// One signed GET whose answer is an object.
@@ -471,10 +478,11 @@ fn total(page: &Raw) -> i64 {
 /// #import_convert_trades, #import_fiat_payments, #import_dust_conversions, #import_dividends, #import_earn_rewards and
 /// #import_earn_subscriptions, in Rails' order, each walked from `since` (a full sync: from the source's opening) to now.
 /// `us`: Binance.US's list (Exchanges::BinanceUs makes every one but #import_dividends a no-op).
-async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, since: Option<i64>, us: bool) -> Result<Vec<Entry>, Fail> {
+async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, since: Option<i64>, us: bool) -> Result<(Vec<Entry>, Vec<(usize, Input)>), Fail> {
     let now = ms(clock.now());
     let recv = || ("recvWindow", READ_RECV_WINDOW.to_string());
     let mut entries = vec![];
+    let mut identities = vec![];
     // The windows of a source Binance.US does not have: none.
     let binance_only = |from: i64, days: i64| if us { vec![] } else { windows(from, now, days) };
     for (call, (start, end)) in binance_only(since.unwrap_or(CONVERT_FROM_MS), CONVERT_DAYS).into_iter().enumerate() {
@@ -533,6 +541,10 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
                 let mut inn = entry(SWAP_IN, "BNB", amount(detail, "transferedAmount", "dust conversion")?, detail, at);
                 (inn.fee_currency, inn.fee_amount) = (Some("BNB".into()), Some(amount(detail, "serviceChargeAmount", "dust conversion")?));
                 (inn.tx_id, inn.group_id, inn.description) = (Some(format!("dust-{id}-in")), group, Some("Dust conversion".into()));
+                let parent = text(dribblet.value.get("transId"));
+                let context = Context { parent: parent.as_deref(), occurred_ms: Some(binance_writer::identity_ms(at)), ..Context::default() };
+                identities.push((entries.len(), identified(out.clone(), Source::DustOut, context)?));
+                identities.push((entries.len()+1, identified(inn.clone(), Source::DustIn, context)?));
                 entries.extend([out, inn]);
             }
         }
@@ -575,6 +587,13 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
                     let quantity = if row.value.get(field).is_some_and(|v| !v.is_null()) { amount(row, field, "earn record")? } else { amount(row, "amount", "earn record")? };
                     let mut e = entry(entry_type, &asset, quantity, row, millis_at(row, time_keys, "earn record")?);
                     (e.tx_id, e.description) = (Some(tx_id), Some(description.clone()));
+                    let source = match prefix {
+                        "flex-reward" => Source::FlexibleReward, "lock-reward" => Source::LockedReward,
+                        "flex-sub" => Source::FlexibleSubscription, "flex-redeem" => Source::FlexibleRedemption,
+                        "lock-sub" => Source::LockedSubscription, "lock-redeem" => Source::LockedRedemption,
+                        _ => unreachable!("the fixed Earn endpoint table"),
+                    };
+                    identities.push((entries.len(), identified(e.clone(), source, Context { requested_type: *kind, ..Context::default() })?));
                     entries.push(e);
                 }
                 if (current * EARN_SIZE) as i64 >= total(&page) { break; }
@@ -582,12 +601,19 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
             }
         } }
     }
-    Ok(entries)
+    Ok((entries, identities))
+}
+
+fn identified(entry: Entry, source: Source, context: Context<'_>) -> Result<Input, Fail> {
+    let event = Event::read(source, &entry.raw.value, context).map_err(|reason| (format!("Binance A12 unresolved: {reason}"), true))?;
+    if event.key().is_none() { return Err(("Binance A12 unresolved: missing stable identity".into(), true)); }
+    Ok(Input { entry, event })
 }
 
 /// One ledger sync of one Binance or Binance.US key (at its own host), as AccountTransaction::SyncJob#perform runs it,
 /// slice 1. Idempotent.
-/// `Ok(Err(failure))`: nothing fetched is stored, the watermark is untouched, the key's `last_sync_error` holds why.
+/// `Ok(Err(failure))`: the watermark is untouched and the key records why. Each
+/// committed bucket is durable; an unresolved bucket writes nothing and retries safely.
 pub async fn sync<T: Transport>(db: &Db, transport: T, key_id: i64, credentials: &Credentials, clock: &dyn Clock, pacing: Pacing) -> Result<Result<Outcome, Failure>, SyncError> {
     let version = capture_bound_version(db, key_id, credentials).await?;
     let venue = phase(db, move |c| Ok(load_key_of(c, key_id, &[BINANCE, BINANCE_US])?.exchange_type)).await?;
@@ -621,6 +647,12 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     };
     let (prior, raw_watermark) = (start.watermark, start.raw_watermark);
     let key = Arc::new(start.key);
+    let guarded: HashSet<usize> = fetched.identities.iter().map(|(n, _)| *n).collect();
+    let mut batches = match binance_writer::batches(fetched.identities) {
+        Ok(batches) => batches,
+        Err(error) => return fail(error.0, true).await,
+    };
+    let mut identity_outcome = Outcome::default();
     let entries = Arc::new(fetched.entries);
     let mut progress = {
         let (key, batch) = (key.clone(), entries.clone());
@@ -628,13 +660,31 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     };
     let mut from_entry = 0;
     while from_entry < entries.len() {
-        let (key, to) = (key.clone(), entries.len().min(from_entry + BATCH));
+        if let Some(batch) = batches.remove(&from_entry) {
+            let key = key.clone();
+            let out = match super::commit_bots_for_ciphered(db, version, move |c, cipher| {
+                binance_writer::store(c, cipher, &key, &batch, now).map(|out| (out, false))
+            }).await {
+                Ok(out) => out,
+                Err(error) if error.0.starts_with("Binance A12 unresolved:") => return fail(error.0, true).await,
+                Err(error) => return Err(error),
+            };
+            identity_outcome.imported += out.imported;
+            identity_outcome.duplicates += out.duplicates;
+            identity_outcome.skipped += out.skipped;
+        }
+        if guarded.contains(&from_entry) { from_entry += 1; continue; }
+        let (key, mut to) = (key.clone(), from_entry + 1);
+        while to < entries.len().min(from_entry + BATCH) && !guarded.contains(&to) { to += 1; }
         let at = from_entry;
         progress = super::commit_for(db, version, move |c| ledger::store(c, &key, at..to, None, progress, now)).await?;
         from_entry = to;
     }
     ledger::resolve_recent(db, version, &key, progress.assets.clone(), now).await?;
     let mut outcome = progress.out;
+    outcome.imported += identity_outcome.imported;
+    outcome.duplicates += identity_outcome.duplicates;
+    outcome.skipped += identity_outcome.skipped;
     let max_seen = fetched.seen;
     // The watermark: the newest row Rails' read returns (its trade page re-reads stored trades; Rust's reads by id never do), held back by a row that could not be saved and by a transfer still pending,
     // never past the moment this sync began; unchanged when nothing was read.

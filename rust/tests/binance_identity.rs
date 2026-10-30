@@ -1,4 +1,4 @@
-//! A12 PR 1: pure classification only; the live writer still uses the recorded legacy IDs.
+//! A12 classification and live guarded identity writes against recorded Rails inputs.
 use deltabadger::sync::binance_identity::{classify, Candidate, Context, Decision, Event, Source};
 use serde_json::{json, Value};
 mod common;
@@ -255,7 +255,7 @@ fn recorded_collision_siblings_have_distinct_keys_independent_of_order_or_page_b
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn live_sync_retains_legacy_losses_and_q11_exclusions_without_a12_writes() {
+async fn live_sync_keeps_identity_siblings_and_reports_unresolved_q11_exclusions() {
     let v:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
     for case in v["collisions"].as_array().unwrap() {
         let name=case["name"].as_str().unwrap();
@@ -276,25 +276,64 @@ async fn live_sync_retains_legacy_losses_and_q11_exclusions_without_a12_writes()
         let scenario=json!({"parity_scratch":true,"api_key_id":seed.api_key_id,"credentials":{"key":"test-key","secret":"dGVzdC1zZWNyZXQ="},"steps":[step]});
         std::fs::write(dir.path().join("scenario.json"),scenario.to_string()).unwrap();drop(opened);
         let output=deltabadger::sync::parity::run(dir.path(),std::sync::Arc::new(common::seed::cipher())).await.unwrap();
-        assert_eq!(output["steps"][0]["raised"],false,"{name}");
+        assert_eq!(output["steps"][0]["raised"],name.ends_with("fallback"),"{name}");
         for request in output["steps"][0]["requests"].as_array().unwrap() {let path=request[0].as_str().unwrap();
             assert!(!["/margin/","/fapi/","/dapi/"].iter().any(|p|path.contains(p)),"Q11 {path}");}
         let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-        assert_eq!(c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[seed.api_key_id],|r|r.get::<_,Option<String>>(0)).unwrap(),None,"{name}");
+        let error=c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[seed.api_key_id],|r|r.get::<_,Option<String>>(0)).unwrap();
+        if name.ends_with("fallback") {assert!(error.unwrap().starts_with("Binance A12 unresolved:"));}else{assert_eq!(error,None,"{name}");}
         let excluded=name.contains("margin")||name.contains("futures")||name=="liquidations";
         let count:i64=c.query_row("SELECT count(*) FROM account_transactions",[],|r|r.get(0)).unwrap();
-        let expected=if excluded {0}else if name=="flexible_missing_type" {1}else{case["imported"].as_i64().unwrap()};
+        let expected=if excluded || name.ends_with("fallback") {0}else if name=="flexible_missing_type" {3}else{case["entries"].as_array().unwrap().len() as i64};
         assert_eq!(count,expected,"{name}");
-        if !excluded && name!="flexible_missing_type" {for row in case["stored"].as_array().unwrap() {
+        if !excluded && !name.ends_with("fallback") && name!="flexible_missing_type" {for row in case["stored"].as_array().unwrap() {
             let (kind,coin,amount,fee,group,raw):(i64,String,f64,Option<f64>,Option<String>,String)=c.query_row(
                 "SELECT entry_type,base_currency,base_amount,fee_amount,group_id,raw_data FROM account_transactions WHERE tx_id=?1",[row["tx_id"].as_str().unwrap()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).unwrap();
             let kinds=["buy","sell","swap_in","swap_out","deposit","withdrawal","staking_reward","lending_interest","airdrop"];
-            assert_eq!(json!([kinds[kind as usize],coin,amount,fee,group,serde_json::from_str::<Value>(&raw).unwrap()]),json!([row["entry_type"],row["base_currency"],row["base_amount"].as_str().unwrap().parse::<f64>().unwrap(),row["fee_amount"].as_str().map(|s|s.parse::<f64>().unwrap()),row["group_id"],row["raw_data"]]),"{name}");
+            assert_eq!(json!([kinds[kind as usize],coin,amount,fee,group,serde_json::from_str::<Value>(&raw).unwrap()]),json!([row["entry_type"],row["base_currency"],row["base_amount"].as_str().unwrap().parse::<f64>().unwrap(),row["fee_amount"].as_str().map(|s|s.parse::<f64>().unwrap()),if name.starts_with("dust") {json!(group)}else{row["group_id"].clone()},row["raw_data"]]),"{name}");
         }}
         let before=deltabadger::sync::parity::snapshot(&c).unwrap();drop(c);
         deltabadger::sync::parity::run(dir.path(),std::sync::Arc::new(common::seed::cipher())).await.unwrap();
         let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         assert_eq!(before["account_transactions"],deltabadger::sync::parity::snapshot(&c).unwrap()["account_transactions"],"repeat {name}");
-        assert_eq!(c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert_eq!(deltabadger::sync::binance_writer::written(&c).unwrap(),expected>0);
     }
+}
+
+#[test]
+fn withdrawal_without_optional_address_tag_has_the_same_identity_as_an_empty_tag() {
+    let original=raw();let mut absent=original.clone();absent.as_object_mut().unwrap().remove("addressTag");
+    let current=event(Source::Withdrawal,&absent);
+    assert_eq!(classify(&[current],&[stored(event(Source::Withdrawal,&original))]),[Decision::Existing(7)]);
+}
+
+#[test]
+fn withdrawal_without_fee_or_chain_hash_keeps_its_stable_identity_and_missing_evidence() {
+    let mut absent=raw();absent.as_object_mut().unwrap().remove("transactionFee");absent.as_object_mut().unwrap().remove("txId");
+    let current=event(Source::Withdrawal,&absent);
+    assert!(current.key().is_some());
+    assert_eq!(classify(std::slice::from_ref(&current),&[stored(current.clone())]),[Decision::Existing(7)]);
+    assert_eq!(classify(&[event(Source::Withdrawal,&raw())],&[stored(current)]),[Decision::Unresolved]);
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn live_sync_keeps_siblings_across_a_transfer_page_boundary_and_reverse_replay() {
+    let fixture:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
+    let siblings=fixture["collisions"][0]["answers"]["deposit_history"].as_array().unwrap();
+    let mut deposits=vec![siblings[0].clone()];
+    for n in 0..999 {let mut row=siblings[0].clone();row["id"]=json!(format!("other-{n}"));row["txId"]=json!(format!("chain-{n}"));deposits.push(row);}
+    deposits.push(siblings[1].clone());
+    let (dir,o,s)=common::install();let c=&o.primary;
+    c.execute("UPDATE exchanges SET type='Exchanges::BinanceUs' WHERE id=?1",[s.exchange_id]).unwrap();
+    c.execute("UPDATE api_keys SET last_synced_at='2026-08-16 00:00:00'",[]).unwrap();
+    let mut scenario=json!({"parity_scratch":true,"api_key_id":s.api_key_id,"credentials":{"key":"test-key","secret":"dGVzdC1zZWNyZXQ="},"steps":[{"kind":"ledger","at":"2026-08-18T00:00:00Z","binance_state":{"deposits":deposits}}]});
+    std::fs::write(dir.path().join("scenario.json"),scenario.to_string()).unwrap();
+    let result=deltabadger::sync::parity::run(dir.path(),std::sync::Arc::new(common::seed::cipher())).await.unwrap();
+    assert_eq!(result["steps"][0]["raised"],false);assert_eq!(c.query_row("SELECT count(*) FROM account_transactions",[],|r|r.get::<_,i64>(0)).unwrap(),1001);
+    assert_eq!(result["steps"][0]["requests"].as_array().unwrap().iter().filter(|r|r[0]=="GET /sapi/v1/capital/deposit/hisrec").count(),2);
+    let before=deltabadger::sync::parity::snapshot(c).unwrap();
+    scenario["steps"][0]["binance_state"]["deposits"].as_array_mut().unwrap().reverse();
+    std::fs::write(dir.path().join("scenario.json"),scenario.to_string()).unwrap();
+    deltabadger::sync::parity::run(dir.path(),std::sync::Arc::new(common::seed::cipher())).await.unwrap();
+    assert_eq!(before,deltabadger::sync::parity::snapshot(c).unwrap());
 }

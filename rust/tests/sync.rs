@@ -1760,10 +1760,12 @@ async fn a_binance_ledger_job_leaves_the_tracker_ledger_current() {
         // Last night's failure, as the owner's key holds it: the tracker shows "Sync failed" until a run completes.
         c.execute("UPDATE api_keys SET last_sync_error = ?1 WHERE id = ?2",
                   rusqlite::params![r#"{"code":-1102,"msg":"Mandatory parameter 'type' was not sent, was empty/null, or malformed."}"#, s.api_key_id]).unwrap();
+        let lock = deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_|None,dir.path()),chrono::Utc::now()).unwrap();
+        deltabadger::lease::claim(&lock,&c,&seed::cipher(),"binance-job-test",chrono::Utc::now()).unwrap();
         let server = MockServer::start().await;
         let reply = |body: Value| ResponseTemplate::new(200).set_body_json(body);
         Mock::given(method("GET")).and(path("/sapi/v1/capital/deposit/hisrec")).respond_with(reply(json!([
-            { "coin": "BTC", "amount": "0.1", "status": 1, "txId": "0xd1", "insertTime": 1_785_578_400_123_i64 }]))).mount(&server).await;
+            { "id":"d1", "network":"BTC", "address":"addr", "addressTag":"", "coin": "BTC", "amount": "0.1", "status": 1, "txId": "0xd1", "insertTime": 1_785_578_400_123_i64 }]))).mount(&server).await;
         Mock::given(method("GET")).and(path("/api/v3/exchangeInfo")).respond_with(reply(json!({ "symbols": [{ "symbol": "BTCUSDT", "status": "TRADING", "baseAsset": "BTC", "quoteAsset": "USDT" }] }))).mount(&server).await;
         Mock::given(method("GET")).and(path("/api/v3/account")).respond_with(reply(json!({ "balances": [{ "asset": "BTC", "free": "0.1", "locked": "0" }] }))).mount(&server).await;
         Mock::given(method("GET")).and(path("/sapi/v1/convert/tradeFlow")).respond_with(reply(json!({ "list": [], "moreData": false }))).mount(&server).await;

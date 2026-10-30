@@ -104,12 +104,17 @@ fn dust_groups_and_equal_bnb_csv_are_whole_pair_decisions() {
 fn suppress(c: &Connection, coin: &str) {
     let mut s=c.prepare("SELECT key,value FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'").unwrap();
     let buckets=s.query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).unwrap().collect::<Result<Vec<_>,_>>().unwrap();drop(s);
-    let tx=c.unchecked_transaction().unwrap();
+    let tx=c.unchecked_transaction().unwrap();let mut owners=std::collections::HashSet::new();
     for (key,text) in buckets {let mut v:Value=serde_json::from_str(&text).unwrap();for b in v["bindings"].as_array_mut().unwrap() {
         if b["raw"]["fromAsset"]==coin || b["raw"]["coin"]==coin {
+            owners.insert(b["after"]["user_id"].as_i64().unwrap());
             tx.execute("DELETE FROM account_transactions WHERE id=?1",[b["row_id"].as_i64().unwrap()]).unwrap();b["suppressed"]=json!(true);b["suppression_reason"]=json!("seeded operator rollback");
         }
-    } app_config::set_plain(&tx,&key,&v.to_string(),now()).unwrap();}tx.commit().unwrap();
+    } app_config::set_plain(&tx,&key,&v.to_string(),now()).unwrap();}
+    for owner in owners {
+        for key in [deltabadger::tracker::cache::key(owner),deltabadger::tracker::backfill::history_key(owner),deltabadger::tracker::backfill::price_key(owner)] {tx.execute("DELETE FROM app_configs WHERE key=?1",[key]).unwrap();}
+        for table in ["portfolio_snapshots","portfolio_venue_snapshots"] {tx.execute(&format!("DELETE FROM {table} WHERE user_id=?1"),[owner]).unwrap();}
+    }tx.commit().unwrap();
 }
 
 #[test]
@@ -256,4 +261,349 @@ fn csv_requires_current_raw_identity_and_exactly_two_rows_in_a_retained_dust_gro
         let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());let mut rows=pair("p1","BTC");rows.extend(pair("p2","ETH"));
         write(c,&key,&rows).unwrap();c.execute(mutation,[]).unwrap();let before=state(c);assert!(file(c,&key,&csv(&rows)).is_err());assert_eq!(state(c),before);
     }
+}
+
+
+fn import(c:&Connection,key:&sync::Key,format:&str,text:&str)->Result<deltabadger::tracker::import::run::Answer,sync::SyncError> {
+    deltabadger::tracker::import::run::import(c,&common::seed::cipher(),key.user_id,format,text.as_bytes(),Some("+00:00"),Some(&key.id.to_string()),now())
+}
+fn dust_file(coins:&[&str])->String {
+    let mut text="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n".to_string();
+    for coin in coins {text+=&format!("1,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,{coin},-1,{coin}\n1,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.09,{coin}\n");}text
+}
+#[test]
+fn production_csv_keeps_whole_equal_bnb_pairs_and_suppressions_after_restart() {
+    use deltabadger::tracker::import::run::Answer;
+    for (existing,net) in [(false,"0.09"),(true,"0.09"),(false,"0.19"),(true,"0.19")] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let mut sibling=pair("p2","ETH");
+        if net=="0.19" {for i in &mut sibling {let mut raw=i.entry.raw.value.clone();raw["transferedAmount"]=json!("0.2");i.entry.raw=Raw::from_value(raw);
+            if i.entry.entry_type==2 {i.entry.base_amount=deltabadger::ruby::BigDec::parse("0.2").unwrap();}
+            i.event=Event::read(if i.entry.entry_type==2 {Source::DustIn}else{Source::DustOut},&i.entry.raw.value,Context{parent:Some("p2"),occurred_ms:Some(1786960800000),..Context::default()}).unwrap();}}
+        if existing {write(c,&key,&pair("p1","BTC")).unwrap();write(c,&key,&sibling).unwrap();
+            c.execute("UPDATE account_transactions SET raw_data=json_set(raw_data,'$.file_twin_at','2026-08-17T10:00:00Z') WHERE json_extract(raw_data,'$.fromAsset')='BTC'",[]).unwrap();}
+        let csv=|coins:&[&str]|dust_file(coins).replace("BNB,0.09,ETH",&format!("BNB,{net},ETH"));
+        let file=csv(&["BTC","ETH"]);
+        let result=import(c,&key,"binance",&file).unwrap();
+        assert!(matches!(result,Answer::Written{imported,duplicates,skipped:0,..} if imported==if existing {0}else{4} && duplicates==if existing {4}else{0}),"{result:?}");
+        assert!(writer::written(c).unwrap());assert_eq!(count(c),4);
+        let before=state(c);let result=import(c,&key,"binance",&csv(&["ETH","BTC"])).unwrap();
+        assert!(matches!(result,Answer::Written{imported:0,duplicates:4,..}),"{result:?}");assert_eq!(state(c),before);
+        if existing {
+            suppress(c,"ETH");let before=state(c);let restarted=Connection::open(dir.path().join("production.sqlite3")).unwrap();
+            for coins in [vec!["ETH"],vec!["ETH","BTC"],vec!["BTC","ETH"]] {
+                let result=import(&restarted,&key,"binance",&csv(&coins)).unwrap();
+                assert!(matches!(result,Answer::Written{imported:0,skipped:2,..}),"{result:?}");assert_eq!(state(c),before);
+            }
+        }
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn production_export_import_matches_gross_dust_and_rejects_suppressed_ids() {
+    use common::web::{self,Browser,TestClock};
+    use deltabadger::{web::{csrf,session},tracker::import::run::Answer};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    write(c,&key,&pair("p1","BTC")).unwrap();write(c,&key,&pair("p2","ETH")).unwrap();
+    c.execute("UPDATE users SET confirmed_at=created_at,setup_completed=1",[]).unwrap();
+    let hash:String=c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[s.user_id],|r|r.get(0)).unwrap();
+    let app=web::app(dir.path(),web::SECRET,TestClock::at("2026-08-18T00:00:00Z"));
+    let data=session::SessionData{user:Some((s.user_id,hash.chars().take(29).collect())),csrf:Some(csrf::new_token()),..Default::default()};
+    let mut browser=Browser{cookie:Some(session::seal(&app.keys.session,&data,app.now())),page:None};
+    let exported=browser.get(&app,"/tracker/export").await;assert_eq!(exported.status,200,"{}",exported.body);
+    let before=state(c);let answer=import(c,&key,"deltabadger",&exported.body).unwrap();
+    assert!(matches!(answer,Answer::Written{imported:0,duplicates:4,..}),"{answer:?}");assert_eq!(state(c),before);
+    suppress(c,"ETH");let before=state(c);let answer=import(c,&key,"deltabadger",&exported.body).unwrap();
+    assert!(matches!(answer,Answer::Written{imported:0,duplicates:2,skipped:2,..}),"{answer:?}");assert_eq!(state(c),before);
+    let unbound=deltabadger::web::tracker::CSV_HEADERS.join(",")+"\n2026-08-17T10:00:00Z,deposit,BTC,1,,,,,binance,binance-a12-v1:deposit:unknown,,\n";
+    assert!(matches!(import(c,&key,"deltabadger",&unbound).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
+    let unknown=exported.body.replace("dust-a12-v1-","dust-a12-v1-unknown-");assert_ne!(unknown,exported.body);
+    assert!(matches!(import(c,&key,"deltabadger",&unknown).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
+    let changed=exported.body.replace(",0.1,",",0.2,");assert_ne!(changed,exported.body);
+    assert!(matches!(import(c,&key,"deltabadger",&changed).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
+}
+
+// Prices and tax settings are fixed by the unchanged Rails accounting recorder. The
+// quantities, fees, ordering and groups below are read back from the actual database.
+fn accounting(c:&Connection,owner:i64,expected:&Value) {
+    use deltabadger::{figures::dec::Dec,tracker::{rows,walk::{self,Engine,Row}}};
+    let d=|s:&str|Dec::parse(s).unwrap();
+    let rows:Vec<_>=rows::load_all(c,owner).unwrap().into_iter().enumerate().map(|(uid,r)| {
+        let price=d(match r.base.as_str(){"BTC"=>"10","ETH"=>"20","BNB"=>"100",_=>panic!("unexpected asset")});
+        let value=r.quote_amount.clone().unwrap_or_else(||(&r.amount*&price).unwrap());
+        let fee=r.fee_amount.as_ref().map(|f|(f*&price).unwrap()).unwrap_or_else(Dec::zero);
+        Row{uid,kind:r.kind,base:r.base,amount:r.amount,quote:None,quote_amount:None,fiat_value:value,fee_fiat_value:fee,
+            fee_currency:r.fee_currency,fee_amount:r.fee_amount,at:r.at,group:r.group,price_missing:false,value_missing:None,
+            exchange:r.venue,linked:false,transfer_fee:None,swap_fiat_cost:None,swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false}
+    }).collect();
+    let mut engine=Engine::new(false);engine.calculate(&rows).unwrap();
+    let lots:std::collections::BTreeMap<_,_>=engine.remaining_lots().map(|(asset,venue,lots)| {
+        assert!(venue.is_none());(asset,json!(lots.into_iter().map(|(n,c)|[n.to_s_f(),c.to_s_f()]).collect::<Vec<_>>()))
+    }).collect();
+    assert_eq!(json!(lots),expected["lots"],"exact remaining FIFO lots from stored history");
+    let mut held=std::collections::BTreeMap::<String,Dec>::new();
+    for r in &rows {for (coin,n) in walk::quantity_moves(r.kind,&r.base,&r.amount,r.fee_currency.as_deref(),r.fee_amount.as_ref(),false,None).unwrap(){let old=held.entry(coin).or_insert_with(Dec::zero);*old=(&*old+&n).unwrap();}}
+    assert_eq!(json!(held.into_iter().map(|(k,v)|(k,v.to_s_f())).collect::<std::collections::BTreeMap<_,_>>()),expected["holdings"]);
+    assert_eq!(engine.disposals.len(),expected["disposals"].as_array().unwrap().len());
+    let mut realised=Dec::zero();
+    for (a,e) in engine.disposals.iter().zip(expected["disposals"].as_array().unwrap()) {
+        for (field,value) in [("amount",&a.amount),("proceeds",&a.proceeds),("cost_basis",&a.cost_basis),("gain_loss",&a.gain_loss)]{assert_eq!(value.to_s_f(),e[field],"{field}");}
+        realised=(&realised+&a.gain_loss).unwrap();
+    }
+    assert_eq!(realised.to_s_f(),expected["realised"]);
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn live_history_csv_and_seeded_rollback_match_exact_recorded_accounting() {
+    let fixture:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
+    for (colliding,earn,file_only) in [(false,false,false),(false,true,false),(true,false,false),(true,true,false),(false,false,true)] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let lock=claim(c,dir.path());
+        let mut state=json!({"deposits":[],"withdrawals":[],"earn":{"locked_rewardsRecord":[],"flexible_subscriptionRecord":[],"flexible_redemptionRecord":[]},"dust":[]});
+        let mut file=deltabadger::web::tracker::CSV_HEADERS.join(",")+"\n";
+        for (n,r) in fixture["accounting"][0]["rows"].as_array().unwrap().iter().enumerate() {
+            let kind=r["entry_type"].as_str().unwrap();let coin=r["base_currency"].as_str().unwrap();let amount=r["base_amount"].as_str().unwrap();
+            let at:DateTime<Utc>=r["transacted_at"].as_str().unwrap().parse().unwrap();let ms=at.timestamp_millis();
+            match kind {
+                "deposit"|"withdrawal" if earn && [3,4].contains(&n)=> {
+                    let source=if kind=="deposit" {"flexible_redemptionRecord"}else{"flexible_subscriptionRecord"};
+                    state["earn"][source].as_array_mut().unwrap().push(json!({"asset":coin,"time":ms,"amount":amount,"purchaseAmount":amount,"purchaseId":"purchase","redeemId":"redeem","projectId":"project","productId":"product"}));
+                },
+                "deposit"|"withdrawal"=> {
+                    let raw=json!({"id":format!("{n}"),"txId":format!("chain-{n}"),"coin":coin,"network":coin,"address":"addr","addressTag":"","amount":amount,
+                        "insertTime":ms,"applyTime":at.format("%Y-%m-%d %H:%M:%S").to_string(),"transactionFee":"0","status":if kind=="deposit" {1}else{6}});
+                    state[if kind=="deposit" {"deposits"}else{"withdrawals"}].as_array_mut().unwrap().push(raw);
+                },
+                "staking_reward"=>state["earn"]["locked_rewardsRecord"].as_array_mut().unwrap().push(json!({"positionId":"reward","asset":coin,"time":ms,"rewards":amount})),
+                "swap_out" if r["group_id"].as_str().unwrap().starts_with("dust")=>state["dust"].as_array_mut().unwrap().push(json!({"transId":format!("parent-{coin}"),"operateTime":ms,"userAssetDribbletDetails":[{"transId":if colliding {"detail"}else{coin},"fromAsset":coin,"amount":amount,"transferedAmount":"0.1","serviceChargeAmount":"0.01"}]})),
+                "swap_in" if coin=="BNB"=>{},
+                _=>{let quoted=["buy","sell"].contains(&kind);file+=&format!("{},{kind},{coin},{amount},{},{},,,binance,seed-{n},{},\n",at.to_rfc3339(),if quoted {"USD"}else{""},if quoted {r["fiat_value"].as_str().unwrap()}else{""},r["group_id"].as_str().unwrap_or(""));}
+            }
+        }
+        import(c,&key,"deltabadger",&file).unwrap();
+        for k in [deltabadger::tracker::cache::key(key.user_id),deltabadger::tracker::backfill::history_key(key.user_id),deltabadger::tracker::backfill::price_key(key.user_id)] {app_config::set_plain(c,&k,"stale",now()).unwrap();}
+        c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES (?1,'2099-01-01','2099-01-01','2099-01-01')",[key.user_id]).unwrap();
+        c.execute("UPDATE api_keys SET last_synced_at='2026-07-31 00:00:00'",[]).unwrap();drop(lock);
+        if file_only {state["dust"]=json!([]);}
+        let scenario=json!({"parity_scratch":true,"api_key_id":key.id,"credentials":{"key":"test-key","secret":"dGVzdC1zZWNyZXQ="},"steps":[{"kind":"ledger","at":"2026-08-18T00:00:00Z","binance_state":state}]});
+        std::fs::write(dir.path().join("scenario.json"),scenario.to_string()).unwrap();
+        let out=sync::parity::run(dir.path(),std::sync::Arc::new(common::seed::cipher())).await.unwrap();assert_eq!(out["steps"][0]["raised"],false,"{out}");
+        let csv=dust_file(&["BTC","ETH"]).replace("2026-08-17 10:00:00","2026-08-08 00:00:00");
+        if file_only {import(c,&key,"binance",&csv).unwrap();}
+        accounting(c,key.user_id,&fixture["accounting"][0]);
+        sync::parity::run(dir.path(),std::sync::Arc::new(common::seed::cipher())).await.unwrap();
+        assert_eq!(c.query_row("SELECT count(*) FROM portfolio_snapshots",[],|r|r.get::<_,i64>(0)).unwrap(),0,"future-dated stale snapshot was deleted atomically");
+        rebuild_from_cold(c,dir.path(),key.user_id).await;
+        // Venue CSV records net BNB, while the API retained the gross and fee.
+        import(c,&key,"binance",&csv).unwrap();accounting(c,key.user_id,&fixture["accounting"][0]);
+        if file_only {continue;}
+        suppress(c,"ETH");accounting(c,key.user_id,&fixture["accounting"][1]);rebuild_from_cold(c,dir.path(),key.user_id).await;
+        for _ in 0..2 {import(c,&key,"binance",&csv).unwrap();accounting(c,key.user_id,&fixture["accounting"][1]);}
+        sync::parity::run(dir.path(),std::sync::Arc::new(common::seed::cipher())).await.unwrap();accounting(c,key.user_id,&fixture["accounting"][1]);
+    }
+}
+
+
+async fn rebuild_from_cold(c:&Connection,path:&std::path::Path,owner:i64) {
+    use deltabadger::tracker::{cache,backfill,jobs,prices::{PriceService,Unfetched},walk};
+    assert!(matches!(cache::read(c,owner,None,now()).unwrap(),cache::State::Cold));
+    assert!(backfill::wanted(c,&common::seed::cipher(),owner,now().date_naive()).unwrap());
+    use common::web::{self,Browser,TestClock};use deltabadger::web::session;
+    c.execute("UPDATE users SET confirmed_at=created_at,setup_completed=1",[]).unwrap();
+    let hash:String=c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[owner],|r|r.get(0)).unwrap();
+    let env=json!({"MARKET_DATA_URL":"https://market-data.example"});
+    let app=web::app_in(path,"engine-test-secret",None,env.as_object().unwrap(),TestClock::at("2026-08-18T00:00:00Z"));app.attach_jobs(deltabadger::jobs::Wakers::default()).unwrap();
+    let data=session::SessionData{user:Some((owner,hash.chars().take(29).collect())),..Default::default()};
+    let mut browser=Browser{cookie:Some(session::seal(&app.keys.session,&data,app.now())),page:None};
+    assert_eq!(browser.get(&app,"/tracker").await.status,200);
+    let wakes=app.job_wakers().unwrap().pending();
+    for job in [jobs::TRACKER_LEDGER,jobs::PORTFOLIO_BACKFILL] {assert!(wakes.contains(&(job.into(),Some(owner.to_string()))),"{job}: {wakes:?}");}
+    let inputs=jobs::load_inputs(c,owner).unwrap();let mut no_prices=Unfetched;
+    let mut prices=PriceService::new(&inputs.reference,&inputs.fx,now().date_naive(),&mut no_prices);
+    let rebuilt=walk::scopes(&inputs.rows,&inputs.deposits,&mut prices,&inputs.ids,deltabadger::figures::at::At::from_utc(now()).unwrap()).unwrap();
+    let tx=model::immediate(c).unwrap();assert!(cache::publish(&model::fence_versions(&tx,&[]).unwrap(),owner,&inputs.cache,Some(&rebuilt),now()).unwrap());tx.commit().unwrap();
+    let cache::State::Warm(read)=cache::read(c,owner,None,now()).unwrap() else {panic!("the read must use the rebuilt cache")};
+    assert_eq!(read.realised,rebuilt.whole.realised);assert_eq!(read.positions.len(),rebuilt.whole.positions.len());
+    assert_eq!(browser.get(&app,"/tracker").await.status,200);
+    assert!(!app.job_wakers().unwrap().pending()[wakes.len()..].iter().any(|(job,_)|job==jobs::TRACKER_LEDGER));
+}
+
+#[test]
+fn production_csv_distinguishes_new_same_asset_pairs_by_the_complete_source_leg() {
+    use deltabadger::tracker::import::run::Answer;
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let first=dust_file(&["BTC"]);let second=first.replace("BTC,-1,BTC","BTC,-2,second").replace("BNB,0.09,BTC","BNB,0.09,second");
+    for file in [&first,&second] {assert!(matches!(import(c,&key,"binance",file).unwrap(),Answer::Written{imported:2,..}));}
+    let before=state(c);
+    for file in [&second,&first] {assert!(matches!(import(c,&key,"binance",file).unwrap(),Answer::Written{imported:0,duplicates:2,..}));assert_eq!(state(c),before);}
+    assert_eq!(count(c),4);
+}
+
+#[test]
+fn production_csv_refuses_two_indistinguishable_pairs_without_partial_writes() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let first=dust_file(&["BTC"]);let second=first.replace(",BTC\n",",second\n");
+    let combined=first.clone()+second.split_once('\n').unwrap().1;
+    let before=state(c);assert!(matches!(import(c,&key,"binance",&combined).unwrap(),deltabadger::tracker::import::run::Answer::Refused(_)));assert_eq!(state(c),before);
+    import(c,&key,"binance",&first).unwrap();let before=state(c);
+    assert!(matches!(import(c,&key,"binance",&combined).unwrap(),deltabadger::tracker::import::run::Answer::Refused(_)));assert_eq!(state(c),before);
+}
+
+
+#[test]
+fn production_csv_pair_marker_and_invalidation_share_one_commit() {
+    for trigger in [
+        "CREATE TEMP TRIGGER crash BEFORE INSERT ON account_transactions WHEN NEW.entry_type=2 BEGIN SELECT RAISE(ABORT,'second leg'); END",
+        "CREATE TEMP TRIGGER crash BEFORE INSERT ON app_configs WHEN NEW.key='rust_binance_a12_v1:install_written' BEGIN SELECT RAISE(ABORT,'marker'); END",
+        "CREATE TEMP TRIGGER crash BEFORE DELETE ON app_configs BEGIN SELECT RAISE(ABORT,'invalidation'); END",
+    ] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let cache=deltabadger::tracker::cache::key(key.user_id);app_config::set_plain(c,&cache,"stale",now()).unwrap();
+        let before=state(c);c.execute_batch(trigger).unwrap();assert!(import(c,&key,"binance",&dust_file(&["BTC"])).is_err());assert_eq!(state(c),before);
+        c.execute_batch("DROP TRIGGER crash").unwrap();import(c,&key,"binance",&dust_file(&["BTC"])).unwrap();
+        assert_eq!(count(c),2);assert!(writer::written(c).unwrap());assert!(app_config::get_plain(c,&cache).unwrap().is_none());
+    }
+}
+
+#[test]
+fn seeded_recovery_reenables_one_whole_pair_and_csv_stays_duplicate_free() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let lock=claim(c,dir.path());
+    write(c,&key,&[pair("p1","BTC"),pair("p1","ETH")].concat()).unwrap();
+    import(c,&key,"binance",&dust_file(&["BTC","ETH"])).unwrap();
+    c.execute_batch("CREATE TEMP TABLE recovery_rows AS SELECT * FROM account_transactions WHERE base_currency='ETH' OR tx_id LIKE 'dust-a12%'").unwrap();
+    suppress(c,"ETH");
+    // Seed the atomic effect of the future explicit operator recovery command.
+    let tx=model::immediate(c).unwrap();
+    tx.execute_batch("INSERT INTO account_transactions SELECT * FROM recovery_rows").unwrap();
+    let (name,text):(String,String)=tx.query_row("SELECT key,value FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+    let mut bucket:Value=serde_json::from_str(&text).unwrap();
+    for b in bucket["bindings"].as_array_mut().unwrap().iter_mut().filter(|b|b["suppressed"]==true) {b["suppressed"]=json!(false);b["suppression_reason"]=Value::Null;}
+    tx.execute("UPDATE app_configs SET value=?1 WHERE key=?2",rusqlite::params![bucket.to_string(),name]).unwrap();tx.commit().unwrap();
+    let before=state(c);import(c,&key,"binance",&dust_file(&["BTC","ETH"])).unwrap();assert_eq!(state(c),before);
+    assert!(lease::hand_back(&lock,c,&common::seed::cipher(),now()).is_err());
+}
+
+fn import_browser(c: &Connection, owner: i64, app: &deltabadger::web::App) -> common::web::Browser {
+    use deltabadger::web::{csrf, session};
+    c.execute("UPDATE users SET confirmed_at=created_at,setup_completed=1", []).unwrap();
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id=?1", [owner], |r| r.get(0)).unwrap();
+    let token = csrf::new_token();
+    let data = session::SessionData { user: Some((owner, hash.chars().take(29).collect())), csrf: Some(token.clone()), ..Default::default() };
+    common::web::Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())),
+        page: Some(format!("<meta name=\"csrf-token\" content=\"{}\">", csrf::masked(&token))) }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn production_export_round_trip_preserves_fractional_identity() {
+    use common::web::{self, TestClock};
+    use deltabadger::tracker::import::run::Answer;
+    for micros in [123_000, 999_999] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let mut rows=pair("p1","BTC");
+        for row in &mut rows {
+            let at=row.entry.transacted_at.unwrap()+chrono::Duration::microseconds(micros);
+            row.entry.transacted_at=Some(at);
+            row.event=Event::read(if row.entry.entry_type==2 {Source::DustIn}else{Source::DustOut}, &row.entry.raw.value,
+                Context {parent:Some("p1"),occurred_ms:Some((at.timestamp_micros()+500).div_euclid(1000)),..Context::default()}).unwrap();
+        }
+        write(c,&key,&rows).unwrap();
+        let app=web::app(dir.path(),"engine-test-secret",TestClock::at("2026-08-18T00:00:00Z"));
+        let mut browser=import_browser(c,s.user_id,&app);
+        let exported=browser.get(&app,"/tracker/export").await;assert_eq!(exported.status,200);
+        assert!(exported.body.contains("2026-08-17T10:00:00Z"));
+        let before=state(c);
+        assert!(matches!(import(c,&key,"deltabadger",&exported.body).unwrap(),Answer::Written{imported:0,duplicates:2,..}));
+        assert_eq!(state(c),before,"round trip preserves the original fractional timestamp and evidence");
+        let changed=exported.body.replace("10:00:00Z","10:00:01Z");
+        assert!(!matches!(import(c,&key,"deltabadger",&changed),Ok(Answer::Written{..})));
+        assert_eq!(state(c),before,"a different exported second still refuses the file");
+    }
+}
+
+#[test]
+fn production_dust_repeat_normalizes_both_amounts_like_storage() {
+    use deltabadger::tracker::import::run::Answer;
+    for (out,inn) in [("123456789.12345678","0.09"),("1","123456789.12345678"),("123456789.12345678","0.12345678912345678")] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let file=dust_file(&["BTC"]).replace("BTC,-1,BTC",&format!("BTC,-{out},BTC")).replace("BNB,0.09,BTC",&format!("BNB,{inn},BTC"));
+        assert!(matches!(import(c,&key,"binance",&file).unwrap(),Answer::Written{imported:2,..}));
+        let before=state(c);
+        for _ in 0..2 {
+            assert!(matches!(import(c,&key,"binance",&file).unwrap(),Answer::Written{imported:0,duplicates:2,..}));
+            assert_eq!(state(c),before);
+        }
+        let changed=file.replace(&format!("BNB,{inn},BTC"),"BNB,0.3,BTC");
+        assert!(!matches!(import(c,&key,"binance",&changed),Ok(Answer::Written{..})));
+        assert_eq!(state(c),before);
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn production_import_route_explains_identity_refusals_after_rollback() {
+    use common::web::{self, Csrf, TestClock};
+    for reason in ["ambiguous CSV identity", "partial CSV dust pair", "partial existing CSV dust pair",
+        "CSV dust identity has no proven whole-pair match", "CSV identities are not one-to-one",
+        "exported identity has no retained binding", "exported CSV identity changed", "CSV cannot exclude a suppressed event"] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let app=web::app(dir.path(),"engine-test-secret",TestClock::at("2026-08-18T00:00:00Z"));
+        let mut browser=import_browser(c,s.user_id,&app);
+        let (format,file)=match reason {
+            "ambiguous CSV identity" => {
+                write(c,&key,&[input(Source::Deposit,"d1","","BTC"),input(Source::Deposit,"d2","","BTC")]).unwrap();
+                ("binance","User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2026-08-17 10:00:00,Spot,Deposit,BTC,1,\n".into())
+            }
+            "partial CSV dust pair" => ("binance",dust_file(&["BTC"]).lines().take(2).collect::<Vec<_>>().join("\n")),
+            "partial existing CSV dust pair" => {
+                import(c,&key,"binance",&dust_file(&["BTC"])).unwrap();
+                c.execute("DELETE FROM account_transactions WHERE entry_type=2",[]).unwrap();
+                ("binance",dust_file(&["BTC"]))
+            }
+            "CSV dust identity has no proven whole-pair match" => {
+                import(c,&key,"binance",&dust_file(&["BTC"])).unwrap();
+                ("binance",dust_file(&["BTC"]).replace("BNB,0.09","BNB,0.2"))
+            }
+            "CSV identities are not one-to-one" => {
+                let first=dust_file(&["BTC"]);
+                ("binance",first.clone()+first.replace(",BTC\n",",second\n").split_once('\n').unwrap().1)
+            }
+            "exported identity has no retained binding" => ("deltabadger",deltabadger::web::tracker::CSV_HEADERS.join(",")+"\n2026-08-17T10:00:00Z,deposit,BTC,1,,,,,binance,binance-a12-v1:deposit:unknown,,\n"),
+            "exported CSV identity changed" => {
+                write(c,&key,&pair("p1","BTC")).unwrap();
+                let exported=browser.get(&app,"/tracker/export").await;assert_eq!(exported.status,200);
+                ("deltabadger",exported.body.replace(",0.1,",",0.2,"))
+            }
+            "CSV cannot exclude a suppressed event" => {
+                write(c,&key,&pair("p1","BTC")).unwrap();suppress(c,"BTC");
+                ("binance",dust_file(&["BTC"]).replace("BTC,-1","BTC,-2"))
+            }
+            _=>unreachable!(),
+        };
+        // A new dust pair lands before the refusal. Its rows, marker and cache invalidation must all roll back.
+        let prefix=if format=="binance" {dust_file(&["LTC"])} else {
+            deltabadger::web::tracker::CSV_HEADERS.join(",")+"\n2026-08-17T10:00:00Z,swap_out,LTC,1,,,,,binance,,dust_new,\n2026-08-17T10:00:00Z,swap_in,BNB,0.09,,,,,binance,,dust_new,\n"
+        };
+        let file=prefix+file.split_once('\n').unwrap().1;
+        app_config::set_plain(c,&deltabadger::tracker::cache::key(key.user_id),"stale",now()).unwrap();
+        let before=state(c);
+        let (content_type,body)=web::multipart(&[("format",format)],&[("file","history_UTC.csv",file.as_bytes())]);
+        let answer=browser.send_bytes(&app,"POST","/tracker/import",Some(body),Csrf::Header,&[("content-type",&content_type)]).await;
+        assert_eq!(answer.status,422,"{reason}: {}",answer.body);
+        assert!(answer.body.contains("id=\"modal\""));
+        assert!(answer.body.contains(reason),"{reason}: {}",answer.body);
+        assert!(answer.body.contains("No transactions were imported"));
+        assert!(answer.body.contains("complete, unchanged export"));
+        assert_eq!(state(c),before,"{reason}: the whole file must roll back before validation is shown");
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn production_import_route_keeps_unexpected_database_errors_as_errors() {
+    use common::web::{self, Csrf, TestClock};
+    let (dir,o,s)=common::install();let c=&o.primary;let _key=key(c,&s);let _lock=claim(c,dir.path());
+    c.execute_batch("CREATE TRIGGER crash BEFORE INSERT ON account_transactions WHEN NEW.entry_type=2 BEGIN SELECT RAISE(ABORT,'unexpected database failure'); END").unwrap();
+    let app=web::app(dir.path(),"engine-test-secret",TestClock::at("2026-08-18T00:00:00Z"));
+    let mut browser=import_browser(c,s.user_id,&app);let before=state(c);
+    let file=dust_file(&["BTC"]);
+    let (content_type,body)=web::multipart(&[("format","binance")],&[("file","history_UTC.csv",file.as_bytes())]);
+    let answer=browser.send_bytes(&app,"POST","/tracker/import",Some(body),Csrf::Header,&[("content-type",&content_type)]).await;
+    assert_eq!(answer.status,500,"{}",answer.body);assert_eq!(state(c),before);
 }

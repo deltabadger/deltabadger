@@ -1,6 +1,6 @@
-//! A12 PR 1: pure identity and conservative legacy matching. No live writer calls this module.
+//! A12 canonical identity and conservative legacy matching for the guarded writer.
 //! Callers must supply a complete collision bucket, scoped to (user_id, exchange_id), never API key.
-//! A Missing verdict is evidence only: PR 2 must still fence writes, check suppressions and aliases,
+//! A Missing verdict is evidence only: the writer must fence writes, check suppressions and aliases,
 //! assign anchors, preserve existing rows, and commit whole dust pairs with the install marker.
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -54,10 +54,12 @@ impl Event {
                     chrono::NaiveDateTime::parse_from_str(&required("applyTime")?,"%Y-%m-%d %H:%M:%S")
                         .map_err(|_|"invalid withdrawal time")?.and_utc().timestamp_millis().to_string()
                 };
-                let mut evidence=vec![required("txId")?,required("coin")?,required("network")?,required("address")?,
-                    raw["addressTag"].as_str().ok_or("missing transfer tag evidence")?.into(),decimal("amount")?,at];
-                if source==Source::Withdrawal { evidence.push(decimal("transactionFee")?); }
-                (tuple(&["id"]),known(evidence))
+                let chain=if source==Source::Withdrawal {text(raw,"txId")}else{Some(required("txId")?)};
+                let evidence=vec![required("coin")?,required("network")?,required("address")?,
+                    if source==Source::Withdrawal && raw.get("addressTag").is_none() {String::new()} else {raw["addressTag"].as_str().ok_or("missing transfer tag evidence")?.into()},decimal("amount")?,at];
+                let mut evidence=known(evidence);evidence.insert(0,chain);
+                if source==Source::Withdrawal { evidence.push(if raw.get("transactionFee").is_some_and(|v|!v.is_null()) {Some(decimal("transactionFee")?)}else{None}); }
+                (tuple(&["id"]),evidence)
             }
             Source::FlexibleReward|Source::LockedReward=> {
                 let asset=required("asset")?; let at=time("time")?;
