@@ -907,3 +907,190 @@ async fn an_index_pull_that_did_not_fail_marks_every_live_index_bot_for_a_resync
     assert!(matches!(run(reference::INDICES, scripted(&t), c, "2026-10-02T10:30:00Z").await, Outcome::Transient(_)));
     assert_eq!(marked(&reopen(&d)), Vec::<i64>::new(), "PullFailed: no recheck");
 }
+
+struct CoinGeckoAnswer(Value);
+
+/// Exercise the production job outcome and the real scheduler, including its 15-minute delay.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn direct_index_503_is_retried_then_succeeds_on_attempt_two() {
+    use deltabadger::jobs::{Job, JobFuture, Scheduler, Spec, Wake, Retry};
+    use deltabadger::jobs::data_api::ApiError;
+    use std::{cell::Cell, rc::Rc};
+    struct Feed(Rc<Cell<usize>>);
+    impl reference::CoinGecko for Feed {
+        fn markets<'a>(&'a self, _: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,ApiError>> + 'a>> {
+            Box::pin(async {
+                self.0.set(self.0.get() + 1);
+                if self.0.get() == 1 { Err(ApiError::Failed { status: Some(503), message: "CoinGecko ranking HTTP 503".into() }) }
+                else { Ok(json!([{ "id":"bitcoin", "market_cap":1000000 }])) }
+            })
+        }
+    }
+    struct Direct(Feed);
+    impl Job for Direct {
+        fn spec(&self) -> Spec { reference::specs().into_iter().find(|s| s.name == reference::INDICES).unwrap() }
+        fn run<'a>(&'a self, cx: Cx<'a>, _: Vec<Wake>) -> JobFuture<'a> { Box::pin(async move { reference::coingecko_indices(&self.0, &cx).await }) }
+    }
+    let (d,c) = db();
+    let now = at("2026-10-02T10:30:00Z");
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_|None).unwrap();
+    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
+        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
+    }
+    seed::insert_index(&c,"top-coins",&["previous"],&json!({}));
+    let calls = Rc::new(Cell::new(0));
+    let job = Direct(Feed(calls.clone()));
+    assert_eq!(job.spec().retry, Retry::Fixed { wait_secs: 900, attempts: 4 });
+    let scheduler = Scheduler::new(c, seed::cipher(), vec![Box::new(job)], None);
+    struct Clock { start: DateTime<Utc>, origin: tokio::time::Instant }
+    impl deltabadger::engine::Clock for Clock {
+        fn now(&self) -> DateTime<Utc> { self.start + chrono::Duration::from_std(self.origin.elapsed()).unwrap() }
+    }
+    let clock = Clock { start: now, origin: tokio::time::Instant::now() };
+    let (stop, rx) = tokio::sync::watch::channel(false);
+    let (result, ()) = tokio::join!(scheduler.run(rx, &clock), async {
+        tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+        assert_eq!(calls.get(), 1, "no retry before 15 minutes");
+        assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"previous\"]");
+        tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+        stop.send(true).unwrap();
+    });
+    result.unwrap();
+    assert_eq!(calls.get(), 2, "503 must schedule the second attempt");
+    assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"bitcoin\"]");
+}
+impl reference::CoinGecko for CoinGeckoAnswer {
+    fn markets<'a>(&'a self, key: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,deltabadger::jobs::data_api::ApiError>> + 'a>> {
+        assert_eq!(key,"cg-test-key");
+        Box::pin(async { Ok(self.0.clone()) })
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_index_refresh_preserves_bundled_stablecoin_classification() {
+    let (d,c) = db();
+    let now = at("2026-10-02T10:30:00Z");
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_|None).unwrap();
+    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
+        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
+    }
+    let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
+    let ids = ["usds", "ethena-usde", "usd1-wlfi"];
+    let rows: Vec<_> = catalogue["data"].as_array().unwrap().iter().filter(|a| ids.contains(&a["external_id"].as_str().unwrap())).cloned().collect();
+    let db = Db::new(c,seed::cipher());
+    import::import_assets(&db, import::plan_assets(&rows, "").unwrap(), now).await.unwrap();
+    let answer = CoinGeckoAnswer(json!(ids.map(|id| json!({"id":id,"market_cap":999}))));
+    assert_eq!(reference::coingecko_indices(&answer,&Cx { db, clock:&FixedClock(now), wakers:Default::default() }).await, Outcome::Done);
+    let c = reopen(&d);
+    for id in ids {
+        let (category, cap): (String, i64) = c.query_row("SELECT category,market_cap FROM assets WHERE external_id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+        assert_eq!(category, "Cryptocurrency", "sync routing stays intact");
+        assert_eq!(cap,999);
+        assert!(deltabadger::engine::index::stablecoin(Some(&category),id), "{id}: daily refresh must preserve the corrected asset class");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_index_fetch_errors_use_the_data_api_retry_classification() {
+    use deltabadger::jobs::data_api::ApiError;
+    struct ErrorFeed(Option<u16>);
+    impl reference::CoinGecko for ErrorFeed {
+        fn markets<'a>(&'a self, _: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,ApiError>> + 'a>> {
+            Box::pin(async { Err(match self.0 {
+                Some(status) => ApiError::Failed { status:Some(status),message:format!("HTTP {status}") },
+                None => ApiError::Transient("CoinGecko ranking request failed".into()),
+            }) })
+        }
+    }
+    let (d,c) = db();
+    let now = at("2026-10-02T10:30:00Z");
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_|None).unwrap();
+    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
+        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
+    }
+    seed::insert_index(&c,"top-coins",&["previous"],&json!({}));
+    let db = Db::new(c,seed::cipher());
+    for status in [Some(500),Some(502),Some(503),None] {
+        let out = reference::coingecko_indices(&ErrorFeed(status), &Cx { db:db.clone(), clock:&FixedClock(now), wakers:Default::default() }).await;
+        assert!(matches!(out,Outcome::Transient(_)), "{status:?}: {out:?}");
+        assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"previous\"]");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn self_hosted_top_coins_refreshes_and_expires_without_forcing_trades() {
+    use deltabadger::engine::{index,model,provider,staleness};
+    let (d,o,s) = common::install();
+    let c = o.primary;
+    seed::insert_index(&c,"top-coins",&["old"],&json!({}));
+    let id = seed::index_bot(&c,&s,"top-coins",20,0.0,false);
+    let now = at("2026-10-02T10:30:00Z");
+    for (k,v) in [("market_data_provider","coingecko"),("market_data_url",""),("market_data_token",""),("coingecko_api_key","cg-test-key")] {
+        deltabadger::app_config::set(&c,&seed::cipher(),k,v,now).unwrap();
+    }
+    let answer = CoinGeckoAnswer(json!([{ "id":"bitcoin", "market_cap":1000000 }]));
+    let db = Db::new(c,seed::cipher());
+    let clock = FixedClock(now);
+    let cx = || Cx{db:db.clone(),clock:&clock,wakers:Default::default()};
+    // The same daily job used for hosted indices dispatches to the direct provider.
+    let spec = reference::specs().into_iter().find(|s|s.name==reference::INDICES).unwrap();
+    assert!(spec.schedule.is_some());
+    assert_eq!(reference::coingecko_indices(&answer,&cx()).await,Outcome::Done);
+    let c = reopen(&d);
+    assert_eq!(one::<String>(&c,"SELECT top_coins FROM indices WHERE external_id='top-coins'"),"[\"bitcoin\"]");
+    assert_eq!(one::<i64>(&c,"SELECT count(*) FROM transactions"),0);
+    assert!(index::resync_marked(&c).unwrap().iter().any(|(bot,_)|*bot==id));
+    provider::bind(&c,&seed::cipher(),&|_|None).unwrap();
+    let bot = model::load_bot(&c,id).unwrap();
+    assert!(deltabadger::engine::eligibility::bot_reasons(&c,&bot).unwrap().is_empty(),"the refreshed direct-provider bot is admitted");
+    assert!(provider::stale(&c,&bot).unwrap().is_none());
+    assert!(staleness::stale(&c,&bot,now).unwrap().is_none());
+    seed::insert_index(&c,"unrelated-category",&["bitcoin"],&json!({}));
+    assert!(staleness::stale(&c,&bot,now+chrono::Duration::hours(50)).unwrap().is_some(),"another index cannot hide an old Top Coins ranking");
+    assert!(staleness::report(&c,now+chrono::Duration::hours(50)).unwrap().iter().any(|line|line.contains("Top Coins")&&line.contains("STALE")));
+    let empty = CoinGeckoAnswer(json!([]));
+    assert!(matches!(reference::coingecko_indices(&empty,&cx()).await,Outcome::Failed(_)));
+    assert_eq!(one::<String>(&c,"SELECT top_coins FROM indices WHERE external_id='top-coins'"),"[\"bitcoin\"]");
+}
+
+struct ChangedCoinGecko(std::path::PathBuf);
+impl reference::CoinGecko for ChangedCoinGecko {
+    fn markets<'a>(&'a self, _: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,deltabadger::jobs::data_api::ApiError>> + 'a>> {
+        Box::pin(async {
+            let c=Connection::open(&self.0).unwrap();
+            deltabadger::app_config::set(&c,&seed::cipher(),"coingecko_api_key","replacement",at("2026-10-02T10:30:00Z")).unwrap();
+            Ok(json!([{ "id":"bitcoin", "market_cap":1000000 }]))
+        })
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn direct_index_refresh_rejects_a_provider_change_during_the_request() {
+    let (d,c)=db();
+    seed::insert_index(&c,"top-coins",&["previous"],&json!({}));
+    let now=at("2026-10-02T10:30:00Z");
+    deltabadger::engine::provider::bind(&c,&seed::cipher(),&|_|None).unwrap();
+    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
+        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
+    }
+    let fetch=ChangedCoinGecko(d.path().join("production.sqlite3"));
+    let out=reference::coingecko_indices(&fetch,&Cx{db:Db::new(c,seed::cipher()),clock:&FixedClock(now),wakers:Default::default()}).await;
+    assert!(matches!(out,Outcome::Failed(message) if message.contains("configuration changed")));
+    assert_eq!(one::<String>(&reopen(&d),"SELECT top_coins FROM indices WHERE external_id='top-coins'"),"[\"previous\"]");
+}
+
+#[test]
+fn direct_index_provider_uses_the_environment_key_only_without_a_database_override() {
+    use deltabadger::{app_config,engine::provider};
+    let (_d,c)=db();
+    let now=at("2026-10-02T10:30:00Z");
+    app_config::set(&c,&seed::cipher(),"market_data_provider","coingecko",now).unwrap();
+    provider::bind(&c,&seed::cipher(),&|key|(key=="COINGECKO_API_KEY").then(||"environment-key".into())).unwrap();
+    assert_eq!(provider::coingecko_key(&c).unwrap().as_deref(),Some("environment-key"));
+    let fingerprint=provider::fingerprint(&c).unwrap();
+    app_config::set(&c,&seed::cipher(),"coingecko_api_key","database-key",now).unwrap();
+    assert_eq!(provider::coingecko_key(&c).unwrap().as_deref(),Some("database-key"));
+    assert_ne!(provider::fingerprint(&c).unwrap(),fingerprint);
+    app_config::set(&c,&seed::cipher(),"coingecko_api_key","",now).unwrap();
+    assert_eq!(provider::coingecko_key(&c).unwrap(),None,"explicitly clearing the key does not restore the environment key");
+}

@@ -77,13 +77,17 @@ fn to_f(v: Option<&Value>) -> f64 {
     match v { Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0), Some(Value::String(s)) => s.trim().parse().unwrap_or(0.0), _ => 0.0 }
 }
 
+/// The asset classifier owns taxonomy, including overrides for legacy catalogue rows.
+pub use crate::asset_taxonomy::stablecoin;
+
 /// MarketData.get_top_coins' data-api branch: the ranked ids with the asset's market_cap, else the index's published weight;
 /// a coin with neither, or with no local asset, is skipped.
 fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>) -> Result<Vec<(String, f64)>, EngineError> {
     let mut out = vec![];
     for id in ids {
-        let cap: Option<Option<f64>> = c.query_row("SELECT market_cap FROM assets WHERE external_id = ?1", [id], |r| r.get(0)).optional()?;
-        let Some(cap) = cap else { continue };
+        let asset: Option<(Option<f64>, Option<String>)> = c.query_row("SELECT market_cap, category FROM assets WHERE external_id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+        let Some((cap, category)) = asset else { continue };
+        if stablecoin(category.as_deref(), id) { continue; }
         let mut value = cap.unwrap_or(0.0);
         if value <= 0.0 { value = to_f(weights.get(id)); }
         if value > 0.0 { out.push((id.clone(), value)); }
@@ -185,13 +189,12 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     let top: Vec<String> = top.and_then(|t| serde_json::from_str::<Vec<Value>>(&t).ok()).unwrap_or_default()
         .into_iter().filter_map(|v| v.as_str().map(str::to_string)).collect();
     let weights: Map<String, Value> = weights.and_then(|w| serde_json::from_str::<Value>(&w).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
-    // #bounded_universe_size: a data-api index publishes its whole membership. #effective_num_coins: all of it when holding the
-    // whole universe, else num_coins. derive_composition asks for the bounded universe, else 3 × N capped at 250.
+    // D-INDEX-TOP-N: filter the full ranked list for this venue and quote, then take N.
+    // A 3 × N prefix can run out before the venue's first tradable member.
     let bounded = (source.as_deref() == Some("deltabadger") && !top.is_empty()).then_some(top.len() as i64);
     let n = match bounded { Some(b) if bot.hold_all() => b, _ => bot.num_coins().unwrap_or(0) };
-    let limit = bounded.unwrap_or(n.saturating_mul(3).min(250)).clamp(0, 1000) as usize;
     if n > 1000 || top.len() > 1000 { return Ok(Err(Refusal::Failure("index exceeds 1000 members".into()))); }
-    let ranked = top_coins(c, &top[..top.len().min(limit)], &weights)?;
+    let ranked = top_coins(c, &top, &weights)?;
 
     // The candidates: available, trading-enabled tickers at the bot's quote, by their base asset's external id (index_by: the
     // last one wins).
@@ -251,7 +254,17 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
         super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
         if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }
+        // A taxonomy refresh during price probes cannot seat a newly classified stablecoin.
+        for (asset, _, _) in &members {
+            let (category, ext): (Option<String>, String) = tx.query_row("SELECT category, external_id FROM assets WHERE id=?1", [asset], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            if stablecoin(category.as_deref(), &ext) { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
+        }
         basket::write_members(tx, bot.id, &members, clock.now())?;
+        if (members.len() as i64) < n {
+            let message = format!("Index composition: {} of {n} requested assets are tradable on {} in {}.", members.len(), model::exchange_name(tx, bot)?, model::quote_symbol(tx, bot)?);
+            tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,'index_composition_shortfall',1,?2,?3,?4)",
+                params![bot.id, message, serde_json::json!({"available":members.len(),"requested":n}).to_string(), crate::codec::format_time(clock.now())])?;
+        }
         // A resync's marker goes with the membership it asked for, in this one commit; a trigger since it was read keeps it.
         if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
         // Any unexpected ineligibility rolls the transaction back (not a nested Ok(Err)).

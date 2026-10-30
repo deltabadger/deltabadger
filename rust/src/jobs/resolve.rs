@@ -32,12 +32,12 @@ pub fn configured_with<C: Connect + Clone + 'static>(job: Box<dyn Job>, env: &dy
     let uses_data = super::reference::specs().iter().any(|s| s.name == name && name != super::reference::PRUNE)
         || matches!(name, jobs::BALANCE_SYNC | tracker::jobs::TRACKER_LEDGER | tracker::jobs::PORTFOLIO_BACKFILL);
     if !uses_data { return job; }
-    let env = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
+    let env = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN", "COINGECKO_API_KEY"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
     Box::new(Configured { job, env, rates, venues })
 }
 
 pub fn configured_resolver(resolve: Resolver, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>) -> Resolver {
-    let env: Vec<_> = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
+    let env: Vec<_> = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN", "COINGECKO_API_KEY"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
     Box::new(move |name, scope| {
         let job = resolve(name, scope)?;
         Ok(configured(job, &|name| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone()), rates.clone()))

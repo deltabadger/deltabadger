@@ -723,7 +723,7 @@ fn intervals(locale: &str) -> Vec<(String, String)> {
 pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebError> {
     let Some(index) = bot.index.as_ref() else { return Ok(vec![]) };
     if bot.setting("quote_asset_id").is_none() { return Ok(vec![]); }
-    let limit = bot.bounded_universe_size().unwrap_or(250) as usize;
+    let limit = 1000;
     let mut coins = vec![];
     let num_coins = shown_coins(bot);
     // Looked up once: a member is asked for among every listing of the venue.
@@ -731,6 +731,7 @@ pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebE
     for external_id in index.top_coins.iter().take(limit) {
         if coins.len() as i64 >= bot.max_coins() { break; }
         let Some(asset) = Asset::find_by_external_id(c, external_id)? else { continue };
+        if crate::engine::index::stablecoin(asset.category.as_deref(), external_id) { continue; }
         // MarketData.get_top_coins: a real market cap when there is one, else the index's weight; a member with neither is skipped.
         let own = asset.market_cap.map_or(0.0, |cap| cap as f64);
         let cap = if own > 0.0 { own } else { index.weights.get(external_id).and_then(Value::as_f64).unwrap_or(0.0) };
