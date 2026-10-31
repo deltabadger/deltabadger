@@ -2605,7 +2605,7 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
             "two_calls" => Some(vec![accepted[rule], if rule % 2 == 1 { second[rule / 2] } else { accepted[rule] }]),
             "quote_constrained" if rule == 0 => Some(vec![accepted[0]]),
             "quote_constrained" if rule == 1 => Some(constrained.iter().copied().collect()),
-            "cross_below_minimum" | "coarse_base" | "coarse_price" => Some(A5_GEMINI.iter().find(|(v, _)| *v == variant).unwrap().1[rule].iter().copied().collect()),
+            "cross_below_minimum" | "coarse_base" | "coarse_price" => Some(A5_GEMINI.iter().find(|(v, _)| *v == variant).unwrap().1[rule].to_vec()),
             _ => None,
         };
         let expected_wire = expected_wire.map(|w| if variant == "safe_then_accepted" { vec![w[0], w[0]] } else { w });
@@ -2623,7 +2623,9 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
 /// buy-percentage, sell-fixed, sell-percentage): `accepted`; the second of `two_calls` for the percentage rules (the second
 /// balance reads 8000 quote and 0.4 base free); `quote_constrained`'s percentage buy (50 quote free; None: below the minimum).
 /// Gemini's are `amount@price` (its crossed IOC limit).
-const A5_WIRE: [(&str, [&str; 4], [&str; 2], Option<&str>); 9] = [
+/// (venue, `accepted` per rule, `two_calls`' second percentage buy and sell, `quote_constrained`'s percentage buy).
+type A5Wire = (&'static str, [&'static str; 4], [&'static str; 2], Option<&'static str>);
+const A5_WIRE: [A5Wire; 9] = [
     ("binance_us", ["100.0", "1000.0", "0.00156", "0.25"], ["800.0", "0.2"], Some("5.0")),
     ("bitvavo", ["0.00156247", "0.01562475", "0.0015625", "0.25"], ["0.0124998", "0.2"], None),
     ("gemini", ["0.00154702@64640.11", "0.01547027@64640.11", "0.00157828@63360.0", "0.25@63360.0"], ["0.01237621@64640.11", "0.2@63360.0"], Some("0.00007735@64640.11")),

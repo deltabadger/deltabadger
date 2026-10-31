@@ -1037,7 +1037,7 @@ fn one_signal_admission_rule_for_engine_and_pages() {
     }
 }
 
-/// Plan A5 r1.7: the per-venue refusal "(its signal orders are not recorded against Rails yet)" is gone from the source.
+/// Plan A5 r1.7: no per-venue "not recorded" signal refusal is left in the source.
 #[test]
 fn no_signal_venue_is_refused_as_not_recorded() {
     fn walk(dir: &std::path::Path, hits: &mut Vec<String>) {
