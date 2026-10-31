@@ -48,7 +48,7 @@ pub fn resolve_local(zone: Tz, naive: NaiveDateTime) -> Result<(NaiveDateTime, D
 }
 
 /// `t + n.days` on a TimeWithZone (ActiveSupport 8.1, `advance(days:)`): the wall time moves by whole days, then a wall time
-/// that occurs twice takes the occurrence with the source's DST flag, and one that does not occur moves forward an hour at a
+/// that occurs twice takes the occurrence with the source's offset (else its DST flag), and one that does not occur moves forward an hour at a
 /// time until it does. `None` past chrono's range (or a zone that skipped two days, which none does).
 pub fn advance_days(t: DateTime<Utc>, zone: Tz, days: i64) -> Option<DateTime<Utc>> {
     use chrono::{Duration, LocalResult, TimeZone};
@@ -60,7 +60,13 @@ pub fn advance_days(t: DateTime<Utc>, zone: Tz, days: i64) -> Option<DateTime<Ut
     for _ in 0..48 {
         match zone.from_local_datetime(&wall) {
             LocalResult::Single(at) => return Some(at.with_timezone(&Utc)),
-            LocalResult::Ambiguous(first, second) => return Some(if dst(second.offset()) == summer && dst(first.offset()) != summer { second } else { first }.with_timezone(&Utc)),
+            // The source's own offset when one occurrence has it (Moscow 2014, a change no DST flag marks), else its DST flag.
+            LocalResult::Ambiguous(first, second) => {
+                use chrono::Offset;
+                let same = |at: &DateTime<Tz>| at.offset().fix() == source.offset().fix();
+                let pick = if same(&first) { first } else if same(&second) { second } else if dst(second.offset()) == summer && dst(first.offset()) != summer { second } else { first };
+                return Some(pick.with_timezone(&Utc));
+            }
             LocalResult::None => wall = wall.checked_add_signed(Duration::hours(1))?,
         }
     }
@@ -106,7 +112,8 @@ mod advance_tests {
             ("Warsaw", "2026-10-25T02:30:00+02:00", 14, "2026-11-08T02:30:00+01:00"), ("Warsaw", "2026-10-25T02:30:00+01:00", -14, "2026-10-11T02:30:00+02:00"),
             ("Warsaw", "2026-10-20T12:00:00+02:00", 14, "2026-11-03T12:00:00+01:00"),
             ("Australia/Lord_Howe", "2026-09-20T02:15:00+10:30", 14, "2026-10-04T03:15:00+11:00"), ("Australia/Lord_Howe", "2026-04-19T01:45:00+10:30", -14, "2026-04-05T01:45:00+10:30"),
-            ("Samoa", "2011-12-16T12:30:00-10:00", 14, "2011-12-31T00:30:00+14:00"), ("UTC", "2026-01-01T00:00:00+00:00", 14, "2026-01-15T00:00:00+00:00"),
+            ("Samoa", "2011-12-16T12:30:00-10:00", 14, "2011-12-31T00:30:00+14:00"),
+            ("Moscow", "2014-11-09T01:30:00+03:00", -14, "2014-10-26T01:30:00+03:00"), ("Moscow", "2014-10-12T01:30:00+04:00", 14, "2014-10-26T01:30:00+04:00"), ("UTC", "2026-01-01T00:00:00+00:00", 14, "2026-01-15T00:00:00+00:00"),
         ] {
             let at = DateTime::parse_from_rfc3339(from).unwrap().with_timezone(&Utc);
             let want = DateTime::parse_from_rfc3339(to).unwrap().with_timezone(&Utc);
