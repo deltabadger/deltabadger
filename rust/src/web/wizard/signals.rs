@@ -546,7 +546,8 @@ mod tests {
     /// A venue the engine runs no signal bot on is never offered (the exchange step's filter).
     #[test]
     fn only_admitted_venues_are_offered() {
-        for (class, offered) in [("Exchanges::Kraken", true), ("Exchanges::Alpaca", true), ("Exchanges::Ibkr", false), ("Exchanges::Coinbase", false)] {
+        for (class, offered) in [("Exchanges::Kraken", true), ("Exchanges::Alpaca", true), ("Exchanges::Coinbase", true), ("Exchanges::Bybit", true),
+                                 ("Exchanges::Gemini", true), ("Exchanges::Ibkr", false), ("Exchanges::Unknown", false)] {
             assert_eq!(eligibility::signal_admission(Some(class)).is_none(), offered, "{class}");
         }
     }

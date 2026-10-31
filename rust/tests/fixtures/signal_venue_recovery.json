@@ -1,0 +1,821 @@
+{
+ "_comment": "Plan A5 r1.1 (tests/signal.rs): per venue, a fixed buy's bodies from grid-signal's kits (script/rust/decisions.rb signal_more_venues): the placement times out after sending; the client-id lookup (its first key after the placement) finds the filled order.",
+ "binance_us": {
+  "GET /api/v3/ticker/bookTicker": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "bidPrice": "64000.10000000",
+     "bidQty": "1.5",
+     "askPrice": "64000.11000000",
+     "askQty": "0.2"
+    }
+   }
+  ],
+  "POST /api/v3/order": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /api/v3/myTrades": [
+   {
+    "status": 200,
+    "body": [
+     {
+      "symbol": "BTCUSDT",
+      "id": 1,
+      "orderId": 28457,
+      "orderListId": -1,
+      "price": "64000.00",
+      "qty": "0.00156",
+      "quoteQty": "99.84",
+      "commission": "0",
+      "commissionAsset": "BNB",
+      "time": 1788000000001,
+      "isBuyer": true,
+      "isMaker": false,
+      "isBestMatch": true
+     }
+    ]
+   }
+  ],
+  "GET /api/v3/account": [
+   {
+    "status": 200,
+    "body": {
+     "makerCommission": 10,
+     "canTrade": true,
+     "balances": [
+      {
+       "asset": "BTC",
+       "free": "0.5",
+       "locked": "0.1"
+      },
+      {
+       "asset": "USDT",
+       "free": "10000",
+       "locked": "500"
+      }
+     ]
+    }
+   }
+  ],
+  "GET /api/v3/order": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "orderId": 28457,
+     "orderListId": -1,
+     "clientOrderId": "$client_order_id",
+     "price": "0.00000000",
+     "origQty": "0.00000000",
+     "executedQty": "0.00156000",
+     "cummulativeQuoteQty": "99.84000000",
+     "status": "FILLED",
+     "timeInForce": "GTC",
+     "type": "MARKET",
+     "side": "BUY",
+     "origQuoteOrderQty": "60.00000000",
+     "time": 1788000000000
+    }
+   }
+  ]
+ },
+ "bitvavo": {
+  "GET /v2/ticker/book": [
+   {
+    "status": 200,
+    "body": {
+     "market": "BTC-EUR",
+     "bid": "64000",
+     "bidSize": "1.5",
+     "ask": "64001",
+     "askSize": "0.2"
+    }
+   }
+  ],
+  "GET /v2/ticker/price": [
+   {
+    "status": 200,
+    "body": {
+     "market": "BTC-EUR",
+     "price": "64000"
+    }
+   }
+  ],
+  "POST /v2/order": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /v2/trades": [
+   {
+    "status": 200,
+    "body": []
+   }
+  ],
+  "GET /v2/balance": [
+   {
+    "status": 200,
+    "body": [
+     {
+      "symbol": "BTC",
+      "available": "0.5",
+      "inOrder": "0.1"
+     },
+     {
+      "symbol": "EUR",
+      "available": "10000",
+      "inOrder": "500"
+     }
+    ]
+   }
+  ],
+  "GET /v2/order": [
+   {
+    "status": 200,
+    "body": {
+     "orderId": "0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01",
+     "market": "BTC-EUR",
+     "created": 1788000000000,
+     "updated": 1788000000000,
+     "status": "filled",
+     "side": "buy",
+     "orderType": "market",
+     "amountQuote": "100",
+     "onHold": "0",
+     "onHoldCurrency": "EUR",
+     "filledAmount": "0.00156",
+     "filledAmountQuote": "99.84",
+     "feePaid": "0",
+     "feeCurrency": "EUR",
+     "fills": [],
+     "selfTradePrevention": "decrementAndCancel",
+     "visible": true,
+     "timeInForce": "GTC",
+     "postOnly": false,
+     "clientOrderId": "$client_order_id"
+    }
+   }
+  ]
+ },
+ "gemini": {
+  "GET /v1/pubticker/btcusd": [
+   {
+    "status": 200,
+    "body": {
+     "bid": "64000.01",
+     "ask": "64000.11",
+     "last": "64000.05",
+     "volume": {
+      "BTC": "10",
+      "USD": "640000",
+      "timestamp": 1788000000000
+     }
+    }
+   }
+  ],
+  "POST /v1/order/new": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "POST /v1/balances": [
+   {
+    "status": 200,
+    "body": [
+     {
+      "type": "exchange",
+      "currency": "BTC",
+      "amount": "0.6",
+      "available": "0.5",
+      "availableForWithdrawal": "0.5"
+     },
+     {
+      "type": "exchange",
+      "currency": "USD",
+      "amount": "10500.0",
+      "available": "10000",
+      "availableForWithdrawal": "10000"
+     }
+    ]
+   }
+  ],
+  "POST /v1/order/status": [
+   {
+    "status": 200,
+    "body": {
+     "order_id": "7612345678",
+     "id": "7612345678",
+     "symbol": "btcusd",
+     "exchange": "gemini",
+     "avg_execution_price": "64000",
+     "side": "buy",
+     "type": "exchange limit",
+     "timestamp": "1788000000",
+     "timestampms": 1788000000000,
+     "is_live": false,
+     "is_cancelled": false,
+     "is_hidden": false,
+     "was_forced": false,
+     "executed_amount": "0.00156",
+     "remaining_amount": "0.0",
+     "original_amount": "0.00156",
+     "price": "64640.11",
+     "options": [
+      "immediate-or-cancel"
+     ],
+     "client_order_id": "$client_order_id"
+    }
+   }
+  ]
+ },
+ "bitget": {
+  "GET /api/v2/spot/market/orderbook": [
+   {
+    "status": 200,
+    "body": {
+     "code": "00000",
+     "msg": "success",
+     "requestTime": 1788000000000,
+     "data": {
+      "asks": [
+       [
+        "64001.37",
+        "0.2"
+       ]
+      ],
+      "bids": [
+       [
+        "64000",
+        "1.5"
+       ]
+      ],
+      "ts": "1788000000000"
+     }
+    }
+   }
+  ],
+  "GET /api/v2/spot/market/tickers": [
+   {
+    "status": 200,
+    "body": {
+     "code": "00000",
+     "msg": "success",
+     "requestTime": 1788000000000,
+     "data": [
+      {
+       "symbol": "BTCUSDT",
+       "high24h": "65000",
+       "open": "63000",
+       "lastPr": "64000.12",
+       "low24h": "62000",
+       "bidPr": "64000.12",
+       "askPr": "64000.12",
+       "ts": "1788000000000"
+      }
+     ]
+    }
+   }
+  ],
+  "POST /api/v2/spot/trade/place-order": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /api/v2/spot/account/assets": [
+   {
+    "status": 200,
+    "body": {
+     "code": "00000",
+     "msg": "success",
+     "requestTime": 1788000000000,
+     "data": [
+      {
+       "coin": "BTC",
+       "available": "0.5",
+       "frozen": "0.1",
+       "locked": "0",
+       "limitAvailable": "0",
+       "uTime": "1788000000000"
+      },
+      {
+       "coin": "USDT",
+       "available": "10000",
+       "frozen": "500",
+       "locked": "0",
+       "limitAvailable": "0",
+       "uTime": "1788000000000"
+      }
+     ]
+    }
+   }
+  ],
+  "GET /api/v2/spot/trade/orderInfo": [
+   {
+    "status": 200,
+    "body": {
+     "code": "00000",
+     "msg": "success",
+     "requestTime": 1788000000000,
+     "data": [
+      {
+       "userId": "1001",
+       "symbol": "BTCUSDT",
+       "orderId": "1234567890123456789",
+       "clientOid": "$client_order_id",
+       "price": "0",
+       "size": "100",
+       "orderType": "market",
+       "side": "buy",
+       "status": "filled",
+       "priceAvg": "64000",
+       "baseVolume": "0.00156",
+       "quoteVolume": "99.84",
+       "enterPointSource": "API",
+       "feeDetail": "{}",
+       "orderSource": "normal",
+       "cTime": "1788000000000",
+       "uTime": "1788000000000"
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "mexc": {
+  "GET /api/v3/ticker/bookTicker": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "bidPrice": "64000.10",
+     "bidQty": "1.5",
+     "askPrice": "64000.11",
+     "askQty": "0.2"
+    }
+   }
+  ],
+  "GET /api/v3/ticker/price": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "price": "64000.05"
+    }
+   }
+  ],
+  "POST /api/v3/order": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /api/v3/account": [
+   {
+    "status": 200,
+    "body": {
+     "canTrade": true,
+     "canWithdraw": true,
+     "canDeposit": true,
+     "accountType": "SPOT",
+     "balances": [
+      {
+       "asset": "BTC",
+       "free": "0.5",
+       "locked": "0.1"
+      },
+      {
+       "asset": "USDT",
+       "free": "10000",
+       "locked": "500"
+      }
+     ]
+    }
+   }
+  ],
+  "GET /api/v3/order": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "orderId": "C02__100",
+     "orderListId": -1,
+     "clientOrderId": "$client_order_id",
+     "price": "0",
+     "origQty": "0",
+     "executedQty": "0.00156",
+     "cummulativeQuoteQty": "99.84",
+     "status": "FILLED",
+     "type": "MARKET",
+     "side": "BUY",
+     "time": 1788000000000,
+     "updateTime": 1788000000000,
+     "isWorking": true,
+     "origQuoteOrderQty": "60"
+    }
+   }
+  ]
+ },
+ "bybit": {
+  "GET /v5/market/orderbook": [
+   {
+    "status": 200,
+    "body": {
+     "retCode": 0,
+     "retMsg": "OK",
+     "result": {
+      "a": [
+       [
+        "64001.37",
+        "1"
+       ]
+      ],
+      "b": [
+       [
+        "64000",
+        "1"
+       ]
+      ]
+     }
+    }
+   }
+  ],
+  "GET /v5/market/tickers": [
+   {
+    "status": 200,
+    "body": {
+     "retCode": 0,
+     "retMsg": "OK",
+     "result": {
+      "list": [
+       {
+        "symbol": "BTCUSDT",
+        "lastPrice": "64000.12"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "POST /v5/order/create": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /v5/order/history": [
+   {
+    "status": 200,
+    "body": {
+     "retCode": 0,
+     "retMsg": "OK",
+     "result": {
+      "list": []
+     }
+    }
+   }
+  ],
+  "GET /v5/account/wallet-balance": [
+   {
+    "status": 200,
+    "body": {
+     "retCode": 0,
+     "retMsg": "OK",
+     "result": {
+      "list": [
+       {
+        "coin": [
+         {
+          "coin": "USDT",
+          "walletBalance": "10500.0",
+          "locked": "500",
+          "spotBorrow": "0"
+         },
+         {
+          "coin": "BTC",
+          "walletBalance": "0.65",
+          "locked": "0.1",
+          "spotBorrow": "0.05"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "GET /v5/order/realtime": [
+   {
+    "status": 200,
+    "body": {
+     "retCode": 0,
+     "retMsg": "OK",
+     "result": {
+      "list": [
+       {
+        "orderId": "123",
+        "symbol": "BTCUSDT",
+        "orderType": "Market",
+        "side": "Buy",
+        "qty": "0.00093",
+        "price": "64000",
+        "avgPrice": "64000",
+        "cumExecQty": "0.00156",
+        "cumExecValue": "99.84",
+        "orderStatus": "Filled",
+        "rejectReason": "EC_NoError",
+        "orderLinkId": "$client_order_id"
+       }
+      ]
+     }
+    }
+   }
+  ]
+ },
+ "bitrue": {
+  "GET /api/v1/ticker/bookTicker": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "bidPrice": "64000.10",
+     "bidQty": "1.5",
+     "askPrice": "64000.11",
+     "askQty": "0.2"
+    }
+   }
+  ],
+  "GET /api/v1/ticker/price": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "price": "64000.05"
+    }
+   }
+  ],
+  "POST /api/v1/order": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /api/v1/account": [
+   {
+    "status": 200,
+    "body": {
+     "canTrade": true,
+     "balances": [
+      {
+       "asset": "btc",
+       "free": "0.5",
+       "locked": "0.1"
+      },
+      {
+       "asset": "usdt",
+       "free": "10000",
+       "locked": "500"
+      }
+     ]
+    }
+   }
+  ],
+  "GET /api/v1/order": [
+   {
+    "status": 200,
+    "body": {
+     "symbol": "BTCUSDT",
+     "orderId": "100",
+     "orderListId": -1,
+     "clientOrderId": "$client_order_id",
+     "price": "0",
+     "origQty": "0",
+     "executedQty": "0.00156",
+     "cummulativeQuoteQty": "99.84",
+     "status": "FILLED",
+     "type": "MARKET",
+     "side": "BUY",
+     "time": 1788000000000,
+     "updateTime": 1788000000000,
+     "isWorking": true,
+     "origQuoteOrderQty": "60"
+    }
+   }
+  ]
+ },
+ "coinbase": {
+  "GET /api/v3/brokerage/market/product_book": [
+   {
+    "status": 200,
+    "body": {
+     "pricebook": {
+      "bids": [
+       {
+        "price": "63999.99",
+        "size": "2"
+       }
+      ],
+      "asks": [
+       {
+        "price": "64000.11",
+        "size": "2"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "GET /api/v3/brokerage/market/products/BTC-EUR": [
+   {
+    "status": 200,
+    "body": {
+     "price": "64000.05"
+    }
+   }
+  ],
+  "GET /api/v3/brokerage/key_permissions": [
+   {
+    "status": 200,
+    "body": {
+     "portfolio_uuid": "p"
+    }
+   }
+  ],
+  "POST /api/v3/brokerage/orders": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /api/v3/brokerage/orders/historical/batch": [
+   {
+    "status": 200,
+    "body": {
+     "orders": [
+      {
+       "order_id": "cb-1",
+       "product_id": "BTC-EUR",
+       "order_type": "MARKET",
+       "side": "BUY",
+       "status": "FILLED",
+       "average_filled_price": "64000",
+       "filled_size": "0.00156",
+       "total_value_after_fees": "99.84",
+       "outstanding_hold_amount": "0",
+       "order_configuration": {
+        "market_market_ioc": {
+         "quote_size": "100"
+        }
+       },
+       "client_order_id": "$client_order_id"
+      }
+     ],
+     "has_next": false
+    }
+   }
+  ],
+  "GET /api/v3/brokerage/portfolios/p": [
+   {
+    "status": 200,
+    "body": {
+     "breakdown": {
+      "spot_positions": [
+       {
+        "asset": "EUR",
+        "available_to_trade_crypto": "10000",
+        "total_balance_crypto": "10500.0"
+       },
+       {
+        "asset": "BTC",
+        "available_to_trade_crypto": "0.5",
+        "total_balance_crypto": "0.6"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "GET /api/v3/brokerage/orders/historical/cb-1": [
+   {
+    "status": 200,
+    "body": {
+     "order": {
+      "order_id": "cb-1",
+      "product_id": "BTC-EUR",
+      "order_type": "MARKET",
+      "side": "BUY",
+      "status": "FILLED",
+      "average_filled_price": "64000",
+      "filled_size": "0.00156",
+      "total_value_after_fees": "99.84",
+      "outstanding_hold_amount": "0",
+      "order_configuration": {
+       "market_market_ioc": {
+        "quote_size": "100"
+       }
+      }
+     }
+    }
+   }
+  ]
+ },
+ "bingx": {
+  "GET /openApi/spot/v1/market/depth": [
+   {
+    "status": 200,
+    "body": {
+     "code": 0,
+     "data": {
+      "bids": [
+       [
+        "64000.10",
+        "1.5"
+       ]
+      ],
+      "asks": [
+       [
+        "64000.11",
+        "0.2"
+       ]
+      ]
+     }
+    }
+   }
+  ],
+  "GET /openApi/spot/v2/market/ticker": [
+   {
+    "status": 200,
+    "body": {
+     "code": 0,
+     "data": [
+      {
+       "symbol": "BTC-USDT",
+       "lastPrice": "64000.05"
+      }
+     ]
+    }
+   }
+  ],
+  "POST /openApi/spot/v1/trade/order": [
+   {
+    "network": "post_send",
+    "message": "Faraday::TimeoutError: Net::ReadTimeout"
+   }
+  ],
+  "GET /openApi/spot/v1/account/balance": [
+   {
+    "status": 200,
+    "body": {
+     "code": 0,
+     "data": {
+      "balances": [
+       {
+        "asset": "BTC",
+        "free": "0.5",
+        "locked": "0.1"
+       },
+       {
+        "asset": "USDT",
+        "free": "10000",
+        "locked": "500"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "GET /openApi/spot/v1/trade/query": [
+   {
+    "status": 200,
+    "body": {
+     "code": 0,
+     "data": {
+      "symbol": "BTC-USDT",
+      "orderId": "100",
+      "orderListId": -1,
+      "clientOrderId": "",
+      "price": "0",
+      "origQty": "0",
+      "executedQty": "0.00156",
+      "cummulativeQuoteQty": "99.84",
+      "status": "FILLED",
+      "type": "MARKET",
+      "side": "BUY",
+      "time": 1788000000000,
+      "updateTime": 1788000000000,
+      "isWorking": true,
+      "origQuoteOrderQty": "60",
+      "clientOrderID": "$client_order_id"
+     }
+    }
+   }
+  ]
+ }
+}

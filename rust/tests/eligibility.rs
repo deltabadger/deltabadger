@@ -971,11 +971,15 @@ fn signal_bot(c: &rusqlite::Connection, s: &seed::Seeded) -> i64 {
     id
 }
 
-/// Plan 8d T1: a signal bot runs on the venues its signal path is recorded on, and `check` on a Rails-prepared copy holding a
-/// working one reports it ready, with no basket's interval or amount asked of it.
+/// Plan A5: every venue the engine trades on, listed here on purpose (not read from eligibility::SIGNAL_VENUES).
+const SIGNAL_VENUES: [&str; 14] = ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Kucoin", "Exchanges::Bitvavo", "Exchanges::Gemini", "Exchanges::Bitget",
+    "Exchanges::Mexc", "Exchanges::Hyperliquid", "Exchanges::Bybit", "Exchanges::Bitrue", "Exchanges::Coinbase", "Exchanges::Bingx", "Exchanges::Alpaca"];
+
+/// Plan 8d T1, A5: a signal bot runs on every venue the engine trades on (grid-signal records each), and `check` on a
+/// Rails-prepared copy holding a working one reports it ready, with no basket's interval or amount asked of it.
 #[test]
 fn a_working_signal_bot_is_admitted_on_its_venues() {
-    for venue in eligibility::SIGNAL_VENUES {
+    for venue in SIGNAL_VENUES {
         let (_d, o, s) = if venue == "Exchanges::Alpaca" { common::install_alpaca() } else { install() };
         o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
         let id = signal_bot(&o.primary, &s);
@@ -992,9 +996,7 @@ fn a_working_signal_bot_is_admitted_on_its_venues() {
 #[test]
 fn a_signal_bot_outside_what_the_engine_ports_is_refused_with_its_reason() {
     let cases: Vec<(&str, Make)> = vec![
-        ("a signal bot on Bybit (its signal orders are not recorded against Rails yet)", Box::new(|c, s| { c.execute("UPDATE exchanges SET type = 'Exchanges::Bybit'", []).unwrap(); signal_bot(c, s) })),
-        ("a signal bot on BingX", Box::new(|c, s| { c.execute("UPDATE exchanges SET type = 'Exchanges::Bingx'", []).unwrap(); signal_bot(c, s) })),
-        ("a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca", Box::new(|c, s| { c.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr'", []).unwrap(); signal_bot(c, s) })),
+        ("a signal bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX", Box::new(|c, s| { c.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr'", []).unwrap(); signal_bot(c, s) })),
         ("base_asset_id or quote_asset_id", Box::new(|c, s| { let id = signal_bot(c, s); c.execute("UPDATE bots SET settings = '{}' WHERE id = ?1", [id]).unwrap(); id })),
         ("a signal rule this build does not read", Box::new(|c, s| { let id = signal_bot(c, s); c.execute("UPDATE bot_signals SET direction = 7", []).unwrap(); id })),
         ("unreadable rust_signal_calls", Box::new(|c, s| { let id = signal_bot(c, s); c.execute("UPDATE bots SET transient_data = '{\"rust_signal_calls\":{}}' WHERE id = ?1", [id]).unwrap(); id })),
@@ -1018,23 +1020,38 @@ fn a_signal_bot_outside_what_the_engine_ports_is_refused_with_its_reason() {
     }
 }
 
-/// Plan 8d T1: the engine and the signal bot's pages share one venue rule (web::bot::signal::refusal calls it), and it
-/// admits exactly the venues the signal grid records; every other venue the engine trades on is named.
+/// Plan 8d T1, A5: the engine and the signal bot's pages share one venue rule (web::bot::signal::refusal calls it): it admits
+/// the fourteen venues the signal grid records and names every other one; no per-venue "not recorded" text is left.
 #[test]
 fn one_signal_admission_rule_for_engine_and_pages() {
     use eligibility::signal_admission;
-    for venue in eligibility::SIGNAL_VENUES { assert_eq!(signal_admission(Some(venue)), None, "{venue}"); }
-    for (venue, name) in [("Exchanges::BinanceUs", "Binance.US"), ("Exchanges::Bitvavo", "Bitvavo"), ("Exchanges::Gemini", "Gemini"), ("Exchanges::Bitget", "Bitget"),
-                          ("Exchanges::Mexc", "MEXC"), ("Exchanges::Bybit", "Bybit"), ("Exchanges::Bitrue", "Bitrue"), ("Exchanges::Coinbase", "Coinbase"), ("Exchanges::Bingx", "BingX")] {
-        assert_eq!(signal_admission(Some(venue)), Some(format!("a signal bot on {name} (its signal orders are not recorded against Rails yet)").as_str()), "{venue}");
-    }
-    for venue in [Some("Exchanges::Ibkr"), None] {
-        assert_eq!(signal_admission(venue), Some("a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca"));
+    for venue in SIGNAL_VENUES { assert_eq!(signal_admission(Some(venue)), None, "{venue}"); }
+    for venue in [Some("Exchanges::Ibkr"), Some("Exchanges::Unknown"), None] {
+        assert_eq!(signal_admission(venue), Some("a signal bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"), "{venue:?}");
     }
     let grid = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/decisions.rb")).unwrap();
     let start = grid.find("def signal_venues").unwrap();
     let venues = &grid[start..grid[start..].find("def signal_scenarios").unwrap() + start];
-    for key in ["'kraken' =>", "'binance' =>", "'kucoin' =>", "'hyperliquid' =>", "'alpaca' =>"] { assert!(venues.contains(key), "the signal grid records {key}"); }
+    for key in ["kraken", "binance", "binance_us", "kucoin", "bitvavo", "gemini", "bitget", "mexc", "hyperliquid", "bybit", "bitrue", "coinbase", "bingx", "alpaca"] {
+        assert!(venues.contains(&format!("'{key}' =>")), "the signal grid records {key}");
+    }
+}
+
+/// Plan A5 r1.7: no per-venue "not recorded" signal refusal is left in the source.
+#[test]
+fn no_signal_venue_is_refused_as_not_recorded() {
+    fn walk(dir: &std::path::Path, hits: &mut Vec<String>) {
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() { walk(&p, hits); }
+            else if p.extension().is_some_and(|x| x == "rs") && std::fs::read_to_string(&p).unwrap().contains(concat!("not recorded ", "against Rails yet")) {
+                hits.push(p.display().to_string());
+            }
+        }
+    }
+    let mut hits = vec![];
+    for d in ["src", "tests"] { walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(d), &mut hits); }
+    assert!(hits.is_empty(), "{hits:?}");
 }
 
 /// conditions::support on a signal bot: the cap and both sides' price rules run (CE-4); a trigger rule not built yet is refused
