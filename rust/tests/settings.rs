@@ -3962,15 +3962,14 @@ async fn a_kucoin_trading_key_needs_spot_on_hf_and_unified_on_uta() {
     let permission = |p: serde_json::Value| serde_json::json!({"code":"200000","data":{"apiKey":"kc-key","permission":p,"uid":165111215,"isMaster":true}});
     let refused_probe = serde_json::json!({"code":"400007","msg":"Access denied, require more permission."});
     let uta: serde_json::Value = serde_json::from_str(include_str!("fixtures/kucoin_uta/apikey.json")).unwrap();
-    let mut rows: Vec<(&str, Option<bool>, Option<(u16, serde_json::Value)>, String, bool)> = vec![];
-    for c in uta["cases"].as_array().unwrap().iter().filter(|c| c["kind"] == 0) {
+    let rows: Vec<_> = uta["cases"].as_array().unwrap().iter().filter(|c| c["kind"] == 0).map(|c| {
         let (says, saved) = match c["expect"]["verdict"].as_str().unwrap() {
             "Correct" => (String::new(), true), "Permissions" => ("This key is missing: Unified".into(), false),
             _ => ("Failed to validate API key permissions".into(), false),
         };
         let mut body = c["response"].clone(); body["data"]["uid"] = serde_json::json!(165111215);
-        rows.push(("UNIFIED", None, Some((c["status"].as_u64().unwrap() as u16, body)), says, saved));
-    }
+        ("UNIFIED", None, Some((c["status"].as_u64().unwrap() as u16, body)), says, saved)
+    }).collect();
     assert_eq!(rows.len(), 6, "every UTA trading-key case of apikey.json");
     for (probe, (mode, opened, api_key, says, saved)) in rows.into_iter().map(|r| (None, r)).chain([
         (Some(refused_probe.clone()), ("UNIFIED", None, Some((200, permission(serde_json::json!("General,Unified")))), String::new(), true)),
