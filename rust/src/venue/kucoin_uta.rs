@@ -108,18 +108,17 @@ pub fn uta_evidence(answers: &[Value], want: &HfOrder) -> Result<(OrderState, BT
     let ok = |b: &Value| b["code"] == OK;
     let (detail, pages) = answers.split_first().filter(|(d, _)| ok(d)).ok_or_else(unreadable)?;
     let mut state = parse_uta_order(&detail["data"], want)?;
+    // The execution list is required whatever the detail says, an empty one for nothing filled: it must agree.
     let mut seen = BTreeMap::new();
-    if state.amount_exec.is_positive() {
-        let (last, full) = pages.split_last().ok_or_else(unreadable)?;
-        if !ok(last) || last["data"]["items"].as_array().is_none_or(|i| !i.is_empty()) { return Err(unreadable()); }
-        for page in full {
-            let items = page["data"]["items"].as_array().filter(|_| ok(page)).ok_or_else(unreadable)?;
-            add_executions(items, want, &mut seen)?;
-        }
-        let (size, value) = sums(&seen);
-        if size != state.amount_exec { return Err(unreadable()); }
-        (state.quote_amount_exec, state.price) = (Some(value.clone()), value.div(&size));
+    let (last, full) = pages.split_last().ok_or_else(unreadable)?;
+    if !ok(last) || last["data"]["items"].as_array().is_none_or(|i| !i.is_empty()) { return Err(unreadable()); }
+    for page in full {
+        let items = page["data"]["items"].as_array().filter(|_| ok(page)).ok_or_else(unreadable)?;
+        add_executions(items, want, &mut seen)?;
     }
+    let (size, value) = sums(&seen);
+    if size != state.amount_exec { return Err(unreadable()); }
+    if size.is_positive() { (state.quote_amount_exec, state.price) = (Some(value.clone()), value.div(&size)); }
     let mut fees: BTreeMap<String, BigDec> = BTreeMap::new();
     for (_, _, _, fee, currency) in seen.into_values() {
         let sum = fees.entry(currency).or_insert_with(BigDec::zero);

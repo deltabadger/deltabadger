@@ -2524,3 +2524,40 @@ async fn u3a_uta_recovery_checks_the_order_type() {
     assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE status=0 AND external_id='U9'", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "recovered once");
     assert_eq!(posts(&t), 1);
 }
+
+/// U3a review P1: a sweep reads rows in chunks of 50; a UTA row's answer in a later chunk applies to that row, never to
+/// the row at its position in the first chunk.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_a_routed_answer_past_the_first_chunk_applies_to_its_own_row() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, _plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(now);
+    let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let classic: Vec<i64> = (1..=50).map(|i| {
+        t.reply(&format!("GET /api/v1/orders/C{i}"), 200, classic_order(&format!("C{i}"), "BTC-EUR", true, "0", "0"));
+        open_row(&o.primary, &bot, &format!("C{i}"), "2026-10-30 10:00:00", json!({}))
+    }).collect();
+    let id = open_row(&o.primary, &bot, "U51", "2026-10-30 10:00:00", json!({}));
+    let record = json!({"family":"Uta","symbol":"BTC-EUR","sell":false,"limit":true,"host":URL,"key_fingerprint":v.placement_identity().unwrap()["key_fingerprint"],"deal_size":"0","deal_funds":"0"});
+    deltabadger::app_config::set_plain(&o.primary, &format!("rust_kucoin_order:{id}"), &record.to_string(), now).unwrap();
+    t.reply(&detail_key("U51"), 200, uta_detail("U51", 3, "0.001", "LIMIT"));
+    executions(&t, "U51", &[("T1", "0.001", "50")], 7);
+    let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    assert_eq!(row_exec(&o.primary, id), (Some(2), Some(0.001)), "the UTA row settles");
+    assert!(classic.iter().all(|c| row_exec(&o.primary, *c).0 == Some(1)), "no classic row takes its answer");
+}
+
+/// U3a review P1: zero-filled UTA evidence needs its execution list too, and the list must be empty.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_zero_filled_uta_evidence_needs_an_empty_execution_list() {
+    use deltabadger::engine::reconcile::Operator;
+    let (_dir, o, _bot, _t, _v, id, ext) = uta_placed(true).await;
+    let detail = uta_detail(&ext, 5, "0", "LIMIT");
+    for (answers, why) in [(vec![detail.clone()], "no execution list"),
+                           (vec![detail.clone(), uta_page(&ext, &[("T1", "0.001", "50")], 8), uta_page(&ext, &[], 8)], "executions contradict the detail")] {
+        assert!(reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0", "0", json!([]), uta_answers(&answers))).is_err(), "{why}");
+    }
+    let answers = [detail, uta_page(&ext, &[], 8)];
+    assert_eq!(reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0", "0", json!([]), uta_answers(&answers))).unwrap(), Operator::Reconciled);
+}
