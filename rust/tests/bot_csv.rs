@@ -57,7 +57,8 @@ fn ids(i: &Install, bot: i64) -> Vec<String> {
         .query_map([bot], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
 }
 fn count(i: &Install) -> i64 { i.o.primary.query_row("SELECT count(*) FROM transactions", [], |r| r.get(0)).unwrap() }
-fn closed(i: &Install, bot: i64, ext: &str, at: &str, side: i64, amount: &str, value: &str, price: &str) {
+/// (side, amount, value, price) of a closed BTC order.
+fn closed(i: &Install, bot: i64, ext: &str, at: &str, (side, amount, value, price): (i64, &str, &str, &str)) {
     seed::insert_row(&i.o.primary, &i.s, bot, i.s.btc, &json!({ "external_status": 2, "external_id": ext, "side": side, "amount": amount, "amount_exec": amount,
         "quote_amount": value, "quote_amount_exec": value, "price": price, "created_at": at }));
 }
@@ -65,13 +66,13 @@ fn closed(i: &Install, bot: i64, ext: &str, at: &str, side: i64, amount: &str, v
 #[tokio::test(flavor = "current_thread")]
 async fn an_export_imports_into_another_bot_and_exports_again_cell_for_cell() {
     let i = install();
-    closed(&i, i.a, "=1+1", "2026-08-01 10:00:00", 0, "0.001", "60", "60000");
-    closed(&i, i.a, "plain", "2026-08-02 10:00:00.250000", 1, "0.0005", "31.5", "63000");
-    closed(&i, i.a, "with, comma", "2026-12-24 23:30:00", 0, "0.002", "100", "50000");
+    closed(&i, i.a, "=1+1", "2026-08-01 10:00:00", (0, "0.001", "60", "60000"));
+    closed(&i, i.a, "plain", "2026-08-02 10:00:00.250000", (1, "0.0005", "31.5", "63000"));
+    closed(&i, i.a, "with, comma", "2026-12-24 23:30:00", (0, "0.002", "100", "50000"));
     // A merged row placed on another venue keeps its venue in the id.
     i.o.primary.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '2026-01-01', '2026-01-01')", []).unwrap();
     let kraken = i.o.primary.last_insert_rowid();
-    closed(&i, i.a, "K-1", "2026-08-03 10:00:00", 0, "0.001", "61", "61000");
+    closed(&i, i.a, "K-1", "2026-08-03 10:00:00", (0, "0.001", "61", "61000"));
     i.o.primary.execute("UPDATE transactions SET exchange_id = ?1 WHERE external_id = 'K-1'", [kraken]).unwrap();
     let (app, mut browser) = signed_in(&i).await;
     let first = export(&app, &mut browser, i.a).await;
@@ -148,7 +149,7 @@ async fn reimported_ids_never_collapse_two_orders() {
     }
     // Held before this file: `abc` maps onto the held id and `imported_1_abc` is that row.
     let i = install();
-    closed(&i, 1, "imported_1_abc", "2026-08-01 10:00:00", 0, "0.001", "60", "60000");
+    closed(&i, 1, "imported_1_abc", "2026-08-01 10:00:00", (0, "0.001", "60", "60000"));
     let (app, mut browser) = signed_in(&i).await;
     let rows = ["2026-08-01 10:00:00 UTC,abc,Market,Buy,0.001,60,60000,BTC,USD,Closed", "2026-08-01 10:00:00 UTC,imported_1_abc,Market,Buy,0.001,60,60000,BTC,USD,Closed"];
     assert_eq!(import(&app, &mut browser, 1, &csv(&rows)).await, "No new orders to import (all orders already exist or currencies do not match).");
@@ -158,7 +159,7 @@ async fn reimported_ids_never_collapse_two_orders() {
 #[tokio::test(flavor = "current_thread")]
 async fn an_id_another_bot_holds_on_the_venue_is_skipped_as_existing() {
     let i = install();
-    closed(&i, i.b, &format!("imported_{}_q", i.a), "2026-08-01 10:00:00", 0, "0.001", "60", "60000");
+    closed(&i, i.b, &format!("imported_{}_q", i.a), "2026-08-01 10:00:00", (0, "0.001", "60", "60000"));
     let (app, mut browser) = signed_in(&i).await;
     let file = csv(&["2026-08-01 10:00:00 UTC,q,Market,Buy,0.001,60,60000,BTC,USD,Closed", "2026-08-01 10:00:00 UTC,r,Market,Buy,0.001,60,60000,BTC,USD,Closed"]);
     assert_eq!(import(&app, &mut browser, i.a, &file).await, "Successfully imported 1 order(s).");
@@ -242,12 +243,12 @@ async fn the_file_is_read_as_rails_reads_it_and_bounded() {
 #[tokio::test(flavor = "current_thread")]
 async fn the_export_reads_the_rows_as_they_stand() {
     let i = install();
-    closed(&i, i.a, "done", "2026-08-01 10:00:00", 0, "0.001", "60", "60000");
+    closed(&i, i.a, "done", "2026-08-01 10:00:00", (0, "0.001", "60", "60000"));
     // D-EXPORT-NO-REFRESH: an open order stays out until the engine's poll closes it; nothing asks the venue here.
     seed::insert_row(&i.o.primary, &i.s, i.a, i.s.btc, &json!({ "external_status": 1, "external_id": "OPEN-1", "order_type": 1, "amount": "0.001",
         "price": "60000", "amount_exec": "0", "quote_amount_exec": "0", "created_at": "2026-08-02 10:00:00" }));
     // D-EXPORT-NIL-CELL: a closed row without a type or side (Rails' import of an unknown Type writes one) is empty cells.
-    closed(&i, i.a, "untyped", "2026-08-03 10:00:00", 0, "0.001", "60", "60000");
+    closed(&i, i.a, "untyped", "2026-08-03 10:00:00", (0, "0.001", "60", "60000"));
     i.o.primary.execute("UPDATE transactions SET order_type = NULL, side = NULL WHERE external_id = 'untyped'", []).unwrap();
     let (app, mut browser) = signed_in(&i).await;
     let before: Vec<(i64, String)> = i.o.primary.prepare("SELECT external_status, updated_at FROM transactions ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
