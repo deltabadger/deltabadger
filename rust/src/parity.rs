@@ -680,6 +680,8 @@ async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id:
 async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Value, EngineError> {
     use crate::web::bot_api::{orders, Domain};
     let web = |e: crate::web::WebError| EngineError::Data(format!("{e:?}"));
+    // The request table is this build's own (a Rust migration); Rails built the copy without it.
+    store::test_support::migrate(&o.primary).map_err(|e| EngineError::Data(format!("{e:?}")))?;
     let user: i64 = o.primary.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
     let mut answers = vec![];
     for a in scenario["api"].as_array().into_iter().flatten() {
