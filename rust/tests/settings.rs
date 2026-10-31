@@ -3902,7 +3902,8 @@ async fn validator_job_matches_rails_on_every_checked_venue(){
         let h=Harness::new(server.uri()).await;
         let kind=match case["key_type"].as_str().unwrap(){"trading"=>0,"withdrawal"=>1,_=>2};
         let kucoin=text("venue")=="Exchanges::Kucoin";
-        // D-KUCOIN-HF-MODE: only a key Rails' check judges correct is read for its account mode.
+        // D-KUCOIN-HF-MODE: a key Rails' check judges correct is read for its account mode (an incorrect one's read is
+        // refused here, unanswered, and keeps the verdict: UTA r1.9).
         if kucoin && case["status"]=="correct" { kucoin_classic_detection(&server).await; }
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3",(text("venue"),text("name"),h.seed.exchange_id)).unwrap();
         h.c.execute("UPDATE api_keys SET status=0,key_type=?1,key=?2,secret=?3,passphrase=?4 WHERE id=?5",(kind,h.app.cipher.encrypt("test-key"),h.app.cipher.encrypt("dGVzdC1zZWNyZXQ="),kucoin.then(||h.app.cipher.encrypt("test-passphrase")),h.seed.api_key_id)).unwrap();
@@ -3950,24 +3951,40 @@ async fn validator_job_sends_a_venue_key_check_through_its_stored_proxy(){
     proxy.verify().await;
 }
 
-/// D-KUCOIN-HF-MODE: a correct KuCoin key on a Unified Trading Account is not saved, and the owner reads why. On an HF
-/// account a trading key needs KuCoin's Spot permission, read from one GET /api/v1/user/api-key (the identity read):
-/// without it the owner reads the existing missing-permission line; an answer that cannot be read is the existing failure.
+/// D-KUCOIN-HF-MODE: on an HF account a trading key needs KuCoin's Spot permission, and on a Unified Trading Account
+/// (UTA U4) its Unified permission, read from one GET /api/v1/user/api-key (the identity read): without it the owner
+/// reads the existing missing-permission line; an answer that cannot be read is the existing failure. On UTA the classic
+/// probe does not decide (r1.9): a key whose probe is refused but whose authenticated mode read says UNIFIED is checked
+/// the same way.
 #[tokio::test(flavor="current_thread")]
-async fn a_kucoin_key_on_a_unified_account_or_an_hf_account_without_spot_says_why_it_is_not_saved() {
+async fn a_kucoin_trading_key_needs_spot_on_hf_and_unified_on_uta() {
     use deltabadger::venue::kucoin_account::{MODE, OPENED};
     let permission = |p: serde_json::Value| serde_json::json!({"code":"200000","data":{"apiKey":"kc-key","permission":p,"uid":165111215,"isMaster":true}});
-    for (mode, opened, api_key, says, saved) in [
-        ("UNIFIED", None, None, "Unified Trading Account", false),
-        ("CLASSIC", Some(false), Some((200, permission(serde_json::json!("General")))), "", true),
-        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General,Spot")))), "", true),
-        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!(" General , Spot ")))), "", true),
-        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General")))), "This key is missing: Spot", false),
-        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General,Spots,spot")))), "This key is missing: Spot", false),
-        ("CLASSIC", Some(true), Some((200, permission(serde_json::Value::Null))), "Failed to validate API key permissions", false),
-        ("CLASSIC", Some(true), Some((200, permission(serde_json::json!(["Spot"])))), "Failed to validate API key permissions", false),
-        ("CLASSIC", Some(true), Some((500, permission(serde_json::json!("General,Spot")))), "Failed to validate API key permissions", false),
-    ] {
+    let refused_probe = serde_json::json!({"code":"400007","msg":"Access denied, require more permission."});
+    let uta: serde_json::Value = serde_json::from_str(include_str!("fixtures/kucoin_uta/apikey.json")).unwrap();
+    let mut rows: Vec<(&str, Option<bool>, Option<(u16, serde_json::Value)>, String, bool)> = vec![];
+    for c in uta["cases"].as_array().unwrap().iter().filter(|c| c["kind"] == 0) {
+        let (says, saved) = match c["expect"]["verdict"].as_str().unwrap() {
+            "Correct" => (String::new(), true), "Permissions" => ("This key is missing: Unified".into(), false),
+            _ => ("Failed to validate API key permissions".into(), false),
+        };
+        let mut body = c["response"].clone(); body["data"]["uid"] = serde_json::json!(165111215);
+        rows.push(("UNIFIED", None, Some((c["status"].as_u64().unwrap() as u16, body)), says, saved));
+    }
+    assert_eq!(rows.len(), 6, "every UTA trading-key case of apikey.json");
+    for (probe, (mode, opened, api_key, says, saved)) in rows.into_iter().map(|r| (None, r)).chain([
+        (Some(refused_probe.clone()), ("UNIFIED", None, Some((200, permission(serde_json::json!("General,Unified")))), String::new(), true)),
+        (Some(refused_probe.clone()), ("UNIFIED", None, Some((200, permission(serde_json::json!("General,Spot")))), "This key is missing: Unified".into(), false)),
+    ]).chain([
+        (None, ("CLASSIC", Some(false), Some((200, permission(serde_json::json!("General")))), String::new(), true)),
+        (None, ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General,Spot")))), String::new(), true)),
+        (None, ("CLASSIC", Some(true), Some((200, permission(serde_json::json!(" General , Spot ")))), String::new(), true)),
+        (None, ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General")))), "This key is missing: Spot".into(), false)),
+        (None, ("CLASSIC", Some(true), Some((200, permission(serde_json::json!("General,Spots,spot")))), "This key is missing: Spot".into(), false)),
+        (None, ("CLASSIC", Some(true), Some((200, permission(serde_json::Value::Null))), "Failed to validate API key permissions".into(), false)),
+        (None, ("CLASSIC", Some(true), Some((200, permission(serde_json::json!(["Spot"])))), "Failed to validate API key permissions".into(), false)),
+        (None, ("CLASSIC", Some(true), Some((500, permission(serde_json::json!("General,Spot")))), "Failed to validate API key permissions".into(), false)),
+    ]) {
         let server=MockServer::start().await;
         Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"selfAccountMode":mode}}))).mount(&server).await;
         if let Some(opened) = opened {
@@ -3976,7 +3993,8 @@ async fn a_kucoin_key_on_a_unified_account_or_an_hf_account_without_spot_says_wh
         if let Some((status, body)) = api_key.clone() {
             Mock::given(method("GET")).and(path(deltabadger::identity::KUCOIN_PATH)).respond_with(ResponseTemplate::new(status).set_body_json(body)).mount(&server).await;
         }
-        Mock::given(method("DELETE")).and(path("/api/v1/orders/000000000000000000000000")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
+        let (probe_status, probe) = probe.map_or((200, serde_json::json!({"code":"400100","msg":"order not exist"})), |p| (403, p));
+        Mock::given(method("DELETE")).and(path("/api/v1/orders/000000000000000000000000")).respond_with(ResponseTemplate::new(probe_status).set_body_json(probe)).mount(&server).await;
         let mut h=Harness::new(server.uri()).await;
         h.c.execute("INSERT INTO exchanges(name,type,available,created_at,updated_at) VALUES('KuCoin','Exchanges::Kucoin',1,'2026-01-01','2026-01-01')",[]).unwrap();
         let kucoin=h.c.last_insert_rowid();
@@ -3989,8 +4007,9 @@ async fn a_kucoin_key_on_a_unified_account_or_an_hf_account_without_spot_says_wh
         h.submit("POST","/bots/dca_single_assets/pick_exchange",&[("bots_dca_single_asset[exchange_id]",&kucoin.to_string())],Csrf::Header).await;
         h.browser.get(&h.app,"/bots/dca_single_assets/add_api_key/new").await;
         let response=h.submit("POST","/bots/dca_single_assets/add_api_key",&[("api_key[key]","kc-key"),("api_key[secret]","kc-secret"),("api_key[passphrase]","kc-pass")],Csrf::Header).await;
-        let case=format!("{mode} {api_key:?}");
-        assert!(response.body.contains(says),"{case}: {}",response.body);
+        let case=format!("{mode} {probe_status} {api_key:?}");
+        assert!(response.body.contains(&says),"{case}: {}",response.body);
+        assert!(!response.body.contains("Unified Trading Account"),"{case}: the UTA refusal is gone");
         assert!(!response.body.contains("newer trading account"),"{case}: the HF message is gone");
         assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),i64::from(saved),"{case}: {}",response.body);
         if saved {
@@ -4008,14 +4027,17 @@ async fn a_kucoin_key_on_a_unified_account_or_an_hf_account_without_spot_says_wh
 }
 
 /// D-KUCOIN-HF-MODE: a read-only KuCoin key on an HF account is saved on the existing read check (balances need General,
-/// which is account-wide); no Spot permission is asked of it.
+/// which is account-wide); no Spot permission is asked of it. On a Unified Trading Account (UTA U4) a read key is
+/// correct, also when the classic read probe is refused (r1.9).
 #[tokio::test(flavor="current_thread")]
 async fn a_read_only_kucoin_key_on_an_hf_account_is_saved() {
     use deltabadger::venue::kucoin_account::{MODE, OPENED};
+    for (mode, accounts) in [("CLASSIC", (200, serde_json::json!({"code":"200000","data":[]}))), ("UNIFIED", (200, serde_json::json!({"code":"200000","data":[]}))),
+                             ("UNIFIED", (403, serde_json::json!({"code":"400007","msg":"Access denied, require more permission."})))] {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"selfAccountMode":mode}}))).mount(&server).await;
     Mock::given(method("GET")).and(path(OPENED)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":true}))).mount(&server).await;
-    Mock::given(method("GET")).and(path("/api/v1/accounts")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":[]}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v1/accounts")).respond_with(ResponseTemplate::new(accounts.0).set_body_json(accounts.1.clone())).mount(&server).await;
     Mock::given(method("GET")).and(path(deltabadger::identity::KUCOIN_PATH)).respond_with(ResponseTemplate::new(200).set_body_json(
         serde_json::json!({"code":"200000","data":{"permission":"General","uid":165111215}}))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -4028,5 +4050,6 @@ async fn a_read_only_kucoin_key_on_an_hf_account_is_saved() {
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     h.browser.get(&h.app,&format!("/tracker/add_api_key/new?exchange_id={kucoin}&key_type=read_only")).await;
     let response=h.submit("POST",&format!("/tracker/add_api_key?exchange_id={kucoin}&key_type=read_only"),&[("exchange_id",&kucoin.to_string()),("key_type","read_only"),("api_key[key]","kc-read"),("api_key[secret]","kc-secret"),("api_key[passphrase]","kc-pass")],Csrf::Header).await;
-    assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND key_type=2 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),1,"{} {}",response.status,response.body);
+    assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND key_type=2 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),1,"{mode} {accounts:?}: {} {}",response.status,response.body);
+    }
 }

@@ -366,7 +366,6 @@ async fn keys(
                 &forbidden,
             ),
             keys::Submitted::Failed => ctx.t("errors.api_key_permission_validation_failed"),
-            keys::Submitted::AccountMode(message) => ctx.t(message),
             keys::Submitted::Refused(reason) => i18n::text(
                 ctx.locale,
                 "engine.write_refused",

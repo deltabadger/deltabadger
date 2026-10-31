@@ -45,7 +45,7 @@ async fn m01_account_fixture_runs_through_version_bound_resolver() {
         } else {
             t.reply(&format!("GET {path}"), c["response"]["status"].as_u64().unwrap() as u16, c["response"]["body"].clone());
         }
-        if c["endpoint"] == "mode" && c["expect"]["mode"] != "Unknown" && c["expect"]["mode"] != "UnsupportedUta" {
+        if c["endpoint"] == "mode" && c["expect"]["mode"] != "Unknown" && c["expect"]["mode"] != "Uta" {
             t.reply(&format!("GET {OPENED}"), 200, c["then"]["response"]["body"].clone());
         }
         let answer = Resolver::default().resolve(&t, URL, &version).await;
@@ -60,7 +60,7 @@ async fn m01_account_fixture_runs_through_version_bound_resolver() {
             mode => assert_eq!(answer.value.unwrap().mode.as_str(), mode, "{}", c["id"]),
         }
         assert!(t.requests().iter().all(|r| r.method == "GET"));
-        if c["expect"]["mode"] == "UnsupportedUta" { assert_eq!(t.requests().len(), 1); }
+        if c["expect"]["mode"] == "Uta" { assert_eq!(t.requests().len(), 1); }
     }
     assert_eq!(count, 3 + 7 + 6, "3 detected modes + 7 mode faults + 6 opened faults");
 }
@@ -190,7 +190,7 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
     use deltabadger::engine::{tick, FixedClock};
     let f = fixture("account");
     let mut count = 0;
-    for c in f["cases"].as_array().unwrap().iter().filter(|c| c["expect"]["mode"] == "Unknown" || c["id"] == "detect_uta") {
+    for c in f["cases"].as_array().unwrap().iter().filter(|c| c["expect"]["mode"] == "Unknown") {
         count += 1;
         let (dir, o, bot, _) = engine_setup();
         let version = model::credential_version(&o.primary, &bot).unwrap().unwrap();
@@ -213,7 +213,7 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
         assert!(transient.contains("KuCoin"), "refusal is visible: {transient}");
         assert!(!transient.contains("secret") && !transient.contains("passphrase"));
     }
-    assert_eq!(count, 7 + 6 + 1, "13 unknown-mode faults + UTA (an HF account trades: f01_*)");
+    assert_eq!(count, 7 + 6, "13 unknown-mode faults (an HF account trades: f01_*; a UTA one since U4: g01_*)");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -475,7 +475,7 @@ fn kucoin_hf_source_examples_remain_separate_from_coherent_scenarios() {
 #[test]
 fn kucoin_hf_detection_contract_never_guesses_or_synthesizes_zero() {
     let f = fixture("account");
-    for (id, mode) in [("detect_classic", "ClassicLf"), ("detect_hf", "ClassicHf"), ("detect_uta", "UnsupportedUta")] {
+    for (id, mode) in [("detect_classic", "ClassicLf"), ("detect_hf", "ClassicHf"), ("detect_uta", "Uta")] {
         assert_eq!(case(&f, id)["expect"]["mode"], mode);
     }
     for c in f["cases"].as_array().unwrap() {
@@ -672,8 +672,9 @@ fn kucoin_hf_independent_hmac_vectors_include_delete_query_and_exact_body() {
 #[test]
 fn an_account_mode_refusal_is_the_key_checks_log_line() {
     use deltabadger::web::settings::validator::Diagnostic;
-    let refusal = Diagnostic { text: deltabadger::venue::kucoin_account::UTA.into(), status: None, body: String::new(), refusal: true };
-    assert_eq!(refusal.log_text(), deltabadger::venue::kucoin_account::UTA);
+    let text = deltabadger::venue::kucoin_account::refusal("credential provenance missing").message();
+    let refusal = Diagnostic { text: text.clone(), status: None, body: String::new(), refusal: true };
+    assert_eq!(refusal.log_text(), text);
     let venue = Diagnostic { text: "venue text".into(), status: Some(500), body: r#"{"code":7}"#.into(), refusal: false };
     assert!(!venue.log_text().contains("venue text"));
 }
@@ -1979,20 +1980,82 @@ async fn f01_classic_twin_keeps_the_classic_route() {
     assert_eq!(c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE 'rust_kucoin_%'", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
 }
 
-/// F01: a Unified Trading Account is still refused before anything is sized or sent.
+/// U4 F01 (UTA.md §5 U4): a DCA bot on a detected Unified Trading Account, built by the production factory and run by the
+/// engine, places on the UTA route with its intent's UUID, records the order once (`family: "Uta"`, intent mode `Uta`),
+/// and its poll settles it from the detail and its executions. Nothing is asked of the classic or HF order routes.
 #[tokio::test(flavor = "current_thread")]
-async fn f01_uta_is_still_refused() {
-    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+async fn g01_dca_places_polls_and_settles_on_uta() {
+    use wiremock::{matchers::{method, path, query_param}, Mock, ResponseTemplate};
     let server = wiremock::MockServer::start().await;
+    // Mounted first, so it answers before live_engine's classic detection.
     Mock::given(method("GET")).and(path(MODE)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"selfAccountMode":"UNIFIED"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/ua/v2/unified/account/balance")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"accountType":"UNIFIED",
+        "accounts":[{"currencies":[{"currency":"EUR","balance":"1000","available":"1000","hold":"0","liability":"0"}]}]}}))).mount(&server).await;
     let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
     let (dir, _paths, mut e, bot) = live_engine(&server, false, at).await;
+    Mock::given(method("POST")).and(path("/api/ua/v2/unified/order/place")).respond_with(ResponseTemplate::new(200).set_body_json(
+        json!({"code":"200000","data":{"orderId":"U-LIVE-1","tradeType":"SPOT","ts":1}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(UTA_DETAIL)).and(query_param("orderId", "U-LIVE-1")).respond_with(ResponseTemplate::new(200).set_body_json(
+        json!({"code":"200000","data":{"tradeType":"SPOT","orderId":"U-LIVE-1","clientOid":"c","symbol":"BTC-EUR","side":"BUY","orderType":"MARKET","size":"60",
+               "sizeUnit":"QUOTECCY","price":"0","status":3,"filledSize":"0.0012","avgPrice":"","fee":"0","feeCurrency":"EUR","cancelSize":"0",
+               "orderTime":1793361600000000000_i64,"updatedTime":1793361600000000000_i64}}))).mount(&server).await;
+    let page = |items: Value| ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"tradeType":"SPOT","lastId":7,"items":items}}));
+    Mock::given(method("GET")).and(path(UTA_EXECUTION)).and(query_param("lastId", "7")).respond_with(page(json!([]))).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path(UTA_EXECUTION)).and(query_param("orderId", "U-LIVE-1")).respond_with(page(json!([{"tradeType":"SPOT","orderId":"U-LIVE-1",
+        "symbol":"BTC-EUR","orderType":"MARKET","side":"BUY","tradeId":"7","size":"0.0012","price":"50000","value":"60","executionTime":1793361600500000000_i64,
+        "fee":"0.06","feeCurrency":"EUR","liquidityRole":"TAKER"}]))).mount(&server).await;
     deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
-    assert_eq!(sent(&server).await, ["GET /api/ua/v2/account/mode"]);
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    no_placement(&c, bot.id);
-    let details: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id=?1 AND event='execution_failed' ORDER BY id DESC LIMIT 1", [bot.id], |r| r.get(0)).unwrap();
-    assert!(details.contains("Unified Trading Accounts are not supported"), "{details}");
+    let requests = server.received_requests().await.unwrap();
+    let posts: Vec<_> = requests.iter().filter(|r| r.method.as_str() == "POST").collect();
+    assert_eq!(posts.len(), 1, "{:#?}", sent(&server).await);
+    assert_eq!(posts[0].url.path(), "/api/ua/v2/unified/order/place");
+    let body: Value = serde_json::from_slice(&posts[0].body).unwrap();
+    assert!(body["clientOid"].as_str().is_some_and(|c| c.len() == 36), "the intent's UUID: {body}");
+    assert_eq!((&body["tradeType"], &body["side"], &body["orderType"]), (&json!("SPOT"), &json!("BUY"), &json!("MARKET")));
+    let (id, ext): (i64, String) = c.query_row("SELECT id, external_id FROM transactions WHERE bot_id=?1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(ext, "U-LIVE-1");
+    let record = deltabadger::venue::kucoin::order_record(&c, id).unwrap().expect("a UTA record");
+    assert_eq!((&record["family"], &record["symbol"], &record["host"]), (&json!("Uta"), &json!("BTC-EUR"), &json!(server.uri())));
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:01:00Z")).await.unwrap();
+    let requests = server.received_requests().await.unwrap();
+    assert!(requests.iter().any(|r| r.url.path() == UTA_DETAIL), "polled on the UTA route: {:#?}", sent(&server).await);
+    assert!(!requests.iter().any(|r| r.url.path().starts_with("/api/v1/orders") || r.url.path().starts_with("/api/v1/hf/orders") || r.url.path() == "/api/v1/fills"),
+            "never the classic or HF order routes: {:#?}", sent(&server).await);
+    let settled = |c: &rusqlite::Connection| -> (i64, Option<i64>, String, String) {
+        c.query_row("SELECT count(*), max(external_status), max(CAST(amount_exec AS TEXT)), max(CAST(quote_amount_exec AS TEXT)) FROM transactions WHERE bot_id=?1", [bot.id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap()
+    };
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let first = settled(&c);
+    assert_eq!((first.0, first.1, first.2.as_str(), first.3.as_str()), (1, Some(2), "0.0012", "60"), "closed with the executions' exact totals");
+    deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:10:00Z")).await.unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(settled(&c), first, "settled once");
+    assert_eq!(server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "POST").count(), 1, "never a second POST");
+}
+
+/// U4 F01: admitting UTA leaves the classic and HF twins as they were: the same factory places a classic account's order on
+/// the classic route with no record, and an HF account's on the HF route with its `ClassicHf` record; neither asks a UTA
+/// route.
+#[tokio::test(flavor = "current_thread")]
+async fn g01_classic_and_hf_twins_unchanged() {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    for opened in [false, true] {
+        let server = wiremock::MockServer::start().await;
+        let (dir, _paths, mut e, bot) = live_engine(&server, opened, at).await;
+        Mock::given(method("POST")).and(path("/api/v1/orders")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"orderId":"LF-1"}}))).mount(&server).await;
+        post_hf(&server, "HF-1").mount(&server).await;
+        deltabadger::engine::run::step(&mut e, &live_at("2026-10-30T12:00:00Z")).await.unwrap();
+        let posts: Vec<String> = server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "POST").map(|r| r.url.path().to_string()).collect();
+        assert_eq!(posts, [if opened { "/api/v1/hf/orders" } else { "/api/v1/orders" }], "{opened}");
+        assert!(!sent(&server).await.iter().any(|r| r.contains("/api/ua/v2/unified/")), "{opened}: no UTA route: {:#?}", sent(&server).await);
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        let id: i64 = c.query_row("SELECT id FROM transactions WHERE bot_id=?1", [bot.id], |r| r.get(0)).unwrap();
+        let family = deltabadger::venue::kucoin::order_record(&c, id).unwrap().map(|r| r["family"].clone());
+        assert_eq!(family, opened.then(|| json!("ClassicHf")), "{opened}");
+    }
 }
 
 /// F01: a lost placement reply on an HF account keeps the intent; the next step finds the order on the HF clientOid route
@@ -2080,7 +2143,7 @@ async fn r07_an_undetected_or_unified_account_proves_no_route() {
     }
 }
 
-// ---- UTA U2 (issue #841, UTA.md §3 "Wire", r1.3, r1.10): the order adapter, reached through `allow_uta` until U4. ----
+// ---- UTA U2 (issue #841, UTA.md §3 "Wire", r1.3, r1.10): the order adapter (admitted since U4). ----
 
 const UTA_DETAIL: &str = "/api/ua/v2/unified/order/detail";
 const UTA_EXECUTION: &str = "/api/ua/v2/unified/order/execution";
@@ -2091,10 +2154,10 @@ fn uta_fixture(name: &str, ext: &str) -> Value {
 }
 fn uta_case<'a>(f: &'a Value, prefix: &'a str) -> impl Iterator<Item = &'a Value> { f["cases"].as_array().unwrap().iter().filter(move |c| c["id"].as_str().unwrap().starts_with(prefix)) }
 fn unified(t: &ScriptedTransport) { t.reply(&format!("GET {MODE}"), 200, json!({"code":"200000","data":{"selfAccountMode":"UNIFIED"}})); }
-/// A venue as the factory builds it, admitted on UTA (`allow_uta`), prepared on a detected Unified account.
+/// A venue as the factory builds it, prepared on a detected Unified account.
 async fn uta_venue(t: &ScriptedTransport, version: CredentialVersion) -> KucoinVenue<ScriptedTransport> {
     unified(t);
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(version, Resolver::default()).allow_uta();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(version, Resolver::default());
     v.prepare().await.unwrap();
     v
 }
@@ -2132,7 +2195,7 @@ async fn uta_placed(limit_plan: bool) -> (tempfile::TempDir, deltabadger::store:
     (dir, o, bot, t, v, id, "U1".into())
 }
 
-/// U2, O01: without `allow_uta` a Unified account is still refused; with it the intent records the UTA mode, the POST
+/// U2, O01 (U4: admitted): a Unified account is admitted as the factory builds the venue; the intent records the UTA mode, the POST
 /// goes to the UTA place route with the intent's UUID, and the accepted order is one row with a `family: "Uta"` record.
 /// An intent sized on another family is never sent on UTA.
 #[tokio::test(flavor = "current_thread")]
@@ -2141,8 +2204,9 @@ async fn u2_a_uta_order_dispatches_on_the_uta_route_and_is_recorded_once() {
     let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
     let (_dir, o, bot, _plan) = engine_setup();
     let t = ScriptedTransport::default(); t.set_now(at); unified(&t);
-    let refused = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
-    assert!(refused.prepare().await.is_err(), "UTA stays refused without allow_uta");
+    let admitted = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
+    admitted.prepare().await.expect("UTA is admitted");
+    assert_eq!(admitted.family(), deltabadger::venue::kucoin::Family::Uta);
     let (dir, o, bot, t, _v, id, _ext) = uta_placed(false).await;
     let post = t.requests().into_iter().find(|r| r.method == "POST").unwrap();
     assert_eq!(post.path, "/api/ua/v2/unified/order/place");
@@ -2550,7 +2614,7 @@ async fn u3b_a_switch_holds_a_classic_row_until_a_terminal_read_or_evidence() {
     let (dir, o, bot, _plan) = engine_setup();
     let id = open_row(&o.primary, &bot, "C1", "2026-09-01 10:00:00", json!({}));
     let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z")); unified(&t);
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_uta();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     t.reply("GET /api/v1/orders/C1", 200, json!({"code":"400100","msg":"order not exist"}));
     let _ = sweep(&o.primary, &v, bot.id).await;
     assert_eq!(record_family(&o.primary, id).as_deref(), Some("Classic"), "held by the switch");
@@ -2573,7 +2637,7 @@ async fn u3b_a_held_classic_row_settles_on_a_terminal_read() {
     let (_dir, o, bot, _plan) = engine_setup();
     let id = open_row(&o.primary, &bot, "C1", "2026-10-30 10:00:00", json!({}));
     let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z")); unified(&t);
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_uta();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     t.reply("GET /api/v1/orders/C1", 200, classic_answer("C1", false, false, "0.001", "60"));
     sweep(&o.primary, &v, bot.id).await.unwrap();
     assert_eq!(row_exec(&o.primary, id), (Some(2), Some(0.001)));
@@ -2691,7 +2755,7 @@ async fn u3b_a_row_appearing_after_the_switch_is_held_on_the_next_observation() 
     let (_dir, o, bot, _plan) = engine_setup();
     let first = open_row(&o.primary, &bot, "C0", "2026-09-01 10:00:00", json!({}));
     let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z")); unified(&t);
-    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_uta();
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
     t.reply("GET /api/v1/orders/C0", 200, json!({"code":"400100","msg":"order not exist"}));
     let _ = sweep(&o.primary, &v, bot.id).await;
     assert_eq!(record_family(&o.primary, first).as_deref(), Some("Classic"), "held by the switch");
@@ -2702,4 +2766,22 @@ async fn u3b_a_row_appearing_after_the_switch_is_held_on_the_next_observation() 
     assert!(obligation(&o.primary, late).is_some(), "an unread held row owes");
     assert_eq!(row_exec(&o.primary, late).0, Some(0), "never abandoned");
     assert!(!t.requests().iter().any(|r| r.path.contains("/fills")), "no fills fallback");
+}
+
+/// U4 (UTA.md A13, A14): the UTA refusal and its copy are gone from the Rust tree and from Rails' locales and views.
+#[test]
+fn u4_no_uta_refusal_copy_is_left() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let needles = [["account", "_uta"].concat(), ["are not supported by this ", "spot adapter"].concat(), ["allow", "_uta"].concat(), ["Unsupported", "Uta"].concat()];
+    let mut found = vec![];
+    fn walk(dir: &std::path::Path, needles: &[String], found: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = entry.path();
+            if p.is_dir() { walk(&p, needles, found); continue; }
+            let Ok(text) = std::fs::read_to_string(&p) else { continue };
+            for n in needles { if text.contains(n.as_str()) { found.push(format!("{}: {n}", p.display())); } }
+        }
+    }
+    for dir in ["src", "tests", "../app", "../config/locales", "../script/rust"] { walk(&root.join(dir), &needles, &mut found); }
+    assert!(found.is_empty(), "{found:#?}");
 }

@@ -341,7 +341,7 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
         let kind = match venue.account_mode().await {
             Ok(AccountMode::ClassicLf) => "trade",
             Ok(AccountMode::ClassicHf) => "trade_hf",
-            Ok(AccountMode::UnsupportedUta) => return Ok(venue.read_text_in_order(KUCOIN_UTA_BALANCE_PATH, vec![], MAX_BINANCE_ACCOUNT_BYTES).await),
+            Ok(AccountMode::Uta) => return Ok(venue.read_text_in_order(KUCOIN_UTA_BALANCE_PATH, vec![], MAX_BINANCE_ACCOUNT_BYTES).await),
             Err(e) => return Ok(Err(e.message())),
         };
         Ok(venue.read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", kind.to_string())], MAX_BINANCE_ACCOUNT_BYTES).await)

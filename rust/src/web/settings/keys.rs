@@ -243,7 +243,6 @@ pub async fn save(
             StatusCode::UNPROCESSABLE_ENTITY,
             "errors.api_key_permission_validation_failed",
         ),
-        Submitted::AccountMode(message) => return flash_response(&ctx, StatusCode::UNPROCESSABLE_ENTITY, message),
         Submitted::Refused(reason) => {
             let text = refusal_text(&ctx, &reason);
             let body = turbo::prepend_flash(&flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?);
@@ -264,8 +263,7 @@ pub async fn save(
 }
 
 /// What a credential submission came to: ApiKey#validate_credentials!, then, for a correct key, its save.
-/// `AccountMode`: D-KUCOIN-HF-MODE, a correct KuCoin key on an account this build does not trade on (its message key).
-pub(crate) enum Submitted { Correct, Incorrect, Permissions(Vec<String>, Vec<String>), Failed, Refused(String), AccountMode(&'static str) }
+pub(crate) enum Submitted { Correct, Incorrect, Permissions(Vec<String>, Vec<String>), Failed, Refused(String) }
 
 /// The submitted `api_key[...]` fields over the stored key (`original`), validated on `venue` outside the write lock, and a
 /// correct one saved (status correct, sync error cleared) inside it: rechecked against what was validated, guarded, then the
@@ -314,7 +312,6 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
                 "[{venue_name}] API key validation failed: {}",
                 scrub(&diagnostic.log_text(),&redaction_material)
             ));
-            if diagnostic.refusal && diagnostic.text == crate::venue::kucoin_account::UTA { return Ok(Submitted::AccountMode("settings.kucoin.account_uta")); }
             return Ok(Submitted::Failed);
         }
         Validity::Correct | Validity::Account(_) | Validity::PendingActivation => {}

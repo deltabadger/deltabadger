@@ -71,7 +71,7 @@ fn migrated(c: &Connection) -> Result<bool, SyncError> {
 
 /// A mode's episode source; the names stay whatever the enum is called.
 pub fn mode_source(mode: AccountMode) -> &'static str {
-    match mode { AccountMode::ClassicLf => "mode:ClassicLf", AccountMode::ClassicHf => "mode:ClassicHf", AccountMode::UnsupportedUta => "mode:Uta" }
+    match mode { AccountMode::ClassicLf => "mode:ClassicLf", AccountMode::ClassicHf => "mode:ClassicHf", AccountMode::Uta => "mode:Uta" }
 }
 
 /// The latest episode: (source, span).
@@ -141,7 +141,7 @@ fn hold_switched(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), Sy
 /// KuCoin's retention (an older one has nothing left to read). The current mode's first.
 pub fn seen_modes(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<Vec<AccountMode>, SyncError> {
     let episodes = spans(c, key, MODE)?;
-    let mut out: Vec<(DateTime<Utc>, AccountMode)> = [AccountMode::ClassicHf, AccountMode::UnsupportedUta].into_iter().filter_map(|m| {
+    let mut out: Vec<(DateTime<Utc>, AccountMode)> = [AccountMode::ClassicHf, AccountMode::Uta].into_iter().filter_map(|m| {
         episodes.iter().filter(|(s, _)| s == mode_source(m)).map(|(_, (_, b))| *b).max().filter(|b| now - super::kucoin_hf_ledger::RETENTION < *b).map(|b| (b, m))
     }).collect();
     out.sort_by_key(|(end, _)| std::cmp::Reverse(*end));

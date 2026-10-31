@@ -506,7 +506,7 @@ fn without_identity_reads(requests: Vec<Value>) -> Vec<Value> {
                                                      || (r["host"] == "api.binance.com" && r["path"] == deltabadger::identity::BINANCE_PATH));
     let check = |r: &Value| (r["host"] == "api.kucoin.com" && ["/api/v1/orders/000000000000000000000000", "/api/v1/accounts"].contains(&r["path"].as_str().unwrap_or_default()))
                             || (r["host"] == "api.binance.com" && r["path"] == "/sapi/v1/account/apiRestrictions");
-    // D-KUCOIN-HF-MODE: a KuCoin key the check judged correct is read for its account mode, right after the check.
+    // D-KUCOIN-HF-MODE: a KuCoin key is read for its account mode right after the check (UTA r1.9: whatever its verdict).
     let mode = |r: &Value| r["method"] == "GET" && r["host"] == "api.kucoin.com"
                            && [deltabadger::venue::kucoin_account::MODE, deltabadger::venue::kucoin_account::OPENED].contains(&r["path"].as_str().unwrap_or_default());
     let mut kept: Vec<Value> = vec![];
@@ -1204,7 +1204,12 @@ async fn mount_key_checks(server: &wiremock::MockServer) {
         Mock::given(matchers::method("DELETE")).and(matchers::path("/api.kucoin.com/api/v1/orders/000000000000000000000000")).and(matchers::header("KC-API-KEY", key))
             .respond_with(ResponseTemplate::new(status).set_body_json(body)).mount(server).await;
     }
-    // D-KUCOIN-HF-MODE: the keys a check judges correct hold classic (low-frequency) accounts.
+    // D-KUCOIN-HF-MODE: the keys a check judges correct hold classic (low-frequency) accounts. UTA r1.9: a key the check
+    // does not judge correct is read for its mode too, and an incorrect or throttled key's read is refused the same way.
+    for (key, status, body) in [("kucoin-incorrect", 401, json!({"code": "400003", "msg": "KC-API-KEY not exists"})), ("kucoin-failure", 429, json!({"code": "429000", "msg": "Too Many Requests"}))] {
+        Mock::given(matchers::method("GET")).and(matchers::path(format!("/api.kucoin.com{}", deltabadger::venue::kucoin_account::MODE))).and(matchers::header("KC-API-KEY", key))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body)).mount(server).await;
+    }
     for key in ["kucoin-key", "kucoin-correct"] {
         Mock::given(matchers::method("GET")).and(matchers::path(format!("/api.kucoin.com{}", deltabadger::venue::kucoin_account::MODE))).and(matchers::header("KC-API-KEY", key))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"code": "200000", "data": {"selfAccountMode": "CLASSIC"}}))).mount(server).await;
