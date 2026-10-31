@@ -1510,8 +1510,8 @@ fn a_signal_bot_is_refused_off_its_venues_and_for_what_its_pages_cannot_print() 
         assert_eq!(refusal(Some(false), For::Page, true), Some(why), "{venue}");
         c.execute_batch("ROLLBACK TO venue; RELEASE venue;").unwrap();
     }
-    // The account-wide rule's table is not printed; the feed answers whatever it says.
-    assert_eq!(refusal(Some(true), For::Page, true), Some("the wash-sale rule"));
+    // The account-wide rule is served (its locked table is printed); the feed answers whatever it says.
+    assert_eq!(refusal(Some(true), For::Page, true), None);
     assert_eq!(refusal(Some(true), For::Feed, true), None);
     // Bots::Signal#sell_capable?: an enabled sell rule owes the question.
     assert_eq!(refusal(None, For::Page, true), None);
@@ -1752,7 +1752,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "missed_quote_amount": "9999999999999999999999999999900.0" }).to_string(), id)).unwrap();
     assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "oversized persisted carry");
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [id]).unwrap();
-    assert_eq!(refused(&|_| {}, Some(true), true), Some("the wash-sale rule"));
+    assert_eq!(refused(&|_| {}, Some(true), true), None, "the rule on is served (PLAN-wash-sale WS-4a)");
     assert_eq!(refused(&|_| {}, None, true), None, "not answered, and nothing traded: Rails asks nothing yet");
     store(&settings);
     for (sql, reason) in [

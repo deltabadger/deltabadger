@@ -227,6 +227,39 @@ module Pages
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
                       .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios)
+                      .merge(wash_rule_scenarios)
+
+  # PLAN-wash-sale WS-4a: the bot pages of an account with the rule on. 'wash_locks' seeds the owner's locks
+  # ([symbol, buy_locked_until, source]); the one-time selling warning is asked of a basket that sells or is armed to.
+  def wash_rule_scenarios
+    rule = { 'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US') }
+    locks = [['QQQM', '2026-09-25T00:00:00Z', 'order'], ['IBIT', '2026-09-01T00:00:00Z', 'order'], ['NVDA', '2026-10-03T00:00:00Z', 'ledger'],
+             ['BTC', '2026-09-30T00:00:00Z', 'order']]
+    modal = ->(path) { get(path, TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')) }
+    warned = ->(path, expect) { post(path, {}, 'csrf' => 'header', 'headers' => TURBO, 'expect' => expect, 'settings_snapshot' => true) }
+    selling = stopped('single', 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 40, 'sell_interval' => 'hour' })
+    armed = stopped('basket', 'settings' => { 'price_limited' => true, 'price_limit_value_condition' => 'between', 'price_limit_range_lower_bound' => 380,
+                                              'price_limit_range_upper_bound' => 420, 'price_limit_action' => 'start_selling' })
+    {
+      'bot_wash_sale_rule' => with_bots(three, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots')), rule),
+      'bot_wash_rule_locks' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'single' }], signed_in(get('/bots/1'), get('/bots/2'), get('/bots/2', 'Turbo-Frame' => 'bot')),
+                                         rule.merge('wash_locks' => locks)),
+      'bot_wash_rule_locks_hidden' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'single' }], signed_in(get('/bots/1')),
+                                                'user' => owner('wash_sale_enabled' => true, 'hide_balances' => true), 'wash_locks' => locks),
+      'bot_wash_rule_off_locks' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'single' }], signed_in(get('/bots/1')), 'wash_locks' => locks),
+      'bot_wash_rule_selling_warning' => with_bots([selling, { 'kind' => 'basket' }],
+                                                   signed_in(get('/bots/1'), modal.('/bots/1/wash_sale_prompt/new'), get('/bots/1', 'Turbo-Frame' => 'bot'),
+                                                             get('/bots/2'), modal.('/bots/2/wash_sale_prompt/new'),
+                                                             warned.('/bots/1/wash_sale_selling_warning', 204), get('/bots/1'), modal.('/bots/1/wash_sale_prompt/new'),
+                                                             warned.('/bots/1/wash_sale_selling_warning', 204)), rule),
+      'bot_wash_rule_armed_warning' => with_bots([armed, { 'kind' => 'index' }], signed_in(get('/bots/1'), modal.('/bots/1/wash_sale_prompt/new')), rule),
+      'bot_wash_rule_warning_elsewhere' => with_bots([selling, { 'kind' => 'basket' }],
+                                                     signed_in(get('/bots/2'), warned.('/bots/2/wash_sale_selling_warning', 204), get('/bots/1')), rule),
+      'bot_wash_rule_warning_missing' => with_bots([selling], signed_in(get('/bots/1'), modal.('/bots/9/wash_sale_prompt/new'),
+                                                                        warned.('/bots/9/wash_sale_selling_warning', 404)), rule),
+      'bot_wash_rule_warning_signed_out' => with_bots([selling], [get('/bots/1/wash_sale_prompt/new'), post('/bots/1/wash_sale_selling_warning', {}, 'csrf' => 'none')], rule)
+    }
+  end
 
   # AUDIT #6: the same Resume confirmation clears an empty halt or hands back an owed buy.
   def rebalance_resolution_scenarios
@@ -1153,7 +1186,6 @@ module Pages
       # (actions_index_history_*). A page without figures has no realised profit or loss to show, so this grid's page is refused;
       # the figures page serves such histories (script/rust/page_figures.rb, index_specials).
       'not_ported_bot_index_history' => with_bots([stopped('index', 'orders' => 'index_rotation'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
-      'not_ported_bot_wash_sale_rule' => with_bots(three, signed_in(get('/bots/1')), 'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US')),
       'not_ported_bot_wash_sale_question' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1')),
                                                        'user' => owner('wash_sale_enabled' => nil)),
       'not_ported_bot_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots/2'), get('/bots/1'))),
@@ -1191,6 +1223,9 @@ module Pages
       venues(scenario) if scenario['venues']
       balances(scenario.fetch('balances', {}))
       jobs = scenario.fetch('bots', []).to_h { |spec| [bot(spec).id, spec['job']] }.compact
+      scenario.fetch('wash_locks', []).each do |symbol, until_at, source|
+        WashSaleLock.create!(user: User.first, asset: Asset.find_by!(symbol:), buy_locked_until: Time.iso8601(until_at), source:)
+      end
       action_fixture(scenario)
     end
     ActiveRecord::Base.connection_pool.disconnect!

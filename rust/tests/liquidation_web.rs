@@ -123,17 +123,11 @@ async fn mcp(app:&App,id:i64)->Value {
     serde_json::from_str::<Value>(&body).unwrap()["result"].clone()
 }
 #[tokio::test(flavor="current_thread")]
-async fn rest_and_mcp_real_entry_points_queue_the_webs_rows_and_share_wash_refusal() {
+async fn rest_and_mcp_real_entry_points_queue_the_webs_rows_with_the_wash_sale_rule_on() {
     for rest in [true,false] {
         let (_d,c,s,id,app,_)=install();credentials(&c,s.user_id);
+        // PLAN-wash-sale WS-4a: the rule is no refusal (Rails asks nothing); the engine claims the lock if the sale is at a loss.
         c.execute("UPDATE users SET wash_sale_enabled=1",[]).unwrap();
-        if rest {
-            let (status,_,body)=wire(&app,&format!("/api/v1/bots/{id}/liquidations"),"liquidation-api",json!({"symbol":"BTC"}),None).await;
-            assert_eq!(status,501,"{body}");
-            assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["error"]["code"],"not_ported");
-        } else {assert_eq!(mcp(&app,id).await["isError"],true);}
-        assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
-        c.execute("UPDATE users SET wash_sale_enabled=0",[]).unwrap();
         if rest {
             let (status,_,body)=wire(&app,&format!("/api/v1/bots/{id}/liquidations"),"liquidation-api",json!({"symbol":"BTC"}),None).await;
             assert_eq!(status,202,"{body}");

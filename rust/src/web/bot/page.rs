@@ -48,6 +48,10 @@ struct Show<'a> {
     preferences: &'a str,
     bot_updates: &'a str,
     page_stream: &'a str,
+    /// WashSalePromptable#wash_sale_prompt_stream on a frame request (the switcher swaps only the frame), else empty.
+    prompt_stream: String,
+    /// composition/_locked_table on a basket page whose figures are loading.
+    locked_table: String,
     /// `bot_path(bot)`.
     path: String,
     label_id: String,
@@ -270,6 +274,11 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let inline_chart = figures.as_ref().filter(|_|chart_cached).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         // A signal bot has its own settings column, and its own panel while its figures load (dca_single_assets/_metrics).
+        // composition/_locked_table while the figures load (a signal bot's is part of its own panel).
+        let locked_table = if metrics.is_none() && bot.kind != Kind::Signal {
+            let now = crate::figures::at::At::from_utc(ctx.now).ok_or_else(|| WebError::Config("a time out of range".into()))?;
+            crate::web::figure::loading_locked_table(c, bot.id, false, hide_money, now, ctx.locale, &ctx.path("")).map_err(super::fill_error)?
+        } else { String::new() };
         let settings = if bot.kind == Kind::Signal {
             if metrics.is_none() { metrics = Some(super::signal::loading_metrics(c, ctx, &bot, hide_money)?); }
             super::signal::column(c, ctx, csrf, &bot, hide_money, &base_url)?
@@ -286,8 +295,11 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         if let Some(slot) = rebalance_halt.find("<input type=\"hidden\" name=\"halt_token\"") {
             rebalance_halt.insert_str(slot,&format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />",crate::web::i18n::escape(csrf)));
         }
+        // show.html.erb's catch-all seam for the wash-sale modal: the layout loads it, or a frame request carries it.
+        let modal_src = super::wash::modal_src(c, ctx, user.id, &bot)?;
+        let prompt_stream = if ctx.turbo_frame.is_some() { super::wash::prompt_stream(c, ctx, csrf, user.id, bot.id)?.unwrap_or_default() } else { String::new() };
         let body = Show {
-            v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, path: path.clone(),
+            v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, prompt_stream, locked_table, path: path.clone(),
             label_id: bot.dom_id("label"), label: &bot.label, other_bots,
             menu: menu(ctx, csrf, &bot, configured)?, exchange_select: exchange_select(c, ctx, csrf, &bot, user.id)?,
             progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, inline_chart, cached, columns_id: bot.dom_id("columns"), working: bot.working(),
@@ -295,11 +307,11 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
             bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !shown_orders && !activities,
         }.render()?;
-        Ok((shell, body))
+        Ok((shell, body, modal_src))
     }).await;
     // The sums under a spending cap are read while the page is built: an amount this build does not read refuses the page there.
-    let (shell, body) = match page { Ok(page) => page, Err(error) => return layout::or_refused(&ctx, error) };
-    shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })
+    let (shell, body, modal_src) = match page { Ok(page) => page, Err(error) => return layout::or_refused(&ctx, error) };
+    shell::application_with_modal(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() }, modal_src)
 }
 
 /// GET /bots/:bot_id/chart: the chart's frame. A bot that is not this user's is a 404: `find` raises in Rails.

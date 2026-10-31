@@ -152,6 +152,17 @@ fn wash_sale_table(c: &Connection, s: &Subject, locked: &[&Holding], hidden: boo
     Ok(format!("<div id=\"wash_sale_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n<a class=\"rbutton rbutton--small rbutton--secondary\" data-turbo-frame=\"_top\" href=\"{}/settings/account\">{}</a>\n</div>\n{}\n</div>\n",t(locale,"bot.wash_sale.table_title"),escape(prefix),t(locale,"bot.wash_sale.settings_link"),table(c,s,locked,"wash_sale_list",true,hidden,locale,prefix)?))
 }
 
+/// bots/composition/_locked_table while the figures load (BotsController#show's `@bot.metrics`, no prices): each live lock
+/// unheld (`values: {}`): amount 0, no Sell, under its own key. A signal bot's are the locks on its pair's base.
+pub(super) fn loading_locked_table(c: &Connection, bot_id: i64, signal: bool, hidden: bool, locale: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
+    let s = if signal { crate::figures::pair::load(c, bot_id)? } else { Subject::load(c, bot_id)? };
+    let known: HashSet<i64> = if signal { s.tickers.first().map(|t| t.base_asset_id).into_iter().collect() }
+        else { c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1")?.query_map([bot_id], |r| r.get(0))?.collect::<Result<_,_>>()? };
+    let rows = locked(&[], live_locks(c, s.bot.user_id, &known, now)?)?.into_iter().map(|(key, id, until, source)|
+        Holding { key, asset: Some(id), amount: Num::Int(0), avg: None, value: None, pnl: None, harvest: false, sellable: false, can_sell: false, lock: Some(lock_shown(until, source, now)) }).collect::<Vec<_>>();
+    wash_sale_table(c, &s, &rows.iter().collect::<Vec<_>>(), hidden, locale, prefix)
+}
+
 /// bots/dca_single_assets/_metrics, from a pair bot's live figures (`pair::live`). Rust only (3.0): stale figures state
 /// nothing priced (D3, as a basket's), the note only for a venue the figures read; a pair that only sells states what it
 /// sold and what that brought in (D4).

@@ -278,6 +278,10 @@ module Pages
                                           get('/bots/2/chart', chart), get('/bots/2/chart?metrics_missing=1', chart), get('/bots/1.turbo_stream', FEED),
                                           get('/bots/4').merge('expect' => 302), get('/bots'), get('/de/bots')]),
         'signal_page_one_rule' => case_of.([one], [get('/bots'), get('/bots/1'), get('/ru/bots/1')]),
+        # PLAN-wash-sale WS-4a: the rule on, with live locks on the pair's base and on another asset (only the base's is listed).
+        'signal_page_wash_rule' => case_of.([one, working], [get('/bots/1'), get('/bots/2', 'Turbo-Frame' => 'bot'), get('/bots')],
+                                            'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'GB'),
+                                            'wash_locks' => [['QQQM', '2026-09-25T00:00:00Z', 'ledger'], ['IBIT', '2026-09-25T00:00:00Z', 'order']]),
         'signal_page_traded' => case_of.([traded, working],
                                          [get('/bots/1'), get('/bots/1.turbo_stream', FEED),
                                           get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A01.000000Z%7Ctransaction%7C1', FEED),

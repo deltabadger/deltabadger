@@ -45,6 +45,9 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
         + "\n" + &bar_streams(bot,&state)
         + "\n" + &button_streams(bot,&state)
         + "\n" + &alert(&draft.errors)? + "\n";
+    // bots/update.turbo_stream.erb ends with wash_sale_prompt_stream, judged on the saved row (a failed save included).
+    let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
+    let body = match super::wash::prompt_stream(c,ctx,&ctx.csrf_token(),user.id,bot.id)? { Some(stream) => body + &stream + "\n", None => body };
     Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![], after_scheduling: None })
 }
 
