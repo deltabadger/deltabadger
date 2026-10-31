@@ -107,7 +107,7 @@ module Pages
                                               json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
       # The setup gate is ApplicationController's: an install without an admin still answers the API.
       grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
-      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios)
+      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios).merge(api_order_scenarios)
     end
 
     # A10: POST /api/v1/bots (BotApi::Bots::Create, CreateIndex, CreateSignal). A refused create writes nothing: the
@@ -389,6 +389,75 @@ module Pages
       }
     end
 
+    # PLAN-A9 slice O1: OrdersController#create and #destroy up to the venue. Bot 1 is a basket with an open order and an
+    # imported one; bots 2 to 5 are signal bots: working on QQQM, stopped, working with an unresolved placement, and working
+    # on IBIT, which the venue no longer trades. A create claims its Idempotency-Key, so it may write that table, compared
+    # as stored (the fingerprint holds ParamsWrapper's `order` copy of the body).
+    ORDER_TOOLS = %w[market_sell limit_buy limit_sell cancel_order].freeze
+
+    def order_bots
+      open = { 'external_status' => 'open', 'order_type' => 'limit_order', 'price' => '408.25', 'amount' => '0.12247', 'amount_exec' => '0',
+               'quote_amount' => nil, 'quote_amount_exec' => '0' }
+      rows = [['QQQM', '2026-09-10T11:00:00Z', open.merge('external_id' => 'cancel-ok')], ['QQQM', '2026-09-10T11:01:00Z', open.merge('external_id' => 'imported_cancel-1')]]
+      running = { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' }
+      marker = { 'signal_placement_unresolved' => { 'id' => 'marker-1', 'at' => '2026-09-10T11:00:00Z', 'side' => 'buy', 'error' => 'timeout' } }
+      [{ 'kind' => 'basket', 'orders' => rows }, { 'kind' => 'signal', 'columns' => running }, { 'kind' => 'signal', 'columns' => { 'status' => 2 } },
+       { 'kind' => 'signal', 'pair' => %w[IBIT USD], 'columns' => running, 'transient' => marker },
+       { 'kind' => 'signal', 'pair' => %w[IBIT USD], 'columns' => running, 'delist' => 'IBIT' }]
+    end
+
+    def order_case(steps, api = {}, attrs = {}) = api_case(steps, { 'tools' => TOOLS + ORDER_TOOLS }.merge(api), { 'bots' => order_bots }.merge(attrs))
+
+    def order_post(body, key, token = 'api-token')
+      headers = { 'Content-Type' => 'application/json' }
+      headers['Idempotency-Key'] = key if key
+      api('/api/v1/orders', token, method: 'POST', headers:, body:).merge('may_mutate' => %w[idempotency_keys], 'raw_rows' => { 'idempotency_keys' => '*' })
+    end
+
+    def api_order_scenarios
+      buy = '{"type":"market_buy","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":10}'
+      refusals = ['{"type":"market_buy"}',
+                  '{"type":"limit_sell","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":"1","price":" "}',
+                  '{"type":"market_buy","exchange_name":"Nope<x>","base_asset":"QQQM","quote_asset":"USD","amount":10}',
+                  '{"type":"market_buy","exchange_name":"interactive brokers","base_asset":"QQQM","quote_asset":"USD","amount":10}',
+                  '{"type":"market_sell","exchange_name":"alpaca","base_asset":"qqqm","quote_asset":"eur","amount":10}',
+                  '{"type":"market_sell","exchange_name":"Alpaca","base_asset":["QQQM"],"quote_asset":"USD","amount":10}',
+                  '{"type":"market_sell","exchange_name":"ALPACA","base_asset":"ibit","quote_asset":"usd","amount":1,"amount_type":"base"}',
+                  '{"type":"market_buy","bot_id":"abc","amount":10}', '{"type":"market_buy","bot_id":12.5,"amount":10}',
+                  '{"type":"market_buy","bot_id":"","amount":10}', '{"type":"market_buy","bot_id":[2],"amount":10}',
+                  '{"type":"market_buy","bot_id":2,"amount":"0"}', '{"type":"market_buy","bot_id":2,"amount":"1e3"}',
+                  '{"type":"market_sell","bot_id":2,"amount":10,"amount_type":"QUOTE"}', '{"type":"market_buy","bot_id":999,"amount":10}',
+                  '{"type":"market_buy","bot_id":1,"amount":10}', '{"type":"market_buy","bot_id":"3","amount":10}',
+                  '{"type":"market_sell","bot_id":4.0,"amount":10}', '{"type":"market_buy","bot_id":5,"amount":10}',
+                  '{"type":"market_buy","bot_id":2,"amount":10,"exchange_name":"alpaca","base_asset":"IBIT","quote_asset":"usd"}',
+                  '{"type":"limit_buy","bot_id":2}', '{"type":"limit_sell","bot_id":null,"exchange_name":"Alpaca","amount":1}']
+      cancel = ->(path, token = 'api-token') { api(path, token, method: 'DELETE') }
+      {
+        'api_orders_refusals' => order_case(refusals.each_with_index.map { |body, i| order_post(body, "key-#{i}") } +
+                                            [order_post(buy, nil), order_post(refusals[2], 'key-2'), order_post(buy, 'key-2'),
+                                             order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'second-key', 'second-token'),
+                                             order_post(refusals[0], 'query-wrapper').merge('path' => '/api/v1/orders?order=1')]),
+        'api_orders_create_tool_off' => order_case([order_post(buy.sub('market_buy', 'market_sell'), 'off'), cancel.('/api/v1/orders/2')],
+                                            'tools' => TOOLS + ORDER_TOOLS - %w[market_sell cancel_order]),
+        'api_orders_wash_locked' => order_case([order_post(buy, 'wash-1'), order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'wash-2')], {},
+                                               'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US'),
+                                               'wash_locks' => [['QQQM', '2026-09-25T00:00:00Z', 'order']]),
+        'api_orders_key_pending' => order_case([order_post(buy, 'pending-1'), order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'pending-2')], {},
+                                               'api_keys' => { 'alpaca' => 'pending_activation' }),
+        'api_orders_key_incorrect' => order_case([order_post('{"type":"market_sell","bot_id":2,"amount":10}', 'incorrect-1')], {},
+                                                 'api_keys' => { 'alpaca' => 'incorrect' }),
+        'api_orders_cancel_refusals' => order_case([cancel.('/api/v1/orders/abc'), cancel.('/api/v1/orders/abc?exchange_name=Nope%3Cx%3E'),
+                                                    cancel.('/api/v1/orders/abc?exchange_name=Interactive%20Brokers'), cancel.('/api/v1/orders/2'),
+                                                    cancel.('/api/v1/orders/2.json'), cancel.('/api/v1/orders/999'), cancel.('/api/v1/orders/abc?exchange_name=')]),
+        # Past every refusal: Rails asks the venue (stubbed below; the cancels as pages_settings.rb answers them), this build
+        # answers 501 until the engine places and cancels (PLAN-A9 O2 to O4).
+        'not_ported_api_orders_market_buy' => order_case([order_post(buy, 'placed')]),
+        'not_ported_api_orders_limit_sell' => order_case([order_post('{"type":"limit_sell","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":1,"price":400}', 'limit')]),
+        'not_ported_api_orders_cancel_row' => order_case([cancel.('/api/v1/orders/1')]),
+        'not_ported_api_orders_cancel_external' => order_case([cancel.('/api/v1/orders/cancel-ok?exchange_name=alpaca')])
+      }
+    end
+
     # The Alpaca answers the read scenarios stub, by key (`alpaca_key`), after pages_settings.rb's own (WebMock answers
     # the last stub declared first). The same answers are mounted on rust/tests/pages.rs's wiremock server.
     HELD_ACCOUNT = '{"status":"ACTIVE","cash":"1234.5","buying_power":"2000"}'
@@ -413,6 +482,10 @@ module Pages
                .to_return(status: 503, body: '{"message":"unavailable"}', headers: json)
         WebMock.stub_request(:get, "https://#{host}/v2/account").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_ACCOUNT, headers: json)
         WebMock.stub_request(:get, "https://#{host}/v2/positions").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_POSITIONS, headers: json)
+      end
+      # PLAN-A9: an order Rails sends past every refusal (the not_ported_api_orders_ scenarios) is refused by the venue.
+      %w[paper-api.alpaca.markets api.alpaca.markets].each do |host|
+        WebMock.stub_request(:post, "https://#{host}/v2/orders").to_return(status: 403, body: '{"message":"no orders in the grid"}', headers: json)
       end
       WebMock.stub_request(:get, 'https://api.alpaca.markets/v2/account').with { |request| request.headers['Apca-Api-Key-Id'] != 'PKRICH' }
              .to_return(status: 200, body: '{"status":"ACTIVE","cash":"0"}', headers: json)

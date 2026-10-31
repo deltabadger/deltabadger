@@ -219,11 +219,76 @@ module McpControl
       s["stop_bot_signal_wash_#{name}"] = McpParity.ready + [tool('stop_bot', { bot_id: 2 }, signal + [wash])]
     end
     settings_form(s)
+    order_scenarios(s)
     prefixes = ENV.fetch('M4', '').split(',')
     selected = s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }
     raise 'empty M4 scenario filter' if selected.empty?
 
     selected
+  end
+
+  # PLAN-A9 slice O1: the order tools up to the venue. Granted and switched on before the session starts. Bot 1 (the coins
+  # basket) gets an open order and an imported one; bots 3 to 5 are Alpaca signal bots on QQQM: working, stopped, and working
+  # with an unresolved placement. 'paper' turns paper trading on: every answer is prefixed, and the orders that pass every
+  # check answer as dry runs (no venue is read but Rails' price read for a standalone market order, refused below).
+  def order_ready(extra = [])
+    quote = ->(v) { ActiveRecord::Base.connection.quote(v) }
+    owner = "(SELECT id FROM users WHERE email='owner@example.com')"
+    on = McpParity::ORDER_NAMES.map { |n| "'$.tool_permissions.#{n}',json('true')" }.join(',')
+    signal = lambda do |id, status, transient = '{}'|
+      "INSERT INTO bots (id,type,user_id,exchange_id,status,label,settings,transient_data,started_at,created_at,updated_at) VALUES " \
+        "(#{id},'Bots::Signal',#{owner},(SELECT id FROM exchanges WHERE name='Alpaca'),#{status},'Signal #{id}'," \
+        "json_object('base_asset_id',(SELECT id FROM assets WHERE symbol='QQQM'),'quote_asset_id',(SELECT id FROM assets WHERE symbol='USD'))," \
+        "#{quote.(transient)},'2026-09-09 12:00:00','2026-01-01 00:00:00','2026-01-01 00:00:00')"
+    end
+    order = lambda do |id, external, side|
+      "INSERT INTO transactions (id,bot_id,exchange_id,base_asset_id,quote_asset_id,status,external_status,side,order_type,transaction_type,amount,price," \
+        "external_id,base,quote,created_at,updated_at) VALUES (#{id},1,(SELECT id FROM exchanges WHERE name='Alpaca'),(SELECT id FROM assets WHERE symbol='QQQM')," \
+        "(SELECT id FROM assets WHERE symbol='USD'),0,1,#{side},1,'REGULAR',0.12247,408.25,'#{external}','QQQM','USD','2026-09-10 11:00:00','2026-09-10 11:00:00')"
+    end
+    marker = { 'signal_placement_unresolved' => { 'id' => 'marker-1', 'at' => '2026-09-10T11:00:00Z', 'side' => 'buy', 'error' => 'timeout' } }.to_json
+    fixtures = ["UPDATE connected_clients SET mcp_tools=#{quote.((NAMES + McpParity::ORDER_NAMES).to_json)}",
+                "UPDATE users SET mcp_settings=json_set(mcp_settings,#{on})",
+                signal.(3, 1), signal.(4, 2), signal.(5, 1, marker), order.(1, 'venue-open-1', 0), order.(2, 'imported_venue-2', 1)]
+    [McpParity.init.merge('sql' => fixtures + extra), McpParity.session_rpc('notifications/initialized', {}, nil)]
+  end
+
+  def order_scenarios(s)
+    paper = "UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"
+    call = ->(name, args) { McpParity.tool(name, args) }
+    pair = { exchange_name: 'Alpaca', base_asset: 'QQQM', quote_asset: 'USD' }
+    refusals = [call.('market_buy', { amount: 10 }), call.('market_buy', { exchange_name: 'Nope<x>', base_asset: 'QQQM', quote_asset: 'USD', amount: 10 }),
+                call.('market_sell', { exchange_name: 'interactive brokers', base_asset: 'QQQM', quote_asset: 'USD', amount: 1 }),
+                call.('limit_buy', { exchange_name: 'alpaca', base_asset: 'qqqm', quote_asset: 'eur', amount: 10, price: 400 }),
+                call.('limit_sell', { exchange_name: 'Alpaca', base_asset: ' ', quote_asset: 'USD', amount: 1, price: 400 }),
+                call.('market_buy', { bot_id: 999, amount: 10 }), call.('market_buy', { bot_id: 1, amount: 10 }), call.('market_buy', { bot_id: 4, amount: 10 }),
+                call.('market_sell', { bot_id: 5, amount: 1 }), call.('market_buy', { bot_id: 3.5, amount: 10 }), call.('market_buy', { bot_id: 0, amount: 10 }),
+                call.('market_buy', { bot_id: 3, amount: 0 }), call.('market_buy', { bot_id: 3, amount: 10, amount_type: 'nope' }),
+                call.('market_buy', { bot_id: 3, amount: 10, base_asset: 'ibit', exchange_name: 'kraken' }),
+                call.('limit_sell', pair.merge(bot_id: 3, amount: 1, price: 400)),
+                call.('cancel_order', { order_id: '' }), call.('cancel_order', { order_id: 'abc' }), call.('cancel_order', { order_id: 'abc', exchange_name: 'Nope' }),
+                call.('cancel_order', { order_id: 'abc', exchange_name: 'Interactive Brokers' }), call.('cancel_order', { order_id: '2' }),
+                call.('cancel_order', { order_id: '999' }), call.('market_buy', {}), call.('cancel_order', { order_id: 7 }),
+                call.('market_buy', { amount: 10, extra: true })]
+    s['order_refusals'] = order_ready + refusals
+    s['order_paper_refusals'] = order_ready([paper]) + refusals
+    s['order_paper_placed'] = order_ready([paper]) + [
+      call.('market_buy', { bot_id: 3, amount: 10 }), call.('market_sell', { bot_id: 3, amount: 0.5, amount_type: 'base' }),
+      call.('market_sell', { bot_id: 3.0, amount: 2, exchange_name: 'ALPACA', base_asset: 'qqqm' }),
+      call.('market_buy', { bot_id: 3, amount: 0.00005, amount_type: 'base' }),
+      call.('limit_buy', pair.merge(amount: 10, price: 400)), call.('limit_sell', pair.merge(amount: 0.5, price: 401.5, amount_type: 'base')),
+      call.('market_buy', { exchange_name: 'alpaca', base_asset: 'qqqm', quote_asset: 'usd', amount: 10 }),
+      call.('market_sell', pair.merge(amount: 1))
+    ]
+    # The lock's last day in the caller's zone: 2026-09-24 00:00 UTC is still the 23rd in California.
+    wash = ["UPDATE users SET wash_sale_enabled=1, wash_sale_jurisdiction='US', time_zone='Pacific Time (US & Canada)' WHERE email='owner@example.com'",
+            "INSERT INTO wash_sale_locks (user_id,asset_id,buy_locked_until,source,created_at,updated_at) VALUES ((SELECT id FROM users WHERE email='owner@example.com')," \
+            "(SELECT id FROM assets WHERE symbol='QQQM'),'2026-09-25 00:00:00','order','2026-09-01 00:00:00','2026-09-01 00:00:00')"]
+    s['order_wash_locked'] = order_ready(wash) + [call.('market_buy', pair.merge(amount: 10)), call.('market_buy', { bot_id: 3, amount: 10 })]
+    s['order_key_pending'] = order_ready(['UPDATE api_keys SET status=3']) + [call.('market_buy', { bot_id: 3, amount: 10 }), call.('market_buy', pair.merge(amount: 10))]
+    # D-ORDER-DRY-CANCEL: Rails' Exchange::Dryable raises on a dry-run cancel; this build answers the success text.
+    s['order_dry_cancel'] = order_ready([paper]) + [call.('cancel_order', { order_id: '1' })]
+    s['order_dry_cancel_external'] = order_ready([paper]) + [call.('cancel_order', { order_id: 'venue-9', exchange_name: 'alpaca' })]
   end
 
   # update_bot_settings speaks the settings page's fields (BotApi::Bots::SettingsFields): every field on the
@@ -350,6 +415,8 @@ module McpControl
       SolidQueue::Record.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production_queue.sqlite3'))
     end
     McpParity.singleton_class.define_method(:snapshot) { McpControl.snapshot }
+    # A standalone dry-run market order reads the touch first (Exchange::Dryable#set_dry_market_order); the price is not shown.
+    WebMock.stub_request(:any, /data\.alpaca\.markets/).to_return(status: 503, body: '{"message":"unavailable"}')
     Dir[File.join(root, '*/steps.json')].each { |p| McpParity.play(File.dirname(p), JSON.parse(File.read(p))) }
   end
 
