@@ -2449,7 +2449,7 @@ async fn u3a_reconcile_order_takes_uta_detail_and_executions_and_never_another_f
     let detail = uta_detail(&ext, 6, "0.001", "LIMIT");
     let full = [detail.clone(), uta_page(&ext, &[("T1", "0.0006", "30"), ("T2", "0.0004", "20")], 8), uta_page(&ext, &[], 8)];
     let before = snapshot(&o.primary);
-    for (b, why) in [(uta_bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.02"), uta_answers(&[detail.clone()])), "a detail alone proves no totals"),
+    for (b, why) in [(uta_bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.02"), uta_answers(std::slice::from_ref(&detail))), "a detail alone proves no totals"),
                      (uta_bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.03"), uta_answers(&full)), "other fees"),
                      (uta_bundle(&o.primary, id, "cancelled", "0.001", "60", eur("0.02"), uta_answers(&full)), "other totals"),
                      (bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.02"), attested("x")), "HF evidence for a UTA order")] {
