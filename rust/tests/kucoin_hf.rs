@@ -2254,6 +2254,13 @@ async fn u2_uta_status_answers_read_strictly() {
 async fn u2_uta_totals_come_from_unique_validated_executions() {
     use deltabadger::venue::OrderRef;
     let f = uta_fixture("orders", "U1");
+    let mut f = f;
+    // Review P2: a repeated tradeId must be the same item, field for field.
+    let mut conflict = f["cases"].as_array().unwrap().iter().find(|c| c["id"] == "totals_boundary_repeat").unwrap().clone();
+    conflict["id"] = json!("totals_repeat_with_another_time");
+    conflict["pages"][1]["data"]["items"][0]["executionTime"] = json!(1764741957600000000_i64);
+    conflict["expect"] = json!({"state": "Unreadable"});
+    f["cases"].as_array_mut().unwrap().push(conflict);
     for c in uta_case(&f, "totals_") {
         let (id, want) = (c["id"].as_str().unwrap(), &c["expect"]);
         let (_dir, o, _bot, t, v, tx, ext) = uta_placed(true).await;
@@ -2348,7 +2355,10 @@ async fn u2_uta_recovery_by_client_oid() {
 /// spent, and a debt currency has nothing to spend.
 #[tokio::test(flavor = "current_thread")]
 async fn u2_uta_engine_balance_never_spends_unpnl_or_debt() {
-    let f = uta_fixture("balances", "U1");
+    let mut f = uta_fixture("balances", "U1");
+    // Review P1: a liability empties a currency whatever its balance.
+    f["cases"].as_array_mut().unwrap().push(json!({"id": "liability_with_a_positive_balance", "response": {"code": "200000", "data": {"accountType": "UNIFIED", "accounts": [{"currencies": [
+        {"currency": "USDT", "equity": "90", "hold": "0", "balance": "100", "available": "100", "liability": "10"}]}]}}, "expect": {"spendable": {"USDT": "0"}}}));
     for c in uta_case(&f, "") {
         let (_dir, o, bot, _plan) = engine_setup();
         let t = ScriptedTransport::default(); t.set_now("2026-10-30T12:00:00Z".parse().unwrap());

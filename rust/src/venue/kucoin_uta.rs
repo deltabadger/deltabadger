@@ -9,8 +9,9 @@
 //!   its executions', each validated and kept once by `tradeId`, and only when their sizes sum to `filledSize` exactly.
 //! - **Cancel**: a POST naming the order.
 //! - **Balance**: the engine spends `max(0, min(available, balance − hold))` of the unified balance: `available` counts
-//!   unrealised profit, which is never spent.
+//!   unrealised profit, which is never spent. A currency with a liability has nothing to spend (r6.2).
 use super::*;
+use std::collections::BTreeMap;
 
 pub(super) const PLACE: &str = "/api/ua/v2/unified/order/place";
 pub(super) const CANCEL: &str = "/api/ua/v2/unified/order/cancel";
@@ -73,24 +74,31 @@ pub fn parse_uta_order(o: &Value, want: &HfOrder) -> Result<OrderState, VenueErr
                     amount_exec: filled, quote_amount_exec: Some(BigDec::zero()), limit: want.limit, sell: want.sell, pair: Some(want.symbol.clone()), asset_class: None })
 }
 
+/// One validated execution: the item as answered, its size, value, |fee| and fee currency.
+type Execution = (Value, BigDec, BigDec, BigDec, String);
 /// What one execution page adds, or why it can't be read: every item is `want`'s (order, symbol, side, SPOT) with a
-/// `tradeId`, a positive size and value and a decimal fee; a `tradeId` seen before must be the same fill.
-fn add_executions(items: &[Value], want: &HfOrder, seen: &mut std::collections::BTreeMap<String, (BigDec, BigDec)>) -> Result<(), VenueError> {
+/// `tradeId`, a positive size and value and a decimal fee; a `tradeId` seen before must be the same item, field for field.
+fn add_executions(items: &[Value], want: &HfOrder, seen: &mut BTreeMap<String, Execution>) -> Result<(), VenueError> {
     for e in items {
         let trade = e["tradeId"].as_str().filter(|t| !t.is_empty()).ok_or_else(unreadable)?;
         let (size, value) = (text_decimal(&e["size"]).ok_or_else(unreadable)?, text_decimal(&e["value"]).ok_or_else(unreadable)?);
+        let fee = text_decimal(&e["fee"]).ok_or_else(unreadable)?;
         if !spot(e) || e["orderId"].as_str() != Some(want.id.as_str()) || e["symbol"].as_str() != Some(want.symbol.as_str()) || !side_is(e, want.sell)
-            || !size.is_positive() || !value.is_positive() || text_decimal(&e["fee"]).is_none() {
+            || !size.is_positive() || !value.is_positive() {
             return Err(unreadable());
         }
         match seen.get(trade) {
-            Some(known) if *known != (size.clone(), value.clone()) => return Err(unreadable()),
+            Some(known) if known.0 != *e => return Err(unreadable()),
             Some(_) => {}
-            None => { seen.insert(trade.into(), (size, value)); }
+            None => {
+                let fee = if fee < BigDec::zero() { &BigDec::zero() - &fee } else { fee };
+                seen.insert(trade.into(), (e.clone(), size, value, fee, e["feeCurrency"].as_str().unwrap_or_default().to_string()));
+            }
         }
     }
     Ok(())
 }
+fn sums(seen: &BTreeMap<String, Execution>) -> (BigDec, BigDec) { seen.values().fold((BigDec::zero(), BigDec::zero()), |(s, v), e| (&s + &e.1, &v + &e.2)) }
 
 impl<T: Transport> KucoinVenue<T> {
     /// A UTA GET, its query signed and sent in the order given.
@@ -112,7 +120,7 @@ impl<T: Transport> KucoinVenue<T> {
     /// `filledSize` exactly; quote = Σ value, price = Σ value / Σ size at the pair's tick. None when they can't be told.
     async fn with_totals(&self, want: &HfOrder, mut state: OrderState) -> Result<Option<OrderState>, VenueError> {
         if !state.amount_exec.is_positive() { return Ok(Some(state)); }
-        let mut seen = std::collections::BTreeMap::new();
+        let mut seen = BTreeMap::new();
         let mut last: Option<String> = None;
         for _ in 0..MAX_PAGES {
             let mut query = vec![("tradeType", "SPOT".to_string()), ("symbol", want.symbol.clone()), ("orderId", want.id.clone()), ("pageSize", "200".to_string())];
@@ -120,7 +128,7 @@ impl<T: Transport> KucoinVenue<T> {
             let Some(body) = self.read_ok(&self.uta_get(EXECUTION, query)).await? else { return Ok(None) };
             let Some(items) = body["data"]["items"].as_array() else { return Ok(None) };
             if items.is_empty() {
-                let (size, value) = seen.values().fold((BigDec::zero(), BigDec::zero()), |(s, v), (a, b)| (&s + a, &v + b));
+                let (size, value) = sums(&seen);
                 if size != state.amount_exec { return Ok(None); }
                 let mut price = value.div(&size).ok_or_else(unreadable)?;
                 if let Some(p) = self.pairs.by_symbol.get(&want.symbol) { price = price.round(p.price_decimals); }
@@ -178,10 +186,10 @@ impl<T: Transport> KucoinVenue<T> {
         for account in body["data"]["accounts"].as_array().ok_or_else(unreadable)? {
             for c in account["currencies"].as_array().ok_or_else(unreadable)? {
                 let d = |k: &str| required(field(c, k)?);
-                let (available, balance, hold) = (d("available")?, d("balance")?, d("hold")?);
+                let (available, balance, hold, liability) = (d("available")?, d("balance")?, d("hold")?, d("liability")?);
                 let net = &balance - &hold;
                 let spendable = if available < net { available } else { net };
-                let spendable = if spendable.is_positive() { spendable } else { BigDec::zero() };
+                let spendable = if spendable.is_positive() && !liability.is_positive() { spendable } else { BigDec::zero() };
                 rows.push(serde_json::json!({"currency": field(c, "currency")?, "available": spendable.to_s_f(), "locked": hold.to_s_f()}));
             }
         }
