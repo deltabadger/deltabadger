@@ -1199,7 +1199,6 @@ mod action_write {
         for (action,sql) in [
             (write::Action::Start,"CREATE TRIGGER fail_log BEFORE INSERT ON bot_activity_logs BEGIN SELECT RAISE(ABORT,'log failure'); END"),
             (write::Action::Archive,"CREATE TRIGGER fail_archive BEFORE UPDATE OF status ON bots WHEN NEW.status=7 BEGIN SELECT RAISE(ABORT,'archive failure'); END"),
-            (write::Action::Start,"UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('true'))"),
         ] {
             let f=Fixture::new()?; f.c.execute_batch(sql)?; let before=f.snapshot()?;
             let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
@@ -2355,6 +2354,39 @@ async fn submitting_the_shown_name_of_an_unnamed_bot_saves_it() -> Result<(),Box
     let named=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[label]",name.as_str())]),Csrf::Header,&headers).await;
     assert_eq!(named.status,200,"{}",named.body);
     assert_eq!(label()?,Some(name),"the shown name, submitted, is saved");
+    Ok(())
+}
+
+/// PLAN-wash-sale WS-4a (Codex review): the selling warning a settings save carries is judged on the row as saved. A save the
+/// engine guard refuses (a working bot without its key) rolls its arming back, so it carries no warning; the same save, kept,
+/// does.
+#[tokio::test]
+async fn a_refused_save_carries_no_selling_warning() -> Result<(),Box<dyn std::error::Error>> {
+    use common::{seed,web::{Browser,Csrf}};
+    use deltabadger::web::session::{self,SessionData};
+    let (dir,opened,seeded) = common::install_alpaca();
+    let hash = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00',wash_sale_enabled=1",[hash])?;
+    let mut spec=seed::BotSpec::weekly(5.0,"2026-09-10 12:00:00"); spec.status=2;
+    let id=seed::insert_bot(&opened.primary,&seeded,&spec);
+    let app=common::web::app(dir.path(),"engine-test-secret",common::web::TestClock::at("2026-09-10T12:00:30Z"));
+    let mut browser=Browser { cookie:Some(session::seal(&app.keys.session,&SessionData { user:Some((seeded.user_id,hash.get(..29).ok_or("salt")?.into())),..Default::default() },app.now())),page:None };
+    let path=format!("/bots/{id}");
+    assert_eq!(browser.get(&app,&path).await.status,200);
+    let headers=[("accept","text/vnd.turbo-stream.html")];
+    // Armed to start selling: a price condition that flips the bot (Bot::Reversible#armed_to_start_selling?).
+    let selling=[("bots_dca_multi_asset[price_drop_limited]","1"),("bots_dca_multi_asset[price_drop_limit_mode]","flip")];
+    let direction=|| opened.primary.query_row("SELECT json_extract(settings,'$.price_drop_limit_action') FROM bots WHERE id=?1",[id],|r|r.get::<_,Option<String>>(0));
+    opened.primary.execute_batch(&format!("UPDATE bots SET status=1 WHERE id={id}; CREATE TEMP TABLE kept AS SELECT * FROM api_keys; DELETE FROM api_keys;"))?;
+    let refused=browser.send(&app,"PATCH",&path,Some(&selling),Csrf::Header,&headers).await;
+    assert!(refused.body.contains("This app can"),"the guard refuses the save: {}",refused.body);
+    assert_ne!(direction()?.as_deref(),Some("start_selling"),"the arming rolled back");
+    assert!(!refused.body.contains("wash_sale_selling_warning"),"no warning for a save that did not happen: {}",refused.body);
+    opened.primary.execute_batch(&format!("INSERT INTO api_keys SELECT * FROM kept; UPDATE bots SET status=2 WHERE id={id};"))?;
+    let kept=browser.send(&app,"PATCH",&path,Some(&selling),Csrf::Header,&headers).await;
+    assert_eq!(kept.status,200,"{}",kept.body);
+    assert_eq!(direction()?.as_deref(),Some("start_selling"),"{}",kept.body);
+    assert!(kept.body.contains("wash_sale_selling_warning"),"the kept save carries the warning: {}",kept.body);
     Ok(())
 }
 

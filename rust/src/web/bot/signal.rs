@@ -75,10 +75,8 @@ pub(super) fn refusal(c: &Connection, bot_id: i64, exchange: Option<&str>, setti
          AND (t.base_decimals NOT BETWEEN 0 AND ?2 OR t.quote_decimals NOT BETWEEN 0 AND ?2 OR t.price_decimals NOT BETWEEN 0 AND ?2))",
         (bot_id, super::MAX_DECIMALS), |r| r.get(0))?;
     if unbounded { return Ok(Some("a ticker with more decimals than this build rounds to")); }
-    // The account-wide rule: its locked table (composition/_locked_table) is not rendered here.
     match wash_sale_enabled {
         _ if asked == For::Feed => {}
-        Some(true) => return Ok(Some("the wash-sale rule")),
         // Bots::Signal#sell_capable?: an enabled sell rule. The question's modal opens over the page.
         None if rules.iter().any(|rule| rule.sell && rule.enabled) => return Ok(Some("the wash-sale question not answered yet")),
         _ => {}
@@ -217,8 +215,8 @@ fn quoted(figure: &str, quote: &str) -> String {
 use crate::web::figure::printed as shown;
 
 /// bots/dca_single_assets/_metrics.html.erb while the figures load (BotsController#show's `@bot.metrics`, the walk without
-/// prices, and `loading: true`): what was invested is stated, everything priced waits. The wash-sale table is not
-/// rendered: `refusal` serves no account under the rule.
+/// prices, and `loading: true`): what was invested is stated, everything priced waits, and the wash-sale table lists the
+/// live locks unheld.
 pub fn loading_metrics(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) -> Result<String, WebError> {
     let walked = crate::figures::pair::metrics(c, bot.id, crate::figures::at::At::from_utc(ctx.now).ok_or_else(|| WebError::Config("a time out of range".into()))?).map_err(super::fill_error)?;
     let figure = |e: crate::figures::num::NumError| WebError::Config(format!("a figure out of range: {e:?}"));
@@ -256,7 +254,9 @@ pub fn loading_metrics(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) -
         }
         None => out.push_str(&format!("      <tr>\n        <td colspan=\"{columns}\" class=\"text-center text-inactive\" style=\"padding-bottom: 2rem;\">. . .</td>\n      </tr>\n")),
     }
-    out.push_str("  </tbody>\n</table>\n\n  </div>\n\n  \n</div>\n");
+    let now = crate::figures::at::At::from_utc(ctx.now).ok_or_else(|| WebError::Config("a time out of range".into()))?;
+    let locks = crate::web::figure::loading_locked_table(c, bot.id, true, hide_money, now, ctx.locale, &ctx.path("")).map_err(super::fill_error)?;
+    out.push_str(&format!("  </tbody>\n</table>\n\n  </div>\n\n  {locks}\n</div>\n"));
     Ok(out)
 }
 

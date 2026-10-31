@@ -66,10 +66,9 @@ fn api_selection_is_all_or_nothing_and_dry_run_does_not_write() {
 #[test]
 fn api_uses_the_web_wash_refusal_and_rails_domain_codes() {
     let (_d,c,s,id,app,_)=install();
-    for wash in [Some(true),None] {
-        c.execute("UPDATE users SET wash_sale_enabled=?1",[wash]).unwrap();
-        assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("not_ported"));
-    }
+    // The question not answered refuses (WS-4b serves it); the rule on does not (WS-4a).
+    c.execute("UPDATE users SET wash_sale_enabled=NULL",[]).unwrap();
+    assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("not_ported"));
     c.execute("UPDATE users SET wash_sale_enabled=0",[]).unwrap();
     c.execute("UPDATE bots SET status=7 WHERE id=?1",[id]).unwrap();
     let archived=api(&c,&app,s.user_id,id,json!({"symbol":"BTC"}));
@@ -81,7 +80,8 @@ fn api_uses_the_web_wash_refusal_and_rails_domain_codes() {
 
 #[tokio::test(flavor="current_thread")]
 async fn web_modal_and_submit_use_the_same_wash_page_refusal() {
-    for wash in [Some(true),None] {
+    // The unanswered question only: the rule on is served (WS-4a).
+    for wash in [None::<bool>] {
         let (_d,c,_s,id,app,mut b)=install();
         c.execute("UPDATE users SET wash_sale_enabled=?1",[wash]).unwrap();
         assert_eq!(b.get(&app,&format!("/bots/{id}/liquidation/new?symbol=BTC")).await.status,501);
@@ -123,17 +123,11 @@ async fn mcp(app:&App,id:i64)->Value {
     serde_json::from_str::<Value>(&body).unwrap()["result"].clone()
 }
 #[tokio::test(flavor="current_thread")]
-async fn rest_and_mcp_real_entry_points_queue_the_webs_rows_and_share_wash_refusal() {
+async fn rest_and_mcp_real_entry_points_queue_the_webs_rows_with_the_wash_sale_rule_on() {
     for rest in [true,false] {
         let (_d,c,s,id,app,_)=install();credentials(&c,s.user_id);
+        // PLAN-wash-sale WS-4a: the rule is no refusal (Rails asks nothing); the engine claims the lock if the sale is at a loss.
         c.execute("UPDATE users SET wash_sale_enabled=1",[]).unwrap();
-        if rest {
-            let (status,_,body)=wire(&app,&format!("/api/v1/bots/{id}/liquidations"),"liquidation-api",json!({"symbol":"BTC"}),None).await;
-            assert_eq!(status,501,"{body}");
-            assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["error"]["code"],"not_ported");
-        } else {assert_eq!(mcp(&app,id).await["isError"],true);}
-        assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
-        c.execute("UPDATE users SET wash_sale_enabled=0",[]).unwrap();
         if rest {
             let (status,_,body)=wire(&app,&format!("/api/v1/bots/{id}/liquidations"),"liquidation-api",json!({"symbol":"BTC"}),None).await;
             assert_eq!(status,202,"{body}");

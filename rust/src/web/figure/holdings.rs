@@ -152,6 +152,25 @@ fn wash_sale_table(c: &Connection, s: &Subject, locked: &[&Holding], hidden: boo
     Ok(format!("<div id=\"wash_sale_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n<a class=\"rbutton rbutton--small rbutton--secondary\" data-turbo-frame=\"_top\" href=\"{}/settings/account\">{}</a>\n</div>\n{}\n</div>\n",t(locale,"bot.wash_sale.table_title"),escape(prefix),t(locale,"bot.wash_sale.settings_link"),table(c,s,locked,"wash_sale_list",true,hidden,locale,prefix)?))
 }
 
+/// bots/composition/_locked_table while the figures load (BotsController#show's `@bot.metrics`, no prices): each live lock
+/// unheld (`values: {}`): amount 0, no Sell, under its own key. A signal bot's are the locks on its pair's base.
+pub(super) fn loading_locked_table(c: &Connection, bot_id: i64, signal: bool, hidden: bool, locale: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
+    // Only a live lock on an asset this bot trades is drawn; without one, the bot's orders are not read for it.
+    let (user, settings): (i64, String) = c.query_row("SELECT user_id, settings FROM bots WHERE id=?1", [bot_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let known: HashSet<i64> = if signal { serde_json::from_str::<serde_json::Value>(&settings).ok().and_then(|s| s.get("base_asset_id").and_then(serde_json::Value::as_i64)).into_iter().collect() }
+        else { c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1")?.query_map([bot_id], |r| r.get(0))?.collect::<Result<_,_>>()? };
+    let live = live_locks(c, user, &known, now)?;
+    if live.is_empty() { return Ok(String::new()); }
+    // BotHelper#locked_member_keys reads the walk's `key_assets` (`@bot.metrics`, no prices), so a lock beside a holding of
+    // the same name is told apart from it. A pair holds one asset: no name to share.
+    let (s, key_assets) = if signal { (crate::figures::pair::load(c, bot_id)?, vec![]) } else {
+        budget::within(|| -> Result<_, FiguresError> { let s = Subject::load(c, bot_id)?; let keys = crate::figures::walk::metrics(c, &s, now)?.key_assets; Ok((s, keys)) })?
+    };
+    let rows = locked(&key_assets, live)?.into_iter().map(|(key, id, until, source)|
+        Holding { key, asset: Some(id), amount: Num::Int(0), avg: None, value: None, pnl: None, harvest: false, sellable: false, can_sell: false, lock: Some(lock_shown(until, source, now)) }).collect::<Vec<_>>();
+    wash_sale_table(c, &s, &rows.iter().collect::<Vec<_>>(), hidden, locale, prefix)
+}
+
 /// bots/dca_single_assets/_metrics, from a pair bot's live figures (`pair::live`). Rust only (3.0): stale figures state
 /// nothing priced (D3, as a basket's), the note only for a venue the figures read; a pair that only sells states what it
 /// sold and what that brought in (D4).

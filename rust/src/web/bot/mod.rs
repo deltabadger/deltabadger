@@ -23,6 +23,7 @@ pub mod signal;
 pub mod signal_write;
 pub mod start;
 pub mod status;
+pub mod wash;
 
 use super::format::Num;
 use super::WebError;
@@ -490,14 +491,9 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let distance_ok = defaulted("limit_order_pcnt_distance") || settings.get("limit_order_pcnt_distance").and_then(Value::as_f64).is_some_and(|share| (0.0..=1.0).contains(&share));
     let interval_ok = matches!(settings.get("interval").and_then(Value::as_str), Some("hour" | "day" | "week" | "month"));
     if !positive("quote_amount") || !interval_ok || !mode_known || !smart_ok || !distance_ok { return Ok(Some("settings no form would have saved")); }
-    if transient.get("rebalance_pending").is_some_and(|v| !v.is_null())
-        && !crate::engine::rebalance::pending(&transient)?.is_some_and(|p| p.phase == "ambiguous"
-            // A resolution can return an owed leg. Its redirect must remain readable; unrelated
-            // inherited selling/buying states keep the existing page refusal.
-            || (transient["rust_rebalance_resolution"].as_str().is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
-                && matches!(p.phase.as_str(), "selling" | "buying"))) {
-        return Ok(Some("a rebalance, liquidation or redeploy in progress"));
-    }
+    // A rebalance in progress is drawn in any phase (3.0 plan A3): the page locks what it locks (the venue menu, the
+    // composition, the Redeploy offer). A pending state stored in a shape the engine cannot read is still an error.
+    crate::engine::rebalance::pending(&transient)?;
     if class == "Bots::DcaIndex" && !provider_is_deltabadger { return Ok(Some("an index bot whose market data comes from CoinGecko")); }
     // Every ticker the pages may round by: the venue's, and those the bot's memberships name.
     let unbounded: bool = c.query_row(
@@ -526,7 +522,6 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     match wash_sale_enabled {
         // The feed has no figures and no modal: BotsController#show answers it whatever the rule says.
         _ if asked == For::Feed => {}
-        Some(true) if asked != For::FiguresPage => return Ok(Some("the wash-sale rule")),
         // The question's modal opens once the bot holds something, which only the metrics walk knows.
         // Bot#sell_capable?: selling, armed to start selling, or holding something (only the metrics walk knows that, so any order counts).
         None if sell_capable(&class, &settings) || c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? => {
@@ -541,9 +536,14 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
 /// Bot::Rebalanceable#rebalance_enabled? counts too: both composition types include it, and a rebalance sells.
 fn sell_capable(class: &str, settings: &Value) -> bool {
     (matches!(class, "Bots::DcaMultiAsset" | "Bots::DcaIndex") && cast_boolean(settings.get("rebalance_enabled")))
-    || class == "Bots::DcaMultiAsset" && (settings.get("direction").and_then(Value::as_str) == Some("selling")
+    || class == "Bots::DcaMultiAsset" && selling_or_armed(settings)
+}
+
+/// A basket's `selling? || armed_to_start_selling?` (Bot::Reversible).
+pub fn selling_or_armed(settings: &Value) -> bool {
+    settings.get("direction").and_then(Value::as_str) == Some("selling")
         || settings.as_object().is_some_and(|s| s.iter().any(|(key, value)| value.as_str() == Some("start_selling")
-            && key.strip_suffix("_limit_action").is_some_and(|rule| cast_boolean(s.get(&format!("{rule}_limited")))))))
+            && key.strip_suffix("_limit_action").is_some_and(|rule| cast_boolean(s.get(&format!("{rule}_limited"))))))
 }
 
 /// The reason a bot with special rows the engine does not read is refused (engine::eligibility::unread_special_rows).
