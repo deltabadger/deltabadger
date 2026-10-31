@@ -118,6 +118,7 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
                 "venue_requests", "may_mutate", "raw_rows", "session", "job_classes"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
+    if let Some(keys) = recorded.get("jobs").and_then(rails_sync_keys) { answer["sync_keys"] = keys; }
     answer
 }
 
@@ -129,13 +130,42 @@ fn rust_answer(answer: &Answer, step: &Value) -> Value {
 
 /// The Rails job a wake of this crate's runner stands for, for a step's `jobs` (pages.rb records the classes its
 /// step enqueued). A wake with no counterpart is written as its own name, so it can never match a Rails class.
-const JOB_CLASSES: [(&str, &str); 3] = [("api_key_validator", "ApiKeyValidatorJob"), ("tracker_ledger", "Tracker::LedgerJob"),
-                                        ("portfolio_backfill", "PortfolioSnapshot::BackfillJob")];
+const JOB_CLASSES: [(&str, &str); 5] = [("api_key_validator", "ApiKeyValidatorJob"), ("tracker_ledger", "Tracker::LedgerJob"),
+                                        ("portfolio_backfill", "PortfolioSnapshot::BackfillJob"),
+                                        ("ledger_sync", "AccountTransaction::SyncTrackerJob"), ("balance_sync", "AccountBalance::SyncJob")];
+/// D-SYNC-WAKES (PLAN-A11): Rails enqueues one job of each class for all the keys it read (`perform_later(user_id, ids)`);
+/// this crate wakes each job once per key. Compared as one class each, with the keys each class covers (`sync_keys`).
+const SYNC_CLASSES: [&str; 2] = ["AccountTransaction::SyncTrackerJob", "AccountBalance::SyncJob"];
 
 fn job_classes(wakes: &[(String, Option<String>)]) -> Value {
     let mut classes: Vec<String> = wakes.iter().map(|(name, _)| JOB_CLASSES.iter().find(|(rust, _)| rust == name).map_or_else(|| format!("rust:{name}"), |(_, rails)| rails.to_string())).collect();
     classes.sort();
+    let mut seen = vec![];
+    classes.retain(|class| !SYNC_CLASSES.contains(&class.as_str()) || { let first = !seen.contains(class); seen.push(class.clone()); first });
     json!(classes)
+}
+
+/// The keys each sync class covers, from this crate's wakes (their scope is the key id).
+fn rust_sync_keys(wakes: &[(String, Option<String>)]) -> Option<Value> {
+    let mut keys: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+    for (name, scope) in wakes {
+        let Some((_, class)) = JOB_CLASSES.iter().find(|(rust, _)| rust == name).filter(|(_, class)| SYNC_CLASSES.contains(class)) else { continue };
+        keys.entry(class.to_string()).or_default().push(scope.as_deref().and_then(|s| s.parse().ok()).expect("a sync wake is scoped by its key"));
+    }
+    for ids in keys.values_mut() { ids.sort_unstable(); }
+    (!keys.is_empty()).then(|| json!(keys))
+}
+
+/// The same from Rails' recorded jobs (`args`: the user, then the key ids).
+fn rails_sync_keys(jobs: &Value) -> Option<Value> {
+    let mut keys: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+    for job in jobs.as_array().into_iter().flatten() {
+        let Some(class) = job["job_class"].as_str().filter(|c| SYNC_CLASSES.contains(c)) else { continue };
+        let ids = keys.entry(class.to_string()).or_default();
+        ids.extend(job["args"][1].as_array().expect("a sync job's key ids").iter().map(|id| id.as_i64().unwrap()));
+        ids.sort_unstable();
+    }
+    (!keys.is_empty()).then(|| json!(keys))
 }
 
 /// Masking must not hide a broken value: every CSRF token this crate rendered has to unmask to the
@@ -437,7 +467,11 @@ async fn run(dir: &Path) -> Value {
             answer.body=common::html::without_rebalance_attestation(&answer.body,&c);
         }
         let mut response = rust_answer(&answer, step);
-        if step["jobs"] == true { response["job_classes"] = job_classes(&app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default()[woken..]); }
+        if step["jobs"] == true {
+            let wakes = app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default();
+            response["job_classes"] = job_classes(&wakes[woken..]);
+            if let Some(keys) = rust_sync_keys(&wakes[woken..]) { response["sync_keys"] = keys; }
+        }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
         let requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
@@ -461,7 +495,11 @@ async fn run(dir: &Path) -> Value {
                 None => panic!("missing action observer: a step that writes needs a signed-in browser to watch its broadcasts"),
             };
             // A drag writes only `position`, which nothing the engine runs reads: it never wakes the engine.
-            if step["path"].as_str().is_some_and(|p| p.split('?').next() == Some("/bots/reorder")) { assert!(!woke, "a reorder wakes nothing: {step}"); } else { assert_eq!(woke, changed, "wake must follow an action write: {step}"); }
+            if step["path"].as_str().is_some_and(|p| p.split('?').next() == Some("/bots/reorder")) { assert!(!woke, "a reorder wakes nothing: {step}"); }
+            // PLAN-A11 r2/r3: a tracker write or sync wakes the engine when it commits (a 2xx answer), whatever it changed;
+            // a refusal and every read wake nothing. Their rows are account_transactions, outside ACTION_TABLES.
+            else if tracker_write_step(step) { assert!(!changed, "a tracker write changed an action table: {step}"); assert_eq!(woke, (200..300).contains(&answer.status), "a tracker write wakes after its commit only: {step}"); }
+            else { assert_eq!(woke, changed, "wake must follow an action write: {step}"); }
             // Rails enqueues Bot::ActionJob for a bot its step scheduled; this crate's engine, just woken, schedules it
             // from the row.
             if step["jobs"] == true {
@@ -2095,10 +2133,10 @@ fn page_grid_selection_is_complete_and_disjoint() {
     {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 - 1 + 6 + 2 + 8 + 31, "completed read-only baseline (3.0 A8's thirty-one bot_csv_ export and import scenarios, with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear), and AUDIT #6's two rebalance resolution flows, and PLAN-wash-sale WS-4a's eleven rule-on pages in place of the one not_ported_ (eight bot_wash_ on baskets: the locks, the selling warning and its acknowledgement; two missing_wash_ 404s; one signal_page_wash_rule), less the dashboard's one not_ported_ list (D-DASHBOARD-REFUSED-TILE: a refused bot is listed plain, pinned in tests/serve.rs), and PLAN-wash-sale WS-4b's seven question pages in place of the one not_ported_ (six on baskets: the modal, its answers, a missing_ 404; one Sell confirmation that asks it; the signal rule write and the signal wizard save are served under their own names), and 3.0 plan A3's two bot pages while a rebalance sells or buys, and 3.0 plan A4's eight cancel_order_ answers (a cancel, a refusal in English and German, an invalid key, an imported row, a missing and a deleted bot, signed out; one missing_ row 404)");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 - 1 + 6 + 2 + 8 + 31 + 32, "completed read-only baseline (3.0 A11's thirty-five api_tracker_ scenarios on the tracker routes, less the list route's three gated and not_ported_ ones; 3.0 A8's thirty-one bot_csv_ export and import scenarios, with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear), and AUDIT #6's two rebalance resolution flows, and PLAN-wash-sale WS-4a's eleven rule-on pages in place of the one not_ported_ (eight bot_wash_ on baskets: the locks, the selling warning and its acknowledgement; two missing_wash_ 404s; one signal_page_wash_rule), less the dashboard's one not_ported_ list (D-DASHBOARD-REFUSED-TILE: a refused bot is listed plain, pinned in tests/serve.rs), and PLAN-wash-sale WS-4b's seven question pages in place of the one not_ported_ (six on baskets: the modal, its answers, a missing_ 404; one Sell confirmation that asks it; the signal rule write and the signal wizard save are served under their own names), and 3.0 plan A3's two bot pages while a rebalance sells or buys, and 3.0 plan A4's eight cancel_order_ answers (a cancel, a refusal in English and German, an invalid key, an imported row, a missing and a deleted bot, signed out; one missing_ row 404)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1 + 2 + 4, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on, and WS-4a's two settings saves of a selling basket that carry the selling warning, and WS-4b's four that ask the question: two saves, the start dialog and the start)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 + 2 - 1 + 6 + 4 + 2 + 8 + 31, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line, plus AUDIT #6's two rebalance resolution flows)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 + 2 - 1 + 6 + 4 + 2 + 8 + 31 + 32, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line, plus AUDIT #6's two rebalance resolution flows)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3 + 5, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, the empty bots page for a member (twice) and on the first visit, and the five Connect pages slice 6c-5's redeploy_ answers start from");
     }
@@ -2263,7 +2301,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
@@ -2303,6 +2341,59 @@ fn without_history_generation(name: &str, rust: &mut Value) -> Result<(), String
     for bot in rust["bots"].as_array_mut().into_iter().flatten() {
         let Some(mut data) = bot["transient_data"].as_str().and_then(|t| serde_json::from_str::<Value>(t).ok()) else { continue };
         if data.as_object_mut().and_then(|d| d.shift_remove(key)).is_some() { bot["transient_data"] = json!(data.to_string()); }
+    }
+    Ok(())
+}
+
+/// A REST step that writes the tracker or starts its sync (PLAN-A11).
+fn tracker_write_step(step: &Value) -> bool {
+    let path = step["path"].as_str().unwrap_or("").split('?').next().unwrap_or("");
+    step["client"] == "api" && (path.starts_with("/api/v1/transactions/account/") || path == "/api/v1/tracker/sync") && step["method"] != "GET"
+}
+
+/// The listed tracker API divergences (PLAN-A11): Rails' answer is turned into the one this build owes, after checking
+/// Rails still answers what the divergence names. Everything else of the scenario (rows, other steps) stays compared.
+fn tracker_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
+    use deltabadger::web::tracker::api;
+    let responses = rails["responses"].as_array_mut().ok_or("no responses")?;
+    let status = |responses: &[Value], i: usize| responses[i]["status"].as_u64().unwrap_or(0);
+    // Step `i` answered as step `like` (its status, headers and body; and its jobs, since a refusal enqueues none).
+    let answer_as = |responses: &mut Vec<Value>, i: usize, like: usize, rails_status: u64| -> Result<(), String> {
+        if status(responses, i) != rails_status { return Err(format!("step {i}: Rails answers {} where the divergence names {rails_status}", status(responses, i))); }
+        let reference = responses[like].clone();
+        let step = &mut responses[i];
+        for key in ["status", "headers", "body", "job_classes"] { step[key] = reference[key].clone(); }
+        for key in ["exception", "sync_keys"] { step.as_object_mut().unwrap().remove(key); }
+        Ok(())
+    };
+    let envelope = |code: &str, message: &str| json!({"data": null, "error": {"code": code, "message": message}}).to_string();
+    match name {
+        // D-API-DATE-STRICT: Date.parse reads a date out of each; this build answers step 0's invalid_date.
+        "api_tracker_d_dates" => for i in 1..=6 { answer_as(responses, i, 0, 200)?; },
+        // D-API-ENTRY-TYPE: Rails filters by the text as given; this build refuses it (step 0's 422 headers).
+        "api_tracker_d_entry_type" => for i in 1..=3 {
+            answer_as(responses, i, 0, 200)?;
+            responses[i]["body"] = json!(envelope("invalid_entry_type", api::INVALID_ENTRY_TYPE));
+        },
+        // D-API-NONSCALAR: Rails raises on Array#to_i; this build answers as an unknown exchange (step 0) or the default limit (step 1).
+        "api_tracker_d_nonscalar" => { answer_as(responses, 2, 0, 500)?; answer_as(responses, 3, 1, 500)?; answer_as(responses, 4, 0, 500)?; }
+        // D-LINK-KIND: Rails answers "No matching transfer"; this build 422 not_transferable (step 0's 422 headers).
+        "api_tracker_d_link_kind" => for i in 1..=2 {
+            answer_as(responses, i, 0, 404)?;
+            responses[i]["body"] = json!(envelope("not_transferable", api::NOT_TRANSFERABLE));
+        },
+        // D-PRICE-NONTEXT: Rails clears (on a row that has no stated price, so nothing is written) and enqueues the ledger.
+        "api_tracker_d_price_nontext" => for i in 1..=3 { answer_as(responses, i, 0, 200)?; },
+        // D-SYNC-VENUE: a reading key on a venue this build does not sync refuses the sync; nothing is woken.
+        "api_tracker_d_sync_venue" => {
+            if status(responses, 0) != 202 { return Err("Rails no longer starts the sync".into()); }
+            let step = &mut responses[0];
+            step["status"] = json!(501);
+            step["body"] = json!(envelope("not_ported", &api::sync_unsupported(&["Interactive Brokers"])));
+            step["job_classes"] = json!([]);
+            step.as_object_mut().unwrap().remove("sync_keys");
+        }
+        _ => {}
     }
     Ok(())
 }

@@ -42,7 +42,7 @@ async fn play(dir: &Path, steps: &[Value], mut session: Option<String>) -> Value
 fn snapshot(dir:&Path)->Value {
     let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     let mut tables=serde_json::Map::new();
-    for table in ["action_mcp_sessions","action_mcp_session_messages","action_mcp_session_subscriptions","oauth_access_tokens","connected_clients","bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
+    for table in ["action_mcp_sessions","action_mcp_session_messages","action_mcp_session_subscriptions","oauth_access_tokens","connected_clients","bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users","account_transactions"] {
         let mut q=c.prepare(&format!("SELECT * FROM {table} ORDER BY id")).unwrap();
         let names:Vec<String>=q.column_names().iter().map(|s|s.to_string()).collect();
         let rows=q.query_map([],|r|{
@@ -121,7 +121,7 @@ async fn control_transcripts() {
     let mut failures = vec![];
     for (dir,got) in dirs.iter().zip(results) {
         let want = read(dir.join("rails.json"));
-        let (mut got,want)=(comparable(got),comparable(want));
+        let (mut got,mut want)=(comparable(got),comparable(want));
         // Plan 3c divergence 9: the engine is held for the HTTP snapshot. Assert
         // the exact request, then compare every other primary column and JSON key.
         let name=dir.file_name().unwrap().to_string_lossy();
@@ -266,6 +266,7 @@ async fn control_transcripts() {
             }
             result_without_before(&mut got);
         }
+        if let Err(why)=tracker_difference(&name,&mut want) { failures.push(format!("{name} (listed divergence): {why}")); continue; }
         let continuation=["start_continue_created","start_continue_empty","start_continue_within"].contains(&name.as_ref());
         assert_eq!(requests,usize::from(continuation),"{name}");
         if got!=want {
@@ -279,6 +280,48 @@ async fn control_transcripts() {
         }
     }
     assert!(failures.is_empty(), "M4 mismatches: {failures:?}");
+}
+
+/// The listed tracker divergences (PLAN-A11): the named tool calls' Rails results become the ones this build owes, in the
+/// answer and in the session's stored copy of it, after checking Rails still answers what the divergence names.
+fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
+    use deltabadger::web::{mcp::protocol::tool_text,tracker::api};
+    let text=|want:&Value,i:usize|->Result<(Value,String),String>{
+        let body:Value=serde_json::from_str(want["responses"][i]["body"].as_str().ok_or("no body")?).map_err(|e|e.to_string())?;
+        let text=body["result"]["content"][0]["text"].as_str().ok_or(format!("step {i}: no tool text"))?.to_string();
+        Ok((body["result"].clone(),text))
+    };
+    let (date,_)=text(want,2).unwrap_or_default();
+    let steps:Vec<(usize,Value)>=match name {
+        // D-API-DATE-STRICT: Date.parse reads a date out of each; this build answers step 2's invalid_date.
+        "tracker_d_dates"=>(3..=5).map(|i|(i,date.clone())).collect(),
+        "tracker_d_entry_type"=>(2..=3).map(|i|(i,tool_text(api::INVALID_ENTRY_TYPE,true))).collect(),
+        "tracker_d_link_kind"=>(2..=3).map(|i|(i,tool_text(api::NOT_TRANSFERABLE,true))).collect(),
+        "tracker_d_sync_venue"=>vec![(2,tool_text(&api::sync_unsupported(&["Interactive Brokers"]),true))],
+        _=>return Ok(()),
+    };
+    for (i,owed) in steps {
+        let (old,shown)=text(want,i)?;
+        let named=match name {
+            "tracker_d_dates"|"tracker_d_entry_type"=>old.get("isError").is_none(),
+            "tracker_d_link_kind"=>shown=="No matching transfer within 14 days.",
+            _=>shown.starts_with("Sync started for "),
+        };
+        if !named { return Err(format!("step {i}: Rails answers {shown:?}")); }
+        let mut body:Value=serde_json::from_str(want["responses"][i]["body"].as_str().unwrap()).unwrap();
+        body["result"]=owed.clone();
+        want["responses"][i]["body"]=json!(serde_json::to_string(&body).unwrap());
+        let mut stored=0;
+        for message in want["rows"]["action_mcp_session_messages"].as_array_mut().ok_or("no session messages")? {
+            let Some(mut json)=message["message_json"].as_str().and_then(|t|serde_json::from_str::<Value>(t).ok()) else {continue};
+            if json["result"]!=old {continue}
+            json["result"]=owed.clone();
+            message["message_json"]=json!(serde_json::to_string(&json).unwrap());
+            stored+=1;
+        }
+        if stored==0 { return Err(format!("step {i}: the session holds no copy of Rails' result")); }
+    }
+    Ok(())
 }
 
 /// The before-snapshot is evidence for named divergences only, never part of the Rails comparison.

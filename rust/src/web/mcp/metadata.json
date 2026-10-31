@@ -1418,6 +1418,84 @@
       }
     },
     {
+      "name": "export_transactions_csv",
+      "description": "Export account transactions as CSV with optional exchange and date filters",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "exchange_id": {
+            "type": "number",
+            "description": "Filter by exchange ID (optional)"
+          },
+          "from_date": {
+            "type": "string",
+            "description": "Start date in YYYY-MM-DD format (optional)"
+          },
+          "to_date": {
+            "type": "string",
+            "description": "End date in YYYY-MM-DD format (optional)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_account_transactions",
+      "description": "List account transactions (tracker) with optional filters for exchange, date range, and entry type",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "exchange_id": {
+            "type": "number",
+            "description": "Filter by exchange ID (optional)"
+          },
+          "from_date": {
+            "type": "string",
+            "description": "Start date in YYYY-MM-DD format (optional)"
+          },
+          "to_date": {
+            "type": "string",
+            "description": "End date in YYYY-MM-DD format (optional)"
+          },
+          "entry_type": {
+            "type": "string",
+            "description": "Filter by type: buy, sell, swap_in, swap_out, deposit, withdrawal, staking_reward, lending_interest, airdrop, mining, fee, other_income, lost (optional)"
+          },
+          "limit": {
+            "type": "number",
+            "description": "Number of transactions to return (default: 50, max: 200)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_indices",
+      "description": "List the indices an index bot can track (Top coins, CoinGecko categories, stock indices) and the exchanges each is available on",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "exchange_name": {
+            "type": "string",
+            "description": "Only indices available on this exchange (optional)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
       "name": "delete_bot",
       "description": "Delete a bot (running or not). Its schedule is cancelled; its history is kept but hidden.",
       "inputSchema": {
@@ -1523,6 +1601,62 @@
       "annotations": {
         "openWorldHint": true,
         "destructiveHint": true
+      }
+    },
+    {
+      "name": "sync_tracker",
+      "description": "Refresh the portfolio tracker: pull new account transactions and balances from every connected exchange. Runs in the background.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_transfer_link",
+      "description": "Mark a withdrawal and a deposit as one transfer between your own accounts (so it is not a disposal), or undo that. Give either side; the match is found within 14 days.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "number",
+            "description": "Account transaction ID (from list_account_transactions)"
+          },
+          "linked": {
+            "type": "boolean",
+            "description": "true to link, false to unlink"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "linked"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_transaction_price",
+      "description": "State the USD price of one account transaction the venue did not value (a deposit, a gift, an airdrop). Empty clears it. Tiles, chart and tax reports use it.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "number",
+            "description": "Account transaction ID"
+          },
+          "price_usd": {
+            "type": "string",
+            "description": "Price per unit in USD. Pass '' (empty) to clear a stated price."
+          }
+        },
+        "required": [
+          "transaction_id",
+          "price_usd"
+        ],
+        "additionalProperties": false
       }
     }
   ],
@@ -1744,6 +1878,16 @@
     "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/services/bot_api/bots/settings_fields.rb": "74fa7ffa413811aaf9916d0941ad808579f56264b5b6a6995a923825771ede06",
-    "app/models/bot/settings_form.rb": "0e856f3a999b659eba0993e51fd3a04da1281dd3dbe6d70c2e8dddf90d5642b7"
+    "app/models/bot/settings_form.rb": "0e856f3a999b659eba0993e51fd3a04da1281dd3dbe6d70c2e8dddf90d5642b7",
+    "app/services/bot_api/transactions/list_account.rb": "7a03aeb3a9661f497abc5d362105ac5d0b85b7060ea2f0cf8c8e8543cf38e480",
+    "app/services/bot_api/transactions/export_csv.rb": "4dce3e1d7ca154a6f7df11ab84dcd3d9fcbc5b6cd497d2cef16ffe45431a5e15",
+    "app/services/bot_api/tracker/set_transfer_link.rb": "fb5c62caef9e9ed359f413ea6607785b071de397c14b4ca1104b3c42ce2ddf2f",
+    "app/services/bot_api/tracker/set_transaction_price.rb": "b95b3df7d741f94f466aaea621d52cb8b5dada3a6f5a9b0101523f2d2edc37e7",
+    "app/services/bot_api/tracker/sync.rb": "e6f3e09c6ec42466028b9b8b17ef2cfe6f7cb0e9653fcde34560561d42009d52",
+    "app/services/bot_api/indices/list.rb": "7d2a3b76b874cc15693d2be5a87af7170263ab118cfc5db981172036024f1ad4",
+    "app/services/bot_api/boolean.rb": "1c75d892936c42d34770e044fa8b640fc49d5413e6e9cc61afb875719ab36e81",
+    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
+    "app/controllers/api/v1/transactions_controller.rb": "5ec5364b6d3dda09309f80e131e65327bae6c19ac34e74732547a3432ea22129",
+    "app/controllers/api/v1/tracker_controller.rb": "a010bc0d5b1b4d47e20d5dca82fd8de76ec1e973b20bf6455698da59fff0f55c"
   }
 }
