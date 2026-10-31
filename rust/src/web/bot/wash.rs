@@ -53,7 +53,6 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(se
         Ok(Ok((body, csrf, Shell::load(c, &inner, &owner)?)))
     }).await;
     match result {
-        Ok(Ok((body, _, _))) if body == EMPTY_FRAME => Ok(([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response()),
         Ok(Ok((body, csrf, shell))) => shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: vec![] }),
         Ok(Err(Found::NotPorted(reason))) => Ok(layout::refused(&ctx, reason)),
         // `current_user.bots.find` raises: Rails' 404.
