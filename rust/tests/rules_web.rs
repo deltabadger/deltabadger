@@ -153,7 +153,6 @@ async fn service_delete_revive_and_update_relist() {
 async fn service_start_refuses_unsupported_disabled_missing_key_and_retired() {
     for (venue, key, code) in [
         ("BinanceUs", true, "withdrawal_unsupported"),
-        ("Gemini", true, "withdrawal_disabled"),
         ("Gemini", false, "withdrawal_key_missing"),
         ("Bitmart", true, "exchange_retired"),
     ] {
@@ -588,22 +587,16 @@ async fn rendered_tile_edits_created_rule_amount_without_stopping() {
 }
 
 #[tokio::test]
-async fn rendered_tile_toggle_on_reaches_start_capability_guard() {
-    // D-RULE-KRAKEN-NO-LIVE-FIXTURE: Kraken withdrawals are on, so its toggle starts the rule.
-    let (i, _server) = identity_listing("Kraken", &["cold"]).await;
-    let id = i.rule(2);
-    let before = i.rows();
-    let response = submit_rendered_tile(&i, id, None, Some(true)).await;
-    assert!(response.status < 300, "{}: {}", response.status, response.body);
-    assert_ne!(i.rows(), before, "the Kraken rule is started");
-    // D-RULE-UNSUPPORTED-START: the venues still off refuse at the capability guard and change nothing.
-    let (i, _server) = identity_listing("Binance", &["cold"]).await;
-    let id = i.rule(2);
-    let before = i.rows();
-    let response = submit_rendered_tile(&i, id, None, Some(true)).await;
-    assert_eq!(response.status, 422, "{}", response.body);
-    assert!(response.body.contains("Withdrawals are not enabled for this exchange."));
-    assert_eq!(i.rows(), before);
+async fn rendered_tile_toggle_on_starts_on_every_withdrawing_venue() {
+    // D-RULE-{KRAKEN,BINANCE,MEXC}-NO-LIVE-FIXTURE: withdrawals are on, so the toggle starts the rule.
+    for venue in ["Kraken", "Binance", "Mexc"] {
+        let (i, _server) = identity_listing(venue, &["cold"]).await;
+        let id = i.rule(2);
+        let response = submit_rendered_tile(&i, id, None, Some(true)).await;
+        assert!(response.status < 300, "{venue} {}: {}", response.status, response.body);
+        assert_eq!(i.c.query_row("SELECT status FROM rules WHERE id=?1", [id], |r| r.get::<_, i64>(0)).unwrap(), 1, "{venue}");
+        assert_eq!(i.c.query_row("SELECT count(*) FROM rust_rule_evaluations WHERE rule_id=?1 AND source LIKE 'start:%'", [id], |r| r.get::<_, i64>(0)).unwrap(), 1, "{venue}");
+    }
 }
 
 #[tokio::test]
@@ -835,7 +828,7 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
                 )
                 .await
                 .0,
-                if edit.contains("status") { 422 } else { 200 }
+                200 // D-RULE-GEMINI-NO-LIVE-FIXTURE: the selected v1 destination starts.
             );
             let address: String =
                 i.c.query_row("SELECT address FROM rules", [], |r| r.get(0))
@@ -845,7 +838,7 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
         assert_eq!(
             i.c.query_row("SELECT status FROM rules", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            2
+            1
         );
     }
 }
@@ -890,14 +883,14 @@ async fn mexc_picker_deduplicates_network_aliases_before_selecting_saving_and_st
                 )
                 .await
                 .0,
-                422 // D-RULE-UNSUPPORTED-START: live verification has not enabled sends.
+                200 // D-RULE-MEXC-NO-LIVE-FIXTURE: the normalised destination starts.
             );
             let (status, settings): (i64, String) =
                 i.c.query_row("SELECT status,settings FROM rules", [], |r| {
                     Ok((r.get(0)?, r.get(1)?))
                 })
                 .unwrap();
-            assert_eq!(status, 2);
+            assert_eq!(status, 1);
             assert_eq!(
                 serde_json::from_str::<Value>(&settings).unwrap()["network"],
                 "Bitcoin"
@@ -1906,7 +1899,6 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
             _ => panic!("unmapped X0 cell"),
         };
         let expected_code = match case {
-            "start_created" | "start_stopped" => Some("withdrawal_disabled"), // D-RULE-UNSUPPORTED-START
             "create_listed" | "create_invalid_network" => Some("address_not_listed"), // D-RULE-LISTED-ENTRY
             _ => oracle["body"]["error"]["code"].as_str(),
         };
@@ -1922,7 +1914,7 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
             }
         }
         let mut expected = oracle["rules"].clone();
-        if matches!(case, "start_created" | "start_stopped" | "create_listed") {
+        if case == "create_listed" {
             expected = before.clone();
         }
         for r in expected.as_array_mut().unwrap() {
@@ -1937,6 +1929,8 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
                     | "update_created"
                     | "update_stopped"
                     | "update_all_four"
+                    | "start_created"
+                    | "start_stopped"
             ) {
                 r["settings"]["network"] = json!("BTC"); // D-RULE-LISTED-ENTRY: exact listed network
             }

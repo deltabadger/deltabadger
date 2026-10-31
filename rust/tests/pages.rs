@@ -2983,6 +2983,16 @@ async fn mount_rule_reads(server: &wiremock::MockServer) {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"approvedAddresses": [
             {"network": "bitcoin", "address": "bc1qx0destination0000000000000000000000", "label": "cold", "status": "active"}
         ]}))).with_priority(10).mount(server).await;
+    // Binance's address book and coin list, which Rails' tile start never reads: Rust's start re-lists the destination
+    // against both (§4, D-RULE-ADDRESS-RECHECK).
+    Mock::given(matchers::path("/api.binance.com/sapi/v1/capital/withdraw/address/list"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"coin": "BTC", "network": "BTC", "address": "bc1qx0destination0000000000000000000000"}
+        ]))).with_priority(10).mount(server).await;
+    Mock::given(matchers::path("/api.binance.com/sapi/v1/capital/config/getall"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"coin": "BTC", "networkList": [
+            {"network": "BTC", "withdrawEnable": true, "withdrawTag": false, "withdrawFee": "0.0001", "isDefault": true}
+        ]}]))).with_priority(10).mount(server).await;
     Mock::given(matchers::header("X-GEMINI-APIKEY", "rules-empty"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"approvedAddresses":[]}))).with_priority(1).mount(server).await;
     Mock::given(matchers::header("X-GEMINI-APIKEY", "rules-failed"))
@@ -3039,30 +3049,67 @@ fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), Stri
     Ok(())
 }
 
+/// The Binance tile's start, now that Binance withdraws (D-RULE-BINANCE-NO-LIVE-FIXTURE): only these named differences,
+/// each asserted exactly.
+fn rules_start_differences(name: &str, step: &Value, a: &mut Value, b: &Value) -> Result<(),String> {
+    if step["method"]!="PATCH" { return Ok(()) }
+    if matches!(name,"rules_tile_start_created"|"rules_tile_start_stopped") {
+        // D-RULE-ADDRESS-RECHECK: the one service re-lists the destination (address book, then the coin list's networks,
+        // §4) before it schedules; Rails starts unchecked.
+        let read=json!([{"method":"GET","host":"api.binance.com","path":"/sapi/v1/capital/withdraw/address/list","params":[["recvWindow","5000"]]},
+            {"method":"GET","host":"api.binance.com","path":"/sapi/v1/capital/config/getall","params":[["recvWindow","5000"]]}]);
+        if !a["venue_requests"].is_null() || b["venue_requests"]!=read { return Err(format!("D-RULE-ADDRESS-RECHECK: {name} reads the address list and coin list once: {} / {}", a["venue_requests"], b["venue_requests"])) }
+        a["venue_requests"]=read;
+        // D-RULE-LISTED-ENTRY: the start stores the listed entry's exact network; nothing else in the row differs.
+        let mut rails=a["raw_rows"].clone();
+        let mut settings:Value=serde_json::from_str(rails["rules"][0]["settings"].as_str().unwrap_or("null")).unwrap_or(Value::Null);
+        if settings.get("network").is_some() { return Err(format!("{name}: the recorded Rails row changed")) }
+        settings["network"]=json!("BTC");
+        rails["rules"][0]["settings"]=json!(settings.to_string());
+        if rails!=b["raw_rows"] { return Err(format!("D-RULE-LISTED-ENTRY: {name} adds only the listed network: {} / {}", rails, b["raw_rows"])) }
+        a["raw_rows"]=b["raw_rows"].clone();
+    }
+    if name=="rules_tile_start_invalid" {
+        // D-RULE-ONE-MATRIX: every surface refuses with the API's Bounds message (Rails' web shows the model's).
+        let body=a["body"].to_string().replace("Max fee percentage can't be blank and Max fee percentage is not a number","max_fee_percentage is required for threshold_type fee_percentage.")
+            .replace("Max fee percentage can&#39;t be blank and Max fee percentage is not a number","max_fee_percentage is required for threshold_type fee_percentage.");
+        a["body"]=serde_json::from_str(&body).unwrap();
+    }
+    if name=="rules_tile_combined_invalid_start" {
+        // D-RULE-ONE-MATRIX: a refused write writes nothing (Rails saves the invalid max_fee_percentage while refusing).
+        let mut rails=a["raw_rows"].clone();
+        let settings:Value=serde_json::from_str(rails["rules"][0]["settings"].as_str().unwrap_or("null")).unwrap_or(Value::Null);
+        if settings["max_fee_percentage"]!="-1" { return Err(format!("{name}: the recorded Rails write changed")) }
+        let body=a["body"].to_string().replace("Max fee percentage must be greater than 0","max_fee_percentage must be a number greater than 0 and at most 100.");
+        a["body"]=serde_json::from_str(&body).unwrap();
+        rails["rules"][0]["settings"]=json!(json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"}).to_string());
+        if rails!=b["raw_rows"] { return Err(format!("D-RULE-ONE-MATRIX: {name} must leave the rule as it was")) }
+        a["raw_rows"]=b["raw_rows"].clone();
+    }
+    Ok(())
+}
+
 /// W2 changes only the explicitly named writes; assert their entire response against Rails twins.
 fn rules_service_differences(name: &str, step: &Value, a: &mut Value, b: &Value) -> Result<(),String> {
-    let refuse_start=matches!(name,"rules_tile_start_created"|"rules_tile_start_stopped"|"rules_tile_start_invalid"|"rules_tile_combined_invalid_start");
     let refuse_update=name=="rules_tile_settings_scheduled";
     let stop=name=="rules_tile_combined_invalid_stop";
-    if step["method"]=="PATCH" && (refuse_start||refuse_update||stop) {
+    if step["method"]=="PATCH" && (refuse_update||stop) {
         let vectors:Value=serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
         let twin_case=if stop {"tile_stop_scheduled"} else {"tile_address_not_listed"};
         let twin=vectors["pages"].as_array().unwrap().iter().find(|v|v["case"]==twin_case).unwrap();
         let mut expected=twin["body"].as_str().unwrap().to_string();
         if !stop {
-            let reason=if refuse_start {"Withdrawals are not enabled for this exchange."} else {"Stop the withdrawal rule before updating it."};
+            let reason="Stop the withdrawal rule before updating it.";
             expected=expected.replace("That address is not on the exchange&#39;s withdrawal allowlist",reason)
                 .replace("That address is not on the exchange's withdrawal allowlist",reason);
         }
         if b["body"]!=json!(html::normalize(&expected)) || b["status"]!=if stop {200} else {422}
             || b["headers"]["content-type"]!="text/vnd.turbo-stream.html; charset=utf-8" || b.get("venue_requests").is_some() {
-            return Err(format!("D-RULE-ONE-MATRIX / D-RULE-UNSUPPORTED-START: {name} must match its complete Rails stream twin without venue reads"));
+            return Err(format!("D-RULE-ONE-MATRIX: {name} must match its complete Rails stream twin without venue reads"));
         }
-        let old_status=if name=="rules_tile_start_created" {"created"} else if refuse_update || stop {"scheduled"} else {"stopped"};
-        let mut settings=json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"});
-        if name=="rules_tile_start_invalid" {settings.as_object_mut().unwrap().remove("max_fee_percentage");}
+        let settings=json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"});
         let expected_row=json!({"rules":[{"id":1,"user_id":1,"type":"Rules::Withdrawal",
-            "status":if stop {2} else if old_status=="created" {0} else if old_status=="stopped" {2} else {1},
+            "status":if stop {2} else {1},
             "exchange_id":1,"asset_id":1,"settings":settings.to_string()}],"rule_logs":[]});
         let mut actual=b["raw_rows"].clone();
         let actual_settings:Value=serde_json::from_str(actual["rules"][0]["settings"].as_str().unwrap()).unwrap();
@@ -3129,6 +3176,7 @@ fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut
     for ((a,b),step) in rails["responses"].as_array_mut().unwrap().iter_mut()
         .zip(rust["responses"].as_array_mut().unwrap()).zip(scenario["steps"].as_array().unwrap()) {
         rules_service_differences(name, step, a, b)?;
+        rules_start_differences(name, step, a, b)?;
         rules_listed_entry_picker(&mut a["body"], &b["body"])?;
         if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
             let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {

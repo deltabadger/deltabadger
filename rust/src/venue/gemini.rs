@@ -314,6 +314,9 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
     async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, VenueError> {
         self.available(|code| self.pairs.assets.get(code).map(String::as_str) == Some(asset_symbol)).await
     }
+    async fn withdrawal_balance(&self, coin: &str) -> Result<BigDec, VenueError> {
+        self.available(|code| code.eq_ignore_ascii_case(coin)).await
+    }
 
     async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, VenueError> { self.available(|code| code == ticker.base_code).await }
 

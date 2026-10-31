@@ -321,14 +321,6 @@ fn expected(cell: &Value, before: &Value) -> (u16, Value, Value) {
         } else {
             assert_eq!(body["result"]["content"][0]["text"], "Rule #1 started.");
         }
-        // D-RULE-UNSUPPORTED-START: withdraws=false. No job or status change.
-        status = if surface == "rest" { 422 } else { 200 };
-        body = error(
-            surface,
-            "withdrawal_disabled",
-            "Withdrawals are not enabled for this exchange.",
-        );
-        rows = before.clone();
     }
     if matches!(name, "create_listed" | "create_invalid_network") {
         // D-RULE-LISTED-ENTRY: free-form tags and networks outside the listed entry are refused.
@@ -362,8 +354,10 @@ fn expected(cell: &Value, before: &Value) -> (u16, Value, Value) {
             | "update_created"
             | "update_stopped"
             | "update_all_four"
+            | "start_created"
+            | "start_stopped"
     ) {
-        // W2's X0 replay supplies V1's required complete listing; persist its exact network.
+        // W2's X0 replay supplies V1's required complete listing (start rechecks it too); persist its exact network.
         assert!(rows[0]["settings"].get("network").is_none());
         rows[0]["settings"]["network"] = json!("BTC"); // D-RULE-LISTED-ENTRY
         if name == "create_revives_deleted" {
@@ -411,6 +405,8 @@ fn needs_reads(name: &str) -> bool {
             | "update_created"
             | "update_stopped"
             | "update_all_four"
+            | "start_created"
+            | "start_stopped"
     )
 }
 async fn replay(reads: bool) {
@@ -477,12 +473,14 @@ async fn replay(reads: bool) {
             "{name} web/{}",
             cell["surface"]
         );
+        // A start fans out one `start:` evaluation per scheduled rule (Rails' EvaluateAllJob); nothing else starts.
+        let starts = i64::from(matches!(name, "start_created" | "start_stopped"));
+        let evaluations = |sql: &str| i.c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(evaluations("SELECT count(*) FROM rust_rule_evaluations"), starts, "{name}: evaluations");
         assert_eq!(
-            i.c.query_row("SELECT count(*) FROM rust_rule_evaluations", [], |r| r
-                .get::<_, i64>(0))
-                .unwrap(),
-            0,
-            "{name}: no starts"
+            evaluations("SELECT count(*) FROM rust_rule_evaluations WHERE rule_id=1 AND source LIKE 'start:%' AND consumed_at IS NULL"),
+            starts,
+            "{name}: one pending start for rule 1"
         );
         assert_eq!(
             i.c.query_row("SELECT count(*) FROM rule_logs", [], |r| r.get::<_, i64>(0))
@@ -505,8 +503,8 @@ async fn replay(reads: bool) {
     }
     assert_eq!(
         count,
-        if reads { 9 * 2 } else { 26 * 2 },
-        "35 X0 cells on each surface = 52 local + 18 venue-read cells"
+        if reads { 11 * 2 } else { 24 * 2 },
+        "35 X0 cells on each surface = 48 local + 22 venue-read cells (the starts re-list, D-RULE-ADDRESS-RECHECK)"
     );
 }
 #[tokio::test]
@@ -636,13 +634,9 @@ async fn lifecycle_requests_leave_the_same_rows_on_all_three_surfaces() {
 }
 
 #[tokio::test]
-async fn starts_on_disabled_or_unsupported_venues_refuse_without_scheduling() {
-    for (class, name, code) in [
-        ("Binance", "Binance", "withdrawal_disabled"),
-        ("Gemini", "Gemini", "withdrawal_disabled"),
-        ("Mexc", "MEXC", "withdrawal_disabled"),
-        ("BinanceUs", "Binance.US", "withdrawal_unsupported"),
-    ] {
+async fn starts_on_unsupported_venues_refuse_without_scheduling() {
+    // D-RULE-BINANCE-US-UNSUPPORTED: no address book, so no destination contract; every other Rails venue withdraws.
+    for (class, name, code) in [("BinanceUs", "Binance.US", "withdrawal_unsupported")] {
         let i = Install::new();
         i.c.execute("DELETE FROM exchanges WHERE id<>1", [])
             .unwrap();

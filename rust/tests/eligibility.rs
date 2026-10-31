@@ -1203,7 +1203,7 @@ fn a_tokenized_stock_runs_on_hyperliquid_only() {
 }
 
 #[test]
-fn l_kraken_admits_active_withdrawal_rules_only_on_kraken() {
+fn l_venues_admit_active_withdrawal_rules_only_on_withdrawing_venues() {
     let (_d,o,s)=install();
     o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',1,?1,?2,?3,'{}','2026-01-01','2026-01-01')",rusqlite::params![s.user_id,s.exchange_id,s.btc]).unwrap();
     let rule=o.primary.last_insert_rowid();
@@ -1211,7 +1211,9 @@ fn l_kraken_admits_active_withdrawal_rules_only_on_kraken() {
         o.primary.execute("UPDATE exchanges SET type=?1 WHERE id=?2",rusqlite::params![venue.exchange_type,s.exchange_id]).unwrap();
         for status in [1, 4, 5, 6, 2] {
             o.primary.execute("UPDATE rules SET status=?1 WHERE id=?2",rusqlite::params![status,rule]).unwrap();
-            let expected = if status == 2 || venue.exchange_type == "Exchanges::Kraken" {
+            // L-Kraken, L-Binance, L-MEXC, L-Gemini; Binance.US stays refused (D-RULE-BINANCE-US-UNSUPPORTED).
+            let on = ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Mexc", "Exchanges::Gemini"].contains(&venue.exchange_type);
+            let expected = if status == 2 || on {
                 vec![]
             } else {
                 vec![format!("rule {rule}: withdrawals are not enabled for {}",venue.exchange_type)]
