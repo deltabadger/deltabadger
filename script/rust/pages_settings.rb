@@ -152,6 +152,12 @@ module Pages
       WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/positions')
              .with(headers: { 'APCA-API-KEY-ID' => 'r9-unnamed-position' })
              .to_return(status: 200, body: '[{"asset_class":"us_equity","qty":"2"}]', headers: { 'Content-Type' => 'application/json' })
+      # 3.0 plan A4: an open order's cancel (Clients::Alpaca#cancel_order), by order id.
+      { 'cancel-ok' => [204, ''], 'cancel-refused' => [422, '{"code":42210000,"message":"order is not cancelable"}'],
+        'cancel-key' => [401, '{"message":"unauthorized"}'] }.each do |id, (status, body)|
+        WebMock.stub_request(:delete, %r{\Ahttps://(paper-)?api\.alpaca\.markets/v2/orders/#{id}\z})
+               .to_return(status:, body:, headers: { 'Content-Type' => 'application/json' })
+      end
       ibkr_stubs
       super
     ensure
