@@ -702,7 +702,7 @@ async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i
                 }
             }
         };
-        let status = match res.status { Domain::Success => "created", Domain::ValidationFailed => "validation_failed", Domain::PermissionDenied => "permission_denied",
+        let status = match res.status { Domain::Success | Domain::Created => "created", Domain::ValidationFailed => "validation_failed", Domain::PermissionDenied => "permission_denied",
             Domain::NotFound => "not_found", Domain::Conflict => "conflict", Domain::UpstreamFailed => "upstream_failed", Domain::NotPorted | Domain::Raised => "not_ported" };
         answers.push(json!({ "status": status, "code": res.code, "message": if res.code.is_some() { json!(res.message) } else { Value::Null }, "data": res.data }));
     }
