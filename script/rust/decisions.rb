@@ -23,6 +23,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-condition-info <root> # the price rule's status line, every venue (slice 7s)
 #   bin/rails runner script/rust/decisions.rb grid-conditions-degenerate <root> # RSI/SMA on degenerate closes, Alpaca's ATH pages (7b-0, Rails only)
 #   bin/rails runner script/rust/decisions.rb grid-signal <root>  # Bot::SignalJob, one webhook call of a signal bot, on every configured venue (slice 8a)
+#   bin/rails runner script/rust/decisions.rb grid-orders <root>  # standalone market/limit orders (no bot_id) through MCP on every trading venue (PLAN-A9 O4)
 #   bin/rails runner script/rust/decisions.rb grid-redeploy <root> # Yes to a liquidation's proceeds on every trading venue (slice 6c-4)
 #   bin/rails runner script/rust/decisions.rb grid-wash-sale <root> # the wash-sale rule on: buy locks, sale claims, fills, rebalance, signal (PLAN-wash-sale WS-3)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
@@ -5125,6 +5126,90 @@ module Decisions
   # The webhook cells (420 + 79 + 927) and the `api` axis: 12 per kit, plus `locked` (not on the stock kit) and `safe_then_accepted` (a kit with a placement-safe code).
   SIGNAL_GRID_SIZE = 420 + 79 + 927 + 203
 
+  # ---- PLAN-A9 O4: standalone market and limit orders, no bot_id (grid-orders) --------------------------------------------
+  # BotApi::Orders::{MarketBuy,MarketSell,LimitBuy,LimitSell} through their MCP tools at SIGNAL_AT, on the signal kits'
+  # accounts. build_signal makes the account (its bot is never named and never changes). Recorded per cell: every request
+  # sent, the service's Result or raise, and the tool's answer. Per kit: the eight side x type x denomination cells, a
+  # rejection and a 5xx; on Kraken the limit sizing edges and a two-error rejection; on Hyperliquid a fractional limit price.
+  def orders_scenarios
+    list = []
+    signal_venues.each do |vkey, vn|
+      add = vn['add']
+      stock = vn['asset'] == 'stock'
+      base = stock ? '2' : '0.0015'
+      buy_at, sell_at = stock ? %w[180 195] : %w[60000 70000]
+      cells = { 'market-buy-quote' => ['market', 'buy', '100', 'quote'], 'market-buy-base' => ['market', 'buy', base, 'base'],
+                'market-sell-base' => ['market', 'sell', base, 'base'], 'market-sell-quote' => ['market', 'sell', '100', 'quote'],
+                'limit-buy-quote' => ['limit', 'buy', '100', 'quote', buy_at], 'limit-buy-base' => ['limit', 'buy', base, 'base', buy_at],
+                'limit-sell-base' => ['limit', 'sell', base, 'base', sell_at], 'limit-sell-quote' => ['limit', 'sell', '100', 'quote', sell_at],
+                'rejected' => ['market', 'buy', '100', 'quote', nil, { add => [vn['rejected']] }],
+                'server_error' => ['market', 'buy', '100', 'quote', nil, { add => [vn['server_error']] }] }
+      if vkey == 'kraken'
+        cells.merge!('limit-coarse_price' => ['limit', 'buy', '0.001', 'base', '49000.37'],
+                     'limit-quote_rounding' => ['limit', 'buy', '100.123456', 'quote', '49000'],
+                     'limit-zero_after_floor' => ['limit', 'buy', '0.000000001', 'base', '49000'],
+                     'limit-below_base_minimum' => ['limit', 'buy', '0.00004', 'base', '49000'],
+                     'limit-sub_tick_price-base' => ['limit', 'buy', '0.001', 'base', '0.01'],
+                     'limit-sub_tick_price-quote' => ['limit', 'buy', '100', 'quote', '0.01'],
+                     'rejected_two_errors' => ['market', 'buy', '100', 'quote', nil,
+                                               { add => [ok('error' => ['EOrder:Insufficient funds', 'EGeneral:Invalid arguments'])] }])
+      end
+      if vkey == 'hyperliquid'
+        cells.merge!('limit-fractional_price-quote' => ['limit', 'buy', '100', 'quote', '64006.123'],
+                     'limit-fractional_price-base' => ['limit', 'buy', '0.0015', 'base', '64006.123'])
+      end
+      cells.each do |name, (type, side, amount, amount_type, price, http)|
+        list << { 'name' => "orders-#{vkey}-#{name}", 'kind' => 'signal', 'venue' => vn.fetch('venue', vkey), 'asset' => vn['asset'],
+                  'ticker' => vn['ticker'], 'rules' => [], 'at' => SIGNAL_AT,
+                  'orders' => [{ 'order_type' => type, 'side' => side, 'amount' => amount, 'amount_type' => amount_type, 'price' => price }.compact],
+                  'script' => { vn['key'] => vn['http'].merge(http || {}) }, 'tick' => false }
+      end
+    end
+    list.tap { |l| raise "the orders grid has #{l.size} scenarios, not #{ORDERS_GRID_SIZE}" unless l.size == ORDERS_GRID_SIZE }
+  end
+  # 15 kits x 10, Kraken's 6 limit edges and its two-error rejection, Hyperliquid's 2 fractional prices.
+  ORDERS_GRID_SIZE = (15 * 10) + 6 + 1 + 2
+
+  ORDER_TOOLS = { %w[market buy] => 'MarketBuyTool', %w[market sell] => 'MarketSellTool', %w[limit buy] => 'LimitBuyTool', %w[limit sell] => 'LimitSellTool' }.freeze
+
+  # One standalone order through its MCP tool (dry run off), as a client calls it: `amount` and `price` are JSON numbers.
+  # The service's own Result (or raise) is captured beneath the tool, so the REST answer (the Result) and the MCP text
+  # come from the same single call.
+  def standalone_order(sc, o)
+    bot = Bot.find(sc['bot_id'])
+    user = bot.user
+    service = "BotApi::Orders::#{o['order_type'].capitalize}#{o['side'].capitalize}".constantize
+    $order_capture = {}
+    unless service.singleton_class.include?(OrderCapture)
+      service.singleton_class.prepend(OrderCapture)
+    end
+    args = { 'exchange_name' => bot.exchange.name, 'base_asset' => Asset.find(bot.settings['base_asset_id']).symbol,
+             'quote_asset' => Asset.find(bot.settings['quote_asset_id']).symbol, 'amount' => JSON.parse(o['amount']),
+             'amount_type' => o['amount_type'], 'price' => o['price'] && JSON.parse(o['price']) }.compact
+    response = travel_to(Time.iso8601(sc['at']), with_usec: true) do
+      ActionMCP::Current.user = user
+      tool = ORDER_TOOLS.fetch([o['order_type'], o['side']]).constantize.new(args)
+      ActionMCP::Tool.instance_method(:call).bind(tool).call # the tool itself; ApplicationMCPTool's permission check is not the question here
+    ensure
+      ActionMCP::Current.reset
+    end
+    result = $order_capture['result']
+    { 'args' => args, 'raised' => $order_capture['raised'],
+      'result' => result && { 'status' => result.status.to_s, 'code' => result.error_code, 'message' => result.error_message,
+                              # as_json keeps the upstream id's JSON type (a String or a number), which is the question.
+                              'data' => result.data&.as_json },
+      'mcp' => JSON.parse(response.to_h.to_json) }.compact
+  end
+
+  module OrderCapture
+    def call(**kw)
+      $order_capture['result'] = super
+    rescue StandardError => e
+      $order_capture['raised'] = { 'class' => e.class.name, 'message' => e.message }
+      raise
+    end
+  end
+
   # ---- PLAN-wash-sale WS-3: the account's wash-sale rule over every leg the engine trades (grid-wash-sale) ----------------
   # Scenarios of the other grids, each with the account's rule on (US unless named) and the lock rows `wash` seeds
   # (#apply_wash), so the same tick decides with the guard live: the buy legs (B), the one-asset and ranked sell claims (S),
@@ -5285,7 +5370,7 @@ module Decisions
                                         'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'], 'reverse' => sc['reverse'],
                                         # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
                                         'signals' => sc['calls']&.map { |c| { 'signal_id' => bot.bot_signals.order(:id)[c['rule']].id, 'triggered_at' => c['triggered_at'] } },
-                                        'before_signal' => sc['before_signal'], 'secret' => sc['secret'], 'warn' => sc['warn'], 'api' => sc['api'],
+                                        'before_signal' => sc['before_signal'], 'secret' => sc['secret'], 'warn' => sc['warn'], 'api' => sc['api'], 'orders' => sc['orders'],
                                         # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
                                         'rails_floor' => (sc['record_floor'] && bot.reload.smart_interval_minimum(:quote).then { |m| { 'value' => m[:value].to_f, 'reason' => m[:reason].to_s } }) }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
@@ -5464,6 +5549,7 @@ module Decisions
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         { 'status' => result.status.to_s, 'code' => result.error_code, 'message' => result.error_message, 'data' => result.data&.as_json }
       end
+      orders = sc['orders']&.map { |o| standalone_order(sc, o) }
       if sc['check_at']
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         check_time = Time.iso8601(sc['check_at'])
@@ -5549,6 +5635,7 @@ module Decisions
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       out['checks'] = checks if sc['conditions']
       out['api'] = api if api
+      out['orders'] = orders if orders
       out['infos'] = infos if sc['info']
       out['warned'] = $warnings.tap { $warnings = nil } if sc['warn']
       out.merge!('reads' => ScriptedAlpaca.reads, 'ath' => Bot.find(sc['bot_id']).tickers.first.slice('ath', 'ath_updated_at').transform_values { |v| v&.to_s }) if sc['record_reads']
@@ -5593,7 +5680,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-hyperliquid-tokenized <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-conditions-flips <root> | grid-basket-sell <root> | grid-liquidation <root> | grid-redeploy <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-orders <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-hyperliquid-tokenized <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-conditions-flips <root> | grid-basket-sell <root> | grid-liquidation <root> | grid-redeploy <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -5630,6 +5717,7 @@ when 'grid-conditions-indicators' then Decisions.grid(root, Decisions.indicator_
 when 'grid-conditions-degenerate' then Decisions.grid(root, Decisions.degenerate_condition_scenarios)
 when 'grid-condition-info' then Decisions.grid(root, Decisions.condition_info_scenarios)
 when 'grid-signal' then Decisions.grid(root, Decisions.signal_scenarios)
+when 'grid-orders' then Decisions.grid(root, Decisions.orders_scenarios)
 when 'grid-wash-sale' then Decisions.grid(root, Decisions.wash_sale_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'

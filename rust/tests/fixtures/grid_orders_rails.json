@@ -1,0 +1,7057 @@
+{
+ "orders-alpaca-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "price": 60000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Alpaca: BTC/USD @ 60000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "60000.00",
+    "qty": "0.001500000",
+    "side": "buy",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "price": 60000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Alpaca: BTC/USD @ 60000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "60000.00",
+    "qty": "0.001666666",
+    "side": "buy",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "price": 70000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Alpaca: BTC/USD @ 70000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "70000.00",
+    "qty": "0.001500000",
+    "side": "sell",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "price": 70000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Alpaca: BTC/USD @ 70000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "70000.00",
+    "qty": "0.001428571",
+    "side": "sell",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Alpaca: 0.0015 BTC of BTC/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "qty": "0.001500000",
+    "side": "buy",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Alpaca: 100.0 USD of BTC/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "buy",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Alpaca: 0.0015 BTC of BTC/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "qty": "0.001500000",
+    "side": "sell",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Alpaca: 100.0 USD of BTC/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "sell",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: insufficient balance for USD (requested: 100, available: 50)",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: insufficient balance for USD (requested: 100, available: 50)",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "buy",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: internal server error",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: internal server error",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "buy",
+    "symbol": "BTC/USD",
+    "time_in_force": "gtc",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca_stock-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 2,
+    "amount_type": "base",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "price": 180,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Alpaca: AAPL/USD @ 180.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 2.0,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "AAPL/USD",
+     "price": 180.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "180.00",
+    "qty": "2.000000000",
+    "side": "buy",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca_stock-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "price": 180,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Alpaca: AAPL/USD @ 180.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "AAPL/USD",
+     "price": 180.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "180.00",
+    "qty": "0.555555555",
+    "side": "buy",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca_stock-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 2,
+    "amount_type": "base",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "price": 195,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Alpaca: AAPL/USD @ 195.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 2.0,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "AAPL/USD",
+     "price": 195.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "195.00",
+    "qty": "2.000000000",
+    "side": "sell",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca_stock-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "price": 195,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Alpaca: AAPL/USD @ 195.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "limit",
+     "pair": "AAPL/USD",
+     "price": 195.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "limit_price": "195.00",
+    "qty": "0.512820512",
+    "side": "sell",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-alpaca_stock-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 2,
+    "amount_type": "base",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Alpaca: 2.0 AAPL of AAPL/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 2.0,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "AAPL/USD",
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "qty": "2.000000000",
+    "side": "buy",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca_stock-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Alpaca: 100.0 USD of AAPL/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "AAPL/USD",
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "buy",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca_stock-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 2,
+    "amount_type": "base",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Alpaca: 2.0 AAPL of AAPL/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 2.0,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "AAPL/USD",
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "qty": "2.000000000",
+    "side": "sell",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca_stock-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Alpaca: 100.0 USD of AAPL/USD. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Alpaca",
+     "order_type": "market",
+     "pair": "AAPL/USD",
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "sell",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca_stock-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: insufficient buying power",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: insufficient buying power",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "buy",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-alpaca_stock-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "AAPL",
+    "exchange_name": "Alpaca",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: internal server error",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: internal server error",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "notional": "100.00",
+    "side": "buy",
+    "symbol": "AAPL",
+    "time_in_force": "day",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-binance-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Binance: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Binance: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.00166",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Binance: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Binance: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.00142",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Binance: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Binance: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Binance: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Binance: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Account has insufficient balance for requested action.",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Account has insufficient balance for requested action.",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Internal error; unable to process your request. Please try again.",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Internal error; unable to process your request. Please try again.",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance_us-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Binance.US: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance_us-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Binance.US: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.00166",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance_us-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Binance.US: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance_us-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Binance.US: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.00142",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-binance_us-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Binance.US: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance_us-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Binance.US: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance_us-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Binance.US: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance_us-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Binance.US: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-28457\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Binance.US",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-28457"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance_us-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Account has insufficient balance for requested action.",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Account has insufficient balance for requested action.",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-binance_us-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Binance.US",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Internal error; unable to process your request. Please try again.",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Internal error; unable to process your request. Please try again.",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "selfTradePreventionMode": "EXPIRE_MAKER",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bingx-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on BingX: BTC/USDT @ 60000.0. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.0015",
+    "side": "BUY",
+    "symbol": "BTC-USDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bingx-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on BingX: BTC/USDT @ 60000.0. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.001666",
+    "side": "BUY",
+    "symbol": "BTC-USDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bingx-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on BingX: BTC/USDT @ 70000.0. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.0015",
+    "side": "SELL",
+    "symbol": "BTC-USDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bingx-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on BingX: BTC/USDT @ 70000.0. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.001428",
+    "side": "SELL",
+    "symbol": "BTC-USDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bingx-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on BingX: 0.0015 BTC of BTC/USDT. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "side": "BUY",
+    "symbol": "BTC-USDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bingx-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on BingX: 100.0 USDT of BTC/USDT. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "side": "BUY",
+    "symbol": "BTC-USDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bingx-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on BingX: 0.0015 BTC of BTC/USDT. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "side": "SELL",
+    "symbol": "BTC-USDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bingx-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on BingX: 100.0 USDT of BTC/USDT. {order_id: \"BTC-USDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "BingX",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-USDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "side": "SELL",
+    "symbol": "BTC-USDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bingx-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Insufficient assets",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Insufficient assets",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "side": "BUY",
+    "symbol": "BTC-USDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bingx-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "BingX",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Internal system error",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Internal system error",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "side": "BUY",
+    "symbol": "BTC-USDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bitget-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bitget: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "gtc",
+    "orderType": "limit",
+    "price": "60000.0",
+    "side": "buy",
+    "size": "0.0015",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bitget: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "gtc",
+    "orderType": "limit",
+    "price": "60000.0",
+    "side": "buy",
+    "size": "0.001666",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bitget: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "gtc",
+    "orderType": "limit",
+    "price": "70000.0",
+    "side": "sell",
+    "size": "0.0015",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bitget: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "gtc",
+    "orderType": "limit",
+    "price": "70000.0",
+    "side": "sell",
+    "size": "0.001428",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bitget: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "ioc",
+    "orderType": "market",
+    "side": "buy",
+    "size": "96.002055",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bitget: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "ioc",
+    "orderType": "market",
+    "side": "buy",
+    "size": "100.0",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bitget: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "ioc",
+    "orderType": "market",
+    "side": "sell",
+    "size": "0.0015",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bitget: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-1234567890123456789\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitget",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-1234567890123456789"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "force": "ioc",
+    "orderType": "market",
+    "side": "sell",
+    "size": "0.001562",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: {\"code\":\"43012\",\"msg\":\"Insufficient balance\",\"requestTime\":1788000000000,\"data\":null}",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: {\"code\":\"43012\",\"msg\":\"Insufficient balance\",\"requestTime\":1788000000000,\"data\":null}",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "force": "ioc",
+    "orderType": "market",
+    "side": "buy",
+    "size": "100.0",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitget-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitget",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: <html>upstream</html>",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: <html>upstream</html>",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "force": "ioc",
+    "orderType": "market",
+    "side": "buy",
+    "size": "100.0",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bitrue-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bitrue: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bitrue-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bitrue: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.001666",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bitrue-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bitrue: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bitrue-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bitrue: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.001428",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-bitrue-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bitrue: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bitrue-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bitrue: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.001562",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bitrue-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bitrue: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bitrue-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bitrue: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitrue",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.001562",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bitrue-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Insufficient account balance.",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Insufficient account balance.",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.001562",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bitrue-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitrue",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: System abnormality",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: System abnormality",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.001562",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-bitvavo-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "price": 60000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bitvavo: BTC/EUR @ 60000.0. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "limit",
+    "price": "60000.0",
+    "side": "buy"
+   }
+  ]
+ },
+ "orders-bitvavo-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "price": 60000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bitvavo: BTC/EUR @ 60000.0. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00166666",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "limit",
+    "price": "60000.0",
+    "side": "buy"
+   }
+  ]
+ },
+ "orders-bitvavo-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "price": 70000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bitvavo: BTC/EUR @ 70000.0. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "limit",
+    "price": "70000.0",
+    "side": "sell"
+   }
+  ]
+ },
+ "orders-bitvavo-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "price": 70000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bitvavo: BTC/EUR @ 70000.0. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00142857",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "limit",
+    "price": "70000.0",
+    "side": "sell"
+   }
+  ]
+ },
+ "orders-bitvavo-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bitvavo: 0.0015 BTC of BTC/EUR. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "market",
+    "side": "buy"
+   }
+  ]
+ },
+ "orders-bitvavo-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bitvavo: 100.0 EUR of BTC/EUR. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amountQuote": "100.0",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "market",
+    "side": "buy"
+   }
+  ]
+ },
+ "orders-bitvavo-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bitvavo: 0.0015 BTC of BTC/EUR. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "market",
+    "side": "sell"
+   }
+  ]
+ },
+ "orders-bitvavo-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bitvavo: 100.0 EUR of BTC/EUR. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bitvavo",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amountQuote": "100.0",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "market",
+    "side": "sell"
+   }
+  ]
+ },
+ "orders-bitvavo-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: {\"errorCode\":216,\"error\":\"You do not have sufficient balance to complete this operation.\"}",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: {\"errorCode\":216,\"error\":\"You do not have sufficient balance to complete this operation.\"}",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "amountQuote": "100.0",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "market",
+    "side": "buy"
+   }
+  ]
+ },
+ "orders-bitvavo-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bitvavo",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: <html>upstream</html>",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: <html>upstream</html>",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "amountQuote": "100.0",
+    "market": "BTC-EUR",
+    "operatorId": 1,
+    "orderType": "market",
+    "side": "buy"
+   }
+  ]
+ },
+ "orders-bybit-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bybit: BTC/USDT @ 60000.0. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "orderType": "Limit",
+    "price": "60000.0",
+    "qty": "0.0015",
+    "side": "Buy",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC"
+   }
+  ]
+ },
+ "orders-bybit-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Bybit: BTC/USDT @ 60000.0. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "orderType": "Limit",
+    "price": "60000.0",
+    "qty": "0.001666",
+    "side": "Buy",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC"
+   }
+  ]
+ },
+ "orders-bybit-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bybit: BTC/USDT @ 70000.0. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "orderType": "Limit",
+    "price": "70000.0",
+    "qty": "0.0015",
+    "side": "Sell",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC"
+   }
+  ]
+ },
+ "orders-bybit-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Bybit: BTC/USDT @ 70000.0. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "orderType": "Limit",
+    "price": "70000.0",
+    "qty": "0.001428",
+    "side": "Sell",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC"
+   }
+  ]
+ },
+ "orders-bybit-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bybit: 0.0015 BTC of BTC/USDT. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "marketUnit": "baseCoin",
+    "orderType": "Market",
+    "qty": "0.0015",
+    "side": "Buy",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bybit-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Bybit: 100.0 USDT of BTC/USDT. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "marketUnit": "quoteCoin",
+    "orderType": "Market",
+    "qty": "100.0",
+    "side": "Buy",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bybit-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bybit: 0.0015 BTC of BTC/USDT. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "marketUnit": "baseCoin",
+    "orderType": "Market",
+    "qty": "0.0015",
+    "side": "Sell",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bybit-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Bybit: 100.0 USDT of BTC/USDT. {order_id: \"123\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Bybit",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "123"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "marketUnit": "quoteCoin",
+    "orderType": "Market",
+    "qty": "100.0",
+    "side": "Sell",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bybit-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Insufficient balance",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Insufficient balance",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "marketUnit": "quoteCoin",
+    "orderType": "Market",
+    "qty": "100.0",
+    "side": "Buy",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-bybit-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Bybit",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: <html>upstream</html>",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: <html>upstream</html>",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "category": "spot",
+    "marketUnit": "quoteCoin",
+    "orderType": "Market",
+    "qty": "100.0",
+    "side": "Buy",
+    "symbol": "BTCUSDT"
+   }
+  ]
+ },
+ "orders-coinbase-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "price": 60000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Coinbase: BTC/EUR @ 60000.0. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "limit_limit_gtc": {
+      "base_size": "0.0015",
+      "limit_price": "60000.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "BUY"
+   }
+  ]
+ },
+ "orders-coinbase-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "price": 60000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Coinbase: BTC/EUR @ 60000.0. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "limit_limit_gtc": {
+      "base_size": "0.00166666",
+      "limit_price": "60000.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "BUY"
+   }
+  ]
+ },
+ "orders-coinbase-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "price": 70000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Coinbase: BTC/EUR @ 70000.0. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "limit_limit_gtc": {
+      "base_size": "0.0015",
+      "limit_price": "70000.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "SELL"
+   }
+  ]
+ },
+ "orders-coinbase-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "price": 70000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Coinbase: BTC/EUR @ 70000.0. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "limit_limit_gtc": {
+      "base_size": "0.00142857",
+      "limit_price": "70000.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "SELL"
+   }
+  ]
+ },
+ "orders-coinbase-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Coinbase: 0.0015 BTC of BTC/EUR. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "buy",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "market_market_ioc": {
+      "base_size": "0.0015"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "BUY"
+   }
+  ]
+ },
+ "orders-coinbase-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Coinbase: 100.0 EUR of BTC/EUR. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "buy",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "market_market_ioc": {
+      "quote_size": "100.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "BUY"
+   }
+  ]
+ },
+ "orders-coinbase-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Coinbase: 0.0015 BTC of BTC/EUR. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "sell",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "market_market_ioc": {
+      "base_size": "0.0015"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "SELL"
+   }
+  ]
+ },
+ "orders-coinbase-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Coinbase: 100.0 EUR of BTC/EUR. {order_id: \"cb-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Coinbase",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "sell",
+     "upstream": {
+      "order_id": "cb-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "market_market_ioc": {
+      "quote_size": "100.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "SELL"
+   }
+  ]
+ },
+ "orders-coinbase-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Insufficient balance in source account",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Insufficient balance in source account",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "market_market_ioc": {
+      "quote_size": "100.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "BUY"
+   }
+  ]
+ },
+ "orders-coinbase-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Coinbase",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Internal server error",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Internal server error",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "order_configuration": {
+     "market_market_ioc": {
+      "quote_size": "100.0"
+     }
+    },
+    "product_id": "BTC-EUR",
+    "side": "BUY"
+   }
+  ]
+ },
+ "orders-gemini-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "price": 60000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Gemini: BTC/USD @ 60000.0. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "options": [],
+    "price": "60000.0",
+    "side": "buy",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "price": 60000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Gemini: BTC/USD @ 60000.0. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00166666",
+    "options": [],
+    "price": "60000.0",
+    "side": "buy",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "price": 70000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Gemini: BTC/USD @ 70000.0. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "options": [],
+    "price": "70000.0",
+    "side": "sell",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "price": 70000,
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Gemini: BTC/USD @ 70000.0. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "limit",
+     "pair": "BTC/USD",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00142857",
+    "options": [],
+    "price": "70000.0",
+    "side": "sell",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Gemini: 0.0015 BTC of BTC/USD. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "buy",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "options": [
+     "immediate-or-cancel"
+    ],
+    "price": "64640.11",
+    "side": "buy",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Gemini: 100.0 USD of BTC/USD. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "buy",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00154702",
+    "options": [
+     "immediate-or-cancel"
+    ],
+    "price": "64640.11",
+    "side": "buy",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Gemini: 0.0015 BTC of BTC/USD. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "sell",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.0015",
+    "options": [
+     "immediate-or-cancel"
+    ],
+    "price": "63360.0",
+    "side": "sell",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Gemini: 100.0 USD of BTC/USD. {order_id: \"7612345678\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Gemini",
+     "order_type": "market",
+     "pair": "BTC/USD",
+     "side": "sell",
+     "upstream": {
+      "order_id": "7612345678"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00157828",
+    "options": [
+     "immediate-or-cancel"
+    ],
+    "price": "63360.0",
+    "side": "sell",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: {\"result\":\"error\",\"reason\":\"InsufficientFunds\",\"message\":\"Failed to place buy order: insufficient funds\"}",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: {\"result\":\"error\",\"reason\":\"InsufficientFunds\",\"message\":\"Failed to place buy order: insufficient funds\"}",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00154702",
+    "options": [
+     "immediate-or-cancel"
+    ],
+    "price": "64640.11",
+    "side": "buy",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-gemini-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Gemini",
+    "quote_asset": "USD"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: {\"result\":\"error\",\"reason\":\"System\",\"message\":\"We are experiencing technical issues\"}",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: {\"result\":\"error\",\"reason\":\"System\",\"message\":\"We are experiencing technical issues\"}",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "amount": "0.00154702",
+    "options": [
+     "immediate-or-cancel"
+    ],
+    "price": "64640.11",
+    "side": "buy",
+    "symbol": "btcusd",
+    "type": "exchange limit"
+   }
+  ]
+ },
+ "orders-hyperliquid-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "price": 60000,
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Hyperliquid: BTC/USDC @ 60000.0. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "limit",
+     "pair": "BTC/USDC",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "60000",
+    "r": false,
+    "s": "0.0015",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "price": 60000,
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Hyperliquid: BTC/USDC @ 60000.0. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "limit",
+     "pair": "BTC/USDC",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "60000",
+    "r": false,
+    "s": "0.00166",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-limit-fractional_price-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "price": 64006.123,
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Hyperliquid: BTC/USDC @ 64006.123. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "limit",
+     "pair": "BTC/USDC",
+     "price": 64006.123,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "64006",
+    "r": false,
+    "s": "0.0015",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-limit-fractional_price-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "price": 64006.123,
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Hyperliquid: BTC/USDC @ 64006.123. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "limit",
+     "pair": "BTC/USDC",
+     "price": 64006.123,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "64006",
+    "r": false,
+    "s": "0.00156",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "price": 70000,
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Hyperliquid: BTC/USDC @ 70000.0. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "limit",
+     "pair": "BTC/USDC",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": false,
+    "p": "70000",
+    "r": false,
+    "s": "0.0015",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "price": 70000,
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Hyperliquid: BTC/USDC @ 70000.0. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "limit",
+     "pair": "BTC/USDC",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": false,
+    "p": "70000",
+    "r": false,
+    "s": "0.00142",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Hyperliquid: 0.0015 BTC of BTC/USDC. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "market",
+     "pair": "BTC/USDC",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "64652",
+    "r": false,
+    "s": "0.0015",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Hyperliquid: 100.0 USDC of BTC/USDC. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "market",
+     "pair": "BTC/USDC",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "64652",
+    "r": false,
+    "s": "0.00154",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Hyperliquid: 0.0015 BTC of BTC/USDC. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "market",
+     "pair": "BTC/USDC",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": false,
+    "p": "63360",
+    "r": false,
+    "s": "0.0015",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Hyperliquid: 100.0 USDC of BTC/USDC. {order_id: \"BTC-77738308\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Hyperliquid",
+     "order_type": "market",
+     "pair": "BTC/USDC",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTC-77738308"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": false,
+    "p": "63360",
+    "r": false,
+    "s": "0.00157",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Hyperliquid order failed: Insufficient spot balance",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Hyperliquid order failed: Insufficient spot balance",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "64652",
+    "r": false,
+    "s": "0.00154",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-hyperliquid-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Hyperliquid",
+    "quote_asset": "USDC"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Hyperliquid::Error: Network error: Empty input (after ) at line 1, column 1 [parse.c:1270] in 'unavailable",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Hyperliquid::Error: Network error: Empty input (after ) at line 1, column 1 [parse.c:1270] in 'unavailable",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "a": 10142,
+    "b": true,
+    "p": "64652",
+    "r": false,
+    "s": "0.00154",
+    "t": {
+     "limit": {
+      "tif": "Gtc"
+     }
+    }
+   }
+  ]
+ },
+ "orders-kraken-limit-below_base_minimum": {
+  "order": {
+   "args": {
+    "amount": 4e-05,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 49000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Limit order of 0.00004 XBT is below the minimum of 0.00005 XBT for XBTEUR",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Limit order of 0.00004 XBT is below the minimum of 0.00005 XBT for XBTEUR",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": []
+ },
+ "orders-kraken-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 60000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Kraken: BTC/EUR @ 60000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "limit",
+    "pair": "XBTEUR",
+    "price": "60000.0",
+    "type": "buy",
+    "volume": "0.0015"
+   }
+  ]
+ },
+ "orders-kraken-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 60000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Kraken: BTC/EUR @ 60000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "limit",
+    "pair": "XBTEUR",
+    "price": "60000.0",
+    "type": "buy",
+    "volume": "0.00166666"
+   }
+  ]
+ },
+ "orders-kraken-limit-coarse_price": {
+  "order": {
+   "args": {
+    "amount": 0.001,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 49000.37,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Kraken: BTC/EUR @ 49000.37. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.001,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 49000.37,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "limit",
+    "pair": "XBTEUR",
+    "price": "49000.3",
+    "type": "buy",
+    "volume": "0.001"
+   }
+  ]
+ },
+ "orders-kraken-limit-quote_rounding": {
+  "order": {
+   "args": {
+    "amount": 100.123456,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 49000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on Kraken: BTC/EUR @ 49000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.123456,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 49000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "limit",
+    "pair": "XBTEUR",
+    "price": "49000.0",
+    "type": "buy",
+    "volume": "0.00204333"
+   }
+  ]
+ },
+ "orders-kraken-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 70000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Kraken: BTC/EUR @ 70000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "limit",
+    "pair": "XBTEUR",
+    "price": "70000.0",
+    "type": "sell",
+    "volume": "0.0015"
+   }
+  ]
+ },
+ "orders-kraken-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 70000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on Kraken: BTC/EUR @ 70000.0. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "limit",
+     "pair": "BTC/EUR",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "limit",
+    "pair": "XBTEUR",
+    "price": "70000.0",
+    "type": "sell",
+    "volume": "0.00142857"
+   }
+  ]
+ },
+ "orders-kraken-limit-sub_tick_price-base": {
+  "order": {
+   "args": {
+    "amount": 0.001,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 0.01,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Invalid limit price for XBTEUR: the limit price must be positive",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Invalid limit price for XBTEUR: the limit price must be positive",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": []
+ },
+ "orders-kraken-limit-sub_tick_price-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 0.01,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Invalid limit price for XBTEUR: the limit price must be positive",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Invalid limit price for XBTEUR: the limit price must be positive",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": []
+ },
+ "orders-kraken-limit-zero_after_floor": {
+  "order": {
+   "args": {
+    "amount": 1e-09,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "price": 49000,
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Limit order of 0.0 XBT is below the minimum of 0.00005 XBT for XBTEUR",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Limit order of 0.0 XBT is below the minimum of 0.00005 XBT for XBTEUR",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": []
+ },
+ "orders-kraken-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Kraken: 0.0015 BTC of BTC/EUR. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "market",
+    "pair": "XBTEUR",
+    "type": "buy",
+    "volume": "0.0015"
+   }
+  ]
+ },
+ "orders-kraken-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on Kraken: 100.0 EUR of BTC/EUR. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "buy",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "oflags": "viqc",
+    "ordertype": "market",
+    "pair": "XBTEUR",
+    "type": "buy",
+    "volume": "100.0"
+   }
+  ]
+ },
+ "orders-kraken-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on Kraken: 0.0015 BTC of BTC/EUR. {order_id: \"OTX-1\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "Kraken",
+     "order_type": "market",
+     "pair": "BTC/EUR",
+     "side": "sell",
+     "upstream": {
+      "order_id": "OTX-1"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "ordertype": "market",
+    "pair": "XBTEUR",
+    "type": "sell",
+    "volume": "0.0015"
+   }
+  ]
+ },
+ "orders-kraken-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Kraken does not support market sell orders in quote currency",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "raised": {
+    "class": "RuntimeError",
+    "message": "Kraken does not support market sell orders in quote currency"
+   }
+  },
+  "sent": []
+ },
+ "orders-kraken-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: EOrder:Insufficient funds",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: EOrder:Insufficient funds",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "oflags": "viqc",
+    "ordertype": "market",
+    "pair": "XBTEUR",
+    "type": "buy",
+    "volume": "100.0"
+   }
+  ]
+ },
+ "orders-kraken-rejected_two_errors": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: EOrder:Insufficient funds, EGeneral:Invalid arguments",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: EOrder:Insufficient funds, EGeneral:Invalid arguments",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "oflags": "viqc",
+    "ordertype": "market",
+    "pair": "XBTEUR",
+    "type": "buy",
+    "volume": "100.0"
+   }
+  ]
+ },
+ "orders-kraken-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "Kraken",
+    "quote_asset": "EUR"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: {\"error\":[\"EService:Unavailable\"]}",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: {\"error\":[\"EService:Unavailable\"]}",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "oflags": "viqc",
+    "ordertype": "market",
+    "pair": "XBTEUR",
+    "type": "buy",
+    "volume": "100.0"
+   }
+  ]
+ },
+ "orders-kucoin-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on KuCoin: BTC/USDT @ 60000.0. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "side": "buy",
+    "size": "0.0015",
+    "symbol": "BTC-USDT",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-kucoin-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on KuCoin: BTC/USDT @ 60000.0. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "side": "buy",
+    "size": "0.00166666",
+    "symbol": "BTC-USDT",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-kucoin-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on KuCoin: BTC/USDT @ 70000.0. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "side": "sell",
+    "size": "0.0015",
+    "symbol": "BTC-USDT",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-kucoin-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on KuCoin: BTC/USDT @ 70000.0. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "side": "sell",
+    "size": "0.00142857",
+    "symbol": "BTC-USDT",
+    "type": "limit"
+   }
+  ]
+ },
+ "orders-kucoin-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on KuCoin: 0.0015 BTC of BTC/USDT. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "side": "buy",
+    "size": "0.0015",
+    "symbol": "BTC-USDT",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-kucoin-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on KuCoin: 100.0 USDT of BTC/USDT. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "funds": "100.0",
+    "side": "buy",
+    "symbol": "BTC-USDT",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-kucoin-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on KuCoin: 0.0015 BTC of BTC/USDT. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "side": "sell",
+    "size": "0.0015",
+    "symbol": "BTC-USDT",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-kucoin-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on KuCoin: 100.0 USDT of BTC/USDT. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "KuCoin",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "6716f0a2c1b6d10007a3b1c5"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "funds": "100.0",
+    "side": "sell",
+    "symbol": "BTC-USDT",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-kucoin-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: KuCoin API error 200004: Balance insufficient!",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: KuCoin API error 200004: Balance insufficient!",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "funds": "100.0",
+    "side": "buy",
+    "symbol": "BTC-USDT",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-kucoin-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "KuCoin",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: <html>upstream</html>",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: <html>upstream</html>",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "funds": "100.0",
+    "side": "buy",
+    "symbol": "BTC-USDT",
+    "type": "market"
+   }
+  ]
+ },
+ "orders-mexc-limit-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on MEXC: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-mexc-limit-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "price": 60000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit buy order placed on MEXC: BTC/USDT @ 60000.0. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 60000.0,
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "60000.0",
+    "quantity": "0.001666",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-mexc-limit-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on MEXC: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-mexc-limit-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "price": 70000,
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Limit sell order placed on MEXC: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "limit",
+     "pair": "BTC/USDT",
+     "price": 70000.0,
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "price": "70000.0",
+    "quantity": "0.001428",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "timeInForce": "GTC",
+    "type": "LIMIT"
+   }
+  ]
+ },
+ "orders-mexc-market-buy-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on MEXC: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-mexc-market-buy-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market buy order placed on MEXC: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "buy",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-mexc-market-sell-base": {
+  "order": {
+   "args": {
+    "amount": 0.0015,
+    "amount_type": "base",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on MEXC: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 0.0015,
+     "amount_type": "base",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quantity": "0.0015",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-mexc-market-sell-quote": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Market sell order placed on MEXC: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-C02__100\"}",
+      "type": "text"
+     }
+    ]
+   },
+   "result": {
+    "code": null,
+    "data": {
+     "amount": 100.0,
+     "amount_type": "quote",
+     "dry_run": false,
+     "exchange": "MEXC",
+     "order_type": "market",
+     "pair": "BTC/USDT",
+     "side": "sell",
+     "upstream": {
+      "order_id": "BTCUSDT-C02__100"
+     }
+    },
+    "message": null,
+    "status": "created"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "side": "SELL",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-mexc-rejected": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: Insufficient balance",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: Insufficient balance",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ },
+ "orders-mexc-server_error": {
+  "order": {
+   "args": {
+    "amount": 100,
+    "amount_type": "quote",
+    "base_asset": "BTC",
+    "exchange_name": "MEXC",
+    "quote_asset": "USDT"
+   },
+   "mcp": {
+    "content": [
+     {
+      "text": "Order failed: service not available, please try again",
+      "type": "text"
+     }
+    ],
+    "isError": true
+   },
+   "result": {
+    "code": "order_failed",
+    "data": null,
+    "message": "Order failed: service not available, please try again",
+    "status": "upstream_failed"
+   }
+  },
+  "sent": [
+   {
+    "quoteOrderQty": "100.0",
+    "recvWindow": "5000",
+    "side": "BUY",
+    "symbol": "BTCUSDT",
+    "type": "MARKET"
+   }
+  ]
+ }
+}

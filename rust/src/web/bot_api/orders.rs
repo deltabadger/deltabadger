@@ -103,13 +103,18 @@ pub struct Queued { pub id: i64, bot_id: i64, exchange: String, pair: String, ba
 /// MarketBuy/MarketSell/LimitBuy/LimitSell#call. `args`: the service's keyword arguments as the surface hands them over
 /// (a missing key is nil); `bot_id`: None only for nil (REST hands over `params[:bot_id].to_s`, MCP the number).
 pub fn place(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Placed, WebError> {
+    place_at(c, app.now(), who, kind, args, bot_id)
+}
+
+/// `place` at `now` (also the grid-orders entry, parity::standalone_orders, at the scenario's time).
+pub fn place_at(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Placed, WebError> {
     Ok(match bot_id {
-        Some(bot_id) if !kind.limit() => return through_bot(c, app.now(), who, kind, args, bot_id),
-        _ => Placed::Done(standalone(c, app, who, kind, args, bot_id)?),
+        Some(bot_id) if !kind.limit() => return through_bot(c, now, who, kind, args, bot_id),
+        _ => Placed::Done(standalone(c, now, who, kind, args, bot_id)?),
     })
 }
 
-fn standalone(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Res, WebError> {
+fn standalone(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Res, WebError> {
     if let Some(bot_id) = bot_id {
         // Sent at all, however malformed: a limit order is refused, a market order goes through the bot.
         let _ = bot_id;
@@ -128,7 +133,7 @@ fn standalone(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<Str
         return Ok(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {base}/{quote} not found on {name}.")));
     };
     if let Some(refusal) = untradable(&name, &ticker) { return Ok(refusal) }
-    if kind.buy() { if let Some(refusal) = wash_refusal(c, app.now(), who, &ticker)? { return Ok(refusal) } }
+    if kind.buy() { if let Some(refusal) = wash_refusal(c, now, who, &ticker)? { return Ok(refusal) } }
     // D-ORDER-AMOUNT-VALIDATION: where Rails hands these to the venue (or raises), BotOrder's refusals.
     if !number(arg(args, "amount")).is_some_and(|n| n.is_positive()) { return Ok(invalid_number("amount")) }
     let Some(amount_type) = amount_type(kind, args) else { return Ok(invalid_amount_type()) };
