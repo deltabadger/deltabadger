@@ -31,7 +31,11 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Tracker(tracker::Route), Unported }
+enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Unported }
+
+/// OrdersController#create and #destroy (PLAN-A9).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Order { Create, Cancel }
 
 /// The reads that may ask a venue (BotApi::Bots::Get, Exchanges::Balances, Orders::ListOpen, Portfolio::Summary).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,7 +80,7 @@ fn route(method: &Method, path: &str) -> Option<Route> {
     let mut path: Vec<(&'static str, String)> = vec![];
     let (gate, action) = match segments.as_slice() {
         ["bots"] if get => (tool("list_bots"), Action::Bots),
-        ["bots"] if post => (Some(Gate::BotType), Action::Unported),
+        ["bots"] if post => (Some(Gate::BotType), Action::Create),
         // D-SPLIT-API: this build's own route (Rails routes no POST /bots/split).
         ["bots", "split"] if post => (tool("split_bots"), Action::Split),
         ["bots", id, rest @ ..] => {
@@ -105,8 +109,8 @@ fn route(method: &Method, path: &str) -> Option<Route> {
         ["exchanges"] if get => (tool("list_exchanges"), Action::Exchanges),
         ["exchanges", id, "balances"] if get => { path.push(("id", id.to_string())); (tool("get_exchange_balances"), Action::Read(Reading::Balances)) }
         ["orders"] if get => (tool("list_open_orders"), Action::Read(Reading::Orders)),
-        ["orders"] if post => (Some(Gate::OrderType), Action::Unported),
-        ["orders", id] if delete => { path.push(("id", id.to_string())); (tool("cancel_order"), Action::Unported) }
+        ["orders"] if post => (Some(Gate::OrderType), Action::Order(Order::Create)),
+        ["orders", id] if delete => { path.push(("id", id.to_string())); (tool("cancel_order"), Action::Order(Order::Cancel)) }
         ["portfolio"] if get => (tool("get_portfolio_summary"), Action::Read(Reading::Portfolio)),
         ["indices"] if get => (tool("list_indices"), Action::Indices),
         ["rules"] if get => (tool("list_rules"), Action::Rules(rules::Action::List)),
@@ -148,6 +152,8 @@ impl Input<'_> {
         out.extend(self.path.iter().map(|(name, value)| (name.to_string(), json!(value))));
         Ok(out)
     }
+    /// A body ActionDispatch parsed as JSON (ParamsWrapper wraps only those).
+    pub fn is_json(&self) -> bool { self.json.is_some() }
     pub fn body(&self) -> Result<Map<String, Value>, ()> {
         Ok(match &self.json {
             // `content_length.zero?`: no parameters.
@@ -175,7 +181,7 @@ pub(crate) enum Answer { Json(StatusCode, String), Csv(Box<tracker::Csv>), Head(
 /// Api::V1::BaseController#status_for.
 fn status_for(status: Domain) -> StatusCode {
     match status {
-        Domain::Success => StatusCode::OK, Domain::ValidationFailed => StatusCode::UNPROCESSABLE_ENTITY, Domain::NotFound => StatusCode::NOT_FOUND,
+        Domain::Success => StatusCode::OK, Domain::Created => StatusCode::CREATED, Domain::ValidationFailed => StatusCode::UNPROCESSABLE_ENTITY, Domain::NotFound => StatusCode::NOT_FOUND,
         Domain::PermissionDenied => StatusCode::FORBIDDEN, Domain::Conflict => StatusCode::CONFLICT, Domain::UpstreamFailed => StatusCode::BAD_GATEWAY,
         Domain::NotPorted => StatusCode::NOT_IMPLEMENTED, Domain::Raised => StatusCode::INTERNAL_SERVER_ERROR,
     }
@@ -249,6 +255,27 @@ fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<
     }
 }
 
+/// BotsController#create_params, #index_params and #signal_params: `params.permit(*names)`, a scalar each (nil included);
+/// `assets` also as a list of `{symbol, allocation}` hashes (`assets: %i[symbol allocation]`), whose other entries and keys
+/// are dropped.
+fn permitted(kind: super::bot::create::Kind, params: &Map<String, Value>) -> Map<String, Value> {
+    let scalar = |v: &Value| !(v.is_array() || v.is_object());
+    kind.params().iter().filter_map(|name| {
+        let value = params.get(*name)?;
+        if scalar(value) { return Some((name.to_string(), value.clone())); }
+        match (*name, value) {
+            ("assets", Value::Array(items)) => Some((name.to_string(), Value::Array(items.iter().filter_map(|item| item.as_object().map(|h| {
+                Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect())
+            })).collect()))),
+            // A hash of numbered entries is permitted as such (each entry filtered); any other hash is one entry.
+            ("assets", Value::Object(h)) if !h.is_empty() && h.keys().all(|k| k.bytes().all(|b| b.is_ascii_digit()) && !k.is_empty()) => Some((name.to_string(),
+                Value::Object(h.iter().map(|(k, v)| (k.clone(), v.as_object().map_or(Value::Null, |e| Value::Object(e.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect())))).collect()))),
+            ("assets", Value::Object(h)) => Some((name.to_string(), Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect()))),
+            _ => None,
+        }
+    }).collect()
+}
+
 fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorization: Option<&str>, method: &Method, path: &str) -> Result<Answer, WebError> {
     let who = match authenticate(c, app, authorization)? { Ok(who) => who, Err(answer) => return Ok(answer) };
     let parsed = std::cell::OnceCell::new();
@@ -269,6 +296,11 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                 let Ok(p) = params() else { return Ok(bad_request()) }; Value::Object(p.clone())
             };
             Answer::Rules(rules::Request { user, action, args })
+        }
+        Action::Create => {
+            let Ok(p) = params() else { return Ok(bad_request()) };
+            let kind = super::bot::create::Kind::tool(tool).ok_or_else(|| WebError::Config("a create route without its tool".into()))?;
+            render(bot_api::create(c, app, user, kind, &permitted(kind, p))?)
         }
         Action::Exchanges => render(bot_api::exchanges(c, user)?),
         Action::TaxJurisdictions => render(bot_api::tax_jurisdictions()),
@@ -328,6 +360,42 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             }
         }
         Action::Split => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::split(c, app, user, p.get("bot_ids"), p.get("keep_proceeds_for"))?) }
+        Action::Order(order) => {
+            let Ok(p) = params() else { return Ok(bad_request()) };
+            // REST is never a dry run.
+            let caller = bot_api::orders::Caller { user, dry_run: false, mcp: false };
+            let unported = || failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet."));
+            match order {
+                Order::Cancel => {
+                    let res = bot_api::orders::cancel(c, caller, p.get("id").unwrap_or(&Value::Null), p.get("exchange_name").unwrap_or(&Value::Null))?;
+                    if res.status == Domain::NotPorted { unported() } else { render(res) }
+                }
+                Order::Create => {
+                    let kind = bot_api::orders::Kind::tool(tool).ok_or_else(|| WebError::Config("an order gate named no order tool".into()))?;
+                    // `params.permit(...)`: a list or a hash is dropped. `bot_id` is not permitted but handed over as its
+                    // `to_s`, unless nil.
+                    let args: Map<String, Value> = ["exchange_name", "base_asset", "quote_asset", "amount", "price", "amount_type"].into_iter()
+                        .filter_map(|k| p.get(k).filter(|v| !(v.is_array() || v.is_object())).map(|v| (k.to_string(), v.clone()))).collect();
+                    let bot_id = p.get("bot_id").filter(|v| !v.is_null()).map(|v| json!(bot_api::orders::to_s(v)));
+                    let payload = super::rest_idempotency::wrapped_payload(input, "order", p)?;
+                    match super::rest_idempotency::claim(c, app, user, input, payload)? {
+                        super::rest_idempotency::Claim::Answer(answer) => answer,
+                        super::rest_idempotency::Claim::Claimed(id) => {
+                            let res = bot_api::orders::place(c, app, caller, kind, &args, bot_id.as_ref())?;
+                            if res.status == Domain::NotPorted {
+                                super::rest_idempotency::release(c, id)?;
+                                unported()
+                            } else {
+                                let created = res.code.is_none();
+                                let mut answer = render(res);
+                                if created { if let Answer::Json(status, _) = &mut answer { *status = StatusCode::CREATED; } }
+                                super::rest_idempotency::complete(c, app, id, answer)?
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Action::Unported => failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet.")),
     })
 }
@@ -411,7 +479,11 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
         let mut response = (status, [(header::CONTENT_TYPE, content_type.to_string())], body).into_response();
         for (name, value) in extra { if let Ok(value) = HeaderValue::from_str(&value) { response.headers_mut().insert(name, value); } }
         let fresh = status == StatusCode::OK && tag.is_some() && tag.as_deref() == if_none_match;
-        if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) { response.headers_mut().insert(header::ETAG, tag); }
+        if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) {
+            response.headers_mut().insert(header::ETAG, tag);
+            // Rack::ETag: a tagged answer (a 201's too) is `max-age=0, private, must-revalidate`.
+            response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("max-age=0, private, must-revalidate"));
+        }
         headers::controller_defaults(response.headers_mut(), status, false);
         if fresh {
             *response.status_mut() = StatusCode::NOT_MODIFIED;

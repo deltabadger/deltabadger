@@ -71,7 +71,7 @@ fn credentials(c:&Connection,app:&App,user:i64,exchange:i64)->Result<Option<Mate
     id.map(|id|sync::credentials_with_version(c,&app.cipher,id).map(|(credentials,origin)|Material{credentials,origin}).map_err(|_|error())).transpose()
 }
 const EXCHANGE:&str="SELECT id,name,type FROM exchanges WHERE type!='Exchanges::Bitmart'";
-fn exchange(c:&Connection,name:&str)->Result<Option<(i64,String,String)>,WebError>{Ok(c.query_row(&format!("{EXCHANGE} AND lower(name)=?1 LIMIT 1"),[name.to_lowercase()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?)}
+pub(crate) fn exchange(c:&Connection,name:&str)->Result<Option<(i64,String,String)>,WebError>{Ok(c.query_row(&format!("{EXCHANGE} AND lower(name)=?1 LIMIT 1"),[name.to_lowercase()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?)}
 /// MCP: the tool's plan, as a finished answer or a fetch.
 pub fn plan(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Called,WebError>{
     let ask=Ask::tool(name,args).ok_or_else(error)?;

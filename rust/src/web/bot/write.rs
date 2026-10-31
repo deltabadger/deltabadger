@@ -357,38 +357,60 @@ pub fn lifecycle<T>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn lifecycle_inner<T>(
     c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action, submitted: &ActionParams,
     response_builder: impl FnOnce(&Connection, &Ctx, &LifecycleView) -> Result<Prepared<T>, WebError>,
 ) -> Result<Outcome<T>, WebError> {
-    use crate::enums::{ApiKeyStatus, BotStatus};
     let tx = if matches!(action, Action::Stop | Action::Archive | Action::Delete) { model::immediate_retry_busy(c)? } else { model::immediate(c)? };
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
+    match lifecycle_in(&tx, &ctx, owner, id, action, submitted, response_builder)? {
+        // Nothing to keep: dropping the transaction rolls it back.
+        Step::Done(outcome) => Ok(outcome),
+        Step::Commit(prepared) => {
+            tx.commit()?;
+            ctx.app.wake_engine();
+            for (stream,html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream,&html); }
+            if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
+            Ok(Outcome::Committed(prepared.response))
+        }
+    }
+}
+
+/// What `lifecycle_in` came to: an outcome with nothing to keep (the caller drops, so rolls back, its transaction), or
+/// the write to commit with what is published after the commit.
+pub enum Step<T> { Done(Outcome<T>), Commit(Prepared<T>) }
+
+/// The lifecycle write on the caller's open write transaction `tx`, with `ctx.now` already the write's time. It never
+/// commits nor rolls back: the caller commits on `Step::Commit` (then wakes the engine and broadcasts), and drops the
+/// transaction otherwise. bot::create runs a Start this way inside the transaction that inserted the bot.
+#[allow(clippy::too_many_arguments)]
+pub fn lifecycle_in<T>(
+    tx: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action, submitted: &ActionParams,
+    response_builder: impl FnOnce(&Connection, &Ctx, &LifecycleView) -> Result<Prepared<T>, WebError>,
+) -> Result<Step<T>, WebError> {
+    use crate::enums::{ApiKeyStatus, BotStatus};
     let row = tx.query_row("SELECT type,status,settings,transient_data FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaMultiAsset','Bots::DcaIndex')",
         (id,owner), |r| Ok((r.get::<_,String>(0)?,r.get::<_,i64>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).optional()?;
-    let Some((class,status,raw,transient)) = row else { return Ok(Outcome::Missing) };
+    let Some((class,status,raw,transient)) = row else { return Ok(Step::Done(Outcome::Missing)) };
     let mut view = LifecycleView { draft: None, errors: vec![] };
     if submitted.mcp() {
         let label: String = tx.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1",[id],|r|r.get(0))?;
         let name = match status {0=>"created",1=>"scheduled",2=>"stopped",3=>"deleted",4=>"executing",5=>"retrying",6=>"waiting",7=>"archived",_=>return Err(error("unknown bot status"))};
         let working = matches!(status,1|4|5|6);
         // BotApi::Bots::Start asks BotApi::Bots::Start.wash_sale_question_owed? before anything else, as the web start does.
-        if action == Action::Start && super::wash::due(&tx,owner,id,ctx.now)? == Some(super::wash::Due::Question) {
+        if action == Action::Start && super::wash::due(tx,owner,id,ctx.now)? == Some(super::wash::Due::Question) {
             let message=i18n::text(ctx.locale,"engine.wash_sale_question_owed",&[("label",i18n::Arg::Text(&label))]);
             view.errors.push(FieldError {field:"base".into(),message:message.clone()});
-            let prepared=response_builder(&tx,&ctx,&view)?;
-            tx.rollback()?;
-            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("wash_sale_question_owed", message)));
+            let prepared=response_builder(tx,ctx,&view)?;
+            return Ok(Step::Done(Outcome::Invalid(prepared.response, Failure::invalid("wash_sale_question_owed", message))));
         }
         // Then the flag (BotApi::Bots::Start reads it before it asks whether the bot runs).
         if action == Action::Start && submitted.start_fresh().is_err() {
             let message=i18n::text(ctx.locale,"engine.invalid_start_fresh",&[]);
             view.errors.push(FieldError {field:"base".into(),message:message.clone()});
-            let prepared=response_builder(&tx,&ctx,&view)?;
-            tx.rollback()?;
-            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("invalid_start_fresh", message)));
+            let prepared=response_builder(tx,ctx,&view)?;
+            return Ok(Step::Done(Outcome::Invalid(prepared.response, Failure::invalid("invalid_start_fresh", message))));
         }
         let conflict = match action {
             Action::Stop if !working => Some(("bot_not_running", format!("Bot '{label}' is not running ({name})."))),
@@ -399,16 +421,14 @@ fn lifecycle_inner<T>(
         };
         if let Some((code,message))=conflict {
             view.errors.push(FieldError {field:"base".into(),message:message.clone()});
-            let prepared=response_builder(&tx,&ctx,&view)?;
-            tx.rollback()?;
-            return Ok(Outcome::Invalid(prepared.response, Failure::conflict(code, message)));
+            let prepared=response_builder(tx,ctx,&view)?;
+            return Ok(Step::Done(Outcome::Invalid(prepared.response, Failure::conflict(code, message))));
         }
     }
     // A stale Reactivate never validates, fills defaults, or wakes a running bot.
     if action == Action::Unarchive && status != 7 || action == Action::Archive && status == 7 {
-        let prepared = response_builder(&tx, &ctx, &view)?;
-        tx.rollback()?;
-        return Ok(Outcome::NoChange(prepared.response));
+        let prepared = response_builder(tx, ctx, &view)?;
+        return Ok(Step::Done(Outcome::NoChange(prepared.response)));
     }
     let safety = matches!(action, Action::Stop | Action::Delete | Action::Archive);
     // Never replace an unreadable JSON document with an empty object. The guard owns the
@@ -416,13 +436,12 @@ fn lifecycle_inner<T>(
     let structural = raw.len() <= 65_536 && transient.len() <= 65_536
         && super::object(&raw,"bots.settings").is_ok() && super::object(&transient,"bots.transient_data").is_ok();
     if !structural {
-        if !safety { return Ok(Outcome::Unported("invalid or oversized stored bot JSON")); }
+        if !safety { return Ok(Step::Done(Outcome::Unported("invalid or oversized stored bot JSON"))); }
         view.errors.push(FieldError { field: "base".into(), message: i18n::text(ctx.locale,"engine.write_refused", &[("reason",i18n::Arg::Text("invalid or oversized stored bot JSON"))]) });
-        let prepared=response_builder(&tx,&ctx,&view)?;
-        tx.rollback()?;
-        return Ok(Outcome::GuardRefused(prepared.response));
+        let prepared=response_builder(tx,ctx,&view)?;
+        return Ok(Step::Done(Outcome::GuardRefused(prepared.response)));
     }
-    view.draft = match Draft::load(&tx,owner,id,ctx.locale) {
+    view.draft = match Draft::load(tx,owner,id,ctx.locale) {
         Ok(draft) => draft,
         // STOP sets only status and stop fields: it never depends on reading history, however a column is stored.
         Err(_) if action == Action::Stop => None,
@@ -454,12 +473,12 @@ fn lifecycle_inner<T>(
         }
     }
     if view.errors.is_empty() && (!safety || submitted.mcp() && action != Action::Stop) {
-        let (provider,configured)=bots::market_data(&tx,&ctx.app)?;
-        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,provider,For::Settings)?};
+        let (provider,configured)=bots::market_data(tx,&ctx.app)?;
+        let refusal=if submitted.mcp() {None} else {super::refusal(tx,id,provider,For::Settings)?};
         let draft=view.draft.as_mut().ok_or_else(||error("owned lifecycle draft disappeared"))?;
         let refusal=if submitted.mcp() {None} else {refusal.or_else(||draft.original.unrendered())};
         if action==Action::Start {
-            if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }
+            if let Some(reason)=refusal { return Ok(Step::Done(Outcome::Unported(reason))); }
         }
         draft.candidate.status=match action {
             Action::Start=>BotStatus::Scheduled, Action::Archive=>BotStatus::Archived,
@@ -479,18 +498,18 @@ fn lifecycle_inner<T>(
                 draft.candidate.transient.remove("missed_quote_amount");
             }
         }
-        draft.validate(&tx,if action==Action::Start {ValidationContext::Start}else{ValidationContext::Update},ctx.now,configured,ctx.locale)?;
+        draft.validate(tx,if action==Action::Start {ValidationContext::Start}else{ValidationContext::Update},ctx.now,configured,ctx.locale)?;
         if action == Action::Start { writer_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now)?; }
         view.errors.extend(draft.errors.clone());
         if action==Action::Unarchive && view.errors.is_empty() {
-            if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }
+            if let Some(reason)=refusal { return Ok(Step::Done(Outcome::Unported(reason))); }
         }
         if action==Action::Start && view.errors.is_empty() {
             if draft.candidate.api_key != Some(ApiKeyStatus::Correct as i64) {
                 writer_refused = true;
                 let reason=i18n::text(ctx.locale,"engine.api_key_not_ready",&[]);
                 view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
-            } else if let Err(reason)=crate::venue::ibkr_account::check_bot_account(&tx,&ctx.app.cipher,id)? {
+            } else if let Err(reason)=crate::venue::ibkr_account::check_bot_account(tx,&ctx.app.cipher,id)? {
                 // D-IBKR-ACCOUNT: an IBKR bot starts only on the account it belongs to.
                 writer_refused = true;
                 view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
@@ -508,8 +527,8 @@ fn lifecycle_inner<T>(
     }
     if !view.errors.is_empty() {
         if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
-        let prepared=response_builder(&tx,&ctx,&view)?;
-        if writer_refused { tx.rollback()?; return Ok(Outcome::GuardRefused(prepared.response)); }
+        let prepared=response_builder(tx,ctx,&view)?;
+        if writer_refused { return Ok(Step::Done(Outcome::GuardRefused(prepared.response))); }
         let failure = match flag_failure {
             Some(failure) => failure,
             None => {
@@ -517,8 +536,7 @@ fn lifecycle_inner<T>(
                 model_failure(action, &label, &view.errors)
             }
         };
-        tx.rollback()?;
-        return Ok(Outcome::Invalid(prepared.response, failure));
+        return Ok(Step::Done(Outcome::Invalid(prepared.response, failure)));
     }
     let at=codec::format_time(ctx.now);
     if let Some(draft)=view.draft.as_mut() {
@@ -529,11 +547,11 @@ fn lifecycle_inner<T>(
             if draft.raw_transient.contains_key("last_action_job_at") { draft.candidate.transient.insert("last_action_job_at".into(),Value::Null); }
             draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
         }
-        let mut effects=draft.save_effects(&tx,ctx.now)?;
+        let mut effects=draft.save_effects(tx,ctx.now)?;
         // BotApi's own capture before a save (UpdateSettings, Delete, Unarchive); Start hands the bot to Bot#start as the web does.
         let service_capture = submitted.mcp() && action != Action::Start;
         if service_capture && effects.settings_changed && delayed.is_none() {
-            let carry=pending(&tx,&draft.original,ctx.now)?;
+            let carry=pending(tx,&draft.original,ctx.now)?;
             effects.transient.set.insert("missed_quote_amount".into(),stored_carry(&draft.raw_transient,serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?));
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
@@ -548,7 +566,7 @@ fn lifecycle_inner<T>(
             // the settings changed (a new start_at) and restores the nil otherwise; ActiveRecord then writes
             // transient_data only when the hash differs, by Ruby's ==, from the stored one.
             let missed=if effects.settings_changed {
-                let carry=pending(&tx,&draft.candidate,ctx.now)?.to_d().ok_or_else(||error("carry is not finite"))?;
+                let carry=pending(tx,&draft.candidate,ctx.now)?.to_d().ok_or_else(||error("carry is not finite"))?;
                 serialized(minimum(Num::Dec(carry),effective_amount(&draft.candidate)?)?)?
             } else {Value::Null};
             // A store_accessor writer does not materialize an absent key when assigned nil.
@@ -576,13 +594,13 @@ fn lifecycle_inner<T>(
         Action::Start => {
             one(tx.execute(WEB_START,(id,owner,&class,fresh && delayed.is_none(),&at))?)?;
             // An IBKR bot not yet bound to an account belongs, from its first successful start, to its key's.
-            crate::venue::ibkr_account::assign_bot_account(&tx,id,ctx.now)?;
+            crate::venue::ibkr_account::assign_bot_account(tx,id,ctx.now)?;
             // Bot::Lifecycle#start (fresh, delayed or not) drops the carry and with it the reserves a reversal left
             // waiting for their buy's final state, so a later final poll cannot credit spending the start discarded.
             if fresh { tx.execute(REMOVE_TRANSIENT,(path(crate::engine::reversal::RESERVE_PENDING,true)?,id,owner,&class))?; }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
             // Bots::DcaIndex#start: every start, a delayed one included, resyncs the composition.
-            if class=="Bots::DcaIndex" { crate::engine::index::mark_resync(&tx,id,ctx.now)?; }
+            if class=="Bots::DcaIndex" { crate::engine::index::mark_resync(tx,id,ctx.now)?; }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
                 // created bot with a historical stamp cannot inherit stopped-only scheduling.
@@ -602,14 +620,13 @@ fn lifecycle_inner<T>(
     }
     // STOP only reduces activity. Outstanding reconciliation or unrelated eligibility
     // damage cannot veto it; ordinary writers still validate the entire install.
-    let guarded = if action == Action::Stop { Ok(()) } else { eligibility::guard(&tx,&ctx.app.cipher,Some(id)) };
+    let guarded = if action == Action::Stop { Ok(()) } else { eligibility::guard(tx,&ctx.app.cipher,Some(id)) };
     if let Err(refusal)=guarded {
         let reason=refusal.reason();
         view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
         if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
-        let prepared=response_builder(&tx,&ctx,&view)?;
-        tx.rollback()?;
-        return Ok(Outcome::GuardRefused(prepared.response));
+        let prepared=response_builder(tx,ctx,&view)?;
+        return Ok(Step::Done(Outcome::GuardRefused(prepared.response)));
     }
     if matches!(action,Action::Start|Action::Stop|Action::Archive) {
         let (event,details)=if action==Action::Start {("started",json!({"start_fresh":fresh}))}else{("stopped",json!({}))};
@@ -618,11 +635,11 @@ fn lifecycle_inner<T>(
     if let Some(draft)=view.draft.as_mut() {
         let redrawn=(|| -> Result<bool, WebError> {
             let shown=std::mem::take(&mut draft.candidate.label);
-            draft.candidate=Bot::find(&tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
+            draft.candidate=Bot::find(tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
             if draft.candidate.label_unsaved { draft.candidate.label=shown; }
             if !safety { return Ok(true); }
-            let (provider,_)=bots::market_data(&tx,&ctx.app)?;
-            Ok(draft.candidate.unrendered().is_none() && super::refusal(&tx,id,provider,For::Page)?.is_none())
+            let (provider,_)=bots::market_data(tx,&ctx.app)?;
+            Ok(draft.candidate.unrendered().is_none() && super::refusal(tx,id,provider,For::Page)?.is_none())
         })();
         match redrawn {
             Ok(true) => {}
@@ -632,12 +649,7 @@ fn lifecycle_inner<T>(
             Err(e) => return Err(e),
         }
     }
-    let prepared=response_builder(&tx,&ctx,&view)?;
-    tx.commit()?;
-    ctx.app.wake_engine();
-    for (stream,html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream,&html); }
-    if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
-    Ok(Outcome::Committed(prepared.response))
+    Ok(Step::Commit(response_builder(tx,ctx,&view)?))
 }
 
 /// What `reverse` did.

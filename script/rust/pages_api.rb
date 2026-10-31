@@ -36,7 +36,7 @@ module Pages
                 'price' => ['PATCH', '/api/v1/transactions/account/10/price', 'set_transaction_price'],
                 'sync' => ['POST', '/api/v1/tracker/sync', 'sync_tracker'] }.freeze
     TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + TRACKER.values.map(&:last) +
-             %w[create_bot create_index_bot market_buy]).freeze
+             %w[create_bot create_index_bot create_signal_bot market_buy]).freeze
     # What a bot write may change, and the rows compared as stored.
     WRITE_TABLES = %w[bots bot_activity_logs bot_index_assets].freeze
     WRITE_ROWS = { 'bots' => '*', 'bot_activity_logs' => '*', 'bot_index_assets' => '*' }.freeze
@@ -95,7 +95,6 @@ module Pages
                                                      api('/api/v1/bots?type=%3Cb%3E', method: 'POST')])
       grid['api_gated_create_order_types'] = api_case([api('/api/v1/orders?type=limit_buy', method: 'POST'),
                                                        json_body('/api/v1/orders', '{"type":"nope"}').merge('method' => 'POST')])
-      grid['not_ported_api_create_bot'] = api_case([json_body('/api/v1/bots', '{"type":"dca"}').merge('method' => 'POST')])
       # Paths Rails does not route: a locale prefix, an unknown resource, a method a resource does not take.
       # Answered before any controller, so no snapshot: the missing_ divergence compares the whole answer.
       missing = ->(path, method = 'GET') { api_case([api(path, method:).except('action_snapshot', 'may_mutate', 'jobs')]) }
@@ -114,7 +113,97 @@ module Pages
                                               json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
       # The setup gate is ApplicationController's: an install without an admin still answers the API.
       grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
-      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_tracker_scenarios)
+      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios).merge(api_order_scenarios).merge(api_tracker_scenarios)
+    end
+
+    # A10: POST /api/v1/bots (BotApi::Bots::Create, CreateIndex, CreateSignal). A refused create writes nothing: the
+    # insert is the start's save (Bot::Lifecycle#start, Bots::Signal#start).
+    def create(body, token = 'api-token', **opts) = write('POST', '/api/v1/bots', token, body: body.is_a?(String) ? body : body.to_json, **opts)
+
+    CREATE_DCA = { type: 'dca', exchange_name: 'Alpaca', base_asset: 'AAPL', quote_asset: 'USD', quote_amount: 25, interval: 'week' }.freeze
+    CREATE_INDEX = { type: 'index', exchange_name: 'Alpaca', index: 'nasdaq-100', quote_asset: 'USD', quote_amount: 40, interval: 'day' }.freeze
+    CREATE_SIGNAL = { type: 'signal', exchange_name: 'Alpaca', base_asset: 'AAPL', quote_asset: 'USD' }.freeze
+
+    def api_create_scenarios
+      later = ->(days, time = '09:30:00') { "#{(Time.iso8601(AT) + days.days).to_date.iso8601}T#{time}" }
+      dca = ->(extra) { CREATE_DCA.merge(extra) }
+      index = ->(extra) { CREATE_INDEX.merge(extra) }
+      signal = ->(extra) { CREATE_SIGNAL.merge(extra) }
+      venues = { 'venues' => true }
+      # ND100 offered on Alpaca with its members (Index::ExchangeAvailability), so the index cells reach their checks.
+      api_case = ->(steps, api = {}, attrs = {}) { self.api_case(steps, { 'index_alpaca' => true }.merge(api), attrs) }
+      grid = {
+        'api_create_dca_single' => api_case.([create(CREATE_DCA)]),
+        'api_create_dca_string_amount' => api_case.([create(dca.(quote_amount: '25.5', interval: 'hour'))]),
+        'api_create_dca_basket_string' => api_case.([create(dca.(base_asset: nil, assets: 'AAPL:60,msft:40'))]),
+        'api_create_dca_basket_array' => api_case.([create(dca.(base_asset: nil, assets: [{ symbol: 'aapl', allocation: 50 }, { symbol: 'MSFT', allocation: 50 }]))]),
+        'api_create_dca_basket_three' => api_case.([create(dca.(base_asset: nil, assets: 'AAPL,MSFT,NVDA', interval: 'month'))]),
+        'api_create_dca_basket_tolerance' => api_case.([create(dca.(base_asset: nil, assets: 'AAPL:60,MSFT:39.95'))]),
+        'api_create_dca_legacy_pair' => api_case.([create(dca.(second_base_asset: 'MSFT', allocation: 70)), create(dca.(second_base_asset: 'NVDA'))]),
+        'api_create_dca_market_cap' => api_case.([create(dca.(base_asset: nil, assets: 'BTC:90,ETH:10', weighting: 'market_cap'))]),
+        'api_create_dca_labels' => api_case.([create(dca.(label: 'Mine <b>&"')), create(dca.(label: '  ')), create(dca.(label: ''))]),
+        'api_create_dca_kraken' => api_case.([create(dca.(exchange_name: 'kraken', base_asset: 'btc', quote_asset: 'eur', quote_amount: 10, interval: 'day'))], {}, venues),
+        # D-API-CREATE-HYPERLIQUID-LIMIT: Rails' start refuses its own API bot (limit orders left off); this build sets them.
+        'fixed_api_create_dca_hyperliquid' => api_case.([create(dca.(exchange_name: 'Hyperliquid', base_asset: 'BTC', quote_asset: 'USDC', quote_amount: 20))], {},
+                                                 venues.merge('hyperliquid_bots' => true)),
+        'api_create_dca_paper_trading' => api_case.([create(CREATE_DCA)], { 'paper' => true }),
+        'api_create_dca_wash_sale_undecided' => api_case.([create(CREATE_DCA), create(CREATE_INDEX), create(CREATE_SIGNAL)], {}, 'user' => owner('wash_sale_enabled' => nil)),
+        'api_create_dca_twice' => api_case.([create(CREATE_DCA), create(CREATE_DCA)]),
+        'api_create_index_default' => api_case.([create(CREATE_INDEX.except(:index))]),
+        'api_create_index_nasdaq' => api_case.([create(CREATE_INDEX)]),
+        'api_create_index_options' => api_case.([create(index.(num_coins: 5, allocation_flattening: 0.5, label: 'Top five'))]),
+        'api_create_index_counts' => api_case.([1, 2, 12, 13, 2.5, '3'].map { |n| create(index.(num_coins: n)) }),
+        'api_create_index_flattening' => api_case.([-0.1, 1, 2, 'x'].map { |f| create(index.(allocation_flattening: f)) }),
+        'api_create_signal' => api_case.([create(CREATE_SIGNAL), create(signal.(label: 'Signals <b>'))]),
+        # D-API-CREATE-REFUSED: a signal bot on IBKR, which Rails makes and starts and this build's engine does not run.
+        'refused_api_create_signal_ibkr' => api_case.([create(signal.(exchange_name: 'Interactive Brokers', base_asset: 'QQQM'))], {},
+                                                     'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' }),
+        'api_create_signal_kraken' => api_case.([create(signal.(exchange_name: 'Kraken', base_asset: 'BTC', quote_asset: 'EUR'))], {}, venues),
+        # Every refusal of the services, in their order; none writes.
+        'api_create_dca_refusals' => api_case.([
+          create({ type: 'dca' }), create({ assets: 'AAPL' }), create(dca.(interval: 'year')), create(dca.(weighting: 'equal')),
+          create(dca.(second_base_asset: 'MSFT', allocation: 101)), create(dca.(exchange_name: 'Nope')),
+          create(dca.(exchange_name: 'Interactive Brokers')), create(dca.(quote_amount: 0)), create(dca.(quote_amount: 'abc')),
+          create(dca.(quote_amount: -1)), create(dca.(base_asset: nil, assets: ',')), create(dca.(base_asset: nil, assets: 'AAPL:')),
+          create(dca.(base_asset: nil, assets: 'AAPL,aapl')), create(dca.(base_asset: nil, assets: (1..101).map { |i| "S#{i}" }.join(','))),
+          create(dca.(base_asset: nil, assets: [1, 2])), create(dca.(base_asset: 'DOGE')), create(dca.(quote_asset: 'EUR')),
+          create(dca.(base_asset: nil, assets: 'AAPL:60,MSFT:30')), create(dca.(base_asset: nil, assets: 'AAPL:60,MSFT')),
+          create(dca.(base_asset: nil, assets: 'AAPL,MSFT', weighting: 'market_cap')), create(dca.(base_asset: nil, assets: 'AAPL:120,MSFT:-20'))
+        ]),
+        # The start refuses after the service is satisfied: Rails' valid?(:start) on the unsaved bot.
+        'api_create_dca_start_refused' => api_case.([
+          create(dca.(base_asset: nil, assets: 'AAPL,MSFT')).merge('before' => 'untradeable_msft'),
+          create(dca.(base_asset: nil, assets: 'AAPL,MSFT', start_at: '')),
+          create(dca.(start_at: '2026-09-01T10:00:00Z')), create(dca.(start_at: 'nope')), create(dca.(start_at: 2)),
+          # Numbered entries are permitted as a hash, which Array() makes pairs of: refused, never the base_asset bot.
+          create(dca.(assets: { '0' => { symbol: 'MSFT' } }))
+        ]),
+        'api_create_index_refusals' => api_case.([
+          create({ type: 'index' }), create(index.(interval: 'fortnight')), create(index.(exchange_name: 'Nope')),
+          create(index.(exchange_name: 'Interactive Brokers')), create(index.(index: 'nope')), create(index.(quote_amount: 'x')),
+          create(index.(quote_asset: 'EUR')), create(index.(start_at: ''))
+        ], {}, venues),
+        'api_create_index_no_market_data' => api_case.([create(CREATE_INDEX)], {}, 'market_data' => 'none'),
+        'api_create_signal_refusals' => api_case.([
+          create({ type: 'signal' }), create(signal.(exchange_name: 'Nope')), create(signal.(exchange_name: 'Interactive Brokers')),
+          create(signal.(base_asset: 'DOGE')), create(signal.(base_asset: 'MSFT')).merge('before' => 'untradeable_msft')
+        ]),
+        'api_create_gates' => api_case.([create(CREATE_DCA, nil), create(CREATE_DCA, 'mcp-token'), create(CREATE_DCA, 'second-token'),
+                                        create('{"type":"dca",').merge('rails_exception_status' => 400)]),
+        'api_create_type_query' => api_case.([write('POST', '/api/v1/bots?type=signal&exchange_name=Alpaca&base_asset=AAPL&quote_asset=USD')]),
+        'api_create_tool_off' => api_case.([create(CREATE_DCA), create(CREATE_INDEX), create(CREATE_SIGNAL)], 'tools' => TOOLS - %w[create_bot create_index_bot create_signal_bot]),
+        'api_create_not_granted' => api_case.([create(CREATE_DCA), create(CREATE_INDEX), create(CREATE_SIGNAL)], 'grant' => TOOLS - %w[create_bot create_index_bot create_signal_bot]),
+        'api_create_null_grant' => api_case.([create(CREATE_SIGNAL)], 'grant' => nil)
+      }
+      # start_at as Rails' schedule_start_at reads it: in the account's zone (Tallinn) unless it names its own offset. A wall time
+      # the zone repeats (2026-10-25T03:30) is D-API-CREATE-START-AT-AMBIGUOUS, tested in rust/tests/api_create.rs: Rails takes
+      # the earlier one; this build refuses it as the web's start-time form does.
+      { 'z' => "#{later.(3)}Z", 'offset' => "#{later.(3)}+02:00", 'naive' => later.(3), 'date' => later.(3)[0, 10],
+        'dst_gap' => '2027-03-28T03:30', 'offset_compact' => "#{later.(3)}+0200", 'offset_no_seconds' => "#{later.(3)[0, 16]}+02:00",
+        'z_no_seconds' => "#{later.(3)[0, 16]}Z" }.each do |name, at|
+        grid["api_create_start_at_#{name}"] = api_case.([create(dca.(start_at: at)), create(index.(start_at: at))])
+      end
+      grid
     end
 
     # Bot 1 in the status a route needs (one that ran has a start time); bots 2 to 4 as api_case has them.
@@ -306,6 +395,75 @@ module Pages
       }
     end
 
+    # PLAN-A9 slice O1: OrdersController#create and #destroy up to the venue. Bot 1 is a basket with an open order and an
+    # imported one; bots 2 to 5 are signal bots: working on QQQM, stopped, working with an unresolved placement, and working
+    # on IBIT, which the venue no longer trades. A create claims its Idempotency-Key, so it may write that table, compared
+    # as stored (the fingerprint holds ParamsWrapper's `order` copy of the body).
+    ORDER_TOOLS = %w[market_sell limit_buy limit_sell cancel_order].freeze
+
+    def order_bots
+      open = { 'external_status' => 'open', 'order_type' => 'limit_order', 'price' => '408.25', 'amount' => '0.12247', 'amount_exec' => '0',
+               'quote_amount' => nil, 'quote_amount_exec' => '0' }
+      rows = [['QQQM', '2026-09-10T11:00:00Z', open.merge('external_id' => 'cancel-ok')], ['QQQM', '2026-09-10T11:01:00Z', open.merge('external_id' => 'imported_cancel-1')]]
+      running = { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' }
+      marker = { 'signal_placement_unresolved' => { 'id' => 'marker-1', 'at' => '2026-09-10T11:00:00Z', 'side' => 'buy', 'error' => 'timeout' } }
+      [{ 'kind' => 'basket', 'orders' => rows }, { 'kind' => 'signal', 'columns' => running }, { 'kind' => 'signal', 'columns' => { 'status' => 2 } },
+       { 'kind' => 'signal', 'pair' => %w[IBIT USD], 'columns' => running, 'transient' => marker },
+       { 'kind' => 'signal', 'pair' => %w[IBIT USD], 'columns' => running, 'delist' => 'IBIT' }]
+    end
+
+    def order_case(steps, api = {}, attrs = {}) = api_case(steps, { 'tools' => TOOLS + ORDER_TOOLS }.merge(api), { 'bots' => order_bots }.merge(attrs))
+
+    def order_post(body, key, token = 'api-token')
+      headers = { 'Content-Type' => 'application/json' }
+      headers['Idempotency-Key'] = key if key
+      api('/api/v1/orders', token, method: 'POST', headers:, body:).merge('may_mutate' => %w[idempotency_keys], 'raw_rows' => { 'idempotency_keys' => '*' })
+    end
+
+    def api_order_scenarios
+      buy = '{"type":"market_buy","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":10}'
+      refusals = ['{"type":"market_buy"}',
+                  '{"type":"limit_sell","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":"1","price":" "}',
+                  '{"type":"market_buy","exchange_name":"Nope<x>","base_asset":"QQQM","quote_asset":"USD","amount":10}',
+                  '{"type":"market_buy","exchange_name":"interactive brokers","base_asset":"QQQM","quote_asset":"USD","amount":10}',
+                  '{"type":"market_sell","exchange_name":"alpaca","base_asset":"qqqm","quote_asset":"eur","amount":10}',
+                  '{"type":"market_sell","exchange_name":"Alpaca","base_asset":["QQQM"],"quote_asset":"USD","amount":10}',
+                  '{"type":"market_sell","exchange_name":"ALPACA","base_asset":"ibit","quote_asset":"usd","amount":1,"amount_type":"base"}',
+                  '{"type":"market_buy","bot_id":"abc","amount":10}', '{"type":"market_buy","bot_id":12.5,"amount":10}',
+                  '{"type":"market_buy","bot_id":"","amount":10}', '{"type":"market_buy","bot_id":[2],"amount":10}',
+                  '{"type":"market_buy","bot_id":2,"amount":"0"}', '{"type":"market_buy","bot_id":2,"amount":"1e3"}',
+                  '{"type":"market_sell","bot_id":2,"amount":10,"amount_type":"QUOTE"}', '{"type":"market_buy","bot_id":999,"amount":10}',
+                  '{"type":"market_buy","bot_id":1,"amount":10}', '{"type":"market_buy","bot_id":"3","amount":10}',
+                  '{"type":"market_sell","bot_id":4.0,"amount":10}', '{"type":"market_buy","bot_id":5,"amount":10}',
+                  '{"type":"market_buy","bot_id":2,"amount":10,"exchange_name":"alpaca","base_asset":"IBIT","quote_asset":"usd"}',
+                  '{"type":"limit_buy","bot_id":2}', '{"type":"limit_sell","bot_id":null,"exchange_name":"Alpaca","amount":1}']
+      cancel = ->(path, token = 'api-token') { api(path, token, method: 'DELETE') }
+      {
+        'api_orders_refusals' => order_case(refusals.each_with_index.map { |body, i| order_post(body, "key-#{i}") } +
+                                            [order_post(buy, nil), order_post(refusals[2], 'key-2'), order_post(buy, 'key-2'),
+                                             order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'second-key', 'second-token'),
+                                             order_post(refusals[0], 'query-wrapper').merge('path' => '/api/v1/orders?order=1')]),
+        'api_orders_create_tool_off' => order_case([order_post(buy.sub('market_buy', 'market_sell'), 'off'), cancel.('/api/v1/orders/2')],
+                                            'tools' => TOOLS + ORDER_TOOLS - %w[market_sell cancel_order]),
+        'api_orders_wash_locked' => order_case([order_post(buy, 'wash-1'), order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'wash-2')], {},
+                                               'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US'),
+                                               'wash_locks' => [['QQQM', '2026-09-25T00:00:00Z', 'order']]),
+        'api_orders_key_pending' => order_case([order_post(buy, 'pending-1'), order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'pending-2')], {},
+                                               'api_keys' => { 'alpaca' => 'pending_activation' }),
+        'api_orders_key_incorrect' => order_case([order_post('{"type":"market_sell","bot_id":2,"amount":10}', 'incorrect-1')], {},
+                                                 'api_keys' => { 'alpaca' => 'incorrect' }),
+        'api_orders_cancel_refusals' => order_case([cancel.('/api/v1/orders/abc'), cancel.('/api/v1/orders/abc?exchange_name=Nope%3Cx%3E'),
+                                                    cancel.('/api/v1/orders/abc?exchange_name=Interactive%20Brokers'), cancel.('/api/v1/orders/2'),
+                                                    cancel.('/api/v1/orders/2.json'), cancel.('/api/v1/orders/999'), cancel.('/api/v1/orders/abc?exchange_name=')]),
+        # Past every refusal: Rails asks the venue (stubbed below; the cancels as pages_settings.rb answers them), this build
+        # answers 501 until the engine places and cancels (PLAN-A9 O2 to O4).
+        'not_ported_api_orders_market_buy' => order_case([order_post(buy, 'placed')]),
+        'not_ported_api_orders_limit_sell' => order_case([order_post('{"type":"limit_sell","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":1,"price":400}', 'limit')]),
+        'not_ported_api_orders_cancel_row' => order_case([cancel.('/api/v1/orders/1')]),
+        'not_ported_api_orders_cancel_external' => order_case([cancel.('/api/v1/orders/cancel-ok?exchange_name=alpaca')])
+      }
+    end
+
     # The Alpaca answers the read scenarios stub, by key (`alpaca_key`), after pages_settings.rb's own (WebMock answers
     # the last stub declared first). The same answers are mounted on rust/tests/pages.rs's wiremock server.
     HELD_ACCOUNT = '{"status":"ACTIVE","cash":"1234.5","buying_power":"2000"}'
@@ -330,6 +488,10 @@ module Pages
                .to_return(status: 503, body: '{"message":"unavailable"}', headers: json)
         WebMock.stub_request(:get, "https://#{host}/v2/account").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_ACCOUNT, headers: json)
         WebMock.stub_request(:get, "https://#{host}/v2/positions").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_POSITIONS, headers: json)
+      end
+      # PLAN-A9: an order Rails sends past every refusal (the not_ported_api_orders_ scenarios) is refused by the venue.
+      %w[paper-api.alpaca.markets api.alpaca.markets].each do |host|
+        WebMock.stub_request(:post, "https://#{host}/v2/orders").to_return(status: 403, body: '{"message":"no orders in the grid"}', headers: json)
       end
       WebMock.stub_request(:get, 'https://api.alpaca.markets/v2/account').with { |request| request.headers['Apca-Api-Key-Id'] != 'PKRICH' }
              .to_return(status: 200, body: '{"status":"ACTIVE","cash":"0"}', headers: json)
@@ -370,9 +532,10 @@ module Pages
       ConnectedClient.create!(user: second, oauth_application: client, mcp_tools: [], rest_tools: TOOLS)
       api_transactions if spec['transactions']
       api_indices(spec) if spec['indices']
+      Index.where(external_id: 'nasdaq-100').find_each { |ix| ix.update_columns(available_exchanges: { 'Exchanges::Alpaca' => ix.top_coins }) } if spec['index_alpaca']
       api_keys(owner, second) if spec['keys']
-      api_ledger(owner, second, spec['ledger']) if spec['ledger']
-      api_tracker_keys(owner, spec['tracker_keys']) if spec['tracker_keys']
+      # Paper trading on: MCP refuses the create tools; REST is live and creates.
+      owner.update_columns(mcp_settings: { 'dry_run' => true }) if spec['paper']
       # The owner's Alpaca key as another account (its stubbed answers) or in live mode (the live host).
       if spec['alpaca_key']
         ApiKey.find_by!(user: owner, exchange: Exchange.find_by!(name: 'Alpaca')).update_columns(key: spec['alpaca_key'], passphrase: spec.fetch('passphrase', 'paper'))

@@ -87,7 +87,7 @@ pub fn count_named(category: Option<&str>) -> Option<(&'static str, &'static str
 
 /// Bots::DcaIndex::MIN_COINS and MAX_COINS.
 const MIN_COINS: i64 = 2;
-const MAX_COINS: i64 = 100;
+pub const MAX_COINS: i64 = 100;
 
 fn text<'a>(settings: &'a Map<String, Value>, key: &str) -> Option<&'a str> { settings.get(key).and_then(Value::as_str) }
 
@@ -168,7 +168,7 @@ pub fn display_index_name(settings: &Map<String, Value>, bounded: Option<i64>, l
 }
 
 /// The index bot `bot_relation.new(config)` builds and `save` writes, after its callbacks.
-pub struct Built { pub exchange_id: Option<i64>, pub settings: Map<String, Value>, pub label: String, bounded: Option<i64> }
+pub struct Built { pub exchange_id: Option<i64>, pub settings: Map<String, Value>, pub label: String, pub bounded: Option<i64> }
 
 /// `x ||= value`.
 fn default(settings: &mut Map<String, Value>, key: &str, value: Value) {
