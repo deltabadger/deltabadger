@@ -23,6 +23,7 @@ pub mod signal;
 pub mod signal_write;
 pub mod start;
 pub mod status;
+pub mod wash;
 
 use super::format::Num;
 use super::WebError;
@@ -521,7 +522,6 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     match wash_sale_enabled {
         // The feed has no figures and no modal: BotsController#show answers it whatever the rule says.
         _ if asked == For::Feed => {}
-        Some(true) if asked != For::FiguresPage => return Ok(Some("the wash-sale rule")),
         // The question's modal opens once the bot holds something, which only the metrics walk knows.
         // Bot#sell_capable?: selling, armed to start selling, or holding something (only the metrics walk knows that, so any order counts).
         None if sell_capable(&class, &settings) || c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? => {
@@ -536,9 +536,14 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
 /// Bot::Rebalanceable#rebalance_enabled? counts too: both composition types include it, and a rebalance sells.
 fn sell_capable(class: &str, settings: &Value) -> bool {
     (matches!(class, "Bots::DcaMultiAsset" | "Bots::DcaIndex") && cast_boolean(settings.get("rebalance_enabled")))
-    || class == "Bots::DcaMultiAsset" && (settings.get("direction").and_then(Value::as_str) == Some("selling")
+    || class == "Bots::DcaMultiAsset" && selling_or_armed(settings)
+}
+
+/// A basket's `selling? || armed_to_start_selling?` (Bot::Reversible).
+pub fn selling_or_armed(settings: &Value) -> bool {
+    settings.get("direction").and_then(Value::as_str) == Some("selling")
         || settings.as_object().is_some_and(|s| s.iter().any(|(key, value)| value.as_str() == Some("start_selling")
-            && key.strip_suffix("_limit_action").is_some_and(|rule| cast_boolean(s.get(&format!("{rule}_limited")))))))
+            && key.strip_suffix("_limit_action").is_some_and(|rule| cast_boolean(s.get(&format!("{rule}_limited"))))))
 }
 
 /// The reason a bot with special rows the engine does not read is refused (engine::eligibility::unread_special_rows).

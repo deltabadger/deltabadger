@@ -2357,6 +2357,39 @@ async fn submitting_the_shown_name_of_an_unnamed_bot_saves_it() -> Result<(),Box
     Ok(())
 }
 
+/// PLAN-wash-sale WS-4a (Codex review): the selling warning a settings save carries is judged on the row as saved. A save the
+/// engine guard refuses (a working bot without its key) rolls its arming back, so it carries no warning; the same save, kept,
+/// does.
+#[tokio::test]
+async fn a_refused_save_carries_no_selling_warning() -> Result<(),Box<dyn std::error::Error>> {
+    use common::{seed,web::{Browser,Csrf}};
+    use deltabadger::web::session::{self,SessionData};
+    let (dir,opened,seeded) = common::install_alpaca();
+    let hash = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00',wash_sale_enabled=1",[hash])?;
+    let mut spec=seed::BotSpec::weekly(5.0,"2026-09-10 12:00:00"); spec.status=2;
+    let id=seed::insert_bot(&opened.primary,&seeded,&spec);
+    let app=common::web::app(dir.path(),"engine-test-secret",common::web::TestClock::at("2026-09-10T12:00:30Z"));
+    let mut browser=Browser { cookie:Some(session::seal(&app.keys.session,&SessionData { user:Some((seeded.user_id,hash.get(..29).ok_or("salt")?.into())),..Default::default() },app.now())),page:None };
+    let path=format!("/bots/{id}");
+    assert_eq!(browser.get(&app,&path).await.status,200);
+    let headers=[("accept","text/vnd.turbo-stream.html")];
+    // Armed to start selling: a price condition that flips the bot (Bot::Reversible#armed_to_start_selling?).
+    let selling=[("bots_dca_multi_asset[price_drop_limited]","1"),("bots_dca_multi_asset[price_drop_limit_mode]","flip")];
+    let direction=|| opened.primary.query_row("SELECT json_extract(settings,'$.price_drop_limit_action') FROM bots WHERE id=?1",[id],|r|r.get::<_,Option<String>>(0));
+    opened.primary.execute_batch(&format!("UPDATE bots SET status=1 WHERE id={id}; CREATE TEMP TABLE kept AS SELECT * FROM api_keys; DELETE FROM api_keys;"))?;
+    let refused=browser.send(&app,"PATCH",&path,Some(&selling),Csrf::Header,&headers).await;
+    assert!(refused.body.contains("This app can"),"the guard refuses the save: {}",refused.body);
+    assert_ne!(direction()?.as_deref(),Some("start_selling"),"the arming rolled back");
+    assert!(!refused.body.contains("wash_sale_selling_warning"),"no warning for a save that did not happen: {}",refused.body);
+    opened.primary.execute_batch(&format!("INSERT INTO api_keys SELECT * FROM kept; UPDATE bots SET status=2 WHERE id={id};"))?;
+    let kept=browser.send(&app,"PATCH",&path,Some(&selling),Csrf::Header,&headers).await;
+    assert_eq!(kept.status,200,"{}",kept.body);
+    assert_eq!(direction()?.as_deref(),Some("start_selling"),"{}",kept.body);
+    assert!(kept.body.contains("wash_sale_selling_warning"),"the kept save carries the warning: {}",kept.body);
+    Ok(())
+}
+
 /// The bot menu's Custom allocation (web::bot::index_switch) where this build parts from Rails: it customizes from the stored
 /// members (D-IDX-CUSTOM-STORED: Rails re-derives the index in the request) and refuses while the engine owns the bot or a
 /// resync is due (D-FENCE-PER-BOT); and on success it bumps the run generation.

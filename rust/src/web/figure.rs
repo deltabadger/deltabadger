@@ -197,6 +197,11 @@ struct Done { subject: Subject, live: Metrics, marked: Option<Metrics>, missing:
 
 /// The composition metrics partial with current prices and no loading placeholders or session token.
 /// A settings callback needs only this panel, so it never asks for candles or account totals.
+/// The wash-sale table of a bot page whose figures are still loading (holdings::loading_locked_table).
+pub fn loading_locked_table(c: &Connection, id: i64, signal: bool, hidden: bool, now: At, locale: &str, prefix: &str) -> Result<String, FiguresError> {
+    holdings::loading_locked_table(c, id, signal, hidden, locale, prefix, now)
+}
+
 pub fn metrics_panel(c: &Connection, id: i64, market: &dyn MarketData, now: At, locale: &str, prefix: &str) -> Result<String, FiguresError> {
     Ok(settings_panels(c, id, market, now, locale, prefix)?.0)
 }
