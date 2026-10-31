@@ -8,6 +8,7 @@
 use super::bot_api::{self, Domain, Res};
 use super::mcp::reads;
 use super::rules::api as rules;
+use super::tracker::api as tracker;
 use super::{bearer, consent, headers, layout, App, Params, WebError, BODY_READ_TIMEOUT, FORM_LIMIT};
 use axum::body::{to_bytes, Body};
 use axum::extract::{Request, State};
@@ -30,7 +31,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Order(Order), Unported }
+enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Unported }
 
 /// OrdersController#create and #destroy (PLAN-A9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,11 +101,11 @@ fn route(method: &Method, path: &str) -> Option<Route> {
             (name.map(Gate::Tool), action)
         }
         ["transactions"] if get => (tool("list_transactions"), Action::Transactions),
-        ["transactions", "account"] if get => (tool("list_account_transactions"), Action::Unported),
-        ["transactions", "export"] if get => (tool("export_transactions_csv"), Action::Unported),
-        ["transactions", "account", id, "transfer_link"] if post => { path.push(("id", id.to_string())); (tool("set_transfer_link"), Action::Unported) }
-        ["transactions", "account", id, "price"] if method == Method::PATCH => { path.push(("id", id.to_string())); (tool("set_transaction_price"), Action::Unported) }
-        ["tracker", "sync"] if post => (tool("sync_tracker"), Action::Unported),
+        ["transactions", "account"] if get => (tool("list_account_transactions"), Action::Tracker(tracker::Route::List)),
+        ["transactions", "export"] if get => (tool("export_transactions_csv"), Action::Tracker(tracker::Route::Export)),
+        ["transactions", "account", id, "transfer_link"] if post => { path.push(("id", id.to_string())); (tool("set_transfer_link"), Action::Tracker(tracker::Route::Link)) }
+        ["transactions", "account", id, "price"] if method == Method::PATCH => { path.push(("id", id.to_string())); (tool("set_transaction_price"), Action::Tracker(tracker::Route::Price)) }
+        ["tracker", "sync"] if post => (tool("sync_tracker"), Action::Tracker(tracker::Route::Sync)),
         ["exchanges"] if get => (tool("list_exchanges"), Action::Exchanges),
         ["exchanges", id, "balances"] if get => { path.push(("id", id.to_string())); (tool("get_exchange_balances"), Action::Read(Reading::Balances)) }
         ["orders"] if get => (tool("list_open_orders"), Action::Read(Reading::Orders)),
@@ -175,7 +176,7 @@ fn json_body(content_type: Option<&str>) -> bool {
 /// An answer before the shared headers: the envelope a controller renders, or a response made below the controllers.
 /// `Pending`: a read's venue fetch, run outside the database before the read is finished and rendered.
 /// `Head`: `head <status>` (an empty body under `text/html`, the controller's headers).
-pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request),
+pub(crate) enum Answer { Json(StatusCode, String), Csv(Box<tracker::Csv>), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request),
     Order(Box<OrderJob>), Cancel(Box<bot_api::orders::CancelJob>) }
 
 /// `POST /api/v1/orders` past its gate: everything from the Idempotency-Key's claim on, run by one detached task
@@ -383,6 +384,16 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                 reads::Planned::Fetch(fetch) => Answer::Pending(Box::new(fetch)),
             }
         }
+        Action::Tracker(route) => {
+            // BotApi::Tracker::Sync reads no parameter, so a body Rails cannot parse never reaches it (PLAN-A11 r1).
+            let none = Map::new();
+            let p = if route == tracker::Route::Sync { &none } else { match params() { Ok(p) => p, Err(()) => return Ok(bad_request()) } };
+            match tracker::rest(c, app, user, route, p)? {
+                tracker::Out::Res(res) => render(res),
+                tracker::Out::Accepted(res) => { let mut answer = render(res); if let Answer::Json(status, _) = &mut answer { *status = StatusCode::ACCEPTED; } answer }
+                tracker::Out::Csv(csv) => Answer::Csv(Box::new(csv)),
+            }
+        }
         Action::Split => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::split(c, app, user, p.get("bot_ids"), p.get("keep_proceeds_for"))?) }
         Action::Order(order) => {
             let Ok(p) = params() else { return Ok(bad_request()) };
@@ -495,24 +506,35 @@ pub(crate) fn router_bad_request(head: bool) -> Response {
 /// then answers a GET or HEAD whose If-None-Match is exactly that tag with a 304: no body, no content type. HEAD keeps
 /// the headers and drops the body (Rack::Head).
 pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Option<&str>) -> Response {
+    // A controller's body: Rack::ETag's weak tag on a 200 or 201, and Rack::ConditionalGet's 304 on a match.
+    let rendered = |status: StatusCode, content_type: &str, body: String, extra: Vec<(header::HeaderName, String)>| {
+        let tag = (matches!(status, StatusCode::OK | StatusCode::CREATED) && !body.is_empty())
+            .then(|| format!("W/\"{}\"", &hex::encode(Sha256::digest(body.as_bytes()))[..32]));
+        let mut response = (status, [(header::CONTENT_TYPE, content_type.to_string())], body).into_response();
+        for (name, value) in extra { if let Ok(value) = HeaderValue::from_str(&value) { response.headers_mut().insert(name, value); } }
+        let fresh = status == StatusCode::OK && tag.is_some() && tag.as_deref() == if_none_match;
+        if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) {
+            response.headers_mut().insert(header::ETAG, tag);
+            // Rack::ETag: a tagged answer (a 201's too) is `max-age=0, private, must-revalidate`.
+            response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("max-age=0, private, must-revalidate"));
+        }
+        headers::controller_defaults(response.headers_mut(), status, false);
+        if fresh {
+            *response.status_mut() = StatusCode::NOT_MODIFIED;
+            response.headers_mut().remove(header::CONTENT_TYPE);
+            *response.body_mut() = Body::empty();
+        }
+        response
+    };
     let mut response = match answer {
-        Answer::Json(status, body) => {
-            let tag = (matches!(status, StatusCode::OK | StatusCode::CREATED) && !body.is_empty())
-                .then(|| format!("W/\"{}\"", &hex::encode(Sha256::digest(body.as_bytes()))[..32]));
-            let mut response = (status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body).into_response();
-            let fresh = status == StatusCode::OK && tag.is_some() && tag.as_deref() == if_none_match;
-            if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) {
-                response.headers_mut().insert(header::ETAG, tag);
-                // Rack::ETag: a tagged answer (a 201's too) is `max-age=0, private, must-revalidate`.
-                response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("max-age=0, private, must-revalidate"));
-            }
-            headers::controller_defaults(response.headers_mut(), status, false);
-            if fresh {
-                *response.status_mut() = StatusCode::NOT_MODIFIED;
-                response.headers_mut().remove(header::CONTENT_TYPE);
-                *response.body_mut() = Body::empty();
-            }
-            response
+        Answer::Json(status, body) => rendered(status, "application/json; charset=utf-8", body, vec![]),
+        // TransactionsController#send_csv: the one answer outside the envelope.
+        Answer::Csv(csv) => {
+            let name = format!("account_transactions_{}.csv", app.now().date_naive());
+            let x = |n: &'static str| header::HeaderName::from_static(n);
+            rendered(StatusCode::OK, "text/csv", csv.csv, vec![(x("x-total-transactions"), csv.total.to_string()), (x("x-returned-transactions"), csv.returned.to_string()),
+                (x("x-truncated"), csv.truncated.to_string()), (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{name}\"")),
+                (x("content-transfer-encoding"), "binary".into())])
         }
         Answer::Head(status) => {
             let mut response = (status, [(header::CONTENT_TYPE, "text/html")]).into_response();

@@ -12,7 +12,7 @@ module McpControl
   NAMES = %w[stop_bot archive_bot unarchive_bot delete_bot update_bot_settings start_bot].freeze
   # A10: the create tools, on and granted beside the control tools.
   CREATE = %w[create_bot create_index_bot create_signal_bot].freeze
-  TABLES = (McpParity::TABLES + %w[bot_index_assets bot_activity_logs users]).uniq.freeze
+  TABLES = (McpParity::TABLES + %w[bot_index_assets bot_activity_logs users account_transactions]).uniq.freeze
   JSON_COLUMNS = { 'bots' => %w[settings transient_data], 'bot_activity_logs' => %w[details] }.freeze
   def seed(dir)
     Pages.connect(dir)
@@ -220,6 +220,7 @@ module McpControl
     end
     settings_form(s)
     order_scenarios(s)
+    tracker_scenarios(s)
     prefixes = ENV.fetch('M4', '').split(',')
     selected = s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }
     raise 'empty M4 scenario filter' if selected.empty?
@@ -379,6 +380,106 @@ module McpControl
     s['settings_form_order_reversed'] =
       McpParity.ready + [McpParity.tool('update_bot_settings', fields.reverse.select { |f| %w[boolean].include?(f.type) && f.kinds.include?(:index) }
                                                                 .to_h { |f| [f.name, true] }.merge(bot_id: 2))]
+  end
+
+  # PLAN-A11: the tracker tools and list_indices. Granted, switched on and the owner's zone set to Warsaw before the session
+  # starts; the ledger inserted by SQL (both runtimes run the same statements). Rows on Alpaca (1) and Interactive Brokers (2):
+  #  1 a USD-quoted buy (venue valued); 2 an airdrop with a stated price; 3/4 a withdrawal and its one deposit; 5 a withdrawal
+  #  with two (6, 7); 8/9 a linked pair; 10 a deposit nothing matches; 11 the second user's; 12 a deposit at 01:00 Warsaw on
+  #  2026-09-03 (23:00 UTC the day before). Then the DST windows (PLAN-A11 r3): per vector a pair 1 s inside the resolved edge
+  #  (base <V>I) and a pair 1 s outside it (<V>O); the source side is the withdrawal (forward) or the deposit (backward).
+  TRACKER_DST = [
+    # [name, source side, source UTC, edge UTC]: V1 crosses the autumn change (337 h); V2/V3 land in the repeated hour from a
+    # summer and a winter source; V4/V5 land in the spring gap.
+    ['V1', :withdrawal, '2026-10-20 10:00:00', '2026-11-03 11:00:00'], ['V2', :withdrawal, '2026-10-11 00:30:00', '2026-10-25 00:30:00'],
+    ['V3', :deposit, '2026-11-08 01:30:00', '2026-10-25 01:30:00'], ['V4', :withdrawal, '2026-03-15 01:30:00', '2026-03-29 01:30:00'],
+    ['V5', :deposit, '2026-04-12 00:30:00', '2026-03-29 01:30:00']
+  ].freeze
+
+  def tracker_ready(extra = [])
+    quote = ->(v) { ActiveRecord::Base.connection.quote(v) }
+    owner = "(SELECT id FROM users WHERE email='owner@example.com')"
+    second = "(SELECT id FROM users WHERE email='second@example.com')"
+    on = McpParity::TRACKER_NAMES.map { |n| "'$.tool_permissions.#{n}',json('true')" }.join(',')
+    row = lambda do |user, exchange, kind, base, amount, at, extra = {}|
+      columns = { user_id: user, exchange_id: exchange, entry_type: AccountTransaction.entry_types.fetch(kind.to_s), base_currency: quote.(base),
+                  base_amount: amount, transacted_at: quote.(at), raw_data: "'{}'", manual_values: "'{}'", created_at: "'2026-01-01 00:00:00'",
+                  updated_at: "'2026-01-01 00:00:00'" }.merge(extra)
+      "INSERT INTO account_transactions (#{columns.keys.join(',')}) VALUES (#{columns.values.join(',')})"
+    end
+    rows = [row.(owner, 1, :buy, 'BTC', '0.5', '2026-09-01 10:00:00', quote_currency: "'USD'", quote_amount: '30000', fee_currency: "'USD'", fee_amount: '1.5'),
+            row.(owner, 1, :airdrop, 'ETH', '2', '2026-09-02 10:00:00', manual_values: quote.('{"price":"1800.5"}')),
+            row.(owner, 2, :withdrawal, 'BTC', '0.3', '2026-09-03 12:00:00'), row.(owner, 1, :deposit, 'BTC', '0.2999', '2026-09-04 12:00:00'),
+            row.(owner, 2, :withdrawal, 'ETH', '1', '2026-09-05 12:00:00'), row.(owner, 1, :deposit, 'ETH', '1', '2026-09-06 12:00:00'),
+            row.(owner, 1, :deposit, 'ETH', '0.9', '2026-09-07 12:00:00'), row.(owner, 2, :withdrawal, 'SOL', '10', '2026-08-01 12:00:00', linked_transaction_id: 9),
+            row.(owner, 1, :deposit, 'SOL', '10', '2026-08-02 12:00:00'), row.(owner, 1, :deposit, 'DOGE', '5', '2026-07-01 12:00:00'),
+            row.(second, 1, :deposit, 'BTC', '1', '2026-09-03 13:00:00'), row.(owner, 1, :deposit, 'XRP', '1', '2026-09-02 23:00:00')]
+    TRACKER_DST.each do |name, side, source, edge|
+      edge = Time.iso8601("#{edge.tr(' ', 'T')}Z")
+      { 'I' => (side == :withdrawal ? -1 : 1), 'O' => (side == :withdrawal ? 1 : -1) }.each do |suffix, offset|
+        other = (edge + offset).utc.strftime('%Y-%m-%d %H:%M:%S')
+        withdrawal, deposit = side == :withdrawal ? [source, other] : [other, source]
+        rows << row.(owner, 2, :withdrawal, "#{name}#{suffix}", '1', withdrawal) << row.(owner, 1, :deposit, "#{name}#{suffix}", '1', deposit)
+      end
+    end
+    fixtures = ["UPDATE connected_clients SET mcp_tools=#{quote.((NAMES + McpParity::TRACKER_NAMES).to_json)}",
+                "UPDATE users SET mcp_settings=json_set(mcp_settings,#{on}), time_zone='Warsaw'"] + rows
+    [McpParity.init.merge('sql' => fixtures + extra), McpParity.session_rpc('notifications/initialized', {}, nil)]
+  end
+
+  # The ids of TRACKER_DST's rows (13 on): per vector, the I pair then the O pair, withdrawal first.
+  def tracker_dst_ids(name, suffix)
+    first = 13 + (TRACKER_DST.index { |v| v[0] == name } * 4) + (suffix == 'I' ? 0 : 2)
+    [first, first + 1]
+  end
+
+  def tracker_scenarios(s)
+    call = ->(name, args = {}) { McpParity.tool(name, args) }
+    list = ->(args = {}) { call.('list_account_transactions', args) }
+    export = ->(args = {}) { call.('export_transactions_csv', args) }
+    link = ->(id, linked = true) { call.('set_transfer_link', { transaction_id: id, linked: }) }
+    price = ->(id, value) { call.('set_transaction_price', { transaction_id: id, price_usd: value }) }
+    s['tracker_list'] = tracker_ready + [list.(), list.(exchange_id: 2), list.(exchange_id: 999), list.(exchange_id: 1.5), list.(from_date: '2026-09-03'),
+                                         list.(to_date: '2026-09-02'), list.(from_date: '2026-09-02', to_date: '2026-09-04', exchange_id: 1),
+                                         list.(from_date: 'invalid'), list.(to_date: '2024-02-30'), list.(from_date: ''), list.(entry_type: 'deposit'),
+                                         list.(entry_type: 'withdrawal', limit: 2), list.(entry_type: ''), list.(limit: 1), list.(limit: 0), list.(limit: -3),
+                                         list.(limit: 500), list.(limit: 1.9), list.(from_date: 2026), list.(extra: true)]
+    # D-API-DATE-STRICT and D-API-ENTRY-TYPE (tests/mcp_control.rs tracker_difference).
+    s['tracker_d_dates'] = tracker_ready + [list.(from_date: 'invalid'), list.(from_date: 'Sep 5'), list.(to_date: '20260903'), export.(from_date: '2026-09-02T10:00')]
+    s['tracker_d_entry_type'] = tracker_ready + [list.(entry_type: 'bogus'), list.(entry_type: '4')]
+    s['tracker_export'] = tracker_ready + [export.(), export.(exchange_id: 2), export.(from_date: '2026-09-03', to_date: '2026-09-04'), export.(exchange_id: 999),
+                                           export.(from_date: 'invalid'), export.(from_date: '2030-01-01')]
+    s['tracker_link'] = tracker_ready + [link.(3), link.(3), link.(4, false), link.(4, false), link.(4), link.(5), link.(10), link.(999), link.(11),
+                                         link.(9), link.(8, false), link.(3.9, false), call.('set_transfer_link', { transaction_id: 3 }),
+                                         call.('set_transfer_link', { transaction_id: 3, linked: 'true' })]
+    # D-LINK-KIND.
+    s['tracker_d_link_kind'] = tracker_ready + [link.(1), link.(2), link.(2, false)]
+    s['tracker_dst_source_side'] = tracker_ready + TRACKER_DST.flat_map do |name, side, *|
+      %w[I O].map { |suffix| link.(tracker_dst_ids(name, suffix)[side == :withdrawal ? 0 : 1]) }
+    end
+    s['tracker_dst_other_side'] = tracker_ready + TRACKER_DST.flat_map do |name, side, *|
+      %w[I O].map { |suffix| link.(tracker_dst_ids(name, suffix)[side == :withdrawal ? 1 : 0]) }
+    end
+    s['tracker_price'] = tracker_ready + [price.(10, '12.5'), price.(10, '12.5'), price.(10, ''), price.(10, ''), price.(10, '-5'), price.(10, '1e3'),
+                                          price.(10, '0'), price.(10, ' 7.50 '), price.(10, '0.1234567890123456789'), price.(1, '12'), price.(1, ''),
+                                          price.(2, '  '), price.(999, '1'), price.(11, '1'), price.(10, 5), call.('set_transaction_price', { transaction_id: 10 })]
+    s['tracker_sync'] = tracker_ready + [call.('sync_tracker'), call.('sync_tracker', { extra: 1 })]
+    s['tracker_sync_none'] = tracker_ready(['DELETE FROM api_keys']) + [call.('sync_tracker')]
+    # D-SYNC-VENUE: a reading key on Interactive Brokers.
+    s['tracker_d_sync_venue'] = tracker_ready(["INSERT INTO api_keys (user_id,exchange_id,key_type,status,created_at,updated_at) VALUES " \
+                                               "((SELECT id FROM users WHERE email='owner@example.com'),2,2,1,'2026-01-01 00:00:00','2026-01-01 00:00:00')"]) +
+                                [call.('sync_tracker')]
+    s['tracker_not_granted'] = tracker_ready(["UPDATE connected_clients SET mcp_tools=#{ActiveRecord::Base.connection.quote(NAMES.to_json)}"]) +
+                               McpParity::TRACKER_NAMES.map { |n| call.(n) }
+    s['tracker_disabled'] = tracker_ready(["UPDATE users SET mcp_settings=json_set(mcp_settings,#{McpParity::TRACKER_NAMES.map { |n| "'$.tool_permissions.#{n}',json('false')" }.join(',')})"]) +
+                            McpParity::TRACKER_NAMES.map { |n| call.(n) }
+    s['tracker_paper'] = tracker_ready(["UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"]) +
+                         [price.(10, '3'), link.(3), call.('sync_tracker'), list.(limit: 2)]
+    s['tracker_indices'] = tracker_ready + [call.('list_indices'), call.('list_indices', { exchange_name: 'alpaca' }), call.('list_indices', { exchange_name: 'Nope<x>' }),
+                                            call.('list_indices', { exchange_name: ' ' })]
+    s['tracker_indices_unconfigured'] = tracker_ready(["DELETE FROM app_configs WHERE key IN ('market_data_provider','market_data_url','market_data_token')"]) +
+                                        [call.('list_indices')]
+    s['tracker_second_user'] = tracker_ready + [list.().merge('headers' => list.()['headers'].merge('Authorization' => 'Bearer second-token'))]
   end
 
   def grid(root)

@@ -7,7 +7,7 @@ use serde_json::Value;
 
 fn prepared(status:StatusCode)->Prepared {Prepared{response:(status,[(header::CONTENT_TYPE,"text/vnd.turbo-stream.html")],"").into_response(),jobs:vec![]}}
 #[allow(clippy::manual_ok_err)] // Input refusal is a value; SQL and stored-data errors never use this path.
-fn plain(text:&str)->Option<Dec>{
+pub(super) fn plain(text:&str)->Option<Dec>{
     let text=crate::web::bot::mcp_input::strip(text);let (whole,part)=text.split_once('.').map_or((text,None),|(a,b)|(a,Some(b)));
     if whole.is_empty() || whole.len()>15 || !whole.bytes().all(|b|b.is_ascii_digit()) || part.is_some_and(|p|p.is_empty() || p.len()>18 || !p.bytes().all(|b|b.is_ascii_digit())){return None}
     match Dec::strict(text){Ok(n)=>Some(n),Err(_)=>None}
@@ -34,6 +34,34 @@ fn validate_save(c:&Connection,row:&Row,linked:Option<i64>)->Result<(),WebError>
     }
     Ok(())
 }
+/// AccountTransaction#set_manual(:price, …) + save!: the stated price as text (Rails' decimal `to_s`), or cleared; written
+/// only when it changed, after the model's validations.
+pub(super) fn store_price(c:&Connection,owner:i64,now:&str,row:&Row,usd:Option<String>)->Result<(),WebError>{
+    let mut manual=row.manual.as_object().cloned().ok_or_else(invalid)?;
+    manual.shift_remove("price");
+    if let Some(usd)=usd{manual.insert("price".into(),Value::String(usd));}
+    let manual=Value::Object(manual);
+    validate_save(c,row,row.linked)?;
+    if row.manual_null || manual!=row.manual {
+        c.execute("UPDATE account_transactions SET manual_values=?1,updated_at=?2 WHERE id=?3 AND user_id=?4",(manual.to_string(),now,row.id,owner))?;
+    }
+    Ok(())
+}
+/// AccountTransaction#transfer_candidates: at most two rows (two is an ambiguity) inside `from..=to`, the caller's 14 days.
+pub(super) fn candidates(c:&Connection,owner:i64,row:&Row,from:chrono::DateTime<chrono::Utc>,to:chrono::DateTime<chrono::Utc>)->Result<Vec<i64>,WebError>{
+    let withdrawal=row.kind==5;
+    let mut statement=c.prepare("SELECT id FROM account_transactions t WHERE user_id=?1 AND base_currency=?2 AND entry_type=?3 AND transacted_at BETWEEN ?4 AND ?5 AND ((?3=4 AND base_amount<=?6 AND id NOT IN (SELECT linked_transaction_id FROM account_transactions WHERE user_id=?1 AND linked_transaction_id IS NOT NULL)) OR (?3=5 AND base_amount>=?6 AND linked_transaction_id IS NULL)) ORDER BY id LIMIT 2")?;
+    let ids=statement.query_map((owner,&row.base,if withdrawal{4}else{5},codec::format_time(from),codec::format_time(to),row.amount.to_s_f()),|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+    Ok(ids)
+}
+/// The withdrawal's side of a link (update!): linked to `deposit` (no longer rejected), or unlinked and rejected so the
+/// matcher never relinks it.
+pub(super) fn set_link(c:&Connection,owner:i64,now:&str,withdrawal:i64,deposit:i64,link:bool)->Result<(),WebError>{
+    let saving=Row::load(c,owner,withdrawal)?.ok_or_else(invalid)?;
+    validate_save(c,&saving,link.then_some(deposit))?;
+    c.execute("UPDATE account_transactions SET linked_transaction_id=?1,transfer_link_rejected=?2,updated_at=?3 WHERE id=?4 AND user_id=?5",(link.then_some(deposit),!link,now,withdrawal,owner))?;
+    Ok(())
+}
 fn price(c:&Connection,ctx:&Ctx,owner:i64,now:&str,id:i64,params:&Value,fx:&super::fx::Prepared)->Result<Prepared,WebError>{
     let Some(row)=Row::load(c,owner,id)? else{return Ok(Prepared{response:super::layout::missing(),jobs:vec![]})};
     let raw=match params.get("price"){None|Some(Value::Null)=>String::new(),Some(Value::String(s))=>s.clone(),Some(Value::Number(n)) if n.is_f64()=>crate::web::format::float_to_s(n.as_f64().ok_or_else(invalid)?),Some(value)=>value.to_string()};
@@ -49,14 +77,7 @@ fn price(c:&Connection,ctx:&Ctx,owner:i64,now:&str,id:i64,params:&Value,fx:&supe
         if row.counterpart(c)?.is_some(){return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))}
         Some(usd)
     };
-    let mut manual=row.manual.as_object().cloned().ok_or_else(invalid)?;
-    manual.shift_remove("price");
-    if let Some(usd)=usd{manual.insert("price".into(),Value::String(usd.to_s_f()));}
-    let manual=Value::Object(manual);
-    validate_save(c,&row,row.linked)?;
-    if row.manual_null || manual!=row.manual {
-        c.execute("UPDATE account_transactions SET manual_values=?1,updated_at=?2 WHERE id=?3 AND user_id=?4",(manual.to_string(),now,id,owner))?;
-    }
+    store_price(c,owner,now,&row,usd.map(|usd|usd.to_s_f()))?;
     let body=stream(c,ctx,owner,&[id],d.as_ref())?;
     Ok(Prepared{response:([(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],body).into_response(),jobs:vec![(crate::tracker::jobs::TRACKER_LEDGER,owner.to_string())]})
 }
@@ -69,14 +90,11 @@ fn transfer(c:&Connection,ctx:&Ctx,owner:i64,now:&str,id:i64,fx:&super::fx::Prep
         let withdrawal=row.kind==5;
         let edge=row.at.checked_add_signed(chrono::Duration::days(if withdrawal{14}else{-14})).ok_or_else(invalid)?;
         let (from,to)=if withdrawal{(row.at,edge)}else{(edge,row.at)};
-        let mut statement=c.prepare("SELECT id FROM account_transactions t WHERE user_id=?1 AND base_currency=?2 AND entry_type=?3 AND transacted_at BETWEEN ?4 AND ?5 AND ((?3=4 AND base_amount<=?6 AND id NOT IN (SELECT linked_transaction_id FROM account_transactions WHERE user_id=?1 AND linked_transaction_id IS NOT NULL)) OR (?3=5 AND base_amount>=?6 AND linked_transaction_id IS NULL)) ORDER BY id LIMIT 2")?;
-        let candidates=statement.query_map((owner,&row.base,if withdrawal{4}else{5},codec::format_time(from),codec::format_time(to),row.amount.to_s_f()),|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+        let candidates=candidates(c,owner,&row,from,to)?;
         if candidates.len()==1{Some(if withdrawal{(row.id,candidates[0])}else{(candidates[0],row.id)})}else{None}
     }else{None};
     let (ids,kind,message,jobs)=if let Some((withdrawal,deposit))=pair {
-        let saving=Row::load(c,owner,withdrawal)?.ok_or_else(invalid)?;
-        validate_save(c,&saving,if was_linked{None}else{Some(deposit)})?;
-        c.execute("UPDATE account_transactions SET linked_transaction_id=?1,transfer_link_rejected=?2,updated_at=?3 WHERE id=?4 AND user_id=?5",(if was_linked{None}else{Some(deposit)},was_linked,now,withdrawal,owner))?;
+        set_link(c,owner,now,withdrawal,deposit,!was_linked)?;
         (vec![withdrawal,deposit],flash::NOTICE,if was_linked{"tracker.transfer_unlinked"}else{"tracker.transfer_linked"},vec![(crate::tracker::jobs::PORTFOLIO_BACKFILL,owner.to_string()),(crate::tracker::jobs::TRACKER_LEDGER,owner.to_string())])
     }else{(vec![id],flash::ALERT,"tracker.transfer_no_candidate",vec![])};
     let d=fx.denomination(c,owner,ctx.app.now().timestamp())?;
