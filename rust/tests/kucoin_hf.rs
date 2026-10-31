@@ -2626,7 +2626,7 @@ async fn u3b_a_refused_classic_cancel_retry_keeps_its_obligation_until_a_final_r
 async fn u3b_reconcile_order_takes_classic_evidence_for_a_classic_row() {
     use deltabadger::engine::reconcile::Operator;
     let (dir, o, bot, _plan) = engine_setup();
-    let id = open_row(&o.primary, &bot, "C1", "2026-10-30 10:00:00", json!({}));
+    let id = open_row(&o.primary, &bot, "C1", "2026-10-30 10:00:00", json!({"quote_amount": "60"}));
     reversal_work(&o.primary, bot.id, id);
     let source = attested("order C1 filled");
     let before = snapshot(&o.primary);

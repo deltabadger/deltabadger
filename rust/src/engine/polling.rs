@@ -323,7 +323,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     // UTA r3.1: a switch is seen before any row is read; while the mode can't be told, a row without a record (whose route a
     // switch may have closed) is not read this pass.
     let mut rows = rows;
-    if !super::reconcile::observe(c, venue, bot, now).await.map_err(db)? {
+    if !super::reconcile::observe(c, venue, now).await.map_err(db)? {
         rows.retain(|(id, _, _)| crate::venue::kucoin::order_record(c, *id).is_ok_and(|r| r.is_some()));
         if rows.is_empty() { return Ok(None); }
     }
@@ -447,7 +447,7 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
     let rules = venue.rules();
     let version = venue.producer();
     // UTA r3.1: a switch is seen (and holds the row) before it is read; a row without a record waits while it can't be.
-    if !super::reconcile::observe(c, venue, bot, now).await.map_err(poll_error)? && crate::venue::kucoin::order_record(c, id).map_err(EngineError::Data).map_err(poll_error)?.is_none() {
+    if !super::reconcile::observe(c, venue, now).await.map_err(poll_error)? && crate::venue::kucoin::order_record(c, id).map_err(EngineError::Data).map_err(poll_error)?.is_none() {
         return Err(PollFailure::Transient("KuCoin's account mode could not be read; the order is read once it can".into()));
     }
     let mut order = crate::venue::OrderRef::load(c, id, &ext).map_err(poll_error)?;

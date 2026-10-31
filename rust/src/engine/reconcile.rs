@@ -460,12 +460,14 @@ fn classic_record(c: &Connection, tx_id: i64, now: DateTime<Utc>) -> Result<Valu
 /// UTA r3.1, r12.3: the account's mode recorded before a bot's reversal cancels and polls (`sync::kucoin_hf::observe_mode`,
 /// which holds the history's record-less rows when it sees a switch), on the balance sync's condition. False: the
 /// venue is KuCoin and its mode could not be detected, so the caller skips what a switch could change.
-pub async fn observe<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: DateTime<Utc>) -> Result<bool, EngineError> {
+pub async fn observe<V: crate::venue::Venue>(c: &Connection, venue: &V, now: DateTime<Utc>) -> Result<bool, EngineError> {
     use crate::venue::kucoin_account::AccountMode;
     let mode = match venue.kucoin_mode().await { None => return Ok(true), Some(Err(_)) => return Ok(false), Some(Ok(mode)) => mode };
-    let Some(version) = model::credential_version(c, bot)? else { return Ok(true) };
-    model::locked(c, |tx| {
-        let key = crate::sync::load_key_of(tx, version.id, &[crate::venue::kucoin::KUCOIN]).map_err(|e| data(e.0))?;
+    // Under the venue's own credentials: a mode read under a replaced key is not this key's.
+    let Some(version) = venue.producer() else { return Ok(true) };
+    let id = version.id;
+    model::credential_write(c, &Some(version), |tx| {
+        let key = crate::sync::load_key_of(tx, id, &[crate::venue::kucoin::KUCOIN]).map_err(|e| data(e.0))?;
         if mode != AccountMode::ClassicLf || crate::sync::kucoin_hf::enabled(tx, key.user_id, key.exchange_id).map_err(|e| data(e.0))? {
             crate::sync::kucoin_hf::observe_mode(tx, &key, mode, now).map_err(|e| data(e.0))?;
         }

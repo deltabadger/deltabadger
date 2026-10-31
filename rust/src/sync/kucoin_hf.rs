@@ -55,14 +55,18 @@ pub fn second(t: DateTime<Utc>) -> DateTime<Utc> { t.with_nanosecond(0).unwrap_o
 fn time(s: &str) -> Result<DateTime<Utc>, SyncError> { parse_time(s).map_err(|e| SyncError(format!("kucoin_coverage time {s}: {e:?}"))) }
 
 /// Whether (user, exchange) is an HF-enabled KuCoin history.
+/// An install Rust never migrated has no table, so no history is enabled (a pure classic account reads as before).
 pub fn enabled(c: &Connection, user_id: i64, exchange_id: i64) -> Result<bool, SyncError> {
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3)", params![user_id, exchange_id, ENABLED], |r| r.get(0))?)
+    Ok(migrated(c)? && c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3)", params![user_id, exchange_id, ENABLED], |r| r.get(0))?)
 }
 
 /// Whether any history is HF-enabled (the handback refuses then). An install Rust never migrated has no table, so none.
 pub fn any_enabled(c: &Connection) -> Result<bool, SyncError> {
-    let table: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kucoin_coverage')", [], |r| r.get(0))?;
-    Ok(table && c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE source = ?1)", [ENABLED], |r| r.get(0))?)
+    Ok(migrated(c)? && c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE source = ?1)", [ENABLED], |r| r.get(0))?)
+}
+
+fn migrated(c: &Connection) -> Result<bool, SyncError> {
+    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kucoin_coverage')", [], |r| r.get(0))?)
 }
 
 /// A mode's episode source; the names stay whatever the enum is called.
