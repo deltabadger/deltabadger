@@ -2482,9 +2482,17 @@ fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
 /// - Alpaca `pre_send` and D-HL-PRE-SEND on Hyperliquid: a refused connection provably sent nothing. Rails' Clients::Alpaca raises it and
 ///   #place_signal_order reads any raise as ambiguous (the marker, no row); the engine writes the failed row and mails, as
 ///   for any other definitive refusal, and the next call places.
+/// Plan A5 adds Binance.US, Bitvavo, Gemini, Bitget, MEXC, Bybit, Bitrue, Coinbase and BingX (their kits hold free ≠ total,
+/// Bybit a spot borrow too, plus `quote_constrained`, `reserved`, the venue's `min_rejected`, `app_ambiguous` codes and
+/// Gemini's crossing cases):
+/// - transport wording on all nine, as for Kraken, Binance and KuCoin above (honeymaker's #with_rescue).
+/// - D-BYBIT-AMBIG (`app_ambiguous`, `app_ambiguous_10016`): Bybit's 10000 "Server Timeout" and 10016 "Server error" cannot
+///   prove the order was refused. Rails' client reads them as a rejection (a failed row and the error mail, no marker); the
+///   engine keeps them ambiguous as its Bybit DCA path does (grid-bybit): the marker, one placement_ambiguous line, no row,
+///   no mail. Same order sent.
 #[tokio::test(flavor = "current_thread", start_paused = true)] // Exchange#with_transient_retry's backoff, never slept
 async fn rails_and_rust_decide_identically_across_the_signal_grid() {
-    let (_copies, outputs) = grid_outputs("grid-signal", 420 + 79).await;
+    let (_copies, outputs) = grid_outputs("grid-signal", 420 + 79 + 927).await;
     let marker = |out: &serde_json::Value| -> Option<serde_json::Value> {
         out["changes"]["bots"].as_array().unwrap().iter().find_map(|b| b["after"]["transient_data"].get("signal_placement_unresolved").cloned())
     };
@@ -2510,12 +2518,19 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
             comparison = hyperliquid_market_ioc_comparison(name, rails_out, rust_out);
             &comparison
         } else { rust_out };
-        let honeymaker = ["signal-kraken-", "signal-binance-", "signal-kucoin-"].iter().any(|p| name.starts_with(p));
+        let honeymaker = ["kraken", "binance", "kucoin", "binance_us", "bitvavo", "gemini", "bitget", "mexc", "bybit", "bitrue", "coinbase", "bingx"]
+            .iter().any(|v| name.starts_with(&format!("signal-{v}-")));
         let alpaca = name.starts_with("signal-alpaca");
         let hyperliquid = name.starts_with("signal-hyperliquid-");
         let variant = |v: &str| name.ends_with(&format!("-{v}"));
-        let differs = if (alpaca || hyperliquid) && variant("pre_send") {
-            let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().iter().map(|t| t["after"]["status"].clone()).collect::<Vec<_>>();
+        let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().iter().map(|t| t["after"]["status"].clone()).collect::<Vec<_>>();
+        let lines = |out: &serde_json::Value| out["changes"]["bot_activity_logs"].as_array().unwrap().iter().map(|l| l["after"]["event"].clone()).collect::<Vec<_>>();
+        let mails = |out: &serde_json::Value| out["mails"].as_array().unwrap().len();
+        let differs = if name.starts_with("signal-bybit-") && (variant("app_ambiguous") || variant("app_ambiguous_10016")) {
+            let rails_rejected = marker(rails_out).is_none() && rows(rails_out) == [serde_json::json!(1)] && mails(rails_out) == 1;
+            let rust_ambiguous = marker(rust_out).is_some() && rows(rust_out).is_empty() && mails(rust_out) == 0 && lines(rust_out) == [serde_json::json!("placement_ambiguous")];
+            !(rails_out["sent"].as_array().unwrap().len() == 1 && rust_out["sent"] == rails_out["sent"] && rails_rejected && rust_ambiguous)
+        } else if (alpaca || hyperliquid) && variant("pre_send") {
             let one_sent = rails_out["sent"].as_array().unwrap().len() == 1 && rust_out["sent"] == rails_out["sent"];
             let rails_ambiguous = marker(rails_out).is_some() && rows(rails_out).is_empty() && rails_out["mails"].as_array().unwrap().is_empty();
             let rust_failed = marker(rust_out).is_none() && rows(rust_out) == [serde_json::json!(1)] && rust_out["mails"].as_array().unwrap().len() == 1;
@@ -2541,7 +2556,19 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
         let mails = out["mails"].as_array().unwrap().len();
         let sell = name.contains("-sell-");
         let reads_balance = sell || name.contains("-percentage-");
+        let venue = name.split('-').nth(1).unwrap();
+        let rule = ["buy-fixed", "buy-percentage", "sell-fixed", "sell-percentage"].iter().position(|r| name.contains(&format!("-{r}-"))).unwrap();
+        let a5 = A5_WIRE.iter().find(|(v, ..)| *v == venue);
         let expect: (usize, Vec<i64>, Vec<&str>, usize, bool) = match variant {
+            "quote_constrained" if rule == 1 && a5.is_some_and(|(.., q)| q.is_none()) => (0, vec![2], vec!["order_skipped"], 0, false),
+            "quote_constrained" | "coarse_base" | "coarse_price" => (1, vec![0], vec![], 0, false),
+            "cross_below_minimum" if rule == 0 => (0, vec![2], vec!["order_skipped"], 0, false),
+            "cross_below_minimum" => (1, vec![0], vec![], 0, false),
+            "reserved" if sell => (0, vec![2], vec!["order_skipped"], 0, false),
+            "reserved" => (1, vec![0], vec![], 0, false),
+            "min_rejected" => (1, vec![1], vec![], 1, false),
+            "app_ambiguous" | "app_ambiguous_10016" if venue == "bybit" => (1, vec![1], vec![], 1, false), // D-BYBIT-AMBIG: Rails' side
+            "app_ambiguous" => (1, vec![], vec!["placement_ambiguous"], 0, true),
             "expired" | "unresolved_marker" => (0, vec![], vec!["signal_expired"], 0, false),
             "stopped" | "disabled" => (0, vec![], vec!["signal_ignored"], 0, false),
             "key_pending" => (0, vec![], vec!["signal_api_key_pending"], 0, false),
@@ -2569,8 +2596,65 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
         if variant == "free_below_fixed" && name.contains("-sell-fixed-") && !out["sent"].to_string().contains(if name.contains("stock") { "\"0.100000000\"" } else { "0.001" }) {
             pins.push(format!("{name}: the fixed sell is not capped at the free base: {}", out["sent"]));
         }
+        // Plan A5 r1.3, r1.4, r1.6: the nine new venues' exact wire quantities, and their filled rows closed at the fill.
+        let Some((_, accepted, second, constrained)) = a5 else { continue };
+        let wire = a5_wire(out);
+        let expected_wire: Option<Vec<&str>> = match variant {
+            "accepted" | "at_max_age" | "price_retried" | "safe_then_accepted" => Some(vec![accepted[rule]]),
+            "reserved" if !sell => Some(vec![accepted[rule]]),
+            "two_calls" => Some(vec![accepted[rule], if rule % 2 == 1 { second[rule / 2] } else { accepted[rule] }]),
+            "quote_constrained" if rule == 0 => Some(vec![accepted[0]]),
+            "quote_constrained" if rule == 1 => Some(constrained.iter().copied().collect()),
+            "cross_below_minimum" | "coarse_base" | "coarse_price" => Some(A5_GEMINI.iter().find(|(v, _)| *v == variant).unwrap().1[rule].iter().copied().collect()),
+            _ => None,
+        };
+        let expected_wire = expected_wire.map(|w| if variant == "safe_then_accepted" { vec![w[0], w[0]] } else { w });
+        if let Some(w) = expected_wire { if wire != w { pins.push(format!("{name}: Rails sent {wire:?}, pinned {w:?}")); } }
+        if ["accepted", "at_max_age", "price_retried"].contains(&variant) {
+            let row = &out["changes"]["transactions"][0]["after"];
+            let filled = (row["external_status"].as_i64(), float(&row["amount_exec"]), float(&row["quote_amount_exec"]));
+            if filled != (Some(2), Some(0.00156), Some(99.84)) { pins.push(format!("{name}: the filled row is {filled:?}, pinned closed at 0.00156 for 99.84")); }
+        }
     }
     assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
+}
+
+/// Plan A5: what Rails sent on each of the nine new signal venues (decisions.rb signal_more_venues), per rule (buy-fixed,
+/// buy-percentage, sell-fixed, sell-percentage): `accepted`; the second of `two_calls` for the percentage rules (the second
+/// balance reads 8000 quote and 0.4 base free); `quote_constrained`'s percentage buy (50 quote free; None: below the minimum).
+/// Gemini's are `amount@price` (its crossed IOC limit).
+const A5_WIRE: [(&str, [&str; 4], [&str; 2], Option<&str>); 9] = [
+    ("binance_us", ["100.0", "1000.0", "0.00156", "0.25"], ["800.0", "0.2"], Some("5.0")),
+    ("bitvavo", ["0.00156247", "0.01562475", "0.0015625", "0.25"], ["0.0124998", "0.2"], None),
+    ("gemini", ["0.00154702@64640.11", "0.01547027@64640.11", "0.00157828@63360.0", "0.25@63360.0"], ["0.01237621@64640.11", "0.2@63360.0"], Some("0.00007735@64640.11")),
+    ("bitget", ["100.0", "1000.0", "0.001562", "0.25"], ["800.0", "0.2"], Some("5.0")),
+    ("mexc", ["100.0", "1000.0", "0.001562", "0.25"], ["800.0", "0.2"], Some("5.0")),
+    ("bybit", ["100.0", "1000.0", "0.001562", "0.25"], ["800.0", "0.2"], Some("5.0")),
+    ("bitrue", ["0.001562", "0.015624", "0.001562", "0.25"], ["0.012499", "0.2"], Some("0.000078")),
+    ("coinbase", ["100.0", "1000.0", "0.0015625", "0.25"], ["800.0", "0.2"], Some("5.0")),
+    ("bingx", ["100.0", "1000.0", "0.001562", "0.25"], ["800.0", "0.2"], Some("5.0")),
+];
+
+/// Plan A5 r1.4 (grid-gemini's D-679 witnesses): a 0.00155 minimum skips the fixed buy only at the crossed ask; coarse base and
+/// price floor the cross to the ticker's precisions.
+const A5_GEMINI: [(&str, [&[&str]; 4]); 3] = [
+    ("cross_below_minimum", [&[], &["0.01547027@64640.11"], &["0.00157828@63360.0"], &["0.25@63360.0"]]),
+    ("coarse_base", [&["0.00154@64640.11"], &["0.01547@64640.11"], &["0.00157@63360.0"], &["0.25@63360.0"]]),
+    ("coarse_price", [&["0.001547@64641.0"], &["0.01547005@64641.0"], &["0.00157828@63360.0"], &["0.25@63360.0"]]),
+];
+
+/// The quantity field of each order a new A5 venue was sent, as A5_WIRE names it.
+fn a5_wire(out: &serde_json::Value) -> Vec<String> {
+    out["sent"].as_array().unwrap().iter().map(|s| {
+        if let Some(c) = s.pointer("/order_configuration/market_market_ioc") { return c.get("quote_size").or(c.get("base_size")).and_then(|v| v.as_str()).unwrap_or("?").to_string(); }
+        if s["type"] == "exchange limit" { return format!("{}@{}", s["amount"].as_str().unwrap_or("?"), s["price"].as_str().unwrap_or("?")); }
+        ["quoteOrderQty", "quantity", "amountQuote", "amount", "size", "qty"].iter().find_map(|k| s[k].as_str()).unwrap_or("?").to_string()
+    }).collect()
+}
+
+/// A recorded REAL column: a number, or `{"f": <its IEEE-754 bits in hex>}`.
+fn float(v: &serde_json::Value) -> Option<f64> {
+    v.as_f64().or_else(|| v["f"].as_str().and_then(|h| u64::from_str_radix(h, 16).ok()).map(f64::from_bits))
 }
 
 /// D-BYBIT-AMBIG: the code itself cannot prove rejection; uncertain answers keep the intent.

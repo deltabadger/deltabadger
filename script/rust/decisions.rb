@@ -4840,6 +4840,187 @@ module Decisions
         'server_error' => sg_alpaca_fail(500, 50_010_000, 'internal server error'), 'no_order_id' => ok('status' => 'accepted'),
         'pre_send' => PRE_SEND
       }
+    }.merge(signal_more_venues)
+  end
+
+  # Plan A5: the nine other venues, each from its own grids' bodies (more_venue_limit_kit, limit_sell_kit, its DCA grid).
+  # Unlike the five above, every balance here holds some of each asset (free ≠ total; on Bybit a spot borrow too), so a
+  # wrong field shows; `bal` answers (free quote, free base, held base). Each kit adds: `quote` (the quote free, base as
+  # usual), `reserved` (all base held), `second_balance` (what the second of two calls reads), and, where the venue has
+  # them, `min_rejected` (its minimum code), `app_ambiguous` (named application codes that may have placed) and `tickers`
+  # (named ticker and book variants).
+  def signal_more_venues
+    bx = ->(data) { ok('code' => 0, 'data' => data) }
+    side_up = ->(side) { side.upcase }
+    kit = lambda do |venue, bal, balance_key, **rest|
+      net = VENUES.fetch(venue).not_sent
+      { 'key' => venue, 'http' => rest.delete(:http).merge(balance_key => [bal.('10000', '0.5', '0.1')]),
+        'free' => ->(btc) { { balance_key => [bal.('10000', btc, '0.1')] } }, 'quote' => ->(q) { { balance_key => [bal.(q, '0.5', '0.1')] } },
+        'reserved' => { balance_key => [bal.('10000', '0', '0.5')] }, 'second_balance' => [balance_key, bal.('8000', '0.4', '0.1')],
+        'price_transient' => [net], 'pre_send' => net }.merge(rest.transform_keys(&:to_s))
+    end
+    bn_bal = ->(q, btc, held) { ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'BTC', 'free' => btc, 'locked' => held }, { 'asset' => 'USDT', 'free' => q, 'locked' => '500' }]) }
+    bv_bal = ->(q, btc, held) { ok([{ 'symbol' => 'BTC', 'available' => btc, 'inOrder' => held }, { 'symbol' => 'EUR', 'available' => q, 'inOrder' => '500' }]) }
+    bg_row = ->(coin, free, held) { { 'coin' => coin, 'available' => free, 'frozen' => held, 'locked' => '0', 'limitAvailable' => '0', 'uTime' => BG_TIME.to_s } }
+    bg_bal = ->(q, btc, held) { bg_ok([bg_row.('BTC', btc, held), bg_row.('USDT', q, '500')]) }
+    gm_row = ->(cur, free, held) { { 'type' => 'exchange', 'currency' => cur, 'amount' => (BigDecimal(free) + BigDecimal(held)).to_s('F'), 'available' => free, 'availableForWithdrawal' => free } }
+    gm_bal = ->(q, btc, held) { ok([gm_row.('BTC', btc, held), gm_row.('USD', q, '500')]) }
+    mx_rows = ->(q, btc, held) { [{ 'asset' => 'BTC', 'free' => btc, 'locked' => held }, { 'asset' => 'USDT', 'free' => q, 'locked' => '500' }] }
+    mx_bal = ->(q, btc, held) { ok('canTrade' => true, 'canWithdraw' => true, 'canDeposit' => true, 'accountType' => 'SPOT', 'balances' => mx_rows.(q, btc, held)) }
+    br_bal = ->(q, btc, held) { ok('canTrade' => true, 'balances' => mx_rows.(q, btc, held).map { |r| r.merge('asset' => r['asset'].downcase) }) }
+    bxb_bal = ->(q, btc, held) { bx.('balances' => mx_rows.(q, btc, held)) }
+    by_row = ->(coin, free, held, borrow) { { 'coin' => coin, 'walletBalance' => (BigDecimal(free) + BigDecimal(held) + BigDecimal(borrow)).to_s('F'), 'locked' => held, 'spotBorrow' => borrow } }
+    by_bal = ->(q, btc, held) { by_ok('list' => [{ 'coin' => [by_row.('USDT', q, '500', '0'), by_row.('BTC', btc, held, '0.05')] }]) }
+    cb_row = ->(asset, free, held) { { 'asset' => asset, 'available_to_trade_crypto' => free, 'total_balance_crypto' => (BigDecimal(free) + BigDecimal(held)).to_s('F') } }
+    cb_bal = ->(q, btc, held) { ok('breakdown' => { 'spot_positions' => [cb_row.('EUR', q, '500'), cb_row.('BTC', btc, held)] }) }
+    # A filled market order of 0.00156 BTC for 99.84 (at 64000), as each venue's order read answers it.
+    # Binance.US reads the order's trades too (they must add up to its executed quantity).
+    bn_filled = lambda do |side|
+      { 'GET /api/v3/order' => [ok(bn_order(28_457, 'FILLED', executed: '0.00156000', cumulative: '99.84000000').merge('side' => side_up.(side)))],
+        'GET /api/v3/myTrades' => [ok([bn_trade(1, 28_457, '64000.00', '0.00156', commission: '0', asset: 'BNB', buyer: side == 'buy')])] }
+    end
+    mx_fill = ->(path, id, wrap = nil) { ->(side) { order = mx_order(id, 'FILLED', executed: '0.00156', cumulative: '99.84').merge('side' => side_up.(side)); { path => [wrap ? wrap.(order) : ok(order)] } } }
+    cb_batch = 'GET /api/v3/brokerage/orders/historical/batch'
+    cb_book = ->(ask, bid) { ok('pricebook' => { 'bids' => [{ 'price' => bid, 'size' => '2' }], 'asks' => [{ 'price' => ask, 'size' => '2' }] }) }
+    {
+      'binance_us' => kit.('binance_us', bn_bal, 'GET /api/v3/account',
+        ticker: { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' },
+        order: 'BTCUSDT-28457', second: ok('symbol' => 'BTCUSDT', 'orderId' => 28_458, 'orderListId' => -1, 'clientOrderId' => 'y', 'transactTime' => 1_788_000_000_000),
+        http: { 'GET /api/v3/ticker/bookTicker' => [bn_book('64000.11000000')],
+                'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 28_457, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000)],
+                'GET /api/v3/myTrades' => [ok([])] },
+        filled: bn_filled,
+        price_refused: [bn_fail(400, -1121, 'Invalid symbol.')], price_key: 'GET /api/v3/ticker/bookTicker',
+        balance_failed: { 'GET /api/v3/account' => [bn_fail(400, -2015, 'Invalid API-key, IP, or permissions for action.')] },
+        add: 'POST /api/v3/order', rejected: bn_fail(400, -2010, 'Account has insufficient balance for requested action.'), safe: bn_fail(400, -1021, BN_1021),
+        server_error: bn_fail(503, -1001, 'Internal error; unable to process your request. Please try again.'), no_order_id: ok('symbol' => 'BTCUSDT'),
+        min_rejected: bn_fail(400, -1013, 'Filter failure: NOTIONAL')),
+      'bitvavo' => kit.('bitvavo', bv_bal, 'GET /v2/balance',
+        ticker: { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 0, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '5' },
+        order: "BTC-EUR-#{BV_ORDER}", second: ok(bv_order('0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b02', 'new', amount_quote: '100')),
+        http: { 'GET /v2/ticker/book' => [bv_book('64001')], 'GET /v2/ticker/price' => [bv_last('64000')],
+                'POST /v2/order' => [ok(bv_order(BV_ORDER, 'new', amount_quote: '100'))], 'GET /v2/trades' => [ok([])] },
+        filled: lambda { |side|
+          sell = side == 'sell'
+          { "GET /v2/order?market=BTC-EUR&orderId=#{BV_ORDER}" => [ok(bv_order(BV_ORDER, 'filled', side:, amount: (sell ? '0.00156' : nil), amount_quote: (sell ? nil : '100'),
+                                                                                  filled: '0.00156', filled_quote: '99.84'))] }
+        },
+        price_refused: [bv_err(400, 205, 'market parameter is invalid.')], price_key: 'GET /v2/ticker/book',
+        balance_failed: { 'GET /v2/balance' => [bv_err(403, 305, 'No active API key found.')] },
+        add: 'POST /v2/order', rejected: bv_err(400, 216, 'You do not have sufficient balance to complete this operation.'),
+        safe: bv_err(403, 304, 'The request was not received within the access window.'),
+        server_error: { 'status' => 503, 'body' => '<html>upstream</html>' }, no_order_id: ok('market' => 'BTC-EUR'),
+        min_rejected: bv_err(400, 217, 'Minimum order size in quote currency is 5 EUR.'),
+        app_ambiguous: { 'app_ambiguous' => bv_err(400, 109, 'The request has timed out. Your order may have been placed.') }),
+      'bitget' => kit.('bitget', bg_bal, 'GET /api/v2/spot/account/assets',
+        ticker: { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0', 'minimum_quote_size' => '1' },
+        order: 'BTCUSDT-1234567890123456789', second: bg_ok('orderId' => '1234567890123456790', 'clientOid' => 'y'),
+        http: { 'GET /api/v2/spot/market/orderbook' => [bg_book('64001.37')], 'GET /api/v2/spot/market/tickers' => [bg_last('64000.12')],
+                'POST /api/v2/spot/trade/place-order' => [bg_ok('orderId' => '1234567890123456789', 'clientOid' => 'x')] },
+        filled: lambda { |side|
+          { 'GET /api/v2/spot/trade/orderInfo?orderId=1234567890123456789' =>
+              [bg_ok([bg_order('1234567890123456789', 'filled', side:, size: side == 'sell' ? '0.00156' : '100', price_avg: '64000', base: '0.00156', quote: '99.84')])] }
+        },
+        price_refused: [bg_err(400, '40034', 'Parameter symbol does not exist')], price_key: 'GET /api/v2/spot/market/orderbook',
+        balance_failed: { 'GET /api/v2/spot/account/assets' => [bg_err(400, '40037', 'Apikey does not exist')] },
+        add: 'POST /api/v2/spot/trade/place-order', rejected: bg_err(400, '43012', 'Insufficient balance'), safe: bg_err(400, '40008', 'Request timestamp expired'),
+        server_error: { 'status' => 503, 'body' => '<html>upstream</html>' }, no_order_id: bg_ok({}),
+        min_rejected: bg_err(400, '45110', 'less than the minimum order quantity'),
+        app_ambiguous: { 'app_ambiguous' => bg_err(400, '40010', 'Request timed out') }),
+      'gemini' => kit.('gemini', gm_bal, 'POST /v1/balances',
+        ticker: { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0' },
+        order: '7612345678', second: ok(gm_order(7_612_345_679, live: false, executed: '0.00154702', original: '0.00154702', avg: '64000.12')),
+        http: { 'GET /v1/pubticker/btcusd' => [gm_ticker('64000.01', '64000.11', '64000.05')],
+                'POST /v1/order/new' => [ok(gm_order(7_612_345_678, live: false, executed: '0.00154702', original: '0.00154702', avg: '64000.12'))] },
+        filled: ->(side) { { 'POST /v1/order/status' => [ok(gm_order(7_612_345_678, live: false, side:, original: '0.00156', executed: '0.00156', avg: '64000'))] } },
+        price_refused: [gm_err(400, 'InvalidSymbol', 'Invalid symbol')], price_key: 'GET /v1/pubticker/btcusd',
+        balance_failed: { 'POST /v1/balances' => [gm_err(400, 'InvalidApiKey', 'Invalid API key')] },
+        add: 'POST /v1/order/new', rejected: gm_err(400, 'InsufficientFunds', 'Failed to place buy order: insufficient funds'),
+        safe: gm_err(400, 'InvalidNonce', 'Nonce 1 has not increased since your last call'),
+        server_error: gm_err(500, 'System', 'We are experiencing technical issues'), no_order_id: ok('symbol' => 'btcusd'),
+        # D-679 (grid-gemini's witnesses): 100 at the raw ask is 0.00156249 base, at the crossed ask 0.00154702: a 0.00155
+        # minimum skips the fixed buy only there. Coarse base and price: the cross floored to the ticker's precisions.
+        tickers: { 'cross_below_minimum' => { 'ticker' => { 'minimum_base_size' => '0.00155' } },
+                   'coarse_base' => { 'ticker' => { 'base_decimals' => 5, 'minimum_base_size' => '0.0001' } },
+                   'coarse_price' => { 'ticker' => { 'price_decimals' => 0, 'quote_decimals' => 0 },
+                                       'http' => { 'GET /v1/pubticker/btcusd' => [gm_ticker('64000.9', '64001.7', '64001.3')] } } }),
+      'mexc' => kit.('mexc', mx_bal, 'GET /api/v3/account',
+        ticker: { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' },
+        order: 'BTCUSDT-C02__100',
+        second: ok('symbol' => 'BTCUSDT', 'orderId' => 'C02__101', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET', 'side' => 'BUY', 'transactTime' => 1_788_000_000_000),
+        http: { 'GET /api/v3/ticker/bookTicker' => [mx_book('64000.11')], 'GET /api/v3/ticker/price' => [mx_last('64000.05')],
+                'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 'C02__100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                            'side' => 'BUY', 'transactTime' => 1_788_000_000_000)] },
+        filled: mx_fill.('GET /api/v3/order', 'C02__100'),
+        price_refused: [mx_err(400, -1121, 'Invalid symbol.')], price_key: 'GET /api/v3/ticker/bookTicker',
+        balance_failed: { 'GET /api/v3/account' => [mx_err(400, 10_072, 'Api key info invalid')] },
+        add: 'POST /api/v3/order', rejected: mx_err(400, 10_101, 'Insufficient balance'),
+        safe: mx_err(400, 700_003, 'Timestamp for this request is outside of the recvWindow.'),
+        server_error: mx_err(503, 503, 'service not available, please try again'), no_order_id: ok('symbol' => 'BTCUSDT'),
+        min_rejected: mx_err(400, 30_002, 'Minimum transaction volume cannot be less than :1USDT'),
+        app_ambiguous: { 'app_ambiguous' => mx_err(400, 503, 'service not available, please try again') }),
+      'bitrue' => kit.('bitrue', br_bal, 'GET /api/v1/account',
+        ticker: { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' },
+        order: 'BTCUSDT-100',
+        second: ok('symbol' => 'BTCUSDT', 'orderId' => '101', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET', 'side' => 'BUY', 'transactTime' => 1_788_000_000_000),
+        http: { 'GET /api/v1/ticker/bookTicker' => [mx_book('64000.11')], 'GET /api/v1/ticker/price' => [mx_last('64000.05')],
+                'POST /api/v1/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => '100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                            'side' => 'BUY', 'transactTime' => 1_788_000_000_000)] },
+        filled: mx_fill.('GET /api/v1/order', '100'),
+        price_refused: [mx_err(400, -1121, 'Invalid symbol.')], price_key: 'GET /api/v1/ticker/bookTicker',
+        balance_failed: { 'GET /api/v1/account' => [mx_err(400, -1022, 'No login')] },
+        add: 'POST /api/v1/order', rejected: mx_err(400, -2010, 'Insufficient account balance.'),
+        safe: mx_err(400, -1102, 'recvWindow IllegalArgumentException.'),
+        server_error: mx_err(503, -1000, 'System abnormality'), no_order_id: ok('symbol' => 'BTCUSDT'),
+        min_rejected: mx_err(400, -1013, 'Filter failure: LOT_SIZE'),
+        app_ambiguous: { 'app_ambiguous' => mx_err(400, -1000, 'System abnormality') }),
+      'bingx' => kit.('bingx', bxb_bal, 'GET /openApi/spot/v1/account/balance',
+        ticker: { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' },
+        order: 'BTC-USDT-100',
+        second: bx.('symbol' => 'BTC-USDT', 'orderId' => '101', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET', 'side' => 'BUY', 'transactTime' => 1_788_000_000_000),
+        http: { 'GET /openApi/spot/v1/market/depth' => [bx.('bids' => [['64000.10', '1.5']], 'asks' => [['64000.11', '0.2']])],
+                'GET /openApi/spot/v2/market/ticker' => [bx.([{ 'symbol' => 'BTC-USDT', 'lastPrice' => '64000.05' }])],
+                'POST /openApi/spot/v1/trade/order' => [bx.('symbol' => 'BTC-USDT', 'orderId' => '100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                                           'side' => 'BUY', 'transactTime' => 1_788_000_000_000)] },
+        filled: mx_fill.('GET /openApi/spot/v1/trade/query', '100', ->(o) { bx.(o.merge('symbol' => 'BTC-USDT')) }),
+        price_refused: [mx_err(400, -1121, 'Invalid symbol.')], price_key: 'GET /openApi/spot/v1/market/depth',
+        balance_failed: { 'GET /openApi/spot/v1/account/balance' => [mx_err(400, 100_413, 'Incorrect apiKey')] },
+        add: 'POST /openApi/spot/v1/trade/order', rejected: mx_err(400, 100_202, 'Insufficient assets'), safe: nil,
+        server_error: mx_err(503, 100_500, 'Internal system error'), no_order_id: bx.('symbol' => 'BTC-USDT'),
+        app_ambiguous: { 'app_ambiguous' => mx_err(400, 100_500, 'Internal system error') }),
+      'bybit' => kit.('bybit', by_bal, 'GET /v5/account/wallet-balance',
+        ticker: { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '1' },
+        order: '123', second: by_ok('orderId' => '124'),
+        http: { 'GET /v5/market/orderbook' => [by_ok('a' => [['64001.37', '1']], 'b' => [['64000', '1']])],
+                'GET /v5/market/tickers' => [by_ok('list' => [{ 'symbol' => 'BTCUSDT', 'lastPrice' => '64000.12' }])], 'POST /v5/order/create' => [by_ok('orderId' => '123')],
+                'GET /v5/order/history' => [by_ok('list' => [])] },
+        filled: ->(side) { { 'GET /v5/order/realtime' => [by_ok('list' => [by_order('123', 'Filled', base: '0.00156', quote: '99.84').merge('side' => side.capitalize)])] } },
+        price_refused: [by_err(10_001, 'params error: symbol invalid')], price_key: 'GET /v5/market/orderbook',
+        balance_failed: { 'GET /v5/account/wallet-balance' => [by_err(10_003, 'API key is invalid.')] },
+        add: 'POST /v5/order/create', rejected: by_err(170_131, 'Insufficient balance'),
+        safe: by_err(10_002, 'Timestamp for this request is outside of the recvWindow.'),
+        server_error: { 'status' => 503, 'body' => '<html>upstream</html>' }, no_order_id: by_ok({}),
+        app_ambiguous: { 'app_ambiguous' => by_err(10_000, 'Server Timeout'), 'app_ambiguous_10016' => by_err(10_016, 'Server error.') }),
+      'coinbase' => kit.('coinbase', cb_bal, 'GET /api/v3/brokerage/portfolios/p',
+        ticker: { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.00000001', 'minimum_quote_size' => '1' },
+        order: 'cb-1', second: ok('success' => true, 'success_response' => { 'order_id' => 'cb-2' }),
+        http: { 'GET /api/v3/brokerage/market/product_book' => [cb_book.('64000.11', '63999.99')],
+                'GET /api/v3/brokerage/market/products/BTC-EUR' => [ok('price' => '64000.05')],
+                'GET /api/v3/brokerage/key_permissions' => [ok('portfolio_uuid' => 'p')],
+                'POST /api/v3/brokerage/orders' => [ok('success' => true, 'success_response' => { 'order_id' => 'cb-1' })],
+                cb_batch => [ok('orders' => [], 'has_next' => false)] },
+        filled: lambda { |side|
+          config = side == 'sell' ? { 'base_size' => '0.00156' } : { 'quote_size' => '100' }
+          order = coinbase_order('cb-1').merge('side' => side_up.(side), 'filled_size' => '0.00156', 'average_filled_price' => '64000', 'total_value_after_fees' => '99.84',
+                                               'order_configuration' => { 'market_market_ioc' => config })
+          { cb_batch => [ok('orders' => [order], 'has_next' => false)], 'GET /api/v3/brokerage/orders/historical/cb-1' => [ok('order' => order)] }
+        },
+        price_refused: [{ 'status' => 400, 'body' => { 'error' => 'INVALID_ARGUMENT', 'error_details' => 'valid product_id is required', 'message' => 'valid product_id is required' } }],
+        price_key: 'GET /api/v3/brokerage/market/product_book',
+        balance_failed: { 'GET /api/v3/brokerage/key_permissions' => [{ 'status' => 401, 'body' => 'Unauthorized' }] },
+        add: 'POST /api/v3/brokerage/orders',
+        rejected: ok('success' => false, 'error_response' => { 'error' => 'INSUFFICIENT_FUND', 'message' => 'Insufficient balance in source account' }), safe: nil,
+        server_error: { 'status' => 500, 'body' => 'Internal server error' }, no_order_id: ok('success' => true, 'success_response' => {}))
     }
   end
 
@@ -4887,6 +5068,17 @@ module Decisions
         'no_order_id' => { 'http' => { add => [vn['no_order_id']] } },
         'pre_send' => { 'http' => { add => [vn['pre_send']] } }
       }
+      # Plan A5 (the nine kits of signal_more_venues): the second of two calls reads another balance; a quote balance below the
+      # order; every base held; and the venue's own minimum, application-ambiguous and ticker cases.
+      if (key, second = vn['second_balance'])
+        sizing['price_retried']['filled'] = true # its row polled to closed, as `accepted`
+        sizing['two_calls']['http'][key] = vn['http'][key] + [second]
+        sizing['quote_constrained'] = { 'http' => vn['quote'].('50') }
+        sizing['reserved'] = { 'http' => vn['reserved'] }
+      end
+      sizing['min_rejected'] = { 'http' => { add => [vn['min_rejected']] } } if vn['min_rejected']
+      vn.fetch('app_ambiguous', {}).each { |name, body| sizing[name] = { 'http' => { add => [body] } } }
+      vn.fetch('tickers', {}).each { |name, t| sizing[name] = t }
       if vn['safe']
         accepted = vn['http'][add].first
         sizing['safe_then_accepted'] = { 'http' => { add => [vn['safe'], accepted] }, 'filled' => true }
@@ -4900,14 +5092,14 @@ module Decisions
         http = vn['http'].merge(v['filled'] ? vn['filled'].(rule['direction']) : {}).merge(v.fetch('http', {}))
         triggered = v.fetch('triggered_at', SIGNAL_AT)
         list << { 'name' => "signal-#{vkey}-#{rule_name}-#{name}", 'kind' => 'signal', 'venue' => vn.fetch('venue', vkey), 'asset' => vn['asset'],
-                  'ticker' => vn['ticker'], 'rules' => [rule], 'status' => v['status'], 'key_status' => v['key_status'], 'no_key' => v['no_key'],
+                  'ticker' => vn['ticker']&.merge(v.fetch('ticker', {})), 'rules' => [rule], 'status' => v['status'], 'key_status' => v['key_status'], 'no_key' => v['no_key'],
                   'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'at' => SIGNAL_AT,
                   'calls' => Array.new(n = v.fetch('calls', 1)) { |i| { 'rule' => 0, 'triggered_at' => (Time.iso8601(triggered) - (31 * (n - 1 - i))).iso8601(6) } },
                   'before_signal' => v['before_signal'], 'script' => { vn['key'] => http }, 'tick' => false,
                   'poll' => (vn['order'] if v['filled']) }.compact
       end
     end
-    list.tap { |l| raise "the signal grid has #{l.size} scenarios, not #{420 + 79}" unless l.size == 420 + 79 }
+    list.tap { |l| raise "the signal grid has #{l.size} scenarios, not #{420 + 79 + 927}" unless l.size == 420 + 79 + 927 }
   end
 
   # ---- PLAN-wash-sale WS-3: the account's wash-sale rule over every leg the engine trades (grid-wash-sale) ----------------
