@@ -255,8 +255,9 @@ module Pages
       'bot_wash_rule_armed_warning' => with_bots([armed, { 'kind' => 'index' }], signed_in(get('/bots/1'), modal.('/bots/1/wash_sale_prompt/new')), rule),
       'bot_wash_rule_warning_elsewhere' => with_bots([selling, { 'kind' => 'basket' }],
                                                      signed_in(get('/bots/2'), warned.('/bots/2/wash_sale_selling_warning', 204), get('/bots/1')), rule),
-      'bot_wash_rule_warning_missing' => with_bots([selling], signed_in(get('/bots/1'), modal.('/bots/9/wash_sale_prompt/new'),
-                                                                        warned.('/bots/9/wash_sale_selling_warning', 404)), rule),
+      # `current_user.bots.find` raises for a bot that is not the user's.
+      'missing_wash_prompt_new' => with_bots([selling], signed_in(get('/bots/1'), modal.('/bots/9/wash_sale_prompt/new')), rule),
+      'missing_wash_selling_warning' => with_bots([selling], signed_in(get('/bots/1'), warned.('/bots/9/wash_sale_selling_warning', 404)), rule),
       'bot_wash_rule_warning_signed_out' => with_bots([selling], [get('/bots/1/wash_sale_prompt/new'), post('/bots/1/wash_sale_selling_warning', {}, 'csrf' => 'none')], rule)
     }
   end
