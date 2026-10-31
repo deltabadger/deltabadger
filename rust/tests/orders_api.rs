@@ -516,7 +516,8 @@ fn standalone(kind: &str, extra: Value) -> Value {
     b
 }
 fn retained(k: &Kraken) -> Vec<(String, Option<String>)> {
-    k.c().prepare("SELECT state || ' ' || coalesce(json_extract(outcome, '$.kind'), ''), external_id FROM rust_api_orders ORDER BY id").unwrap()
+    k.c().prepare("SELECT o.state || ' ' || coalesce(json_extract(o.outcome, '$.kind'), ''), s.external_id FROM rust_api_orders o \
+                   LEFT JOIN rust_api_order_standalone s ON s.order_id = o.id ORDER BY o.id").unwrap()
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
 }
 

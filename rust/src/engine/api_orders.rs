@@ -101,13 +101,16 @@ pub fn insert(c: &Connection, new: &New<'_>, now: DateTime<Utc>) -> Result<i64, 
         New::Bot { bot, .. } => (Some(bot.id), model::credential_version(c, bot)?, None),
         New::Standalone { user_id, standalone, .. } => (None, model::credential_version(c, &model::Bot::key_holder(*user_id, standalone.exchange_id))?, Some(standalone)),
     };
-    c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, credential_version, state, created_at, send_by, \
-               exchange_id, ticker_id, order_type, price, surface) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+    c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, credential_version, state, created_at, send_by) \
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9)",
               params![user_id, bot_id, side.as_str(), persisted(amount)?, if in_base { "base" } else { "quote" }, Value::Object(supplied.clone()).to_string(),
-                      version.map(|v| v.cache_stamp().to_string()), format_time(now), format_time(send_by),
-                      standalone.map(|s| s.exchange_id), standalone.map(|s| s.ticker_id), if standalone.is_some_and(|s| s.limit) { "limit" } else { "market" },
-                      standalone.and_then(|s| s.price.as_ref()).map(persisted).transpose()?, standalone.map(|s| if s.mcp { "mcp" } else { "rest" })])?;
-    Ok(c.last_insert_rowid())
+                      version.map(|v| v.cache_stamp().to_string()), format_time(now), format_time(send_by)])?;
+    let id = c.last_insert_rowid();
+    if let Some(s) = standalone {
+        c.execute("INSERT INTO rust_api_order_standalone (order_id, exchange_id, ticker_id, order_type, price, surface) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                  params![id, s.exchange_id, s.ticker_id, if s.limit { "limit" } else { "market" }, s.price.as_ref().map(persisted).transpose()?, if s.mcp { "mcp" } else { "rest" }])?;
+    }
+    Ok(id)
 }
 
 /// The web's read while it waits: the state, and the outcome once `done`.
@@ -124,9 +127,14 @@ pub fn withdraw(c: &Connection, id: i64) -> Result<bool, EngineError> {
 /// A placed standalone order: kept as the log an API cancel reads (D-ORDER-STANDALONE-LOG).
 const RETAINED: &str = "(bot_id IS NULL AND state = 'done' AND json_extract(outcome, '$.kind') = 'placed')";
 
+/// A standalone side row whose request row is gone.
+const ORPHANS: &str = "DELETE FROM rust_api_order_standalone WHERE order_id NOT IN (SELECT id FROM rust_api_orders)";
+
 /// The web read the answer. A placed standalone order stays (RETAINED).
 pub fn forget(c: &Connection, id: i64) -> Result<(), EngineError> {
-    c.execute(&format!("DELETE FROM rust_api_orders WHERE id = ?1 AND state IN ('done', 'withdrawn') AND NOT {RETAINED}"), [id])?;
+    if c.execute(&format!("DELETE FROM rust_api_orders WHERE id = ?1 AND state IN ('done', 'withdrawn') AND NOT {RETAINED}"), [id])? == 1 {
+        c.execute("DELETE FROM rust_api_order_standalone WHERE order_id = ?1", [id])?;
+    }
     Ok(())
 }
 
@@ -134,7 +142,8 @@ pub fn forget(c: &Connection, id: i64) -> Result<(), EngineError> {
 /// venue's placement identity at its claim and its wire order (`claim`).
 pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str) -> Result<Option<(Option<Value>, Value)>, EngineError> {
     let row: Option<(Option<String>, Option<String>)> = c.query_row(&format!(
-        "SELECT identity, order_snapshot FROM rust_api_orders WHERE user_id = ?1 AND exchange_id = ?2 AND external_id = ?3 AND {RETAINED} ORDER BY id DESC LIMIT 1"),
+        "SELECT s.identity, s.order_snapshot FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id \
+         WHERE o.user_id = ?1 AND s.exchange_id = ?2 AND s.external_id = ?3 AND {RETAINED} ORDER BY o.id DESC LIMIT 1"),
         params![user_id, exchange_id, external_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
     let Some((identity, snapshot)) = row else { return Ok(None) };
     let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| EngineError::Data(format!("api order log: {e}")));
@@ -160,7 +169,7 @@ pub fn take(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<Option<Reques
     let standalone = if bot_id.is_some() { None } else {
         type Own = (Option<i64>, Option<i64>, String, Option<String>, Option<String>);
         let (exchange_id, ticker_id, order_type, price, surface): Own = c.query_row(
-            "SELECT exchange_id, ticker_id, order_type, price, surface FROM rust_api_orders WHERE id = ?1", [id],
+            "SELECT exchange_id, ticker_id, order_type, price, surface FROM rust_api_order_standalone WHERE order_id = ?1", [id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?;
         Some(Standalone { exchange_id: exchange_id.ok_or_else(|| bad("no bot and no exchange"))?, ticker_id: ticker_id.ok_or_else(|| bad("no ticker"))?,
                           limit: order_type == "limit", price: price.map(|p| BigDec::parse(&p).map_err(|_| bad("price"))).transpose()?,
@@ -190,17 +199,19 @@ pub fn sending(c: &Connection, id: i64, cl_ord_id: &str) -> Result<(), EngineErr
 /// A standalone order's claim (PLAN-A9 O4 §2.3 step 6), in the caller's transaction: still taken, it becomes `sending`
 /// with what it will send. The last write before the request: `sending` always means "may have gone out".
 pub fn claim(c: &Connection, id: i64, cl_ord_id: &str, identity: Option<&Value>, snapshot: &Value) -> Result<bool, EngineError> {
-    Ok(c.execute("UPDATE rust_api_orders SET state = 'sending', cl_ord_id = ?2, identity = ?3, order_snapshot = ?4 WHERE id = ?1 AND state = 'taken'",
-                 params![id, cl_ord_id, identity.map(Value::to_string), snapshot.to_string()])? == 1)
+    if c.execute("UPDATE rust_api_orders SET state = 'sending', cl_ord_id = ?2 WHERE id = ?1 AND state = 'taken'", params![id, cl_ord_id])? != 1 { return Ok(false) }
+    c.execute("UPDATE rust_api_order_standalone SET identity = ?2, order_snapshot = ?3 WHERE order_id = ?1", params![id, identity.map(Value::to_string), snapshot.to_string()])?;
+    Ok(true)
 }
 
 /// The answer, in the transaction of whatever the order wrote (its row, its marker), or its own. A placed standalone
 /// order keeps the venue's id beside it (the log `log_order` reads).
 pub fn finish(c: &Connection, id: i64, outcome: &Outcome) -> Result<(), EngineError> {
     let text = serde_json::to_string(outcome).map_err(|e| EngineError::Data(format!("api order outcome: {e}")))?;
-    let external = match outcome { Outcome::Placed { order_id } => Some(order_id.as_str()), _ => None };
-    c.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?2, external_id = coalesce(?3, external_id) WHERE id = ?1 AND state IN ('taken', 'sending')",
-              params![id, text, external])?;
+    let done = c.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?2 WHERE id = ?1 AND state IN ('taken', 'sending')", params![id, text])?;
+    if let (1, Outcome::Placed { order_id }) = (done, outcome) {
+        c.execute("UPDATE rust_api_order_standalone SET external_id = ?2 WHERE order_id = ?1", params![id, order_id])?;
+    }
     Ok(())
 }
 
@@ -227,6 +238,7 @@ pub fn sweep_at_start(c: &Connection, built: DateTime<Utc>) -> Result<(), Engine
         tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'sending' AND created_at < ?2", [&unknown, &before])?;
         let before = built.checked_sub_signed(Duration::hours(KEEP_HOURS)).ok_or_else(super::schedule::time_range_error)?;
         tx.execute(&format!("DELETE FROM rust_api_orders WHERE state IN ('done', 'withdrawn') AND created_at < ?1 AND NOT {RETAINED}"), [format_time(before)])?;
+        tx.execute(ORPHANS, [])?;
         Ok(())
     })
 }
