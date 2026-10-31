@@ -8,7 +8,7 @@
     </div>
     <div class="modal__body">
       <p>{{ v.t("settings.wash_sale.selling_warning")|safe }}</p>
-      <form data-action="turbo:submit-end-&gt;modal--base#submitEnd" action="{{ path }}/wash_sale_selling_warning" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" autocomplete="off" />
+      <form data-action="turbo:submit-end-&gt;modal--base#submitEnd" action="{{ path }}/wash_sale_selling_warning" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
         <div class="modal__footer">
           <button name="button" type="submit" class="rbutton rbutton--primary">{{ v.t("button.understand")|safe }}</button>
         </div>

@@ -56,7 +56,8 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(se
         Ok(Ok((body, _, _))) if body == EMPTY_FRAME => Ok(([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response()),
         Ok(Ok((body, csrf, shell))) => shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: vec![] }),
         Ok(Err(Found::NotPorted(reason))) => Ok(layout::refused(&ctx, reason)),
-        Ok(Err(_)) => Ok(page::not_found(&ctx)),
+        // `current_user.bots.find` raises: Rails' 404.
+        Ok(Err(_)) => Ok(layout::missing()),
         Err(e) => layout::or_refused(&ctx, e),
     }
 }
@@ -65,12 +66,12 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(se
 /// acknowledgement; later ones change nothing. The bot only has to be the user's (deleted ones too, as `bots.find`).
 pub async fn acknowledge(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
-    let Some(id) = super::id_from_path(&segment) else { return Ok(page::not_found(&ctx)) };
+    let Some(id) = super::id_from_path(&segment) else { return Ok(layout::missing()) };
     let now = crate::codec::format_time(app.now());
     let owned = app.db(move |c| {
         let owned: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id = ?1 AND user_id = ?2)", [id, user], |r| r.get(0))?;
         if owned { c.execute("UPDATE users SET wash_sale_selling_warned_at = ?1, updated_at = ?1 WHERE id = ?2 AND wash_sale_selling_warned_at IS NULL", (&now, user))?; }
         Ok(owned)
     }).await?;
-    Ok(if owned { StatusCode::NO_CONTENT.into_response() } else { page::not_found(&ctx) })
+    Ok(if owned { StatusCode::NO_CONTENT.into_response() } else { layout::missing() })
 }
