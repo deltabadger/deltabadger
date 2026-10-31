@@ -348,7 +348,7 @@ module Pages
                                             [order_post(buy, nil), order_post(refusals[2], 'key-2'), order_post(buy, 'key-2'),
                                              order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'second-key', 'second-token'),
                                              order_post(refusals[0], 'query-wrapper').merge('path' => '/api/v1/orders?order=1')]),
-        'api_orders_tool_off' => order_case([order_post(buy.sub('market_buy', 'market_sell'), 'off'), cancel.('/api/v1/orders/2')],
+        'api_orders_create_tool_off' => order_case([order_post(buy.sub('market_buy', 'market_sell'), 'off'), cancel.('/api/v1/orders/2')],
                                             'tools' => TOOLS + ORDER_TOOLS - %w[market_sell cancel_order]),
         'api_orders_wash_locked' => order_case([order_post(buy, 'wash-1'), order_post('{"type":"market_buy","bot_id":2,"amount":10}', 'wash-2')], {},
                                                'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US'),
