@@ -2065,8 +2065,8 @@ fn page_grid_selection_is_complete_and_disjoint() {
     assert_eq!(index_rule_pages, 1 + 1 + 1, "D-COND-FORMS-INDEX: member, departed member and switched-off rule witnesses");
     assert_eq!(signal_rule_pages, 1, "D-COND-FORMS-SIGNAL: the signal rule witness");
     assert_eq!(split_menu_pages, 1, "D-SPLIT-BOT-MENU: the basket menu witness");
-    assert_eq!(full.iter().filter(|name| name.starts_with("actions")).count(), 254 + 2 + 6 + 1 + 2,
-               "PAGES=actions includes two amounts typed key by key, six settings metrics cases, the wash-sale Stop and WS-4a's two saves carrying the selling warning");
+    assert_eq!(full.iter().filter(|name| name.starts_with("actions")).count(), 254 + 2 + 6 + 1 + 2 + 4,
+               "PAGES=actions includes two amounts typed key by key, six settings metrics cases, the wash-sale Stop, WS-4a's two saves carrying the selling warning and WS-4b's four that ask the question");
     let dirs: Vec<PathBuf> = full.iter().map(PathBuf::from).collect();
     {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
@@ -2606,7 +2606,7 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
             let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
             let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive"|"venue_basket_kraken_html"|"venue_basket_binance_html");
-            let scope=matches!(n,"start_invalid"|"modal_within_modal"|"start_within_true"|"start_within_false"|"update_exchange_ibkr");
+            let scope=matches!(n,"start_invalid"|"update_exchange_ibkr");
             let safety=matches!(n,"stop_invalid"|"archive_invalid"|"stop_archived");
             // No flag starts fresh (start_missing is an ordinary guarded start); only a junk flag is refused as such.
             // A junk flag is refused before the row is read, so a working bot answers it too (start_junk_working).
@@ -2614,7 +2614,7 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let empty=n=="extra_empty_root";
             if start_guard || working_start || working_settings || html || scope || safety || flag || empty {
                 let rails_status=if html {406}
-                    else if empty {400} else if working_start || flag || matches!(n,"start_no_key"|"start_invalid"|"start_within_true"|"start_within_false"|"archive_invalid") {422} else {200};
+                    else if empty {400} else if working_start || flag || matches!(n,"start_no_key"|"start_invalid"|"archive_invalid") {422} else {200};
                 let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
                 if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
                 // HTML update, stop and archive are refused before they write; HTML start still commits first.
@@ -2696,7 +2696,7 @@ fn without_flash(body: &Value) -> Value {
 fn expected_action_rows(name: &str, step: &Value, before: &Value, writes: bool) -> Result<Value,String> {
     let mut rows=before.clone();
     if !writes { return Ok(rows) }
-    if matches!(name,"modal_within_modal"|"stop_archived") { return Ok(rows) }
+    if name=="stop_archived" { return Ok(rows) }
     let at="2026-09-10 12:00:30.123456";
     let bots=rows["bots"].as_array_mut().ok_or("bots snapshot")?;
     let bot=bots.iter_mut().find(|r|r["id"]==1).ok_or("bot 1")?;
