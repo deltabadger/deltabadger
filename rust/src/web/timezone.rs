@@ -56,3 +56,21 @@ pub fn local(time: DateTime<Utc>, name: &str) -> DateTime<Tz> {
 pub fn names() -> impl Iterator<Item = &'static String> {
     table().keys()
 }
+
+/// A time that names its own offset in a form `parse_form_time` does not read (`+0200`, or no seconds), as Time.zone.parse
+/// reads it, in UTC ISO 8601; `None` for any other text (BotApi's create, A10).
+pub fn parse_explicit_offset(text: &str) -> Option<String> {
+    let t = text.strip_suffix('Z').map_or_else(|| text.to_string(), |rest| format!("{rest}+00:00"));
+    ["%Y-%m-%dT%H:%M:%S%.f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M%z", "%Y-%m-%d %H:%M:%S%z", "%Y-%m-%d %H:%M%z"].iter()
+        .find_map(|f| chrono::DateTime::parse_from_str(&t, f).ok())
+        .map(|at| at.with_timezone(&chrono::Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+}
+
+#[test]
+fn explicit_offsets_in_every_form() {
+    assert_eq!(parse_explicit_offset("2026-11-05T09:30:00+0200").as_deref(), Some("2026-11-05T07:30:00Z"));
+    assert_eq!(parse_explicit_offset("2026-11-05T09:30+02:00").as_deref(), Some("2026-11-05T07:30:00Z"));
+    assert_eq!(parse_explicit_offset("2026-11-05T09:30Z").as_deref(), Some("2026-11-05T09:30:00Z"));
+    assert_eq!(parse_explicit_offset("2026-11-05T09:30"), None, "no offset: the account's zone reads it");
+}
+
