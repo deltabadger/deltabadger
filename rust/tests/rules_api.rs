@@ -475,12 +475,12 @@ async fn replay(reads: bool) {
         );
         // A start fans out one `start:` evaluation per scheduled rule (Rails' EvaluateAllJob); nothing else starts.
         let starts = i64::from(matches!(name, "start_created" | "start_stopped"));
+        let evaluations = |sql: &str| i.c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(evaluations("SELECT count(*) FROM rust_rule_evaluations"), starts, "{name}: evaluations");
         assert_eq!(
-            i.c.query_row("SELECT count(*) FROM rust_rule_evaluations WHERE source LIKE 'start:%'", [], |r| r
-                .get::<_, i64>(0))
-                .unwrap(),
+            evaluations("SELECT count(*) FROM rust_rule_evaluations WHERE rule_id=1 AND source LIKE 'start:%' AND consumed_at IS NULL"),
             starts,
-            "{name}: starts"
+            "{name}: one pending start for rule 1"
         );
         assert_eq!(
             i.c.query_row("SELECT count(*) FROM rule_logs", [], |r| r.get::<_, i64>(0))

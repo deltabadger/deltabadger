@@ -1825,7 +1825,7 @@ impl<V: crate::venue::Venue> Adapter for VenueAdapter<V> {
         }
     }
     async fn balance(&self, coin: &str) -> Result<BigDec, VenueError> {
-        self.venue.balance(coin, true).await
+        self.venue.withdrawal_balance(coin).await
     }
     async fn networks(&self, coin: &str) -> Result<Option<v::Coin>, VenueError> {
         self.venue.withdrawal_networks(coin).await

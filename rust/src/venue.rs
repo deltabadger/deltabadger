@@ -249,6 +249,7 @@ impl<V:Venue> Venue for &V {
     async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{(*self).origin_with(r).await}
     async fn kucoin_mode(&self)->Option<Result<kucoin_account::AccountMode,VenueError>>{(*self).kucoin_mode().await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{(*self).candles(t,start_at,tf).await}
+    async fn withdrawal_balance(&self,coin:&str)->Result<BigDec,VenueError>{(*self).withdrawal_balance(coin).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{(*self).withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{(*self).withdrawal_networks(coin).await}
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{(*self).withdrawal_fee(d,amount).await}
@@ -284,6 +285,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{self.venue.origin_with(r).await}
     async fn kucoin_mode(&self)->Option<Result<kucoin_account::AccountMode,VenueError>>{self.venue.kucoin_mode().await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.venue.candles(t,start_at,tf).await}
+    async fn withdrawal_balance(&self,coin:&str)->Result<BigDec,VenueError>{self.venue.withdrawal_balance(coin).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.venue.withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.venue.withdrawal_networks(coin).await}
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{self.venue.withdrawal_fee(d,amount).await}
@@ -436,6 +438,9 @@ pub trait Venue {
     async fn candles(&self, _ticker: &Ticker, _start_at: DateTime<Utc>, _timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         Err(VenueError::Rejected(vec!["candles are not connected for this venue".into()]))
     }
+    /// The free balance of `coin`, the venue's own code (Exchange#get_balance(asset_id:) as Withdrawal#execute reads it).
+    /// `balance` takes the asset's symbol on most venues and Kraken's code on Kraken; the default is right for Kraken.
+    async fn withdrawal_balance(&self, coin: &str) -> Result<BigDec, VenueError> { self.balance(coin, true).await }
     /// The venue's withdrawal address book for `coin` (its own code), every entry with why the contract refuses it, if
     /// it does (plan V1, `withdrawal`). The rule's withdrawal key reads it.
     async fn withdrawal_addresses(&self, _coin: &str) -> Result<Vec<withdrawal::Entry>, VenueError> { Err(withdrawal::not_connected()) }

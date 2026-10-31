@@ -2048,8 +2048,10 @@ impl<V: Venue, F: Fn(deltabadger::crypto::Credentials) -> V> deltabadger::venue:
         (self.1)(credentials.unwrap())
     }
 }
+/// The venue code "BTC" names the asset whose symbol is "BITCOIN": the balance must be read by the venue's own code, as
+/// Rails' get_balance(asset_id:) reads it (a mapping like RONIN → RON on Binance).
 fn btc_pairs() -> deltabadger::venue::binance::Pairs {
-    deltabadger::venue::binance::Pairs { assets: [("BTC".into(), "BTC".into())].into(), ..Default::default() }
+    deltabadger::venue::binance::Pairs { assets: [("BTC".into(), "BITCOIN".into())].into(), ..Default::default() }
 }
 
 /// L-Binance, L-MEXC, L-Gemini: an active rule runs through `run::step` with the real adapter. Above the threshold it
@@ -2069,6 +2071,7 @@ async fn l_engine_threshold<V: Venue>(class: &'static str, below: bool, factory:
     let seed = common::seed::seed_kraken(&opened.primary, &cipher);
     opened.primary.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3", params![class, name, seed.exchange_id]).unwrap();
     opened.primary.execute("UPDATE tickers SET ticker='BTCEUR',base='BTC' WHERE id=?1", [seed.ticker_id]).unwrap();
+    opened.primary.execute("UPDATE assets SET symbol='BITCOIN' WHERE id=?1", [seed.btc]).unwrap();
     opened.primary.execute("UPDATE api_keys SET key_type=1 WHERE id=?1", [seed.api_key_id]).unwrap();
     opened.primary.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,?3,?3)", params![seed.exchange_id,seed.btc,now().to_rfc3339()]).unwrap();
     let settings = json!({"network":network,"withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":if below {"0.1"} else {"0.01"}});
@@ -2115,7 +2118,8 @@ async fn l_engine_threshold<V: Venue>(class: &'static str, below: bool, factory:
         let vectors: Value = serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
         let oracle = &vectors["execute"].as_array().unwrap().iter().find(|cell| cell["case"] == "below_minimum_min_mode").unwrap()["rule_logs"][0];
         assert_eq!(oracle["status"], "pending");
-        assert_eq!(message, oracle["message"], "{class}");
+        // The oracle's asset is BTC both ways; here the symbol is BITCOIN and the venue code BTC.
+        assert_eq!(message.replace("BITCOIN", "BTC"), oracle["message"].as_str().unwrap(), "{class}");
         assert_eq!(details, oracle["details"], "{class}");
         assert_eq!(count("rust_withdrawal_ids"), 0, "{class}");
     } else {
