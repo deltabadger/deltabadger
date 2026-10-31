@@ -20,10 +20,13 @@ struct Dialog<'a> { v: &'a Ctx, csrf: &'a str, path: String, question: String }
 
 pub const EMPTY_FRAME: &str = "<turbo-frame id=\"modal\"></turbo-frame>";
 
-/// A bot row's class and settings, as saved.
+/// A bot row's class and settings, as saved. Nothing for a class with no selling concern (the legacy Bots::DcaSingleAsset is
+/// not Reversible, has no held_symbols, and is not a dca_multi_asset?): nothing is ever due over it.
 fn saved(c: &Connection, user: i64, bot: i64) -> Result<Option<(Kind, Value)>, WebError> {
     let row: Option<(Option<String>, String)> = c.query_row("SELECT type, settings FROM bots WHERE id = ?1 AND user_id = ?2", [bot, user], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    Ok(row.map(|(class, settings)| (Kind::of(class.as_deref().unwrap_or_default()), serde_json::from_str(&settings).unwrap_or(Value::Null))))
+    let Some((Some(class), settings)) = row else { return Ok(None) };
+    if !matches!(class.as_str(), "Bots::DcaMultiAsset" | "Bots::DcaIndex" | crate::engine::model::SIGNAL_TYPE) { return Ok(None); }
+    Ok(Some((Kind::of(&class), serde_json::from_str(&settings).unwrap_or(Value::Null))))
 }
 
 /// Bot#sell_capable?, on the settings given: a basket that sells or is armed to (Bot::Reversible), a rebalance rule, or a
@@ -101,7 +104,9 @@ pub fn start_dialog(c: &Connection, ctx: &Ctx, user: i64, bot: i64) -> Result<Op
 /// (`[wash_sale_prompt_stream, flash engine.wash_sale_question_owed]`). Nothing for a bot that is not the user's or not
 /// owed it: the start answers as it does.
 pub fn owed_start(c: &Connection, ctx: &Ctx, user: i64, bot: i64) -> Result<Option<Response>, WebError> {
-    if due(c, user, bot, ctx.now)? != Some(Due::Question) { return Ok(None); }
+    // Bots::Botable#set_bot sends a deleted bot back to the list before anything is asked.
+    let deleted: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id = ?1 AND status = 3)", [bot], |r| r.get(0))?;
+    if deleted || due(c, user, bot, ctx.now)? != Some(Due::Question) { return Ok(None); }
     let Some(found) = super::Bot::find(c, user, bot, super::For::Settings, ctx.locale)? else { return Ok(None) };
     let message = i18n::text(ctx.locale, "engine.wash_sale_question_owed", &[("label", i18n::Arg::Text(&found.label))]);
     let csrf = ctx.csrf_token();

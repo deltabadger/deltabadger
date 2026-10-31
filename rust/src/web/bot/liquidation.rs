@@ -158,13 +158,18 @@ pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(seg
     // records its answer before the order is queued; no answer, or one not saved, refuses the sale. The bot and the symbols
     // are judged first (set_bot, set_symbols).
     let (view,values)=(ctx.clone(),params.value().clone());
+    // `bots.find` includes a deleted bot: its answer is recorded, and the service then refuses the bot.
+    // Some(false): decided, the request answers as before. None: undecided and nothing named is held (set_symbols ends the
+    // request there, so no later read may let the sale through unasked), or not the user's composition bot.
     let undecided=app.db(move |c| {
-        let found:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaIndex','Bots::DcaMultiAsset'))",(id,user.id),|r|r.get(0))?;
-        if !found {return Ok(None)}
         let enabled:Option<bool>=c.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[user.id],|r|r.get(0))?;
-        Ok(Some(enabled.is_none() && selected(c,&held(c,id,view.now)?,&values,true)?.is_ok()))
+        if enabled.is_some() {return Ok(Some(false))}
+        let found:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id=?1 AND user_id=?2 AND type IN ('Bots::DcaIndex','Bots::DcaMultiAsset'))",(id,user.id),|r|r.get(0))?;
+        if !found {return Ok(Some(false))}
+        Ok(selected(c,&held(c,id,view.now)?,&values,true)?.is_ok().then_some(true))
     }).await;
     match undecided {
+        Ok(None) => return Ok(missing(&ctx)),
         Ok(Some(true)) => {
             use crate::web::settings::tax::{self,Decision};
             let refused=||tax::refuse(&ctx,i18n::text(ctx.locale,"settings.wash_sale.prompt_missing",&[]));

@@ -96,6 +96,11 @@ async fn the_sell_confirmation_asks_an_unanswered_account_first() {
     assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
     let enabled=|| c.query_row("SELECT wash_sale_enabled FROM users",[],|r|r.get::<_,Option<bool>>(0)).unwrap();
     assert_eq!(enabled(),None);
+    // Nothing named is held: the request ends there (set_symbols), the answer unrecorded and nothing queued.
+    let unheld=b.send(&app,"POST",&format!("/bots/{id}/liquidation"),Some(&[("symbol","NOPE"),("wash_sale[enabled]","0")]),Csrf::Header,HEADERS).await;
+    assert_eq!(unheld.status,404,"{}",unheld.body);
+    assert_eq!(enabled(),None);
+    assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
     let sold=b.send(&app,"POST",&format!("/bots/{id}/liquidation"),Some(&[("symbol","BTC"),("wash_sale[enabled]","0")]),Csrf::Header,HEADERS).await;
     assert_eq!(sold.status,200,"{}",sold.body);
     assert_eq!(enabled(),Some(false),"the answer is recorded with the sale");
