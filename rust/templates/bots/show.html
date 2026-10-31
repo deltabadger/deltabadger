@@ -5,7 +5,7 @@
 
 <turbo-frame id="bot">
   {{ v.stream_from(page_stream)|safe }}
-  
+  {{ prompt_stream|safe }}
   <div class="page-head">
     <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
   <div id="{{ label_id }}">
@@ -67,7 +67,7 @@
       </div>
     </div>
 {% endif %}
-{{ rebalance_halt|safe }}
+{{ locked_table|safe }}{{ rebalance_halt|safe }}
 </div>
 {% endif %}
 
