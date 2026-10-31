@@ -704,18 +704,18 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
                 e.polls.insert(tx, model::Produced::new((owner, clock.now().timestamp_micros(), attempts), producer));
                 continue;
             }
-            Ok(polling::FollowUp::StillOpen) => { attempts.open += 1; (attempts.open < 8).then(|| (tick::retry_wait(attempts.open, false), "the order is still open".to_string())) }
+            Ok(polling::FollowUp::StillOpen) => { attempts.open += 1; (attempts.open < 8).then(|| (tick::retry_wait(attempts.open, false), "the order is still open".to_string(), false)) }
             // D-KUCOIN-ZERO-FILL-FUNDS: a zero fill too young to be final is asked again as a still-open order is; when those
             // retries end before it is final, once more just past that time, so a bot stopped meanwhile still settles.
             Ok(polling::FollowUp::SettlesAt(at)) => {
                 attempts.open += 1;
                 let past = (at + chrono::Duration::seconds(1) - clock.now()).to_std().ok();
-                if attempts.open < 8 { Some((tick::retry_wait(attempts.open, false), "the order may not be final yet".to_string())) }
-                else { past.map(|wait| (wait, "the order is final soon".to_string())) }
+                if attempts.open < 8 { Some((tick::retry_wait(attempts.open, false), "the order may not be final yet".to_string(), false)) }
+                else { past.map(|wait| (wait, "the order is final soon".to_string(), false)) }
             }
-            Err(polling::PollFailure::CredentialsChanged) => {announce_retry=false;Some((std::time::Duration::ZERO, "credentials changed; retry with fresh credentials".into()))},
-            Err(polling::PollFailure::Transient(m)) => { attempts.transient += 1; (attempts.transient < 3).then(|| (tick::retry_wait(attempts.transient, false), m)) }
-            Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
+            Err(polling::PollFailure::CredentialsChanged) => {announce_retry=false;Some((std::time::Duration::ZERO, "credentials changed; retry with fresh credentials".into(), true))},
+            Err(polling::PollFailure::Transient(m)) => { attempts.transient += 1; (attempts.transient < 3).then(|| (tick::retry_wait(attempts.transient, false), m, true)) }
+            Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m, true)) }
             Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }
             Err(polling::PollFailure::AwaitingReconciliation(..)) => None,
         };
@@ -724,8 +724,12 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
         // A fill that spent the amount limit stopped the bot (polling::apply_committed, Bot::StopJob).
         if let (Ok(before), Ok(after)) = (status_before, status_of(&e.primary)) { if before != after { e.events.send(EngineEvent::StatusChanged { bot_id: id }); } }
-        if let Some((wait, m)) = retry {
-            if announce_retry {super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));}
+        // A resting order is no failure: only a read that errored says "failed".
+        if let Some((wait, m, failed)) = retry {
+            if announce_retry {
+                if failed { super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs())); }
+                else { super::log(&format!("[engine] bot {id}: {m}; next poll in {}s", wait.as_secs())); }
+            }
             e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts),producer));
         }
     }
