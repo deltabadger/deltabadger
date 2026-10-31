@@ -31,7 +31,8 @@ const KEEP_HOURS: i64 = 1;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Outcome {
     /// The venue holds the order; its row (None only if recovery recorded it first) and the venue's id.
-    Submitted { transaction_id: Option<i64>, order_id: String },
+    /// `pair`: the bot's pair as placed (its asset symbols), which a stop, edit and start may have changed since validation.
+    Submitted { transaction_id: Option<i64>, order_id: String, #[serde(default)] pair: Option<String> },
     /// Below the venue's minimum: a skipped row.
     Skipped,
     /// An earlier order of the bot is unresolved: nothing sized or sent.
@@ -144,22 +145,24 @@ pub fn finish(c: &Connection, id: i64, outcome: &Outcome) -> Result<(), EngineEr
     Ok(())
 }
 
-/// At engine start: the process that waited for these died with the last one. A queued request is withdrawn, a taken one
-/// (nothing sent) answered `busy`, a sending one (its intent is recovery's) `unknown`; old answered rows go.
-pub fn sweep_at_start(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
+/// At engine start, for the requests written before `built` (when this engine was built, before the web was attached):
+/// the process that waited for these died with the last one. A queued request is withdrawn, a taken one (nothing sent)
+/// answered `busy`, a sending one (its intent is recovery's) `unknown`; answered rows older than an hour go.
+pub fn sweep_at_start(c: &Connection, built: DateTime<Utc>) -> Result<(), EngineError> {
+    let before = format_time(built);
     let busy = serde_json::to_string(&Outcome::Busy).map_err(|e| EngineError::Data(e.to_string()))?;
     let unknown = serde_json::to_string(&Outcome::Unknown).map_err(|e| EngineError::Data(e.to_string()))?;
     model::locked(c, |tx| {
-        tx.execute("UPDATE rust_api_orders SET state = 'withdrawn' WHERE state = 'queued'", [])?;
-        tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'taken'", [&busy])?;
-        let mut s = tx.prepare("SELECT id, bot_id, cl_ord_id FROM rust_api_orders WHERE state = 'sending'")?;
-        for row in s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<String>>(2)?)))? {
+        tx.execute("UPDATE rust_api_orders SET state = 'withdrawn' WHERE state = 'queued' AND created_at < ?1", [&before])?;
+        tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'taken' AND created_at < ?2", [&busy, &before])?;
+        let mut s = tx.prepare("SELECT id, bot_id, cl_ord_id FROM rust_api_orders WHERE state = 'sending' AND created_at < ?1")?;
+        for row in s.query_map([&before], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<String>>(2)?)))? {
             let (id, bot, cl_ord_id) = row?;
             super::log(&format!("[engine] api order {id} (bot {bot:?}, cl_ord_id {cl_ord_id:?}) was mid-flight at a restart; its intent's recovery settles it"));
         }
         drop(s);
-        tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'sending'", [&unknown])?;
-        let before = now.checked_sub_signed(Duration::hours(KEEP_HOURS)).ok_or_else(super::schedule::time_range_error)?;
+        tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'sending' AND created_at < ?2", [&unknown, &before])?;
+        let before = built.checked_sub_signed(Duration::hours(KEEP_HOURS)).ok_or_else(super::schedule::time_range_error)?;
         tx.execute("DELETE FROM rust_api_orders WHERE state IN ('done', 'withdrawn') AND created_at < ?1", [format_time(before)])?;
         Ok(())
     })

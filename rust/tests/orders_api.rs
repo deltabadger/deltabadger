@@ -473,3 +473,34 @@ async fn the_send_fence_enforces_send_by() {
     assert!(matches!(sent, placement::Sent::NotSent(_)), "{sent:?}");
     assert!(k.venue.sent().is_empty());
 }
+
+/// Codex branch review: the one more attempt refused before its send (the key rotated during the first, safe rejection)
+/// answers that rejection, and the request is never left unanswered.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_one_more_attempt_refused_before_its_send_answers_the_first_rejection() {
+    let k0 = kraken(priced().next_add(AddOutcome::Reject(vec!["InvalidNonce".into()])));
+    let path = k0.d.path().join("production.sqlite3");
+    let k_venue = k0.venue.clone().on_add(move || {
+        Connection::open(&path).unwrap().execute("UPDATE api_keys SET secret=?1", [common::seed::cipher().encrypt("cm90YXRlZA==")]).unwrap();
+    });
+    let mut k = Kraken { venue: k_venue, ..k0 };
+    let request = post(&k.app, buy(&k, json!("100")), "rotated");
+    queued(&k, 1).await;
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    assert_eq!(request.await.unwrap(), refusal(502, "order_failed", "Order failed: InvalidNonce"));
+    assert_eq!(k.venue.sent().len(), 1, "no second order under another key");
+    assert_eq!(k.count("SELECT count(*) FROM rust_api_orders"), 0);
+}
+
+/// Codex branch review: with the pair left out, a stop, edit and start before the take trades the bot's new pair, and the
+/// answer names that pair.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_answer_names_the_pair_that_was_placed() {
+    let mut k = kraken(priced());
+    let request = post(&k.app, buy(&k, json!("100")), "edited");
+    queued(&k, 1).await;
+    k.c().execute("UPDATE assets SET symbol='XBTX' WHERE symbol='BTC'", []).unwrap();
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    let (status, body) = request.await.unwrap();
+    assert_eq!((status, body["data"]["pair"].clone()), (201, json!("XBTX/EUR")));
+}

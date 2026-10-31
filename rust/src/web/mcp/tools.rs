@@ -92,7 +92,7 @@ impl QueuedOrder {
     /// The engine's answer as the tool's text.
     pub async fn perform(self,app:&App)->Value{
         use crate::web::bot_api::orders;
-        match orders::wait(app,self.queued).await {
+        match orders::wait(app,&self.queued).await {
             Ok(res)=>{let (text,is_error)=orders::mcp_text(&self.name,&self.args,false,&res);tool_text(&text,is_error)}
             Err(_)=>{crate::engine::log("MCP order tool failed");tool_text("An unexpected error occurred.",true)}
         }

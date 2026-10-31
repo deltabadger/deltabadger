@@ -70,6 +70,8 @@ pub struct Engine<F: VenueFactory> {
     owed_buys: std::collections::HashSet<(i64, i64)>,
     /// The composition resyncs' retry waits and once-only logs.
     resyncs: Resyncs,
+    /// When this engine was built, while the last process's API order requests are still unswept: none is taken until they are.
+    sweep_pending: Option<DateTime<Utc>>,
 }
 
 /// What `resync_bot` keeps between passes, in memory (a restart grants a fresh retry budget, which Rails' timing allows).
@@ -89,8 +91,12 @@ impl<F: VenueFactory> Engine<F> {
     /// Built before the web is attached (`App::attach_engine`), so an API order request still in the database belongs to a
     /// process that died: it is settled here (api_orders::sweep_at_start), never taken.
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
-        if let Err(err) = super::api_orders::sweep_at_start(&primary, Utc::now()) { super::log(&format!("[engine] the API order requests of the last process were not swept: {err:?}")); }
-        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
+        let built = Utc::now();
+        let sweep_pending = match super::api_orders::sweep_at_start(&primary, built) {
+            Ok(()) => None,
+            Err(err) => { super::log(&format!("[engine] the API order requests of the last process were not swept: {err:?}; retried before any is taken")); Some(built) }
+        };
+        Self { sweep_pending, primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
                events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, owed_buys: Default::default(), resyncs: Resyncs::default() }
@@ -1184,6 +1190,10 @@ pub const RULES_SCHEDULE: crate::jobs::schedule::Schedule = crate::jobs::schedul
 /// ambiguous, its intent left to recovery) and is logged.
 pub async fn run_api_orders<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
     use super::api_orders::{self, Outcome};
+    if let Some(built) = e.sweep_pending {
+        api_orders::sweep_at_start(&e.primary, built)?;
+        e.sweep_pending = None;
+    }
     let until = tokio::time::Instant::now() + api_orders::DRAIN;
     for id in api_orders::queued(&e.primary)? {
         if e.stopping() || tokio::time::Instant::now() >= until { break; }
@@ -1204,16 +1214,13 @@ pub async fn run_api_orders<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Cloc
     Ok(())
 }
 
-/// One taken request: BotOrder's late `bot_refusal` on the bot as it is now, the key validation saw, then the order
-/// (signal::run_api_order). Retried in the same take while the pair or credentials changed under it, until its send deadline.
+/// One taken request: the key validation saw, then the order (signal::run_api_order, which asks BotOrder's late
+/// `bot_refusal` on the bot it sizes from). Retried in the same take while the pair changed under it, until its send deadline.
 async fn api_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orders::Request, clock: &dyn Clock) -> Result<(), EngineError> {
     use super::api_orders::{self, Outcome};
     loop {
         let now = clock.now();
         if now > request.send_by { return api_orders::finish(&e.primary, request.id, &Outcome::Busy); }
-        if let Some(res) = crate::web::bot_api::orders::late_refusal(&e.primary, request).map_err(|err| EngineError::Data(format!("{err:?}")))? {
-            return api_orders::finish(&e.primary, request.id, &Outcome::Refused { code: res.code.unwrap_or("order_failed").into(), message: res.message });
-        }
         let bot = model::load_bot(&e.primary, request.bot_id)?;
         let (venue, producer) = e.venue_for(&bot)?;
         if producer.is_none() || producer != request.credential_version {

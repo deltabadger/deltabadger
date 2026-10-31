@@ -347,13 +347,18 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
         if let Some(request) = api { api_orders::finish(c, request.id, &outcome)?; }
         Ok(Step::Ran)
     };
+    // The placement-safe rejection the one more attempt follows: what an API request is answered with when that attempt is
+    // refused before its send (nothing was placed).
+    let mut rejected: Vec<String> = vec![];
     loop {
         let intent = match placement::begin_signal(c, bot, plan, claim, &cx.credential_version, venue.placement_identity(), clock)? {
             SignalClaim::Intent(intent) => intent,
+            SignalClaim::Expired => return answer(Outcome::Busy),
+            // The one more attempt refused before its send: the first, definitive rejection is the answer.
+            _ if api.is_some() && matches!(claim, Claim::Replace { .. }) => return answer(Outcome::Failed { errors: rejected }),
             SignalClaim::Stopped => return answer(Outcome::Refused { code: "bot_not_running".into(), message: format!("Bot {} is not running. Start it to place orders through it.", bot.id) }),
             SignalClaim::Locked => return answer(Outcome::Locked),
             SignalClaim::Disabled | SignalClaim::BelowMinimum => return Ok(Step::Ran),
-            SignalClaim::Expired => return answer(Outcome::Busy),
             SignalClaim::CapReached(left) => { let left = left.to_s_f(); return answer(Outcome::CapReached { left: left.strip_suffix(".0").unwrap_or(&left).to_string() }) }
             // The barrier rose between the check and the claim (it cannot in one loop, but the claim decides).
             SignalClaim::Blocked => return match claim {
@@ -377,10 +382,10 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
                     placement::set_intent(&tx, bot.id, None)?;
                 }
                 super::log(&format!("execute_signal bot={} event=order_accepted order_id={txid}", bot.id));
-                Some(Outcome::Submitted { transaction_id: row, order_id: txid.clone() })
+                Some(Outcome::Submitted { transaction_id: row, order_id: txid.clone(), pair: Some(format!("{}/{}", intent.plan.ticker.base_symbol, intent.plan.ticker.quote_symbol)) })
             }
             // Signed-timestamp rejections never reached the book: nothing to record; the one more attempt follows.
-            Sent::Rejected(errors) if first && placement::safe_rejection(errors) => { placement::set_intent(&tx, bot.id, None)?; None }
+            Sent::Rejected(errors) if first && placement::safe_rejection(errors) => { placement::set_intent(&tx, bot.id, None)?; rejected = errors.clone(); None }
             // An API request past its send deadline: provably not sent, no row; the caller may send it again.
             Sent::NotSent(_) if api.is_some_and(|r| now > r.send_by) => {
                 if placement::still_pending(&tx, bot.id, &intent.cl_ord_id)? { placement::set_intent(&tx, bot.id, None)?; }
@@ -415,6 +420,11 @@ pub async fn run_api_order<V: Venue>(c: &Connection, venue: &V, request: &api_or
     let handle = crate::venue::Handle::new(venue, cx.credential_version.clone());
     let venue = &handle;
     let bot = model::load_bot(c, request.bot_id)?;
+    // BotOrder's late `bot_refusal`, on this very snapshot: the claim (placement::begin_signal) refuses any change to its
+    // settings after it as `Changed`, so a pair edited after this check is never placed under the caller's request.
+    if let Some(res) = crate::web::bot_api::orders::late_refusal(c, &bot, request).map_err(|e| EngineError::Data(format!("{e:?}")))? {
+        return { api_orders::finish(c, request.id, &Outcome::Refused { code: res.code.unwrap_or("order_failed").into(), message: res.message })?; Ok(Step::Ran) };
+    }
     let src = Source::Api(request);
     let side = request.side;
     let version = &cx.credential_version;

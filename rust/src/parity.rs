@@ -692,14 +692,9 @@ async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i
             orders::Placed::Done(res) => res,
             orders::Placed::Queued(q) => {
                 let request = crate::engine::api_orders::take(&o.primary, q.id, start)?.ok_or_else(|| EngineError::Data("api order not taken".into()))?;
-                match orders::late_refusal(&o.primary, &request).map_err(web)? {
-                    Some(res) => res,
-                    None => {
-                        crate::engine::signal::run_api_order(&o.primary, venue, &request, &FixedClock(start), cx).await?;
-                        let (_, outcome) = crate::engine::api_orders::state(&o.primary, q.id)?.ok_or_else(|| EngineError::Data("api order gone".into()))?;
-                        orders::answer(&q, outcome.ok_or_else(|| EngineError::Data("api order unanswered".into()))?)
-                    }
-                }
+                crate::engine::signal::run_api_order(&o.primary, venue, &request, &FixedClock(start), cx).await?;
+                let (_, outcome) = crate::engine::api_orders::state(&o.primary, q.id)?.ok_or_else(|| EngineError::Data("api order gone".into()))?;
+                orders::answer(&q, outcome.ok_or_else(|| EngineError::Data("api order unanswered".into()))?)
             }
         };
         let status = match res.status { Domain::Success | Domain::Created => "created", Domain::ValidationFailed => "validation_failed", Domain::PermissionDenied => "permission_denied",

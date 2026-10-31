@@ -213,11 +213,12 @@ fn submitted(q: &Queued, dry_run: bool, transaction_id: Option<i64>, order_id: O
     }))
 }
 
-/// BotOrder's late `bot_refusal`, on the bot as the engine found it when it took the request (`supplied`: the caller's
-/// pair fields).
-pub fn late_refusal(c: &Connection, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
-    let Some(through) = find_bot(c, request.user_id, request.bot_id)? else { return Ok(Some(bot_not_found())) };
-    bot_refusal(c, &through, &request.supplied)
+/// BotOrder's late `bot_refusal`, on `bot` as the engine read it to size the order (`supplied`: the caller's pair fields).
+pub fn late_refusal(c: &Connection, bot: &model::Bot, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
+    if bot.user_id != request.user_id || bot.status == crate::enums::BotStatus::Deleted { return Ok(Some(bot_not_found())) }
+    let (exchange, venue): (String, String) = c.query_row("SELECT coalesce(name, ''), coalesce(type, '') FROM exchanges WHERE id=?1", [bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?.unwrap_or_default();
+    let ticker = if bot.bot_type == model::SIGNAL_TYPE { model::ticker_for(c, bot).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
+    bot_refusal(c, &Through { bot: bot.clone(), exchange, venue, ticker }, &request.supplied)
 }
 
 /// Rails' status for each refusal code the engine answers with (`Outcome::Refused`).
@@ -239,7 +240,11 @@ pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
     use crate::engine::api_orders::Outcome;
     let sentence = |errors: &[String]| crate::ruby::to_sentence(errors);
     match outcome {
-        Outcome::Submitted { transaction_id, order_id } => submitted(q, false, transaction_id, Some(&order_id)),
+        Outcome::Submitted { transaction_id, order_id, pair } => {
+            let mut res = submitted(q, false, transaction_id, Some(&order_id));
+            if let Some(pair) = pair { res.data["pair"] = json!(pair); }
+            res
+        }
         Outcome::Skipped => failure(Domain::ValidationFailed, "below_minimum_amount", format!("The order is below {}'s minimum for {}.", q.exchange, q.pair)),
         Outcome::Unresolved => placement_unresolved(q.bot_id, &q.exchange),
         Outcome::Locked => failure(Domain::Conflict, "wash_sale_locked", format!("{} is locked after a sale at a loss.", q.base)),
@@ -257,6 +262,9 @@ pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
     }
 }
 
+/// What a caller is told when its request's answer could not be read (a database error while waiting): it may have been placed.
+pub fn unanswered(q: &Queued) -> Res { ambiguous("its answer could not be read", &q.exchange) }
+
 /// How long a taken request may go unanswered before the caller is told it may have been placed (D-ORDER-WAIT-CAP): past
 /// the last instant a send may start, plus two whole venue calls (the -1021 one more attempt) and a margin.
 pub fn answer_cap() -> std::time::Duration {
@@ -266,7 +274,7 @@ pub fn answer_cap() -> std::time::Duration {
 /// BotOrder's wait for the venue's lease, as a wait for the engine (D-ORDER-QUEUED): polled every LEASE_POLL. A request
 /// no pass took within LEASE_WAIT is withdrawn (`venue_busy`, nothing placed); one taken and unanswered at the cap is
 /// `placement_ambiguous`. With no engine attached it is withdrawn at once.
-pub async fn wait(app: &App, q: Queued) -> Result<Res, WebError> {
+pub async fn wait(app: &App, q: &Queued) -> Result<Res, WebError> {
     use crate::engine::api_orders;
     let start = tokio::time::Instant::now();
     let window = start + std::time::Duration::from_secs(api_orders::WINDOW_SECONDS as u64);
@@ -286,7 +294,7 @@ pub async fn wait(app: &App, q: Queued) -> Result<Res, WebError> {
             found.ok_or_else(|| WebError::Config(format!("api order {id} vanished")))
         }).await?;
         match (state.as_str(), outcome) {
-            ("done", Some(outcome)) => return Ok(answer(&q, outcome)),
+            ("done", Some(outcome)) => return Ok(answer(q, outcome)),
             ("withdrawn", _) => return Ok(venue_busy(&q.exchange)),
             _ if now >= cap => return Ok(ambiguous("the exchange did not answer in time", &q.exchange)),
             _ => tokio::time::sleep(std::time::Duration::from_millis(250)).await,

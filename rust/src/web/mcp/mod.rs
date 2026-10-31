@@ -48,7 +48,15 @@ fn accepts(h:&HeaderMap)->bool{
     found.into_iter().all(|v|v)
 }
 /// Called by entry after host/query limits, before its form parsing, locale and cookie handling.
+/// Detached from its connection (PLAN-A9 r1 §3): a client that hangs up mid-call still leaves an order tool's request
+/// answered and its history row written.
 pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Response{
+    match tokio::spawn(serve_call(app,request,deadline)).await {
+        Ok(r)=>r,
+        Err(_)=>response(500,Some(json!({"jsonrpc":"2.0","id":Value::Null,"error":{"code":-32603,"message":"An unexpected error occurred."}})),false),
+    }
+}
+async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Response{
     let (parts,body)=request.into_parts();
     let h=parts.headers;
     let auth=header(&h,"authorization").map(str::to_string);
@@ -104,11 +112,7 @@ pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Respon
         answer.map(|r|(r,pending))
     }).await;
     match answer{
-        // Detached, so a dropped connection still ends in an answered order and its history row (PLAN-A9 r1 §3).
-        Ok((_,Some(pending)))=>match tokio::spawn(finish(app,pending)).await {
-            Ok(Ok(r))=>r,
-            _=>err(500,&id,-32603,"An unexpected error occurred."),
-        },
+        Ok((_,Some(pending)))=>finish(app,pending).await.unwrap_or_else(|_|err(500,&id,-32603,"An unexpected error occurred.")),
         Ok((r,None))=>r,
         Err(_)=>err(500,&id,-32603,"An unexpected error occurred.")
     }

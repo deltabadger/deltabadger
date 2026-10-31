@@ -205,7 +205,8 @@ async fn create_order(app: App, job: OrderJob) -> Answer {
         })
     }).await;
     let (id, queued) = match first { Ok(Ok(waiting)) => waiting, Ok(Err(answer)) => return answer, Err(error) => return Answer::Below(Box::new(error.into_response())) };
-    let answer = match orders::wait(&app, queued).await { Ok(res) => created(res), Err(error) => return Answer::Below(Box::new(error.into_response())) };
+    // A wait that fails never strands the key: the caller is told the order may have been placed.
+    let answer = created(orders::wait(&app, &queued).await.unwrap_or_else(|_| orders::unanswered(&queued)));
     let app2 = app.clone();
     match app.db(move |c| super::rest_idempotency::complete(c, &app2, id, answer)).await { Ok(answer) => answer, Err(error) => Answer::Below(Box::new(error.into_response())) }
 }
