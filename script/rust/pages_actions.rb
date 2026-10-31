@@ -95,6 +95,12 @@ module Pages
     seller = {'settings'=>{'direction'=>'selling','sell_denomination'=>'quote','sell_quote_amount'=>40,'sell_interval'=>'hour'}}
     add.call('wash_update_selling_warning', 'update', {'sell_quote_amount'=>'45'}, seller, {'wash_on'=>true})
     add.call('wash_update_selling_warning_invalid', 'update', {'sell_quote_amount'=>'0'}, seller, {'wash_on'=>true})
+    # PLAN-wash-sale WS-4b: the same basket on an account that has not answered: the question rides on the save, the start
+    # dialog replaces the restart question, and the start is refused with it.
+    add.call('wash_question_update', 'update', {'sell_quote_amount'=>'45'}, seller)
+    add.call('wash_question_update_invalid', 'update', {'sell_quote_amount'=>'0'}, seller)
+    add.call('wash_question_modal', 'modal', {}, seller)
+    add.call('wash_question_start', 'start?start_fresh=true', {}, seller)
     add.call('stop_invalid', 'stop', {}, {'stored'=>{'quote_amount'=>0},'columns'=>{'status'=>'scheduled'}})
     add.call('archive_invalid', 'archive', {}, {'stored'=>{'quote_amount'=>0}})
     add.call('start_future','start?start_fresh=true',{}, {'settings'=>{'start_time_enabled'=>true,'start_time_mode'=>'date','start_at'=>'2026-09-12T10:00:00Z'}})
@@ -264,7 +270,7 @@ module Pages
                { 'wash_off' => true }.merge(venue == 'kucoin' ? { 'kucoin_bots' => true } : {}))
     end
 
-    raise "expected 255 + 6 + 2 bot action cases, including settings metrics broadcasts and the selling warning" unless cases.size == 255 + 6 + 2
+    raise "expected 255 + 6 + 2 + 4 bot action cases, including settings metrics broadcasts, the selling warning and the question" unless cases.size == 255 + 6 + 2 + 4
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -319,7 +325,7 @@ module Pages
       scenario['kraken_usdt'] = true if extra['kraken_usdt']
       scenario['kucoin_bots'] = true if extra['kucoin_bots']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide (including six settings metrics cases)' unless grid.size == 255 + 6 + 2 }.merge(typing_scenarios)
+    end.tap { |grid| raise 'action case names collide (including six settings metrics cases)' unless grid.size == 255 + 6 + 2 + 4 }.merge(typing_scenarios)
   end
 
   # An amount below one typed key by key, as the form posts it (form--submit-after-delay): "0" is invalid, the decimal
