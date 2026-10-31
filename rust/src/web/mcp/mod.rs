@@ -122,7 +122,7 @@ async fn finish(app:App,p:Pending)->Result<Response,WebError>{
             Err(_) => protocol::tool_text("An unexpected error occurred.",true),
         }),
         Work::Cancel(job,args) => Finished::Rules(match crate::web::bot_api::orders::send_cancel(&app,job).await {
-            Ok(res) => tools::cancel_text("cancel_order",&args,false,&res),
+            Ok(res) => tools::order_text("cancel_order",&args,false,&res),
             Err(_) => { crate::engine::log("MCP order tool failed"); protocol::tool_text("An unexpected error occurred.",true) }
         }),
     };

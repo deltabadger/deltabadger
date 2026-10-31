@@ -82,10 +82,10 @@ fn order(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called
             orders::Cancel::Send(job)=>return Ok(Called::Cancel(job,args.clone())),
         },
     };
-    Ok(Called::Done(cancel_text(name,args,dry_run,&res)))
+    Ok(Called::Done(order_text(name,args,dry_run,&res)))
 }
 /// The order tool's answer for `res`.
-pub fn cancel_text(name:&str,args:&Value,dry_run:bool,res:&crate::web::bot_api::Res)->Value{
+pub fn order_text(name:&str,args:&Value,dry_run:bool,res:&crate::web::bot_api::Res)->Value{
     let (text,is_error)=crate::web::bot_api::orders::mcp_text(name,args,dry_run,res);
     tool_text(&text,is_error)
 }
