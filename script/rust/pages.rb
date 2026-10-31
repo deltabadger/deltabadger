@@ -226,7 +226,7 @@ module Pages
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
-                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios)
+                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios).merge(cancel_order_scenarios)
                       .merge(wash_rule_scenarios).merge(wash_question_scenarios).merge(rebalance_in_progress_scenarios)
 
   # PLAN-wash-sale WS-4a: the bot pages of an account with the rule on. 'wash_locks' seeds the owner's locks
@@ -301,6 +301,30 @@ module Pages
         post('/bots/1/rebalance_resolutions', {}, 'csrf' => 'header', 'expect' => 302,
              'may_mutate' => %w[bots bot_activity_logs]), get('/bots/1')))]
     end
+  end
+
+  # 3.0 plan A4 (PLAN-A4-cancel r4.1): Bots::CancelOrdersController#destroy, the venue answering through WebMock
+  # (pages_settings.rb: DELETE /v2/orders/cancel-ok 204, cancel-refused 422, cancel-key 401).
+  def cancel_order_scenarios
+    open = { 'external_status' => 'open', 'order_type' => 'limit_order', 'price' => '408.25', 'amount' => '0.12247', 'amount_exec' => '0',
+             'quote_amount' => nil, 'quote_amount_exec' => '0' }
+    rows = %w[cancel-ok cancel-refused cancel-key imported_cancel-1].each_with_index.map do |ext, i|
+      ['QQQM', "2026-09-10T11:0#{i}:00Z", open.merge('external_id' => ext)]
+    end
+    bot = stopped('single', 'orders' => rows)
+    cancel = ->(path, expect) { post(path, { '_method' => 'delete' }, 'csrf' => 'header', 'headers' => TURBO, 'expect' => expect) }
+    {
+      'cancel_order_ok' => with_bots([bot], signed_in(get('/bots/1'), cancel.('/bots/1/transactions/1', 200))),
+      'cancel_order_refused' => with_bots([bot], signed_in(get('/bots/1'), cancel.('/bots/1/transactions/2', 422), get('/de/bots/1'),
+                                                           cancel.('/de/bots/1/transactions/2', 422))),
+      'cancel_order_invalid_key' => with_bots([bot], signed_in(get('/bots/1'), cancel.('/bots/1/transactions/3', 422))),
+      'cancel_order_imported' => with_bots([bot], signed_in(get('/bots/1'), cancel.('/bots/1/transactions/4', 422))),
+      'cancel_order_missing_bot' => with_bots([bot], signed_in(get('/bots/1'), cancel.('/bots/99/transactions/1', 302), get('/bots'))),
+      'cancel_order_deleted_bot' => with_bots([stopped('single', 'orders' => rows, 'columns' => { 'status' => 3 })],
+                                              signed_in(get('/bots'), cancel.('/bots/1/transactions/1', 302), get('/bots'))),
+      'cancel_order_signed_out' => with_bots([bot], [get('/login'), cancel.('/bots/1/transactions/1', 302)]),
+      'missing_cancel_order_row' => with_bots([bot], signed_in(get('/bots/1'), cancel.('/bots/1/transactions/999', 404)))
+    }
   end
 
   # 3.0 plan A3: the bot page while a rebalance is selling or buying (the venue menu and the composition locked, no Redeploy
