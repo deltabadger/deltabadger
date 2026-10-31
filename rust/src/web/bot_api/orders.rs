@@ -2,8 +2,10 @@
 //! bot) and Cancel, up to their first venue call (PLAN-A9 slice O1). MCP and REST both call these and format the `Res`.
 //! Every refusal Rails makes before a venue call is made here in Rails' order, on the database alone; a dry run (MCP's
 //! paper trading) answers here too. An order through a signal bot that passes every check is queued for the engine
-//! (engine::api_orders, D-ORDER-QUEUED) and waited for (`wait`); a standalone one is `not_ported` until slice O4; a
-//! cancel that passes them is sent by `send_cancel` (slice O2), the bot page's one bounded call (web::bot::cancel).
+//! (engine::api_orders, D-ORDER-QUEUED) and waited for (`wait`); so is a standalone one (slice O4: api_orders::
+//! place_standalone, D-ORDER-AMBIGUOUS, D-ORDER-KRAKEN-QUOTE-SELL, D-ORDER-STANDALONE-LOG); a cancel that passes them is
+//! sent by `send_cancel` (slice O2), the bot page's one bounded call (web::bot::cancel), on a logged standalone order's
+//! stored route where there is one.
 //!
 //! Named divergences: D-ORDER-AMOUNT-VALIDATION (a standalone amount, price or amount_type Rails hands to the venue is
 //! refused with BotOrder's texts), D-ORDER-IBKR (a venue this build does not trade passes Rails' checks, then answers

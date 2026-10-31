@@ -138,6 +138,7 @@ pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d
 struct HyperliquidScript { scripted: ScriptedTransport, invalid_key: Option<crate::venue::http::ReqwestTransport> }
 impl crate::venue::http::Transport for HyperliquidScript {
     fn now(&self) -> DateTime<Utc> { self.scripted.now() }
+    fn deadline_clock(&self) -> Option<DateTime<Utc>> { self.scripted.deadline_clock() }
     async fn send(&self, r: &crate::venue::http::HttpRequest) -> Result<crate::venue::http::HttpResponse, crate::venue::http::TransportError> {
         if r.path == crate::venue::hyperliquid::EXCHANGE {
             if let Some(t) = &self.invalid_key { return t.send(r).await; }
