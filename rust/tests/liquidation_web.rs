@@ -64,12 +64,14 @@ fn api_selection_is_all_or_nothing_and_dry_run_does_not_write() {
     assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("write_refused"));
 }
 #[test]
-fn api_uses_the_web_wash_refusal_and_rails_domain_codes() {
+fn api_asks_no_wash_question_and_uses_rails_domain_codes() {
     let (_d,c,s,id,app,_)=install();
-    // The question not answered refuses (WS-4b serves it); the rule on does not (WS-4a).
+    // BotApi::Bots::LiquidateExited never asks the wash-sale question (only the web confirmation does): an account that has
+    // not answered is not refused for it (WS-4b), as one with the rule on is not (WS-4a).
     c.execute("UPDATE users SET wash_sale_enabled=NULL",[]).unwrap();
-    assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("not_ported"));
-    c.execute("UPDATE users SET wash_sale_enabled=0",[]).unwrap();
+    assert_ne!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("not_ported"));
+    c.execute("UPDATE users SET wash_sale_enabled=0,mcp_settings='{}'",[]).unwrap();
+    c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.liquidation_selling_since') WHERE id=?1",[id]).unwrap();
     c.execute("UPDATE bots SET status=7 WHERE id=?1",[id]).unwrap();
     let archived=api(&c,&app,s.user_id,id,json!({"symbol":"BTC"}));
     assert_eq!(archived.code,Some("bot_archived"));
@@ -78,17 +80,25 @@ fn api_uses_the_web_wash_refusal_and_rails_domain_codes() {
     assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("not_composition_bot"));
 }
 
+/// PLAN-wash-sale WS-4b (LiquidationsController#wash_sale_answer_recorded?): an account that has not answered is asked in the
+/// Sell confirmation itself, Sell dead until it picks; a submit without an answer is refused and queues nothing; one with it
+/// records the answer first, then sells.
 #[tokio::test(flavor="current_thread")]
-async fn web_modal_and_submit_use_the_same_wash_page_refusal() {
-    // The unanswered question only: the rule on is served (WS-4a).
-    for wash in [None::<bool>] {
-        let (_d,c,_s,id,app,mut b)=install();
-        c.execute("UPDATE users SET wash_sale_enabled=?1",[wash]).unwrap();
-        assert_eq!(b.get(&app,&format!("/bots/{id}/liquidation/new?symbol=BTC")).await.status,501);
-        let answer=b.send(&app,"POST",&format!("/bots/{id}/liquidation"),Some(&[("symbol","BTC")]),Csrf::Header,HEADERS).await;
-        assert_eq!(answer.status,501,"{}",answer.body);
-        assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
-    }
+async fn the_sell_confirmation_asks_an_unanswered_account_first() {
+    let (_d,c,_s,id,app,mut b)=install();
+    c.execute("UPDATE users SET wash_sale_enabled=NULL",[]).unwrap();
+    let modal=b.get(&app,&format!("/bots/{id}/liquidation/new?symbol=BTC")).await;
+    assert_eq!(modal.status,200,"{}",modal.body);
+    assert!(modal.body.contains("wash-sale-question") && modal.body.contains("type=\"submit\" disabled=\"disabled\""),"{}",modal.body);
+    let refused=b.send(&app,"POST",&format!("/bots/{id}/liquidation"),Some(&[("symbol","BTC")]),Csrf::Header,HEADERS).await;
+    assert_eq!(refused.status,422,"{}",refused.body);
+    assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
+    let enabled=|| c.query_row("SELECT wash_sale_enabled FROM users",[],|r|r.get::<_,Option<bool>>(0)).unwrap();
+    assert_eq!(enabled(),None);
+    let sold=b.send(&app,"POST",&format!("/bots/{id}/liquidation"),Some(&[("symbol","BTC"),("wash_sale[enabled]","0")]),Csrf::Header,HEADERS).await;
+    assert_eq!(sold.status,200,"{}",sold.body);
+    assert_eq!(enabled(),Some(false),"the answer is recorded with the sale");
+    assert!(!model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
 }
 
 fn credentials(c:&Connection,user:i64) {

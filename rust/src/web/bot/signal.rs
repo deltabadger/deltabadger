@@ -1,7 +1,7 @@
 //! Bots::Signal as its pages read it (plan 8c-1): its rules (BotSignal), what refuses its pages, the settings column
 //! (bots/signals/_settings with settings/_main, _unresolved_placement and _signal_widget), the panel it shares with
 //! single-asset bots while its figures load (bots/dca_single_assets/_metrics), and its :start validation.
-use super::{For, Bot};
+use super::Bot;
 use crate::enums::BotStatus;
 use crate::figures::num::Num;
 use crate::ruby::BigDec;
@@ -36,6 +36,11 @@ pub fn rules(c: &Connection, bot_id: i64) -> Result<Vec<Rule>, WebError> {
 }
 
 /// The rules, or what in a row does not read (the inner error).
+/// Bots::Signal#sell_capable?: an enabled sell rule. Rules this build cannot read are the page's refusal, not a sale.
+pub(super) fn sells(c: &Connection, bot_id: i64) -> Result<bool, WebError> {
+    Ok(read_rules(c, bot_id)?.is_ok_and(|rules| rules.iter().any(|rule| rule.sell && rule.enabled)))
+}
+
 fn read_rules(c: &Connection, bot_id: i64) -> Result<Result<Vec<Rule>, String>, WebError> {
     let mut statement = c.prepare("SELECT id, token, direction, amount_type, amount, enabled, last_triggered_at FROM bot_signals WHERE bot_id = ?1 ORDER BY id")?;
     let rows = statement.query_map([bot_id], |r| {
@@ -59,15 +64,14 @@ fn marker(transient: &Value) -> Option<&serde_json::Map<String, Value>> {
 
 /// `bot::refusal` for a signal bot: the venues the engine runs signal bots on (eligibility::signal_admission, one rule for
 /// both), then what its pages cannot print.
-pub(super) fn refusal(c: &Connection, bot_id: i64, exchange: Option<&str>, settings: &Value, transient: &Value, wash_sale_enabled: Option<bool>,
-                      asked: For) -> Result<Option<&'static str>, WebError> {
+pub(super) fn refusal(c: &Connection, bot_id: i64, exchange: Option<&str>, settings: &Value, transient: &Value) -> Result<Option<&'static str>, WebError> {
     if let Some(why) = crate::engine::eligibility::signal_admission(exchange) { return Ok(Some(why)); }
     // The two ids the wizard always stores, of assets that exist: every panel prints both.
     let id = |key: &str| settings.get(key).and_then(Value::as_i64);
     let (Some(base), Some(quote)) = (id("base_asset_id"), id("quote_asset_id")) else { return Ok(Some("settings the wizard always stores are missing")) };
     let assets: i64 = c.query_row("SELECT count(*) FROM assets WHERE id IN (?1, ?2)", [base, quote], |r| r.get(0))?;
     if assets != if base == quote { 1 } else { 2 } { return Ok(Some("a signal bot whose pair names an asset that is gone")); }
-    let Ok(rules) = read_rules(c, bot_id)? else { return Ok(Some(UNREAD_RULE)) };
+    if read_rules(c, bot_id)?.is_err() { return Ok(Some(UNREAD_RULE)); }
     // The marker's id is what its Resolve form posts back.
     if marker(transient).is_some_and(|m| !m.get("id").is_some_and(Value::is_string)) { return Ok(Some("an unresolved order marker without its id")); }
     let unbounded: bool = c.query_row(
@@ -75,12 +79,6 @@ pub(super) fn refusal(c: &Connection, bot_id: i64, exchange: Option<&str>, setti
          AND (t.base_decimals NOT BETWEEN 0 AND ?2 OR t.quote_decimals NOT BETWEEN 0 AND ?2 OR t.price_decimals NOT BETWEEN 0 AND ?2))",
         (bot_id, super::MAX_DECIMALS), |r| r.get(0))?;
     if unbounded { return Ok(Some("a ticker with more decimals than this build rounds to")); }
-    match wash_sale_enabled {
-        _ if asked == For::Feed => {}
-        // Bots::Signal#sell_capable?: an enabled sell rule. The question's modal opens over the page.
-        None if rules.iter().any(|rule| rule.sell && rule.enabled) => return Ok(Some("the wash-sale question not answered yet")),
-        _ => {}
-    }
     Ok(None)
 }
 

@@ -108,7 +108,6 @@ impl Split {
         }
         let mut split = Split { found: rows.iter().map(|(id, _)| *id).collect(), ids, keep, bots: vec![], unrun: None };
         if split.found.len() < split.ids.len() || split.found.is_empty() { return Ok(Loaded::Split(Box::new(split))); }
-        let wash: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
         let (provider, _) = bots::market_data(c, &ctx.app)?;
         for (id, (class, position, exchange)) in rows {
             // The children are baskets that buy on the source's venue: one this build does not run them on is refused by name.
@@ -116,7 +115,7 @@ impl Split {
                 split.unrun = Some(why);
                 return Ok(Loaded::Split(Box::new(split)));
             }
-            if let Some(reason) = super::refusal(c, id, wash, provider, For::Settings)? { return Ok(Loaded::Unported(reason)); }
+            if let Some(reason) = super::refusal(c, id, provider, For::Settings)? { return Ok(Loaded::Unported(reason)); }
             let Some(bot) = Bot::find(c, owner, id, For::Settings, ctx.locale)? else { continue };
             if let Some(reason) = bot.unrendered() { return Ok(Loaded::Unported(reason)); }
             let class = class.unwrap_or_default();

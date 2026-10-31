@@ -154,21 +154,6 @@ async fn control_transcripts() {
             }
             continue;
         }
-        if name=="start_wash_question_held" {
-            // Rails knows the bot holds BTC from its metrics walk (Liquidatable#held_symbols) and asks the
-            // question; Rust refuses the start it cannot judge, as its web start does, and writes nothing.
-            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(rails["result"]["content"][0]["text"],"Bot 'Control' can sell, so answer the wash-sale question first, on the bot's page or in Settings.");
-            assert_eq!(rails["result"]["isError"],true);
-            let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(response["result"]["content"][0]["text"],"This app can't run that yet: the wash-sale question not answered yet");
-            assert_eq!(response["result"]["isError"],true);
-            for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
-                assert_eq!(got["rows"][table],got["before_business"][table],"held refusal rolls back: {table}");
-                assert_eq!(want["rows"][table],got["before_business"][table],"Rails refusal writes nothing either: {table}");
-            }
-            continue;
-        }
         if name=="registry" {
             for response in got["responses"].as_array_mut().unwrap() {
                 let body=common::recorded_rule_kinds(response["body"].as_str().unwrap());

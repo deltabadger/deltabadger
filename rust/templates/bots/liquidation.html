@@ -15,11 +15,11 @@
             {{ table|safe }}
           </div>
           <form data-controller="form--checkbox-enables" data-action="turbo:submit-end->modal--base#submitEnd change->form--checkbox-enables#toggleSubmitButton" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
-            <div class="modal__footer">
+{{ question|safe }}            <div class="modal__footer">
               <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
                 {{ cancel }}
               </button>
-              <button name="button" type="submit" data-form--checkbox-enables-target="submit" data-turbo-submits-with="{{ selling }}" class="rbutton {{ colour }}">{{ sell }}</button>
+              <button name="button" type="submit"{% if !decided %} disabled="disabled"{% endif %} data-form--checkbox-enables-target="submit" data-turbo-submits-with="{{ selling }}" class="rbutton {{ colour }}">{{ sell }}</button>
             </div>
           </form>
         </div>

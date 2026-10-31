@@ -134,14 +134,10 @@ pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form:
         },
     ))
 }
-pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<String, WebError> {
-    let (enabled, jurisdiction): (Option<bool>, Option<String>) = c.query_row(
-        "SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",
-        [user_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
+/// bots/wash_sale_prompts/_question: the account box, the bot page's modal and the Sell confirmation ask it alike.
+/// `enabled` is the tri-state answer: none picked while undecided.
+pub fn question(ctx: &Ctx, enabled: Option<bool>, jurisdiction: Option<&str>) -> String {
     let code = jurisdiction
-        .as_deref()
         .filter(|s| !crate::ruby::blank(s))
         .unwrap_or("US");
     let choices = [("US", "US", 30), ("GB", "UK", 30), ("IE", "IE", 28)];
@@ -179,7 +175,7 @@ pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<Strin
         "settings.wash_sale.sentence_html",
         &[("select_html", Arg::Html(&select))],
     );
-    let question = format!(
+    format!(
         r#"<div class="wash-sale-question">
   <p class="text-inactive">{}</p>
 
@@ -208,7 +204,16 @@ pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<Strin
             ""
         },
         ctx.t("settings.wash_sale.prompt_decline")
-    );
+    )
+}
+
+pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<String, WebError> {
+    let (enabled, jurisdiction): (Option<bool>, Option<String>) = c.query_row(
+        "SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",
+        [user_id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    let question = question(ctx, enabled, jurisdiction.as_deref());
     // The locked list is read even with protection off, as Rails does; rendering is conditional.
     let mut statement=c.prepare("SELECT assets.symbol,wash_sale_locks.buy_locked_until FROM wash_sale_locks JOIN assets ON assets.id=wash_sale_locks.asset_id WHERE user_id=?1 AND buy_locked_until>?2 ORDER BY buy_locked_until,wash_sale_locks.id")?;
     let locks = statement
