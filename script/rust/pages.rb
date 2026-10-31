@@ -1376,6 +1376,8 @@ module Pages
     'disable_kraken_xbt' => -> { Ticker.where(ticker: 'XBTEUR').update_all(available: false) },
     # data-api's ND100 publishes one member (the index wizard's chosen index).
     'shrink_nasdaq' => -> { Index.where(external_id: 'nasdaq-100').update_all(top_coins: ['nvda.us']) },
+    # The venue lists Microsoft but stops trading it (A10: a create whose start refuses the pair).
+    'untradeable_msft' => -> { Ticker.where(ticker: 'MSFT').update_all(trading_enabled: false) },
     # Bot 1's price status line within its 20 s, as Bot#broadcast_price_limit_info_update caches it (a real cache, this scenario only).
     'warm_price_info' => -> { WARM_PRICE_INFO.(false) },
     'warm_price_info_met' => -> { WARM_PRICE_INFO.(true) }

@@ -50,6 +50,9 @@ pub struct Draft {
     /// The zone Rails' Time.current is in when this save runs: the caller's own over MCP (ActionMCP sets it),
     /// UTC on the web. The *_enabled_at callbacks store their time in it.
     pub callback_zone: Option<String>,
+    /// `errors` as the last validate added them, before it grouped them by field: ActiveModel's full_messages order,
+    /// which BotApi's create answers in.
+    pub added: Vec<FieldError>,
     parse_errors: Vec<FieldError>,
     exchange_missing: bool,
     error_codes: Vec<(String, String, String)>,
@@ -115,7 +118,7 @@ impl Draft {
 
     pub fn from_bot(bot: Bot) -> Self {
         Self { raw_settings: bot.settings.clone(), raw_transient: bot.transient.clone(), baseline: bot.settings.clone(), candidate: bot.clone(), original: bot,
-            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, parse_errors: vec![], exchange_missing: false, error_codes: vec![] }
+            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, added: vec![], parse_errors: vec![], exchange_missing: false, error_codes: vec![] }
     }
 
     /// This draft's candidate as an unsaved change of `stored`: dirty tracking reads the stored row.
@@ -654,6 +657,7 @@ impl Draft {
             && (self.composition_changed() || self.original.exchange.id != self.candidate.exchange.id) {
             self.add("allocations", i18n::text(locale, "errors.bots.multi_asset.locked_while_running", &[]));
         }
+        self.added = self.errors.clone();
         let mut fields = Vec::<String>::new();
         for e in &self.errors { if !fields.contains(&e.field) { fields.push(e.field.clone()); } }
         self.errors.sort_by_key(|e| fields.iter().position(|f| f == &e.field));

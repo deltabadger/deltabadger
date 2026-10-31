@@ -12,7 +12,9 @@ use serde_json::{json, Value};
 
 /// BotApi::Result's status symbols.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Domain { Success, ValidationFailed, PermissionDenied, NotFound, Conflict, UpstreamFailed, NotPorted,
+pub enum Domain { Success,
+    /// A success REST answers 201 (`status: :created`): a bot made.
+    Created, ValidationFailed, PermissionDenied, NotFound, Conflict, UpstreamFailed, NotPorted,
     /// What Rails raises past the service (a venue's transient network error): its 500, never an envelope.
     Raised }
 
@@ -71,11 +73,18 @@ fn shown_label(c: &Connection, user: i64, id: i64, stored: &Value) -> Value {
 }
 
 /// The request a service runs under: the owner signed in, English.
-fn service_ctx(app: &App, owner: &super::auth::User) -> Ctx {
+pub(crate) fn service_ctx(app: &App, owner: &super::auth::User) -> Ctx {
     Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
             query: vec![], form: vec![], json: None, upload: None }),
         session: super::session::Session::new(Default::default()), current: super::auth::Current::SignedIn(Arc::new(owner.clone())),
         method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None, stream: false }
+}
+
+/// A10: BotApi::Bots::Create, CreateIndex and CreateSignal (bot::create), as the owner, in English. `params` are the
+/// service's keyword arguments (MCP's as sent, REST's as its strong parameters permit them).
+pub fn create(c: &Connection, app: &App, user: i64, kind: super::bot::create::Kind, params: &serde_json::Map<String, Value>) -> Result<Res, WebError> {
+    let Some(owner) = super::auth::User::find(c, user)? else { return Ok(Res::failure(Domain::NotFound, "missing", "User not found.".into())) };
+    super::bot::create::create(c, &service_ctx(app, &owner), user, kind, params)
 }
 
 /// D-SPLIT-API: POST /api/v1/bots/split and split_bots, the web's split (bot::split::perform, then split::complete in this same

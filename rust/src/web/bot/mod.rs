@@ -16,6 +16,7 @@ pub mod split;
 pub mod write;
 pub mod mcp_input;
 pub mod composition;
+pub mod create;
 pub mod orders;
 pub mod page;
 pub mod search;

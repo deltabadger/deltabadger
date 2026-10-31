@@ -30,7 +30,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Unported }
+enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Unported }
 
 /// The reads that may ask a venue (BotApi::Bots::Get, Exchanges::Balances, Orders::ListOpen, Portfolio::Summary).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -75,7 +75,7 @@ fn route(method: &Method, path: &str) -> Option<Route> {
     let mut path: Vec<(&'static str, String)> = vec![];
     let (gate, action) = match segments.as_slice() {
         ["bots"] if get => (tool("list_bots"), Action::Bots),
-        ["bots"] if post => (Some(Gate::BotType), Action::Unported),
+        ["bots"] if post => (Some(Gate::BotType), Action::Create),
         // D-SPLIT-API: this build's own route (Rails routes no POST /bots/split).
         ["bots", "split"] if post => (tool("split_bots"), Action::Split),
         ["bots", id, rest @ ..] => {
@@ -174,7 +174,7 @@ pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<R
 /// Api::V1::BaseController#status_for.
 fn status_for(status: Domain) -> StatusCode {
     match status {
-        Domain::Success => StatusCode::OK, Domain::ValidationFailed => StatusCode::UNPROCESSABLE_ENTITY, Domain::NotFound => StatusCode::NOT_FOUND,
+        Domain::Success => StatusCode::OK, Domain::Created => StatusCode::CREATED, Domain::ValidationFailed => StatusCode::UNPROCESSABLE_ENTITY, Domain::NotFound => StatusCode::NOT_FOUND,
         Domain::PermissionDenied => StatusCode::FORBIDDEN, Domain::Conflict => StatusCode::CONFLICT, Domain::UpstreamFailed => StatusCode::BAD_GATEWAY,
         Domain::NotPorted => StatusCode::NOT_IMPLEMENTED, Domain::Raised => StatusCode::INTERNAL_SERVER_ERROR,
     }
@@ -248,6 +248,24 @@ fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<
     }
 }
 
+/// BotsController#create_params, #index_params and #signal_params: `params.permit(*names)`, a scalar each (nil included);
+/// `assets` also as a list of `{symbol, allocation}` hashes (`assets: %i[symbol allocation]`), whose other entries and keys
+/// are dropped.
+fn permitted(kind: super::bot::create::Kind, params: &Map<String, Value>) -> Map<String, Value> {
+    let scalar = |v: &Value| !(v.is_array() || v.is_object());
+    kind.params().iter().filter_map(|name| {
+        let value = params.get(*name)?;
+        if scalar(value) { return Some((name.to_string(), value.clone())); }
+        match (*name, value) {
+            ("assets", Value::Array(items)) => Some((name.to_string(), Value::Array(items.iter().filter_map(|item| item.as_object().map(|h| {
+                Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect())
+            })).collect()))),
+            ("assets", Value::Object(h)) => Some((name.to_string(), Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect()))),
+            _ => None,
+        }
+    }).collect()
+}
+
 fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorization: Option<&str>, method: &Method, path: &str) -> Result<Answer, WebError> {
     let who = match authenticate(c, app, authorization)? { Ok(who) => who, Err(answer) => return Ok(answer) };
     let parsed = std::cell::OnceCell::new();
@@ -268,6 +286,11 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                 let Ok(p) = params() else { return Ok(bad_request()) }; Value::Object(p.clone())
             };
             Answer::Rules(rules::Request { user, action, args })
+        }
+        Action::Create => {
+            let Ok(p) = params() else { return Ok(bad_request()) };
+            let kind = super::bot::create::Kind::tool(tool).ok_or_else(|| WebError::Config("a create route without its tool".into()))?;
+            render(bot_api::create(c, app, user, kind, &permitted(kind, p))?)
         }
         Action::Exchanges => render(bot_api::exchanges(c, user)?),
         Action::TaxJurisdictions => render(bot_api::tax_jurisdictions()),
@@ -399,7 +422,11 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
                 .then(|| format!("W/\"{}\"", &hex::encode(Sha256::digest(body.as_bytes()))[..32]));
             let mut response = (status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body).into_response();
             let fresh = status == StatusCode::OK && tag.is_some() && tag.as_deref() == if_none_match;
-            if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) { response.headers_mut().insert(header::ETAG, tag); }
+            if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) {
+                response.headers_mut().insert(header::ETAG, tag);
+                // Rack::ETag: a tagged answer (a 201's too) is `max-age=0, private, must-revalidate`.
+                response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("max-age=0, private, must-revalidate"));
+            }
             headers::controller_defaults(response.headers_mut(), status, false);
             if fresh {
                 *response.status_mut() = StatusCode::NOT_MODIFIED;

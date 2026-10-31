@@ -37,7 +37,7 @@ pub(crate) fn alert(text: String) -> Result<String, WebError> { flash_stream("da
 fn head_ok() -> Response { (StatusCode::OK, [(header::CONTENT_TYPE, "text/vnd.turbo-stream.html")]).into_response() }
 
 /// `errors.messages.values.flatten.to_sentence`: each attribute's messages together, attributes in the order first named.
-fn sentence(errors: &[FieldError]) -> String {
+pub(crate) fn sentence(errors: &[FieldError]) -> String {
     let mut fields: Vec<&str> = vec![];
     for e in errors { if !fields.contains(&e.field.as_str()) { fields.push(&e.field); } }
     crate::ruby::to_sentence(&fields.iter().flat_map(|f| errors.iter().filter(move |e| e.field == *f).map(|e| e.message.clone())).collect::<Vec<_>>())
@@ -570,7 +570,8 @@ fn start_errors(c: &Connection, locale: &str, bot: &Bot) -> Result<Vec<FieldErro
         errors.push(error("exchange", i18n::text(locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", Arg::Text(&bot.exchange.name))])));
     }
     if signal::start_blocked(bot) {
-        for key in ["base_asset_id", "quote_asset_id"] { errors.push(error(key, model_message(locale, key, "invalid"))); }
+        // On Bot::AssetConfigurable's `base_asset` and `quote_asset` (full_messages: "Base asset is invalid").
+        for (attribute, key) in [("base_asset", "base_asset_id"), ("quote_asset", "quote_asset_id")] { errors.push(error(attribute, model_message(locale, key, "invalid"))); }
     }
     // D-SIG-CAP: Bot::QuoteAmountLimitable#validate_quote_amount_limit_not_reached, as a basket's start runs it.
     match super::start::amount_limit(c, bot)? {
@@ -660,12 +661,43 @@ fn lifecycle_write(c: &Connection, locale: &str, heard: &Ctx, bot: &Bot, action:
     Ok(Life::Written { broadcasts: out, changed })
 }
 
+/// The insert of a new Bots::Signal and its rules (each with a token of its own), on `c` inside the caller's write transaction,
+/// in `created`: Automation::Labelable's name (the given one, else the base's name, else "New bot"), Bot#assign_position.
+/// The wizard saves its session's rules; the API none. Returns the new bot's id.
+#[allow(clippy::too_many_arguments)]
+pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Value, label: Option<&str>, rules: &[NewRule], locale: &str, now: chrono::DateTime<chrono::Utc>) -> Result<i64, WebError> {
+    let at = crate::codec::format_time(now);
+    let base = settings.get("base_asset_id").and_then(Value::as_i64);
+    let label = match label.filter(|l| !crate::ruby::blank(l)) {
+        Some(label) => label.to_string(),
+        None => {
+            let name: Option<String> = c.query_row("SELECT name FROM assets WHERE id = ?1", [base], |r| r.get(0)).optional()?.flatten();
+            name.filter(|n| !crate::ruby::blank(n)).unwrap_or_else(|| i18n::text(locale, "bot.new", &[]))
+        }
+    };
+    let position: i64 = c.query_row("SELECT COALESCE(MAX(position), 0) + 1 FROM bots WHERE user_id = ?1", [owner], |r| r.get(0))?;
+    c.execute("INSERT INTO bots (user_id, exchange_id, type, status, label, position, settings, transient_data, settings_changed_at, created_at, updated_at) \
+               VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6, '{}', ?7, ?7, ?7)",
+              rusqlite::params![owner, exchange, model::SIGNAL_TYPE, label, position, settings.to_string(), at])?;
+    let id = c.last_insert_rowid();
+    for rule in rules {
+        c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, last_triggered_at, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?7)",
+                  rusqlite::params![id, rule.sell as i64, rule.percentage as i64, rule.amount, rule.enabled, new_token(c)?, at])?;
+    }
+    Ok(id)
+}
+
+/// A rule `insert_created` saves: validated already, its amount as Rails stores it.
+pub struct NewRule { pub sell: bool, pub percentage: bool, pub amount: String, pub enabled: bool }
+
 /// What starting a bot the wizard has just saved came to (Bots::Wizard::CreatesController#create: `save && start(start_fresh: true)`).
 pub enum Started {
     /// Started: what the owner's open pages hear once the caller commits.
     Yes(Vec<(String, String)>),
-    /// The model refused the start (its errors, as a sentence): the saved bot stays, not started.
-    Invalid(String),
+    /// The model refused the start (its errors, in the order they were added): the wizard keeps the saved bot, not
+    /// started, and says them as a sentence; the API keeps nothing and says them as full messages.
+    Invalid(Vec<FieldError>),
     /// The engine's guard refused the start: nothing of the save may stay.
     Refused(String),
 }
@@ -677,7 +709,7 @@ pub fn start_created(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<S
     let mut heard = super::live::owner_ctx(&ctx.app, ctx.user().cloned().ok_or(WebError::Config("a wizard save has no user".into()))?);
     heard.now = ctx.now;
     Ok(match lifecycle_write(c, ctx.locale, &heard, &bot, Action::Start, true, false)? {
-        Life::Invalid(errors) => Started::Invalid(sentence(&errors)),
+        Life::Invalid(errors) => Started::Invalid(errors),
         Life::Refused(reason) => Started::Refused(i18n::text(ctx.locale, "engine.write_refused", &[("reason", Arg::Text(&reason))])),
         Life::Written { broadcasts, .. } => Started::Yes(broadcasts),
     })

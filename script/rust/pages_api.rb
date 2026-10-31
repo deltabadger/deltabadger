@@ -30,7 +30,7 @@ module Pages
     WRITES = { 'update' => ['PATCH', '/api/v1/bots/1', 'update_bot_settings', 0], 'start' => ['POST', '/api/v1/bots/1/start', 'start_bot', 0],
                'stop' => ['POST', '/api/v1/bots/1/stop', 'stop_bot', 1], 'archive' => ['POST', '/api/v1/bots/1/archive', 'archive_bot', 2],
                'unarchive' => ['DELETE', '/api/v1/bots/1/archive', 'unarchive_bot', 7], 'delete' => ['DELETE', '/api/v1/bots/1', 'delete_bot', 2] }.freeze
-    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + %w[create_bot create_index_bot market_buy]).freeze
+    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + %w[create_bot create_index_bot create_signal_bot market_buy]).freeze
     # What a bot write may change, and the rows compared as stored.
     WRITE_TABLES = %w[bots bot_activity_logs bot_index_assets].freeze
     WRITE_ROWS = { 'bots' => '*', 'bot_activity_logs' => '*', 'bot_index_assets' => '*' }.freeze
@@ -89,7 +89,6 @@ module Pages
                                                      api('/api/v1/bots?type=%3Cb%3E', method: 'POST')])
       grid['api_gated_create_order_types'] = api_case([api('/api/v1/orders?type=limit_buy', method: 'POST'),
                                                        json_body('/api/v1/orders', '{"type":"nope"}').merge('method' => 'POST')])
-      grid['not_ported_api_create_bot'] = api_case([json_body('/api/v1/bots', '{"type":"dca"}').merge('method' => 'POST')])
       # Paths Rails does not route: a locale prefix, an unknown resource, a method a resource does not take.
       # Answered before any controller, so no snapshot: the missing_ divergence compares the whole answer.
       missing = ->(path, method = 'GET') { api_case([api(path, method:).except('action_snapshot', 'may_mutate', 'jobs')]) }
@@ -108,7 +107,94 @@ module Pages
                                               json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
       # The setup gate is ApplicationController's: an install without an admin still answers the API.
       grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
-      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios)
+      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios)
+    end
+
+    # A10: POST /api/v1/bots (BotApi::Bots::Create, CreateIndex, CreateSignal). A refused create writes nothing: the
+    # insert is the start's save (Bot::Lifecycle#start, Bots::Signal#start).
+    def create(body, token = 'api-token', **opts) = write('POST', '/api/v1/bots', token, body: body.is_a?(String) ? body : body.to_json, **opts)
+
+    CREATE_DCA = { type: 'dca', exchange_name: 'Alpaca', base_asset: 'AAPL', quote_asset: 'USD', quote_amount: 25, interval: 'week' }.freeze
+    CREATE_INDEX = { type: 'index', exchange_name: 'Alpaca', index: 'nasdaq-100', quote_asset: 'USD', quote_amount: 40, interval: 'day' }.freeze
+    CREATE_SIGNAL = { type: 'signal', exchange_name: 'Alpaca', base_asset: 'AAPL', quote_asset: 'USD' }.freeze
+
+    def api_create_scenarios
+      later = ->(days, time = '09:30:00') { "#{(Time.iso8601(AT) + days.days).to_date.iso8601}T#{time}" }
+      dca = ->(extra) { CREATE_DCA.merge(extra) }
+      index = ->(extra) { CREATE_INDEX.merge(extra) }
+      signal = ->(extra) { CREATE_SIGNAL.merge(extra) }
+      venues = { 'venues' => true }
+      # ND100 offered on Alpaca with its members (Index::ExchangeAvailability), so the index cells reach their checks.
+      api_case = ->(steps, api = {}, attrs = {}) { self.api_case(steps, { 'index_alpaca' => true }.merge(api), attrs) }
+      grid = {
+        'api_create_dca_single' => api_case.([create(CREATE_DCA)]),
+        'api_create_dca_string_amount' => api_case.([create(dca.(quote_amount: '25.5', interval: 'hour'))]),
+        'api_create_dca_basket_string' => api_case.([create(dca.(base_asset: nil, assets: 'AAPL:60,msft:40'))]),
+        'api_create_dca_basket_array' => api_case.([create(dca.(base_asset: nil, assets: [{ symbol: 'aapl', allocation: 50 }, { symbol: 'MSFT', allocation: 50 }]))]),
+        'api_create_dca_basket_three' => api_case.([create(dca.(base_asset: nil, assets: 'AAPL,MSFT,NVDA', interval: 'month'))]),
+        'api_create_dca_basket_tolerance' => api_case.([create(dca.(base_asset: nil, assets: 'AAPL:60,MSFT:39.95'))]),
+        'api_create_dca_legacy_pair' => api_case.([create(dca.(second_base_asset: 'MSFT', allocation: 70)), create(dca.(second_base_asset: 'NVDA'))]),
+        'api_create_dca_market_cap' => api_case.([create(dca.(base_asset: nil, assets: 'BTC:90,ETH:10', weighting: 'market_cap'))]),
+        'api_create_dca_labels' => api_case.([create(dca.(label: 'Mine <b>&"')), create(dca.(label: '  ')), create(dca.(label: ''))]),
+        'api_create_dca_kraken' => api_case.([create(dca.(exchange_name: 'kraken', base_asset: 'btc', quote_asset: 'eur', quote_amount: 10, interval: 'day'))], {}, venues),
+        # D-API-CREATE-HYPERLIQUID-LIMIT: Rails' start refuses its own API bot (limit orders left off); this build sets them.
+        'fixed_api_create_dca_hyperliquid' => api_case.([create(dca.(exchange_name: 'Hyperliquid', base_asset: 'BTC', quote_asset: 'USDC', quote_amount: 20))], {},
+                                                 venues.merge('hyperliquid_bots' => true)),
+        'api_create_dca_paper_trading' => api_case.([create(CREATE_DCA)], { 'paper' => true }),
+        'api_create_dca_wash_sale_undecided' => api_case.([create(CREATE_DCA), create(CREATE_INDEX), create(CREATE_SIGNAL)], {}, 'user' => owner('wash_sale_enabled' => nil)),
+        'api_create_dca_twice' => api_case.([create(CREATE_DCA), create(CREATE_DCA)]),
+        'api_create_index_default' => api_case.([create(CREATE_INDEX.except(:index))]),
+        'api_create_index_nasdaq' => api_case.([create(CREATE_INDEX)]),
+        'api_create_index_options' => api_case.([create(index.(num_coins: 5, allocation_flattening: 0.5, label: 'Top five'))]),
+        'api_create_index_counts' => api_case.([1, 2, 12, 13, 2.5, '3'].map { |n| create(index.(num_coins: n)) }),
+        'api_create_index_flattening' => api_case.([-0.1, 1, 2, 'x'].map { |f| create(index.(allocation_flattening: f)) }),
+        'api_create_signal' => api_case.([create(CREATE_SIGNAL), create(signal.(label: 'Signals <b>'))]),
+        # D-API-CREATE-REFUSED: a signal bot on IBKR, which Rails makes and starts and this build's engine does not run.
+        'refused_api_create_signal_ibkr' => api_case.([create(signal.(exchange_name: 'Interactive Brokers', base_asset: 'QQQM'))], {},
+                                                     'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' }),
+        'api_create_signal_kraken' => api_case.([create(signal.(exchange_name: 'Kraken', base_asset: 'BTC', quote_asset: 'EUR'))], {}, venues),
+        # Every refusal of the services, in their order; none writes.
+        'api_create_dca_refusals' => api_case.([
+          create({ type: 'dca' }), create({ assets: 'AAPL' }), create(dca.(interval: 'year')), create(dca.(weighting: 'equal')),
+          create(dca.(second_base_asset: 'MSFT', allocation: 101)), create(dca.(exchange_name: 'Nope')),
+          create(dca.(exchange_name: 'Interactive Brokers')), create(dca.(quote_amount: 0)), create(dca.(quote_amount: 'abc')),
+          create(dca.(quote_amount: -1)), create(dca.(base_asset: nil, assets: ',')), create(dca.(base_asset: nil, assets: 'AAPL:')),
+          create(dca.(base_asset: nil, assets: 'AAPL,aapl')), create(dca.(base_asset: nil, assets: (1..101).map { |i| "S#{i}" }.join(','))),
+          create(dca.(base_asset: nil, assets: [1, 2])), create(dca.(base_asset: 'DOGE')), create(dca.(quote_asset: 'EUR')),
+          create(dca.(base_asset: nil, assets: 'AAPL:60,MSFT:30')), create(dca.(base_asset: nil, assets: 'AAPL:60,MSFT')),
+          create(dca.(base_asset: nil, assets: 'AAPL,MSFT', weighting: 'market_cap')), create(dca.(base_asset: nil, assets: 'AAPL:120,MSFT:-20'))
+        ]),
+        # The start refuses after the service is satisfied: Rails' valid?(:start) on the unsaved bot.
+        'api_create_dca_start_refused' => api_case.([
+          create(dca.(base_asset: nil, assets: 'AAPL,MSFT')).merge('before' => 'untradeable_msft'),
+          create(dca.(base_asset: nil, assets: 'AAPL,MSFT', start_at: '')),
+          create(dca.(start_at: '2026-09-01T10:00:00Z')), create(dca.(start_at: 'nope'))
+        ]),
+        'api_create_index_refusals' => api_case.([
+          create({ type: 'index' }), create(index.(interval: 'fortnight')), create(index.(exchange_name: 'Nope')),
+          create(index.(exchange_name: 'Interactive Brokers')), create(index.(index: 'nope')), create(index.(quote_amount: 'x')),
+          create(index.(quote_asset: 'EUR')), create(index.(start_at: ''))
+        ], {}, venues),
+        'api_create_index_no_market_data' => api_case.([create(CREATE_INDEX)], {}, 'market_data' => 'none'),
+        'api_create_signal_refusals' => api_case.([
+          create({ type: 'signal' }), create(signal.(exchange_name: 'Nope')), create(signal.(exchange_name: 'Interactive Brokers')),
+          create(signal.(base_asset: 'DOGE')), create(signal.(base_asset: 'MSFT')).merge('before' => 'untradeable_msft')
+        ]),
+        'api_create_gates' => api_case.([create(CREATE_DCA, nil), create(CREATE_DCA, 'mcp-token'), create(CREATE_DCA, 'second-token'),
+                                        create('{"type":"dca",').merge('rails_exception_status' => 400)]),
+        'api_create_type_query' => api_case.([write('POST', '/api/v1/bots?type=signal&exchange_name=Alpaca&base_asset=AAPL&quote_asset=USD')]),
+        'api_create_tool_off' => api_case.([create(CREATE_DCA), create(CREATE_INDEX), create(CREATE_SIGNAL)], 'tools' => TOOLS - %w[create_bot create_index_bot create_signal_bot]),
+        'api_create_not_granted' => api_case.([create(CREATE_DCA), create(CREATE_INDEX), create(CREATE_SIGNAL)], 'grant' => TOOLS - %w[create_bot create_index_bot create_signal_bot]),
+        'api_create_null_grant' => api_case.([create(CREATE_SIGNAL)], 'grant' => nil)
+      }
+      # start_at as Rails' schedule_start_at reads it: in the account's zone (Tallinn) unless it names its own offset. A wall time
+      # the zone repeats (2026-10-25T03:30) is D-API-CREATE-START-AT-AMBIGUOUS, tested in rust/tests/api_create.rs: Rails takes
+      # the earlier one; this build refuses it as the web's start-time form does.
+      { 'z' => "#{later.(3)}Z", 'offset' => "#{later.(3)}+02:00", 'naive' => later.(3), 'date' => later.(3)[0, 10],
+        'dst_gap' => '2027-03-28T03:30' }.each do |name, at|
+        grid["api_create_start_at_#{name}"] = api_case.([create(dca.(start_at: at)), create(index.(start_at: at))])
+      end
+      grid
     end
 
     # Bot 1 in the status a route needs (one that ran has a start time); bots 2 to 4 as api_case has them.
@@ -364,7 +450,10 @@ module Pages
       ConnectedClient.create!(user: second, oauth_application: client, mcp_tools: [], rest_tools: TOOLS)
       api_transactions if spec['transactions']
       api_indices(spec) if spec['indices']
+      Index.where(external_id: 'nasdaq-100').find_each { |ix| ix.update_columns(available_exchanges: { 'Exchanges::Alpaca' => ix.top_coins }) } if spec['index_alpaca']
       api_keys(owner, second) if spec['keys']
+      # Paper trading on: MCP refuses the create tools; REST is live and creates.
+      owner.update_columns(mcp_settings: { 'dry_run' => true }) if spec['paper']
       # The owner's Alpaca key as another account (its stubbed answers) or in live mode (the live host).
       if spec['alpaca_key']
         ApiKey.find_by!(user: owner, exchange: Exchange.find_by!(name: 'Alpaca')).update_columns(key: spec['alpaca_key'], passphrase: spec.fetch('passphrase', 'paper'))

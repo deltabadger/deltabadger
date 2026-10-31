@@ -296,6 +296,7 @@ fn before(dir: &Path, what: &str) {
         "unconfirm" => c.execute("UPDATE users SET confirmed_at = NULL WHERE id = (SELECT min(id) FROM users)", []).unwrap(),
         "disable_kraken_xbt" => c.execute("UPDATE tickers SET available = 0 WHERE ticker = 'XBTEUR'", []).unwrap(),
         "shrink_nasdaq" => c.execute("UPDATE indices SET top_coins = '[\"nvda.us\"]' WHERE external_id = 'nasdaq-100'", []).unwrap(),
+        "untradeable_msft" => c.execute("UPDATE tickers SET trading_enabled = 0 WHERE ticker = 'MSFT'", []).unwrap(),
         // Bot 1's price status line within its 20 s, as the engine's info pass stores it (Rails: bot.price_limit_info_from_cache).
         "warm_price_info" | "warm_price_info_met" => {
             let info = json!({ "price_limit": { "buying": { "base": "BTC", "quote": "USD", "price": "64310.75", "condition_met": what == "warm_price_info_met",
@@ -458,6 +459,9 @@ async fn run(dir: &Path) -> Value {
                 let signal = |id: &Value| rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
                     .query_row("SELECT type = 'Bots::Signal' FROM bots WHERE id = ?1", [id.as_i64().unwrap()], |r| r.get::<_, bool>(0)).unwrap();
                 classes.extend(rows_after["bots"].as_array().into_iter().flatten().filter(|bot| bot["status"] == 1 && !was_scheduled(&bot["id"]) && !signal(&bot["id"])).map(|_| json!("Bot::ActionJob")));
+                // A delayed first start: Rails also enqueues Bot::BroadcastAfterScheduledActionJob, whose bars this crate sends at once.
+                let delayed = |bot: &Value| bot["started_at"].as_str().and_then(|t| deltabadger::codec::parse_time(t).ok()).is_some_and(|t| t > now);
+                classes.extend(rows_after["bots"].as_array().into_iter().flatten().filter(|bot| bot["status"] == 1 && !was_scheduled(&bot["id"]) && !signal(&bot["id"]) && delayed(bot)).map(|_| json!("Bot::BroadcastAfterScheduledActionJob")));
                 // Rails enqueues Bot::ResyncIndexCompositionJob where this crate leaves the engine its resync marker (new, or bumped).
                 let marker = |rows: &Value, id: &Value| rows["bots"].as_array().into_iter().flatten().find(|bot| bot["id"] == *id).map(|bot| bot["transient_data"]["rust_index_resync"].clone());
                 classes.extend(rows_after["bots"].as_array().into_iter().flatten()
@@ -1768,13 +1772,13 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
     // A1 serves these historical grid names now: compare the empty rule list and
     // missing-rule delete with Rails in full, including headers and row snapshots.
     if matches!(name, "not_ported_api_get_rules" | "not_ported_api_delete_rules_1") { return None; }
-    let kind = ["unrouted_", "refused_api_", "refused_web_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
+    let kind = ["unrouted_", "refused_api_", "refused_web_", "fixed_api_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
     let (mut theirs, mut ours) = (responses(rails), responses(rust));
     let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
     // A refused write leaves the bots Rails changed as they were: its last step's rows hold that (below).
     // So does a refused wizard save (a not_ported_ write whose step snapshots the rows; below, it must have written nothing).
-    let rails_bots = if kind == "refused_api_" || kind == "refused_web_" || (kind == "not_ported_" && rust_last["action_snapshot"] == true) { &rust["bots"] } else { &rails["bots"] };
+    let rails_bots = if kind == "refused_api_" || kind == "refused_web_" || kind == "fixed_api_" || (kind == "not_ported_" && rust_last["action_snapshot"] == true) { &rust["bots"] } else { &rails["bots"] };
     if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails_bots }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
         return Some(Err(format!("before its last response: {message}")));
     }
@@ -1810,6 +1814,16 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                 Err(format!("expected the write_refused envelope: {rust_last}"))
             }
             else if !unchanged || rust_last["job_classes"] != json!([]) { Err("the refused write changed rows or enqueued work".into()) }
+            else { Ok(()) }
+        }
+        "fixed_api_" => {
+            // A Rails defect fixed by name (D-API-CREATE-HYPERLIQUID-LIMIT): Rails refuses its own create and writes nothing;
+            // this build makes and starts the bot, a Hyperliquid one with the wizard's limit orders.
+            let body: Value = serde_json::from_str(rust_last["body"].as_str().unwrap_or_default()).unwrap_or_default();
+            let theirs: Value = serde_json::from_str(rails_last["body"].as_str().unwrap_or_default()).unwrap_or_default();
+            let made = rust_last["rows_after"]["bots"].as_array().into_iter().flatten().find(|bot| bot["id"] == body["data"]["id"]).cloned().unwrap_or_default();
+            if rails_last["status"] != 422 || !theirs["error"]["message"].as_str().is_some_and(|m| m.contains("Limit ordered")) { Err(format!("Rails no longer refuses with the limit-order error: drop or rename this scenario: {rails_last}")) }
+            else if rust_last["status"] != 201 || made["status"] != 1 || made["settings"]["limit_ordered"] != true { Err(format!("expected the bot made and started with limit orders: {rust_last}")) }
             else { Ok(()) }
         }
         "refused_web_" => {

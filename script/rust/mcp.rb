@@ -14,7 +14,8 @@ module McpParity
 
   NAMES = %w[list_bots list_exchanges list_transactions list_tax_jurisdictions].freeze
   # Control tools (script/rust/mcp_control.rb) and the files they read; order matches metadata.json.
-  CONTROL_NAMES = %w[stop_bot archive_bot unarchive_bot delete_bot update_bot_settings start_bot liquidate_exited_asset answer_redeploy_offer].freeze
+  CONTROL_NAMES = %w[stop_bot archive_bot unarchive_bot delete_bot update_bot_settings start_bot liquidate_exited_asset answer_redeploy_offer
+                     create_bot create_index_bot create_signal_bot].freeze
   CONTROL_SOURCES = %w[app/services/bot_api/bots/create_support.rb app/services/bot_api/bots/start.rb app/services/bot_api/bots/liquidate_exited.rb
                        app/services/bot_api/bots/archive.rb app/services/bot_api/bots/lifecycle_support.rb app/services/bot_api/bots/create_index.rb
                        app/services/bot_api/bots/stop.rb app/services/bot_api/bots/create_signal.rb app/services/bot_api/bots/create.rb
