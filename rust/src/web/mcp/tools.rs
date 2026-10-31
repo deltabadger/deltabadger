@@ -4,7 +4,7 @@ use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 /// D-SPLIT-API: split_bots is this build's own, after the recorded tools.
-pub const NAMES: [&str;26] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","list_tax_jurisdictions","list_rules","create_rule","delete_rule","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots","create_bot","create_index_bot","create_signal_bot"];
+pub const NAMES: [&str;26] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","list_tax_jurisdictions","list_rules","create_rule","delete_rule","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())

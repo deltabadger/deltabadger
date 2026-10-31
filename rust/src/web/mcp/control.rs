@@ -2,6 +2,7 @@
 use super::{protocol::{tool_text,metadata,validate}, tools};
 use crate::web::{App, WebError, bearer::Bearer, bot::{action_params::ActionParams, write::Outcome}, bot_api::{self, Shown, Write}};
 use rusqlite::Connection;
+use chrono::TimeZone as _;
 use serde_json::Value;
 
 pub const NAMES: [&str;8]=["stop_bot","archive_bot","unarchive_bot","delete_bot","update_bot_settings","start_bot","liquidate_exited_asset","answer_redeploy_offer"];
@@ -59,10 +60,18 @@ pub fn create(c:&Connection,app:&App,who:Bearer,kind:crate::web::bot::create::Ki
     Ok(tool_text(&match kind {
         Kind::Dca=>{
             let summary=format!("{} on {}, {} {}/{}.",s(&d["pair"]),s(&d["exchange"]),float(&args["quote_amount"]),upcase(&args["quote_asset"]),s(&args["interval"]));
-            if bot_api::present(&args["start_at"]) {format!("Bot '{}' created — scheduled to start {} — {summary}",s(&d["label"]),s(&d["started_at"]))}
+            if bot_api::present(&args["start_at"]) {format!("Bot '{}' created — scheduled to start {} — {summary}",s(&d["label"]),zoned(c,who.user_id,&d["started_at"])?)}
             else {format!("Bot '{}' created and started — {summary}",s(&d["label"]))}
         }
         Kind::Index=>format!("Bot '{}' created and started — {} top {} on {}, {} {}/{}.",s(&d["label"]),s(&d["index"]),s(&d["num_coins"]),s(&d["exchange"]),float(&d["quote_amount"]),s(&d["quote_asset"]),s(&d["interval"])),
         Kind::Signal=>format!("Signal bot '{}' created and started — {} on {}. Place orders through it with market_buy / market_sell and bot_id {}.",s(&d["label"]),s(&d["pair"]),s(&d["exchange"]),d["id"]),
     },false))
+}
+/// `started_at.iso8601` under ActionMCP, which sets Time.zone to the user's: the time in their zone with its offset ("Z" in UTC).
+fn zoned(c:&Connection,user:i64,at:&Value)->Result<String,WebError>{
+    let Some(text)=at.as_str() else {return Ok(tools::str_value(at))};
+    let at=crate::codec::parse_time(text).map_err(|e|WebError::Config(format!("a created bot's started_at: {e:?}")))?;
+    let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
+    let local=crate::web::timezone::local(at,&zone);
+    Ok(if local.timezone()==chrono_tz::Tz::UTC {at.format("%Y-%m-%dT%H:%M:%SZ").to_string()} else {local.format("%Y-%m-%dT%H:%M:%S%:z").to_string()})
 }

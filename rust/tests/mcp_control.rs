@@ -80,22 +80,6 @@ fn comparable(mut transcript: Value) -> Value {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn unregistered_tools_return_unknown_tool() {
-    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();
-    common::rails(boot.path(),"test",&["runner","script/rust/mcp_control.rb","grid",root.path().to_str().unwrap()]);
-    let dir=std::fs::read_dir(root.path()).unwrap().map(|e|e.unwrap().path()).find(|p|p.join("steps.json").is_file()).unwrap();
-    let ready=read(dir.join("steps.json"));let mut steps=ready.as_array().unwrap()[..2].to_vec();
-    let names:Vec<_>=["stop_bot","archive_bot","unarchive_bot","delete_bot","update_bot_settings","start_bot","create_bot","create_index_bot","create_signal_bot"].into_iter().filter(|n|!deltabadger::web::mcp::tools::NAMES.contains(n)).collect();
-    assert!(names.len()>=3);
-    for name in &names {steps.push(json!({"method":"POST","path":"/mcp","headers":{"Authorization":"Bearer m2-token","Content-Type":"application/json","Accept":"application/json, text/event-stream","Mcp-Session-Id":"$session"},"body":json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":name,"arguments":{"bot_id":1}}}).to_string()}));}
-    let output=play(&dir,&steps,None).await;
-    for (name,response) in names.iter().zip(output["responses"].as_array().unwrap().iter().skip(2)) {
-        let body:Value=serde_json::from_str(response["body"].as_str().unwrap()).unwrap();
-        assert_eq!(body["error"]["code"],-32602,"absent {name}: {body}");
-    }
-}
-
-#[tokio::test(flavor="current_thread")]
 async fn control_transcripts() {
     let root = tempfile::tempdir().unwrap();
     let boot = tempfile::tempdir().unwrap();
@@ -107,7 +91,7 @@ async fn control_transcripts() {
         let steps = read(dir.join("steps.json"));
         let rust = tempfile::tempdir().unwrap();
         copy_install(dir, rust.path());
-        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds") || dir.file_name().unwrap().to_string_lossy().starts_with("settings_form_");
+        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds") || dir.file_name().unwrap().to_string_lossy().starts_with("settings_form_") || dir.file_name().unwrap().to_string_lossy().starts_with("create_refused_");
         let before=if unicode_symbol {
             let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
             for step in steps.as_array().unwrap() {if let Some(sql)=step["sql"].as_array() {for command in sql {c.execute_batch(command.as_str().unwrap()).unwrap();}}}
@@ -164,13 +148,25 @@ async fn control_transcripts() {
             }
             let body:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let names:Vec<_>=body["result"]["tools"].as_array().unwrap().iter().map(|t|t["name"].as_str().unwrap()).collect();
-            // This recorded grid grants the bot reads and six bot controls. Rule tools and later
+            // This recorded grid grants the bot reads, six bot controls and the three creates (A10). Rule tools and later
             // additions are not in this client's grant, even when enabled by the owner's defaults.
-            assert_eq!(names,["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot"],"complete recorded grant without a cursor");
+            assert_eq!(names,["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot"],"complete recorded grant without a cursor");
             assert!(body["result"].get("nextCursor").is_none());
             if let Ok(root)=std::env::var("M4_EVIDENCE") {
                 std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
             }
+        }
+        // D-API-CREATE-REFUSED: a bot Rails makes and starts that this build's engine does not run is refused, nothing written.
+        if name.starts_with("create_refused_") {
+            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains("created and started"),"Rails creates {name}");
+            let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
+            let text=response["result"]["content"][0]["text"].as_str().unwrap();
+            assert!(text.starts_with("This app can't run that yet:") && response["result"]["isError"]==true,"{name}: {text}");
+            for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
+                assert_eq!(got["rows"][table],got["before_business"][table],"{name} refusal writes nothing: {table}");
+            }
+            continue;
         }
         if name.starts_with("paper_refused_") {
             // ApplicationMCPTool: paper trading refuses start_bot before lookup, validation or any write.

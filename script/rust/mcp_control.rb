@@ -10,6 +10,8 @@ module McpControl
   module_function
 
   NAMES = %w[stop_bot archive_bot unarchive_bot delete_bot update_bot_settings start_bot].freeze
+  # A10: the create tools, on and granted beside the control tools.
+  CREATE = %w[create_bot create_index_bot create_signal_bot].freeze
   TABLES = (McpParity::TABLES + %w[bot_index_assets bot_activity_logs users]).uniq.freeze
   JSON_COLUMNS = { 'bots' => %w[settings transient_data], 'bot_activity_logs' => %w[details] }.freeze
   def seed(dir)
@@ -21,13 +23,13 @@ module McpControl
       second = User.new(Pages.owner.merge(email: 'second@example.com', password: Pages::PASSWORD))
       second.save!(validate: false)
       Pages.alpaca({})
-      allowed = ENV.key?('M4_TOOLS') ? ENV.fetch('M4_TOOLS').split(',') : NAMES
+      allowed = ENV.key?('M4_TOOLS') ? ENV.fetch('M4_TOOLS').split(',') : NAMES + CREATE
       app = Doorkeeper::Application.create!(name: 'M4', uid: 'm2-client', redirect_uri: 'http://localhost/cb', confidential: false, scopes: 'mcp api')
       { 'm2-token' => [owner, 'mcp'], 'api-token' => [owner, 'api'], 'second-token' => [second, 'mcp'] }.each do |token, (user, scopes)|
         Doorkeeper::AccessToken.create!(application: app, resource_owner_id: user.id, scopes:, expires_in: 3600).update_columns(token:)
         ConnectedClient.find_or_create_by!(user:, oauth_application: app).update!(mcp_tools: allowed)
       end
-      owner.update_columns(mcp_settings: { tool_permissions: NAMES.to_h { |n| [n, true] }, dry_run: false })
+      owner.update_columns(mcp_settings: { tool_permissions: (NAMES + CREATE).to_h { |n| [n, true] }, dry_run: false })
       second.update_columns(mcp_settings: { tool_permissions: NAMES.to_h { |n| [n, true] } })
       Pages.bot('kind' => 'coins', 'columns' => { 'status' => 'stopped', 'label' => 'Control' })
       Pages.bot('kind' => 'index', 'columns' => { 'status' => 'stopped', 'label' => 'Index' })
@@ -82,7 +84,7 @@ module McpControl
     end
     s['lifecycle_repeat'] = McpParity.ready + [tool('start_bot', {}, [set_status(0)]), tool('start_bot'), tool('stop_bot'), tool('stop_bot'),
                                                tool('archive_bot'), tool('archive_bot'), tool('unarchive_bot'), tool('unarchive_bot'), tool('delete_bot'), tool('delete_bot')] # rubocop:disable Layout/LineLength -- Literal transcript data keeps request values visible together.
-    allowed = ENV.key?('M4_TOOLS') ? ENV.fetch('M4_TOOLS').split(',') : NAMES
+    allowed = ENV.key?('M4_TOOLS') ? ENV.fetch('M4_TOOLS').split(',') : NAMES + CREATE
     reads = %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions
                list_open_orders list_tax_jurisdictions]
     registered = AppConfig::MCP_TOOL_DEFAULTS.keys.select { |name| reads.include?(name) || allowed.include?(name) }
@@ -92,6 +94,36 @@ module McpControl
       s['registry'] << McpParity.session_rpc('tools/list', { cursor: Base64.urlsafe_encode64(offset.to_s, padding: false) })
     end
     s['registry'] += [McpParity.tool('create_bot'), McpParity.tool('create_index_bot'), McpParity.tool('create_signal_bot')]
+    # A10: create_bot, create_index_bot, create_signal_bot (BotApi::Bots::Create*, as POST /api/v1/bots runs them).
+    make = ->(name, args, sql = []) { McpParity.tool(name, args).merge('sql' => sql) }
+    # ND100 offered on Alpaca with its members (Index::ExchangeAvailability), as pages_api.rb's index_alpaca.
+    nasdaq = ["UPDATE indices SET available_exchanges=json_object('Exchanges::Alpaca',json(top_coins)) WHERE external_id='nasdaq-100'"]
+    # Coins: the engine runs plain crypto on Alpaca; this fixture's stocks are untyped, which it refuses (D-API-CREATE-REFUSED).
+    dca = { exchange_name: 'Alpaca', base_asset: 'BTC', quote_asset: 'usd', quote_amount: 25, interval: 'week' }
+    index = { exchange_name: 'Alpaca', index: 'nasdaq-100', quote_asset: 'USD', quote_amount: 40, interval: 'day' }
+    signal = { exchange_name: 'Alpaca', base_asset: 'AAPL', quote_asset: 'USD' }
+    later = "#{(Time.iso8601(Pages::AT) + 3.days).to_date.iso8601}T09:30:00Z"
+    s['create_dca'] = McpParity.ready + [make.('create_bot', dca), make.('create_bot', dca.merge(quote_amount: 0.00005, label: 'Tiny <b>'))]
+    s['create_dca_basket'] = McpParity.ready + [make.('create_bot', dca.except(:base_asset).merge(assets: 'BTC:60,eth:40', interval: 'hour'))]
+    s['create_dca_scheduled'] = McpParity.ready + [make.('create_bot', dca.merge(start_at: later)), make.('create_index_bot', index.merge(start_at: later), nasdaq)]
+    s['create_dca_refusals'] = McpParity.ready + [
+      make.('create_bot', {}), make.('create_bot', dca.merge(quote_amount: '25')), make.('create_bot', dca.merge(interval: 'year')),
+      make.('create_bot', dca.merge(exchange_name: 'Nope')), make.('create_bot', dca.merge(base_asset: 'DOGE')),
+      make.('create_bot', dca.except(:base_asset).merge(assets: 'BTC:60,ETH:30')), make.('create_bot', dca.merge(start_at: '2026-09-01T10:00:00Z'))
+    ]
+    s['create_index'] = McpParity.ready + [make.('create_index_bot', index, nasdaq), make.('create_index_bot', index.merge(num_coins: 5, allocation_flattening: 0.25))]
+    s['create_index_refusals'] = McpParity.ready + [make.('create_index_bot', index), make.('create_index_bot', index.merge(index: 'nope'), nasdaq),
+                                                    make.('create_index_bot', index.merge(num_coins: 2.5)), make.('create_index_bot', index.merge(allocation_flattening: 2))]
+    s['create_signal'] = McpParity.ready + [make.('create_signal_bot', signal), make.('create_signal_bot', signal.merge(label: 'Signals'))]
+    s['create_signal_refusals'] = McpParity.ready + [make.('create_signal_bot', {}), make.('create_signal_bot', signal.merge(base_asset: 'DOGE')),
+                                                     make.('create_signal_bot', signal.merge(exchange_name: 'Interactive Brokers'))]
+    # D-API-CREATE-REFUSED over MCP: a stock this fixture leaves untyped, which the engine's guard does not run.
+    s['create_refused_untyped_stock'] = McpParity.ready + [make.('create_bot', dca.merge(base_asset: 'AAPL'))]
+    # LIVE_AUTOMATION_TOOLS under paper trading, a tool switched off, a tool the client was not granted.
+    paper = ["UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"]
+    s['create_paper_trading'] = McpParity.ready + [make.('create_bot', dca, paper), make.('create_index_bot', index), make.('create_signal_bot', signal)]
+    s['create_disabled'] = McpParity.ready + [make.('create_bot', dca, ["UPDATE users SET mcp_settings='{}' WHERE email='owner@example.com'"])]
+    s['create_grant'] = McpParity.ready + [make.('create_signal_bot', signal, ["UPDATE connected_clients SET mcp_tools='[]'"])]
     { none: {}, blank: { label: '  ', allocations: ' ' }, label: { label: 'A <b>&"😀' }, same: { label: 'Control' },
       amount: { quote_amount: 37.25 }, amount_zero: { quote_amount: 0 }, amount_negative: { quote_amount: -1 },
       amount_tiny: { quote_amount: 0.00005 }, amount_large: { quote_amount: 1e15 },
