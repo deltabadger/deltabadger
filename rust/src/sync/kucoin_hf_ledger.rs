@@ -336,11 +336,17 @@ fn windows_json(windows: &[Window], stamp: &Value) -> Value {
                                                                             "pages": w.pages, "retry_after": w.retry_after.map(sql_time) })).collect::<Vec<_>>() })
 }
 
-/// The windows in progress or waiting, when the record is this credential's (another's progress is dropped).
-fn load_windows(c: &Connection, key_id: i64, stamp: &Value) -> Result<Vec<Window>, SyncError> {
-    let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [backfill_key(key_id)], |r| r.get(0)).optional()?.flatten();
-    let Some(v) = raw.and_then(|r| serde_json::from_str::<Value>(&r).ok()) else { return Ok(vec![]) };
-    if !crate::engine::model::stamp_current_for(&v["credential"], stamp).is_fresh() { return Ok(vec![]); }
+/// The windows in progress or waiting, when the record is this credential's. A first record is saved at once, so every
+/// later credential finds one. Another credential's record names no windows, and what was read is forgotten too: another
+/// key may name another account, whose executions the earlier reads never asked for.
+fn load_windows(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, stamp: &Value, now: DateTime<Utc>) -> Result<Vec<Window>, SyncError> {
+    let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [backfill_key(key.id)], |r| r.get(0)).optional()?.flatten();
+    let Some(v) = raw.and_then(|r| serde_json::from_str::<Value>(&r).ok()) else { save_windows(c, key.id, &[], stamp, now)?; return Ok(vec![]) };
+    if !crate::engine::model::stamp_current_for(&v["credential"], stamp).is_fresh() {
+        hf::remove(c, key, hf::UTA_READ)?;
+        save_windows(c, key.id, &[], stamp, now)?;
+        return Ok(vec![]);
+    }
     let t = |w: &Value, k: &str| w[k].as_str().and_then(|s| crate::codec::parse_time(s).ok());
     Ok(v["windows"].as_array().into_iter().flatten().filter_map(|w| Some(Window { start: t(w, "start")?, end: t(w, "end")?, last_id: w["last_id"].as_str().and_then(|s| s.parse().ok()),
                                                                                   pages: w["pages"].as_u64().unwrap_or(0) as usize, retry_after: t(w, "retry_after") })).collect())
@@ -375,17 +381,16 @@ pub(super) async fn backfill<T: Transport>(db: &Db, version: &CredentialVersion,
     let now = clock.now();
     let end = second(now);
     let bounds = (end - BACKFILL_FLOOR, end - RETENTION + MARGIN);
-    let (mut windows, done) = { let (k, s) = (key.clone(), stamp.clone()); phase(db, move |c| Ok((load_windows(c, k.id, &s)?, hf::spans(c, &k, hf::UTA_READ)?))).await? };
+    let (mut windows, done) = { let (k, s) = (key.clone(), stamp.clone()); commit_for(db, version, move |c| Ok((load_windows(c, &k, &s, now)?, hf::spans(c, &k, hf::UTA_READ)?))).await? };
     let done: Vec<Span> = done.into_iter().map(|(_, s)| s).collect();
     let Some(index) = pick(&mut windows, &done, bounds, now) else { return Ok(()) };
     windows[index].retry_after = None;
     let budget = run.deadline / 2;
     let reserve = crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + wait * THROTTLE_RETRIES as u32 + super::continuation::FINALIZE_FLOOR;
-    let mut first = true;
     loop {
-        // Paused: the window's progress is saved with its last page; the next run resumes it.
-        if !first && run.stopwatch.elapsed() + reserve >= budget { return Ok(()); }
-        first = false;
+        // Paused (or never begun, when the units took the half): the window's progress is saved with its last page; the
+        // next run resumes it.
+        if run.stopwatch.elapsed() + reserve >= budget { return Ok(()); }
         let w = windows[index].clone();
         let mut query = vec![("tradeType", "SPOT".to_string()), ("startAt", w.start.timestamp_millis().to_string()), ("endAt", (w.end.timestamp_millis() - 1).to_string()),
                              (route.limit.0, route.limit.1.to_string())];

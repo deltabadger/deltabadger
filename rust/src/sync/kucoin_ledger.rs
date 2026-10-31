@@ -163,15 +163,17 @@ struct Walk<'a, T: Transport> {
     /// The transfer source's `endAt`, recorded by its first page and sent with every later one.
     pin: Option<i64>,
     /// D-KUCOIN-UTA-LEDGER (r2.4): on a managed history a failed source is logged and the walk goes on to the next; the
-    /// sources that failed (never taken over) and the first failure, which the done walk records.
-    managed: bool, failed: Vec<String>, failure: Option<String>,
+    /// sources that failed (never taken over) and the first failure, which the done walk records. Only a source that has
+    /// returned no rows yet is passed by: its rows would be stored without the file's takeover, so one that fails after
+    /// returning some fails the run, as a classic history's read does.
+    managed: bool, failed: Vec<String>, failure: Option<String>, rows_seen: bool,
 }
 
 impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a KucoinVenue<T>, wait: std::time::Duration, managed: bool, begin: continuation::Begin<'_>) -> Self {
         let (start, end) = (begin.start, begin.end.timestamp() * 1000);
         let mut walk = Self { transfers: begin.transfers, venue, wait, start, end, source: Source::Fills, window_start: 0, window_end: 0, ranges: vec![], page: 1, pin: None,
-                              managed, failed: vec![], failure: None };
+                              managed, failed: vec![], failure: None, rows_seen: false };
         match begin.cursor.and_then(|c| Some((c, Source::named(c["source"].as_str()?)?))) {
             Some((c, source)) => {
                 walk.source = source;
@@ -182,6 +184,8 @@ impl<'a, T: Transport> Walk<'a, T> {
                 walk.pin = c["pin"].as_i64();
                 walk.failed = serde_json::from_value(c["failed"].clone()).unwrap_or_default();
                 walk.failure = c["failure"].as_str().map(str::to_string);
+                // A cursor from before this field: its source may have stored rows.
+                walk.rows_seen = c["rows_seen"].as_bool().unwrap_or(true);
             }
             None => walk.window(begin.start.map_or(HISTORY_FROM_MS, |s| s.timestamp() * 1000)),
         }
@@ -219,7 +223,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn cursor(&self) -> Value {
         serde_json::json!({ "source": self.source.name(), "window_start": self.window_start, "window_end": self.window_end,
                             "ranges": self.ranges.iter().map(|(a, b)| serde_json::json!([a, b])).collect::<Vec<_>>(), "page": self.page, "pin": self.pin,
-                            "failed": self.failed, "failure": self.failure })
+                            "failed": self.failed, "failure": self.failure, "rows_seen": self.rows_seen })
     }
     fn page_rows(&self) -> usize { PAGE_ROWS }
     /// The file's takeover for every source the walk has finished (plan KI §5): those before the one its cursor reads.
@@ -237,11 +241,15 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     async fn step(&mut self) -> Result<Vec<Entry>, Fail> {
         let source = self.source;
         match self.read().await {
-            Err((text, _)) if self.managed && source != Source::Done => {
+            Ok(rows) => {
+                self.rows_seen = if self.source != source { false } else { self.rows_seen || !rows.is_empty() };
+                Ok(rows)
+            }
+            Err((text, _)) if self.managed && source != Source::Done && !self.rows_seen => {
                 crate::engine::log(&format!("[kucoin] the {} read failed; the other sources go on: {text}", source.name()));
                 self.failed.push(source.name().to_string());
                 self.failure.get_or_insert(text);
-                (self.page, self.pin, self.ranges) = (1, None, vec![]);
+                (self.page, self.pin, self.ranges, self.rows_seen) = (1, None, vec![], false);
                 self.source = match source { Source::Fills => Source::Deposits, Source::Deposits => Source::Withdrawals, _ => Source::Done };
                 Ok(vec![])
             }

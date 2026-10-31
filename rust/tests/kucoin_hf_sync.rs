@@ -33,6 +33,8 @@ struct State {
     log: RefCell<Vec<HttpRequest>>, hf_pages: Cell<usize>, replay: RefCell<Option<Vec<Value>>>,
     uta: RefCell<Vec<Value>>, uta_pages: Cell<usize>, uta_replay: RefCell<Option<Vec<Value>>>, uta_balance: RefCell<Option<Value>>, classic_fails: Cell<bool>,
     deposits: RefCell<Vec<Value>>, withdrawals: RefCell<Vec<Value>>, failing: RefCell<Vec<&'static str>>,
+    /// A classic path that fails for every window starting at or after the time (ms).
+    failing_from: RefCell<Vec<(&'static str, i64)>>,
 }
 /// KuCoin as the reader meets it: account mode, symbols, HF fills (newest id first, `lastId` paging), classic sources.
 #[derive(Clone, Default)]
@@ -97,7 +99,9 @@ impl Transport for Api {
             let last = rows.last().map(|f| f["id"].clone()).unwrap_or(Value::Null);
             return Ok(ok(json!({"items": rows, "lastId": last})));
         }
-        if (r.path == FILLS_PATH && self.0.classic_fails.get()) || self.0.failing.borrow().contains(&r.path.as_str()) { return Ok(HttpResponse { status: 500, body: "boom".into() }); }
+        let from = q("startAt").and_then(|v| v.parse::<i64>().ok());
+        let late = self.0.failing_from.borrow().iter().any(|(p, at)| *p == r.path && from.is_some_and(|f| f >= *at));
+        if (r.path == FILLS_PATH && self.0.classic_fails.get()) || self.0.failing.borrow().contains(&r.path.as_str()) || late { return Ok(HttpResponse { status: 500, body: "boom".into() }); }
         let rows: Vec<Value> = match r.path.as_str() {
             FILLS_PATH => self.0.classic.borrow().clone(), DEPOSITS_PATH => self.0.deposits.borrow().clone(), WITHDRAWALS_PATH => self.0.withdrawals.borrow().clone(),
             other => panic!("unscripted {other}"),
@@ -185,8 +189,9 @@ impl Fx {
     }
     async fn sync(&self, api: &Api) -> Result<bool, String> { self.sync_with(api, &fixed(NOW), false).await }
     /// A watermark this key produced a day ago: the classic walk is a few pages, not the history since 2019.
-    fn watermark(&self) {
-        self.c.execute("UPDATE api_keys SET last_synced_at = '2026-10-29 12:00:00' WHERE id = ?1", [self.key]).unwrap();
+    fn watermark(&self) { self.watermark_at("2026-10-29 12:00:00") }
+    fn watermark_at(&self, at: &str) {
+        self.c.execute("UPDATE api_keys SET last_synced_at = ?2 WHERE id = ?1", rusqlite::params![self.key, at]).unwrap();
         let producer = deltabadger::engine::model::credential_version_by_id(&self.c, self.key).unwrap().unwrap();
         let tx = self.c.unchecked_transaction().unwrap();
         deltabadger::sync::cache::record_ledger(&deltabadger::engine::model::check_credential_result(&tx, &Some(producer.clone())).unwrap(), self.key, &producer, t(NOW)).unwrap();
@@ -1237,4 +1242,81 @@ async fn u1b_the_backfill_goes_on_after_a_switch_away_from_uta() {
     for _ in 0..2 { assert_eq!(fx.sync(&hf).await, Ok(true)); }
     assert_eq!(Fx::backfill_windows(&hf, NOW).len(), 2, "one window a run, on an HF account now");
     assert_eq!(fx.uta_rows(Some(0)), 1, "an older UTA execution is imported");
+}
+
+/// Review P1: a managed source that fails after it returned rows fails the run, as a classic read does: its rows are never
+/// stored without the file's takeover. Once it reads, everything is stored once.
+#[tokio::test(flavor = "current_thread")]
+async fn u1b_a_source_failing_after_it_returned_rows_fails_the_run_and_stores_nothing() {
+    let fx = Fx::new();
+    fx.watermark_at("2026-10-15 12:00:00");
+    let before = fx.synced_at();
+    let api = Api::new("uta", &[]);
+    api.classic(vec![classic_fill("c1", "1", "100", "0", "2026-10-16T00:00:00Z")]);
+    api.0.deposits.borrow_mut().push(transfer("d1", "USDT", "10", "2026-10-29T13:00:00Z"));
+    api.0.failing_from.borrow_mut().push((FILLS_PATH, ms("2026-10-21T00:00:00Z")));
+    let rows = || fx.count("SELECT count(*) FROM account_transactions");
+    assert!(fx.sync(&api).await.is_err());
+    assert_eq!(rows(), 0, "nothing of the run is stored");
+    assert!(api.requests(FILLS_PATH).len() >= 2, "the failure came after a window with rows");
+    assert!(api.requests(DEPOSITS_PATH).is_empty(), "the run stopped");
+    assert_eq!(fx.synced_at(), before);
+    api.0.failing_from.borrow_mut().clear();
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    assert!(fx.tx_ids().contains(&"d1".to_string()) && rows() >= 2, "{:?}", fx.tx_ids());
+}
+
+fn replace_secret(fx: &Fx) {
+    fx.c.execute("UPDATE api_keys SET secret = ?2 WHERE id = ?1", rusqlite::params![fx.key, fx.cipher.encrypt("another secret")]).unwrap();
+}
+fn produced(fx: &Fx) -> bool {
+    let version = deltabadger::engine::model::credential_version_by_id(&fx.c, fx.key).unwrap().unwrap();
+    deltabadger::sync::cache::ledger_produced_by(&fx.c, fx.key, &version).unwrap()
+}
+
+/// Review P1: a run with a failed source keeps the watermark, and never claims it for a new credential: the next run of
+/// that credential still reads the whole history.
+#[tokio::test(flavor = "current_thread")]
+async fn u1b_a_failed_run_never_claims_the_watermark_for_a_new_credential() {
+    let fx = Fx::new();
+    fx.watermark();
+    replace_secret(&fx);
+    assert!(!produced(&fx));
+    let api = Api::new("uta", &[]);
+    api.0.failing.borrow_mut().push(WITHDRAWALS_PATH);
+    assert!(fx.sync(&api).await.is_err());
+    assert!(!produced(&fx), "the old credential's watermark is not this one's");
+    api.0.failing.borrow_mut().clear();
+    let asked = api.requests(WITHDRAWALS_PATH).len();
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    assert!(!api.requests(WITHDRAWALS_PATH)[asked].query.iter().any(|(k, _)| *k == "startAt"), "the whole history, not the watermark less the overlap");
+    assert!(produced(&fx));
+}
+
+/// Review P1: another credential may be another account, so the backfill reads again what an earlier one read.
+#[tokio::test(flavor = "current_thread")]
+async fn u1b_a_replaced_credential_reads_the_backfill_windows_again() {
+    let fx = Fx::new();
+    fx.watermark();
+    let api = Api::new("uta", &[]);
+    api.uta(vec![uta_fill("BUY", "1", "100", "0", &days_before(NOW, 10))]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    let first = Fx::backfill_windows(&api, NOW);
+    assert_eq!((first.len(), fx.uta_rows(None)), (1, 1));
+    replace_secret(&fx);
+    api.uta(vec![uta_fill("BUY", "2", "200", "0", &days_before(NOW, 9))]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    assert_eq!(Fx::backfill_windows(&api, NOW).last(), first.last(), "the newest window is read again");
+    assert_eq!(fx.uta_rows(None), 2);
+}
+
+/// Review P2: the backfill never begins once the units have taken the half of the deadline.
+#[tokio::test(flavor = "current_thread")]
+async fn u1b_the_backfill_never_begins_past_its_half_of_the_deadline() {
+    let fx = Fx::new();
+    fx.watermark();
+    let api = Api::new("uta", &[]);
+    api.uta(vec![uta_fill("BUY", "1", "100", "0", &days_before(NOW, 10))]);
+    let _ = fx.sync_with(&api, &fixed(NOW), true).await;
+    assert!(Fx::backfill_windows(&api, NOW).is_empty(), "{:?}", Fx::backfill_windows(&api, NOW));
 }

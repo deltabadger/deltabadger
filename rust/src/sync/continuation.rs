@@ -342,12 +342,12 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     let failed = super::commit_for(db, version, move |c| {
         checkpoint(c, &finished_key, &done_cursor, &stamp, &[], now)?;
         transfers.save(c, &finished_key, &stamp, &done_cursor, now)?;
-        super::cache::record_ledger(c, key_id, &producer, now)?;
-        // A source that failed: what the others read is stored, the watermark waits for all of them, and the next sync
-        // reads from it again.
+        // A source that failed: what the others read is stored, the watermark (and the credential it belongs to) waits for
+        // all of them, and the next sync reads from it again.
         let failed = match &failure {
             Some(text) => Some(record_sync_error(c, key_id, text, &creds)?),
             None => {
+                super::cache::record_ledger(c, key_id, &producer, now)?;
                 if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = ?4, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id, warning])?; }
                 None
             }
