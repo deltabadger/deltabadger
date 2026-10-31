@@ -90,6 +90,11 @@ module Pages
     add.call('start_invalid', 'start?start_fresh=true', {}, {'stored'=>{'quote_amount'=>0}})
     # PLAN-wash-sale WS-3: the Stop of a working basket on an account with the rule on (Bots::StopsController never asks it).
     add.call('stop_wash_rule_on', 'stop', {}, {'columns'=>{'status'=>'scheduled'}}, {'wash_on'=>true})
+    # PLAN-wash-sale WS-4a: a settings save of a selling basket, the rule on and never warned: the warning rides on the answer,
+    # judged on the saved bot, on a refused save too.
+    seller = {'settings'=>{'direction'=>'selling','sell_denomination'=>'quote','sell_quote_amount'=>40,'sell_interval'=>'hour'}}
+    add.call('wash_update_selling_warning', 'update', {'sell_quote_amount'=>'45'}, seller, {'wash_on'=>true})
+    add.call('wash_update_selling_warning_invalid', 'update', {'sell_quote_amount'=>'0'}, seller, {'wash_on'=>true})
     add.call('stop_invalid', 'stop', {}, {'stored'=>{'quote_amount'=>0},'columns'=>{'status'=>'scheduled'}})
     add.call('archive_invalid', 'archive', {}, {'stored'=>{'quote_amount'=>0}})
     add.call('start_future','start?start_fresh=true',{}, {'settings'=>{'start_time_enabled'=>true,'start_time_mode'=>'date','start_at'=>'2026-09-12T10:00:00Z'}})
@@ -296,7 +301,7 @@ module Pages
         'install' => 'alpaca', 'user' => owner('wash_sale_enabled' => nil),
         'bots' => [{ 'kind' => 'basket' }.merge(spec), { 'kind' => 'basket', 'columns' => { 'status' => 7 } }],
         'action_extra' => extra,
-        # With the wash-sale rule on, this build serves no bot page without figures (WS-4a): the CSRF token comes from settings.
+        # With the wash-sale rule on, the CSRF token comes from settings (the bot page would open the selling warning first).
         'steps' => signed_in(get(extra['wash_on'] ? '/settings/account' : '/bots/2').merge('expect' => 200), request)
       }
       if action.end_with?('_modal')
