@@ -1708,23 +1708,25 @@ mod action_race {
     async fn stop_notice_for_accepted_unknown_order() -> Result { accepted_order_stop_notice(0).await }
     #[tokio::test(flavor="current_thread")]
     async fn stop_notice_for_accepted_open_order() -> Result { accepted_order_stop_notice(1).await }
-    /// Bot#sell_capable? counts the rebalance rule: with the wash-sale question unanswered and nothing held, Start is refused
-    /// for it, and nothing is written.
+    /// Bot#sell_capable? counts the rebalance rule: with the wash-sale question unanswered and nothing held, Start answers 422
+    /// with the question itself and the flash (Bots::StartsController#update), and nothing is written; the page loads the
+    /// question as its modal (PLAN-wash-sale WS-4b).
     #[tokio::test(flavor="current_thread")]
     async fn a_rebalancing_bot_owes_the_wash_sale_question_before_it_starts() -> Result {
         let mut f=Fixture::new().await?;
         f.c.execute("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true')) WHERE id=?1",[f.id])?;
         f.c.execute("UPDATE users SET wash_sale_enabled=NULL",[])?;
         let before=f.snapshot()?;
-        // The reason the refusal names (the page answers only that it is not served yet).
-        for asked in [deltabadger::web::bot::For::Settings, deltabadger::web::bot::For::Page] {
-            assert_eq!(deltabadger::web::bot::refusal(&f.c,f.id,None,false,asked).map_err(|e|format!("{e:?}"))?,Some("the wash-sale question not answered yet"));
-        }
         let answer=f.send("PATCH","/start",&[]).await?;
-        assert!(answer.status!=200 && answer.body.contains("not-ported"),"{}: {}",answer.status,answer.body);
+        assert_eq!(answer.status,422,"{}",answer.body);
+        assert!(answer.body.contains("<turbo-stream action=\"replace\" target=\"modal\">") && answer.body.contains("wash_sale_prompt\""),"{}",answer.body);
+        assert!(answer.body.contains("Race"),"the flash names the bot: {}",answer.body);
         assert_eq!(f.snapshot()?,before);
         let page=f.browser.get(&f.app,&f.path("")).await;
-        assert!(page.body.contains("not-ported"),"{}",page.body);
+        assert!(page.body.contains(&f.path("/wash_sale_prompt/new")),"{}",page.body);
+        // Answered, the start goes ahead.
+        f.c.execute("UPDATE users SET wash_sale_enabled=0",[])?;
+        assert_eq!(f.send("PATCH","/start",&[]).await?.status,200);
         Ok(())
     }
     #[tokio::test(flavor="current_thread")]

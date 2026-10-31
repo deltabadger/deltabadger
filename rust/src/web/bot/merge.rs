@@ -96,7 +96,6 @@ pub(super) fn reversal_pending(bot: &model::Bot) -> bool {
 impl Merge {
     /// `Bot::Merge.new(current_user, ids, exchange_id:)`: the user's bots that are not deleted, in request order.
     pub fn load(c: &Connection, ctx: &Ctx, owner: i64, ids: Vec<i64>, exchange_id: Option<i64>) -> Result<Loaded, WebError> {
-        let wash: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
         let (provider, _) = bots::market_data(c, &ctx.app)?;
         let mut sources = vec![];
         for id in &ids {
@@ -104,7 +103,7 @@ impl Merge {
                 "SELECT type, position, CAST(redeploy_declined_offset AS TEXT) FROM bots WHERE id = ?1 AND user_id = ?2 AND status <> 3",
                 (id, owner), |r| Ok((r.get(0)?, r.get::<_, Option<i64>>(1)?.unwrap_or(0), r.get::<_, Option<String>>(2)?.unwrap_or_else(|| "0".into())))).optional()?;
             let Some((class, position, offset)) = row else { continue };
-            if let Some(reason) = super::refusal(c, *id, wash, provider, For::Settings)? { return Ok(Loaded::Unported(reason)); }
+            if let Some(reason) = super::refusal(c, *id, provider, For::Settings)? { return Ok(Loaded::Unported(reason)); }
             let Some(bot) = Bot::find(c, owner, *id, For::Settings, ctx.locale)? else { continue };
             if let Some(reason) = bot.unrendered() { return Ok(Loaded::Unported(reason)); }
             sources.push(Source { engine: model::load_bot(c, *id)?, bot, class: class.unwrap_or_default(), position, offset });
@@ -336,9 +335,8 @@ pub(super) fn write_refused(locale: &str, reason: &str) -> String { i18n::text(l
 /// Why this build would not serve this bot, as `load` asks of each source (For::Settings): the refusal, then the bot as it
 /// renders. A page without figures (For::Page) refuses what the sources already showed it, so it is not asked here.
 pub(super) fn unserved(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
-    let wash: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
     let (provider, _) = bots::market_data(c, &ctx.app)?;
-    if let Some(reason) = super::refusal(c, id, wash, provider, For::Settings)? { return Ok(Some(reason)); }
+    if let Some(reason) = super::refusal(c, id, provider, For::Settings)? { return Ok(Some(reason)); }
     Ok(Bot::find(c, owner, id, For::Settings, ctx.locale)?.and_then(|bot| bot.unrendered()))
 }
 

@@ -326,6 +326,11 @@ fn full_message(locale: &str, attribute: &str, message: &Message) -> (String, St
     (text, full)
 }
 
+/// A User error's full message (`errors.full_messages`) for a message of a type, as `inclusion`.
+pub(crate) fn user_full_message(locale: &str, attribute: &str, kind: &'static str) -> String {
+    full_message(locale, attribute, &Message::Kind(kind, None)).1
+}
+
 /// Devise's email normalisation before validation: String#strip, then downcase.
 pub fn normalized_email(email: &str) -> String {
     crate::ruby::strip(email).to_lowercase()

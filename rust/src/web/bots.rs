@@ -279,12 +279,11 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let ids = Bot::ids(c, user.id)?;
         if ids.is_empty() { return Ok((shell, Listing::Empty)); }
         let (deltabadger, configured) = market_data(c, &inner)?;
-        let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         // A bot these pages refuse is listed by its row alone, and only its own page is refused (3.0, D-DASHBOARD-REFUSED-TILE).
         let asked = if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage };
         let mut entries: Vec<Result<Bot, Refused>> = vec![];
         for id in &ids {
-            let found = match bot::refusal(c, *id, wash_sale, deltabadger, asked) {
+            let found = match bot::refusal(c, *id, deltabadger, asked) {
                 Ok(Some(reason)) => Err(reason),
                 Ok(None) => match Bot::find(c, user.id, *id, bot::For::Page, ctx.locale) {
                     Ok(Some(bot)) => bot.unrendered().map_or(Ok(Some(bot)), Err),

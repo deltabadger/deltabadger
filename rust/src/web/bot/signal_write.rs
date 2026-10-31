@@ -55,19 +55,6 @@ pub(crate) fn model_message(locale: &str, field: &str, code: &str) -> String {
 
 fn error(field: &str, message: String) -> FieldError { FieldError { field: field.into(), message } }
 
-fn wash_sale(c: &Connection, owner: i64) -> Result<Option<bool>, WebError> {
-    Ok(c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| r.get(0))?)
-}
-
-/// The account's answer as `bot::refusal` reads it for `action`. Stop, Archive and Delete only take risk away, and Rails'
-/// Bots::StopsController, ArchivesController, DeletesController and BotApi's Stop, Archive and Delete never consult the
-/// wash-sale setting: those actions never meet its refusals (the engine runs such a bot, so its Stop must always pass,
-/// as a basket's does, write::lifecycle). Every other refusal still applies to them.
-fn wash_gate(c: &Connection, owner: i64, action: Option<Action>) -> Result<Option<bool>, WebError> {
-    if action.is_some_and(|a| matches!(a, Action::Stop | Action::Archive | Action::Delete)) { return Ok(Some(false)); }
-    wash_sale(c, owner)
-}
-
 /// Whether the bot is a signal bot of this user's (any status): the actions route to this module for it.
 pub fn is_signal(c: &Connection, owner: i64, id: i64) -> Result<bool, WebError> {
     let class: Option<Option<String>> = c.query_row("SELECT type FROM bots WHERE id = ?1 AND user_id = ?2", [id, owner], |r| r.get(0)).optional()?;
@@ -86,7 +73,7 @@ pub fn reads_json(path: &str, method: &axum::http::Method) -> bool {
 }
 
 /// Bots::Botable#set_bot for a signal bot, and `bot::refusal` for what this build serves.
-fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str, action: Option<Action>) -> Result<Result<Bot, Answer>, WebError> {
+fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str) -> Result<Result<Bot, Answer>, WebError> {
     let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2 AND type = ?3", (id, owner, SIGNAL_TYPE), |r| r.get(0)).optional()?;
     match status {
         None => return Ok(Err(Answer::Missing)),
@@ -94,15 +81,14 @@ fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str, action: O
         Some(_) => {}
     }
     let (provider, _) = bots::market_data(c, app)?;
-    if let Some(reason) = super::refusal(c, id, wash_gate(c, owner, action)?, provider, For::Settings)? { return Ok(Err(Answer::Unported(reason))); }
+    if let Some(reason) = super::refusal(c, id, provider, For::Settings)? { return Ok(Err(Answer::Unported(reason))); }
     Ok(Bot::find(c, owner, id, For::Page, locale)?.ok_or(Answer::Missing))
 }
 
-/// What a write left for the pages to refuse: the wash-sale question its rules now owe (a modal this build does not
-/// serve), or any other refusal of the bot as it now is.
-pub(crate) fn refused_after(c: &Connection, app: &App, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
+/// What a write left for the pages to refuse: any refusal of the bot as it now is.
+pub(crate) fn refused_after(c: &Connection, app: &App, id: i64) -> Result<Option<&'static str>, WebError> {
     let (provider, _) = bots::market_data(c, app)?;
-    super::refusal(c, id, wash_sale(c, owner)?, provider, For::Page)
+    super::refusal(c, id, provider, For::Page)
 }
 
 /// bots/signals/_settings, as a stream replacing the column.
@@ -176,7 +162,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
     let tx = model::immediate(c)?;
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
-    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, None)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
+    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
     let csrf = ctx.csrf_token();
     // refuse_while_running (Rails R8b): a stale tab's rule write on a running bot changes nothing.
     if bot.working() {
@@ -257,12 +243,14 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
             tx.rollback()?;
             return Ok(Answer::Done(action_view::response(body, true)));
         }
-        if let Some(reason) = refused_after(&tx, &ctx.app, owner, id)? { return Ok(Answer::Unported(reason)); }
+        if let Some(reason) = refused_after(&tx, &ctx.app, id)? { return Ok(Answer::Unported(reason)); }
     }
+    // render_settings ends with wash_sale_prompt_stream; an update that sets no `enabled` answers with it alone, else `head :ok`.
+    let prompt = super::wash::prompt_stream(&tx, &ctx, &csrf, owner, id)?;
     let response = if settings_answer {
         let bot = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or(WebError::Config("the rule's bot disappeared".into()))?;
-        action_view::response(settings_stream(&tx, &ctx, &csrf, &bot, base_url)?, false)
-    } else { head_ok() };
+        action_view::response(settings_stream(&tx, &ctx, &csrf, &bot, base_url)? + &prompt.unwrap_or_default(), false)
+    } else if let Some(prompt) = prompt { action_view::response(prompt, false) } else { head_ok() };
     // Nothing to wake the engine for: a call names its rule, and the engine reads the rule when it runs the call.
     tx.commit()?;
     Ok(Answer::Done(response))
@@ -315,7 +303,7 @@ pub async fn resolve(State(app): State<App>, Extension(ctx): Extension<Ctx>, Pat
         let transient: Option<String> = tx.query_row("SELECT transient_data FROM bots WHERE id = ?1 AND user_id = ?2 AND type = ?3", (id, owner.id, SIGNAL_TYPE), |r| r.get(0)).optional()?;
         let Some(transient) = transient else { return Ok(Resolved::Other(Answer::NotFound)) };
         let (provider, _) = bots::market_data(&tx, &inner)?;
-        if let Some(reason) = super::refusal(&tx, id, wash_sale(&tx, owner.id)?, provider, For::Settings)? { return Ok(Resolved::Other(Answer::Unported(reason))); }
+        if let Some(reason) = super::refusal(&tx, id, provider, For::Settings)? { return Ok(Resolved::Other(Answer::Unported(reason))); }
         let transient: Value = serde_json::from_str(&transient).unwrap_or(Value::Null);
         let marker = transient.get(crate::engine::signal::MARKER_KEY).and_then(Value::as_object);
         let engine_owns = transient.get("rust_placement").is_some_and(|v| !v.is_null());
@@ -363,7 +351,10 @@ fn update_streams(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, flash: &str,
         + "\n" + &turbo::stream("replace", "exchange_select", page::exchange_select(c, ctx, csrf, bot, owner)?.trim_end())
         + "\n" + &action_view::bar_streams(bot, &state)
         + "\n" + &action_view::button_streams(bot, &state)
-        + "\n" + flash + "\n")
+        + "\n" + flash + "\n"
+        // bots/update.turbo_stream.erb ends with wash_sale_prompt_stream (a signal bot's question is its rules', which a settings
+        // save does not write).
+        + &super::wash::prompt_stream(c, ctx, csrf, owner, bot.id)?.map(|stream| stream + "\n").unwrap_or_default())
 }
 
 /// What the settings writer decided. Its rows are written in the caller's transaction, which commits only `Saved`.
@@ -489,7 +480,7 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
     let changed = label_changed || new_exchange.is_some() || settings_changed || transient_changed;
     if changed {
         if let Err(refusal) = eligibility::guard(tx, &ctx.app.cipher, Some(id)) { return Ok(Core::Refused { reason: refusal.reason(), shown: shown(tx)? }); }
-        if let Some(reason) = refused_after(tx, &ctx.app, owner, id)? { return Ok(Core::Answer(Answer::Unported(reason))); }
+        if let Some(reason) = refused_after(tx, &ctx.app, id)? { return Ok(Core::Answer(Answer::Unported(reason))); }
     }
     Ok(Core::Saved { bot: shown(tx)?, changed })
 }
@@ -498,7 +489,7 @@ fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &Actio
     let tx = model::immediate(c)?;
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
-    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, None)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
+    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
     let Ok(Value::Object(fields)) = params.permitted(Kind::Signal) else { return Ok(Answer::BadRequest) };
     let csrf = ctx.csrf_token();
     let refused = |tx: rusqlite::Transaction<'_>, shown: &Bot, flash: String| -> Result<Answer, WebError> {
@@ -528,7 +519,7 @@ pub fn settings_service(c: &Connection, ctx: &Ctx, owner: i64, id: i64, submitte
     ctx.now = ctx.app.now();
     let failed = |failure: Failure| Ok(Outcome::Invalid(Shown { data: Value::Null, text: failure.message.clone() }, failure));
     let (provider, _) = bots::market_data(&tx, &ctx.app)?;
-    if let Some(reason) = super::refusal(&tx, id, wash_gate(&tx, owner, None)?, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
+    if let Some(reason) = super::refusal(&tx, id, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
     let Some(bot) = Bot::find(&tx, owner, id, For::Page, ctx.locale)? else { return Ok(Outcome::Missing) };
     let zone: String = tx.query_row("SELECT time_zone FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
     let Ok(arguments) = submitted.permitted(Kind::Signal) else { return Ok(Outcome::Missing) };
@@ -696,7 +687,7 @@ fn web_lifecycle(c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action,
     let tx = if matches!(action, Action::Stop | Action::Archive | Action::Delete) { model::immediate_retry_busy(c)? } else { model::immediate(c)? };
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
-    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, Some(action))? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
+    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
     let refuse = |text: String| -> Result<Answer, WebError> { Ok(Answer::Done(action_view::response(alert(text)?, true))) };
     // Bots::StartsController reads the flag before Bot#start (the wash-sale question is `bot::refusal`'s).
     let fresh = if action == Action::Start {
@@ -769,8 +760,7 @@ pub fn service(c: &Connection, ctx: &Ctx, heard: &Ctx, owner: i64, id: i64, acti
     let mut fresh = true;
     if action == Action::Start {
         // BotApi::Bots::Start.wash_sale_question_owed?: an unanswered question and a rule that sells (Bots::Signal#sell_capable?).
-        let sells: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM bot_signals WHERE bot_id = ?1 AND direction = 1 AND enabled = 1)", [id], |r| r.get(0))?;
-        if wash_sale(&tx, owner)?.is_none() && sells {
+        if super::wash::due(&tx, owner, id, ctx.now)? == Some(super::wash::Due::Question) {
             return failed(Failure::invalid("wash_sale_question_owed", i18n::text(ctx.locale, "engine.wash_sale_question_owed", &[("label", Arg::Text(&label))])));
         }
         match submitted.start_fresh() { Ok(f) => fresh = f, Err(_) => return failed(Failure::invalid("invalid_start_fresh", i18n::text(ctx.locale, "engine.invalid_start_fresh", &[]))) }
@@ -784,7 +774,7 @@ pub fn service(c: &Connection, ctx: &Ctx, heard: &Ctx, owner: i64, id: i64, acti
     };
     if let Some((code, message)) = conflict { return failed(Failure::conflict(code, message)); }
     let (provider, _) = bots::market_data(&tx, &ctx.app)?;
-    if let Some(reason) = super::refusal(&tx, id, wash_gate(&tx, owner, Some(action))?, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
+    if let Some(reason) = super::refusal(&tx, id, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
     let Some(bot) = Bot::find(&tx, owner, id, For::Page, ctx.locale)? else { return Ok(Outcome::Missing) };
     let mut heard = heard.clone();
     heard.now = ctx.now;

@@ -63,11 +63,10 @@ pub(super) fn composition_bot(tx:&Connection,ctx:&Ctx,user:i64,id:i64,unsupporte
     Ok(Ok((bot,label)))
 }
 
-/// D-6C-7: the page's own refusal (the wash-sale question included) for every surface.
-pub(super) fn page_refused(tx:&Connection,ctx:&Ctx,user:i64,id:i64)->Result<Option<Res>,WebError> {
-    let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[user],|r|r.get(0))?;
+/// D-6C-7: the page's own refusal for every surface.
+pub(super) fn page_refused(tx:&Connection,ctx:&Ctx,id:i64)->Result<Option<Res>,WebError> {
     let (provider,_)=crate::web::bots::market_data(tx,&ctx.app)?;
-    Ok(super::refusal(tx,id,wash,provider,super::For::Settings)?.map(|reason|Res::failure(Domain::NotPorted,"not_ported",bot_api::refused(reason))))
+    Ok(super::refusal(tx,id,provider,super::For::Settings)?.map(|reason|Res::failure(Domain::NotPorted,"not_ported",bot_api::refused(reason))))
 }
 
 pub fn request(c:&Connection,ctx:&Ctx,user:i64,id:i64,params:&Value,web:bool)->Result<Res,WebError> {
@@ -78,7 +77,7 @@ pub fn request(c:&Connection,ctx:&Ctx,user:i64,id:i64,params:&Value,web:bool)->R
         tx.commit()?;
         return Ok(Res::failure(Domain::Conflict,"write_refused",i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&i18n::text(ctx.locale,"errors.bots.index_switch.in_flight",&[])))])));
     }
-    if let Some(res)=page_refused(&tx,ctx,user,id)? {return Ok(res)}
+    if let Some(res)=page_refused(&tx,ctx,id)? {return Ok(res)}
     let holdings=match selected(&tx,&held(&tx,id,ctx.now)?,params,web)? {Ok(h)=>h,Err(r)=>return Ok(r)};
     let dry=!web && params.get("dry_run").and_then(Value::as_bool).unwrap_or(crate::web::mcp::tools::paper_trading(&tx,user)?);
     let symbols:Vec<_>=holdings.iter().map(|(key,_)|key.clone()).collect();
@@ -105,6 +104,9 @@ use askama::Template;
 struct Modal {
     title:String,confirm:String,partial:String,table:String,harvest:bool,action:String,csrf:String,
     cancel:String,sell:String,selling:String,colour:&'static str,
+    /// bots/wash_sale_prompts/_question, for an account that has not answered: it answers in the same submit (Sell is dead
+    /// until it does).
+    question:String,decided:bool,
 }
 
 pub(super) fn missing(ctx:&Ctx)->Response {
@@ -127,7 +129,10 @@ pub async fn new(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segmen
         for (key,_) in &selected {query.append_pair("symbol[]",key);}
         let t=|key:&str|i18n::text(view.locale,key,&[]);
         let csrf=view.csrf_token();
+        let (enabled,jurisdiction):(Option<bool>,Option<String>)=tx.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",[owner.id],|r|Ok((r.get(0)?,r.get(1)?)))?;
+        let question=if enabled.is_none() {crate::web::settings::view::question(&view,None,jurisdiction.as_deref())} else {String::new()};
         let body=Modal {
+            question,decided:enabled.is_some(),
             title:t(if exited {if bot.kind==super::Kind::Index {"bot.dca_index.out_of_the_index"}else{"bot.dca_multi_asset.removed_from_portfolio"}}else{"bot.liquidation.title"}),
             confirm:t(if selected.len()>1 {"bot.liquidation.sell_all_confirm"}else{"bot.liquidation.sell_confirm"}),
             partial:t("bot.liquidation.partial_note"),table,harvest,action:format!("{}?{}",view.path(&format!("/bots/{id}/liquidation")),query.finish()),
@@ -149,6 +154,38 @@ pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(seg
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(segment.strip_suffix(".turbo_stream").unwrap_or(&segment)) else {return Ok(missing(&ctx))};
     let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
+    // LiquidationsController#wash_sale_answer_recorded?: this sale can start a window, so an account that has not answered
+    // records its answer before the order is queued; no answer, or one not saved, refuses the sale. The bot and the symbols
+    // are judged first (set_bot, set_symbols).
+    let (view,values)=(ctx.clone(),params.value().clone());
+    // `bots.find` includes a deleted bot: its answer is recorded, and the service then refuses the bot.
+    // Some(false): decided, the request answers as before. None: undecided and nothing named is held (set_symbols ends the
+    // request there, so no later read may let the sale through unasked), or not the user's composition bot.
+    let undecided=app.db(move |c| {
+        let enabled:Option<bool>=c.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[user.id],|r|r.get(0))?;
+        if enabled.is_some() {return Ok(Some(false))}
+        let found:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id=?1 AND user_id=?2 AND type IN ('Bots::DcaIndex','Bots::DcaMultiAsset'))",(id,user.id),|r|r.get(0))?;
+        if !found {return Ok(Some(false))}
+        Ok(selected(c,&held(c,id,view.now)?,&values,true)?.is_ok().then_some(true))
+    }).await;
+    match undecided {
+        Ok(None) => return Ok(missing(&ctx)),
+        Ok(Some(true)) => {
+            use crate::web::settings::tax::{self,Decision};
+            let refused=||tax::refuse(&ctx,i18n::text(ctx.locale,"settings.wash_sale.prompt_missing",&[]));
+            let Some(answer)=ctx.params.form("wash_sale[enabled]").filter(|s|!crate::ruby::blank(s)) else {return refused()};
+            let enabled=!["0","f","F","false","FALSE","off","OFF"].contains(&answer);
+            let jurisdiction=ctx.params.form("wash_sale[jurisdiction]").filter(|s|!crate::ruby::blank(s)).map(str::to_string);
+            let (jobs,inner)=(app.job_wakers()?,app.clone());
+            match app.db(move |c|tax::record_decision(c,&inner,&jobs,user.id,enabled,jurisdiction)).await? {
+                Decision::Saved=>{}
+                Decision::Invalid=>return refused(),
+                Decision::Refused(reason)=>return tax::refuse(&ctx,i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])),
+            }
+        }
+        Ok(_)=>{}
+        Err(e)=>return layout::or_refused(&ctx,e),
+    }
     let view=ctx.clone();
     let res=match app.db(move |c|request(c,&view,user.id,id,params.value(),true)).await {Ok(r)=>r,Err(e)=>return layout::or_refused(&ctx,e)};
     if res.status==Domain::NotPorted {return Ok(layout::refused(&ctx,&res.message))}

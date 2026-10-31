@@ -8,8 +8,13 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>, hea
     let segment = segment.strip_suffix(".turbo_stream").unwrap_or(&segment);
     let Some(id) = super::id_from_path(segment) else { return Ok(page::not_found(&ctx)) };
     let params = match ActionParams::parse(&ctx.params) { Ok(p)=>p,Err(e)=>return Ok(e.status().into_response()) };
-    // A signal bot has its own thin model (bot::signal_write).
     let owner = user.id;
+    // Bots::StartsController#update asks the wash-sale question before anything else, of every kind of bot it starts.
+    if action == Some(Action::Start) {
+        let view = ctx.clone();
+        if let Some(refused) = app.db(move |c| super::wash::owed_start(c, &view, owner, id)).await? { return Ok(refused); }
+    }
+    // A signal bot has its own thin model (bot::signal_write).
     if app.db(move |c| super::signal_write::is_signal(c, owner, id)).await? {
         return super::signal_write::web_action(app, ctx, owner, id, action, params, &headers).await;
     }
@@ -96,15 +101,19 @@ async fn form(app: App, ctx: Ctx, segment: String, form: &'static str) -> Result
         view.now = inner.now();
         let (found,_) = page::find(&tx,&inner,&owner,&segment,false,super::For::Settings,view.locale)?;
         let page::Found::Bot(bot) = found else { return Ok(Err(found)) };
+        // Bots::StartsController#edit: the wash-sale question in place of the restart question while it is owed.
+        if form == "start" { if let Some(body) = super::wash::start_dialog(&tx,&view,owner.id,bot.id)? { tx.commit()?; return Ok(Ok((body,String::new(),None))); } }
         let csrf = if form == "start" && !bot.restarting() { String::new() } else { view.csrf_token() };
         let body = action_view::modal(&tx,&view,&bot,form,&csrf)?;
         let shell = Shell::load(&tx,&inner,&owner)?;
         tx.commit()?;
-        Ok(Ok((body,csrf,shell)))
+        Ok(Ok((body,csrf,Some(shell))))
     }).await;
     match result {
-        Ok(Ok((body,_,_))) if body == "<turbo-frame id=\"modal\"></turbo-frame>" => Ok(([(axum::http::header::CONTENT_TYPE,"text/html; charset=utf-8")],body).into_response()),
-        Ok(Ok((body,csrf,shell))) => shell::application(&ctx,&csrf,&user,&shell,Page { status:StatusCode::OK,body,flash_now:vec![] }),
+        // A bare partial (`render partial:` / `render html:`): no layout.
+        Ok(Ok((body,_,shell))) if shell.is_none() || body == super::wash::EMPTY_FRAME => Ok(([(axum::http::header::CONTENT_TYPE,"text/html; charset=utf-8")],body).into_response()),
+        Ok(Ok((body,csrf,Some(shell)))) => shell::application(&ctx,&csrf,&user,&shell,Page { status:StatusCode::OK,body,flash_now:vec![] }),
+        Ok(Ok((_,_,None))) => Err(WebError::Config("unexpected form result".into())),
         Ok(Err(page::Found::Missing)) => Ok(page::not_found(&ctx)),
         Ok(Err(page::Found::NotPorted(reason))) => Ok(layout::refused(&ctx,reason)),
         Ok(Err(page::Found::Bot(_))) => Err(WebError::Config("unexpected form result".into())),

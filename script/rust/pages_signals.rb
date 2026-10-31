@@ -215,9 +215,12 @@ module Pages
                                                                  Pages.settings_write('update_wash_sale', { '_method' => 'patch', 'wash_sale[enabled]' => '1', 'wash_sale[jurisdiction]' => 'US' }),
                                                                  signal_act('PATCH', '/bots/1/stop')]),
         'signal_action_wash_question_stop' => case_of.([working], [signal_act('PATCH', '/bots/1/stop')], 'user' => owner('wash_sale_enabled' => nil)),
-        # The wash-sale question Rails asks once a rule sells (its modal is not served by this build).
-        'not_ported_signal_rule_wash_question' => case_of.([one], [get('/bots/1'), rule.('PATCH', 1, 1, 'bot_signal[direction]' => 'sell')],
-                                                           'user' => owner('wash_sale_enabled' => nil))
+        # PLAN-wash-sale WS-4b: the question rides on the write that makes a rule sell (`head :ok` otherwise), on a later edit
+        # of that rule, on a new rule and on a removal; the page asks it; the start is refused with it.
+        'signal_action_wash_question_rules' => case_of.([one], [get('/bots/1'), rule.('PATCH', 1, 1, 'bot_signal[direction]' => 'sell'),
+                                                               rule.('PATCH', 1, 1, 'bot_signal[amount]' => '20'), rule.('POST', 1, nil, {}), get('/bots/1'),
+                                                               signal_act('PATCH', '/bots/1/start?start_fresh=true')],
+                                                        'user' => owner('wash_sale_enabled' => nil))
       }
     end
 

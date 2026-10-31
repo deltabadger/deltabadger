@@ -758,6 +758,7 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/reverse", only(post(bot::actions::reverse)))
         .route("/bots/{id}/wash_sale_prompt/new", only(get(bot::wash::new)))
         .route("/bots/{id}/wash_sale_selling_warning", only(post(bot::wash::acknowledge)))
+        .route("/bots/{id}/wash_sale_prompt", only(post(bot::wash::answer)))
         .route("/bots/{id}/custom_allocation", only(post(bot::actions::custom_allocation)))
         .route("/bots/{id}/index/new", only(get(bot::actions::index_new)))
         .route("/bots/{id}/index", only(post(bot::actions::index_create)))

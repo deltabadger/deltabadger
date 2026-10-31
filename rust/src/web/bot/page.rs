@@ -192,8 +192,7 @@ pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, delete
         Some(3) if !deleted_too => return Ok((Found::Missing, configured)),
         Some(_) => {}
     }
-    let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
-    if let Some(reason) = refusal(c, id, wash_sale, deltabadger, asked)? { return Ok((Found::NotPorted(reason), configured)); }
+    if let Some(reason) = refusal(c, id, deltabadger, asked)? { return Ok((Found::NotPorted(reason), configured)); }
     let found = match Bot::find(c, user.id, id, asked, locale)? {
         None => Found::Missing,
         Some(bot) => bot.unrendered().map_or_else(|| Found::Bot(Box::new(bot)), Found::NotPorted),
@@ -296,7 +295,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             rebalance_halt.insert_str(slot,&format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />",crate::web::i18n::escape(csrf)));
         }
         // show.html.erb's catch-all seam for the wash-sale modal: the layout loads it, or a frame request carries it.
-        let modal_src = super::wash::modal_src(c, ctx, user.id, &bot)?;
+        let modal_src = super::wash::modal_src(c, ctx, user.id, bot.id)?;
         let prompt_stream = if ctx.turbo_frame.is_some() { super::wash::prompt_stream(c, ctx, csrf, user.id, bot.id)?.unwrap_or_default() } else { String::new() };
         let body = Show {
             v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, prompt_stream, locked_table, path: path.clone(),
