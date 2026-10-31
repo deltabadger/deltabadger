@@ -288,7 +288,7 @@ async fn a_request_no_pass_takes_within_ten_seconds_is_withdrawn_and_never_sent(
     let side = deltabadger::venue::Side::Buy;
     let amount = deltabadger::ruby::BigDec::parse("1").unwrap();
     let empty = serde_json::Map::new();
-    let new = || api_orders::New { user_id: k.user, bot: &bot, side, amount: &amount, in_base: false, supplied: &empty };
+    let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side, amount: &amount, in_base: false, supplied: &empty };
     let first = api_orders::insert(k.c(), &new(), kt(0).0).unwrap();
     assert!(api_orders::take(k.c(), first, kt(0).0).unwrap().is_some());
     assert!(!api_orders::withdraw(k.c(), first).unwrap());
@@ -335,7 +335,7 @@ async fn a_restart_withdraws_queued_requests_answers_taken_ones_busy_and_leaves_
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
     let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
     let empty = serde_json::Map::new();
-    let new = || api_orders::New { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
+    let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
     let (q, t, s) = (api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap());
     api_orders::take(k.c(), t, kt(0).0).unwrap();
     api_orders::take(k.c(), s, kt(0).0).unwrap();

@@ -174,10 +174,16 @@ pub const ORDER_RECORD: &str = "rust_kucoin_order:";
 /// Writes the record of the row the bot's unresolved intent just became, when that intent was sent on an HF or a UTA
 /// account (D-KUCOIN-UTA-ORDERS: `family: "Uta"`).
 pub fn record_order(c: &rusqlite::Connection, tx_id: i64, intent: &Value, now: DateTime<Utc>) -> Result<(), String> {
-    let family = match intent["kucoin_account_mode"].as_str() { Some("ClassicHf") => "ClassicHf", Some("Uta") => "Uta", _ => return Ok(()) };
-    let record = serde_json::json!({"family": family, "symbol": intent["symbol"], "sell": intent["side"] == "sell",
-        "limit": intent["limit"], "host": intent["host"], "key_fingerprint": intent["key_fingerprint"], "deal_size": "0", "deal_funds": "0"});
+    let Some(record) = record_of(intent) else { return Ok(()) };
     crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)
+}
+
+/// The order record of an order sent under `intent` (the placement identity with the order's symbol, side and limit
+/// flag): None unless it went on a routed family (HF, UTA). Also a retained standalone API order's route (PLAN-A9 O4).
+pub fn record_of(intent: &Value) -> Option<Value> {
+    let family = match intent["kucoin_account_mode"].as_str() { Some("ClassicHf") => "ClassicHf", Some("Uta") => "Uta", _ => return None };
+    Some(serde_json::json!({"family": family, "symbol": intent["symbol"], "sell": intent["side"] == "sell",
+        "limit": intent["limit"], "host": intent["host"], "key_fingerprint": intent["key_fingerprint"], "deal_size": "0", "deal_funds": "0"}))
 }
 
 /// D-KUCOIN-HF-RETENTION: a record of a routed family (HF or UTA), whose row is read only on its own route and whose

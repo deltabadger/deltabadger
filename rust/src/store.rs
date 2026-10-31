@@ -94,6 +94,13 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("amount_type", "TEXT", true), ("supplied", "TEXT", true), ("credential_version", "TEXT", false), ("state", "TEXT", true),
         ("cl_ord_id", "TEXT", false), ("outcome", "TEXT", false), ("created_at", "TEXT", true), ("send_by", "TEXT", true), ("taken_at", "TEXT", false)],
         unique_indexes: &[] }),
+    ("20261101000001", TableContract { name: "rust_api_orders", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("bot_id", "INTEGER", false), ("side", "TEXT", true), ("amount", "TEXT", true),
+        ("amount_type", "TEXT", true), ("supplied", "TEXT", true), ("credential_version", "TEXT", false), ("state", "TEXT", true),
+        ("cl_ord_id", "TEXT", false), ("outcome", "TEXT", false), ("created_at", "TEXT", true), ("send_by", "TEXT", true), ("taken_at", "TEXT", false),
+        ("exchange_id", "INTEGER", false), ("ticker_id", "INTEGER", false), ("order_type", "TEXT", true), ("price", "TEXT", false), ("surface", "TEXT", false),
+        ("identity", "TEXT", false), ("order_snapshot", "TEXT", false), ("external_id", "TEXT", false)],
+        unique_indexes: &[] }),
 
 ];
 

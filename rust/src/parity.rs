@@ -137,6 +137,7 @@ pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d
 /// That guard runs before networking, so this scenario cannot send an exchange request.
 struct HyperliquidScript { scripted: ScriptedTransport, invalid_key: Option<crate::venue::http::ReqwestTransport> }
 impl crate::venue::http::Transport for HyperliquidScript {
+    fn now(&self) -> DateTime<Utc> { self.scripted.now() }
     async fn send(&self, r: &crate::venue::http::HttpRequest) -> Result<crate::venue::http::HttpResponse, crate::venue::http::TransportError> {
         if r.path == crate::venue::hyperliquid::EXCHANGE {
             if let Some(t) = &self.invalid_key { return t.send(r).await; }
@@ -709,7 +710,7 @@ async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i
 /// PLAN-A9 O4: each standalone order of the scenario (no bot_id) at `start`, as its MCP tool sends it (ActionMCP casts
 /// `amount` and `price` to Floats): the web's checks (bot_api::orders::place_at), the engine's take and
 /// api_orders::place_standalone, the answer, and the tool's text. Recorded as Rails' grid-orders records it.
-async fn standalone_orders<V: Venue>(o: &Opened, _venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, _cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Value, EngineError> {
+async fn standalone_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Value, EngineError> {
     use crate::web::bot_api::{orders, Domain};
     let web = |e: crate::web::WebError| EngineError::Data(format!("{e:?}"));
     store::test_support::migrate(&o.primary).map_err(|e| EngineError::Data(format!("{e:?}")))?;
@@ -734,8 +735,12 @@ async fn standalone_orders<V: Venue>(o: &Opened, _venue: &V, scenario: &Value, b
         if !a["price"].is_null() { args.insert("price".into(), float(&a["price"])?); }
         let res = match orders::place_at(&o.primary, start, orders::Caller { user, dry_run: false, mcp: true }, kind, &args, None).map_err(web)? {
             orders::Placed::Done(res) => res,
-            // O4 step 3 wires the engine here: take, api_orders::place_standalone, state, answer.
-            orders::Placed::Queued(_) => return Err(EngineError::Data("standalone placement is not built yet (O4 step 3)".into())),
+            orders::Placed::Queued(q) => {
+                let request = crate::engine::api_orders::take(&o.primary, q.id, start)?.ok_or_else(|| EngineError::Data("api order not taken".into()))?;
+                crate::engine::api_orders::place_standalone(&o.primary, venue, &request, &FixedClock(start), cx).await?;
+                let (_, outcome) = crate::engine::api_orders::state(&o.primary, q.id)?.ok_or_else(|| EngineError::Data("api order gone".into()))?;
+                orders::answer(&q, outcome.ok_or_else(|| EngineError::Data("api order unanswered".into()))?)
+            }
         };
         let status = match res.status { Domain::Success | Domain::Created => "created", Domain::ValidationFailed => "validation_failed", Domain::PermissionDenied => "permission_denied",
             Domain::NotFound => "not_found", Domain::Conflict => "conflict", Domain::UpstreamFailed => "upstream_failed", Domain::NotPorted | Domain::Raised => "not_ported" };

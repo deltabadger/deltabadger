@@ -3017,7 +3017,8 @@ async fn rails_and_rust_place_identically_across_the_orders_grid() {
             continue;
         }
         let comparison;
-        let rust_out = if name.starts_with("orders-hyperliquid-market-") && !rust_out["sent"].as_array().is_none_or(|s| s.is_empty()) {
+        // Every Hyperliquid cell but the limit ones is a market order (`rejected` and `server_error` are market buys).
+        let rust_out = if name.starts_with("orders-hyperliquid-") && !name.contains("-limit-") && !rust_out["sent"].as_array().is_none_or(|s| s.is_empty()) {
             comparison = hyperliquid_market_ioc_comparison(name, rails_out, rust_out);
             &comparison
         } else { rust_out };
