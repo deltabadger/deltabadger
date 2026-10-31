@@ -592,7 +592,8 @@ fn hyperliquid_path_two(name: &str, out: &serde_json::Value, ioc: bool) {
             assert_eq!(order["s"], "0.00426", "{name}: sell the excess at the persisted bound");
         }
     }
-    if name.starts_with("signal-hyperliquid-") {
+    // The `api` axis sizes from the caller's amount, compared with Rails' as it is.
+    if name.starts_with("signal-hyperliquid-") && !name.contains("-api-") {
         let size = if name.contains("-buy-fixed-") { "0.00154" }
             else if name.contains("-buy-percentage-") { "0.01546" }
             else if name.contains("-sell-fixed-") { if name.ends_with("-free_below_fixed") { "0.001" } else { "0.00157" } }
