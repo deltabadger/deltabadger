@@ -319,7 +319,7 @@ module Pages
       scenario['kraken_usdt'] = true if extra['kraken_usdt']
       scenario['kucoin_bots'] = true if extra['kucoin_bots']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide (including six settings metrics cases)' unless grid.size == 255 + 6 }.merge(typing_scenarios)
+    end.tap { |grid| raise 'action case names collide (including six settings metrics cases)' unless grid.size == 255 + 6 + 2 }.merge(typing_scenarios)
   end
 
   # An amount below one typed key by key, as the form posts it (form--submit-after-delay): "0" is invalid, the decimal
