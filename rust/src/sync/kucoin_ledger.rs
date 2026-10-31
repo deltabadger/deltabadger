@@ -280,11 +280,11 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
     let watermark = if produced { key.last_synced_at } else { None };
     use crate::venue::kucoin_account::AccountMode;
     let venue = KucoinVenue::new(transport, URL).with_account_context(version.clone(), crate::venue::kucoin_account::Resolver::shared());
-    // D-KUCOIN-HF-LEDGER: the history routes on the detected mode; trading keeps `prepare`'s gate.
+    // D-KUCOIN-HF-LEDGER, D-KUCOIN-UTA-LEDGER: the history routes on the detected mode; trading keeps `prepare`'s gate.
+    // HF and UTA accounts, and any history either has marked, are managed; a classic-only one reads as Rails does.
     let refused = match venue.account_mode().await {
-        Ok(AccountMode::ClassicLf) => None,
-        Ok(AccountMode::ClassicHf) => return sync_hf(db, &version, &venue, key, watermark, credentials, clock, wait, run).await,
-        Ok(mode) => mode.require_supported().err(),
+        Ok(AccountMode::ClassicLf) if !{ let k = key.clone(); phase(db, move |c| super::kucoin_hf::enabled(c, k.user_id, k.exchange_id)).await? } => None,
+        Ok(mode) => return sync_managed(db, &version, &venue, key, mode, watermark, credentials, clock, wait, run).await,
         Err(e) => Some(e),
     };
     if let Some(e) = refused {
@@ -295,30 +295,45 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
     continuation::sync(db, &version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(&venue, wait, begin)).await
 }
 
-/// An HF account's run: the migration on its first detection, the HF unit within half the deadline, then the classic
-/// walk unchanged. An HF failure survives the classic walk: recorded after its finalizer, and the job fails; when both
-/// fail, the classic failure is recorded and the HF one logged. An unfinished unit leaves the run incomplete, so the
-/// chain wakes the next.
+/// A managed run (HF, UTA, or a history either marked): the migration on the first HF or UTA detection and the mode's
+/// episode (UTA r2.1), in one commit; the unit of each family seen (the current mode's first, each within half the
+/// deadline); then the classic walk unchanged. The current family's failure survives the classic walk: recorded after its
+/// finalizer, and the job fails; when both fail, the classic failure is recorded and the unit's logged. Another
+/// family's failure is only logged (r1.8b): the gap line shows what it cost. An unfinished unit leaves the run
+/// incomplete, so the chain wakes the next.
 #[allow(clippy::too_many_arguments)]
-async fn sync_hf<T: Transport>(db: &Db, version: &crate::engine::model::CredentialVersion, venue: &KucoinVenue<T>, key: super::Key, watermark: Option<chrono::DateTime<chrono::Utc>>,
-                               credentials: &Credentials, clock: &dyn Clock, wait: std::time::Duration, run: &continuation::Run<'_>) -> Result<Result<Outcome, Failure>, SyncError> {
+async fn sync_managed<T: Transport>(db: &Db, version: &crate::engine::model::CredentialVersion, venue: &KucoinVenue<T>, key: super::Key, mode: crate::venue::kucoin_account::AccountMode,
+                                    watermark: Option<chrono::DateTime<chrono::Utc>>, credentials: &Credentials, clock: &dyn Clock, wait: std::time::Duration,
+                                    run: &continuation::Run<'_>) -> Result<Result<Outcome, Failure>, SyncError> {
+    use super::kucoin_hf_ledger::{Ended, Route};
     let now = clock.now();
-    let migrating = key.clone();
-    super::commit_for(db, version, move |c| super::kucoin_hf::migrate(c, &migrating, now).map(|_| ())).await?;
-    let hf = super::kucoin_hf_ledger::run(db, version, venue, &key, clock, wait, run).await?;
-    let key_id = key.id;
+    let observing = key.clone();
+    let seen = super::commit_for(db, version, move |c| {
+        super::kucoin_hf::migrate(c, &observing, now)?;
+        super::kucoin_hf::observe_mode(c, &observing, mode, now)?;
+        super::kucoin_hf::seen_modes(c, &observing, now)
+    }).await?;
+    let (key_id, mut failed, mut paused) = (key.id, None, false);
+    for route in seen.into_iter().filter_map(Route::of) {
+        match super::kucoin_hf_ledger::run(db, version, route, venue, &key, clock, wait, run).await? {
+            Ended::Complete => {}
+            Ended::Paused => paused = true,
+            Ended::Failed(text) if route.mode == mode => failed = Some(text),
+            Ended::Failed(text) => crate::engine::log(&format!("[kucoin] {} of api key {key_id} (not the account's mode now) failed: {text}", route.mode.as_str())),
+        }
+    }
     let classic = continuation::sync(db, version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(venue, wait, begin)).await?;
-    match (hf, classic) {
-        (super::kucoin_hf_ledger::Ended::Failed(text), Ok(_)) => {
+    match (failed, classic) {
+        (Some(text), Ok(_)) => {
             let credentials = credentials.clone();
             let error = super::commit_for(db, version, move |c| super::record_sync_error(c, key_id, &text, &credentials)).await?;
             Ok(Err(Failure { error, raised: false }))
         }
-        (super::kucoin_hf_ledger::Ended::Failed(text), Err(failure)) => {
-            crate::engine::log(&format!("[kucoin] HF fills of api key {key_id} failed too: {text}"));
+        (Some(text), Err(failure)) => {
+            crate::engine::log(&format!("[kucoin] {} fills of api key {key_id} failed too: {text}", mode.as_str()));
             Ok(Err(failure))
         }
-        (super::kucoin_hf_ledger::Ended::Paused, Ok(mut outcome)) => { outcome.complete = false; Ok(Ok(outcome)) }
-        (_, classic) => Ok(classic),
+        (None, Ok(mut outcome)) if paused => { outcome.complete = false; Ok(Ok(outcome)) }
+        (None, classic) => Ok(classic),
     }
 }

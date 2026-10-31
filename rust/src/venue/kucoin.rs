@@ -50,14 +50,14 @@ const MAX_PAGES: i64 = 100;
 pub fn is_public(path: &str) -> bool { path.starts_with("/api/v1/market/") || path.starts_with("/api/v2/symbols") }
 
 /// The query as it is signed: classic as honeymaker signs it and Faraday sends it (Faraday::Utils.build_query: sorted,
-/// escaped); an HF route as sent, in order and unescaped.
+/// escaped); an HF or UTA route as sent, in order and unescaped.
 pub fn query_text(r: &HttpRequest) -> String {
-    if hf(&r.path) { r.query.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join("&") } else { build_query(&r.query) }
+    if in_order(&r.path) { r.query.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join("&") } else { build_query(&r.query) }
 }
 
-/// D-KUCOIN-HF-ORDERS: an HF route's request. Its parameters are signed as sent (in order, unescaped; the URL encodes
-/// them separately), and a DELETE signs its query (`sign::KUCOIN_HF`).
-pub fn hf(path: &str) -> bool { path.starts_with("/api/v1/hf/") }
+/// D-KUCOIN-HF-ORDERS: an HF or UTA route's request. Its parameters are signed as sent (in order, unescaped; the URL
+/// encodes them separately), and a DELETE signs its query (`sign::KUCOIN_HF`).
+pub fn in_order(path: &str) -> bool { path.starts_with("/api/v1/hf/") || path.starts_with("/api/ua/") }
 
 /// The body bytes: #post_signed signs `body.compact.to_json` and Faraday's JSON middleware sends the same; the fields keep
 /// the order the client built them in (serde_json's preserve_order).
@@ -67,7 +67,7 @@ pub fn body_text(r: &HttpRequest) -> Option<String> { r.body.as_ref().map(Value:
 /// a public read.
 pub fn headers(r: &HttpRequest, key: &str, secret: &str, passphrase: &str, timestamp_ms: i64) -> Vec<(String, String)> {
     if is_public(&r.path) { return super::sign::json_headers(); }
-    let scheme = if hf(&r.path) { &super::sign::KUCOIN_HF } else { &super::sign::KUCOIN };
+    let scheme = if in_order(&r.path) { &super::sign::KUCOIN_HF } else { &super::sign::KUCOIN };
     super::sign::prehash(scheme, r, &query_text(r), key, secret, passphrase, timestamp_ms)
 }
 

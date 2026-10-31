@@ -4,7 +4,8 @@
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use deltabadger::sync::continuation::{Run, Stopwatch};
-use deltabadger::sync::kucoin_hf_ledger::{FILLS_PATH as HF_FILLS, SYMBOLS_PATH};
+use deltabadger::sync::balances::KUCOIN_UTA_BALANCE_PATH as UTA_BALANCE;
+use deltabadger::sync::kucoin_hf_ledger::{FILLS_PATH as HF_FILLS, SYMBOLS_PATH, UTA_FILLS_PATH as UTA_FILLS};
 use deltabadger::sync::kucoin_ledger::{DEPOSITS_PATH, FILLS_PATH, WITHDRAWALS_PATH};
 use deltabadger::tracker::import::run;
 use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
@@ -30,6 +31,7 @@ type Fault = Box<dyn Fn(&HttpRequest, usize) -> Option<HttpResponse>>;
 struct State {
     mode: Cell<&'static str>, symbols: RefCell<Vec<String>>, hf: RefCell<Vec<Value>>, classic: RefCell<Vec<Value>>, fault: RefCell<Option<Fault>>,
     log: RefCell<Vec<HttpRequest>>, hf_pages: Cell<usize>, replay: RefCell<Option<Vec<Value>>>,
+    uta: RefCell<Vec<Value>>, uta_pages: Cell<usize>, uta_replay: RefCell<Option<Vec<Value>>>, uta_balance: RefCell<Option<Value>>, classic_fails: Cell<bool>,
 }
 /// KuCoin as the reader meets it: account mode, symbols, HF fills (newest id first, `lastId` paging), classic sources.
 #[derive(Clone, Default)]
@@ -45,6 +47,7 @@ impl Api {
         a
     }
     fn hf(&self, fills: Vec<Value>) -> &Self { self.0.hf.borrow_mut().extend(fills); self }
+    fn uta(&self, fills: Vec<Value>) -> &Self { self.0.uta.borrow_mut().extend(fills); self }
     fn classic(&self, fills: Vec<Value>) -> &Self { self.0.classic.borrow_mut().extend(fills); self }
     fn fault(&self, f: impl Fn(&HttpRequest, usize) -> Option<HttpResponse> + 'static) { *self.0.fault.borrow_mut() = Some(Box::new(f)); }
     fn requests(&self, path: &str) -> Vec<HttpRequest> { self.0.log.borrow().iter().filter(|r| r.path == path).cloned().collect() }
@@ -59,7 +62,24 @@ impl Transport for Api {
             OPENED => return Ok(ok(json!(self.0.mode.get() == "hf"))),
             SYMBOLS_PATH => return Ok(ok(Value::Array(self.0.symbols.borrow().iter().map(|s| json!({"symbol": s})).collect()))),
             "/api/v1/accounts" => return Ok(ok(json!([{"currency": "BTC", "available": "2", "holds": "0"}]))),
+            UTA_BALANCE => return Ok(HttpResponse { status: 200, body: self.0.uta_balance.borrow().clone().expect("a scripted UTA balance").to_string() }),
             _ => {}
+        }
+        if r.path == UTA_FILLS {
+            let n = self.0.uta_pages.get();
+            self.0.uta_pages.set(n + 1);
+            if let Some(answer) = self.0.fault.borrow().as_ref().and_then(|f| f(r, n)) { return Ok(answer); }
+            if let Some(pages) = self.0.uta_replay.borrow().as_ref() { return Ok(HttpResponse { status: 200, body: pages[n].to_string() }); }
+            // Account-wide, newest first; the cursor is the last item's tradeId.
+            let num = |k: &str| q(k).map(|v| v.parse::<i64>().unwrap());
+            let (from, to, last) = (num("startAt").unwrap(), num("endAt").unwrap(), q("lastId").map(|v| v.parse::<u64>().unwrap()));
+            let id = |f: &Value| f["tradeId"].as_str().unwrap().parse::<u64>().unwrap();
+            let mut rows: Vec<Value> = self.0.uta.borrow().iter().filter(|f| (from..=to).contains(&((f["executionTime"].as_u64().unwrap() / 1_000_000) as i64))
+                                                                          && last.is_none_or(|l| id(f) < l)).cloned().collect();
+            rows.sort_by_key(|f| std::cmp::Reverse(id(f)));
+            rows.truncate(q("pageSize").unwrap().parse().unwrap());
+            let last = rows.last().map(|f| json!(id(f))).unwrap_or(Value::Null);
+            return Ok(ok(json!({"tradeType": "SPOT", "items": rows, "lastId": last})));
         }
         if r.path == HF_FILLS {
             let n = self.0.hf_pages.get();
@@ -75,6 +95,7 @@ impl Transport for Api {
             let last = rows.last().map(|f| f["id"].clone()).unwrap_or(Value::Null);
             return Ok(ok(json!({"items": rows, "lastId": last})));
         }
+        if r.path == FILLS_PATH && self.0.classic_fails.get() { return Ok(HttpResponse { status: 500, body: "boom".into() }); }
         let rows: Vec<Value> = match r.path.as_str() { FILLS_PATH => self.0.classic.borrow().clone(), DEPOSITS_PATH | WITHDRAWALS_PATH => vec![], other => panic!("unscripted {other}") };
         let num = |k: &str| q(k).map(|v| v.parse::<i64>().unwrap());
         let rows: Vec<Value> = rows.into_iter().filter(|v| num("startAt").is_none_or(|s| v["createdAt"].as_i64().unwrap() >= s) && num("endAt").is_none_or(|e| v["createdAt"].as_i64().unwrap() < e)).collect();
@@ -88,6 +109,12 @@ fn hf_fill(symbol: &str, side: &str, size: &str, funds: &str, fee: &str, at: &st
     let id = IDS.fetch_add(1, Ordering::SeqCst) as u64;
     json!({"id": 9_007_199_254_740_000u64 + id, "tradeId": 11_029_373_945_659_000u64 + id, "orderId": format!("o{id}"), "symbol": symbol, "side": side, "price": "1",
            "size": size, "funds": funds, "fee": fee, "feeCurrency": "USDT", "createdAt": ms(at)})
+}
+/// A UTA execution of BTC-USDT: `BUY`/`SELL`, ns time, the quote as `value`; its tradeId unique.
+fn uta_fill(side: &str, size: &str, value: &str, fee: &str, at: &str) -> Value {
+    let id = IDS.fetch_add(1, Ordering::SeqCst) as u64;
+    json!({"tradeType": "SPOT", "orderId": format!("u{id}"), "symbol": "BTC-USDT", "orderType": "MARKET", "side": side, "tradeId": (20_000_000_000_000u64 + id).to_string(),
+           "size": size, "price": "1", "value": value, "executionTime": ms(at) as u64 * 1_000_000 + 123_456, "fee": fee, "feeCurrency": "USDT", "liquidityRole": "TAKER"})
 }
 fn classic_fill(id: &str, size: &str, funds: &str, fee: &str, at: &str) -> Value {
     json!({"symbol": "BTC-USDT", "tradeId": id, "orderId": id, "side": "buy", "price": "1", "size": size, "funds": funds, "fee": fee, "feeCurrency": "USDT", "createdAt": ms(at)})
@@ -732,9 +759,9 @@ async fn l10_exports_close_the_gap_only_when_they_cover_trades() {
 // ---- balances and budget ---------------------------------------------------------------------------------------------
 
 #[tokio::test(flavor = "current_thread")]
-async fn balances_read_the_trade_hf_account_and_uta_refuses_keeping_rows() {
+async fn balances_read_the_trade_hf_account() {
     use deltabadger::sync::balances;
-    for (mode, kind) in [("hf", Some("trade_hf")), ("lf", Some("trade")), ("uta", None)] {
+    for (mode, kind) in [("hf", Some("trade_hf")), ("lf", Some("trade"))] {
         let fx = Fx::new();
         let api = Api::new(mode, &[]);
         let credentials = deltabadger::sync::validation_material(&fx.c, &fx.cipher, fx.key).unwrap().0;
@@ -793,4 +820,210 @@ async fn an_export_of_rows_all_held_still_bridges_the_gap() {
     assert!(fx.uncovered().as_array().is_some_and(|u| !u.is_empty()));
     fx.import(&file(&[a, b]));
     assert_eq!(fx.uncovered(), json!([]));
+}
+
+// ---- UTA U1a (D-KUCOIN-UTA-BALANCES, D-KUCOIN-UTA-LEDGER) --------------------------------------------------------------
+
+fn uta_fixture(name: &str) -> Vec<Value> {
+    let text = std::fs::read_to_string(format!("{}/tests/fixtures/kucoin_uta/{name}.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    serde_json::from_str::<Value>(&text).unwrap()["cases"].as_array().unwrap().clone()
+}
+impl Fx {
+    /// The store opened afresh: every money assertion reads what was committed.
+    fn reopened(&self) -> Connection { Connection::open(self.dir.path().join("production.sqlite3")).unwrap() }
+    fn holdings(&self) -> std::collections::BTreeMap<String, f64> {
+        let c = self.reopened();
+        let mut s = c.prepare("SELECT a.symbol, b.free + b.locked FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1").unwrap();
+        s.query_map([self.user], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
+    }
+    fn uta_rows(&self, entry_type: Option<i64>) -> i64 {
+        self.reopened().query_row("SELECT count(*) FROM account_transactions WHERE user_id = ?1 AND json_extract(raw_data, '$.family') = 'Uta' AND (?2 IS NULL OR entry_type = ?2)",
+                                  rusqlite::params![self.user, entry_type], |r| r.get(0)).unwrap()
+    }
+}
+const PLACED_MS: i64 = 1_764_741_957_000;
+/// The clock at which a unit starts exactly at the fixtures' first execution (7 d less the 6 h margin later).
+fn at_fixture_unit() -> String { (DateTime::from_timestamp_millis(PLACED_MS).unwrap() + Duration::days(7) - Duration::hours(6)).to_rfc3339() }
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1a_unified_balances_store_balance_and_a_debt_currency_keeps_its_row() {
+    use deltabadger::sync::balances;
+    for c in uta_fixture("balances") {
+        let fx = Fx::new();
+        for symbol in ["BTC", "USDT"] {
+            fx.c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, created_at, updated_at) SELECT ?1, id, '2026-01-01', '2026-01-01' FROM assets WHERE symbol = ?2",
+                         rusqlite::params![fx.exchange, symbol]).unwrap();
+            fx.c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
+                          SELECT ?1, ?2, id, 9, 0, 0, '2026-10-01', '2026-10-01', '2026-10-01' FROM assets WHERE symbol = ?3", rusqlite::params![fx.user, fx.exchange, symbol]).unwrap();
+        }
+        let api = Api::new("uta", &[]);
+        *api.0.uta_balance.borrow_mut() = Some(c["response"].clone());
+        let credentials = deltabadger::sync::validation_material(&fx.c, &fx.cipher, fx.key).unwrap().0;
+        deltabadger::venue::kucoin_account::Resolver::shared().invalidate(deltabadger::venue::kucoin::URL, fx.key);
+        let out = balances::sync_kucoin(&fx.db(), api.clone(), &balances::NoPrices, fx.key, &credentials, &fixed(NOW)).await.unwrap();
+        let id = c["id"].as_str().unwrap();
+        assert!(api.requests(UTA_BALANCE).iter().all(|r| r.query.is_empty()) && api.requests(UTA_BALANCE).len() == 1, "{id}");
+        assert!(api.requests("/api/v1/accounts").is_empty(), "{id}: a UTA reads its unified account only");
+        let held = fx.holdings();
+        if c["expect"]["refused"] == true {
+            assert!(out.is_err(), "{id}");
+            assert_eq!(held, [("BTC".to_string(), 9.0), ("USDT".to_string(), 9.0)].into(), "{id}: nothing written");
+            continue;
+        }
+        assert!(out.is_ok(), "{id}");
+        let kept: Vec<&str> = c["expect"]["kept"].as_array().map(|k| k.iter().map(|v| v.as_str().unwrap()).collect()).unwrap_or_default();
+        let mut want: std::collections::BTreeMap<String, f64> = c["expect"]["held"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().parse().unwrap())).collect();
+        for k in &kept { want.insert(k.to_string(), 9.0); }
+        assert_eq!(held, want, "{id}: balance is held (never less a liability), a debt keeps its row, the rest are gone");
+        match kept.as_slice() {
+            [] => assert_eq!(fx.error(), None, "{id}"),
+            [one] => assert_eq!(fx.error().as_deref(), Some(format!("KuCoin shows a debt in {one}. Its last balance is kept until the debt is gone.").as_str()), "{id}"),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1b_the_account_wide_walk_pages_on_the_exact_last_id_and_maps_ns_times_and_sides() {
+    let case = uta_fixture("fills").into_iter().find(|c| c["id"] == "walk_account_wide").unwrap();
+    let fx = Fx::new();
+    let api = Api::new("uta", &[]);
+    *api.0.uta_replay.borrow_mut() = Some(case["pages"].as_array().unwrap().clone());
+    let now = at_fixture_unit();
+    assert_eq!(fx.sync_with(&api, &fixed(&now), false).await, Ok(true));
+    let sent = api.requests(UTA_FILLS);
+    assert_eq!(sent.len(), 3, "the walk ends only on the empty page");
+    for (i, r) in sent.iter().enumerate() {
+        let names: Vec<&str> = r.query.iter().map(|(k, _)| *k).collect();
+        assert_eq!(&names[..4], ["tradeType", "startAt", "endAt", "pageSize"], "in order, account-wide");
+        assert_eq!((r.query[0].1.as_str(), r.query[1].1.clone(), r.query[3].1.as_str()), ("SPOT", PLACED_MS.to_string(), "200"));
+        assert_eq!(r.query[2].1, (ms(&now) - 1).to_string());
+        match case["expect"]["cursors_sent"][i].as_str() {
+            Some(cursor) => { assert!(cursor.parse::<u64>().unwrap() > 1 << 53); assert_eq!(r.query[4], ("lastId", cursor.to_string()), "the returned lastId exactly"); }
+            None => assert_eq!(names.len(), 4),
+        }
+    }
+    assert_eq!(fx.uta_rows(None), case["expect"]["rows"].as_i64().unwrap(), "the repeated boundary fill is one row");
+    assert_eq!((fx.uta_rows(Some(0)), fx.uta_rows(Some(1))), (case["expect"]["buy_rows"].as_i64().unwrap(), case["expect"]["sell_rows"].as_i64().unwrap()), "BUY is a buy");
+    let raw: String = fx.reopened().query_row("SELECT raw_data FROM account_transactions WHERE tx_id = 'BTC-USDT-1943106280000'", [], |r| r.get(0)).unwrap();
+    let raw: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!((raw["createdAt"].as_i64(), raw["funds"].as_str(), raw["side"].as_str()), (Some(PLACED_MS), Some("5"), Some("sell")));
+    assert!(fx.coverage("uta_api").is_empty(), "a first UTA detection certifies nothing before it (r1.5)");
+    assert_eq!(fx.coverage("uta_attempt").len(), 1);
+    assert!(deltabadger::sync::kucoin_hf::any_enabled(&fx.reopened()).unwrap(), "the marker: handback refuses (tests/handover.rs)");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1b_a_failed_page_publishes_nothing_of_itself_and_certifies_nothing() {
+    for case in uta_fixture("fills") {
+        let id = case["id"].as_str().unwrap();
+        let pages = case["pages"].as_array().unwrap().clone();
+        let fx = Fx::new();
+        let api = Api::new("uta", &[]);
+        *api.0.uta_replay.borrow_mut() = Some(pages.clone());
+        let out = fx.sync_with(&api, &fixed(&at_fixture_unit()), false).await;
+        if case["expect"]["rows_published_by_failed_page"].is_null() {
+            assert_eq!(out, Ok(true), "{id}");
+            if let Some(rows) = case["expect"]["rows"].as_i64() { assert_eq!(fx.uta_rows(None), rows, "{id}"); }
+            if let Some(buys) = case["expect"]["buy_rows"].as_i64() { assert_eq!(fx.uta_rows(Some(0)), buys, "{id}"); }
+            continue;
+        }
+        assert!(out.is_err(), "{id}: the job fails");
+        let earlier: usize = pages[..pages.len() - 1].iter().map(|p| p["data"]["items"].as_array().map_or(0, Vec::len)).sum();
+        assert_eq!(fx.uta_rows(None), earlier as i64, "{id}: earlier pages stay, the failed one wrote nothing");
+        assert!(fx.coverage("uta_api").is_empty() && fx.coverage("uta_attempt").len() == 1 && fx.coverage("uta_attempt_open").is_empty(), "{id}");
+        assert!(fx.error().is_some_and(|e| e.contains("KuCoin")), "{id}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1c_the_first_uta_detection_migrates_once_and_rebuilds_what_the_classic_cutoff_hid() {
+    let fx = Fx::new();
+    fx.import(&file(&[buy_legs("1", "100", "0.1", "2026-10-20 10:00:00"), buy_legs("2", "50", "0.05", "2026-10-26 10:00:00")]));
+    let lf = Api::new("lf", &[]);
+    lf.classic(vec![classic_fill("c1", "1", "100", "0.1", "2026-10-20T10:00:00Z")]);
+    assert_eq!(fx.sync_with(&lf, &fixed("2026-10-27T00:00:00Z"), false).await, Ok(true));
+    assert_eq!(fx.trades().len(), 1, "the classic takeover hid the trade the classic API never returns");
+    let uta = Api::new("uta", &[]);
+    uta.classic(vec![classic_fill("c1", "1", "100", "0.1", "2026-10-20T10:00:00Z")]);
+    assert_eq!(fx.sync(&uta).await, Ok(true));
+    assert_eq!(fx.trades().len(), 2, "rebuilt once");
+    assert_eq!(fx.sync_with(&uta, &fixed("2026-10-30T14:00:00Z"), false).await, Ok(true));
+    assert_eq!(fx.trades().len(), 2);
+    assert_eq!(fx.reopened().query_row("SELECT count(*) FROM kucoin_coverage WHERE source = 'hf_enabled'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1d_hf_then_uta_certifies_each_family_only_in_its_own_episode_and_an_export_closes_the_hole() {
+    let fx = Fx::new();
+    assert_eq!(fx.sync(&Api::new("hf", &["BTC-USDT"])).await, Ok(true));
+    assert_eq!(fx.coverage("hf_api"), [("2026-10-23 18:00:00".to_string(), "2026-10-30 12:00:00".to_string())]);
+    let uta = Api::new("uta", &["BTC-USDT"]);
+    uta.uta(vec![uta_fill("BUY", "1", "100", "0.1", "2026-10-30T12:30:00Z")]);
+    assert_eq!(fx.sync_with(&uta, &fixed("2026-10-30T13:00:00Z"), false).await, Ok(true));
+    assert!(!uta.requests(HF_FILLS).is_empty(), "the HF unit still runs, inactive");
+    assert_eq!(fx.coverage("hf_api").len(), 1, "an inactive family certifies nothing, even when it read empty");
+    assert!(fx.coverage("uta_api").is_empty());
+    assert_eq!(fx.uta_rows(Some(0)), 1, "what it read is published");
+    assert_eq!(fx.sync_with(&uta, &fixed("2026-10-30T15:00:00Z"), false).await, Ok(true));
+    assert_eq!(fx.coverage("uta_api"), [("2026-10-30 13:00:00".to_string(), "2026-10-30 15:00:00".to_string())], "from the UTA episode's start");
+    assert_eq!(fx.uncovered(), json!([["2026-10-30 12:00:00", "2026-10-30 13:00:00"]]), "the switch is a gap");
+    assert!(fx.line());
+    fx.import(&file(&[buy_legs("1", "1", "0", "2026-10-30 11:00:00"), buy_legs("1", "1", "0", "2026-10-30 13:30:00")]));
+    assert_eq!(fx.uncovered(), json!([]));
+    assert!(!fx.line());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1e_uta_then_hf_mirrors_it_and_an_empty_hf_unit_over_uta_time_certifies_nothing() {
+    let fx = Fx::new();
+    let uta = Api::new("uta", &[]);
+    assert_eq!(fx.sync_with(&uta, &fixed("2026-10-30T12:00:00Z"), false).await, Ok(true));
+    assert_eq!(fx.sync_with(&uta, &fixed("2026-10-30T14:00:00Z"), false).await, Ok(true));
+    let hf = Api::new("hf", &["BTC-USDT"]);
+    assert_eq!(fx.sync_with(&hf, &fixed("2026-10-30T16:00:00Z"), false).await, Ok(true));
+    assert!(fx.coverage("hf_api").is_empty(), "its whole unit lies before the HF episode");
+    assert!(!hf.requests(UTA_FILLS).is_empty(), "the UTA unit still runs, inactive");
+    assert_eq!(fx.sync_with(&hf, &fixed("2026-10-30T18:00:00Z"), false).await, Ok(true));
+    assert_eq!(fx.coverage("hf_api"), [("2026-10-30 16:00:00".to_string(), "2026-10-30 18:00:00".to_string())]);
+    assert_eq!(fx.coverage("uta_api"), [("2026-10-30 12:00:00".to_string(), "2026-10-30 14:00:00".to_string())]);
+    assert_eq!(fx.uncovered(), json!([["2026-10-23 18:00:00", "2026-10-30 12:00:00"], ["2026-10-30 14:00:00", "2026-10-30 16:00:00"]]),
+               "before the first UTA detection, and the switch");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1f_a_classic_walk_failing_on_uta_keeps_the_published_uta_rows_and_records_the_error() {
+    let fx = Fx::new();
+    let api = Api::new("uta", &[]);
+    api.uta(vec![uta_fill("BUY", "1", "100", "0.1", "2026-10-29T10:00:00Z")]);
+    api.0.classic_fails.set(true);
+    fx.watermark();
+    assert!(fx.sync(&api).await.is_err());
+    assert_eq!(fx.uta_rows(Some(0)), 1);
+    assert!(fx.error().is_some());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn u1g_a_uta_fill_and_an_export_of_it_count_once_in_either_order() {
+    for api_first in [true, false] {
+        let fx = Fx::new();
+        let api = Api::new("uta", &[]);
+        api.uta(vec![uta_fill("BUY", "1", "100", "0.1", "2026-10-29T10:00:00Z")]);
+        let export = file(&[buy_legs("1", "100", "0.1", "2026-10-29 10:00:00")]);
+        if api_first { assert_eq!(fx.sync(&api).await, Ok(true)); fx.import(&export); } else { fx.import(&export); assert_eq!(fx.sync(&api).await, Ok(true)); }
+        assert_eq!(fx.trades().len(), 1, "api_first={api_first}: {:?}", fx.trades());
+        assert!(fx.ambiguous().is_empty(), "api_first={api_first}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_hf3_history_without_mode_episodes_is_seeded_and_keeps_certifying() {
+    let fx = Fx::new();
+    let api = Api::new("hf", &["BTC-USDT"]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    fx.c.execute("DELETE FROM kucoin_coverage WHERE source LIKE 'mode:%'", []).unwrap();
+    assert_eq!(fx.sync_with(&api, &fixed("2026-10-30T14:00:00Z"), false).await, Ok(true));
+    assert_eq!(fx.coverage("hf_api").len(), 2, "the next unit certifies, unclipped");
+    assert_eq!(fx.coverage("hf_api")[1].0, "2026-10-29 11:00:00");
+    assert_eq!(fx.coverage("mode:ClassicHf"), [("2026-10-23 18:00:00".to_string(), "2026-10-30 14:00:00".to_string())]);
 }

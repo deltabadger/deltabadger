@@ -177,9 +177,9 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
     let mut url = r.url();
     // The query exactly as Faraday::Utils.build_query writes it, which is what a Prehash signature covers.
     let q = super::binance::build_query(&r.query);
-    // MEXC's QueryHmacHex signs that same text, so it is sent as it was signed. A KuCoin HF route signs its parameters
-    // in order (D-KUCOIN-HF-ORDERS), so it keeps `url()`'s in-order encoding.
-    let hf = wire == Wire::Kucoin && super::kucoin::hf(&r.path);
+    // MEXC's QueryHmacHex signs that same text, so it is sent as it was signed. A KuCoin HF or UTA route signs its
+    // parameters in order (D-KUCOIN-HF-ORDERS), so it keeps `url()`'s in-order encoding.
+    let hf = wire == Wire::Kucoin && super::kucoin::in_order(&r.path);
     if !hf && matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc | Wire::Bybit | Wire::Bitrue | Wire::Bingx) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
     let mut b = client.request(method, url);
     match wire {

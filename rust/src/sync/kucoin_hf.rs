@@ -1,7 +1,7 @@
 //! D-KUCOIN-HF-LEDGER (plan HF-3 §3): one trade, one row on a KuCoin history whose account has HF trading. Everything
 //! available is imported, from the API and from KuCoin's export, and each trade is counted once by an exact per-second
 //! rule; what nothing covers is signalled on the existing "Import history" line. Classic-only histories (no
-//! `hf_enabled` marker) never reach this module.
+//! `hf_enabled` marker) never reach this module. A UTA history (D-KUCOIN-UTA-LEDGER) is managed the same way.
 //!
 //! - **Coverage** (`kucoin_coverage`): the marker, each export's period, certified HF units, every HF unit, pairs KuCoin
 //!   no longer lists, and the seconds the rule could not pair.
@@ -15,6 +15,7 @@ use super::{sql_time, Key, SyncError};
 use crate::codec::parse_time;
 use crate::engine::model::FencedTransaction;
 use crate::ruby::BigDec;
+use crate::venue::kucoin_account::AccountMode;
 use crate::tracker::import::kucoin::{self as file, Catalogue, Derived, SourceRow, Stored, API_ROW, DERIVED};
 use chrono::{DateTime, Duration, Timelike, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -26,6 +27,11 @@ pub const EXPORT: &str = "export";
 pub const HF_API: &str = "hf_api";
 pub const HF_ATTEMPT: &str = "hf_attempt";
 pub const HF_ATTEMPT_OPEN: &str = "hf_attempt_open";
+pub const UTA_API: &str = "uta_api";
+pub const UTA_ATTEMPT: &str = "uta_attempt";
+pub const UTA_ATTEMPT_OPEN: &str = "uta_attempt_open";
+/// A mode episode (UTA r2.1): `mode:<Mode>`, from the first detection of that mode after any other to the latest.
+pub const MODE: &str = "mode:";
 pub const AMBIGUOUS: &str = "ambiguous";
 pub const MISSING: &str = "missing:";
 /// What a page that meets a stored fill with another reading of it fails with: nothing of it is written.
@@ -56,9 +62,60 @@ pub fn any_enabled(c: &Connection) -> Result<bool, SyncError> {
     Ok(table && c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE source = ?1)", [ENABLED], |r| r.get(0))?)
 }
 
-/// The spans of `source` (a `missing:` prefix matches every pair), oldest first.
+/// A mode's episode source; the names stay whatever the enum is called.
+pub fn mode_source(mode: AccountMode) -> &'static str {
+    match mode { AccountMode::ClassicLf => "mode:ClassicLf", AccountMode::ClassicHf => "mode:ClassicHf", AccountMode::UnsupportedUta => "mode:Uta" }
+}
+
+/// The latest episode: (source, span).
+fn current_episode(c: &Connection, key: &Key) -> Result<Option<(String, Span)>, SyncError> {
+    Ok(spans(c, key, MODE)?.into_iter().max_by_key(|(_, (a, b))| (*b, *a)))
+}
+
+/// UTA r2.1: the detected `mode` extends its episode to `now`, or a switch opens a new one at `now`. A history with no
+/// episode yet gets one first over its HF units, if it has any (HF-3 ran before episodes existed); a history first seen
+/// as ClassicHf starts its episode at its first unit's start, so HF-3's certification of that unit is unchanged; any
+/// other first episode starts at its first detection (r1.5: nothing says what the account was before it).
+pub fn observe_mode(c: &Connection, key: &Key, mode: AccountMode, now: DateTime<Utc>) -> Result<(), SyncError> {
+    let now = second(now);
+    if current_episode(c, key)?.is_none() {
+        let units: Vec<Span> = spans(c, key, HF_ATTEMPT)?.into_iter().chain(spans(c, key, HF_ATTEMPT_OPEN)?).map(|(_, s)| s).collect();
+        if let (Some(a), Some(b)) = (units.iter().map(|s| s.0).min(), units.iter().map(|s| s.1).max()) { add(c, key, mode_source(AccountMode::ClassicHf), (a, b), now)?; }
+    }
+    match current_episode(c, key)? {
+        Some((source, (a, b))) if source == mode_source(mode) => {
+            c.execute("UPDATE kucoin_coverage SET end_at = ?1, updated_at = ?1 WHERE user_id = ?2 AND exchange_id = ?3 AND source = ?4 AND start_at = ?5 AND end_at = ?6",
+                      params![sql_time(now.max(b)), key.user_id, key.exchange_id, source, sql_time(a), sql_time(b)])?;
+        }
+        Some(_) => add(c, key, mode_source(mode), (now, now), now)?,
+        None => {
+            let start = if mode == AccountMode::ClassicHf { now - super::kucoin_hf_ledger::RETENTION + super::kucoin_hf_ledger::MARGIN } else { now };
+            add(c, key, mode_source(mode), (start, now), now)?;
+        }
+    }
+    Ok(())
+}
+
+/// The families whose units run now (r1.8b): every one seen on this history, while its latest episode ended within
+/// KuCoin's retention (an older one has nothing left to read). The current mode's first.
+pub fn seen_modes(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<Vec<AccountMode>, SyncError> {
+    let episodes = spans(c, key, MODE)?;
+    let mut out: Vec<(DateTime<Utc>, AccountMode)> = [AccountMode::ClassicHf, AccountMode::UnsupportedUta].into_iter().filter_map(|m| {
+        episodes.iter().filter(|(s, _)| s == mode_source(m)).map(|(_, (_, b))| *b).max().filter(|b| now - super::kucoin_hf_ledger::RETENTION < *b).map(|b| (b, m))
+    }).collect();
+    out.sort_by_key(|(end, _)| std::cmp::Reverse(*end));
+    Ok(out.into_iter().map(|(_, m)| m).collect())
+}
+
+/// What a family's complete unit `[s, e)` certifies (r2.1): only while `mode` is the current episode's, and only from
+/// that episode's start. An inactive family certifies nothing, even when it read empty.
+pub fn certifiable(c: &Connection, key: &Key, mode: AccountMode, (s, e): Span) -> Result<Option<Span>, SyncError> {
+    Ok(current_episode(c, key)?.filter(|(source, _)| source == mode_source(mode)).map(|(_, (a, _))| (s.max(a), e)).filter(|(a, b)| a < b))
+}
+
+/// The spans of `source` (a `missing:` or `mode:` prefix matches every one), oldest first.
 pub fn spans(c: &Connection, key: &Key, source: &str) -> Result<Vec<(String, Span)>, SyncError> {
-    let (op, pattern) = if source == MISSING { ("LIKE", format!("{MISSING}%")) } else { ("=", source.to_string()) };
+    let (op, pattern) = if source == MISSING || source == MODE { ("LIKE", format!("{source}%")) } else { ("=", source.to_string()) };
     let mut s = c.prepare_cached(&format!("SELECT source, start_at, end_at FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source {op} ?3 ORDER BY start_at, end_at"))?;
     let rows: Vec<(String, String, String)> = s.query_map(params![key.user_id, key.exchange_id, pattern], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
     rows.into_iter().map(|(source, a, b)| Ok((source, (time(&a)?, time(&b)?)))).collect()
@@ -532,7 +589,8 @@ fn subtract(from: Span, covered: &[Span]) -> Vec<Span> {
 /// What no certified unit or export covers within the horizon (the history's first row or unit to the last unit's end),
 /// with every ambiguous second.
 pub fn uncovered(c: &Connection, key: &Key) -> Result<Vec<Span>, SyncError> {
-    let attempts: Vec<Span> = spans(c, key, HF_ATTEMPT)?.into_iter().chain(spans(c, key, HF_ATTEMPT_OPEN)?).map(|(_, s)| s).collect();
+    let mut attempts: Vec<Span> = vec![];
+    for source in [HF_ATTEMPT, HF_ATTEMPT_OPEN, UTA_ATTEMPT, UTA_ATTEMPT_OPEN] { attempts.extend(spans(c, key, source)?.into_iter().map(|(_, s)| s)); }
     let mut gap: Vec<Span> = spans(c, key, AMBIGUOUS)?.into_iter().map(|(_, s)| s).collect();
     if let Some(end) = attempts.iter().map(|s| s.1).max() {
         let first = |sql: &str| -> Result<Option<DateTime<Utc>>, SyncError> {
@@ -542,7 +600,8 @@ pub fn uncovered(c: &Connection, key: &Key) -> Result<Vec<Span>, SyncError> {
         let starts = [first("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2")?,
                       first("SELECT MIN(transacted_at) FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2")?, attempts.iter().map(|s| s.0).min()];
         if let Some(start) = starts.into_iter().flatten().min() {
-            let covered: Vec<Span> = spans(c, key, HF_API)?.into_iter().chain(spans(c, key, EXPORT)?).map(|(_, s)| s).collect();
+            let mut covered: Vec<Span> = vec![];
+            for source in [HF_API, UTA_API, EXPORT] { covered.extend(spans(c, key, source)?.into_iter().map(|(_, s)| s)); }
             gap.extend(subtract((start, end), &covered));
         }
     }
