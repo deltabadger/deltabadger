@@ -107,7 +107,7 @@ async fn control_transcripts() {
         let steps = read(dir.join("steps.json"));
         let rust = tempfile::tempdir().unwrap();
         copy_install(dir, rust.path());
-        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap()=="start_wash_question_held" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds") || dir.file_name().unwrap().to_string_lossy().starts_with("settings_form_");
+        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds") || dir.file_name().unwrap().to_string_lossy().starts_with("settings_form_");
         let before=if unicode_symbol {
             let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
             for step in steps.as_array().unwrap() {if let Some(sql)=step["sql"].as_array() {for command in sql {c.execute_batch(command.as_str().unwrap()).unwrap();}}}

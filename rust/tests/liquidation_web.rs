@@ -86,6 +86,7 @@ fn api_asks_no_wash_question_and_uses_rails_domain_codes() {
 #[tokio::test(flavor="current_thread")]
 async fn the_sell_confirmation_asks_an_unanswered_account_first() {
     let (_d,c,_s,id,app,mut b)=install();
+    app.attach_jobs(deltabadger::jobs::Wakers::default()).unwrap();
     c.execute("UPDATE users SET wash_sale_enabled=NULL",[]).unwrap();
     let modal=b.get(&app,&format!("/bots/{id}/liquidation/new?symbol=BTC")).await;
     assert_eq!(modal.status,200,"{}",modal.body);

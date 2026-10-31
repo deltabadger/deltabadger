@@ -102,8 +102,7 @@ async fn form(app: App, ctx: Ctx, segment: String, form: &'static str) -> Result
         let (found,_) = page::find(&tx,&inner,&owner,&segment,false,super::For::Settings,view.locale)?;
         let page::Found::Bot(bot) = found else { return Ok(Err(found)) };
         // Bots::StartsController#edit: the wash-sale question in place of the restart question while it is owed.
-        let dialog = if form == "start" { let csrf = view.csrf_token(); super::wash::start_dialog(&tx,&view,&csrf,owner.id,bot.id)?.map(|body| (body,csrf)) } else { None };
-        if let Some((body,_)) = dialog { tx.commit()?; return Ok(Ok((body,String::new(),None))); }
+        if form == "start" { if let Some(body) = super::wash::start_dialog(&tx,&view,owner.id,bot.id)? { tx.commit()?; return Ok(Ok((body,String::new(),None))); } }
         let csrf = if form == "start" && !bot.restarting() { String::new() } else { view.csrf_token() };
         let body = action_view::modal(&tx,&view,&bot,form,&csrf)?;
         let shell = Shell::load(&tx,&inner,&owner)?;

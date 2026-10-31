@@ -92,9 +92,9 @@ pub fn modal_src(c: &Connection, ctx: &Ctx, user: i64, bot: i64) -> Result<Optio
 }
 
 /// Bots::StartsController#edit while the question is owed: the dialog in place of the restart question, as a bare partial.
-pub fn start_dialog(c: &Connection, ctx: &Ctx, csrf: &str, user: i64, bot: i64) -> Result<Option<String>, WebError> {
+pub fn start_dialog(c: &Connection, ctx: &Ctx, user: i64, bot: i64) -> Result<Option<String>, WebError> {
     if due(c, user, bot, ctx.now)? != Some(Due::Question) { return Ok(None); }
-    modal(c, ctx, csrf, user, bot, Due::Question).map(Some)
+    modal(c, ctx, &ctx.csrf_token(), user, bot, Due::Question).map(Some)
 }
 
 /// Bots::StartsController#update while the question is owed: refused with the question itself, 422
