@@ -73,23 +73,6 @@ fn wall(zone: Tz, naive: chrono::NaiveDateTime) -> Option<DateTime<Utc>> {
     None
 }
 
-#[cfg(test)]
-mod tests {
-    /// Recorded with activesupport 8.1.4 (`Time.zone = zone; Date.parse(day).beginning_of_day` and `.end_of_day`).
-    #[test]
-    fn day_bounds_resolve_as_activesupport() {
-        for (zone, day, from, to) in [("Magadan", "2014-10-26", "2014-10-25T14:00:00Z", "2014-10-26T13:59:59.999999Z"),
-                                      ("Santiago", "2026-09-06", "2026-09-06T04:00:00Z", "2026-09-07T02:59:59.999999Z"),
-                                      ("Santiago", "2026-04-05", "2026-04-05T04:00:00Z", "2026-04-06T03:59:59.999999Z"),
-                                      ("Warsaw", "2026-10-25", "2026-10-24T22:00:00Z", "2026-10-25T22:59:59.999999Z")] {
-            let zone = crate::web::timezone::strict(zone).unwrap();
-            let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
-            let at = |t: &str| chrono::DateTime::parse_from_rfc3339(t).unwrap().with_timezone(&chrono::Utc);
-            assert_eq!(super::wall(zone, day.and_hms_micro_opt(0, 0, 0, 0).unwrap()), Some(at(from)), "{zone} {day}");
-            assert_eq!(super::wall(zone, day.and_hms_micro_opt(23, 59, 59, 999_999).unwrap()), Some(at(to)), "{zone} {day}");
-        }
-    }
-}
 
 /// ListAccount's and ExportCsv's shared checks, in Rails' order: the exchange (any venue row), then the dates.
 /// D-API-NONSCALAR: an `exchange_id` that is no scalar is an unknown exchange (Rails raises on Array#to_i).
@@ -360,4 +343,22 @@ pub fn mcp(c: &Connection, app: &App, user: i64, name: &str, args: &Value) -> Re
         }
         _ => return Err(WebError::Config("unregistered tracker tool".into())),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    /// Recorded with activesupport 8.1.4 (`Time.zone = zone; Date.parse(day).beginning_of_day` and `.end_of_day`).
+    #[test]
+    fn day_bounds_resolve_as_activesupport() {
+        for (zone, day, from, to) in [("Magadan", "2014-10-26", "2014-10-25T14:00:00Z", "2014-10-26T13:59:59.999999Z"),
+                                      ("Santiago", "2026-09-06", "2026-09-06T04:00:00Z", "2026-09-07T02:59:59.999999Z"),
+                                      ("Santiago", "2026-04-05", "2026-04-05T04:00:00Z", "2026-04-06T03:59:59.999999Z"),
+                                      ("Warsaw", "2026-10-25", "2026-10-24T22:00:00Z", "2026-10-25T22:59:59.999999Z")] {
+            let zone = crate::web::timezone::strict(zone).unwrap();
+            let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
+            let at = |t: &str| chrono::DateTime::parse_from_rfc3339(t).unwrap().with_timezone(&chrono::Utc);
+            assert_eq!(super::wall(zone, day.and_hms_micro_opt(0, 0, 0, 0).unwrap()), Some(at(from)), "{zone} {day}");
+            assert_eq!(super::wall(zone, day.and_hms_micro_opt(23, 59, 59, 999_999).unwrap()), Some(at(to)), "{zone} {day}");
+        }
+    }
 }

@@ -107,7 +107,7 @@ async fn control_transcripts() {
     let dry=regex::Regex::new(r"dry-order-[0-9a-f-]{26}").unwrap();
     for (dir,got) in dirs.iter().zip(results) {
         let want = read(dir.join("rails.json"));
-        let (mut got,mut want)=(comparable(got),comparable(want));
+        let (mut got,want)=(comparable(got),comparable(want));
         // Plan 3c divergence 9: the engine is held for the HTTP snapshot. Assert
         // the exact request, then compare every other primary column and JSON key.
         let name=dir.file_name().unwrap().to_string_lossy();

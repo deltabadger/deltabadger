@@ -64,8 +64,8 @@ pub fn advance_days(t: DateTime<Utc>, zone: Tz, days: i64) -> Option<DateTime<Ut
             LocalResult::Ambiguous(first, second) => {
                 use chrono::Offset;
                 let same = |at: &DateTime<Tz>| at.offset().fix() == source.offset().fix();
-                let pick = if same(&first) { first } else if same(&second) { second } else if dst(second.offset()) == summer && dst(first.offset()) != summer { second } else { first };
-                return Some(pick.with_timezone(&Utc));
+                let second_wins = !same(&first) && (same(&second) || (dst(second.offset()) == summer && dst(first.offset()) != summer));
+                return Some(if second_wins { second } else { first }.with_timezone(&Utc));
             }
             LocalResult::None => wall = wall.checked_add_signed(Duration::hours(1))?,
         }

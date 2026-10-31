@@ -240,7 +240,7 @@ pub(crate) fn csv_rows(c: &Connection, sql: &str, binds: Vec<rusqlite::types::Va
     let mut out = String::new();
     line(&mut out, &CSV_HEADERS.map(|h| Cell::Text(h.into())));
     let mut venues: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
-    let mut statement = c.prepare(&sql)?;
+    let mut statement = c.prepare(sql)?;
     let mut rows = statement.query(rusqlite::params_from_iter(binds))?;
     while let Some(r) = rows.next()? {
         let text = |i: usize| -> Result<Cell, WebError> { Ok(r.get::<_, Option<String>>(i)?.map_or(Cell::Nil, Cell::Text)) };
