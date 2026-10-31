@@ -4,7 +4,7 @@ use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 /// D-SPLIT-API: split_bots is this build's own, after the recorded tools.
-pub const NAMES: [&str;23] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","list_tax_jurisdictions","list_rules","create_rule","delete_rule","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
+pub const NAMES: [&str;28] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","list_rules","create_rule","delete_rule","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -68,6 +68,20 @@ fn transactions(c: &Connection, user: i64, data: &Value) -> Result<String, WebEr
     }
     Ok(format!("Transactions ({}):\n{}", data["count"], lines.join("\n")))
 }
+/// The order tools (PLAN-A9): BotApi::Orders with `dry_run: user.mcp_dry_run?`. MCP casts a number property to a Float.
+fn order(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Value,WebError>{
+    use crate::web::bot_api::orders;
+    let dry_run=paper_trading(c,who.user_id)?;
+    let caller=orders::Caller{user:who.user_id,dry_run,mcp:true};
+    let none=serde_json::Map::new();
+    let map=args.as_object().unwrap_or(&none);
+    let res=match orders::Kind::tool(name) {
+        Some(kind)=>orders::place(c,app,caller,kind,map,map.get("bot_id").filter(|v|!v.is_null()))?,
+        None=>orders::cancel(c,caller,args.get("order_id").unwrap_or(&Value::Null),args.get("exchange_name").unwrap_or(&Value::Null))?,
+    };
+    let (text,is_error)=orders::mcp_text(name,args,dry_run,&res);
+    Ok(tool_text(&text,is_error))
+}
 /// What a call answers now, or the venue or market read it needs first (`reads`).
 pub enum Called { Done(Value), Fetch(reads::Fetch), Rules(crate::web::rules::api::Request) }
 pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called,WebError>{
@@ -92,6 +106,12 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
         crate::engine::log("MCP split_bots failed");
         tool_text("An unexpected error occurred.",true)
     })));}
+    if name=="cancel_order" || crate::web::bot_api::orders::Kind::tool(name).is_some() {
+        return Ok(Called::Done(order(c,app,who,name,args).unwrap_or_else(|_|{
+            crate::engine::log("MCP order tool failed");
+            tool_text("An unexpected error occurred.",true)
+        })));
+    }
     if reads::NAMES.contains(&name){return Ok(reads::plan(c,app,who.user_id,name,args).unwrap_or_else(|_|Called::Done(tool_text("An unexpected error occurred.",true))));}
     use crate::web::bot_api;
     let text=match name {

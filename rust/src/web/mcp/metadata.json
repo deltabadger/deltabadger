@@ -1405,6 +1405,208 @@
       }
     },
     {
+      "name": "market_buy",
+      "description": "Execute a market buy order on a connected exchange (crypto or stocks via Alpaca)",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "Optional. A running signal bot to place the order through: it is recorded on that bot's page and the pair comes from the bot, so the three pair fields can be left out"
+          },
+          "exchange_name": {
+            "type": "string",
+            "description": "Exchange name (e.g., Binance, Kraken, Coinbase, Alpaca). Required without bot_id"
+          },
+          "base_asset": {
+            "type": "string",
+            "description": "Asset symbol to buy (e.g., BTC, ETH, QQQM, AAPL). Required without bot_id"
+          },
+          "quote_asset": {
+            "type": "string",
+            "description": "Quote currency symbol (e.g., USD, USDT). Required without bot_id"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount to spend or buy"
+          },
+          "amount_type": {
+            "type": "string",
+            "description": "'quote' (spend in quote currency) or 'base' (buy in base asset). Default: 'quote'"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "market_sell",
+      "description": "Execute a market sell order on a connected exchange (crypto or stocks via Alpaca)",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "Optional. A running signal bot to place the order through: it is recorded on that bot's page and the pair comes from the bot, so the three pair fields can be left out"
+          },
+          "exchange_name": {
+            "type": "string",
+            "description": "Exchange name (e.g., Binance, Kraken, Coinbase, Alpaca). Required without bot_id"
+          },
+          "base_asset": {
+            "type": "string",
+            "description": "Asset symbol to sell (e.g., BTC, ETH, QQQM, AAPL). Required without bot_id"
+          },
+          "quote_asset": {
+            "type": "string",
+            "description": "Quote currency symbol (e.g., USD, USDT). Required without bot_id"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount to sell or receive"
+          },
+          "amount_type": {
+            "type": "string",
+            "description": "'base' (sell in base asset) or 'quote' (receive in quote currency). Default: 'base'"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "limit_buy",
+      "description": "Place a limit buy order on a connected exchange (crypto or stocks via Alpaca) at a specific price",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "exchange_name": {
+            "type": "string",
+            "description": "Exchange name (e.g., Binance, Kraken, Coinbase, Alpaca)"
+          },
+          "base_asset": {
+            "type": "string",
+            "description": "Asset symbol to buy (e.g., BTC, ETH, QQQM, AAPL)"
+          },
+          "quote_asset": {
+            "type": "string",
+            "description": "Quote currency symbol (e.g., USD, USDT)"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount to buy"
+          },
+          "price": {
+            "type": "number",
+            "description": "Limit price per unit in quote currency"
+          },
+          "amount_type": {
+            "type": "string",
+            "description": "'quote' (spend in quote currency) or 'base' (buy in base asset). Default: 'quote'"
+          }
+        },
+        "required": [
+          "exchange_name",
+          "base_asset",
+          "quote_asset",
+          "amount",
+          "price"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "limit_sell",
+      "description": "Place a limit sell order on a connected exchange (crypto or stocks via Alpaca) at a specific price",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "exchange_name": {
+            "type": "string",
+            "description": "Exchange name (e.g., Binance, Kraken, Coinbase, Alpaca)"
+          },
+          "base_asset": {
+            "type": "string",
+            "description": "Asset symbol to sell (e.g., BTC, ETH, QQQM, AAPL)"
+          },
+          "quote_asset": {
+            "type": "string",
+            "description": "Quote currency symbol (e.g., USD, USDT)"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount to sell"
+          },
+          "price": {
+            "type": "number",
+            "description": "Limit price per unit in quote currency"
+          },
+          "amount_type": {
+            "type": "string",
+            "description": "'base' (sell in base asset) or 'quote' (receive in quote currency). Default: 'base'"
+          }
+        },
+        "required": [
+          "exchange_name",
+          "base_asset",
+          "quote_asset",
+          "amount",
+          "price"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "cancel_order",
+      "description": "Cancel an open order by its ID (use list_open_orders to find order IDs)",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "The order ID to cancel — numeric DB ID (bot orders) or exchange order ID (from list_open_orders)"
+          },
+          "exchange_name": {
+            "type": "string",
+            "description": "Exchange name (required when cancelling by exchange order ID, e.g., Alpaca)"
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
+    },
+    {
       "name": "list_tax_jurisdictions",
       "description": "List all supported tax jurisdictions with their calculation method and currency",
       "inputSchema": {
@@ -1744,6 +1946,15 @@
     "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/services/bot_api/bots/settings_fields.rb": "74fa7ffa413811aaf9916d0941ad808579f56264b5b6a6995a923825771ede06",
-    "app/models/bot/settings_form.rb": "0e856f3a999b659eba0993e51fd3a04da1281dd3dbe6d70c2e8dddf90d5642b7"
+    "app/models/bot/settings_form.rb": "0e856f3a999b659eba0993e51fd3a04da1281dd3dbe6d70c2e8dddf90d5642b7",
+    "app/services/bot_api/orders/market_buy.rb": "79aeaf5f29aaea8cc9fa06316698804b48143ef66f891debf526f2f5ac6b0169",
+    "app/services/bot_api/orders/market_sell.rb": "e9f307a0bab8277361309a368050b88f21e87543ae4e357bc58110ce8483423a",
+    "app/services/bot_api/orders/limit_buy.rb": "4f126fe46cd3d3b4a80a25c62ce6c812fe0b7e709993f89ee04921a707348ee7",
+    "app/services/bot_api/orders/limit_sell.rb": "7c4cf42515a0103af082aedca068c9d5432a5ed771e5c5f9769279a90aaadd95",
+    "app/services/bot_api/orders/bot_order.rb": "1df0f5ade562bdbca630e9be42bece4999551cda7762182643525a7f6d2503c1",
+    "app/services/bot_api/orders/cancel.rb": "11b4b6c2d841e22137088d0138d58931bf43db8acddc53db0a71918217668fef",
+    "app/controllers/api/v1/orders_controller.rb": "e06bbb8998259c949bad4142202480578ac7b1eaeedef1c9cdc97dfce907b124",
+    "app/controllers/concerns/idempotency.rb": "dd727f6919fd0151ae0f341afabdcbed24feaa294adc3fbdc29dea34cd1d608f",
+    "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96"
   }
 }
