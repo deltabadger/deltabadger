@@ -47,3 +47,30 @@ pub fn split(c:&Connection,app:&App,user:i64,args:&Value)->Result<Value,WebError
         Some(code)=>tool_text(&crate::web::rest::encode(&serde_json::json!({"code":code,"message":res.message,"offers":res.data.get("offers").cloned().unwrap_or(serde_json::json!([]))})),true),
     })
 }
+/// A10: create_bot, create_index_bot and create_signal_bot (CreateBotTool, CreateIndexBotTool, CreateSignalBotTool#perform):
+/// the service's refusal as the error text; a success in the tool's words. A `number` property reaches Rails as a Float.
+pub fn create(c:&Connection,app:&App,who:Bearer,kind:crate::web::bot::create::Kind,args:&Value)->Result<Value,WebError>{
+    use crate::web::bot::create::Kind;
+    let res=bot_api::create(c,app,who.user_id,kind,&args.as_object().cloned().unwrap_or_default())?;
+    if res.code.is_some() {return Ok(tool_text(&res.message,true));}
+    let (d,s)=(&res.data,tools::str_value);
+    let float=|v:&Value| v.as_f64().map_or_else(||s(v),crate::ruby::float_to_s);
+    let upcase=|v:&Value| s(v).to_uppercase();
+    Ok(tool_text(&match kind {
+        Kind::Dca=>{
+            let summary=format!("{} on {}, {} {}/{}.",s(&d["pair"]),s(&d["exchange"]),float(&args["quote_amount"]),upcase(&args["quote_asset"]),s(&args["interval"]));
+            if bot_api::present(&args["start_at"]) {format!("Bot '{}' created — scheduled to start {} — {summary}",s(&d["label"]),zoned(c,who.user_id,&d["started_at"])?)}
+            else {format!("Bot '{}' created and started — {summary}",s(&d["label"]))}
+        }
+        Kind::Index=>format!("Bot '{}' created and started — {} top {} on {}, {} {}/{}.",s(&d["label"]),s(&d["index"]),s(&d["num_coins"]),s(&d["exchange"]),float(&d["quote_amount"]),s(&d["quote_asset"]),s(&d["interval"])),
+        Kind::Signal=>format!("Signal bot '{}' created and started — {} on {}. Place orders through it with market_buy / market_sell and bot_id {}.",s(&d["label"]),s(&d["pair"]),s(&d["exchange"]),d["id"]),
+    },false))
+}
+/// `started_at.iso8601` under ActionMCP, which sets Time.zone to the user's: the time in their zone with its offset ("Z" in UTC).
+fn zoned(c:&Connection,user:i64,at:&Value)->Result<String,WebError>{
+    let Some(text)=at.as_str() else {return Ok(tools::str_value(at))};
+    let at=crate::codec::parse_time(text).map_err(|e|WebError::Config(format!("a created bot's started_at: {e:?}")))?;
+    let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
+    let local=crate::web::timezone::local(at,&zone);
+    Ok(if local.timezone()==chrono_tz::Tz::UTC {at.format("%Y-%m-%dT%H:%M:%SZ").to_string()} else {local.format("%Y-%m-%dT%H:%M:%S%:z").to_string()})
+}

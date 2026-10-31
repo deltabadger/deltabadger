@@ -4,7 +4,7 @@ use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 /// D-SPLIT-API: split_bots is this build's own, after the recorded tools.
-pub const NAMES: [&str;28] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","list_rules","create_rule","delete_rule","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
+pub const NAMES: [&str;31] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","list_rules","create_rule","delete_rule","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -96,6 +96,15 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
         }));
     }
     if let Some(refusal)=gate(c,who,name)? {return Ok(Called::Done(refusal));}
+    if let Some(kind)=crate::web::bot::create::Kind::tool(name) {
+        let schema=metadata()["tools"].as_array().into_iter().flatten().find(|t|t["name"]==name).map(|t|&t["inputSchema"]).unwrap_or(&Value::Null);
+        let errors=validate(args,schema,"");
+        if !errors.is_empty(){return Ok(Called::Done(tool_text(&format!("Invalid input: {}",errors.join(", ")),true)));}
+        return Ok(Called::Done(super::control::create(c,app,who,kind,args).unwrap_or_else(|_|{
+            crate::engine::log("MCP create tool failed");
+            tool_text("An unexpected error occurred.",true)
+        })));
+    }
     let schema=metadata()["tools"].as_array().into_iter().flatten().find(|t|t["name"]==name).map(|t|&t["inputSchema"]).unwrap_or(&Value::Null);
     let errors=validate(args,schema,"");
     if !errors.is_empty(){return Ok(Called::Done(tool_text(&format!("Invalid input: {}",errors.join(", ")),true)));}
