@@ -2065,8 +2065,8 @@ fn page_grid_selection_is_complete_and_disjoint() {
     assert_eq!(index_rule_pages, 1 + 1 + 1, "D-COND-FORMS-INDEX: member, departed member and switched-off rule witnesses");
     assert_eq!(signal_rule_pages, 1, "D-COND-FORMS-SIGNAL: the signal rule witness");
     assert_eq!(split_menu_pages, 1, "D-SPLIT-BOT-MENU: the basket menu witness");
-    assert_eq!(full.iter().filter(|name| name.starts_with("actions")).count(), 254 + 2 + 6 + 1,
-               "PAGES=actions includes two amounts typed key by key, six settings metrics cases and the wash-sale Stop");
+    assert_eq!(full.iter().filter(|name| name.starts_with("actions")).count(), 254 + 2 + 6 + 1 + 2,
+               "PAGES=actions includes two amounts typed key by key, six settings metrics cases, the wash-sale Stop and WS-4a's two saves carrying the selling warning");
     let dirs: Vec<PathBuf> = full.iter().map(PathBuf::from).collect();
     {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));

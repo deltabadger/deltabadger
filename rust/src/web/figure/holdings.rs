@@ -155,6 +155,10 @@ fn wash_sale_table(c: &Connection, s: &Subject, locked: &[&Holding], hidden: boo
 /// bots/composition/_locked_table while the figures load (BotsController#show's `@bot.metrics`, no prices): each live lock
 /// unheld (`values: {}`): amount 0, no Sell, under its own key. A signal bot's are the locks on its pair's base.
 pub(super) fn loading_locked_table(c: &Connection, bot_id: i64, signal: bool, hidden: bool, locale: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
+    // No live lock on the account: nothing to draw, and the bot's orders are not read for it.
+    let user: i64 = c.query_row("SELECT user_id FROM bots WHERE id=?1", [bot_id], |r| r.get(0))?;
+    let all: HashSet<i64> = c.prepare("SELECT asset_id FROM wash_sale_locks WHERE user_id=?1")?.query_map([user], |r| r.get(0))?.collect::<Result<_,_>>()?;
+    if live_locks(c, user, &all, now)?.is_empty() { return Ok(String::new()); }
     let s = if signal { crate::figures::pair::load(c, bot_id)? } else { Subject::load(c, bot_id)? };
     let known: HashSet<i64> = if signal { s.tickers.first().map(|t| t.base_asset_id).into_iter().collect() }
         else { c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1")?.query_map([bot_id], |r| r.get(0))?.collect::<Result<_,_>>()? };

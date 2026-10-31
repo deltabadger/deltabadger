@@ -66,10 +66,9 @@ fn api_selection_is_all_or_nothing_and_dry_run_does_not_write() {
 #[test]
 fn api_uses_the_web_wash_refusal_and_rails_domain_codes() {
     let (_d,c,s,id,app,_)=install();
-    for wash in [Some(true),None] {
-        c.execute("UPDATE users SET wash_sale_enabled=?1",[wash]).unwrap();
-        assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("not_ported"));
-    }
+    // The question not answered refuses (WS-4b serves it); the rule on does not (WS-4a).
+    c.execute("UPDATE users SET wash_sale_enabled=NULL",[]).unwrap();
+    assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("not_ported"));
     c.execute("UPDATE users SET wash_sale_enabled=0",[]).unwrap();
     c.execute("UPDATE bots SET status=7 WHERE id=?1",[id]).unwrap();
     let archived=api(&c,&app,s.user_id,id,json!({"symbol":"BTC"}));
@@ -81,7 +80,8 @@ fn api_uses_the_web_wash_refusal_and_rails_domain_codes() {
 
 #[tokio::test(flavor="current_thread")]
 async fn web_modal_and_submit_use_the_same_wash_page_refusal() {
-    for wash in [Some(true),None] {
+    // The unanswered question only: the rule on is served (WS-4a).
+    for wash in [None::<bool>] {
         let (_d,c,_s,id,app,mut b)=install();
         c.execute("UPDATE users SET wash_sale_enabled=?1",[wash]).unwrap();
         assert_eq!(b.get(&app,&format!("/bots/{id}/liquidation/new?symbol=BTC")).await.status,501);
