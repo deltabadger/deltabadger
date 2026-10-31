@@ -50,6 +50,12 @@ impl RunIdentity {
 }
 
 impl Bot {
+    /// No bot: the user's trading key on `exchange_id`, for what reads a key as a bot on that venue would (the venue
+    /// `engine::run::venue_for_key` builds for an API cancel by exchange order id). Never stored, never ticked.
+    pub(crate) fn key_holder(user_id: i64, exchange_id: i64) -> Self {
+        Self { id: 0, user_id, exchange_id, status: BotStatus::Stopped, bot_type: String::new(), settings: Value::Null, transient: Value::Null,
+               started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false }
+    }
     pub fn run_generation(&self) -> i64 { self.transient["run_generation"].as_i64().unwrap_or(0) }
     /// Bumped by a web write that adds to the bot's order history (web::bot::csv's import), never by a stop or a start: an
     /// operation leg sized from the holdings before it is fenced (placement::begin_checked).

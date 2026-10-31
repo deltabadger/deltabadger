@@ -14,27 +14,77 @@ pub const REREAD: &str = "rust_cancel_reread:";
 
 enum Found { NoBot, NoRow, Refused, Answered { cancelled: bool, invalid_key: Option<String> } }
 
-pub async fn destroy(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path((bot, tx)): Path<(String, String)>) -> Result<Response, WebError> {
-    destroy_with_factory(State(app), Extension(ctx), Path((bot, tx)), |c, app| {
-        // The App's Alpaca hosts, as MCP reads use them (a test's server; Alpaca's own otherwise).
-        crate::venue::alpaca::LiveFactory::for_install(c, &app.cipher).with_clock(app.clock.clone()).on_hosts(app.settings_key_hosts.clone())
-    }).await
+/// What one bounded cancel came to: the venue's yes, its refusal (with whether its text is the venue's invalid-key error),
+/// or no answer at all (a transport failure or the timeout, with its message).
+pub(crate) enum Sent { Cancelled, Refused { errors: Vec<String>, invalid_key: bool }, Unanswered(String) }
+
+/// The one cancel operation (with the adapter's own steps), bounded, never retried here. No transaction is open.
+pub(crate) fn send<V: Venue>(runtime: &tokio::runtime::Handle, venue: &V, order: &crate::venue::OrderRef) -> Sent {
+    match runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.cancel_with(order))) {
+        Ok(Ok(())) => Sent::Cancelled,
+        Ok(Err(VenueError::Rejected(errors) | VenueError::Unauthorized(errors) | VenueError::Coded { errors, .. })) => {
+            let invalid_key = venue.rules().is_invalid_key(&errors);
+            Sent::Refused { errors, invalid_key }
+        }
+        // D-CANCEL-TRANSPORT-FAILURE: Rails' controller does not rescue a network failure (a 500); here it is a failure.
+        Ok(Err(VenueError::Transient(why) | VenueError::Ambiguous(why))) => Sent::Unanswered(why),
+        Err(_) => Sent::Unanswered(format!("the exchange did not answer within {} seconds", crate::venue::http::TOTAL_TIMEOUT.as_secs())),
+    }
 }
 
-/// The handler with an injected venue factory, for deterministic transport tests. Like the rebalance Resume it runs on a
-/// connection of its own, so the web's shared connection is never held while the venue answers.
-#[doc(hidden)]
-pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path((bot, tx)): Path<(String, String)>,
-    factory: impl FnOnce(&rusqlite::Connection, &App) -> F + Send + 'static) -> Result<Response, WebError> {
-    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+/// D-CANCEL-REREAD-ALWAYS: whatever the answer, the row is re-read (a refusal may hide a cancel that landed); Rails re-reads
+/// after a success only. The re-read is the engine's; this is the request's only write. One IMMEDIATE transaction: two
+/// overlapping cancels of the row must not both try the insert.
+pub(crate) fn leave_reread(c: &rusqlite::Connection, app: &App, bot: i64, tx: i64) -> Result<(), WebError> {
+    crate::engine::model::locked(c, |c| crate::app_config::set_plain(c, &format!("{REREAD}{tx}"), &serde_json::json!({ "bot": bot }).to_string(), app.now())
+        .map_err(crate::engine::EngineError::Data))?;
+    app.wake_engine();
+    Ok(())
+}
+
+/// Cancel row `tx` (order `external`) of `bot` on the bot's own venue, as Transaction#cancel does (`bot.cancel_order`),
+/// and leave the engine its re-read. The bot page and BotApi::Orders::Cancel's DB-id path both come here.
+pub(crate) fn send_for_row<F: VenueFactory>(c: &rusqlite::Connection, app: &App, factory: &F, runtime: &tokio::runtime::Handle,
+    bot: &crate::engine::model::Bot, tx: i64, external: &str) -> Result<Sent, WebError> {
+    let order = crate::venue::OrderRef::load(c, tx, external)?;
+    // Every credential, proxy and account rule is the engine's: the venue is built as the engine builds it.
+    let (venue, _) = crate::engine::run::venue_for(c, factory, &app.cipher, bot)?;
+    let sent = send(runtime, &venue, &order);
+    leave_reread(c, app, bot.id, tx)?;
+    Ok(sent)
+}
+
+/// The production venues a request cancels on: the engine's factory, on the App's Alpaca hosts and, where a test set one,
+/// its KuCoin host (the web's key-check URL).
+pub(crate) fn live_factory(c: &rusqlite::Connection, app: &App) -> crate::venue::alpaca::LiveFactory {
+    let factory = crate::venue::alpaca::LiveFactory::for_install(c, &app.cipher).with_clock(app.clock.clone()).on_hosts(app.settings_key_hosts.clone());
+    match app.venue_key_url_set(crate::venue::kucoin::KUCOIN) { Some(base) => factory.with_kucoin_base(&base), None => factory }
+}
+
+/// `work` on a connection of its own in a blocking task, so the web's shared connection is never held while a venue
+/// answers (as the rebalance Resume). `work` gets the runtime to block on.
+pub(crate) async fn on_own_connection<T: Send + 'static>(app: &App, work: impl FnOnce(&rusqlite::Connection, &App, &tokio::runtime::Handle) -> Result<T, WebError> + Send + 'static) -> Result<T, WebError> {
     let path = app.db(|c| c.path().filter(|path| !path.is_empty()).map(str::to_owned)
         .ok_or_else(|| WebError::Config("a cancel requires an install database".into()))).await?;
     let inner = app.clone();
     let runtime = tokio::runtime::Handle::current();
-    let found = tokio::task::spawn_blocking(move || -> Result<Found, WebError> {
+    tokio::task::spawn_blocking(move || -> Result<T, WebError> {
         let connection = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)?;
         crate::store::configure(&connection)?;
-        let c = &connection;
+        work(&connection, &inner, &runtime)
+    }).await.map_err(|e| WebError::Task(e.to_string()))?
+}
+
+pub async fn destroy(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path((bot, tx)): Path<(String, String)>) -> Result<Response, WebError> {
+    destroy_with_factory(State(app), Extension(ctx), Path((bot, tx)), live_factory).await
+}
+
+/// The handler with an injected venue factory, for deterministic transport tests.
+#[doc(hidden)]
+pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path((bot, tx)): Path<(String, String)>,
+    factory: impl FnOnce(&rusqlite::Connection, &App) -> F + Send + 'static) -> Result<Response, WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let found = on_own_connection(&app, move |c, inner, runtime| -> Result<Found, WebError> {
         // Rails' before_actions, in order: Botable#set_bot, set_transaction; then Transaction#cancel.
         let Some(id) = super::id_from_path(&bot) else { return Ok(Found::NoBot) };
         let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2", (id, user.id), |r| r.get(0)).optional()?;
@@ -49,25 +99,13 @@ pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Exten
         let Some(ext) = external.filter(|e| !e.starts_with("imported_")) else { return Ok(Found::Refused) };
         let bot = crate::engine::model::load_bot(c, id)?;
         let name: String = c.query_row("SELECT coalesce(e.name, '') FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [id], |r| r.get(0))?;
-        let order = crate::venue::OrderRef::load(c, tx, &ext)?;
-        // Every credential, proxy and account rule is the engine's: the venue is built as the engine builds it.
-        let (venue, _) = crate::engine::run::venue_for(c, &factory(c, &inner), &inner.cipher, &bot)?;
-        // The one cancel operation (with the adapter's own steps), bounded, never retried here. No transaction is open.
-        let sent = runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.cancel_with(&order)));
-        let (cancelled, invalid_key) = match &sent {
-            Ok(Ok(())) => (true, false),
-            Ok(Err(VenueError::Rejected(errs) | VenueError::Unauthorized(errs) | VenueError::Coded { errors: errs, .. })) => (false, venue.rules().is_invalid_key(errs)),
-            // D-CANCEL-TRANSPORT-FAILURE: Rails' controller does not rescue a network failure (a 500); here it is a failure.
-            Ok(Err(VenueError::Transient(_) | VenueError::Ambiguous(_))) | Err(_) => (false, false),
-        };
-        // D-CANCEL-REREAD-ALWAYS: whatever the answer, the row is re-read (a refusal may hide a cancel that landed); Rails
-        // re-reads after a success only. The re-read is the engine's; this is the request's only write.
-        // One IMMEDIATE transaction: two overlapping cancels of the row must not both try the insert.
-        crate::engine::model::locked(c, |c| crate::app_config::set_plain(c, &format!("{REREAD}{tx}"), &serde_json::json!({ "bot": id }).to_string(), inner.now())
-            .map_err(crate::engine::EngineError::Data))?;
-        inner.wake_engine();
-        Ok(Found::Answered { cancelled, invalid_key: invalid_key.then_some(name) })
-    }).await.map_err(|e| WebError::Task(e.to_string()))?;
+        let factory = factory(c, inner);
+        Ok(match send_for_row(c, inner, &factory, runtime, &bot, tx, &ext)? {
+            Sent::Cancelled => Found::Answered { cancelled: true, invalid_key: None },
+            Sent::Refused { invalid_key, .. } => Found::Answered { cancelled: false, invalid_key: invalid_key.then_some(name) },
+            Sent::Unanswered(_) => Found::Answered { cancelled: false, invalid_key: None },
+        })
+    }).await;
     match found {
         Ok(Found::NoBot) => Ok(page::not_found(&ctx)),
         Ok(Found::NoRow) => Ok(layout::missing()),
