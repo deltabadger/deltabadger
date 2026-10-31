@@ -226,7 +226,7 @@ module Pages
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
-                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios)
+                      .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios).merge(rebalance_in_progress_scenarios)
 
   # AUDIT #6: the same Resume confirmation clears an empty halt or hands back an owed buy.
   def rebalance_resolution_scenarios
@@ -239,6 +239,19 @@ module Pages
         post('/bots/1/rebalance_resolutions', {}, 'csrf' => 'header', 'expect' => 302,
              'may_mutate' => %w[bots bot_activity_logs]), get('/bots/1')))]
     end
+  end
+
+  # 3.0 plan A3: the bot page while a rebalance is selling or buying (the venue menu and the composition locked, no Redeploy
+  # offer), as a page, a frame, its feed and the list.
+  def rebalance_in_progress_scenarios
+    selling = stopped('coins', 'transient' => { 'rebalance_pending' => { 'phase' => 'selling', 'sell_transaction_id' => nil } })
+    buying = stopped('coins', 'columns' => { 'status' => 'scheduled' },
+                     'transient' => { 'rebalance_pending' => { 'phase' => 'buying', 'remaining_quote_amount' => '40', 'buy_attempted' => false } })
+    steps = ->(id) { [get("/bots/#{id}"), get("/bots/#{id}", 'Turbo-Frame' => 'bot'), get("/bots/#{id}.turbo_stream", FEED)] }
+    {
+      'rebalance_in_progress_selling' => with_bots([selling], signed_in(*steps.(1), get('/bots'))),
+      'rebalance_in_progress_buying' => with_bots([buying], signed_in(*steps.(1), get('/bots')))
+    }
   end
 
   # Slice 6c-5: the flashes of the real redeploy controllers, from the settings page. A page showing a sale is refused

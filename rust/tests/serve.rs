@@ -1792,8 +1792,6 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     store(&settings);
     for (sql, reason) in [
         ("UPDATE bots SET type = 'Bots::Signal'", "settings the wizard always stores are missing"),
-        ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
-        ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"buying\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Ibkr'", "a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"),
         ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.direction', 'selling')", "an index bot that sells"),
         // A ticker's decimals size the rounding: one past the bound, a negative one and the largest number the column holds.
@@ -1805,6 +1803,15 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         assert_eq!(refusal(), Some(reason), "{sql}");
         c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
     }
+    // A rebalance in progress is served in any phase (3.0 plan A3); one the engine cannot read is not.
+    for phase in ["selling", "buying"] {
+        c.execute_batch(&format!("SAVEPOINT change; UPDATE bots SET transient_data = '{{\"rebalance_pending\":{{\"phase\":\"{phase}\",\"sell_transaction_id\":null}}}}';")).unwrap();
+        assert_eq!(refusal(), None, "{phase}");
+        c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
+    }
+    c.execute_batch("SAVEPOINT change; UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\",\"sell_transaction_id\":[1]}}';").unwrap();
+    assert!(bot::refusal(c, id, Some(false), true, bot::For::Page).is_err());
+    c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
     // A bot stored without a name is served under the one Rails generates on load, which saves nothing.
     c.execute_batch("SAVEPOINT unnamed; UPDATE bots SET label = '  ';").unwrap();
     assert_eq!(refusal(), None, "a bot without a label is served");

@@ -138,7 +138,7 @@ fn settings_inner<T>(
     // Stored scope refusals survive. Only the pending lock's validation must precede its
     // page refusal, since a rejected composition still has a renderable narrow settings form.
     let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, wash_sale, provider, For::Settings)? };
-    if let Some(reason) = original_refusal.filter(|reason| *reason != "a rebalance, liquidation or redeploy in progress") { return Ok(Outcome::Unported(reason)); }
+    if let Some(reason) = original_refusal { return Ok(Outcome::Unported(reason)); }
     let mut mcp_carry = None;
     let mut mcp_refused = false;
     let mut refused = None;
