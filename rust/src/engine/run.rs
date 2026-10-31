@@ -120,6 +120,12 @@ pub(crate) fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, ciph
     Ok((crate::venue::Handle::new(venue,version.clone()),version))
 }
 
+/// The user's trading-key venue on `exchange_id`, built as a bot's on that venue (`venue_for`): for a request with no
+/// bot (an API cancel by exchange order id). IBKR never reaches here (D-ORDER-IBKR).
+pub(crate) fn venue_for_key<F: VenueFactory>(primary: &Connection, factory: &F, cipher: &Cipher, user: i64, exchange_id: i64) -> Result<crate::venue::Handle<F::V>, EngineError> {
+    Ok(venue_for(primary, factory, cipher, &model::Bot::key_holder(user, exchange_id))?.0)
+}
+
 /// A stop request for the loop: the tick in hand finishes, nothing new starts, and `run` returns `EngineError::Stopped`.
 /// The process's one stop signal (`serve`: the engine, the web and every background service).
 #[derive(Clone)]

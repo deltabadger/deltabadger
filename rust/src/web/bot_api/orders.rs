@@ -1,14 +1,17 @@
 //! app/services/bot_api/orders: MarketBuy, MarketSell, LimitBuy, LimitSell (with BotOrder for an order through a signal
 //! bot) and Cancel, up to their first venue call (PLAN-A9 slice O1). MCP and REST both call these and format the `Res`.
 //! Every refusal Rails makes before a venue call is made here in Rails' order, on the database alone; a dry run (MCP's
-//! paper trading) answers here too. A request that passes every check is `not_ported` until the engine places it.
+//! paper trading) answers here too. An order that passes every check is `not_ported` until the engine places it (O3, O4);
+//! a cancel that passes them is sent by `send_cancel` (slice O2), the bot page's one bounded call (web::bot::cancel).
 //!
 //! Named divergences: D-ORDER-AMOUNT-VALIDATION (a standalone amount, price or amount_type Rails hands to the venue is
 //! refused with BotOrder's texts), D-ORDER-IBKR (a venue this build does not trade passes Rails' checks, then answers
 //! `not_ported`), D-ORDER-DRY-NO-READ (a standalone dry run reads no price) and D-ORDER-DRY-CANCEL (a dry-run cancel
 //! answers its success text; Rails' Exchange::Dryable raises). D-ORDER-MARKET-PRICE (REST): a market order's `price`,
 //! which OrdersController permits and the market services do not take (Rails raises and leaves the key in progress), is
-//! ignored.
+//! ignored. D-ORDER-CANCEL-TRANSPORT (a cancel the venue never answers is `cancel_failed` with the transport's message;
+//! Rails raises), D-ORDER-KUCOIN-FOREIGN (a bare order id on a KuCoin HF or UTA account is refused unsent) and A4's
+//! D-CANCEL-REREAD-ALWAYS (a cancelled bot row is re-read by the engine whatever the venue answered, on either path).
 use super::{present, refused, Domain, Res};
 use crate::engine::model::{self, Ticker};
 use crate::web::{bot::mcp_input::number, App, WebError};
@@ -36,7 +39,6 @@ pub struct Caller { pub user: i64, pub dry_run: bool, pub mcp: bool }
 fn failure(status: Domain, code: &'static str, message: impl Into<String>) -> Res { Res::failure(status, code, message.into()) }
 fn not_ported(what: &str) -> Res { failure(Domain::NotPorted, "not_ported", refused(what)) }
 const PLACING: &str = "orders placed through MCP or the REST API";
-const CANCELLING: &str = "cancels sent through MCP or the REST API";
 /// D-ORDER-IBKR.
 const IBKR: &str = "orders through MCP or the REST API on this exchange";
 
@@ -227,39 +229,108 @@ fn venue_refusal(c: &Connection, app: &App, who: Caller, kind: Kind, t: &Through
     })
 }
 
+/// A cancel's outcome before the venue: Rails' answer, or the one cancel to send (`send_cancel`).
+pub enum Cancel { Done(Res), Send(CancelJob) }
+/// What a cancel past every check sends, and its success answer.
+pub struct CancelJob { target: Target, answer: Value }
+enum Target {
+    /// Transaction#cancel: the row's order on its bot's venue, then the engine's re-read.
+    Row { bot: i64, tx: i64, external: String },
+    /// `exchange.cancel_order(order_id:)` on the user's key; `row`: the user's bot row with that order id (bot, tx), whose
+    /// stored order (OrderRef::load) is cancelled and re-read (r3).
+    Key { user: i64, exchange: i64, external: String, row: Option<(i64, i64)> },
+}
+
+fn cancel_failed(why: &str) -> Res { failure(Domain::UpstreamFailed, "cancel_failed", format!("Cancel failed: {why}")) }
+
 /// BotApi::Orders::Cancel#call, up to its venue call.
-pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Value) -> Result<Res, WebError> {
-    if !present(order_id) { return Ok(failure(Domain::ValidationFailed, "missing_required_parameter", "Missing required parameter(s): order_id.")) }
+pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Value) -> Result<Cancel, WebError> {
+    if !present(order_id) { return Ok(Cancel::Done(failure(Domain::ValidationFailed, "missing_required_parameter", "Missing required parameter(s): order_id."))) }
     let text = to_s(order_id);
     // `\A\d+\z`, then `@user.transactions.submitted.open.find_by(id: to_i)`: a bot's row, whatever the bot's status.
     if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) {
-        // (id, imported, "base/quote", side, exchange name, exchange type)
-        type Row = (i64, bool, String, String, String, String);
+        // (id, bot, external id, "base/quote", side, exchange name, exchange type)
+        type Row = (i64, i64, String, String, String, String, String);
         let row: Option<Row> = match text.parse::<i64>() {
-            Ok(id) => c.query_row("SELECT t.id, substr(coalesce(t.external_id, ''), 1, 9) = 'imported_', coalesce(t.base, '') || '/' || coalesce(t.quote, ''), \
+            Ok(id) => c.query_row("SELECT t.id, t.bot_id, coalesce(t.external_id, ''), coalesce(t.base, '') || '/' || coalesce(t.quote, ''), \
                                    CASE t.side WHEN 0 THEN 'buy' WHEN 1 THEN 'sell' ELSE '' END, coalesce(e.name, ''), coalesce(e.type, '') FROM transactions t \
                                    JOIN bots b ON b.id=t.bot_id LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.id=?2 AND t.status=0 AND t.external_status=1",
-                [who.user, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).optional()?,
+                [who.user, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional()?,
             Err(_) => None,
         };
-        if let Some((id, imported, pair, side, exchange, venue)) = row {
+        if let Some((id, bot, external, pair, side, exchange, venue)) = row {
             // Transaction#cancel refuses an imported row before asking the venue.
-            if imported {
-                return Ok(failure(Domain::UpstreamFailed, "cancel_failed", format!("Cancel failed: {}", crate::web::i18n::text("en", "bot.messages.cannot_cancel_imported_order", &[]))));
+            if external.starts_with("imported_") {
+                return Ok(Cancel::Done(cancel_failed(&crate::web::i18n::text("en", "bot.messages.cannot_cancel_imported_order", &[]))));
             }
-            if !trades(&venue) { return Ok(not_ported(IBKR)) }
-            if !who.dry_run { return Ok(not_ported(CANCELLING)) }
-            return Ok(Res::success(json!({ "dry_run": true, "id": id, "exchange": exchange, "pair": pair, "side": side, "cancelled": true })));
+            // D-CANCEL-NO-EXTERNAL-ID, as the bot page: a row with no order id has nothing to name, so nothing is sent.
+            if external.is_empty() { return Ok(Cancel::Done(cancel_failed("the order has no exchange order id"))) }
+            if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
+            let answer = json!({ "dry_run": who.dry_run, "id": id, "exchange": exchange, "pair": pair, "side": side, "cancelled": true });
+            if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
+            return Ok(Cancel::Send(CancelJob { target: Target::Row { bot, tx: id, external }, answer }));
         }
     }
     if !present(exchange_name) {
-        return Ok(failure(Domain::ValidationFailed, "exchange_name_required", "Exchange name is required when cancelling by exchange order ID."));
+        return Ok(Cancel::Done(failure(Domain::ValidationFailed, "exchange_name_required", "Exchange name is required when cancelling by exchange order ID.")));
     }
-    let Some((exchange, name, venue)) = find_exchange(c, exchange_name)? else { return exchange_not_found(c, exchange_name) };
-    if !has_correct_key(c, who.user, exchange)? { return Ok(api_key_missing(&name)) }
-    if !trades(&venue) { return Ok(not_ported(IBKR)) }
-    if !who.dry_run { return Ok(not_ported(CANCELLING)) }
-    Ok(Res::success(json!({ "dry_run": true, "external_id": order_id, "exchange": name, "cancelled": true })))
+    let Some((exchange, name, venue)) = find_exchange(c, exchange_name)? else { return exchange_not_found(c, exchange_name).map(Cancel::Done) };
+    if !has_correct_key(c, who.user, exchange)? { return Ok(Cancel::Done(api_key_missing(&name))) }
+    if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
+    let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
+    if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
+    // r3: a stored order beats a bare id. The user's bot rows first (the latest with this venue and order id); then the
+    // retained standalone order log, which slice O4 adds (until then there is none to look in); then the bare id.
+    let row: Option<(i64, i64)> = c.query_row("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
+                                               WHERE b.user_id=?1 AND t.exchange_id=?2 AND t.external_id=?3 AND substr(t.external_id, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1",
+        rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    Ok(Cancel::Send(CancelJob { target: Target::Key { user: who.user, exchange, external: text, row }, answer }))
+}
+
+/// The one bounded cancel a `CancelJob` names, on a connection of its own (no lock held while the venue answers), and its
+/// answer. A refusal is Rails' `cancel_failed` with the venue's errors; no answer at all (a transport failure, the timeout)
+/// is the same failure with the transport's message (D-ORDER-CANCEL-TRANSPORT: Rails raises).
+pub async fn send_cancel(app: &App, job: CancelJob) -> Result<Res, WebError> {
+    use crate::web::bot::cancel::{self as page, Sent};
+    page::on_own_connection(app, move |c, app, runtime| {
+        let factory = page::live_factory(c, app);
+        let sent = match job.target {
+            Target::Row { bot, tx, external } => page::send_for_row(c, app, &factory, runtime, &model::load_bot(c, bot)?, tx, &external)?,
+            Target::Key { user, exchange, external, row } => {
+                let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, user, exchange)?;
+                match row {
+                    Some((bot, tx)) => {
+                        let order = crate::venue::OrderRef::load(c, tx, &external)?;
+                        let sent = page::send(runtime, &venue, &order);
+                        page::leave_reread(c, app, bot, tx)?;
+                        sent
+                    }
+                    None => {
+                        if let Some(why) = foreign_refusal(runtime, &venue, &external) { return Ok(cancel_failed(&why)) }
+                        page::send(runtime, &venue, &crate::venue::OrderRef { external_id: external, record: None })
+                    }
+                }
+            }
+        };
+        Ok(match sent {
+            Sent::Cancelled => Res::success(job.answer),
+            Sent::Refused { errors, .. } => cancel_failed(&errors.join(", ")),
+            Sent::Unanswered(why) => cancel_failed(&why),
+        })
+    }).await
+}
+
+/// D-ORDER-KUCOIN-FOREIGN: an order id with no stored route is sent on KuCoin's classic route, the only one Rails has. On
+/// an HF or UTA account (the key's resolved mode) that route cannot reach the order, so nothing is sent; nor when the mode
+/// cannot be read. None on a classic account and on every other venue.
+fn foreign_refusal<V: crate::venue::Venue>(runtime: &tokio::runtime::Handle, venue: &V, external: &str) -> Option<String> {
+    use crate::venue::kucoin_account::AccountMode;
+    match runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.kucoin_mode())) {
+        Ok(None | Some(Ok(AccountMode::ClassicLf))) => None,
+        Ok(Some(Ok(AccountMode::ClassicHf | AccountMode::Uta))) => Some(format!("Order {external} was not placed through Deltabadger; cancel it on KuCoin.")),
+        Ok(Some(Err(e))) => Some(e.message()),
+        Err(_) => Some(format!("the exchange did not answer within {} seconds", crate::venue::http::TOTAL_TIMEOUT.as_secs())),
+    }
 }
 
 /// The MCP tools' texts (MarketBuyTool, MarketSellTool, LimitBuyTool, LimitSellTool, CancelOrderTool): `[DRY RUN] ` before
