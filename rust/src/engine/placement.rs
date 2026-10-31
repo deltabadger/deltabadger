@@ -305,7 +305,10 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         // Still the run that sized it: a stop and a start put the row back to working, so it must still be the claim this tick
         // took (Automation::Statusable#stopped_mid_tick?): executing, with the same started_at and last_action_job_at.
         let same_run = match plan.kind {
-            TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => !matches!(current.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived),
+            // A web write that added to the bot's history meanwhile (a CSV import, web::bot::csv) bumped its history generation:
+            // the leg was sized from holdings that are no longer the bot's. A stop or a start does not hold it.
+            TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => !matches!(current.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived)
+                && current.history_generation() == bot.history_generation(),
             TxKind::Regular => current.status == crate::enums::BotStatus::Executing && current.run_identity()? == bot.run_identity()?,
         };
         if !same_run {
