@@ -168,7 +168,9 @@ module Pages
         'api_create_dca_start_refused' => api_case.([
           create(dca.(base_asset: nil, assets: 'AAPL,MSFT')).merge('before' => 'untradeable_msft'),
           create(dca.(base_asset: nil, assets: 'AAPL,MSFT', start_at: '')),
-          create(dca.(start_at: '2026-09-01T10:00:00Z')), create(dca.(start_at: 'nope'))
+          create(dca.(start_at: '2026-09-01T10:00:00Z')), create(dca.(start_at: 'nope')), create(dca.(start_at: 2)),
+          # Numbered entries are permitted as a hash, which Array() makes pairs of: refused, never the base_asset bot.
+          create(dca.(assets: { '0' => { symbol: 'MSFT' } }))
         ]),
         'api_create_index_refusals' => api_case.([
           create({ type: 'index' }), create(index.(interval: 'fortnight')), create(index.(exchange_name: 'Nope')),
@@ -191,7 +193,8 @@ module Pages
       # the zone repeats (2026-10-25T03:30) is D-API-CREATE-START-AT-AMBIGUOUS, tested in rust/tests/api_create.rs: Rails takes
       # the earlier one; this build refuses it as the web's start-time form does.
       { 'z' => "#{later.(3)}Z", 'offset' => "#{later.(3)}+02:00", 'naive' => later.(3), 'date' => later.(3)[0, 10],
-        'dst_gap' => '2027-03-28T03:30' }.each do |name, at|
+        'dst_gap' => '2027-03-28T03:30', 'offset_compact' => "#{later.(3)}+0200", 'offset_no_seconds' => "#{later.(3)[0, 16]}+02:00",
+        'z_no_seconds' => "#{later.(3)[0, 16]}Z" }.each do |name, at|
         grid["api_create_start_at_#{name}"] = api_case.([create(dca.(start_at: at)), create(index.(start_at: at))])
       end
       grid

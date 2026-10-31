@@ -207,7 +207,8 @@ fn schedule(c: &Connection, user: i64, settings: &mut Map<String, Value>, start_
     let zone: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [user], |r| r.get(0))?;
     settings.insert("start_time_enabled".into(), json!(true));
     settings.insert("start_time_mode".into(), json!("date"));
-    let at = if present(value) { crate::codec::parse_form_time(&json!(text(value)), &zone, now).unwrap_or(Value::Null) } else { Value::Null };
+    // `user_time_zone.parse(value)`: only a String parses (anything else raises TypeError, rescued to nil).
+    let at = match value { Value::String(t) if present(value) => crate::web::timezone::parse_explicit_offset(mcp_input::strip(t)).map_or_else(|| crate::codec::parse_form_time(value, &zone, now).unwrap_or(Value::Null), |at| json!(at)), _ => Value::Null };
     settings.insert("start_at".into(), at);
     Ok(())
 }
@@ -444,13 +445,13 @@ mod tests {
     #[test]
     fn baskets_parse_as_rails_does() {
         let p = |v: Value| v.as_object().unwrap().clone();
-        let symbols = |v: Value| basket_entries(&p(v)).map(|e| e.into_iter().map(|(s, a)| (s, a.map(|a| a.to_s_f()))).collect::<Vec<_>>());
-        assert_eq!(symbols(json!({"assets": "AAPL:60,msft:40"})), Some(vec![("AAPL".into(), Some("60".into())), ("MSFT".into(), Some("40".into()))]));
+        let symbols = |v: Value| basket_entries(&p(v)).map(|e| e.into_iter().map(|(s, a)| (s, a.map(|a| a.to_f()))).collect::<Vec<_>>());
+        assert_eq!(symbols(json!({"assets": "AAPL:60,msft:40"})), Some(vec![("AAPL".into(), Some(60.0)), ("MSFT".into(), Some(40.0))]));
         assert_eq!(symbols(json!({"assets": "AAPL,MSFT,"})).map(|e| e.len()), Some(2), "a trailing comma is dropped, as String#split drops it");
         for refused in [json!({"assets": ","}), json!({"assets": "AAPL:"}), json!({"assets": "AAPL,aapl"}), json!({"assets": "AAPL,,MSFT"}), json!({"assets": [1, 2]})] {
             assert_eq!(symbols(refused.clone()), None, "{refused}");
         }
-        assert_eq!(symbols(json!({"base_asset": "AAPL", "second_base_asset": "MSFT", "allocation": 70})), Some(vec![("AAPL".into(), Some("70".into())), ("MSFT".into(), Some("30".into()))]));
+        assert_eq!(symbols(json!({"base_asset": "AAPL", "second_base_asset": "MSFT", "allocation": 70})), Some(vec![("AAPL".into(), Some(70.0)), ("MSFT".into(), Some(30.0))]));
         let many = (1..=101).map(|i| format!("S{i}")).collect::<Vec<_>>().join(",");
         assert_eq!(symbols(json!({"assets": many})), None);
     }

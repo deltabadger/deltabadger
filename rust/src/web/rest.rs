@@ -260,6 +260,9 @@ fn permitted(kind: super::bot::create::Kind, params: &Map<String, Value>) -> Map
             ("assets", Value::Array(items)) => Some((name.to_string(), Value::Array(items.iter().filter_map(|item| item.as_object().map(|h| {
                 Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect())
             })).collect()))),
+            // A hash of numbered entries is permitted as such (each entry filtered); any other hash is one entry.
+            ("assets", Value::Object(h)) if !h.is_empty() && h.keys().all(|k| k.bytes().all(|b| b.is_ascii_digit()) && !k.is_empty()) => Some((name.to_string(),
+                Value::Object(h.iter().map(|(k, v)| (k.clone(), v.as_object().map_or(Value::Null, |e| Value::Object(e.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect())))).collect()))),
             ("assets", Value::Object(h)) => Some((name.to_string(), Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect()))),
             _ => None,
         }
