@@ -247,6 +247,7 @@ impl<V:Venue> Venue for &V {
     async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).order_with(r,identify).await}
     async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{(*self).cancel_with(r).await}
     async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{(*self).origin_with(r).await}
+    async fn kucoin_mode(&self)->Option<Result<kucoin_account::AccountMode,VenueError>>{(*self).kucoin_mode().await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{(*self).candles(t,start_at,tf).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{(*self).withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{(*self).withdrawal_networks(coin).await}
@@ -281,6 +282,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_with(r,identify).await}
     async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{self.venue.cancel_with(r).await}
     async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{self.venue.origin_with(r).await}
+    async fn kucoin_mode(&self)->Option<Result<kucoin_account::AccountMode,VenueError>>{self.venue.kucoin_mode().await}
     async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.venue.candles(t,start_at,tf).await}
     async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.venue.withdrawal_addresses(coin).await}
     async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.venue.withdrawal_networks(coin).await}
@@ -334,8 +336,11 @@ impl OrderRef {
     }
     /// D-KUCOIN-HF-RETENTION: a row adopted with no provenance, its route not proven yet (`Venue::origin_with`).
     pub fn adopted(&self) -> bool { self.record.as_ref().is_some_and(|r| r["family"] == ADOPTED) }
-    /// D-KUCOIN-HF-RETENTION: a KuCoin HF or UTA row (its record's family), whose unread state is an obligation.
+    /// D-KUCOIN-HF-RETENTION: a KuCoin HF or UTA row (its record's family), read on its own route.
     pub fn routed(&self) -> bool { self.record.as_ref().is_some_and(kucoin::routed) }
+    /// A KuCoin row with a stored record (HF, UTA, or a classic row a switch held, UTA r12.2): its unread state is an
+    /// obligation, never a missing order.
+    pub fn protected(&self) -> bool { self.record.is_some() && !self.adopted() }
 }
 
 pub trait Venue {
@@ -390,6 +395,8 @@ pub trait Venue {
     /// D-KUCOIN-HF-RETENTION: the route of an adopted row (`OrderRef::adopted`), proven only by a positive answer naming it.
     /// Only KuCoin rows are adopted so; any other venue proves nothing.
     async fn origin_with(&self, _r: &OrderRef) -> Result<Origin, VenueError> { Ok(Origin::Unproven) }
+    /// UTA r3.1: a KuCoin account's mode as this venue detects it (cached), for `reconcile::observe`. Any other venue: None.
+    async fn kucoin_mode(&self) -> Option<Result<kucoin_account::AccountMode, VenueError>> { None }
     /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete. `symbol` is the pair
     /// the intent was sent for (Binance looks an order up per symbol; Kraken and Alpaca ignore it), never the bot's current one.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;

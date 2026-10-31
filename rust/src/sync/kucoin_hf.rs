@@ -90,11 +90,42 @@ pub fn observe_mode(c: &Connection, key: &Key, mode: AccountMode, now: DateTime<
             c.execute("UPDATE kucoin_coverage SET end_at = ?1, updated_at = ?1 WHERE user_id = ?2 AND exchange_id = ?3 AND source = ?4 AND start_at = ?5 AND end_at = ?6",
                       params![sql_time(now.max(b)), key.user_id, key.exchange_id, source, sql_time(a), sql_time(b)])?;
         }
-        Some(_) => add(c, key, mode_source(mode), (now, now), now)?,
+        Some(_) => {
+            add(c, key, mode_source(mode), (now, now), now)?;
+            hold_switched(c, key, now)?;
+        }
         None => {
             let start = if mode == AccountMode::ClassicHf { now - super::kucoin_hf_ledger::RETENTION + super::kucoin_hf_ledger::MARGIN } else { now };
             add(c, key, mode_source(mode), (start, now), now)?;
+            // A pure LF history records no episodes: its first other mode is a switch.
+            if mode != AccountMode::ClassicLf { hold_switched(c, key, now)?; }
         }
+    }
+    Ok(())
+}
+
+/// UTA r2.2, r12.1: a switch holds every unresolved order row of this history that has no record. Each gets a
+/// `family: "Classic"` record (its symbol, side, type and exact executed totals), so it is read on the classic route as
+/// before but protected as an HF or UTA row is: an unread state owes, nothing is written off, and only a terminal read or
+/// `reconcile-order` settles it. A record is never removed. Adopted rows whose route is unproven are held already.
+fn hold_switched(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), SyncError> {
+    let record = crate::venue::kucoin::ORDER_RECORD;
+    let origin = crate::engine::reconcile::ORIGIN;
+    let mut s = c.prepare(&format!(
+        "SELECT t.id, (SELECT CASE WHEN count(*) = 1 THEN max(k.ticker) END FROM tickers k WHERE k.exchange_id = t.exchange_id AND k.base_asset_id = t.base_asset_id \
+         AND k.quote_asset_id = t.quote_asset_id), coalesce(t.side, 0) = 1, coalesce(t.order_type, 0) = 1 \
+         FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE b.user_id = ?1 AND t.exchange_id = ?2 AND t.status = 0 AND t.external_status IN (0, 1) \
+         AND t.external_id IS NOT NULL AND t.external_id NOT LIKE 'imported_%' AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{record}' || t.id) \
+         AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{origin}' || t.id AND json_extract(k.value, '$.origin') = 'unproven') ORDER BY t.id"))?;
+    let rows: Vec<(i64, Option<String>, bool, bool)> =
+        s.query_map(params![key.user_id, key.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
+    drop(s);
+    for (id, symbol, sell, limit) in rows {
+        // The row's executed totals: the floor no answer may go below (`advance_totals`).
+        let row = crate::figures::fill::stored_order(c, id)?;
+        let exact = |v: Option<crate::ruby::BigDec>| v.unwrap_or_else(crate::ruby::BigDec::zero).to_s_f();
+        let value = serde_json::json!({ "family": "Classic", "symbol": symbol, "sell": sell, "limit": limit, "deal_size": exact(row.amount_exec), "deal_funds": exact(row.quote_amount_exec) });
+        crate::app_config::set_plain(c, &format!("{record}{id}"), &value.to_string(), now).map_err(SyncError)?;
     }
     Ok(())
 }

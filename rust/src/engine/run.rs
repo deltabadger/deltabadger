@@ -350,8 +350,13 @@ fn assert_guarded(c: &Connection, report: &eligibility::Report) {
 async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
     for id in super::reversal::unrecorded(&e.primary)? {
         if e.stopping() { break; }
-        let done = match model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)) {
-            Ok((venue, producer)) => super::reversal::cancel_captured(&e.primary, &venue, id, clock.now()).await.map(|txs| (txs, producer)),
+        let done = match model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot).map(|v| (bot, v))) {
+            // UTA r3.1: the account's mode first; while it can't be told, this bot's cancels wait for the next pass.
+            Ok((bot, (venue, producer))) => match super::reconcile::observe(&e.primary, &venue, &bot, clock.now()).await {
+                Ok(true) => super::reversal::cancel_captured(&e.primary, &venue, id, clock.now()).await.map(|txs| (txs, producer)),
+                Ok(false) => Ok((vec![], producer)),
+                Err(err) => Err(err),
+            },
             Err(err) => Err(err),
         };
         match done {

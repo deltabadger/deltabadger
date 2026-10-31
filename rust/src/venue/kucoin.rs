@@ -796,6 +796,10 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         let classic: Vec<String> = refs.iter().filter(|r| self.routed_ref(r).is_none() && !r.adopted()).map(|r| r.external_id.clone()).collect();
         let (mut found, mut excluded) = if classic.is_empty() { (vec![], vec![]) } else { super::Venue::orders_identified(self, &classic, identify).await? };
+        // UTA r12.2: a classic row a switch held is never missing: one the classic read could not find waits, excluded.
+        for r in refs.iter().filter(|r| r.record.as_ref().is_some_and(|rec| rec["family"] == "Classic")) {
+            if !found.iter().any(|s: &OrderState| s.txid == r.external_id) && !excluded.contains(&r.external_id) { excluded.push(r.external_id.clone()); }
+        }
         for r in refs {
             // D-KUCOIN-HF-RETENTION: an adopted row whose route is unproven is read on neither route: it waits, excluded.
             if r.adopted() { excluded.push(r.external_id.clone()); continue; }
@@ -845,6 +849,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// D-KUCOIN-HF-RETENTION: an adopted row's route. The classic order route always, the HF one on an HF account, each read for this id on the venue's own ticker for the row's pair, with its side and type: exactly one
     /// positive answer proves that route. A miss, an unreadable answer, both, or no ticker prove nothing; a failure worth
     /// retrying is its error (the row waits, excluded, either way).
+    async fn kucoin_mode(&self) -> Option<Result<super::kucoin_account::AccountMode, VenueError>> { Some(self.account_mode().await) }
     async fn origin_with(&self, r: &super::OrderRef) -> Result<super::Origin, VenueError> {
         use super::Origin;
         let Some(rec) = r.record.as_ref().filter(|_| r.adopted()) else { return Ok(Origin::Unproven) };
