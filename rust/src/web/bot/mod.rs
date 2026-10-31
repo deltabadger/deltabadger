@@ -8,6 +8,7 @@ pub mod redeploy;
 pub mod rebalance;
 pub mod action_view;
 pub mod cancel;
+pub mod csv;
 pub mod draft;
 pub mod index_switch;
 pub mod live;
