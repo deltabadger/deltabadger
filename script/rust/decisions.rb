@@ -5098,9 +5098,31 @@ module Decisions
                   'before_signal' => v['before_signal'], 'script' => { vn['key'] => http }, 'tick' => false,
                   'poll' => (vn['order'] if v['filled']) }.compact
       end
+      # PLAN-A9 O3: the `api` axis. BotApi::Orders::BotOrder.call on the same bot (no webhook call): the four denominations
+      # accepted, then a quote buy through every outcome the webhook cells name. What is compared: the rows, the lines, the
+      # mails, every order request and the service's Result (its status, code, message and data).
+      lock = { 'locks' => [{ 'asset' => 'BTC', 'until' => '2026-10-01T00:00:00Z' }] }
+      api = { 'buy-quote' => ['buy', '100', 'quote'], 'buy-base' => ['buy', '0.0015', 'base'], 'sell-base' => ['sell', '0.0015', 'base'], 'sell-quote' => ['sell', '100', 'quote'] }
+      api_cells = api.keys.map { |d| [d, 'accepted', {}] } +
+                  [['buy-quote', 'below_minimum', { 'amount' => '0.01' }], ['buy-quote', 'rejected', sizing['rejected']],
+                   ['buy-quote', 'rejected_after_failure', sizing['rejected_after_failure']], ['buy-quote', 'price_failed', sizing['price_failed']],
+                   ['buy-quote', 'server_error', sizing['server_error']], ['buy-quote', 'timeout', sizing['timeout']],
+                   ['buy-quote', 'no_order_id', sizing['no_order_id']], ['buy-quote', 'unresolved', { 'transient' => marker }]]
+      api_cells << ['buy-quote', 'locked', { 'wash' => lock }] unless vn['asset'] == 'stock'
+      api_cells << ['buy-quote', 'safe_then_accepted', { 'http' => sizing['safe_then_accepted']['http'] }] if vn['safe']
+      api_cells.each do |denomination, name, v|
+        side, amount, amount_type = api.fetch(denomination)
+        list << { 'name' => "signal-#{vkey}-api-#{denomination}-#{name}", 'kind' => 'signal', 'venue' => vn.fetch('venue', vkey), 'asset' => vn['asset'],
+                  'ticker' => vn['ticker'], 'rules' => [rules.fetch('buy-fixed').merge('enabled' => true)], 'transient' => v.fetch('transient', {}),
+                  'transactions' => v.fetch('transactions', []), 'at' => SIGNAL_AT, 'wash' => v['wash'],
+                  'api' => [{ 'side' => side, 'amount' => v.fetch('amount', amount), 'amount_type' => amount_type }],
+                  'script' => { vn['key'] => vn['http'].merge(v.fetch('http', {})) }, 'tick' => false }.compact
+      end
     end
-    list.tap { |l| raise "the signal grid has #{l.size} scenarios, not #{420 + 79 + 927}" unless l.size == 420 + 79 + 927 }
+    list.tap { |l| raise "the signal grid has #{l.size} scenarios, not #{SIGNAL_GRID_SIZE}" unless l.size == SIGNAL_GRID_SIZE }
   end
+  # The webhook cells (420 + 79 + 927) and the `api` axis (14 per venue with a placement-safe code, 13 without; a stock 12).
+  SIGNAL_GRID_SIZE = 420 + 79 + 927 + 196
 
   # ---- PLAN-wash-sale WS-3: the account's wash-sale rule over every leg the engine trades (grid-wash-sale) ----------------
   # Scenarios of the other grids, each with the account's rule on (US unless named) and the lock rows `wash` seeds
@@ -5262,7 +5284,7 @@ module Decisions
                                         'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'], 'reverse' => sc['reverse'],
                                         # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
                                         'signals' => sc['calls']&.map { |c| { 'signal_id' => bot.bot_signals.order(:id)[c['rule']].id, 'triggered_at' => c['triggered_at'] } },
-                                        'before_signal' => sc['before_signal'], 'secret' => sc['secret'], 'warn' => sc['warn'],
+                                        'before_signal' => sc['before_signal'], 'secret' => sc['secret'], 'warn' => sc['warn'], 'api' => sc['api'],
                                         # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
                                         'rails_floor' => (sc['record_floor'] && bot.reload.smart_interval_minimum(:quote).then { |m| { 'value' => m[:value].to_f, 'reason' => m[:reason].to_s } }) }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
@@ -5431,6 +5453,16 @@ module Decisions
         settle.(Time.iso8601(sc['at']))
       end
       signal_calls(sc, mails) if sc['signals']
+      # PLAN-A9 O3: BotApi::Orders::BotOrder at `at`, as an API or MCP caller sends it (never a dry run here).
+      api = sc['api']&.map do |a|
+        bot = Bot.find(sc['bot_id'])
+        result = travel_to(Time.iso8601(sc['at']), with_usec: true) do
+          BotApi::Orders::BotOrder.call(user: bot.user, bot_id: bot.id, side: a['side'].to_sym, amount: a['amount'], amount_type: a['amount_type'])
+        end
+        mails.concat(enqueued_mails)
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        { 'status' => result.status.to_s, 'code' => result.error_code, 'message' => result.error_message, 'data' => result.data&.as_json }
+      end
       if sc['check_at']
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         check_time = Time.iso8601(sc['check_at'])
@@ -5515,6 +5547,7 @@ module Decisions
              elsif ScriptedKrakenHttp.http then ScriptedKrakenHttp.sent else ScriptedKraken.sent end
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       out['checks'] = checks if sc['conditions']
+      out['api'] = api if api
       out['infos'] = infos if sc['info']
       out['warned'] = $warnings.tap { $warnings = nil } if sc['warn']
       out.merge!('reads' => ScriptedAlpaca.reads, 'ath' => Bot.find(sc['bot_id']).tickers.first.slice('ath', 'ath_updated_at').transform_values { |v| v&.to_s }) if sc['record_reads']

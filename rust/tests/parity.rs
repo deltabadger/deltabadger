@@ -2469,6 +2469,9 @@ fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
+/// decisions.rb SIGNAL_GRID_SIZE: the webhook cells and PLAN-A9 O3's `api` axis.
+const SIGNAL_GRID_SIZE: usize = 420 + 79 + 927 + 196;
+
 /// Plan 8a: one webhook call of a signal bot (script/rust/decisions.rb signal_scenarios): Bot::SignalJob at `at` with its own
 /// retries, against the engine's executor on a pristine copy, on Kraken, Binance, KuCoin and Alpaca (crypto and a stock).
 /// Recorded per case: the rows, the lines, the mails and every order request the venue received (the assertion against a
@@ -2492,7 +2495,7 @@ fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
 ///   no mail. Same order sent.
 #[tokio::test(flavor = "current_thread", start_paused = true)] // Exchange#with_transient_retry's backoff, never slept
 async fn rails_and_rust_decide_identically_across_the_signal_grid() {
-    let (_copies, outputs) = grid_outputs("grid-signal", 420 + 79 + 927).await;
+    let (_copies, outputs) = grid_outputs("grid-signal", SIGNAL_GRID_SIZE).await;
     let marker = |out: &serde_json::Value| -> Option<serde_json::Value> {
         out["changes"]["bots"].as_array().unwrap().iter().find_map(|b| b["after"]["transient_data"].get("signal_placement_unresolved").cloned())
     };
@@ -2507,6 +2510,10 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
         if wording {
             for l in out["changes"]["bot_activity_logs"].as_array_mut().unwrap() {
                 if l["after"]["event"] == "placement_ambiguous" { l["after"]["details"]["error"] = serde_json::json!("<error>"); }
+            }
+            // The `api` axis: BotOrder#answer repeats the adapter's wording.
+            for a in out["api"].as_array_mut().into_iter().flatten() {
+                if a["code"] == "placement_ambiguous" { a["message"] = serde_json::json!("<error>"); }
             }
         }
         out
@@ -2548,7 +2555,7 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     // Pinned on Rails' side, so that two silent sides cannot pass: what each case names really happened there.
     let mut pins = vec![];
-    for (name, _, out, _) in &outputs {
+    for (name, _, out, _) in outputs.iter().filter(|(name, ..)| !name.contains("-api-")) {
         let variant = name.splitn(5, '-').nth(4).unwrap_or_default();
         let sent = out["sent"].as_array().unwrap().len();
         let rows: Vec<i64> = out["changes"]["transactions"].as_array().unwrap().iter().filter(|t| t["before"].is_null()).map(|t| t["after"]["status"].as_i64().unwrap()).collect();

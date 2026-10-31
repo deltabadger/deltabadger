@@ -76,10 +76,10 @@ fn untradable(exchange: &str, ticker: &Ticker) -> Option<Res> {
 }
 /// Lookup.wash_sale_refusal: a live lock on the ticker's base asset while the rule is on. The date is the last locked day,
 /// in the zone Rails reads the deadline in.
-fn wash_refusal(c: &Connection, app: &App, who: Caller, ticker: &Ticker) -> Result<Option<Res>, WebError> {
+fn wash_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, ticker: &Ticker) -> Result<Option<Res>, WebError> {
     if crate::engine::wash::days(c, who.user).map_err(|e| WebError::Config(format!("{e:?}")))? == 0 { return Ok(None) }
     let until: Option<String> = c.query_row("SELECT buy_locked_until FROM wash_sale_locks WHERE user_id=?1 AND asset_id=?2 AND buy_locked_until > ?3 LIMIT 1",
-        rusqlite::params![who.user, ticker.base_asset_id, crate::codec::format_time(app.now())], |r| r.get(0)).optional()?;
+        rusqlite::params![who.user, ticker.base_asset_id, crate::codec::format_time(now)], |r| r.get(0)).optional()?;
     let Some(until) = until else { return Ok(None) };
     // `(buy_locked_until - 1.day).to_date`: one calendar day before the deadline's date in that zone (a DST change
     // makes it differ from 24 hours before).
@@ -98,13 +98,13 @@ fn trades(kind: &str) -> bool { crate::venue::registry::row(kind).is_some_and(|r
 pub enum Placed { Done(Res), Queued(Queued) }
 
 /// An order queued for the engine, with what its answer repeats of the request.
-pub struct Queued { id: i64, bot_id: i64, exchange: String, pair: String, base: String, side: &'static str, amount: Value, amount_type: String }
+pub struct Queued { pub id: i64, bot_id: i64, exchange: String, pair: String, base: String, side: &'static str, amount: Value, amount_type: String }
 
 /// MarketBuy/MarketSell/LimitBuy/LimitSell#call. `args`: the service's keyword arguments as the surface hands them over
 /// (a missing key is nil); `bot_id`: None only for nil (REST hands over `params[:bot_id].to_s`, MCP the number).
 pub fn place(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Placed, WebError> {
     Ok(match bot_id {
-        Some(bot_id) if !kind.limit() => return through_bot(c, app, who, kind, args, bot_id),
+        Some(bot_id) if !kind.limit() => return through_bot(c, app.now(), who, kind, args, bot_id),
         _ => Placed::Done(standalone(c, app, who, kind, args, bot_id)?),
     })
 }
@@ -128,7 +128,7 @@ fn standalone(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<Str
         return Ok(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {base}/{quote} not found on {name}.")));
     };
     if let Some(refusal) = untradable(&name, &ticker) { return Ok(refusal) }
-    if kind.buy() { if let Some(refusal) = wash_refusal(c, app, who, &ticker)? { return Ok(refusal) } }
+    if kind.buy() { if let Some(refusal) = wash_refusal(c, app.now(), who, &ticker)? { return Ok(refusal) } }
     // D-ORDER-AMOUNT-VALIDATION: where Rails hands these to the venue (or raises), BotOrder's refusals.
     if !number(arg(args, "amount")).is_some_and(|n| n.is_positive()) { return Ok(invalid_number("amount")) }
     let Some(amount_type) = amount_type(kind, args) else { return Ok(invalid_amount_type()) };
@@ -182,14 +182,15 @@ fn find_bot(c: &Connection, user: i64, id: i64) -> Result<Option<Through>, WebEr
 fn bot_not_found() -> Res { failure(Domain::NotFound, "bot_not_found", "Bot not found.") }
 
 /// BotOrder#call, up to its first venue call (`market_refusal`); a live order is queued for the engine.
-fn through_bot(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: &Value) -> Result<Placed, WebError> {
+/// Also the grid-signal `api` axis' entry (parity::api_orders), at the scenario's time.
+pub fn through_bot(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: &Value) -> Result<Placed, WebError> {
     let done = |res: Res| Ok(Placed::Done(res));
     let Some(amount) = number(arg(args, "amount")).filter(|n| n.is_positive()) else { return done(invalid_number("amount")) };
     let Some(amount_type) = amount_type(kind, args) else { return done(invalid_amount_type()) };
     let Some(id) = integer(bot_id).filter(|id| *id > 0) else { return done(failure(Domain::ValidationFailed, "invalid_number", "bot_id must be a whole number.")) };
     let Some(through) = find_bot(c, who.user, id)? else { return done(bot_not_found()) };
     if let Some(refusal) = bot_refusal(c, &through, args)? { return done(refusal) }
-    if let Some(refusal) = venue_refusal(c, app, who, kind, &through)? { return done(refusal) }
+    if let Some(refusal) = venue_refusal(c, now, who, kind, &through)? { return done(refusal) }
     if !trades(&through.venue) { return done(not_ported(IBKR)) }
     let (base, quote) = pair(c, &through)?;
     let mut queued = Queued { id: 0, bot_id: id, exchange: through.exchange.clone(), pair: format!("{base}/{quote}"), base, side: kind.side(), amount: arg(args, "amount").clone(), amount_type };
@@ -200,7 +201,7 @@ fn through_bot(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<St
         .map(|k| (k.to_string(), Some(arg(args, k)).filter(|v| present(v)).map_or(Value::Null, |v| json!(to_s(v))))).collect();
     let side = if kind.buy() { crate::venue::Side::Buy } else { crate::venue::Side::Sell };
     let new = crate::engine::api_orders::New { user_id: who.user, bot: &through.bot, side, amount: &amount, in_base: queued.amount_type == "base", supplied: &supplied };
-    queued.id = crate::engine::api_orders::insert(c, &new, app.now()).map_err(|e| WebError::Config(format!("{e:?}")))?;
+    queued.id = crate::engine::api_orders::insert(c, &new, now).map_err(|e| WebError::Config(format!("{e:?}")))?;
     Ok(Placed::Queued(queued))
 }
 
@@ -214,7 +215,7 @@ fn submitted(q: &Queued, dry_run: bool, transaction_id: Option<i64>, order_id: O
 
 /// BotOrder's late `bot_refusal`, on the bot as the engine found it when it took the request (`supplied`: the caller's
 /// pair fields).
-pub(crate) fn late_refusal(c: &Connection, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
+pub fn late_refusal(c: &Connection, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
     let Some(through) = find_bot(c, request.user_id, request.bot_id)? else { return Ok(Some(bot_not_found())) };
     bot_refusal(c, &through, &request.supplied)
 }
@@ -234,7 +235,7 @@ fn ambiguous(errors: &str, exchange: &str) -> Res {
 }
 
 /// BotOrder#answer: what the engine's outcome tells the caller (PLAN-A9 §2.4).
-fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
+pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
     use crate::engine::api_orders::Outcome;
     let sentence = |errors: &[String]| crate::ruby::to_sentence(errors);
     match outcome {
@@ -329,8 +330,8 @@ fn placement_unresolved(id: i64, exchange: &str) -> Res {
 }
 
 /// BotOrder#venue_refusal: a buy's wash-sale lock, then the stored key (pending is asked first).
-fn venue_refusal(c: &Connection, app: &App, who: Caller, kind: Kind, t: &Through) -> Result<Option<Res>, WebError> {
-    if kind.buy() { if let Some(ticker) = &t.ticker { if let Some(refusal) = wash_refusal(c, app, who, ticker)? { return Ok(Some(refusal)) } } }
+fn venue_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, t: &Through) -> Result<Option<Res>, WebError> {
+    if kind.buy() { if let Some(ticker) = &t.ticker { if let Some(refusal) = wash_refusal(c, now, who, ticker)? { return Ok(Some(refusal)) } } }
     let status: Option<i64> = c.query_row("SELECT status FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1", [who.user, t.bot.exchange_id], |r| r.get(0)).optional()?;
     Ok(match status {
         Some(s) if s == crate::enums::ApiKeyStatus::PendingActivation as i64 => Some(failure(Domain::Conflict, "api_key_pending", format!("The API key for {} is still pending activation.", t.exchange))),
