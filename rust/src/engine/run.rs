@@ -86,7 +86,10 @@ impl Resyncs {
 }
 
 impl<F: VenueFactory> Engine<F> {
+    /// Built before the web is attached (`App::attach_engine`), so an API order request still in the database belongs to a
+    /// process that died: it is settled here (api_orders::sweep_at_start), never taken.
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
+        if let Err(err) = super::api_orders::sweep_at_start(&primary, Utc::now()) { super::log(&format!("[engine] the API order requests of the last process were not swept: {err:?}")); }
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
@@ -301,7 +304,6 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
                 Ok(()) => e.events.send(EngineEvent::StatusChanged { bot_id: id }),
             }
         }
-        super::api_orders::sweep_at_start(&e.primary, clock.now())?;
         e.started = true;
     }
 

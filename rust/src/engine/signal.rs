@@ -354,7 +354,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
             SignalClaim::Locked => return answer(Outcome::Locked),
             SignalClaim::Disabled | SignalClaim::BelowMinimum => return Ok(Step::Ran),
             SignalClaim::Expired => return answer(Outcome::Busy),
-            SignalClaim::CapReached(left) => return answer(Outcome::CapReached { left: left.to_s_f() }),
+            SignalClaim::CapReached(left) => { let left = left.to_s_f(); return answer(Outcome::CapReached { left: left.strip_suffix(".0").unwrap_or(&left).to_string() }) }
             // The barrier rose between the check and the claim (it cannot in one loop, but the claim decides).
             SignalClaim::Blocked => return match claim {
                 Claim::Webhook(call) => Ok(Step::Waiting(expires_at(call))),

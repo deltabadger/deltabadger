@@ -478,10 +478,16 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
     }
     // D-SIG-CAP: the exact cap bounds a buy under the intent lock, on the call and on the one more attempt alike. A reduction
     // under the venue's minimum is the skipped row Rails writes for an order under it, with the call consumed.
+    // An API buy names its amount: one the cap does not fully cover is refused, never clamped (Jan, 2026-10-31).
+    if matches!(claim, Claim::Api(_)) && plan.side == Side::Buy {
+        if let Some(left) = super::accounting::exact_cap_available(&tx, &current)? {
+            if plan.quote_amount > left { return Ok(SignalClaim::CapReached(left)); }
+        }
+    }
     let guarded;
     let plan = if plan.side == Side::Buy {
         match super::amount::guard_exact_cap(&tx, &current, plan)? {
-            // An API buy names its amount: one the cap does not fully cover is refused, never clamped (Jan, 2026-10-31).
+            // Within the cap by its quote, but not once floored to what the venue is sent: refused too: one the cap does not fully cover is refused, never clamped (Jan, 2026-10-31).
             super::amount::CapGuard::Place(safe) if matches!(claim, Claim::Api(_)) && (safe.amount != plan.amount || safe.quote_amount != plan.quote_amount) => {
                 return Ok(SignalClaim::CapReached(super::accounting::exact_cap_available(&tx, &current)?.unwrap_or_else(BigDec::zero)));
             }
