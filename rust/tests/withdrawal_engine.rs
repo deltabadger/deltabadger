@@ -1944,13 +1944,19 @@ async fn kraken_quote_over_budget_or_threshold_refuses_before_send() {
         assert_eq!(kraken_sends(&t), 0);
     }
 }
+/// D-RULE-{KRAKEN,BINANCE,MEXC,GEMINI}-NO-LIVE-FIXTURE: the four venues Rails withdraws on (less Binance.US,
+/// D-RULE-BINANCE-US-UNSUPPORTED) send, each from its offline G0 evidence, with the fee semantics unknown.
 #[test]
-fn l_kraken_capability_is_enabled_with_unknown_fee_semantics() {
-    assert!(w::G0_ADAPTERS.contains(&"Exchanges::Kraken"));
+fn l_venues_capability_is_enabled_with_unknown_fee_semantics() {
+    let on = ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Mexc", "Exchanges::Gemini"];
     for row in &deltabadger::venue::registry::ROWS {
-        assert_eq!(row.withdraws, row.exchange_type == "Exchanges::Kraken", "{}", row.exchange_type);
+        let enabled = on.contains(&row.exchange_type);
+        assert_eq!(row.withdraws, enabled, "{}", row.exchange_type);
+        assert_eq!(row.withdrawals.is_some(), enabled, "{}", row.exchange_type);
+        assert_eq!(row.fee_on_top, None, "{}", row.exchange_type);
+        assert_eq!(w::G0_ADAPTERS.contains(&row.exchange_type), enabled, "{}", row.exchange_type);
     }
-    assert_eq!(deltabadger::venue::registry::row("Exchanges::Kraken").unwrap().fee_on_top, None);
+    assert!(deltabadger::venue::registry::row("Exchanges::BinanceUs").unwrap().withdrawals.is_none());
 }
 
 struct ScriptedKrakenFactory(ScriptedTransport);
@@ -2031,6 +2037,140 @@ async fn l_kraken_engine_above_threshold_sends_once_and_reserves_fee() {
 #[tokio::test]
 async fn l_kraken_engine_below_threshold_logs_without_sending() {
     kraken_engine_threshold(true).await;
+}
+
+/// The engine's factory for one venue in the L validators: the real adapter on ScriptedTransport.
+struct ScriptedFactory<F>(&'static str, F);
+impl<V: Venue, F: Fn(deltabadger::crypto::Credentials) -> V> deltabadger::venue::VenueFactory for ScriptedFactory<F> {
+    type V = V;
+    fn for_bot(&self, exchange: &str, credentials: Option<deltabadger::crypto::Credentials>) -> V {
+        assert_eq!(exchange, self.0);
+        (self.1)(credentials.unwrap())
+    }
+}
+fn btc_pairs() -> deltabadger::venue::binance::Pairs {
+    deltabadger::venue::binance::Pairs { assets: [("BTC".into(), "BTC".into())].into(), ..Default::default() }
+}
+
+/// L-Binance, L-MEXC, L-Gemini: an active rule runs through `run::step` with the real adapter. Above the threshold it
+/// sends once, reserving the fee (fee_on_top None); below it, Rails' pending row and nothing sent.
+async fn l_engine_threshold<V: Venue>(class: &'static str, below: bool, factory: impl Fn(&ScriptedTransport, deltabadger::crypto::Credentials) -> V) {
+    use deltabadger::{engine::run, lease, store::{self, Paths}};
+    let (name, network, send, accepted, venue_id) = match class {
+        "Exchanges::Binance" => ("Binance", "BTC", B_SEND, json!({"id":"L-binance"}), "L-binance"),
+        "Exchanges::Mexc" => ("MEXC", "Bitcoin", M_SEND, json!({"id":"L-mexc"}), "L-mexc"),
+        _ => ("Gemini", "bitcoin", G_SEND, json!({"withdrawalId":"L-gemini"}), "L-gemini"),
+    };
+    let dir = common::rails_install();
+    let paths = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&paths, now()).unwrap();
+    let opened = store::open(&paths).unwrap();
+    let cipher = common::seed::cipher();
+    let seed = common::seed::seed_kraken(&opened.primary, &cipher);
+    opened.primary.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3", params![class, name, seed.exchange_id]).unwrap();
+    opened.primary.execute("UPDATE tickers SET ticker='BTCEUR',base='BTC' WHERE id=?1", [seed.ticker_id]).unwrap();
+    opened.primary.execute("UPDATE api_keys SET key_type=1 WHERE id=?1", [seed.api_key_id]).unwrap();
+    opened.primary.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,?3,?3)", params![seed.exchange_id,seed.btc,now().to_rfc3339()]).unwrap();
+    let settings = json!({"network":network,"withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":if below {"0.1"} else {"0.01"}});
+    opened.primary.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(1,?1,'Rules::Withdrawal',1,?2,?3,?4,?5,?6,?6)", params![seed.user_id,seed.exchange_id,seed.btc,cipher.encrypt("destination"),settings.to_string(),now().to_rfc3339()]).unwrap();
+    opened.primary.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES(1,'start:l-venue',?1)", [now().to_rfc3339()]).unwrap();
+    let free = if below { "0.05" } else { "1" };
+    let t = ScriptedTransport::default();
+    if class == "Exchanges::Gemini" {
+        t.set_now(now() + chrono::Duration::seconds(3600));
+        t.reply("POST /v1/balances", 200, json!([{"currency":"BTC","type":"exchange","amount":free,"available":free,"availableForWithdrawal":free}]));
+        t.reply("POST /v1/approvedAddresses/account/bitcoin", 200, json!({"approvedAddresses":[{"address":"destination","network":"bitcoin","status":"active"}]}));
+        t.reply("POST /v2/withdraw/bitcoin/btc/feeEstimate", 200, json!({"currency":"BTC","fee":"0.01"}));
+        t.reply("POST /v2/withdraw/bitcoin/btc/feeEstimate", 200, json!({"currency":"BTC","fee":"0.0099"}));
+        t.reply(G_STATUS, 200, json!([]));
+    } else {
+        let mexc = class == "Exchanges::Mexc";
+        t.set_now(now());
+        t.reply("GET /api/v3/account", 200, json!({"balances":[{"asset":"BTC","free":free,"locked":"0"}]}));
+        t.reply(if mexc { "GET /api/v3/capital/config/getall" } else { "GET /sapi/v1/capital/config/getall" }, 200,
+            json!([{"coin":"BTC","networkList":[{"network":network,"netWork":"BTC","withdrawEnable":true,"withdrawTag":false,"withdrawFee":"0.01","withdrawIntegerMultiple":"0.00000001","isDefault":true}]}]));
+        t.reply(if mexc { "GET /api/v3/capital/withdraw/address" } else { "GET /sapi/v1/capital/withdraw/address/list" }, 200,
+            if mexc { json!({"data":[{"coin":"BTC","network":"BTC","address":"destination"}],"page":1,"totalPageNum":1,"totalRecords":1}) }
+            else { json!([{"coin":"BTC","network":"BTC","address":"destination"}]) });
+        t.reply(e1_history(mexc), 200, json!([]));
+    }
+    t.reply(send, 200, accepted);
+    let sends = |t: &ScriptedTransport| t.requests().iter().filter(|r| format!("{} {}", r.method, r.path) == send).count();
+    let scripted = t.clone();
+    let mut engine = run::Engine::new(opened.primary, ScriptedFactory(class, move |cr| factory(&scripted, cr)), cipher, lock);
+    for _ in 0..2 {
+        run::step(&mut engine, &FixedClock(now())).await.unwrap();
+    }
+    let c = &engine.primary;
+    let count = |table: &str| c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get::<_,i64>(0)).unwrap();
+    assert_eq!(count("rule_logs"), 1, "{class}");
+    assert_eq!(count("rust_withdrawal_intents"), 0, "{class}");
+    assert_eq!(count("rust_rule_evaluations WHERE consumed_at IS NULL"), 0, "{class}");
+    assert!(rules::status(c, 1).unwrap().is_none(), "{class}");
+    let (status, message, details): (i64, String, String) = c.query_row("SELECT status,message,details FROM rule_logs", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+    let details: Value = serde_json::from_str(&details).unwrap();
+    if below {
+        assert_eq!(sends(&t), 0, "{class}");
+        assert_eq!(status, 0, "{class}");
+        let vectors: Value = serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+        let oracle = &vectors["execute"].as_array().unwrap().iter().find(|cell| cell["case"] == "below_minimum_min_mode").unwrap()["rule_logs"][0];
+        assert_eq!(oracle["status"], "pending");
+        assert_eq!(message, oracle["message"], "{class}");
+        assert_eq!(details, oracle["details"], "{class}");
+        assert_eq!(count("rust_withdrawal_ids"), 0, "{class}");
+    } else {
+        assert_eq!(sends(&t), 1, "{class}");
+        assert_eq!(status, 1, "{class}: {message}");
+        assert_eq!(details["withdrawal_id"], venue_id);
+        assert_eq!(count("rust_withdrawal_ids"), 1, "{class}");
+        let requests = t.requests();
+        let sent = requests.iter().find(|r| format!("{} {}", r.method, r.path) == send).unwrap();
+        let field = |k: &str| -> String {
+            sent.body.as_ref().and_then(|b| b[k].as_str().map(str::to_string))
+                .or_else(|| sent.query.iter().find(|(q, _)| *q == k).map(|(_, v)| v.clone()))
+                .unwrap_or_else(|| panic!("{class}: no {k} in {sent:?}"))
+        };
+        // D-RULE-<VENUE>-NO-LIVE-FIXTURE: fee_on_top None reserves the fee, so amount + fee stays within the budget.
+        let amount = n(&field("amount"));
+        assert_eq!(amount, n("0.99"), "{class}");
+        let fee = if class == "Exchanges::Gemini" { n("0.0099") } else { n("0.01") };
+        assert!(&amount + &fee <= n("1"), "{class}");
+    }
+}
+
+fn l_binance(t: &ScriptedTransport, cr: deltabadger::crypto::Credentials) -> BinanceVenue<ScriptedTransport> {
+    BinanceVenue::new(t.clone(), deltabadger::venue::binance::URL, &cr.secret).with_identity(&cr).with_pairs(btc_pairs())
+}
+fn l_mexc(t: &ScriptedTransport, cr: deltabadger::crypto::Credentials) -> MexcVenue<ScriptedTransport> {
+    MexcVenue::new(t.clone(), deltabadger::venue::mexc::URL, &cr.secret).with_identity(&cr).with_pairs(btc_pairs())
+}
+fn l_gemini(t: &ScriptedTransport, cr: deltabadger::crypto::Credentials) -> GeminiVenue<ScriptedTransport> {
+    GeminiVenue::new(t.clone(), deltabadger::venue::gemini::URL).with_pairs(btc_pairs()).with_identity(&cr)
+}
+
+#[tokio::test]
+async fn l_binance_engine_above_threshold_sends_once_and_reserves_fee() {
+    l_engine_threshold("Exchanges::Binance", false, l_binance).await;
+}
+#[tokio::test]
+async fn l_binance_engine_below_threshold_logs_without_sending() {
+    l_engine_threshold("Exchanges::Binance", true, l_binance).await;
+}
+#[tokio::test]
+async fn l_mexc_engine_above_threshold_sends_once_and_reserves_fee() {
+    l_engine_threshold("Exchanges::Mexc", false, l_mexc).await;
+}
+#[tokio::test]
+async fn l_mexc_engine_below_threshold_logs_without_sending() {
+    l_engine_threshold("Exchanges::Mexc", true, l_mexc).await;
+}
+#[tokio::test]
+async fn l_gemini_engine_above_threshold_sends_once_and_reserves_fee() {
+    l_engine_threshold("Exchanges::Gemini", false, l_gemini).await;
+}
+#[tokio::test]
+async fn l_gemini_engine_below_threshold_logs_without_sending() {
+    l_engine_threshold("Exchanges::Gemini", true, l_gemini).await;
 }
 
 #[tokio::test]
@@ -2212,9 +2352,6 @@ async fn recorder_consumption_binding_and_no_rule_effects() {
     let eligibility_before = deltabadger::engine::eligibility::check_install(&d.c)
         .unwrap()
         .problems;
-    assert!(eligibility_before
-        .iter()
-        .any(|p| p.contains("withdrawals are not enabled")));
     let before = deltabadger::venue::registry::row("Exchanges::Binance")
         .unwrap()
         .withdraws;
@@ -2250,7 +2387,6 @@ async fn recorder_consumption_binding_and_no_rule_effects() {
         w::begin_recorder(&lock, &d.c, &d.cipher, &f, &spec, &FixedClock(now())).await
     )
     .contains("consumed"));
-    assert!(!before);
     assert_eq!(
         before,
         deltabadger::venue::registry::row("Exchanges::Binance")
@@ -2263,6 +2399,8 @@ async fn recorder_consumption_binding_and_no_rule_effects() {
             .unwrap()
             .problems
     );
+    // A venue that does not withdraw still never sends from the rule's evaluation after the recorder ran.
+    d.c.execute("UPDATE exchanges SET type='Exchanges::BinanceUs'", []).unwrap();
     d.eval();
     w::phase(
         &d.c,
@@ -3136,13 +3274,6 @@ async fn e1_x0_classifier_cells_through_real_adapters() {
         }
     }
 }
-#[test]
-fn e1_g0_gate_does_not_enable_live_withdrawals() {
-    for name in ["Exchanges::Binance", "Exchanges::Mexc"] {
-        assert!(w::G0_ADAPTERS.contains(&name));
-        assert!(!deltabadger::venue::registry::row(name).unwrap().withdraws);
-    }
-}
 fn e1_db(mexc: bool) -> Db {
     let d = Db::new();
     if mexc {
@@ -3737,15 +3868,6 @@ async fn gemini_x0_classifier_cells_through_real_adapter() {
     }
 }
 
-#[test]
-fn gemini_g0_gate_does_not_enable_live_withdrawals() {
-    assert!(w::G0_ADAPTERS.contains(&"Exchanges::Gemini"));
-    assert!(
-        !deltabadger::venue::registry::row("Exchanges::Gemini")
-            .unwrap()
-            .withdraws
-    );
-}
 
 #[tokio::test(start_paused = true)]
 async fn gemini_kill_worker() {
