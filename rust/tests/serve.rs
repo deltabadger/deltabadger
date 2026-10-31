@@ -265,6 +265,41 @@ async fn a_csp_report_is_accepted_without_a_session_or_a_token() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn a_refused_bot_is_listed_beside_the_others_and_only_its_page_is_refused() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let spec = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+    let served = common::seed::insert_bot(&opened.primary, &seeded, &spec);
+    // Refused by its row (a class these pages do not render) and by a number this build does not read.
+    let typed = common::seed::insert_bot(&opened.primary, &seeded, &spec);
+    let unread = common::seed::insert_bot(&opened.primary, &seeded, &spec);
+    opened.primary.execute("UPDATE bots SET label = 'Served' WHERE id = ?1", [served]).unwrap();
+    opened.primary.execute("UPDATE bots SET label = 'Odd type', type = 'Bots::Signal', settings = '{}' WHERE id = ?1", [typed]).unwrap();
+    opened.primary.execute("UPDATE bots SET label = NULL WHERE id = ?1", [unread]).unwrap();
+    opened.primary.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) \
+                            VALUES (?1, ?2, ?3, '1e1000000000', 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (unread, seeded.btc, seeded.ticker_id)).unwrap();
+    assert_eq!(browser.get(&app, &format!("/bots/{typed}")).await.status, 501);
+    assert_eq!(browser.get(&app, &format!("/bots/{unread}")).await.status, 501);
+
+    let list = browser.get(&app, "/bots").await;
+    assert_eq!(list.status, 200, "{}", list.body);
+    for id in [served, typed, unread] { assert!(list.body.contains(&format!("href=\"/bots/{id}\"")), "bot {id} is listed"); }
+    assert!(list.body.contains("Served") && list.body.contains("Odd type") && list.body.contains("New bot"), "{}", list.body);
+    // A refused bot's tile asks for no figures and offers no merge.
+    assert!(list.body.contains(&format!("data-bot-id=\"{typed}\" draggable=\"true\"\n     data-merge-ok=\"false\"")), "{}", list.body);
+    // The status filter reads a refused bot's stored status.
+    opened.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", (deltabadger::enums::BotStatus::Archived as i64, typed)).unwrap();
+    let archived = browser.get(&app, "/bots?filter=archived").await;
+    assert!(archived.status == 200 && archived.body.contains("Odd type") && !archived.body.contains("Served"), "{}", archived.body);
+    assert!(!browser.get(&app, "/bots").await.body.contains("Odd type"), "archived bots leave the default list");
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing() {
     let (dir, opened, seeded) = common::install();
     let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
@@ -290,10 +325,10 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     let page = browser.get(&app, &format!("/bots/{first}")).await;
     assert!(page.status == 501 && page.body.contains(&format!("GET /bots/{first}")), "{}", page.body);
     assert_eq!(browser.get(&app, &format!("/bots/{first}/chart")).await.status, 501);
-    // Two bots: the list, refused for the same reason.
+    // Two bots: the list, with both refused bots on it (each page stays refused).
     let second = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     opened.primary.execute("UPDATE bots SET label = 'Bitcoin'", []).unwrap();
-    assert_eq!(browser.get(&app, "/bots").await.status, 501);
+    assert_eq!(browser.get(&app, "/bots").await.status, 200);
     // A bot of a class these pages do not know is refused before its row is read as one they do.
     opened.primary.execute("UPDATE bots SET type = 'Bots::Signal', settings = '{}' WHERE id = ?1", [second]).unwrap();
     assert_eq!(browser.get(&app, &format!("/bots/{second}")).await.status, 501);
