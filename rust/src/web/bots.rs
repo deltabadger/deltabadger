@@ -4,7 +4,7 @@ use super::bot::{self, status, Bot, Kind};
 use super::layout::{self, Ctx, Page};
 use super::shell::{self, Shell};
 use super::{colors, i18n, App, WebError};
-use crate::enums::BotStatus;
+use crate::enums::{BotStatus, BOT_WORKING};
 use askama::Template;
 use axum::extract::{Extension, State};
 use axum::http::StatusCode;
@@ -227,11 +227,40 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
     })
 }
 
+/// A bot these pages refuse, as the dashboard lists it: from its row alone, linked to its own (refused) page,
+/// with no figures, controls or merge (3.0, D-DASHBOARD-REFUSED-TILE).
+struct Refused {
+    id: i64,
+    status: BotStatus,
+    label: String,
+    exchange_id: i64,
+    exchange: String,
+}
+
+impl Refused {
+    fn load(c: &Connection, id: i64, locale: &str) -> Result<Refused, WebError> {
+        let (status, label, exchange_id, class): (i64, Option<String>, Option<i64>, Option<String>) = c.query_row(
+            "SELECT b.status, b.label, b.exchange_id, e.type FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+        let label = label.filter(|label| !label.trim().is_empty()).unwrap_or_else(|| i18n::text(locale, "bot.new", &[]));
+        let exchange = bot::Exchange { id: exchange_id.unwrap_or_default(), name: String::new(), class: class.unwrap_or_default(), maker_fee: None }.name_id();
+        Ok(Refused { id, status: BotStatus::from_i64(status).unwrap_or(BotStatus::Stopped), label, exchange_id: exchange_id.unwrap_or_default(), exchange })
+    }
+
+    fn tile(&self, ctx: &Ctx) -> Tile {
+        Tile {
+            id: format!("tile_bot_{}", self.id), bot_id: self.id, mergeable: false, splittable: false, exchange_id: self.exchange_id,
+            quote_id: String::new(), quote_symbol: String::new(), open_orders: false, chips: vec![], href: ctx.path(&format!("/bots/{}", self.id)),
+            title: Title::None, exchange_svg: bot::exchange_svg(&self.exchange), pnl_id: format!("pnl_bot_{}", self.id), pnl: Some(String::new()),
+            label: self.label.clone(), bar: String::new(), progress: String::new(), button: String::new(),
+        }
+    }
+}
+
 enum Listing {
     /// No bot that is not deleted: the welcome page (D-STOCKS-NO-GATE: without Rails' "ask your admin" line).
     Empty,
     Body(String),
-    NotPorted(&'static str),
 }
 
 /// GET /bots.
@@ -251,23 +280,41 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         if ids.is_empty() { return Ok((shell, Listing::Empty)); }
         let (deltabadger, configured) = market_data(c, &inner)?;
         let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
-        let mut bots = vec![];
+        // A bot these pages refuse is listed by its row alone, and only its own page is refused (3.0, D-DASHBOARD-REFUSED-TILE).
+        let asked = if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage };
+        let mut entries: Vec<Result<Bot, Refused>> = vec![];
         for id in &ids {
-            if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage })? { return Ok((shell, Listing::NotPorted(reason))); }
-            if let Some(bot) = Bot::find(c, user.id, *id, bot::For::Page, ctx.locale)? {
-                if let Some(reason) = bot.unrendered() { return Ok((shell, Listing::NotPorted(reason))); }
-                bots.push(bot);
+            let found = match bot::refusal(c, *id, wash_sale, deltabadger, asked) {
+                Ok(Some(reason)) => Err(reason),
+                Ok(None) => match Bot::find(c, user.id, *id, bot::For::Page, ctx.locale) {
+                    Ok(Some(bot)) => bot.unrendered().map_or(Ok(Some(bot)), Err),
+                    Ok(None) => Ok(None),
+                    Err(error) if bot::unreadable(&error) => Err(bot::UNREADABLE),
+                    Err(error) => return Err(error),
+                },
+                Err(error) if bot::unreadable(&error) => Err(bot::UNREADABLE),
+                Err(error) => return Err(error),
+            };
+            match found {
+                Ok(Some(bot)) => entries.push(Ok(bot)),
+                Ok(None) => {}
+                Err(reason) => {
+                    eprintln!("deltabadger: bot {id} is listed but not served: {reason}");
+                    entries.push(Err(Refused::load(c, *id, ctx.locale)?));
+                }
             }
         }
+        let bots: Vec<&Bot> = entries.iter().filter_map(|entry| entry.as_ref().ok()).collect();
         // From here on a page is rendered, and its forms carry the session's token.
         let csrf = ctx.csrf_token();
         let csrf = csrf.as_str();
-        let working = |bot: &Bot| bot.working();
-        let idle = |bot: &Bot| matches!(bot.status, BotStatus::Created | BotStatus::Stopped);
-        let archived = |bot: &Bot| bot.status == BotStatus::Archived;
-        let (total, has_active, has_inactive, has_archived) = (bots.iter().filter(|b| !archived(b)).count(), bots.iter().any(working), bots.iter().any(idle), bots.iter().any(archived));
+        let status = |entry: &Result<Bot, Refused>| match entry { Ok(bot) => bot.status, Err(refused) => refused.status };
+        let working = |entry: &Result<Bot, Refused>| BOT_WORKING.contains(&status(entry));
+        let idle = |entry: &Result<Bot, Refused>| matches!(status(entry), BotStatus::Created | BotStatus::Stopped);
+        let archived = |entry: &Result<Bot, Refused>| status(entry) == BotStatus::Archived;
+        let (total, has_active, has_inactive, has_archived) = (entries.iter().filter(|e| !archived(e)).count(), entries.iter().any(working), entries.iter().any(idle), entries.iter().any(archived));
         let filter = ctx.params.query("filter").unwrap_or("all");
-        let listed: Vec<&Bot> = bots.iter().filter(|bot| match filter { "active" => working(bot), "inactive" => idle(bot), "archived" => archived(bot), _ => !archived(bot) }).collect();
+        let shown: Vec<&Result<Bot, Refused>> = entries.iter().filter(|entry| match filter { "active" => working(entry), "inactive" => idle(entry), "archived" => archived(entry), _ => !archived(entry) }).collect();
         let filters = if (total > 1 && has_active && has_inactive) || has_archived {
             let names: &[&'static str] = if has_archived { &["all", "active", "inactive", "archived"] } else { &["all", "active", "inactive"] };
             let options = names.iter().map(|name| SegmentedOption {
@@ -278,7 +325,6 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         } else {
             None
         };
-        let (can_merge, can_split) = (listed.iter().filter(|bot| mergeable(bot).0).count() >= 2, listed.iter().any(|bot| mergeable(bot).1));
         // Bot::Merge.connected_exchange_ids, and `Exchange.tradeable.pluck(:id, :name).to_h`.
         let connected = connected_exchange_ids(c, user.id)?;
         let mut tradeable = c.prepare("SELECT id, name FROM exchanges WHERE available = 1 AND type IS NOT 'Exchanges::Bitmart' ORDER BY id")?;
@@ -293,13 +339,28 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let pnl_loading=figures.as_ref().is_none_or(|v|!v["account"].is_string()) && bots.iter().any(|bot| bot.has_submitted_orders);
         let headline=figures.as_ref().and_then(|v|v["account_page"].as_str().or_else(||v["account"].as_str())).map(str::to_string);
         let mut tiles = vec![];
-        for bot in &listed {
-            let mut tile=tile(c,ctx,csrf,bot,configured)?;
-            tile.pnl=figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["tile"].as_str()).map(str::to_string);
-            tiles.push(tile);
+        let mut cold = vec![];
+        for entry in &shown {
+            match entry {
+                Ok(bot) => match tile(c,ctx,csrf,bot,configured) {
+                    Ok(mut tile) => {
+                        tile.pnl=figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["tile"].as_str()).map(str::to_string);
+                        // BotsController#index: only the tiles still without figures are asked for (@tile_refresh_ids).
+                        if tile.pnl.is_none() { cold.push(bot.id); }
+                        tiles.push(tile);
+                    }
+                    // A number the tile reads (a cap's sum, say) this build does not: that bot's tile is plain, as a refused bot's.
+                    Err(error) if bot::unreadable(&error) => {
+                        eprintln!("deltabadger: bot {} is listed but not served: {}", bot.id, bot::UNREADABLE);
+                        tiles.push(Refused::load(c, bot.id, ctx.locale)?.tile(ctx));
+                    }
+                    Err(error) => return Err(error),
+                },
+                Err(refused) => tiles.push(refused.tile(ctx)),
+            }
         }
-        // BotsController#index: only the tiles still without figures are asked for (@tile_refresh_ids).
-        let cold: Vec<i64> = listed.iter().zip(&tiles).filter(|(_, tile)| tile.pnl.is_none()).map(|(bot, _)| bot.id).collect();
+        // From the tiles as drawn: a plain tile (a refused bot) offers neither.
+        let (can_merge, can_split) = (tiles.iter().filter(|tile| tile.mergeable).count() >= 2, tiles.iter().any(|tile| tile.splittable));
         let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
         let select_mode = can_merge || can_split;
         let stream = if ctx.turbo_frame.as_deref() == Some(SCOPE_FRAME) {
@@ -321,7 +382,6 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
     // One bot with a stored number this build does not read refuses the list, as any refused bot does.
     let (shell, listing) = match listed { Ok(listed) => listed, Err(error) => return layout::or_refused(&ctx, error) };
     let body = match listing {
-        Listing::NotPorted(reason) => return Ok(layout::refused(&ctx, reason)),
         Listing::Body(body) => body,
         Listing::Empty => {
             // The first bots page after a sign-in with no bots opens the new-bot wizard over hidden chrome, and every wizard
