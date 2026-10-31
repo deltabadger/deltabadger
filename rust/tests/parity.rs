@@ -2556,6 +2556,18 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     // Pinned on Rails' side, so that two silent sides cannot pass: what each case names really happened there.
     let mut pins = vec![];
+    // The `api` axis, pinned on Rails' side too: one BotOrder answer each, with the outcome the cell names.
+    for (name, _, out, _) in outputs.iter().filter(|(name, ..)| name.contains("-api-")) {
+        let answers = out["api"].as_array().unwrap_or_else(|| panic!("{name}: no BotOrder answer recorded"));
+        assert_eq!(answers.len(), 1, "{name}");
+        let code = answers[0]["code"].as_str();
+        let want = [("-accepted", None), ("-below_minimum", Some("below_minimum_amount")), ("-unresolved", Some("placement_unresolved")),
+                    ("-locked", Some("wash_sale_locked")), ("-rejected", Some("order_failed")), ("-rejected_after_failure", Some("order_failed")),
+                    ("-price_failed", Some("order_failed")), ("-no_order_id", Some("placement_ambiguous"))]
+            .iter().find(|(v, _)| name.ends_with(v)).map(|(_, c)| *c);
+        if let Some(want) = want { assert_eq!(code, want, "{name}: {}", answers[0]); }
+        if code.is_none() { assert_eq!(answers[0]["status"], "created", "{name}"); assert!(!out["sent"].as_array().unwrap().is_empty(), "{name}: nothing sent"); }
+    }
     for (name, _, out, _) in outputs.iter().filter(|(name, ..)| !name.contains("-api-")) {
         let variant = name.splitn(5, '-').nth(4).unwrap_or_default();
         let sent = out["sent"].as_array().unwrap().len();
