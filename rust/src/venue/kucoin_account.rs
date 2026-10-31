@@ -119,7 +119,8 @@ async fn read<T: Transport>(transport: &T, host: &str, path: &str) -> Result<ser
     Ok(body)
 }
 
-async fn detect<T: Transport>(transport: &T, host: &str) -> Result<AccountMode, VenueError> {
+/// The mode read now, past any cache (UTA r2.1: a unit is certified only on the mode detected at its end).
+pub(crate) async fn detect<T: Transport>(transport: &T, host: &str) -> Result<AccountMode, VenueError> {
     let mode = read(transport, host, MODE).await?;
     match mode["data"]["selfAccountMode"].as_str() {
         Some("UNIFIED") => Ok(AccountMode::UnsupportedUta),

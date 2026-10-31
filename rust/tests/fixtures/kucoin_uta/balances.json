@@ -150,6 +150,16 @@
             {
               "currencies": [
                 {
+                  "currency": "BTC",
+                  "equity": "0.5",
+                  "hold": "0.1",
+                  "balance": "0.5",
+                  "available": "0.4",
+                  "liability": "0",
+                  "potentialBorrow": "0",
+                  "collateralStatus": "1"
+                },
+                {
                   "currency": "USDT",
                   "equity": "-10",
                   "hold": "0",
@@ -169,10 +179,18 @@
         "sources": [
           "balance"
         ],
-        "note": "Any liability refuses the read; previous rows stay."
+        "note": "A currency with a liability keeps its previous row and is named; the others are stored (r6.2)."
       },
       "expect": {
-        "refused": true
+        "held": {
+          "BTC": "0.5"
+        },
+        "spendable": {
+          "BTC": "0.4"
+        },
+        "kept": [
+          "USDT"
+        ]
       }
     },
     {
@@ -215,10 +233,18 @@
         "sources": [
           "balance"
         ],
-        "note": "A negative balance refuses the read; previous rows stay."
+        "note": "A currency with a negative balance keeps its previous row and is named; the others are stored (r6.2)."
       },
       "expect": {
-        "refused": true
+        "held": {
+          "USDT": "10"
+        },
+        "spendable": {
+          "USDT": "10"
+        },
+        "kept": [
+          "BTC"
+        ]
       }
     },
     {

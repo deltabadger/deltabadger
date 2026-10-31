@@ -164,18 +164,25 @@ fn kucoin_uta_fill_walk_is_account_wide_with_exact_cursor() {
 fn kucoin_uta_balance_cases_never_spend_unpnl_or_show_debt() {
     for c in cases("balances") {
         let currencies = c["response"]["data"]["accounts"][0]["currencies"].as_array().unwrap();
-        let read: Option<Vec<(String, BigDec, BigDec)>> = currencies.iter().map(|x| {
+        // r6.2: a debt (a liability or a negative balance) keeps that currency's previous row; an unreadable amount refuses all.
+        type Row = (String, Option<(BigDec, BigDec)>);
+        let read: Option<Vec<Row>> = currencies.iter().map(|x| {
             let (balance, hold, available, liability) = (d(&x["balance"])?, d(&x["hold"])?, d(&x["available"])?, d(&x["liability"])?);
-            if balance < BigDec::zero() || liability > BigDec::zero() { return None; }
+            let currency = x["currency"].as_str()?.to_string();
+            if balance < BigDec::zero() || liability > BigDec::zero() { return Some((currency, None)); }
             let free = &balance - &hold;
-            Some((x["currency"].as_str()?.to_string(), balance, if available < free { available } else { free }))
+            Some((currency, Some((balance, if available < free { available } else { free }))))
         }).collect();
         match read {
             None => assert_eq!(c["expect"]["refused"], true, "{}", c["id"]),
-            Some(rows) => for (currency, held, spendable) in rows {
-                assert_eq!(held, d(&c["expect"]["held"][&currency]).unwrap(), "{} {currency}", c["id"]);
-                assert_eq!(spendable, d(&c["expect"]["spendable"][&currency]).unwrap(), "{} {currency}", c["id"]);
-            },
+            Some(rows) => {
+                let kept: Vec<&str> = rows.iter().filter(|(_, r)| r.is_none()).map(|(c, _)| c.as_str()).collect();
+                assert_eq!(serde_json::json!(kept), c["expect"]["kept"].as_array().cloned().map(Value::Array).unwrap_or(serde_json::json!([])), "{}", c["id"]);
+                for (currency, (held, spendable)) in rows.into_iter().filter_map(|(c, r)| Some((c, r?))) {
+                    assert_eq!(held, d(&c["expect"]["held"][&currency]).unwrap(), "{} {currency}", c["id"]);
+                    assert_eq!(spendable, d(&c["expect"]["spendable"][&currency]).unwrap(), "{} {currency}", c["id"]);
+                }
+            }
         }
     }
 }
@@ -205,4 +212,29 @@ fn kucoin_uta_independent_hmac_vectors_cover_get_query_and_post_body() {
         if c["id"] == "sign_get_unescaped_query" { assert_ne!(format!("https://api.kucoin.com{endpoint}"), url.as_str()); }
     }
     assert_eq!(methods, BTreeSet::from(["GET", "POST"]));
+}
+
+/// U1 (r1.10): the vectors through the real signer and the URL the transport sends: a UTA route signs its query in
+/// order and unescaped, the URL encodes it, and a POST signs its body.
+#[test]
+fn kucoin_uta_vectors_pass_through_the_real_signer() {
+    use deltabadger::venue::http::HttpRequest;
+    let f = fixture("signing");
+    let creds = &f["credentials"];
+    let ts: i64 = f["timestamp"].as_str().unwrap().parse().unwrap();
+    for c in f["cases"].as_array().unwrap() {
+        let r = &c["request"];
+        let query: Vec<(&'static str, String)> = r["query"].as_array().unwrap().iter()
+            .map(|p| (&*Box::leak(p[0].as_str().unwrap().to_string().into_boxed_str()), p[1].as_str().unwrap().to_string())).collect();
+        let body = r["body_bytes"].as_str().filter(|b| !b.is_empty()).map(|b| serde_json::from_str::<Value>(b).unwrap());
+        let method: &'static str = Box::leak(r["method"].as_str().unwrap().to_string().into_boxed_str());
+        let req = HttpRequest { method, base: deltabadger::venue::kucoin::URL.into(), path: r["path"].as_str().unwrap().into(), query, body, not_after: None };
+        let headers = deltabadger::venue::kucoin::headers(&req, creds["key"].as_str().unwrap(), creds["secret"].as_str().unwrap(), creds["passphrase"].as_str().unwrap(), ts);
+        let header = |k: &str| headers.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone());
+        for name in ["KC-API-SIGN", "KC-API-PASSPHRASE", "KC-API-KEY", "KC-API-TIMESTAMP", "KC-API-KEY-VERSION"] {
+            assert_eq!(header(name).as_deref(), c["expect"]["headers"][name].as_str(), "{} {name}", c["id"]);
+        }
+        assert_eq!(req.url().as_str(), c["expect"]["transport_url"].as_str().unwrap(), "{}", c["id"]);
+        if method == "POST" { assert_eq!(deltabadger::venue::kucoin::body_text(&req).as_deref(), r["body_bytes"].as_str(), "{}", c["id"]); }
+    }
 }

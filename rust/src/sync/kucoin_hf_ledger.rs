@@ -10,7 +10,12 @@
 //!   observation is at or before its start.
 //! - **Pages.** `symbol, startAt, endAt, limit=100`, then the answer's `lastId` (an exact integer) until an explicit
 //!   empty page. One fenced commit per page: the rows, the one-trade rule over their seconds, and the cursor.
-//! - **The end.** Complete: `hf_api` when certifiable, the attempt closed. Failed or abandoned (the unit's start left
+//! - **UTA** (D-KUCOIN-UTA-LEDGER, plan UTA r1.8a): the same unit over `GET /api/ua/v2/unified/order/execution`,
+//!   account-wide (`tradeType=SPOT`, no symbol, so no `missing:` observations), `pageSize=200`, sides `BUY|SELL` and ns
+//!   times mapped onto the classic fill (`funds` = `value`, `createdAt` = `executionTime / 10^6`), raw `"family":"Uta"`.
+//!   KuCoin states no retention for it; the HF one (7 d) is assumed, so a longer one only reads less, and shows as gap.
+//! - **The end.** Complete: `hf_api` (`uta_api`) when certifiable, only from the start of the family's current mode
+//!   episode and never for a family the account is not in now (r2.1); the attempt closed. Failed or abandoned (the unit's start left
 //!   KuCoin's retention before it finished): the attempt closed, nothing certified, and the error. What was published
 //!   stays; what was not read is the gap.
 use super::activities::{Entry, Raw};
@@ -24,6 +29,7 @@ use crate::jobs::Db;
 use crate::ruby::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::kucoin::KucoinVenue;
+use crate::venue::kucoin_account::AccountMode;
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -31,17 +37,60 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 pub const FILLS_PATH: &str = "/api/v1/hf/fills";
+pub const UTA_FILLS_PATH: &str = "/api/ua/v2/unified/order/execution";
 pub const SYMBOLS_PATH: &str = "/api/v2/symbols";
 /// KuCoin keeps HF fills this long, and answers at most this range (manifest: MAX_INTERVAL).
 pub const RETENTION: Duration = Duration::days(7);
 pub const MARGIN: Duration = Duration::hours(6);
 const OVERLAP: Duration = Duration::hours(25);
-const LIMIT: &str = "100";
+
 /// ponytail: one symbol's pages; past it the unit fails, never reads as complete.
 pub const MAX_PAGES: usize = 1_000;
 const MAX_PAGE_BYTES: usize = 4 * 1024 * 1024;
 
-fn progress_key(key_id: i64) -> String { format!("rust_sync.kucoin_hf:{key_id}") }
+/// One family's fills API: what a unit reads, how it pages, and its coverage sources.
+#[derive(Clone, Copy)]
+pub(super) struct Route {
+    pub mode: AccountMode, name: &'static str, path: &'static str, progress: &'static str, api: &'static str, attempt: &'static str, open: &'static str,
+    /// Symbol by symbol (HF), else one account-wide walk (UTA).
+    by_symbol: bool, limit: (&'static str, &'static str),
+    /// A page item checked strictly and mapped onto the classic fill's raw, or None.
+    item: fn(&Value, &str, Span) -> Option<Value>,
+}
+pub(super) const HF: Route = Route { mode: AccountMode::ClassicHf, name: "KuCoin HF fills", path: FILLS_PATH, progress: "rust_sync.kucoin_hf", api: hf::HF_API, attempt: hf::HF_ATTEMPT,
+                                     open: hf::HF_ATTEMPT_OPEN, by_symbol: true, limit: ("limit", "100"), item: hf_item };
+pub(super) const UTA: Route = Route { mode: AccountMode::UnsupportedUta, name: "KuCoin UTA fills", path: UTA_FILLS_PATH, progress: "rust_sync.kucoin_uta", api: hf::UTA_API,
+                                      attempt: hf::UTA_ATTEMPT, open: hf::UTA_ATTEMPT_OPEN, by_symbol: false, limit: ("pageSize", "200"), item: uta_item };
+impl Route {
+    pub(super) fn of(mode: AccountMode) -> Option<Self> { [HF, UTA].into_iter().find(|r| r.mode == mode) }
+    fn progress_key(&self, key_id: i64) -> String { format!("{}:{key_id}", self.progress) }
+}
+
+fn decimal(item: &Value, k: &str) -> Option<BigDec> { item[k].as_str().and_then(|s| BigDec::parse(s).ok()) }
+fn positive(item: &Value, k: &str) -> bool { decimal(item, k).is_some_and(|d| d.is_positive()) }
+
+/// An HF fill: the classic fill's own fields.
+fn hf_item(item: &Value, symbol: &str, (start, end): Span) -> Option<Value> {
+    let at = item["createdAt"].as_i64();
+    let ok = item["symbol"] == symbol && matches!(item["side"].as_str(), Some("buy" | "sell")) && (item["tradeId"].is_u64() || item["tradeId"].is_string())
+        && positive(item, "size") && positive(item, "funds") && decimal(item, "fee").is_some() && item["feeCurrency"].is_string()
+        && at.is_some_and(|a| a >= start.timestamp_millis() && a < end.timestamp_millis());
+    let mut raw = item.clone();
+    raw["family"] = json!("ClassicHf");
+    ok.then_some(raw)
+}
+
+/// A UTA execution (r1.1): SPOT only, a pair symbol, `BUY|SELL` exactly, the ns time within the unit.
+fn uta_item(item: &Value, _: &str, (start, end): Span) -> Option<Value> {
+    let at = item["executionTime"].as_u64().map(|ns| (ns / 1_000_000) as i64);
+    let side = match item["side"].as_str() { Some("BUY") => "buy", Some("SELL") => "sell", _ => return None };
+    let ok = item["tradeType"] == "SPOT" && item["symbol"].as_str().is_some_and(|s| s.contains('-')) && (item["tradeId"].is_u64() || item["tradeId"].is_string())
+        && positive(item, "size") && positive(item, "value") && decimal(item, "fee").is_some() && item["feeCurrency"].is_string()
+        && at.is_some_and(|a| a >= start.timestamp_millis() && a < end.timestamp_millis());
+    let mut raw = item.clone();
+    (raw["side"], raw["funds"], raw["createdAt"], raw["family"]) = (json!(side), item["value"].clone(), json!(at), json!("Uta"));
+    ok.then_some(raw)
+}
 
 /// How the HF unit of one run ended.
 #[derive(Debug, PartialEq)]
@@ -58,20 +107,18 @@ impl Unit {
     }
 }
 
-fn save(c: &Connection, key_id: i64, unit: &Unit, stamp: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
+fn save(c: &Connection, route: &Route, key_id: i64, unit: &Unit, stamp: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-              params![progress_key(key_id), unit.json(stamp).to_string(), sql_time(now)])?;
+              params![route.progress_key(key_id), unit.json(stamp).to_string(), sql_time(now)])?;
     Ok(())
 }
 
-/// The open attempt (the latest), the latest certified end, and the progress record when it is this credential's and
-/// these bounds'.
-/// The open attempt, the latest certified end, and the progress record.
+/// The open attempt (the latest), the latest certified end, and the progress record when it is this credential's.
 type Loaded = (Option<Span>, Option<DateTime<Utc>>, Option<Unit>);
-fn load(c: &Connection, key: &Key, stamp: &Value) -> Result<Loaded, SyncError> {
-    let open = hf::spans(c, key, hf::HF_ATTEMPT_OPEN)?.into_iter().map(|(_, s)| s).max();
-    let certified = hf::spans(c, key, hf::HF_API)?.into_iter().map(|(_, s)| s.1).max();
-    let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [progress_key(key.id)], |r| r.get(0)).optional()?.flatten();
+fn load(c: &Connection, route: &Route, key: &Key, stamp: &Value) -> Result<Loaded, SyncError> {
+    let open = hf::spans(c, key, route.open)?.into_iter().map(|(_, s)| s).max();
+    let certified = hf::spans(c, key, route.api)?.into_iter().map(|(_, s)| s.1).max();
+    let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [route.progress_key(key.id)], |r| r.get(0)).optional()?.flatten();
     let unit = raw.and_then(|r| serde_json::from_str::<Value>(&r).ok()).and_then(|v| {
         if !crate::engine::model::stamp_current_for(&v["credential"], stamp).is_fresh() { return None; }
         let t = |k: &str| v[k].as_str().and_then(|s| crate::codec::parse_time(s).ok());
@@ -105,14 +152,14 @@ fn episodes(c: &Connection, key: &Key, symbols: &[String], start: DateTime<Utc>,
     Ok(hf::spans(c, key, hf::MISSING)?.iter().all(|(_, (at, _))| *at <= start))
 }
 
-/// The attempt closed (`hf_attempt`), certified (`hf_api`) when `certify`, the progress record gone and the gap
-/// refreshed: completion, failure and abandonment alike.
-fn close(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, span: Span, certify: bool, now: DateTime<Utc>) -> Result<(), SyncError> {
+/// The attempt closed (`hf_attempt`), what it certifies (`hf_api`, r2.1's clip of `span`) when `certify`, the progress
+/// record gone and the gap refreshed: completion, failure and abandonment alike.
+fn close(c: &crate::engine::model::FencedTransaction<'_>, route: &Route, key: &Key, span: Span, certify: bool, now: DateTime<Utc>) -> Result<(), SyncError> {
     c.execute("DELETE FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3 AND start_at = ?4 AND end_at = ?5",
-              params![key.user_id, key.exchange_id, hf::HF_ATTEMPT_OPEN, sql_time(span.0), sql_time(span.1)])?;
-    hf::add(c, key, hf::HF_ATTEMPT, span, now)?;
-    if certify { hf::add(c, key, hf::HF_API, span, now)?; }
-    c.execute("DELETE FROM app_configs WHERE key = ?1", [progress_key(key.id)])?;
+              params![key.user_id, key.exchange_id, route.open, sql_time(span.0), sql_time(span.1)])?;
+    hf::add(c, key, route.attempt, span, now)?;
+    if certify { if let Some(certified) = hf::certifiable(c, key, route.mode, span)? { hf::add(c, key, route.api, certified, now)?; } }
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [route.progress_key(key.id)])?;
     hf::refresh_gap(c, key, now)
 }
 
@@ -132,36 +179,30 @@ async fn read<T: Transport>(venue: &KucoinVenue<T>, wait: std::time::Duration, p
     }
 }
 
-/// One page's items, each checked strictly and mapped as the classic fill is (identity `symbol-tradeId`, exact gross
-/// amounts, the fee's absolute value, raw orderId), its raw marked `"family":"ClassicHf"`; and the next `lastId`. None:
-/// the explicit empty page that ends the symbol.
-fn page(data: &Value, symbol: &str, (start, end): Span, sent: Option<u64>) -> Result<Option<(Vec<Entry>, u64)>, String> {
-    let items = data["items"].as_array().ok_or("KuCoin HF fills: items is not a list")?;
+/// One page's items, each checked strictly (`route.item`) and mapped as the classic fill is (identity `symbol-tradeId`,
+/// exact gross amounts, the fee's absolute value, raw orderId and family); and the next `lastId`. None: the explicit
+/// empty page that ends the walk.
+fn page(route: &Route, data: &Value, symbol: &str, span: Span, sent: Option<u64>) -> Result<Option<(Vec<Entry>, u64)>, String> {
+    let name = route.name;
+    let items = data["items"].as_array().ok_or(format!("{name}: items is not a list"))?;
     if items.is_empty() { return Ok(None); }
-    let last = data["lastId"].as_u64().ok_or("KuCoin HF fills: a page without an integer lastId")?;
-    if Some(last) == sent { return Err("KuCoin HF fills: lastId repeats the one sent".into()); }
-    let (from, to) = (start.timestamp_millis(), end.timestamp_millis());
+    let last = data["lastId"].as_u64().ok_or(format!("{name}: a page without an integer lastId"))?;
+    if Some(last) == sent { return Err(format!("{name}: lastId repeats the one sent")); }
     let mut entries: Vec<Entry> = vec![];
     for item in items {
-        let decimal = |k: &str| item[k].as_str().and_then(|s| BigDec::parse(s).ok());
-        let positive = |k: &str| decimal(k).is_some_and(|d| d.is_positive());
-        let at = item["createdAt"].as_i64();
-        let ok = item["symbol"] == symbol && matches!(item["side"].as_str(), Some("buy" | "sell")) && (item["tradeId"].is_u64() || item["tradeId"].is_string())
-            && positive("size") && positive("funds") && decimal("fee").is_some() && item["feeCurrency"].is_string() && at.is_some_and(|a| a >= from && a < to);
-        if !ok { return Err("KuCoin HF fills: a malformed fill".into()); }
-        let mut raw = item.clone();
-        raw["family"] = json!("ClassicHf");
-        let e = fill(Raw::from_value(raw)).map_err(|(why, _)| format!("KuCoin HF fills: {why}"))?;
+        let raw = (route.item)(item, symbol, span).ok_or(format!("{name}: a malformed fill"))?;
+        let e = fill(Raw::from_value(raw.clone())).map_err(|(why, _)| format!("{name}: {why}"))?;
         // The same id twice in one page: identical is one fill, any difference fails it.
-        let same = |a: &Entry| ["side", "size", "funds", "fee", "feeCurrency", "createdAt"].iter().all(|k| a.raw.value[k] == item[*k]);
-        match entries.iter().find(|a| a.tx_id == e.tx_id) { Some(a) if same(a) => continue, Some(_) => return Err("KuCoin HF fills: one id with two different fills in a page".into()), None => entries.push(e) }
+        let same = |a: &Entry| ["side", "size", "funds", "fee", "feeCurrency", "createdAt"].iter().all(|k| a.raw.value[k] == raw[*k]);
+        match entries.iter().find(|a| a.tx_id == e.tx_id) { Some(a) if same(a) => continue, Some(_) => return Err(format!("{name}: one id with two different fills in a page")), None => entries.push(e) }
     }
     Ok(Some((entries, last)))
 }
 
 /// The page's commit: its rows (an id already stored with a different fill fails the unit, nothing written), the
 /// one-trade rule over their seconds, and the cursor past it.
-async fn publish(db: &Db, version: &CredentialVersion, key: &Arc<Key>, entries: Vec<Entry>, unit: Unit, stamp: Value, now: DateTime<Utc>) -> Result<Result<(), String>, SyncError> {
+#[allow(clippy::too_many_arguments)]
+async fn publish(db: &Db, version: &CredentialVersion, route: Route, key: &Arc<Key>, entries: Vec<Entry>, unit: Unit, stamp: Value, now: DateTime<Utc>) -> Result<Result<(), String>, SyncError> {
     let k = key.clone();
     commit_for(db, version, move |c| {
         for e in &entries { if let Some(Err(why)) = hf::conflict(c, &k, e)? { return Ok(Err(why)); } }
@@ -172,19 +213,20 @@ async fn publish(db: &Db, version: &CredentialVersion, key: &Arc<Key>, entries: 
             ledger::store(c, &k, 0..batch.len(), None, p, now)?;
             hf::flush(c, &k, seconds, now)?;
         }
-        save(c, k.id, &unit, &stamp, now)?;
+        save(c, &route, k.id, &unit, &stamp, now)?;
         Ok(Ok(()))
     }).await
 }
 
-/// The HF unit of one ledger run, within half the run's deadline.
-pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venue: &KucoinVenue<T>, key: &Key, clock: &dyn Clock, wait: std::time::Duration,
+/// One family's unit of one ledger run, within half the run's deadline.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, route: Route, venue: &KucoinVenue<T>, key: &Key, clock: &dyn Clock, wait: std::time::Duration,
                                       run: &super::continuation::Run<'_>) -> Result<Ended, SyncError> {
     let budget = run.deadline / 2;
     let key = Arc::new(key.clone());
     let stamp = version.cache_stamp();
     let now = clock.now();
-    let (open, certified, recorded) = { let (k, s) = (key.clone(), stamp.clone()); phase(db, move |c| load(c, &k, &s)).await? };
+    let (open, certified, recorded) = { let (k, s) = (key.clone(), stamp.clone()); phase(db, move |c| load(c, &route, &k, &s)).await? };
     let end = second(now);
     let within = |start: DateTime<Utc>, at: DateTime<Utc>| at - RETENTION < start;
     // Establish: the open attempt while it is within retention, else a fresh unit (an expired one closed first).
@@ -196,9 +238,9 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venu
             let unit = Unit { start, end, symbols: None, index: 0, last_id: None, pages: 0 };
             let (k, u, s) = (key.clone(), unit.clone(), stamp.clone());
             commit_for(db, version, move |c| {
-                if let Some(old) = open { close(c, &k, old, false, now)?; }
-                hf::add(c, &k, hf::HF_ATTEMPT_OPEN, span, now)?;
-                save(c, k.id, &u, &s, now)?;
+                if let Some(old) = open { close(c, &route, &k, old, false, now)?; }
+                hf::add(c, &k, route.open, span, now)?;
+                save(c, &route, k.id, &u, &s, now)?;
                 hf::refresh_gap(c, &k, now)
             }).await?;
             (span, unit)
@@ -207,13 +249,14 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venu
     let fail = |text: String| {
         let k = key.clone();
         async move {
-            commit_for(db, version, move |c| close(c, &k, span, false, now)).await?;
+            commit_for(db, version, move |c| close(c, &route, &k, span, false, now)).await?;
             Ok::<_, SyncError>(Ended::Failed(text))
         }
     };
-    // Symbols, once per unit.
+    // Symbols, once per unit; an account-wide route walks once.
     let symbols = match unit.symbols.clone() {
         Some(symbols) => symbols,
+        None if !route.by_symbol => vec![String::new()],
         None => {
             let data = match read(venue, wait, SYMBOLS_PATH, vec![]).await { Ok(d) => d, Err(text) => return fail(text).await };
             let Some(list) = data.as_array().and_then(|l| l.iter().map(|s| s["symbol"].as_str().map(str::to_string)).collect::<Option<Vec<_>>>()) else {
@@ -222,7 +265,7 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venu
             unit.symbols = Some(list.clone());
             let (k, u, s) = (key.clone(), unit.clone(), stamp.clone());
             let listed = list.clone();
-            commit_for(db, version, move |c| { episodes(c, &k, &listed, span.0, now)?; save(c, k.id, &u, &s, now) }).await?;
+            commit_for(db, version, move |c| { episodes(c, &k, &listed, span.0, now)?; save(c, &route, k.id, &u, &s, now) }).await?;
             list
         }
     };
@@ -230,29 +273,33 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, venu
     let mut first = true;
     while unit.index < symbols.len() {
         if clock.now() - RETENTION >= span.0 {
-            return fail("the KuCoin HF unit left KuCoin's retention before it finished; what it did not read shows as a gap".into()).await;
+            return fail(format!("the {} unit left KuCoin's retention before it finished; what it did not read shows as a gap", route.name)).await;
         }
         if !first && run.stopwatch.elapsed() + reserve >= budget { return Ok(Ended::Paused); }
         first = false;
         let symbol = &symbols[unit.index];
-        let mut query = vec![("symbol", symbol.clone()), ("startAt", span.0.timestamp_millis().to_string()), ("endAt", (span.1.timestamp_millis() - 1).to_string()), ("limit", LIMIT.to_string())];
+        let first_param = if route.by_symbol { ("symbol", symbol.clone()) } else { ("tradeType", "SPOT".to_string()) };
+        let mut query = vec![first_param, ("startAt", span.0.timestamp_millis().to_string()), ("endAt", (span.1.timestamp_millis() - 1).to_string()), (route.limit.0, route.limit.1.to_string())];
         if let Some(id) = unit.last_id { query.push(("lastId", id.to_string())); }
-        let data = match read(venue, wait, FILLS_PATH, query).await { Ok(d) => d, Err(text) => return fail(text).await };
-        let (entries, next) = match page(&data, symbol, span, unit.last_id) {
+        let data = match read(venue, wait, route.path, query).await { Ok(d) => d, Err(text) => return fail(text).await };
+        let (entries, next) = match page(&route, &data, symbol, span, unit.last_id) {
             Err(text) => return fail(text).await,
             Ok(None) => (vec![], Unit { index: unit.index + 1, last_id: None, pages: 0, ..unit.clone() }),
             // The symbol's pages, counted across runs (the progress keeps the count).
-            Ok(Some(_)) if unit.pages >= MAX_PAGES => return fail(format!("Too many pages of KuCoin {FILLS_PATH} for {symbol}")).await,
+            Ok(Some(_)) if unit.pages >= MAX_PAGES => return fail(format!("Too many pages of KuCoin {}{}", route.path, if route.by_symbol { format!(" for {symbol}") } else { String::new() })).await,
             Ok(Some((entries, last))) => (entries, Unit { last_id: Some(last), pages: unit.pages + 1, ..unit.clone() }),
         };
-        if let Err(text) = publish(db, version, &key, entries, next.clone(), stamp.clone(), now).await? { return fail(text).await; }
+        if let Err(text) = publish(db, version, route, &key, entries, next.clone(), stamp.clone(), now).await? { return fail(text).await; }
         unit = next;
     }
-    // Complete: absence checked again against the rows as they are now (r4.2).
-    let k = key.clone();
+    // Complete: the mode read again (r2.1: certified only if it is still this family's; the reading is recorded), and
+    // absence checked again against the rows as they are now (r4.2).
+    let ended = venue.account_mode_now().await.ok();
+    let (k, at) = (key.clone(), clock.now());
     commit_for(db, version, move |c| {
-        let certify = episodes(c, &k, &symbols, span.0, now)?;
-        close(c, &k, span, certify, now)
+        if let Some(mode) = ended { hf::observe_mode(c, &k, mode, at)?; }
+        let certify = ended == Some(route.mode) && (!route.by_symbol || episodes(c, &k, &symbols, span.0, now)?);
+        close(c, &route, &k, span, certify, now)
     }).await?;
     Ok(Ended::Complete)
 }

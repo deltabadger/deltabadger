@@ -269,7 +269,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
             Err((text, false)) => errors.push(text),
         }
     }
-    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, None).await? {
+    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, None, &[]).await? {
         Ok(summary) => Ok(Ok(summary)),
         Err(why) => fail(why, false).await,
     }
@@ -305,13 +305,15 @@ pub(crate) async fn sync_binance_captured<T: Transport>(db: &Db, transport: T, h
         Ok(venue.signed_get(BINANCE_ACCOUNT_PATH, query, now, MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     // #handle_api_key_failure then #record_failure: Binance's invalid-key words condemn the key; nothing else does.
-    let venue = VenueBalances { names: binance_names, record: None, types: &[binance::BINANCE, binance::BINANCE_US], failure_text: binance::error_message, condemns: |_, messages| messages.iter().any(|m| binance::condemns(m)),
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[binance::BINANCE, binance::BINANCE_US], failure_text: binance::error_message, condemns: |_, messages| messages.iter().any(|m| binance::condemns(m)),
                                 held: |text, names, ids| binance_held(text, names, ids).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
 /// What KuCoin's trade-account answer may hold: one row per currency held.
 pub const KUCOIN_ACCOUNTS_PATH: &str = "/api/v1/accounts";
+/// A UTA's unified account (D-KUCOIN-UTA-BALANCES).
+pub const KUCOIN_UTA_BALANCE_PATH: &str = "/api/ua/v2/unified/account/balance";
 
 /// One balance sync of one KuCoin key, as AccountBalance::SyncJob runs it for that key: Exchanges::Kucoin#get_balances
 /// (the classic `trade` account, as Rails reads it; an HF account's `trade_hf`) then AccountBalance::Sync. Read only: one signed GET. A failure records
@@ -328,20 +330,35 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
                                                        -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::kucoin::{KucoinVenue, KUCOIN, URL};
     let captured = version.clone();
+    let seen: Arc<std::sync::Mutex<Option<crate::venue::kucoin_account::AccountMode>>> = Default::default();
+    let saw = seen.clone();
     let read = move |_: String| async move {
         use crate::venue::kucoin_account::AccountMode;
         let venue = KucoinVenue::new(transport, URL).with_account_context(captured, crate::venue::kucoin_account::Resolver::shared());
-        // D-KUCOIN-HF-LEDGER: an HF account's funds are its trade_hf account's; UTA (or no detection) is refused.
+        if let Ok(mode) = venue.account_mode().await { *saw.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(mode); }
+        // D-KUCOIN-HF-LEDGER: an HF account's funds are its trade_hf account's; a UTA's its unified account's
+        // (D-KUCOIN-UTA-BALANCES). No detection is refused.
         let kind = match venue.account_mode().await {
             Ok(AccountMode::ClassicLf) => "trade",
             Ok(AccountMode::ClassicHf) => "trade_hf",
-            Ok(mode @ AccountMode::UnsupportedUta) => return Ok(Err(mode.require_supported().err().map(|e| e.message()).unwrap_or_default())),
+            Ok(AccountMode::UnsupportedUta) => return Ok(venue.read_text_in_order(KUCOIN_UTA_BALANCE_PATH, vec![], MAX_BINANCE_ACCOUNT_BYTES).await),
             Err(e) => return Ok(Err(e.message())),
         };
         Ok(venue.read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", kind.to_string())], MAX_BINANCE_ACCOUNT_BYTES).await)
     };
-    let venue = VenueBalances { names: binance_names, record: None, types: &[KUCOIN], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::KUCOIN, venue, text), held: kucoin_held };
-    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+    let venue = VenueBalances { kept: Some(kucoin_kept), names: binance_names, record: None, types: &[KUCOIN], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::KUCOIN, venue, text), held: kucoin_held };
+    let out = sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await?;
+    // UTA r2.2: the mode this sync detected is recorded on a managed history (HF, UTA, or marked), whatever the read did.
+    let mode = *seen.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(mode) = mode {
+        let now = clock.now();
+        super::commit_for(db, version, move |c| {
+            let key = super::load_key_of(c, key_id, &[KUCOIN])?;
+            if mode != crate::venue::kucoin_account::AccountMode::ClassicLf || super::kucoin_hf::enabled(c, key.user_id, key.exchange_id)? { super::kucoin_hf::observe_mode(c, &key, mode, now)?; }
+            Ok(())
+        }).await?;
+    }
+    Ok(out)
 }
 
 /// One balance sync of one Bitvavo key, as AccountBalance::SyncJob runs it for that key: Exchanges::Bitvavo#get_balances
@@ -358,7 +375,7 @@ pub(crate) async fn sync_bitvavo_captured<T: Transport>(db: &Db, transport: T, p
                                                         -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::bitvavo::{BitvavoVenue, BALANCE_PATH, BITVAVO, URL};
     let read = move |_: String| async move { Ok(BitvavoVenue::new(transport, URL).read_text(BALANCE_PATH, vec![], MAX_BINANCE_ACCOUNT_BYTES).await) };
-    let venue = VenueBalances { names: binance_names, record: None, types: &[BITVAVO], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITVAVO, venue, text), held: bitvavo_held };
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[BITVAVO], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITVAVO, venue, text), held: bitvavo_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
@@ -381,7 +398,7 @@ pub(crate) async fn sync_mexc_captured<T: Transport>(db: &Db, transport: T, pric
         Ok(venue.read_text(&venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.to_string())], now), MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     // The account answer is Binance's shape (`binance_held`).
-    let venue = VenueBalances { names: binance_names, record: None, types: &[MEXC], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::MEXC, venue, text),
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[MEXC], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::MEXC, venue, text),
                                 held: |text, names, ids| binance_held(text, names, ids).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
@@ -402,7 +419,7 @@ pub(crate) async fn sync_bitrue_captured<T: Transport>(db: &Db, transport: T, pr
         Ok(venue.read_text(&venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.to_string())], now), MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     // The account answer is Binance's shape (`binance_held`).
-    let venue = VenueBalances { names: binance_names, record: None, types: &[BITRUE], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITRUE, venue, text),
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[BITRUE], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITRUE, venue, text),
                                 held: |text, names, ids| account_held(text, names, ids, str::to_uppercase).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
@@ -423,7 +440,7 @@ pub(crate) async fn sync_bingx_captured<T: Transport>(db: &Db, transport: T, pri
         Ok(venue.read_text(&venue.signed("GET", ACCOUNT_PATH, vec![], now), MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     // The account answer is Binance's shape (`binance_held`).
-    let venue = VenueBalances { names: binance_names, record: None, types: &[BINGX], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BINGX, venue, text),
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[BINGX], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BINGX, venue, text),
                                 held: |text, names, ids| {
         let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
         let Ok(raw) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), vec![]))) };
@@ -448,7 +465,7 @@ pub(crate) async fn sync_kraken_captured<T: Transport>(db: &Db, transport: T, pr
                                                        -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::kraken::{KrakenVenue, BALANCE_EX};
     let read = move |_: String| async move { Ok(KrakenVenue::new(transport).read_text(BALANCE_EX, MAX_BINANCE_ACCOUNT_BYTES).await) };
-    let venue = VenueBalances { names: |c, exchange_id| super::kraken_ledger::KrakenIdentity::load(c, exchange_id), types: &["Exchanges::Kraken"],
+    let venue = VenueBalances { kept: None, names: |c, exchange_id| super::kraken_ledger::KrakenIdentity::load(c, exchange_id), types: &["Exchanges::Kraken"],
                                 failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::KRAKEN, venue, text),
                                 held: |text, names, ids| kraken_read(text, names, ids).map(|read| read.map(|(held, _)| held)),
                                 record: Some(("rust_sync.kraken_unresolved", |text, names| kraken_read(text, names, &[]).ok().and_then(Result::ok).map(|(_, codes)| codes).unwrap_or_default())) };
@@ -527,8 +544,11 @@ fn read_by_key(text: String) -> Failed { (text.clone(), vec![text]) }
 /// the held balances, or the failure (`Failed`).
 /// `record`: a venue that keeps the codes it could not name (D-KR-6): the `app_configs` key prefix, and how the answer
 /// names them; written (or removed when there are none) in the sync's last commit.
+/// `kept`: a venue whose answer can name assets whose stored rows stay as they are, and why (`KeptRead`).
 struct VenueBalances<N = HashMap<String, i64>> { names: NamesRead<N>, types: &'static [&'static str], failure_text: fn(&str) -> String, condemns: fn(&str, &[String]) -> bool,
-                                                 held: HeldRead<N>, record: Option<(&'static str, CodesRead<N>)> }
+                                                 held: HeldRead<N>, record: Option<(&'static str, CodesRead<N>)>, kept: Option<KeptRead<N>> }
+/// The assets an answer keeps at their stored rows, with the sync error that names them (D-KUCOIN-UTA-BALANCES).
+type KeptRead<N> = fn(&str, &N, &[i64]) -> (Vec<i64>, Option<String>);
 /// The codes of a venue's answer that name no asset.
 type CodesRead<N> = fn(&str, &N) -> Vec<String>;
 /// A venue's answer read into its held balances, or its failure.
@@ -567,13 +587,13 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         Ok(text) => text,
         Err(text) => return fail(read_by_key((venue.failure_text)(&text))).await,
     };
-    let (asset_ids, held, record) = (catalog.asset_ids.clone(), venue.held, venue.record);
+    let (asset_ids, held, record, kept) = (catalog.asset_ids.clone(), venue.held, venue.record, venue.kept);
     let read = tokio::task::spawn_blocking(move || match held(&text, &names, &asset_ids) {
-        Ok(Ok(rows)) => Ok(Ok((rows, record.map(|(prefix, codes)| (prefix, codes(&text, &names)))))),
+        Ok(Ok(rows)) => Ok(Ok((rows, record.map(|(prefix, codes)| (prefix, codes(&text, &names))), kept.map(|k| k(&text, &names, &asset_ids)).unwrap_or_default()))),
         Ok(Err(failure)) => Ok(Err(failure)),
         Err(unread) => Err((unread, text)),
     }).await.unwrap_or_else(|_| Err((Unread::Raised("reading the venue's answer was interrupted".into()), String::new())));
-    let (held, record) = match read {
+    let (held, record, (kept, kept_error)) = match read {
         Ok(Ok(held)) => held,
         Ok(Err(failed)) => return fail(failed).await,
         // A 2xx body that is not JSON: honeymaker's failure is the body itself, read as any failure is.
@@ -584,8 +604,15 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
     let at = clock.now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     let record = record.map(|(prefix, codes)| (format!("{prefix}:{key_id}"), (!codes.is_empty()).then(|| serde_json::json!({ "codes": codes, "at": at }).to_string())));
-    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record).await? {
-        Ok(summary) => Ok(Ok(summary)),
+    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record, &kept).await? {
+        // The rows it kept are named after the success commit; a balance sync never clears the error (the ledger does).
+        Ok(summary) => {
+            if let Some(text) = kept_error {
+                let credentials = credentials.clone();
+                super::commit_for(db, version, move |c| record_sync_error(c, key_id, &text, &credentials)).await?;
+            }
+            Ok(Ok(summary))
+        }
         Err(why) => fail((why, vec![])).await,
     }
 }
@@ -629,6 +656,11 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     let rows = match body.member("data") {
         Some(Node::Array(rows)) if code.as_deref() == Some("200000") => rows,
         Some(Node::Scalar(token)) if token != "null" && code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
+        Some(Node::Object(_)) if code.as_deref() == Some("200000") && body.value["data"]["accountType"] == "UNIFIED" => {
+            let rows = match uta_currencies(&body) { Ok(rows) => rows, Err(failed) => return Ok(Err(failed)) };
+            let mut found: HashMap<i64, (BigDec, BigDec)> = rows.into_iter().filter_map(|(code, held)| Some((*names.get(&code).filter(|id| asset_ids.contains(id))?, held?))).collect();
+            return Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()));
+        }
         Some(Node::Object(_)) if code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
         _ => {
             let detail: Vec<String> = [code, part(&body.value["msg"])].into_iter().flatten().collect();
@@ -658,6 +690,58 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
 }
 
+/// D-KUCOIN-UTA-BALANCES: each currency of a UTA's unified account (`data.accounts[].currencies[]`). Holdings are
+/// `balance` (free `balance − hold`, locked `hold`), never less a liability; a currency with a liability or a negative
+/// balance is a debt (None), which keeps its previous row (UTA r6.2). An unreadable amount, a hold outside
+/// `[0, balance]` or a currency listed twice fails the read.
+type UtaRow = (String, Option<(BigDec, BigDec)>);
+fn uta_currencies(body: &Raw) -> Result<Vec<UtaRow>, Failed> {
+    let unreadable = || ("unreadable balances".to_string(), vec![]);
+    let data = body.object("data").ok().flatten().ok_or_else(unreadable)?;
+    let Some(Node::Array(accounts)) = data.member("accounts") else { return Err(unreadable()) };
+    let mut out: Vec<UtaRow> = vec![];
+    for account in accounts {
+        let account = Raw::from_node(account).map_err(|_| unreadable())?;
+        let Some(Node::Array(currencies)) = account.member("currencies") else { return Err(unreadable()) };
+        for row in currencies {
+            let row = Raw::from_node(row).map_err(|_| unreadable())?;
+            let Some(currency) = row.value["currency"].as_str().map(str::to_string) else { return Err(("KeyError: Key path currency not found".into(), vec![])) };
+            let quantity = |key: &str| match row.number(key) {
+                _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
+                Ok(Some(n)) => Ok(n),
+                Ok(None) => Err(format!("KeyError: Key path {key} not found")),
+                Err(why) => Err(why),
+            };
+            let (balance, hold, liability) = match (quantity("balance"), quantity("hold"), quantity("liability")) {
+                (Ok(b), Ok(h), Ok(l)) => (b, h, l),
+                (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => return Err((why, vec![])),
+            };
+            if out.iter().any(|(c, _)| *c == currency) { return Err((format!("KuCoin lists {currency} twice"), vec![])); }
+            let debt = balance < BigDec::zero() || liability.is_positive();
+            if !debt && (hold < BigDec::zero() || hold > balance) { return Err((format!("unreadable hold of {currency}"), vec![])); }
+            out.push((currency, (!debt).then(|| (&balance - &hold, hold))));
+        }
+    }
+    Ok(out)
+}
+
+/// The listed assets a UTA answer shows a debt in, whose rows stay, and the sync error naming every debt (UTA r6.2).
+fn kucoin_kept(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> (Vec<i64>, Option<String>) {
+    let Some(Ok(body)) = Raw::parse(text) else { return (vec![], None) };
+    if body.value["data"]["accountType"] != "UNIFIED" { return (vec![], None); }
+    let Ok(rows) = uta_currencies(&body) else { return (vec![], None) };
+    // Every debt is named; only a listed asset has a row to keep.
+    let codes: Vec<String> = rows.into_iter().filter(|(_, held)| held.is_none()).map(|(code, _)| code).collect();
+    let kept = codes.iter().filter_map(|code| names.get(code).filter(|id| asset_ids.contains(id)).copied()).collect();
+    let codes: Vec<&str> = codes.iter().map(String::as_str).collect();
+    let error = match codes.as_slice() {
+        [] => None,
+        [one] => Some(format!("KuCoin shows a debt in {one}. Its last balance is kept until the debt is gone.")),
+        many => Some(format!("KuCoin shows a debt in {}. Their last balances are kept until the debts are gone.", many.join(", "))),
+    };
+    (kept, error)
+}
+
 /// One balance sync of one Gemini key, as AccountBalance::SyncJob runs it for that key: Exchanges::Gemini#get_balances
 /// (Clients::Gemini#get_raw_balances, one signed POST) then AccountBalance::Sync. A failure records the venue's text;
 /// Gemini's invalid-key reasons mark the key incorrect unless they name a missing role (ApiKeyFailureHandling#failure_reason).
@@ -672,7 +756,7 @@ pub(crate) async fn sync_gemini_captured<T: Transport>(db: &Db, transport: T, pr
                                                        -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::gemini::{GeminiVenue, BALANCES, GEMINI, URL};
     let read = move |_: String| async move { Ok(GeminiVenue::new(transport, URL).read_text(BALANCES, vec![], MAX_BINANCE_ACCOUNT_BYTES).await) };
-    let venue = VenueBalances { names: binance_names, record: None, types: &[GEMINI], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::GEMINI, venue, text), held: gemini_held };
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[GEMINI], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::GEMINI, venue, text), held: gemini_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
@@ -721,7 +805,7 @@ pub(crate) async fn sync_bitget_captured<T: Transport>(db: &Db, transport: T, pr
                                                        -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::bitget::{BitgetVenue, ASSETS_PATH, BITGET, URL};
     let read = move |_: String| async move { Ok(BitgetVenue::new(transport, URL).read_text(ASSETS_PATH, vec![], MAX_BINANCE_ACCOUNT_BYTES).await) };
-    let venue = VenueBalances { names: binance_names, record: None, types: &[BITGET], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITGET, venue, text), held: bitget_held };
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[BITGET], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITGET, venue, text), held: bitget_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
@@ -787,7 +871,7 @@ pub(crate) async fn sync_hyperliquid_captured<T: Transport>(db: &Db, transport: 
         let venue = HyperliquidVenue::new(transport, URL, &user);
         Ok(venue.read_text("spotClearinghouseState", vec![("user", Value::from(user.clone()))], MAX_BINANCE_ACCOUNT_BYTES).await)
     };
-    let venue = VenueBalances { names: binance_names, record: None, types: &[HYPERLIQUID], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::HYPERLIQUID, venue, text),
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[HYPERLIQUID], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::HYPERLIQUID, venue, text),
                                 held: hyperliquid_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
@@ -895,11 +979,12 @@ fn fiat_rate(rates: &Value, symbol: &str) -> Result<Option<BigDec>, String> {
 /// AccountBalance::Sync#sync! from the venue's balances on: other cash at its exchange rate, the market's prices, the
 /// checks, then the rows `BATCH` at a time, what is gone, and the key's clock. `fresh` holds the venue's own quotes
 /// (Alpaca's stocks), `errors` why some could not be read. `Ok(Err(text))`: the sync fails with `text`, nothing written.
-/// `record`: an `app_configs` row the last commit sets to its value, or removes (None).
+/// `record`: an `app_configs` row the last commit sets to its value, or removes (None). `kept`: assets whose stored
+/// rows stay as they are, never gone.
 #[allow(clippy::too_many_arguments)]
 async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, catalog: &Catalog, held: Vec<Held>, assets: Arc<Vec<Asset>>,
                 mut fresh: HashMap<String, Price>, mut errors: Vec<String>, prices: &dyn PriceSource, key_id: i64, clock: &dyn Clock, step: Option<&BalanceStep<'_>>,
-                record: Option<(String, Option<String>)>) -> Result<Result<Summary, String>, SyncError> {
+                record: Option<(String, Option<String>)>, kept: &[i64]) -> Result<Result<Summary, String>, SyncError> {
     // Cash is decided by category, never by symbol, and wins over every feed: a dollar is worth a dollar.
     // Other cash is converted at the market API's exchange rates (cash_prices_for); a currency with no rate is left out
     // and goes stale or unpriced, never to the coin market (where Rails sends it: `usd` and `eur` are coin ids there too).
@@ -979,7 +1064,7 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
         summary = super::commit_for(db, version, move |c| upsert(c, user_id, exchange_id, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old)).await?;
         if let Some(step)=step {step(from/BATCH+1).await;}
     }
-    let kept: HashSet<i64> = held.iter().map(|(id, _, _)| *id).collect();
+    let kept: HashSet<i64> = held.iter().map(|(id, _, _)| *id).chain(kept.iter().copied()).collect();
     let mut gone = phase(db, move |c| gone(c, user_id, exchange_id, &kept)).await?;
     loop {
         let rest = gone.split_off(gone.len().min(BATCH));
@@ -1230,7 +1315,7 @@ pub(crate) async fn sync_bybit_captured<T: Transport>(db: &Db, transport: T, pri
                                                        -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::bybit::{BybitVenue, ASSETS_PATH, BYBIT, URL};
     let read = move |_: String| async move { Ok(BybitVenue::new(transport, URL).read_text(ASSETS_PATH, vec![("accountType", "UNIFIED".into())], MAX_BINANCE_ACCOUNT_BYTES).await) };
-    let venue = VenueBalances { names: binance_names, record: None, types: &[BYBIT], failure_text: crate::venue::bybit::failure_text, condemns: |venue, text| condemns(&crate::engine::venue_rules::BYBIT, venue, text), held: bybit_held };
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[BYBIT], failure_text: crate::venue::bybit::failure_text, condemns: |venue, text| condemns(&crate::engine::venue_rules::BYBIT, venue, text), held: bybit_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
@@ -1268,7 +1353,7 @@ pub async fn sync_coinbase<T: Transport>(db: &Db, transport: T, prices: &dyn Pri
 pub(crate) async fn sync_coinbase_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
     clock: &dyn Clock, version: &crate::engine::model::CredentialVersion) -> Result<Result<Summary, Failure>, SyncError> {
     let read = move |_: String| async move { Ok(crate::venue::coinbase::CoinbaseVenue::new(transport, crate::venue::coinbase::URL).balances_text().await) };
-    let venue = VenueBalances { names: binance_names, record: None, types: &[crate::venue::coinbase::COINBASE], failure_text: str::to_string,
+    let venue = VenueBalances { kept: None, names: binance_names, record: None, types: &[crate::venue::coinbase::COINBASE], failure_text: str::to_string,
         condemns: |_, _| false, held: coinbase_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
@@ -1348,7 +1433,7 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
         let account = match cipher_read { Ok(a) => a, Err(why) => return Ok(Err(why)) };
         Ok(ibkr_read(&transport, login, clock, &account, "").await)
     };
-    let venue = VenueBalances { names: ibkr_names, record: None, types: &[crate::venue::ibkr::IBKR], failure_text: str::to_string, condemns: |_, _| false,
+    let venue = VenueBalances { kept: None, names: ibkr_names, record: None, types: &[crate::venue::ibkr::IBKR], failure_text: str::to_string, condemns: |_, _| false,
                                 held: |text, names, ids| ibkr_held(text, names, ids).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
