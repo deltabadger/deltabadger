@@ -342,8 +342,9 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
         // D-KUCOIN-HF-RETENTION: an HF row's answer is applied, and an HF row this read could not tell owes, before any later
         // read can fail the poll (reconcile::admit, reconcile::unread). Either way it is out of the missing-order paths.
         for o in orders.into_iter().map(|o| o.settled(now)) {
-            match batch.iter().zip(&rows).find(|(r, _)| r.protected() && r.external_id == o.txid) {
-                Some((_, (id, _, _))) => {
+            // By external id: a batch is a chunk of `refs`, so its positions are not `rows`' past the first chunk.
+            match batch.iter().find(|r| r.protected() && r.external_id == o.txid).and_then(|_| rows.iter().find(|(_, e, _)| *e == o.txid)) {
+                Some((id, _, _)) => {
                     apply_committed(c, bot.id, *id, &o, now, mode, &version).map_err(db)?;
                     if o.status == OrderStatus::Unknown { settles_at = settles_at.into_iter().chain(o.settles_at()).min(); }
                     skipped.push(o.txid);
