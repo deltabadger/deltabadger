@@ -2548,17 +2548,6 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if let Some(error)=row_difference(side,&response["rows_before"],&response["rows_after"]) { return Err(error); }
                 }
             }
-            if n=="stop_wash_rule_on" {
-                // PLAN-wash-sale WS-3: the Stop writes exactly what Rails' does. Rails answers with the bot's panels; this build does
-                // not draw a page of an account with the rule on without figures yet (WS-4a), so the committed Stop answers a refresh
-                // (as an unrenderable safety write does, stop_invalid). Only the body differs.
-                if a["status"]!=200 || b["status"]!=200 { return Err(format!("{n}: expected 200 from both, got {} / {}",a["status"],b["status"])) }
-                if let Some(error)=row_difference("Rails Stop against Rust's",&a["rows_after"],&b["rows_after"]) { return Err(error) }
-                let body=b["body"].to_string();
-                if body.matches("<turbo-stream").count()!=1 || !body.contains("<turbo-stream action=\\\"refresh\\\">") { return Err(format!("{n}: expected a refresh alone, got {body}")) }
-                a["body"]=b["body"].clone();
-                continue;
-            }
             if n.strip_prefix("venue_basket_").and_then(|rest|rest.strip_suffix("_not_ported_reverse")).is_some() {
                 // Rails flips a buying basket of several into selling. This crate commits the same rotation and answers the listed
                 // ⇄ refresh (below), and the page it refreshes to is then refused: the engine sells a basket of several on
