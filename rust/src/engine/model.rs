@@ -51,12 +51,18 @@ impl RunIdentity {
 
 impl Bot {
     pub fn run_generation(&self) -> i64 { self.transient["run_generation"].as_i64().unwrap_or(0) }
+    /// Bumped by a web write that adds to the bot's order history (web::bot::csv's import), never by a stop or a start: an
+    /// operation leg sized from the holdings before it is fenced (placement::begin_checked).
+    pub fn history_generation(&self) -> i64 { self.transient[HISTORY_GENERATION].as_i64().unwrap_or(0) }
     pub fn tick_generation(&self) -> i64 { self.transient["tick_generation"].as_i64().unwrap_or(0) }
     pub fn run_identity(&self) -> Result<RunIdentity, EngineError> {
         Ok(RunIdentity { bot_type: self.bot_type.clone(), generation: self.run_generation(),
             tick: self.tick_generation(), started: self.started_at_us()?, last_action: self.last_action_job_at_us()? })
     }
 }
+
+/// transient_data's history counter (Bot::history_generation). Rust-only.
+pub const HISTORY_GENERATION: &str = "rust_history_generation";
 
 pub fn owns_identity(c: &Connection, id: i64, identity: &RunIdentity) -> Result<bool, EngineError> {
     let current = load_bot(c, id)?;

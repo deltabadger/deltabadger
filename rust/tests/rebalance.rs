@@ -367,6 +367,24 @@ async fn a_stop_or_a_reverse_while_the_swaps_sell_is_in_flight_still_records_it(
     }
 }
 
+/// 3.0 A8: a CSV import committed while the swap is sized (web::bot::csv): a closed row the valuation never saw, and the
+/// bot's history generation bumped in the same transaction. The leg is fenced: nothing is sent, no phase is left.
+#[tokio::test(flavor = "current_thread")]
+async fn an_import_while_the_swap_is_sized_sends_nothing() {
+    let (_d, o, id, s, eth) = swap_bot(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let t = script(json!({}));
+    let import = format!("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, amount_exec, quote_amount, \
+        quote_amount_exec, price, base, quote, base_asset_id, quote_asset_id, created_at, updated_at) VALUES ({id}, {}, 'imported_{id}_x', 0, 2, 0, 0, 0.2, 0.2, 500, 500, 2500, \
+        'ETH', 'USD', {eth}, {}, '2026-09-01 10:00:02', '2026-09-01 12:00:00'); \
+        UPDATE bots SET transient_data = json_set(transient_data, '$.{key}', coalesce(json_extract(transient_data, '$.{key}'), 0) + 1) WHERE id = {id}",
+        s.exchange_id, s.quote, key = model::HISTORY_GENERATION);
+    let out = evaluate_on(&o, &during(&o, &t, "/v2/positions", import), id, at(T0)).await;
+    assert!(!matches!(out, Outcome::Placed(_)), "{out:?}");
+    assert!(t.posted_orders().is_empty(), "the leg sized before the import is never sent");
+    assert_eq!(pending(&o, id), Value::Null);
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_reverse_while_the_swap_is_sized_sends_nothing_and_leaves_no_phase_but_a_stop_does_not_hold_it() {
     // Positions are the last read before the intent (the sell's free-balance cap).

@@ -227,7 +227,7 @@ module Pages
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
                       .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios).merge(cancel_order_scenarios)
-                      .merge(wash_rule_scenarios).merge(wash_question_scenarios).merge(rebalance_in_progress_scenarios)
+                      .merge(wash_rule_scenarios).merge(wash_question_scenarios).merge(rebalance_in_progress_scenarios).merge(bot_csv_scenarios)
 
   # PLAN-wash-sale WS-4a: the bot pages of an account with the rule on. 'wash_locks' seeds the owner's locks
   # ([symbol, buy_locked_until, source]); the one-time selling warning is asked of a basket that sells or is armed to.
@@ -1636,6 +1636,7 @@ require_relative 'pages_wizard'
 require_relative 'pages_api'
 require_relative 'pages_signals'
 require_relative 'pages_rules'
+require_relative 'pages_bot_csv'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
