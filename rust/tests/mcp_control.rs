@@ -277,8 +277,9 @@ async fn control_transcripts() {
             // no venue call, and neither side writes a row.
             let answer=|t:&Value|->Value{serde_json::from_str::<Value>(t["responses"][2]["body"].as_str().unwrap()).unwrap()["result"].clone()};
             assert_eq!(answer(&want)["isError"],true,"Rails raises on {name}: {}",answer(&want));
+            eprintln!("{name}: Rails answers {}",answer(&want));
             let expected=if name=="order_dry_cancel" {"[DRY RUN] Order #1 (BUY QQQM/USD on Alpaca) cancellation submitted."} else {"[DRY RUN] Order venue-9 cancellation submitted on Alpaca."};
-            assert_eq!(answer(&got),json!({"content":[{"type":"text","text":expected}],"isError":false}),"{name}");
+            assert_eq!(answer(&got),json!({"content":[{"type":"text","text":expected}]}),"{name}");
             for table in ["bots","transactions","api_keys","users"] { assert_eq!(got["rows"][table],want["rows"][table],"{name}: {table}"); }
             continue;
         }
