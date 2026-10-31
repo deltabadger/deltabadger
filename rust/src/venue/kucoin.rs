@@ -15,6 +15,10 @@ use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
+#[path = "kucoin_uta.rs"]
+mod uta;
+pub use uta::parse_uta_order;
+
 pub const URL: &str = "https://api.kucoin.com";
 pub const KUCOIN: &str = "Exchanges::Kucoin";
 /// Clients::Kucoin#get_klines' path.
@@ -78,11 +82,11 @@ const HF_ORDERS: &str = "/api/v1/hf/orders";
 const HF_REFUSALS: [&str; 9] = ["400002", "400003", "400004", "400005", "400006", "400007", "400100", "200004", "429000"];
 
 #[derive(Clone)]
-pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool }
+pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool, uta: bool }
 
-/// Which order API an account's new orders use: the prepared detection's (ClassicHf: HF; anything else: classic).
+/// Which order API an account's new orders use: the prepared detection's (ClassicHf: HF; UTA: UTA; else classic).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Family { Classic, Hf }
+pub enum Family { Classic, Hf, Uta }
 
 #[derive(Clone)]
 struct AccountContext {
@@ -167,10 +171,11 @@ pub struct HfOrder { pub id: String, pub symbol: String, pub sell: bool, pub lim
 /// last applied exact dealt totals. A row without one is a classic row (every row before HF-2).
 pub const ORDER_RECORD: &str = "rust_kucoin_order:";
 
-/// Writes the record of the row the bot's unresolved intent just became, when that intent was sent on an HF account.
+/// Writes the record of the row the bot's unresolved intent just became, when that intent was sent on an HF or a UTA
+/// account (D-KUCOIN-UTA-ORDERS: `family: "Uta"`).
 pub fn record_order(c: &rusqlite::Connection, tx_id: i64, intent: &Value, now: DateTime<Utc>) -> Result<(), String> {
-    if intent["kucoin_account_mode"] != "ClassicHf" { return Ok(()); }
-    let record = serde_json::json!({"family": "ClassicHf", "symbol": intent["symbol"], "sell": intent["side"] == "sell",
+    let family = match intent["kucoin_account_mode"].as_str() { Some("ClassicHf") => "ClassicHf", Some("UnsupportedUta") => "Uta", _ => return Ok(()) };
+    let record = serde_json::json!({"family": family, "symbol": intent["symbol"], "sell": intent["side"] == "sell",
         "limit": intent["limit"], "host": intent["host"], "key_fingerprint": intent["key_fingerprint"], "deal_size": "0", "deal_funds": "0"});
     crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)
 }
@@ -250,14 +255,19 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
 
 impl<T: Transport> KucoinVenue<T> {
     /// Classic wire adapter, also used by the unchanged Rails replay. Runtime construction attaches captured context.
-    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false } }
+    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false, uta: false } }
     pub fn with_account_context(mut self, version: crate::engine::model::CredentialVersion, resolver: super::kucoin_account::Resolver) -> Self {
         self.account = Some(AccountContext { version, resolver, prepared: Default::default() });
         self
     }
     pub(crate) fn with_missing_account_context(mut self) -> Self { self.missing_context = true; self }
-    /// The modes this venue trades on: classic and HF (D-KUCOIN-HF-ORDERS); UTA is refused.
-    fn admit(&self, mode: super::kucoin_account::AccountMode) -> Result<(), VenueError> { mode.require_supported() }
+    /// The modes this venue trades on: classic and HF (D-KUCOIN-HF-ORDERS); UTA only with `allow_uta`.
+    fn admit(&self, mode: super::kucoin_account::AccountMode) -> Result<(), VenueError> {
+        if self.uta && mode == super::kucoin_account::AccountMode::UnsupportedUta { Ok(()) } else { mode.require_supported() }
+    }
+    /// D-KUCOIN-UTA-ORDERS: admits a Unified account, for the tests of the UTA wire until UTA connects (UTA.md U4).
+    #[doc(hidden)]
+    pub fn allow_uta(mut self) -> Self { self.uta = true; self }
     /// The account's mode as the shared Resolver detects it for this credential, UTA included: the history and balance
     /// reads route on it (D-KUCOIN-HF-LEDGER); `prepare` refuses UTA.
     pub async fn account_mode(&self) -> Result<super::kucoin_account::AccountMode, VenueError> {
@@ -274,7 +284,11 @@ impl<T: Transport> KucoinVenue<T> {
     /// The order API of new orders and balances: the prepared detection's. Unprepared (the Rails replay): classic.
     pub fn family(&self) -> Family {
         let prepared = self.account.as_ref().and_then(|a| *a.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
-        if prepared.is_some_and(|d| d.mode == super::kucoin_account::AccountMode::ClassicHf) { Family::Hf } else { Family::Classic }
+        match prepared.map(|d| d.mode) {
+            Some(super::kucoin_account::AccountMode::ClassicHf) => Family::Hf,
+            Some(super::kucoin_account::AccountMode::UnsupportedUta) => Family::Uta,
+            _ => Family::Classic,
+        }
     }
     fn prepared_for_send(&self) -> Result<(), VenueError> {
         if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
@@ -352,6 +366,7 @@ impl<T: Transport> KucoinVenue<T> {
     /// balances, else "Failed to get KuCoin balances: <code> <msg>".
     async fn accounts(&self) -> Result<Vec<Value>, VenueError> {
         super::Venue::prepare(self).await?;
+        if self.family() == Family::Uta { return self.uta_accounts().await; }
         // D-KUCOIN-HF-ORDERS: an HF account's funds are its trade_hf account's.
         let kind = if self.family() == Family::Hf { "trade_hf" } else { "trade" };
         let body = self.get("/api/v1/accounts".into(), vec![("type", kind.into())], http::MAX_BODY).await?;
@@ -428,7 +443,7 @@ impl<T: Transport> KucoinVenue<T> {
     /// unless it names a duplicate clientOid, HTTP 429), and 400002 as the safe rejection it is. A transport that sent
     /// nothing is Transient (NotSent: no row). Every other answer (5xx, 500000/230005, an unknown or missing code, a
     /// duplicate clientOid, unreadable) is Ambiguous: the intent stays and no replacement is sent.
-    async fn hf_placed(&self, r: &HttpRequest, cl_ord_id: &str) -> Result<String, VenueError> {
+    async fn hf_placed(&self, r: &HttpRequest, cl_ord_id: &str, refusals: &[&str]) -> Result<String, VenueError> {
         let resp = match self.transport.send_limited(r, http::MAX_BODY).await {
             Err(http::TransportError::NotSent(m)) => return Err(VenueError::Transient(self.transport.redact_diagnostic(&m))),
             Err(e) => return Err(http::transport_failure(e, true, |m| self.transport.redact_diagnostic(&m))),
@@ -446,21 +461,40 @@ impl<T: Transport> KucoinVenue<T> {
             // 400002 is the safe rejection whatever its text: the engine's own marker carries it (placement::safe_rejection).
             (Some(b), Some("400002")) if resp.status < 500 => Err(VenueError::Rejected(vec!["Invalid KC-API-TIMESTAMP".into(), api_error(b)])),
             // A server error is never a refusal, whatever code it carries.
-            (Some(b), Some(c)) if HF_REFUSALS.contains(&c) && resp.status < 500 => Err(refused(b)),
+            (Some(b), Some(c)) if refusals.contains(&c) && resp.status < 500 => Err(refused(b)),
             (_, _) if resp.status == 429 => Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&resp.body)])),
             (Some(b), _) => Err(VenueError::Ambiguous(api_error(b))),
             (None, _) => Err(VenueError::Ambiguous(format!("KuCoin answered HTTP {} with an unreadable body", resp.status))),
         }
     }
 
-    /// D-KUCOIN-HF-ORDERS: the stored HF order a ref names, when this venue may ask about it: the ref's
-    /// recorded host and key are this venue's own (never another account's order, never redirected by the current mode).
-    fn hf_ref(&self, r: &super::OrderRef) -> Option<Result<HfOrder, ()>> {
-        let record = r.record.as_ref().filter(|rec| rec["family"] == "ClassicHf")?;
+    /// D-KUCOIN-HF-ORDERS: the stored HF or UTA order a ref names, with its family, when this venue may ask about it: the
+    /// ref's recorded host and key are this venue's own (never another account's order, never redirected by the current
+    /// mode).
+    fn routed_ref(&self, r: &super::OrderRef) -> Option<Result<(Family, HfOrder), ()>> {
+        let record = r.record.as_ref()?;
+        let family = match record["family"].as_str() { Some("ClassicHf") => Family::Hf, Some("Uta") => Family::Uta, _ => return None };
         let mine = record["host"].as_str() == Some(self.base.as_str())
             && self.identity.as_ref().is_some_and(|i| i["key_fingerprint"] == record["key_fingerprint"]);
         let order = (|| Some(HfOrder { id: r.external_id.clone(), symbol: record["symbol"].as_str()?.into(), sell: record["sell"].as_bool()?, limit: record["limit"].as_bool()? }))();
-        Some(order.filter(|_| mine).ok_or(()))
+        Some(order.filter(|_| mine).map(|o| (family, o)).ok_or(()))
+    }
+
+    /// A routed read as `hf_order` takes it: the success envelope, or None for an answer that cannot be told (not found,
+    /// refused, unreadable); a failure worth retrying (transport, throttle, transient text) is its error.
+    async fn read_ok(&self, r: &HttpRequest) -> Result<Option<Value>, VenueError> {
+        match self.call(r, false, http::MAX_BODY).await {
+            Ok(body) if code(&body).ok().as_deref() == Some(OK) => Ok(Some(body)),
+            Ok(_) => Ok(None),
+            Err(e @ VenueError::Transient(_)) => Err(e),
+            Err(VenueError::Rejected(m)) if RULES.is_throttle(&m) || RULES.is_transient(&m) => Err(VenueError::Rejected(m)),
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// One stored routed order on its family's route.
+    async fn routed_order(&self, family: Family, want: &HfOrder) -> Result<Option<OrderState>, VenueError> {
+        if family == Family::Uta { self.uta_order(want).await } else { self.hf_order(want).await }
     }
 
     /// D-KUCOIN-HF-ORDERS: one stored HF order, `GET /api/v1/hf/orders/{id}?symbol=`. A failure worth retrying (transport,
@@ -468,13 +502,7 @@ impl<T: Transport> KucoinVenue<T> {
     /// None, and the row waits (an excluded id: never missing, never abandoned).
     async fn hf_order(&self, want: &HfOrder) -> Result<Option<OrderState>, VenueError> {
         let r = HttpRequest { method: "GET", base: self.base.clone(), path: format!("{HF_ORDERS}/{}", want.id), query: vec![("symbol", want.symbol.clone())], body: None, not_after: None };
-        match self.call(&r, false, http::MAX_BODY).await {
-            Ok(body) if code(&body).ok().as_deref() == Some(OK) => Ok(parse_hf_order(&body["data"], want, &self.pairs).ok()),
-            Ok(_) => Ok(None),
-            Err(e @ VenueError::Transient(_)) => Err(e),
-            Err(VenueError::Rejected(m)) if RULES.is_throttle(&m) || RULES.is_transient(&m) => Err(VenueError::Rejected(m)),
-            Err(_) => Ok(None),
-        }
+        Ok(self.read_ok(&r).await?.and_then(|body| parse_hf_order(&body["data"], want, &self.pairs).ok()))
     }
 
     /// D-KUCOIN-HF-ORDERS: recovery's exact lookup, `GET /api/v1/hf/orders/client-order/{clientOid}?symbol=`. Only an
@@ -632,6 +660,11 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// a success without an orderId, or an answer without a code, may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         self.prepared_for_send()?;
+        let deadline = Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s"));
+        if self.family() == Family::Uta {
+            let r = HttpRequest { not_after: deadline, ..self.request("POST", uta::PLACE.into(), vec![], Some(uta::place_body(o)?)) };
+            return self.hf_placed(&r, &o.cl_ord_id, &uta::REFUSALS).await;
+        }
         let mut body = serde_json::Map::new();
         for (k, v) in [("clientOid", o.cl_ord_id.as_str()), ("side", o.side.as_str()), ("symbol", o.pair.as_str())] { body.insert(k.into(), v.into()); }
         match &o.kind {
@@ -648,9 +681,8 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
         }
         // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.
         let hf = self.family() == Family::Hf;
-        let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s")),
-                              ..self.request("POST", if hf { HF_ORDERS } else { "/api/v1/orders" }.into(), vec![], Some(Value::Object(body))) };
-        if hf { return self.hf_placed(&r, &o.cl_ord_id).await; }
+        let r = HttpRequest { not_after: deadline, ..self.request("POST", if hf { HF_ORDERS } else { "/api/v1/orders" }.into(), vec![], Some(Value::Object(body))) };
+        if hf { return self.hf_placed(&r, &o.cl_ord_id, &HF_REFUSALS).await; }
         let answer = self.call(&r, true, http::MAX_BODY).await?;
         if code(&answer)? != OK { return Err(VenueError::Rejected(vec![api_error(&answer)])); }
         match &answer["data"]["orderId"] {
@@ -684,8 +716,11 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// windows from `since` to now, every page, matching clientOid. Neither finding it is never absence (ABSENCE_UNPROVEN);
     /// a failed scan page is its own error.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
-        if self.family() == Family::Hf { return self.hf_by_client_id(cl_ord_id, symbol).await; }
-        self.classic_by_client_id(cl_ord_id, symbol, since).await
+        match self.family() {
+            Family::Hf => self.hf_by_client_id(cl_ord_id, symbol).await,
+            Family::Uta => self.uta_by_client_id(cl_ord_id, symbol).await,
+            Family::Classic => self.classic_by_client_id(cl_ord_id, symbol, since).await,
+        }
     }
 
     /// D-KUCOIN-HF-RETENTION: an intent sent on an HF account is asked on the HF clientOid route, whatever the account's mode
@@ -693,6 +728,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     async fn recovery_with(&self, intent: &Value, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         match intent["kucoin_account_mode"].as_str() {
             Some("ClassicHf") => self.hf_by_client_id(cl_ord_id, symbol).await,
+            Some("UnsupportedUta") => self.uta_by_client_id(cl_ord_id, symbol).await,
             Some(_) => self.classic_by_client_id(cl_ord_id, symbol, since).await,
             None => super::Venue::order_by_client_id(self, cl_ord_id, symbol, since).await,
         }
@@ -752,15 +788,15 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// venue may not ask about, or whose answer cannot be told, is excluded: present, never missing or abandoned.
     async fn orders_with<F>(&self, refs: &[super::OrderRef], identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
-        let classic: Vec<String> = refs.iter().filter(|r| self.hf_ref(r).is_none() && !r.adopted()).map(|r| r.external_id.clone()).collect();
+        let classic: Vec<String> = refs.iter().filter(|r| self.routed_ref(r).is_none() && !r.adopted()).map(|r| r.external_id.clone()).collect();
         let (mut found, mut excluded) = if classic.is_empty() { (vec![], vec![]) } else { super::Venue::orders_identified(self, &classic, identify).await? };
         for r in refs {
             // D-KUCOIN-HF-RETENTION: an adopted row whose route is unproven is read on neither route: it waits, excluded.
             if r.adopted() { excluded.push(r.external_id.clone()); continue; }
-            match self.hf_ref(r) {
+            match self.routed_ref(r) {
                 None => {}
-                // A bulk read never fails the sweep for one HF row: it waits, excluded.
-                Some(Ok(want)) => match self.hf_order(&want).await { Ok(Some(s)) => found.push(s), Ok(None) | Err(_) => excluded.push(r.external_id.clone()) },
+                // A bulk read never fails the sweep for one HF or UTA row: it waits, excluded.
+                Some(Ok((family, want))) => match self.routed_order(family, &want).await { Ok(Some(s)) => found.push(s), Ok(None) | Err(_) => excluded.push(r.external_id.clone()) },
                 Some(Err(())) => excluded.push(r.external_id.clone()),
             }
         }
@@ -769,10 +805,10 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     async fn order_with<F>(&self, r: &super::OrderRef, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         if r.adopted() { return Ok((vec![], vec![r.external_id.clone()])); }
-        match self.hf_ref(r) {
+        match self.routed_ref(r) {
             None => super::Venue::order_identified(self, &r.external_id, identify).await,
             // One order's read keeps a retryable failure, so the follow-up is retried, never dropped.
-            Some(Ok(want)) => match self.hf_order(&want).await? { Some(s) => Ok((vec![s], vec![])), None => Ok((vec![], vec![r.external_id.clone()])) },
+            Some(Ok((family, want))) => match self.routed_order(family, &want).await? { Some(s) => Ok((vec![s], vec![])), None => Ok((vec![], vec![r.external_id.clone()])) },
             Some(Err(())) => Ok((vec![], vec![r.external_id.clone()])),
         }
     }
@@ -782,9 +818,10 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     async fn cancel_with(&self, r: &super::OrderRef) -> Result<(), VenueError> {
         // D-KUCOIN-HF-RETENTION: never cancelled on a route its order is not proven to be on.
         if r.adopted() { return Err(VenueError::Ambiguous("KuCoin order route unproven".into())); }
-        let want = match self.hf_ref(r) {
+        let want = match self.routed_ref(r) {
             None => return super::Venue::cancel(self, &r.external_id).await,
-            Some(Ok(want)) => want,
+            Some(Ok((Family::Uta, want))) => return self.uta_cancel(&want).await,
+            Some(Ok((_, want))) => want,
             Some(Err(())) => return Err(VenueError::Ambiguous("KuCoin HF order record does not match this venue".into())),
         };
         let req = HttpRequest { method: "DELETE", base: self.base.clone(), path: format!("{HF_ORDERS}/{}", want.id), query: vec![("symbol", want.symbol.clone())], body: None, not_after: None };
