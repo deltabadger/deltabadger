@@ -16,11 +16,12 @@ fn rails_json_keeps_order_escapes_and_integer_digits() {
     assert_eq!(mcp_input::encode(&json!({"x":"<>&\u{2028}\u{2029}","a":0.00005,"b":18446744073709551615u64})),
         "{\"x\":\"\\u003c\\u003e\\u0026\\u2028\\u2029\",\"a\":5e-05,\"b\":18446744073709551615}");
 }
+/// A10: the create tools are served, with the schemas Rails records for them.
 #[test]
-fn create_tools_remain_absent() {
+fn create_tools_are_served() {
     for name in ["create_bot","create_index_bot","create_signal_bot"] {
-        assert!(!deltabadger::web::mcp::tools::NAMES.contains(&name));
-        assert!(!deltabadger::web::mcp::protocol::metadata()["tools"].as_array().unwrap().iter().any(|t|t["name"]==name));
+        assert!(deltabadger::web::mcp::tools::NAMES.contains(&name));
+        assert!(deltabadger::web::mcp::protocol::metadata()["tools"].as_array().unwrap().iter().any(|t|t["name"]==name));
     }
 }
 

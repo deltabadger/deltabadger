@@ -21,7 +21,7 @@ use askama::Template;
 use axum::extract::{Extension, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::Connection;
 use serde_json::{json, Value};
 
 const ASSETS: &str = "/bots/signals/pick_buyable_asset";
@@ -463,25 +463,15 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let view = ctx.clone();
     let saved = app.db(move |c| {
         let config = config.as_ref();
-        let (Some(exchange), Some(base), Some(_)) = (exchange_id(config), base_id(config), quote_id(config)) else { return Ok(Saved::Unported) };
+        let (Some(exchange), Some(_), Some(_)) = (exchange_id(config), base_id(config), quote_id(config)) else { return Ok(Saved::Unported) };
         let tx = model::immediate(c)?;
-        let now = crate::codec::format_time(view.now);
-        // Automation::Labelable: the base's name, or "New bot".
-        let name: Option<String> = tx.query_row("SELECT name FROM assets WHERE id = ?1", [base], |r| r.get(0)).optional()?.flatten();
-        let label = name.filter(|n| !crate::ruby::blank(n)).unwrap_or_else(|| i18n::text(view.locale, "bot.new", &[]));
-        // Bot#assign_position: after the user's last bot.
-        let position: i64 = tx.query_row("SELECT COALESCE(MAX(position), 0) + 1 FROM bots WHERE user_id = ?1", [user.id], |r| r.get(0))?;
-        let settings = dig(config, &["settings"]).cloned().unwrap_or_else(|| json!({}));
-        tx.execute("INSERT INTO bots (user_id, exchange_id, type, status, label, position, settings, transient_data, settings_changed_at, created_at, updated_at) \
-                    VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6, '{}', ?7, ?7, ?7)",
-                   rusqlite::params![user.id, exchange, model::SIGNAL_TYPE, label, position, settings.to_string(), now])?;
-        let id = tx.last_insert_rowid();
+        let mut saved = vec![];
         for rule in &built {
             let amount = rule.amount.as_ref().ok_or_else(|| WebError::Config("a validated rule without its amount".into()))?.to_s_f();
-            tx.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, last_triggered_at, created_at, updated_at) \
-                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?7)",
-                       rusqlite::params![id, rule.sell as i64, rule.percentage as i64, amount, rule.enabled, signal_write::new_token(&tx)?, now])?;
+            saved.push(signal_write::NewRule { sell: rule.sell, percentage: rule.percentage, amount, enabled: rule.enabled });
         }
+        let settings = dig(config, &["settings"]).cloned().unwrap_or_else(|| json!({}));
+        let id = signal_write::insert_created(&tx, user.id, exchange, &settings, None, &saved, view.locale, view.now)?;
         let started = signal_write::start_created(&tx, &view, user.id, id)?;
         // A bot whose pages this build cannot serve (`bot::refusal`, as a rule write checks it: an enabled sell rule while the
         // wash-sale question is unanswered, say) is not made at all. Rails saves it and asks the question on its page; here it
@@ -494,7 +484,8 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
                 tx.commit()?;
                 Ok(Saved::Started(id, broadcasts))
             }
-            Started::Invalid(message) => {
+            Started::Invalid(errors) => {
+                let message = signal_write::sentence(&errors);
                 // The saved bot stays (Rails saved it before the start), as long as the engine would hold it.
                 if let Err(refusal) = eligibility::guard(&tx, &view.app.cipher, Some(id)) {
                     return Ok(Saved::Refused(i18n::text(view.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&refusal.reason()))]), false));

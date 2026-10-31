@@ -335,29 +335,43 @@ struct QuoteStep { progress: String, sentence: String, create_url: String, csrf:
 /// The quote step: Bots::DcaIndex#available_assets_for_current_settings (the quotes in which the venue lists at least three of
 /// the index's members; Top Coins any three) ranked or searched, one page of them, each with the index's members it pairs
 /// with on the venue (top_base_assets_by_quote_for_current_setup), by market-cap rank.
+/// `base_asset_ids if coin_ids.present?`: a category index's members exported for the venue's class, as asset ids, narrowing
+/// only when any is an Asset (JSON text for `?2` of `available_quotes`).
+fn narrowed(c: &Connection, settings: &Map<String, Value>, class: &str) -> Result<Option<String>, WebError> {
+    let category = settings.get("index_type").and_then(Value::as_str) == Some("category")
+        && settings.get("index_category_id").and_then(Value::as_str).is_some_and(|id| !crate::ruby::blank(id));
+    if !category { return Ok(None); }
+    let coins = index_row(c, settings)?.map(|index| index.top_coins_for_exchange(class)).unwrap_or_default();
+    let ids: Vec<i64> = if coins.is_empty() { vec![] } else {
+        let mut s = c.prepare("SELECT id FROM assets WHERE external_id IN (SELECT value FROM json_each(?1))")?;
+        let ids = s.query_map([json!(coins).to_string()], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        ids
+    };
+    Ok((!ids.is_empty()).then(|| json!(ids).to_string()))
+}
+
+/// Bots::DcaIndex#available_assets_for_current_settings(asset_type: :quote_asset): the quotes MINIMUM_SUPPORTED_COINS of
+/// the index's members trade against on the venue (`?1` the venue's id, `?2` `narrowed`).
+fn available_quotes() -> String {
+    format!("id IN (SELECT quote_asset_id FROM tickers WHERE available = 1 AND trading_enabled = 1 \
+             AND exchange_id IN (SELECT id FROM exchanges WHERE (?1 IS NULL AND available = 1) OR id = ?1) \
+             AND (?2 IS NULL OR base_asset_id IN (SELECT value FROM json_each(?2))) GROUP BY quote_asset_id HAVING COUNT(*) >= {MINIMUM_SUPPORTED_COINS})")
+}
+
+/// The quote step's offer, `find_by(symbol:)` (BotApi::Bots::CreateIndex): the first such asset of that symbol.
+pub fn quote_asset(c: &Connection, exchange: i64, class: &str, settings: &Map<String, Value>, symbol: &str) -> Result<Option<i64>, WebError> {
+    let narrowed = narrowed(c, settings, class)?;
+    Ok(c.query_row(&format!("SELECT id FROM assets WHERE symbol = ?3 AND {} ORDER BY id LIMIT 1", available_quotes()),
+                   rusqlite::params![exchange, narrowed, symbol], |r| r.get(0)).optional()?)
+}
+
 fn quote_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> Result<String, WebError> {
     let settings = settings_of(config);
     let venue = super::keys::venue(c, exchange_id(config))?;
     let index = index_row(c, &settings)?;
-    let category = settings.get("index_type").and_then(Value::as_str) == Some("category")
-        && settings.get("index_category_id").and_then(Value::as_str).is_some_and(|id| !crate::ruby::blank(id));
     let members = |venue: &super::keys::Venue| index.as_ref().map(|index| index.top_coins_for_exchange(&venue.class)).unwrap_or_default();
-    // `base_asset_ids if coin_ids.present?`, narrowing only when any is an Asset.
-    let narrowed: Option<String> = match (&venue, category) {
-        (Some(venue), true) => {
-            let coins = members(venue);
-            let ids: Vec<i64> = if coins.is_empty() { vec![] } else {
-                let mut s = c.prepare("SELECT id FROM assets WHERE external_id IN (SELECT value FROM json_each(?1))")?;
-                let ids = s.query_map([json!(coins).to_string()], |r| r.get(0))?.collect::<Result<_, _>>()?;
-                ids
-            };
-            (!ids.is_empty()).then(|| json!(ids).to_string())
-        }
-        _ => None,
-    };
-    let available = format!("id IN (SELECT quote_asset_id FROM tickers WHERE available = 1 AND trading_enabled = 1 \
-                             AND exchange_id IN (SELECT id FROM exchanges WHERE (?1 IS NULL AND available = 1) OR id = ?1) \
-                             AND (?2 IS NULL OR base_asset_id IN (SELECT value FROM json_each(?2))) GROUP BY quote_asset_id HAVING COUNT(*) >= {MINIMUM_SUPPORTED_COINS})");
+    let narrowed = match &venue { Some(venue) => narrowed(c, &settings, &venue.class)?, None => None };
+    let available = available_quotes();
     let all = search::ranked_rows(c, &available, vec![venue.as_ref().map(|v| v.id).into(), narrowed.into()], ctx.params.query("query"))?;
     let page = search::page_of(all, ctx.params.query("offset").map_or(0, search::to_i));
     // top_base_assets_by_quote_for_current_setup.
