@@ -76,7 +76,9 @@ enum Outcome { Cancelled, Failed }
 /// cancelled was cancelled by the first attempt. Returns the orders cancelled, for their follow-up poll.
 pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, now: DateTime<Utc>) -> Result<Vec<i64>, EngineError> {
     let mut cancelled = vec![];
-    for entry in entries(&model::load_bot(c, bot_id)?) {
+    let bot = model::load_bot(c, bot_id)?;
+    let kucoin = model::exchange_type(c, &bot)? == crate::venue::kucoin::KUCOIN;
+    for entry in entries(&bot) {
         let Some(id) = entry["id"].as_i64() else { return Err(EngineError::Data(format!("bot {bot_id}: unreadable {CANCELS} entry {entry}"))) };
         let external: Option<String> = c.query_row("SELECT external_id FROM transactions WHERE id = ?1", [id], |r| r.get(0)).unwrap_or(None);
         let was_sent = entry["sent"] == true;
@@ -86,16 +88,22 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
                 if !was_sent { mark_sent(c, bot_id, id)?; }
                 let order = crate::venue::OrderRef::load(c, id, &ext)?;
                 // D-KUCOIN-HF-RETENTION: an HF or UTA cancel ends only in the order's settlement (reconcile::admit), never here.
-                if order.routed() {
+                if order.protected() {
                     if hf_cancel(c, venue, bot_id, id, &order, was_sent, now).await? { cancelled.push(id); }
                     continue;
                 }
-                let uncertain = |e: &VenueError| order.record.is_some() && !matches!(e, VenueError::Rejected(_));
+                // D-KUCOIN-CANCEL-OBLIGATION (UTA r5, r6.1): on KuCoin a cancel that may have gone out is resolved only by a
+                // final state, the venue's or the row's own; anything else keeps the cancel entry and the reserve. Rails drops
+                // both, so a lost status read could drop the reserve of an order that filled.
+                let uncertain = |e: &VenueError| (kucoin || order.record.is_some()) && !matches!(e, VenueError::Rejected(_));
+                let row_final = || c.query_row("SELECT external_status IN (2, 3) FROM transactions WHERE id = ?1", [id], |r| r.get::<_, bool>(0)).unwrap_or(false);
                 match venue.cancel_with(&order).await {
                     Ok(()) => Outcome::Cancelled,
                     Err(e) if was_sent => match venue.order_result(&order, |_, _, _| Ok(true)).await.value {
                         Ok((found, _)) if found.iter().any(|o| o.txid == ext && o.status == OrderStatus::Cancelled) => Outcome::Cancelled,
-                        _ if uncertain(&e) => continue,
+                        Ok((found, _)) if kucoin && found.iter().any(|o| o.txid == ext && o.status == OrderStatus::Closed) => Outcome::Cancelled,
+                        _ if kucoin && row_final() => Outcome::Cancelled,
+                        _ if kucoin || uncertain(&e) => continue,
                         _ => { super::log(&format!("[engine] bot {bot_id}: could not cancel order {ext} while reversing: {e:?}")); Outcome::Failed }
                     },
                     Err(e) if uncertain(&e) => continue,

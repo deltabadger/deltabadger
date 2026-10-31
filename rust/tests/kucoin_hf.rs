@@ -2525,6 +2525,128 @@ async fn u3a_uta_recovery_checks_the_order_type() {
     assert_eq!(posts(&t), 1);
 }
 
+// ---- UTA U3b (r1.4, r2.2, r3.1, r5, r6.1, r12): switch protection and the cancel obligation. ----
+
+fn classic_answer(id: &str, active: bool, cancelled: bool, size: &str, funds: &str) -> Value {
+    json!({"code":"200000","data":{ "id": id, "symbol": "BTC-EUR", "opType": "DEAL", "type": "market", "side": "buy", "price": "0", "size": "0", "funds": "60",
+        "dealFunds": funds, "dealSize": size, "fee": "0", "feeCurrency": "EUR", "clientOid": "x", "isActive": active, "cancelExist": cancelled, "createdAt": 1790000000000u64 }})
+}
+fn record_family(c: &rusqlite::Connection, id: i64) -> Option<String> {
+    deltabadger::venue::kucoin::order_record(c, id).unwrap().and_then(|r| r["family"].as_str().map(str::to_string))
+}
+fn classic_bundle(c: &rusqlite::Connection, id: i64, state: &str, base: &str, quote: &str, source: Value) -> Value {
+    let ext: String = c.query_row("SELECT external_id FROM transactions WHERE id=?1", [id], |r| r.get(0)).unwrap();
+    json!({ "version": 1, "transaction_id": id, "account": { "host": URL, "key_fingerprint": "unknown" },
+            "order": { "id": ext, "symbol": "BTC-EUR", "side": "buy", "type": "market", "family": "Classic" },
+            "terminal": { "state": state, "at": "2026-10-30T12:01:00Z" }, "executed": { "base": base, "quote": quote }, "fees": [], "source": source })
+}
+
+/// U3b, r1.4, r2.2, r12: the first UTA detection holds a classic row placed before it. Its classic route answering "not
+/// found" makes it owe, never missing: no fills fallback, never abandoned however old, after a restart too. Only a
+/// terminal read or the operator's Classic evidence settles it, once.
+#[tokio::test(flavor = "current_thread")]
+async fn u3b_a_switch_holds_a_classic_row_until_a_terminal_read_or_evidence() {
+    use deltabadger::engine::reconcile::Operator;
+    let (dir, o, bot, _plan) = engine_setup();
+    let id = open_row(&o.primary, &bot, "C1", "2026-09-01 10:00:00", json!({}));
+    let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z")); unified(&t);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_uta();
+    t.reply("GET /api/v1/orders/C1", 200, json!({"code":"400100","msg":"order not exist"}));
+    let _ = sweep(&o.primary, &v, bot.id).await;
+    assert_eq!(record_family(&o.primary, id).as_deref(), Some("Classic"), "held by the switch");
+    assert!(obligation(&o.primary, id).is_some(), "an unread held row owes");
+    assert!(!t.requests().iter().any(|r| r.path.contains("/fills")), "no fills fallback");
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let _ = sweep(&c, &v, bot.id).await;
+    assert_eq!(row_exec(&c, id).0, Some(0), "never abandoned, after a restart too");
+    let source = attested("order C1 cancelled, nothing dealt");
+    assert!(reconcile(&c, id, &{ let mut b = classic_bundle(&c, id, "cancelled", "0", "0", source.clone()); b["order"]["family"] = json!("Uta"); b }).is_err(), "another family's evidence");
+    assert_eq!(reconcile(&c, id, &classic_bundle(&c, id, "cancelled", "0", "0", source.clone())).unwrap(), Operator::Reconciled);
+    assert_eq!(row_exec(&c, id).0, Some(3));
+    assert!(obligation(&c, id).is_none());
+    assert_eq!(reconcile(&c, id, &classic_bundle(&c, id, "cancelled", "0", "0", source)).unwrap(), Operator::AlreadyReconciled);
+}
+
+/// U3b, r12.2: a held row's terminal read settles it through the gate, once.
+#[tokio::test(flavor = "current_thread")]
+async fn u3b_a_held_classic_row_settles_on_a_terminal_read() {
+    let (_dir, o, bot, _plan) = engine_setup();
+    let id = open_row(&o.primary, &bot, "C1", "2026-10-30 10:00:00", json!({}));
+    let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z")); unified(&t);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_uta();
+    t.reply("GET /api/v1/orders/C1", 200, classic_answer("C1", false, false, "0.001", "60"));
+    sweep(&o.primary, &v, bot.id).await.unwrap();
+    assert_eq!(row_exec(&o.primary, id), (Some(2), Some(0.001)));
+    assert_eq!(receipt(&o.primary, id).unwrap()["source"], "api");
+}
+
+/// U3b, r3.1: while the account's mode can't be read, a row without a record is not read at all (its route may be gone).
+#[tokio::test(flavor = "current_thread")]
+async fn u3b_an_unreadable_mode_reads_no_row_without_a_record() {
+    let (_dir, o, bot, _plan) = engine_setup();
+    let id = open_row(&o.primary, &bot, "C1", "2026-09-01 10:00:00", json!({}));
+    let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z"));
+    t.reply(&format!("GET {MODE}"), 200, json!({"code":"500000","msg":"busy"}));
+    let v = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
+    sweep(&o.primary, &v, bot.id).await.unwrap();
+    assert!(!t.requests().iter().any(|r| r.path.contains("C1")), "not read");
+    assert_eq!(row_exec(&o.primary, id).0, Some(0), "not abandoned");
+    assert!(record_family(&o.primary, id).is_none() && obligation(&o.primary, id).is_none());
+}
+
+/// U3b, r5, r6.1 (D-KUCOIN-CANCEL-OBLIGATION): on a classic account, with the mode cached, a reversal's cancel retry the
+/// venue refuses while the order can't be read keeps the cancel entry and the reserve, after a restart too; the order then
+/// reading cancelled settles both once.
+#[tokio::test(flavor = "current_thread")]
+async fn u3b_a_refused_classic_cancel_retry_keeps_its_obligation_until_a_final_read() {
+    use deltabadger::engine::reversal;
+    let now = at("2026-10-30T12:05:00Z");
+    let (dir, o, bot, _plan) = engine_setup();
+    let id = open_row(&o.primary, &bot, "C1", "2026-10-30 10:00:00", json!({}));
+    reversal_work(&o.primary, bot.id, id);
+    let t = ScriptedTransport::default(); t.set_now(now); classic(&t, false);
+    let v = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
+    v.prepare().await.unwrap();
+    let pending = |c: &rusqlite::Connection| { let b = model::load_bot(c, bot.id).unwrap(); (b.transient[reversal::CANCELS].as_array().map_or(0, Vec::len), b.transient[reversal::RESERVE_PENDING].as_array().map_or(0, Vec::len)) };
+    t.reply("DELETE /api/v1/orders/C1", 200, json!({"code":"400100","msg":"order cannot be canceled"}));
+    t.reply("GET /api/v1/orders/C1", 200, json!({"code":"400100","msg":"order not exist"}));
+    t.reply("GET /api/v1/orders/C1", 200, classic_answer("C1", false, true, "0", "0"));
+    let handle = deltabadger::venue::Handle::attributed(&v);
+    assert!(reversal::cancel_captured(&o.primary, &handle, bot.id, now).await.unwrap().is_empty());
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(pending(&c), (1, 1), "the cancel entry and the reserve stay");
+    assert_eq!(reversal::cancel_captured(&c, &handle, bot.id, now).await.unwrap(), vec![id]);
+    assert_eq!(pending(&c).0, 0, "settled once");
+}
+
+/// U3b, r6.1: `reconcile-order` takes Classic evidence for a classic row with no record (its record is written with the
+/// settlement, its reversal's cancel ends), never another family's, and never for an unproven adoption. A settled classic
+/// row doesn't refuse the handback.
+#[tokio::test(flavor = "current_thread")]
+async fn u3b_reconcile_order_takes_classic_evidence_for_a_classic_row() {
+    use deltabadger::engine::reconcile::Operator;
+    let (dir, o, bot, _plan) = engine_setup();
+    let id = open_row(&o.primary, &bot, "C1", "2026-10-30 10:00:00", json!({"quote_amount": "60"}));
+    reversal_work(&o.primary, bot.id, id);
+    let source = attested("order C1 filled");
+    let before = snapshot(&o.primary);
+    assert!(reconcile(&o.primary, id, &{ let mut b = classic_bundle(&o.primary, id, "closed", "0.001", "60", source.clone()); b["order"]["family"] = json!("ClassicHf"); b }).is_err());
+    assert_eq!(snapshot(&o.primary), before, "nothing written");
+    assert_eq!(reconcile(&o.primary, id, &classic_bundle(&o.primary, id, "closed", "0.001", "60", source.clone())).unwrap(), Operator::Reconciled);
+    assert_eq!(row_exec(&o.primary, id), (Some(2), Some(0.001)));
+    assert_eq!(record_family(&o.primary, id).as_deref(), Some("Classic"));
+    assert_eq!(work(&o.primary, bot.id).0, Vec::<i64>::new(), "its cancel ended");
+    let other = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    mark_unproven(&o.primary, other);
+    assert!(reconcile(&o.primary, other, &classic_bundle(&o.primary, other, "closed", "0.001", "60", source)).is_err(), "an unproven adoption has no route");
+    o.primary.execute("DELETE FROM app_configs WHERE key = ?1", [format!("{}{other}", deltabadger::engine::reconcile::ORIGIN)]).unwrap();
+    o.primary.execute("UPDATE transactions SET external_status = 3 WHERE id = ?1", [other]).unwrap();
+    let now = at("2026-10-30T13:00:00Z");
+    let l = deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_| None, dir.path()), now).unwrap();
+    deltabadger::engine::handover::take_over(&l, &o, &common::seed::cipher(), "test", now).unwrap();
+    deltabadger::engine::handover::hand_back(&l, &o, &deltabadger::venue::fake::FakeFactory::default(), &common::seed::cipher(), &deltabadger::engine::FixedClock(now)).await.unwrap();
+}
+
 /// U3a review P1: a sweep reads rows in chunks of 50; a UTA row's answer in a later chunk applies to that row, never to
 /// the row at its position in the first chunk.
 #[tokio::test(flavor = "current_thread")]
@@ -2560,4 +2682,24 @@ async fn u3a_zero_filled_uta_evidence_needs_an_empty_execution_list() {
     }
     let answers = [detail, uta_page(&ext, &[], 8)];
     assert_eq!(reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0", "0", json!([]), uta_answers(&answers))).unwrap(), Operator::Reconciled);
+}
+
+/// U3b review P1: on a UTA account every observation holds a record-less row, not only the switch: a row that appears
+/// after the episode opened (a classic placement resolved later, or one placed in an unrecorded LF interval) is held too.
+#[tokio::test(flavor = "current_thread")]
+async fn u3b_a_row_appearing_after_the_switch_is_held_on_the_next_observation() {
+    let (_dir, o, bot, _plan) = engine_setup();
+    let first = open_row(&o.primary, &bot, "C0", "2026-09-01 10:00:00", json!({}));
+    let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z")); unified(&t);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_uta();
+    t.reply("GET /api/v1/orders/C0", 200, json!({"code":"400100","msg":"order not exist"}));
+    let _ = sweep(&o.primary, &v, bot.id).await;
+    assert_eq!(record_family(&o.primary, first).as_deref(), Some("Classic"), "held by the switch");
+    let late = open_row(&o.primary, &bot, "C1", "2026-09-01 11:00:00", json!({}));
+    for ext in ["C0", "C1"] { t.reply(&format!("GET /api/v1/orders/{ext}"), 200, json!({"code":"400100","msg":"order not exist"})); }
+    let _ = sweep(&o.primary, &v, bot.id).await;
+    assert_eq!(record_family(&o.primary, late).as_deref(), Some("Classic"), "held on the next observation");
+    assert!(obligation(&o.primary, late).is_some(), "an unread held row owes");
+    assert_eq!(row_exec(&o.primary, late).0, Some(0), "never abandoned");
+    assert!(!t.requests().iter().any(|r| r.path.contains("/fills")), "no fills fallback");
 }
