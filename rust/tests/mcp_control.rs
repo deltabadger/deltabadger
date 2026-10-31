@@ -300,6 +300,7 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
         "tracker_d_sync_venue"=>vec![(2,tool_text(&api::sync_unsupported(&["Interactive Brokers"]),true))],
         _=>return Ok(()),
     };
+    let mut rewritten:Vec<Value>=vec![];
     for (i,owed) in steps {
         let (old,shown)=text(want,i)?;
         let named=match name {
@@ -319,7 +320,9 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
             message["message_json"]=json!(serde_json::to_string(&json).unwrap());
             stored+=1;
         }
-        if stored==0 { return Err(format!("step {i}: the session holds no copy of Rails' result")); }
+        // Two calls Rails answered alike share their stored copies: the first rewrite took both.
+        if stored==0 && !rewritten.contains(&old) { return Err(format!("step {i}: the session holds no copy of Rails' result")); }
+        rewritten.push(old);
     }
     Ok(())
 }
