@@ -2061,7 +2061,7 @@ async fn a_span_of_nothing_between_two_orders_refuses_a_working_bot_before_any_c
     };
     for amount in [json!(0), json!(0.0), json!(-5), json!(1e-320), json!(0.00009)] {
         set(working, amount.clone());
-        assert_eq!((browser.get(&app, &format!("/bots/{working}")).await.status, browser.get(&app, "/bots").await.status), (501, 501), "{amount}");
+        assert_eq!((browser.get(&app, &format!("/bots/{working}")).await.status, browser.get(&app, "/bots").await.status), (501, 200), "{amount}: the list stays");
         assert_eq!(browser.get(&app, &format!("/bots/{stopped}")).await.status, 200, "{amount}: the other bot's page is not taken along");
     }
     set(working, json!(6));
@@ -2217,10 +2217,10 @@ async fn a_stored_number_this_build_does_not_read_refuses_the_bots_pages_and_onl
     for external_status in [2, 3, 4] {
         for (what, value) in unread {
             order(stopped, external_status, "quote_amount_exec", value);
-            assert_eq!(statuses(&mut browser).await, [200, 501, 501, 200, 200, 200, 501], "{what}, external status {external_status}");
+            assert_eq!(statuses(&mut browser).await, [200, 501, 200, 200, 200, 200, 501], "{what}, external status {external_status}");
             // Beside an order that filled what a decimal says: the sum is not attempted either.
             order(stopped, 2, "quote_amount_exec", &"10.5");
-            assert_eq!(statuses(&mut browser).await, [200, 501, 501, 200, 200, 200, 501], "{what}, external status {external_status}, beside a fill");
+            assert_eq!(statuses(&mut browser).await, [200, 501, 200, 200, 200, 200, 501], "{what}, external status {external_status}, beside a fill");
             c.execute("DELETE FROM transactions", []).unwrap();
         }
     }
@@ -2237,7 +2237,8 @@ async fn a_stored_number_this_build_does_not_read_refuses_the_bots_pages_and_onl
     // The venue's ticker, which both bots read: every page of both, and nothing is rounded or sized by it.
     for (column, value, was) in [("minimum_quote_size", "1_0e1000000000", "1"), ("base_decimals", "41", "9"), ("quote_decimals", "255", "2")] {
         c.execute(&format!("UPDATE tickers SET {column} = ?1"), [value]).unwrap();
-        assert_eq!(statuses(&mut browser).await, [501; 7], "{column} = {value}");
+        // The list stays, each bot on it plain (3.0, D-DASHBOARD-REFUSED-TILE).
+        assert_eq!(statuses(&mut browser).await, [501, 501, 200, 501, 501, 501, 501], "{column} = {value}");
         c.execute(&format!("UPDATE tickers SET {column} = ?1"), [was]).unwrap();
     }
     assert_eq!(statuses(&mut browser).await, [200; 7], "and with the rows as they were, everything is served again");

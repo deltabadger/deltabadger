@@ -1156,8 +1156,8 @@ module Pages
       'not_ported_bot_wash_sale_rule' => with_bots(three, signed_in(get('/bots/1')), 'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US')),
       'not_ported_bot_wash_sale_question' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1')),
                                                        'user' => owner('wash_sale_enabled' => nil)),
-      'not_ported_bot_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots/2'), get('/bots/1'))),
-      'not_ported_bots_list_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots')))
+      'not_ported_bot_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots/2'), get('/bots/1')))
+      # The list of such a bot is served with that bot's tile plain (3.0, D-DASHBOARD-REFUSED-TILE): tests/serve.rs pins it.
     }
   end
 

@@ -344,13 +344,20 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let mut cold = vec![];
         for entry in &shown {
             match entry {
-                Ok(bot) => {
-                    let mut tile=tile(c,ctx,csrf,bot,configured)?;
-                    tile.pnl=figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["tile"].as_str()).map(str::to_string);
-                    // BotsController#index: only the tiles still without figures are asked for (@tile_refresh_ids).
-                    if tile.pnl.is_none() { cold.push(bot.id); }
-                    tiles.push(tile);
-                }
+                Ok(bot) => match tile(c,ctx,csrf,bot,configured) {
+                    Ok(mut tile) => {
+                        tile.pnl=figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["tile"].as_str()).map(str::to_string);
+                        // BotsController#index: only the tiles still without figures are asked for (@tile_refresh_ids).
+                        if tile.pnl.is_none() { cold.push(bot.id); }
+                        tiles.push(tile);
+                    }
+                    // A number the tile reads (a cap's sum, say) this build does not: that bot's tile is plain, as a refused bot's.
+                    Err(error) if bot::unreadable(&error) => {
+                        eprintln!("deltabadger: bot {} is listed but not served: {}", bot.id, bot::UNREADABLE);
+                        tiles.push(Refused::load(c, bot.id, ctx.locale)?.tile(ctx));
+                    }
+                    Err(error) => return Err(error),
+                },
                 Err(refused) => tiles.push(refused.tile(ctx)),
             }
         }
