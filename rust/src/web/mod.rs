@@ -473,9 +473,13 @@ impl App {
         inner.venue_key_urls.push((venue,url.into()));Ok(Self(Arc::new(inner)))
     }
 
+    /// `venue`'s URL only where a test set one (`with_venue_key_urls`).
+    pub(crate) fn venue_key_url_set(&self,venue:&str)->Option<String>{
+        self.venue_key_urls.iter().find(|(t,_)|*t==venue).map(|(_,u)|u.clone())
+    }
     /// Where `venue`'s own key check is sent: a test's server (`with_venue_key_urls`), else the venue's host (`registry::Row::base`).
     pub(crate) fn venue_key_url(&self,venue:&str)->String{
-        self.venue_key_urls.iter().find(|(t,_)|*t==venue).map(|(_,u)|u.clone())
+        self.venue_key_url_set(venue)
             .unwrap_or_else(||crate::venue::registry::row(venue).map(|r|r.base).unwrap_or_default().to_string())
     }
 

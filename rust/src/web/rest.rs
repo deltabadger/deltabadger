@@ -175,7 +175,8 @@ fn json_body(content_type: Option<&str>) -> bool {
 /// An answer before the shared headers: the envelope a controller renders, or a response made below the controllers.
 /// `Pending`: a read's venue fetch, run outside the database before the read is finished and rendered.
 /// `Head`: `head <status>` (an empty body under `text/html`, the controller's headers).
-pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request), Order(Box<OrderJob>) }
+pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request),
+    Order(Box<OrderJob>), Cancel(Box<bot_api::orders::CancelJob>) }
 
 /// `POST /api/v1/orders` past its gate: everything from the Idempotency-Key's claim on, run by one detached task
 /// (PLAN-A9 r1 §3), so a dropped connection never strands the key or the queued request.
@@ -390,8 +391,11 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let unported = || failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet."));
             match order {
                 Order::Cancel => {
-                    let res = bot_api::orders::cancel(c, caller, p.get("id").unwrap_or(&Value::Null), p.get("exchange_name").unwrap_or(&Value::Null))?;
-                    if res.status == Domain::NotPorted { unported() } else { render(res) }
+                    match bot_api::orders::cancel(c, caller, p.get("id").unwrap_or(&Value::Null), p.get("exchange_name").unwrap_or(&Value::Null))? {
+                        bot_api::orders::Cancel::Done(res) if res.status == Domain::NotPorted => unported(),
+                        bot_api::orders::Cancel::Done(res) => render(res),
+                        bot_api::orders::Cancel::Send(job) => Answer::Cancel(Box::new(job)),
+                    }
                 }
                 Order::Create => {
                     let kind = bot_api::orders::Kind::tool(tool).ok_or_else(|| WebError::Config("an order gate named no order tool".into()))?;
@@ -468,6 +472,10 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
                     Ok(answer) => answer,
                     Err(error) => Answer::Below(Box::new(WebError::Task(error.to_string()).into_response())),
                 },
+                Answer::Cancel(job) => match bot_api::orders::send_cancel(&app, *job).await {
+                    Ok(res) => render(res),
+                    Err(error) => Answer::Below(Box::new(error.into_response())),
+                },
                 answer => answer,
             }
         }
@@ -511,7 +519,7 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
             headers::controller_defaults(response.headers_mut(), status, false);
             response
         }
-        Answer::Pending(_) | Answer::Rules(_) | Answer::Order(_) => WebError::Config("a venue read was not fetched".into()).into_response(),
+        Answer::Pending(_) | Answer::Rules(_) | Answer::Order(_) | Answer::Cancel(_) => WebError::Config("a venue read was not fetched".into()).into_response(),
         Answer::Below(response) => {
             let mut response = *response;
             let status = response.status();

@@ -1,7 +1,8 @@
 //! PLAN-A9 slice O1: what the order routes and tools answer where Rails has no answer to record. The refusals before the
 //! venue are compared with Rails on the page grid (api_orders_*, not_ported_api_orders_*) and the MCP control grid
 //! (order_*); this file holds the named divergences: D-ORDER-AMOUNT-VALIDATION, D-ORDER-IBKR, and the `not_ported` answer
-//! of a standalone request that passes every check, which gives its Idempotency-Key back.
+//! of a standalone order that passes every check, which gives its Idempotency-Key back. Cancels past the checks are
+//! sent (slice O2): tests/cancel_order.rs.
 //!
 //! Slice O3 (the second half): an order through a signal bot, queued for the engine and waited for (D-ORDER-QUEUED,
 //! D-ORDER-WAIT-CAP, D-ORDER-API-CAP), with the web app and the engine on one database and a scripted Kraken.
@@ -103,8 +104,8 @@ async fn rest_refuses_what_rails_hands_the_venue_and_answers_not_ported_standalo
     assert_eq!((status, answer), (409, json!({"data": null, "error": {"code": "venue_busy", "message": "Alpaca is busy with another order from your bots. Nothing was placed; try again."}})));
     assert_eq!(keys(&d).last().unwrap(), &("through-bot".to_string(), "completed".to_string()));
     assert_eq!(Connection::open(d.path().join("production.sqlite3")).unwrap().query_row("SELECT count(*) FROM rust_api_orders", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
-    // A cancel past every check, by exchange id.
-    let (status, _, answer) = send(&app, "DELETE", "/api/v1/orders/venue-1?exchange_name=alpaca", "orders-api", None, &[]).await;
+    // D-ORDER-IBKR: a cancel past Rails' checks on a venue this build does not trade (a cancel elsewhere is sent: tests/cancel_order.rs).
+    let (status, _, answer) = send(&app, "DELETE", "/api/v1/orders/venue-1?exchange_name=interactive%20brokers", "orders-api", None, &[]).await;
     assert_eq!((status, answer["error"]["code"].clone()), (501, json!("not_ported")));
 }
 
@@ -127,8 +128,6 @@ async fn mcp_answers_venue_busy_with_no_engine_not_ported_standalone_and_on_ibkr
     let placing = "This app can't run that yet: orders placed through MCP or the REST API";
     assert_eq!(call("market_buy", json!({"bot_id": bot, "amount": 10})).await, refused("Alpaca is busy with another order from your bots. Nothing was placed; try again."));
     assert_eq!(call("market_sell", json!({"exchange_name": "alpaca", "base_asset": "btc", "quote_asset": "usd", "amount": 0.001})).await, refused(placing));
-    assert_eq!(call("cancel_order", json!({"order_id": "venue-1", "exchange_name": "Alpaca"})).await,
-               refused("This app can't run that yet: cancels sent through MCP or the REST API"));
     // A wash-sale lock's last day is a calendar day before the deadline in the caller's zone: 2026-10-26 00:00 UTC is the
     // 25th at 23:00 in the Azores once summer time has ended, so the 24th (24 hours before would read the 25th).
     {

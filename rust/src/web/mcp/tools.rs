@@ -81,25 +81,32 @@ fn order(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called
             orders::Placed::Done(res)=>res,
             orders::Placed::Queued(queued)=>{app.wake_engine();return Ok(Called::Order(Box::new(QueuedOrder{name:name.to_string(),args:args.clone(),queued})));}
         },
-        None=>orders::cancel(c,caller,args.get("order_id").unwrap_or(&Value::Null),args.get("exchange_name").unwrap_or(&Value::Null))?,
+        None=>match orders::cancel(c,caller,args.get("order_id").unwrap_or(&Value::Null),args.get("exchange_name").unwrap_or(&Value::Null))? {
+            orders::Cancel::Done(res)=>res,
+            orders::Cancel::Send(job)=>return Ok(Called::Cancel(job,args.clone())),
+        },
     };
-    let (text,is_error)=orders::mcp_text(name,args,dry_run,&res);
-    Ok(Called::Done(tool_text(&text,is_error)))
+    Ok(Called::Done(order_text(name,args,dry_run,&res)))
+}
+/// The order tool's answer for `res`.
+pub fn order_text(name:&str,args:&Value,dry_run:bool,res:&crate::web::bot_api::Res)->Value{
+    let (text,is_error)=crate::web::bot_api::orders::mcp_text(name,args,dry_run,res);
+    tool_text(&text,is_error)
 }
 /// An order tool's call waiting for the engine (never a dry run: paper trading answers in the request).
 pub struct QueuedOrder{name:String,args:Value,queued:crate::web::bot_api::orders::Queued}
 impl QueuedOrder {
     /// The engine's answer as the tool's text.
     pub async fn perform(self,app:&App)->Value{
-        use crate::web::bot_api::orders;
-        match orders::wait(app,&self.queued).await {
-            Ok(res)=>{let (text,is_error)=orders::mcp_text(&self.name,&self.args,false,&res);tool_text(&text,is_error)}
+        match crate::web::bot_api::orders::wait(app,&self.queued).await {
+            Ok(res)=>order_text(&self.name,&self.args,false,&res),
             Err(_)=>{crate::engine::log("MCP order tool failed");tool_text("An unexpected error occurred.",true)}
         }
     }
 }
-/// What a call answers now, or the venue or market read it needs first (`reads`), or the engine's answer (`Order`).
-pub enum Called { Done(Value), Fetch(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<QueuedOrder>) }
+/// What a call answers now, the venue or market read it needs first (`reads`), the engine's answer (`Order`), or the cancel
+/// it sends (`Cancel`, never a dry run).
+pub enum Called { Done(Value), Fetch(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<QueuedOrder>), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
 pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called,WebError>{
     if super::control::NAMES.contains(&name) {
         return Ok(Called::Done(match super::control::call(c,app,who,name,args) {

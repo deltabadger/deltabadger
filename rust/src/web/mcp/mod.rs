@@ -119,7 +119,7 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
 }
 /// A tools/call whose tool reads a venue or the market: the request is in the session's history; the answer is not yet.
 pub struct Pending{session:String,id:Value,work:Work}
-enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<tools::QueuedOrder>) }
+enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<tools::QueuedOrder>), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
 enum Finished { Read(reads::Fetched), Rules(Value) }
 /// The network part with no database lock held, then the answer, its history row and the response, as dispatch writes them.
 async fn finish(app:App,p:Pending)->Result<Response,WebError>{
@@ -130,6 +130,10 @@ async fn finish(app:App,p:Pending)->Result<Response,WebError>{
             Err(_) => protocol::tool_text("An unexpected error occurred.",true),
         }),
         Work::Order(order) => Finished::Rules(order.perform(&app).await),
+        Work::Cancel(job,args) => Finished::Rules(match crate::web::bot_api::orders::send_cancel(&app,job).await {
+            Ok(res) => tools::order_text("cancel_order",&args,false,&res),
+            Err(_) => { crate::engine::log("MCP order tool failed"); protocol::tool_text("An unexpected error occurred.",true) }
+        }),
     };
     let app2=app.clone();
     app.db(move|c|{
@@ -252,6 +256,7 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
                 tools::Called::Rules(request)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Rules(request)});return Ok(response(202,None,false));}
                 tools::Called::Fetch(fetch)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Read(fetch)});return Ok(response(202,None,false));}
                 tools::Called::Order(order)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Order(order)});return Ok(response(202,None,false));}
+                tools::Called::Cancel(job,args)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Cancel(job,args)});return Ok(response(202,None,false));}
             }}
         },
         m if m.starts_with("tools/")=>error(id,-32601,&format!("Unknown tools method: {m}")),
