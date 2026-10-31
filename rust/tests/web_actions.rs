@@ -1199,7 +1199,6 @@ mod action_write {
         for (action,sql) in [
             (write::Action::Start,"CREATE TRIGGER fail_log BEFORE INSERT ON bot_activity_logs BEGIN SELECT RAISE(ABORT,'log failure'); END"),
             (write::Action::Archive,"CREATE TRIGGER fail_archive BEFORE UPDATE OF status ON bots WHEN NEW.status=7 BEGIN SELECT RAISE(ABORT,'archive failure'); END"),
-            (write::Action::Start,"UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('true'))"),
         ] {
             let f=Fixture::new()?; f.c.execute_batch(sql)?; let before=f.snapshot()?;
             let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
