@@ -307,6 +307,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     let mut wake = clock.now().timestamp_micros() + IDLE_US;
     run_reversals(e, clock).await?;
     run_commands(e, clock).await?;
+    run_cancel_rereads(e, clock)?;
     run_polls(e, clock, &mut wake).await;
     run_rebalances(e, &report.unreadable, clock, &mut wake).await?;
     reconcile_idle_intents(e, clock, &mut wake).await?;
@@ -409,6 +410,32 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
             let producer = model::load_bot(&e.primary, bot).and_then(|row| e.venue_for(&row)).map(|(_, p)| p).unwrap_or(None);
             e.polls.insert(tx, model::Produced::new((bot, now_us, Attempts::default()), producer));
         }
+    }
+    Ok(())
+}
+
+/// A user cancel's re-read (web::bot::cancel, PLAN-A4-cancel r4.1): the row's follow-up poll, due now with a fresh
+/// retry budget whatever poll was queued for it (one backing off would wait), under the bot that owns the row now.
+/// The key goes once the poll is queued; a row gone or not on a bot leaves nothing to read.
+fn run_cancel_rereads<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
+    let prefix = crate::web::bot::cancel::REREAD;
+    let mut s = e.primary.prepare("SELECT k.key, t.id, t.bot_id FROM app_configs k LEFT JOIN transactions t ON t.id = CAST(substr(k.key, ?2) AS INTEGER) \
+                                   WHERE substr(k.key, 1, ?1) = ?3 ORDER BY k.key")?;
+    let rows = s.query_map(rusqlite::params![prefix.len() as i64, prefix.len() as i64 + 1, prefix], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    let now_us = clock.now().timestamp_micros();
+    for (key, tx, bot) in rows {
+        if let (Some(tx), Some(bot)) = (tx, bot) {
+            let producer = match model::load_bot(&e.primary, bot).and_then(|row| e.venue_for(&row)) {
+                Ok((_, producer)) => producer,
+                Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+                // An unreadable bot: its key stays for the next pass.
+                Err(err) => { super::log(&format!("[engine] bot {bot}: a cancel's re-read waits: {err:?}")); continue; }
+            };
+            e.polls.insert(tx, model::Produced::new((bot, now_us, Attempts::default()), producer));
+        }
+        crate::app_config::delete(&e.primary, &key).map_err(EngineError::Data)?;
     }
     Ok(())
 }

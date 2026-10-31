@@ -487,7 +487,8 @@ impl Transport for ScriptedTransport {
             if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "clientOrderID") { reply["body"]["data"]["clientOrderID"] = Value::String(cl.clone()); }
         }
         if reply["body"]["clientOrderId"] == "$client_order_id" {
-            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "origClientOrderId") { reply["body"]["clientOrderId"] = Value::String(cl.clone()); }
+            // Binance's family asks by origClientOrderId, Bitvavo by clientOrderId.
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "origClientOrderId" || *k == "clientOrderId") { reply["body"]["clientOrderId"] = Value::String(cl.clone()); }
         }
         // Coinbase lists orders; the client id of a landed order is the one the preceding placement sent.
         if r.path == super::coinbase::ORDERS {

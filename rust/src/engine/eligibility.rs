@@ -250,26 +250,12 @@ pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&
 /// Why an IBKR bot with a limit order is refused (D-IBKR-NOLIMIT).
 pub const IBKR_NO_LIMIT: &str = "a limit order on Interactive Brokers (its orders are market orders until its price increments are recorded)";
 
-/// The venues whose signal path (engine::signal, Bot::SignalJob and Bots::Signal::OrderSetter) is recorded against Rails:
-/// script/rust/decisions.rb grid-signal. A venue joins with its cases there.
-pub const SIGNAL_VENUES: [&str; 5] = ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin", "Exchanges::Hyperliquid", "Exchanges::Alpaca"];
-
 /// Which signal bots this build runs, by venue: the one rule the engine's guard and the signal bot's pages
-/// (web::bot::signal::refusal) both apply. A venue this engine trades on whose signal path is not recorded is named.
+/// (web::bot::signal::refusal) both apply. Every venue whose registry row trades runs them (plan A5: script/rust/decisions.rb
+/// grid-signal records each); any other venue (IBKR, an unknown type) is named.
 pub fn signal_admission(exchange: Option<&str>) -> Option<&'static str> {
-    if exchange.is_some_and(|e| SIGNAL_VENUES.contains(&e)) { return None; }
-    Some(match exchange.and_then(crate::venue::registry::trading_rules).map(|r| r.name) {
-        Some("Binance.US") => "a signal bot on Binance.US (its signal orders are not recorded against Rails yet)",
-        Some("Bitvavo") => "a signal bot on Bitvavo (its signal orders are not recorded against Rails yet)",
-        Some("Gemini") => "a signal bot on Gemini (its signal orders are not recorded against Rails yet)",
-        Some("Bitget") => "a signal bot on Bitget (its signal orders are not recorded against Rails yet)",
-        Some("MEXC") => "a signal bot on MEXC (its signal orders are not recorded against Rails yet)",
-        Some("Bybit") => "a signal bot on Bybit (its signal orders are not recorded against Rails yet)",
-        Some("Bitrue") => "a signal bot on Bitrue (its signal orders are not recorded against Rails yet)",
-        Some("Coinbase") => "a signal bot on Coinbase (its signal orders are not recorded against Rails yet)",
-        Some("BingX") => "a signal bot on BingX (its signal orders are not recorded against Rails yet)",
-        _ => "a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca",
-    })
+    if exchange.is_some_and(|e| crate::venue::registry::trading_rules(e).is_some()) { return None; }
+    Some("a signal bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX")
 }
 
 /// Bots::Signal (plan 8d T1): one pair, traded by its webhook rules (engine::signal), never ticked. Refused, by name: a

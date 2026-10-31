@@ -568,6 +568,8 @@ impl LiveFactory {
     }
     /// Local Alpaca hosts for native production-adapter tests; `Urls::pick` still chooses between them.
     #[doc(hidden)] pub fn with_hosts(hosts:Hosts)->Self{Self{hosts,..Self::new()}}
+    /// The same factory on `hosts` (the web's `settings_key_hosts`: Alpaca's own in production).
+    pub(crate) fn on_hosts(mut self,hosts:Hosts)->Self{self.hosts=hosts;self}
     /// A local KuCoin host for native production-adapter tests: the venue, its identity and its account mode all use it.
     #[doc(hidden)] pub fn with_kucoin_base(mut self, base: &str) -> Self { self.kucoin_base = Some(base.into()); self }
 }

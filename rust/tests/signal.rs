@@ -329,10 +329,145 @@ async fn a_working_signal_bot_off_its_venues_refuses_the_install_by_name() {
     o.primary.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
                        VALUES ('Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
                       params![s.exchange_id, s.user_id, json!({ "base_asset_id": s.btc, "quote_asset_id": s.quote }).to_string()]).unwrap();
-    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bybit'", []).unwrap();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr'", []).unwrap();
     let mut e = Engine::new(o.primary, FakeFactory(priced()), seed::cipher(), lock);
     let r = run::step(&mut e, &at(T0)).await;
-    assert!(matches!(&r, Err(deltabadger::engine::EngineError::Ineligible(p)) if p.iter().any(|l| l.contains("a signal bot on Bybit"))), "{r:?}");
+    assert!(matches!(&r, Err(deltabadger::engine::EngineError::Ineligible(p)) if p.iter().any(|l| l.contains("a signal bot on an exchange other than"))), "{r:?}");
+}
+
+/// Plan A5 r1.1, r1.2: a signal bot on each of the nine venues grid-signal added, through the production loop with the venue's
+/// real adapter (over the recorded bodies, tests/fixtures/signal_venue_recovery.json): `check_install` admits it; a fixed buy
+/// whose placement times out after sending raises the marker and keeps its intent, both still there after the store is
+/// reopened; the next step's recovery read (by the intent's client order id) finds the order: one row, the marker and the
+/// intent cleared, exactly one request to the order-creation endpoint.
+struct Real<F>(F);
+impl<V: deltabadger::venue::Venue, F: Fn() -> V> deltabadger::venue::VenueFactory for Real<F> {
+    type V = V;
+    fn for_bot(&self, _exchange_type: &str, _credentials: Option<deltabadger::crypto::Credentials>) -> V { (self.0)() }
+}
+
+struct VenueCase { key: &'static str, exchange: &'static str, ticker: &'static str, quote: &'static str, decimals: (i64, i64, i64), create: &'static str, recovery: &'static str }
+const VENUE_CASES: [VenueCase; 9] = [
+    VenueCase { key: "binance_us", exchange: "Exchanges::BinanceUs", ticker: "BTCUSDT", quote: "USDT", decimals: (5, 8, 2), create: "POST /api/v3/order", recovery: "GET /api/v3/order" },
+    VenueCase { key: "bitvavo", exchange: "Exchanges::Bitvavo", ticker: "BTC-EUR", quote: "EUR", decimals: (8, 2, 0), create: "POST /v2/order", recovery: "GET /v2/order" },
+    VenueCase { key: "gemini", exchange: "Exchanges::Gemini", ticker: "btcusd", quote: "USD", decimals: (8, 2, 2), create: "POST /v1/order/new", recovery: "POST /v1/order/status" },
+    VenueCase { key: "bitget", exchange: "Exchanges::Bitget", ticker: "BTCUSDT", quote: "USDT", decimals: (6, 8, 2), create: "POST /api/v2/spot/trade/place-order", recovery: "GET /api/v2/spot/trade/orderInfo" },
+    VenueCase { key: "mexc", exchange: "Exchanges::Mexc", ticker: "BTCUSDT", quote: "USDT", decimals: (6, 2, 2), create: "POST /api/v3/order", recovery: "GET /api/v3/order" },
+    VenueCase { key: "bybit", exchange: "Exchanges::Bybit", ticker: "BTCUSDT", quote: "USDT", decimals: (6, 8, 2), create: "POST /v5/order/create", recovery: "GET /v5/order/realtime" },
+    VenueCase { key: "bitrue", exchange: "Exchanges::Bitrue", ticker: "BTCUSDT", quote: "USDT", decimals: (6, 2, 2), create: "POST /api/v1/order", recovery: "GET /api/v1/order" },
+    VenueCase { key: "coinbase", exchange: "Exchanges::Coinbase", ticker: "BTC-EUR", quote: "EUR", decimals: (8, 2, 2), create: "POST /api/v3/brokerage/orders", recovery: "GET /api/v3/brokerage/orders/historical/batch" },
+    VenueCase { key: "bingx", exchange: "Exchanges::Bingx", ticker: "BTC-USDT", quote: "USDT", decimals: (6, 2, 2), create: "POST /openApi/spot/v1/trade/order", recovery: "GET /openApi/spot/v1/trade/query" },
+];
+
+fn venue_script(key: &str) -> Value {
+    let all: Value = serde_json::from_str(include_str!("fixtures/signal_venue_recovery.json")).unwrap();
+    all[key].clone()
+}
+
+/// A Bots::Signal with one fixed 100-quote buy rule on `case`'s venue (its exchange, pair and key as grid-signal builds them).
+fn venue_setup(case: &VenueCase) -> (tempfile::TempDir, Paths, deltabadger::lease::EngineLock, i64, i64, i64) {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, t("2026-09-01T00:00:00Z")).unwrap();
+    let o = store::open(&p).unwrap();
+    let c = &o.primary;
+    let s = seed::seed_kraken(c, &seed::cipher());
+    let name = deltabadger::venue::registry::row(case.exchange).unwrap().name;
+    let (base, quote) = case.ticker.split_once(['-', '/']).map_or_else(|| ("BTC".to_string(), case.quote.to_string()), |(b, q)| (b.to_uppercase(), q.to_uppercase()));
+    c.execute("UPDATE exchanges SET type = ?1, name = ?2", params![case.exchange, name]).unwrap();
+    c.execute("UPDATE assets SET symbol = ?1 WHERE id = ?2", params![case.quote, s.quote]).unwrap();
+    c.execute("UPDATE tickers SET ticker = ?1, base = ?2, quote = ?3, base_decimals = ?4, quote_decimals = ?5, price_decimals = ?6, minimum_base_size = '0.00001', \
+               minimum_quote_size = '1', updated_at = ?7", params![case.ticker, base, quote, case.decimals.0, case.decimals.1, case.decimals.2, seed::SYNCED]).unwrap();
+    c.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("p")]).unwrap();
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              params![s.exchange_id, s.user_id, json!({ "base_asset_id": s.btc, "quote_asset_id": s.quote }).to_string()]).unwrap();
+    let bot = c.last_insert_rowid();
+    c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+               VALUES (?1, 0, 0, '100', 1, 'tok-1', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [bot]).unwrap();
+    let rule = c.last_insert_rowid();
+    (dir, p, lock, bot, rule, s.exchange_id)
+}
+
+fn sent_to(t: &deltabadger::venue::http::ScriptedTransport, key: &str) -> usize {
+    t.requests().iter().filter(|r| format!("{} {}", r.method, r.path) == key).count()
+}
+
+/// The ambiguous placement, the reopened store, the recovery step. `found`: the lookup answers the order (else it proves
+/// nothing and the marker stays). Returns the engine's store for the caller's own checks.
+async fn timeout_then_recovery<V: deltabadger::venue::Venue + Clone>(case: &VenueCase, script: &Value, found: bool,
+                                                             make: impl Fn(&Connection, i64, &deltabadger::venue::http::ScriptedTransport) -> V) {
+    let (_dir, p, lock, bot, rule, exchange_id) = venue_setup(case);
+    let t = deltabadger::venue::http::ScriptedTransport::from_script(script);
+    let o = store::open(&p).unwrap();
+    let r = deltabadger::engine::eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty() && r.unreadable.is_empty() && r.eligible == vec![bot], "{}: {:?} {:?}", case.key, r.problems, r.unreadable);
+    let venue = make(&o.primary, exchange_id, &t);
+    let mut e = Engine::new(o.primary, Real(move || venue.clone()), seed::cipher(), lock);
+    call(&e.primary, bot, rule, 1, T0);
+    run::step(&mut e, &at(T0)).await.unwrap();
+    assert_eq!(sent_to(&t, case.create), 1, "{}: placed once", case.key);
+    assert_eq!(sent_to(&t, case.recovery), 0, "{}: no lookup in the placing step", case.key);
+    assert!(rows(&e.primary).is_empty(), "{}: no row while its fate is unknown", case.key);
+    // The process ends; a new one opens the store: the marker and the intent are durable.
+    let lock = e.lock;
+    drop(e.primary);
+    let o = store::open(&p).unwrap();
+    let td = transient(&o.primary, bot);
+    let intent = td["rust_placement"]["cl_ord_id"].as_str().unwrap_or_else(|| panic!("{}: no intent after reopening: {td}", case.key)).to_string();
+    assert_eq!(td["signal_placement_unresolved"]["id"], json!(intent), "{}: the marker names the intent", case.key);
+    assert_eq!(lines(&o.primary).iter().map(|(e, _)| e.as_str()).collect::<Vec<_>>(), ["placement_ambiguous"], "{}", case.key);
+    let venue = make(&o.primary, exchange_id, &t);
+    let mut e = Engine::new(o.primary, Real(move || venue.clone()), seed::cipher(), lock);
+    run::step(&mut e, &plus(T0, 61.0)).await.unwrap();
+    assert!(sent_to(&t, case.recovery) >= 1, "{}: the recovery asked the venue", case.key);
+    assert_eq!(sent_to(&t, case.create), 1, "{}: never placed again", case.key);
+    let td = transient(&e.primary, bot);
+    if found {
+        assert!(td.get("rust_placement").is_none() && td.get("signal_placement_unresolved").is_none(), "{}: {td}", case.key);
+        let rows = rows(&e.primary);
+        assert_eq!((rows.len(), rows[0].0, rows[0].1.is_some()), (1, 0, true), "{}: one submitted row, with the venue's order id {rows:?}", case.key);
+    } else {
+        assert_eq!(td["signal_placement_unresolved"]["id"], json!(intent), "{}: a lookup that finds nothing proves nothing", case.key);
+        assert!(rows(&e.primary).is_empty(), "{}", case.key);
+    }
+}
+
+fn pairs(c: &Connection, exchange_id: i64) -> deltabadger::venue::binance::Pairs { deltabadger::venue::binance::Pairs::load(c, exchange_id).unwrap() }
+fn base_url(exchange: &str) -> &'static str { deltabadger::venue::registry::row(exchange).unwrap().base }
+const SECRET: &str = "dGVzdC1zZWNyZXQ=";
+
+async fn venue_case(case: &VenueCase, script: &Value, found: bool) {
+    use deltabadger::venue::*;
+    type T = http::ScriptedTransport;
+    let x = case.exchange;
+    match case.key {
+        "binance_us" => timeout_then_recovery(case, script, found, |c, id, t: &T| {
+            binance::BinanceVenue::new(t.clone(), base_url(x), SECRET).with_pairs(pairs(c, id)).with_rules(registry::row(x).unwrap().rules.unwrap()) }).await,
+        "bitvavo" => timeout_then_recovery(case, script, found, |c, id, t: &T| bitvavo::BitvavoVenue::new(t.clone(), base_url(x)).with_pairs(pairs(c, id))).await,
+        "gemini" => timeout_then_recovery(case, script, found, |c, id, t: &T| gemini::GeminiVenue::new(t.clone(), base_url(x)).with_pairs(pairs(c, id))).await,
+        "bitget" => timeout_then_recovery(case, script, found, |c, id, t: &T| bitget::BitgetVenue::new(t.clone(), base_url(x)).with_pairs(pairs(c, id))).await,
+        "mexc" => timeout_then_recovery(case, script, found, |c, id, t: &T| mexc::MexcVenue::new(t.clone(), base_url(x), SECRET).with_pairs(pairs(c, id))).await,
+        "bybit" => timeout_then_recovery(case, script, found, |c, id, t: &T| bybit::BybitVenue::new(t.clone(), base_url(x)).with_pairs(pairs(c, id))).await,
+        "bitrue" => timeout_then_recovery(case, script, found, |c, id, t: &T| bitrue::BitrueVenue::new(t.clone(), base_url(x), SECRET).with_pairs(pairs(c, id))).await,
+        "coinbase" => timeout_then_recovery(case, script, found, |c, id, t: &T| coinbase::CoinbaseVenue::new(t.clone(), base_url(x)).with_pairs(pairs(c, id))).await,
+        "bingx" => timeout_then_recovery(case, script, found, |c, id, t: &T| bingx::BingxVenue::new(t.clone(), base_url(x), SECRET).with_pairs(pairs(c, id))).await,
+        other => panic!("no adapter for {other}"),
+    }
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn an_ambiguous_signal_placement_is_recovered_on_each_new_venue_and_placed_once() {
+    for case in &VENUE_CASES { venue_case(case, &venue_script(case.key), true).await; }
+}
+
+/// Plan A5 r1.1: a recovery read that finds nothing keeps the marker (Gemini: its absence is never provable).
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_recovery_miss_keeps_the_signal_marker() {
+    let case = VENUE_CASES.iter().find(|c| c.key == "gemini").unwrap();
+    let mut script = venue_script(case.key);
+    script[case.recovery] = json!([{ "status": 200, "body": [] }]);
+    venue_case(case, &script, false).await;
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
