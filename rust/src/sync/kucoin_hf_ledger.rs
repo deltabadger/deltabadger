@@ -14,6 +14,11 @@
 //!   account-wide (`tradeType=SPOT`, no symbol, so no `missing:` observations), `pageSize=200`, sides `BUY|SELL` and ns
 //!   times mapped onto the classic fill (`funds` = `value`, `createdAt` = `executionTime / 10^6`), raw `"family":"Uta"`.
 //!   KuCoin states no retention for it; the HF one (7 d) is assumed, so a longer one only reads less, and shows as gap.
+//! - **UTA backfill** (r2.3, r3, r4): within `[now − 365 d, the unit's reach)`, what no completed UTA read covers
+//!   (`uta_read`) is read back one 7-day window a run, newest first, whatever the account's mode now and whatever an
+//!   export covers; the one-trade rule keeps each trade once. A window keeps its bounds and cursor until it ends on an
+//!   empty page; a failed one waits a day (`RETRY`) while older ones go on. It certifies nothing (a silent clamp can't be
+//!   told from completeness), and its failures are logged only. The 365 days are our cap, one KuCoin export's span.
 //! - **The end.** Complete: `hf_api` (`uta_api`) when certifiable, only from the start of the family's current mode
 //!   episode and never for a family the account is not in now (r2.1); the attempt closed. Failed or abandoned (the unit's start left
 //!   KuCoin's retention before it finished): the attempt closed, nothing certified, and the error. What was published
@@ -52,15 +57,17 @@ const MAX_PAGE_BYTES: usize = 4 * 1024 * 1024;
 #[derive(Clone, Copy)]
 pub(super) struct Route {
     pub mode: AccountMode, name: &'static str, path: &'static str, progress: &'static str, api: &'static str, attempt: &'static str, open: &'static str,
+    /// Where a completed walk is recorded as read (UTA only: the backfill's complement).
+    read: Option<&'static str>,
     /// Symbol by symbol (HF), else one account-wide walk (UTA).
     by_symbol: bool, limit: (&'static str, &'static str),
     /// A page item checked strictly and mapped onto the classic fill's raw, or None.
     item: fn(&Value, &str, Span) -> Option<Value>,
 }
 pub(super) const HF: Route = Route { mode: AccountMode::ClassicHf, name: "KuCoin HF fills", path: FILLS_PATH, progress: "rust_sync.kucoin_hf", api: hf::HF_API, attempt: hf::HF_ATTEMPT,
-                                     open: hf::HF_ATTEMPT_OPEN, by_symbol: true, limit: ("limit", "100"), item: hf_item };
+                                     open: hf::HF_ATTEMPT_OPEN, read: None, by_symbol: true, limit: ("limit", "100"), item: hf_item };
 pub(super) const UTA: Route = Route { mode: AccountMode::UnsupportedUta, name: "KuCoin UTA fills", path: UTA_FILLS_PATH, progress: "rust_sync.kucoin_uta", api: hf::UTA_API,
-                                      attempt: hf::UTA_ATTEMPT, open: hf::UTA_ATTEMPT_OPEN, by_symbol: false, limit: ("pageSize", "200"), item: uta_item };
+                                      attempt: hf::UTA_ATTEMPT, open: hf::UTA_ATTEMPT_OPEN, read: Some(hf::UTA_READ), by_symbol: false, limit: ("pageSize", "200"), item: uta_item };
 impl Route {
     pub(super) fn of(mode: AccountMode) -> Option<Self> { [HF, UTA].into_iter().find(|r| r.mode == mode) }
     fn progress_key(&self, key_id: i64) -> String { format!("{}:{key_id}", self.progress) }
@@ -205,17 +212,23 @@ fn page(route: &Route, data: &Value, symbol: &str, span: Span, sent: Option<u64>
 async fn publish(db: &Db, version: &CredentialVersion, route: Route, key: &Arc<Key>, entries: Vec<Entry>, unit: Unit, stamp: Value, now: DateTime<Utc>) -> Result<Result<(), String>, SyncError> {
     let k = key.clone();
     commit_for(db, version, move |c| {
-        for e in &entries { if let Some(Err(why)) = hf::conflict(c, &k, e)? { return Ok(Err(why)); } }
-        if !entries.is_empty() {
-            let seconds = hf::seconds_of(&entries);
-            let batch = Arc::new(entries);
-            let p = Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, batch.clone());
-            ledger::store(c, &k, 0..batch.len(), None, p, now)?;
-            hf::flush(c, &k, seconds, now)?;
-        }
+        if let Err(why) = store_page(c, &k, entries, now)? { return Ok(Err(why)); }
         save(c, &route, k.id, &unit, &stamp, now)?;
         Ok(Ok(()))
     }).await
+}
+
+/// A page's rows (an id already stored with a different fill: nothing written) and the one-trade rule over their seconds.
+fn store_page(c: &crate::engine::model::FencedTransaction<'_>, k: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Result<(), String>, SyncError> {
+    for e in &entries { if let Some(Err(why)) = hf::conflict(c, k, e)? { return Ok(Err(why)); } }
+    if !entries.is_empty() {
+        let seconds = hf::seconds_of(&entries);
+        let batch = Arc::new(entries);
+        let p = Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, k)?, batch.clone());
+        ledger::store(c, k, 0..batch.len(), None, p, now)?;
+        hf::flush(c, k, seconds, now)?;
+    }
+    Ok(Ok(()))
 }
 
 /// One family's unit of one ledger run, within half the run's deadline.
@@ -297,9 +310,122 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, rout
     let ended = venue.account_mode_now().await.ok();
     let (k, at) = (key.clone(), clock.now());
     commit_for(db, version, move |c| {
+        if let Some(read) = route.read { hf::add(c, &k, read, span, now)?; }
         if let Some(mode) = ended { hf::observe_mode(c, &k, mode, at)?; }
         let certify = ended == Some(route.mode) && (!route.by_symbol || episodes(c, &k, &symbols, span.0, now)?);
         close(c, &route, &k, span, certify, now)
     }).await?;
     Ok(Ended::Complete)
+}
+
+// ---- UTA backfill ----------------------------------------------------------------------------------------------------
+
+/// Our cap on how far back the backfill reads (r3.2): one KuCoin export's span, not a documented limit.
+pub const BACKFILL_FLOOR: Duration = Duration::days(365);
+/// How long a failed backfill window waits before its next try (r4.1).
+const RETRY: Duration = Duration::hours(24);
+
+fn backfill_key(key_id: i64) -> String { format!("rust_sync.kucoin_uta_backfill:{key_id}") }
+
+/// A backfill window: frozen bounds, where its walk stands, and when a failed one may be tried again.
+#[derive(Clone, Debug)]
+struct Window { start: DateTime<Utc>, end: DateTime<Utc>, last_id: Option<u64>, pages: usize, retry_after: Option<DateTime<Utc>> }
+
+fn windows_json(windows: &[Window], stamp: &Value) -> Value {
+    json!({ "credential": stamp, "windows": windows.iter().map(|w| json!({ "start": sql_time(w.start), "end": sql_time(w.end), "last_id": w.last_id.map(|i| i.to_string()),
+                                                                            "pages": w.pages, "retry_after": w.retry_after.map(sql_time) })).collect::<Vec<_>>() })
+}
+
+/// The windows in progress or waiting, when the record is this credential's (another's progress is dropped).
+fn load_windows(c: &Connection, key_id: i64, stamp: &Value) -> Result<Vec<Window>, SyncError> {
+    let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [backfill_key(key_id)], |r| r.get(0)).optional()?.flatten();
+    let Some(v) = raw.and_then(|r| serde_json::from_str::<Value>(&r).ok()) else { return Ok(vec![]) };
+    if !crate::engine::model::stamp_current_for(&v["credential"], stamp).is_fresh() { return Ok(vec![]); }
+    let t = |w: &Value, k: &str| w[k].as_str().and_then(|s| crate::codec::parse_time(s).ok());
+    Ok(v["windows"].as_array().into_iter().flatten().filter_map(|w| Some(Window { start: t(w, "start")?, end: t(w, "end")?, last_id: w["last_id"].as_str().and_then(|s| s.parse().ok()),
+                                                                                  pages: w["pages"].as_u64().unwrap_or(0) as usize, retry_after: t(w, "retry_after") })).collect())
+}
+
+fn save_windows(c: &Connection, key_id: i64, windows: &[Window], stamp: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
+    c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+              params![backfill_key(key_id), windows_json(windows, stamp).to_string(), sql_time(now)])?;
+    Ok(())
+}
+
+/// The window this run reads: the newest of a recorded one that is due and the newest unread slice, at most 7 days,
+/// of `[floor, top)` that neither a completed read nor a recorded window covers. None: nothing left.
+fn pick(windows: &mut Vec<Window>, read: &[Span], (floor, top): Span, now: DateTime<Utc>) -> Option<usize> {
+    windows.retain(|w| w.end > floor);
+    let due = windows.iter().enumerate().filter(|(_, w)| w.retry_after.is_none_or(|t| t <= now)).max_by_key(|(_, w)| w.end).map(|(i, _)| i);
+    let held: Vec<Span> = read.iter().copied().chain(windows.iter().map(|w| (w.start, w.end))).collect();
+    let fresh = hf::subtract((floor, top), &held).last().map(|&(a, b)| Window { start: a.max(b - RETENTION), end: b, last_id: None, pages: 0, retry_after: None });
+    match (due, fresh) {
+        (Some(i), Some(f)) if f.end <= windows[i].end => Some(i),
+        (_, Some(f)) => { windows.push(f); Some(windows.len() - 1) }
+        (due, None) => due,
+    }
+}
+
+/// One run's UTA backfill window (r3.3, r4), within half the run's deadline; never the job's failure.
+pub(super) async fn backfill<T: Transport>(db: &Db, version: &CredentialVersion, venue: &KucoinVenue<T>, key: &Key, clock: &dyn Clock, wait: std::time::Duration,
+                                           run: &super::continuation::Run<'_>) -> Result<(), SyncError> {
+    let route = UTA;
+    let key = Arc::new(key.clone());
+    let stamp = version.cache_stamp();
+    let now = clock.now();
+    let end = second(now);
+    let bounds = (end - BACKFILL_FLOOR, end - RETENTION + MARGIN);
+    let (mut windows, done) = { let (k, s) = (key.clone(), stamp.clone()); phase(db, move |c| Ok((load_windows(c, k.id, &s)?, hf::spans(c, &k, hf::UTA_READ)?))).await? };
+    let done: Vec<Span> = done.into_iter().map(|(_, s)| s).collect();
+    let Some(index) = pick(&mut windows, &done, bounds, now) else { return Ok(()) };
+    windows[index].retry_after = None;
+    let budget = run.deadline / 2;
+    let reserve = crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + wait * THROTTLE_RETRIES as u32 + super::continuation::FINALIZE_FLOOR;
+    let mut first = true;
+    loop {
+        // Paused: the window's progress is saved with its last page; the next run resumes it.
+        if !first && run.stopwatch.elapsed() + reserve >= budget { return Ok(()); }
+        first = false;
+        let w = windows[index].clone();
+        let mut query = vec![("tradeType", "SPOT".to_string()), ("startAt", w.start.timestamp_millis().to_string()), ("endAt", (w.end.timestamp_millis() - 1).to_string()),
+                             (route.limit.0, route.limit.1.to_string())];
+        if let Some(id) = w.last_id { query.push(("lastId", id.to_string())); }
+        let outcome = match read(venue, wait, route.path, query).await {
+            Err(text) => Err(text),
+            Ok(data) => match page(&route, &data, "", (w.start, w.end), w.last_id) {
+                Ok(Some(_)) if w.pages >= MAX_PAGES => Err(format!("Too many pages of KuCoin {}", route.path)),
+                other => other,
+            },
+        };
+        let (k, s) = (key.clone(), stamp.clone());
+        match outcome {
+            Ok(None) => {
+                windows.remove(index);
+                let rest = windows.clone();
+                return commit_for(db, version, move |c| { hf::add(c, &k, hf::UTA_READ, (w.start, w.end), now)?; save_windows(c, k.id, &rest, &s, now) }).await;
+            }
+            Ok(Some((entries, last))) => {
+                windows[index] = Window { last_id: Some(last), pages: w.pages + 1, ..w.clone() };
+                let saved = windows.clone();
+                match commit_for(db, version, move |c| {
+                    if let Err(why) = store_page(c, &k, entries, now)? { return Ok(Err(why)); }
+                    save_windows(c, k.id, &saved, &s, now)?;
+                    Ok(Ok(()))
+                }).await? {
+                    Ok(()) => {}
+                    Err(text) => { windows[index] = w; return retry_later(db, version, &key, windows, index, &stamp, now, text).await; }
+                }
+            }
+            Err(text) => return retry_later(db, version, &key, windows, index, &stamp, now, text).await,
+        }
+    }
+}
+
+/// A failed window waits a day, its cursor kept; the failure is logged only (the backfill certifies nothing).
+#[allow(clippy::too_many_arguments)]
+async fn retry_later(db: &Db, version: &CredentialVersion, key: &Arc<Key>, mut windows: Vec<Window>, index: usize, stamp: &Value, now: DateTime<Utc>, text: String) -> Result<(), SyncError> {
+    crate::engine::log(&format!("[kucoin] UTA backfill of api key {} for {} to {} failed; it tries again in a day: {text}", key.id, sql_time(windows[index].start), sql_time(windows[index].end)));
+    windows[index].retry_after = Some(now + RETRY);
+    let (k, s) = (key.clone(), stamp.clone());
+    commit_for(db, version, move |c| save_windows(c, k.id, &windows, &s, now)).await
 }

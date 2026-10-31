@@ -162,12 +162,16 @@ struct Walk<'a, T: Transport> {
     source: Source, window_start: i64, window_end: i64, ranges: Vec<(i64, i64)>, page: i64,
     /// The transfer source's `endAt`, recorded by its first page and sent with every later one.
     pin: Option<i64>,
+    /// D-KUCOIN-UTA-LEDGER (r2.4): on a managed history a failed source is logged and the walk goes on to the next; the
+    /// sources that failed (never taken over) and the first failure, which the done walk records.
+    managed: bool, failed: Vec<String>, failure: Option<String>,
 }
 
 impl<'a, T: Transport> Walk<'a, T> {
-    fn new(venue: &'a KucoinVenue<T>, wait: std::time::Duration, begin: continuation::Begin<'_>) -> Self {
+    fn new(venue: &'a KucoinVenue<T>, wait: std::time::Duration, managed: bool, begin: continuation::Begin<'_>) -> Self {
         let (start, end) = (begin.start, begin.end.timestamp() * 1000);
-        let mut walk = Self { transfers: begin.transfers, venue, wait, start, end, source: Source::Fills, window_start: 0, window_end: 0, ranges: vec![], page: 1, pin: None };
+        let mut walk = Self { transfers: begin.transfers, venue, wait, start, end, source: Source::Fills, window_start: 0, window_end: 0, ranges: vec![], page: 1, pin: None,
+                              managed, failed: vec![], failure: None };
         match begin.cursor.and_then(|c| Some((c, Source::named(c["source"].as_str()?)?))) {
             Some((c, source)) => {
                 walk.source = source;
@@ -176,6 +180,8 @@ impl<'a, T: Transport> Walk<'a, T> {
                 walk.ranges = c["ranges"].as_array().into_iter().flatten().filter_map(|r| Some((r[0].as_i64()?, r[1].as_i64()?))).collect();
                 walk.page = c["page"].as_i64().unwrap_or(1);
                 walk.pin = c["pin"].as_i64();
+                walk.failed = serde_json::from_value(c["failed"].clone()).unwrap_or_default();
+                walk.failure = c["failure"].as_str().map(str::to_string);
             }
             None => walk.window(begin.start.map_or(HISTORY_FROM_MS, |s| s.timestamp() * 1000)),
         }
@@ -212,20 +218,41 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn done(&self) -> bool { self.source == Source::Done }
     fn cursor(&self) -> Value {
         serde_json::json!({ "source": self.source.name(), "window_start": self.window_start, "window_end": self.window_end,
-                            "ranges": self.ranges.iter().map(|(a, b)| serde_json::json!([a, b])).collect::<Vec<_>>(), "page": self.page, "pin": self.pin })
+                            "ranges": self.ranges.iter().map(|(a, b)| serde_json::json!([a, b])).collect::<Vec<_>>(), "page": self.page, "pin": self.pin,
+                            "failed": self.failed, "failure": self.failure })
     }
     fn page_rows(&self) -> usize { PAGE_ROWS }
     /// The file's takeover for every source the walk has finished (plan KI §5): those before the one its cursor reads.
     /// On an HF-enabled history, the page's fills are judged by the one-trade rule in the same transaction.
     const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, _, rows, now| {
         let at = cursor["source"].as_str().and_then(Source::named).unwrap_or(Source::Fills);
-        let finished: Vec<&str> = [Source::Fills, Source::Deposits, Source::Withdrawals].into_iter().take_while(|s| *s != at).map(Source::name).collect();
+        let failed: Vec<&str> = cursor["failed"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
+        let finished: Vec<&str> = [Source::Fills, Source::Deposits, Source::Withdrawals].into_iter().take_while(|s| *s != at).map(Source::name).filter(|s| !failed.contains(s)).collect();
         crate::tracker::import::kucoin::take_over(c, key, &finished, now)?;
         super::kucoin_hf::flush(c, key, super::kucoin_hf::seconds_of(rows), now).map(|_| ())
     };
     /// Every try at the transport's whole budget, and the throttle waits between them.
     fn request_reserve(&self) -> std::time::Duration { crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + self.wait * THROTTLE_RETRIES as u32 }
+    fn failure(&self) -> Option<String> { self.failure.clone() }
     async fn step(&mut self) -> Result<Vec<Entry>, Fail> {
+        let source = self.source;
+        match self.read().await {
+            Err((text, _)) if self.managed && source != Source::Done => {
+                crate::engine::log(&format!("[kucoin] the {} read failed; the other sources go on: {text}", source.name()));
+                self.failed.push(source.name().to_string());
+                self.failure.get_or_insert(text);
+                (self.page, self.pin, self.ranges) = (1, None, vec![]);
+                self.source = match source { Source::Fills => Source::Deposits, Source::Deposits => Source::Withdrawals, _ => Source::Done };
+                Ok(vec![])
+            }
+            other => other,
+        }
+    }
+}
+
+impl<T: Transport> Walk<'_, T> {
+    /// The page the walk stands at.
+    async fn read(&mut self) -> Result<Vec<Entry>, Fail> {
         let mut rows = vec![];
         match self.source {
             Source::Fills => {
@@ -292,7 +319,7 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
         let error = super::commit_for(db, &version, move |c| super::record_sync_error(c, key_id, &e.message(), &credentials)).await?;
         return Ok(Err(Failure { error, raised: false }));
     }
-    continuation::sync(db, &version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(&venue, wait, begin)).await
+    continuation::sync(db, &version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(&venue, wait, false, begin)).await
 }
 
 /// A managed run (HF, UTA, or a history either marked): the migration on the first HF or UTA detection and the mode's
@@ -308,10 +335,11 @@ async fn sync_managed<T: Transport>(db: &Db, version: &crate::engine::model::Cre
     use super::kucoin_hf_ledger::{Ended, Route};
     let now = clock.now();
     let observing = key.clone();
-    let seen = super::commit_for(db, version, move |c| {
+    let (seen, uta_ever) = super::commit_for(db, version, move |c| {
         super::kucoin_hf::migrate(c, &observing, now)?;
         super::kucoin_hf::observe_mode(c, &observing, mode, now)?;
-        super::kucoin_hf::seen_modes(c, &observing, now)
+        let uta = crate::venue::kucoin_account::AccountMode::UnsupportedUta;
+        Ok((super::kucoin_hf::seen_modes(c, &observing, now)?, !super::kucoin_hf::spans(c, &observing, super::kucoin_hf::mode_source(uta))?.is_empty()))
     }).await?;
     let (key_id, mut failed, mut paused) = (key.id, None, false);
     for route in seen.into_iter().filter_map(Route::of) {
@@ -322,7 +350,9 @@ async fn sync_managed<T: Transport>(db: &Db, version: &crate::engine::model::Cre
             Ended::Failed(text) => crate::engine::log(&format!("[kucoin] {} of api key {key_id} (not the account's mode now) failed: {text}", route.mode.as_str())),
         }
     }
-    let classic = continuation::sync(db, version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(venue, wait, begin)).await?;
+    // r2.3: a history that was ever UTA reads its older executions back, whatever its mode now.
+    if uta_ever { super::kucoin_hf_ledger::backfill(db, version, venue, &key, clock, wait, run).await?; }
+    let classic = continuation::sync(db, version, key, watermark, Duration::hours(OVERLAP_HOURS), credentials, clock.now(), run, |begin| Walk::new(venue, wait, true, begin)).await?;
     match (failed, classic) {
         (Some(text), Ok(_)) => {
             let credentials = credentials.clone();
