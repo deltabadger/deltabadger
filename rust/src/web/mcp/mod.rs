@@ -104,14 +104,18 @@ pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Respon
         answer.map(|r|(r,pending))
     }).await;
     match answer{
-        Ok((_,Some(pending)))=>finish(app,pending).await.unwrap_or_else(|_|err(500,&id,-32603,"An unexpected error occurred.")),
+        // Detached, so a dropped connection still ends in an answered order and its history row (PLAN-A9 r1 §3).
+        Ok((_,Some(pending)))=>match tokio::spawn(finish(app,pending)).await {
+            Ok(Ok(r))=>r,
+            _=>err(500,&id,-32603,"An unexpected error occurred."),
+        },
         Ok((r,None))=>r,
         Err(_)=>err(500,&id,-32603,"An unexpected error occurred.")
     }
 }
 /// A tools/call whose tool reads a venue or the market: the request is in the session's history; the answer is not yet.
 pub struct Pending{session:String,id:Value,work:Work}
-enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request) }
+enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<tools::QueuedOrder>) }
 enum Finished { Read(reads::Fetched), Rules(Value) }
 /// The network part with no database lock held, then the answer, its history row and the response, as dispatch writes them.
 async fn finish(app:App,p:Pending)->Result<Response,WebError>{
@@ -121,6 +125,7 @@ async fn finish(app:App,p:Pending)->Result<Response,WebError>{
             Ok(read) => protocol::tool_text(&read.text,read.is_error),
             Err(_) => protocol::tool_text("An unexpected error occurred.",true),
         }),
+        Work::Order(order) => Finished::Rules(order.perform(&app).await),
     };
     let app2=app.clone();
     app.db(move|c|{
@@ -242,6 +247,7 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
                 tools::Called::Done(value)=>result(id,value),
                 tools::Called::Rules(request)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Rules(request)});return Ok(response(202,None,false));}
                 tools::Called::Fetch(fetch)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Read(fetch)});return Ok(response(202,None,false));}
+                tools::Called::Order(order)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Order(order)});return Ok(response(202,None,false));}
             }}
         },
         m if m.starts_with("tools/")=>error(id,-32601,&format!("Unknown tools method: {m}")),

@@ -43,6 +43,8 @@ pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: 
     /// A composition sale at a loss: the wash-sale claim taken with this intent (`rust_placement.wash_claim`). A rebalance
     /// sell's lives in the bot's own keys (wash::claim_rebalance_sell).
     pub wash_claim: Option<super::wash::Held>,
+    /// An API order's send deadline (PLAN-A9 r1 §2): no order request leaves after it, whatever the intent's own window.
+    pub send_by: Option<DateTime<Utc>>,
 }
 
 impl Intent {
@@ -57,7 +59,8 @@ impl Intent {
                    "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
                    "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "side": p.side.as_str(), "transaction_type": p.kind.as_str(), "run_identity": self.run.as_ref().map(model::RunIdentity::to_json),
-                   "source": self.source, "origin": p.origin.as_str(), "wire_price": p.wire_price.as_ref().map(|w| d("wire_price", w)).transpose()? }))
+                   "source": self.source, "origin": p.origin.as_str(), "wire_price": p.wire_price.as_ref().map(|w| d("wire_price", w)).transpose()?,
+                   "send_by": self.send_by.map(|t| t.to_rfc3339()) }))
     }
     fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
@@ -79,7 +82,8 @@ impl Intent {
         let origin = match v.get("origin") { None | Some(Value::Null) => Origin::Base, Some(x) => x.as_str().and_then(Origin::parse).ok_or_else(bad)? };
         let wire_price = match v.get("wire_price") { None | Some(Value::Null) => None, Some(_) => Some(d("wire_price")?) };
         let wash_claim = super::wash::Held::from_json(v.get("wash_claim"))?;
-        Ok(Self { wash_claim, source, symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
+        let send_by = crate::codec::optional_time(v.get("send_by")).map_err(|_| bad())?;
+        Ok(Self { wash_claim, send_by, source, symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, side, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")?, kind, origin, wire_price } })
     }
@@ -348,7 +352,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         &guarded
     } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let mut intent = Intent { wash_claim: None, source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: match plan.kind { TxKind::Regular => Some(bot.run_identity()?), TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => None }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let mut intent = Intent { wash_claim: None, send_by: None, source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: match plan.kind { TxKind::Regular => Some(bot.run_identity()?), TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => None }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -397,25 +401,33 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
 /// `Intent::source` of a signal bot's order.
 pub const SIGNAL_SOURCE: &str = "signal";
 
-/// What `begin_signal` found under the intent's write lock. Only `Intent` wrote one; `Stopped` and `Disabled` consumed the
-/// call with its `signal_ignored` line, `Locked` (a buy of an asset the account locked since the call was sized) with
-/// none; the others changed nothing, and the call stays for the next pass.
+/// What `begin_signal` found under the intent's write lock. Only `Intent` wrote one; `Stopped` and `Disabled` consumed a
+/// webhook call with its `signal_ignored` line, `Locked` (a buy of an asset the account locked since the order was sized)
+/// with none; `BelowMinimum` (D-SIG-CAP): the exact cap guard reduced a webhook buy below the venue's minimum, its skipped
+/// row, its line and the consumed call written in the claim's transaction. An API request is never consumed here: its
+/// caller answers it. `Expired`: past an API request's `send_by`. `CapReached`: an API buy the spending cap does not cover
+/// (what it leaves). The others changed nothing, and a webhook call stays for the next pass.
 #[derive(Debug)]
-/// `BelowMinimum` (D-SIG-CAP): the exact cap guard reduced a buy below the venue's minimum; its skipped row, its line and the
-/// consumed call were written in the claim's transaction.
-pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged, Locked, BelowMinimum }
+pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged, Locked, BelowMinimum, Expired, CapReached(BigDec) }
+
+/// Who a signal bot's order is for (PLAN-A9 r1 §1): a webhook call (consumed with the intent), an API request (taken by the
+/// engine, consumed with the intent: `sending`), or the one more attempt after a placement-safe rejection, which Rails
+/// places at once whatever happened meanwhile (only the barrier, the pair, the credentials and an API request's send
+/// deadline are asked).
+#[derive(Clone, Copy)]
+pub enum Claim<'a> { Webhook(&'a model::SignalCall), Api(&'a super::api_orders::Request), Replace { send_by: Option<DateTime<Utc>> } }
 
 /// A signal bot's intent (plan 8a §R4, §R10): `run: None`, `source: "signal"`. In its own immediate transaction:
 /// - the barrier (engine::signal::blocked: Rails' unresolved marker or an unresolved intent) stands → `Blocked`;
-/// - for a webhook `call`: it is still queued (`Gone`), the bot still works (a stop that committed first: `Stopped`, which
+/// - for a webhook call: it is still queued (`Gone`), the bot still works (a stop that committed first: `Stopped`, which
 ///   logs `signal_ignored` as Rails' job would at its start) and the rule is still on (`Disabled`, the same line);
+/// - for an API request: it is still taken by this engine (`Gone`), before its `send_by` (`Expired`), the bot still works
+///   (`Stopped`), and a buy is covered by the spending cap (`CapReached`: refused, never clamped);
+/// - a buy of an asset locked since it was sized (`Locked`), on both;
 /// - the exchange and the pair are what the order was sized from (`Changed`), and the credentials too;
-/// - the call is removed in the transaction that writes the intent.
-///
-/// `call` is None for the one more attempt after a placement-safe rejection: Rails places it at once, whatever happened
-/// meanwhile, so only the barrier, the pair and the credentials are asked.
+/// - the call is removed, or the request marked `sending`, in the transaction that writes the intent.
 #[allow(clippy::too_many_arguments)]
-pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Option<&model::SignalCall>, version: &Option<model::CredentialVersion>, identity: Option<Value>, clock: &dyn Clock) -> Result<SignalClaim, EngineError> {
+pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: Claim<'_>, version: &Option<model::CredentialVersion>, identity: Option<Value>, clock: &dyn Clock) -> Result<SignalClaim, EngineError> {
     let tx = model::immediate(c)?;
     let current = model::load_bot(&tx, sized_from.id)?;
     if super::signal::blocked(&current) { return Ok(SignalClaim::Blocked); }
@@ -430,6 +442,14 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
         return Ok(SignalClaim::Changed);
     }
     let now = clock.now();
+    let call = match claim { Claim::Webhook(call) => Some(call), Claim::Api(_) | Claim::Replace { .. } => None };
+    let send_by = match claim { Claim::Api(request) => Some(request.send_by), Claim::Replace { send_by } => send_by, Claim::Webhook(_) => None };
+    if send_by.is_some_and(|by| now > by) { return Ok(SignalClaim::Expired); }
+    if let Claim::Api(request) = claim {
+        if !super::api_orders::still_taken(&tx, request.id)? { return Ok(SignalClaim::Gone); }
+        if !crate::enums::BOT_WORKING.contains(&current.status) { return Ok(SignalClaim::Stopped); }
+        if super::signal::locked_buy(&tx, &current, &plan.ticker, plan.side, now)? { return Ok(SignalClaim::Locked); }
+    }
     if let Some(call) = call {
         if !current.signal_calls()?.iter().any(|x| x.source == call.source) { return Ok(SignalClaim::Gone); }
         let refused = if !crate::enums::BOT_WORKING.contains(&current.status) { Some(SignalClaim::Stopped) }
@@ -461,6 +481,13 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
     let guarded;
     let plan = if plan.side == Side::Buy {
         match super::amount::guard_exact_cap(&tx, &current, plan)? {
+            // An API buy names its amount: one the cap does not fully cover is refused, never clamped (Jan, 2026-10-31).
+            super::amount::CapGuard::Place(safe) if matches!(claim, Claim::Api(_)) && (safe.amount != plan.amount || safe.quote_amount != plan.quote_amount) => {
+                return Ok(SignalClaim::CapReached(super::accounting::exact_cap_available(&tx, &current)?.unwrap_or_else(BigDec::zero)));
+            }
+            super::amount::CapGuard::BelowMinimum(_) if matches!(claim, Claim::Api(_)) => {
+                return Ok(SignalClaim::CapReached(super::accounting::exact_cap_available(&tx, &current)?.unwrap_or_else(BigDec::zero)));
+            }
             super::amount::CapGuard::Place(safe) => { guarded = safe; &guarded }
             super::amount::CapGuard::BelowMinimum(skipped) => {
                 super::log(&format!("execute_signal bot={} event=order_skipped base={} quote={}", current.id, skipped.ticker.base_symbol, skipped.ticker.quote_symbol));
@@ -474,7 +501,7 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
             }
         }
     } else { plan };
-    let intent = Intent { wash_claim: None, source: Some(SIGNAL_SOURCE.into()), symbol: plan.ticker.ticker.clone(), bot_id: current.id, run: None, credential_version: version.clone(),
+    let intent = Intent { wash_claim: None, send_by, source: Some(SIGNAL_SOURCE.into()), symbol: plan.ticker.ticker.clone(), bot_id: current.id, run: None, credential_version: version.clone(),
                           cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?,
                           at: now, plan: plan.clone() };
     let mut v = intent.to_json()?;
@@ -486,7 +513,8 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
     if let Some(Value::Object(identity)) = identity { for (k, value) in identity { v[k] = value; } }
     set_intent(&tx, current.id, Some(&v))?;
     if let Some(call) = call { super::signal::consume(&tx, current.id, call, None, now)?; }
-    tx.commit()?; // durable before the send, the call with it
+    if let Claim::Api(request) = claim { super::api_orders::sending(&tx, request.id, &intent.cl_ord_id)?; }
+    tx.commit()?; // durable before the send, the call or the request with it
     Ok(SignalClaim::Intent(Box::new(intent)))
 }
 
@@ -665,7 +693,8 @@ fn rebalance_claim_holds(c: &Connection, bot_id: i64) -> Result<bool, EngineErro
 async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
     let handle=crate::venue::Handle::new(venue,intent.credential_version.clone());
     let venue=&handle;
-    let Some(send_until) = intent.at.checked_add_signed(Duration::seconds(SEND_WINDOW_SECONDS)) else { return Sent::NotSent(format!("{:?}", super::schedule::time_range_error())); };
+    let Some(window) = intent.at.checked_add_signed(Duration::seconds(SEND_WINDOW_SECONDS)) else { return Sent::NotSent(format!("{:?}", super::schedule::time_range_error())); };
+    let send_until = intent.send_by.map_or(window, |by| by.min(window));
     if clock.now() > send_until {
         return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
     }
