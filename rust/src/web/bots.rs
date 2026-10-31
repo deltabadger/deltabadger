@@ -315,7 +315,6 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let (total, has_active, has_inactive, has_archived) = (entries.iter().filter(|e| !archived(e)).count(), entries.iter().any(working), entries.iter().any(idle), entries.iter().any(archived));
         let filter = ctx.params.query("filter").unwrap_or("all");
         let shown: Vec<&Result<Bot, Refused>> = entries.iter().filter(|entry| match filter { "active" => working(entry), "inactive" => idle(entry), "archived" => archived(entry), _ => !archived(entry) }).collect();
-        let listed: Vec<&Bot> = shown.iter().filter_map(|entry| entry.as_ref().ok()).collect();
         let filters = if (total > 1 && has_active && has_inactive) || has_archived {
             let names: &[&'static str] = if has_archived { &["all", "active", "inactive", "archived"] } else { &["all", "active", "inactive"] };
             let options = names.iter().map(|name| SegmentedOption {
@@ -326,7 +325,6 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         } else {
             None
         };
-        let (can_merge, can_split) = (listed.iter().filter(|bot| mergeable(bot).0).count() >= 2, listed.iter().any(|bot| mergeable(bot).1));
         // Bot::Merge.connected_exchange_ids, and `Exchange.tradeable.pluck(:id, :name).to_h`.
         let connected = connected_exchange_ids(c, user.id)?;
         let mut tradeable = c.prepare("SELECT id, name FROM exchanges WHERE available = 1 AND type IS NOT 'Exchanges::Bitmart' ORDER BY id")?;
@@ -361,6 +359,8 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
                 Err(refused) => tiles.push(refused.tile(ctx)),
             }
         }
+        // From the tiles as drawn: a plain tile (a refused bot) offers neither.
+        let (can_merge, can_split) = (tiles.iter().filter(|tile| tile.mergeable).count() >= 2, tiles.iter().any(|tile| tile.splittable));
         let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
         let select_mode = can_merge || can_split;
         let stream = if ctx.turbo_frame.as_deref() == Some(SCOPE_FRAME) {
