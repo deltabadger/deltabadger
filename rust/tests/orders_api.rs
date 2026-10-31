@@ -267,7 +267,7 @@ async fn one_idempotency_key_sent_twice_at_once_places_one_order() {
     let (a, b) = (post(&k.app, buy(&k, json!("100")), "race"), post(&k.app, buy(&k, json!("100")), "race"));
     queued(&k, 1).await;
     run::step(&mut k.e, &kt(0)).await.unwrap();
-    let mut answers = vec![a.await.unwrap(), b.await.unwrap()];
+    let mut answers = [a.await.unwrap(), b.await.unwrap()];
     answers.sort_by_key(|(status, _)| *status);
     assert_eq!(answers[0].0, 201);
     assert_eq!(answers[1], refusal(409, "idempotency_in_progress", "A request with this Idempotency-Key is already in progress."));
