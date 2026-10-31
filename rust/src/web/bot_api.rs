@@ -7,6 +7,8 @@
 use super::mcp::{protocol::metadata, tools::{asset, STATUSES}};
 use super::{bot::{action_params::{numeric, ActionParams}, mcp_input, write::{self, Action, Failure, Outcome, Prepared}}, i18n, layout::Ctx, App, WebError};
 use std::sync::Arc;
+
+pub mod orders;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
