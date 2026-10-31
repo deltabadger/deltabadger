@@ -449,12 +449,14 @@ module Pages
         'api_orders_cancel_refusals' => order_case([cancel.('/api/v1/orders/abc'), cancel.('/api/v1/orders/abc?exchange_name=Nope%3Cx%3E'),
                                                     cancel.('/api/v1/orders/abc?exchange_name=Interactive%20Brokers'), cancel.('/api/v1/orders/2'),
                                                     cancel.('/api/v1/orders/2.json'), cancel.('/api/v1/orders/999'), cancel.('/api/v1/orders/abc?exchange_name=')]),
-        # Past every refusal: Rails asks the venue (stubbed below; the cancels as pages_settings.rb answers them), this build
-        # answers 501 until the engine places and cancels (PLAN-A9 O2 to O4).
+        # Past every refusal: Rails asks the venue (stubbed below), this build answers 501 until the engine places (PLAN-A9 O3, O4).
         'not_ported_api_orders_market_buy' => order_case([order_post(buy, 'placed')]),
         'not_ported_api_orders_limit_sell' => order_case([order_post('{"type":"limit_sell","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":1,"price":400}', 'limit')]),
-        'not_ported_api_orders_cancel_row' => order_case([cancel.('/api/v1/orders/1')]),
-        'not_ported_api_orders_cancel_external' => order_case([cancel.('/api/v1/orders/cancel-ok?exchange_name=alpaca')])
+        # PLAN-A9 O2: the cancels, sent (the venue answers as pages_settings.rb stubs it): a bot's open row by its id, and order
+        # ids on the exchange path (the bot row's own id among them), accepted, refused and with a key the venue rejects.
+        'api_orders_cancel_row' => order_case([cancel.('/api/v1/orders/1')]),
+        'api_orders_cancel_external' => order_case([cancel.('/api/v1/orders/cancel-ok?exchange_name=alpaca'), cancel.('/api/v1/orders/cancel-refused?exchange_name=Alpaca'),
+                                                    cancel.('/api/v1/orders/cancel-key?exchange_name=Alpaca')])
       }
     end
 

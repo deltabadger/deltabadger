@@ -111,7 +111,7 @@ pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Respon
 }
 /// A tools/call whose tool reads a venue or the market: the request is in the session's history; the answer is not yet.
 pub struct Pending{session:String,id:Value,work:Work}
-enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request) }
+enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
 enum Finished { Read(reads::Fetched), Rules(Value) }
 /// The network part with no database lock held, then the answer, its history row and the response, as dispatch writes them.
 async fn finish(app:App,p:Pending)->Result<Response,WebError>{
@@ -120,6 +120,10 @@ async fn finish(app:App,p:Pending)->Result<Response,WebError>{
         Work::Rules(request) => Finished::Rules(match request.perform(&app).await {
             Ok(read) => protocol::tool_text(&read.text,read.is_error),
             Err(_) => protocol::tool_text("An unexpected error occurred.",true),
+        }),
+        Work::Cancel(job,args) => Finished::Rules(match crate::web::bot_api::orders::send_cancel(&app,job).await {
+            Ok(res) => tools::order_text("cancel_order",&args,false,&res),
+            Err(_) => { crate::engine::log("MCP order tool failed"); protocol::tool_text("An unexpected error occurred.",true) }
         }),
     };
     let app2=app.clone();
@@ -242,6 +246,7 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
                 tools::Called::Done(value)=>result(id,value),
                 tools::Called::Rules(request)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Rules(request)});return Ok(response(202,None,false));}
                 tools::Called::Fetch(fetch)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Read(fetch)});return Ok(response(202,None,false));}
+                tools::Called::Cancel(job,args)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Cancel(job,args)});return Ok(response(202,None,false));}
             }}
         },
         m if m.starts_with("tools/")=>error(id,-32601,&format!("Unknown tools method: {m}")),
