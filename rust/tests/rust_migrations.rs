@@ -230,7 +230,7 @@ fn open_based_commands_work_on_an_unmigrated_install_and_never_migrate_it() {
 type Refused<'a> = (&'a str, &'a [(&'a str, &'a str)], &'a str);
 
 #[test]
-fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_and_a_transaction_statement() {
+fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_a_transaction_statement_and_an_altered_table() {
     let rails = format!("{}_clash.sql", MIGRATIONS[0]);
     let refused: &[Refused<'_>] = &[
         ("repeated version", &[("20990101000001_a.sql", "SELECT 1;"), ("20990101000001_b.sql", "SELECT 1;")], "used by two"),
@@ -242,6 +242,8 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_and_a_transa
         ("ROLLBACK", &[("20990101000001_t.sql", "CREATE TABLE t (id INTEGER); ROLLBACK TRANSACTION;")], "ROLLBACK"),
         ("SAVEPOINT", &[("20990101000001_t.sql", "SAVEPOINT s; CREATE TABLE t (id INTEGER); RELEASE s;")], "SAVEPOINT"),
         ("after a comment", &[("20990101000001_t.sql", "-- the table\n/* first */ BEGIN TRANSACTION;")], "BEGIN"),
+        ("ALTER TABLE", &[("20990101000001_t.sql", "CREATE TABLE t (id INTEGER);\nalter  table bots ADD COLUMN x TEXT;")], "ALTER TABLE"),
+        ("DROP TABLE", &[("20990101000001_t.sql", "/* gone */ DROP TABLE IF EXISTS bots;")], "DROP TABLE"),
     ];
     for (name, files, says) in refused {
         let dir = dir_with(files);
@@ -251,7 +253,7 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_and_a_transa
         }
     }
     // Words in comments, quoted text and a trigger's own BEGIN … END are not transaction statements.
-    let accepted = dir_with(&[("20990101000001_t.sql", "-- BEGIN;\nCREATE TABLE t (note TEXT DEFAULT 'commit; begin');\n\
+    let accepted = dir_with(&[("20990101000001_t.sql", "-- BEGIN; DROP TABLE bots;\nCREATE TABLE t (note TEXT DEFAULT 'commit; begin; alter table bots');\n\
         CREATE TRIGGER t_ai AFTER INSERT ON t BEGIN UPDATE t SET note = 'x'; END;"), (".gitkeep", "")]);
     assert_eq!(test_support::load(accepted.path()).unwrap().len(), 1);
 }

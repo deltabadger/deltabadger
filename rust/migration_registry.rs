@@ -21,6 +21,7 @@ pub fn load(dir: &Path, rails_versions: &[String]) -> Result<Vec<(String, String
         if rails_versions.iter().any(|v| v == version) { return Err(format!("{file}: version {version} is a Rails migration's")); }
         let sql = std::fs::read_to_string(&path).map_err(|e| format!("{file}: {e}"))?;
         if let Some(statement) = transaction_control(&sql) { return Err(format!("{file}: `{statement}` controls the transaction; the migrator runs each file in its own")); }
+        if let Some(statement) = alters_a_table(&sql) { return Err(format!("{file}: `{statement}` is not allowed yet; the first migration that must alter or drop a table needs its own plan (B1 r3.1)")); }
         found.push((version.to_string(), name.to_string(), path));
     }
     found.sort();
@@ -30,10 +31,26 @@ pub fn load(dir: &Path, rails_versions: &[String]) -> Result<Vec<(String, String
     Ok(found)
 }
 
+/// The first `ALTER TABLE` or `DROP TABLE` statement. Contracts mark every contracted table as Rust's (store::Registry::
+/// owned_tables), so altering a Rails-born table would also drop it from the parity snapshots; until a migration needs it,
+/// none may.
+fn alters_a_table(sql: &str) -> Option<String> {
+    statements(sql).into_iter().find_map(|words| match words.as_slice() {
+        [first, second, ..] if (first == "ALTER" || first == "DROP") && second == "TABLE" => Some(format!("{first} {second}")),
+        _ => None,
+    })
+}
+
 /// The first statement that begins with BEGIN, COMMIT, ROLLBACK, SAVEPOINT or RELEASE, ignoring comments and quoted
 /// text. A bare END is left out: it also closes a trigger body (`… BEGIN …; END;`).
 // ponytail: a keyword scan, not a parser; store::apply also refuses a file that leaves its transaction (END included).
 fn transaction_control(sql: &str) -> Option<String> {
+    statements(sql).into_iter().filter_map(|words| words.into_iter().next())
+        .find(|word| ["BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE"].contains(&word.as_str()))
+}
+
+/// Each statement's words, upper-cased, with comments and quoted text blanked.
+fn statements(sql: &str) -> Vec<Vec<String>> {
     let mut code = String::new();
     let mut chars = sql.chars().peekable();
     while let Some(c) = chars.next() {
@@ -45,7 +62,6 @@ fn transaction_control(sql: &str) -> Option<String> {
         }
     }
     code.split(';')
-        .filter_map(|statement| statement.split(|c: char| !c.is_ascii_alphabetic()).find(|w| !w.is_empty()))
-        .map(str::to_ascii_uppercase)
-        .find(|word| ["BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE"].contains(&word.as_str()))
+        .map(|statement| statement.split(|c: char| !c.is_ascii_alphabetic()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect())
+        .collect()
 }
