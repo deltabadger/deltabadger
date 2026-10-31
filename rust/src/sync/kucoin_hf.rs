@@ -96,15 +96,18 @@ pub fn observe_mode(c: &Connection, key: &Key, mode: AccountMode, now: DateTime<
         }
         Some(_) => {
             add(c, key, mode_source(mode), (now, now), now)?;
-            hold_switched(c, key, now)?;
+            // ClassicLf reopened after another mode: the rows placed before it are held once.
+            if mode == AccountMode::ClassicLf { hold_switched(c, key, now)?; }
         }
         None => {
             let start = if mode == AccountMode::ClassicHf { now - super::kucoin_hf_ledger::RETENTION + super::kucoin_hf_ledger::MARGIN } else { now };
             add(c, key, mode_source(mode), (start, now), now)?;
-            // A pure LF history records no episodes: its first other mode is a switch.
-            if mode != AccountMode::ClassicLf { hold_switched(c, key, now)?; }
         }
     }
+    // On ClassicHf or UTA every record-less row is a classic one (each HF or UTA placement has its record), so each
+    // observation holds them, not only the switch: a row materialized later (`resolve-placement --placed`) or placed in an
+    // LF interval no observation recorded is held too.
+    if mode != AccountMode::ClassicLf { hold_switched(c, key, now)?; }
     Ok(())
 }
 

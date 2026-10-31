@@ -2683,3 +2683,23 @@ async fn u3a_zero_filled_uta_evidence_needs_an_empty_execution_list() {
     let answers = [detail, uta_page(&ext, &[], 8)];
     assert_eq!(reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0", "0", json!([]), uta_answers(&answers))).unwrap(), Operator::Reconciled);
 }
+
+/// U3b review P1: on a UTA account every observation holds a record-less row, not only the switch: a row that appears
+/// after the episode opened (a classic placement resolved later, or one placed in an unrecorded LF interval) is held too.
+#[tokio::test(flavor = "current_thread")]
+async fn u3b_a_row_appearing_after_the_switch_is_held_on_the_next_observation() {
+    let (_dir, o, bot, _plan) = engine_setup();
+    let first = open_row(&o.primary, &bot, "C0", "2026-09-01 10:00:00", json!({}));
+    let t = ScriptedTransport::default(); t.set_now(at("2026-11-20T12:00:00Z")); unified(&t);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default()).allow_uta();
+    t.reply("GET /api/v1/orders/C0", 200, json!({"code":"400100","msg":"order not exist"}));
+    let _ = sweep(&o.primary, &v, bot.id).await;
+    assert_eq!(record_family(&o.primary, first).as_deref(), Some("Classic"), "held by the switch");
+    let late = open_row(&o.primary, &bot, "C1", "2026-09-01 11:00:00", json!({}));
+    for ext in ["C0", "C1"] { t.reply(&format!("GET /api/v1/orders/{ext}"), 200, json!({"code":"400100","msg":"order not exist"})); }
+    let _ = sweep(&o.primary, &v, bot.id).await;
+    assert_eq!(record_family(&o.primary, late).as_deref(), Some("Classic"), "held on the next observation");
+    assert!(obligation(&o.primary, late).is_some(), "an unread held row owes");
+    assert_eq!(row_exec(&o.primary, late).0, Some(0), "never abandoned");
+    assert!(!t.requests().iter().any(|r| r.path.contains("/fills")), "no fills fallback");
+}
