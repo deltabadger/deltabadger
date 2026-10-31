@@ -119,6 +119,8 @@ async fn control_transcripts() {
     }
     common::rails(boot.path(), "test", &["runner", "script/rust/mcp_control.rb", "record", root.path().to_str().unwrap()]);
     let mut failures = vec![];
+    // PLAN-A9 O1: a dry run's order id is random on both sides (Exchange::Dryable#create_dry_order).
+    let dry=regex::Regex::new(r"dry-order-[0-9a-f-]{26}").unwrap();
     for (dir,got) in dirs.iter().zip(results) {
         let want = read(dir.join("rails.json"));
         let (mut got,want)=(comparable(got),comparable(want));
@@ -266,10 +268,8 @@ async fn control_transcripts() {
             }
             result_without_before(&mut got);
         }
-        // PLAN-A9 O1: a dry run's order id is random on both sides (Exchange::Dryable#create_dry_order).
         let (mut got,mut want)=(got,want);
         if name.starts_with("order_") {
-            let dry=regex::Regex::new(r"dry-order-[0-9a-f-]{26}").unwrap();
             for v in [&mut got,&mut want] { *v=serde_json::from_str(&dry.replace_all(&v.to_string(),"dry-order-<id>")).unwrap(); }
         }
         if name.starts_with("order_dry_cancel") {
@@ -277,7 +277,6 @@ async fn control_transcripts() {
             // no venue call, and neither side writes a row.
             let answer=|t:&Value|->Value{serde_json::from_str::<Value>(t["responses"][2]["body"].as_str().unwrap()).unwrap()["result"].clone()};
             assert_eq!(answer(&want)["isError"],true,"Rails raises on {name}: {}",answer(&want));
-            eprintln!("{name}: Rails answers {}",answer(&want));
             let expected=if name=="order_dry_cancel" {"[DRY RUN] Order #1 (BUY QQQM/USD on Alpaca) cancellation submitted."} else {"[DRY RUN] Order venue-9 cancellation submitted on Alpaca."};
             assert_eq!(answer(&got),json!({"content":[{"type":"text","text":expected}]}),"{name}");
             for table in ["bots","transactions","api_keys","users"] { assert_eq!(got["rows"][table],want["rows"][table],"{name}: {table}"); }
