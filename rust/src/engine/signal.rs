@@ -7,7 +7,8 @@
 //! (Exchange#with_transient_retry).
 use super::amount::{self, OrderPlan, RowKind, TxKind};
 use super::model::{self, Bot, Level, SignalCall, SignalRule};
-use super::placement::{self, Sent, SignalClaim};
+use super::api_orders::{self, Outcome};
+use super::placement::{self, Claim, Sent, SignalClaim};
 use super::tick::TickContext;
 use super::{Clock, EngineError};
 use crate::enums::BOT_WORKING;
@@ -76,15 +77,26 @@ fn owe_mail(c: &Connection, bot_id: i64, notify: bool, errors: &[String], now: D
 /// decision, and the call consumed, in one transaction.
 /// Written under the credentials the reads were made with: a key replaced meanwhile writes nothing, and the call runs again.
 #[allow(clippy::too_many_arguments)]
-fn fail_unsized(c: &Connection, bot: &Bot, ticker: &model::Ticker, side: Side, call: &SignalCall, errors: Vec<String>, version: &Option<model::CredentialVersion>, now: DateTime<Utc>) -> Result<Step, EngineError> {
+fn fail_unsized(c: &Connection, bot: &Bot, ticker: &model::Ticker, side: Side, src: Source<'_>, errors: Vec<String>, version: &Option<model::CredentialVersion>, now: DateTime<Utc>) -> Result<Step, EngineError> {
     super::log(&format!("execute_signal bot={} event=order_failed errors={}", bot.id, to_sentence(&errors)));
     model::credential_write(c, version, |tx| {
         let notify = !failing(tx, bot.id)?;
         amount::write_unsized_failure(tx, bot, ticker, side, &errors, now)?;
         owe_mail(tx, bot.id, notify, &errors, now)?;
-        consume(tx, bot.id, call, None, now)
+        src.consume(tx, bot.id, None, &Outcome::Failed { errors: errors.clone() }, now)
     })?;
     Ok(Step::Ran)
+}
+
+/// Who asked for a signal bot's order: a webhook call, consumed with its line, or an API request, answered with its outcome.
+#[derive(Clone, Copy)]
+pub enum Source<'a> { Webhook(&'a SignalCall), Api(&'a api_orders::Request) }
+
+impl Source<'_> {
+    /// In the caller's transaction: the call removed (with its refusal line), or the request answered.
+    fn consume(self, c: &Connection, bot_id: i64, line: Option<&str>, outcome: &Outcome, now: DateTime<Utc>) -> Result<(), EngineError> {
+        match self { Source::Webhook(call) => consume(c, bot_id, call, line, now), Source::Api(request) => api_orders::finish(c, request.id, outcome) }
+    }
 }
 
 /// What one pass did with a bot's first waiting call.
@@ -130,7 +142,7 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
         match super::clock::gate(venue.clock_result().await.value, &model::exchange_name(c, &bot)?, now) {
             super::clock::Gate::Open => {}
             super::clock::Gate::Closed { .. } => return refuse(Some("signal_market_closed")),
-            super::clock::Gate::Retry(m) | super::clock::Gate::InvalidKey(m) => return fail_unsized(c, &bot, &ticker, rule.side, &call, vec![m], &cx.credential_version, now),
+            super::clock::Gate::Retry(m) | super::clock::Gate::InvalidKey(m) => return fail_unsized(c, &bot, &ticker, rule.side, Source::Webhook(&call), vec![m], &cx.credential_version, now),
         }
     }
     if let Some(step) = gate(c, venue, &bot, &rule, &ticker, &call, clock, cx).await? { return Ok(step); }
@@ -166,7 +178,7 @@ async fn gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule:
         Evaluated::Failed(VenueError::Rejected(e) | VenueError::Coded { errors: e, .. }) if rules.failure_kind(e) == Some("invalid_key") => Some(rejected(e)),
         Evaluated::Unmet | Evaluated::Unavailable | Evaluated::Failed(_) => None,
     };
-    if let Some(m) = key { return fail_unsized(c, bot, ticker, rule.side, call, vec![m], &cx.credential_version, clock.now()).map(Some); }
+    if let Some(m) = key { return fail_unsized(c, bot, ticker, rule.side, Source::Webhook(call), vec![m], &cx.credential_version, clock.now()).map(Some); }
     let now = clock.now();
     // Fenced as the gate's met_at writes are: stopped, or its key replaced, while the price was read keeps the call.
     match model::run_credential_write(c, bot, &cx.credential_version, |tx| {
@@ -217,7 +229,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
             Ok(cap) => cap,
             Err(EngineError::Data(m)) if m.contains(crate::figures::fill::VALUE_UNAVAILABLE) => {
                 let text = crate::web::i18n::text("en", "activerecord.errors.models.bot.attributes.settings.quote_amount_spent_unknown", &[]);
-                return fail_unsized(c, bot, ticker, side, call, vec![text], version, clock.now());
+                return fail_unsized(c, bot, ticker, side, Source::Webhook(call), vec![text], version, clock.now());
             }
             Err(e) => return Err(e),
         }
@@ -226,7 +238,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
     // #signal_order_data: every read retried in place; what still fails is a failed row.
     let price = match retrying(venue, || super::tick::market_price_read(venue, bot, ticker, side, clock, cx)).await? {
         Ok(p) => p,
-        Err(e) => return fail_unsized(c, bot, ticker, side, call, vec![message(e)], version, clock.now()),
+        Err(e) => return fail_unsized(c, bot, ticker, side, Source::Webhook(call), vec![message(e)], version, clock.now()),
     };
     let held = match side {
         Side::Buy if !rule.percentage => None,
@@ -236,10 +248,10 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
             Ok(venue.free_base_result(ticker, catalog).await.value)
         }).await?),
     };
-    let held = match held.transpose() { Ok(h) => h, Err(e) => return fail_unsized(c, bot, ticker, side, call, vec![message(e)], version, clock.now()) };
+    let held = match held.transpose() { Ok(h) => h, Err(e) => return fail_unsized(c, bot, ticker, side, Source::Webhook(call), vec![message(e)], version, clock.now()) };
     // A price that floored to zero: BigDecimal raises ZeroDivisionError in the sizing, or in #checked_amount_info.
     let sized = if price.is_zero() { None } else { size(rule, &price, held.as_ref()) };
-    let Some((mut amount, mut quote)) = sized else { return fail_unsized(c, bot, ticker, side, call, vec!["divided by 0".into()], version, clock.now()) };
+    let Some((mut amount, mut quote)) = sized else { return fail_unsized(c, bot, ticker, side, Source::Webhook(call), vec!["divided by 0".into()], version, clock.now()) };
     // D-SIG-CAP: a buy is clamped to what the cap leaves, its base at the same price.
     let bound = cap.as_ref().is_some_and(|left| &quote > left);
     if let Some(left) = cap.filter(|_| bound) {
@@ -261,7 +273,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
         })?;
         return Ok(Step::Ran);
     }
-    place(c, venue, bot, &plan, call, clock, cx).await
+    place(c, venue, bot, &plan, Source::Webhook(call), clock, cx).await
 }
 
 /// Bots::Signal::OrderSetter#buy_locked?: a buy of an asset the account has locked, with its log line.
@@ -325,37 +337,63 @@ pub fn venue_takes(side: Side, in_base: bool, logic: super::venue_rules::Minimum
     match logic.market { AmountLogic::BaseOrQuote => true, AmountLogic::Quote => !in_base, AmountLogic::Base | AmountLogic::BaseAndQuoteInBase => in_base }
 }
 
-/// #place_and_track: the intent (and the call with it), one send, and the outcome settled with its row. A placement-safe
-/// rejection is placed once more under a new intent, after the first settled as not placed.
-async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan: &OrderPlan, call: &SignalCall, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {
-    let mut call = Some(call);
+/// #place_and_track: the intent (and the call or the request with it), one send, and the outcome settled with its row. A
+/// placement-safe rejection is placed once more under a new intent, after the first settled as not placed. An API request
+/// is answered in the transaction of what its order wrote.
+async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan: &OrderPlan, src: Source<'_>, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {
+    let api = match src { Source::Api(request) => Some(request), Source::Webhook(_) => None };
+    let mut claim = match src { Source::Webhook(call) => Claim::Webhook(call), Source::Api(request) => Claim::Api(request) };
+    let answer = |outcome: Outcome| -> Result<Step, EngineError> {
+        if let Some(request) = api { api_orders::finish(c, request.id, &outcome)?; }
+        Ok(Step::Ran)
+    };
+    // The placement-safe rejection the one more attempt follows: what an API request is answered with when that attempt is
+    // refused before its send (nothing was placed).
+    let mut rejected: Vec<String> = vec![];
     loop {
-        let intent = match placement::begin_signal(c, bot, plan, call, &cx.credential_version, venue.placement_identity(), clock)? {
+        let intent = match placement::begin_signal(c, bot, plan, claim, &cx.credential_version, venue.placement_identity(), clock)? {
             SignalClaim::Intent(intent) => intent,
-            SignalClaim::Stopped | SignalClaim::Disabled | SignalClaim::Locked | SignalClaim::BelowMinimum => return Ok(Step::Ran),
+            SignalClaim::Expired => return answer(Outcome::Busy),
+            // The one more attempt refused before its send: the first, definitive rejection is the answer.
+            _ if api.is_some() && matches!(claim, Claim::Replace { .. }) => return answer(Outcome::Failed { errors: rejected }),
+            SignalClaim::Stopped => return answer(Outcome::Refused { code: "bot_not_running".into(), message: format!("Bot {} is not running. Start it to place orders through it.", bot.id) }),
+            SignalClaim::Locked => return answer(Outcome::Locked),
+            SignalClaim::Disabled | SignalClaim::BelowMinimum => return Ok(Step::Ran),
+            SignalClaim::CapReached(left) => { let left = left.to_s_f(); return answer(Outcome::CapReached { left: left.strip_suffix(".0").unwrap_or(&left).to_string() }) }
             // The barrier rose between the check and the claim (it cannot in one loop, but the claim decides).
-            SignalClaim::Blocked => return Ok(match call { Some(call) => Step::Waiting(expires_at(call)), None => Step::Ran }),
-            SignalClaim::Gone | SignalClaim::Changed | SignalClaim::CredentialsChanged => return Ok(if call.is_some() { Step::Again } else { Step::Ran }),
+            SignalClaim::Blocked => return match claim {
+                Claim::Webhook(call) => Ok(Step::Waiting(expires_at(call))),
+                Claim::Api(_) => answer(Outcome::Unresolved),
+                Claim::Replace { .. } => Ok(Step::Ran),
+            },
+            SignalClaim::Gone | SignalClaim::Changed | SignalClaim::CredentialsChanged => return Ok(if matches!(claim, Claim::Replace { .. }) { Step::Ran } else { Step::Again }),
         };
-        let first = call.is_some();
-        call = None; // consumed with the intent
+        let first = !matches!(claim, Claim::Replace { .. });
+        claim = Claim::Replace { send_by: api.map(|r| r.send_by) }; // the call or the request consumed with the intent
         super::log(&format!("execute_signal bot={} event=order_creating cl_ord_id={}", bot.id, intent.cl_ord_id));
         let sent = placement::send(c, venue, &intent, clock).await?;
         let now = clock.now();
         let tx = model::immediate(c)?;
-        match &sent {
+        let outcome = match &sent {
             Sent::Accepted(txid) => {
+                let mut row = None;
                 if placement::still_pending(&tx, bot.id, &intent.cl_ord_id)? {
-                    amount::write_accepted_order(&tx, bot, &intent.plan, txid, intent.at, None)?;
+                    row = Some(amount::write_accepted_order(&tx, bot, &intent.plan, txid, intent.at, None)?);
                     placement::set_intent(&tx, bot.id, None)?;
                 }
                 super::log(&format!("execute_signal bot={} event=order_accepted order_id={txid}", bot.id));
+                Some(Outcome::Submitted { transaction_id: row, order_id: txid.clone(), pair: Some(format!("{}/{}", intent.plan.ticker.base_symbol, intent.plan.ticker.quote_symbol)) })
             }
             // Signed-timestamp rejections never reached the book: nothing to record; the one more attempt follows.
-            Sent::Rejected(errors) if first && placement::safe_rejection(errors) => { placement::set_intent(&tx, bot.id, None)?; }
+            Sent::Rejected(errors) if first && placement::safe_rejection(errors) => { placement::set_intent(&tx, bot.id, None)?; rejected = errors.clone(); None }
+            // An API request past its send deadline: provably not sent, no row; the caller may send it again.
+            Sent::NotSent(_) if api.is_some_and(|r| now > r.send_by) => {
+                if placement::still_pending(&tx, bot.id, &intent.cl_ord_id)? { placement::set_intent(&tx, bot.id, None)?; }
+                Some(Outcome::Busy)
+            }
             // A signal order is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum, read as Rejected.
-            Sent::Rejected(errors) | Sent::BelowMinimum(errors) => { fail_sized(&tx, bot, &intent, errors.clone(), &cx.credential_version, now)?; }
-            Sent::NotSent(m) => { fail_sized(&tx, bot, &intent, vec![m.clone()], &cx.credential_version, now)?; }
+            Sent::Rejected(errors) | Sent::BelowMinimum(errors) => { fail_sized(&tx, bot, &intent, errors.clone(), &cx.credential_version, now)?; Some(Outcome::Failed { errors: errors.clone() }) }
+            Sent::NotSent(m) => { fail_sized(&tx, bot, &intent, vec![m.clone()], &cx.credential_version, now)?; Some(Outcome::Failed { errors: vec![m.clone()] }) }
             Sent::Ambiguous(m) => {
                 // The marker first: it stops the next call from placing on top of this one. The intent stays for recovery.
                 mark_unresolved(&tx, bot.id, &intent.cl_ord_id, intent.plan.side, m, now)?;
@@ -363,13 +401,79 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
                 details["error"] = json!(m);
                 model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning, details, now)?;
                 super::log(&format!("execute_signal bot={} event=placement_ambiguous cl_ord_id={} error={m}", bot.id, intent.cl_ord_id));
+                Some(Outcome::Ambiguous { errors: vec![m.clone()] })
             }
             // Deleted or archived before the send: nothing left, nothing recorded.
-            Sent::Fenced => {}
-        }
+            Sent::Fenced => Some(Outcome::Busy),
+        };
+        if let (Some(request), Some(outcome)) = (api, &outcome) { api_orders::finish(&tx, request.id, outcome)?; }
         tx.commit()?;
-        if !matches!(&sent, Sent::Rejected(errors) if first && placement::safe_rejection(errors)) { return Ok(Step::Ran); }
+        if outcome.is_some() { return Ok(Step::Ran); }
     }
+}
+
+/// Bots::Signal::OrderSetter#execute_api_order, after BotOrder's checks (the engine's, engine::run): the caller sized the
+/// order. No trigger condition is asked (an explicit order, as in Rails); the spending cap is (D-ORDER-API-CAP: refused,
+/// never clamped, in the claim). The bot's KuCoin account context first, then the market gate, the barrier, the lock, the
+/// price, #api_order_data, the minimum, #venue_takes? and placement.
+pub async fn run_api_order<V: Venue>(c: &Connection, venue: &V, request: &api_orders::Request, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {
+    let handle = crate::venue::Handle::new(venue, cx.credential_version.clone());
+    let venue = &handle;
+    let bot = model::load_bot(c, request.bot_id)?;
+    // BotOrder's late `bot_refusal`, on this very snapshot: the claim (placement::begin_signal) refuses any change to its
+    // settings after it as `Changed`, so a pair edited after this check is never placed under the caller's request.
+    if let Some(res) = crate::web::bot_api::orders::late_refusal(c, &bot, request).map_err(|e| EngineError::Data(format!("{e:?}")))? {
+        return { api_orders::finish(c, request.id, &Outcome::Refused { code: res.code.unwrap_or("order_failed").into(), message: res.message })?; Ok(Step::Ran) };
+    }
+    let src = Source::Api(request);
+    let side = request.side;
+    let version = &cx.credential_version;
+    let exchange = model::exchange_name(c, &bot)?;
+    let answer = |outcome: Outcome| -> Result<Step, EngineError> { api_orders::finish(c, request.id, &outcome)?; Ok(Step::Ran) };
+    let unavailable = |m: String| answer(Outcome::Refused { code: "exchange_unavailable".into(), message: format!("Could not reach {exchange}: {m}") });
+    let ticker = model::ticker_for(c, &bot)?.ok_or_else(|| EngineError::Data(format!("bot {}: no ticker", bot.id)))?;
+    // BotOrder#market_refusal: the venue's context (KuCoin's account mode) and the market's hours, before anything is sized.
+    if let Err(e) = placement::prepare(c, venue).await? { return unavailable(e.message()); }
+    if venue.rules().market_hours && !model::all_crypto(c, &bot)? {
+        match super::clock::gate(venue.clock_result().await.value, &exchange, clock.now()) {
+            super::clock::Gate::Open => {}
+            super::clock::Gate::Closed { .. } => return answer(Outcome::Refused { code: "market_closed".into(), message: format!("The market for {} on {exchange} is closed.", ticker.base_symbol) }),
+            super::clock::Gate::Retry(m) | super::clock::Gate::InvalidKey(m) => return unavailable(m),
+        }
+    }
+    if blocked(&bot) { return answer(Outcome::Unresolved); }
+    if locked_buy(c, &bot, &ticker, side, clock.now())? { return answer(Outcome::Locked); }
+    // A spent amount the cap cannot know: the webhook path's failed row and text (D-SIG-CAP).
+    if side == Side::Buy {
+        if let Err(e) = super::accounting::exact_cap_available(c, &bot) {
+            let EngineError::Data(m) = &e else { return Err(e) };
+            if !m.contains(crate::figures::fill::VALUE_UNAVAILABLE) { return Err(e); }
+            let text = crate::web::i18n::text("en", "activerecord.errors.models.bot.attributes.settings.quote_amount_spent_unknown", &[]);
+            return fail_unsized(c, &bot, &ticker, side, src, vec![text], version, clock.now());
+        }
+    }
+    let price = match retrying(venue, || super::tick::market_price_read(venue, &bot, &ticker, side, clock, cx)).await? {
+        Ok(p) => p,
+        Err(e) => return fail_unsized(c, &bot, &ticker, side, src, vec![message(e)], version, clock.now()),
+    };
+    let sized = if price.is_zero() { None } else { api_order_data(&request.amount, request.in_base, &price) };
+    let Some((amount, quote)) = sized else { return fail_unsized(c, &bot, &ticker, side, src, vec!["divided by 0".into()], version, clock.now()) };
+    let logic = venue.rules().minimum_logic;
+    let (plan, below) = amount::size_order(&ticker, side, &price, &amount, &quote, logic, TxKind::Regular)?;
+    if below {
+        super::log(&format!("execute_signal bot={} event=order_skipped base={} quote={}", bot.id, ticker.base_symbol, ticker.quote_symbol));
+        let now = clock.now();
+        model::credential_write(c, version, |tx| {
+            model::log_activity(tx, bot.id, "order_skipped", Level::Warning, plan.log_details(), now)?;
+            amount::write_order_row(tx, &bot, &plan, RowKind::Skipped, now)?;
+            api_orders::finish(tx, request.id, &Outcome::Skipped)
+        })?;
+        return Ok(Step::Ran);
+    }
+    // #venue_takes?: the caller's own number where the venue takes that denomination.
+    let plan = if venue_takes(side, request.in_base, logic) { plan.in_denomination(&request.amount, !request.in_base).map_err(EngineError::Data)? } else { plan };
+    let plan = plan.with_wire_price(venue.rules(), &price, true)?;
+    place(c, venue, &bot, &plan, src, clock, cx).await
 }
 
 /// A definitive rejection, or a send that provably never left: the failed row with the order's amounts, the mail decision,

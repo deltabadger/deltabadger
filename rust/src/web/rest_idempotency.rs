@@ -26,8 +26,8 @@ pub(super) enum Claim { Claimed(i64), Answer(Answer) }
 
 /// #idempotent_request up to the block: the key is required, then claimed in_progress for this payload's fingerprint, or
 /// the stored answer (or a conflict) is the answer.
-pub(super) fn claim(c:&Connection,app:&App,user:i64,input:&Input<'_>,payload:Map<String,Value>)->Result<Claim,WebError> {
-    let Some(key)=input.idempotency.filter(|s|!s.trim().is_empty()) else {
+pub(super) fn claim(c:&Connection,app:&App,user:i64,key:Option<&str>,payload:Map<String,Value>)->Result<Claim,WebError> {
+    let Some(key)=key.filter(|s|!s.trim().is_empty()) else {
         return Ok(Claim::Answer(super::rest::failure(StatusCode::BAD_REQUEST,"idempotency_key_required","Idempotency-Key header is required.")));
     };
     let fingerprint=hex::encode(Sha256::digest(canonical(&Value::Object(payload))));
@@ -88,7 +88,7 @@ pub(super) fn wrapped_payload(input:&Input<'_>,wrapper:&str,params:&Map<String,V
 }
 
 pub(super) fn run(c:&Connection,app:&App,user:i64,input:&Input<'_>,action:&str,work:impl FnOnce()->Result<Answer,WebError>)->Result<Answer,WebError> {
-    match claim(c,app,user,input,bots_payload(input,action)?)? {
+    match claim(c,app,user,input.idempotency,bots_payload(input,action)?)? {
         Claim::Answer(answer)=>Ok(answer),
         Claim::Claimed(id)=>complete(c,app,id,work()?),
     }

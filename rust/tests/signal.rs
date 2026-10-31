@@ -252,7 +252,7 @@ async fn a_crash_after_the_intent_commit_never_reruns_the_call_and_recovery_sett
         deltabadger::engine::venue_rules::KRAKEN.minimum_logic, deltabadger::engine::amount::TxKind::Regular).unwrap();
     let the_call = bot.signal_calls().unwrap().remove(0);
     let version = model::credential_version(&s.e.primary, &bot).unwrap();
-    assert!(matches!(placement::begin_signal(&s.e.primary, &bot, &plan, Some(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Intent(_)));
+    assert!(matches!(placement::begin_signal(&s.e.primary, &bot, &plan, placement::Claim::Webhook(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Intent(_)));
     assert_eq!(calls(&s.e.primary, s.bot), 0, "consumed in the intent's transaction");
     // A restarted engine reconciles the intent (never sent: absent once provable) and places nothing.
     let Setup { _dir, e, venue, bot: id, .. } = s;
@@ -606,12 +606,12 @@ async fn a_signal_buy_of_a_locked_asset_consumes_the_call_and_places_nothing() {
         deltabadger::engine::venue_rules::KRAKEN.minimum_logic, deltabadger::engine::amount::TxKind::Regular).unwrap().0;
     let the_call = model::load_bot(c, s.bot).unwrap().signal_calls().unwrap().remove(0);
     let version = model::credential_version(c, &bot).unwrap();
-    assert!(matches!(placement::begin_signal(c, &bot, &size(deltabadger::venue::Side::Buy), Some(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Locked));
+    assert!(matches!(placement::begin_signal(c, &bot, &size(deltabadger::venue::Side::Buy), placement::Claim::Webhook(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Locked));
     assert_eq!((calls(c, s.bot), lines(c).len()), (0, 0));
     assert!(transient(c, s.bot).get("rust_placement").is_none());
     call(c, s.bot, s.rule, 3, T0);
     let the_call = model::load_bot(c, s.bot).unwrap().signal_calls().unwrap().remove(0);
-    assert!(matches!(placement::begin_signal(c, &bot, &size(deltabadger::venue::Side::Sell), Some(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Intent(_)),
+    assert!(matches!(placement::begin_signal(c, &bot, &size(deltabadger::venue::Side::Sell), placement::Claim::Webhook(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Intent(_)),
             "a lock never forbids selling");
     c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement') WHERE id = ?1", [s.bot]).unwrap();
     c.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();

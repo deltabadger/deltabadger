@@ -79,6 +79,7 @@ pub mod accounting;
 pub mod amount_limit;
 pub mod rebalance;
 pub mod signal;
+pub mod api_orders;
 pub mod wash;
 
 pub mod reversal;

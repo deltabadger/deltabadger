@@ -1,6 +1,11 @@
 {
   "constructors": [
     {
+      "file": "engine/api_orders.rs",
+      "function": "insert",
+      "builds": "the API order's validated CredentialVersion, captured with the request row (PLAN-A9 r2 §1)"
+    },
+    {
       "file": "engine/model.rs",
       "function": "credential_version",
       "builds": "CredentialVersion"

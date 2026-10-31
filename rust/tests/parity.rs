@@ -592,7 +592,8 @@ fn hyperliquid_path_two(name: &str, out: &serde_json::Value, ioc: bool) {
             assert_eq!(order["s"], "0.00426", "{name}: sell the excess at the persisted bound");
         }
     }
-    if name.starts_with("signal-hyperliquid-") {
+    // The `api` axis sizes from the caller's amount, compared with Rails' as it is.
+    if name.starts_with("signal-hyperliquid-") && !name.contains("-api-") {
         let size = if name.contains("-buy-fixed-") { "0.00154" }
             else if name.contains("-buy-percentage-") { "0.01546" }
             else if name.contains("-sell-fixed-") { if name.ends_with("-free_below_fixed") { "0.001" } else { "0.00157" } }
@@ -2469,6 +2470,9 @@ fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
+/// decisions.rb SIGNAL_GRID_SIZE: the webhook cells and PLAN-A9 O3's `api` axis.
+const SIGNAL_GRID_SIZE: usize = 420 + 79 + 927 + 203;
+
 /// Plan 8a: one webhook call of a signal bot (script/rust/decisions.rb signal_scenarios): Bot::SignalJob at `at` with its own
 /// retries, against the engine's executor on a pristine copy, on Kraken, Binance, KuCoin and Alpaca (crypto and a stock).
 /// Recorded per case: the rows, the lines, the mails and every order request the venue received (the assertion against a
@@ -2492,7 +2496,7 @@ fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
 ///   no mail. Same order sent.
 #[tokio::test(flavor = "current_thread", start_paused = true)] // Exchange#with_transient_retry's backoff, never slept
 async fn rails_and_rust_decide_identically_across_the_signal_grid() {
-    let (_copies, outputs) = grid_outputs("grid-signal", 420 + 79 + 927).await;
+    let (_copies, outputs) = grid_outputs("grid-signal", SIGNAL_GRID_SIZE).await;
     let marker = |out: &serde_json::Value| -> Option<serde_json::Value> {
         out["changes"]["bots"].as_array().unwrap().iter().find_map(|b| b["after"]["transient_data"].get("signal_placement_unresolved").cloned())
     };
@@ -2507,6 +2511,10 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
         if wording {
             for l in out["changes"]["bot_activity_logs"].as_array_mut().unwrap() {
                 if l["after"]["event"] == "placement_ambiguous" { l["after"]["details"]["error"] = serde_json::json!("<error>"); }
+            }
+            // The `api` axis: BotOrder#answer repeats the adapter's wording.
+            for a in out["api"].as_array_mut().into_iter().flatten() {
+                if a["code"] == "placement_ambiguous" { a["message"] = serde_json::json!("<error>"); }
             }
         }
         out
@@ -2548,7 +2556,19 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     // Pinned on Rails' side, so that two silent sides cannot pass: what each case names really happened there.
     let mut pins = vec![];
-    for (name, _, out, _) in &outputs {
+    // The `api` axis, pinned on Rails' side too: one BotOrder answer each, with the outcome the cell names.
+    for (name, _, out, _) in outputs.iter().filter(|(name, ..)| name.contains("-api-")) {
+        let answers = out["api"].as_array().unwrap_or_else(|| panic!("{name}: no BotOrder answer recorded"));
+        assert_eq!(answers.len(), 1, "{name}");
+        let code = answers[0]["code"].as_str();
+        let want = [("-accepted", None), ("-below_minimum", Some("below_minimum_amount")), ("-unresolved", Some("placement_unresolved")),
+                    ("-locked", Some("wash_sale_locked")), ("-rejected", Some("order_failed")), ("-rejected_after_failure", Some("order_failed")),
+                    ("-price_failed", Some("order_failed")), ("-no_order_id", Some("placement_ambiguous"))]
+            .iter().find(|(v, _)| name.ends_with(v)).map(|(_, c)| *c);
+        if let Some(want) = want { assert_eq!(code, want, "{name}: {}", answers[0]); }
+        if code.is_none() { assert_eq!(answers[0]["status"], "created", "{name}"); assert!(!out["sent"].as_array().unwrap().is_empty(), "{name}: nothing sent"); }
+    }
+    for (name, _, out, _) in outputs.iter().filter(|(name, ..)| !name.contains("-api-")) {
         let variant = name.splitn(5, '-').nth(4).unwrap_or_default();
         let sent = out["sent"].as_array().unwrap().len();
         let rows: Vec<i64> = out["changes"]["transactions"].as_array().unwrap().iter().filter(|t| t["before"].is_null()).map(|t| t["after"]["status"].as_i64().unwrap()).collect();
