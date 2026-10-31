@@ -3,8 +3,8 @@ use super::reads;
 use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
-/// D-SPLIT-API: split_bots is this build's own, after the recorded tools.
-pub const NAMES: [&str;23] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","list_tax_jurisdictions","list_rules","create_rule","delete_rule","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots"];
+/// D-SPLIT-API: split_bots is this build's own, after the recorded tools. PLAN-A11: the tracker tools (tracker::api::NAMES).
+pub const NAMES: [&str;29] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","list_tax_jurisdictions","list_rules","create_rule","delete_rule","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","split_bots","list_account_transactions","export_transactions_csv","set_transfer_link","set_transaction_price","sync_tracker","list_indices"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -87,6 +87,12 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
     if !errors.is_empty(){return Ok(Called::Done(tool_text(&format!("Invalid input: {}",errors.join(", ")),true)));}
     if let Some(action) = crate::web::rules::api::Action::tool(name) {
         return Ok(Called::Rules(crate::web::rules::api::Request::mcp(who.user_id, action, args.clone())));
+    }
+    if crate::web::tracker::api::NAMES.contains(&name) {
+        return Ok(Called::Done(crate::web::tracker::api::mcp(c,app,who.user_id,name,args).unwrap_or_else(|_|{
+            crate::engine::log("MCP tracker tool failed");
+            tool_text("An unexpected error occurred.",true)
+        })));
     }
     if name=="split_bots"{return Ok(Called::Done(super::control::split(c,app,who.user_id,args).unwrap_or_else(|_|{
         crate::engine::log("MCP split_bots failed");
