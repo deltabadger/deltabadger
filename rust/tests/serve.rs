@@ -265,6 +265,41 @@ async fn a_csp_report_is_accepted_without_a_session_or_a_token() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn a_refused_bot_is_listed_beside_the_others_and_only_its_page_is_refused() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let spec = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+    let served = common::seed::insert_bot(&opened.primary, &seeded, &spec);
+    // Refused by its row (a class these pages do not render) and by a number this build does not read.
+    let typed = common::seed::insert_bot(&opened.primary, &seeded, &spec);
+    let unread = common::seed::insert_bot(&opened.primary, &seeded, &spec);
+    opened.primary.execute("UPDATE bots SET label = 'Served' WHERE id = ?1", [served]).unwrap();
+    opened.primary.execute("UPDATE bots SET label = 'Odd type', type = 'Bots::Signal', settings = '{}' WHERE id = ?1", [typed]).unwrap();
+    opened.primary.execute("UPDATE bots SET label = NULL WHERE id = ?1", [unread]).unwrap();
+    opened.primary.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) \
+                            VALUES (?1, ?2, ?3, '1e1000000000', 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (unread, seeded.btc, seeded.ticker_id)).unwrap();
+    assert_eq!(browser.get(&app, &format!("/bots/{typed}")).await.status, 501);
+    assert_eq!(browser.get(&app, &format!("/bots/{unread}")).await.status, 501);
+
+    let list = browser.get(&app, "/bots").await;
+    assert_eq!(list.status, 200, "{}", list.body);
+    for id in [served, typed, unread] { assert!(list.body.contains(&format!("href=\"/bots/{id}\"")), "bot {id} is listed"); }
+    assert!(list.body.contains("Served") && list.body.contains("Odd type") && list.body.contains("New bot"), "{}", list.body);
+    // A refused bot's tile asks for no figures and offers no merge.
+    assert!(list.body.contains(&format!("data-bot-id=\"{typed}\" draggable=\"true\"\n     data-merge-ok=\"false\"")), "{}", list.body);
+    // The status filter reads a refused bot's stored status.
+    opened.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", (deltabadger::enums::BotStatus::Archived as i64, typed)).unwrap();
+    let archived = browser.get(&app, "/bots?filter=archived").await;
+    assert!(archived.status == 200 && archived.body.contains("Odd type") && !archived.body.contains("Served"), "{}", archived.body);
+    assert!(!browser.get(&app, "/bots").await.body.contains("Odd type"), "archived bots leave the default list");
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing() {
     let (dir, opened, seeded) = common::install();
     let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
@@ -290,10 +325,10 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     let page = browser.get(&app, &format!("/bots/{first}")).await;
     assert!(page.status == 501 && page.body.contains(&format!("GET /bots/{first}")), "{}", page.body);
     assert_eq!(browser.get(&app, &format!("/bots/{first}/chart")).await.status, 501);
-    // Two bots: the list, refused for the same reason.
+    // Two bots: the list, with both refused bots on it (each page stays refused).
     let second = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     opened.primary.execute("UPDATE bots SET label = 'Bitcoin'", []).unwrap();
-    assert_eq!(browser.get(&app, "/bots").await.status, 501);
+    assert_eq!(browser.get(&app, "/bots").await.status, 200);
     // A bot of a class these pages do not know is refused before its row is read as one they do.
     opened.primary.execute("UPDATE bots SET type = 'Bots::Signal', settings = '{}' WHERE id = ?1", [second]).unwrap();
     assert_eq!(browser.get(&app, &format!("/bots/{second}")).await.status, 501);
@@ -1510,8 +1545,8 @@ fn a_signal_bot_is_refused_off_its_venues_and_for_what_its_pages_cannot_print() 
         assert_eq!(refusal(Some(false), For::Page, true), Some(why), "{venue}");
         c.execute_batch("ROLLBACK TO venue; RELEASE venue;").unwrap();
     }
-    // The account-wide rule's table is not printed; the feed answers whatever it says.
-    assert_eq!(refusal(Some(true), For::Page, true), Some("the wash-sale rule"));
+    // The account-wide rule is served (its locked table is printed); the feed answers whatever it says.
+    assert_eq!(refusal(Some(true), For::Page, true), None);
     assert_eq!(refusal(Some(true), For::Feed, true), None);
     // Bots::Signal#sell_capable?: an enabled sell rule owes the question.
     assert_eq!(refusal(None, For::Page, true), None);
@@ -1752,7 +1787,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "missed_quote_amount": "9999999999999999999999999999900.0" }).to_string(), id)).unwrap();
     assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "oversized persisted carry");
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [id]).unwrap();
-    assert_eq!(refused(&|_| {}, Some(true), true), Some("the wash-sale rule"));
+    assert_eq!(refused(&|_| {}, Some(true), true), None, "the rule on is served (PLAN-wash-sale WS-4a)");
     assert_eq!(refused(&|_| {}, None, true), None, "not answered, and nothing traded: Rails asks nothing yet");
     store(&settings);
     for (sql, reason) in [
@@ -2026,7 +2061,7 @@ async fn a_span_of_nothing_between_two_orders_refuses_a_working_bot_before_any_c
     };
     for amount in [json!(0), json!(0.0), json!(-5), json!(1e-320), json!(0.00009)] {
         set(working, amount.clone());
-        assert_eq!((browser.get(&app, &format!("/bots/{working}")).await.status, browser.get(&app, "/bots").await.status), (501, 501), "{amount}");
+        assert_eq!((browser.get(&app, &format!("/bots/{working}")).await.status, browser.get(&app, "/bots").await.status), (501, 200), "{amount}: the list stays");
         assert_eq!(browser.get(&app, &format!("/bots/{stopped}")).await.status, 200, "{amount}: the other bot's page is not taken along");
     }
     set(working, json!(6));
@@ -2182,10 +2217,10 @@ async fn a_stored_number_this_build_does_not_read_refuses_the_bots_pages_and_onl
     for external_status in [2, 3, 4] {
         for (what, value) in unread {
             order(stopped, external_status, "quote_amount_exec", value);
-            assert_eq!(statuses(&mut browser).await, [200, 501, 501, 200, 200, 200, 501], "{what}, external status {external_status}");
+            assert_eq!(statuses(&mut browser).await, [200, 501, 200, 200, 200, 200, 501], "{what}, external status {external_status}");
             // Beside an order that filled what a decimal says: the sum is not attempted either.
             order(stopped, 2, "quote_amount_exec", &"10.5");
-            assert_eq!(statuses(&mut browser).await, [200, 501, 501, 200, 200, 200, 501], "{what}, external status {external_status}, beside a fill");
+            assert_eq!(statuses(&mut browser).await, [200, 501, 200, 200, 200, 200, 501], "{what}, external status {external_status}, beside a fill");
             c.execute("DELETE FROM transactions", []).unwrap();
         }
     }
@@ -2202,7 +2237,8 @@ async fn a_stored_number_this_build_does_not_read_refuses_the_bots_pages_and_onl
     // The venue's ticker, which both bots read: every page of both, and nothing is rounded or sized by it.
     for (column, value, was) in [("minimum_quote_size", "1_0e1000000000", "1"), ("base_decimals", "41", "9"), ("quote_decimals", "255", "2")] {
         c.execute(&format!("UPDATE tickers SET {column} = ?1"), [value]).unwrap();
-        assert_eq!(statuses(&mut browser).await, [501; 7], "{column} = {value}");
+        // The list stays, each bot on it plain (3.0, D-DASHBOARD-REFUSED-TILE).
+        assert_eq!(statuses(&mut browser).await, [501, 501, 200, 501, 501, 501, 501], "{column} = {value}");
         c.execute(&format!("UPDATE tickers SET {column} = ?1"), [was]).unwrap();
     }
     assert_eq!(statuses(&mut browser).await, [200; 7], "and with the rows as they were, everything is served again");
