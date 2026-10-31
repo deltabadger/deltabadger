@@ -1183,7 +1183,7 @@ async fn r1_known_fills_bound_a_settlement() {
     known_fill(&o.primary, 1, bot.exchange_id, "2", &ext, "0.0002", "12", "0.012");
     o.primary.execute_batch("CREATE TEMP TABLE u AS SELECT * FROM users WHERE id = 1; UPDATE u SET id = 2, email = 'two@example.test'; INSERT INTO users SELECT * FROM u;").unwrap();
     known_fill(&o.primary, 2, bot.exchange_id, "3", &ext, "0.9", "9000", "9");
-    let k = reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext).unwrap();
+    let k = reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "ClassicHf").unwrap();
     assert_eq!((k.size.to_s_f(), k.funds.to_s_f(), k.fees["EUR"].to_s_f()), ("0.0005".into(), "30.0".into(), "0.03".into()));
     t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0004", "24"));
     t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0005", "30"));
@@ -1798,7 +1798,7 @@ async fn unmigrated_install_reads_stand() {
     let (_dir, o, bot, _t, _v, id, ext) = placed("KEY-A", false).await;
     o.primary.execute_batch("DROP TABLE IF EXISTS kucoin_withheld_fills; DROP TABLE IF EXISTS kucoin_coverage;").unwrap();
     known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0002", "12", "0.02");
-    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext).unwrap().size.to_s_f(), "0.0002");
+    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "ClassicHf").unwrap().size.to_s_f(), "0.0002");
     assert!(reconcile::barrier(&o.primary, bot.id).unwrap().is_none());
     assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.001", "60", eur("0.06"), attested("x"))).unwrap(), reconcile::Operator::Reconciled);
 }
@@ -2391,4 +2391,173 @@ async fn u2_classic_and_hf_rows_keep_their_routes_on_a_uta_account() {
     let (found, _) = v.order_with(&OrderRef::load(&o.primary, id, &ext).unwrap(), |_, _, _| Ok(true)).await.unwrap();
     assert_eq!(found.len(), 1, "the classic row is read on the classic route");
     assert!(!t.requests().iter().any(|r| r.path.starts_with("/api/ua/v2/unified/order/detail")), "never the UTA route for them");
+}
+
+// ---- UTA U3a (UTA.md U3, A7, A8, r1.7): the HF-4 seams take a UTA row. ----
+
+fn uta_page(ext: &str, fills: &[(&str, &str, &str)], last: i64) -> Value {
+    let items: Vec<Value> = fills.iter().map(|(trade, size, value)| json!({"tradeType":"SPOT","orderId":ext,"symbol":"BTC-EUR","orderType":"LIMIT","side":"BUY",
+        "tradeId":trade,"size":size,"price":"50000","value":value,"executionTime":1793361600500000000_i64,"fee":"0.01","feeCurrency":"EUR","liquidityRole":"TAKER"})).collect();
+    json!({"code":"200000","data":{"tradeType":"SPOT","lastId":last,"items":items}})
+}
+fn uta_bundle(c: &rusqlite::Connection, id: i64, state: &str, base: &str, quote: &str, fees: Value, source: Value) -> Value {
+    let mut b = bundle(c, id, state, base, quote, fees, source);
+    b["order"]["family"] = json!("Uta");
+    b
+}
+/// An `api_order_detail` source of UTA answers: the detail, then its execution pages.
+fn uta_answers(answers: &[Value]) -> Value {
+    let raw = Value::Array(answers.to_vec()).to_string();
+    json!({ "kind": "api_order_detail", "sha256": hex::encode(Sha256::digest(raw.as_bytes())), "raw": raw })
+}
+fn uta_known_fill(c: &rusqlite::Connection, exchange: i64, trade: &str, order: &str, size: &str, family: &str) {
+    let raw = json!({"symbol":"BTC-EUR","tradeId":trade,"orderId":order,"side":"buy","size":size,"funds":"1","fee":"0","feeCurrency":"EUR","createdAt":1793361600000_i64,"family":family});
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, base_amount, base_currency, entry_type, transacted_at, created_at, updated_at, raw_data, tx_id) \
+               VALUES (1, ?1, ?2, 'BTC', 0, '2026-10-30 12:00:00', '2026-10-30 12:00:00', '2026-10-30 12:00:00', ?3, ?4)",
+              rusqlite::params![exchange, size, raw.to_string(), format!("BTC-EUR-{trade}")]).unwrap();
+}
+
+/// U3a, r02/r06: a UTA row whose state can't be told owes and holds new spending; a terminal read applies once, with
+/// its receipt, and a replay changes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_an_unreadable_uta_row_holds_spending_until_a_terminal_read_settles_it_once() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (dir, o, bot, t, v, id, ext) = uta_placed(true).await;
+    t.reply(&detail_key(&ext), 200, uta_detail(&ext, 9, "0", "LIMIT"));
+    t.reply(&detail_key(&ext), 200, uta_detail(&ext, 6, "0.001", "LIMIT"));
+    executions(&t, &ext, &[("T1", "0.001", "50")], 7);
+    let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert!(obligation(&c, id).is_some() && !begins(&c, bot.id, now), "an unreadable UTA row holds the bot's spending");
+    let _ = polling::sweep(&c, &v, &model::load_bot(&c, bot.id).unwrap(), now).await;
+    assert_eq!(row_exec(&c, id), (Some(3), Some(0.001)));
+    let r = receipt(&c, id).unwrap();
+    assert_eq!((&r["source"], &r["deal_funds"]), (&json!("api"), &json!("50.0")));
+    assert!(obligation(&c, id).is_none() && begins(&c, bot.id, now));
+    let _ = polling::sweep(&c, &v, &model::load_bot(&c, bot.id).unwrap(), now).await;
+    assert_eq!(receipt(&c, id).unwrap(), r, "settled once");
+}
+
+/// U3a, r1.7: `reconcile-order` settles a UTA row on its detail and full execution list, totals and fees from the
+/// executions. A detail alone, other fees, or evidence of another family (either way round) is refused, writing nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_reconcile_order_takes_uta_detail_and_executions_and_never_another_family() {
+    use deltabadger::engine::reconcile::Operator;
+    let (_dir, o, bot, _t, _v, id, ext) = uta_placed(true).await;
+    reversal_work(&o.primary, bot.id, id);
+    let detail = uta_detail(&ext, 6, "0.001", "LIMIT");
+    let full = [detail.clone(), uta_page(&ext, &[("T1", "0.0006", "30"), ("T2", "0.0004", "20")], 8), uta_page(&ext, &[], 8)];
+    let before = snapshot(&o.primary);
+    for (b, why) in [(uta_bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.02"), uta_answers(std::slice::from_ref(&detail))), "a detail alone proves no totals"),
+                     (uta_bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.03"), uta_answers(&full)), "other fees"),
+                     (uta_bundle(&o.primary, id, "cancelled", "0.001", "60", eur("0.02"), uta_answers(&full)), "other totals"),
+                     (bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.02"), attested("x")), "HF evidence for a UTA order")] {
+        assert!(reconcile(&o.primary, id, &b).is_err(), "{why}");
+        assert_eq!(snapshot(&o.primary), before, "{why}: nothing written");
+    }
+    assert_eq!(reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0.001", "50", eur("0.02"), uta_answers(&full))).unwrap(), Operator::Reconciled);
+    assert_eq!(row_exec(&o.primary, id), (Some(3), Some(0.001)));
+    assert_eq!(work(&o.primary, bot.id), (vec![], vec![]), "cancel ended, reserve credited");
+    assert_eq!(receipt(&o.primary, id).unwrap()["source"], "operator");
+    // UTA evidence never settles an HF order.
+    let (_dir, o, _bot, _t, _v, id, _ext) = placed("KEY-A", false).await;
+    let err = reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0.0004", "24", eur("0.024"), attested("x"))).unwrap_err();
+    assert!(format!("{err:?}").contains("order.family is not the order's"), "{err:?}");
+}
+
+/// U3a, r1.7: a UTA row's known fills are its family's: an HF fill of the same order id doesn't count, a UTA one bounds
+/// the settlement.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_known_fills_of_a_uta_row_are_the_uta_familys() {
+    use deltabadger::engine::{polling, reconcile};
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, t, v, id, ext) = uta_placed(true).await;
+    uta_known_fill(&o.primary, bot.exchange_id, "1", &ext, "0.002", "Uta");
+    uta_known_fill(&o.primary, bot.exchange_id, "2", &ext, "0.9", "ClassicHf");
+    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "Uta").unwrap().size.to_s_f(), "0.002");
+    t.reply(&detail_key(&ext), 200, uta_detail(&ext, 6, "0.001", "LIMIT"));
+    executions(&t, &ext, &[("T1", "0.001", "50")], 7);
+    let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    assert_eq!(row_exec(&o.primary, id).0, Some(0), "not settled below its known fills");
+    assert!(receipt(&o.primary, id).is_none() && obligation(&o.primary, id).is_some());
+}
+
+/// U3a, R08: a UTA order row and a UTA intent each refuse the handback (Rails trades no UTA).
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_uta_orders_and_intents_refuse_the_handback() {
+    use deltabadger::engine::{placement, FixedClock};
+    let (dir, o, bot, _t, _v, _id, _ext) = uta_placed(false).await;
+    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+    let at0 = at("2026-10-30T12:00:00Z");
+    let (dir, o, bot, plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at0);
+    let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at0)).unwrap() else { panic!() };
+    t.reply("POST /api/ua/v2/unified/order/place", 504, json!({"code":"504000","msg":"Gateway timeout."}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at0)).await.unwrap(), placement::Sent::Ambiguous(_)));
+    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+}
+
+/// U3a, r1.4: recovery of a UTA intent takes an answer only for an order of the intent's type.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_uta_recovery_checks_the_order_type() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let at0 = at("2026-10-30T12:00:00Z");
+    let (dir, o, bot, mut plan) = engine_setup();
+    plan.limit = true;
+    let t = ScriptedTransport::default(); t.set_now(at0);
+    let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at0)).unwrap() else { panic!() };
+    t.reply("POST /api/ua/v2/unified/order/place", 200, json!({"code":"166115","msg":"System busy. Please try again later."}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at0)).await.unwrap(), placement::Sent::Ambiguous(_)));
+    let key = format!("GET {UTA_DETAIL}?clientOid={}&symbol=BTC-EUR&tradeType=SPOT", intent.cl_ord_id);
+    for kind in ["MARKET", "LIMIT"] {
+        let mut answer = uta_detail("U9", 2, "0", kind);
+        answer["data"]["clientOid"] = json!(intent.cl_ord_id);
+        t.reply(&key, 200, answer);
+    }
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    tick::tick(&c, &v, bot.id, &FixedClock(at0 + chrono::Duration::seconds(30)), &mut Default::default()).await.unwrap();
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_some(), "another type is not this order");
+    tick::tick(&c, &v, bot.id, &FixedClock(at0 + chrono::Duration::seconds(60)), &mut Default::default()).await.unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions WHERE status=0 AND external_id='U9'", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "recovered once");
+    assert_eq!(posts(&t), 1);
+}
+
+/// U3a review P1: a sweep reads rows in chunks of 50; a UTA row's answer in a later chunk applies to that row, never to
+/// the row at its position in the first chunk.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_a_routed_answer_past_the_first_chunk_applies_to_its_own_row() {
+    use deltabadger::engine::polling;
+    let now = at("2026-10-30T12:05:00Z");
+    let (_dir, o, bot, _plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(now);
+    let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let classic: Vec<i64> = (1..=50).map(|i| {
+        t.reply(&format!("GET /api/v1/orders/C{i}"), 200, classic_order(&format!("C{i}"), "BTC-EUR", true, "0", "0"));
+        open_row(&o.primary, &bot, &format!("C{i}"), "2026-10-30 10:00:00", json!({}))
+    }).collect();
+    let id = open_row(&o.primary, &bot, "U51", "2026-10-30 10:00:00", json!({}));
+    let record = json!({"family":"Uta","symbol":"BTC-EUR","sell":false,"limit":true,"host":URL,"key_fingerprint":v.placement_identity().unwrap()["key_fingerprint"],"deal_size":"0","deal_funds":"0"});
+    deltabadger::app_config::set_plain(&o.primary, &format!("rust_kucoin_order:{id}"), &record.to_string(), now).unwrap();
+    t.reply(&detail_key("U51"), 200, uta_detail("U51", 3, "0.001", "LIMIT"));
+    executions(&t, "U51", &[("T1", "0.001", "50")], 7);
+    let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
+    assert_eq!(row_exec(&o.primary, id), (Some(2), Some(0.001)), "the UTA row settles");
+    assert!(classic.iter().all(|c| row_exec(&o.primary, *c).0 == Some(1)), "no classic row takes its answer");
+}
+
+/// U3a review P1: zero-filled UTA evidence needs its execution list too, and the list must be empty.
+#[tokio::test(flavor = "current_thread")]
+async fn u3a_zero_filled_uta_evidence_needs_an_empty_execution_list() {
+    use deltabadger::engine::reconcile::Operator;
+    let (_dir, o, _bot, _t, _v, id, ext) = uta_placed(true).await;
+    let detail = uta_detail(&ext, 5, "0", "LIMIT");
+    for (answers, why) in [(vec![detail.clone()], "no execution list"),
+                           (vec![detail.clone(), uta_page(&ext, &[("T1", "0.001", "50")], 8), uta_page(&ext, &[], 8)], "executions contradict the detail")] {
+        assert!(reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0", "0", json!([]), uta_answers(&answers))).is_err(), "{why}");
+    }
+    let answers = [detail, uta_page(&ext, &[], 8)];
+    assert_eq!(reconcile(&o.primary, id, &uta_bundle(&o.primary, id, "cancelled", "0", "0", json!([]), uta_answers(&answers))).unwrap(), Operator::Reconciled);
 }

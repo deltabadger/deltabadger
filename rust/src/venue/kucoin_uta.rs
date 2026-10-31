@@ -100,6 +100,33 @@ fn add_executions(items: &[Value], want: &HfOrder, seen: &mut BTreeMap<String, E
 }
 fn sums(seen: &BTreeMap<String, Execution>) -> (BigDec, BigDec) { seen.values().fold((BigDec::zero(), BigDec::zero()), |(s, v), e| (&s + &e.1, &v + &e.2)) }
 
+/// D-KUCOIN-UTA-ORDERS (r1.7): an operator's UTA evidence, the order's detail answer followed by its execution pages to an
+/// empty one, read as the poll reads them: the state with the executions' totals, and their fees per currency. Unreadable
+/// unless every answer succeeded, the executions are `want`'s and sum to `filledSize` exactly, and the list ends on an
+/// empty page.
+pub fn uta_evidence(answers: &[Value], want: &HfOrder) -> Result<(OrderState, BTreeMap<String, BigDec>), VenueError> {
+    let ok = |b: &Value| b["code"] == OK;
+    let (detail, pages) = answers.split_first().filter(|(d, _)| ok(d)).ok_or_else(unreadable)?;
+    let mut state = parse_uta_order(&detail["data"], want)?;
+    // The execution list is required whatever the detail says, an empty one for nothing filled: it must agree.
+    let mut seen = BTreeMap::new();
+    let (last, full) = pages.split_last().ok_or_else(unreadable)?;
+    if !ok(last) || last["data"]["items"].as_array().is_none_or(|i| !i.is_empty()) { return Err(unreadable()); }
+    for page in full {
+        let items = page["data"]["items"].as_array().filter(|_| ok(page)).ok_or_else(unreadable)?;
+        add_executions(items, want, &mut seen)?;
+    }
+    let (size, value) = sums(&seen);
+    if size != state.amount_exec { return Err(unreadable()); }
+    if size.is_positive() { (state.quote_amount_exec, state.price) = (Some(value.clone()), value.div(&size)); }
+    let mut fees: BTreeMap<String, BigDec> = BTreeMap::new();
+    for (_, _, _, fee, currency) in seen.into_values() {
+        let sum = fees.entry(currency).or_insert_with(BigDec::zero);
+        *sum = &*sum + &fee;
+    }
+    Ok((state, fees))
+}
+
 impl<T: Transport> KucoinVenue<T> {
     /// A UTA GET, its query signed and sent in the order given.
     fn uta_get(&self, path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {

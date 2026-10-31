@@ -334,8 +334,8 @@ impl OrderRef {
     }
     /// D-KUCOIN-HF-RETENTION: a row adopted with no provenance, its route not proven yet (`Venue::origin_with`).
     pub fn adopted(&self) -> bool { self.record.as_ref().is_some_and(|r| r["family"] == ADOPTED) }
-    /// D-KUCOIN-HF-RETENTION: a KuCoin HF row (its record's family), whose unread state is an obligation.
-    pub fn hf(&self) -> bool { self.record.as_ref().is_some_and(|r| r["family"] == "ClassicHf") }
+    /// D-KUCOIN-HF-RETENTION: a KuCoin HF or UTA row (its record's family), whose unread state is an obligation.
+    pub fn routed(&self) -> bool { self.record.as_ref().is_some_and(kucoin::routed) }
 }
 
 pub trait Venue {

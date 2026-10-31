@@ -17,7 +17,7 @@ use serde_json::Value;
 
 #[path = "kucoin_uta.rs"]
 mod uta;
-pub use uta::parse_uta_order;
+pub use uta::{parse_uta_order, uta_evidence};
 
 pub const URL: &str = "https://api.kucoin.com";
 pub const KUCOIN: &str = "Exchanges::Kucoin";
@@ -179,6 +179,12 @@ pub fn record_order(c: &rusqlite::Connection, tx_id: i64, intent: &Value, now: D
         "limit": intent["limit"], "host": intent["host"], "key_fingerprint": intent["key_fingerprint"], "deal_size": "0", "deal_funds": "0"});
     crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)
 }
+
+/// D-KUCOIN-HF-RETENTION: a record of a routed family (HF or UTA), whose row is read only on its own route and whose
+/// unread state is an obligation.
+pub fn routed(record: &Value) -> bool { matches!(record["family"].as_str(), Some("ClassicHf" | "Uta")) }
+/// An intent's account mode whose orders are routed (they get a record).
+pub fn routed_mode(mode: &Value) -> bool { matches!(mode.as_str(), Some("ClassicHf" | "UnsupportedUta")) }
 
 /// The row's HF order record, if it has one.
 pub fn order_record(c: &rusqlite::Connection, tx_id: i64) -> Result<Option<Value>, String> {
