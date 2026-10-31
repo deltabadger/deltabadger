@@ -348,7 +348,7 @@ module McpControl
                                          list.(entry_type: 'withdrawal', limit: 2), list.(entry_type: ''), list.(limit: 1), list.(limit: 0), list.(limit: -3),
                                          list.(limit: 500), list.(limit: 1.9), list.(from_date: 2026), list.(extra: true)]
     # D-API-DATE-STRICT and D-API-ENTRY-TYPE (tests/mcp_control.rs tracker_difference).
-    s['tracker_d_dates'] = tracker_ready + [list.(from_date: 'invalid'), list.(from_date: '5'), list.(to_date: '20260903'), export.(from_date: '2026-09-02T10:00')]
+    s['tracker_d_dates'] = tracker_ready + [list.(from_date: 'invalid'), list.(from_date: 'Sep 5'), list.(to_date: '20260903'), export.(from_date: '2026-09-02T10:00')]
     s['tracker_d_entry_type'] = tracker_ready + [list.(entry_type: 'bogus'), list.(entry_type: '4')]
     s['tracker_export'] = tracker_ready + [export.(), export.(exchange_id: 2), export.(from_date: '2026-09-03', to_date: '2026-09-04'), export.(exchange_id: 999),
                                            export.(from_date: 'invalid'), export.(from_date: '2030-01-01')]

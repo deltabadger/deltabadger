@@ -420,7 +420,7 @@ module Pages
                                               api(list, 'second-token'), api("#{list}.json"), api(list, method: 'HEAD')])
       grid['api_tracker_list_many'] = ledger_case([api(list), api("#{list}?limit=200"), api("#{list}?limit=201")], 'many')
       # D-API-DATE-STRICT: Date.parse reads a date out of these; this build answers step 0's invalid_date.
-      grid['api_tracker_d_dates'] = ledger_case([api("#{list}?from_date=invalid"), api("#{list}?from_date=5"), api("#{list}?from_date=2026-09-02T10:00"),
+      grid['api_tracker_d_dates'] = ledger_case([api("#{list}?from_date=invalid"), api("#{list}?from_date=Sep%205"), api("#{list}?from_date=2026-09-02T10:00"),
                                                  api("#{list}?to_date=20260903"), api("#{list}?from_date=1582-12-31"), api("#{list}?from_date=2026-09-02x"),
                                                  api("#{export}?from_date=Sep%202%202026")])
       # D-API-ENTRY-TYPE: Rails filters by any text (an empty list, an enum number, a list); this build answers 422 invalid_entry_type.
