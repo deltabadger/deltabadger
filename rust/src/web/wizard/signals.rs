@@ -487,7 +487,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         // wash-sale question is unanswered, say) is not made at all. Rails saves it and asks the question on its page; here it
         // would be a bot no page, list or action could reach, so nothing is written and the reason is named.
         if !matches!(started, Started::Refused(_)) {
-            if let Some(reason) = signal_write::refused_after(&tx, &view.app, user.id, id)? { return Ok(Saved::Unservable(reason)) }
+            if let Some(reason) = signal_write::refused_after(&tx, &view.app, id)? { return Ok(Saved::Unservable(reason)) }
         }
         match started {
             Started::Yes(broadcasts) => {

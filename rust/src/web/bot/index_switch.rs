@@ -90,9 +90,8 @@ fn customize_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Swi
     match class { None => return Ok(Switched::Missing), Some(class) if class.as_deref() != Some(FROM) => return Ok(Switched::NotIndex), _ => {} }
     let engine_bot = model::load_bot(&tx, id)?;
     if let Some(key) = refusal(&tx, &engine_bot, ctx.app.now())? { return Ok(Switched::Refused(t(ctx.locale, key))); }
-    let wash: Option<bool> = tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1", [owner], |r| r.get(0))?;
     let (provider, _) = bots::market_data(&tx, &ctx.app)?;
-    if let Some(reason) = super::refusal(&tx, id, wash, provider, For::Settings)? { return Ok(Switched::Unported(reason)); }
+    if let Some(reason) = super::refusal(&tx, id, provider, For::Settings)? { return Ok(Switched::Unported(reason)); }
     if engine_bot.transient.get(index::RESYNC_KEY).is_some_and(|v| !v.is_null()) { return Ok(Switched::Refused(t(ctx.locale, "in_flight"))); }
     let Some(draft) = draft::Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Switched::Missing) };
     let source = draft.original.clone();
@@ -236,8 +235,7 @@ fn follow_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option
     // `bot.try(:selling?)`: an index bot cannot sell, and a selling portfolio would silently start buying.
     let refused = match refusal(&tx, &engine_bot, ctx.app.now())? { None if from == "Bots::DcaMultiAsset" && engine_bot.selling() => Some("selling"), other => other };
     if let Some(key) = refused { return Ok(Switched::Refused(t(ctx.locale, key))); }
-    let wash: Option<bool> = tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1", [owner], |r| r.get(0))?;
-    if let Some(reason) = super::refusal(&tx, id, wash, provider, For::Settings)? { return Ok(Switched::Unported(reason)); }
+    if let Some(reason) = super::refusal(&tx, id, provider, For::Settings)? { return Ok(Switched::Unported(reason)); }
     let Some(draft) = draft::Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Switched::Missing) };
     let source = draft.original.clone();
     if let Some(reason) = source.unrendered() { return Ok(Switched::Unported(reason)); }

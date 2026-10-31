@@ -227,7 +227,7 @@ module Pages
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
                       .merge(merge_scenarios).merge(split_scenarios).merge(liquidation_scenarios).merge(redeploy_scenarios).merge(rebalance_resolution_scenarios)
-                      .merge(wash_rule_scenarios).merge(rebalance_in_progress_scenarios)
+                      .merge(wash_rule_scenarios).merge(wash_question_scenarios).merge(rebalance_in_progress_scenarios)
 
   # PLAN-wash-sale WS-4a: the bot pages of an account with the rule on. 'wash_locks' seeds the owner's locks
   # ([symbol, buy_locked_until, source]); the one-time selling warning is asked of a basket that sells or is armed to.
@@ -259,6 +259,34 @@ module Pages
       'missing_wash_prompt_new' => with_bots([selling], signed_in(get('/bots/1'), modal.('/bots/9/wash_sale_prompt/new')), rule),
       'missing_wash_selling_warning' => with_bots([selling], signed_in(get('/bots/1'), post('/bots/9/wash_sale_selling_warning', {}, 'csrf' => 'header', 'headers' => TURBO, 'expect' => 404)), rule),
       'bot_wash_rule_warning_signed_out' => with_bots([selling], [get('/bots/1/wash_sale_prompt/new'), post('/bots/1/wash_sale_selling_warning', {}, 'csrf' => 'none')], rule)
+    }
+  end
+
+  # PLAN-wash-sale WS-4b: an account that has not answered the question is asked it at the first bot that can sell: one that
+  # sells, is armed to, rebalances, or holds at least the venue's minimum. The modal, its answer, and the start it holds up.
+  def wash_question_scenarios
+    owed = { 'user' => owner('wash_sale_enabled' => nil) }
+    modal = ->(path) { get(path, TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')) }
+    answer = ->(form, expect) { post('/bots/1/wash_sale_prompt', form, 'csrf' => 'header', 'headers' => TURBO, 'expect' => expect, 'settings_snapshot' => true) }
+    selling = stopped('single', 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 40, 'sell_interval' => 'hour' })
+    armed = stopped('basket', 'settings' => { 'price_limited' => true, 'price_limit_value_condition' => 'between', 'price_limit_range_lower_bound' => 380,
+                                              'price_limit_range_upper_bound' => 420, 'price_limit_action' => 'start_selling' })
+    rebalancing = stopped('basket', 'settings' => { 'rebalance_enabled' => true })
+    {
+      'bot_wash_question_held' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }],
+                                            signed_in(get('/bots/2'), modal.('/bots/2/wash_sale_prompt/new'), get('/bots/1'), modal.('/bots/1/wash_sale_prompt/new'),
+                                                      get('/bots/1', 'Turbo-Frame' => 'bot'), get('/bots')), owed),
+      'bot_wash_question_selling' => with_bots([selling, armed, rebalancing],
+                                               signed_in(get('/bots/1'), modal.('/bots/1/wash_sale_prompt/new'), get('/bots/2'), get('/bots/3', 'Turbo-Frame' => 'bot'),
+                                                         modal.('/bots/3/wash_sale_prompt/new')), owed),
+      'bot_wash_question_answer' => with_bots([selling],
+                                              signed_in(get('/bots/1'), answer.({}, 422), answer.({ 'wash_sale[enabled]' => '1', 'wash_sale[jurisdiction]' => 'XX' }, 422),
+                                                        answer.({ 'wash_sale[enabled]' => '1', 'wash_sale[jurisdiction]' => 'GB' }, 200),
+                                                        modal.('/bots/1/wash_sale_prompt/new'), get('/bots/1')), owed),
+      'bot_wash_question_answer_no' => with_bots([selling], signed_in(get('/bots/1'), answer.({ 'wash_sale[enabled]' => '0' }, 200), modal.('/bots/1/wash_sale_prompt/new')), owed),
+      'bot_wash_question_answer_signed_out' => with_bots([selling], [post('/bots/1/wash_sale_prompt', { 'wash_sale[enabled]' => '1' }, 'csrf' => 'none')], owed),
+      # `current_user.bots.find` raises for a bot that is not the user's.
+      'missing_wash_prompt_answer' => with_bots([selling], signed_in(get('/bots/1'), post('/bots/9/wash_sale_prompt', { 'wash_sale[enabled]' => '1' }, 'csrf' => 'header', 'headers' => TURBO, 'expect' => 404)), owed)
     }
   end
 
@@ -323,6 +351,12 @@ module Pages
       'liquidation_missing' => with_bots([bot], signed_in(modal.call('/bots/1/liquidation/new?symbol=gone'))),
       'liquidation_clear_noop' => with_bots([bot], signed_in(get('/bots/1'), post('/bots/1/liquidation_resolutions', {'intent_id' => 'stale'}, 'csrf' => 'header', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots/1')), get('/bots/1'))),
       'liquidation_started' => with_bots([bot], signed_in(get('/bots/1'), post('/bots/1/liquidation', {'symbol' => 'NVDA', 'asset_id' => '4'}, 'csrf' => 'header', 'headers' => TURBO, 'may_mutate' => ['bots'], 'expect' => 200))),
+      # PLAN-wash-sale WS-4b: an account that has not answered is asked in the confirmation itself; no answer, no sale.
+      'liquidation_wash_question' => with_bots([bot], signed_in(modal.call('/bots/1/liquidation/new?symbol=NVDA&asset_id=4'),
+                                                                post('/bots/1/liquidation', {'symbol' => 'NVDA', 'asset_id' => '4'}, 'csrf' => 'header', 'headers' => TURBO, 'expect' => 422),
+                                                                post('/bots/1/liquidation', {'symbol' => 'NVDA', 'asset_id' => '4', 'wash_sale[enabled]' => '0'}, 'csrf' => 'header', 'headers' => TURBO,
+                                                                     'may_mutate' => ['bots', 'users'], 'expect' => 200)),
+                                               'user' => owner('wash_sale_enabled' => nil)),
     }
   end
 
@@ -1200,8 +1234,6 @@ module Pages
       # (actions_index_history_*). A page without figures has no realised profit or loss to show, so this grid's page is refused;
       # the figures page serves such histories (script/rust/page_figures.rb, index_specials).
       'not_ported_bot_index_history' => with_bots([stopped('index', 'orders' => 'index_rotation'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
-      'not_ported_bot_wash_sale_question' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1')),
-                                                       'user' => owner('wash_sale_enabled' => nil)),
       'not_ported_bot_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots/2'), get('/bots/1')))
       # The list of such a bot is served with that bot's tile plain (3.0, D-DASHBOARD-REFUSED-TILE): tests/serve.rs pins it.
     }

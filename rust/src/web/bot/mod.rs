@@ -460,14 +460,14 @@ pub enum For { Page, Feed, FiguresPage, Settings }
 
 /// Why a bot's pages are not served by this build. Rails serves each of these; porting what
 /// a line names removes it.
-pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, provider_is_deltabadger: bool, asked: For) -> Result<Option<&'static str>, WebError> {
+pub fn refusal(c: &Connection, bot_id: i64, provider_is_deltabadger: bool, asked: For) -> Result<Option<&'static str>, WebError> {
     let row = c.query_row("SELECT b.type, e.type, b.settings, b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
                           [bot_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
     let (class, exchange, settings, transient) = row;
     let settings: Value = serde_json::from_str(&settings).unwrap_or(Value::Null);
     let transient: Value = serde_json::from_str(&transient).unwrap_or(Value::Null);
     let class = class.unwrap_or_default();
-    if class == crate::engine::model::SIGNAL_TYPE { return signal::refusal(c, bot_id, exchange.as_deref(), &settings, &transient, wash_sale_enabled, asked); }
+    if class == crate::engine::model::SIGNAL_TYPE { return signal::refusal(c, bot_id, exchange.as_deref(), &settings, &transient); }
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
     // The venues and classes the engine runs: one rule for both.
     let selling = settings.get("direction").and_then(Value::as_str) == Some("selling");
@@ -519,22 +519,12 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
         && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? {
         return Ok(Some(REBALANCE_WITHOUT_FIGURES));
     }
-    match wash_sale_enabled {
-        // The feed has no figures and no modal: BotsController#show answers it whatever the rule says.
-        _ if asked == For::Feed => {}
-        // The question's modal opens once the bot holds something, which only the metrics walk knows.
-        // Bot#sell_capable?: selling, armed to start selling, or holding something (only the metrics walk knows that, so any order counts).
-        None if sell_capable(&class, &settings) || c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? => {
-            return Ok(Some("the wash-sale question not answered yet"));
-        }
-        _ => {}
-    }
     Ok(None)
 }
 
 /// Bot#sell_capable? without the holdings: a basket that sells, or one a condition would flip to selling (`armed_to_start_selling?`).
 /// Bot::Rebalanceable#rebalance_enabled? counts too: both composition types include it, and a rebalance sells.
-fn sell_capable(class: &str, settings: &Value) -> bool {
+pub(super) fn sell_capable(class: &str, settings: &Value) -> bool {
     (matches!(class, "Bots::DcaMultiAsset" | "Bots::DcaIndex") && cast_boolean(settings.get("rebalance_enabled")))
     || class == "Bots::DcaMultiAsset" && selling_or_armed(settings)
 }

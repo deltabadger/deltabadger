@@ -133,11 +133,11 @@ fn settings_inner<T>(
             return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {}", super::mcp_input::full_messages(&draft.errors)))));
         }
     };
-    let (zone, wash_sale): (String, Option<bool>) = tx.query_row("SELECT time_zone, wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let zone: String = tx.query_row("SELECT time_zone FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
     let (provider, configured) = bots::market_data(&tx, &ctx.app)?;
     // Stored scope refusals survive. Only the pending lock's validation must precede its
     // page refusal, since a rejected composition still has a renderable narrow settings form.
-    let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, wash_sale, provider, For::Settings)? };
+    let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, provider, For::Settings)? };
     if let Some(reason) = original_refusal { return Ok(Outcome::Unported(reason)); }
     let mut mcp_carry = None;
     let mut mcp_refused = false;
@@ -255,7 +255,7 @@ fn settings_inner<T>(
         tx.rollback()?;
         return Ok(Outcome::GuardRefused(response.response));
     }
-    if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); } }
+    if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); } }
     // Rails keeps the name it showed in memory: a label the save did not write is not regenerated from the new settings.
     let shown = std::mem::take(&mut draft.candidate.label);
     draft.candidate = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| error("saved bot disappeared"))?;
@@ -338,29 +338,6 @@ pub struct LifecycleView {
     pub draft: Option<Draft>,
     pub errors: Vec<FieldError>,
 }
-/// Bot#sell_capable? for the classes this path serves: Some(true) or Some(false) where the settings
-/// decide it, None where only holdings could (a basket or index bot that has placed an order).
-fn sell_capable(c: &Connection, id: i64, class: &str, raw: &str) -> Result<Option<bool>, WebError> {
-    // ActiveModel::Type::Boolean#cast, nil and "" read as false here as `.present?` and `if` do.
-    fn cast(v: Option<&Value>) -> bool {
-        match v {
-            None | Some(Value::Null) => false,
-            Some(Value::Bool(b)) => *b,
-            Some(Value::Number(n)) => n.as_f64() != Some(0.0),
-            Some(Value::String(s)) => !["", "0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&s.as_str()),
-            Some(_) => true,
-        }
-    }
-    let settings = super::object(raw, "bots.settings")?;
-    // Bot::Reversible is a basket's, not an index bot's.
-    let reversible = class == "Bots::DcaMultiAsset";
-    let selling = reversible && settings.get("direction").and_then(Value::as_str) == Some("selling");
-    let armed = reversible && settings.iter().any(|(key, value)| value.as_str() == Some("start_selling")
-        && key.strip_suffix("_limit_action").is_some_and(|stem| cast(settings.get(&format!("{stem}_limited")))));
-    if selling || armed || cast(settings.get("rebalance_enabled")) { return Ok(Some(true)); }
-    let ordered: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0)", [id], |r| r.get(0))?;
-    Ok(if ordered { None } else { Some(false) })
-}
 
 impl LifecycleView {
     fn add(&mut self, locale: &str, key: &str) {
@@ -398,22 +375,12 @@ fn lifecycle_inner<T>(
         let name = match status {0=>"created",1=>"scheduled",2=>"stopped",3=>"deleted",4=>"executing",5=>"retrying",6=>"waiting",7=>"archived",_=>return Err(error("unknown bot status"))};
         let working = matches!(status,1|4|5|6);
         // BotApi::Bots::Start asks BotApi::Bots::Start.wash_sale_question_owed? before anything else, as the web start does.
-        if action == Action::Start {
-            let wash: Option<bool> = tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-            if wash.is_none() {
-                match sell_capable(&tx,id,&class,&raw)? {
-                    Some(true) => {
-                        let message=i18n::text(ctx.locale,"engine.wash_sale_question_owed",&[("label",i18n::Arg::Text(&label))]);
-                        view.errors.push(FieldError {field:"base".into(),message:message.clone()});
-                        let prepared=response_builder(&tx,&ctx,&view)?;
-                        tx.rollback()?;
-                        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("wash_sale_question_owed", message)));
-                    }
-                    // Holdings are the metrics walk's to know (Liquidatable#held_symbols); the web refuses the same case.
-                    None => return Ok(Outcome::Unported("the wash-sale question not answered yet")),
-                    Some(false) => {}
-                }
-            }
+        if action == Action::Start && super::wash::due(&tx,owner,id,ctx.now)? == Some(super::wash::Due::Question) {
+            let message=i18n::text(ctx.locale,"engine.wash_sale_question_owed",&[("label",i18n::Arg::Text(&label))]);
+            view.errors.push(FieldError {field:"base".into(),message:message.clone()});
+            let prepared=response_builder(&tx,&ctx,&view)?;
+            tx.rollback()?;
+            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("wash_sale_question_owed", message)));
         }
         // Then the flag (BotApi::Bots::Start reads it before it asks whether the bot runs).
         if action == Action::Start && submitted.start_fresh().is_err() {
@@ -488,8 +455,7 @@ fn lifecycle_inner<T>(
     }
     if view.errors.is_empty() && (!safety || submitted.mcp() && action != Action::Stop) {
         let (provider,configured)=bots::market_data(&tx,&ctx.app)?;
-        let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,wash,provider,For::Settings)?};
+        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,provider,For::Settings)?};
         let draft=view.draft.as_mut().ok_or_else(||error("owned lifecycle draft disappeared"))?;
         let refusal=if submitted.mcp() {None} else {refusal.or_else(||draft.original.unrendered())};
         if action==Action::Start {
@@ -655,9 +621,8 @@ fn lifecycle_inner<T>(
             draft.candidate=Bot::find(&tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
             if draft.candidate.label_unsaved { draft.candidate.label=shown; }
             if !safety { return Ok(true); }
-            let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
             let (provider,_)=bots::market_data(&tx,&ctx.app)?;
-            Ok(draft.candidate.unrendered().is_none() && super::refusal(&tx,id,wash,provider,For::Page)?.is_none())
+            Ok(draft.candidate.unrendered().is_none() && super::refusal(&tx,id,provider,For::Page)?.is_none())
         })();
         match redrawn {
             Ok(true) => {}

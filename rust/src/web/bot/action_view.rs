@@ -1,5 +1,5 @@
 //! Shared page fragments, constructed while the writer still owns its transaction.
-use super::{draft::{Draft, FieldError}, page, settings, status, write::{self, Action, LifecycleView, Prepared}, Bot, Kind};
+use super::{draft::{Draft, FieldError}, page, settings, status, write::{self, Action, LifecycleView, Prepared}, Bot};
 use crate::enums::BotStatus;
 use crate::web::{bots, flash, format, i18n::{self, Arg}, layout::Ctx, shell, turbo, WebError};
 use askama::Template;
@@ -49,9 +49,9 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
     // bots/update.turbo_stream.erb ends with wash_sale_prompt_stream, judged on the saved row (a failed save included).
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
     // A refused save is judged on the row as stored: the guard's refusal is built before its writes roll back.
-    let (basket, saved) = if draft.errors.is_empty() { (bot.kind == Kind::Basket, Value::Object(bot.settings.clone())) }
-        else { (draft.original.kind == Kind::Basket, Value::Object(draft.raw_settings.clone())) };
-    let body = match super::wash::saved_prompt_stream(c,ctx,&ctx.csrf_token(),user.id,bot.id,basket,&saved)? { Some(stream) => body + &stream + "\n", None => body };
+    let (kind, saved) = if draft.errors.is_empty() { (bot.kind, Value::Object(bot.settings.clone())) }
+        else { (draft.original.kind, Value::Object(draft.raw_settings.clone())) };
+    let body = match super::wash::saved_prompt_stream(c,ctx,&ctx.csrf_token(),user.id,bot.id,kind,&saved)? { Some(stream) => body + &stream + "\n", None => body };
     Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![], after_scheduling: None })
 }
 
