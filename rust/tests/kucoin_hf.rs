@@ -2079,3 +2079,306 @@ async fn r07_an_undetected_or_unified_account_proves_no_route() {
         assert!(!t.requests().iter().any(|r| r.path.contains("A1")), "{answer}: no order read on an undetected route");
     }
 }
+
+// ---- UTA U2 (issue #841, UTA.md §3 "Wire", r1.3, r1.10): the order adapter, reached through `allow_uta` until U4. ----
+
+const UTA_DETAIL: &str = "/api/ua/v2/unified/order/detail";
+const UTA_EXECUTION: &str = "/api/ua/v2/unified/order/execution";
+/// The U0 fixture, on this harness's pair (BTC-EUR) and with the fixture's order id as `ext`.
+fn uta_fixture(name: &str, ext: &str) -> Value {
+    let text = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/kucoin_uta/{name}.json"))).unwrap();
+    serde_json::from_str(&text.replace("BTC-USDT", "BTC-EUR").replace("\"385577101236916224\"", &format!("\"{ext}\""))).unwrap()
+}
+fn uta_case<'a>(f: &'a Value, prefix: &'a str) -> impl Iterator<Item = &'a Value> { f["cases"].as_array().unwrap().iter().filter(move |c| c["id"].as_str().unwrap().starts_with(prefix)) }
+fn unified(t: &ScriptedTransport) { t.reply(&format!("GET {MODE}"), 200, json!({"code":"200000","data":{"selfAccountMode":"UNIFIED"}})); }
+/// A venue as the factory builds it, admitted on UTA (`allow_uta`), prepared on a detected Unified account.
+async fn uta_venue(t: &ScriptedTransport, version: CredentialVersion) -> KucoinVenue<ScriptedTransport> {
+    unified(t);
+    let v = KucoinVenue::new(t.clone(), URL).with_identity(&creds("KEY-A")).with_account_context(version, Resolver::default()).allow_uta();
+    v.prepare().await.unwrap();
+    v
+}
+fn detail_key(ext: &str) -> String { format!("GET {UTA_DETAIL}?orderId={ext}&symbol=BTC-EUR&tradeType=SPOT") }
+fn execution_key(ext: &str, last: Option<&Value>) -> String {
+    let last = last.map(|l| format!("lastId={}&", super_to_s(l))).unwrap_or_default();
+    format!("GET {UTA_EXECUTION}?{last}orderId={ext}&pageSize=200&symbol=BTC-EUR&tradeType=SPOT")
+}
+fn super_to_s(v: &Value) -> String { v.as_str().map_or_else(|| v.to_string(), str::to_string) }
+fn uta_detail(ext: &str, status: u8, filled: &str, kind: &str) -> Value {
+    json!({"code":"200000","data":{"tradeType":"SPOT","orderId":ext,"clientOid":"c","symbol":"BTC-EUR","side":"BUY","orderType":kind,"size":"0.002",
+        "sizeUnit":"BASECCY","price":"50000","status":status,"filledSize":filled,"avgPrice":"","fee":"0","feeCurrency":"EUR","cancelSize":"0",
+        "orderTime":1793361600000000000_i64,"updatedTime":1793361600000000000_i64}})
+}
+/// One execution page of `ext` (trade id, size, value) with cursor `last`, then the empty page that ends the walk.
+fn executions(t: &ScriptedTransport, ext: &str, fills: &[(&str, &str, &str)], last: i64) {
+    let items: Vec<Value> = fills.iter().map(|(trade, size, value)| json!({"tradeType":"SPOT","orderId":ext,"symbol":"BTC-EUR","orderType":"LIMIT","side":"BUY",
+        "tradeId":trade,"size":size,"price":"50000","value":value,"executionTime":1793361600500000000_i64,"fee":"0.01","feeCurrency":"EUR","liquidityRole":"TAKER"})).collect();
+    t.reply(&execution_key(ext, None), 200, json!({"code":"200000","data":{"tradeType":"SPOT","lastId":last,"items":items}}));
+    t.reply(&execution_key(ext, Some(&json!(last))), 200, json!({"code":"200000","data":{"tradeType":"SPOT","lastId":last,"items":[]}}));
+}
+/// An admitted UTA venue after one accepted UTA order for the seeded bot: (dir, store, bot, transport, venue, transaction
+/// id, external id).
+async fn uta_placed(limit_plan: bool) -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot, ScriptedTransport, KucoinVenue<ScriptedTransport>, i64, String) {
+    use deltabadger::engine::{placement, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (dir, o, bot, mut plan) = engine_setup();
+    plan.limit = limit_plan;
+    let t = ScriptedTransport::default(); t.set_now(at);
+    let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+    let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
+    t.reply("POST /api/ua/v2/unified/order/place", 200, json!({"code":"200000","data":{"orderId":"U1","clientOid":intent.cl_ord_id,"tradeType":"SPOT","ts":1}}));
+    assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at)).await.unwrap(), placement::Sent::Accepted(_)));
+    let id = o.primary.query_row("SELECT id FROM transactions WHERE external_id='U1'", [], |r| r.get(0)).unwrap();
+    (dir, o, bot, t, v, id, "U1".into())
+}
+
+/// U2, O01: without `allow_uta` a Unified account is still refused; with it the intent records the UTA mode, the POST
+/// goes to the UTA place route with the intent's UUID, and the accepted order is one row with a `family: "Uta"` record.
+/// An intent sized on another family is never sent on UTA.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_a_uta_order_dispatches_on_the_uta_route_and_is_recorded_once() {
+    use deltabadger::engine::{placement, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let (_dir, o, bot, _plan) = engine_setup();
+    let t = ScriptedTransport::default(); t.set_now(at); unified(&t);
+    let refused = KucoinVenue::new(t.clone(), URL).with_account_context(model::credential_version(&o.primary, &bot).unwrap().unwrap(), Resolver::default());
+    assert!(refused.prepare().await.is_err(), "UTA stays refused without allow_uta");
+    let (dir, o, bot, t, _v, id, _ext) = uta_placed(false).await;
+    let post = t.requests().into_iter().find(|r| r.method == "POST").unwrap();
+    assert_eq!(post.path, "/api/ua/v2/unified/order/place");
+    let body = post.body.unwrap();
+    assert_eq!((&body["tradeType"], &body["side"], &body["orderType"]), (&json!("SPOT"), &json!("BUY"), &json!("MARKET")));
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(submitted(&c), 1);
+    assert!(model::load_bot(&c, bot.id).unwrap().rust_placement().is_none(), "the intent became the row");
+    let record = deltabadger::venue::kucoin::order_record(&c, id).unwrap().unwrap();
+    assert_eq!((&record["family"], &record["symbol"], &record["host"]), (&json!("Uta"), &json!("BTC-EUR"), &json!(URL)));
+    assert!(record["key_fingerprint"].is_string());
+    // An intent sized on a classic account is never sent on the UTA one.
+    let (_dir, o2, bot2, plan) = engine_setup();
+    let t1 = ScriptedTransport::default(); t1.set_now(at); classic(&t1, false);
+    let lf = KucoinVenue::new(t1.clone(), URL).with_account_context(model::credential_version(&o2.primary, &bot2).unwrap().unwrap(), Resolver::default());
+    lf.prepare().await.unwrap();
+    let placement::Begun::Intent(intent) = placement::begin_held(&o2.primary, &bot2, &plan, lf.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
+    let t2 = ScriptedTransport::default(); t2.set_now(at);
+    let uta = uta_venue(&t2, model::credential_version(&o2.primary, &bot2).unwrap().unwrap()).await;
+    assert!(matches!(placement::send_recorded(&o2.primary, &uta, &bot2, &intent, &FixedClock(at)).await.unwrap(), placement::Sent::NotSent(_)));
+    assert_eq!(posts(&t1) + posts(&t2), 0);
+    drop(o);
+}
+
+/// U2: every place case's bytes (market by base and by funds, limit; buy and sell): `tradeType`, upper-case side and type,
+/// `sizeUnit` QUOTECCY only for a market order by funds, `price` only on a limit order.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_uta_placement_bytes_match_every_place_case() {
+    use deltabadger::venue::{NewOrder, OrderKind, Side};
+    let f = uta_fixture("orders", "U1");
+    for c in uta_case(&f, "place_") {
+        let want = &c["expect"]["body"];
+        let (_dir, o, bot, _plan) = engine_setup();
+        let t = ScriptedTransport::default(); t.set_now("2026-10-30T12:00:00Z".parse().unwrap());
+        let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+        t.reply("POST /api/ua/v2/unified/order/place", 200, c["response"].clone());
+        let kind = if want["orderType"] == "LIMIT" { OrderKind::Limit { price: want["price"].as_str().unwrap().into() } } else { OrderKind::Market };
+        let order = NewOrder { pair: "BTC-EUR".into(), side: if want["side"] == "SELL" { Side::Sell } else { Side::Buy }, kind, volume: want["size"].as_str().unwrap().into(),
+                               quote_volume: want["sizeUnit"] == "QUOTECCY", cl_ord_id: want["clientOid"].as_str().unwrap().into(), deadline: "2026-10-30T12:01:00Z".parse().unwrap(), day: false };
+        assert_eq!(v.add_order(&order).await.unwrap(), "U1", "{}", c["id"]);
+        let post = t.requests().into_iter().find(|r| r.method == "POST").unwrap();
+        assert_eq!((post.path.as_str(), post.body.as_ref().unwrap()), (c["expect"]["path"].as_str().unwrap(), want), "{}", c["id"]);
+    }
+}
+
+/// U2, O02: every UTA placement answer in errors.json, through the engine. A refusal clears the intent with no submitted
+/// row (a safe one with no row at all); an ambiguous answer keeps the intent, and a later tick, after reopening the
+/// store, asks the clientOid route and sends no second POST.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_every_uta_placement_answer_has_its_database_effect() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let clock = FixedClock(at);
+    let f = uta_fixture("errors", "U1");
+    for c in uta_case(&f, "place_") {
+        let (id, want) = (c["id"].as_str().unwrap(), &c["expect"]);
+        let (dir, o, bot, plan) = engine_setup();
+        let t = ScriptedTransport::default(); t.set_now(at);
+        let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+        let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &clock).unwrap() else { panic!() };
+        let mut body = if c["response"].is_null() { json!("") } else { c["response"].clone() };
+        if body["data"]["clientOid"] == "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02" { body["data"]["clientOid"] = json!(intent.cl_ord_id); }
+        t.reply("POST /api/ua/v2/unified/order/place", c["status"].as_u64().unwrap_or(200) as u16, body);
+        let sent = placement::send_recorded(&o.primary, &v, &bot, &intent, &clock).await.unwrap();
+        let class = match sent { placement::Sent::Rejected(_) => "rejected", placement::Sent::Ambiguous(_) => "ambiguous", ref s => panic!("{id}: {s:?}") };
+        assert_eq!(class, if want["outcome"] == "safe" { "rejected" } else { want["outcome"].as_str().unwrap() }, "{id}");
+        let c2 = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        assert_eq!(submitted(&c2), 0, "{id}: no order row");
+        if want["outcome"] == "safe" {
+            assert_eq!(c2.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "{id}: a safe rejection writes no row at all");
+        }
+        assert_eq!(model::load_bot(&c2, bot.id).unwrap().rust_placement().is_some(), want["intent_kept"] == true, "{id}: the intent");
+        if want["replacement_blocked"] == true {
+            t.reply(&format!("GET {UTA_DETAIL}?clientOid={}&symbol=BTC-EUR&tradeType=SPOT", intent.cl_ord_id), 200, json!({"code":"110103","msg":"The orderId parameter does not exist."}));
+            tick::tick(&c2, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(30)), &mut Default::default()).await.unwrap();
+            assert_eq!(posts(&t), 1, "{id}: never a replacement POST");
+            assert!(model::load_bot(&c2, bot.id).unwrap().rust_placement().is_some(), "{id}: still held");
+        }
+    }
+}
+
+/// U2, O04–O06: every status case, read by the row's record on the detail route. Codes 2/4 are open, 3 closed, 5 and 6
+/// cancelled; a shape that disagrees with its status, another order, symbol, side, type or trade type is unreadable (the
+/// row waits, excluded). A filled answer's totals come from its executions.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_uta_status_answers_read_strictly() {
+    use deltabadger::venue::{OrderRef, OrderStatus};
+    let f = uta_fixture("orders", "U1");
+    for c in uta_case(&f, "status_") {
+        let (id, want) = (c["id"].as_str().unwrap(), &c["expect"]);
+        let (_dir, o, _bot, t, v, tx, ext) = uta_placed(true).await;
+        t.reply(&detail_key(&ext), 200, c["response"].clone());
+        let filled = c["response"]["data"]["filledSize"].as_str().filter(|s| !s.is_empty() && *s != "0").unwrap_or("0");
+        if filled != "0" { executions(&t, &ext, &[("T1", filled, "50")], 7); }
+        let (found, excluded) = v.order_with(&OrderRef::load(&o.primary, tx, &ext).unwrap(), |_, _, _| Ok(true)).await.unwrap();
+        if want["state"] == "Unreadable" { assert!(found.is_empty() && excluded == vec![ext.clone()], "{id}: {found:?}"); continue; }
+        let s = &found[0];
+        let status = match s.status { OrderStatus::Open => "Open", OrderStatus::Closed => "Closed", OrderStatus::Cancelled => "Cancelled", _ => "Unknown" };
+        assert_eq!(status, want["state"], "{id}");
+        if let Some(size) = want["filled_size"].as_str() { assert_eq!(s.amount_exec.to_s_f(), deltabadger::ruby::BigDec::parse(size).unwrap().to_s_f(), "{id}"); }
+        assert!(s.zero_fill_at.is_none(), "{id}: status 5 is explicit, no zero-fill delay");
+    }
+}
+
+/// U2, r1.3: a filled order's totals come only from its validated executions, deduplicated by tradeId across lastId
+/// pages: quote = Σ value, price = Σ value / Σ size. A conflicting repeat, a foreign order, symbol or side, a zero value,
+/// a missing tradeId or more than filledSize is unreadable; less than filledSize waits. Both leave the row excluded.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_uta_totals_come_from_unique_validated_executions() {
+    use deltabadger::venue::OrderRef;
+    let f = uta_fixture("orders", "U1");
+    for c in uta_case(&f, "totals_") {
+        let (id, want) = (c["id"].as_str().unwrap(), &c["expect"]);
+        let (_dir, o, _bot, t, v, tx, ext) = uta_placed(true).await;
+        t.reply(&detail_key(&ext), 200, uta_detail(&ext, 3, c["filled_size"].as_str().unwrap(), "LIMIT"));
+        let mut last: Option<Value> = None;
+        for page in c["pages"].as_array().unwrap() {
+            t.reply(&execution_key(&ext, last.as_ref()), 200, page.clone());
+            last = Some(page["data"]["lastId"].clone());
+        }
+        let (found, excluded) = v.order_with(&OrderRef::load(&o.primary, tx, &ext).unwrap(), |_, _, _| Ok(true)).await.unwrap();
+        if want["state"].is_string() { assert!(found.is_empty() && excluded == vec![ext.clone()], "{id}: {found:?}"); continue; }
+        let s = &found[0];
+        let d = |k: &str| deltabadger::ruby::BigDec::parse(want[k].as_str().unwrap()).unwrap().to_s_f();
+        assert_eq!((s.amount_exec.to_s_f(), s.quote_amount_exec.as_ref().unwrap().to_s_f(), s.price.as_ref().unwrap().to_s_f()), (d("base"), d("quote"), d("price")), "{id}");
+    }
+}
+
+/// U2, r1.3: the no-decrease guard holds a UTA row's exact totals too: one unit lower at the 17th decimal is refused, the
+/// identical total settles.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_uta_dealt_totals_never_go_down() {
+    use deltabadger::engine::polling;
+    let now: chrono::DateTime<chrono::Utc> = "2026-10-30T12:05:00Z".parse().unwrap();
+    let (dir, o, bot, t, v, id, ext) = uta_placed(true).await;
+    macro_rules! sweep { ($c:expr) => { polling::sweep($c, &v, &model::load_bot($c, bot.id).unwrap(), now) } }
+    // One answer per sweep, in order (a scripted key repeats its last answer).
+    for (status, value) in [(4, "50.00000000000000001"), (6, "50"), (6, "50.00000000000000001")] {
+        t.reply(&detail_key(&ext), 200, uta_detail(&ext, status, "0.001", "LIMIT"));
+        executions(&t, &ext, &[("T1", "0.001", value)], 7);
+    }
+    let _ = sweep!(&o.primary).await;
+    assert_eq!(row_exec(&o.primary, id).0, Some(1), "open with a partial fill");
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id).0, Some(1), "a quote total one unit lower at the 17th decimal is refused");
+    let _ = sweep!(&c).await;
+    assert_eq!(row_exec(&c, id).0, Some(3), "cancelled with what it dealt");
+}
+
+/// U2, O07: every UTA cancel answer: a POST `{tradeType, symbol, orderId}`; accepted only on 200000 naming this order (a
+/// request, not a state); an error envelope is the venue's refusal; a 5xx, a lost reply or another id cannot be told.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_every_uta_cancel_answer_is_classified() {
+    use deltabadger::venue::{OrderRef, VenueError};
+    let f = uta_fixture("orders", "U1");
+    let mut cases: Vec<Value> = uta_case(&f, "cancel_").cloned().collect();
+    cases.push(json!({"id": "cancel_lost", "lost": true, "expect": {"outcome": "ambiguous"}}));
+    for c in &cases {
+        let (_dir, o, _bot, t, v, id, ext) = uta_placed(true).await;
+        let key = "POST /api/ua/v2/unified/order/cancel";
+        if c["lost"] == true { t.network(key, "post_send", "reset"); } else { t.reply(key, c["status"].as_u64().unwrap_or(200) as u16, c["response"].clone()); }
+        let got = v.cancel_with(&OrderRef::load(&o.primary, id, &ext).unwrap()).await;
+        let class = match got { Ok(()) => "requested", Err(VenueError::Rejected(_)) => "refused", Err(_) => "ambiguous" };
+        assert_eq!(class, c["expect"]["outcome"], "{}", c["id"]);
+        let sent = t.requests().into_iter().rev().find(|r| r.method == "POST").unwrap();
+        assert_eq!((sent.path.as_str(), sent.body.unwrap()), (UTA_CANCEL_PATH, json!({"tradeType":"SPOT","symbol":"BTC-EUR","orderId":ext})), "{}", c["id"]);
+    }
+}
+const UTA_CANCEL_PATH: &str = "/api/ua/v2/unified/order/cancel";
+
+/// U2: recovery asks the detail route by clientOid and symbol. Only an answer naming this clientOid is the order (one
+/// row, its record, no second POST); another clientOid or a miss never proves the order absent: the intent stays.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_uta_recovery_by_client_oid() {
+    use deltabadger::engine::{placement, tick, FixedClock};
+    let at: chrono::DateTime<chrono::Utc> = "2026-10-30T12:00:00Z".parse().unwrap();
+    let f = uta_fixture("orders", "U9");
+    for c in uta_case(&f, "recovery_") {
+        let (id, want) = (c["id"].as_str().unwrap(), &c["expect"]);
+        let (dir, o, bot, mut plan) = engine_setup();
+        plan.limit = true;
+        let t = ScriptedTransport::default(); t.set_now(at);
+        let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+        let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at)).unwrap() else { panic!() };
+        t.reply("POST /api/ua/v2/unified/order/place", 200, json!({"code":"166115","msg":"System busy. Please try again later."}));
+        assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at)).await.unwrap(), placement::Sent::Ambiguous(_)));
+        let mut answer = c["response"].clone();
+        if answer["data"]["clientOid"] == "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a02" { answer["data"]["clientOid"] = json!(intent.cl_ord_id); }
+        t.reply(&format!("GET {UTA_DETAIL}?clientOid={}&symbol=BTC-EUR&tradeType=SPOT", intent.cl_ord_id), c["status"].as_u64().unwrap_or(200) as u16, answer);
+        let c2 = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        tick::tick(&c2, &v, bot.id, &FixedClock(at + chrono::Duration::seconds(30)), &mut Default::default()).await.unwrap();
+        assert_eq!(model::load_bot(&c2, bot.id).unwrap().rust_placement().is_some(), want["intent_kept"] == true, "{id}");
+        assert_eq!(posts(&t), 1, "{id}: no second POST");
+        if want["intent_kept"] == false {
+            let tx: i64 = c2.query_row("SELECT id FROM transactions WHERE status=0 AND external_id='U9'", [], |r| r.get(0)).unwrap();
+            assert_eq!(deltabadger::venue::kucoin::order_record(&c2, tx).unwrap().unwrap()["family"], "Uta", "{id}: the recovered row has its record");
+        }
+    }
+}
+
+/// U2, r1.2: the engine spends `max(0, min(available, balance − hold))` of the unified balance: positive unPnL is never
+/// spent, and a debt currency has nothing to spend.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_uta_engine_balance_never_spends_unpnl_or_debt() {
+    let f = uta_fixture("balances", "U1");
+    for c in uta_case(&f, "") {
+        let (_dir, o, bot, _plan) = engine_setup();
+        let t = ScriptedTransport::default(); t.set_now("2026-10-30T12:00:00Z".parse().unwrap());
+        let v = uta_venue(&t, model::credential_version(&o.primary, &bot).unwrap().unwrap()).await;
+        t.reply("GET /api/ua/v2/unified/account/balance", 200, c["response"].clone());
+        let mut ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+        let mut want: Vec<(String, String)> = c["expect"]["spendable"].as_object().into_iter().flatten().map(|(k, v)| (k.clone(), v.as_str().unwrap().into())).collect();
+        want.extend(c["expect"]["kept"].as_array().into_iter().flatten().map(|k| (k.as_str().unwrap().into(), "0".into())));
+        for (currency, amount) in want {
+            ticker.base_code = currency.clone();
+            assert_eq!(v.free_base_balance(&ticker).await.unwrap().to_s_f(), deltabadger::ruby::BigDec::parse(&amount).unwrap().to_s_f(), "{} {currency}", c["id"]);
+        }
+    }
+}
+
+/// U2, §3 routing: on an account that is now UTA, an HF row keeps the HF route and a classic row the classic one;
+/// neither is redirected to the UTA routes.
+#[tokio::test(flavor = "current_thread")]
+async fn u2_classic_and_hf_rows_keep_their_routes_on_a_uta_account() {
+    use deltabadger::venue::OrderRef;
+    let (_dir, o, _bot, t, v, id, ext) = uta_placed(false).await;
+    let mut record = deltabadger::venue::kucoin::order_record(&o.primary, id).unwrap().unwrap();
+    record["family"] = json!("ClassicHf");
+    deltabadger::app_config::set_plain(&o.primary, &format!("rust_kucoin_order:{id}"), &record.to_string(), "2026-10-30T12:01:00Z".parse().unwrap()).unwrap();
+    t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, true, false, "0", "0"));
+    let (found, _) = v.order_with(&OrderRef::load(&o.primary, id, &ext).unwrap(), |_, _, _| Ok(true)).await.unwrap();
+    assert_eq!(found.len(), 1, "the HF row is read on the HF route");
+    o.primary.execute("DELETE FROM app_configs WHERE key = ?1", [format!("rust_kucoin_order:{id}")]).unwrap();
+    t.reply(&format!("GET /api/v1/orders/{ext}"), 200, classic_order(&ext, "BTC-EUR", true, "0", "0"));
+    let (found, _) = v.order_with(&OrderRef::load(&o.primary, id, &ext).unwrap(), |_, _, _| Ok(true)).await.unwrap();
+    assert_eq!(found.len(), 1, "the classic row is read on the classic route");
+    assert!(!t.requests().iter().any(|r| r.path.starts_with("/api/ua/v2/unified/order/detail")), "never the UTA route for them");
+}
