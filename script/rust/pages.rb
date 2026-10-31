@@ -257,7 +257,7 @@ module Pages
                                                      signed_in(get('/bots/2'), warned.('/bots/2/wash_sale_selling_warning', 204), get('/bots/1')), rule),
       # `current_user.bots.find` raises for a bot that is not the user's.
       'missing_wash_prompt_new' => with_bots([selling], signed_in(get('/bots/1'), modal.('/bots/9/wash_sale_prompt/new')), rule),
-      'missing_wash_selling_warning' => with_bots([selling], signed_in(get('/bots/1'), warned.('/bots/9/wash_sale_selling_warning', 404)), rule),
+      'missing_wash_selling_warning' => with_bots([selling], signed_in(get('/bots/1'), post('/bots/9/wash_sale_selling_warning', {}, 'csrf' => 'header', 'headers' => TURBO, 'expect' => 404)), rule),
       'bot_wash_rule_warning_signed_out' => with_bots([selling], [get('/bots/1/wash_sale_prompt/new'), post('/bots/1/wash_sale_selling_warning', {}, 'csrf' => 'none')], rule)
     }
   end
