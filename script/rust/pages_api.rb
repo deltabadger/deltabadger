@@ -534,6 +534,8 @@ module Pages
       api_indices(spec) if spec['indices']
       Index.where(external_id: 'nasdaq-100').find_each { |ix| ix.update_columns(available_exchanges: { 'Exchanges::Alpaca' => ix.top_coins }) } if spec['index_alpaca']
       api_keys(owner, second) if spec['keys']
+      api_ledger(owner, second, spec['ledger']) if spec['ledger']
+      api_tracker_keys(owner, spec['tracker_keys']) if spec['tracker_keys']
       # Paper trading on: MCP refuses the create tools; REST is live and creates.
       owner.update_columns(mcp_settings: { 'dry_run' => true }) if spec['paper']
       # The owner's Alpaca key as another account (its stubbed answers) or in live mode (the live host).
