@@ -30,6 +30,9 @@ pub const HF_ATTEMPT_OPEN: &str = "hf_attempt_open";
 pub const UTA_API: &str = "uta_api";
 pub const UTA_ATTEMPT: &str = "uta_attempt";
 pub const UTA_ATTEMPT_OPEN: &str = "uta_attempt_open";
+/// A UTA window whose walk ended on an explicit empty page (r4.1): read, whatever it certified. The backfill reads what
+/// no such span covers.
+pub const UTA_READ: &str = "uta_read";
 /// A mode episode (UTA r2.1): `mode:<Mode>`, from the first detection of that mode after any other to the latest.
 pub const MODE: &str = "mode:";
 pub const AMBIGUOUS: &str = "ambiguous";
@@ -314,7 +317,12 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
         if j.held {
             let mut derived: Vec<Derived> = if materialize { leftover.iter().map(|i| j.csv[*i].clone()).collect() } else { vec![] };
             if !file::restored_at(c, key, *t)? {
-                derived.extend(j.other.iter().filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| t < cut)).cloned());
+                // UTA r1.6: an unknown export type in a currency an API fill of this second trades may be that fill (a
+                // UTA export's types are unknown): it is withheld, the API wins, and the second is flagged.
+                let traded: HashSet<&Option<String>> = j.reps.iter().filter(|r| r.api).filter_map(|r| r.key.as_ref()).chain(&j.withheld).flat_map(|k| [&k.base, &k.quote]).collect();
+                let unknown = |d: &Derived| d.entry.raw.value["reason"] == "unmapped_type" && traded.contains(&d.entry.base_currency);
+                ambiguous |= j.other.iter().any(unknown);
+                derived.extend(j.other.iter().filter(|d| !unknown(d)).filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| t < cut)).cloned());
             }
             let s = file::rewrite_second(c, key, *t, derived, &mut writer, now)?;
             (out.imported, out.duplicates, out.skipped, out.generic) = (out.imported + s.imported, out.duplicates + s.duplicates, out.skipped + s.skipped, out.generic + s.generic);
@@ -574,7 +582,7 @@ fn merge(mut spans: Vec<Span>) -> Vec<Span> {
 }
 
 /// `from` less `covered`.
-fn subtract(from: Span, covered: &[Span]) -> Vec<Span> {
+pub(super) fn subtract(from: Span, covered: &[Span]) -> Vec<Span> {
     let mut out = vec![];
     let mut at = from.0;
     for (a, b) in merge(covered.to_vec()) {
