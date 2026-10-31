@@ -596,6 +596,34 @@ pub mod test_support {
     }
 }
 
+/// The schema of a Rails-built primary (db/schema.rb as script/rust/prepare_install.rb loads it), replayed: every
+/// `sqlite_master` statement in Rails' order, its `sqlite_sequence` rows, the 123 frozen `schema_migrations` rows
+/// (schema/rails_versions.txt) and `ar_internal_metadata` `environment = production`. Rails' `schema_sha1` row is not
+/// written: nothing reads it in production (divergence D-BOOT-NO-SCHEMA-SHA1). Generated and proved equal to Rails by
+/// tests/schema_baseline.rs; Rust migrations then run on top as on any 2.x install.
+const BASELINE: &str = include_str!("../schema/baseline.sql");
+/// The same for the queue database (db/queue_schema.rb), with its own `schema_migrations`/`ar_internal_metadata` rows.
+const QUEUE_BASELINE: &str = include_str!("../schema/queue_baseline.sql");
+
+/// Creates a fresh primary's schema (`BASELINE`) on an empty database. No caller yet: the bootstrap is B1-6.
+pub fn create_schema(primary: &Connection) -> rusqlite::Result<()> {
+    create(primary, BASELINE)
+}
+
+/// Creates a fresh queue database's schema (`QUEUE_BASELINE`) on an empty database. No caller yet.
+pub fn create_queue_schema(queue: &Connection) -> rusqlite::Result<()> {
+    create(queue, QUEUE_BASELINE)
+}
+
+/// WAL first (Rails 8's default, persistent in the file; it can't change inside a transaction), then the whole file in
+/// one BEGIN IMMEDIATE: a failure leaves the database empty.
+fn create(c: &Connection, sql: &str) -> rusqlite::Result<()> {
+    c.execute_batch("PRAGMA journal_mode=WAL")?;
+    let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate)?;
+    tx.execute_batch(sql)?;
+    tx.commit()
+}
+
 pub struct Opened {
     pub primary: Connection,
     pub queue: Connection,
