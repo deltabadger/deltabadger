@@ -2470,7 +2470,7 @@ fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
 }
 
 /// decisions.rb SIGNAL_GRID_SIZE: the webhook cells and PLAN-A9 O3's `api` axis.
-const SIGNAL_GRID_SIZE: usize = 420 + 79 + 927 + 196;
+const SIGNAL_GRID_SIZE: usize = 420 + 79 + 927 + 203;
 
 /// Plan 8a: one webhook call of a signal bot (script/rust/decisions.rb signal_scenarios): Bot::SignalJob at `at` with its own
 /// retries, against the engine's executor on a pristine copy, on Kraken, Binance, KuCoin and Alpaca (crypto and a stock).

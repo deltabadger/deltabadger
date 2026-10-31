@@ -5121,8 +5121,8 @@ module Decisions
     end
     list.tap { |l| raise "the signal grid has #{l.size} scenarios, not #{SIGNAL_GRID_SIZE}" unless l.size == SIGNAL_GRID_SIZE }
   end
-  # The webhook cells (420 + 79 + 927) and the `api` axis (14 per venue with a placement-safe code, 13 without; a stock 12).
-  SIGNAL_GRID_SIZE = 420 + 79 + 927 + 196
+  # The webhook cells (420 + 79 + 927) and the `api` axis: 12 per kit, plus `locked` (not on the stock kit) and `safe_then_accepted` (a kit with a placement-safe code).
+  SIGNAL_GRID_SIZE = 420 + 79 + 927 + 203
 
   # ---- PLAN-wash-sale WS-3: the account's wash-sale rule over every leg the engine trades (grid-wash-sale) ----------------
   # Scenarios of the other grids, each with the account's rule on (US unless named) and the lock rows `wash` seeds

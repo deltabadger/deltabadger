@@ -449,3 +449,28 @@ async fn a_safe_rejection_is_placed_once_more_through_the_api_too() {
     assert_eq!((status, body["data"]["order_id"].clone()), (201, json!("OTX-2")));
     assert_eq!((k.venue.sent().len(), k.rows()), (2, vec![(0, Some("OTX-2".into()))]));
 }
+
+/// PLAN-A9 r2 §2: the send fence enforces an API order's `send_by`, whatever the intent's own 10 s window: an intent claimed
+/// a second before it and sent after it sends nothing.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_send_fence_enforces_send_by() {
+    use deltabadger::engine::{amount, model, placement};
+    let k = kraken(priced());
+    let bot = model::load_bot(k.c(), k.bot).unwrap();
+    let ticker = model::ticker_for(k.c(), &bot).unwrap().unwrap();
+    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
+    let quote = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let (plan, _) = amount::size_order(&ticker, deltabadger::venue::Side::Buy, &price, &quote.div(&price).unwrap(), &quote,
+                                       deltabadger::engine::venue_rules::for_exchange("Exchanges::Kraken").unwrap().minimum_logic, amount::TxKind::Regular).unwrap();
+    let version = model::credential_version(k.c(), &bot).unwrap();
+    let send_by = kt(1).0;
+    // Past send_by at the claim itself: nothing written.
+    assert!(matches!(placement::begin_signal(k.c(), &bot, &plan, placement::Claim::Replace { send_by: Some(send_by) }, &version, None, &kt(2)).unwrap(), placement::SignalClaim::Expired));
+    assert!(model::load_bot(k.c(), k.bot).unwrap().rust_placement().is_none());
+    let placement::SignalClaim::Intent(intent) = placement::begin_signal(k.c(), &bot, &plan, placement::Claim::Replace { send_by: Some(send_by) }, &version, None, &kt(0)).unwrap()
+        else { panic!("no intent") };
+    let venue = deltabadger::venue::Handle::new(k.venue.clone(), version.clone());
+    let sent = placement::send(k.c(), &venue, &intent, &kt(2)).await.unwrap();
+    assert!(matches!(sent, placement::Sent::NotSent(_)), "{sent:?}");
+    assert!(k.venue.sent().is_empty());
+}
