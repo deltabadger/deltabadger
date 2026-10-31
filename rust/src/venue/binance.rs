@@ -100,6 +100,21 @@ impl Pairs {
 pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: String, pairs: Pairs, identity: Option<serde_json::Value>, rules: &'static VenueRules }
 
 impl<T: Transport> BinanceVenue<T> {
+    /// GET /api/v3/account's free balance of the rows `pick` names by code; the last such row wins, absent is 0.
+    async fn account_free(&self, pick: impl Fn(&str) -> bool) -> Result<BigDec, super::VenueError> {
+        let r = self.signed_now("GET", "/api/v3/account", vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())]);
+        let body = self.call(&r, false).await?;
+        let rows = body["balances"].as_array().ok_or_else(unreadable)?;
+        let mut free = BigDec::zero();
+        for row in rows {
+            let Some(code) = row["asset"].as_str() else { continue };
+            if !pick(code) { continue; }
+            required(&row["locked"])?;
+            free = required(&row["free"])?;
+        }
+        Ok(free)
+    }
+
     pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into(), pairs: Pairs::default(), identity: None, rules: &RULES } }
     /// Another venue of this API (Binance.US: `venue_rules::BINANCE_US`); Binance's own by default.
     pub fn with_rules(mut self, rules: &'static VenueRules) -> Self { self.rules = rules; self }
@@ -573,17 +588,12 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     /// Exchanges::Binance#get_balances for the quote asset: GET /api/v3/account (omitZeroBalances, the read recvWindow), each
     /// row's venue code mapped to its asset (#asset_from_symbol), `free`; the last row naming the asset wins, absent is 0.
     async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, super::VenueError> {
-        let r = self.signed_now("GET", "/api/v3/account", vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())]);
-        let body = self.call(&r, false).await?;
-        let rows = body["balances"].as_array().ok_or_else(unreadable)?;
-        let mut free = BigDec::zero();
-        for row in rows {
-            let Some(code) = row["asset"].as_str() else { continue };
-            if self.pairs.assets.get(code).map(String::as_str) != Some(asset_symbol) { continue; }
-            required(&row["locked"])?;
-            free = required(&row["free"])?;
-        }
-        Ok(free)
+        self.account_free(|code| self.pairs.assets.get(code).map(String::as_str) == Some(asset_symbol)).await
+    }
+
+    /// The withdrawal's free balance: the same account read, the row under the coin's own code.
+    async fn withdrawal_balance(&self, coin: &str) -> Result<BigDec, super::VenueError> {
+        self.account_free(|code| code == coin).await
     }
 
     /// The base's free balance for a seller: the same account read, the row whose venue code is the ticker's base code (the

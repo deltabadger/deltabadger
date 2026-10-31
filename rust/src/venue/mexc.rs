@@ -328,6 +328,9 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
     async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, VenueError> {
         self.free(|code| self.pairs.assets.get(code).map(String::as_str) == Some(asset_symbol)).await
     }
+    async fn withdrawal_balance(&self, coin: &str) -> Result<BigDec, VenueError> {
+        self.free(|code| code == coin).await
+    }
 
     async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, VenueError> { self.free(|code| code == ticker.base_code).await }
 

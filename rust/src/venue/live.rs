@@ -77,6 +77,7 @@ impl Venue for LiveVenue {
     async fn kucoin_mode(&self) -> Option<Result<super::kucoin_account::AccountMode, VenueError>> { each!(self, v => v.kucoin_mode().await) }
     async fn candles(&self, t: &Ticker, start_at: chrono::DateTime<chrono::Utc>, tf: crate::engine::candles::Timeframe)
         -> Result<Vec<crate::engine::candles::Candle>, VenueError> { each!(self, v => v.candles(t, start_at, tf).await) }
+    async fn withdrawal_balance(&self, coin: &str) -> Result<BigDec, VenueError> { each!(self, v => v.withdrawal_balance(coin).await) }
     async fn withdrawal_addresses(&self, coin: &str) -> Result<Vec<super::withdrawal::Entry>, VenueError> { each!(self, v => v.withdrawal_addresses(coin).await) }
     async fn withdrawal_networks(&self, coin: &str) -> Result<Option<super::withdrawal::Coin>, VenueError> { each!(self, v => v.withdrawal_networks(coin).await) }
     async fn withdrawal_fee(&self, d: &super::withdrawal::Destination, amount: &BigDec) -> Result<Option<BigDec>, VenueError> { each!(self, v => v.withdrawal_fee(d, amount).await) }
