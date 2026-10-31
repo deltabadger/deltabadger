@@ -6,7 +6,9 @@
 //! Named divergences: D-ORDER-AMOUNT-VALIDATION (a standalone amount, price or amount_type Rails hands to the venue is
 //! refused with BotOrder's texts), D-ORDER-IBKR (a venue this build does not trade passes Rails' checks, then answers
 //! `not_ported`), D-ORDER-DRY-NO-READ (a standalone dry run reads no price) and D-ORDER-DRY-CANCEL (a dry-run cancel
-//! answers its success text; Rails' Exchange::Dryable raises).
+//! answers its success text; Rails' Exchange::Dryable raises). D-ORDER-MARKET-PRICE (REST): a market order's `price`,
+//! which OrdersController permits and the market services do not take (Rails raises and leaves the key in progress), is
+//! ignored.
 use super::{present, refused, Domain, Res};
 use crate::engine::model::{self, Ticker};
 use crate::web::{bot::mcp_input::number, App, WebError};
@@ -78,11 +80,14 @@ fn wash_refusal(c: &Connection, app: &App, who: Caller, ticker: &Ticker) -> Resu
     let until: Option<String> = c.query_row("SELECT buy_locked_until FROM wash_sale_locks WHERE user_id=?1 AND asset_id=?2 AND buy_locked_until > ?3 LIMIT 1",
         rusqlite::params![who.user, ticker.base_asset_id, crate::codec::format_time(app.now())], |r| r.get(0)).optional()?;
     let Some(until) = until else { return Ok(None) };
-    let at = crate::codec::parse_time(&until).map_err(|e| WebError::Config(format!("wash lock deadline: {e:?}")))? - chrono::Duration::days(1);
-    let day = if who.mcp {
+    // `(buy_locked_until - 1.day).to_date`: one calendar day before the deadline's date in that zone (a DST change
+    // makes it differ from 24 hours before).
+    let at = crate::codec::parse_time(&until).map_err(|e| WebError::Config(format!("wash lock deadline: {e:?}")))?;
+    let date = if who.mcp {
         let zone: String = c.query_row("SELECT time_zone FROM users WHERE id=?1", [who.user], |r| r.get(0))?;
         crate::web::timezone::local(at, &zone).date_naive()
     } else { at.date_naive() };
+    let day = date.pred_opt().ok_or_else(|| WebError::Config("wash lock deadline out of range".into()))?;
     Ok(Some(failure(Domain::Conflict, "wash_sale_locked", format!("{} is locked until {day} after a sale at a loss. Change this in account settings.", ticker.base_code))))
 }
 /// Whether this build places orders on the venue at all (D-ORDER-IBKR).

@@ -84,7 +84,8 @@ async fn rest_refuses_what_rails_hands_the_venue_and_answers_not_ported_past_eve
     }
     let stored = keys(&d).len();
     // Past every check: 501, and the key is given back, so the same request may be sent again once a build places it.
-    for body in [with(json!({"amount": 10})), json!({"type": "market_sell", "bot_id": bot, "amount": "0.5"}),
+    // D-ORDER-MARKET-PRICE: a market order's `price` is ignored (Rails' market services raise on it).
+    for body in [with(json!({"amount": 10})), with(json!({"amount": 10, "price": 100})), json!({"type": "market_sell", "bot_id": bot, "amount": "0.5"}),
                  // D-ORDER-IBKR: Rails' checks pass on a venue this build does not trade.
                  json!({"type": "limit_buy", "exchange_name": "Interactive Brokers", "base_asset": "BTC", "quote_asset": "USD", "amount": 10, "price": 400})] {
         for _ in 0..2 {
@@ -120,9 +121,20 @@ async fn mcp_answers_not_ported_live_and_on_ibkr_dry_runs() {
     assert_eq!(call("market_sell", json!({"exchange_name": "alpaca", "base_asset": "btc", "quote_asset": "usd", "amount": 0.001})).await, refused(placing));
     assert_eq!(call("cancel_order", json!({"order_id": "venue-1", "exchange_name": "Alpaca"})).await,
                refused("This app can't run that yet: cancels sent through MCP or the REST API"));
-    // Paper trading: D-ORDER-AMOUNT-VALIDATION and D-ORDER-IBKR answer before the dry run would.
+    // A wash-sale lock's last day is a calendar day before the deadline in the caller's zone: 2026-10-26 00:00 UTC is the
+    // 25th at 23:00 in the Azores once summer time has ended, so the 24th (24 hours before would read the 25th).
+    {
+        let c = Connection::open(d.path().join("production.sqlite3")).unwrap();
+        c.execute("UPDATE users SET wash_sale_enabled=1, wash_sale_jurisdiction='US', time_zone='Azores'", []).unwrap();
+        c.execute("INSERT INTO wash_sale_locks (user_id,asset_id,buy_locked_until,source,created_at,updated_at) \
+                   SELECT user_id, base_asset_id, '2026-10-26 00:00:00', 'order', ?1, ?1 FROM bots, tickers WHERE bots.id=?2 AND tickers.exchange_id=bots.exchange_id \
+                   AND tickers.base_asset_id=json_extract(bots.settings,'$.base_asset_id') LIMIT 1", (T, bot)).unwrap();
+    }
+    assert_eq!(call("market_buy", json!({"bot_id": bot, "amount": 10})).await,
+               refused("BTC is locked until 2026-10-24 after a sale at a loss. Change this in account settings."));
+    // Paper trading, the rule off again: D-ORDER-AMOUNT-VALIDATION and D-ORDER-IBKR answer before the dry run would.
     Connection::open(d.path().join("production.sqlite3")).unwrap()
-        .execute("UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true'))", []).unwrap();
+        .execute("UPDATE users SET wash_sale_enabled=0, mcp_settings=json_set(mcp_settings,'$.dry_run',json('true'))", []).unwrap();
     assert_eq!(call("market_buy", json!({"exchange_name": "Alpaca", "base_asset": "BTC", "quote_asset": "USD", "amount": -1})).await,
                refused("[DRY RUN] amount must be a number greater than 0."));
     assert_eq!(call("market_buy", json!({"exchange_name": "Interactive Brokers", "base_asset": "BTC", "quote_asset": "USD", "amount": 10})).await,
