@@ -5112,6 +5112,7 @@ module Decisions
       api_cells << ['buy-quote', 'safe_then_accepted', { 'http' => sizing['safe_then_accepted']['http'] }] if vn['safe']
       api_cells.each do |denomination, name, v|
         side, amount, amount_type = api.fetch(denomination)
+        amount = '2' if vn['asset'] == 'stock' && amount_type == 'base' # whole shares: 0.0015 AAPL is under Alpaca's minimum
         list << { 'name' => "signal-#{vkey}-api-#{denomination}-#{name}", 'kind' => 'signal', 'venue' => vn.fetch('venue', vkey), 'asset' => vn['asset'],
                   'ticker' => vn['ticker'], 'rules' => [rules.fetch('buy-fixed').merge('enabled' => true)], 'transient' => v.fetch('transient', {}),
                   'transactions' => v.fetch('transactions', []), 'at' => SIGNAL_AT, 'wash' => v['wash'],

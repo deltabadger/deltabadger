@@ -469,8 +469,7 @@ async fn the_send_fence_enforces_send_by() {
     assert!(model::load_bot(k.c(), k.bot).unwrap().rust_placement().is_none());
     let placement::SignalClaim::Intent(intent) = placement::begin_signal(k.c(), &bot, &plan, placement::Claim::Replace { send_by: Some(send_by) }, &version, None, &kt(0)).unwrap()
         else { panic!("no intent") };
-    let venue = deltabadger::venue::Handle::new(k.venue.clone(), version.clone());
-    let sent = placement::send(k.c(), &venue, &intent, &kt(2)).await.unwrap();
+    let sent = placement::send(k.c(), &k.venue, &intent, &kt(2)).await.unwrap();
     assert!(matches!(sent, placement::Sent::NotSent(_)), "{sent:?}");
     assert!(k.venue.sent().is_empty());
 }
