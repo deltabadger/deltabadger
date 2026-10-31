@@ -330,9 +330,12 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
                                                        -> Result<Result<Summary, Failure>, SyncError> {
     use crate::venue::kucoin::{KucoinVenue, KUCOIN, URL};
     let captured = version.clone();
+    let seen: Arc<std::sync::Mutex<Option<crate::venue::kucoin_account::AccountMode>>> = Default::default();
+    let saw = seen.clone();
     let read = move |_: String| async move {
         use crate::venue::kucoin_account::AccountMode;
         let venue = KucoinVenue::new(transport, URL).with_account_context(captured, crate::venue::kucoin_account::Resolver::shared());
+        if let Ok(mode) = venue.account_mode().await { *saw.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(mode); }
         // D-KUCOIN-HF-LEDGER: an HF account's funds are its trade_hf account's; a UTA's its unified account's
         // (D-KUCOIN-UTA-BALANCES). No detection is refused.
         let kind = match venue.account_mode().await {
@@ -344,7 +347,18 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
         Ok(venue.read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", kind.to_string())], MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     let venue = VenueBalances { kept: Some(kucoin_kept), names: binance_names, record: None, types: &[KUCOIN], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::KUCOIN, venue, text), held: kucoin_held };
-    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+    let out = sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await?;
+    // UTA r2.2: the mode this sync detected is recorded on a managed history (HF, UTA, or marked), whatever the read did.
+    let mode = *seen.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(mode) = mode {
+        let now = clock.now();
+        super::commit_for(db, version, move |c| {
+            let key = super::load_key_of(c, key_id, &[KUCOIN])?;
+            if mode != crate::venue::kucoin_account::AccountMode::ClassicLf || super::kucoin_hf::enabled(c, key.user_id, key.exchange_id)? { super::kucoin_hf::observe_mode(c, &key, mode, now)?; }
+            Ok(())
+        }).await?;
+    }
+    Ok(out)
 }
 
 /// One balance sync of one Bitvavo key, as AccountBalance::SyncJob runs it for that key: Exchanges::Bitvavo#get_balances
@@ -711,19 +725,21 @@ fn uta_currencies(body: &Raw) -> Result<Vec<UtaRow>, Failed> {
     Ok(out)
 }
 
-/// The listed assets a UTA answer shows a debt in: their rows stay, and the sync error names them (UTA r6.2).
+/// The listed assets a UTA answer shows a debt in, whose rows stay, and the sync error naming every debt (UTA r6.2).
 fn kucoin_kept(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> (Vec<i64>, Option<String>) {
     let Some(Ok(body)) = Raw::parse(text) else { return (vec![], None) };
     if body.value["data"]["accountType"] != "UNIFIED" { return (vec![], None); }
     let Ok(rows) = uta_currencies(&body) else { return (vec![], None) };
-    let debts: Vec<(i64, String)> = rows.into_iter().filter(|(_, held)| held.is_none()).filter_map(|(code, _)| Some((*names.get(&code).filter(|id| asset_ids.contains(id))?, code))).collect();
-    let codes: Vec<&str> = debts.iter().map(|(_, c)| c.as_str()).collect();
+    // Every debt is named; only a listed asset has a row to keep.
+    let codes: Vec<String> = rows.into_iter().filter(|(_, held)| held.is_none()).map(|(code, _)| code).collect();
+    let kept = codes.iter().filter_map(|code| names.get(code).filter(|id| asset_ids.contains(id)).copied()).collect();
+    let codes: Vec<&str> = codes.iter().map(String::as_str).collect();
     let error = match codes.as_slice() {
         [] => None,
         [one] => Some(format!("KuCoin shows a debt in {one}. Its last balance is kept until the debt is gone.")),
         many => Some(format!("KuCoin shows a debt in {}. Their last balances are kept until the debts are gone.", many.join(", "))),
     };
-    (debts.into_iter().map(|(id, _)| id).collect(), error)
+    (kept, error)
 }
 
 /// One balance sync of one Gemini key, as AccountBalance::SyncJob runs it for that key: Exchanges::Gemini#get_balances

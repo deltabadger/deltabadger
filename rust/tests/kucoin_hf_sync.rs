@@ -1027,3 +1027,51 @@ async fn an_hf3_history_without_mode_episodes_is_seeded_and_keeps_certifying() {
     assert_eq!(fx.coverage("hf_api")[1].0, "2026-10-29 11:00:00");
     assert_eq!(fx.coverage("mode:ClassicHf"), [("2026-10-23 18:00:00".to_string(), "2026-10-30 14:00:00".to_string())]);
 }
+
+fn uta_balance(currencies: Value) -> Value { json!({"code": "200000", "data": {"accountType": "UNIFIED", "accounts": [{"currencies": currencies}]}}) }
+fn currency(code: &str, balance: &str, liability: &str) -> Value { json!({"currency": code, "balance": balance, "hold": "0", "available": balance, "liability": liability, "equity": balance}) }
+impl Fx {
+    async fn balance_sync(&self, api: &Api, at: &str) -> bool {
+        deltabadger::venue::kucoin_account::Resolver::shared().invalidate(deltabadger::venue::kucoin::URL, self.key);
+        let credentials = deltabadger::sync::validation_material(&self.c, &self.cipher, self.key).unwrap().0;
+        deltabadger::sync::balances::sync_kucoin(&self.db(), api.clone(), &deltabadger::sync::balances::NoPrices, self.key, &credentials, &fixed(at)).await.unwrap().is_ok()
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_switch_only_the_balance_sync_saw_splits_the_hf_episode_and_keeps_the_uta_unit_running() {
+    let fx = Fx::new();
+    let hf = Api::new("hf", &["BTC-USDT"]);
+    assert_eq!(fx.sync(&hf).await, Ok(true));
+    let uta = Api::new("uta", &[]);
+    *uta.0.uta_balance.borrow_mut() = Some(uta_balance(json!([currency("USDT", "1", "0")])));
+    assert!(fx.balance_sync(&uta, "2026-10-30T13:00:00Z").await);
+    assert_eq!(fx.sync_with(&hf, &fixed("2026-10-30T15:00:00Z"), false).await, Ok(true));
+    assert_eq!(fx.coverage("mode:Uta"), [("2026-10-30 13:00:00".to_string(), "2026-10-30 13:00:00".to_string())]);
+    assert_eq!(fx.coverage("mode:ClassicHf").len(), 2, "the HF episode is not stretched over the UTA time");
+    assert_eq!(fx.coverage("hf_api").len(), 1, "the unit after the switch back lies before its episode");
+    assert!(!hf.requests(UTA_FILLS).is_empty(), "the UTA family is seen, so its unit runs");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_switch_during_the_walk_certifies_nothing_and_is_recorded() {
+    let fx = Fx::new();
+    let api = Api::new("uta", &[]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    let state = api.0.clone();
+    api.fault(move |r, _| { if r.path == UTA_FILLS { state.mode.set("hf"); } None });
+    assert_eq!(fx.sync_with(&api, &fixed("2026-10-30T14:00:00Z"), false).await, Ok(true));
+    assert!(fx.coverage("uta_api").is_empty(), "the mode read at the end is HF");
+    assert_eq!(fx.coverage("mode:ClassicHf"), [("2026-10-30 14:00:00".to_string(), "2026-10-30 14:00:00".to_string())]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_debt_in_an_unlisted_currency_is_named_too() {
+    let fx = Fx::new();
+    fx.c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, created_at, updated_at) SELECT ?1, id, '2026-01-01', '2026-01-01' FROM assets WHERE symbol = 'USDT'", [fx.exchange]).unwrap();
+    let api = Api::new("uta", &[]);
+    *api.0.uta_balance.borrow_mut() = Some(uta_balance(json!([currency("USDT", "5", "0"), currency("DOGE", "-1", "1")])));
+    assert!(fx.balance_sync(&api, NOW).await);
+    assert_eq!(fx.holdings(), [("USDT".to_string(), 5.0)].into());
+    assert_eq!(fx.error().as_deref(), Some("KuCoin shows a debt in DOGE. Its last balance is kept until the debt is gone."));
+}

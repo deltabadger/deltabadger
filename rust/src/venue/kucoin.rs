@@ -265,6 +265,12 @@ impl<T: Transport> KucoinVenue<T> {
         let Some(account) = &self.account else { return Ok(super::kucoin_account::AccountMode::ClassicLf) };
         Ok(account.resolver.resolve(&self.transport, &self.base, &account.version).await.value?.mode)
     }
+    /// The mode read afresh, never from or into the shared cache (whose invalidation would refuse a prepared order).
+    pub async fn account_mode_now(&self) -> Result<super::kucoin_account::AccountMode, VenueError> {
+        if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
+        if self.account.is_none() { return Ok(super::kucoin_account::AccountMode::ClassicLf); }
+        super::kucoin_account::detect(&self.transport, &self.base).await
+    }
     /// The order API of new orders and balances: the prepared detection's. Unprepared (the Rails replay): classic.
     pub fn family(&self) -> Family {
         let prepared = self.account.as_ref().and_then(|a| *a.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner));

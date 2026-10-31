@@ -292,10 +292,13 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, rout
         if let Err(text) = publish(db, version, route, &key, entries, next.clone(), stamp.clone(), now).await? { return fail(text).await; }
         unit = next;
     }
-    // Complete: absence checked again against the rows as they are now (r4.2).
-    let k = key.clone();
+    // Complete: the mode read again (r2.1: certified only if it is still this family's; the reading is recorded), and
+    // absence checked again against the rows as they are now (r4.2).
+    let ended = venue.account_mode_now().await.ok();
+    let (k, at) = (key.clone(), clock.now());
     commit_for(db, version, move |c| {
-        let certify = !route.by_symbol || episodes(c, &k, &symbols, span.0, now)?;
+        if let Some(mode) = ended { hf::observe_mode(c, &k, mode, at)?; }
+        let certify = ended == Some(route.mode) && (!route.by_symbol || episodes(c, &k, &symbols, span.0, now)?);
         close(c, &route, &k, span, certify, now)
     }).await?;
     Ok(Ended::Complete)
