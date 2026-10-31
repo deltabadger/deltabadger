@@ -85,8 +85,8 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
             Some(ext) => {
                 if !was_sent { mark_sent(c, bot_id, id)?; }
                 let order = crate::venue::OrderRef::load(c, id, &ext)?;
-                // D-KUCOIN-HF-RETENTION: an HF cancel ends only in the order's settlement (reconcile::admit), never here.
-                if order.hf() {
+                // D-KUCOIN-HF-RETENTION: an HF or UTA cancel ends only in the order's settlement (reconcile::admit), never here.
+                if order.routed() {
                     if hf_cancel(c, venue, bot_id, id, &order, was_sent, now).await? { cancelled.push(id); }
                     continue;
                 }
