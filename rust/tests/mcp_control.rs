@@ -266,6 +266,22 @@ async fn control_transcripts() {
             }
             result_without_before(&mut got);
         }
+        // PLAN-A9 O1: a dry run's order id is random on both sides (Exchange::Dryable#create_dry_order).
+        let (mut got,mut want)=(got,want);
+        if name.starts_with("order_") {
+            let dry=regex::Regex::new(r"dry-order-[0-9a-f-]{26}").unwrap();
+            for v in [&mut got,&mut want] { *v=serde_json::from_str(&dry.replace_all(&v.to_string(),"dry-order-<id>")).unwrap(); }
+        }
+        if name.starts_with("order_dry_cancel") {
+            // D-ORDER-DRY-CANCEL: Rails' Exchange::Dryable#dry_cancel_order raises; this build answers the success text with
+            // no venue call, and neither side writes a row.
+            let answer=|t:&Value|->Value{serde_json::from_str::<Value>(t["responses"][2]["body"].as_str().unwrap()).unwrap()["result"].clone()};
+            assert_eq!(answer(&want)["isError"],true,"Rails raises on {name}: {}",answer(&want));
+            let expected=if name=="order_dry_cancel" {"[DRY RUN] Order #1 (BUY QQQM/USD on Alpaca) cancellation submitted."} else {"[DRY RUN] Order venue-9 cancellation submitted on Alpaca."};
+            assert_eq!(answer(&got),json!({"content":[{"type":"text","text":expected}],"isError":false}),"{name}");
+            for table in ["bots","transactions","api_keys","users"] { assert_eq!(got["rows"][table],want["rows"][table],"{name}: {table}"); }
+            continue;
+        }
         let continuation=["start_continue_created","start_continue_empty","start_continue_within"].contains(&name.as_ref());
         assert_eq!(requests,usize::from(continuation),"{name}");
         if got!=want {
