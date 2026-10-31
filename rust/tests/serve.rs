@@ -1817,7 +1817,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
     }
     c.execute_batch("SAVEPOINT change; UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\",\"sell_transaction_id\":[1]}}';").unwrap();
-    assert!(bot::refusal(c, id, Some(false), true, bot::For::Page).is_err());
+    assert!(bot::refusal(c, id, true, bot::For::Page).is_err());
     c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
     // A bot stored without a name is served under the one Rails generates on load, which saves nothing.
     c.execute_batch("SAVEPOINT unnamed; UPDATE bots SET label = '  ';").unwrap();
