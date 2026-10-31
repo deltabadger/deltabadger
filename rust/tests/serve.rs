@@ -2948,3 +2948,50 @@ fn serve_admits_an_abandoned_rebalance_only_when_halted_for_resume() {
     assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
     assert_eq!(opened.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1", [id], |r|r.get::<_,i64>(0)).unwrap(), 1, "the halted bot cannot trade");
 }
+
+/// Plan A5 r1.7: the signal wizard on Bybit (one of the nine venues grid-signal added) offers the venue, reaches the key step,
+/// goes on once the key is saved, keeps an edited rule and starts the bot with it.
+#[tokio::test(flavor = "current_thread")]
+async fn the_signal_wizard_starts_a_bot_on_bybit() {
+    let (dir, opened, seeded) = common::install();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Bybit', name = 'Bybit'", []).unwrap();
+    c.execute("UPDATE assets SET symbol = 'USDT', external_id = 'tether', category = 'Cryptocurrency' WHERE id = ?1", [seeded.quote]).unwrap();
+    c.execute("UPDATE tickers SET ticker = 'BTCUSDT', base = 'BTC', quote = 'USDT', updated_at = ?1", [common::seed::SYNCED]).unwrap();
+    c.execute("DELETE FROM api_keys", []).unwrap(); // no key yet: the step asks for one
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let (exchange, base, quote) = (seeded.exchange_id.to_string(), seeded.btc.to_string(), seeded.quote.to_string());
+    assert_eq!(browser.get(&app, "/bots/signals/pick_buyable_asset/new").await.status, 200);
+    let picked = browser.post(&app, "/bots/signals/pick_buyable_asset", &[("bots_signal[base_asset_id]", &base)]).await;
+    assert_eq!(picked.header("location"), Some("/bots/signals/pick_exchange/new"));
+    let venues = browser.get(&app, "/bots/signals/pick_exchange/new").await;
+    assert!(venues.status == 200 && venues.body.contains(&format!("value=\"{exchange}\"")), "Bybit is offered: {}", venues.body);
+    let chosen = browser.post(&app, "/bots/signals/pick_exchange", &[("bots_signal[exchange_id]", &exchange)]).await;
+    assert_eq!(chosen.header("location"), Some("/bots/signals/add_api_key/new"));
+    let step = browser.get(&app, "/bots/signals/add_api_key/new").await;
+    assert!(step.status == 200 && step.body.contains("action=\"/bots/signals/add_api_key\""), "the key step: {} {}", step.status, step.body);
+    // The key as the step's check saves it (keys::submit: correct).
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+              (seeded.user_id, seeded.exchange_id, app.cipher.encrypt("bybit-key"), app.cipher.encrypt("bybit-secret"))).unwrap();
+    let on = browser.get(&app, "/bots/signals/add_api_key/new").await;
+    assert_eq!(on.header("location"), Some("/bots/signals/pick_spendable_asset/new"), "{} {}", on.status, on.body);
+    assert_eq!(browser.get(&app, "/bots/signals/pick_spendable_asset/new").await.status, 200);
+    let spent = browser.post(&app, "/bots/signals/pick_spendable_asset", &[("bots_signal[quote_asset_id]", &quote)]).await;
+    assert_eq!(spent.header("location"), Some("/bots/signals/confirm_settings/new"));
+    assert_eq!(browser.get(&app, "/bots/signals/confirm_settings/new").await.status, 200);
+    let edited = browser.send(&app, "PATCH", "/bots/signals/confirm_settings/update_signal", Some(&[("signal_index", "0"), ("amount", "25"), ("amount_type", "percentage")]), web::Csrf::Header, &[]).await;
+    assert_eq!(edited.status, 200, "{}", edited.body);
+    let started = browser.send(&app, "POST", "/bots/signals", Some(&[]), web::Csrf::Header, &[]).await;
+    assert!(started.status < 400, "{} {}", started.status, started.body);
+    let (bot, status, kind): (i64, i64, String) = c.query_row("SELECT id, status, type FROM bots WHERE exchange_id = ?1", [seeded.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    assert_eq!((kind.as_str(), status), ("Bots::Signal", deltabadger::enums::BotStatus::Scheduled as i64), "started");
+    let rule: (i64, i64, String) = c.query_row("SELECT direction, amount_type, amount FROM bot_signals WHERE bot_id = ?1", [bot], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, rusqlite::types::Value>(2).map(|v| format!("{v:?}"))?))).unwrap();
+    assert_eq!((rule.0, rule.1), (0, 1), "the edited rule: a percentage buy {rule:?}");
+    assert!(rule.2.contains("25"), "{rule:?}");
+    assert!(deltabadger::engine::eligibility::check_install(c).unwrap().eligible.contains(&bot), "the engine runs it");
+}
