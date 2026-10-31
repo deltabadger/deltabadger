@@ -87,6 +87,9 @@ pub(super) trait Walk {
     /// The longest the next page's requests can take: every try at the transport's whole budget, and every wait.
     fn request_reserve(&self) -> Duration;
     async fn step(&mut self) -> Result<Vec<Entry>, (String, bool)>;
+    /// A walk that went on past a failed source (KuCoin's managed histories, UTA r2.4): the first failure. A done walk
+    /// with one keeps the watermark where it is and records it as the sync error.
+    fn failure(&self) -> Option<String> { None }
     /// What a checkpoint whose cursor is `cursor` (the walk's own) does once its page is stored, in the same transaction:
     /// KuCoin's takeover of the file's entries a finished source proves (plan KI §5). The finishing unit passes the done
     /// walk's cursor. A fn pointer, so the 'static store closure need not name the walk's type.
@@ -260,6 +263,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         }
     }
     let complete = walk.done();
+    let failure = walk.failure();
     let (checkpoint, done_cursor) = (W::CHECKPOINT, transfers.cursor(walk.cursor()));
 
     // Store, a page (with the empty pages after it) at a time, each in one transaction with its checkpoint: a cut leaves a
@@ -334,14 +338,27 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     let changed = micros(watermark) != raw_watermark || key.last_sync_error != warning;
     let producer = version.clone();
     let finished_key = key.clone();
-    super::commit_for(db, version, move |c| {
+    let creds = credentials.clone();
+    let failed = super::commit_for(db, version, move |c| {
         checkpoint(c, &finished_key, &done_cursor, &stamp, &[], now)?;
         transfers.save(c, &finished_key, &stamp, &done_cursor, now)?;
-        super::cache::record_ledger(c, key_id, &producer, now)?;
-        if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = ?4, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id, warning])?; }
+        // A source that failed: what the others read is stored, the watermark (and the credential it belongs to) waits for
+        // all of them, and the next sync reads from it again.
+        let failed = match &failure {
+            Some(text) => Some(record_sync_error(c, key_id, text, &creds)?),
+            None => {
+                super::cache::record_ledger(c, key_id, &producer, now)?;
+                if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = ?4, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id, warning])?; }
+                None
+            }
+        };
         c.execute("DELETE FROM app_configs WHERE key = ?1", [record_key(key_id)])?;
-        Ok(())
+        Ok(failed)
     }).await?;
+    if let Some(error) = failed {
+        ledger::link_transfers_for(db, user_id, Some(version), now).await?;
+        return Ok(Err(Failure { error, raised: false }));
+    }
     outcome.watermark = watermark;
     outcome.complete = true;
     outcome.linked = ledger::link_transfers_for(db, user_id, Some(version), now).await?;
