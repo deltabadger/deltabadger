@@ -8,7 +8,8 @@
 //! - D-IMPORT-REIMPORT / D-IMPORT-DUP: an id the bot already holds is never imported twice; the count is what was written.
 //! - R-IMPORT-INDEX-NO-ASSET: an index bot's row naming no one asset is skipped (Rails stores it without one).
 //! - D-IMPORT-MISMATCH-QUOTE / D-IMPORT-COUNTS: the mismatch names a mismatched row's quote; skipped rows are counted.
-//! - D-IMPORT-BUSY: refused while the engine holds the bot or an operation is in flight.
+//! - D-IMPORT-BUSY: refused while the engine holds the bot or an operation is in flight; an import that goes ahead bumps the
+//!   bot's history generation, so a rebalance, liquidation or redeploy leg sized before it is fenced.
 //! - D-IMPORT-SIZE: the upload is bounded as the tracker's (web::IMPORT_LIMIT).
 use super::write;
 use crate::engine::{composition, eligibility, model};
@@ -300,6 +301,9 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         if ok.is_none() { tx.rollback()?; return Ok(Imported::Malformed); }
     }
     if !written.is_empty() {
+        // The bot's history changed: an operation sized from the old one is fenced (placement::begin_checked).
+        let key = format!("$.{}", model::HISTORY_GENERATION);
+        tx.execute("UPDATE bots SET transient_data = json_set(transient_data, ?2, coalesce(json_extract(transient_data, ?2), 0) + 1) WHERE id = ?1", params![id, key])?;
         if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, Some(id)) { tx.rollback()?; return Ok(Imported::Refused(refusal.reason())); }
     }
     tx.commit()?;

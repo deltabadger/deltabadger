@@ -130,6 +130,8 @@ async fn an_import_waits_for_an_engine_write_and_both_land() {
     assert_eq!(task.await.unwrap(), "Successfully imported 1 order(s).");
     assert_eq!(ids(&i, i.a), vec!["ENGINE-1".to_string(), format!("imported_{}_x", i.a)]);
     assert_eq!(app.figure_service.marked(), 1, "the figures hear the committed import once");
+    // D-IMPORT-BUSY's fence: an operation leg sized before this history changed is not sent (tests/rebalance.rs).
+    assert_eq!(deltabadger::engine::model::load_bot(&i.o.primary, i.a).unwrap().history_generation(), 1);
 }
 
 #[tokio::test(flavor = "current_thread")]
