@@ -215,7 +215,7 @@ async fn the_mismatch_names_a_mismatched_quote_and_an_unknown_base_is_counted() 
     let (app, mut browser) = signed_in(&i).await;
     // Rails names the first row's raw cell (" usd ", a row that only named another asset).
     let file = csv(&["2026-08-01,x,Market,Buy,0.001,60,60000,ETH, usd ,Closed", "2026-08-01,y,Market,Buy,0.001,60,60000,BTC, eur ,Closed"]);
-    assert_eq!(import(&app, &mut browser, i.a, &file).await, "Currency mismatch: CSV has 'EUR' but bot uses 'USD'");
+    assert_eq!(import(&app, &mut browser, i.a, &file).await, "Currency mismatch: CSV has 'EUR' but bot uses 'USD' Skipped 2 row(s): not closed, not this bot's assets or quote, or an asset name that fits more than one.");
     let file = csv(&["2026-08-01,x,Market,Buy,0.001,60,60000,ETH,USD,Closed"]);
     assert!(import(&app, &mut browser, i.a, &file).await.starts_with("No new orders to import (all orders already exist or currencies do not match). Skipped 1 row(s)"));
     let file = csv(&["2026-08-01,x,Market,Buy,0.001,60,60000,ETH,USD,Closed", "2026-08-01,z,Market,Buy,0.001,60,60000,BTC,USD,Closed"]);
@@ -248,12 +248,16 @@ async fn the_export_reads_the_rows_as_they_stand() {
     seed::insert_row(&i.o.primary, &i.s, i.a, i.s.btc, &json!({ "external_status": 1, "external_id": "OPEN-1", "order_type": 1, "amount": "0.001",
         "price": "60000", "amount_exec": "0", "quote_amount_exec": "0", "created_at": "2026-08-02 10:00:00" }));
     // D-EXPORT-NIL-CELL: a closed row without a type or side (Rails' import of an unknown Type writes one) is empty cells.
+    closed(&i, i.a, "", "2026-08-04 10:00:00", (0, "0.001", "60", "60000"));
+    i.o.primary.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '2026-01-01', '2026-01-01')", []).unwrap();
+    i.o.primary.execute("UPDATE transactions SET external_id = NULL, exchange_id = (SELECT max(id) FROM exchanges) WHERE external_id = ''", []).unwrap();
     closed(&i, i.a, "untyped", "2026-08-03 10:00:00", (0, "0.001", "60", "60000"));
     i.o.primary.execute("UPDATE transactions SET order_type = NULL, side = NULL WHERE external_id = 'untyped'", []).unwrap();
     let (app, mut browser) = signed_in(&i).await;
     let before: Vec<(i64, String)> = i.o.primary.prepare("SELECT external_status, updated_at FROM transactions ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(export(&app, &mut browser, i.a).await, format!("{HEADER}\n2026-08-01 12:00:00 +0200,done,Market,Buy,0.001,60.0,60000.0,BTC,USD,Closed\n\
-                                                               2026-08-03 12:00:00 +0200,untyped,,,0.001,60.0,60000.0,BTC,USD,Closed\n"));
+                                                               2026-08-03 12:00:00 +0200,untyped,,,0.001,60.0,60000.0,BTC,USD,Closed\n\
+                                                               2026-08-04 12:00:00 +0200,Kraken:,Market,Buy,0.001,60.0,60000.0,BTC,USD,Closed\n"));
     let after: Vec<(i64, String)> = i.o.primary.prepare("SELECT external_status, updated_at FROM transactions ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(before, after);
 }

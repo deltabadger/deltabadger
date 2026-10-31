@@ -75,7 +75,10 @@ fn orders_csv(c: &Connection, id: i64, bot: &Owned) -> Result<String, WebError> 
         let external: Option<String> = r.get(1)?;
         let exchange: i64 = r.get(11)?;
         // venue_order_id: another venue's row names its venue.
-        let order_id = external.map(|e| if exchange == bot.exchange_id { e } else { format!("{}:{e}", venues.get(&exchange).cloned().unwrap_or_else(|| exchange.to_string())) });
+        // A row with no id still names its venue (`"#{name}:#{nil}"`), so two such rows of different venues stay two.
+        let order_id = if exchange == bot.exchange_id { external } else {
+            Some(format!("{}:{}", venues.get(&exchange).cloned().unwrap_or_else(|| exchange.to_string()), external.unwrap_or_default()))
+        };
         let order_type: Option<i64> = r.get(2)?;
         let side: Option<i64> = r.get(3)?;
         let (amount, amount_exec, quote_amount, quote_amount_exec, price) = (dec(r, 4)?, dec(r, 5)?, dec(r, 6)?, dec(r, 7)?, dec(r, 8)?);
@@ -186,7 +189,7 @@ pub enum Imported {
     /// D-IMPORT-BUSY or the install guard: the reason, shown through `engine.write_refused`.
     Refused(String),
     /// Nothing written and a row's quote differs from the bot's: that quote and the bot's.
-    QuoteMismatch { csv: String, bot: String },
+    QuoteMismatch { csv: String, bot: String, skipped: usize },
     /// Rows written, and rows skipped as not closed, not this bot's or ambiguous (existing ones are Rails' sentence).
     Done { imported: usize, skipped: usize },
 }
@@ -268,7 +271,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         candidates.push(Candidate { order_id, at, order_type, side, amount, value, price, base: csv_base.unwrap_or_default(), asset });
     }
     if candidates.is_empty() {
-        if let (Some(csv), Some(bot)) = (mismatched_quote, bot_quote.clone()) { return Ok(Imported::QuoteMismatch { csv, bot }) }
+        if let (Some(csv), Some(bot)) = (mismatched_quote, bot_quote.clone()) { return Ok(Imported::QuoteMismatch { csv, bot, skipped }) }
     }
     let stamp = crate::codec::format_time(now);
     let mut written = vec![];
@@ -327,7 +330,9 @@ pub async fn import(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path
         Ok(Imported::InvalidFormat) => (flash::ALERT, t("import_invalid_format", &[])),
         Ok(Imported::Malformed) => (flash::ALERT, t("import_malformed_csv", &[])),
         Ok(Imported::Refused(reason)) => (flash::ALERT, i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))])),
-        Ok(Imported::QuoteMismatch { csv, bot }) => (flash::ALERT, t("import_currency_mismatch", &[("csv_quote", i18n::Arg::Text(&csv)), ("bot_quote", i18n::Arg::Text(&bot))])),
+        Ok(Imported::QuoteMismatch { csv, bot, skipped }) => (flash::ALERT, format!("{} {}",
+            t("import_currency_mismatch", &[("csv_quote", i18n::Arg::Text(&csv)), ("bot_quote", i18n::Arg::Text(&bot))]),
+            t("import_skipped", &[("count", i18n::Arg::Text(&skipped.to_string()))]))),
         Ok(Imported::Done { imported, skipped }) => {
             let mut text = if imported > 0 { t("import_success", &[("count", i18n::Arg::Count(imported as i64))]) } else { t("import_no_new_orders", &[]) };
             if skipped > 0 { text = format!("{text} {}", t("import_skipped", &[("count", i18n::Arg::Text(&skipped.to_string()))])); }
