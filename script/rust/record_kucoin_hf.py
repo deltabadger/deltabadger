@@ -179,7 +179,7 @@ def main():
         return c
 
     account = {'examples': {k: examples[k] for k in ['mode', 'opened', 'balances', 'apikey']}, 'cases': []}
-    for id, mode, opened, result in [('detect_classic', 'CLASSIC', False, 'ClassicLf'), ('detect_hf', 'CLASSIC', True, 'ClassicHf'), ('detect_uta', 'UNIFIED', None, 'UnsupportedUta')]:
+    for id, mode, opened, result in [('detect_classic', 'CLASSIC', False, 'ClassicLf'), ('detect_hf', 'CLASSIC', True, 'ClassicHf'), ('detect_uta', 'UNIFIED', None, 'Uta')]:
         c = variant(id, 'mode', response({'selfAccountMode': mode}), {'mode': result, 'placement_posts': 0, 'opened_requests': int(opened is not None)},
                     'Keep only selfAccountMode; vary CLASSIC/UNIFIED and the separately returned opened boolean.', extra_sources=('opened',))
         if opened is not None:

@@ -346,7 +346,7 @@ async fn sync_managed<T: Transport>(db: &Db, version: &crate::engine::model::Cre
     let (seen, uta_ever) = super::commit_for(db, version, move |c| {
         super::kucoin_hf::migrate(c, &observing, now)?;
         super::kucoin_hf::observe_mode(c, &observing, mode, now)?;
-        let uta = crate::venue::kucoin_account::AccountMode::UnsupportedUta;
+        let uta = crate::venue::kucoin_account::AccountMode::Uta;
         Ok((super::kucoin_hf::seen_modes(c, &observing, now)?, !super::kucoin_hf::spans(c, &observing, super::kucoin_hf::mode_source(uta))?.is_empty()))
     }).await?;
     let (key_id, mut failed, mut paused) = (key.id, None, false);

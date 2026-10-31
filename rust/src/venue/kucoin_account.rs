@@ -1,5 +1,5 @@
 //! D-KUCOIN-HF-MODE: account evidence belongs to the captured credential version.
-//! Classic (LF) and HF accounts trade; a Unified Trading Account is refused.
+//! Classic (LF), HF and Unified Trading Accounts trade, each on its own order API (D-KUCOIN-UTA-ORDERS).
 use super::http::{self, HttpRequest, Transport};
 use super::VenueError;
 use crate::engine::model::{CredentialVersion, Produced};
@@ -10,17 +10,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub const MODE: &str = "/api/ua/v2/account/mode";
 pub const OPENED: &str = "/api/v1/hf/accounts/opened";
 pub const MAX_AGE_SECONDS: i64 = 300;
-pub const UTA: &str = "KuCoin Unified Trading Accounts are not supported by this spot adapter.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AccountMode { ClassicLf, ClassicHf, UnsupportedUta }
+pub enum AccountMode { ClassicLf, ClassicHf, Uta }
 impl AccountMode {
     pub fn as_str(self) -> &'static str {
-        match self { Self::ClassicLf => "ClassicLf", Self::ClassicHf => "ClassicHf", Self::UnsupportedUta => "UnsupportedUta" }
-    }
-    /// The account modes this adapter supports: classic and HF. UTA is refused.
-    pub fn require_supported(self) -> Result<(), VenueError> {
-        match self { Self::ClassicLf | Self::ClassicHf => Ok(()), Self::UnsupportedUta => Err(VenueError::Transient(UTA.into())) }
+        match self { Self::ClassicLf => "ClassicLf", Self::ClassicHf => "ClassicHf", Self::Uta => "Uta" }
     }
 }
 
@@ -123,7 +118,7 @@ async fn read<T: Transport>(transport: &T, host: &str, path: &str) -> Result<ser
 pub(crate) async fn detect<T: Transport>(transport: &T, host: &str) -> Result<AccountMode, VenueError> {
     let mode = read(transport, host, MODE).await?;
     match mode["data"]["selfAccountMode"].as_str() {
-        Some("UNIFIED") => Ok(AccountMode::UnsupportedUta),
+        Some("UNIFIED") => Ok(AccountMode::Uta),
         Some("CLASSIC") => match read(transport, host, OPENED).await?["data"].as_bool() {
             Some(false) => Ok(AccountMode::ClassicLf), Some(true) => Ok(AccountMode::ClassicHf),
             None => Err(refusal("opened response has no boolean data")),
