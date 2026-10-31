@@ -406,6 +406,19 @@ async fn run(dir: &Path) -> Value {
         let declared = step["content_length"].as_u64().map(|n| n.to_string());
         if let Some(length) = declared.as_deref() { headers.push(("content-length", length)); }
         let mut answer = match step["json"].as_str().or(step["raw_body"].as_str()).or(step["rack_input"].as_str()) {
+            // pages.rb `multipart`: the form's fields, its token as the form carries it, then each file part.
+            _ if step["multipart"].is_array() => {
+                let token = (csrf == Csrf::Form).then(|| web::form_token(&page, step["path"].as_str().unwrap().split('?').next().unwrap())).flatten();
+                let mut fields = form.clone().unwrap_or_default();
+                if let Some(token) = token.as_deref() { fields.push(("authenticity_token", token)); }
+                let files: Vec<(&str, &str, &[u8])> = step["multipart"].as_array().unwrap().iter()
+                    .map(|f| (f["name"].as_str().unwrap(), f["filename"].as_str().unwrap(), f["content"].as_str().unwrap().as_bytes())).collect();
+                let (content_type, body) = web::multipart(&fields, &files);
+                let mut headers = headers.clone();
+                headers.push(("content-type", content_type.as_str()));
+                let csrf = if csrf == Csrf::Form { Csrf::None } else { csrf };
+                browser.send_bytes(&app, step["method"].as_str().unwrap(), &request_path, Some(body), csrf, &headers).await
+            }
             Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), &request_path, Some(json.to_string()), csrf, &headers).await,
             None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
         };
@@ -2250,7 +2263,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
@@ -2262,6 +2275,45 @@ async fn replay_page_shard(shard: usize) {
     }
     eprintln!("page shard {}: replay {:?}", shard + 1, replay.elapsed());
     assert!(failures.is_empty(), "{} failures across {} scenarios in shard {}:\n{}", failures.len(), dirs.len(), shard + 1, failures.join("\n"));
+}
+
+/// The listed bot CSV divergences (PLAN-A8-bot-csv): Rails' answer is turned into the one this build owes, after checking
+/// Rails still does what the divergence names. Everything else of the scenario stays compared.
+fn bot_csv_difference(name: &str, rails: &mut Value) -> Result<(), String> {
+    use deltabadger::web::i18n;
+    let notice = |count: i64| if count > 0 { i18n::text("en", "bot.details.stats.import_success", &[("count", i18n::Arg::Count(count))]) }
+                              else { i18n::text("en", "bot.details.stats.import_no_new_orders", &[]) };
+    let skipped = |count: usize| format!(" {}", i18n::text("en", "bot.details.stats.import_skipped", &[("count", i18n::Arg::Text(&count.to_string()))]));
+    // (the import step, Rails' count, this build's count, the rows skipped and counted, Rails' rows this build does not write)
+    let (step, theirs, ours, counted, dropped): (usize, i64, i64, usize, &[&str]) = match name {
+        // D-IMPORT-COUNTS: an open and a cancelled row, skipped uncounted by Rails.
+        "bot_csv_import_not_closed" => (3, 1, 1, 2, &[]),
+        // D-IMPORT-COUNTS: QQQM names two members; Rails counts the skip and shows nothing.
+        "bot_csv_import_ambiguous" => (3, 1, 1, 1, &[]),
+        // R-IMPORT-INDEX-NO-ASSET: Rails stores ZZZZ without an asset.
+        "bot_csv_import_index_unlisted" => (3, 2, 1, 1, &["imported_1_u-1"]),
+        // D-IMPORT-DUP: Rails' insert_all drops the second d-1 and counts it imported.
+        "bot_csv_import_duplicate" => (3, 2, 1, 0, &[]),
+        // D-IMPORT-REIMPORT: the bot's own imported id comes back as itself, already held.
+        "bot_csv_import_own_export" => (5, 1, 0, 0, &["imported_1_imported_1_o1"]),
+        _ => return Ok(()),
+    };
+    let responses = rails["responses"].as_array_mut().ok_or("no responses")?;
+    let import = responses.get_mut(step).ok_or("no import step")?;
+    let rows = import["rows_after"]["transactions"].as_array_mut().ok_or("no transactions after the import")?;
+    let before = rows.len();
+    rows.retain(|row| !dropped.contains(&row["external_id"].as_str().unwrap_or_default()));
+    if before - rows.len() != dropped.len() { return Err(format!("Rails no longer writes {dropped:?}")); }
+    if name == "bot_csv_import_index_unlisted" && !rows.iter().all(|row| row["base_asset_id"].is_i64()) { return Err("a row left without an asset".into()); }
+    // The rows this build writes take the ids Rails' dropped ones took.
+    let first_new = import["rows_before"]["transactions"].as_array().map_or(0, Vec::len);
+    for (i, row) in import["rows_after"]["transactions"].as_array_mut().unwrap().iter_mut().enumerate().skip(first_new) { row["id"] = json!(i as i64 + 1); }
+    let page = responses.get_mut(step + 1).ok_or("no page after the import")?;
+    let (from, to) = (format!(" {} ", notice(theirs)), format!(" {}{} ", notice(ours), if counted > 0 { skipped(counted) } else { String::new() }));
+    let lines = page["body"].as_array_mut().ok_or("the page after the import is not markup")?;
+    let shown = lines.iter_mut().filter_map(|line| line.as_str().filter(|l| l.contains(&from)).map(|l| l.replace(&from, &to)).map(|l| *line = json!(l))).count();
+    if shown != 1 { return Err(format!("Rails' page shows {from:?} {shown} times")); }
+    Ok(())
 }
 
 /// Replay the affected page flow in-process, including its real request and engine resync.

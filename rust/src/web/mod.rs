@@ -755,6 +755,8 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/redeploy", only(post(bot::redeploy::create).delete(bot::redeploy::destroy)))
         .route("/bots/{id}/rebalance_resolutions", only(post(bot::rebalance::resolve)))
         .route("/bots/{id}/transactions/{tx}", only(delete(bot::cancel::destroy)))
+        .route("/bots/{id}/export", only(post(bot::csv::export)))
+        .route("/bots/{id}/import", only(post(bot::csv::import)))
         .route("/bots/{id}/redeploy_resolutions", only(post(bot::redeploy::clear)))
         .route("/bots/{id}/reverse", only(post(bot::actions::reverse)))
         .route("/bots/{id}/wash_sale_prompt/new", only(get(bot::wash::new)))
@@ -907,9 +909,13 @@ pub const QUERY_FIELDS: usize = FORM_FIELDS;
 pub const JSON_PATHS: [&str; 3] = ["/oauth/register", "/oauth/token", "/oauth/revoke"];
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
-/// The one multipart body read (POST /tracker/import, web::multipart): a file of transactions. Rails
+/// The multipart body read (POST /tracker/import, web::multipart; and POST /bots/:id/import): a file of transactions. Rails
 /// sets no bound; these follow FORM_LIMIT's. A five-year exchange export is a few MB.
 pub const IMPORT_PATH: &str = "/tracker/import";
+/// POST /bots/:id/import (web::bot::csv) reads its file under the same bounds (D-IMPORT-SIZE).
+pub fn is_bot_import(route_path: &str) -> bool {
+    route_path.strip_prefix("/bots/").and_then(|rest| rest.strip_suffix("/import")).is_some_and(|id| !id.is_empty() && !id.contains('/'))
+}
 pub const IMPORT_LIMIT: usize = 32 * 1024 * 1024;
 pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -983,7 +989,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // What Rack read as the form, for the override: None when it read none, or could not parse it.
     let mut rack_form = true;
     let mut unparseable = hook_post && !(hook::rack_form_ok(raw_query.as_bytes()) && bot::action_params::form(&query).is_ok());
-    let multipart_boundary = (original_method == Method::POST && route_path == IMPORT_PATH)
+    let multipart_boundary = (original_method == Method::POST && (route_path == IMPORT_PATH || is_bot_import(&route_path)))
         .then(|| multipart::boundary(content_type)).flatten();
     let (form, body) = if let Some(boundary) = multipart_boundary {
         let read = match tokio::time::timeout(IMPORT_READ_TIMEOUT, axum::body::to_bytes(body, IMPORT_LIMIT)).await {

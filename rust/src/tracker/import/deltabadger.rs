@@ -13,7 +13,7 @@ use serde_json::json;
 pub struct Routed { pub exchange: Option<String>, pub entry: Entry }
 
 /// CsvSafe.unescape: drop the one leading `'` CsvSafe.cell adds, only when what follows reads as a formula.
-fn unescape(v: &str) -> &str {
+pub(crate) fn unescape(v: &str) -> &str {
     const LEADERS: [char; 7] = ['=', '+', '-', '@', '\t', '\r', '\n'];
     v.strip_prefix('\'').filter(|rest| rest.starts_with(LEADERS) || ruby::strip(rest).starts_with(LEADERS)).unwrap_or(v)
 }
