@@ -11,6 +11,7 @@
 //! - **Balance**: the engine spends `max(0, min(available, balance − hold))` of the unified balance: `available` counts
 //!   unrealised profit, which is never spent.
 use super::*;
+use std::collections::BTreeMap;
 
 pub(super) const PLACE: &str = "/api/ua/v2/unified/order/place";
 pub(super) const CANCEL: &str = "/api/ua/v2/unified/order/cancel";
@@ -73,23 +74,56 @@ pub fn parse_uta_order(o: &Value, want: &HfOrder) -> Result<OrderState, VenueErr
                     amount_exec: filled, quote_amount_exec: Some(BigDec::zero()), limit: want.limit, sell: want.sell, pair: Some(want.symbol.clone()), asset_class: None })
 }
 
+/// One validated execution: size, value, |fee| and its currency.
+type Execution = (BigDec, BigDec, BigDec, String);
 /// What one execution page adds, or why it can't be read: every item is `want`'s (order, symbol, side, SPOT) with a
 /// `tradeId`, a positive size and value and a decimal fee; a `tradeId` seen before must be the same fill.
-fn add_executions(items: &[Value], want: &HfOrder, seen: &mut std::collections::BTreeMap<String, (BigDec, BigDec)>) -> Result<(), VenueError> {
+fn add_executions(items: &[Value], want: &HfOrder, seen: &mut BTreeMap<String, Execution>) -> Result<(), VenueError> {
     for e in items {
         let trade = e["tradeId"].as_str().filter(|t| !t.is_empty()).ok_or_else(unreadable)?;
         let (size, value) = (text_decimal(&e["size"]).ok_or_else(unreadable)?, text_decimal(&e["value"]).ok_or_else(unreadable)?);
+        let fee = text_decimal(&e["fee"]).ok_or_else(unreadable)?;
         if !spot(e) || e["orderId"].as_str() != Some(want.id.as_str()) || e["symbol"].as_str() != Some(want.symbol.as_str()) || !side_is(e, want.sell)
-            || !size.is_positive() || !value.is_positive() || text_decimal(&e["fee"]).is_none() {
+            || !size.is_positive() || !value.is_positive() {
             return Err(unreadable());
         }
+        let fill = (size, value, if fee < BigDec::zero() { &BigDec::zero() - &fee } else { fee }, e["feeCurrency"].as_str().unwrap_or_default().to_string());
         match seen.get(trade) {
-            Some(known) if *known != (size.clone(), value.clone()) => return Err(unreadable()),
+            Some(known) if *known != fill => return Err(unreadable()),
             Some(_) => {}
-            None => { seen.insert(trade.into(), (size, value)); }
+            None => { seen.insert(trade.into(), fill); }
         }
     }
     Ok(())
+}
+fn sums(seen: &BTreeMap<String, Execution>) -> (BigDec, BigDec) { seen.values().fold((BigDec::zero(), BigDec::zero()), |(s, v), e| (&s + &e.0, &v + &e.1)) }
+
+/// D-KUCOIN-UTA-ORDERS (r1.7): an operator's UTA evidence, the order's detail answer followed by its execution pages to an
+/// empty one, read as the poll reads them: the state with the executions' totals, and their fees per currency. Unreadable
+/// unless every answer succeeded, the executions are `want`'s and sum to `filledSize` exactly, and the list ends on an
+/// empty page.
+pub fn uta_evidence(answers: &[Value], want: &HfOrder) -> Result<(OrderState, BTreeMap<String, BigDec>), VenueError> {
+    let ok = |b: &Value| b["code"] == OK;
+    let (detail, pages) = answers.split_first().filter(|(d, _)| ok(d)).ok_or_else(unreadable)?;
+    let mut state = parse_uta_order(&detail["data"], want)?;
+    let mut seen = BTreeMap::new();
+    if state.amount_exec.is_positive() {
+        let (last, full) = pages.split_last().ok_or_else(unreadable)?;
+        if !ok(last) || last["data"]["items"].as_array().is_none_or(|i| !i.is_empty()) { return Err(unreadable()); }
+        for page in full {
+            let items = page["data"]["items"].as_array().filter(|_| ok(page)).ok_or_else(unreadable)?;
+            add_executions(items, want, &mut seen)?;
+        }
+        let (size, value) = sums(&seen);
+        if size != state.amount_exec { return Err(unreadable()); }
+        (state.quote_amount_exec, state.price) = (Some(value.clone()), value.div(&size));
+    }
+    let mut fees: BTreeMap<String, BigDec> = BTreeMap::new();
+    for (_, _, fee, currency) in seen.into_values() {
+        let sum = fees.entry(currency).or_insert_with(BigDec::zero);
+        *sum = &*sum + &fee;
+    }
+    Ok((state, fees))
 }
 
 impl<T: Transport> KucoinVenue<T> {
@@ -112,7 +146,7 @@ impl<T: Transport> KucoinVenue<T> {
     /// `filledSize` exactly; quote = Σ value, price = Σ value / Σ size at the pair's tick. None when they can't be told.
     async fn with_totals(&self, want: &HfOrder, mut state: OrderState) -> Result<Option<OrderState>, VenueError> {
         if !state.amount_exec.is_positive() { return Ok(Some(state)); }
-        let mut seen = std::collections::BTreeMap::new();
+        let mut seen = BTreeMap::new();
         let mut last: Option<String> = None;
         for _ in 0..MAX_PAGES {
             let mut query = vec![("tradeType", "SPOT".to_string()), ("symbol", want.symbol.clone()), ("orderId", want.id.clone()), ("pageSize", "200".to_string())];
@@ -120,7 +154,7 @@ impl<T: Transport> KucoinVenue<T> {
             let Some(body) = self.read_ok(&self.uta_get(EXECUTION, query)).await? else { return Ok(None) };
             let Some(items) = body["data"]["items"].as_array() else { return Ok(None) };
             if items.is_empty() {
-                let (size, value) = seen.values().fold((BigDec::zero(), BigDec::zero()), |(s, v), (a, b)| (&s + a, &v + b));
+                let (size, value) = sums(&seen);
                 if size != state.amount_exec { return Ok(None); }
                 let mut price = value.div(&size).ok_or_else(unreadable)?;
                 if let Some(p) = self.pairs.by_symbol.get(&want.symbol) { price = price.round(p.price_decimals); }

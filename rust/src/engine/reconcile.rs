@@ -98,12 +98,13 @@ pub(crate) fn write_receipt(c: &Connection, tx_id: i64, facts: &Facts, source: &
     crate::app_config::set_plain(c, &format!("{RECEIPT}{tx_id}"), &r.to_string(), now).map_err(data)
 }
 
-/// What the ledger already holds of order `order_id`: its API fills (visible, and withheld where HF-3's table exists), the
-/// owner's and the row's exchange's only, each id once. Σ size, Σ funds, Σ |fee| per currency.
+/// What the ledger already holds of order `order_id`: its API fills of `family` (the record's: "ClassicHf" or "Uta"; visible,
+/// and withheld where HF-3's table exists), the owner's and the row's exchange's only, each id once. Σ size, Σ funds,
+/// Σ |fee| per currency.
 #[derive(Debug, PartialEq)]
 pub struct Known { pub size: BigDec, pub funds: BigDec, pub fees: std::collections::BTreeMap<String, BigDec> }
 
-pub fn known_fills(c: &Connection, user_id: i64, exchange_id: i64, order_id: &str) -> Result<Known, EngineError> {
+pub fn known_fills(c: &Connection, user_id: i64, exchange_id: i64, order_id: &str, family: &str) -> Result<Known, EngineError> {
     let mut rows: Vec<(String, String)> = vec![];
     let mut s = c.prepare_cached("SELECT tx_id, raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NOT NULL \
                                   AND json_valid(raw_data) AND json_extract(raw_data, '$.orderId') = ?3 AND json_extract(raw_data, '$.createdAt') IS NOT NULL")?;
@@ -119,7 +120,7 @@ pub fn known_fills(c: &Connection, user_id: i64, exchange_id: i64, order_id: &st
     for (id, raw) in rows {
         if !seen.insert(id.clone()) { continue; }
         let raw: Value = serde_json::from_str(&raw).map_err(|e| data(format!("fill {id}: {e}")))?;
-        if raw["family"] != "ClassicHf" { continue; }
+        if raw["family"] != family { continue; }
         let n = |k: &str| raw[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(|| data(format!("fill {id}: unreadable {k}")));
         known.size = &known.size + &n("size")?;
         known.funds = &known.funds + &n("funds")?;
@@ -156,7 +157,7 @@ pub(crate) fn admit(c: &Connection, bot_id: i64, tx_id: i64, external_id: &str, 
     let facts = Facts::of(s);
     // The fills the ledger already holds bound every answer, a replay of a settlement included.
     let (user, exchange) = owner(c, tx_id)?;
-    let known = known_fills(c, user, exchange, external_id)?;
+    let known = known_fills(c, user, exchange, external_id, record["family"].as_str().unwrap_or_default())?;
     let funds = s.quote_amount_exec.clone().unwrap_or_else(BigDec::zero);
     if !matches!(s.status, OrderStatus::Unknown | OrderStatus::Failed) && (s.amount_exec < known.size || funds < known.funds) {
         mark(c, tx_id, "KuCoin answered less than the fills already recorded for it", now)?;
@@ -200,7 +201,7 @@ pub(crate) fn unread(c: &Connection, bot_id: i64, tx_id: i64, why: &str, version
     model::credential_write(c, version, |tx| {
         super::polling::require_owner(tx, bot_id, tx_id)?;
         if let Some(record) = crate::venue::kucoin::order_record(tx, tx_id).map_err(data)? {
-            if record["family"] == "ClassicHf" && settled(tx, tx_id, &record)?.is_some() { return Ok(()); }
+            if crate::venue::kucoin::routed(&record) && settled(tx, tx_id, &record)?.is_some() { return Ok(()); }
         }
         mark(tx, tx_id, why, now)
     })
@@ -264,7 +265,7 @@ fn validate(b: &Bundle, tx_id: i64, now: DateTime<Utc>) -> Result<(Facts, Fees, 
     };
     if b.version != 1 { why.push(format!("version must be 1, not {}", b.version)); }
     if b.transaction_id != tx_id { why.push(format!("transaction_id {} is not transaction {tx_id}", b.transaction_id)); }
-    if b.order.family != "ClassicHf" { why.push("order.family must be ClassicHf".into()); }
+    if !matches!(b.order.family.as_str(), "ClassicHf" | "Uta") { why.push("order.family must be ClassicHf or Uta".into()); }
     let status = match b.terminal.state.as_str() { "closed" => Some("closed"), "cancelled" => Some("cancelled"),
         other => { why.push(format!("terminal.state must be closed or cancelled, not {other:?} (no terminal proof)")); None } };
     let at = crate::codec::parse_time(&b.terminal.at).map_err(|_| why.push(format!("terminal.at {:?} is not a time", b.terminal.at))).ok();
@@ -295,8 +296,18 @@ fn validate(b: &Bundle, tx_id: i64, now: DateTime<Utc>) -> Result<(Facts, Fees, 
     Err(why)
 }
 
-/// A retained HF order-detail answer: read as the poll reads it, it must give this terminal state, these totals and fees.
+/// A retained order-detail answer: read as the poll reads it, it must give this terminal state, these totals and fees. A
+/// UTA order's detail carries no quote total (D-KUCOIN-UTA-ORDERS): its evidence is the detail followed by its execution
+/// pages to an empty one, a JSON array, and the totals and fees are the executions' (r1.7).
 fn api_detail(b: &Bundle, facts: &Facts, fees: &Fees, now: DateTime<Utc>) -> Result<(), String> {
+    if b.order.family == "Uta" {
+        let answers: Vec<Value> = serde_json::from_str(&b.source.raw).map_err(|_| "source.raw is not the UTA order's detail and executions (a JSON array)".to_string())?;
+        let want = crate::venue::kucoin::HfOrder { id: b.order.id.clone(), symbol: b.order.symbol.clone(), sell: b.order.side == "sell", limit: b.order.kind == "limit" };
+        let (state, raw_fees) = crate::venue::kucoin::uta_evidence(&answers, &want).map_err(|_| "source.raw is not this order's detail and its full execution list".to_string())?;
+        if Facts::of(&state).as_ref() != Some(facts) { return Err("source.raw does not show this terminal state and these totals".into()); }
+        if &fee_map(raw_fees) != fees { return Err("fees differ from source.raw's executions".into()); }
+        return Ok(());
+    }
     let body: Value = serde_json::from_str(&b.source.raw).map_err(|_| "source.raw is not a KuCoin answer".to_string())?;
     if body["code"] != "200000" { return Err("source.raw is not a successful KuCoin order answer".into()); }
     let want = crate::venue::kucoin::HfOrder { id: b.order.id.clone(), symbol: b.order.symbol.clone(), sell: b.order.side == "sell", limit: b.order.kind == "limit" };
@@ -340,10 +351,12 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
         [tx_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).optional()?;
     let Some((Some(bot_id), external_id, status, created_at, exchange)) = row else { return Err(refuse(vec!["no such order row".into()])) };
     if exchange != "Exchanges::Kucoin" { return Err(refuse(vec!["not a KuCoin row".into()])); }
-    let Some(record) = crate::venue::kucoin::order_record(&tx, tx_id).map_err(data)?.filter(|r| r["family"] == "ClassicHf") else {
+    let Some(record) = crate::venue::kucoin::order_record(&tx, tx_id).map_err(data)?.filter(crate::venue::kucoin::routed) else {
         return Err(refuse(vec!["not an HF order with a recorded route (only a positive identity match establishes one)".into()]));
     };
     let mut why = vec![];
+    // r1.7: evidence of one family never settles another's order.
+    if record["family"].as_str() != Some(b.order.family.as_str()) { why.push("order.family is not the order's".into()); }
     if external_id.as_deref() != Some(b.order.id.as_str()) { why.push("order.id is not the row's order".into()); }
     if record["symbol"].as_str() != Some(b.order.symbol.as_str()) { why.push("order.symbol is not the order's".into()); }
     if record["sell"].as_bool() != Some(b.order.side == "sell") || !matches!(b.order.side.as_str(), "buy" | "sell") { why.push("order.side is not the order's".into()); }
@@ -353,7 +366,7 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
     }
     if !why.is_empty() { return Err(refuse(why)); }
     let (user, exchange_id) = owner(&tx, tx_id)?;
-    let known = known_fills(&tx, user, exchange_id, &b.order.id)?;
+    let known = known_fills(&tx, user, exchange_id, &b.order.id, &b.order.family)?;
     if facts.size < known.size || facts.funds < known.funds { return Err(refuse(vec!["executed is lower than the fills already recorded for it".into()])); }
     if known.fees.iter().any(|(currency, amount)| fees.get(currency).is_none_or(|f| f < amount)) { return Err(refuse(vec!["fees are lower than the fills already recorded for it".into()])); }
     let evidence = serde_json::to_value(&b).map_err(|e| data(e.to_string()))?;
@@ -429,7 +442,7 @@ pub(crate) fn prove(c: &Connection, bot_id: i64, tx_id: i64, origin: &crate::ven
                 let row = crate::figures::fill::stored_order(tx, tx_id)?;
                 let ext: String = tx.query_row("SELECT external_id FROM transactions WHERE id = ?1", [tx_id], |r| r.get(0))?;
                 let (user, exchange) = owner(tx, tx_id)?;
-                let known = known_fills(tx, user, exchange, &ext)?;
+                let known = known_fills(tx, user, exchange, &ext, "ClassicHf")?;
                 let floor = |a: Option<BigDec>, b: &BigDec| a.filter(|a| a > b).unwrap_or_else(|| b.clone());
                 let mut record = record.clone();
                 record["deal_size"] = json!(floor(row.amount_exec, &known.size).to_s_f());
@@ -473,15 +486,15 @@ pub(crate) fn mark_adopted(c: &Connection, cipher: &crate::crypto::Cipher, now: 
     Ok(rows.len())
 }
 
-/// D-KUCOIN-HF-RETENTION (R08): what Rails could not manage after a handback: a bot with an HF order (any row with an HF
-/// record, or an unresolved intent sent on an HF account). Rails trades only classic, so that account is Rust's. An adopted
+/// D-KUCOIN-HF-RETENTION (R08): what Rails could not manage after a handback: a bot with an HF or UTA order (any row with
+/// a record, or an unresolved intent sent on an HF or UTA account). Rails trades only classic, so that account is Rust's. An adopted
 /// row whose route is unproven is not refused: Rails placed it, on its own route, and reads it as it always did.
 pub(crate) fn handback_refusals(c: &Connection) -> Result<Vec<String>, EngineError> {
     let prefix = crate::venue::kucoin::ORDER_RECORD;
     let upper = format!("{};", &prefix[..prefix.len() - 1]);
     let mut s = c.prepare("SELECT DISTINCT t.bot_id FROM app_configs k JOIN transactions t ON t.id = CAST(substr(k.key, ?2) AS INTEGER) \
                            WHERE k.key >= ?1 AND k.key < ?3 AND t.bot_id IS NOT NULL \
-                           UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement.kucoin_account_mode') = 'ClassicHf' ORDER BY 1")?;
+                           UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement.kucoin_account_mode') IN ('ClassicHf', 'UnsupportedUta') ORDER BY 1")?;
     let found = s.query_map(params![prefix, prefix.len() as i64 + 1, upper], |r| r.get::<_, i64>(0))?
         .map(|id| id.map(|id| format!("bot {id}: KuCoin HF orders are Rust-only"))).collect::<Result<_, _>>()?;
     Ok(found)

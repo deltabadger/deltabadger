@@ -74,7 +74,7 @@ pub(crate) fn apply_evidenced_in(c: &model::FencedTransaction<'_>, bot_id: i64, 
 /// its obligation, and a terminal one leaves its receipt, in the same transaction.
 fn apply_order_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, execution_only: bool, evidence: Option<(&str, serde_json::Value)>) -> Result<Option<Cap>, EngineError> {
     require_owner(c, bot_id, tx_id)?;
-    let record = crate::venue::kucoin::order_record(c, tx_id).map_err(EngineError::Data)?.filter(|r| r["family"] == "ClassicHf");
+    let record = crate::venue::kucoin::order_record(c, tx_id).map_err(EngineError::Data)?.filter(crate::venue::kucoin::routed);
     let settles = match &record {
         Some(record) => match super::reconcile::admit(c, bot_id, tx_id, &s.txid, record, s, now)? {
             super::reconcile::Admit::Done => return Ok(None),
@@ -335,7 +335,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
         // D-KUCOIN-HF-RETENTION: an HF row's answer is applied, and an HF row this read could not tell owes, before any later
         // read can fail the poll (reconcile::admit, reconcile::unread). Either way it is out of the missing-order paths.
         for o in orders.into_iter().map(|o| o.settled(now)) {
-            match batch.iter().zip(&rows).find(|(r, _)| r.hf() && r.external_id == o.txid) {
+            match batch.iter().zip(&rows).find(|(r, _)| r.routed() && r.external_id == o.txid) {
                 Some((_, (id, _, _))) => {
                     apply_committed(c, bot.id, *id, &o, now, mode, &version).map_err(db)?;
                     if o.status == OrderStatus::Unknown { settles_at = settles_at.into_iter().chain(o.settles_at()).min(); }
@@ -344,7 +344,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
                 None => found.push(o),
             }
         }
-        for r in batch.iter().filter(|r| r.hf() && excluded.contains(&r.external_id)) {
+        for r in batch.iter().filter(|r| r.routed() && excluded.contains(&r.external_id)) {
             let Some((id, _, _)) = rows.iter().find(|(_, e, _)| *e == r.external_id) else { continue };
             super::reconcile::unread(c, bot.id, *id, "KuCoin could not tell this order's state", &version, now).map_err(db)?;
         }
@@ -444,7 +444,7 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
         order_identified(c, bot, id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
     }).await.value;
     // D-KUCOIN-HF-RETENTION: an HF row this read could not tell owes before the failure is returned (and retried).
-    if order.hf() && !matches!(&answer, Ok((found, _)) if !found.is_empty()) {
+    if order.routed() && !matches!(&answer, Ok((found, _)) if !found.is_empty()) {
         super::reconcile::unread(c, bot.id, id, "KuCoin could not tell this order's state", &version, now).map_err(poll_error)?;
     }
     let state = match answer {
@@ -458,7 +458,7 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
         Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Err(PollFailure::Transient(m)),
     };
     // An HF row's unknown state is its obligation (reconcile::admit), written before the follow-up waits or fails.
-    if order.hf() && state.status == OrderStatus::Unknown { apply_committed(c, bot.id, id, &state, now, mode, &version).map_err(poll_error)?; }
+    if order.routed() && state.status == OrderStatus::Unknown { apply_committed(c, bot.id, id, &state, now, mode, &version).map_err(poll_error)?; }
     if let Some(at) = state.settles_at().filter(|_| mode == PollMode::FollowUp) { return Ok(Some(at)); }
     if state.status == OrderStatus::Unknown {
         return if mode == PollMode::Terminal { Ok(None) } else { Err(PollFailure::General(format!("Order {ext} status is unknown."))) };
