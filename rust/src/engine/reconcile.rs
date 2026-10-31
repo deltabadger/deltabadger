@@ -546,7 +546,7 @@ pub(crate) fn handback_refusals(c: &Connection) -> Result<Vec<String>, EngineErr
     let upper = format!("{};", &prefix[..prefix.len() - 1]);
     let mut s = c.prepare("SELECT DISTINCT t.bot_id FROM app_configs k JOIN transactions t ON t.id = CAST(substr(k.key, ?2) AS INTEGER) \
                            WHERE k.key >= ?1 AND k.key < ?3 AND t.bot_id IS NOT NULL AND coalesce(json_extract(k.value, '$.family'), '') <> 'Classic' \
-                           UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement.kucoin_account_mode') IN ('ClassicHf', 'UnsupportedUta') ORDER BY 1")?;
+                           UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement.kucoin_account_mode') IN ('ClassicHf', 'Uta') ORDER BY 1")?;
     let found = s.query_map(params![prefix, prefix.len() as i64 + 1, upper], |r| r.get::<_, i64>(0))?
         .map(|id| id.map(|id| format!("bot {id}: KuCoin HF orders are Rust-only"))).collect::<Result<_, _>>()?;
     Ok(found)

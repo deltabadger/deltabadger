@@ -11,7 +11,6 @@ pub const DEFAULT: &str = "en";
 /// ActiveModel's "taken" message, and the dotiw gem's unit names (`distance_of_time_in_words`) in the
 /// ten of this app's locales the gem has a file for.
 const FROM_GEMS: &[(&str, &str)] = &[
-    ("en.settings.kucoin.account_uta", "Your KuCoin account is a Unified Trading Account, which Deltabadger doesn't support. Use a classic KuCoin account instead."),
     ("en.tracker.import.identity_refused_file", "Nothing imported. This file doesn't match your Binance history. It may be cut short or edited. Download a fresh, full export from Binance and try again."),
     ("en.tracker.import.identity_refused_history", "Nothing imported. Your saved Binance history needs a repair before this file can be added. Updating Deltabadger runs the repair, then try the import again."),
     ("en.rules.tile.withdrawal_unconfirmed", "Withdrawal status unconfirmed — not retried, to avoid sending it twice. Check %{exchange}."),

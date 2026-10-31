@@ -82,7 +82,7 @@ const HF_ORDERS: &str = "/api/v1/hf/orders";
 const HF_REFUSALS: [&str; 9] = ["400002", "400003", "400004", "400005", "400006", "400007", "400100", "200004", "429000"];
 
 #[derive(Clone)]
-pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool, uta: bool }
+pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs, identity: Option<Value>, account: Option<AccountContext>, missing_context: bool }
 
 /// Which order API an account's new orders use: the prepared detection's (ClassicHf: HF; UTA: UTA; else classic).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -174,7 +174,7 @@ pub const ORDER_RECORD: &str = "rust_kucoin_order:";
 /// Writes the record of the row the bot's unresolved intent just became, when that intent was sent on an HF or a UTA
 /// account (D-KUCOIN-UTA-ORDERS: `family: "Uta"`).
 pub fn record_order(c: &rusqlite::Connection, tx_id: i64, intent: &Value, now: DateTime<Utc>) -> Result<(), String> {
-    let family = match intent["kucoin_account_mode"].as_str() { Some("ClassicHf") => "ClassicHf", Some("UnsupportedUta") => "Uta", _ => return Ok(()) };
+    let family = match intent["kucoin_account_mode"].as_str() { Some("ClassicHf") => "ClassicHf", Some("Uta") => "Uta", _ => return Ok(()) };
     let record = serde_json::json!({"family": family, "symbol": intent["symbol"], "sell": intent["side"] == "sell",
         "limit": intent["limit"], "host": intent["host"], "key_fingerprint": intent["key_fingerprint"], "deal_size": "0", "deal_funds": "0"});
     crate::app_config::set_plain(c, &format!("{ORDER_RECORD}{tx_id}"), &record.to_string(), now)
@@ -184,7 +184,7 @@ pub fn record_order(c: &rusqlite::Connection, tx_id: i64, intent: &Value, now: D
 /// unread state is an obligation.
 pub fn routed(record: &Value) -> bool { matches!(record["family"].as_str(), Some("ClassicHf" | "Uta")) }
 /// An intent's account mode whose orders are routed (they get a record).
-pub fn routed_mode(mode: &Value) -> bool { matches!(mode.as_str(), Some("ClassicHf" | "UnsupportedUta")) }
+pub fn routed_mode(mode: &Value) -> bool { matches!(mode.as_str(), Some("ClassicHf" | "Uta")) }
 
 /// The row's HF order record, if it has one.
 pub fn order_record(c: &rusqlite::Connection, tx_id: i64) -> Result<Option<Value>, String> {
@@ -261,21 +261,14 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
 
 impl<T: Transport> KucoinVenue<T> {
     /// Classic wire adapter, also used by the unchanged Rails replay. Runtime construction attaches captured context.
-    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false, uta: false } }
+    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false } }
     pub fn with_account_context(mut self, version: crate::engine::model::CredentialVersion, resolver: super::kucoin_account::Resolver) -> Self {
         self.account = Some(AccountContext { version, resolver, prepared: Default::default() });
         self
     }
     pub(crate) fn with_missing_account_context(mut self) -> Self { self.missing_context = true; self }
-    /// The modes this venue trades on: classic and HF (D-KUCOIN-HF-ORDERS); UTA only with `allow_uta`.
-    fn admit(&self, mode: super::kucoin_account::AccountMode) -> Result<(), VenueError> {
-        if self.uta && mode == super::kucoin_account::AccountMode::UnsupportedUta { Ok(()) } else { mode.require_supported() }
-    }
-    /// D-KUCOIN-UTA-ORDERS: admits a Unified account, for the tests of the UTA wire until UTA connects (UTA.md U4).
-    #[doc(hidden)]
-    pub fn allow_uta(mut self) -> Self { self.uta = true; self }
     /// The account's mode as the shared Resolver detects it for this credential, UTA included: the history and balance
-    /// reads route on it (D-KUCOIN-HF-LEDGER); `prepare` refuses UTA.
+    /// reads route on it (D-KUCOIN-HF-LEDGER), as new orders do (`family`).
     pub async fn account_mode(&self) -> Result<super::kucoin_account::AccountMode, VenueError> {
         if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
         let Some(account) = &self.account else { return Ok(super::kucoin_account::AccountMode::ClassicLf) };
@@ -292,7 +285,7 @@ impl<T: Transport> KucoinVenue<T> {
         let prepared = self.account.as_ref().and_then(|a| *a.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
         match prepared.map(|d| d.mode) {
             Some(super::kucoin_account::AccountMode::ClassicHf) => Family::Hf,
-            Some(super::kucoin_account::AccountMode::UnsupportedUta) => Family::Uta,
+            Some(super::kucoin_account::AccountMode::Uta) => Family::Uta,
             _ => Family::Classic,
         }
     }
@@ -300,9 +293,8 @@ impl<T: Transport> KucoinVenue<T> {
         if self.missing_context { return Err(super::kucoin_account::refusal("credential provenance missing")); }
         if let Some(account) = &self.account {
             let prepared = *account.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            match prepared {
-                Some(d) if account.resolver.is_current(&self.transport, &self.base, &account.version, d) => self.admit(d.mode)?,
-                _ => return Err(super::kucoin_account::refusal("account preparation missing, expired or invalidated")),
+            if !prepared.is_some_and(|d| account.resolver.is_current(&self.transport, &self.base, &account.version, d)) {
+                return Err(super::kucoin_account::refusal("account preparation missing, expired or invalidated"));
             }
         }
         Ok(())
@@ -565,7 +557,6 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
             if prepared.is_some_and(|old| old.mode != detected.mode) {
                 return Err(super::kucoin_account::refusal("account mode changed since preparation"));
             }
-            self.admit(detected.mode)?;
             *prepared = Some(detected);
         }
         Ok(self.producer())
@@ -734,7 +725,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     async fn recovery_with(&self, intent: &Value, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         match intent["kucoin_account_mode"].as_str() {
             Some("ClassicHf") => self.hf_by_client_id(cl_ord_id, symbol).await,
-            Some("UnsupportedUta") => self.uta_by_client_id(cl_ord_id, symbol).await,
+            Some("Uta") => self.uta_by_client_id(cl_ord_id, symbol).await,
             Some(_) => self.classic_by_client_id(cl_ord_id, symbol, since).await,
             None => super::Venue::order_by_client_id(self, cl_ord_id, symbol, since).await,
         }

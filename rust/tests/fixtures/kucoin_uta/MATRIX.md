@@ -43,4 +43,4 @@ writing. The cache is the doc pages' `.md` files plus the SDK's `generate/uta/ba
 | O04 | U2 | `o04_*` | `recovery_*`: a miss keeps the intent. `cancel_*`: never terminal. |
 | R01 | U3 | `r01_*` | Unreadable UTA row holds spending; terminal read settles once; `reconcile-order` needs equal family. |
 | R02 | U3 | `r02_*` | Switch marks: classic row → UTA → classic stays protected; warm-cache cancel keeps both obligations. |
-| F01 | U4 | `g01_*` (real factory) | DCA places, polls and settles on UTA; classic and HF twins unchanged; `apikey.json` verdicts; no `account_uta`. |
+| F01 | U4 | `g01_*` (real factory) | DCA places, polls and settles on UTA; classic and HF twins unchanged; `apikey.json` verdicts; the UTA refusal copy is gone. |

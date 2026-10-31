@@ -232,12 +232,13 @@ pub fn gemini_request(base: &str, kind: i64) -> HttpRequest {
 
 /// #get_api_key_validity's probe: honeymaker's #cancel_order of the zero id, or #get_accounts(type: 'trade') for a withdrawal key
 /// and for a reading key's balance read.
-/// D-KUCOIN-HF-MODE: whether GET /api/v1/user/api-key names KuCoin's `Spot` permission (an exact comma-separated token).
-/// None when the answer cannot tell: not 2xx, not the success code, or `data.permission` not a string.
-pub fn spot_permission(status: u16, body: &str) -> Option<bool> {
+/// D-KUCOIN-HF-MODE: whether GET /api/v1/user/api-key names KuCoin's `permission` (`Spot` on HF, `Unified` on UTA) as an
+/// exact comma-separated token. None when the answer cannot tell: not 2xx, not the success code, or `data.permission`
+/// not a string.
+pub fn holds_permission(status: u16, body: &str, permission: &str) -> Option<bool> {
     let v: Value = serde_json::from_str(body).ok().filter(|_| (200..300).contains(&status))?;
     if v["code"].as_str() != Some("200000") { return None; }
-    Some(v["data"]["permission"].as_str()?.split(',').any(|p| p.trim() == "Spot"))
+    Some(v["data"]["permission"].as_str()?.split(',').any(|p| p.trim() == permission))
 }
 
 pub fn kucoin_request(base: &str, kind: i64) -> HttpRequest {
@@ -778,28 +779,37 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
         let answer = transport.send(&request).await;
         let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
                       else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
-        // D-KUCOIN-HF-MODE: Rails' check decides first (an incorrect key stays incorrect); a key it judges correct is
-        // then read for its account mode, and a Unified Trading Account is refused.
-        let mut hf = false;
-        if let (Verdict::Valid(true), Some(version)) = (&verdict, version) {
+        // D-KUCOIN-HF-MODE: a key Rails' check judges correct is then read for its account mode; an unknown mode is a
+        // failure. UTA r1.9: a trading or read key it does not judge correct is read once too, and only a Unified
+        // account changes the outcome (the classic probe does not decide there); any other mode or a failed read keeps
+        // Rails' verdict. An incorrect key stays incorrect: the mode read is authenticated.
+        use crate::venue::kucoin_account::AccountMode;
+        let mut mode = None;
+        if let Some(version) = version {
             let resolver = crate::venue::kucoin_account::Resolver::shared();
             resolver.invalidate(base, version.id);
-            match resolver.resolve(&transport, base, version).await.value.and_then(|d| d.mode.require_supported().map(|()| d.mode)) {
-                Err(e) => return (Validity::Pending(Diagnostic { text: e.message(), status: None, body: String::new(), refusal: true }), None),
-                Ok(mode) => hf = mode == crate::venue::kucoin_account::AccountMode::ClassicHf,
+            if verdict == Verdict::Valid(true) {
+                match resolver.resolve(&transport, base, version).await.value {
+                    Err(e) => return (Validity::Pending(Diagnostic { text: e.message(), status: None, body: String::new(), refusal: true }), None),
+                    Ok(d) => mode = Some(d.mode),
+                }
+            } else if kind != 1 {
+                mode = resolver.resolve(&transport, base, version).await.value.ok().map(|d| d.mode).filter(|m| *m == AccountMode::Uta);
             }
         }
-        let verdict = if verdict == Verdict::Valid(true) && hf && kind == 0 {
-            // An HF account trades only with KuCoin's Spot permission: the identity read's one answer gives both, read
-            // before the transport scrubs a body that echoes the key.
+        let verdict = if mode == Some(AccountMode::Uta) && kind != 1 { Verdict::Valid(true) } else { verdict };
+        // A trading key needs KuCoin's Spot permission on HF and its Unified permission on UTA.
+        let needs = match mode { Some(AccountMode::ClassicHf) if kind == 0 => Some("Spot"), Some(AccountMode::Uta) if kind == 0 => Some("Unified"), _ => None };
+        let verdict = if let (Verdict::Valid(true), Some(needs)) = (&verdict, needs) {
+            // The identity read's one answer gives both, read before the transport scrubs a body that echoes the key.
             let request = crate::identity::request(venue, &transport, base, &credentials.secret).expect("KuCoin has an identity read");
-            let read = transport.send_observed(&request, &|status, body| (crate::identity::kucoin_answer(status, body), spot_permission(status, body))).await;
-            let (identity, spot) = read.map_or((crate::identity::Observed::Failed("transport".into()), None), |(_, read)| read);
+            let read = transport.send_observed(&request, &|status, body| (crate::identity::kucoin_answer(status, body), holds_permission(status, body, needs))).await;
+            let (identity, holds) = read.map_or((crate::identity::Observed::Failed("transport".into()), None), |(_, read)| read);
             observed = Some(identity);
-            match spot {
+            match holds {
                 Some(true) => verdict,
-                Some(false) => Verdict::Permissions { missing: vec!["Spot".into()], forbidden: vec![] },
-                None => Verdict::Failure("KuCoin did not say whether this key holds the Spot permission".into()),
+                Some(false) => Verdict::Permissions { missing: vec![needs.into()], forbidden: vec![] },
+                None => Verdict::Failure(format!("KuCoin did not say whether this key holds the {needs} permission")),
             }
         } else {
             if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue, &transport, base, &credentials.secret).await; }

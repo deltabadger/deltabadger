@@ -215,7 +215,7 @@
         }
       },
       "expect": {
-        "mode": "UnsupportedUta",
+        "mode": "Uta",
         "placement_posts": 0,
         "opened_requests": 0
       }

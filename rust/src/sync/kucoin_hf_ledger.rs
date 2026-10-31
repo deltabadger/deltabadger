@@ -66,7 +66,7 @@ pub(super) struct Route {
 }
 pub(super) const HF: Route = Route { mode: AccountMode::ClassicHf, name: "KuCoin HF fills", path: FILLS_PATH, progress: "rust_sync.kucoin_hf", api: hf::HF_API, attempt: hf::HF_ATTEMPT,
                                      open: hf::HF_ATTEMPT_OPEN, read: None, by_symbol: true, limit: ("limit", "100"), item: hf_item };
-pub(super) const UTA: Route = Route { mode: AccountMode::UnsupportedUta, name: "KuCoin UTA fills", path: UTA_FILLS_PATH, progress: "rust_sync.kucoin_uta", api: hf::UTA_API,
+pub(super) const UTA: Route = Route { mode: AccountMode::Uta, name: "KuCoin UTA fills", path: UTA_FILLS_PATH, progress: "rust_sync.kucoin_uta", api: hf::UTA_API,
                                       attempt: hf::UTA_ATTEMPT, open: hf::UTA_ATTEMPT_OPEN, read: Some(hf::UTA_READ), by_symbol: false, limit: ("pageSize", "200"), item: uta_item };
 impl Route {
     pub(super) fn of(mode: AccountMode) -> Option<Self> { [HF, UTA].into_iter().find(|r| r.mode == mode) }
