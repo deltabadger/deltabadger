@@ -1537,12 +1537,12 @@ fn a_signal_bot_is_refused_off_its_venues_and_for_what_its_pages_cannot_print() 
     assert_eq!(refusal(For::Page), None);
     assert_eq!(refusal(For::Feed), None);
     assert_eq!(refusal(For::Settings), None);
-    // The engine's rule: a venue it trades on whose signal path is not recorded is named; one it does not trade on too.
-    for (venue, why) in [("Exchanges::Bybit", "a signal bot on Bybit (its signal orders are not recorded against Rails yet)"),
-                         ("Exchanges::Ibkr", "a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca")] {
+    // The engine's rule (plan A5): every venue it trades on is served; one it does not trade on is named.
+    for (venue, why) in [("Exchanges::Bybit", None), ("Exchanges::Coinbase", None), ("Exchanges::Gemini", None),
+                         ("Exchanges::Ibkr", Some("a signal bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"))] {
         c.execute_batch("SAVEPOINT venue;").unwrap();
         c.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
-        assert_eq!(refusal(For::Page), Some(why), "{venue}");
+        assert_eq!(refusal(For::Page), why, "{venue}");
         c.execute_batch("ROLLBACK TO venue; RELEASE venue;").unwrap();
     }
     // The account-wide rule is served (its locked table is printed); the feed answers whatever it says.
