@@ -1,4 +1,4 @@
-//! Build-time inputs from the Rails app: the migration versions this build understands, the
+//! Build-time inputs: the frozen Rails migration versions (rust/schema/rails_versions.txt) and, from the Rails app, the
 //! translations in config/locales (src/web/i18n.rs), and the files `serve` hands out (src/web/assets.rs).
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -20,22 +20,18 @@ fn main() {
     assets(&root, &out);
 }
 
+/// The Rails migration versions every 2.x install records in `schema_migrations`, frozen in rust/schema/rails_versions.txt
+/// (B1: db/migrate never changes again, and B11 deletes it). tests/store.rs checks the file against db/migrate while
+/// that exists.
 fn migrations(root: &Path, out: &Path) -> Vec<String> {
-    let dir = root.join("db/migrate");
-    println!("cargo:rerun-if-changed={}", dir.display());
-    let mut versions = Vec::new();
-    for entry in fs::read_dir(&dir).expect("read Rails migrations") {
-        let entry = entry.expect("read migration entry");
-        if !entry.file_type().expect("read migration file type").is_file() {
-            continue;
-        }
-        let name = entry.file_name();
-        let name = name.to_str().expect("migration filename is UTF-8");
-        let version = name.get(..14).expect("migration has a version prefix");
-        assert!(version.bytes().all(|b| b.is_ascii_digit()), "invalid migration version: {name}");
-        versions.push(version.to_owned());
+    let file = root.join("rust/schema/rails_versions.txt");
+    println!("cargo:rerun-if-changed={}", file.display());
+    let text = fs::read_to_string(&file).expect("read rust/schema/rails_versions.txt");
+    let versions: Vec<String> = text.lines().map(str::to_owned).collect();
+    for v in &versions {
+        assert!(v.len() == 14 && v.bytes().all(|b| b.is_ascii_digit()), "rails_versions.txt: invalid version {v:?}");
     }
-    versions.sort();
+    assert!(versions.windows(2).all(|w| w[0] < w[1]), "rails_versions.txt must be sorted and without repeats");
     let body: String = versions.iter().map(|v| format!("    {v:?},\n")).collect();
     fs::write(out.join("migrations.rs"), format!("pub const MIGRATIONS: &[&str] = &[\n{body}];\n")).unwrap();
     versions

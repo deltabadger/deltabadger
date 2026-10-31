@@ -21,8 +21,10 @@ fn paths_follow_rails_env_names_with_storage_defaults() {
     assert_eq!(p.lock_file(), Path::new("/data/.engine.lock"));
 }
 
+/// rust/schema/rails_versions.txt (what the build embeds) is exactly db/migrate's list while db/ exists (B1; B11 deletes
+/// this test with db/).
 #[test]
-fn the_build_knows_exactly_the_migrations_in_db_migrate() {
+fn the_frozen_rails_versions_are_exactly_the_migrations_in_db_migrate() {
     let mut on_disk: Vec<String> = std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../db/migrate")).unwrap()
         .map(|e| e.unwrap().file_name().to_string_lossy()[..14].to_string()).collect();
     on_disk.sort();

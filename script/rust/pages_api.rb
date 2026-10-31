@@ -24,13 +24,19 @@ module Pages
               'bot' => ['/api/v1/bots/1', 'get_bot_details'], 'balances' => ['/api/v1/exchanges/1/balances', 'get_exchange_balances'],
               'orders' => ['/api/v1/orders', 'list_open_orders'], 'portfolio' => ['/api/v1/portfolio', 'get_portfolio_summary'] }.freeze
     # Routes this build answers with the 501 envelope, past the same authentication and tool gate as Rails.
-    GATED = [['GET', '/api/v1/rules', 'list_rules'], ['GET', '/api/v1/transactions/account', 'list_account_transactions'],
-             ['DELETE', '/api/v1/rules/1', 'delete_rule'], ['GET', '/api/v1/tax/reports/DE/2025/download', 'download_tax_report']].freeze
+    GATED = [['GET', '/api/v1/rules', 'list_rules'], ['DELETE', '/api/v1/rules/1', 'delete_rule'], ['GET', '/api/v1/tax/reports/DE/2025/download', 'download_tax_report']].freeze
     # The bot writes (slice B): the route, its tool, and the status bot 1 needs for the route to succeed.
     WRITES = { 'update' => ['PATCH', '/api/v1/bots/1', 'update_bot_settings', 0], 'start' => ['POST', '/api/v1/bots/1/start', 'start_bot', 0],
                'stop' => ['POST', '/api/v1/bots/1/stop', 'stop_bot', 1], 'archive' => ['POST', '/api/v1/bots/1/archive', 'archive_bot', 2],
                'unarchive' => ['DELETE', '/api/v1/bots/1/archive', 'unarchive_bot', 7], 'delete' => ['DELETE', '/api/v1/bots/1', 'delete_bot', 2] }.freeze
-    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + %w[create_bot create_index_bot create_signal_bot market_buy]).freeze
+    # PLAN-A11: the tracker routes (pages_api.rb api_tracker_scenarios).
+    TRACKER = { 'list' => ['GET', '/api/v1/transactions/account', 'list_account_transactions'],
+                'export' => ['GET', '/api/v1/transactions/export', 'export_transactions_csv'],
+                'link' => ['POST', '/api/v1/transactions/account/3/transfer_link', 'set_transfer_link'],
+                'price' => ['PATCH', '/api/v1/transactions/account/10/price', 'set_transaction_price'],
+                'sync' => ['POST', '/api/v1/tracker/sync', 'sync_tracker'] }.freeze
+    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + TRACKER.values.map(&:last) +
+             %w[create_bot create_index_bot create_signal_bot market_buy]).freeze
     # What a bot write may change, and the rows compared as stored.
     WRITE_TABLES = %w[bots bot_activity_logs bot_index_assets].freeze
     WRITE_ROWS = { 'bots' => '*', 'bot_activity_logs' => '*', 'bot_index_assets' => '*' }.freeze
@@ -107,7 +113,7 @@ module Pages
                                               json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
       # The setup gate is ApplicationController's: an install without an admin still answers the API.
       grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
-      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios).merge(api_order_scenarios)
+      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios).merge(api_order_scenarios).merge(api_tracker_scenarios)
     end
 
     # A10: POST /api/v1/bots (BotApi::Bots::Create, CreateIndex, CreateSignal). A refused create writes nothing: the
@@ -530,6 +536,8 @@ module Pages
       api_indices(spec) if spec['indices']
       Index.where(external_id: 'nasdaq-100').find_each { |ix| ix.update_columns(available_exchanges: { 'Exchanges::Alpaca' => ix.top_coins }) } if spec['index_alpaca']
       api_keys(owner, second) if spec['keys']
+      api_ledger(owner, second, spec['ledger']) if spec['ledger']
+      api_tracker_keys(owner, spec['tracker_keys']) if spec['tracker_keys']
       # Paper trading on: MCP refuses the create tools; REST is live and creates.
       owner.update_columns(mcp_settings: { 'dry_run' => true }) if spec['paper']
       # The owner's Alpaca key as another account (its stubbed answers) or in live mode (the live host).
@@ -539,6 +547,157 @@ module Pages
       # MarketData's listings sync types every stock listing (CATEGORY_BY_TYPE); the grid's alpaca install leaves them untyped.
       unless spec['untyped']
         Asset.where(category: 'Stock').find_each { |asset| asset.update_columns(instrument_type: %w[QQQM IBIT].include?(asset.symbol) ? 'etf' : 'stock') }
+      end
+    end
+
+    # PLAN-A11: the tracker through REST. A write step may change account_transactions only; every step's job classes are
+    # compared (sync's by key: tests/pages.rs tracker_sync_jobs). `api_tracker_d_*` scenarios hold the named divergences:
+    # tests/pages.rs tracker_api_difference turns Rails' answer into the one this build owes, after checking Rails still does
+    # what the divergence names.
+    def tracker_write(method, path, body = nil, token = 'api-token', **opts)
+      step = body ? json_body(path, body, token, method:, **opts) : api(path, token, method:, **opts)
+      step.merge('may_mutate' => ['account_transactions'])
+    end
+
+    def ledger_case(steps, ledger = 'rows', api = {}, attrs = {}) = api_case(steps, { 'ledger' => ledger }.merge(api), attrs)
+
+    def api_tracker_scenarios
+      grid = {}
+      TRACKER.each do |name, (method, path, tool)|
+        step = ->(token = 'api-token') { %w[link price sync].include?(name) ? tracker_write(method, path, name == 'link' ? '{"linked":true}' : (name == 'price' ? '{"price_usd":"2"}' : nil), token) : api(path, token, method:) }
+        grid["api_tracker_#{name}_tokens"] = ledger_case([step.(nil), step.('nope'), step.('mcp-token'), step.('revoked-token'), step.('second-token'), step.('personal-token')])
+        grid["api_tracker_#{name}_tool_off"] = ledger_case([step.(), step.('personal-token')], 'rows', 'tools' => TOOLS - [tool])
+        grid["api_tracker_#{name}_not_granted"] = ledger_case([step.()], 'rows', 'grant' => TOOLS - [tool])
+      end
+      list = '/api/v1/transactions/account'
+      export = '/api/v1/transactions/export'
+      link = ->(id) { "#{list}/#{id}/transfer_link" }
+      price = ->(id) { "#{list}/#{id}/price" }
+      sync = '/api/v1/tracker/sync'
+      grid['api_tracker_list'] = ledger_case([api(list), api("#{list}?exchange_id=3"), api("#{list}?exchange_id=1abc"), api("#{list}?exchange_id=abc"),
+                                              api("#{list}?exchange_id=999"), api("#{list}?exchange_id="), api("#{list}?from_date=2026-09-02"),
+                                              api("#{list}?to_date=2026-09-03"), api("#{list}?from_date=2026-09-02&to_date=2026-09-05&exchange_id=1"),
+                                              api("#{list}?from_date=2026-09-05&to_date=2026-09-02"), api("#{list}?from_date=invalid"),
+                                              api("#{list}?to_date=2024-13-01"), api("#{list}?from_date=2024-02-30"), api("#{list}?exchange_id=999&from_date=invalid"),
+                                              api("#{list}?from_date=%20"), api("#{list}?entry_type=deposit"), api("#{list}?entry_type=withdrawal&limit=2"),
+                                              api("#{list}?entry_type=staking_reward"), api("#{list}?entry_type="), api("#{list}?limit=1"), api("#{list}?limit=0"),
+                                              api("#{list}?limit=-3"), api("#{list}?limit=500"), api("#{list}?limit=abc"), api("#{list}?limit=2abc"),
+                                              json_body(list, '{"limit":2,"entry_type":"buy"}'), json_body("#{list}?limit=1", '{"limit":3}'),
+                                              json_body(list, '{"limit":null,"exchange_id":null}'), json_body(list, '{"exchange_id":3.7}'),
+                                              api(list, 'second-token'), api("#{list}.json"), api(list, method: 'HEAD')])
+      grid['api_tracker_list_many'] = ledger_case([api(list), api("#{list}?limit=200"), api("#{list}?limit=201")], 'many')
+      # D-API-DATE-STRICT: Date.parse reads a date out of these; this build answers step 0's invalid_date.
+      grid['api_tracker_d_dates'] = ledger_case([api("#{list}?from_date=invalid"), api("#{list}?from_date=Sep%205"), api("#{list}?from_date=2026-09-02T10:00"),
+                                                 api("#{list}?to_date=20260903"), api("#{list}?from_date=1582-12-31"), api("#{list}?from_date=2026-09-02x"),
+                                                 api("#{export}?from_date=Sep%202%202026")])
+      # D-API-ENTRY-TYPE: Rails filters by any text (an empty list, an enum number, a list); this build answers 422 invalid_entry_type.
+      grid['api_tracker_d_entry_type'] = ledger_case([api("#{list}?from_date=invalid"), api("#{list}?entry_type=bogus"), api("#{list}?entry_type=4"),
+                                                      api("#{list}?entry_type[]=deposit&entry_type[]=withdrawal")])
+      # D-API-NONSCALAR: Rails raises on Array#to_i; this build answers as step 0 (exchange) and step 1 (the default limit).
+      grid['api_tracker_d_nonscalar'] = ledger_case([api("#{list}?exchange_id=999"), api(list), api("#{list}?exchange_id[]=1").merge('rails_exception_status' => 500),
+                                                     api("#{list}?limit[]=1").merge('rails_exception_status' => 500),
+                                                     api("#{export}?exchange_id[]=1").merge('rails_exception_status' => 500)])
+      grid['api_tracker_export'] = ledger_case([api(export), api("#{export}?exchange_id=3"), api("#{export}?from_date=2026-09-02&to_date=2026-09-05"),
+                                                api("#{export}?exchange_id=999"), api("#{export}?from_date=invalid"), api("#{export}?from_date=2030-01-01"),
+                                                api("#{export}.json"), api(export, method: 'HEAD'), api(export).merge('if_none_match' => 'last'),
+                                                api(export, 'second-token'), api("#{export}?entry_type=deposit&limit=1")])
+      grid['api_tracker_export_none'] = ledger_case([api(export)], 'none')
+      grid['api_tracker_export_cap'] = ledger_case([api(export)], 'cap_5000')
+      grid['api_tracker_export_over_cap'] = ledger_case([api(export), api("#{export}?from_date=2026-01-01")], 'cap_5001')
+      grid['api_tracker_link'] = ledger_case([tracker_write('POST', link.(3)), tracker_write('POST', link.(3), '{"linked":"maybe"}'),
+                                              tracker_write('POST', link.(3), '{"linked":1}'), tracker_write('POST', "#{link.(3)}?linked="),
+                                              tracker_write('POST', link.(999), '{"linked":true}'), tracker_write('POST', link.(14), '{"linked":true}'),
+                                              tracker_write('POST', link.(3), '{"linked":true}'), tracker_write('POST', link.(4), '{"linked":"true"}'),
+                                              tracker_write('POST', "#{link.(4)}?linked=false"), tracker_write('POST', link.(3), '{"linked":false}'),
+                                              tracker_write('POST', "#{link.(4)}?linked=true"), tracker_write('POST', link.(5), '{"linked":true}'),
+                                              tracker_write('POST', link.(10), '{"linked":true}'), tracker_write('POST', link.(9), '{"linked":true}'),
+                                              tracker_write('POST', '/api/v1/transactions/account/8abc/transfer_link', '{"linked":false}'),
+                                              tracker_write('POST', link.(6), '{"linked":false}'), tracker_write('POST', link.(3), '{"linked":true}', 'second-token')])
+      grid['api_tracker_link_deposit_side'] = ledger_case([tracker_write('POST', link.(4), '{"linked":true}'), tracker_write('POST', link.(7), '{"linked":true}')])
+      # D-LINK-KIND: Rails answers a buy and an airdrop with "No matching transfer"; this build with 422 not_transferable (step 0's headers).
+      grid['api_tracker_d_link_kind'] = ledger_case([tracker_write('POST', link.(3), '{"linked":"maybe"}'), tracker_write('POST', link.(1), '{"linked":true}'),
+                                                     tracker_write('POST', link.(2), '{"linked":true}'), tracker_write('POST', link.(2), '{"linked":false}')])
+      grid['api_tracker_price'] = ledger_case([tracker_write('PATCH', price.(10)), tracker_write('PATCH', price.(10), '{"price":"2"}'),
+                                               tracker_write('PATCH', "#{price.(10)}?price_usd=12.5"), tracker_write('PATCH', price.(10), '{"price_usd":"0"}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":1.2345678901234567}'), tracker_write('PATCH', price.(10), '{"price_usd":5}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":0.00005}'), tracker_write('PATCH', price.(10), '{"price_usd":" 7.50 "}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":"-5"}'), tracker_write('PATCH', price.(10), '{"price_usd":"1e3"}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":"1234567890123456"}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":"0.1234567890123456789"}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":"abc"}'), tracker_write('PATCH', price.(10), '{"price_usd":"7.50"}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":"7.5"}'), tracker_write('PATCH', price.(10), '{"price_usd":null}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":null}'), tracker_write('PATCH', price.(1), '{"price_usd":"12"}'),
+                                               tracker_write('PATCH', price.(11), '{"price_usd":"12"}'), tracker_write('PATCH', price.(1), '{"price_usd":""}'),
+                                               tracker_write('PATCH', price.(1), '{"price_usd":"abc"}'), tracker_write('PATCH', price.(2), '{"price_usd":"  "}'),
+                                               tracker_write('PATCH', price.(999), '{"price_usd":"1"}'), tracker_write('PATCH', price.(14), '{"price_usd":"1"}'),
+                                               tracker_write('PATCH', price.(10), '{"price_usd":"1"}', 'second-token'),
+                                               tracker_write('PATCH', "#{price.(10)}?price_usd", nil)])
+      # D-PRICE-NONTEXT: Rails clears on false, [] and {} (a row with no stated price, so nothing is written); this build answers step 0.
+      grid['api_tracker_d_price_nontext'] = ledger_case([tracker_write('PATCH', price.(10), '{"price_usd":"abc"}'), tracker_write('PATCH', price.(10), '{"price_usd":false}'),
+                                                         tracker_write('PATCH', price.(10), '{"price_usd":[]}'), tracker_write('PATCH', price.(10), '{"price_usd":{}}')])
+      grid['api_tracker_sync'] = ledger_case([tracker_write('POST', sync), tracker_write('POST', sync, '{"x":'), tracker_write('POST', sync, nil, 'second-token')])
+      grid['api_tracker_sync_none'] = ledger_case([tracker_write('POST', sync)], 'rows', {}, 'api_keys' => {})
+      grid['api_tracker_sync_withdrawal'] = ledger_case([tracker_write('POST', sync)], 'rows', { 'tracker_keys' => 'withdrawal' }, 'api_keys' => {})
+      grid['api_tracker_sync_two'] = ledger_case([tracker_write('POST', sync)], 'rows', 'tracker_keys' => 'two')
+      grid['api_tracker_sync_fallback'] = ledger_case([tracker_write('POST', sync)], 'rows', 'tracker_keys' => 'fallback')
+      # D-SYNC-VENUE: a reading key on Interactive Brokers, whose ledger this build does not read: 501, nothing woken.
+      grid['api_tracker_d_sync_venue'] = ledger_case([tracker_write('POST', sync)], 'rows', {}, 'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' })
+      grid
+    end
+
+    # The owner's ledger on Alpaca (1) and Kraken (3), ids 1 to 13 in this order, and the second user's row 14:
+    #  1 a USD-quoted buy (venue valued) with a fee and a formula-like description; 2 an airdrop with a stated price;
+    #  3/4 a withdrawal and its one matching deposit; 5 a withdrawal with two deposits that match (6, 7);
+    #  8/9 a linked pair; 10 a deposit nothing matches; 11/12 a buy and its cash leg in one group, at one instant;
+    #  13 a reward with a tiny amount and fee.
+    def api_ledger(owner, second, kind)
+      return if kind == 'none'
+
+      alpaca, kraken = Exchange.find_by!(name: 'Alpaca'), Exchange.find_by!(name: 'Kraken')
+      at = ->(text) { Time.iso8601(text) }
+      row = lambda do |user, exchange, entry_type, base, amount, time, **extra|
+        AccountTransaction.create!({ user:, exchange:, entry_type:, base_currency: base, base_amount: amount, transacted_at: at.(time), raw_data: {} }.merge(extra))
+      end
+      if kind.start_with?('cap_')
+        count = Integer(kind.delete_prefix('cap_'))
+        now = Time.current
+        rows = Array.new(count) do |i|
+          { user_id: owner.id, exchange_id: alpaca.id, entry_type: 0, base_currency: 'BTC', base_amount: '0.001', quote_currency: 'USD', quote_amount: '60',
+            transacted_at: at.('2026-03-01T00:00:00Z') + (i / 2).minutes, tx_id: "cap-#{i}", raw_data: {}, manual_values: {}, created_at: now, updated_at: now }
+        end
+        AccountTransaction.insert_all!(rows)
+        return
+      end
+      row.(owner, alpaca, :buy, 'BTC', '0.5', '2026-09-01T10:00:00Z', quote_currency: 'USD', quote_amount: '30000', fee_currency: 'USD', fee_amount: '1.5',
+                                                                     tx_id: 't-1', description: '=1+1')
+      row.(owner, alpaca, :airdrop, 'ETH', '2', '2026-09-02T10:00:00Z', manual_values: { 'price' => '1800.5' })
+      row.(owner, kraken, :withdrawal, 'BTC', '0.3', '2026-09-03T12:00:00Z', fee_currency: 'BTC', fee_amount: '0.0001')
+      row.(owner, alpaca, :deposit, 'BTC', '0.2999', '2026-09-04T12:00:00Z')
+      row.(owner, kraken, :withdrawal, 'ETH', '1', '2026-09-05T12:00:00Z')
+      row.(owner, alpaca, :deposit, 'ETH', '1', '2026-09-06T12:00:00Z')
+      row.(owner, alpaca, :deposit, 'ETH', '0.9', '2026-09-07T12:00:00Z')
+      row.(owner, kraken, :withdrawal, 'SOL', '10', '2026-08-01T12:00:00Z')
+      row.(owner, alpaca, :deposit, 'SOL', '10', '2026-08-02T12:00:00Z')
+      AccountTransaction.find(8).update!(linked_transaction_id: 9)
+      row.(owner, alpaca, :deposit, 'DOGE', '5', '2026-07-01T12:00:00Z')
+      row.(owner, kraken, :buy, 'ADA', '100', '2026-09-08T09:00:00Z', group_id: 'g-1')
+      row.(owner, kraken, :sell, 'USD', '50', '2026-09-08T09:00:00Z', group_id: 'g-1')
+      row.(owner, alpaca, :staking_reward, 'ETH', '0.000000123456789', '2026-09-09T08:00:00Z', fee_currency: 'ETH', fee_amount: '0.00000001')
+      row.(second, alpaca, :deposit, 'BTC', '1', '2026-09-03T13:00:00Z')
+      return unless kind == 'many'
+
+      201.times { |i| row.(owner, kraken, :buy, 'BTC', '1', (at.('2026-06-01T00:00:00Z') + i).iso8601, quote_currency: 'USD', quote_amount: '10000', tx_id: "many-#{i}") }
+    end
+
+    # Keys the sync reads (ApiKey.reading): 'two' adds a Kraken read-only key beside the install's Alpaca one; 'fallback' adds
+    # an incorrect Kraken trading key and a correct read-only one (the read-only key is read); 'withdrawal' only a withdrawal key.
+    def api_tracker_keys(owner, kind)
+      kraken = Exchange.find_by!(name: 'Kraken')
+      key = ->(exchange, key_type, status = 'correct') { ApiKey.new(user: owner, exchange:, key: 'k', secret: 's', status:, key_type:).save!(validate: false) }
+      case kind
+      when 'two' then key.(kraken, :read_only)
+      when 'fallback' then key.(kraken, :trading, 'incorrect') && key.(kraken, :read_only)
+      when 'withdrawal' then key.(Exchange.find_by!(name: 'Alpaca'), :withdrawal)
       end
     end
 

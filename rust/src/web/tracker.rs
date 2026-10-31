@@ -18,32 +18,54 @@ pub mod modal;
 pub mod classifications;
 pub mod import;
 pub mod gap;
+pub mod api;
 
 struct Prepared {
     response: Response,
     jobs: Vec<(&'static str, String)>,
 }
 
-/// All D5 database writes share the same immediate transaction and the engine's guard.
+/// What a guarded change asks for: commit (then wake the engine and these jobs), or roll back and answer as it is (a
+/// refusal found inside the transaction: no guard, no commit, no wake).
+pub(crate) enum Step<T> { Commit(T, Vec<(&'static str, String)>), Abort(T) }
+/// A guarded write's end: done (committed or aborted), the owner gone, or the engine's guard refused it (rolled back).
+pub(crate) enum Guarded<T> { Done(T), NoOwner, Refused(String) }
+
+/// All D5 database writes share the same immediate transaction and the engine's guard (the web forms and the API alike).
 /// Run inside App::db: cancellation of the HTTP awaiter cannot lose the post-commit wake.
-fn write(c: &Connection, ctx: &Ctx, owner: i64,
-    change: impl FnOnce(&Connection, i64, &str) -> Result<Prepared, WebError>,
-) -> Result<Response, WebError> {
+pub(crate) fn guarded<T>(c: &Connection, app: &App, owner: i64,
+    change: impl FnOnce(&Connection, i64, &str) -> Result<Step<T>, WebError>,
+) -> Result<Guarded<T>, WebError> {
     let tx = model::immediate(c)?;
     let owned = tx.query_row("SELECT id FROM users WHERE id=?1", [owner], |r| r.get::<_, i64>(0)).optional()?;
-    if owned.is_none() { return Ok(StatusCode::NOT_FOUND.into_response()); }
-    let prepared = change(&tx, owner, &codec::format_time(ctx.app.now()))?;
-    if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, None) {
+    if owned.is_none() { return Ok(Guarded::NoOwner); }
+    let (value, jobs) = match change(&tx, owner, &codec::format_time(app.now()))? {
+        Step::Abort(value) => { tx.rollback()?; return Ok(Guarded::Done(value)); }
+        Step::Commit(value, jobs) => (value, jobs),
+    };
+    if let Err(refusal) = eligibility::guard(&tx, &app.cipher, None) {
         tx.rollback()?;
-        let message = super::i18n::text(ctx.locale, "engine.write_refused", &[("reason",super::i18n::Arg::Text(&refusal.reason()))]);
-        return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE,"text/plain; charset=utf-8")], message).into_response());
+        return Ok(Guarded::Refused(refusal.reason().to_string()));
     }
     // Rails permits valid classification rows to survive another row's validation error.
     // Database errors above instead unwind the whole transaction and propagate to the 500.
     tx.commit()?;
-    ctx.app.wake_engine();
-    for (name,scope) in prepared.jobs { ctx.app.wake_job(name,&scope); }
-    Ok(prepared.response)
+    app.wake_engine();
+    for (name,scope) in jobs { app.wake_job(name,&scope); }
+    Ok(Guarded::Done(value))
+}
+
+fn write(c: &Connection, ctx: &Ctx, owner: i64,
+    change: impl FnOnce(&Connection, i64, &str) -> Result<Prepared, WebError>,
+) -> Result<Response, WebError> {
+    match guarded(c, &ctx.app, owner, |c, owner, now| change(c, owner, now).map(|p| Step::Commit(p.response, p.jobs)))? {
+        Guarded::Done(response) => Ok(response),
+        Guarded::NoOwner => Ok(StatusCode::NOT_FOUND.into_response()),
+        Guarded::Refused(reason) => {
+            let message = super::i18n::text(ctx.locale, "engine.write_refused", &[("reason",super::i18n::Arg::Text(&reason))]);
+            Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE,"text/plain; charset=utf-8")], message).into_response())
+        }
+    }
 }
 
 fn blank(value: &Value) -> bool {
@@ -118,24 +140,41 @@ pub async fn fund_classifications(State(app): State<App>, Extension(ctx): Extens
     mutate(app,ctx,true,headers).await
 }
 
+/// What a sync reads (TrackerController#sync, BotApi::Tracker::Sync): refused when a reading key is on a venue whose ledger
+/// this build does not read (its venues' names); else the venues and the two jobs per reading key.
+pub(crate) enum SyncPlan { Unsupported(Vec<String>), Keys { names: Vec<String>, jobs: Vec<(&'static str, String)> } }
+
+pub(crate) fn sync_plan(c: &Connection, owner: i64) -> Result<SyncPlan, WebError> {
+    // This build syncs the ledger of the venues whose registry row has one (`sync::ledger_venues`) only. Never announce
+    // a sync for a venue whose sync implementation is not available.
+    let venues=crate::sync::ledger_venues();
+    let mut statement = c.prepare(&format!("SELECT e.name FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.status=1 AND k.key_type<>1 AND e.type NOT IN ({}) ORDER BY k.id",
+        vec!["?";venues.len()].join(",")))?;
+    let mut unsupported: Vec<String> = vec![];
+    for name in statement.query_map(rusqlite::params_from_iter(std::iter::once(rusqlite::types::Value::Integer(owner)).chain(venues.iter().map(|v|rusqlite::types::Value::Text(v.to_string())))),|r|r.get::<_,Option<String>>(0))? {
+        let name = name?.unwrap_or_default();
+        if !unsupported.contains(&name) { unsupported.push(name); }
+    }
+    if !unsupported.is_empty() { return Ok(SyncPlan::Unsupported(unsupported)); }
+    let keys = crate::sync::ledger_reading_keys(c).map_err(|_| WebError::Config("tracker reading keys unavailable".into()))?;
+    let mut names = vec![];
+    let mut jobs = vec![];
+    for key in keys {
+        let name: Option<String> = c.query_row("SELECT e.name FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(key,owner),|r|r.get(0)).optional()?;
+        let Some(name) = name else { continue };
+        names.push(name);
+        for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] { jobs.push((job,key.to_string())); }
+    }
+    Ok(SyncPlan::Keys { names, jobs })
+}
+
 pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
     app.db(move |c| write(c,&ctx,owner,|c,owner,_| {
-        // This build syncs the ledger of the venues whose registry row has one (`sync::ledger_venues`) only. Never announce
-        // a sync for a venue whose sync implementation is not available.
-        let venues=crate::sync::ledger_venues();
-        let unsupported: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.status=1 AND k.key_type<>1 AND e.type NOT IN ({}))",
-            vec!["?";venues.len()].join(",")),rusqlite::params_from_iter(std::iter::once(rusqlite::types::Value::Integer(owner)).chain(venues.iter().map(|v|rusqlite::types::Value::Text(v.to_string())))),|r|r.get(0))?;
-        if unsupported { return Ok(Prepared { response:layout::refused(&ctx,"tracker sync for a venue other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"),jobs:vec![] }); }
-        let keys = crate::sync::ledger_reading_keys(c).map_err(|_| WebError::Config("tracker reading keys unavailable".into()))?;
-        let mut names = vec![];
-        let mut jobs = vec![];
-        for key in keys {
-            let name: Option<String> = c.query_row("SELECT e.name FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(key,owner),|r|r.get(0)).optional()?;
-            let Some(name) = name else { continue };
-            names.push(name);
-            for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] { jobs.push((job,key.to_string())); }
-        }
+        let (names, jobs) = match sync_plan(c, owner)? {
+            SyncPlan::Unsupported(_) => return Ok(Prepared { response:layout::refused(&ctx,"tracker sync for a venue other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"),jobs:vec![] }),
+            SyncPlan::Keys { names, jobs } => (names, jobs),
+        };
         if names.is_empty() { return Ok(Prepared { response:StatusCode::NO_CONTENT.into_response(),jobs }); }
         let text = super::i18n::t(ctx.locale,"tracker.importing_from",&[("exchange",super::i18n::Arg::Text(&names.join(", ")))]);
         let content = format!("  <div id=\"sync-progress\" class=\"flash__message salert salert--syncing\">\n    <div class=\"loader--syncing\"></div>\n    {text}\n  </div>\n");
@@ -162,14 +201,13 @@ pub const CSV_HEADERS: [&str; 12] = ["date","type","base_currency","base_amount"
 
 /// `filtered_transactions` (exchange, then the UTC days `from`..`to`) through `AccountTransaction.to_csv`.
 fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
-    use crate::tax::{line, Cell};
     use rusqlite::types::Value as Sql;
     if ctx.params.query.iter().any(|(k, _)| k.starts_with("exchange_id[") || k.starts_with("from[") || k.starts_with("to[")) {
         return Ok(layout::refused(ctx, "tracker structured filters"));
     }
     let present = |key: &str| ctx.params.query(key).filter(|v| !crate::ruby::blank(v));
     // Rails' own query, so that rows at the same instant come out in the same order.
-    let mut sql = String::from("SELECT transacted_at,entry_type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange_id,tx_id,group_id,description FROM account_transactions WHERE user_id=?1");
+    let mut sql = format!("SELECT {CSV_COLUMNS} FROM account_transactions WHERE user_id=?1");
     let mut binds = vec![Sql::Integer(owner)];
     if let Some(raw) = present("exchange_id") {
         let Some(id) = super::bot::id_from_path(raw) else { return Ok(layout::missing()) };
@@ -185,10 +223,24 @@ fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, W
         sql.push_str(&format!(" AND transacted_at{op}?{}", binds.len()));
     }
     sql.push_str(" ORDER BY transacted_at ASC");
+    let out = csv_rows(c, &sql, binds)?;
+    let name = format!("deltabadger-transactions-{}.csv", ctx.now.date_naive());
+    Ok(([(header::CONTENT_TYPE, "text/csv; charset=utf-8".to_string()),
+         (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{name}\"; filename*=UTF-8''{name}")),
+         (header::HeaderName::from_static("content-transfer-encoding"), "binary".to_string())], out).into_response())
+}
+
+/// The columns `csv_rows` reads, in its order.
+pub(crate) const CSV_COLUMNS: &str = "transacted_at,entry_type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange_id,tx_id,group_id,description";
+
+/// AccountTransaction.to_csv over the rows `sql` selects (CSV_COLUMNS, in the order the query gives): the web export's
+/// and the API's one writer.
+pub(crate) fn csv_rows(c: &Connection, sql: &str, binds: Vec<rusqlite::types::Value>) -> Result<String, WebError> {
+    use crate::tax::{line, Cell};
     let mut out = String::new();
     line(&mut out, &CSV_HEADERS.map(|h| Cell::Text(h.into())));
     let mut venues: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
-    let mut statement = c.prepare(&sql)?;
+    let mut statement = c.prepare(sql)?;
     let mut rows = statement.query(rusqlite::params_from_iter(binds))?;
     while let Some(r) = rows.next()? {
         let text = |i: usize| -> Result<Cell, WebError> { Ok(r.get::<_, Option<String>>(i)?.map_or(Cell::Nil, Cell::Text)) };
@@ -206,8 +258,5 @@ fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, W
             usize::try_from(kind).ok().and_then(|k| row::TYPES.get(k)).map_or(Cell::Nil, |k| Cell::Text((*k).into())),
             text(2)?, amount(3)?, text(4)?, amount(5)?, text(6)?, amount(7)?, Cell::Text(venues[&exchange].clone()), text(9)?, text(10)?, text(11)?]);
     }
-    let name = format!("deltabadger-transactions-{}.csv", ctx.now.date_naive());
-    Ok(([(header::CONTENT_TYPE, "text/csv; charset=utf-8".to_string()),
-         (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{name}\"; filename*=UTF-8''{name}")),
-         (header::HeaderName::from_static("content-transfer-encoding"), "binary".to_string())], out).into_response())
+    Ok(out)
 }
