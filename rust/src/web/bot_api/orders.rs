@@ -11,7 +11,8 @@
 //! which OrdersController permits and the market services do not take (Rails raises and leaves the key in progress), is
 //! ignored. D-ORDER-CANCEL-TRANSPORT (a cancel the venue never answers is `cancel_failed` with the transport's message;
 //! Rails raises), D-ORDER-KUCOIN-FOREIGN (a bare order id on a KuCoin HF or UTA account is refused unsent) and A4's
-//! D-CANCEL-REREAD-ALWAYS (a cancelled bot row is re-read by the engine whatever the venue answered, on either path).
+//! D-CANCEL-REREAD-ALWAYS (a cancelled bot row is re-read by the engine whatever the venue answered, on either path) and
+//! D-ORDER-ID-SAFE (a bare order id that is not a plain path segment is refused unsent).
 use super::{present, refused, Domain, Res};
 use crate::engine::model::{self, Ticker};
 use crate::web::{bot::mcp_input::number, App, WebError};
@@ -284,6 +285,12 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     let row: Option<(i64, i64)> = c.query_row("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
                                                WHERE b.user_id=?1 AND t.exchange_id=?2 AND t.external_id=?3 AND substr(t.external_id, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1",
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    // D-ORDER-ID-SAFE: a bare id becomes a path segment on the venue (`DELETE /v2/orders/<id>`), so one that could leave it
+    // (`../positions/X` would be Alpaca's position liquidation) is refused and nothing is sent. Every venue's order ids are
+    // letters, digits, '-' and '_'. Rails interpolates it.
+    if row.is_none() && !(text.len() <= 128 && text.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')) {
+        return Ok(Cancel::Done(failure(Domain::ValidationFailed, "invalid_order_id", "order_id must be an exchange order id: letters, digits, '-' and '_'.")));
+    }
     Ok(Cancel::Send(CancelJob { target: Target::Key { user: who.user, exchange, external: text, row }, answer }))
 }
 

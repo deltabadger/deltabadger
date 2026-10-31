@@ -321,6 +321,13 @@ async fn an_api_cancel_by_exchange_id_uses_a_bot_rows_stored_order_and_sends_a_f
     i.o.primary.execute("INSERT INTO users (email, encrypted_password, name, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', ?1, ?1)", [T0]).unwrap();
     i.o.primary.execute("UPDATE bots SET user_id = ?1 WHERE id = ?2", (i.o.primary.last_insert_rowid(), i.bot)).unwrap();
     assert_eq!(rest_cancel(&app, &i.open.to_string()).await.1["error"]["code"], "exchange_name_required");
+    // D-ORDER-ID-SAFE: an id that would leave /v2/orders/ (here: a position's liquidation) is refused, nothing sent.
+    // (REST: an encoded '/' in the path is the router's 404 before any service.)
+    assert_eq!(rest_cancel(&app, "..%2Fpositions%2FQQQM?exchange_name=alpaca").await.0, 404);
+    for id in ["../positions/QQQM", "a.b", "a?b", &"x".repeat(129)] {
+        assert_eq!(mcp_cancel(&app, json!({"order_id": id, "exchange_name": "Alpaca"})).await["content"][0]["text"],
+                   "order_id must be an exchange order id: letters, digits, '-' and '_'.", "{id}");
+    }
     let paths: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| format!("{} {}", r.method, r.url.path())).collect();
     assert_eq!(paths, vec!["DELETE /v2/orders/OPEN-1", "DELETE /v2/orders/VENUE-9", "DELETE /v2/orders/OPEN-1"]);
 }
