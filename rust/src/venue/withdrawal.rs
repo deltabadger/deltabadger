@@ -15,8 +15,10 @@
 //! - D-RULE-KRAKEN-QUOTE: Kraken's fee is a `WithdrawInfo` quote for the exact amount (Rails reads WithdrawMethods' first
 //!   method and drops percentage fees); a quote whose net is not `amount − fee` is fee unknown.
 //! - D-RULE-GEMINI-FEE-ESTIMATE: Gemini's fee is `feeEstimate` (Rails knows no Gemini fee).
-//! - D-RULE-FEE-FALLBACK (Q1): Binance's and MEXC's coin list is read with the FeeApiKey, else the rule's own withdrawal
-//!   key. Rails reads nothing without a FeeApiKey (nothing in the app creates one), so its fee stays unknown.
+//! - D-RULE-FEE-FALLBACK (Q1): the rules page's fee display reads Binance's and MEXC's coin list with the FeeApiKey, else
+//!   the rule's own withdrawal key. The engine always sizes with the withdrawal key: its account pays the fee and is the
+//!   identity fenced at begin and dispatch. Rails reads nothing without a FeeApiKey (nothing in the app creates one), so
+//!   its fee stays unknown.
 //! - D-RULE-FEE-STAMP: a fee read is written to the rule's own exchange_assets row only, and only when it is known. Rails
 //!   writes every coin the venue lists (creating rows), and stamps a missing or unreadable fee as fresh for 24 hours.
 //! - D-RULE-LOG-SECRETS: no error text this module returns carries a URL query, a signature or an HTML body.
@@ -52,7 +54,8 @@ pub fn gemini_network(ticker: &str) -> Option<&'static str> {
     GEMINI_NETWORK_MAP.iter().find(|(t, _)| t.eq_ignore_ascii_case(ticker)).map(|(_, n)| *n)
 }
 
-/// The venues that withdraw (exchange.rb:534 less Binance.US, D-RULE-BINANCE-US-UNSUPPORTED).
+/// The venues that withdraw (exchange.rb:534 less Binance.US, D-RULE-BINANCE-US-UNSUPPORTED: it has no address book, so no
+/// destination contract).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind { Binance, Kraken, Gemini, Mexc }
 
