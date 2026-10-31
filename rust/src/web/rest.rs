@@ -176,7 +176,41 @@ fn json_body(content_type: Option<&str>) -> bool {
 /// `Pending`: a read's venue fetch, run outside the database before the read is finished and rendered.
 /// `Head`: `head <status>` (an empty body under `text/html`, the controller's headers).
 pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request),
-    Cancel(Box<bot_api::orders::CancelJob>) }
+    Order(Box<OrderJob>), Cancel(Box<bot_api::orders::CancelJob>) }
+
+/// `POST /api/v1/orders` past its gate: everything from the Idempotency-Key's claim on, run by one detached task
+/// (PLAN-A9 r1 §3), so a dropped connection never strands the key or the queued request.
+pub(crate) struct OrderJob { user: i64, key: Option<String>, payload: Map<String, Value>, kind: bot_api::orders::Kind, args: Map<String, Value>, bot_id: Option<Value>, unported: String }
+
+/// OrdersController#create from the claim on: the claim, the service (which may queue the order for the engine), the wait,
+/// and the completed key.
+async fn create_order(app: App, job: OrderJob) -> Answer {
+    use bot_api::orders::{self, Placed};
+    let created = |res: bot_api::Res| { let ok = res.code.is_none(); let mut answer = render(res); if ok { if let Answer::Json(status, _) = &mut answer { *status = StatusCode::CREATED; } } answer };
+    let app2 = app.clone();
+    let OrderJob { user, key, payload, kind, args, bot_id, unported } = job;
+    let first = app.db(move |c| {
+        let id = match super::rest_idempotency::claim(c, &app2, user, key.as_deref(), payload)? {
+            super::rest_idempotency::Claim::Answer(answer) => return Ok(Err(answer)),
+            super::rest_idempotency::Claim::Claimed(id) => id,
+        };
+        // REST is never a dry run.
+        let caller = orders::Caller { user, dry_run: false, mcp: false };
+        Ok(match orders::place(c, &app2, caller, kind, &args, bot_id.as_ref())? {
+            Placed::Done(res) if res.status == Domain::NotPorted => {
+                super::rest_idempotency::release(c, id)?;
+                Err(failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &unported))
+            }
+            Placed::Done(res) => Err(super::rest_idempotency::complete(c, &app2, id, created(res))?),
+            Placed::Queued(queued) => { app2.wake_engine(); Ok((id, queued)) }
+        })
+    }).await;
+    let (id, queued) = match first { Ok(Ok(waiting)) => waiting, Ok(Err(answer)) => return answer, Err(error) => return Answer::Below(Box::new(error.into_response())) };
+    // A wait that fails never strands the key: the caller is told the order may have been placed.
+    let answer = created(orders::wait(&app, &queued).await.unwrap_or_else(|_| orders::unanswered(&queued)));
+    let app2 = app.clone();
+    match app.db(move |c| super::rest_idempotency::complete(c, &app2, id, answer)).await { Ok(answer) => answer, Err(error) => Answer::Below(Box::new(error.into_response())) }
+}
 
 /// Api::V1::BaseController#status_for.
 fn status_for(status: Domain) -> StatusCode {
@@ -371,21 +405,8 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                         .filter_map(|k| p.get(k).filter(|v| !(v.is_array() || v.is_object())).map(|v| (k.to_string(), v.clone()))).collect();
                     let bot_id = p.get("bot_id").filter(|v| !v.is_null()).map(|v| json!(bot_api::orders::to_s(v)));
                     let payload = super::rest_idempotency::wrapped_payload(input, "order", p)?;
-                    match super::rest_idempotency::claim(c, app, user, input, payload)? {
-                        super::rest_idempotency::Claim::Answer(answer) => answer,
-                        super::rest_idempotency::Claim::Claimed(id) => {
-                            let res = bot_api::orders::place(c, app, caller, kind, &args, bot_id.as_ref())?;
-                            if res.status == Domain::NotPorted {
-                                super::rest_idempotency::release(c, id)?;
-                                unported()
-                            } else {
-                                let created = res.code.is_none();
-                                let mut answer = render(res);
-                                if created { if let Answer::Json(status, _) = &mut answer { *status = StatusCode::CREATED; } }
-                                super::rest_idempotency::complete(c, app, id, answer)?
-                            }
-                        }
-                    }
+                    Answer::Order(Box::new(OrderJob { user, key: input.idempotency.map(str::to_string), payload, kind, args, bot_id,
+                                                      unported: format!("{method} {path} is not served by this build yet.") }))
                 }
             }
         }
@@ -446,6 +467,11 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
                         Err(error) => Answer::Below(Box::new(error.into_response())),
                     }
                 }
+                // Detached: the handler only awaits it (PLAN-A9 r1 §3).
+                Answer::Order(job) => match tokio::spawn(create_order(app.clone(), *job)).await {
+                    Ok(answer) => answer,
+                    Err(error) => Answer::Below(Box::new(WebError::Task(error.to_string()).into_response())),
+                },
                 Answer::Cancel(job) => match bot_api::orders::send_cancel(&app, *job).await {
                     Ok(res) => render(res),
                     Err(error) => Answer::Below(Box::new(error.into_response())),
@@ -493,7 +519,7 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
             headers::controller_defaults(response.headers_mut(), status, false);
             response
         }
-        Answer::Pending(_) | Answer::Rules(_) | Answer::Cancel(_) => WebError::Config("a venue read was not fetched".into()).into_response(),
+        Answer::Pending(_) | Answer::Rules(_) | Answer::Order(_) | Answer::Cancel(_) => WebError::Config("a venue read was not fetched".into()).into_response(),
         Answer::Below(response) => {
             let mut response = *response;
             let status = response.status();

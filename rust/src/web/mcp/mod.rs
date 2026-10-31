@@ -48,7 +48,15 @@ fn accepts(h:&HeaderMap)->bool{
     found.into_iter().all(|v|v)
 }
 /// Called by entry after host/query limits, before its form parsing, locale and cookie handling.
+/// Detached from its connection (PLAN-A9 r1 §3): a client that hangs up mid-call still leaves an order tool's request
+/// answered and its history row written.
 pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Response{
+    match tokio::spawn(serve_call(app,request,deadline)).await {
+        Ok(r)=>r,
+        Err(_)=>response(500,Some(json!({"jsonrpc":"2.0","id":Value::Null,"error":{"code":-32603,"message":"An unexpected error occurred."}})),false),
+    }
+}
+async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Response{
     let (parts,body)=request.into_parts();
     let h=parts.headers;
     let auth=header(&h,"authorization").map(str::to_string);
@@ -111,7 +119,7 @@ pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Respon
 }
 /// A tools/call whose tool reads a venue or the market: the request is in the session's history; the answer is not yet.
 pub struct Pending{session:String,id:Value,work:Work}
-enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
+enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<tools::QueuedOrder>), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
 enum Finished { Read(reads::Fetched), Rules(Value) }
 /// The network part with no database lock held, then the answer, its history row and the response, as dispatch writes them.
 async fn finish(app:App,p:Pending)->Result<Response,WebError>{
@@ -121,6 +129,7 @@ async fn finish(app:App,p:Pending)->Result<Response,WebError>{
             Ok(read) => protocol::tool_text(&read.text,read.is_error),
             Err(_) => protocol::tool_text("An unexpected error occurred.",true),
         }),
+        Work::Order(order) => Finished::Rules(order.perform(&app).await),
         Work::Cancel(job,args) => Finished::Rules(match crate::web::bot_api::orders::send_cancel(&app,job).await {
             Ok(res) => tools::order_text("cancel_order",&args,false,&res),
             Err(_) => { crate::engine::log("MCP order tool failed"); protocol::tool_text("An unexpected error occurred.",true) }
@@ -246,6 +255,7 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
                 tools::Called::Done(value)=>result(id,value),
                 tools::Called::Rules(request)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Rules(request)});return Ok(response(202,None,false));}
                 tools::Called::Fetch(fetch)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Read(fetch)});return Ok(response(202,None,false));}
+                tools::Called::Order(order)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Order(order)});return Ok(response(202,None,false));}
                 tools::Called::Cancel(job,args)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Cancel(job,args)});return Ok(response(202,None,false));}
             }}
         },

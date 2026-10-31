@@ -316,7 +316,7 @@ async fn a_guard_reduction_under_the_minimum_is_one_atomic_skip() {
     s.call(s.buy, 1);
     let the_call = model::load_bot(&s.c, s.bot).unwrap().signal_calls().unwrap().remove(0);
     let version = model::credential_version(&s.c, &bot).unwrap();
-    let claim = placement::begin_signal(&s.c, &bot, &plan, Some(&the_call), &version, None, &at(T0)).unwrap();
+    let claim = placement::begin_signal(&s.c, &bot, &plan, placement::Claim::Webhook(&the_call), &version, None, &at(T0)).unwrap();
     assert!(matches!(claim, placement::SignalClaim::BelowMinimum), "{claim:?}");
     assert_eq!((s.calls(), s.rows().last().unwrap().0, s.lines().iter().map(|(e, _)| e.as_str()).collect::<Vec<_>>()), (0, 2, vec!["order_skipped"]));
     assert!(s.transient().get("rust_placement").is_none(), "no intent");

@@ -1089,7 +1089,7 @@ async fn r02_r06_an_unreadable_hf_row_holds_new_spending() {
     let (_d, _o, _b, plan) = engine_setup();
     let b = model::load_bot(&c, bot.id).unwrap();
     let version = model::credential_version(&c, &b).unwrap();
-    assert!(matches!(placement::begin_signal(&c, &b, &plan, None, &version, None, &FixedClock(now)).unwrap(), placement::SignalClaim::Blocked));
+    assert!(matches!(placement::begin_signal(&c, &b, &plan, placement::Claim::Replace { send_by: None }, &version, None, &FixedClock(now)).unwrap(), placement::SignalClaim::Blocked));
     // Another bot owning the row (Merge/Split moved it) holds it; the first bot is free.
     let other = common::seed::insert_bot(&c, &common::seed::Seeded { user_id: 1, exchange_id: bot.exchange_id, btc: 1, quote: 2, ticker_id: 1, api_key_id: 1 }, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     c.execute("UPDATE transactions SET bot_id = ?1 WHERE id = ?2", [other, id]).unwrap();

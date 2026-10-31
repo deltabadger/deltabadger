@@ -559,6 +559,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     }
     if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx, transport).await? { checks.push(queued(condition_next(&o.primary, bot_id, t)?)); } }
     if scenario["signals"].is_array() { signal_calls(o, venue, scenario, bot_id, start, &cx, transport).await?; }
+    let api = if scenario["api"].is_array() { Some(api_orders(o, venue, scenario, bot_id, start, &cx, transport).await?) } else { None };
     // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
     let mut poll = None;
     if let Some(ext) = scenario["poll"].as_str() {
@@ -643,6 +644,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     if listing { extra.insert("checks".into(), json!(checks)); }
     if scenario["info"].is_array() { extra.insert("infos".into(), Value::Array(infos)); }
     if scenario["warn"] == true { extra.insert("warned".into(), json!(warned.borrow().clone())); }
+    if let Some(api) = api { extra.insert("api".into(), api); }
     Ok((poll, recover_sent, (!extra.is_empty()).then_some(Value::Object(extra))))
 }
 
@@ -670,6 +672,36 @@ async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id:
         }
     }
     Ok(())
+}
+
+/// PLAN-A9 O3: each BotApi::Orders::BotOrder call of the scenario at `start`, one after another: the web's checks
+/// (bot_api::orders::through_bot), the engine's take with its late refusal, signal::run_api_order, and the answer
+/// (BotOrder#answer), recorded as BotApi::Result's status, code, message and data.
+async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Value, EngineError> {
+    use crate::web::bot_api::{orders, Domain};
+    let web = |e: crate::web::WebError| EngineError::Data(format!("{e:?}"));
+    // The request table is this build's own (a Rust migration); Rails built the copy without it.
+    store::test_support::migrate(&o.primary).map_err(|e| EngineError::Data(format!("{e:?}")))?;
+    let user: i64 = o.primary.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+    let mut answers = vec![];
+    for a in scenario["api"].as_array().into_iter().flatten() {
+        transport.set_now(start);
+        let kind = if a["side"] == "sell" { orders::Kind::MarketSell } else { orders::Kind::MarketBuy };
+        let args: serde_json::Map<String, Value> = [("amount", a["amount"].clone()), ("amount_type", a["amount_type"].clone())].into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+        let res = match orders::through_bot(&o.primary, start, orders::Caller { user, dry_run: false, mcp: false }, kind, &args, &json!(bot_id)).map_err(web)? {
+            orders::Placed::Done(res) => res,
+            orders::Placed::Queued(q) => {
+                let request = crate::engine::api_orders::take(&o.primary, q.id, start)?.ok_or_else(|| EngineError::Data("api order not taken".into()))?;
+                crate::engine::signal::run_api_order(&o.primary, venue, &request, &FixedClock(start), cx).await?;
+                let (_, outcome) = crate::engine::api_orders::state(&o.primary, q.id)?.ok_or_else(|| EngineError::Data("api order gone".into()))?;
+                orders::answer(&q, outcome.ok_or_else(|| EngineError::Data("api order unanswered".into()))?)
+            }
+        };
+        let status = match res.status { Domain::Success | Domain::Created => "created", Domain::ValidationFailed => "validation_failed", Domain::PermissionDenied => "permission_denied",
+            Domain::NotFound => "not_found", Domain::Conflict => "conflict", Domain::UpstreamFailed => "upstream_failed", Domain::NotPorted | Domain::Raised => "not_ported" };
+        answers.push(json!({ "status": status, "code": res.code, "message": if res.code.is_some() { json!(res.message) } else { Value::Null }, "data": res.data }));
+    }
+    Ok(Value::Array(answers))
 }
 
 /// One Bot::ActionJob run at `start` and the retries it enqueues for itself. Some(at): the run at `at` paused the bot.

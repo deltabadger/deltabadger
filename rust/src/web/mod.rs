@@ -516,6 +516,9 @@ impl App {
     /// commit inside the `db` job, so dropping the HTTP future cannot lose the wake. One permit is stored,
     /// so a call while the engine is mid-pass makes it pass again right after;
     /// wakes coalesce. With no engine attached it does nothing.
+    /// Whether an engine runs beside this web (an API order waits for one; without it, it is withdrawn at once).
+    pub fn engine_attached(&self) -> bool { self.engine.get().is_some() }
+
     pub fn wake_engine(&self) {
         if let Some(wake) = self.engine.get() {
             wake.notify_one();
