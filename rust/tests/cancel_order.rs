@@ -76,13 +76,21 @@ impl deltabadger::venue::VenueFactory for Factory {
     type V = AlpacaVenue<ScriptedTransport>;
     fn for_bot(&self, _: &str, _: Option<deltabadger::crypto::Credentials>) -> Self::V { AlpacaVenue::new(self.0.clone(), Urls::for_passphrase(Some("paper"))) }
 }
-/// The engine refuses an install with an imported row left open (outside its slice), so that row goes first.
-async fn engine_step(i: &Install, t: &ScriptedTransport) {
+/// A running engine (the imported row goes first: the engine refuses an install with one left open). Its start-up poll
+/// of every open order reads OPEN-1 still open, so that poll backs off: only the cancel's hand-off can bring it forward.
+async fn running_engine(i: &Install, t: &ScriptedTransport) -> deltabadger::engine::run::Engine<Factory> {
     i.o.primary.execute("DELETE FROM transactions WHERE id = ?1", [i.imported]).unwrap();
     let paths = store::Paths::from_env(&|_| None, i.d.path());
     let lock = deltabadger::lease::lock(&paths, at(T0)).unwrap();
     let mut engine = deltabadger::engine::run::Engine::new(store::open(&paths).unwrap().primary, Factory(t.clone()), seed::cipher(), lock);
     deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
+    engine
+}
+async fn engine_step(i: &Install, t: &ScriptedTransport) { running_engine(i, t).await; }
+fn reads(t: &ScriptedTransport) -> usize { t.requests().iter().filter(|r| r.method == "GET" && r.path == "/v2/orders/OPEN-1").count() }
+fn open_order() -> Value {
+    ok(json!({ "id": "OPEN-1", "status": "new", "symbol": "BTC/USD", "type": "limit", "side": "buy", "qty": "0.001", "notional": null,
+               "filled_qty": "0", "filled_avg_price": null, "limit_price": "60000" }))
 }
 fn cancelled_order() -> Value {
     ok(json!({ "id": "OPEN-1", "status": "canceled", "symbol": "BTC/USD", "type": "limit", "side": "buy", "qty": "0.001", "notional": null,
@@ -92,6 +100,11 @@ fn cancelled_order() -> Value {
 #[tokio::test(flavor = "current_thread")]
 async fn a_cancel_answers_rails_notice_writes_no_order_state_and_the_engine_settles_the_row() {
     let i = install();
+    let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [open_order(), cancelled_order()] }));
+    let mut engine = running_engine(&i, &t).await;
+    assert_eq!((reads(&t), row_state(&i.o, i.open).0), (1, Some(1)), "the start-up poll read it open and backs off");
+    deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
+    assert_eq!(reads(&t), 1, "without a cancel the backing-off poll is not due");
     let server = venue(204, None).await;
     let (app, mut browser) = signed_in(&i, &server.uri()).await;
     let before = (row_state(&i.o, i.open), activity(&i.o), model::load_bot(&i.o.primary, i.bot).unwrap().transient);
@@ -103,10 +116,9 @@ async fn a_cancel_answers_rails_notice_writes_no_order_state_and_the_engine_sett
     assert_eq!((sent[0].method.as_str(), sent[0].url.path()), ("DELETE", "/v2/orders/OPEN-1"));
     assert_eq!((row_state(&i.o, i.open), activity(&i.o), model::load_bot(&i.o.primary, i.bot).unwrap().transient), before, "the request writes no order state");
     assert_eq!(reread_keys(&i.o), vec![format!("rust_cancel_reread:{}", i.open)]);
-    // The engine's re-read (FetchAndUpdateOrderJob) settles it, and the hand-off is gone.
-    let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [cancelled_order()] }));
-    engine_step(&i, &t).await;
-    assert!(t.requests().iter().any(|r| r.method == "GET" && r.path == "/v2/orders/OPEN-1"), "{:?}", t.requests());
+    // The hand-off brings the read forward to now, with a fresh budget: the same instant's pass reads and settles it.
+    deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
+    assert_eq!(reads(&t), 2);
     assert_eq!(row_state(&i.o, i.open).0, Some(deltabadger::enums::TxExternalStatus::Cancelled as i64));
     assert!(reread_keys(&i.o).is_empty());
 }
@@ -185,12 +197,15 @@ async fn a_slow_venue_holds_no_connection_another_request_needs() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_re_read_left_by_a_crash_is_drained_at_the_next_start() {
+async fn a_pending_re_read_is_drained_by_the_next_pass() {
     let i = install();
+    let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [open_order(), cancelled_order()] }));
+    let mut engine = running_engine(&i, &t).await;
+    // A hand-off committed by a request whose wake was lost (or before a restart): the next pass drains it.
     deltabadger::app_config::set_plain(&i.o.primary, &format!("rust_cancel_reread:{}", i.open), &json!({ "bot": i.bot }).to_string(), at(T0)).unwrap();
     deltabadger::app_config::set_plain(&i.o.primary, "rust_cancel_reread:999", &json!({ "bot": i.bot }).to_string(), at(T0)).unwrap();
-    let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [cancelled_order()] }));
-    engine_step(&i, &t).await;
+    deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
+    assert_eq!(reads(&t), 2);
     assert_eq!(row_state(&i.o, i.open).0, Some(deltabadger::enums::TxExternalStatus::Cancelled as i64));
     assert!(reread_keys(&i.o).is_empty(), "a key for a row that is gone goes too");
 }
@@ -213,3 +228,4 @@ async fn a_reversal_cancelling_after_the_user_is_refused_and_registers_no_reserv
     let failed: i64 = i.o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event = 'order_cancel_failed'", [], |r| r.get(0)).unwrap();
     assert_eq!(failed, 1);
 }
+

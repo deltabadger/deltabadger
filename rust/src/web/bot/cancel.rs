@@ -62,7 +62,9 @@ pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Exten
         };
         // D-CANCEL-REREAD-ALWAYS: whatever the answer, the row is re-read (a refusal may hide a cancel that landed); Rails
         // re-reads after a success only. The re-read is the engine's; this is the request's only write.
-        crate::app_config::set_plain(c, &format!("{REREAD}{tx}"), &serde_json::json!({ "bot": id }).to_string(), inner.now()).map_err(WebError::Config)?;
+        // One IMMEDIATE transaction: two overlapping cancels of the row must not both try the insert.
+        crate::engine::model::locked(c, |c| crate::app_config::set_plain(c, &format!("{REREAD}{tx}"), &serde_json::json!({ "bot": id }).to_string(), inner.now())
+            .map_err(crate::engine::EngineError::Data))?;
         inner.wake_engine();
         Ok(Found::Answered { cancelled, invalid_key: invalid_key.then_some(name) })
     }).await.map_err(|e| WebError::Task(e.to_string()))?;
