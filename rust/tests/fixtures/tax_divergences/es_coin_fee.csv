@@ -1,0 +1,7 @@
+Fecha,Fecha de adquisición,Activo,Cantidad,Ingresos,Coste de adquisición,Ganancia/Pérdida,Moneda,Días de tenencia,Comisión,Exchange,ID de transacción,Coste de adquisición completo,Datos incompletos
+2026-02-01T10:00:00Z,2025-01-05T10:00:00Z,BTC,0.01,800.0,100.0,700.0,EUR,392,0.0,kraken,fee-BTC-2026-02-01T10:00:00Z,true,false
+2026-03-01T10:00:00Z,2025-01-05T10:00:00Z,BTC,1.0,90000.0,10600.0,79400.0,EUR,420,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false
+
+NOTE: Comisiones pagadas en un activo y no asignadas a una operación:
+BTC 0.01 2026-02-01
+Cada una figura arriba como una transmisión a su valor de mercado. Comprueba cada una con el extracto de tu exchange.

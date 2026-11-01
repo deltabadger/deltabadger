@@ -1,0 +1,6 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-03-01T10:00:00Z,2025-01-05T10:00:00Z,BTC,1.0,90000.0,10600.0,79400.0,EUR,420,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false,false
+
+"NOTE: In einem Asset gezahlte Gebühren, die keinem Trade zugeordnet wurden:"
+BTC 0.01 2026-02-01
+Jede wurde ohne Erlös von deinem ältesten Bestand dieses Assets abgezogen. Prüfe jede anhand der Abrechnung deiner Börse: Die Anschaffungskosten späterer Verkäufe dieses Assets können um bis zum Wert der Gebühr abweichen.

@@ -1,0 +1,6 @@
+Dátum,Dátum nadobudnutia,Aktívum,Množstvo,Príjem,Obstarávacia cena,Zisk/Strata,Mena,Dni držania,Poplatok,Burza,ID transakcie,Obstarávacia cena úplná,Neúplné údaje
+2026-03-01T10:00:00Z,2025-01-05T10:00:00Z,BTC,1.0,90000.0,10600.0,79400.0,EUR,420,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false
+
+NOTE: Poplatky zaplatené v aktíve a nepriradené k obchodu:
+BTC 0.01 2026-02-01
+Každý bol odpočítaný z tvojej najstaršej pozície v tomto aktíve bez príjmu. Over každý podľa výpisu zo svojej burzy: obstarávacia cena neskorších predajov tohto aktíva sa môže líšiť až o hodnotu poplatku.

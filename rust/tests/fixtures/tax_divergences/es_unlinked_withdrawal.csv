@@ -1,0 +1,6 @@
+Fecha,Fecha de adquisición,Activo,Cantidad,Ingresos,Coste de adquisición,Ganancia/Pérdida,Moneda,Días de tenencia,Comisión,Exchange,ID de transacción,Coste de adquisición completo,Datos incompletos
+2026-01-07T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.6,48000.0,6000.0,42000.0,EUR,2,0.0,kraken,K-BTC-2026-01-07T10:00:00Z-BTC,true,false
+
+"WARNING: Retiros no vinculados a un depósito; cada uno se trata como un traspaso a una cartera propia, no como una venta:"
+BTC 0.4 2026-01-06
+"Vincula cada uno con su depósito correspondiente en el Tracker. Un retiro que fue una venta, un pago o una donación es una transmisión que este informe no incluye."

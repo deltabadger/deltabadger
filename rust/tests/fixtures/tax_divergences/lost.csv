@@ -1,0 +1,6 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2026-01-07T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.5,300.0,50.0,250.0,USD,2,0.0,alpaca,sell-BTC-2026-01-07T10:00:00Z,true,false,Short-term
+
+WARNING: Assets marked as lost; their cost basis was taken out of your holdings and no disposal is reported for them:
+BTC 0.5 2026-01-06
+Whether a loss like this can be deducted depends on your country's rules. Check before claiming it.

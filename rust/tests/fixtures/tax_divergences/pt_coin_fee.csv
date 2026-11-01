@@ -1,0 +1,7 @@
+Data,Data de aquisição,Ativo,Quantidade,Receita,Custo de aquisição,Ganho/Perda,Moeda,Dias de detenção,Taxa,Exchange,ID de transação,Custo de aquisição completo,Dados incompletos,Isento
+2026-03-01T10:00:00Z,2025-01-05T10:00:00Z,BTC,0.99,89100.0,9900.0,79200.0,EUR,420,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false,true
+2026-03-01T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.01,900.0,700.0,200.0,EUR,55,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false,false
+
+NOTE: Comissões pagas num ativo e não associadas a uma operação:
+BTC 0.01 2026-02-01
+Cada uma foi deduzida do teu lote mais antigo desse ativo sem valor de realização. Confirma cada uma com o extrato da tua exchange: o custo de aquisição das vendas seguintes deste ativo pode diferir até ao valor da comissão.

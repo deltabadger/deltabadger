@@ -1,0 +1,9 @@
+Dátum,Dátum nadobudnutia,Aktívum,Množstvo,Príjem,Obstarávacia cena,Zisk/Strata,Mena,Dni držania,Poplatok,Burza,ID transakcie,Obstarávacia cena úplná,Neúplné údaje
+"UPOZORNENIE: Chýbajú hodnoty (2) — prehľad je neúplný, takto ho nepodávajte"
+2026-02-05T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.5,90000.0,50000.0,40000.0,EUR,31,0.0,kraken,K-BTC-2026-02-05T10:00:00Z-BTC,true,true
+2026-02-06T10:00:00Z,,ETH,1.0,3000.0,0.0,3000.0,EUR,0,0.0,kraken,K-ETH-2026-02-06T10:00:00Z-ETH,false,true
+
+"WARNING: Predaje prevyšujúce to, čo obsahuje tvoja synchronizovaná história; časť, ktorú nepokrýva žiadny nákup, je vykázaná s nulovou obstarávacou cenou:"
+BTC 0.5 2026-02-05
+ETH 1.0 2026-02-06
+"Pripoj alebo importuj účet, z ktorého tieto aktíva pochádzajú, alebo prepoj vklad, ktorým prišli, aby sa pri týchto predajoch použila skutočná obstarávacia cena."

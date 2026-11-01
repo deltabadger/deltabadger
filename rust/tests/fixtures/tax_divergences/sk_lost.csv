@@ -1,0 +1,6 @@
+Dátum,Dátum nadobudnutia,Aktívum,Množstvo,Príjem,Obstarávacia cena,Zisk/Strata,Mena,Dni držania,Poplatok,Burza,ID transakcie,Obstarávacia cena úplná,Neúplné údaje
+2026-01-07T10:00:00Z,2026-01-05T11:00:00Z,BTC,1.0,70000.0,50000.0,20000.0,EUR,1,0.0,kraken,K-BTC-2026-01-07T10:00:00Z-BTC,true,false
+
+WARNING: Aktíva označené ako stratené; ich obstarávacia cena bola odpočítaná z tvojich pozícií a žiadne scudzenie sa pri nich nevykazuje:
+BTC 1.0 2026-01-06
+"Či sa dá takáto strata odpočítať, závisí od pravidiel tvojej krajiny. Over si to skôr, než ju uplatníš."

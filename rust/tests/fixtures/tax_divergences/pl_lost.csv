@@ -1,0 +1,6 @@
+Data,Data nabycia,Aktywo,Ilość,Przychód,Koszt nabycia,Zysk/Strata,Waluta,Dni posiadania,Opłata,Giełda,ID transakcji,Koszt nabycia kompletny,Dane niekompletne
+2026-01-07T10:00:00Z,2026-01-05T11:00:00Z,BTC,1.0,301000.0,215000.0,86000.0,PLN,1,0.0,kraken,K-BTC-2026-01-07T10:00:00Z-BTC,true,false
+
+WARNING: Aktywa oznaczone jako utracone; ich koszt nabycia usunięto z Twoich zasobów i nie wykazano dla nich żadnego zbycia:
+BTC 1.0 2026-01-06
+"To, czy taką stratę można odliczyć, zależy od przepisów Twojego kraju. Sprawdź to przed jej wykazaniem."

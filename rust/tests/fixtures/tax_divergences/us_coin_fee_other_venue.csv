@@ -1,0 +1,6 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2026-02-01T10:00:00Z,2026-01-05T10:00:00Z,BNB,0.1,70.0,60.0,10.0,USD,27,0.0,binance,fee-BNB-2026-02-01T10:00:00Z,true,false,Short-term
+
+NOTE: Fees paid in an asset and not matched to a trade:
+BNB 0.1 2026-02-01
+Each is reported above as a disposal at its market value. Check each one against your exchange's statement.

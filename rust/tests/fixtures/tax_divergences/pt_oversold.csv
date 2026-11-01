@@ -1,0 +1,9 @@
+Data,Data de aquisição,Ativo,Quantidade,Receita,Custo de aquisição,Ganho/Perda,Moeda,Dias de detenção,Taxa,Exchange,ID de transação,Custo de aquisição completo,Dados incompletos,Isento
+"AVISO: Faltam 2 valores — relatório incompleto, não entregar assim"
+2026-02-05T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.5,90000.0,50000.0,40000.0,EUR,31,0.0,kraken,K-BTC-2026-02-05T10:00:00Z-BTC,true,true,false
+2026-02-06T10:00:00Z,,ETH,1.0,3000.0,0.0,3000.0,EUR,0,0.0,kraken,K-ETH-2026-02-06T10:00:00Z-ETH,false,true,false
+
+WARNING: Vendas superiores ao que o teu histórico sincronizado contém; a parte que nenhuma compra cobre é declarada com um custo de aquisição de zero:
+BTC 0.5 2026-02-05
+ETH 1.0 2026-02-06
+"Liga ou importa a conta de onde vieram estes ativos, ou associa o depósito pelo qual entraram, para que estas vendas tenham o seu custo de aquisição real."
