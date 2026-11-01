@@ -361,7 +361,7 @@ const KUCOIN_MODE: &str = "/api/ua/v2/account/mode";
 /// A KuCoin install (the Kraken seed renamed), a stopped bot with three open rows: HF-1 (an HF record), UTA-1 (a UTA
 /// record) and CL-1 (classic, no record); the owner's API client. The records name `host` and the seeded key.
 fn kucoin_install(host: &str) -> (tempfile::TempDir, store::Opened, i64, [i64; 3]) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     o.primary.execute_batch("UPDATE exchanges SET type='Exchanges::Kucoin',name='KuCoin'; UPDATE tickers SET ticker='BTC-EUR',base='BTC'").unwrap();

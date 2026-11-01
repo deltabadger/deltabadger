@@ -33,7 +33,7 @@ fn env(data: Value) -> Value { json!([{ "status": 200, "body": { "code": "200000
 
 struct Kc { dir: tempfile::TempDir, o: store::Opened, s: seed::Seeded, bot: i64 }
 fn install(status: i64) -> Kc {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     o.primary.execute_batch("UPDATE exchanges SET type = 'Exchanges::Kucoin', name = 'KuCoin'; UPDATE tickers SET ticker = 'BTC-EUR', base = 'BTC'").unwrap();

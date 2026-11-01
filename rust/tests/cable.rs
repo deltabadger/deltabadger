@@ -831,7 +831,7 @@ async fn completion_notifications_reach_only_the_owners_cable_stream() {
 async fn wake_dispatcher_bars_are_in_the_owners_locale_whatever_the_request_s() {
     use common::seed::{self, BotSpec};
     const HASH: &str = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let s = seed::seed_kraken(&c, &seed::cipher());
     let bot = seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));

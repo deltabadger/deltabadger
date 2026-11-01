@@ -23,6 +23,7 @@ require 'json'
 require 'digest'
 require 'tmpdir'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 module IndexOracle
   class Unscripted < Exception; end # rubocop:disable Lint/InheritException
@@ -308,9 +309,7 @@ module IndexOracle
   def run(out)
     Dir.mktmpdir('index-oracle') do |dir|
       db = File.join(dir, 'oracle.sqlite3')
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: db)
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join('db/schema.rb')
+      SchemaTemplate.load_primary(db)
       ActiveJob::Base.queue_adapter = :test
       Rails.cache = ActiveSupport::Cache::MemoryStore.new
       travel_to(STARTED - 1.day, with_usec: true)

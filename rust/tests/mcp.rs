@@ -185,7 +185,7 @@ async fn a_refresh_and_revocation_cross_the_actual_mcp_endpoint(){
 }
 #[test]
 fn stale_registry_gate_has_both_refusal_texts(){
-    let dir=common::rails_install();let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let dir=common::baseline_install();let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     common::seed::seed_alpaca(&c,&common::seed::cipher());
     let who=deltabadger::web::bearer::Bearer{user_id:1,application_id:999,token_id:999};
     let refusal=deltabadger::web::mcp::tools::gate(&c,who,"list_bots").unwrap().unwrap();

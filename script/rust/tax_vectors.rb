@@ -12,6 +12,7 @@ require 'digest'
 require 'fileutils'
 require 'tmpdir'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 ENV['TZ'] = 'UTC'
 
@@ -42,11 +43,7 @@ module TaxVectors
   ].freeze
 
   # The schema is loaded before travelling: a migration stamped after NOW would not load.
-  def schema(file)
-    ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: file)
-    ActiveRecord::Schema.verbose = false
-    load Rails.root.join('db/schema.rb')
-  end
+  def schema(file) = SchemaTemplate.load_primary(file)
 
   def build
     user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,

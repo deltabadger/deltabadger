@@ -23,7 +23,7 @@ fn try_rails(args: &[&str]) -> Result<(), String> {
         let out = cmd.output().expect("bin/rails runs");
         if out.status.success() { Ok(()) } else { Err(format!("bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr))) }
     };
-    run(&["db:schema:load"])?; // the oracle's own queue, cache and cable databases must exist
+    run(&["runner", "script/rust/schema_template.rb"])?; // the oracle's own queue, cache and cable databases must exist
     let mut full = vec!["runner", "script/rust/sync.rb"];
     full.extend_from_slice(args);
     run(&full)

@@ -1,4 +1,4 @@
-//! The tracker's syncs on a Rails-prepared install: the write rule beside a trading engine, the jobs' contract with the
+//! The tracker's syncs on a baseline install: the write rule beside a trading engine, the jobs' contract with the
 //! scheduler, the live-key refusal, and the hand-run command's lock. (Row-for-row agreement with Rails: sync_parity.rs.)
 //! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
 //! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).

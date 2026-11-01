@@ -27,7 +27,7 @@ fn at(s: &str) -> FixedClock { FixedClock(t(s)) }
 struct Sig { _dir: tempfile::TempDir, c: Connection, s: seed::Seeded, bot: i64, buy: i64, sell: i64 }
 
 fn sig(buy: &str, settings: Value, transient: Value) -> Sig {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let c = o.primary;
@@ -472,7 +472,7 @@ const NOW: &str = "2026-09-10T12:00:30.123456Z";
 struct Install { _dir: tempfile::TempDir, app: web::App, c: Connection, user: i64, id: i64, s: seed::Seeded }
 
 fn install() -> Install {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let c = o.primary;

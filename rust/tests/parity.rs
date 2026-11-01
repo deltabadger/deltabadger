@@ -1916,7 +1916,7 @@ async fn a_stock_and_an_index_copy_are_planned_with_stock_bodies_and_an_open_clo
     use deltabadger::store::{self, Paths};
     use serde_json::{json, Value};
     use chrono::{DateTime, Utc};
-    let src = common::rails_install();
+    let src = common::baseline_install();
     {
         let o = store::open(&Paths::from_env(&|_| None, src.path())).map_err(|e| format!("{e:?}"))?;
         let s = seed::seed_alpaca(&o.primary, &seed::cipher());

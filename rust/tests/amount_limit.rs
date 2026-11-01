@@ -240,7 +240,7 @@ impl deltabadger::venue::VenueFactory for ScriptedFactory {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_crash_between_a_swept_fill_and_its_stop_replays_the_stop_at_the_next_start() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let o = store::open(&paths).unwrap();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -956,7 +956,7 @@ async fn a_swept_sell_fill_stops_at_the_ticks_end_and_after_a_crash_and_a_legacy
     assert_eq!((model::load_bot(&o.primary, id).unwrap().status, stop_key(&o).as_deref()), (BotStatus::Stopped, Some(SOLD)));
     assert!(base_mail(&o).is_some());
 
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let o = store::open(&paths).unwrap();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -1054,7 +1054,7 @@ async fn the_base_mail_states_the_values_captured_when_it_was_owed() {
 fn a_rotation_into_selling_with_the_cap_used_stops_the_bot_and_mails_once() {
     use deltabadger::web::bot::write::{self, Reversal};
     for status in [BotStatus::Scheduled, BotStatus::Stopped] {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let paths = store::Paths::from_env(&|_| None, dir.path());
         let o = store::open(&paths).unwrap();
         let s = seed::seed_alpaca(&o.primary, &seed::cipher());

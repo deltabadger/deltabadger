@@ -57,8 +57,20 @@ pub fn rails(scratch: &Path, rails_env: &str, args: &[&str]) {
 
 pub const INSTALL_FILES: [&str; 2] = ["production.sqlite3", "production_queue.sqlite3"];
 
+/// A fresh install for the general tests: the primary from `store::create_schema` (rust/schema/baseline.sql) with this
+/// build's Rust migrations applied as `run` and `serve` apply them at startup; no marker, no seeds. The queue is the
+/// Rails-built one (`rails_install_template`), so takeover paths still read a Rails queue.
+pub fn baseline_install() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::copy(rails_install_template().join(INSTALL_FILES[1]), dir.path().join(INSTALL_FILES[1])).unwrap();
+    let c = rusqlite::Connection::open(dir.path().join(INSTALL_FILES[0])).unwrap();
+    deltabadger::store::create_schema(&c).expect("baseline.sql builds the primary");
+    deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
+    dir
+}
+
 /// A fresh copy of an install as Rails prepares one (`rails_install_unmigrated`), with this build's Rust migrations
-/// applied as `run` and `serve` apply them at startup.
+/// applied as `run` and `serve` apply them at startup. For the tests whose point is a Rails-built (2.x) install.
 pub fn rails_install() -> tempfile::TempDir {
     let dir = rails_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
@@ -201,16 +213,18 @@ pub fn recording(name: &str, is_whole: fn(&Path) -> bool, build: impl FnOnce(&Pa
     Recording { path, _live: None }
 }
 
-/// `<script> grid` then `<script> record` into `out`, against scratch databases with the schemas loaded.
+/// `<script> grid` then `<script> record` into `out`, against scratch databases with the schemas loaded (the primary
+/// from rust/schema/baseline.sql, by script/rust/schema_template.rb).
 pub fn record_grid(script: &str, out: &Path) {
     let boot = tempfile::tempdir().unwrap();
-    rails(boot.path(), "test", &["db:schema:load"]);
+    rails(boot.path(), "test", &["runner", "script/rust/schema_template.rb"]);
     for command in ["grid", "record"] { rails(boot.path(), "test", &["runner", script, command, out.to_str().unwrap()]); }
 }
 
 /// Everything a Rails recording can depend on, as bytes to hash: every file of the app, its config, schema,
-/// gems' lockfile, the recorders (script/rust), the built assets (app/assets/builds) and the version manifest
-/// (src-tauri/Cargo.toml, read by config/initializers/version.rb); the Ruby that runs it;
+/// gems' lockfile, the recorders (script/rust), the schema they build the primary from (rust/schema), the built assets
+/// (app/assets/builds) and the version manifest (src-tauri/Cargo.toml, read by config/initializers/version.rb); the Ruby
+/// that runs it;
 /// the machine's zone; and the value of every environment variable those sources read (`ENV['X']`, `ENV.fetch('X'`,
 /// any quoted all-caps literal, `PROXY_*`; PAGES among them). The test databases are scratch files and so not an input.
 pub fn rails_inputs() -> Vec<u8> {
@@ -224,7 +238,7 @@ pub fn rails_inputs() -> Vec<u8> {
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let mut files = vec![];
-    for top in ["app", "bin", "config", "db", "lib", "public", "vendor", "script/rust", "Gemfile", "Gemfile.lock", ".ruby-version",
+    for top in ["app", "bin", "config", "db", "lib", "public", "vendor", "script/rust", "rust/schema", "Gemfile", "Gemfile.lock", ".ruby-version",
                 ".tool-versions", "config.ru", "Rakefile", "src-tauri/Cargo.toml", ".env", ".env.test", ".env.test.local"] {
         let path = Path::new(top);
         if root.join(path).is_dir() { walk(root, path, &mut files) } else if let Ok(bytes) = std::fs::read(root.join(path)) { files.push((path.into(), bytes)) }
@@ -270,17 +284,17 @@ pub fn copy_tree(from: &Path, to: &Path) {
     }
 }
 
-/// A Rails-prepared install with the Kraken fixtures seeded.
+/// A baseline install with the Kraken fixtures seeded.
 pub fn install() -> (tempfile::TempDir, deltabadger::store::Opened, seed::Seeded) {
-    let dir = rails_install();
+    let dir = baseline_install();
     let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     (dir, o, s)
 }
 
-/// A Rails-prepared install with the Alpaca fixtures seeded.
+/// A baseline install with the Alpaca fixtures seeded.
 pub fn install_alpaca() -> (tempfile::TempDir, deltabadger::store::Opened, seed::Seeded) {
-    let dir = rails_install();
+    let dir = baseline_install();
     let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
     (dir, o, s)

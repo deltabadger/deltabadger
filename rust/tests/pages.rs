@@ -1592,7 +1592,7 @@ fn grid_recording(scope: &str) -> common::Recording {
     common::recording(&format!("pages-5-{scope}"), |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
         let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), out.join("rails"), out.join("rust"));
         std::fs::create_dir_all(&rails_root).unwrap();
-        common::rails(scratch.path(), "test", &["db:schema:load"]);
+        common::rails(scratch.path(), "test", &["runner", "script/rust/schema_template.rb"]);
         common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.to_str().unwrap(), scope]);
         for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
             copy_scenario(&dir, &rust_root.join(dir.file_name().unwrap())); // before Rails writes to its copies

@@ -442,7 +442,7 @@ fn a_stopped_rebalancing_bot_outside_the_slice_is_refused() {
 #[test]
 fn rebalancing_on_kraken_is_admitted() {
     // Plan CB T4: Bot::Rebalancer names no venue; a Kraken rebalancer is this engine's.
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("rebalance_enabled", json!(true)));

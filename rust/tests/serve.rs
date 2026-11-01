@@ -35,7 +35,7 @@ fn http_get(port: u16, path: &str) -> Option<String> {
 #[test]
 fn serve_resumes_unfinished_connected_setup_sync() {
     for status in ["pending", "in_progress"] {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, web::SECRET).unwrap());
         for (key, value) in [("platform_connected_at", NOW), ("setup_sync_status", status)] {
@@ -61,7 +61,7 @@ fn serve_resumes_unfinished_connected_setup_sync() {
 /// A prepared install with no admin user yet is served: every page sends the first visitor to /setup.
 #[test]
 fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let port = free_port();
     let mut server = Child(serve_command(dir.path(), port).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
     let started = Instant::now();
@@ -1446,7 +1446,7 @@ async fn wake_engine_leaves_one_permit_for_the_attached_engine_and_does_nothing_
 
 #[tokio::test(flavor = "current_thread")]
 async fn bind_listens_with_or_without_an_admin_user() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     deltabadger::web::server::bind(&app, 0).await.expect("an install with no admin user is served: setup creates the admin");
     let (dir, opened, _) = common::install(); // seeds an admin user

@@ -1410,7 +1410,7 @@ async fn engine_steps_with_unreadable_rule(status: i64) {
         store::{self, Paths},
         venue::fake::{FakeFactory, FakeVenue},
     };
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&paths, now()).unwrap();
     let opened = store::open(&paths).unwrap();
@@ -1970,7 +1970,7 @@ impl deltabadger::venue::VenueFactory for ScriptedKrakenFactory {
 
 async fn kraken_engine_threshold(below: bool) {
     use deltabadger::{engine::run, lease, store::{self, Paths}};
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&paths, now()).unwrap();
     let opened = store::open(&paths).unwrap();
@@ -2063,7 +2063,7 @@ async fn l_engine_threshold<V: Venue>(class: &'static str, below: bool, factory:
         "Exchanges::Mexc" => ("MEXC", "Bitcoin", M_SEND, json!({"id":"L-mexc"}), "L-mexc"),
         _ => ("Gemini", "bitcoin", G_SEND, json!({"withdrawalId":"L-gemini"}), "L-gemini"),
     };
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&paths, now()).unwrap();
     let opened = store::open(&paths).unwrap();

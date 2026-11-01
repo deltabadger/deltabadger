@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 fn at(s: &str) -> FixedClock { FixedClock(t(s)) }
 fn t(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
 fn engine(spec: BotSpec, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, i64, seed::Seeded) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, "2026-09-01T00:00:00Z".parse().unwrap()).unwrap();
     let o = store::open(&p).unwrap();
@@ -311,7 +311,7 @@ async fn a_reverse_during_a_figures_refill_does_not_wait_for_it() {
     use common::web::{self as w, Csrf};
     use std::time::Duration;
     const HASH: &str = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 0, started_at: None, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
