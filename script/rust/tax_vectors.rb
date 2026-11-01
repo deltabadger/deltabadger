@@ -807,6 +807,14 @@ module TaxVectors
         kraken(c, :sell, 'BTC', '1', '60000', '2025-06-10T10:00:00Z', fiat: 'USDT', ref: 's1')
         kraken(c, :sell, 'USDT', '60000', '54000', '2026-03-01T10:00:00Z', ref: 's2')
       } },
+      # Portugal: USDT for USDC in Kraken's grouped rows is crypto for crypto too: the USDC carries the USDT's €800.
+      { name: 'pt_kraken_stablecoin_for_stablecoin', country: 'PT', expect: 'diverges: D-TAX-COIN-QUOTE', setup: lambda { |c|
+        kraken(c, :buy, 'USDT', '1000', '800', '2024-06-01T10:00:00Z', ref: 'b1')
+        ex = venue(c, :kraken)
+        row(c, :sell, 'USDT', '1000', '2025-06-10T10:00:00Z', exchange: ex, group_id: 'ss', tx_id: 'ss-USDT')
+        row(c, :buy, 'USDC', '1000', '2025-06-10T10:00:00Z', exchange: ex, group_id: 'ss', tx_id: 'ss-USDC')
+        kraken(c, :sell, 'USDC', '1000', '1100', '2026-03-01T10:00:00Z', ref: 's2')
+      } },
       # Germany: the order of use is kept per wallet; a sale on Kraken takes Kraken's lot, not Bybit's older one.
       { name: 'de_per_wallet', country: 'DE', expect: 'diverges: D-TAX-DE-WALLET', setup: lambda { |c|
         by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
