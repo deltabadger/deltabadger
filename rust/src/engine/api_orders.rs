@@ -101,6 +101,7 @@ pub fn insert(c: &Connection, new: &New<'_>, now: DateTime<Utc>) -> Result<i64, 
         New::Bot { bot, .. } => (Some(bot.id), model::credential_version(c, bot)?, None),
         New::Standalone { user_id, standalone, .. } => (None, model::credential_version(c, &model::Bot::key_holder(*user_id, standalone.exchange_id))?, Some(standalone)),
     };
+    atomically(c, || {
     c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, credential_version, state, created_at, send_by) \
                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9)",
               params![user_id, bot_id, side.as_str(), persisted(amount)?, if in_base { "base" } else { "quote" }, Value::Object(supplied.clone()).to_string(),
@@ -111,6 +112,7 @@ pub fn insert(c: &Connection, new: &New<'_>, now: DateTime<Utc>) -> Result<i64, 
                   params![id, s.exchange_id, s.ticker_id, if s.limit { "limit" } else { "market" }, s.price.as_ref().map(persisted).transpose()?, if s.mcp { "mcp" } else { "rest" }])?;
     }
     Ok(id)
+    })
 }
 
 /// The web's read while it waits: the state, and the outcome once `done`.
@@ -122,6 +124,16 @@ pub fn state(c: &Connection, id: i64) -> Result<Option<(String, Option<Outcome>)
 /// The web gave up on a request no pass took: true when it was still queued (nothing will be sent).
 pub fn withdraw(c: &Connection, id: i64) -> Result<bool, EngineError> {
     Ok(c.execute("UPDATE rust_api_orders SET state = 'withdrawn' WHERE id = ?1 AND state = 'queued'", [id])? == 1)
+}
+
+/// `f` as one unit, inside the caller's transaction or on its own (a savepoint nests in either): a request row and its
+/// standalone side row are never seen apart (Codex O4 review).
+fn atomically<T>(c: &Connection, f: impl FnOnce() -> Result<T, EngineError>) -> Result<T, EngineError> {
+    c.execute_batch("SAVEPOINT api_order")?;
+    match f() {
+        Ok(v) => { c.execute_batch("RELEASE api_order")?; Ok(v) }
+        Err(e) => { let _ = c.execute_batch("ROLLBACK TO api_order; RELEASE api_order"); Err(e) }
+    }
 }
 
 /// A placed standalone order: kept as the log an API cancel reads (D-ORDER-STANDALONE-LOG).
@@ -170,7 +182,7 @@ pub fn take(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<Option<Reques
         type Own = (Option<i64>, Option<i64>, String, Option<String>, Option<String>);
         let (exchange_id, ticker_id, order_type, price, surface): Own = c.query_row(
             "SELECT exchange_id, ticker_id, order_type, price, surface FROM rust_api_order_standalone WHERE order_id = ?1", [id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?;
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).optional()?.ok_or_else(|| bad("no bot and no standalone row"))?;
         Some(Standalone { exchange_id: exchange_id.ok_or_else(|| bad("no bot and no exchange"))?, ticker_id: ticker_id.ok_or_else(|| bad("no ticker"))?,
                           limit: order_type == "limit", price: price.map(|p| BigDec::parse(&p).map_err(|_| bad("price"))).transpose()?,
                           mcp: surface.as_deref() == Some("mcp") })
@@ -208,10 +220,13 @@ pub fn claim(c: &Connection, id: i64, cl_ord_id: &str, identity: Option<&Value>,
 /// order keeps the venue's id beside it (the log `log_order` reads).
 pub fn finish(c: &Connection, id: i64, outcome: &Outcome) -> Result<(), EngineError> {
     let text = serde_json::to_string(outcome).map_err(|e| EngineError::Data(format!("api order outcome: {e}")))?;
-    let done = c.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?2 WHERE id = ?1 AND state IN ('taken', 'sending')", params![id, text])?;
-    if let (1, Outcome::Placed { order_id }) = (done, outcome) {
-        c.execute("UPDATE rust_api_order_standalone SET external_id = ?2 WHERE order_id = ?1", params![id, order_id])?;
-    }
+    atomically(c, || {
+        let done = c.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?2 WHERE id = ?1 AND state IN ('taken', 'sending')", params![id, text])?;
+        if let (1, Outcome::Placed { order_id }) = (done, outcome) {
+            c.execute("UPDATE rust_api_order_standalone SET external_id = ?2 WHERE order_id = ?1", params![id, order_id])?;
+        }
+        Ok(())
+    })?;
     Ok(())
 }
 
@@ -299,9 +314,10 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
     let order = plan.to_order(cl_ord_id.clone(), request.send_by, rules.wire).map_err(EngineError::Data)?;
     let snapshot = serde_json::json!({ "symbol": order.pair, "side": order.side.as_str(), "limit": plan.limit, "kind": format!("{:?}", order.kind),
                                        "volume": order.volume, "quote": order.quote_volume });
-    let claimed_at = clock.now();
-    let claimed = {
+    let (claimed, claimed_at) = {
         let tx = model::immediate(c)?;
+        // Read under the write lock (Codex O4 review): the claim's time is the time it holds it.
+        let claimed_at = clock.now();
         if !still_taken(&tx, request.id)? { return Ok(()); }
         if claimed_at > request.send_by { finish(&tx, request.id, &Outcome::Busy)?; tx.commit()?; return Ok(()); }
         match model::check_credential_result(&tx, &cx.credential_version) {
@@ -316,12 +332,14 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
         }
         let claimed = claim(&tx, request.id, &cl_ord_id, identity.as_ref(), &snapshot)?;
         tx.commit()?;
-        claimed
+        (claimed, claimed_at)
     };
     if !claimed { return Ok(()); }
-    // 7. One send (Rails has no -1021 retry here), bounded; nothing leaves after `send_until` (r2).
+    // 7. One send (Rails has no -1021 retry here), bounded; nothing leaves after `send_until` (r2). The commit may have
+    // waited: past `send_until` now, nothing is sent and nothing was placed (send_to_venue's own fence on the bot path).
     let window = claimed_at.checked_add_signed(Duration::seconds(placement::SEND_WINDOW_SECONDS)).ok_or_else(super::schedule::time_range_error)?;
     let send_until = window.min(request.send_by);
+    if clock.now() > send_until { return answer(Outcome::Busy); }
     let sent = tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, placement::dispatch(venue, &plan, cl_ord_id, send_until, false)).await;
     // 8. The answer.
     answer(match sent {
