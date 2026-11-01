@@ -18,6 +18,8 @@ fn install(tables: &Value) -> Connection {
     c.execute_batch("PRAGMA foreign_keys = OFF").unwrap();
     // Rust's own NBP tables (D-TAX-PL-NBP), from the migration that creates them.
     c.execute_batch(include_str!("../migrations/20261103000001_nbp_rates.sql")).unwrap();
+    // The PL carry the user declares (D-TAX-PL-DECLARED-CARRY).
+    c.execute_batch(include_str!("../migrations/20261104000001_rust_tax_pl_carry.sql")).unwrap();
     for (table, rows) in tables.as_object().unwrap() {
         for row in rows.as_array().unwrap() {
             let row = row.as_object().unwrap();
@@ -44,6 +46,13 @@ fn nbp(c: &Connection, s: &Value) {
     }
     for r in s["nbp_coverage"].as_array().into_iter().flatten() {
         c.execute("INSERT INTO nbp_coverage (currency, from_date, to_date) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_str(), r[1].as_str(), r[2].as_str()]).unwrap();
+    }
+    // [user, year, costs]: the scenario's user ("self") or another ("other").
+    let me = s["user_id"].as_i64().unwrap();
+    for r in s["pl_carry"].as_array().into_iter().flatten() {
+        let user = if r[0] == "self" { me } else { me + 1 };
+        c.execute("INSERT INTO rust_tax_pl_carry (user_id, year, costs, updated_at) VALUES (?1, ?2, ?3, '2026-09-10 12:00:00')",
+                  rusqlite::params![user, r[1].as_i64(), r[2].as_str()]).unwrap();
     }
 }
 
@@ -100,6 +109,13 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios:\n{}", failures.len(), scenarios.len(), failures.join("\n\n"));
+}
+
+/// D-TAX-PL-DECLARED-CARRY: a declaration for a later year is not read, so the 2024 file is the one without it.
+#[test]
+fn a_later_years_declared_carry_is_not_read() {
+    let file = |name: &str| std::fs::read_to_string(divergence(name)).unwrap();
+    assert_eq!(file("pl_declared_future_ignored_2024"), file("pl_carry_two_years_2024"));
 }
 
 /// Every reviewed divergence file belongs to a scenario that says so.

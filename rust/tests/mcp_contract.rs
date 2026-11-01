@@ -55,6 +55,10 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     assert_eq!(recorded["tools"][r]["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"],"Treat stablecoins as fiat (relevant for AT)");
     assert_eq!(ours["tools"][o]["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"],protocol::TAX_STABLECOIN);
     recorded["tools"][r]["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"]=protocol::TAX_STABLECOIN.into();
+    // D-TAX-PL-DECLARED-CARRY: the web form's PL field, optional, after the recorded properties.
+    let carry=ours["tools"][o]["inputSchema"]["properties"].as_object_mut().unwrap().remove("pl_carried_costs").unwrap();
+    assert_eq!(carry,serde_json::json!({"type":["string","number","null"],"description":protocol::TAX_PL_CARRY}));
+    assert!(!ours["tools"][o]["inputSchema"]["required"].as_array().unwrap().contains(&"pl_carried_costs".into()));
     assert_eq!(recorded,ours,"only descriptions of update_bot_settings and generate_tax_report's stablecoin flag change");
     assert_eq!(changed, [
         "quote_amount_limited", "quote_amount_limit",

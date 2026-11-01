@@ -327,3 +327,121 @@ async fn a_report_that_cannot_be_written_fails_its_request() {
     assert_eq!(rows(&open(&i)), vec![(R1.into(), "failed".into())]);
     assert!(sent.lock().unwrap().last().unwrap().1.contains("salert--danger"));
 }
+
+/// D-TAX-PL-DECLARED-CARRY: the stored carry, by year.
+fn carry(c: &Connection, user: i64) -> Vec<(i64, String)> {
+    let mut s = c.prepare("SELECT year, costs FROM rust_tax_pl_carry WHERE user_id = ?1 ORDER BY year").unwrap();
+    s.query_map([user], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
+}
+fn free_slot(c: &Connection) { c.execute("UPDATE rust_tax_reports SET state = 'failed' WHERE state IN ('queued', 'running')", []).unwrap(); }
+fn pending(c: &Connection, user: i64) -> Option<String> { c.query_row("SELECT tracker_settings FROM users WHERE id = ?1", [user], |r| r.get(0)).unwrap() }
+/// A write to the carry table aborts (the fault after the enqueue).
+fn break_carry(c: &Connection) {
+    c.execute_batch("CREATE TRIGGER no_insert BEFORE INSERT ON rust_tax_pl_carry BEGIN SELECT RAISE(ABORT, 'carry'); END; \
+                     CREATE TRIGGER no_update BEFORE UPDATE ON rust_tax_pl_carry BEGIN SELECT RAISE(ABORT, 'carry'); END; \
+                     CREATE TRIGGER no_delete BEFORE DELETE ON rust_tax_pl_carry BEGIN SELECT RAISE(ABORT, 'carry'); END;").unwrap();
+}
+
+#[test]
+fn the_api_saves_a_declared_pl_carry_only_with_the_request_it_queues() {
+    let i = install();
+    let app = app(&i);
+    let c = open(&i);
+    let create = |v: Value| deltabadger::tax::api::create(&c, &app, i.user, &args(v), "en").unwrap().code;
+    assert_eq!(create(json!({"country": "PL", "year": 2025, "pl_carried_costs": "6014"})), None);
+    assert_eq!(carry(&c, i.user), vec![(2025, "6014.0".to_string())]);
+    // The slot is held: refused, nothing saved.
+    assert_eq!(create(json!({"country": "PL", "year": 2025, "pl_carried_costs": "1"})), Some("report_generating"));
+    assert_eq!(carry(&c, i.user), vec![(2025, "6014.0".to_string())]);
+    free_slot(&c);
+    // Absent keeps it; a JSON number with cents; null and "" clear.
+    assert_eq!(create(json!({"country": "PL", "year": 2025})), None);
+    assert_eq!(carry(&c, i.user), vec![(2025, "6014.0".to_string())]);
+    free_slot(&c);
+    assert_eq!(create(json!({"country": "PL", "year": 2024, "pl_carried_costs": 6014.5})), None);
+    assert_eq!(carry(&c, i.user), vec![(2024, "6014.5".to_string()), (2025, "6014.0".to_string())]);
+    free_slot(&c);
+    assert_eq!(create(json!({"country": "PL", "year": 2024, "pl_carried_costs": null})), None);
+    free_slot(&c);
+    assert_eq!(create(json!({"country": "PL", "year": 2025, "pl_carried_costs": ""})), None);
+    assert!(carry(&c, i.user).is_empty());
+    free_slot(&c);
+    // Refused before anything: another country, an amount it does not read.
+    let queued_before = rows(&c).len();
+    assert_eq!(create(json!({"country": "DE", "year": 2025, "pl_carried_costs": "1"})), Some("carried_costs_pl_only"));
+    assert_eq!(create(json!({"country": "DE", "year": 2025, "pl_carried_costs": null})), Some("carried_costs_pl_only"));
+    for bad in [json!("6014,50"), json!("-1"), json!("1e3"), json!("6014.501"), json!("6014."), json!(".5"), json!(true), json!([]), json!(1e21), json!("12345678901234")] {
+        assert_eq!(create(json!({"country": "PL", "year": 2025, "pl_carried_costs": bad})), Some("invalid_carried_costs"), "{bad}");
+    }
+    assert_eq!(rows(&c).len(), queued_before);
+    // A report already there and not forced: refused, nothing saved.
+    let report = tax::report_path(&tmp(&i), i.user, "PL", 2025, "crypto");
+    write(&report, "a,b\n");
+    assert_eq!(create(json!({"country": "PL", "year": 2025, "pl_carried_costs": "5"})), Some("report_ready"));
+    assert!(carry(&c, i.user).is_empty());
+    // The write fails after the enqueue (forced replacement): the old declaration, the queue, pending_report and the report
+    // file are as before.
+    c.execute("INSERT INTO rust_tax_pl_carry (user_id, year, costs, updated_at) VALUES (?1, 2025, '100.0', '2026-01-01')", [i.user]).unwrap();
+    break_carry(&c);
+    let (before_rows, before_pending) = (rows(&c), pending(&c, i.user));
+    assert!(deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "PL", "year": 2025, "pl_carried_costs": "200", "force": true})), "en").is_err());
+    assert_eq!(carry(&c, i.user), vec![(2025, "100.0".to_string())]);
+    assert_eq!((rows(&c), pending(&c, i.user)), (before_rows, before_pending));
+    assert_eq!(std::fs::read_to_string(&report).unwrap(), "a,b\n");
+    // MCP is the same call.
+    c.execute_batch("DROP TRIGGER no_insert; DROP TRIGGER no_update; DROP TRIGGER no_delete;").unwrap();
+    std::fs::remove_file(&report).unwrap();
+    let text = deltabadger::tax::api::mcp(&c, &app, i.user, "generate_tax_report", &json!({"country": "PL", "year": 2025.0, "pl_carried_costs": "7000.25"})).unwrap();
+    assert_ne!(text["isError"], true, "{text}");
+    assert_eq!(carry(&c, i.user), vec![(2025, "7000.25".to_string())]);
+}
+
+#[tokio::test]
+async fn the_pl_form_generates_with_its_carry_and_keeps_the_modal_on_a_refused_amount() {
+    let i = install();
+    let (app, mut browser) = signed_in(&i).await;
+    let c = open(&i);
+    let frame = [("turbo-frame", "modal")];
+    let modal = browser.send(&app, "GET", "/tracker/export_modal", None, Csrf::None, &frame).await;
+    assert_eq!(modal.status, 200);
+    for y in 2021..=2026 { assert!(modal.body.contains(&format!("<form id=\"pl-carry-{y}\" class=\"pl-carry\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\" action=\"/tracker/tax_report\"")), "{y}"); }
+    assert!(!modal.body.contains("pl-carry-2020"));
+    assert!(modal.body.contains("<style>.pl-carry{display:none}"));
+    assert!(modal.body.contains("Unused costs from your PIT-38 for 2024 (column f), PLN"));
+    // The URL's locale is the form's.
+    let pl = browser.send(&app, "GET", "/pl/tracker/export_modal", None, Csrf::None, &frame).await;
+    assert!(pl.body.contains("action=\"/pl/tracker/tax_report\"") && pl.body.contains("Nieodliczone koszty z Twojego PIT-38 za 2024 r."), "{}", pl.body);
+
+    let post = |amount: &'static str| [("year", "2025"), ("pl_carried_costs", amount)];
+    let ok = browser.send(&app, "POST", "/tracker/tax_report", Some(&post("6014")), Csrf::Header, &TURBO).await;
+    assert_eq!(ok.status, 200, "{}", ok.body);
+    assert!(ok.body.contains("broadcast--on-connect"), "{}", ok.body);
+    assert_eq!(carry(&c, i.user), vec![(2025, "6014.0".to_string())]);
+    let r: (String, i64) = c.query_row("SELECT country, year FROM rust_tax_reports WHERE state = 'queued'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(r, ("PL".to_string(), 2025));
+    // The slot held: the holder's panel, nothing saved.
+    let held = browser.send(&app, "POST", "/tracker/tax_report", Some(&post("1")), Csrf::Header, &TURBO).await;
+    assert_eq!(held.status, 200);
+    assert_eq!(carry(&c, i.user), vec![(2025, "6014.0".to_string())]);
+    free_slot(&c);
+    // A refused amount: 422, the form again with the error and the amount as typed, nothing saved or queued.
+    let queued_before = rows(&c).len();
+    let bad = browser.send(&app, "POST", "/tracker/tax_report", Some(&post("6014,50")), Csrf::Header, &TURBO).await;
+    assert_eq!(bad.status, 422);
+    assert!(bad.body.starts_with("<turbo-stream action=\"replace\" target=\"pl-carry-2025\">") && bad.body.contains("value=\"6014,50\"")
+            && bad.body.contains("Enter an amount in PLN") && bad.body.contains("modal--base#submitEnd"), "{}", bad.body);
+    assert_eq!((rows(&c).len(), carry(&c, i.user)), (queued_before, vec![(2025, "6014.0".to_string())]));
+    // The modal shows what is saved.
+    let modal = browser.send(&app, "GET", "/tracker/export_modal", None, Csrf::None, &frame).await;
+    assert!(modal.body.contains("value=\"6014.0\""), "{}", modal.body);
+    // Empty clears.
+    assert_eq!(browser.send(&app, "POST", "/tracker/tax_report", Some(&post("")), Csrf::Header, &TURBO).await.status, 200);
+    assert!(carry(&c, i.user).is_empty());
+    free_slot(&c);
+    // The write fails after the enqueue: nothing queued, the old declaration kept.
+    c.execute("INSERT INTO rust_tax_pl_carry (user_id, year, costs, updated_at) VALUES (?1, 2025, '100.0', '2026-01-01')", [i.user]).unwrap();
+    break_carry(&c);
+    let before = rows(&c);
+    assert_eq!(browser.send(&app, "POST", "/tracker/tax_report", Some(&post("200")), Csrf::Header, &TURBO).await.status, 500);
+    assert_eq!((rows(&c), carry(&c, i.user)), (before, vec![(2025, "100.0".to_string())]));
+}

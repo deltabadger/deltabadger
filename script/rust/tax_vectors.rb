@@ -905,6 +905,40 @@ module TaxVectors
         k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
         quoted(c, :sell, 'BTC', '0.5', '30000', '2026-02-04T10:00:00Z', fiat: 'USDT', fee_currency: 'USDT', fee_amount: '30')
       end,
+      # D-TAX-PL-DECLARED-CARRY: column d as the user declares it for a year (`pl_carry` rows: [user, year, costs], the
+      # user "self" or "other"; Rails has no such input and ignores them). History from 2026 only, 6,014 carried:
+      # b 8,000; c 0; d 6,014; e 1,986; base 1,986; tax 377 (rebuilt: d 0, tax 1,520). Another user's row is not read.
+      pl_case('pl_declared_carry_2026', expect: 'diverges: D-TAX-PL-DECLARED-CARRY',
+              pl_carry: [['self', 2026, '6014'], ['other', 2026, '100']]) do |c|
+        k.(c, :sell, 'BTC', '1', '8000', '2026-03-02T10:00:00Z')
+      end,
+      # Rebuilt 2024: f 6,014; declared 2025 = 5,000: d 5,000; e 3,000; base 3,000; tax 570.
+      pl_case('pl_declared_differs_2025', year: 2025, expect: 'diverges: D-TAX-PL-DECLARED-CARRY',
+              pl_carry: [['self', 2025, '5000']], &carry),
+      # Declared 2025 = 0 overrides the rebuilt 6,014: d 0; e 8,000; tax 1,520.
+      pl_case('pl_declared_zero_2025', year: 2025, expect: 'diverges: D-TAX-PL-DECLARED-CARRY',
+              pl_carry: [['self', 2025, '0']], &carry),
+      # Declared 2024 = 1,000: 2024 b 4,000, c 10,014, d 1,000, f 7,014; declared 2025 = 500 resets the chain:
+      # d 500; e 7,500; base 7,500; tax 1,425.
+      pl_case('pl_declared_twice_2025', year: 2025, expect: 'diverges: D-TAX-PL-DECLARED-CARRY',
+              pl_carry: [['self', 2024, '1000.00'], ['self', 2025, '500']], &carry),
+      # A declaration for a later year is not read: the file of pl_carry_two_years_2024.
+      pl_case('pl_declared_future_ignored_2024', year: 2024, pl_carry: [['self', 2025, '9999']], &carry),
+      # Declared 2024 = 3,000 and nothing synced before 2026: 2024 b 0, c 0, d 3,000, f 3,000 (declared); 2025 d 3,000,
+      # f 3,000; 2026 sell 1,000: d 3,000; e 0; f 2,000; tax 0 (carried from 2024's: no d_declared line).
+      pl_case('pl_declared_across_empty_years', expect: 'diverges: D-TAX-PL-DECLARED-CARRY',
+              pl_carry: [['self', 2024, '3000']]) do |c|
+        k.(c, :sell, 'BTC', '0.1', '1000', '2026-03-02T10:00:00Z')
+      end,
+      # No synced row at all; declared 2025 = 1,000: b 0; c 0; d 1,000; e 0; f 1,000.
+      pl_case('pl_declared_only_2025', year: 2025, expect: 'diverges: D-TAX-PL-DECLARED-CARRY', pl_carry: [['self', 2025, '1000']]) { |_c| nil },
+      # Before 2019: 4,000 synced (its line); declared 2019 = 3,000 (1,000 deducted before): b 1,000; c 0; d 3,000; e 0;
+      # f 2,000; tax 0.
+      pl_case('pl_declared_before_2019', year: 2019, expect: 'diverges: D-TAX-PL-DECLARED-CARRY',
+              pl_carry: [['self', 2019, '3000']]) do |c|
+        k.(c, :buy, 'BTC', '1', '4000', '2018-06-04T10:00:00Z')
+        k.(c, :sell, 'BTC', '0.25', '1000', '2019-06-03T10:00:00Z')
+      end,
       # Listed with the PL hint, no figure. c 10,000; f 10,000.
       pl_case('pl_unlinked_withdrawal_listed') do |c|
         k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
@@ -1528,7 +1562,7 @@ module TaxVectors
       tables = TABLES.to_h { |t| [t, conn.select_all("SELECT * FROM #{t} ORDER BY id").to_a] }
       { 'name' => scenario[:name], 'country' => country, 'year' => year, 'stablecoin_as_fiat' => stablecoin, 'now' => NOW.iso8601,
         'user_id' => ctx[:user].id, 'expect' => scenario[:expect], 'tables' => tables, 'rails' => rails,
-        'nbp' => (nbp = pl_default_nbp(scenario))[0], 'nbp_coverage' => nbp[1] }
+        'nbp' => (nbp = pl_default_nbp(scenario))[0], 'nbp_coverage' => nbp[1], 'pl_carry' => scenario.fetch(:pl_carry, []) }
     end
   end
 end

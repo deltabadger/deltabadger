@@ -190,6 +190,19 @@ fn stablecoin_question(body: &str) -> String {
     out
 }
 
+/// D-TAX-PL-DECLARED-CARRY (Rust-only, approved): the modal's PL forms, one per offered crypto year from 2019 (2021–2026 at
+/// the recordings' 2026 clock), each empty (no recording declares a carry), with the style that shows the selected one,
+/// directly before the footer. Rust's body without them is Rails' body.
+fn without_pl_carry(body: &str) -> String {
+    let block = regex::Regex::new(r#"(?s)      <style>\.pl-carry\{display:none\}[^<]*</style>\n((?:<form id="pl-carry-\d{4}" .*?</form>\n)+)(      <div class="modal__footer">)"#).unwrap();
+    let found = block.captures(body).expect("the PL forms before the footer");
+    let years: Vec<String> = regex::Regex::new(r#"<form id="pl-carry-(\d{4})""#).unwrap().captures_iter(&found[1]).map(|c| c[1].to_string()).collect();
+    assert_eq!(years, ["2021", "2022", "2023", "2024", "2025", "2026"], "one PL form per offered year from 2019");
+    assert_eq!(found[1].matches(r#"name="pl_carried_costs" class="rinput rinput--outline rinput--text""#).count(), 6);
+    assert_eq!(found[1].matches(r#"aria-label=""#).count(), found[1].matches(r#" value="">"#).count(), "no carry declared in a recording");
+    block.replace(body, "$2").into_owned()
+}
+
 fn without_kucoin_format(body: &str) -> String {
     let option = regex::Regex::new(r#"\n *<button type="button" class="segmented__option" role="radio" aria-checked="false" tabindex="-1" data-value="kucoin"[^\n]*</button>"#).unwrap();
     assert!(option.is_match(body), "the KuCoin format is offered");
@@ -317,6 +330,7 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
                 assert!(csrf::valid(&token,&rendered),"invalid rendered CSRF");
             }
             let body = if name == "import_new" { without_kucoin_format(&answer.body) } else if tax { reconcile(&answer.body) } else { answer.body.clone() };
+            let body = if body.contains("<style>.pl-carry{") { without_pl_carry(&body) } else { body };
             let rails_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
             let rails_body = if rails_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&rails_body) } else { rails_body };
             assert_eq!(mask_csrf(&body),mask_csrf(&rails_body),"{name}: body bytes");

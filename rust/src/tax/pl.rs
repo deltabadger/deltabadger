@@ -11,9 +11,13 @@
 //! - D-TAX-PL-REWARDS. Staking, airdrops, mining and lending paid in coins are neither revenue nor cost; listed.
 //!
 //! Each value is rounded to the grosz, the columns summed from those; the base to whole złoty, then 19%, then whole złoty
-//! (Ordynacja podatkowa art. 63: half up). Column d is reconstructed from the synced history (the year table shows it).
+//! (Ordynacja podatkowa art. 63: half up). Column d is reconstructed from the synced history (the year table shows it),
+//! unless the user declared it for a year (D-TAX-PL-DECLARED-CARRY): that year's d is the declared amount (for 2019 the
+//! costs before 2019 never deducted, art. 23 of the 2018 act; later, column f of the previous return), and later years
+//! chain from it.
 //! Read from the report's copy of the rows (D-TAX-COIN-QUOTE applies), never the ECB-enriched values.
 use super::*;
+use serde_json::Value;
 use std::collections::BTreeMap;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -41,6 +45,44 @@ struct Columns { b: Dec, c: Dec, d: Dec, e: Dec, f: Dec }
 
 /// The year the PIT act's crypto regime took effect (art. 44 ust. 1 of the act of 23.10.2018).
 pub const FIRST_YEAR: i32 = 2019;
+
+/// D-TAX-PL-DECLARED-CARRY: what a request says of column d. `None`: the field is absent (what is saved stays);
+/// `Some(None)`: null or "" (cleared, d is carried from the year before); `Some(Some(d))`: the amount declared. The text
+/// of a string or JSON number: digits, at most 13, then at most 2 decimals after a dot (no sign, no exponent; a JSON
+/// number of that form round-trips through f64 exactly). `Err` names the refusal.
+pub fn carried(raw: Option<&Value>) -> Result<Option<Option<Dec>>, &'static str> {
+    let text = match raw {
+        None => return Ok(None),
+        Some(Value::Null) => return Ok(Some(None)),
+        Some(Value::String(s)) if s.is_empty() => return Ok(Some(None)),
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Number(n)) => n.to_string(),
+        Some(_) => return Err("invalid_carried_costs"),
+    };
+    let (whole, cents) = text.split_once('.').unwrap_or((&text, ""));
+    let digits = |s: &str| s.bytes().all(|b| b.is_ascii_digit());
+    if whole.is_empty() || whole.len() > 13 || !digits(whole) || cents.len() > 2 || !digits(cents) || text.ends_with('.') { return Err("invalid_carried_costs"); }
+    Dec::strict(&text).map(|d| Some(Some(d))).map_err(|_| "invalid_carried_costs")
+}
+
+/// Saves what a queued request said of column d for (user, year): the caller's transaction, after its refusals.
+pub fn declare(tx: &Connection, user: i64, year: i64, value: Option<&Dec>, now: &str) -> rusqlite::Result<()> {
+    match value {
+        None => tx.execute("DELETE FROM rust_tax_pl_carry WHERE user_id = ?1 AND year = ?2", rusqlite::params![user, year]).map(drop),
+        Some(d) => tx.execute("INSERT INTO rust_tax_pl_carry (user_id, year, costs, updated_at) VALUES (?1, ?2, ?3, ?4) \
+                               ON CONFLICT (user_id, year) DO UPDATE SET costs = excluded.costs, updated_at = excluded.updated_at",
+                              rusqlite::params![user, year, d.round(2).map_err(|_| rusqlite::Error::InvalidQuery)?.to_s_f(), now]).map(drop),
+    }
+}
+
+/// The amounts declared for the regime's years up to `year`.
+pub fn declared(c: &Connection, user: i64, year: i32) -> Result<BTreeMap<i32, Dec>, FiguresError> {
+    let mut s = c.prepare("SELECT year, costs FROM rust_tax_pl_carry WHERE user_id = ?1 AND year BETWEEN ?2 AND ?3")?;
+    let rows = s.query_map(rusqlite::params![user, FIRST_YEAR, year], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, String>(1)?)))?;
+    let mut out = BTreeMap::new();
+    for row in rows { let (y, costs) = row?; out.insert(y, Dec::strict(&costs).map_err(|_| FiguresError::Data(format!("a declared PL carry for {y}")))?); }
+    Ok(out)
+}
 
 impl Report {
     /// The values of every row up to the end of the report's year (local), in row order.
@@ -139,19 +181,22 @@ impl Report {
                 if *side == Side::Revenue { *b = (&*b + &v.value)?; } else { *c = (&*c + &v.value)?; }
             }
         }
-        // The chain of column f into next year's d, from the first year of synced values.
-        let start = years.keys().next().copied().unwrap_or(self.year).min(self.year);
-        let mut chain: Vec<(i32, Columns)> = vec![];
+        // The chain of column f into next year's d, from the first year of synced values or of a declared d, whichever is
+        // earlier; a declared d replaces the carried f in its year (D-TAX-PL-DECLARED-CARRY).
+        let start = years.keys().chain(self.carry.keys()).min().copied().unwrap_or(self.year).min(self.year);
+        let mut chain: Vec<(i32, Columns, bool)> = vec![];
         let mut carried = Dec::zero();
         for y in start..=self.year {
+            let declared = self.carry.get(&y);
+            if let Some(d) = declared { carried = d.clone(); }
             let (b, c) = years.get(&y).cloned().unwrap_or_else(|| (Dec::zero(), Dec::zero()));
             let costs = (&c + &carried)?;
             let net = (&b - &costs)?;
             let (e, f) = if net.is_negative() { (Dec::zero(), net.neg()) } else { (net, Dec::zero()) };
-            chain.push((y, Columns { b, c, d: carried, e, f: f.clone() }));
+            chain.push((y, Columns { b, c, d: carried, e, f: f.clone() }, declared.is_some()));
             carried = f;
         }
-        let this = chain.last().map(|(_, c)| c.clone()).ok_or_else(|| FiguresError::Data("no report year".into()))?;
+        let this = chain.last().map(|(_, c, _)| c.clone()).ok_or_else(|| FiguresError::Data("no report year".into()))?;
         let base = this.e.round(0)?;
         let tax = (&base * &Dec::strict("0.19")?)?.round(0)?;
         let warnings = { let mut seen = HashSet::new(); ps.warnings.iter().filter(|w| seen.insert(w.as_str())).cloned().collect::<Vec<_>>() };
@@ -159,7 +204,7 @@ impl Report {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn pl_csv(&self, valued: &[Valued], chain: &[(i32, Columns)], this: &Columns, base: &Dec, tax: &Dec, before_regime: &Dec,
+    fn pl_csv(&self, valued: &[Valued], chain: &[(i32, Columns, bool)], this: &Columns, base: &Dec, tax: &Dec, before_regime: &Dec,
               warnings: &[String]) -> Result<String, FiguresError> {
         let l = self.j.locale;
         let mut out = String::new();
@@ -187,22 +232,29 @@ impl Report {
 
         line(&mut out, &[]);
         line(&mut out, &[self.t("tax_report.pit38.header")]);
+        // D-TAX-PL-DECLARED-CARRY: with no declared year in the chain, the file is as it was.
+        let declared = chain.iter().any(|(_, _, d)| *d);
+        let this_declared = chain.last().is_some_and(|(_, _, d)| *d);
         for (key, value) in [("b", &this.b), ("c", &this.c), ("d", &this.d), ("e", &this.e), ("f", &this.f)] {
             line(&mut out, &[self.t(&format!("tax_report.pit38.{key}")), cents(value)?]);
+            if key == "d" && this_declared { line(&mut out, &[self.t("tax_report.pit38.d_declared")]); }
         }
         line(&mut out, &[self.t("tax_report.pit38.base"), Cell::Raw(zloty(base))]);
         line(&mut out, &[self.t("tax_report.pit38.tax"), Cell::Raw(zloty(tax))]);
         line(&mut out, &[]);
-        line(&mut out, &[self.t("tax_report.pit38.years_header")]);
+        line(&mut out, &[self.t(if declared { "tax_report.pit38.years_header_declared" } else { "tax_report.pit38.years_header" })]);
         line(&mut out, &[Cell::Nil, s("b"), s("c"), s("d"), s("e"), s("f")]);
-        for (y, c) in chain {
-            line(&mut out, &[Cell::Raw(y.to_string()), cents(&c.b)?, cents(&c.c)?, cents(&c.d)?, cents(&c.e)?, cents(&c.f)?]);
+        for (y, c, d) in chain {
+            let mut cells = vec![Cell::Raw(y.to_string()), cents(&c.b)?, cents(&c.c)?, cents(&c.d)?, cents(&c.e)?, cents(&c.f)?];
+            if *d { cells.push(self.t("tax_report.pit38.declared")); }
+            line(&mut out, &cells);
         }
-        line(&mut out, &[self.t("tax_report.pit38.carried_hint")]);
+        line(&mut out, &[self.t(if declared { "tax_report.pit38.carried_hint_declared" } else { "tax_report.pit38.carried_hint" })]);
         if before_regime.is_positive() {
+            let first_declared = chain.iter().any(|(y, _, d)| *y == FIRST_YEAR && *d);
             line(&mut out, &[]);
             line(&mut out, &[self.t("tax_report.pit38.before_2019"), cents(before_regime)?]);
-            line(&mut out, &[self.t("tax_report.pit38.before_2019_hint")]);
+            line(&mut out, &[self.t(if first_declared { "tax_report.pit38.before_2019_hint_declared" } else { "tax_report.pit38.before_2019_hint" })]);
         }
 
         if !warnings.is_empty() {

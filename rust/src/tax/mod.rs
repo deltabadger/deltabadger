@@ -34,7 +34,7 @@ pub mod fifo;
 pub mod job;
 pub mod jurisdictions;
 pub mod nbp;
-mod pl;
+pub mod pl;
 
 use crate::figures::{at::At, budget, dec::Dec, FiguresError};
 use crate::tracker::prices::{self, alias_coin, catalogue_coin, Fetcher, PriceService, Reference, Unfetched, Venue};
@@ -73,6 +73,8 @@ pub struct Report {
     deposits: HashMap<i64, Dec>, reference: Reference, fx: crate::tracker::fx::FxTable, cfee: HashSet<i64>,
     /// Poland's NBP rates (D-TAX-PL-NBP); None elsewhere.
     nbp: Option<nbp::Nbp>,
+    /// Poland: column d as the user declared it, by year up to the report's (D-TAX-PL-DECLARED-CARRY).
+    carry: std::collections::BTreeMap<i32, Dec>,
 }
 
 /// The reads of `crypto_csv` up to the enrichment: the scope, the tokenized refusal, the banners.
@@ -115,7 +117,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let mut s = c.prepare("SELECT id FROM account_transactions WHERE json_extract(raw_data, '$.activity_type') = 'CFEE'")?;
     let cfee: HashSet<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let nbp = if j.code == "PL" { Some(nbp::Nbp::load(c)?) } else { None };
-    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp })))
+    let carry = if j.code == "PL" { pl::declared(c, user_id, year)? } else { Default::default() };
+    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry })))
 }
 
 /// Midnight starting 1 January of `year` in the user's zone (`ActiveSupport::TimeZone#local`).

@@ -89,10 +89,34 @@ pub fn set_pending(c: &rusqlite::Connection, owner: i64, now: &str, pending: Val
 
 /// TrackerController#tax_report.
 pub async fn tax_report(State(app): State<crate::web::App>, Extension(ctx): Extension<Ctx>, headers: HeaderMap) -> Result<Response, WebError> {
+    let get = |name: &str| ctx.params.query(name).map(str::to_string);
+    let asked = (get("country"), get("year"), get("report_scope"), get("stablecoin_as_fiat"));
+    generate(app, ctx, headers, asked, None).await
+}
+
+/// D-TAX-PL-DECLARED-CARRY: the PL form of the export modal (its own submit, Rails' GET untouched): the same request,
+/// with column d as declared, saved only if the report is queued. An amount `pl::carried` does not read answers 422 with
+/// the form again and nothing saved.
+pub async fn tax_report_pl(State(app): State<crate::web::App>, Extension(ctx): Extension<Ctx>, headers: HeaderMap) -> Result<Response, WebError> {
+    if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
+    let year = ctx.params.form("year").map_or(0, crate::ruby::to_i);
+    let raw = ctx.params.form("pl_carried_costs").unwrap_or("").trim().to_string();
+    let Ok(carry) = crate::tax::pl::carried(Some(&Value::String(raw.clone()))) else {
+        let block = super::modal::pl_block(&ctx, year, &raw, true);
+        return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
+                   turbo::stream("replace", &format!("pl-carry-{year}"), &block)).into_response());
+    };
+    let asked = (Some("PL".to_string()), Some(year.to_string()), None, None);
+    generate(app, ctx, headers, asked, carry).await
+}
+
+type Asked = (Option<String>, Option<String>, Option<String>, Option<String>);
+
+async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Asked, carry: Option<Option<crate::figures::dec::Dec>>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
-    let country = ctx.params.query("country").map(str::to_string);
-    let year = ctx.params.query("year").map_or(0, crate::ruby::to_i);
-    let scope = match ctx.params.query("report_scope") { Some(s) if job::SCOPES.contains(&s) => job::scope_of(s), _ => "crypto" };
+    let (country, year, scope, stablecoin) = asked;
+    let year = year.as_deref().map_or(0, crate::ruby::to_i);
+    let scope = match scope.as_deref() { Some(s) if job::SCOPES.contains(&s) => job::scope_of(s), _ => "crypto" };
     // `Tax::Jurisdictions.for(country)`: the registry's exact key.
     let Some(country) = country.filter(|c| super::modal::COUNTRIES.contains(&c.as_str())) else {
         flash::set(&ctx.session, flash::ALERT, ctx.t("tracker.tax_report.invalid_country"));
@@ -100,7 +124,7 @@ pub async fn tax_report(State(app): State<crate::web::App>, Extension(ctx): Exte
     };
     if scope == "broker" { return refused(&ctx, &headers, "tracker broker tax reports").await; }
     if !crate::tax::jurisdictions::ported(&country, year) { return refused(&ctx, &headers, "tracker tax reports for this jurisdiction").await; }
-    let stablecoin = ctx.params.query("stablecoin_as_fiat") == Some("true");
+    let stablecoin = stablecoin.as_deref() == Some("true");
     let (app2, ctx2) = (app.clone(), ctx.clone());
     let answer = app.db(move |c| {
         if coingecko(c, &app2)? { return Ok(None); }
@@ -115,6 +139,8 @@ pub async fn tax_report(State(app): State<crate::web::App>, Extension(ctx): Exte
             let tx = crate::engine::model::immediate(c)?;
             set_pending(&tx, owner, &crate::codec::format_time(now), json!({ "country": country, "year": year, "report_scope": scope }))?;
             let accepted = job::enqueue(&tx, &ask, &request, now)?;
+            // Saved only with a queued request, so it never changes under a queued or running report.
+            if let Some(value) = carry.as_ref().filter(|_| accepted) { crate::tax::pl::declare(&tx, owner, year, value.as_ref(), &crate::codec::format_time(now))?; }
             tx.commit()?;
             Ok(accepted)
         })();
