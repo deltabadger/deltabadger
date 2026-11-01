@@ -110,8 +110,9 @@ pub(super) fn year(locale: &str, exemption: i64, results: &[Disposal], local: &d
     block("ie_loss_released", valued(&|r| &r.released)?);
     block("ie_loss_unusable", valued(&|r| &r.unusable)?);
     // r1 item 4: a purchase before the day after the window (local date + 29; day 28 inside) would still restrict the loss.
-    let open: Vec<Vec<Cell>> = results.iter().filter(|r| r.gain_loss.is_negative()).filter_map(|r| {
-        let closed = local(r) + chrono::Duration::days(29);
+    // The window runs from when the loss took effect (a CFEE walked after its fills: then), as the engine's fence does.
+    let open: Vec<Vec<Cell>> = results.iter().filter(|r| r.gain_loss.round(2).is_ok_and(|v| v.is_negative())).filter_map(|r| {
+        let closed = local(&Disposal { at: r.effective, ..r.clone() }) + chrono::Duration::days(29);
         (today < closed).then(|| vec![s(listed(r)), s(closed.format("%Y-%m-%d").to_string())])
     }).collect();
     block("ie_provisional", open);
@@ -142,4 +143,20 @@ mod tests {
         let (h, l) = taxable([row("1000", "0", "0", false), row("-3000", "0", "0", false), row("5000", "0", "0", true)].iter(), &e).unwrap();
         assert_eq!((h.to_s_f(), l.to_s_f()), ("0.0".into(), "1730.0".into()));
     }
+
+    /// Confirmation round: the window of `ie_provisional` runs from when the loss took effect (a CFEE walked after its
+    /// fills), as the engine's fence does, not from the row's own time.
+    #[test]
+    fn the_open_window_counts_from_when_the_loss_took_effect() {
+        use crate::figures::at::At;
+        let at = |s: &str| At::from_utc(chrono::DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&chrono::Utc)).unwrap();
+        let loss = Disposal { at: at("2026-06-02T00:00:00Z"), acquired: None, asset: "ETH".into(), amount: d("0.1"), proceeds: d("200"), cost_basis: d("400"),
+                           fee: Dec::zero(), gain_loss: d("-200"), holding_days: 0, complete: true, incomplete: false, tx_id: None, exchange: "alpaca".into(),
+                           long_held: None, uncovered: Dec::zero(), averaged: false, mined: false, source: 0, recent: false, restricted: Dec::zero(),
+                           released: Dec::zero(), unusable: Dec::zero(), effective: at("2026-06-03T00:30:00Z") };
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
+        let y = year("en", 1270, &[loss], &|r: &Disposal| r.at.utc().date_naive(), today).unwrap();
+        assert!(y.notes.contains("2026-07-02"), "{}", y.notes);
+    }
+
 }

@@ -1505,6 +1505,13 @@ module TaxVectors
       end,
       # Branch review: an unpriced deposit at 2026-01-01T00:00Z (midnight in Dublin) is 2026's: no banner, no deposit block
       # in the 2025 report → BTC +10,000, CGT 2,880.90.
+      # Confirmation round: east of UTC (Tallinn) the year ends at local midnight, 2025-12-31T22:00Z: an unpriced deposit
+      # then is 2026's → no banner, no deposit block; BTC +10,000, CGT 2,880.90.
+      ie.('ie_new_year_east', expect: 'diverges: D-TAX-IE-SUMMARY') do |c|
+        user_zone(c, 'Tallinn')
+        btc_gain.(c)
+        row(c, :deposit, 'SOL', '5', '2025-12-31T22:00:00Z', exchange: venue(c, :kraken))
+      end,
       ie.('ie_new_year_midnight', expect: 'diverges: D-TAX-IE-SUMMARY') do |c|
         btc_gain.(c)
         row(c, :deposit, 'SOL', '5', '2026-01-01T00:00:00Z', exchange: venue(c, :kraken))

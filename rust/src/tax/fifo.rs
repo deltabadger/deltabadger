@@ -149,6 +149,8 @@ pub struct Disposal {
     pub restricted: Dec,
     /// D-TAX-IE-RING-FENCE: restricted losses this row's parts used (each up to its own gain), and what they could not.
     pub released: Dec, pub unusable: Dec,
+    /// The instant it takes effect: its own, or the walk's clock for a row walked out of time order (a CFEE after its fills).
+    pub effective: At,
 }
 
 /// D-TAX-IE-RING-FENCE: a loss waiting for a reacquisition: the store, the window (after the disposal, before `until`),
@@ -750,7 +752,7 @@ impl<'a> Fifo<'a> {
             incomplete: sale.price_missing || basis_assumed || !has_lots || uncovered.is_positive(),
             tx_id: tx.tx_id.clone(), exchange: r.exchange.clone(), long_held: None, uncovered, averaged: tranches.iter().any(|t| t.averaged), source: r.uid,
             mined: tranches.iter().any(|t| t.mined), recent: tranches.iter().any(|t| t.recent),
-            restricted: Dec::zero(), released: Dec::zero(), unusable: Dec::zero(),
+            restricted: Dec::zero(), released: Dec::zero(), unusable: Dec::zero(), effective: if self.clock.0 > r.at.0 { self.clock } else { r.at },
         })
     }
 
