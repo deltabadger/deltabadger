@@ -1289,6 +1289,15 @@ fn the_report_types_every_finding_beside_its_problem_line() {
     assert!(!f.is_empty() && f.iter().all(|k| matches!(k, Kind::Flip { condition, to_selling: true, inner } if condition == "price_limited" && inner.kind == Kind::Settings)), "{f:?}");
     assert!(line(flip).contains("sell_interval"), "{}", line(flip));
 
+    // An unreadable threshold keeps refusing a stopped basket (it still rebalances): work, never set aside.
+    for status in [1, 2] {
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain() }.with("rebalance_enabled", json!(true)).with("rebalance_threshold", json!([1])));
+        let r = eligibility::check_install(&o.primary).unwrap();
+        let k = kinds(id, if status == 1 { &r.refused } else { &r.held });
+        assert!(k.contains(&Kind::Work(Work::Rebalancing)) && !k.contains(&Kind::Settings), "status {status}: {k:?}");
+        o.primary.execute("DELETE FROM bots WHERE id = ?1", [id]).unwrap();
+    }
+
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
     assert_eq!(alpaca::untradable(&o.primary, &seed::cipher(), &[working, stopped]), vec![(working, Untradable::Missing("Kraken")), (stopped, Untradable::Missing("Kraken"))]);
     let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();

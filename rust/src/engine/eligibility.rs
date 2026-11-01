@@ -149,7 +149,8 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     // Bot::EvaluateRebalancersJob#candidates: REBALANCEABLE_TYPES, `.where.not(status: %i[deleted archived])`. A stopped bot still rebalances.
     let rebalanceable = matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") && !matches!(bot.status, BotStatus::Deleted | BotStatus::Archived);
     if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) {
-        if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(why(Kind::Settings, format!("{e:?}"))); }
+        // Work, not a setting: a stopped basket or index bot still rebalances, so this keeps refusing it after a stop.
+        if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(why(Kind::Work(Work::Rebalancing), format!("{e:?}"))); }
     }
     let non_regular: i64 = c.query_row(
         "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'LIQUIDATION', 'REDEPLOY') AND NOT (?2 AND transaction_type = 'REBALANCE') \
