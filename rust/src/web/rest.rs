@@ -531,7 +531,10 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
     let rendered = |status: StatusCode, content_type: &str, body: String, extra: Vec<(header::HeaderName, String)>| {
         let tag = (matches!(status, StatusCode::OK | StatusCode::CREATED) && !body.is_empty())
             .then(|| format!("W/\"{}\"", &hex::encode(Sha256::digest(body.as_bytes()))[..32]));
+        // Rack::ETag on a 200 or 201 it cannot tag (an empty body): `no-cache` (an empty tax report's download).
+        let untagged = matches!(status, StatusCode::OK | StatusCode::CREATED) && body.is_empty();
         let mut response = (status, [(header::CONTENT_TYPE, content_type.to_string())], body).into_response();
+        if untagged { response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache")); }
         for (name, value) in extra { if let Ok(value) = HeaderValue::from_str(&value) { response.headers_mut().insert(name, value); } }
         let fresh = status == StatusCode::OK && tag.is_some() && tag.as_deref() == if_none_match;
         if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) {

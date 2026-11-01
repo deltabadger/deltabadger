@@ -7,6 +7,10 @@
 //! the request's outcome until the next request for its (user, scope) is accepted (which deletes it in the same
 //! transaction). Rails' 10-minute lease is the row's lifetime: a run past the job's deadline, or one whose process died,
 //! ends `failed` (Rails' killed worker leaves no answer either).
+//! A Rails defect fixed here, not copied: `Generating.accepted?` answers true for a job Solid Queue discarded on the
+//! conflict (ActiveJob sets `successfully_enqueued` after the adapter returns and the discarded job has no
+//! `provider_job_id`), so Rails' web request made while a report runs deletes a true refusal and shows progress for a run
+//! that never happens. The INSERT's outcome is the verdict here: not accepted, the refusal comes back.
 //!
 //! Every touch of a (user, scope)'s report files (a create from the web, REST or MCP, the run's publish, both downloads,
 //! the status, the reconcile, the recovery) holds `files(user, scope)`, one in-process lock: web and jobs are one

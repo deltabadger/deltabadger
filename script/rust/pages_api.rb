@@ -24,7 +24,7 @@ module Pages
               'bot' => ['/api/v1/bots/1', 'get_bot_details'], 'balances' => ['/api/v1/exchanges/1/balances', 'get_exchange_balances'],
               'orders' => ['/api/v1/orders', 'list_open_orders'], 'portfolio' => ['/api/v1/portfolio', 'get_portfolio_summary'] }.freeze
     # Routes this build answers with the 501 envelope, past the same authentication and tool gate as Rails.
-    GATED = [['GET', '/api/v1/rules', 'list_rules'], ['DELETE', '/api/v1/rules/1', 'delete_rule'], ['GET', '/api/v1/tax/reports/DE/2025/download', 'download_tax_report']].freeze
+    GATED = [['GET', '/api/v1/rules', 'list_rules'], ['DELETE', '/api/v1/rules/1', 'delete_rule']].freeze
     # The bot writes (slice B): the route, its tool, and the status bot 1 needs for the route to succeed.
     WRITES = { 'update' => ['PATCH', '/api/v1/bots/1', 'update_bot_settings', 0], 'start' => ['POST', '/api/v1/bots/1/start', 'start_bot', 0],
                'stop' => ['POST', '/api/v1/bots/1/stop', 'stop_bot', 1], 'archive' => ['POST', '/api/v1/bots/1/archive', 'archive_bot', 2],
@@ -35,7 +35,11 @@ module Pages
                 'link' => ['POST', '/api/v1/transactions/account/3/transfer_link', 'set_transfer_link'],
                 'price' => ['PATCH', '/api/v1/transactions/account/10/price', 'set_transaction_price'],
                 'sync' => ['POST', '/api/v1/tracker/sync', 'sync_tracker'] }.freeze
-    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + TRACKER.values.map(&:last) +
+    # PLAN-A12 A12-1: the tax report routes (pages_api.rb api_tax_scenarios).
+    TAX = { 'create' => ['POST', '/api/v1/tax/reports', 'generate_tax_report'],
+            'status' => ['GET', '/api/v1/tax/reports/US/2025', 'get_tax_report_status'],
+            'download' => ['GET', '/api/v1/tax/reports/US/2025/download', 'download_tax_report'] }.freeze
+    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + TRACKER.values.map(&:last) + TAX.values.map(&:last) +
              %w[create_bot create_index_bot create_signal_bot market_buy]).freeze
     # What a bot write may change, and the rows compared as stored.
     WRITE_TABLES = %w[bots bot_activity_logs bot_index_assets].freeze
@@ -113,7 +117,7 @@ module Pages
                                               json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
       # The setup gate is ApplicationController's: an install without an admin still answers the API.
       grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
-      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios).merge(api_order_scenarios).merge(api_tracker_scenarios)
+      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios).merge(api_create_scenarios).merge(api_order_scenarios).merge(api_tracker_scenarios).merge(api_tax_scenarios)
     end
 
     # A10: POST /api/v1/bots (BotApi::Bots::Create, CreateIndex, CreateSignal). A refused create writes nothing: the
@@ -643,6 +647,135 @@ module Pages
       # D-SYNC-VENUE: a reading key on Interactive Brokers, whose ledger this build does not read: 501, nothing woken.
       grid['api_tracker_d_sync_venue'] = ledger_case([tracker_write('POST', sync)], 'rows', {}, 'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' })
       grid
+    end
+
+    # PLAN-A12 A12-1: POST /api/v1/tax/reports, GET …/:country/:year and …/download (BotApi::Tax::*). Every step lists the
+    # files under the instance's tmp/tax_reports after it (`tax_files`; AppPaths.tmp is <scenario>/tmp on both sides), and a
+    # create may write the owner's pending_report (users) and, on this build, its request row (rust_tax_reports; Rails: the
+    # queue). Report and refusal files are placed at grid build time (`tax_fixtures`, by file name); a report already being
+    # generated is the `tax_generating` step hook (Rails: an unfinished Solid Queue job under the concurrency key).
+    # The grid's Rails runs ActiveJob's test adapter, so an accepted create holds no slot there: no scenario reads the status
+    # of, or creates again over, a report it accepted (this build's request row would answer `generating`).
+    # `api_tax_d_*` hold D-TAX-NOT-PORTED-GATE: tests/pages.rs tax_api_difference turns Rails' 202 into the 501 this build owes.
+    TAX_REPORT = 'Date,Type,Asset,Amount,Proceeds (USD)' + "\n" + '2025-03-01,sell,BTC,0.5,"30,000.00"' + "\n" + '2025-04-02,sell,ETH,1,Café' + "\n"
+    TAX_TOKENIZED = '{"reason":"tokenized_unsupported","symbols":["TSLAX","NVDAX"]}'
+    TAX_EXCESS = '{"reason":"excess_return_of_capital","symbols":["ARB"]}'
+
+    def tax_step(step) = step.merge('tax_files' => true)
+    def tax_create(body, token = 'api-token', **opts)
+      step = body.nil? ? api(TAX['create'][1], token, method: 'POST', **opts) : json_body(TAX['create'][1], body.is_a?(String) ? body : body.to_json, token, method: 'POST', **opts)
+      tax_step(step).merge('may_mutate' => %w[users rust_tax_reports])
+    end
+    def tax_query(query, token = 'api-token', **opts) = tax_step(api("#{TAX['create'][1]}?#{query}", token, method: 'POST', **opts)).merge('may_mutate' => %w[users rust_tax_reports])
+    def tax_status(country = 'US', year = 2025, token = 'api-token', **opts) = tax_step(api("/api/v1/tax/reports/#{country}/#{year}", token, **opts))
+    def tax_download(country = 'US', year = 2025, token = 'api-token', **opts) = tax_step(api("/api/v1/tax/reports/#{country}/#{year}/download", token, **opts))
+    def tax_case(steps, files = {}, api = {}, attrs = {}) = api_case(steps, api, { 'tax_fixtures' => files }.merge(attrs))
+
+    def api_tax_scenarios
+      us = { country: 'US', year: 2025 }
+      ready = { '1_US_2025_crypto.csv' => TAX_REPORT }
+      refused = { '1_US_2025_crypto.csv.refused.json' => TAX_TOKENIZED }
+      generating = { 'before' => 'tax_generating' }
+      grid = {}
+      TAX.each do |name, (method, path, tool)|
+        step = lambda do |token = 'api-token'|
+          case name
+          when 'create' then tax_create(us, token)
+          when 'status' then tax_status('US', 2025, token)
+          else tax_download('US', 2025, token)
+          end
+        end
+        tokens = [nil, 'nope', 'mcp-token', 'revoked-token', 'expired-token', 'foreign-personal-token']
+        # A create acts once per account: every refusal first, then the second user's, then the owner's (one accepted each).
+        tokens += name == 'create' ? %w[second-token personal-token] : ['api-token', 'both-token', 'second-token', 'personal-token', 'chained-token', " \tapi-token "]
+        grid["api_tax_#{name}_tokens"] = tax_case(tokens.map { |token| step.(token) } + [tax_step(api(path, nil, method:, headers: { 'Authorization' => 'bearer api-token' }))], ready)
+        grid["api_tax_#{name}_tool_off"] = tax_case([step.(), step.('personal-token'), step.('mcp-token')], ready, 'tools' => TOOLS - [tool])
+        grid["api_tax_#{name}_not_granted"] = tax_case([step.(), step.('personal-token')], ready, 'grant' => TOOLS - [tool])
+      end
+      # Params.resolve, then the flags, then market data: every refusal in Rails' order, none writes.
+      grid['api_tax_create_refusals'] = tax_case([
+        tax_create({}, expect: 422), tax_create({ country: 'US' }), tax_create({ year: 2025 }), tax_create({ country: ' ', year: 2025 }),
+        tax_create({ country: 'US', year: '' }), tax_create({ country: 'US', year: ' ' }), tax_create({ country: 'US', year: 'abc' }),
+        tax_create({ country: 'US', year: 2008 }), tax_create({ country: 'US', year: 2101 }), tax_create({ country: 'US', year: 2025.5 }),
+        tax_create({ country: 'US', year: '2025.5' }), tax_create({ country: 'US', year: '1e3' }), tax_create({ country: 'US', year: -2025 }),
+        tax_create({ country: 'US', year: { a: 1 } }), tax_create({ country: 'XX', year: 'abc' }), tax_create({ country: 'XX', year: 2025 }),
+        tax_create({ country: 'usa', year: 2025 }), tax_create({ country: ['US'], year: 2025 }), tax_create({ country: 'U<b>', year: 2025 }),
+        tax_create(us.merge(force: 'yes')), tax_create(us.merge(force: 1)), tax_create(us.merge(force: 'TRUE')),
+        tax_create(us.merge(stablecoin_as_fiat: 'maybe')), tax_create(us.merge(stablecoin_as_fiat: 0)),
+        tax_create(us.merge(force: 'yes', stablecoin_as_fiat: 'maybe')), tax_create({ country: 'XX', year: 2025, force: 'yes' }),
+        tax_query('country=US&year=abc'), tax_query('country=US&year=2025&force=1'), tax_query('year=2025'),
+        tax_create('{"country":"US",').merge('rails_exception_status' => 400)
+      ])
+      grid.merge!(
+        'api_tax_create_accepted' => tax_case([tax_create({ country: 'us', year: '2025' }, expect: 202)]),
+        'api_tax_create_flags' => tax_case([tax_create({ country: ' Us ', year: 2025.0, stablecoin_as_fiat: 'true', force: 'false' }, expect: 202)]),
+        'api_tax_create_flags_json' => tax_case([tax_create(us.merge(stablecoin_as_fiat: true, force: true), expect: 202)]),
+        'api_tax_create_flags_blank' => tax_case([tax_create(us.merge(stablecoin_as_fiat: '', force: nil), expect: 202)]),
+        'api_tax_create_query' => tax_case([tax_query('country=us&year=2024&stablecoin_as_fiat=false', expect: 202)]),
+        # Query over body (ParamsWrapper's `tax_report` copy changes nothing read).
+        'api_tax_create_query_and_body' => tax_case([tax_step(json_body("#{TAX['create'][1]}?year=2024", '{"country":"US","year":2023}', method: 'POST'))
+                                                       .merge('may_mutate' => %w[users rust_tax_reports], 'expect' => 202)]),
+        # The tracker's other pending report is replaced, the rest of tracker_settings kept.
+        'api_tax_create_pending_kept' => tax_case([tax_create(us, expect: 202)], {}, {},
+                                                  'user' => owner('tracker_settings' => { 'scope' => 'crypto', 'pending_report' => { 'country' => 'DE', 'year' => 2024, 'report_scope' => 'broker' } })),
+        'api_tax_create_second_user' => tax_case([tax_create(us, 'second-token', expect: 202)], ready),
+        'api_tax_create_market_data_off' => tax_case([tax_create(us, expect: 422), tax_create({ country: 'US', year: 'abc' }), tax_status, tax_download], {}, {}, 'market_data' => 'none'),
+        # A finished report answers 409 until force replaces it (the earlier one is removed once the new run is accepted).
+        'api_tax_create_ready' => tax_case([tax_create(us, expect: 409), tax_create(us.merge(force: 'false')), tax_status, tax_download,
+                                            tax_status('US', 2024), tax_create(us.merge(force: 'true'), expect: 202), tax_download], ready),
+        'api_tax_create_ready_force_json' => tax_case([tax_create(us.merge(force: true), expect: 202)], ready),
+        # A report and a refusal side by side (a refusal written after the report's run): ready wins, both step aside on force.
+        'api_tax_create_ready_and_refused' => tax_case([tax_status, tax_download, tax_create(us), tax_create(us.merge(force: true), expect: 202)], ready.merge(refused)),
+        # A refusal steps aside for a new run, and is gone once it is accepted.
+        'api_tax_create_refused' => tax_case([tax_status, tax_download, tax_create(us, expect: 202)], refused),
+        'api_tax_create_refused_other_year' => tax_case([tax_create(us.merge(year: 2024), expect: 202), tax_status], refused),
+        # A run already queued or running for the account (crypto scope), for every country and year.
+        'api_tax_create_generating' => tax_case([tax_status.merge(generating), tax_create(us, expect: 409), tax_create(us.merge(force: true)),
+                                                 tax_create(us.merge(year: 2024)), tax_status('US', 2024), tax_download, tax_status('US', 2025, 'second-token'),
+                                                 tax_create(us, 'second-token', expect: 202)]),
+        'api_tax_create_generating_ready' => tax_case([tax_create(us).merge(generating), tax_create(us.merge(force: true)), tax_status, tax_download], ready),
+        'api_tax_create_generating_refused' => tax_case([tax_status.merge(generating), tax_create(us), tax_download], refused),
+        # Validation still answers first while a run is held.
+        'api_tax_create_generating_refusals' => tax_case([tax_create({ country: 'US', year: 'abc' }).merge(generating), tax_create({ country: 'XX', year: 2025 }),
+                                                          tax_create(us.merge(force: 'yes'))]),
+        'api_tax_status' => tax_case([tax_status, tax_status('us', 2025), tax_status('US', 2024), tax_status('US', 2023), tax_status('US', 2022),
+                                      tax_status('US', 2021), tax_status('DE', 2025), tax_status('XX', 2025), tax_status('xx', 'abc'), tax_status('US', 'abc'),
+                                      tax_status('US', 2008), tax_status('US', 2101), tax_status('US', '2025.0'), tax_status('US', '2025abc'),
+                                      tax_status('US', 2024, 'second-token'), tax_status('US', 2024, 'personal-token'),
+                                      tax_status('US', 2024).merge('if_none_match' => 'last'), tax_status('US', 2024, method: 'HEAD'),
+                                      tax_step(api('/api/v1/tax/reports/US/2024.json')), tax_status('U%20S', 2025), tax_status('%55S', 2024)],
+                                     { '1_US_2024_crypto.csv' => TAX_REPORT, '1_US_2023_crypto.csv.refused.json' => TAX_EXCESS,
+                                       '1_US_2022_crypto.csv.refused.json' => '{"reason":', '1_US_2021_crypto.csv.refused.json' => TAX_TOKENIZED,
+                                       '1_US_2024_broker.csv' => TAX_REPORT, '2_US_2025_crypto.csv' => TAX_REPORT }),
+        'api_tax_download' => tax_case([tax_download('US', 2024, expect: 200), tax_download('US', 2024, method: 'HEAD'), tax_download('US', 2024).merge('if_none_match' => 'last'),
+                                        tax_download('us', 2024), tax_download('US', 2023, expect: 422), tax_download('US', 2021), tax_download('US', 2022),
+                                        tax_download('US', 2025, expect: 404), tax_download('US', 2024, 'second-token'), tax_download('XX', 2024), tax_download('US', 'abc'),
+                                        tax_download('US', 2024).merge('if_none_match' => 'last'), tax_download('US', 2024, 'personal-token'),
+                                        tax_step(api('/api/v1/tax/reports/US/2024/download.json')), tax_download('US', 2024, headers: { 'Accept' => 'text/html' })],
+                                       { '1_US_2024_crypto.csv' => TAX_REPORT, '1_US_2023_crypto.csv.refused.json' => TAX_EXCESS,
+                                         '1_US_2022_crypto.csv.refused.json' => '{"reason":', '1_US_2021_crypto.csv.refused.json' => TAX_TOKENIZED,
+                                         '1_US_2025_broker.csv' => TAX_REPORT, '2_US_2025_crypto.csv' => TAX_REPORT }),
+        'api_tax_download_empty' => tax_case([tax_download('US', 2024)], { '1_US_2024_crypto.csv' => '' }),
+        # D-TAX-NOT-PORTED-GATE: a jurisdiction whose engine this build has not ported (validation answers first, as Rails).
+        'api_tax_d_not_ported' => tax_case([tax_status('DE', 2025), tax_create({ country: 'DE', year: 'abc' }), tax_create({ country: 'de', year: 2025, force: 'yes' }),
+                                            tax_create({ country: 'de', year: 2025 }, expect: 202), tax_status('DE', 2025), tax_download('DE', 2025)]),
+        # A wealth snapshot (NL) needs no market data: Rails accepts it on an install without a provider; the US report is refused first.
+        'api_tax_d_not_ported_wealth' => tax_case([tax_create(us, expect: 422), tax_create({ country: 'NL', year: 2025 }, expect: 202), tax_status('NL', 2025)], {}, {},
+                                                  'market_data' => 'none'),
+        # The CoinGecko gate (PLAN-A12 r1 item 8, until A17): historical prices are fetched from Deltabadger market data only.
+        'api_tax_d_coingecko' => tax_case([tax_create({ country: 'US', year: 'abc' }), tax_create(us, expect: 202), tax_status], {}, {}, 'market_data' => 'coingecko')
+      )
+      grid
+    end
+
+    def build(dir, template, scenario)
+      jobs = super
+      scenario.fetch('tax_fixtures', {}).each do |name, body|
+        path = File.join(dir, 'tmp', 'tax_reports', name)
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, body)
+      end
+      jobs
     end
 
     # The owner's ledger on Alpaca (1) and Kraken (3), ids 1 to 13 in this order, and the second user's row 14:

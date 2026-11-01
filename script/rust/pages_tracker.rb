@@ -23,6 +23,16 @@ before = Pages::BEFORE.merge(D5_USER_SAVE_CASES.to_h do |name, attributes|
     connection.execute("UPDATE users SET #{assignments.join(',')} WHERE id=#{User.first.id}")
   end]
 end)
+# A12-1: a crypto report already generating for the owner, as Solid Queue holds one (its after_create dispatch takes the
+# concurrency semaphore), and this step's Tax::GenerateReportJob enqueued through Solid Queue, so its limits_concurrency
+# decides (the :test adapter knows no concurrency). Every other job stays on :test. The key is the job's own
+# (`Tax::GenerateReportJob/tax_report_<user>_crypto`: Active Job prefixes the class), as BotApi::Tax::Generating asks it.
+before['d5_tax_generating'] = lambda do
+  SolidQueue::Job.create!(queue_name: 'low_priority', class_name: 'Tax::GenerateReportJob', arguments: {},
+                          concurrency_key: Tax::GenerateReportJob.new(User.first.id, 'XX', 0).concurrency_key)
+  solid = ActiveJob::QueueAdapters::SolidQueueAdapter.new
+  ActiveJob::Base.queue_adapter.define_singleton_method(:enqueue) { |job| job.is_a?(Tax::GenerateReportJob) ? solid.enqueue(job) : super(job) }
+end
 Pages.send(:remove_const, :BEFORE)
 Pages.const_set(:BEFORE, before.freeze)
 
@@ -150,9 +160,37 @@ module D5Grid
     add.call('price_group_clear', [request.call('PATCH', '/tracker/transactions/4/price', { 'price' => '' })], 'row_group')
     add.call('price_quote_clear', [request.call('PATCH', '/tracker/transactions/1/price', { 'price' => '' })], 'ledger')
     add.call('link_success', [request.call('PATCH', '/tracker/transactions/5/toggle_transfer')], 'ledger')
-    add.call('tax_invalid', [get.call('/tracker/tax_report?country=ZZ&year=2024', 302)])
+    # A12-1. A create is the export dialog's fetch (tracker_export_controller.js), a download the auto-download's
+    # navigation. Files (`d5_files`, under AppPaths.tmp) are placed before Rails' request; Rust starts from tmp_before.
+    tax = lambda do |name, query, files = {}, status: 200, prefix: '', before: nil|
+      step = get.call("#{prefix}/tracker/tax_report?#{query}", status, 'Accept' => 'text/vnd.turbo-stream.html').merge('csrf' => 'header')
+      step['session'] = ['flash'] if status == 302
+      step['before'] = before if before
+      add.call(name, [step])
+      cases["d5_#{name}"]['d5_files'] = files
+    end
+    download = lambda do |name, query, files = {}, status: 200|
+      step = get.call("/tracker/download_tax_report?#{query}", status).merge('headers_extra' => ['content-transfer-encoding'], 'session' => ['flash'])
+      add.call(name, [step])
+      cases["d5_#{name}"]['d5_files'] = files
+    end
+    refusal = { 'tax_reports/1_US_2024_crypto.csv.refused.json' => JSON.generate('reason' => 'tokenized_unsupported', 'symbols' => %w[AAPLX TSLAX]) }
+    report = ->(name) { { "tax_reports/#{name}" => "Date,Asset,Proceeds\n2024-04-01,BTC,100000\n" } }
+    tax.call('tax_invalid', 'country=ZZ&year=2024&stablecoin_as_fiat=false', status: 302)
+    tax.call('tax_lower_case', 'country=us&year=2024&stablecoin_as_fiat=false', status: 302)
     add.call('tax_pending', [get.call('/tracker/tax_report?country=US&year=2024')], 'ledger')
-    add.call('download_expired', [get.call('/tracker/download_tax_report?country=US&year=2024', 302)])
+    tax.call('tax_crypto', 'country=US&year=2024&stablecoin_as_fiat=false')
+    tax.call('tax_stablecoin', 'country=US&year=2025&stablecoin_as_fiat=true')
+    tax.call('tax_broker', 'country=US&year=2024&report_scope=broker')
+    tax.call('tax_de', 'country=DE&year=2024&stablecoin_as_fiat=false')
+    tax.call('tax_locale_de', 'country=US&year=2024&stablecoin_as_fiat=false', prefix: '/de')
+    tax.call('tax_stale_refusal', 'country=US&year=2024&stablecoin_as_fiat=false', refusal)
+    tax.call('tax_generating', 'country=US&year=2024&stablecoin_as_fiat=false', before: 'd5_tax_generating')
+    tax.call('tax_generating_refused', 'country=US&year=2024&stablecoin_as_fiat=false', refusal, before: 'd5_tax_generating')
+    download.call('download_expired', 'country=US&year=2024', status: 302)
+    download.call('download_refused', 'country=US&year=2024', refusal, status: 302)
+    download.call('download_ready', 'country=US&year=2024', report.('1_US_2024_crypto.csv'))
+    download.call('download_broker', 'country=DE&year=2024&report_scope=broker', report.('1_DE_2024_broker.csv'))
     %w[sync settings fund price link import].each do |kind|
       method, path, fields = {
         'sync' => ['POST', '/tracker/sync', {}], 'settings' => ['PATCH', '/tracker/save_export_settings', { 'country' => 'DE' }],
@@ -182,7 +220,26 @@ module D5Grid
              'blank_currency')
     overflow = request.call('PATCH', '/tracker/transactions/9223372036854775808/price', { 'price' => '12' }, 404)
     add.call('price_overflow', [overflow.merge('rails_exception_status' => 404)], 'maximum_id')
-    cases.select { |name, _| name.match?(/\Ad5_(?:import_|settings|fund_|sync_|price_|link_|modal_|export_modal\z)/) }
+    cases.select { |name, _| name.match?(/\Ad5_(?:import_|settings|fund_|sync_|price_|link_|modal_|tax_|download_|export_modal\z)/) }
+  end
+
+  # AppPaths.tmp (read only by Tax::GenerateReportJob) is the scenario's own tmp/, at grid time and while recording.
+  def connect(dir)
+    ENV['APP_TMP_DIR'] = File.join(dir, 'tmp')
+    super
+  end
+
+  # A scenario's report files: tmp/ is what Rails' request sees and leaves; tmp_before/ the same files untouched, for Rust.
+  def build(dir, template, scenario)
+    jobs = super
+    scenario.fetch('d5_files', {}).each do |path, content|
+      %w[tmp tmp_before].each do |root|
+        file = File.join(dir, root, path)
+        FileUtils.mkdir_p(File.dirname(file))
+        File.write(file, content)
+      end
+    end
+    jobs
   end
 
   def action_fixture(scenario)
@@ -322,6 +379,19 @@ unless defined?(D5_TRACKER_LIBRARY)
         next unless step.key?('expect')
         raise "unexpected status for #{step['method']} #{step['path']}: #{answer['status']}" unless step['expect'] == answer['status']
       end
+    end
+    # D-TAX-RECONCILE (generating): Rails' create under a running report deletes the refusal and answers progress for a
+    # job Solid Queue discarded (Generating.accepted? reads a discarded job as accepted: Active Job sets
+    # successfully_enqueued after the adapter returns and the destroyed row leaves no provider_job_id). Rust answers what
+    # Rails' own reconcile meant: the refusal kept, its flash. Rendered here by Rails' partial; the recorded progress
+    # flash is rendered the same way first, so the two answers come from one renderer.
+    render = ->(partial, locals = {}) { ApplicationController.render(inline: "<%= turbo_stream.append('flash', partial: '#{partial}', locals: locals) %>", locals: { locals: }) }
+    Dir[File.join(root, 'd5_tax_generating_refused')].each do |dir|
+      progress = JSON.parse(File.read(File.join(dir, 'rails.json'))).fetch('responses').last.fetch('body')
+      raise 'the progress flash does not render as the controller rendered it' unless render.('tracker/report_progress') == progress
+
+      refusal = JSON.parse(File.read(File.join(dir, 'tmp_before/tax_reports/1_US_2024_crypto.csv.refused.json')))
+      File.write(File.join(dir, 'reconciled.html'), render.('tracker/report_refused', refusal:))
     end
     puts "recorded and checked #{Dir[File.join(root, '*/rails.json')].size} scenarios"
   end
