@@ -123,3 +123,65 @@ fn a_table_rust_uses_that_differs_in_structure_is_incompatible() {
         }
     }
 }
+
+// --- B2-4: store::backup (PLAN-B2 r3.4) ---
+
+/// A 2.x install's two files at `p` (each made from the Rails template).
+fn install_at(p: &Paths) {
+    let template = common::rails_install_unmigrated();
+    for (from, to) in [("production.sqlite3", &p.primary), ("production_queue.sqlite3", &p.queue)] {
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::copy(template.path().join(from), to).unwrap();
+    }
+}
+
+fn made(b: Result<store::Backup, String>) -> std::path::PathBuf {
+    match b { Ok(store::Backup::Made(dir)) => dir, other => panic!("expected a new copy, got {other:?}") }
+}
+
+/// QUEUE_DATABASE_PATH may name a file with the primary's name in another folder: one copy must not overwrite the other.
+#[test]
+fn a_queue_named_like_the_primary_never_overwrites_its_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = Paths { primary: dir.path().join("data/db.sqlite3"), queue: dir.path().join("queue/db.sqlite3") };
+    install_at(&p);
+    let copy = store::backup(&p, chrono::Utc::now());
+    if let Ok(store::Backup::Made(copy)) = &copy {
+        let c = Connection::open(copy.join("db.sqlite3")).unwrap();
+        let tables: i64 = c.query_row("SELECT count(*) FROM sqlite_master WHERE name = 'bots'", [], |r| r.get(0)).unwrap();
+        assert_eq!(tables, 1, "the primary's copy was overwritten by the queue's");
+    }
+    // Either refused, or both copies whole: never one file silently standing in for two.
+    if let Ok(store::Backup::Made(copy)) = copy { assert_eq!(std::fs::read_dir(&copy).unwrap().count(), 3, "two databases and the digest"); }
+}
+
+/// The newest copy damaged after it was made (a file truncated): an unchanged install is copied again, not deduplicated
+/// against a digest its files no longer match.
+#[test]
+fn a_damaged_newest_copy_is_not_taken_as_the_install_unchanged() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    let first = made(store::backup(&p, chrono::Utc::now()));
+    assert!(matches!(store::backup(&p, chrono::Utc::now()), Ok(store::Backup::Unchanged(d)) if d == first), "unchanged while intact");
+    std::fs::write(first.join("production.sqlite3"), b"").unwrap();
+    made(store::backup(&p, chrono::Utc::now()));
+}
+
+/// A clock set back: each new copy still sorts after the newest, and names keep one length.
+#[test]
+fn copies_made_under_a_clock_set_back_sort_after_the_newest_with_bounded_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    let now = chrono::Utc::now();
+    let mut names = vec![made(store::backup(&p, now))];
+    for n in 0..5 {
+        exec(&p.primary, &format!("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('k{n}', 'v', '2026-01-01', '2026-01-01')"));
+        names.push(made(store::backup(&p, now - chrono::Duration::hours(1))));
+    }
+    let mut sorted = names.clone();
+    sorted.sort();
+    assert_eq!(sorted, names, "newest last");
+    assert!(names.iter().all(|n| n.as_os_str().len() == names[0].as_os_str().len()), "{names:?}");
+}

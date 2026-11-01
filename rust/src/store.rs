@@ -861,14 +861,22 @@ pub enum Backup { Made(PathBuf), Unchanged(PathBuf) }
 /// A copy of the primary and the queue (PLAN-B2 r3.4, §5), for the user's way back to the state the install was in; the
 /// caller holds the engine lock and nothing has written yet. Each file in one backup step (one read transaction, WAL
 /// included), under its own name, into `backups/pre-3.0-<UTC>.partial/`; then a `digest` (`shasum -a 256 -c` format) of
-/// both. Equal to the newest complete copy's digest → the partial copy is deleted (one copy per distinct state); otherwise
-/// the digest is written, everything fsynced, and the folder renamed to `pre-3.0-<UTC>/`. Copies are never replaced or
-/// deleted. A `.partial` left by a crash is deleted first; one this call made is deleted on its error. Cache and cable are
-/// not copied. The error is the operator's words for what failed.
+/// both. When the newest complete copy holds this state (its digest and its files, rehashed, both equal) the partial copy
+/// is deleted (one copy per distinct state); otherwise the digest is written, everything fsynced, and the folder renamed
+/// to `pre-3.0-<UTC>/`. Copies are never replaced or deleted. A `.partial` left by a crash is deleted first; one this call
+/// made is deleted on its error. Cache and cable are not copied. The error is the operator's words for what failed.
 pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backup, String> {
     use sha2::Digest;
+    const STAMP: &str = "%Y%m%dT%H%M%S%.6fZ";
     let dir = backups_dir(paths);
     let io = |what: &Path, e: std::io::Error| format!("{}: {e}", what.display());
+    let names: Vec<String> = [&paths.primary, &paths.queue].iter()
+        .map(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()).ok_or_else(|| format!("{}: no file name", p.display())))
+        .collect::<Result<_, _>>()?;
+    // One folder holds both copies and the digest under their own names: two of them alike would overwrite one another.
+    if names[0] == names[1] || names.iter().any(|n| n == "digest") {
+        return Err(format!("the data file and the job queue are both named {}; give them different names", if names[0] == names[1] { &names[0] } else { "digest" }));
+    }
     std::fs::create_dir_all(&dir).map_err(|e| io(&dir, e))?;
     let mut complete = Vec::new();
     for entry in std::fs::read_dir(&dir).map_err(|e| io(&dir, e))? {
@@ -877,37 +885,43 @@ pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backu
         if name.ends_with(".partial") { std::fs::remove_dir_all(dir.join(&name)).map_err(|e| io(&dir.join(&name), e))?; } else { complete.push(name) }
     }
     let newest = complete.into_iter().max();
-    // Microseconds, after a lock that serialises starts: no two starts share a name. A clock set back still sorts after
-    // the newest copy, so "newest" stays the last one made.
-    let mut name = format!("pre-3.0-{}", now.format("%Y%m%dT%H%M%S%.6fZ"));
-    if let Some(newest) = newest.as_ref().filter(|n| **n >= name) { name = format!("{newest}-1"); }
+    // Microseconds, after a lock that serialises starts: no two starts share a name. A clock set back still names the copy
+    // after the newest one (1 µs later), so "newest" stays the last one made and names keep one length.
+    let after_newest = newest.as_deref().and_then(|n| n.strip_prefix("pre-3.0-"))
+        .and_then(|t| chrono::NaiveDateTime::parse_from_str(t, STAMP).ok()).map(|t| t.and_utc() + chrono::Duration::microseconds(1));
+    let name = format!("pre-3.0-{}", after_newest.map_or(now, |t| t.max(now)).format(STAMP));
+    let digest_of = |folder: &Path| -> Result<String, String> {
+        names.iter().map(|n| {
+            let file = folder.join(n);
+            let mut hash = sha2::Sha256::new();
+            std::io::copy(&mut std::fs::File::open(&file).map_err(|e| io(&file, e))?, &mut hash).map_err(|e| io(&file, e))?;
+            Ok(format!("{}  {n}\n", hex::encode(hash.finalize())))
+        }).collect()
+    };
+    let sync = |p: &Path| std::fs::File::open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e));
     let partial = dir.join(format!("{name}.partial"));
     std::fs::create_dir(&partial).map_err(|e| io(&partial, e))?;
     let made = (|| -> Result<Backup, String> {
-        let mut digest = String::new();
-        let mut copies = Vec::new();
-        for from in [&paths.primary, &paths.queue] {
-            let file = from.file_name().ok_or_else(|| format!("{}: no file name", from.display()))?;
-            let to = partial.join(file);
+        for (from, n) in [&paths.primary, &paths.queue].into_iter().zip(&names) {
+            let to = partial.join(n);
             let source = read_only(from).map_err(|e| format!("{}: {e:?}", from.display()))?;
             let mut target = Connection::open(&to).map_err(|e| format!("{}: {e}", to.display()))?;
             let step = rusqlite::backup::Backup::new(&source, &mut target).and_then(|b| b.step(-1)).map_err(|e| format!("{}: {e}", to.display()))?;
             if step != rusqlite::backup::StepResult::Done { return Err(format!("{}: could not copy it ({step:?})", from.display())) }
             target.close().map_err(|(_, e)| format!("{}: {e}", to.display()))?;
-            let mut hash = sha2::Sha256::new();
-            std::io::copy(&mut std::fs::File::open(&to).map_err(|e| io(&to, e))?, &mut hash).map_err(|e| io(&to, e))?;
-            digest.push_str(&format!("{}  {}\n", hex::encode(hash.finalize()), file.to_string_lossy()));
-            copies.push(to);
         }
-        if let Some(newest) = newest.as_ref().filter(|n| std::fs::read_to_string(dir.join(n).join("digest")).is_ok_and(|d| d == digest)) {
+        let digest = digest_of(&partial)?;
+        let holds = |n: &String| { let d = dir.join(n); std::fs::read_to_string(d.join("digest")).is_ok_and(|s| s == digest) && digest_of(&d).is_ok_and(|s| s == digest) };
+        if let Some(newest) = newest.as_ref().filter(|n| holds(n)) {
             std::fs::remove_dir_all(&partial).map_err(|e| io(&partial, e))?;
+            // A crash between that copy's rename and its folder's fsync: finish them now.
+            sync(&dir)?;
+            sync(dir.parent().unwrap_or(Path::new(".")))?;
             return Ok(Backup::Unchanged(dir.join(newest)));
         }
         let digest_file = partial.join("digest");
         std::fs::write(&digest_file, &digest).map_err(|e| io(&digest_file, e))?;
-        copies.push(digest_file);
-        let sync = |p: &Path| std::fs::File::open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e));
-        for p in copies.iter().map(PathBuf::as_path).chain([partial.as_path()]) { sync(p)?; }
+        for p in names.iter().map(|n| partial.join(n)).chain([digest_file, partial.clone()]) { sync(&p)?; }
         #[cfg(debug_assertions)]
         abort_point("mid-backup");
         let done = dir.join(&name);
