@@ -1,0 +1,7 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2026-01-05T00:00:00Z,2026-01-05T10:00:00Z,BTC,0.0025,237.5,0.25,237.25,USD,0,0.0,alpaca,fee-BTC-2026-01-05T00:00:00Z,true,false,Short-term
+2026-01-06T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.9975,300.0,99.75,200.25,USD,1,0.0,alpaca,sell-BTC-2026-01-06T10:00:00Z,true,false,Short-term
+
+NOTE: Fees paid in an asset and not matched to a trade:
+BTC 0.0025 2026-01-05
+Each is reported above as a disposal at its market value. Check each one against your exchange's statement.

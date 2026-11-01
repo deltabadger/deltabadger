@@ -141,13 +141,13 @@ fn rust_effects(c: &Connection, name: &str, key_before: Option<String>) {
 #[tokio::test(flavor="current_thread")]
 async fn tax_report_requests_and_downloads_match_rails() {
     compare(&["tax_invalid","tax_lower_case","tax_pending","tax_crypto","tax_stablecoin","tax_locale_de","tax_stale_refusal",
-        "tax_generating","tax_generating_refused","tax_broker","tax_de",
+        "tax_generating","tax_generating_refused","tax_broker","tax_de","tax_cz",
         "download_expired","download_refused","download_ready","download_broker"]).await;
 }
 
 /// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a create this build cannot compute (a jurisdiction not yet ported, the broker
 /// scope until A12-7) answers the refused flash and writes, queues and moves nothing. Rails accepts both.
-const TAX_GATED: [&str; 2] = ["tax_broker", "tax_de"];
+const TAX_GATED: [&str; 2] = ["tax_broker", "tax_cz"];
 /// D-TAX-RECONCILE under a running report: Rails' `Generating.accepted?` reads Solid Queue's discarded job as accepted
 /// (Active Job sets `successfully_enqueued` after the adapter returns; the destroyed row leaves no provider_job_id), so
 /// it deletes the user's refusal and shows progress for a run that never happens. Rust keeps the refusal and answers its

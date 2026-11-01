@@ -1,0 +1,7 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2025-03-01T10:00:00Z,2024-01-05T10:00:00Z,BTC,1.0,100000.0,90000.0,10000.0,USD,421,0.0,kraken,sell-BTC-2025-03-01T10:00:00Z,true,false,Long-term
+
+"NOTE: Cost basis held on 1 January 2025, placed on the accounts that held the units then (Rev. Proc. 2024-28): this report's reconstruction, not an allocation you documented before 2025:"
+alpaca BTC 1.0 30000.0 2023-06-01
+kraken BTC 1.0 90000.0 2024-01-05
+"Each line: account, asset, units, cost basis, acquired. If you documented an allocation before 1 January 2025, file by yours instead."

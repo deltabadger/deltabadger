@@ -1,0 +1,4 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2026-02-01T10:00:00Z,2026-01-05T11:00:00Z,ETH,1.0,3000.0,2500.0,494.0,USD,26,6.0,binance,sc-o,true,false,Short-term
+2026-02-01T10:00:00Z,2026-01-05T10:00:00Z,BNB,0.01,6.0,5.0,1.0,USD,27,0.0,binance,sc-i,true,false,Short-term
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,BTC,0.03,3300.0,3000.0,300.0,USD,28,0.0,binance,sell-BTC-2026-03-01T10:00:00Z,true,false,Short-term

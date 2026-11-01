@@ -1,0 +1,7 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2026-02-01T10:00:00Z,2026-01-05T10:00:00Z,BNB,0.1,60.0,50.0,10.0,USD,27,0.0,binance,withdrawal-ETH-2026-02-01T10:00:00Z,true,false,Short-term
+2026-03-01T10:00:00Z,2026-01-05T10:00:00Z,BNB,0.9,630.0,450.0,180.0,USD,55,0.0,binance,sell-BNB-2026-03-01T10:00:00Z,true,false,Short-term
+
+"WARNING: Withdrawals not linked to a deposit; each is treated as a move to a wallet of your own, not as a sale:"
+ETH 1.0 2026-02-01
+"Link each one to its matching deposit in the tracker. A withdrawal that was a sale, a payment or a gift is a disposal this report does not include."

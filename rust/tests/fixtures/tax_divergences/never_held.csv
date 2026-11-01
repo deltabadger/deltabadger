@@ -1,0 +1,7 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+"WARNING: 1 values missing — report incomplete, do not file as-is"
+2026-01-06T10:00:00Z,,ETH,1.0,300.0,0.0,300.0,USD,0,0.0,alpaca,sell-ETH-2026-01-06T10:00:00Z,false,true,Short-term
+
+WARNING: Sales of more than your synced history holds; the part no purchase covers is reported at a cost basis of zero:
+ETH 1.0 2026-01-06
+"Connect or import the account these assets came from, or link the deposit that brought them in, so these sales carry their real cost basis."

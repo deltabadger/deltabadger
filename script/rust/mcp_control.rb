@@ -561,7 +561,8 @@ module McpControl
     s['tax_paper'] = tax_ready(["UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"], 'tax_fixtures' => ready) +
                      [status.(), download.(), generate.(us.merge(force: true))]
     # D-TAX-NOT-PORTED-GATE and the CoinGecko gate (tests/mcp_control.rs tax_difference): validation still answers first.
-    s['tax_d_not_ported'] = tax_ready + [generate.(at.('DE', 2008)), generate.(at.('de', 2025)), status.(at.('DE', 2025))]
+    # CZ is not ported until A12-3; DE is since A12-2 (started last: this build's request row would answer a later status).
+    s['tax_d_not_ported'] = tax_ready + [generate.(at.('DE', 2008)), generate.(at.('cz', 2025)), status.(at.('CZ', 2025)), generate.(at.('de', 2025))]
     s['tax_d_not_ported_wealth'] = tax_ready([], 'tax_market_data' => 'none') + [generate.(), generate.(at.('NL', 2025)), status.(at.('NL', 2025))]
     s['tax_d_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.(), status.()]
   end

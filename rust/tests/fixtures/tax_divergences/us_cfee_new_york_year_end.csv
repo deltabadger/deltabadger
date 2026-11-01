@@ -1,0 +1,6 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2025-01-01T00:00:00Z,2024-12-31T03:00:00Z,ETH,0.1,300.0,180.0,120.0,USD,0,0.0,alpaca,fee-ETH-2025-01-01T00:00:00Z,true,false,Short-term
+
+NOTE: Fees paid in an asset and not matched to a trade:
+ETH 0.1 2025-01-01
+Each is reported above as a disposal at its market value. Check each one against your exchange's statement.

@@ -1,0 +1,6 @@
+Data,Data de aquisição,Ativo,Quantidade,Receita,Custo de aquisição,Ganho/Perda,Moeda,Dias de detenção,Taxa,Exchange,ID de transação,Custo de aquisição completo,Dados incompletos,Isento
+2026-01-07T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.6,48000.0,6000.0,42000.0,EUR,2,0.0,kraken,K-BTC-2026-01-07T10:00:00Z-BTC,true,false,false
+
+"WARNING: Levantamentos não associados a um depósito; cada um é tratado como uma transferência para uma carteira tua, não como uma venda:"
+BTC 0.4 2026-01-06
+"Associa cada um ao depósito correspondente no Tracker. Um levantamento que foi uma venda, um pagamento ou uma doação é uma alienação que este relatório não inclui."

@@ -1,0 +1,2 @@
+Data,Data de aquisição,Ativo,Quantidade,Receita,Custo de aquisição,Ganho/Perda,Moeda,Dias de detenção,Taxa,Exchange,ID de transação,Custo de aquisição completo,Dados incompletos,Isento
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,BTC,0.0666,6500.0,3010.0,3490.0,EUR,28,0.0,binance,sell-BTC-2026-03-01T10:00:00Z,true,false,false

@@ -1,0 +1,7 @@
+Data,Data de aquisição,Ativo,Quantidade,Receita,Custo de aquisição,Ganho/Perda,Moeda,Dias de detenção,Taxa,Exchange,ID de transação,Custo de aquisição completo,Dados incompletos,Isento
+"AVISO: Faltam 1 valores — relatório incompleto, não entregar assim"
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,BTC,0.002,200.0,110.0,90.0,EUR,28,0.0,kraken,s1-BTC,true,true,false
+
+WARNING: Faltam preços históricos para:
+NOPRICE/EUR 2026-02-01
+Atualiza o teu plano CoinGecko ou usa deltabadger.com para dados históricos completos.
