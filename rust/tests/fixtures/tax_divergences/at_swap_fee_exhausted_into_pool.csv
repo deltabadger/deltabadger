@@ -1,0 +1,2 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-03-02T10:00:00Z,2025-06-02T10:00:00Z,ETH,1.0,500.0,300.0,200.0,EUR,273,0.0,bybit,sell-ETH-2026-03-02T10:00:00Z,true,false,false
