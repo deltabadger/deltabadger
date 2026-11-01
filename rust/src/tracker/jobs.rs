@@ -299,7 +299,12 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
         let first = all.iter().map(|r| r.date()).min();
         match first {
             Some(first) if first <= last => { let plan = backfill::plan(c, user_id, &all, first, last)?; tx.commit()?; Ok(Some((version, first, plan))) }
-            _ => { crate::app_config::set(c, cipher, &backfill::history_key(user_id), &version, now).map_err(FiguresError::Data)?; tx.commit()?; Ok(None) }
+            _ => {
+                crate::app_config::set(c, cipher, &backfill::history_key(user_id), &version, now).map_err(FiguresError::Data)?;
+                backfill::mark_calculated(c, cipher, user_id, now)?;
+                tx.commit()?;
+                Ok(None)
+            }
         }
     }).await?;
     let Some((version, first, plan)) = begun else { return Ok(false) };
@@ -321,7 +326,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             // fetches, still current. A run that moved never restarts into another plan; the next run sweeps.
             let current = backfill::history_version(fenced, user_id)?;
             if current != *version || inputs.history != *version { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
-            let swept = backfill::sweep(&plan, &prices, &inputs.all, &terms, first, last, &inputs.fx, &inputs.ids)?;
+            // D-TRACKER-COIN-QUOTE: the history reads the legs the walk reads (its holdings, its cash shortfall, its closers).
+            let legs = super::rows::split_coin_quoted_trades(inputs.all.clone(), true)?;
+            let swept = backfill::sweep(&plan, &prices, &legs, &terms, first, last, &inputs.fx, &inputs.ids)?;
             // A rewrite never leaves an account with history before the window's end with none.
             let had: bool = fenced.query_row("SELECT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id = ?1 AND date <= ?2)", rusqlite::params![user_id, last.to_string()], |r| r.get(0))?;
             if had && swept.whole.is_empty() { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }

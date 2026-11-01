@@ -85,10 +85,9 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
             inverse.entry(to).or_insert(id);
         }
     }
-    type Pending = (i64, Kind, String, Dec, Option<String>, Option<Dec>, Option<String>, Option<Dec>);
-    let mut rows: Vec<Pending> = vec![];
+    let mut rows: Vec<super::rows::Stored> = vec![];
     let mut s = c.prepare(
-        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at, id, fee_currency, fee_amount \
+        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at, id, fee_currency, fee_amount, group_id \
          FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id")?;
     let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
     let mut add = |symbol: String, amount: Dec| -> Result<(), FiguresError> {
@@ -107,19 +106,23 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         let Some(&taken) = marks.get(&exchange) else { continue };
         if at < taken { continue; }
         let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type Rails does not have".into()))?;
-        let base: String = r.get(2)?;
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
-        let (quote, quote_amount): (Option<String>, Option<Dec>) = (r.get(4)?, Dec::from_sql(r.get_ref(5)?)?);
-        rows.push((r.get(8)?, kind, base, amount, quote, quote_amount, r.get(9)?, Dec::from_sql(r.get_ref(10)?)?));
+        rows.push(super::rows::Stored {
+            id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,
+            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: r.get::<_, Option<String>>(11)?.filter(|g| !g.trim().is_empty()),
+            at,
+            per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None,
+        });
     }
-    let ids: HashSet<i64> = rows.iter().map(|r| r.0).collect();
-    let amounts: HashMap<i64, Dec> = rows.iter().map(|r| (r.0, r.3.clone())).collect();
-    for (id, kind, base, amount, quote, quote_amount, fee_currency, fee_amount) in &rows {
-        let partner = links.get(id).or_else(|| inverse.get(id)).copied();
+    let ids: HashSet<i64> = rows.iter().map(|r| r.id).collect();
+    let amounts: HashMap<i64, Dec> = rows.iter().map(|r| (r.id, r.amount.clone())).collect();
+    // D-TRACKER-COIN-QUOTE: a coin-quoted single row moves as its two legs, as the walk reads it (a new leg is unlinked).
+    for r in &super::rows::split_coin_quoted_trades(rows, true)? {
+        let partner = links.get(&r.id).or_else(|| inverse.get(&r.id)).copied();
         let linked = partner.is_some_and(|p| ids.contains(&p));
-        let fee = match (linked, kind, partner.and_then(|p| amounts.get(&p))) { (true, Kind::Withdrawal, Some(p)) => Some((amount - p)?), _ => None };
-        for (symbol, a) in quantity_moves(*kind, base, amount, fee_currency.as_deref(), fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol, a)?; } }
-        for (currency, a) in cash_moves(*kind, base, amount, quote.as_deref(), quote_amount.as_ref(), fee_currency.as_deref(), fee_amount.as_ref())? { add(currency, a)?; }
+        let fee = match (linked, r.kind, partner.and_then(|p| amounts.get(&p))) { (true, Kind::Withdrawal, Some(p)) => Some((&r.amount - p)?), _ => None };
+        for (symbol, a) in quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_deref(), r.fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol, a)?; } }
+        for (currency, a) in cash_moves(r.kind, &r.base, &r.amount, r.quote.as_deref(), r.quote_amount.as_ref(), r.fee_currency.as_deref(), r.fee_amount.as_ref())? { add(currency, a)?; }
     }
     Ok(moved)
 }

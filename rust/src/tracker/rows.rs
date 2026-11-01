@@ -3,7 +3,7 @@
 //!   (`AccountTransaction.by_date_asc`): what PortfolioSnapshot::BackfillJob reads;
 //! - `walk_rows`: those rows less the borrowed wallets' (Tracker::UnfundedCash.borrowed?), in the order every reader of
 //!   the ledger walks them (Tax::PriceService.ordered): what Tracker::Ledger walks.
-use super::{cash, fiat};
+use super::{cash, fiat, stable};
 use crate::figures::{at::At, dec::Dec, FiguresError};
 use chrono::NaiveDate;
 use rusqlite::Connection;
@@ -159,11 +159,60 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
 pub fn walk_rows(all: &[Stored]) -> Result<Vec<Stored>, FiguresError> {
     let rows: Vec<Stored> = all.iter().filter(|r| !r.borrowed()).cloned().collect();
     crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
-    Ok(ordered(rows))
+    ordered_legs(rows, true)
 }
 
 /// Both sets from one read.
 pub fn load(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> { walk_rows(&load_all(c, user_id)?) }
+
+/// `ordered`, then each coin-quoted single row read as its two legs (`split_coin_quoted_trades`): the order every reader
+/// of the ledger walks, the tracker's (`stable_cash`: a stablecoin is cash) and the tax report's.
+pub fn ordered_legs(rows: Vec<Stored>, stable_cash: bool) -> Result<Vec<Stored>, FiguresError> { split_coin_quoted_trades(ordered(rows), stable_cash) }
+
+/// Whether `r` is a trade booked as one buy or sell row quoted in a coin (not fiat; not a stablecoin where `stable_cash`):
+/// the rows `split_coin_quoted_trades` reads as two legs. The base may be anything, cash included.
+pub fn coin_quoted(r: &Stored, stable_cash: bool) -> bool {
+    matches!(r.kind, Kind::Buy | Kind::Sell) && r.group.is_none() && r.quote_amount.is_some()
+        && r.quote.as_deref().is_some_and(|q| !(q.trim().is_empty() || fiat(q) || stable_cash && stable(q)))
+}
+
+/// D-TRACKER-COIN-QUOTE (and the tax report's D-TAX-COIN-QUOTE): a trade of a coin for a coin booked as one buy or sell row
+/// quoted in the other coin (Bybit, MEXC, Bitget, Gemini, BingX, Bitrue, Bitvavo, Hyperliquid, KuCoin; Binance and Coinbase
+/// store two swap legs) becomes the two legs it is: the row's coin coming in or going out, and the quote coin the other way,
+/// grouped. Rails read the row alone, so the quote coin never moved: the coin paid kept its holding and its lots, the coin
+/// received had none. The fee goes with the leg of its own coin, else with the coin coming in (as Binance books it). The new
+/// leg's id is the row's negated (a stored id is positive, so it is unique; never stored, never shown), its group
+/// `coin-quote:<id>`, with `~` before it until no stored row of the venue carries that group. The out-leg comes first, at
+/// the row's place. A cash base (a stablecoin or fiat sold or bought for a coin) is split too: its cash leg reads as the
+/// cash trade it is.
+pub fn split_coin_quoted_trades(rows: Vec<Stored>, stable_cash: bool) -> Result<Vec<Stored>, FiguresError> {
+    if !rows.iter().any(|r| coin_quoted(r, stable_cash)) { return Ok(rows); }
+    let taken: std::collections::HashSet<(i64, String)> = rows.iter().filter_map(|r| r.group.clone().map(|g| (r.exchange_id, g))).collect();
+    let mut out = Vec::with_capacity(rows.len() + 8);
+    for r in rows {
+        crate::figures::budget::charge(1, 0)?;
+        if !coin_quoted(&r, stable_cash) { out.push(r); continue; }
+        if r.id <= 0 { return Err(data("a split row's id is not positive")); }
+        let (Some(quote), Some(paid)) = (r.quote.clone(), r.quote_amount.clone()) else { out.push(r); continue };
+        let buying = r.kind == Kind::Buy;
+        let mut name = format!("coin-quote:{}", r.id);
+        while taken.contains(&(r.exchange_id, name.clone())) { name.insert(0, '~'); }
+        let group = Some(name);
+        let fee_on_quote = r.fee_currency.as_deref() == Some(quote.as_str()) || (!buying && r.fee_currency.as_deref() != Some(r.base.as_str()));
+        let (fee_currency, fee_amount) = (r.fee_currency.clone(), r.fee_amount.clone());
+        let other = Stored {
+            id: -r.id, kind: if buying { Kind::SwapOut } else { Kind::SwapIn }, base: quote, amount: paid, quote: None, quote_amount: None,
+            fee_currency: if fee_on_quote { fee_currency.clone() } else { None }, fee_amount: if fee_on_quote { fee_amount.clone() } else { None },
+            tx_id: r.tx_id.as_ref().map(|t| format!("{t}-quote")), group: group.clone(), stated: None, linked_to: None, to_venue: None,
+            to_exchange_id: None, base_asset: None, per_share: None, ..r.clone()
+        };
+        let own = Stored { kind: if buying { Kind::SwapIn } else { Kind::SwapOut }, quote: None, quote_amount: None, group,
+                           fee_currency: if fee_on_quote { None } else { fee_currency }, fee_amount: if fee_on_quote { None } else { fee_amount }, ..r };
+        // The out-leg first, as `ordered` lays out a group.
+        if buying { out.push(other); out.push(own); } else { out.push(own); out.push(other); }
+    }
+    Ok(out)
+}
 
 /// Tax::PriceService.ordered: `[transacted_at, anchor, out-leg first, id]`, the anchor being the smallest id of the
 /// row's group (by exchange and group id), or its own id without a group.
@@ -216,6 +265,70 @@ mod tests {
         let rows = vec![stored(6, Kind::Buy, Some("g"), t), stored(2, Kind::Deposit, None, "2026-09-03 00:00:00"), stored(7, Kind::Sell, Some("g"), t),
                         stored(5, Kind::Buy, None, t), stored(1, Kind::Fee, None, t)];
         assert_eq!(ordered(rows).iter().map(|r| r.id).collect::<Vec<_>>(), [1, 5, 7, 6, 2]);
+    }
+
+    fn trade(id: i64, kind: Kind, base: &str, quote: &str, paid: &str, fee: Option<(&str, &str)>) -> Stored {
+        Stored { venue: "bybit".into(), exchange_id: 2, base: base.into(), quote: Some(quote.into()), quote_amount: Some(Dec::strict(paid).unwrap()),
+                 fee_currency: fee.map(|f| f.0.into()), fee_amount: fee.map(|f| Dec::strict(f.1).unwrap()), tx_id: Some(format!("t{id}")),
+                 ..stored(id, kind, None, "2026-09-02 10:00:00") }
+    }
+    type Leg = (i64, Kind, String, String, Option<String>, Option<String>);
+    fn legs(rows: &[Stored]) -> Vec<Leg> {
+        rows.iter().map(|r| (r.id, r.kind, r.base.clone(), r.amount.to_s_f(), r.fee_currency.clone(), r.group.clone())).collect()
+    }
+
+    /// D-TRACKER-COIN-QUOTE: a coin-quoted row is its two legs, out first, at its place; the fee with its own coin's leg, else
+    /// the coin coming in; a fiat quote, a stablecoin quote where it is cash, a grouped or a blank-quoted row stays.
+    #[test]
+    fn a_coin_quoted_row_is_its_two_legs() {
+        let g = |id: i64| Some(format!("coin-quote:{id}"));
+        let s = |x: &str| x.to_string();
+        // A sale of BTC for ETH, the fee in ETH (the coin coming in): BTC out, then ETH in with the fee.
+        let out = split_coin_quoted_trades(vec![trade(7, Kind::Sell, "BTC", "ETH", "10", Some(("ETH", "0.01")))], true).unwrap();
+        assert_eq!(legs(&out), [(7, Kind::SwapOut, s("BTC"), s("1.0"), None, g(7)), (-7, Kind::SwapIn, s("ETH"), s("10.0"), Some(s("ETH")), g(7))]);
+        assert_eq!((out[1].tx_id.as_deref(), out[1].quote.as_deref(), out[1].quote_amount.as_ref()), (Some("t7-quote"), None, None));
+        // A sale, the fee in the coin sold: with the out-leg. A third coin: with the coin coming in.
+        let out = split_coin_quoted_trades(vec![trade(7, Kind::Sell, "BTC", "ETH", "10", Some(("BTC", "0.01")))], true).unwrap();
+        assert_eq!((out[0].fee_currency.as_deref(), out[1].fee_currency.as_deref()), (Some("BTC"), None));
+        let out = split_coin_quoted_trades(vec![trade(7, Kind::Sell, "BTC", "ETH", "10", Some(("KCS", "1")))], true).unwrap();
+        assert_eq!((out[0].fee_currency.as_deref(), out[1].fee_currency.as_deref()), (None, Some("KCS")));
+        // A buy of ETH for BTC: BTC out first; the fee in BTC with it, in ETH or a third coin with the ETH coming in.
+        let out = split_coin_quoted_trades(vec![trade(8, Kind::Buy, "ETH", "BTC", "0.5", Some(("BTC", "0.001")))], true).unwrap();
+        assert_eq!(legs(&out), [(-8, Kind::SwapOut, s("BTC"), s("0.5"), Some(s("BTC")), g(8)), (8, Kind::SwapIn, s("ETH"), s("1.0"), None, g(8))]);
+        for fee in ["ETH", "KCS"] {
+            let out = split_coin_quoted_trades(vec![trade(8, Kind::Buy, "ETH", "BTC", "0.5", Some((fee, "1")))], true).unwrap();
+            assert_eq!((out[0].fee_currency.as_deref(), out[1].fee_currency.as_deref()), (None, Some(fee)), "{fee}");
+        }
+        // A cash base sold for a coin is split too (its cash leg reads as the cash trade it is).
+        let out = split_coin_quoted_trades(vec![trade(9, Kind::Sell, "USDT", "BTC", "1", None)], true).unwrap();
+        assert_eq!(legs(&out), [(9, Kind::SwapOut, s("USDT"), s("1.0"), None, g(9)), (-9, Kind::SwapIn, s("BTC"), s("1.0"), None, g(9))]);
+        // Not split: a fiat quote; a stablecoin quote where a stablecoin is cash (split where it is a coin); a group; a blank quote.
+        let stays = |r: Stored, stable_cash: bool| split_coin_quoted_trades(vec![r], stable_cash).unwrap().len() == 1;
+        assert!(stays(trade(1, Kind::Buy, "BTC", "USD", "1", None), true) && stays(trade(1, Kind::Buy, "BTC", "EUR", "1", None), false));
+        assert!(stays(trade(1, Kind::Sell, "BTC", "USDT", "1", None), true) && !stays(trade(1, Kind::Sell, "BTC", "USDT", "1", None), false));
+        assert!(stays(Stored { group: Some("g".into()), ..trade(1, Kind::Buy, "ETH", "BTC", "1", None) }, true));
+        assert!(stays(trade(1, Kind::Buy, "ETH", " ", "1", None), true));
+        assert!(stays(Stored { kind: Kind::Deposit, ..trade(1, Kind::Buy, "ETH", "BTC", "1", None) }, true));
+        // Every other row keeps its place around the legs.
+        let out = split_coin_quoted_trades(vec![stored(1, Kind::Deposit, None, "2026-09-01 00:00:00"), trade(2, Kind::Sell, "BTC", "ETH", "10", None),
+                                                stored(3, Kind::Deposit, None, "2026-09-03 00:00:00")], true).unwrap();
+        assert_eq!(out.iter().map(|r| r.id).collect::<Vec<_>>(), [1, 2, -2, 3]);
+    }
+
+    /// The new leg's identity can collide with nothing stored: a stored id must be positive (its negation is then unique, and
+    /// the largest negates), and a stored group of the venue named like the new one pushes it aside.
+    #[test]
+    fn a_new_leg_collides_with_nothing_stored() {
+        for id in [0, -3] {
+            assert!(matches!(split_coin_quoted_trades(vec![trade(id, Kind::Sell, "BTC", "ETH", "1", None)], true), Err(FiguresError::Data(_))), "{id}");
+        }
+        let out = split_coin_quoted_trades(vec![trade(i64::MAX, Kind::Sell, "BTC", "ETH", "1", None)], true).unwrap();
+        assert_eq!(out[1].id, -i64::MAX);
+        let imported = |group: &str, exchange_id: i64| Stored { group: Some(group.into()), exchange_id, ..stored(1, Kind::Airdrop, None, "2026-09-01 00:00:00") };
+        let out = split_coin_quoted_trades(vec![imported("coin-quote:7", 2), imported("~coin-quote:7", 2), trade(7, Kind::Sell, "BTC", "ETH", "1", None)], true).unwrap();
+        assert_eq!(out[2].group.as_deref(), Some("~~coin-quote:7"));
+        let out = split_coin_quoted_trades(vec![imported("coin-quote:7", 3), trade(7, Kind::Sell, "BTC", "ETH", "1", None)], true).unwrap();
+        assert_eq!(out[1].group.as_deref(), Some("coin-quote:7"), "another venue's group is another group");
     }
 
     #[test]

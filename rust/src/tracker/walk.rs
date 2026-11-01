@@ -407,25 +407,104 @@ pub(crate) fn located_moves(r: &Row) -> Result<Vec<(Option<String>, String, Dec)
     Ok(out)
 }
 
-/// `transfers_first`: within one second, a withdrawal to another venue is walked as early as its own venue allows.
-pub fn transfers_first(rows: &[Row]) -> Vec<Row> {
+/// Whether `e`, earlier in its instant, must be walked before `t`, a withdrawal of `coin` from `e`'s venue: a row of that
+/// venue touching the coin, except a linked deposit that moves none of it there (its withdrawal carried the units; an
+/// own-base fee on a coin moves nothing either). A linked deposit's positive fee still counts in a third coin that is
+/// `coin`, or in its own base where that base is cash (the cash book nets it, at the instant's rate).
+fn transfer_barrier(e: &Row, t: &Row) -> bool {
+    let coin = t.base.as_str();
+    if e.exchange != t.exchange { return false; }
+    if !(e.base == coin || e.quote.as_deref() == Some(coin) || e.fee_currency.as_deref() == Some(coin)) { return false; }
+    if e.kind == Kind::Deposit && e.linked {
+        return e.fee().is_positive() && e.fee_is(coin) && (e.base != coin || cash(coin));
+    }
+    true
+}
+
+/// D-TRACKER-TRANSFER-ORDER (`transfers_first`): within one instant (identical `At`), a withdrawal to another venue is walked
+/// as early as its funds allow. Rails walked each right after the last row of its venue touching its coin, so a linked
+/// deposit there (whose units its withdrawal had already carried) held it back behind a sale on the far venue that needed
+/// its lots. A schedule, one row per step: (1) the latest ready transfer (Rails' tie order: later ones land first); (2) else
+/// the next other row, in input order (what a blocked transfer waits for); (3) else, only transfers waiting on each other
+/// left, the latest whose barriers are walked. A transfer is ready when its barriers (`transfer_barrier`) are walked and its
+/// coin is cash, or its venue holds the amount, or nothing left in the instant brings the coin there. What a venue holds is
+/// `open_with_held`'s own arithmetic over the walked rows, same-day adjustments netted: the running quantity, the openings
+/// already forced counted. Instants before `from` keep their order. Returns the rows reordered, nothing else changed.
+pub fn transfers_first(rows: &[Row], from: At) -> Result<Vec<Row>, FiguresError> {
+    type Key = (String, String);
+    let netted = net_daily_splits(rows.to_vec())?;
+    let mut running: HashMap<Key, Dec> = HashMap::new();
+    let mut lowest: HashMap<Key, Dec> = HashMap::new();
+    let walk = |i: usize, running: &mut HashMap<Key, Dec>, lowest: &mut HashMap<Key, Dec>| -> Result<(), FiguresError> {
+        for (venue, symbol, amount) in located_moves(&netted[i])? {
+            if cash(&symbol) { continue; }
+            crate::figures::budget::charge(1, 0)?;
+            let key = (venue.unwrap_or_default(), symbol);
+            let now = (running.get(&key).unwrap_or(&Dec::zero()) + &amount)?;
+            if now < *lowest.get(&key).unwrap_or(&Dec::zero()) { lowest.insert(key.clone(), now.clone()); }
+            running.insert(key, now);
+        }
+        Ok(())
+    };
+    let available = |key: &Key, running: &HashMap<Key, Dec>, lowest: &HashMap<Key, Dec>| -> Result<Dec, FiguresError> {
+        Ok((running.get(key).unwrap_or(&Dec::zero()) - lowest.get(key).unwrap_or(&Dec::zero()))?)
+    };
     let mut out = Vec::with_capacity(rows.len());
     let mut i = 0;
     while i < rows.len() {
         let mut j = i;
         while j + 1 < rows.len() && rows[j + 1].at == rows[i].at { j += 1; }
-        let mut walked: Vec<Row> = vec![];
-        for r in &rows[i..=j] {
-            if !between_venues(r) { walked.push(r.clone()); continue; }
-            let coin = &r.base;
-            let after = walked.iter().rposition(|e| e.exchange == r.exchange
-                && (e.base == *coin || e.quote.as_deref() == Some(coin.as_str()) || e.fee_currency.as_deref() == Some(coin.as_str())));
-            walked.insert(after.map_or(0, |a| a + 1), r.clone());
+        let span: Vec<usize> = (i..=j).collect();
+        if rows[i].at < from || !span.iter().any(|&k| between_venues(&rows[k])) {
+            for &k in &span { walk(k, &mut running, &mut lowest)?; out.push(rows[k].clone()); }
+            i = j + 1;
+            continue;
         }
-        out.extend(walked);
+        // Per transfer: its barriers not yet walked. Per (venue, coin): the rows left that bring the coin there.
+        let transfers: Vec<usize> = span.iter().copied().filter(|&k| between_venues(&rows[k])).collect();
+        let mut waiting: HashMap<usize, usize> = HashMap::new();
+        let mut holds_back: HashMap<usize, Vec<usize>> = HashMap::new();
+        for &t in &transfers {
+            for e in i..t {
+                crate::figures::budget::charge(1, 0)?;
+                if transfer_barrier(&rows[e], &rows[t]) { *waiting.entry(t).or_insert(0) += 1; holds_back.entry(e).or_default().push(t); }
+            }
+        }
+        let mut bringing: HashMap<Key, usize> = HashMap::new();
+        let mut brings: HashMap<usize, Vec<Key>> = HashMap::new();
+        for &k in &span {
+            for (venue, symbol, amount) in located_moves(&netted[k])? {
+                if amount.is_positive() && !cash(&symbol) {
+                    let key = (venue.unwrap_or_default(), symbol);
+                    *bringing.entry(key.clone()).or_insert(0) += 1;
+                    brings.entry(k).or_default().push(key);
+                }
+            }
+        }
+        let mut left: Vec<usize> = span.clone();
+        while !left.is_empty() {
+            crate::figures::budget::charge(left.len() as u64, 0)?;
+            let walkable = |t: usize| between_venues(&rows[t]) && waiting.get(&t).copied().unwrap_or(0) == 0;
+            let mut pick = None;
+            for &t in left.iter().rev() {
+                if !walkable(t) { continue; }
+                let r = &rows[t];
+                let key = (r.exchange.clone(), r.base.clone());
+                let others = bringing.get(&key).copied().unwrap_or(0).saturating_sub(brings.get(&t).map_or(0, |b| b.iter().filter(|k| **k == key).count()));
+                if cash(&r.base) || available(&key, &running, &lowest)? >= r.amount || others == 0 { pick = Some(t); break; }
+            }
+            let pick = pick.or_else(|| left.iter().copied().find(|&k| !between_venues(&rows[k])))
+                .or_else(|| left.iter().rev().copied().find(|&t| walkable(t)))
+                .ok_or_else(|| FiguresError::Data("a transfer schedule with nothing to walk".into()))?;
+            left.retain(|&k| k != pick);
+            for t in holds_back.get(&pick).into_iter().flatten() { if let Some(w) = waiting.get_mut(t) { *w -= 1; } }
+            for key in brings.get(&pick).into_iter().flatten() { if let Some(n) = bringing.get_mut(key) { *n -= 1; } }
+            walk(pick, &mut running, &mut lowest)?;
+            out.push(rows[pick].clone());
+        }
         i = j + 1;
     }
-    out
+    Ok(out)
 }
 
 /// `open_with_what_must_have_been_held`: an asset whose running quantity goes below zero is opened, a second before its
@@ -800,6 +879,13 @@ impl Engine {
             return Ok(());
         }
         let transferred_cost = (&sum(tranches.iter().map(|t| Ok(t.cost.clone())))? * &share)?;
+        // D-TRACKER-COIN-QUOTE: an own-coin fee that took every unit that arrived opens nothing; the basis carried in (and the
+        // cash spent through the group) is spent, realised once as a loss, as an acquisition's is (`acquisition_fee`).
+        if !lot_amount.is_positive() {
+            let spent = (&(&transferred_cost + &cash_cost)? + &fee_cost)?;
+            if spent.is_positive() { Engine::add(&mut self.fee_realised, self.venue.clone(), &spent.neg())?; }
+            return Ok(());
+        }
         let coin_value = (&key.as_ref().and_then(|k| self.swap_out_groups.get(k)).map(|(_, v)| v.clone()).unwrap_or_else(Dec::zero) * &share)?;
         let cash_amount = if tranches.is_empty() { lot_amount.clone() }
             else if !cash_cost.is_positive() { Dec::zero() }
@@ -817,12 +903,16 @@ impl Engine {
             let tranche_amount = if i == tranches.len() - 1 { (&rest - &allocated)? } else { (&rest * &t.weight)?.div(&total_weight)? };
             allocated = (&allocated + &tranche_amount)?;
             if !tranche_amount.is_positive() { continue; }
-            let cost = (&(&(&t.cost * &share)? * &total_weight)?.div(&t.weight)? + &(&fee_cost * &t.weight)?.div(&total_weight)?)?;
+            // D-TRACKER-SWAP-FEE: the lot takes weight/total of `cost`, so the fee joins it whole (Rails weighted it twice, and two
+            // equal tranches carried half of it).
+            let cost = (&(&(&t.cost * &share)? * &total_weight)?.div(&t.weight)? + &fee_cost)?;
             let unpriced = if t.amount.is_positive() { (&tranche_amount * &t.unpriced)?.div(&t.amount)? } else { Dec::zero() };
             opened.push(Lot { amount: tranche_amount, cost_per_unit: cost.div(&rest)?, date: t.date, basis_assumed: t.basis_assumed || assumed, unpriced });
         }
         if cash_amount.is_positive() {
-            let scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
+            let mut scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
+            // D-TRACKER-SWAP-FEE: when no tranche took any units, the fee joins the cash lot (Rails dropped it).
+            if !tranches.is_empty() && !rest.is_positive() { scale = (&scale + &fee_cost)?; }
             opened.push(Lot { amount: cash_amount, cost_per_unit: unit(&(&cash_cost + &scale)?, &lot_amount)?, date: r.at,
                               basis_assumed: assumed || (rest.is_zero() && tranches.iter().any(|t| t.basis_assumed)), unpriced: Dec::zero() });
         }
@@ -1340,7 +1430,7 @@ pub struct Walk { pub rows: Vec<Row>, pub engine: Engine, pub global: Engine, pu
 pub fn walk_rows(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService) -> Result<Walk, FiguresError> {
     let rows = enrich(stored, deposits, ps)?;
     let mut next_uid = rows.len();
-    let located_order = transfers_first(&rows);
+    let located_order = transfers_first(&rows, At(i64::MIN))?;
     let opened = open_with_held(rows, ps, false, &mut next_uid)?;
     let mut global = Engine::new(false);
     global.calculate(&taxable(&opened))?;
@@ -1488,4 +1578,121 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         loss_sales: loss_sales(&w.global.disposals, ps.today)?,
         round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const T: &str = "2026-09-10 10:00:00";
+    fn d(s: &str) -> Dec { Dec::strict(s).unwrap() }
+    fn row(uid: usize, kind: Kind, base: &str, amount: &str, at: &str, exchange: &str) -> Row {
+        Row { uid, kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None, fiat_value: Dec::zero(), fee_fiat_value: Dec::zero(),
+              fee_currency: None, fee_amount: None, at: At::from_sql(at).unwrap(), group: None, price_missing: false, value_missing: None,
+              exchange: exchange.into(), linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None,
+              to_exchange: None, orphan: false, opening: false, stated_value: false, fee_missing: false }
+    }
+    /// A 1 BTC withdrawal from `from` linked to a deposit on `to`.
+    fn send(uid: usize, from: &str, to: &str) -> Row { Row { linked: true, to_exchange: Some(to.into()), ..row(uid, Kind::Withdrawal, "BTC", "1", T, from) } }
+    fn holds(uid: usize, venue: &str) -> Row { row(uid, Kind::Deposit, "BTC", "1", "2026-09-01 10:00:00", venue) }
+    fn order(rows: &[Row]) -> Vec<usize> { transfers_first(rows, At(i64::MIN)).unwrap().iter().map(|r| r.uid).collect() }
+
+    /// D-TRACKER-TRANSFER-ORDER: a withdrawal waits for its funds, never for a linked deposit that moves none of its coin;
+    /// with nothing to wait for it goes as Rails sends it (later ones first); transfers waiting on each other go latest first.
+    #[test]
+    fn a_transfer_waits_for_its_funds() {
+        // X1: a sale on c, the linked deposit on b of coins that arrived earlier, then b→c: the withdrawal goes first.
+        let arrived = Row { linked: true, ..row(2, Kind::Deposit, "BTC", "1", T, "b") };
+        assert_eq!(order(&[holds(0, "b"), row(1, Kind::Sell, "BTC", "1", T, "c"), arrived, send(3, "b", "c")]), [0, 3, 1, 2]);
+        // X2: nobody holds; a deposit on a funds a→b, which funds b→c.
+        assert_eq!(order(&[row(0, Kind::Deposit, "BTC", "1", T, "a"), send(1, "a", "b"), send(2, "b", "c")]), [0, 1, 2]);
+        // X3 and X3b: a holds 1; the chain runs a→b, b→c whatever the input order.
+        assert_eq!(order(&[holds(0, "a"), send(1, "a", "b"), send(2, "b", "c")]), [0, 1, 2]);
+        assert_eq!(order(&[holds(0, "a"), send(1, "b", "c"), send(2, "a", "b")]), [0, 2, 1]);
+        // X4 and X4b: reciprocal, a holds 1: a→b first either way.
+        assert_eq!(order(&[holds(0, "a"), send(1, "a", "b"), send(2, "b", "a")]), [0, 1, 2]);
+        assert_eq!(order(&[holds(0, "a"), send(1, "b", "a"), send(2, "a", "b")]), [0, 2, 1]);
+        // X5: a cycle nobody funds: the latest goes first, then each as it is funded.
+        assert_eq!(order(&[send(1, "a", "b"), send(2, "b", "c"), send(3, "c", "a")]), [3, 1, 2]);
+        // X6 and X6b: a funded cycle runs from its funds, whatever the input order.
+        assert_eq!(order(&[holds(0, "a"), send(1, "a", "b"), send(2, "b", "c"), send(3, "c", "a")]), [0, 1, 2, 3]);
+        assert_eq!(order(&[holds(0, "a"), send(1, "c", "a"), send(2, "b", "c"), send(3, "a", "b")]), [0, 3, 2, 1]);
+        // X7: an opening already forced on a (a withdrawal with no history) counts: a holds 1 again after the deposit.
+        let earlier = [row(0, Kind::Withdrawal, "BTC", "1", "2026-09-08 10:00:00", "a"), row(1, Kind::Deposit, "BTC", "1", "2026-09-09 10:00:00", "a")];
+        assert_eq!(order(&[earlier[0].clone(), earlier[1].clone(), send(2, "a", "b"), send(3, "b", "a")]), [0, 1, 2, 3]);
+        // X9: same-day adjustments that net to nothing force no opening: a holds nothing, b's 1 goes first.
+        let adjust = |uid, amount: &str| row(uid, Kind::Adjustment, "BTC", amount, "2026-09-09 10:00:00", "a");
+        assert_eq!(order(&[holds(0, "b"), adjust(1, "-1"), adjust(2, "1"), send(3, "b", "a"), send(4, "a", "b")]), [0, 1, 2, 3, 4]);
+        // Underfunded with nothing to wait for: as Rails sends it, before the other rows (later ones first).
+        assert_eq!(order(&[row(1, Kind::Sell, "BTC", "1", T, "b"), send(2, "a", "b"), send(3, "c", "b")]), [3, 2, 1]);
+    }
+
+    /// The barriers: a row of the venue touching the coin, a linked deposit only when its positive fee is a third coin that
+    /// is the coin, or its own cash base. One instant is one `At`: a nanosecond apart is another instant.
+    #[test]
+    fn a_linked_deposit_holds_a_transfer_back_only_by_a_fee_that_moves_its_coin() {
+        let linked = |uid, base: &str, fee: Option<(&str, &str)>| Row { linked: true, fee_currency: fee.map(|f| f.0.into()), fee_amount: fee.map(|f| d(f.1)),
+                                                                        ..row(uid, Kind::Deposit, base, "1", T, "a") };
+        let first = |deposit: Row| order(&[holds(0, "a"), row(1, Kind::Sell, "BTC", "1", T, "b"), deposit, send(3, "a", "b")]);
+        for (fee, held_back) in [(None, false), (Some(("BTC", "0")), false), (Some(("BTC", "0.001")), false), (Some(("BNB", "0.1")), false)] {
+            assert_eq!(first(linked(2, "BTC", fee)), if held_back { vec![0, 1, 2, 3] } else { vec![0, 3, 1, 2] }, "{fee:?}");
+        }
+        // An ETH deposit whose fee is in BTC moves BTC on a: it holds the BTC withdrawal back.
+        assert_eq!(first(linked(2, "ETH", Some(("BTC", "0.001")))), [0, 1, 2, 3]);
+        // A cash deposit's own fee is a barrier for that cash; without a fee it is none.
+        let euros = |fee| order(&[row(0, Kind::Deposit, "EUR", "100", "2026-09-01 10:00:00", "a"), row(1, Kind::Buy, "BTC", "1", T, "b"), linked(2, "EUR", fee),
+                                  Row { linked: true, to_exchange: Some("b".into()), ..row(3, Kind::Withdrawal, "EUR", "100", T, "a") }]);
+        assert_eq!(euros(Some(("EUR", "1"))), [0, 1, 2, 3]);
+        assert_eq!(euros(None), [0, 3, 1, 2]);
+        // A nanosecond later is another instant; before `from` nothing moves.
+        let later = At(At::from_sql(T).unwrap().0 + 1);
+        assert_eq!(order(&[holds(0, "a"), row(1, Kind::Sell, "BTC", "1", T, "b"), Row { at: later, ..send(2, "a", "b") }]), [0, 1, 2]);
+        let rows = [holds(0, "a"), row(1, Kind::Sell, "BTC", "1", T, "b"), send(2, "a", "b")];
+        assert_eq!(transfers_first(&rows, At(At::from_sql(T).unwrap().0 + 1)).unwrap().iter().map(|r| r.uid).collect::<Vec<_>>(), [0, 1, 2]);
+        assert_eq!(order(&rows), [0, 2, 1]);
+    }
+
+    /// D-TRACKER-COIN-QUOTE: a swap-in whose own-coin fee takes every unit that arrived opens nothing, and the basis it
+    /// carried is realised as a loss, once (Rails, booking the trade as a buy, realised the buy's cost instead).
+    #[test]
+    fn a_swap_in_fee_that_takes_everything_realises_the_carried_basis() {
+        let g = Some("coin-quote:2".to_string());
+        let rows = [Row { fiat_value: d("100"), ..row(0, Kind::Buy, "BTC", "0.002", "2026-09-01 10:00:00", "a") },
+                    Row { fiat_value: d("150"), group: g.clone(), ..row(1, Kind::SwapOut, "BTC", "0.002", T, "a") },
+                    Row { fiat_value: d("150"), group: g, fee_currency: Some("ETH".into()), fee_amount: Some(d("0.05")), fee_fiat_value: d("150"),
+                          ..row(2, Kind::SwapIn, "ETH", "0.05", T, "a") }];
+        let mut e = Engine::new(true);
+        e.calculate(&rows).unwrap();
+        assert!(e.positions(Some("a")).unwrap().is_empty());
+        assert_eq!(e.fee_asset_realised_at("a").to_s_f(), "-100.0");
+    }
+
+    /// D-TRACKER-SWAP-FEE: a swap-in's fee joins its lots whole, however many tranches it carries; with tranches that took no
+    /// units, it joins the cash lot.
+    #[test]
+    fn a_swap_in_fee_joins_its_lots_once() {
+        let cost = |lots: &[(&str, &str)]| {
+            let mut rows = vec![Row { fiat_value: d("300"), ..row(0, Kind::Buy, "BNB", "1", "2026-09-01 10:00:00", "a") }];
+            for (i, (amount, value)) in lots.iter().enumerate() { rows.push(Row { fiat_value: d(value), ..row(i + 1, Kind::Buy, "ETH", amount, "2026-09-02 10:00:00", "a") }); }
+            let g = Some("swap".to_string());
+            rows.push(Row { fiat_value: d("2000"), group: g.clone(), ..row(10, Kind::SwapOut, "ETH", "1", T, "a") });
+            rows.push(Row { fiat_value: d("3000"), group: g, fee_currency: Some("BNB".into()), fee_amount: Some(d("0.1")), fee_fiat_value: d("30"),
+                            ..row(11, Kind::SwapIn, "BTC", "0.05", T, "a") });
+            let mut e = Engine::new(true);
+            e.calculate(&rows).unwrap();
+            e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f()
+        };
+        assert_eq!(cost(&[("1", "2000")]), "2030.0");
+        assert_eq!(cost(&[("0.5", "1000"), ("0.5", "1000")]), "2030.0", "Rails: 2,015");
+        assert_eq!(cost(&[("0.25", "500"), ("0.75", "1500")]), "2030.0");
+        // A coin nobody held (a tranche of nothing at no cost) and $100 of cash: every unit is the cash lot's, the fee with it.
+        let g = Some("swap".to_string());
+        let rows = [Row { fiat_value: d("300"), ..row(0, Kind::Buy, "BNB", "1", "2026-09-01 10:00:00", "a") },
+                    Row { group: g.clone(), ..row(1, Kind::SwapOut, "XYZ", "1", T, "a") },
+                    Row { group: g, swap_fiat_cost: Some(d("100")), fee_currency: Some("BNB".into()), fee_amount: Some(d("0.1")), fee_fiat_value: d("30"),
+                          ..row(2, Kind::SwapIn, "BTC", "0.05", T, "a") }];
+        let mut e = Engine::new(true);
+        e.calculate(&rows).unwrap();
+        assert_eq!(e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f(), "130.0", "Rails: 100");
+    }
 }
