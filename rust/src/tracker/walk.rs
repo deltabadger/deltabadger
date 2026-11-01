@@ -879,6 +879,13 @@ impl Engine {
             return Ok(());
         }
         let transferred_cost = (&sum(tranches.iter().map(|t| Ok(t.cost.clone())))? * &share)?;
+        // D-TRACKER-COIN-QUOTE: an own-coin fee that took every unit that arrived opens nothing; the basis carried in (and the
+        // cash spent through the group) is spent, realised once as a loss, as an acquisition's is (`acquisition_fee`).
+        if !lot_amount.is_positive() {
+            let spent = (&(&transferred_cost + &cash_cost)? + &fee_cost)?;
+            if spent.is_positive() { Engine::add(&mut self.fee_realised, self.venue.clone(), &spent.neg())?; }
+            return Ok(());
+        }
         let coin_value = (&key.as_ref().and_then(|k| self.swap_out_groups.get(k)).map(|(_, v)| v.clone()).unwrap_or_else(Dec::zero) * &share)?;
         let cash_amount = if tranches.is_empty() { lot_amount.clone() }
             else if !cash_cost.is_positive() { Dec::zero() }
@@ -1643,6 +1650,21 @@ mod tests {
         let rows = [holds(0, "a"), row(1, Kind::Sell, "BTC", "1", T, "b"), send(2, "a", "b")];
         assert_eq!(transfers_first(&rows, At(At::from_sql(T).unwrap().0 + 1)).unwrap().iter().map(|r| r.uid).collect::<Vec<_>>(), [0, 1, 2]);
         assert_eq!(order(&rows), [0, 2, 1]);
+    }
+
+    /// D-TRACKER-COIN-QUOTE: a swap-in whose own-coin fee takes every unit that arrived opens nothing, and the basis it
+    /// carried is realised as a loss, once (Rails, booking the trade as a buy, realised the buy's cost instead).
+    #[test]
+    fn a_swap_in_fee_that_takes_everything_realises_the_carried_basis() {
+        let g = Some("coin-quote:2".to_string());
+        let rows = [Row { fiat_value: d("100"), ..row(0, Kind::Buy, "BTC", "0.002", "2026-09-01 10:00:00", "a") },
+                    Row { fiat_value: d("150"), group: g.clone(), ..row(1, Kind::SwapOut, "BTC", "0.002", T, "a") },
+                    Row { fiat_value: d("150"), group: g, fee_currency: Some("ETH".into()), fee_amount: Some(d("0.05")), fee_fiat_value: d("150"),
+                          ..row(2, Kind::SwapIn, "ETH", "0.05", T, "a") }];
+        let mut e = Engine::new(true);
+        e.calculate(&rows).unwrap();
+        assert!(e.positions(Some("a")).unwrap().is_empty());
+        assert_eq!(e.fee_asset_realised_at("a").to_s_f(), "-100.0");
     }
 
     /// D-TRACKER-SWAP-FEE: a swap-in's fee joins its lots whole, however many tranches it carries; with tranches that took no
