@@ -64,16 +64,24 @@ pub fn serve(port: u16, reason: &str) -> i32 {
     })
 }
 
+/// The page on 0.0.0.0:`port` for as long as the future is polled: `serve` waiting out a Rails heartbeat (PLAN-B2 r2.8).
+/// Dropping it closes the listener; the runtime's end closes the connections still open. Returns only when the port
+/// cannot be taken.
+pub async fn show(port: u16, reason: &str) -> std::io::Error {
+    let listener = match tokio::net::TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await { Ok(l) => l, Err(e) => return e };
+    match axum::serve(listener, router(reason)).await { Ok(()) => std::io::Error::other("the page stopped"), Err(e) => e }
+}
+
 /// SIGTERM or SIGINT, with the handlers registered now, not on the first poll.
 #[cfg(unix)]
-fn stop_signal() -> impl std::future::Future<Output = ()> {
+pub fn stop_signal() -> impl std::future::Future<Output = ()> {
     use tokio::signal::unix::{signal, SignalKind};
     let (mut term, mut int) = (signal(SignalKind::terminate()).expect("a SIGTERM handler"), signal(SignalKind::interrupt()).expect("a SIGINT handler"));
     async move { tokio::select! { _ = term.recv() => {}, _ = int.recv() => {} } }
 }
 
 #[cfg(not(unix))]
-fn stop_signal() -> impl std::future::Future<Output = ()> {
+pub fn stop_signal() -> impl std::future::Future<Output = ()> {
     let mut ctrl_c = tokio::signal::windows::ctrl_c().expect("a Ctrl-C handler");
     async move { ctrl_c.recv().await; }
 }

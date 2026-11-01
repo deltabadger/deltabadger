@@ -540,3 +540,130 @@ fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
         assert_eq!(out.status.code(), Some(1), "{cmd}: {}", stderr(&out));
     }
 }
+
+/// A Solid Queue heartbeat `seconds_ago` old, as a pre-floor 2.x Rails leaves it (no flock).
+fn rails_heartbeat(dir: &Path, seconds_ago: i64) {
+    let at = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(seconds_ago));
+    rusqlite::Connection::open(dir.join("production_queue.sqlite3")).unwrap().execute(
+        "INSERT INTO solid_queue_processes (kind, last_heartbeat_at, pid, hostname, created_at, name) VALUES ('Worker', ?1, 1, 'h', ?1, 'w')", [at]).unwrap();
+}
+
+/// A child with its stdout lines on a channel and stderr piped.
+fn spawn_logged(cmd: &mut Command) -> (Running, std::sync::mpsc::Receiver<String>) {
+    let mut child = Running(cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap());
+    let (tx, rx) = std::sync::mpsc::channel();
+    let stdout = child.0.stdout.take().unwrap();
+    std::thread::spawn(move || for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) { let _ = tx.send(line); });
+    (child, rx)
+}
+
+fn exited(child: &mut Running, within: std::time::Duration) -> std::process::ExitStatus {
+    let deadline = std::time::Instant::now() + within;
+    loop {
+        if let Some(s) = child.0.try_wait().unwrap() { return s; }
+        assert!(std::time::Instant::now() < deadline, "still running after {within:?}");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}
+
+/// PLAN-B2 R1, r2.8: a heartbeat about 115 s old (a 2.x container just stopped) makes `serve` wait about 6 s, showing
+/// the wait on its port, then take the install over and serve the app on the same port.
+#[test]
+fn serve_waits_out_a_just_stopped_rails_showing_the_wait_on_its_port_then_takes_over() {
+    let (dir, o, s) = common::install_alpaca();
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00")); // never due: no call to Alpaca
+    drop(o);
+    rails_heartbeat(dir.path(), 115);
+    let port = free_port();
+    let (mut child, rx) = spawn_logged(cli(dir.path(), &["serve"]).env("PORT", port.to_string()));
+    let next = || rx.recv_timeout(std::time::Duration::from_secs(20)).expect("a log line within 20 s");
+    let waiting = next();
+    assert!(waiting.contains("the previous version stopped ") && waiting.contains(" s ago; waiting ") && waiting.ends_with(" s before taking over"), "{waiting}");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    let page = loop {
+        if let Some(answer) = http_get(port, "/") { break answer; }
+        assert!(std::time::Instant::now() < deadline, "no page while waiting");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    assert!(page.starts_with("HTTP/1.1 503") && page.contains("before taking over"), "{page}");
+    assert!(http_get(port, "/ui-ready").unwrap().starts_with("HTTP/1.1 200"));
+    assert!(http_get(port, "/up").unwrap().starts_with("HTTP/1.1 503"));
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed while waiting");
+    let took = next();
+    assert!(took.contains("took over"), "{took}");
+    let running = next();
+    assert!(running.contains(&format!("port {port}")), "{running}");
+    assert!(http_up(port).is_some_and(|a| a.starts_with("HTTP/1.1 200")), "the app answers on the same port");
+    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust");
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
+}
+
+/// r1.13: SIGTERM during the wait stops `serve` with 0; nothing is claimed and no file changes.
+#[test]
+fn sigterm_during_serves_wait_exits_0_and_writes_nothing() {
+    let (dir, o, _) = common::install_alpaca();
+    drop(o);
+    rails_heartbeat(dir.path(), 30);
+    let mut serve = cli(dir.path(), &["serve"]); // cli() seeds job state for `serve`: before the snapshot
+    let before = files_of(dir.path());
+    let (mut child, rx) = spawn_logged(serve.env("PORT", free_port().to_string()));
+    let waiting = rx.recv_timeout(std::time::Duration::from_secs(20)).expect("the wait's line");
+    assert!(waiting.contains("waiting 9"), "{waiting}"); // 90 or 91 s
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(10)).code(), Some(0));
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+    assert_eq!(files_of(dir.path()), before, "nothing written");
+}
+
+/// R1: only `run` and `serve` wait. `check` and `handback` still refuse a fresh heartbeat at once, in today's words.
+#[test]
+fn check_and_handback_refuse_a_fresh_heartbeat_at_once() {
+    let dir = common::rails_install();
+    rails_heartbeat(dir.path(), 5);
+    for cmd in ["check", "handback"] {
+        let started = std::time::Instant::now();
+        let out = finished(&mut cli(dir.path(), &[cmd]));
+        assert_eq!(out.status.code(), Some(1), "{cmd}");
+        let err = stderr(&out);
+        assert!(err.contains("the Rails app looks alive (job heartbeat ") && err.contains("s ago); stop it first"), "{cmd}: {err}");
+        assert!(started.elapsed() < std::time::Duration::from_secs(10), "{cmd} took {:?}", started.elapsed());
+    }
+}
+
+/// R1: a Rails that keeps its heartbeat fresh is refused after the one wait, in today's words.
+#[test]
+fn run_refuses_a_heartbeat_still_fresh_after_its_one_wait() {
+    let dir = common::rails_install();
+    rails_heartbeat(dir.path(), 115);
+    let (mut child, rx) = spawn_logged(&mut cli(dir.path(), &["run"]));
+    let waiting = rx.recv_timeout(std::time::Duration::from_secs(20)).expect("the wait's line");
+    assert!(waiting.contains("before taking over"), "{waiting}");
+    rails_heartbeat(dir.path(), 0); // still running: it stamps again during the wait
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(1));
+    let mut err = String::new();
+    std::io::Read::read_to_string(&mut child.0.stderr.take().unwrap(), &mut err).unwrap();
+    assert!(err.contains("the Rails app looks alive (job heartbeat ") && err.contains("s ago); stop it first"), "{err}");
+    assert!(rx.try_iter().all(|line| !line.contains("before taking over")), "one wait only");
+    assert!(lease_of(dir.path()).is_none());
+}
+
+/// A stop sent after the wait but before the engine's own handlers still stops the engine: the wait's handlers replaced
+/// the default exit, and the signal is held until the engine's handlers take it (`serve` runs a runtime, the bind, in
+/// between).
+#[cfg(debug_assertions)]
+#[test]
+fn a_stop_between_the_wait_and_the_engine_stops_the_engine() {
+    let (dir, o, _) = common::install_alpaca();
+    drop(o);
+    rails_heartbeat(dir.path(), 115);
+    let (mut child, rx) = spawn_logged(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()).env("DELTABADGER_TEST_PAUSE", "after-wait"));
+    let waiting = rx.recv_timeout(std::time::Duration::from_secs(20)).expect("the wait's line");
+    let wait: u64 = waiting.split("waiting ").nth(1).and_then(|r| r.split(' ').next()).and_then(|n| n.parse().ok()).expect(&waiting);
+    std::thread::sleep(std::time::Duration::from_millis(wait * 1000 + 1000)); // inside the 3 s pause after the wait
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
+    let lines: Vec<String> = rx.try_iter().collect();
+    assert!(lines.iter().any(|l| l.contains("took over")), "the stop landed after the wait: {lines:?}");
+    assert!(lines.iter().any(|l| l.contains("stopped on request")), "{lines:?}");
+}
