@@ -1266,6 +1266,39 @@ module TaxVectors
         row(c, :sell, 'BTC', '0.5', '2026-02-01T10:00:00Z', exchange: by, quote_currency: 'ETH', quote_amount: '8', fee_currency: 'BTC', fee_amount: '0.1')
         row(c, :sell, 'BTC', '1.4', '2026-03-01T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '70000')
       } },
+      # D-TAX-SWAP-FEE-EXHAUSTED: 0.002 BTC (cost €100) for 0.05 ETH quoted in BTC, the fee 0.05 ETH: nothing received, no
+      # lot, no loss; the €100 is listed. Austria: the same with an empty ETH pool; with ETH held (€200), it joins that pool
+      # (Rz 6178ad) and nothing is listed: the later sale of that ETH (1 for €500) has cost €300. A swap in 2025 is not in
+      # the 2026 report's list.
+      *[['pt', 'PT', 'UTC'], ['at', 'AT', 'Vienna']].map do |cc, country, zone|
+        { name: "#{cc}_swap_fee_exhausted", country:, expect: 'diverges: D-TAX-SWAP-FEE-EXHAUSTED', setup: lambda { |c|
+          user_zone(c, zone)
+          by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+          price('BTC', '2026-02-01', '50000', 'EUR')
+          price('ETH', '2026-02-01', '2000', 'EUR')
+          row(c, :buy, 'BTC', '0.002', '2026-01-05T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '100')
+          row(c, :buy, 'ETH', '0.05', '2026-02-01T10:00:00Z', exchange: by, quote_currency: 'BTC', quote_amount: '0.002', fee_currency: 'ETH', fee_amount: '0.05')
+        } }
+      end,
+      { name: 'at_swap_fee_exhausted_into_pool', country: 'AT', expect: 'diverges: D-TAX-SWAP-FEE-EXHAUSTED', setup: lambda { |c|
+        user_zone(c, 'Vienna')
+        by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+        price('BTC', '2026-02-01', '50000', 'EUR')
+        price('ETH', '2026-02-01', '2000', 'EUR')
+        row(c, :buy, 'ETH', '1', '2025-06-02T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '200')
+        row(c, :buy, 'BTC', '0.002', '2026-01-05T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '100')
+        row(c, :buy, 'ETH', '0.05', '2026-02-01T10:00:00Z', exchange: by, quote_currency: 'BTC', quote_amount: '0.002', fee_currency: 'ETH', fee_amount: '0.05')
+        row(c, :sell, 'ETH', '1', '2026-03-02T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '500')
+      } },
+      { name: 'pt_swap_fee_exhausted_last_year', country: 'PT', expect: 'parity', setup: lambda { |c|
+        by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+        price('BTC', '2025-02-03', '50000', 'EUR')
+        price('ETH', '2025-02-03', '2000', 'EUR')
+        row(c, :buy, 'BTC', '0.002', '2025-01-06T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '100')
+        row(c, :buy, 'ETH', '0.05', '2025-02-03T10:00:00Z', exchange: by, quote_currency: 'BTC', quote_amount: '0.002', fee_currency: 'ETH', fee_amount: '0.05')
+        row(c, :buy, 'SOL', '1', '2026-02-02T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '100')
+        row(c, :sell, 'SOL', '1', '2026-03-02T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '150')
+      } },
       # Slovakia: a coin exchanged for a coin is a sale at the market value of what came in, which becomes its cost.
       { name: 'sk_taxable_swap', country: 'SK', expect: 'diverges: D-TAX-SK-SWAPS', setup: lambda { |c|
         price('ETH', '2026-02-01', '3000', 'EUR')

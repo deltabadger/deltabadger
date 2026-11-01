@@ -132,6 +132,9 @@ pub struct Fifo<'a> {
     pub excess_roc: Dec,
     /// Basis that left the lots with no disposal row: fees in kind, transfer fees, lost coins, coins off a venue.
     pub consumed: Dec,
+    /// D-TAX-SWAP-FEE-EXHAUSTED: swap-ins whose own-coin fee took every unit received, with the basis they could not
+    /// carry (row uid, cost); listed by the report, never a loss.
+    pub exhausted: Vec<(usize, Dec)>,
     /// D-TAX-US-WALLET: the lots as placed at the boundary, and whether the placement was a choice (a coin held on more
     /// than one venue, or off every synced one).
     pub allocation: Vec<Placed>,
@@ -151,7 +154,7 @@ impl<'a> Fifo<'a> {
     pub fn new(o: Options<'a>) -> Fifo<'a> {
         Fifo { o, lots: HashMap::new(), in_groups: HashMap::new(), out_groups: HashMap::new(), transferred: HashMap::new(),
                moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, averaging: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
-               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), allocation: vec![], allocation_chosen: false }
+               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], allocation: vec![], allocation_chosen: false }
     }
 
     /// The lots left standing, per (venue, coin).
@@ -599,6 +602,7 @@ impl<'a> Fifo<'a> {
             return self.open_swap_lot(tx, lot_amount, cpu, r.at, true, None, unpriced);
         }
         let transferred_cost = (&sum(tranches.iter().map(|t| &t.cost))? * &share)?;
+        if !lot_amount.is_positive() { return self.exhaust(tx, (&(&transferred_cost + &cash)? + &fee_cost)?); }
         let coin_value = (&self.swap_out_value(key.as_ref()) * &share)?;
         let cash_amount = cash_lot_amount(&lot_amount, &cash, &coin_value, &transferred_cost, &tranches)?;
         let rest = (&lot_amount - &cash_amount)?;
@@ -625,6 +629,23 @@ impl<'a> Fifo<'a> {
         }
         // A tranche can predate everything already held, and the lots are read in order.
         self.store(&r.exchange, &tx.asset).make_contiguous().sort_by_key(|l| l.date.0);
+        Ok(())
+    }
+
+    /// D-TAX-SWAP-FEE-EXHAUSTED: the fee took every unit received, so no lot carries `basis`. Austria: the fee's units left
+    /// the pool and their cost stays in it (Rz 6178ad), on the wallet's first new-stock lot of the coin, as `shed`; with
+    /// none, and elsewhere, it is listed (no authority makes it a loss) and accounted for as consumed.
+    fn exhaust(&mut self, tx: &Tx, basis: Dec) -> Result<(), FiguresError> {
+        let r = &tx.row;
+        if let Some(from) = self.o.austria.filter(|_| self.austrian(r.at)).map(|a| a.new_stock_from) {
+            let k = self.key(&r.exchange, &tx.asset);
+            if let Some(l) = self.lots.entry(k).or_default().iter_mut().find(|l| l.date.0 >= from.0 && l.amount.is_positive()) {
+                l.cost_per_unit = (&(&l.amount * &l.cost_per_unit)? + &basis)?.div(&l.amount)?;
+                return Ok(());
+            }
+        }
+        self.consumed = (&self.consumed + &basis)?;
+        self.exhausted.push((r.uid, basis));
         Ok(())
     }
 
@@ -951,6 +972,61 @@ mod tests {
             let gap = (&total - &acquired).unwrap();
             assert!(gap.round(9).unwrap().is_zero(), "taxable {taxable}, per venue {per_venue_from:?}: {} off", gap.to_s_f());
         }
+    }
+
+    fn swap_leg(uid: usize, kind: Kind, base: &str, amount: &str, value: &str, day: i64) -> Tx {
+        let mut t = row(uid, kind, base, amount, value, day, "a");
+        t.row.group = Some("g".into());
+        t.row.quote = None;
+        t
+    }
+    fn fee_in_own_coin(t: &mut Tx, amount: &str, value: &str) {
+        t.row.fee_currency = Some(t.row.base.clone());
+        t.row.fee_amount = Some(d(amount));
+        t.row.fee_fiat_value = d(value);
+        t.fee_asset = Some(t.asset.clone());
+    }
+    fn not_taxable() -> Options<'static> {
+        Options { swaps_taxable: false, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None, swap_cost_to_disposed_from: None, austria: None }
+    }
+
+    /// D-TAX-SWAP-FEE-EXHAUSTED: a swap-in whose own-coin fee takes every unit received opens no lot; the basis it would
+    /// have carried (two unequal lots here) is listed, never a loss, and stays accounted for.
+    #[test]
+    fn a_swap_fee_taking_everything_lists_the_basis_it_could_not_carry() {
+        let mut rows = vec![row(0, Kind::Buy, "BTC", "1", "100", 0, "a"), row(1, Kind::Buy, "BTC", "1", "300", 1, "a"),
+                            swap_leg(2, Kind::SwapOut, "BTC", "2", "400", 2), swap_leg(3, Kind::SwapIn, "ETH", "0.05", "400", 2)];
+        fee_in_own_coin(&mut rows[3], "0.05", "400");
+        let mut f = Fifo::new(not_taxable());
+        f.calculate(&rows).unwrap();
+        assert!(f.disposals.is_empty());
+        assert_eq!(f.exhausted.iter().map(|(u, c)| (*u, c.to_s_f())).collect::<Vec<_>>(), vec![(3, "400.0".to_string())]);
+        assert_eq!(remaining(&f).to_s_f(), "0.0");
+        assert_eq!(f.consumed.to_s_f(), "400.0");
+    }
+
+    /// One exhausted leg among two in-coins (shares 25% / 75% by value): its share is listed, the other keeps its own.
+    #[test]
+    fn only_the_exhausted_legs_share_is_listed() {
+        let mut rows = vec![row(0, Kind::Buy, "BTC", "1", "400", 0, "a"), swap_leg(1, Kind::SwapOut, "BTC", "1", "400", 2),
+                            swap_leg(2, Kind::SwapIn, "ETH", "1", "100", 2), swap_leg(3, Kind::SwapIn, "SOL", "3", "300", 2)];
+        fee_in_own_coin(&mut rows[2], "1", "100");
+        let mut f = Fifo::new(not_taxable());
+        f.calculate(&rows).unwrap();
+        assert_eq!(f.exhausted.iter().map(|(u, c)| (*u, c.to_s_f())).collect::<Vec<_>>(), vec![(2, "100.0".to_string())]);
+        assert_eq!(remaining(&f).to_s_f(), "300.0");
+    }
+
+    /// A fee short of the whole receipt changes nothing: the net units carry the basis.
+    #[test]
+    fn a_fee_short_of_the_receipt_lists_nothing() {
+        let mut rows = vec![row(0, Kind::Buy, "BTC", "1", "400", 0, "a"), swap_leg(1, Kind::SwapOut, "BTC", "1", "400", 2),
+                            swap_leg(2, Kind::SwapIn, "ETH", "1", "400", 2)];
+        fee_in_own_coin(&mut rows[2], "0.5", "200");
+        let mut f = Fifo::new(not_taxable());
+        f.calculate(&rows).unwrap();
+        assert!(f.exhausted.is_empty());
+        assert_eq!(remaining(&f).to_s_f(), "400.0");
     }
 
     #[test]

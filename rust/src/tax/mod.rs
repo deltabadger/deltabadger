@@ -137,7 +137,9 @@ const AT_AVERAGE_FROM: (i32, u32, u32) = (2023, 1, 1);
 
 /// What the Austrian report states beside the disposals: § 27b income, the rest listed apart.
 #[derive(Default)]
-struct AtNotes { speculation: Vec<(String, Dec)>, before_regime: Vec<(String, Dec)>, zero_cost: Vec<String>, monthly: Vec<String>, averaged: bool }
+struct AtNotes { speculation: Vec<(String, Dec)>, before_regime: Vec<(String, Dec)>, zero_cost: Vec<String>, monthly: Vec<String>, averaged: bool,
+                 /// D-TAX-SWAP-FEE-EXHAUSTED (any country where swaps are not taxable): the swap-ins of the year and their basis.
+                 exhausted: Vec<(String, Dec)> }
 
 /// An enriched row and what the report reads beside it.
 #[derive(Clone)]
@@ -243,6 +245,11 @@ impl Report {
         let unmatched: Vec<&walk::Row> = if j.swaps_taxable() { vec![] } else {
             txs.iter().map(|t| &t.row).filter(|r| r.orphan && matches!(r.kind, Kind::SwapIn | Kind::SwapOut) && !(self.stablecoin_as_fiat && stable(&r.base))).collect()
         };
+        // D-TAX-SWAP-FEE-EXHAUSTED: the swaps of the taxpayer's year whose fee took everything received.
+        for (uid, basis) in &engine.exhausted {
+            let Some(r) = txs.iter().map(|t| &t.row).find(|r| r.uid == *uid).filter(|r| self.local(r.at).year() == year) else { continue };
+            notes.exhausted.push((format!("{} {} {}", r.base, r.amount.to_s_f(), date(r.at)), basis.clone()));
+        }
         let allocation = if engine.allocation_chosen { engine.allocation.as_slice() } else { &[] };
         Ok(Outcome::Csv(self.csv(currency, &results, &enriched, &income, &warnings, &standing_fees, &unmatched, allocation, &notes)?))
     }
@@ -368,6 +375,7 @@ impl Report {
             line(&mut out, &[self.t("tax_report.warnings.stated_values_hint")]);
         }
         self.block(&mut out, "WARNING", "unmatched_swaps", "unmatched_swaps_hint", unmatched.iter().map(|r| listed(r, &r.amount)))?;
+        self.valued(&mut out, "swap_fee_exhausted", &at.exhausted)?;
         let unsynced = text(l, "tax_report.warnings.wallet_allocation_unsynced", &[]);
         let placed: Vec<String> = allocation.iter().map(|p| Ok::<_, FiguresError>(format!("{} {} {} {} {}", p.venue.as_deref().unwrap_or(&unsynced), p.symbol,
                                                      p.amount.to_s_f(), p.cost.round(2)?.to_s_f(), date(p.acquired)))).collect::<Result<_, _>>()?;
