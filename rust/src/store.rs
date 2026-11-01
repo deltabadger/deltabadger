@@ -162,6 +162,9 @@ impl Paths {
 pub enum StoreError {
     /// A database file is absent, 0 bytes, or SQLite with nothing in it: no install yet (`run`/`serve` create one).
     Missing { path: PathBuf },
+    /// No install yet, but the queue file holds something other than an empty Solid Queue database (jobs, foreign
+    /// tables, another database): a new install is not set up over it.
+    QueueInTheWay { path: PathBuf },
     /// A database has no schema_migrations table and is not recognised as an install.
     Unrecognised { path: PathBuf },
     /// The primary database lacks migrations required by this build.
@@ -709,7 +712,7 @@ pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Ciphe
     let create_queue = match read_only(&paths.queue) {
         Err(StoreError::Missing { .. }) => true,
         Ok(q) if is_empty_queue(&q)? => false,
-        Ok(_) | Err(StoreError::Unrecognised { .. }) => return Err(StoreError::Unrecognised { path: paths.queue.clone() }),
+        Ok(_) | Err(StoreError::Unrecognised { .. }) => return Err(StoreError::QueueInTheWay { path: paths.queue.clone() }),
         Err(e) => return Err(e),
     };
     let at = |path: &Path, e: &dyn std::fmt::Debug| StoreError::Io(std::io::Error::other(format!("{}: {e:?}", path.display())));

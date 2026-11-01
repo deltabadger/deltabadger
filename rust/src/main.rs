@@ -39,7 +39,7 @@ fn main() {
             refuse_url_overrides(&env);
             let paths = paths(&env);
             let _lock = take_lock(&paths);
-            let report = store::check(&paths).unwrap_or_else(|e| fail(&explain(e)));
+            let report = store::check(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
             for version in &report.pending_rust { println!("pending Rust migration {version}: run or serve applies it"); }
             let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .unwrap_or_else(|e| fail(&format!("{e}")));
@@ -75,8 +75,8 @@ fn main() {
             refuse_url_overrides(&env);
             let paths=paths(&env);
             let lock=take_lock(&paths);
-            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&explain(e)));
-            let o=store::open(&paths).unwrap_or_else(|e|fail(&explain(e)));
+            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&explain(e, &paths)));
+            let o=store::open(&paths).unwrap_or_else(|e|fail(&explain(e, &paths)));
             let secret=env("SECRET_KEY_BASE").unwrap_or_else(||fail("SECRET_KEY_BASE is required"));
             let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
             let cipher=Cipher::new(&keys);
@@ -103,7 +103,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
+            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
             deltabadger::engine::placement::resolve_by_operator(&o.primary, bot_id, resolution, chrono::Utc::now())
                 .unwrap_or_else(|e| fail(&format!("{e:?}")));
             println!("resolved");
@@ -121,7 +121,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
+            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
             match deltabadger::engine::reconcile::by_operator(&o.primary, tx_id, &text, chrono::Utc::now()) {
                 Ok(deltabadger::engine::reconcile::Operator::Reconciled) => println!("reconciled"),
                 Ok(deltabadger::engine::reconcile::Operator::AlreadyReconciled) => println!("already reconciled"),
@@ -166,9 +166,16 @@ fn take_lock(paths: &Paths) -> EngineLock {
     }
 }
 
-fn explain(e: StoreError) -> String {
+/// A store refusal in the operator's words. `paths` tells a missing queue (its install's data is there: the check reads
+/// the primary first) from a missing install.
+fn explain(e: StoreError, paths: &Paths) -> String {
     match e {
-        StoreError::Missing { path } => format!("no install at {} yet; `run` or `serve` creates it", path.display()),
+        StoreError::Missing { path } if path == paths.queue => format!("the job queue {} is missing, but this install's data is at {}. Put the queue file back, or set QUEUE_DATABASE_PATH to where it is, then start again.", path.display(), paths.primary.display()),
+        StoreError::Missing { path } => format!("there's no Deltabadger data at {} yet. Start \"deltabadger serve\" to set up a new install.", path.display()),
+        StoreError::QueueInTheWay { path } => {
+            let (queue, primary) = (path.display(), paths.primary.display());
+            format!("can't set up a new install: {queue} already has data in it, but {primary} doesn't exist. If this is an existing install, restore {primary} or set DATABASE_PATH to it. To start fresh, move {queue} out of the way.")
+        }
         StoreError::Unrecognised { path } => format!("{} is not a Deltabadger database; refusing to touch it", path.display()),
         StoreError::Behind { missing } => format!("this data is behind this build ({} migration(s) missing): run the matching Rails app until its background jobs have finished, stop it, then start this again", missing.len()),
         StoreError::Unsupported { unknown } => format!("this data has migrations this build does not know ({}); use a newer build", unknown.join(", ")),
@@ -191,12 +198,15 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     let paths = paths(env);
     let lock = take_lock(&paths);
     if start {
-        let _created = store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| fail(&explain(e)));
-        #[cfg(debug_assertions)]
-        if _created { store::abort_point("after-commit"); }
-        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| fail(&explain(e))) { log(&format!("applied Rust migration {version}")); }
+        let created = store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| fail(&explain(e, &paths)));
+        if created {
+            log(&format!("set up a new install at {}", paths.primary.display()));
+            #[cfg(debug_assertions)]
+            store::abort_point("after-commit");
+        }
+        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| fail(&explain(e, &paths))) { log(&format!("applied Rust migration {version}")); }
     }
-    let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
+    let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
     // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
     if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
@@ -206,7 +216,8 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
 /// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),
 /// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
 fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
-    let own = store::open(&paths(env)).unwrap_or_else(|e| fail(&explain(e))).primary;
+    let install = paths(env);
+    let own = store::open(&install).unwrap_or_else(|e| fail(&explain(e, &install))).primary;
     deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
 }
 
@@ -223,7 +234,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     -> Result<supervisor::Service<'a>, String> {
     let secret = env("SECRET_KEY_BASE").unwrap_or_default();
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
-    let own = store::open(paths).map_err(explain)?;
+    let own = store::open(paths).map_err(|e| explain(e, paths))?;
     let cipher = Cipher::new(&keys);
     // Utilities::Currency's Rails.cache entries: one fiat-rate cache for the whole engine process, shared by every run.
     let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
@@ -335,7 +346,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
     // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.
     let install = paths(env);
-    let own = store::open(&install).unwrap_or_else(|e| fail(&explain(e))).primary;
+    let own = store::open(&install).unwrap_or_else(|e| fail(&explain(e, &install))).primary;
     let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).and_then(|app| app.with_queue_path(install.queue))
         .unwrap_or_else(|e| fail(&web_problem(e)));
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
@@ -386,6 +397,7 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
                        Look each order up on the venue's own site by its client order id (bots.transient_data.rust_placement.cl_ord_id),\n\
                        then run `deltabadger resolve-placement <bot_id> --placed <order_id>` or `--not-placed`, and run handback again.");
         }
+        Err(EngineError::Ineligible(reasons)) => eprintln!("deltabadger: handback refused: {}", reasons.join("\n")),
         Err(e) => eprintln!("deltabadger: handback failed: {e:?}"),
     }
     code

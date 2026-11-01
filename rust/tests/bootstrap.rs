@@ -163,7 +163,7 @@ fn a_bootstrap_killed_at_any_step_ends_as_an_uninterrupted_one_after_a_restart()
         if ["after-queue", "after-wal", "mid-baseline", "mid-seed", "before-commit"].contains(&step) {
             // Nothing committed: `check` sees no install, as on an empty directory.
             let check = output(command(dir.path(), &["check"]));
-            assert!(said(&check).contains("no install at") && !check.status.success(), "{step}: {}", said(&check));
+            assert!(said(&check).contains("there's no Deltabadger data at") && !check.status.success(), "{step}: {}", said(&check));
         }
         let out = run_until(dir.path(), "after-claim");
         assert!(said(&out).contains("took over (AfterCrash)"), "{step}: {}", said(&out));
@@ -175,7 +175,8 @@ fn a_bootstrap_killed_at_any_step_ends_as_an_uninterrupted_one_after_a_restart()
 #[test]
 fn an_uninterrupted_bootstrap_makes_two_files_owned_by_rust() {
     let dir = tempfile::tempdir().unwrap();
-    run_until(dir.path(), "after-claim");
+    let out = run_until(dir.path(), "after-claim");
+    assert!(said(&out).contains(&format!("set up a new install at {}\n", dir.path().join(PRIMARY).display())), "{}", said(&out));
     assert_eq!(databases(dir.path()), [PRIMARY, QUEUE], "no cache or cable");
     for file in [PRIMARY, QUEUE] {
         let c = Connection::open(dir.path().join(file)).unwrap();
@@ -303,7 +304,9 @@ fn a_queue_with_anything_else_in_it_refuses_and_neither_file_is_written() {
         }
         let before = files(dir.path());
         let said = refused(dir.path());
-        assert!(said.contains(&format!("{} is not a Deltabadger database", dir.path().join(QUEUE).display())), "{what}: {said}");
+        let (queue, primary) = (dir.path().join(QUEUE), dir.path().join(PRIMARY));
+        assert!(said.contains(&format!("can't set up a new install: {} already has data in it, but {} doesn't exist. If this is an existing install, restore {} or set DATABASE_PATH to it. To start fresh, move {} out of the way.",
+                                       queue.display(), primary.display(), primary.display(), queue.display())), "{what}: {said}");
         assert_eq!(files(dir.path()), before, "{what}: no primary created, the queue as it was");
     }
 }
@@ -319,7 +322,8 @@ fn an_install_with_its_queue_missing_is_still_missing() {
         let missing = deltabadger::store::check(&deltabadger::store::Paths::from_env(&|_| None, dir)).unwrap_err();
         assert!(matches!(&missing, deltabadger::store::StoreError::Missing { path } if path.ends_with(QUEUE)), "{what}: {missing:?}");
         let said = refused(dir);
-        assert!(said.contains(&format!("no install at {} yet; `run` or `serve` creates it", dir.join(QUEUE).display())), "{what}: {said}");
+        assert!(said.contains(&format!("the job queue {} is missing, but this install's data is at {}. Put the queue file back, or set QUEUE_DATABASE_PATH to where it is, then start again.",
+                                       dir.join(QUEUE).display(), dir.join(PRIMARY).display())), "{what}: {said}");
         assert!(!dir.join(QUEUE).exists(), "{what}: no queue created for an existing install");
     }
 }
@@ -333,7 +337,7 @@ fn handback_refuses_an_install_rust_created() {
     let before = files(dir.path());
     let out = output(command(dir.path(), &["handback"]));
     assert_eq!(out.status.code(), Some(1), "{}", said(&out));
-    assert!(said(&out).contains("this install was created by Deltabadger 3.0; there is no earlier version to hand it back to"), "{}", said(&out));
+    assert!(said(&out).contains("deltabadger: handback refused: this install was created by Deltabadger 3.0, so there is no earlier version to hand it back to.\n"), "{}", said(&out));
     assert_eq!(files(dir.path()), before, "nothing written");
     let c = Connection::open(dir.path().join(PRIMARY)).unwrap();
     assert_eq!(deltabadger::lease::read(&c, &common::seed::cipher()).unwrap().unwrap()["engine"], "rust");
@@ -346,7 +350,7 @@ fn every_other_command_creates_no_database_file() {
         let dir = tempfile::tempdir().unwrap();
         let out = output(command(dir.path(), args));
         assert_eq!(out.status.code(), Some(1), "{args:?}: {}", said(&out));
-        assert!(said(&out).contains(&format!("no install at {} yet; `run` or `serve` creates it", dir.path().join(PRIMARY).display())), "{args:?}: {}", said(&out));
+        assert!(said(&out).contains(&format!("there's no Deltabadger data at {} yet. Start \"deltabadger serve\" to set up a new install.", dir.path().join(PRIMARY).display())), "{args:?}: {}", said(&out));
         assert!(files(dir.path()).is_empty(), "{args:?}: {:?}", files(dir.path()).keys());
     }
 }

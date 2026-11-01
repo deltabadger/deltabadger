@@ -3046,13 +3046,14 @@ fn serve_on_an_empty_storage_dir_creates_the_install_and_a_second_start_creates_
     assert!(first[3].starts_with("15/15/") && !first[5].starts_with("0/"), "seeded: {first:?}");
     assert_eq!(first[7], "0", "no user");
     stop(server);
+    assert!(std::fs::read_to_string(logs.path().join("first.log")).unwrap().contains("set up a new install at "), "the first start says it");
 
     let said = logs.path().join("second.log");
     let (server, port) = serving(dir.path(), &said);
     assert_eq!(http(port, "GET", "/setup", None, None).0, 200);
     stop(server);
     let log = std::fs::read_to_string(&said).unwrap();
-    assert!(!log.contains("applied Rust migration") && log.contains("took over (AfterCrash)"), "{log}");
+    assert!(!log.contains("applied Rust migration") && !log.contains("set up a new install") && log.contains("took over (AfterCrash)"), "{log}");
     assert_eq!(databases(), ["production.sqlite3", "production_queue.sqlite3"], "nothing created");
     assert_eq!(state(), first, "nothing migrated or seeded");
 }
