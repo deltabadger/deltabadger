@@ -4,6 +4,7 @@
 //! db/seed_data (B1_REGENERATE=1 rewrites it and fails, so the result is reviewed and committed), and a rolled-back seed
 //! leaves the baseline as it was.
 mod common;
+use common::schema::{dump, Tables};
 use chrono::{DateTime, Utc};
 use deltabadger::store;
 use rusqlite::Connection;
@@ -12,51 +13,7 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::path::Path;
 
-type Tables = BTreeMap<String, Vec<Vec<Option<String>>>>;
-
 fn manifest(p: &str) -> std::path::PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join(p) }
-
-/// record_seeds.rb's `cell`: "<typeof>:<text>", a real as its IEEE-754 bits (SQLite's printf differs between versions).
-fn cell(v: rusqlite::types::Value) -> Option<String> {
-    use rusqlite::types::Value as V;
-    match v {
-        V::Null => None,
-        V::Integer(i) => Some(format!("integer:{i}")),
-        V::Real(f) => Some(format!("real:{:016x}", f.to_bits())),
-        V::Text(t) => Some(format!("text:{t}")),
-        V::Blob(b) => Some(format!("blob:{}", b.iter().map(|x| format!("{x:02x}")).collect::<String>())),
-    }
-}
-
-/// The recorder's dump (record_seeds.rb `dump`): every table, rowid first, each cell by `cell`, app_configs.value
-/// decrypted, ar_internal_metadata without the baseline's stamps.
-fn dump(c: &Connection) -> Tables {
-    let cipher = common::seed::cipher();
-    let names: Vec<String> = c.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").unwrap()
-        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
-    names.into_iter().map(|table| {
-        let mut columns: Vec<String> = c.prepare(&format!("SELECT name FROM pragma_table_info('{table}') ORDER BY cid")).unwrap()
-            .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
-        if table == "ar_internal_metadata" { columns.retain(|c| c != "created_at" && c != "updated_at"); }
-        let sql = format!("SELECT rowid, {} FROM \"{table}\" ORDER BY rowid",
-                          columns.iter().map(|col| format!("\"{col}\"")).collect::<Vec<_>>().join(", "));
-        let mut st = c.prepare(&sql).unwrap();
-        let n = st.column_count();
-        let mut rows: Vec<Vec<Option<String>>> = st.query_map([], |r| (0..n).map(|i| Ok(cell(r.get(i)?))).collect()).unwrap().map(Result::unwrap).collect();
-        if table == "app_configs" {
-            let at = 1 + columns.iter().position(|c| c == "value").unwrap();
-            for r in &mut rows {
-                // Encrypted as Rails writes it (an envelope; decrypt alone would pass a plain value through).
-                r[at] = r[at].take().map(|v| {
-                    let stored = v.strip_prefix("text:").unwrap();
-                    assert!(stored.starts_with("{\"p\":") && stored.contains("\"iv\""), "app_configs.value is not encrypted: {stored}");
-                    format!("text:{}", cipher.decrypt(stored).unwrap())
-                });
-            }
-        }
-        (table, rows)
-    }).collect()
-}
 
 fn fresh() -> (tempfile::TempDir, Connection) {
     let dir = tempfile::tempdir().unwrap();

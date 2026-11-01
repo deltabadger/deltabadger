@@ -3,27 +3,11 @@
 //! `B1_REGENERATE=1` rewrites both files from the Rails-built databases and fails, so the result is reviewed and
 //! committed; CI never sets it. Plus: no Rust migration adds an object to, or rebuilds, a table baseline.sql creates.
 mod common;
+use common::schema::{ident, lit, next_ids, rows, snapshot, tables, texts, Rows};
 use deltabadger::store;
 use rusqlite::{types::Value, Connection};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-
-type Rows = Vec<Vec<Value>>;
-
-fn ident(name: &str) -> String { format!("\"{}\"", name.replace('"', "\"\"")) }
-fn lit(text: &str) -> String { format!("'{}'", text.replace('\'', "''")) }
-
-fn rows(c: &Connection, sql: &str) -> Rows {
-    let mut st = c.prepare(sql).unwrap_or_else(|e| panic!("{sql}: {e}"));
-    let n = st.column_count();
-    st.query_map([], |r| (0..n).map(|i| r.get::<_, Value>(i)).collect()).unwrap().map(Result::unwrap).collect()
-}
-
-fn texts(c: &Connection, sql: &str) -> Vec<String> {
-    c.prepare(sql).unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
-}
-
-fn tables(c: &Connection) -> Vec<String> { texts(c, "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name") }
 
 /// baseline.sql from a Rails-built database: its statements in Rails' rowid order (SQLite makes sqlite_sequence and the
 /// autoindexes itself), then the rows Rails wrote, `environment` as production writes it and no schema_sha1
@@ -53,52 +37,6 @@ fn generate(rails: &Connection) -> String {
         .filter(|t| rails.query_row(&format!("SELECT count(*) FROM {}", ident(t)), [], |r| r.get::<_, i64>(0)).unwrap() > 0).collect();
     assert!(unknown.is_empty(), "Rails wrote rows this generator doesn't replay, in {unknown:?}");
     out
-}
-
-/// Everything T1 compares, by section, so a difference names its table.
-fn snapshot(c: &Connection) -> BTreeMap<String, Rows> {
-    let mut s = BTreeMap::new();
-    // By (type, name), not rowid: Rails rebuilds tables for their foreign keys, so its rowid order differs.
-    s.insert("sqlite_master".into(), rows(c, "SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name"));
-    for pragma in ["journal_mode", "page_size", "auto_vacuum", "encoding", "user_version", "application_id"] {
-        s.insert(format!("pragma {pragma}"), rows(c, &format!("PRAGMA {pragma}")));
-    }
-    for t in tables(c) {
-        let arg = lit(&t);
-        s.insert(format!("{t}: table_xinfo"), rows(c, &format!("SELECT * FROM pragma_table_xinfo({arg})")));
-        s.insert(format!("{t}: index_list"), rows(c, &format!("SELECT * FROM pragma_index_list({arg})")));
-        s.insert(format!("{t}: foreign_key_list"), rows(c, &format!("SELECT * FROM pragma_foreign_key_list({arg})")));
-        for index in texts(c, &format!("SELECT name FROM pragma_index_list({arg})")) {
-            s.insert(format!("{t}: index_xinfo {index}"), rows(c, &format!("SELECT * FROM pragma_index_xinfo({})", lit(&index))));
-        }
-        // applied_at is Utc::now; ar_internal_metadata's value and timestamps depend on the RAILS_ENV and the clock.
-        let select = match t.as_str() {
-            "rust_schema_migrations" => "rowid, version",
-            "ar_internal_metadata" => "rowid, key",
-            _ => "rowid, *",
-        };
-        s.insert(format!("{t}: rows"), rows(c, &format!("SELECT {select} FROM {} ORDER BY rowid", ident(&t))));
-    }
-    s
-}
-
-/// The id one plain insert into each table gets (AUTOINCREMENT tables continue from sqlite_sequence, the others from
-/// max(rowid)). Every column but the rowid alias gets a dummy value; CHECKs and foreign keys are off for it.
-fn next_ids(c: &Connection) -> BTreeMap<String, i64> {
-    c.execute_batch("PRAGMA ignore_check_constraints = ON; PRAGMA foreign_keys = OFF").unwrap();
-    tables(c).into_iter().filter(|t| !t.starts_with("sqlite_")).map(|t| {
-        let mut st = c.prepare(&format!("SELECT name, type, pk, hidden FROM pragma_table_xinfo({})", lit(&t))).unwrap();
-        let cols: Vec<(String, String, i64, i64)> = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect();
-        let keys = cols.iter().filter(|col| col.2 > 0).count();
-        let given: Vec<String> = cols.iter()
-            .filter(|(_, ty, pk, hidden)| *hidden == 0 && !(keys == 1 && *pk == 1 && ty.eq_ignore_ascii_case("INTEGER")))
-            .map(|col| ident(&col.0)).collect();
-        let sql = if given.is_empty() { format!("INSERT INTO {} DEFAULT VALUES", ident(&t)) } else {
-            format!("INSERT INTO {} ({}) VALUES ({})", ident(&t), given.join(", "), vec!["'b1-next-id'"; given.len()].join(", "))
-        };
-        c.execute(&sql, []).unwrap_or_else(|e| panic!("{sql}: {e}"));
-        (t, c.last_insert_rowid())
-    }).collect()
 }
 
 /// Rails' file vs the same file built by `create`, Rust migrations applied to both when `migrate`.
