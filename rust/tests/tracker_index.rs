@@ -39,7 +39,11 @@ async fn index_requires_authentication_and_deferred_links_refuse_without_writes(
     assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"the export is served to signed-in users");
     let answer=browser.get(&app,"/tracker/import/new").await;
     assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"the import dialog is served to signed-in users");
-    for path in ["/tracker/connect_market_data","/tracker/download_tax_report"] {
+    for path in ["/tracker/tax_report?country=US&year=2024","/tracker/download_tax_report?country=US&year=2024"] {
+        let answer=browser.get(&app,path).await;
+        assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"PLAN-A12 A12-1 serves {path} to signed-in users");
+    }
+    for path in ["/tracker/connect_market_data"] {
         let answer=browser.get(&app,path).await;assert_eq!(answer.status,501,"{path}");
         assert!(answer.body.contains(path));
     }

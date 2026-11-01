@@ -6,6 +6,8 @@ use std::sync::Arc;
 pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,wall:tracker::jobs::Wall)->Resolver{
     Box::new(move|name,scope|{
         if scope.is_none(){
+            // AppPaths.tmp is the process's (the binary's env is the process env).
+            if name==crate::tax::job::JOB {return Ok(crate::tax::job::job(api.clone(),venues.ecb(),crate::tax::job::tmp_dir(&|k|std::env::var(k).ok())));}
             return super::reference::shared_jobs(api.clone()).into_iter().find(|job|job.spec().name==name).ok_or_else(||"unknown unscoped job".into());
         }
         let id=scope.and_then(|s|s.parse::<i64>().ok()).filter(|id|*id>0).ok_or("invalid job scope")?;
@@ -30,7 +32,7 @@ pub fn configured(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates
 pub fn configured_with<C: Connect + Clone + 'static>(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>, venues: C) -> Box<dyn Job> {
     let name = job.spec().name;
     let uses_data = super::reference::specs().iter().any(|s| s.name == name && name != super::reference::PRUNE)
-        || matches!(name, jobs::BALANCE_SYNC | tracker::jobs::TRACKER_LEDGER | tracker::jobs::PORTFOLIO_BACKFILL);
+        || matches!(name, jobs::BALANCE_SYNC | tracker::jobs::TRACKER_LEDGER | tracker::jobs::PORTFOLIO_BACKFILL | crate::tax::job::JOB);
     if !uses_data { return job; }
     let env = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN", "COINGECKO_API_KEY"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
     Box::new(Configured { job, env, rates, venues })

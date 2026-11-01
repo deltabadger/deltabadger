@@ -19,6 +19,7 @@ pub mod classifications;
 pub mod import;
 pub mod gap;
 pub mod api;
+pub mod report;
 
 struct Prepared {
     response: Response,

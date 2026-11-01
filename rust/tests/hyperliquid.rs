@@ -174,7 +174,7 @@ async fn the_transport_signs_each_action_with_a_fresh_nonce() {
         nonces.push(nonce);
     }
     assert!(nonces.len() == 2 && nonces[1] > nonces[0] && nonces[0] >= at.timestamp_millis() as u64, "strictly increasing, never behind the clock: {nonces:?}");
-    let refused = http::ReqwestTransport::hyperliquid(http::client(), "0xACCOUNT".into(), "not-a-key".into());
+    let refused = http::ReqwestTransport::hyperliquid(http::client(), "0xACCOUNT".into(), "not-a-key".into()).with_clock(std::sync::Arc::new(FixedClock(at)));
     let v = HyperliquidVenue::new(refused, &server.uri(), "0xACCOUNT").with_pairs(pairs());
     let before = server.received_requests().await.unwrap().len();
     assert!(matches!(v.add_order(&o).await, Err(VenueError::Rejected(_))), "nothing sent: the order failed");
@@ -317,4 +317,27 @@ async fn market_ioc_fills_no_match_and_uncertainty_settle_through_placement_and_
             }
         }
     }
+}
+
+/// PLAN-A9 O4 r1 §1: `add_order` reads spotMeta before its POST. A read that ends past the order's deadline (`send_until`
+/// on every path: an intent's window, or an API request's earlier send_by) sends nothing, as a pre-transmission refusal.
+#[tokio::test(flavor = "current_thread")]
+async fn an_order_whose_spot_meta_read_outlasts_its_deadline_is_not_sent() {
+    /// The scripted transport, whose clock moves 5 s on while spotMeta is read.
+    struct Slow(ScriptedTransport);
+    impl http::Transport for Slow {
+        fn now(&self) -> DateTime<Utc> { self.0.now() }
+        fn deadline_clock(&self) -> Option<DateTime<Utc>> { self.0.deadline_clock() }
+        async fn send(&self, r: &http::HttpRequest) -> Result<http::HttpResponse, http::TransportError> {
+            let answer = self.0.send(r).await;
+            if r.body.as_ref().is_some_and(|b| b["type"] == "spotMeta") { self.0.set_now(t0() + Duration::seconds(14)); }
+            answer
+        }
+    }
+    let t = script(ok(json!({"status": "ok", "response": {"type": "order", "data": {"statuses": [{"resting": {"oid": 1}}]}}})));
+    t.set_now(t0() + Duration::seconds(9)); // claimed 9 s into a 10 s window
+    let v = HyperliquidVenue::new(Slow(t.clone()), URL, "0xACCOUNT").with_pairs(pairs());
+    let refused = v.add_order(&new_order(OrderKind::Limit { price: "60000".into() }, "0.001")).await;
+    assert!(matches!(&refused, Err(VenueError::Transient(m)) if m.contains("past its send window")), "{refused:?}");
+    assert!(t.requests().iter().all(|r| r.path != hyperliquid::EXCHANGE), "no order POST");
 }

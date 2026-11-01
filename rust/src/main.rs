@@ -223,6 +223,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
+    registered.push(deltabadger::tax::job::job(api.clone(), deltabadger::sync::jobs::Connect::ecb(&LiveFactory::new()), deltabadger::tax::job::tmp_dir(env)));
     registered.push(Box::new(deltabadger::sync::binance_repair::HistoryRepair::new(LiveFactory::new())));
     registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
     // The self-hosted catalogue (Ibkr plan R2): the bundle at every start, the public snapshot daily.
@@ -239,6 +240,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     scheduler.wakers().wake(jobs::reference::BOOTSTRAP, None, None);
     scheduler.wakers().wake(deltabadger::sync::binance_repair::JOB, Some(&deltabadger::sync::binance_repair::REPAIR_VERSION.to_string()), None);
     scheduler.wakers().wake(deltabadger::sync::binance_order_links::JOB, None, None);
+    // Requests a stopped process left queued, and what a crash left mid-publish (tax::job::recover).
+    scheduler.wakers().wake(deltabadger::tax::job::JOB, None, None);
     for key in unbound {
         scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
     }

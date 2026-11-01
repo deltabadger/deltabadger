@@ -53,7 +53,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:Option<&super::fx::Prepared>)->Res
     let pending=if missing{String::new()}else{
         let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
         let settings:serde_json::Value=match settings {Some(text)=>serde_json::from_str(&text).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
-        super::populated::pending_report(ctx,owner,&settings)?
+        super::populated::pending_report(c,ctx,owner,&settings)?
     };
     let connect=i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",Arg::Text("CoinGecko"))]);
     let body=Early{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),missing,connect,pending}.render()?;

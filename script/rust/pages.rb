@@ -1378,7 +1378,13 @@ module Pages
     'untradeable_msft' => -> { Ticker.where(ticker: 'MSFT').update_all(trading_enabled: false) },
     # Bot 1's price status line within its 20 s, as Bot#broadcast_price_limit_info_update caches it (a real cache, this scenario only).
     'warm_price_info' => -> { WARM_PRICE_INFO.(false) },
-    'warm_price_info_met' => -> { WARM_PRICE_INFO.(true) }
+    'warm_price_info_met' => -> { WARM_PRICE_INFO.(true) },
+    # PLAN-A12: a tax report already queued or running for the first user (Tax::Generating.for?: an unfinished job under the
+    # job's concurrency key). Made after enqueue_jobs, which clears the queue at each scenario's start.
+    'tax_generating' => lambda {
+      SolidQueue::Job.create!(queue_name: 'low_priority', class_name: 'Tax::GenerateReportJob', arguments: {},
+                              concurrency_key: Tax::GenerateReportJob.new(User.first.id, 'XX', 0).concurrency_key)
+    }
   }.freeze
   WARM_PRICE_INFO = lambda do |met|
     Rails.cache = ActiveSupport::Cache::MemoryStore.new unless Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)
@@ -1481,6 +1487,9 @@ module Pages
 
   BOT_COLUMNS = %w[id status label position settings transient_data stop_message_key started_at updated_at].freeze
 
+  # The tax report files (Tax::GenerateReportJob.report_path, refusal_path) by name, with their contents.
+  def tax_files(dir) = Dir[File.join(dir, 'tmp', 'tax_reports', '*')].sort.to_h { |path| [File.basename(path), File.read(path)] }
+
   def record(root)
     ActionController::Base.allow_forgery_protection = true # config/environments/test.rb turns it off
     Rack::Attack.enabled = true
@@ -1502,6 +1511,7 @@ module Pages
       # 'env': the process environment the scenario's container runs with (MARKET_DATA_URL for a hosted one), for its steps only.
       saved_env = scenario.fetch('env', {}).to_h { |name, _| [name, ENV.fetch(name, nil)] }
       ENV.update(scenario.fetch('env', {}))
+      ENV.store('APP_TMP_DIR', File.join(dir, 'tmp')) # AppPaths.tmp (the tax reports), as rust/tests/common/web.rs app_in sets it
       NETWORK.clear
       original_adapter = ActiveJob::Base.queue_adapter
       action_scenario = scenario['steps'].any? { |step| step['action_snapshot'] || step['settings_snapshot'] }
@@ -1615,6 +1625,7 @@ module Pages
         # Decoded session values a step names, compared with what this crate's cookie decodes to.
         answer['session'] = step['session'].to_h { |key| [key, content[key].as_json] } if step['session']
         answer['broadcasts'] = broadcasts if step['broadcasts']
+        answer['tax_files'] = tax_files(dir) if step['tax_files']
         answer
       end
       ActiveJob::Base.queue_adapter = original_adapter if action_scenario

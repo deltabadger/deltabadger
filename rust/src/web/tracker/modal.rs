@@ -45,13 +45,3 @@ pub async fn export_modal(State(app):State<App>,Extension(ctx):Extension<Ctx>)->
         Ok(([(header::CONTENT_TYPE,"text/html; charset=utf-8")],render(c,&ctx,owner)?).into_response())
     }).await
 }
-
-/// The modal fetches reports as Turbo streams. Keep the deferred action visibly refused.
-pub async fn deferred_report(Extension(ctx):Extension<Ctx>,headers:axum::http::HeaderMap)->Result<Response,WebError>{
-    if ctx.user().is_none(){return Ok(auth::unauthenticated(&ctx))}
-    let response=super::layout::refused(&ctx,"tracker tax reports");
-    if !super::super::header_text(&headers,"accept").is_some_and(|s|s.contains("text/vnd.turbo-stream.html")){return Ok(response)}
-    let body=axum::body::to_bytes(response.into_body(),64*1024).await.map_err(|_|invalid())?;
-    let body=std::str::from_utf8(&body).map_err(|_|invalid())?;
-    Ok((axum::http::StatusCode::NOT_IMPLEMENTED,[(header::CONTENT_TYPE,super::super::turbo::CONTENT_TYPE)],super::super::turbo::stream("append","flash",body)).into_response())
-}

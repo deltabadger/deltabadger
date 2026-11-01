@@ -447,3 +447,43 @@ async fn kucoin_a_foreign_id_is_the_classic_cancel_on_a_classic_account_and_refu
     assert_eq!((status, &body["error"]["code"]), (502, &json!("cancel_failed")), "{body}");
     assert!(sends(&server).await.is_empty());
 }
+
+/// PLAN-A9 O4 r2 §3, r1 §4 (D-ORDER-STANDALONE-LOG): a standalone order this build placed keeps its route; a cancel by its
+/// exchange id goes on that route in every account mode, from a fresh process, after the start-up sweep, and after its
+/// ticker row is gone (the route is what was stored at the claim). No re-read is left: there is no row.
+#[tokio::test(flavor = "current_thread")]
+async fn kucoin_standalone_orders_by_exchange_id_go_on_their_logged_route_whatever_the_account_mode_now() {
+    use deltabadger::engine::api_orders;
+    let server = MockServer::start().await;
+    let (d, o, _bot, _rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange, ticker): (i64, i64, i64) = c.query_row("SELECT k.user_id, t.exchange_id, t.id FROM api_keys k JOIN tickers t ON t.exchange_id=k.exchange_id", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let fingerprint = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(b"test-key"));
+    let amount = deltabadger::ruby::BigDec::parse("0.001").unwrap();
+    let pair = serde_json::Map::new();
+    for (ext, mode) in [("SHF-1", "ClassicHf"), ("SUTA-1", "Uta"), ("SCL-1", "ClassicLf")] {
+        let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: true, supplied: &pair,
+            standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::ruby::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
+        api_orders::take(c, id, at(T0)).unwrap().unwrap();
+        let identity = json!({"host": server.uri(), "key_fingerprint": fingerprint, "kucoin_account_mode": mode});
+        assert!(api_orders::claim(c, id, "cl", Some(&identity), &json!({"symbol": "BTC-EUR", "side": "buy", "limit": true})).unwrap());
+        api_orders::finish(c, id, &api_orders::Outcome::Placed { order_id: ext.into() }).unwrap();
+        api_orders::forget(c, id).unwrap();
+    }
+    api_orders::sweep_at_start(c, at(T0) + chrono::Duration::days(2)).unwrap();
+    c.execute("DELETE FROM tickers", []).unwrap();
+    for mode in ["hf", "uta", "classic"] {
+        kucoin_mode(&server, &o, mode).await;
+        Mock::given(matchers::method("DELETE")).and(matchers::path("/api/v1/hf/orders/SHF-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"code": "200000", "data": {"orderId": "SHF-1"}}))).mount(&server).await;
+        Mock::given(matchers::method("POST")).and(matchers::path("/api/ua/v2/unified/order/cancel"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"code": "200000", "data": {"orderId": "SUTA-1"}}))).with_priority(1).mount(&server).await;
+        let app = kucoin_app(&d, &server);
+        for ext in ["SHF-1", "SUTA-1", "SCL-1"] {
+            let (status, body) = rest_cancel(&app, &format!("{ext}?exchange_name=kucoin")).await;
+            assert_eq!((status, &body["data"]["cancelled"]), (200, &json!(true)), "{mode} {ext}: {body}");
+        }
+        assert_eq!(sends(&server).await, vec!["DELETE /api/v1/hf/orders/SHF-1?symbol=BTC-EUR", "POST /api/ua/v2/unified/order/cancel", "DELETE /api/v1/orders/SCL-1"], "{mode}");
+        assert!(reread_keys(&o).is_empty(), "{mode}: no row, no re-read");
+    }
+}

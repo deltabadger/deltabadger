@@ -172,16 +172,25 @@ async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&DataApi<T>>, f: &Fe
 /// the run has left; each fetch it asks for is made here, between the walk's steps, and stored before the walk goes on.
 pub async fn pass<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi<T>>, inputs: Inputs, today: NaiveDate, allowance: &mut Allowance,
     work: impl FnOnce(&Inputs, &mut PriceService) -> Result<R, FiguresError> + Send + 'static) -> Result<(R, Inputs), String> {
+    let (out, inputs) = fetching(db, api, allowance, move |fetcher| {
+        let out = { let mut ps = PriceService::new(&inputs.reference, &inputs.fx, today, fetcher); work(&inputs, &mut ps) };
+        (out, inputs)
+    }).await?;
+    Ok((out.map_err(message)?, inputs))
+}
+
+/// `work` on a blocking thread holding no connection, in a budget scope of what the run has left, with a fetcher whose
+/// every request is made here, on the job's runtime thread, and stored in a write unit of its own before `work` goes on
+/// (the tracker's pass, the tax report's enrichment).
+pub async fn fetching<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi<T>>, allowance: &mut Allowance,
+    work: impl FnOnce(&mut dyn Fetcher) -> R + Send + 'static) -> Result<R, String> {
     let limits = budget::Limits { steps: allowance.steps, held: WALK.held };
     let (requests, mut asked) = tokio::sync::mpsc::channel::<Request>(1);
     let walking = tokio::task::spawn_blocking(move || {
         let mut fetcher = Channel(requests);
-        let (out, used) = budget::scope(limits, || {
-            let mut ps = PriceService::new(&inputs.reference, &inputs.fx, today, &mut fetcher);
-            work(&inputs, &mut ps)
-        });
+        let (out, used) = budget::scope(limits, || work(&mut fetcher));
         drop(fetcher);
-        (out, used, inputs)
+        (out, used)
     });
     while let Some((f, have, reply)) = asked.recv().await {
         let answer = match fetch_and_store(db, api, &f, &have).await {
@@ -190,9 +199,9 @@ pub async fn pass<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi
         };
         let _ = reply.send(answer);
     }
-    let (out, used, inputs) = walking.await.map_err(|e| format!("the tracker walk stopped: {e}"))?;
+    let (out, used) = walking.await.map_err(|e| format!("the tracker walk stopped: {e}"))?;
     allowance.steps = allowance.steps.saturating_sub(used.steps);
-    Ok((out.map_err(message)?, inputs))
+    Ok(out)
 }
 
 /// `Tracker::Ledger.compute!`: passes of `Ledger.scopes`, each loading the ECB rates (a PriceService is built per walk)

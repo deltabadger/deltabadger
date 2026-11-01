@@ -24,5 +24,18 @@
   "app/mcp/tools/list_bots_tool.rb": "1aa0b578735b0245072fc935dd4db4ce833b3f3382e8d9f5021fc940e319e094",
   "app/mcp/tools/list_exchanges_tool.rb": "de045dbb91692f0f560839ff56db8af04c410897043438ab9765b2a400638911",
   "app/mcp/tools/list_transactions_tool.rb": "72fbf04b171a40d993f03c7d30b24aafab0d40e39fac64e7eb570a2b0927a2e0",
-  "app/mcp/tools/list_tax_jurisdictions_tool.rb": "aa655fb1f641ced0ca63b3d6f7be47268a33a82d9b87dad99b9dd6ec61a697c7"
+  "app/mcp/tools/list_tax_jurisdictions_tool.rb": "aa655fb1f641ced0ca63b3d6f7be47268a33a82d9b87dad99b9dd6ec61a697c7",
+  "app/services/bot_api/tax/params.rb": "946023f0b0ee1f758157f8e0f7893fc4cabe814148340dc1e6596e1e4bc7056d",
+  "app/services/bot_api/tax/generate_report.rb": "bc74dade17bf7542e8d87b9d8085959d657be06a286c365c4cc20e291c4789cb",
+  "app/services/bot_api/tax/report_status.rb": "1d4ea437e78be4c84dfdfd1562ba4e1d7ec985754eeac1de22438f1fdb709e41",
+  "app/services/bot_api/tax/download_report.rb": "be9d4b4920462af134a0ad9a62664666bd4200928255242e06a7a6a87b4e87b2",
+  "app/services/bot_api/tax/generating.rb": "4d55fee4b94e1d608bf34421273120c57893b7057aaa55382cf28ddc3fa900f4",
+  "app/services/bot_api/boolean.rb": "1c75d892936c42d34770e044fa8b640fc49d5413e6e9cc61afb875719ab36e81",
+  "app/services/bot_api/number.rb": "0a5fdf4d2eeb10bb48c21e57640e9786b8d1052a6c2c76951f8295bdbe0fa4a3",
+  "app/jobs/tax/generate_report_job.rb": "c8d9fbc2ab484ca6442c3fa7bda3f44ec1964afd342310f1e966721945dfec32",
+  "app/models/market_data_settings.rb": "bfce12f2ccc37d11ef7ef9261850fc86d47cf5554877750059b42e81e62f66fa",
+  "app/models/app_paths.rb": "e4272709d8fb4485aa30a3fbdeb3f8b80899d1487972e6464bbeaf87f41e45f7",
+  "app/mcp/tools/generate_tax_report_tool.rb": "1a6141595778d07db231a511dc8e2b9bba00624a5d88f05135e368959735d5b5",
+  "app/mcp/tools/get_tax_report_status_tool.rb": "41e576b87dbfc14174d42d733465417fd123520f6e12200dc545dbb168c7e0b7",
+  "app/mcp/tools/download_tax_report_tool.rb": "100e2cd07c60c3fe771ffc8f1b79c4f7cd3e44afe7607e2dbe85031c951de4b1"
 }

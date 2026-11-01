@@ -4,13 +4,20 @@
 //!
 //! Where Rails states a figure that cannot be defended, this build states none (FiguresError::NotComputed, the reason
 //! in words): a sale of more than the history holds, a price that is missing, a coin fee that belongs to no fill, a coin
-//! withdrawal not linked to its deposit, a lost coin, a corporate action. The reasons are recorded as defects of the
-//! Rails report, to be fixed there first.
+//! withdrawal not linked to its deposit, a lost coin, a corporate action. The job (`job`) ends such a report as
+//! `report_failed`, the reason logged; A12-2 replaces them with Rails' figures and the rulings' disclosures.
+//!
+//! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
+//! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
 //!
 //! Sales are split into one row per holding term, the term read on the calendar in the user's time zone, the tax year
 //! is the user's, and an Alpaca CFEE is folded into that day's fills (Tax::Report#holding_rule, #attribute_trade_fees).
+pub mod api;
+pub mod job;
+pub mod jurisdictions;
+
 use crate::figures::{at::At, budget, dec::Dec, FiguresError};
-use crate::tracker::prices::{self, alias_coin, catalogue_coin, PriceService, Reference, Unfetched, Venue};
+use crate::tracker::prices::{self, alias_coin, catalogue_coin, Fetcher, PriceService, Reference, Unfetched, Venue};
 use crate::tracker::rows::{self, Kind, Stored};
 use crate::tracker::{fiat, walk};
 use crate::web::i18n::{text, Arg};
@@ -31,13 +38,28 @@ const INCOME: [(Kind, &str); 5] = [(Kind::StakingReward, "staking_reward"), (Kin
 
 fn no_figure(why: &str) -> FiguresError { FiguresError::NotComputed(format!("the tax report states no figure for {why}")) }
 
-/// Tax::GenerateReportJob#perform(user, country, year) for the crypto scope.
+/// Tax::GenerateReportJob#perform(user, country, year) for the crypto scope, in one budget, with a provider that has no
+/// price (`Unfetched`): what the parity vectors record, where Rails' market data answers every range with a failure.
 pub fn crypto_report(c: &Connection, user_id: i64, country: &str, year: i32, today: NaiveDate) -> Result<Outcome, FiguresError> {
-    if country != "US" { return Err(FiguresError::NotComputed(format!("the tax report is not ported for the jurisdiction {country}"))); }
-    budget::within(|| report(c, user_id, year, today))
+    budget::within(|| match prepare(c, user_id, country, year)? {
+        Prepared::Done(outcome) => Ok(outcome),
+        Prepared::Report(report) => report.compute(&mut Unfetched, today, &mut |_| {}),
+    })
 }
 
-fn report(c: &Connection, user_id: i64, year: i32, today: NaiveDate) -> Result<Outcome, FiguresError> {
+/// What the report reads from the database, read before any price is fetched (the job then fetches with no connection
+/// held, as the tracker's pass does), or the answer already known.
+pub enum Prepared { Done(Outcome), Report(Box<Report>) }
+
+/// Every input of one report: the rows of the year's basis, the user's zone, the banners, the catalogue and the rates.
+pub struct Report {
+    year: i32, zone: String, banners: Vec<String>, scoped: Vec<Stored>, reference: Reference, fx: crate::tracker::fx::FxTable,
+    cfee: HashSet<i64>,
+}
+
+/// The reads of `crypto_csv` up to the enrichment: the scope, the tokenized refusal, the banners.
+pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32) -> Result<Prepared, FiguresError> {
+    if country != "US" { return Err(FiguresError::NotComputed(format!("the tax report is not ported for the jurisdiction {country}"))); }
     // The walk sets the futures and margin wallets aside; the report reads every row, so it states nothing instead.
     let borrowed: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (tx_id LIKE '%futures%' \
                                       OR tx_id LIKE '%margin-interest%' OR tx_id LIKE '%liquidation-%'))", [user_id], |r| r.get(0))?;
@@ -58,7 +80,7 @@ fn report(c: &Connection, user_id: i64, year: i32, today: NaiveDate) -> Result<O
     let rows_until = utc_end.zip(local_end).map(|(u, l)| u.max(l)).and_then(At::from_utc)
         .ok_or_else(|| FiguresError::Data("a report year out of range".into()))?;
     let tokenized = tokenized_symbols(c, &venue, rows.iter().filter(|r| r.at.0 < rows_until.0))?;
-    if !tokenized.is_empty() { return Ok(Outcome::Refused { reason: "tokenized_unsupported".into(), symbols: tokenized }); }
+    if !tokenized.is_empty() { return Ok(Prepared::Done(Outcome::Refused { reason: "tokenized_unsupported".into(), symbols: tokenized })); }
     let banners = sync_issues(c, user_id)?;
 
     // Every row up to the end of the year, for the basis; only this year's disposals are reported.
@@ -71,12 +93,25 @@ fn report(c: &Connection, user_id: i64, year: i32, today: NaiveDate) -> Result<O
             _ => {}
         }
     }
+    let mut reference = Reference::load(c, &venue, &prices::symbols(&scoped))?;
+    reference.record_coins(c, user_id)?;
+    let fx = crate::tracker::fx::FxTable::load(c)?;
+    let mut s = c.prepare("SELECT id FROM account_transactions WHERE json_extract(raw_data, '$.activity_type') = 'CFEE'")?;
+    let cfee: HashSet<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    Ok(Prepared::Report(Box::new(Report { year, zone, banners, scoped, reference, fx, cfee })))
+}
 
-    let mut enriched = enrich(c, &venue, &scoped, today, user_id)?;
-    let folded = attribute_trade_fees(c, &mut enriched)?;
-    let local = |at: At| crate::web::timezone::local(at.utc(), &zone).date_naive();
-    let results: Vec<Disposal> = fifo(&enriched, &folded, &local)?.into_iter().filter(|d| local(d.at).year() == year).collect();
-    Ok(Outcome::Csv(csv(year, &banners, &results, &enriched)?))
+impl Report {
+    /// Tax::Report#to_csv from the enrichment on: prices the table lacks are fetched through `fetcher` (Rails'
+    /// `prefetch` and single-day fetches), and `on_progress(percent)` is told as PriceService#enrich tells it.
+    pub fn compute(&self, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Outcome, FiguresError> {
+        let mut enriched = enrich(self, fetcher, today, on_progress)?;
+        let folded = attribute_trade_fees(&self.cfee, &mut enriched)?;
+        let zone = &self.zone;
+        let local = |at: At| crate::web::timezone::local(at.utc(), zone).date_naive();
+        let results: Vec<Disposal> = fifo(&enriched, &folded, &local)?.into_iter().filter(|d| local(d.at).year() == self.year).collect();
+        Ok(Outcome::Csv(csv(self.year, &self.banners, &results, &enriched)?))
+    }
 }
 
 /// Tax::CryptoScope#crypto? over the catalogue and the user's own classifications.
@@ -159,19 +194,14 @@ fn sync_issues(c: &Connection, user_id: i64) -> Result<Vec<String>, FiguresError
 /// An enriched row (Tax::PriceService#enrich) with what the report reads beside the walk's.
 struct Entry { id: i64, row: walk::Row, tx_id: Option<String>, stated: bool }
 
-/// Tax::PriceService#enrich(currency: 'USD'). Prices come from `historical_prices`; one Rails would fetch first is not
-/// fetched here, and a missing one states no figure (Rails values it at zero and banners the report incomplete).
-fn enrich(c: &Connection, venue: &Venue, scoped: &[Stored], today: NaiveDate, user_id: i64) -> Result<Vec<Entry>, FiguresError> {
-    // Only the prices the rows use: Rails' range prefetch adds days no row reads, and a day a row reads but the table
-    // lacks halts the walk below.
-    let mut reference = Reference::load(c, venue, &prices::symbols(scoped))?;
-    reference.record_coins(c, user_id)?;
-    let fx = crate::tracker::fx::FxTable::load(c)?;
-    let mut none = Unfetched;
-    let mut ps = PriceService::new(&reference, &fx, today, &mut none);
+/// Tax::PriceService#enrich(currency: 'USD'), its prefetch included. A price the table and the provider both lack
+/// states no figure (Rails values it at zero and banners the report incomplete).
+fn enrich(report: &Report, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Vec<Entry>, FiguresError> {
+    let scoped = &report.scoped;
+    let mut ps = PriceService::new(&report.reference, &report.fx, today, fetcher);
     let deposits: HashMap<i64, Dec> = scoped.iter().map(|r| (r.id, r.amount.clone())).collect();
-    let rows = walk::enrich_with(scoped, &deposits, &mut ps, false)?;
-    // A price the table lacks: the first one Rails would have valued at zero ("BTC/USD 2026-09-10").
+    let rows = walk::enrich_with(scoped, &deposits, &mut ps, true, CURRENCY, on_progress)?;
+    // A price nobody has: the first one Rails would have valued at zero ("BTC/USD 2026-09-10").
     if let Some(w) = ps.warnings.first() {
         let (asset, day) = w.split_once(' ').map_or((w.as_str(), ""), |(a, d)| (a.split('/').next().unwrap_or(a), d));
         return Err(no_figure(&format!("no price of {asset} on {day}")));
@@ -183,9 +213,7 @@ fn enrich(c: &Connection, venue: &Venue, scoped: &[Stored], today: NaiveDate, us
 /// of the coin when the UTC and the New York calendars give the same fills, buys first (fewer coins, same cost), else
 /// sales (more coins out, same proceeds), pro rata by amount, the last fill taking what is left. Returns the ids of the
 /// fees folded away; one left standing is refused by the engine.
-fn attribute_trade_fees(c: &Connection, entries: &mut [Entry]) -> Result<HashSet<i64>, FiguresError> {
-    let mut s = c.prepare("SELECT id FROM account_transactions WHERE json_extract(raw_data, '$.activity_type') = 'CFEE'")?;
-    let cfee: HashSet<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+fn attribute_trade_fees(cfee: &HashSet<i64>, entries: &mut [Entry]) -> Result<HashSet<i64>, FiguresError> {
     let new_york = |at: At| at.utc().with_timezone(&chrono_tz::America::New_York).date_naive();
     let mut folded = HashSet::new();
     for i in 0..entries.len() {

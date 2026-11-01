@@ -390,6 +390,8 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
         let wire = |v: &str| BigDec::parse(v).map_err(|_| format!("unreadable {v}")).and_then(|d| super::signers::hyperliquid::float_to_wire(&d)).map_err(|m| VenueError::Rejected(vec![m]));
         let (p, s) = (wire(price)?, wire(&o.volume)?);
         let asset = self.asset(&o.pair).await?;
+        // PLAN-A9 O4 r1 §1: the spotMeta read above may outlast the order's send deadline; past it nothing is sent.
+        if self.transport.deadline_clock().is_some_and(|now| now > o.deadline) { return Err(VenueError::Transient(format!("the order is past its send window {}; not sent", o.deadline.to_rfc3339()))); }
         let tif = if matches!(o.kind, OrderKind::Crossed { .. }) { "Ioc" } else { "Gtc" };
         let order = json!({ "a": asset, "b": o.side == super::Side::Buy, "p": p, "s": s, "r": false, "t": { "limit": { "tif": tif } }, "c": cloid });
         let action = json!({ "type": "order", "orders": [order], "grouping": "na" });

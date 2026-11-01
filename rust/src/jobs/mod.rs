@@ -112,6 +112,8 @@ impl Db {
     pub async fn deadline_completion(&self, captured: Option<i64>, name: &str, scope: Option<&str>) {
         // Draining is unconditional, even for unknown owners and unrelated job kinds.
         self.settled().await;
+        // A tax report past its deadline ends `failed`, its owner read from its row (PLAN-A12 r1 #1).
+        if name == crate::tax::job::JOB { crate::tax::job::deadline(self).await; return; }
         // Retry a failed preliminary lookup only after all outstanding work has ended.
         // A captured owner survives deletion of that key by the completed database unit.
         let owner = match captured { Some(owner) => Some(owner), None => self.completion_owner(name, scope).await };

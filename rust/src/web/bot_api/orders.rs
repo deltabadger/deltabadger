@@ -2,8 +2,10 @@
 //! bot) and Cancel, up to their first venue call (PLAN-A9 slice O1). MCP and REST both call these and format the `Res`.
 //! Every refusal Rails makes before a venue call is made here in Rails' order, on the database alone; a dry run (MCP's
 //! paper trading) answers here too. An order through a signal bot that passes every check is queued for the engine
-//! (engine::api_orders, D-ORDER-QUEUED) and waited for (`wait`); a standalone one is `not_ported` until slice O4; a
-//! cancel that passes them is sent by `send_cancel` (slice O2), the bot page's one bounded call (web::bot::cancel).
+//! (engine::api_orders, D-ORDER-QUEUED) and waited for (`wait`); so is a standalone one (slice O4: api_orders::
+//! place_standalone, D-ORDER-AMBIGUOUS, D-ORDER-KRAKEN-QUOTE-SELL, D-ORDER-STANDALONE-LOG); a cancel that passes them is
+//! sent by `send_cancel` (slice O2), the bot page's one bounded call (web::bot::cancel), on a logged standalone order's
+//! stored route where there is one.
 //!
 //! Named divergences: D-ORDER-AMOUNT-VALIDATION (a standalone amount, price or amount_type Rails hands to the venue is
 //! refused with BotOrder's texts), D-ORDER-IBKR (a venue this build does not trade passes Rails' checks, then answers
@@ -40,7 +42,6 @@ pub struct Caller { pub user: i64, pub dry_run: bool, pub mcp: bool }
 
 fn failure(status: Domain, code: &'static str, message: impl Into<String>) -> Res { Res::failure(status, code, message.into()) }
 fn not_ported(what: &str) -> Res { failure(Domain::NotPorted, "not_ported", refused(what)) }
-const PLACING: &str = "orders placed through MCP or the REST API";
 /// D-ORDER-IBKR.
 const IBKR: &str = "orders through MCP or the REST API on this exchange";
 
@@ -101,55 +102,98 @@ fn trades(kind: &str) -> bool { crate::venue::registry::row(kind).is_some_and(|r
 pub enum Placed { Done(Res), Queued(Queued) }
 
 /// An order queued for the engine, with what its answer repeats of the request.
-pub struct Queued { pub id: i64, bot_id: i64, exchange: String, pair: String, base: String, side: &'static str, amount: Value, amount_type: String }
+pub struct Queued { pub id: i64, bot_id: Option<i64>, exchange: String, pair: String, base: String, side: &'static str, amount: Value, amount_type: String,
+                    /// A standalone order's: "market" or "limit", and a limit's price as sent (Null otherwise).
+                    order_type: &'static str, price: Value }
 
 /// MarketBuy/MarketSell/LimitBuy/LimitSell#call. `args`: the service's keyword arguments as the surface hands them over
 /// (a missing key is nil); `bot_id`: None only for nil (REST hands over `params[:bot_id].to_s`, MCP the number).
 pub fn place(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Placed, WebError> {
+    place_at(c, app.now(), who, kind, args, bot_id)
+}
+
+/// `place` at `now` (also the grid-orders entry, parity::standalone_orders, at the scenario's time).
+pub fn place_at(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Placed, WebError> {
     Ok(match bot_id {
-        Some(bot_id) if !kind.limit() => return through_bot(c, app.now(), who, kind, args, bot_id),
-        _ => Placed::Done(standalone(c, app, who, kind, args, bot_id)?),
+        Some(bot_id) if !kind.limit() => return through_bot(c, now, who, kind, args, bot_id),
+        _ => standalone(c, now, who, kind, args, bot_id)?,
     })
 }
 
-fn standalone(c: &Connection, app: &App, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Res, WebError> {
+fn standalone(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Placed, WebError> {
+    standalone_checked(c, now, who, kind, args, bot_id)
+}
+
+fn standalone_checked(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, args: &Map<String, Value>, bot_id: Option<&Value>) -> Result<Placed, WebError> {
+    let done = |res: Res| Ok(Placed::Done(res));
     if let Some(bot_id) = bot_id {
         // Sent at all, however malformed: a limit order is refused, a market order goes through the bot.
         let _ = bot_id;
-        return Ok(failure(Domain::ValidationFailed, "bot_limit_orders_unsupported", "A bot takes market orders only: a signal bot has no schedule on which a resting \
+        return done(failure(Domain::ValidationFailed, "bot_limit_orders_unsupported", "A bot takes market orders only: a signal bot has no schedule on which a resting \
             order would be confirmed. Leave bot_id out to place the limit order on the account."));
     }
     let required: &[&str] = if kind.limit() { &["exchange_name", "base_asset", "quote_asset", "amount", "price"] } else { &["exchange_name", "base_asset", "quote_asset", "amount"] };
     let missing: Vec<&str> = required.iter().copied().filter(|k| !present(arg(args, k))).collect();
     if !missing.is_empty() {
-        return Ok(failure(Domain::ValidationFailed, "missing_required_parameter", format!("Missing required parameter(s): {}.", missing.join(", "))));
+        return done(failure(Domain::ValidationFailed, "missing_required_parameter", format!("Missing required parameter(s): {}.", missing.join(", "))));
     }
-    let Some((exchange, name, venue)) = find_exchange(c, arg(args, "exchange_name"))? else { return exchange_not_found(c, arg(args, "exchange_name")) };
-    if !has_correct_key(c, who.user, exchange)? { return Ok(api_key_missing(&name)) }
+    let Some((exchange, name, venue)) = find_exchange(c, arg(args, "exchange_name"))? else { return exchange_not_found(c, arg(args, "exchange_name")).map(Placed::Done) };
+    if !has_correct_key(c, who.user, exchange)? { return done(api_key_missing(&name)) }
     let (base, quote) = (to_s(arg(args, "base_asset")).to_uppercase(), to_s(arg(args, "quote_asset")).to_uppercase());
     let Some(ticker) = find_ticker(c, exchange, &base, &quote)? else {
-        return Ok(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {base}/{quote} not found on {name}.")));
+        return done(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {base}/{quote} not found on {name}.")));
     };
-    if let Some(refusal) = untradable(&name, &ticker) { return Ok(refusal) }
-    if kind.buy() { if let Some(refusal) = wash_refusal(c, app.now(), who, &ticker)? { return Ok(refusal) } }
+    if let Some(refusal) = untradable(&name, &ticker) { return done(refusal) }
+    if kind.buy() { if let Some(refusal) = wash_refusal(c, now, who, &ticker)? { return done(refusal) } }
     // D-ORDER-AMOUNT-VALIDATION: where Rails hands these to the venue (or raises), BotOrder's refusals.
-    if !number(arg(args, "amount")).is_some_and(|n| n.is_positive()) { return Ok(invalid_number("amount")) }
-    let Some(amount_type) = amount_type(kind, args) else { return Ok(invalid_amount_type()) };
-    if kind.limit() && !number(arg(args, "price")).is_some_and(|n| n.is_positive()) { return Ok(invalid_number("price")) }
-    if !trades(&venue) { return Ok(not_ported(IBKR)) }
-    if !who.dry_run { return Ok(not_ported(PLACING)) }
+    if !number(arg(args, "amount")).is_some_and(|n| n.is_positive()) { return done(invalid_number("amount")) }
+    let Some(amount_type) = amount_type(kind, args) else { return done(invalid_amount_type()) };
+    if kind.limit() && !number(arg(args, "price")).is_some_and(|n| n.is_positive()) { return done(invalid_number("price")) }
+    if !trades(&venue) { return done(not_ported(IBKR)) }
+    let queued = Queued { id: 0, bot_id: None, exchange: name, pair: format!("{base}/{quote}"), base: base.clone(), side: kind.side(), amount: arg(args, "amount").clone(),
+                          amount_type, order_type: if kind.limit() { "limit" } else { "market" }, price: if kind.limit() { arg(args, "price").clone() } else { Value::Null } };
     // Exchange::Dryable#create_dry_order's answer; D-ORDER-DRY-NO-READ: no price is read for it.
+    if who.dry_run { return done(placed(&queued, true, &format!("dry-order-{}", &uuid::Uuid::new_v4().to_string()[10..]))) }
+    // PLAN-A9 O4: queued for the engine with the account's venue and pair as found here, and the key's version.
+    let (Some(amount), price) = (number(arg(args, "amount")), if kind.limit() { number(arg(args, "price")) } else { None }) else { return done(invalid_number("amount")) };
+    let supplied: Map<String, Value> = [("base_asset", json!(base)), ("quote_asset", json!(quote))].into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+    let side = if kind.buy() { crate::venue::Side::Buy } else { crate::venue::Side::Sell };
+    let standalone = crate::engine::api_orders::Standalone { exchange_id: exchange, ticker_id: ticker.id, limit: kind.limit(), price, mcp: who.mcp };
+    let new = crate::engine::api_orders::New::Standalone { user_id: who.user, side, amount: &amount, in_base: queued.amount_type == "base", supplied: &supplied, standalone };
+    let id = crate::engine::api_orders::insert(c, &new, now).map_err(|e| WebError::Config(format!("{e:?}")))?;
+    Ok(Placed::Queued(Queued { id, ..queued }))
+}
+
+/// MarketBuy/MarketSell/LimitBuy/LimitSell's success: `upstream` is `{order_id:}` on every venue (PLAN-A9 O4 r4 §1: a
+/// String everywhere).
+fn placed(q: &Queued, dry_run: bool, order_id: &str) -> Res {
     let mut data = Map::new();
-    data.insert("dry_run".into(), json!(true));
-    data.insert("exchange".into(), json!(name));
-    data.insert("pair".into(), json!(format!("{base}/{quote}")));
-    data.insert("side".into(), json!(kind.side()));
-    data.insert("order_type".into(), json!(if kind.limit() { "limit" } else { "market" }));
-    data.insert("amount".into(), arg(args, "amount").clone());
-    data.insert("amount_type".into(), json!(amount_type));
-    if kind.limit() { data.insert("price".into(), arg(args, "price").clone()); }
-    data.insert("upstream".into(), json!({ "order_id": format!("dry-order-{}", &uuid::Uuid::new_v4().to_string()[10..]) }));
-    Ok(Res::success(Value::Object(data)))
+    data.insert("dry_run".into(), json!(dry_run));
+    data.insert("exchange".into(), json!(q.exchange));
+    data.insert("pair".into(), json!(q.pair));
+    data.insert("side".into(), json!(q.side));
+    data.insert("order_type".into(), json!(q.order_type));
+    data.insert("amount".into(), q.amount.clone());
+    data.insert("amount_type".into(), json!(q.amount_type));
+    if q.order_type == "limit" { data.insert("price".into(), q.price.clone()); }
+    data.insert("upstream".into(), json!({ "order_id": order_id }));
+    Res::success(Value::Object(data))
+}
+
+/// The standalone request's checks again, in the engine's claim (PLAN-A9 O4 §2.3 step 6): the key (Lookup.find_api_key),
+/// the pair by its id (gone: `pair_not_found` with the pair the caller named), its tradability, and for a buy the wash-sale
+/// lock dated in the request's surface's zone (r1 §5). Rails' codes and texts.
+pub fn standalone_late_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
+    let Some(s) = &request.standalone else { return Err(WebError::Config("a bot request has no standalone refusal".into())) };
+    let name: String = c.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id=?1", [s.exchange_id], |r| r.get(0)).optional()?.unwrap_or_default();
+    if !has_correct_key(c, request.user_id, s.exchange_id)? { return Ok(Some(api_key_missing(&name))) }
+    let Some(ticker) = model::ticker_by_id(c, s.exchange_id, s.ticker_id).map_err(|e| WebError::Config(format!("{e:?}")))? else {
+        let named = |k: &str| request.supplied.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+        return Ok(Some(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {}/{} not found on {name}.", named("base_asset"), named("quote_asset")))));
+    };
+    if let Some(refusal) = untradable(&name, &ticker) { return Ok(Some(refusal)) }
+    if request.side == crate::venue::Side::Buy { return wash_refusal(c, now, Caller { user: request.user_id, dry_run: false, mcp: s.mcp }, &ticker) }
+    Ok(None)
 }
 
 fn invalid_number(field: &str) -> Res { failure(Domain::ValidationFailed, "invalid_number", format!("{field} must be a number greater than 0.")) }
@@ -162,7 +206,7 @@ fn amount_type(kind: Kind, args: &Map<String, Value>) -> Option<String> {
 fn invalid_amount_type() -> Res { failure(Domain::ValidationFailed, "invalid_amount_type", "amount_type must be 'quote' or 'base'.") }
 
 /// BotApi::Number.integer.
-fn integer(v: &Value) -> Option<i64> {
+pub(crate) fn integer(v: &Value) -> Option<i64> {
     if let Some(f) = v.as_f64().filter(|_| v.is_f64()) { if !(f.is_finite() && f == f.floor()) { return None } }
     let n = number(v)?;
     let text = n.to_s_f();
@@ -196,14 +240,15 @@ pub fn through_bot(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Call
     if let Some(refusal) = venue_refusal(c, now, who, kind, &through)? { return done(refusal) }
     if !trades(&through.venue) { return done(not_ported(IBKR)) }
     let (base, quote) = pair(c, &through)?;
-    let mut queued = Queued { id: 0, bot_id: id, exchange: through.exchange.clone(), pair: format!("{base}/{quote}"), base, side: kind.side(), amount: arg(args, "amount").clone(), amount_type };
+    let mut queued = Queued { id: 0, bot_id: Some(id), exchange: through.exchange.clone(), pair: format!("{base}/{quote}"), base, side: kind.side(), amount: arg(args, "amount").clone(), amount_type,
+                              order_type: "market", price: Value::Null };
     if who.dry_run { return done(submitted(&queued, true, None, None)) }
     // What validation saw goes with the request: the engine re-checks the bot against the supplied fields, and places
     // nothing under another key (PLAN-A9 r1 §4, r2 §1).
     let supplied: Map<String, Value> = ["exchange_name", "base_asset", "quote_asset"].into_iter()
         .map(|k| (k.to_string(), Some(arg(args, k)).filter(|v| present(v)).map_or(Value::Null, |v| json!(to_s(v))))).collect();
     let side = if kind.buy() { crate::venue::Side::Buy } else { crate::venue::Side::Sell };
-    let new = crate::engine::api_orders::New { user_id: who.user, bot: &through.bot, side, amount: &amount, in_base: queued.amount_type == "base", supplied: &supplied };
+    let new = crate::engine::api_orders::New::Bot { user_id: who.user, bot: &through.bot, side, amount: &amount, in_base: queued.amount_type == "base", supplied: &supplied };
     queued.id = crate::engine::api_orders::insert(c, &new, now).map_err(|e| WebError::Config(format!("{e:?}")))?;
     Ok(Placed::Queued(queued))
 }
@@ -229,7 +274,7 @@ const REFUSALS: &[(&str, Domain)] = &[
     ("bot_not_found", Domain::NotFound), ("bot_not_orderable", Domain::ValidationFailed), ("bot_not_running", Domain::Conflict),
     ("placement_unresolved", Domain::Conflict), ("pair_not_found", Domain::NotFound), ("bot_pair_mismatch", Domain::ValidationFailed),
     ("ticker_not_tradable", Domain::Conflict), ("market_closed", Domain::Conflict), ("exchange_unavailable", Domain::UpstreamFailed),
-    ("api_key_missing", Domain::PermissionDenied),
+    ("api_key_missing", Domain::PermissionDenied), ("wash_sale_locked", Domain::Conflict),
 ];
 
 /// BotOrder#venue_busy.
@@ -249,17 +294,20 @@ pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
             res
         }
         Outcome::Skipped => failure(Domain::ValidationFailed, "below_minimum_amount", format!("The order is below {}'s minimum for {}.", q.exchange, q.pair)),
-        Outcome::Unresolved => placement_unresolved(q.bot_id, &q.exchange),
+        Outcome::Unresolved => placement_unresolved(q.bot_id.unwrap_or_default(), &q.exchange),
         Outcome::Locked => failure(Domain::Conflict, "wash_sale_locked", format!("{} is locked after a sale at a loss.", q.base)),
         Outcome::Ambiguous { errors } => ambiguous(&sentence(&errors), &q.exchange),
+        // r3 §2: a standalone failure is MarketBuy's `errors.join(', ')`; a bot order's is BotOrder's to_sentence.
+        Outcome::Failed { errors } if q.bot_id.is_none() => failure(Domain::UpstreamFailed, "order_failed", format!("Order failed: {}", errors.join(", "))),
         Outcome::Failed { errors } => failure(Domain::UpstreamFailed, "order_failed", format!("Order failed: {}", sentence(&errors))),
+        Outcome::Placed { order_id } => placed(q, false, &order_id),
         Outcome::Refused { code, message } => match REFUSALS.iter().find(|(c, _)| *c == code) {
             Some((code, status)) => failure(*status, code, message),
             None => failure(Domain::UpstreamFailed, "order_failed", format!("Order failed: {message}")),
         },
         // D-ORDER-API-CAP.
         Outcome::CapReached { left } => failure(Domain::Conflict, "quote_amount_limit_reached",
-            format!("Bot {} has {left} {} left of its spending limit.", q.bot_id, q.pair.split_once('/').map_or("", |(_, quote)| quote))),
+            format!("Bot {} has {left} {} left of its spending limit.", q.bot_id.unwrap_or_default(), q.pair.split_once('/').map_or("", |(_, quote)| quote))),
         Outcome::Busy => venue_busy(&q.exchange),
         Outcome::Unknown => ambiguous("the engine restarted while it was placing it", &q.exchange),
     }
@@ -361,6 +409,9 @@ enum Target {
     /// `exchange.cancel_order(order_id:)` on the user's key; `row`: the user's bot row with that order id (bot, tx), whose
     /// stored order (OrderRef::load) is cancelled and re-read (r3).
     Key { user: i64, exchange: i64, external: String, row: Option<(i64, i64)> },
+    /// A standalone order this build placed (the retained log, D-ORDER-STANDALONE-LOG): sent on its stored route, any
+    /// KuCoin family (`record`), with no re-read (there is no row).
+    Log { user: i64, exchange: i64, order: crate::venue::OrderRef },
 }
 
 fn cancel_failed(why: &str) -> Res { failure(Domain::UpstreamFailed, "cancel_failed", format!("Cancel failed: {why}")) }
@@ -402,10 +453,19 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
     if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
     // r3: a stored order beats a bare id. The user's bot rows first (the latest with this venue and order id); then the
-    // retained standalone order log, which slice O4 adds (until then there is none to look in); then the bare id.
+    // retained standalone order log (PLAN-A9 O4); then the bare id.
     let row: Option<(i64, i64)> = c.query_row("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
                                                WHERE b.user_id=?1 AND t.exchange_id=?2 AND t.external_id=?3 AND substr(t.external_id, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1",
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    if row.is_none() {
+        if let Some((identity, snapshot)) = crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))? {
+            // r1 §4: the route from what was stored at the claim, never from the ticker row (it may be gone or renamed since).
+            let mut intent = identity.unwrap_or_else(|| json!({}));
+            for key in ["symbol", "side", "limit"] { intent[key] = snapshot[key].clone(); }
+            let order = crate::venue::OrderRef { external_id: text, record: crate::venue::kucoin::record_of(&intent) };
+            return Ok(Cancel::Send(CancelJob { target: Target::Log { user: who.user, exchange, order }, answer }));
+        }
+    }
     // D-ORDER-ID-SAFE: a bare id becomes a path segment on the venue (`DELETE /v2/orders/<id>`), so one that could leave it
     // (`../positions/X` would be Alpaca's position liquidation) is refused and nothing is sent. Every venue's order ids are
     // letters, digits, '-' and '_'. Rails interpolates it.
@@ -424,6 +484,10 @@ pub async fn send_cancel(app: &App, job: CancelJob) -> Result<Res, WebError> {
         let factory = page::live_factory(c, app);
         let sent = match job.target {
             Target::Row { bot, tx, external } => page::send_for_row(c, app, &factory, runtime, &model::load_bot(c, bot)?, tx, &external)?,
+            Target::Log { user, exchange, order } => {
+                let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, user, exchange)?;
+                page::send(runtime, &venue, &order)
+            }
             Target::Key { user, exchange, external, row } => {
                 let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, user, exchange)?;
                 match row {

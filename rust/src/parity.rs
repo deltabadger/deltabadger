@@ -137,6 +137,8 @@ pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d
 /// That guard runs before networking, so this scenario cannot send an exchange request.
 struct HyperliquidScript { scripted: ScriptedTransport, invalid_key: Option<crate::venue::http::ReqwestTransport> }
 impl crate::venue::http::Transport for HyperliquidScript {
+    fn now(&self) -> DateTime<Utc> { self.scripted.now() }
+    fn deadline_clock(&self) -> Option<DateTime<Utc>> { self.scripted.deadline_clock() }
     async fn send(&self, r: &crate::venue::http::HttpRequest) -> Result<crate::venue::http::HttpResponse, crate::venue::http::TransportError> {
         if r.path == crate::venue::hyperliquid::EXCHANGE {
             if let Some(t) = &self.invalid_key { return t.send(r).await; }
@@ -560,6 +562,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx, transport).await? { checks.push(queued(condition_next(&o.primary, bot_id, t)?)); } }
     if scenario["signals"].is_array() { signal_calls(o, venue, scenario, bot_id, start, &cx, transport).await?; }
     let api = if scenario["api"].is_array() { Some(api_orders(o, venue, scenario, bot_id, start, &cx, transport).await?) } else { None };
+    let orders = if scenario["orders"].is_array() { Some(standalone_orders(o, venue, scenario, bot_id, start, &cx, transport).await?) } else { None };
     // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
     let mut poll = None;
     if let Some(ext) = scenario["poll"].as_str() {
@@ -645,6 +648,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     if scenario["info"].is_array() { extra.insert("infos".into(), Value::Array(infos)); }
     if scenario["warn"] == true { extra.insert("warned".into(), json!(warned.borrow().clone())); }
     if let Some(api) = api { extra.insert("api".into(), api); }
+    if let Some(orders) = orders { extra.insert("orders".into(), orders); }
     Ok((poll, recover_sent, (!extra.is_empty()).then_some(Value::Object(extra))))
 }
 
@@ -700,6 +704,52 @@ async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i
         let status = match res.status { Domain::Success | Domain::Created => "created", Domain::ValidationFailed => "validation_failed", Domain::PermissionDenied => "permission_denied",
             Domain::NotFound => "not_found", Domain::Conflict => "conflict", Domain::UpstreamFailed => "upstream_failed", Domain::NotPorted | Domain::Raised => "not_ported" };
         answers.push(json!({ "status": status, "code": res.code, "message": if res.code.is_some() { json!(res.message) } else { Value::Null }, "data": res.data }));
+    }
+    Ok(Value::Array(answers))
+}
+
+/// PLAN-A9 O4: each standalone order of the scenario (no bot_id) at `start`, as its MCP tool sends it (ActionMCP casts
+/// `amount` and `price` to Floats): the web's checks (bot_api::orders::place_at), the engine's take and
+/// api_orders::place_standalone, the answer, and the tool's text. Recorded as Rails' grid-orders records it.
+async fn standalone_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Value, EngineError> {
+    use crate::web::bot_api::{orders, Domain};
+    let web = |e: crate::web::WebError| EngineError::Data(format!("{e:?}"));
+    store::test_support::migrate(&o.primary).map_err(|e| EngineError::Data(format!("{e:?}")))?;
+    let (user, exchange, base, quote): (i64, String, String, String) = o.primary.query_row(
+        "SELECT b.user_id, e.name, ba.symbol, qa.symbol FROM bots b JOIN exchanges e ON e.id=b.exchange_id \
+         JOIN assets ba ON ba.id=json_extract(b.settings, '$.base_asset_id') JOIN assets qa ON qa.id=json_extract(b.settings, '$.quote_asset_id') WHERE b.id=?1",
+        [bot_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+    let float = |v: &Value| -> Result<Value, EngineError> {
+        v.as_str().and_then(|s| s.parse::<f64>().ok()).map(|f| json!(f)).ok_or_else(|| EngineError::Data(format!("scenario.orders number: {v}")))
+    };
+    let mut answers = vec![];
+    for a in scenario["orders"].as_array().into_iter().flatten() {
+        transport.set_now(start);
+        let name = format!("{}_{}", a["order_type"].as_str().unwrap_or_default(), a["side"].as_str().unwrap_or_default());
+        let kind = orders::Kind::tool(&name).ok_or_else(|| EngineError::Data(format!("scenario.orders: {a}")))?;
+        let mut args = serde_json::Map::new();
+        args.insert("exchange_name".into(), json!(exchange));
+        args.insert("base_asset".into(), json!(base));
+        args.insert("quote_asset".into(), json!(quote));
+        args.insert("amount".into(), float(&a["amount"])?);
+        args.insert("amount_type".into(), a["amount_type"].clone());
+        if !a["price"].is_null() { args.insert("price".into(), float(&a["price"])?); }
+        let res = match orders::place_at(&o.primary, start, orders::Caller { user, dry_run: false, mcp: true }, kind, &args, None).map_err(web)? {
+            orders::Placed::Done(res) => res,
+            orders::Placed::Queued(q) => {
+                let request = crate::engine::api_orders::take(&o.primary, q.id, start)?.ok_or_else(|| EngineError::Data("api order not taken".into()))?;
+                crate::engine::api_orders::place_standalone(&o.primary, venue, &request, &FixedClock(start), cx).await?;
+                let (_, outcome) = crate::engine::api_orders::state(&o.primary, q.id)?.ok_or_else(|| EngineError::Data("api order gone".into()))?;
+                orders::answer(&q, outcome.ok_or_else(|| EngineError::Data("api order unanswered".into()))?)
+            }
+        };
+        let status = match res.status { Domain::Success | Domain::Created => "created", Domain::ValidationFailed => "validation_failed", Domain::PermissionDenied => "permission_denied",
+            Domain::NotFound => "not_found", Domain::Conflict => "conflict", Domain::UpstreamFailed => "upstream_failed", Domain::NotPorted | Domain::Raised => "not_ported" };
+        let (text, is_error) = orders::mcp_text(&name, &Value::Object(args), false, &res);
+        let mut mcp = json!({ "content": [{ "type": "text", "text": text }] });
+        if is_error { mcp["isError"] = json!(true); }
+        answers.push(json!({ "result": { "status": status, "code": res.code, "message": if res.code.is_some() { json!(res.message) } else { Value::Null },
+                                         "data": if res.code.is_some() { Value::Null } else { res.data } }, "mcp": mcp }));
     }
     Ok(Value::Array(answers))
 }

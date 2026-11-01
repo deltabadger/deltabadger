@@ -698,31 +698,39 @@ fn rebalance_claim_holds(c: &Connection, bot_id: i64) -> Result<bool, EngineErro
 
 async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
     let handle=crate::venue::Handle::new(venue,intent.credential_version.clone());
-    let venue=&handle;
     let Some(window) = intent.at.checked_add_signed(Duration::seconds(SEND_WINDOW_SECONDS)) else { return Sent::NotSent(format!("{:?}", super::schedule::time_range_error())); };
     let send_until = intent.send_by.map_or(window, |by| by.min(window));
     if clock.now() > send_until {
         return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
     }
+    dispatch(&handle, &intent.plan, intent.cl_ord_id.clone(), send_until, skips_below_minimum(intent)).await
+}
+
+/// The one order request of a plan, and what its answer means (PLAN-A9 O4 r0 §2.3 step 7, r2): Rails' limit refusal, the
+/// crossed price a crossing venue needs, the wire order and the venue's verdict. `send_until` is the order's deadline:
+/// the adapter sends nothing after it (its pre-send read included, r1 §1), and Kraken carries it. On an intent it is
+/// `at` + the send window, or the API request's earlier `send_by`. `skips_minimum`: a venue minimum refusal is
+/// `BelowMinimum` (a skipped leg) instead of a rejection.
+pub(crate) async fn dispatch<V: Venue + Attributed>(venue: &V, plan: &OrderPlan, cl_ord_id: String, send_until: DateTime<Utc>, skips_minimum: bool) -> Sent {
     let rules = venue.rules();
-    match intent.plan.limit_refusal() {
+    match plan.limit_refusal() {
         Ok(Some(refusal)) => return Sent::Rejected(vec![refusal]),
         Ok(None) => {}
         Err(e) => return Sent::NotSent(format!("{e}; not sent")),
     }
     // D-679: a crossing venue's market order goes out at its persisted crossed price, or not at all (never uncrossed).
-    if rules.cross.is_some() && !intent.plan.limit && intent.plan.wire_price.is_none() {
+    if rules.cross.is_some() && !plan.limit && plan.wire_price.is_none() {
         return Sent::NotSent("no crossed price prepared; not sent".into());
     }
-    let order = match intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire) {
+    let order = match plan.to_order(cl_ord_id, send_until, rules.wire) {
         Ok(o) => o,
         Err(e) => return Sent::NotSent(format!("{e}; not sent")),
     };
     match venue.placement_result(&order).await.value {
         Ok(txid) => Sent::Accepted(txid),
         Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
-        Err(VenueError::Coded { code, errors }) if skips_below_minimum(intent) && below_minimum(rules.exchange_type, Some(&code), &errors) => Sent::BelowMinimum(errors),
-        Err(VenueError::Rejected(e)) if skips_below_minimum(intent) && below_minimum(rules.exchange_type, None, &e) => Sent::BelowMinimum(e),
+        Err(VenueError::Coded { code, errors }) if skips_minimum && below_minimum(rules.exchange_type, Some(&code), &errors) => Sent::BelowMinimum(errors),
+        Err(VenueError::Rejected(e)) if skips_minimum && below_minimum(rules.exchange_type, None, &e) => Sent::BelowMinimum(e),
         Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Sent::Rejected(e),
         Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
         Err(VenueError::Transient(m)) => Sent::NotSent(m),
