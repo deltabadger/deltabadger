@@ -1225,6 +1225,7 @@ module TaxVectors
       end,
       # An own-coin fee's units leave at their share: 0.99 BTC at 9,900; sold for 14,850 → 4,950.
       it.('it_fee_own_coin', 'diverges: D-TAX-IT-FEES') do |c|
+        price('BTC', '2026-01-10', '10000', 'EUR')
         quoted(c, :buy, 'BTC', '1', '10000', '2026-01-10T10:00:00Z', fiat: 'EUR', fee_currency: 'BTC', fee_amount: '0.01')
         quoted(c, :sell, 'BTC', '0.99', '14850', '2026-03-10T10:00:00Z', fiat: 'EUR')
       end,
@@ -1305,12 +1306,14 @@ module TaxVectors
       # Alpaca (USD at 1.17): the CFEE is no part of the buy's cost; it takes 0.01 of it at 100, no proceeds: 14,850 /
       # 9,900 / 4,950, tax_33 1,633.50.
       it.('it_cfee_into_buy', 'diverges: D-TAX-IT-FEES') do |c|
+        price('BTC', '2026-01-10', '10000', 'EUR')
         buy(c, 'BTC', '1', '11700', '2026-01-10T10:00:00Z')
         row(c, :fee, 'BTC', '0.01', '2026-01-10T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
         sell(c, 'BTC', '0.99', '17374.50', '2026-03-10T10:00:00Z')
       end,
       # A sale's CFEE walks after it: 15,000 / 10,000 / 5,000, then the fee takes the last 0.01 at 100; tax_33 1,650.00.
       it.('it_cfee_into_sale', 'diverges: D-TAX-IT-FEES') do |c|
+        price('BTC', '2026-03-10', '15000', 'EUR')
         buy(c, 'BTC', '1.01', '11817', '2026-01-10T10:00:00Z')
         sell(c, 'BTC', '1', '17550', '2026-03-10T10:00:00Z')
         row(c, :fee, 'BTC', '0.01', '2026-03-10T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
