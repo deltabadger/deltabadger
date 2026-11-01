@@ -769,6 +769,18 @@ module TaxVectors
         swap(c, 'ETH', '1', 'BTC', '0.03', '2026-02-01T10:00:00Z', ref: 'cv1')
         kraken(c, :sell, 'BTC', '0.03', '3500', '2026-03-01T10:00:00Z', ref: 's1')
       } },
+      # Per wallet, a same-second withdrawal carries its lots before a sale on the far venue, a linked deposit between them.
+      { name: 'de_same_second_transfer_past_deposit', country: 'DE', expect: 'parity', setup: lambda { |c|
+        by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+        kr = venue(c, :kraken)
+        bn = venue(c, :binance)
+        row(c, :buy, 'BTC', '1', '2026-01-05T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '10000')
+        row(c, :sell, 'BTC', '1', '2026-02-05T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '20000')
+        row(c, :deposit, 'BTC', '1', '2026-02-05T10:00:00Z', exchange: kr)
+        row(c, :withdrawal, 'BTC', '1', '2026-02-05T09:00:00Z', exchange: by, linked_transaction_id: AccountTransaction.order(:id).last.id)
+        row(c, :deposit, 'BTC', '1', '2026-02-05T10:10:00Z', exchange: bn)
+        row(c, :withdrawal, 'BTC', '1', '2026-02-05T10:00:00Z', exchange: kr, linked_transaction_id: AccountTransaction.order(:id).last.id)
+      } },
       # Germany: the order of use is kept per wallet; a sale on Kraken takes Kraken's lot, not Bybit's older one.
       { name: 'de_per_wallet', country: 'DE', expect: 'diverges: D-TAX-DE-WALLET', setup: lambda { |c|
         by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')

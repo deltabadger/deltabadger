@@ -166,7 +166,8 @@ impl Report {
         // so a same-second sale on the far venue takes the lots it brought. The pooled years keep Rails' order.
         if let Some(from) = per_venue_from {
             let split = txs.iter().position(|t| t.row.at.0 >= from.0).unwrap_or(txs.len());
-            let tail: Vec<fifo::Tx> = txs.split_off(split);
+            // A linked deposit changes nothing per venue (its withdrawal carried the lots), so it is no ordering barrier.
+            let tail: Vec<fifo::Tx> = txs.split_off(split).into_iter().filter(|t| !(t.row.kind == Kind::Deposit && t.row.linked)).collect();
             let order = walk::transfers_first(&tail.iter().map(|t| t.row.clone()).collect::<Vec<_>>());
             let mut by_uid: HashMap<usize, fifo::Tx> = tail.into_iter().map(|t| (t.row.uid, t)).collect();
             txs.extend(order.iter().filter_map(|r| by_uid.remove(&r.uid)));

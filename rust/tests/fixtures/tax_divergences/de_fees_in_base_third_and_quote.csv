@@ -1,6 +1,7 @@
 Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Steuerfrei
 "WARNUNG: 1 Werte fehlen — Bericht unvollständig, so nicht einreichen"
 2026-01-05T10:00:00Z,2026-01-04T10:00:00Z,BNB,0.1,50.0,48.0,2.0,EUR,1,0.0,binance,buy-BTC-2026-01-05T10:00:00Z,true,false,false
+2026-01-06T10:00:00Z,2026-01-04T11:00:00Z,USDT,6.0,5.13,5.16,-0.03,EUR,1,0.0,binance,buy-ETH-2026-01-06T10:00:00Z-quote,true,false,false
 2026-01-06T10:00:00Z,2026-01-04T11:00:00Z,USDT,6000.0,5128.21,5159.84,-36.76,EUR,1,5.13,binance,buy-ETH-2026-01-06T10:00:00Z-quote,true,false,false
 2026-03-05T10:00:00Z,2026-01-04T10:00:00Z,BNB,0.05,27.5,24.0,3.5,EUR,60,0.0,binance,sell-BTC-2026-03-05T10:00:00Z,true,false,false
 2026-03-05T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.5,40000.0,25025.0,14947.5,EUR,59,27.5,binance,sell-BTC-2026-03-05T10:00:00Z,true,false,false

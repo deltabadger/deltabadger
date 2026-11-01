@@ -340,7 +340,8 @@ impl<'a> Fifo<'a> {
         let r = &tx.row;
         let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()) else { return Ok(()) };
         if r.fee_currency.as_deref() == Some(r.base.as_str()) {
-            if r.kind.out_leg() && !crate::tracker::cash(&r.base) { return self.spend_fee_coin(tx, fee); }
+            // A stablecoin that reached the engine is a coin here (a stablecoin that is cash never does).
+            if r.kind.out_leg() && !fiat(&r.base) { return self.spend_fee_coin(tx, fee); }
             return Ok(());
         }
         if !crypto_fee_asset(r) { return Ok(()); }
