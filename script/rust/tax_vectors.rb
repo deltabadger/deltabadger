@@ -494,8 +494,134 @@ module TaxVectors
 
   # A12-2b: Poland's own scenarios and labels. A scenario's `nbp` ([currency, date, rate]) and `nbp_coverage`
   # ([currency, from, to]) rows are written as given: Rails has no NBP table.
-  PL_EXPECT = {}.freeze
-  def pl_scenarios = []
+  # Every shared `pl_*` scenario is Poland's cost pool (D-TAX-PL-COST-POOL), not Rails' per-sale FIFO.
+  PL_EXPECT = %w[pl_buy_sell_income_deposit_stated pl_prior_year_only pl_missing_price pl_swap_chain pl_stablecoin_kept
+                 pl_stablecoin_as_fiat pl_ecb_gap pl_oversold pl_lost pl_unlinked_withdrawal pl_coin_fee pl_usd_in_zloty]
+              .to_h { |name| [name, 'diverges: D-TAX-PL-COST-POOL'] }.freeze
+  # PIT-38 part E figures computed by hand (PLAN-A12 "A12-2b … Vectors"), in PLN; b, c, d, e, f of the report's year.
+  def pl_scenarios
+    k = ->(c, side, coin, qty, cash, at, fiat: 'PLN', **o) { kraken(c, side, coin, qty, cash, at, fiat:, **o) }
+    carry = lambda do |c|
+      k.(c, :buy, 'BTC', '1', '10000', '2024-02-05T10:00:00Z', fee: '10')
+      swap(c, 'BTC', '1', 'ETH', '3', '2024-03-04T10:00:00Z', ref: 'cv1')
+      k.(c, :sell, 'ETH', '1', '4000', '2024-05-06T10:00:00Z', fee: '4')
+      k.(c, :sell, 'ETH', '2', '8000', '2025-04-07T10:00:00Z')
+    end
+    coin_fee = lambda do |c|
+      FxRate.create!(currency: 'USD', date: Date.new(2026, 2, 4), rate: '1.10')
+      FxRate.create!(currency: 'PLN', date: Date.new(2026, 2, 4), rate: '4.50')
+      quoted(c, :buy, 'BTC', '1', '10000', '2026-02-04T10:00:00Z', fiat: 'USD', fee_currency: 'BNB', fee_amount: '0.1')
+    end
+    usd_0203 = { nbp: [%w[USD 2026-02-03 4.0000]], nbp_coverage: [%w[USD 2026-01-27 2026-02-03]] }
+    march = lambda do |c|
+      quoted(c, :buy, 'BTC', '1', '10000', '2025-03-13T10:00:00Z', fiat: 'USD', fee_currency: 'USD', fee_amount: '10')
+      quoted(c, :sell, 'BTC', '0.9', '9000', '2025-03-15T10:00:00Z', fiat: 'EUR', fee_currency: 'EUR', fee_amount: '9')
+      quoted(c, :sell, 'BTC', '0.1', '1000', '2025-03-17T10:00:00Z', fiat: 'EUR')
+    end
+    saturday = ->(c) { quoted(c, :sell, 'BTC', '0.01', '1000', '2025-03-15T10:00:00Z', fiat: 'EUR') }
+    wed_fri = [%w[EUR 2025-03-12 4.1800], %w[EUR 2025-03-14 4.1790]]
+    [
+      # b 150,000.00; c 200,350.00; d 0; e 0; f 50,350.00; base 0; tax 0.
+      pl_case('pl_cost_pool_year', year: 2025) do |c|
+        k.(c, :buy, 'BTC', '1', '200000', '2025-02-03T10:00:00Z', fee: '200')
+        k.(c, :sell, 'BTC', '0.5', '150000', '2025-06-02T10:00:00Z', fee: '150')
+      end,
+      # 2024: b 4,000, c 10,014 (the swap no cost), e 0, f 6,014.
+      pl_case('pl_carry_two_years_2024', year: 2024, &carry),
+      # 2025: b 8,000, c 0, d 6,014, e 1,986, f 0, base 1,986, tax 377.
+      pl_case('pl_carry_two_years_2025', year: 2025, &carry),
+      # 2026: all 0; the year table 2024-2026.
+      pl_case('pl_carry_two_years_2026', year: 2026, &carry),
+      # 2023 c 5,000 f 5,000; 2024 d 5,000 f 5,000; 2025 b 7,000, d 5,000, e 2,000, base 2,000, tax 380.
+      pl_case('pl_cost_only_and_empty_years', year: 2025) do |c|
+        k.(c, :buy, 'BTC', '1', '5000', '2023-03-06T10:00:00Z')
+        k.(c, :sell, 'BTC', '1', '7000', '2025-03-03T10:00:00Z')
+      end,
+      # The BNB fee on the swap: 0.0125 × $1,000 × 4.0000 = revenue 50.00, no cost; no row for the swap.
+      # b 50.00, c 10,000.00, e 0, f 9,950.00.
+      pl_case('pl_swap_with_fee', **usd_0203) do |c|
+        price('BNB', '2026-02-04', '1000')
+        k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
+        row(c, :swap_out, 'BTC', '1', '2026-02-04T10:00:00Z', exchange: venue(c, :binance), group_id: 'cv1', tx_id: 'cv1-out',
+                                                                fee_currency: 'BNB', fee_amount: '0.0125')
+        row(c, :swap_in, 'ETH', '30', '2026-02-04T10:00:00Z', exchange: venue(c, :binance), group_id: 'cv1', tx_id: 'cv1-in')
+      end,
+      # Thu buy 10,000 USD + 10 USD at Wed's 3.8496: 38,496.00 + 38.50; Sat sale 9,000 EUR, fee 9 EUR at Fri's 4.1790:
+      # 37,611.00 and 37.61; Mon sale 1,000 EUR at Fri's 4.1790 (not Mon's 4.1777): 4,179.00.
+      # b 41,790.00; c 38,572.11; e 3,217.89; base 3,218; tax 611.
+      pl_case('pl_nbp_day_before', year: 2025, nbp: [%w[USD 2025-03-12 3.8496], %w[EUR 2025-03-14 4.1790], %w[EUR 2025-03-17 4.1777]],
+                                   nbp_coverage: [%w[USD 2025-03-05 2025-03-17], %w[EUR 2025-03-05 2025-03-17]], &march),
+      # 1,000 USD at 3.8496 = 3,849.60; the 1 EUR fee at 4.1800 = 4.18. c 3,853.78, f 3,853.78.
+      pl_case('pl_usd_trade_eur_fee', year: 2025, nbp: [%w[USD 2025-03-12 3.8496], %w[EUR 2025-03-12 4.1800]],
+                                      nbp_coverage: [%w[USD 2025-03-05 2025-03-12], %w[EUR 2025-03-05 2025-03-12]]) do |c|
+        quoted(c, :buy, 'BTC', '0.1', '1000', '2025-03-13T10:00:00Z', fiat: 'USD', fee_currency: 'EUR', fee_amount: '1')
+      end,
+      # Two cost rows of 10,000.00: c 20,000.00, f 20,000.00.
+      pl_case('pl_grouped_vs_single_row') do |c|
+        k.(c, :buy, 'BTC', '0.1', '10000', '2026-02-02T10:00:00Z')
+        quoted(c, :buy, 'BTC', '0.1', '10000', '2026-02-02T11:00:00Z')
+      end,
+      # b 10,000; c 8,025; e 1,975; base 1,975; tax 375.
+      pl_case('pl_sale_fee_is_cost') do |c|
+        k.(c, :buy, 'ETH', '1', '8000', '2026-01-05T10:00:00Z')
+        k.(c, :sell, 'ETH', '1', '10000', '2026-03-02T10:00:00Z', fee: '25')
+      end,
+      # ECB's cross (4.0909) is not read. Cost 40,000.00 (BTC) + 200.00 (0.1 BNB × $500 × 4.0000); revenue 200.00 (the
+      # BNB settled). b 200.00, c 40,200.00, e 0, f 40,000.00.
+      pl_case('pl_coin_fee_on_fiat_trade', **usd_0203) { |c| price('BNB', '2026-02-04', '500'); coin_fee.(c) },
+      # No BNB price: the banner, both fee components 0.00 and listed. b 0, c 40,000.00, f 40,000.00.
+      pl_case('pl_coin_fee_on_fiat_trade_unpriced', **usd_0203, &coin_fee),
+      # The staking reward is listed, no figure. b 1,500; c 0; e 1,500; base 1,500; tax 285.
+      pl_case('pl_rewards_not_revenue') do |c|
+        row(c, :staking_reward, 'ETH', '0.1', '2026-02-01T00:00:00Z', exchange: venue(c, :kraken))
+        k.(c, :sell, 'ETH', '0.1', '1500', '2026-03-02T10:00:00Z')
+      end,
+      # Before 2019: 4,000.00 (its own line). b 1,000; c 0; d 0; e 1,000; base 1,000; tax 190.
+      pl_case('pl_pre_2019_costs', year: 2019) do |c|
+        k.(c, :buy, 'BTC', '1', '4000', '2018-06-04T10:00:00Z')
+        k.(c, :sell, 'BTC', '0.25', '1000', '2019-06-03T10:00:00Z')
+      end,
+      # No NBP EUR rate: the banner, revenue 0.00, listed. b 0.
+      pl_case('pl_missing_nbp_rate') { |c| kraken(c, :sell, 'BTC', '0.01', '1000', '2026-03-04T10:00:00Z') },
+      # b 102.50; c 100.00; e 2.50; base 3; tax 1 (0.57).
+      pl_case('pl_rounding') do |c|
+        k.(c, :buy, 'BTC', '0.001', '100', '2026-01-05T10:00:00Z')
+        k.(c, :sell, 'BTC', '0.001', '102.50', '2026-03-02T10:00:00Z')
+      end,
+      # USDT is a virtual currency whatever the flag: the swap is no revenue. b 0; c 10,000; f 10,000.
+      pl_case('pl_stablecoin_flag_ignored', stablecoin: true) do |c|
+        k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
+        swap(c, 'BTC', '0.5', 'USDT', '16000', '2026-02-04T10:00:00Z', ref: 'cv1')
+      end,
+      # Listed with the PL hint, no figure. c 10,000; f 10,000.
+      pl_case('pl_unlinked_withdrawal_listed') do |c|
+        k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
+        row(c, :withdrawal, 'BTC', '0.4', '2026-02-04T10:00:00Z', exchange: venue(c, :kraken))
+      end,
+      # Not served: the regime starts in 2019.
+      pl_case('pl_before_2019_refused', year: 2018, expect: 'not ported (D-TAX-NOT-PORTED-GATE)') do |c|
+        k.(c, :buy, 'BTC', '1', '4000', '2018-06-04T10:00:00Z')
+        k.(c, :sell, 'BTC', '1', '5000', '2018-09-03T10:00:00Z')
+      end,
+      # Saturday's sale, Friday's table stored but coverage ends Wednesday: missing, 0.00 (Wednesday's 4.1800 unused).
+      pl_case('pl_nbp_coverage_gap', year: 2025, nbp: wed_fri, nbp_coverage: [%w[EUR 2025-03-05 2025-03-12]], &saturday),
+      # The same with Friday covered: 1,000 × 4.1790 = 4,179.00. b 4,179.00, e 4,179.00, base 4,179, tax 794.
+      pl_case('pl_nbp_coverage_full', year: 2025, nbp: wed_fri, nbp_coverage: [%w[EUR 2025-03-05 2025-03-14]], &saturday)
+    ]
+  end
+
+  def pl_case(name, year: 2026, expect: 'diverges: D-TAX-PL-COST-POOL', **opts, &setup)
+    { name:, country: 'PL', year:, expect:, **opts, setup: lambda { |c|
+      user_zone(c, 'Warsaw')
+      setup.(c)
+    } }
+  end
+
+  # A Bybit row quoted in cash: one row per trade.
+  def quoted(ctx, side, coin, qty, cash, at, fiat: 'PLN', **attrs)
+    ctx[:bybit] ||= Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+    row(ctx, side, coin, qty, at, exchange: ctx[:bybit], quote_currency: fiat, quote_amount: cash, **attrs)
+  end
 
   def fifo_jurisdictions
     eur = lambda do |c|
