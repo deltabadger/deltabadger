@@ -1212,7 +1212,7 @@ pub fn cast_float(f: f64, scale: i32) -> Option<BigDec> {
     BigDec::parse(&format!("{rounded:.15e}")).ok().map(|d| d.round(places(scale)))
 }
 
-/// Float#round(ndigits) for ndigits in 1..=14 (numeric.c: flo_round, round_half_up): half up, in double arithmetic.
+/// Float#round(ndigits) (numeric.c: flo_round): half up, in double arithmetic up to 14 digits, through the exact value beyond.
 pub fn float_round(number: f64, ndigits: i32) -> f64 {
     if number == 0.0 || !number.is_finite() { return number; }
     let binexp = { // frexp's exponent: number = m × 2^binexp with 0.5 <= |m| < 1
@@ -1221,6 +1221,13 @@ pub fn float_round(number: f64, ndigits: i32) -> f64 {
     };
     if ndigits >= 17 - (if binexp > 0 { binexp / 4 } else { binexp / 3 - 1 }) { return number; } // more digits than a double holds
     if number > 0.0 && ndigits < -(if binexp > 0 { binexp / 3 + 1 } else { binexp / 4 }) { return 0.0; }
+    // Beyond 14 digits Ruby takes the Rational path (float.c rb_flo_round_by_rational): the double's exact value, rounded
+    // half up, back to the nearest double. The power-of-ten path below would bump 0.5 at 16 digits to 0.5000000000000001.
+    if ndigits > 14 {
+        use std::str::FromStr;
+        let exact = bigdecimal::BigDecimal::from_str(&format!("{number:.1100}")).expect("a finite double's exact digits");
+        return exact.with_scale_round(i64::from(ndigits), bigdecimal::RoundingMode::HalfUp).to_string().parse().unwrap_or(number);
+    }
     let s = 10f64.powi(ndigits);
     let mut f = (number * s).round();
     if number > 0.0 { if (f + 0.5) / s <= number { f += 1.0; } } else if (f - 0.5) / s >= number { f -= 1.0; }
@@ -1511,4 +1518,16 @@ pub(crate) fn ibkr_balances(text: &str, names: &HashMap<String, i64>, asset_ids:
     }
     if unknown > 0 { crate::engine::log(&format!("[IBKR] {unknown} position(s) skipped: their conids name no asset of the catalogue")); }
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|free| (*id, free, BigDec::zero()))).collect()))
+}
+
+#[cfg(test)]
+mod float_round_tests {
+    /// Ruby: 0.5.round(16) => 0.5, (1.0/3).round(16) => 0.3333333333333333, 0.395.round(16) => 0.395, 0.04995.round(16) => 0.04995.
+    #[test]
+    fn beyond_fourteen_digits_rounds_the_exact_value() {
+        for (x, want) in [(0.5, 0.5), (1.0 / 3.0, 0.3333333333333333), (0.395, 0.395), (0.04995, 0.04995), (2.5, 2.5)] {
+            assert_eq!(super::float_round(x, 16), want, "{x}");
+        }
+        assert_eq!(super::float_round(0.123456789012345678, 15), 0.123456789012346);
+    }
 }
