@@ -1512,6 +1512,19 @@ module TaxVectors
         btc_gain.(c)
         row(c, :deposit, 'SOL', '5', '2025-12-31T22:00:00Z', exchange: venue(c, :kraken))
       end,
+      # Confirmation round: a tokenized asset bought at Tallinn's midnight (2025-12-31T22:00Z) is 2026's: the 2025 report is
+      # made (Rails refuses it) → BTC +10,000, CGT 2,880.90.
+      ie.('ie_tokenized_next_year', expect: 'diverges: D-TAX-IE-SUMMARY') do |c|
+        user_zone(c, 'Tallinn')
+        btc_gain.(c)
+        coin = Asset.create!(external_id: 'tslax-coin', symbol: 'TSLAX', name: 'coin', category: 'Cryptocurrency')
+        wrapper = Asset.create!(external_id: 'tesla-xstock', symbol: 'TSLAx', name: 'wrapper', category: 'Cryptocurrency', instrument_type: 'tokenized')
+        ExchangeAsset.create!(exchange: c[:alpaca], asset: wrapper, available: true)
+        Ticker.create!(exchange: c[:alpaca], ticker: 'TSLAX/USD', base: 'TSLAX', quote: 'USD', base_asset: wrapper, quote_asset: c[:assets]['USD'],
+                       base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+        coin.touch
+        buy(c, 'TSLAX', '1', '300', '2025-12-31T22:00:00Z')
+      end,
       ie.('ie_new_year_midnight', expect: 'diverges: D-TAX-IE-SUMMARY') do |c|
         btc_gain.(c)
         row(c, :deposit, 'SOL', '5', '2026-01-01T00:00:00Z', exchange: venue(c, :kraken))

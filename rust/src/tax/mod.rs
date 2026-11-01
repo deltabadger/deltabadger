@@ -126,7 +126,10 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let local_end = local_midnight(&zone, year + 1);
     let rows_until = utc_end.and_then(At::from_utc).zip(local_end).map(|(u, l)| if l.0 > u.0 { l } else { u })
         .ok_or_else(|| FiguresError::Data("a report year out of range".into()))?;
-    let tokenized = tokenized_symbols(c, rows.iter().filter(|r| r.at.0 < rows_until.0))?;
+    // D-TAX-IE-RING-FENCE: in Ireland the year ends at the taxpayer's midnight (east of UTC too, before the UTC end); a row
+    // from that instant is the next year's, read only to fill fences, and refuses nothing.
+    let ie_end = local_end.filter(|_| j.code == "IE");
+    let tokenized = tokenized_symbols(c, rows.iter().filter(|r| r.at.0 < ie_end.unwrap_or(rows_until).0))?;
     if !tokenized.is_empty() { return Ok(Prepared::Done(Outcome::Refused { reason: "tokenized_unsupported".into(), symbols: tokenized })); }
     let banners = sync_issues(c, user_id, j.locale)?;
 
@@ -134,10 +137,6 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let stable_cash = !j.swaps_taxable() && stablecoin_as_fiat;
     // D-TAX-IE-RING-FENCE: a loss of 31 December is restricted by a purchase up to 28 January (the window's last day).
     let ahead_until = if j.code == "IE" { local_start(&zone, (year + 1, 1, 29)) } else { None };
-    // D-TAX-IE-RING-FENCE: in Ireland a row at the year's very end (midnight) is the next year's, read only to fill fences.
-    // D-TAX-IE-RING-FENCE: in Ireland the year ends at the taxpayer's midnight (east of UTC too, before the UTC end); a row
-    // from that instant is the next year's, read only to fill fences.
-    let ie_end = local_end.filter(|_| j.code == "IE");
     let in_year = |r: &Stored| match ie_end { Some(end) => r.at.0 < end.0, None => r.at.0 <= rows_until.0 };
     let (year_rows, later): (Vec<Stored>, Vec<Stored>) = rows.into_iter().partition(in_year);
     let mut scoped = rows::ordered_legs(year_rows, stable_cash)?;
