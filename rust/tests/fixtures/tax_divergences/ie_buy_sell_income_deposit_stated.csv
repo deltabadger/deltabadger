@@ -1,0 +1,26 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule,Period
+2026-04-01T10:00:00Z,2025-03-01T10:00:00Z,BTC,1.2,108000.0,76048.0,31902.0,EUR,396,50.0,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,false,fifo,initial
+2026-04-10T08:00:00Z,2026-02-05T00:00:00Z,SOL,3.0,512.82,385.9,126.92,EUR,64,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,false,fifo,initial
+
+Total gains,32028.92
+Total losses,0.0
+Annual exemption,1270
+Taxable gains,30758.92
+CGT (33%),10150.44
+  Due Dec 15 (Jan-Nov gains),10150.44
+  Due Jan 31 (Dec gains),0.0
+"Form 11 lines 810/811/818/819 (CG1 lines 10/11/18/19); crypto-assets go under ""(k) Other Assets"". Losses from earlier years (line 822 of your last return) are not subtracted here: they come off before the exemption. The exemption and losses are shared with your other assets' gains. The 4-week rule (s. 581) is applied as Revenue applies it (TDM 19-04-03). This report's own readings: day 28 counts as within 4 weeks; only purchases and exchanges count as buying again (not rewards or transfers); the figure due on 15 December counts a loss as restricted when the asset was bought again in December. A spouse's or civil partner's trades are not seen. Gains on foreign currency you hold (s. 532(b)) are not computed."
+
+Income received (taxation depends on income type and jurisdiction — not included in gains above)
+2026-02-01,Staking rewards,ETH,0.01,28.0,EUR
+2026-02-05,Airdrops,SOL,3.0,385.9,EUR
+,Total Staking rewards,,,28.0,EUR
+,Total Airdrops,,,385.9,EUR
+
+WARNING: Cost basis assumed at market value for these unlinked deposits:
+BTC 0.1 2026-02-10
+Link each one to its matching withdrawal in the tracker to use the real cost basis.
+
+NOTE: Values you stated by hand:
+SOL 3.0 2026-02-05,385.9
+"These figures are yours, not the exchange's. Check them against your own records before filing."
