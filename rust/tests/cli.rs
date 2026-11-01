@@ -232,11 +232,18 @@ fn refused(dir: &Path, cmd: &mut Command) -> Refused {
     };
     let (page, health, up) = (http_get(port, "/").unwrap(), http_get(port, "/health-check").unwrap(), http_get(port, "/up").unwrap());
     let lock_free = std::fs::File::open(dir.join(".engine.lock")).unwrap().try_lock().is_ok();
+    // A client that sent half a request and keeps the socket open must not hold the stop (at most 5 s).
+    let mut half = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+    std::io::Write::write_all(&mut half, b"GET / HTTP/1.1\r\nHost: loc").unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    let stopping = std::time::Instant::now();
     assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
     while child.0.try_wait().unwrap().is_none() {
         assert!(std::time::Instant::now() < deadline + std::time::Duration::from_secs(20), "the refusal page did not stop on SIGTERM");
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
+    assert!(stopping.elapsed() < std::time::Duration::from_secs(10), "a half-sent request held the stop for {:?}", stopping.elapsed());
+    drop(half);
     let mut stderr = String::new();
     child.0.stderr.take().unwrap().read_to_string(&mut stderr).unwrap();
     Refused { stderr, page, health, up, ready, lock_free, status: child.0.wait().unwrap().code() }

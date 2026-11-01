@@ -331,14 +331,15 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 /// r1.0), except when another engine holds the install or the port cannot be taken. Exit codes: 0 stopped as asked
 /// (the refusal page too), 1 refused with nothing shown, 2 ended otherwise.
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
-    if !deltabadger::web::assets::BUILT {
-        fail(deltabadger::web::assets::MISSING);
-    }
     let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
         Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
         None => 3000,
     };
     REFUSAL_PORT.set(port).expect("serve runs once");
+    // The refusal page needs no assets, so a build without them says so in the browser too.
+    if !deltabadger::web::assets::BUILT {
+        fail(deltabadger::web::assets::MISSING);
+    }
     let (lock, o, cipher) = open_install(env, true);
     // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns.
     let _held = lock.clone();
@@ -563,8 +564,9 @@ static REFUSAL_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
 
 fn fail(msg: &str) -> ! {
     eprintln!("deltabadger: {msg}");
-    // Before any claim (every `fail` in `serve` is): the lock goes now; the idle handles the frames below still hold read
-    // nothing more, and the page opens none.
+    // Every `fail` in `serve` comes before the takeover (claim_install): nothing was taken over from Rails and nothing
+    // trades. A new install bootstrap created is Rust's from its first commit (lease::begin_created), so a later refusal
+    // leaves it Rust's and idle, as an exit did. The lock goes now; the idle handles the frames below read nothing more.
     if let Some(port) = REFUSAL_PORT.get() { lease::release_all(); std::process::exit(deltabadger::web::refused::serve(*port, msg)); }
     std::process::exit(1)
 }

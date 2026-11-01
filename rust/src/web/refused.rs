@@ -51,20 +51,29 @@ pub fn serve(port: u16, reason: &str) -> i32 {
             Ok(l) => l,
             Err(e) => { eprintln!("deltabadger: cannot show the refusal page on port {port}: {e}"); return 1; }
         };
+        let stop = stop_signal(); // registered before the line below, so a stop sent after it is never missed
         crate::engine::log(&format!("refused: showing why on port {port} until stopped"));
-        match axum::serve(listener, router(reason)).with_graceful_shutdown(stopped()).await {
-            Ok(()) => 0,
-            Err(e) => { eprintln!("deltabadger: the refusal page stopped: {e}"); 1 }
+        // After the stop signal, open connections get 5 s; a client holding a half-sent request never keeps it longer.
+        let signalled = std::sync::Arc::new(tokio::sync::Notify::new());
+        let notify = signalled.clone();
+        let served = axum::serve(listener, router(reason)).with_graceful_shutdown(async move { stop.await; notify.notify_one(); });
+        tokio::select! {
+            result = served => match result { Ok(()) => 0, Err(e) => { eprintln!("deltabadger: the refusal page stopped: {e}"); 1 } },
+            _ = async { signalled.notified().await; tokio::time::sleep(std::time::Duration::from_secs(5)).await } => 0,
         }
     })
 }
 
+/// SIGTERM or SIGINT, with the handlers registered now, not on the first poll.
 #[cfg(unix)]
-async fn stopped() {
+fn stop_signal() -> impl std::future::Future<Output = ()> {
     use tokio::signal::unix::{signal, SignalKind};
     let (mut term, mut int) = (signal(SignalKind::terminate()).expect("a SIGTERM handler"), signal(SignalKind::interrupt()).expect("a SIGINT handler"));
-    tokio::select! { _ = term.recv() => {}, _ = int.recv() => {} }
+    async move { tokio::select! { _ = term.recv() => {}, _ = int.recv() => {} } }
 }
 
 #[cfg(not(unix))]
-async fn stopped() { let _ = tokio::signal::ctrl_c().await; }
+fn stop_signal() -> impl std::future::Future<Output = ()> {
+    let mut ctrl_c = tokio::signal::windows::ctrl_c().expect("a Ctrl-C handler");
+    async move { ctrl_c.recv().await; }
+}
