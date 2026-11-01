@@ -281,7 +281,7 @@ async fn the_web_request_answers_its_own_panel_and_restores_a_refusal_it_could_n
     assert_eq!(rows[0].1, "queued");
     assert!(accepted.body.contains(&format!("id=\"tax-report-{}\"", rows[0].0)) && accepted.body.contains("broadcast--on-connect"), "{}", accepted.body);
     assert!(!refusal.exists());
-    assert_eq!(open(&i).query_row("SELECT stablecoin_as_fiat FROM rust_tax_reports", [], |r| r.get::<_, bool>(0)).unwrap(), true);
+    assert!(open(&i).query_row("SELECT stablecoin_as_fiat FROM rust_tax_reports", [], |r| r.get::<_, bool>(0)).unwrap());
     // The gate: a jurisdiction not ported is the refused flash, nothing queued.
     let de = browser.send(&app, "GET", "/tracker/tax_report?country=DE&year=2025", None, Csrf::None, &TURBO).await;
     assert_eq!(de.status, 501);

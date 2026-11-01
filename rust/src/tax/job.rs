@@ -355,7 +355,7 @@ pub async fn recover(db: &Db, tmp: &Path) -> Result<(), String> {
         staged.sort();
         for name in staged {
             let Some((kind, target, request)) = parse(&name) else { continue };
-            let Some((user, scope)) = owner(&target) else { continue };
+            let Some((user, scope)) = owner(target) else { continue };
             let _files = files(user, scope);
             let path = dir.join(&name);
             if !path.exists() { continue; }

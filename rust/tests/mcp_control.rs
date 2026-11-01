@@ -377,7 +377,7 @@ fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
         let Some(shown)=body["result"]["content"][0]["text"].as_str().map(str::to_string) else {continue};
         let Some(country)=shown.strip_prefix("Tax report generation started for ").and_then(|rest|rest.split(" (").next()) else {continue};
         let owed=tool_text(&if coingecko {deltabadger::tax::api::COINGECKO.to_string()}
-                            else {deltabadger::tax::api::not_ported_message(&country)},true);
+                            else {deltabadger::tax::api::not_ported_message(country)},true);
         let old=std::mem::replace(&mut body["result"],owed.clone());
         want["responses"][i]["body"]=json!(serde_json::to_string(&body).unwrap());
         for message in want["rows"]["action_mcp_session_messages"].as_array_mut().ok_or("no session messages")? {
