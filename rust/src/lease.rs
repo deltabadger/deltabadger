@@ -107,6 +107,22 @@ pub fn plain_at(c: &Connection, key: &str) -> Result<Option<DateTime<Utc>>, Leas
     Ok(raw.flatten().and_then(|t| t.parse().ok()))
 }
 
+/// The marker of an install this engine created (store::bootstrap), plain and never deleted: `handback` refuses on it
+/// (PLAN-B1 r2.1), since there is no earlier version to hand it back to.
+pub const CREATED_AT: &str = "rust_created_at";
+
+fn owned(version: &str, now: DateTime<Utc>) -> Value { json!({ "engine": "rust", "version": version, "since": now.to_rfc3339() }) }
+
+/// A new install's ownership, in store::bootstrap's transaction (PLAN-B1 r1.1): the lease row and TAKEN_OVER_AT as a new
+/// ownership writes them, and CREATED_AT. Rails refuses to boot on the file from its first commit, and the first `claim`
+/// is AfterCrash, continuing this ownership without a new TAKEN_OVER_AT.
+pub fn begin_created(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<(), LeaseError> {
+    let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    write(primary, cipher, &owned(version, now), now)?;
+    upsert(primary, TAKEN_OVER_AT, &at, now)?;
+    upsert(primary, CREATED_AT, &at, now)
+}
+
 /// Two statements, so the takeover runs it inside its own transaction (handover::take_over): the lease row and the end of
 /// Rails' ownership window commit together, and a crash can never leave that window open.
 pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Claim, LeaseError> {
@@ -116,7 +132,7 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
         Some(v) if v["released_by"] == "rust" && v["handed_back"] == true => Claim::AfterHandback,
         Some(_) => Claim::FromRails, // `none` written by a Rails-side tool: Rails owned it last
     };
-    write(primary, cipher, &json!({ "engine": "rust", "version": version, "since": now.to_rfc3339() }), now)?;
+    write(primary, cipher, &owned(version, now), now)?;
     // A new ownership closes Rails' window. A restart after a crash continues this engine's own, unless the window it would
     // close is still open (a claim by a build that did not stamp).
     let new_ownership = match from {
