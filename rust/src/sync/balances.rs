@@ -1528,6 +1528,6 @@ mod float_round_tests {
         for (x, want) in [(0.5, 0.5), (1.0 / 3.0, 0.3333333333333333), (0.395, 0.395), (0.04995, 0.04995), (2.5, 2.5)] {
             assert_eq!(super::float_round(x, 16), want, "{x}");
         }
-        assert_eq!(super::float_round(0.123456789012345678, 15), 0.123456789012346);
+        assert_eq!(super::float_round(0.123_456_789_012_345_68, 15), 0.123456789012346);
     }
 }

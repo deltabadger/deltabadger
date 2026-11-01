@@ -173,7 +173,7 @@ pub fn ordered_legs(rows: Vec<Stored>, stable_cash: bool) -> Result<Vec<Stored>,
 /// the rows `split_coin_quoted_trades` reads as two legs. The base may be anything, cash included.
 pub fn coin_quoted(r: &Stored, stable_cash: bool) -> bool {
     matches!(r.kind, Kind::Buy | Kind::Sell) && r.group.is_none() && r.quote_amount.is_some()
-        && r.quote.as_deref().is_some_and(|q| !q.trim().is_empty() && !fiat(q) && !(stable_cash && stable(q)))
+        && r.quote.as_deref().is_some_and(|q| !(q.trim().is_empty() || fiat(q) || stable_cash && stable(q)))
 }
 
 /// D-TRACKER-COIN-QUOTE (and the tax report's D-TAX-COIN-QUOTE): a trade of a coin for a coin booked as one buy or sell row
@@ -272,7 +272,8 @@ mod tests {
                  fee_currency: fee.map(|f| f.0.into()), fee_amount: fee.map(|f| Dec::strict(f.1).unwrap()), tx_id: Some(format!("t{id}")),
                  ..stored(id, kind, None, "2026-09-02 10:00:00") }
     }
-    fn legs(rows: &[Stored]) -> Vec<(i64, Kind, String, String, Option<String>, Option<String>)> {
+    type Leg = (i64, Kind, String, String, Option<String>, Option<String>);
+    fn legs(rows: &[Stored]) -> Vec<Leg> {
         rows.iter().map(|r| (r.id, r.kind, r.base.clone(), r.amount.to_s_f(), r.fee_currency.clone(), r.group.clone())).collect()
     }
 
