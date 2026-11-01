@@ -471,8 +471,11 @@ impl Transport for ScriptedTransport {
                 pairs.sort();
                 format!("{} {}?{}", r.method, r.path, pairs.join("&"))
             });
+            // A query's coin names a reply as the Rails harness names it: "GET /api/v1/historical_prices coin_id=bitcoin".
+            let coin_id = r.query.iter().find(|(k, _)| *k == "coin_id").map(|(_, v)| format!("{} {} coin_id={v}", r.method, r.path));
             let key = if let Some(f) = form.filter(|f| s.replies.contains_key(f)) { f }
                 else if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
+                else if let Some(c) = coin_id.filter(|c| s.replies.contains_key(c)) { c }
                 else if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
             let reply = if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() };
