@@ -1,7 +1,7 @@
 # Records Bot::Startable for rust/tests/start_time.rs, from Rails' own methods on synthetic bots, at scripted times, offline.
 #   s=$(mktemp -d); env -u DATABASE_URL SKIP_TEST_DATABASE=true PRIMARY_DATABASE_URL=sqlite3:$s/p.sqlite3 \
 #     QUEUE_DATABASE_URL=sqlite3:$s/q.sqlite3 CACHE_DATABASE_URL=sqlite3:$s/c.sqlite3 CABLE_DATABASE_URL=sqlite3:$s/w.sqlite3 \
-#     sh -c 'bin/rails db:schema:load && bin/rails runner script/rust/start_time.rb rust/tests/fixtures/start_time_vectors.json'
+#     sh -c 'bin/rails runner script/rust/schema_template.rb && bin/rails runner script/rust/start_time.rb rust/tests/fixtures/start_time_vectors.json'
 # On scratch databases, and inside a transaction that is rolled back besides. Re-run when a pinned
 # source (PORTED below) changes; rust/tests/start_time.rs fails until then.
 require 'json'

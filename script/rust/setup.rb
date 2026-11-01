@@ -3,7 +3,7 @@
 #   s=$(mktemp -d); env -u DATABASE_URL RAILS_ENV=test SKIP_TEST_DATABASE=true APP_ROOT_URL=http://localhost:3000 \
 #     PRIMARY_DATABASE_URL=sqlite3:$s/p.sqlite3 QUEUE_DATABASE_URL=sqlite3:$s/q.sqlite3 \
 #     CACHE_DATABASE_URL=sqlite3:$s/c.sqlite3 CABLE_DATABASE_URL=sqlite3:$s/w.sqlite3 \
-#     sh -c 'bin/rails db:schema:load && bin/rails runner script/rust/setup.rb <root> rust/tests/fixtures/setup_vectors.json'
+#     sh -c 'bin/rails runner script/rust/schema_template.rb && bin/rails runner script/rust/setup.rb <root> rust/tests/fixtures/setup_vectors.json'
 # <root> is a scratch directory for the per-scenario installs. Re-record when a pinned source (SOURCES)
 # changes; rust/tests/setup.rs fails until then.
 OAUTH_PARITY = true

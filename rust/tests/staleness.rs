@@ -46,7 +46,7 @@ fn a_stale_refusal_names_the_refreshing_jobs_last_error() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_run_that_fails_after_its_first_unit_leaves_the_source_ageing_through_a_restart() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let (lock, o) = (lease::lock(&p, at("2026-09-30T08:00:00Z")).unwrap(), store::open(&p).unwrap());
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -99,7 +99,7 @@ async fn a_run_that_fails_after_its_first_unit_leaves_the_source_ageing_through_
 
 #[tokio::test(flavor = "current_thread")]
 async fn after_a_handback_only_a_rails_refresh_makes_the_column_count_again() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let (lock, o) = (lease::lock(&p, at("2026-09-30T08:00:00Z")).unwrap(), store::open(&p).unwrap());
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -137,7 +137,7 @@ fn a_run_that_refreshed_nothing_does_not_make_a_source_fresh() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn only_a_refresh_inside_rails_last_ownership_window_counts_through_a_later_takeover() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let (lock, o) = (lease::lock(&p, at("2026-09-30T08:00:00Z")).unwrap(), store::open(&p).unwrap());
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());

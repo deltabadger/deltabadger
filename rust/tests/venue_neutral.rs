@@ -53,7 +53,7 @@ impl VenueFactory for Recording {
 
 #[tokio::test(flavor = "current_thread")]
 async fn the_factory_is_asked_for_each_bots_exchange_type() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, "2026-09-01T00:00:00Z".parse().unwrap()).unwrap();
     let o = store::open(&p).unwrap();

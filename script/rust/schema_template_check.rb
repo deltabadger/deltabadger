@@ -1,22 +1,25 @@
-# Proves script/rust/schema_template.rb equivalent to loading db/schema.rb and db/queue_schema.rb per scenario, for
+# Proves script/rust/schema_template.rb equivalent to building each scenario's install directly, for
 # rust/tests/rails_templates.rs:
 #   bin/rails runner script/rust/schema_template_check.rb <dir>
-# Two installs are compared: one loaded per scenario as the recorders did, and one copied from the template. Their
-# schema, every row (ar_internal_metadata's two timestamps say when each was loaded, and nothing reads them), the
-# file-level pragmas, sqlite_sequence and the next id each table hands out must be the same. A real insert into each
-# database, through fresh connections, must then get the same id in both.
+# Two installs are compared: one built directly (rust/schema/baseline.sql executed with sqlite3, as
+# store::create_schema does, and db/queue_schema.rb loaded), and one copied from the template. Their schema, every row
+# (ar_internal_metadata's two timestamps say when each was built, and its `environment` is whatever the recorder's
+# B1_SCHEMA_SOURCE wrote; nothing reads either), the file-level pragmas, sqlite_sequence and the next id each table
+# hands out must be the same. A real insert into each database, through fresh connections, must then get the same id
+# in both.
 require_relative 'schema_template'
+require 'sqlite3'
 
 root = ARGV.fetch(0)
 loaded = File.join(root, 'loaded')
 copied = File.join(root, 'copied')
 FileUtils.mkdir_p(loaded)
-ActiveRecord::Schema.verbose = false
-SchemaTemplate::FILES.each do |file, schema|
-  ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(loaded, file))
-  load Rails.root.join(schema)
-  ActiveRecord::Base.connection_pool.disconnect!
+SQLite3::Database.new(File.join(loaded, SchemaTemplate::PRIMARY)) do |db|
+  db.execute('PRAGMA journal_mode=WAL')
+  db.transaction(:immediate) { db.execute_batch(File.read(Rails.root.join('rust/schema/baseline.sql'))) }
 end
+SchemaTemplate.load_queue(File.join(loaded, SchemaTemplate::QUEUE))
+ActiveRecord::Base.connection_pool.disconnect!
 SchemaTemplate.install(copied)
 
 def snapshot(path)
@@ -28,7 +31,7 @@ def snapshot(path)
     'pragmas' => %w[journal_mode page_size auto_vacuum encoding user_version application_id].to_h { |p| [p, c.select_value("PRAGMA #{p}")] },
     'rows' => tables.to_h do |t|
       rows = c.select_all("SELECT * FROM #{c.quote_table_name(t)}").to_a
-      rows = rows.map { |r| r.except('created_at', 'updated_at') } if t == 'ar_internal_metadata'
+      rows = rows.map { |r| r.except('created_at', 'updated_at') }.map { |r| r['key'] == 'environment' ? r.except('value') : r } if t == 'ar_internal_metadata'
       [t, rows.sort_by(&:to_s)]
     end,
     # The next id a plain INSERT gets: AUTOINCREMENT tables continue from sqlite_sequence, the others from max(rowid).
@@ -52,7 +55,7 @@ def inserted_ids(dir)
   [asset, process]
 end
 
-SchemaTemplate::FILES.each_key do |file|
+SchemaTemplate::FILES.each do |file|
   %w[-wal -shm -journal].each { |s| raise "#{file}#{s} copied with the template" if File.exist?(File.join(copied, file + s)) }
   a = snapshot(File.join(loaded, file))
   b = snapshot(File.join(copied, file))
@@ -61,4 +64,4 @@ SchemaTemplate::FILES.each_key do |file|
 end
 ids = [loaded, copied].map { |d| inserted_ids(d) }
 raise "next ids differ: loaded #{ids[0]}, copied #{ids[1]}" unless ids[0] == ids[1]
-puts "equivalent: #{SchemaTemplate::FILES.keys.join(', ')}, next ids #{ids[0].inspect}"
+puts "equivalent: #{SchemaTemplate::FILES.join(', ')}, next ids #{ids[0].inspect}"

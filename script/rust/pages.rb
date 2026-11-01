@@ -2,13 +2,14 @@
 #   bin/rails runner script/rust/pages.rb grid <root>    # one install per scenario, with scenario.json
 #   bin/rails runner script/rust/pages.rb record <root>  # Rails' answers per <root>/<scenario>/ -> rails.json
 # Run it as rust/tests/pages.rs does: RAILS_ENV=test, with every *_DATABASE_URL pointing at scratch files
-# that have the schemas loaded (bin/rails db:schema:load). Test, not development: development adds a
-# profiler script and cookie to every page and serves assets without fingerprints.
+# that have the schemas loaded (bin/rails runner script/rust/schema_template.rb). Test, not development: development
+# adds a profiler script and cookie to every page and serves assets without fingerprints.
 # PAGES=login,two_factor limits the grid to scenarios whose name starts with one of the prefixes.
 require 'json'
 require 'digest'
 require 'fileutils'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 module Pages
   extend ActiveSupport::Testing::TimeHelpers
@@ -1269,12 +1270,9 @@ module Pages
   def template(root)
     dir = File.join(root, '.template')
     FileUtils.mkdir_p(dir)
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join(schema)
-      ActiveRecord::Base.connection_pool.disconnect!
-    end
+    SchemaTemplate.load_primary(File.join(dir, SchemaTemplate::PRIMARY))
+    SchemaTemplate.load_queue(File.join(dir, SchemaTemplate::QUEUE))
+    ActiveRecord::Base.connection_pool.disconnect!
     dir
   end
 

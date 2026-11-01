@@ -36,7 +36,7 @@ fn order(id: &str, live: bool, cancelled: bool, executed: &str, original: &str, 
 
 /// A Gemini install: the seeded Kraken one renamed, its pair `btceur` at Gemini's precisions (8 base, 2 price decimals).
 fn install(spec: BotSpec) -> (tempfile::TempDir, store::Opened, i64) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     o.primary.execute_batch("UPDATE exchanges SET type = 'Exchanges::Gemini', name = 'Gemini'; \

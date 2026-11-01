@@ -1142,7 +1142,7 @@ struct Install {
 }
 impl Install {
     fn new(venue: &str) -> Self {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         let s = seed::seed_kraken(&c, &seed::cipher());
         c.execute("UPDATE users SET confirmed_at=created_at", [])

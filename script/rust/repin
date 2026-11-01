@@ -178,7 +178,7 @@ def record(dest, fixture):
     assets = ['bash script/rust/build_assets.sh'] if fixture in NEEDS_ASSETS and not os.path.exists(
         os.path.join(dest, 'app/assets/builds/application.css')) else []
     try:
-        for command in assets + ['bin/rails db:schema:load'] + [c.format(out=fixture, scratch=scratch) for c in commands]:
+        for command in assets + ['bin/rails runner script/rust/schema_template.rb'] + [c.format(out=fixture, scratch=scratch) for c in commands]:
             done = subprocess.run(command, shell=True, cwd=dest, env=env, capture_output=True, text=True)
             log.append(f'$ {command}\n{done.stdout}{done.stderr}')
             if done.returncode: return None, '\n'.join(log)

@@ -11,7 +11,7 @@ use serde_json::json;
 
 fn t0() -> DateTime<Utc> { "2026-09-30T12:00:00Z".parse().unwrap() }
 fn setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();

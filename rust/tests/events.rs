@@ -23,7 +23,7 @@ fn low_funds() -> FakeVenue { FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50
 
 /// A Kraken install with `n` weekly bots of one user, all due at 2026-09-01 10:00:00.
 fn engine(n: usize, v: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, Vec<i64>, seed::Seeded) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, "2026-09-01T00:00:00Z".parse().unwrap()).unwrap();
     let o = store::open(&p).unwrap();

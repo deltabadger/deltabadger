@@ -737,7 +737,7 @@ fn check_and_the_takeover_refuse_an_install_whose_alpaca_tickers_are_stale() {
     use deltabadger::engine::{handover, EngineError};
     use deltabadger::{lease, store};
     let now: chrono::DateTime<chrono::Utc> = "2026-09-01T10:00:00Z".parse().unwrap();
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = store::Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, now).unwrap();
     let o = store::open(&p).unwrap();

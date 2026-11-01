@@ -324,7 +324,7 @@ impl deltabadger::venue::VenueFactory for ScriptedFactory {
 }
 
 async fn a_restarted_engine_keeps_an_old_intent(status: Option<i64>) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&paths).unwrap();

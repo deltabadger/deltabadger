@@ -1,7 +1,7 @@
 //! Mail parity: Rails sends every mail of the grid through its own mailers into ActionMailer::Base.deliveries
 //! (script/rust/mails.rb), this crate builds the same mails from the same database, and each pair must be the same
 //! message, byte for byte, once Date and Message-ID (the two fields that are each process's own) are set aside.
-//! Then the sender, end to end on a Rails-prepared install against the fake SMTP server.
+//! Then the sender, end to end on a baseline install against the fake SMTP server.
 //! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
 //! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
@@ -74,7 +74,7 @@ fn build(c: &Connection, case: &Value) -> Message {
 #[test]
 fn rails_and_rust_build_the_same_mails_across_the_grid() {
     let (scratch, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    common::rails(scratch.path(), "test", &["db:schema:load"]);
+    common::rails(scratch.path(), "test", &["runner", "script/rust/schema_template.rb"]);
     common::rails(scratch.path(), "test", &["runner", "script/rust/mails.rb", dir.path().to_str().unwrap()]);
     let cases: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(dir.path().join("cases.json")).unwrap()).unwrap();
     assert_eq!(cases.len(), 234, "the grid has {} mails", cases.len());
@@ -127,7 +127,7 @@ fn a_message_with_two_dates_is_not_comparable() {
     comparable("Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nDate: Thu, 10 Sep 2026 12:00:30 +0000\r\nMessage-ID: <1@x.test>\r\n\r\nbody\r\n");
 }
 
-// ---- The sender, on a Rails-prepared install ----
+// ---- The sender, on a baseline install ----
 use common::seed::{self, BotSpec};
 use common::smtp::{self, Behaviour};
 use deltabadger::engine::notice::{self, Pending};

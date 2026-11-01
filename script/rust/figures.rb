@@ -9,6 +9,7 @@ require 'fileutils'
 require 'tmpdir'
 require 'nokogiri'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 module Harness
   # An Exception, not a StandardError: with_rescue and the candle threads would turn a harness gap into a Failure.
@@ -96,11 +97,8 @@ module Figures
   # What every scenario starts from: the schema, the owner, the venue, its assets and its listings. Built once, with
   # Rails' own models, and copied per scenario.
   def world(dir)
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join(schema)
-    end
+    SchemaTemplate.load_primary(File.join(dir, SchemaTemplate::PRIMARY))
+    SchemaTemplate.load_queue(File.join(dir, SchemaTemplate::QUEUE))
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
     user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
                     confirmed_at: Time.current, setup_completed: true)

@@ -10,7 +10,7 @@ use serde_json::json;
 
 fn clock(s: &str) -> FixedClock { FixedClock(s.parse::<DateTime<Utc>>().unwrap()) }
 fn setup(spec: BotSpec) -> (tempfile::TempDir, store::Opened, i64) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &spec);
@@ -188,7 +188,7 @@ fn rejecting(error: &str) -> FakeVenue { priced().next_add(AddOutcome::Reject(ve
 
 #[tokio::test(flavor = "current_thread")]
 async fn low_funds_after_a_buy_stamp_the_budget_and_owe_the_mail_in_the_same_write() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let (first, second) = (seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")), seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")));
@@ -251,7 +251,7 @@ async fn the_second_blocking_failure_stops_the_bot_and_owes_the_stopped_mail() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_rate_limit_that_outlasts_its_retries_owes_the_error_mail() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
@@ -338,7 +338,7 @@ async fn a_failing_exit_writes_its_budget_its_marker_and_its_log_line_together_o
     assert_eq!(written(&o, id), nothing, "an ordinary failure");
 
     // A rate limit that outlasted its retries: the same, through the other exit.
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let seeded = seed::seed_kraken(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &seeded, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
@@ -401,7 +401,7 @@ async fn a_stop_while_addorder_awaits_its_reply_wins() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_stop_during_the_pre_tick_sweep_places_nothing() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));

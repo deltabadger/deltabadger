@@ -1,6 +1,6 @@
 # Records which Alpaca host each Rails call reaches for each key mode, for rust/tests/alpaca_hosts.rs.
 #   bin/rails runner script/rust/record_alpaca_hosts.rb rust/tests/fixtures/alpaca_hosts.json
-# Run in a clean export (git archive, no .env, `db:schema:load`, script/rust/build_assets.sh). Nothing leaves the machine:
+# Run in a clean export (git archive, no .env, `bin/rails runner script/rust/schema_template.rb`, script/rust/build_assets.sh). Nothing leaves the machine:
 # every Alpaca request is answered beneath Clients::Alpaca at its Faraday adapter (decisions.rb's ScriptedAlpaca pattern),
 # and any other connection raises. Re-run when a file under "ported_sources" changes (the Rust test fails until then).
 require 'json'

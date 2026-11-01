@@ -305,7 +305,7 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
 
 fn t0() -> DateTime<Utc> { "2026-09-30T12:00:00Z".parse().unwrap() }
 fn setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     o.primary.execute_batch("UPDATE exchanges SET type = 'Exchanges::Kucoin', name = 'KuCoin'; UPDATE tickers SET ticker = 'BTC-EUR', base = 'BTC'").unwrap();

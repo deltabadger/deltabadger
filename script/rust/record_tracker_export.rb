@@ -7,6 +7,7 @@ require 'json'
 require 'digest'
 require 'tmpdir'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 ENV['TZ'] = 'UTC'
 
@@ -94,9 +95,7 @@ module TrackerExport
 
   def run
     Dir.mktmpdir('tracker_export') do |dir|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'export.sqlite3'))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join('db/schema.rb')
+      SchemaTemplate.load_primary(File.join(dir, 'export.sqlite3'))
       travel_to(NOW) do
         user, venues = build
         rows(user, venues)

@@ -22,7 +22,7 @@ struct Setup { _dir: tempfile::TempDir, e: Engine<FakeFactory>, bot: i64, rule: 
 
 /// A started Bots::Signal on Kraken (BTC/EUR) with one rule, as BotApi::Bots::CreateSignal leaves it.
 fn setup(direction: i64, percentage: bool, amount: &str, venue: FakeVenue) -> Setup {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, t("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&p).unwrap();
@@ -321,7 +321,7 @@ async fn the_refusals_consume_the_call_with_their_line_and_a_removed_rule_with_n
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn a_working_signal_bot_off_its_venues_refuses_the_install_by_name() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, t("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&p).unwrap();
@@ -366,7 +366,7 @@ fn venue_script(key: &str) -> Value {
 
 /// A Bots::Signal with one fixed 100-quote buy rule on `case`'s venue (its exchange, pair and key as grid-signal builds them).
 fn venue_setup(case: &VenueCase) -> (tempfile::TempDir, Paths, deltabadger::lease::EngineLock, i64, i64, i64) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, t("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&p).unwrap();

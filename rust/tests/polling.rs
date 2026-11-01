@@ -9,7 +9,7 @@ use serde_json::json;
 
 fn now() -> DateTime<Utc> { "2026-09-30T12:00:00Z".parse().unwrap() }
 fn setup(transient: serde_json::Value) -> (tempfile::TempDir, store::Opened, seed::Seeded, i64) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let mut spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00");

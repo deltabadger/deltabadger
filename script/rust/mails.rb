@@ -9,6 +9,7 @@
 require 'json'
 require 'fileutils'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 module Mails
   extend ActiveSupport::Testing::TimeHelpers
@@ -37,12 +38,9 @@ module Mails
 
   def prepare(dir)
     FileUtils.mkdir_p(dir)
-    ActiveRecord::Schema.verbose = false
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      load Rails.root.join(schema)
-      ActiveRecord::Base.connection_pool.disconnect!
-    end
+    SchemaTemplate.load_primary(File.join(dir, SchemaTemplate::PRIMARY))
+    SchemaTemplate.load_queue(File.join(dir, SchemaTemplate::QUEUE))
+    ActiveRecord::Base.connection_pool.disconnect!
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
   end
 

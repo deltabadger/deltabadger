@@ -560,7 +560,7 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
     // OAUTH_KEEP=<an empty directory> keeps the installs and their transcripts there, for reading.
     let root = std::env::var("OAUTH_KEEP").map_or_else(|_| temporary.path().to_path_buf(), PathBuf::from);
     let grid = root.to_str().unwrap();
-    common::rails(scratch.path(), "test", &["db:schema:load"]);
+    common::rails(scratch.path(), "test", &["runner", "script/rust/schema_template.rb"]);
     rails_runner(scratch.path(), &["grid", grid]);
 
     // The catalogue the consent screen and the grants are built from is Rails' own.
@@ -645,7 +645,7 @@ fn seeded() -> (tempfile::TempDir, App) {
 }
 
 fn seeded_with_clock() -> (tempfile::TempDir, App, std::sync::Arc<TestClock>) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01', '2026-01-01');
                      INSERT INTO oauth_applications (name, uid, redirect_uri, scopes, confidential, created_at, updated_at) VALUES ('Client', 'client-uid', 'https://client.example/callback', 'mcp', 0, '2026-01-01', '2026-01-01');

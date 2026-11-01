@@ -448,7 +448,7 @@ fn the_handback_is_refused_while_ibkr_holds_anything() {
 #[tokio::test(flavor = "current_thread")]
 async fn hand_back_stops_at_an_ibkr_bot() {
     use deltabadger::store::{self, Paths};
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = deltabadger::lease::lock(&p, at(NOW)).unwrap();
     let o = store::open(&p).unwrap();

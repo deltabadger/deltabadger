@@ -18,7 +18,7 @@ fn rails(args: &[&str]) {
         let out = cmd.output().expect("bin/rails runs");
         assert!(out.status.success(), "bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr));
     };
-    run(&["db:schema:load"]);
+    run(&["runner", "script/rust/schema_template.rb"]);
     let mut full = vec!["runner", "script/rust/reference_data.rb"];
     full.extend_from_slice(args);
     run(&full);

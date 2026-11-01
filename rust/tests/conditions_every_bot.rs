@@ -146,7 +146,7 @@ fn an_index_bots_cap_and_carry_meet_as_f_computes() {
 /// Codex P2: a cap raised or switched off while the tick awaits its price read is re-read in the stop's own transaction. A
 /// Kraken basket over BTC, cap 0.4 (binding, under the 5 EUR minimum); `sql` is what the web commits during the read.
 async fn cap_changed_during_the_price_read(sql: &'static str) -> Ticked {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")

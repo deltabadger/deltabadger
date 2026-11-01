@@ -91,7 +91,7 @@ struct Fx { dir: tempfile::TempDir, c: Connection, cipher: deltabadger::crypto::
 
 impl Fx {
     fn new() -> Self {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         deltabadger::store::configure(&c).unwrap();
         let exchange = |kind: &str, name: &str| {
