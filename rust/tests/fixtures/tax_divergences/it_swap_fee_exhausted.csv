@@ -1,0 +1,6 @@
+Data,Data di acquisto,Attività,Quantità,Ricavi,Costo di acquisto,Utile/Perdita,Valuta,Giorni di detenzione,Commissione,Exchange,ID transazione,Costo di acquisto completo,Dati incompleti,Aliquota
+Nessuna transazione imponibile trovata per questo periodo.
+
+"NOTE: Permute la cui commissione ha assorbito tutte le unità ricevute (costo di acquisto non più riportato, nella valuta del report):"
+ETH 0.05 2026-02-01,100.0,EUR
+"Questo report non riporta alcun costo di acquisto per queste permute e non include per esso alcuna perdita deducibile. L'importo è il costo di acquisto di ciò che hai ceduto, non il valore di mercato della commissione. Chiedi al tuo consulente fiscale se è deducibile."

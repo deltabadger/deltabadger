@@ -1,0 +1,17 @@
+Data,Data di acquisto,Attività,Quantità,Ricavi,Costo di acquisto,Utile/Perdita,Valuta,Giorni di detenzione,Commissione,Exchange,ID transazione,Costo di acquisto completo,Dati incompleti,Aliquota
+2026-03-02T10:00:00Z,2026-02-02T10:00:00Z,ETH,1.0,2500.0,0.0,2500.0,EUR,28,0.0,kraken,K-ETH-2026-03-02T10:00:00Z-ETH,true,false,33%
+
+"Quadro RT, sezione V-A (RT41–RT90)"
+Corrispettivi,2500.0
+Costi di acquisto (LIFO),0.0
+Proventi da staking,0.0
+Risultato dell'anno (plusvalenze e proventi meno minusvalenze),2500.0
+Imponibile,2500.0
+Minusvalenza riportabile (quattro anni),0.0
+Imposta sostitutiva 33%,825.0
+"Questo report riguarda il regime dichiarativo: escludi gli asset tassati da un intermediario italiano in regime amministrato. Le minusvalenze degli anni precedenti (RT43, fino a quattro anni) e l'eventuale rideterminazione del costo (al 1° gennaio 2023 o 2025) non sono applicate qui: la minusvalenza di un asset rideterminato non è deducibile. Una cessione effettuata prima del 1° gennaio 2025 e incassata nel 2025 va nel rigo RT41, colonne 1–2; questo report non la distingue. Le commissioni non sono considerate (Circolare 30/E, p. 50). Lo staking è considerato provento al valore lordo, prima dell'eventuale commissione registrata sulla riga; se la piattaforma ha trattenuto una quota senza registrarla, aggiungila. I costi sono calcolati con il metodo LIFO su tutti i tuoi wallet (Circolare 30/E, p. 54). Il quadro RW e l'imposta del 2‰ sul valore non sono calcolati."
+Il modello 2027 per l'anno d'imposta 2026 non è ancora pubblicato; i righi indicati seguono il modello 2026.
+
+"WARNING: Depositi non collegati a un prelievo, con costo 0:"
+ETH 1.0 2026-02-02
+"Senza un costo di acquisto documentato il costo è pari a zero (art. 68 c. 9-bis TUIR). Sincronizza o importa il conto in cui questi asset sono stati acquistati e collega il trasferimento, così l'acquisto viene considerato."

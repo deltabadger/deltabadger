@@ -142,13 +142,17 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["FR", "IT", "NL", "CH", "GB", "SE", "IE", "XX"] {
+    for country in ["FR", "NL", "CH", "GB", "SE", "XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
     // Poland's regime starts in 2019.
     assert!(matches!(crypto_report(&c, 1, "PL", 2018, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction PL")));
     // D-TAX-GR-NO-TAX: Greece is served up to 2026 only, until enacted law is reviewed.
     assert!(matches!(crypto_report(&c, 1, "GR", 2027, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction GR")));
+    // D-TAX-IT-YEARS: Italy's crypto-asset regime, 2023–2026; D-TAX-IE-YEARS: Ireland 2013–2026.
+    for (country, year) in [("IT", 2022), ("IT", 2027), ("IE", 2012), ("IE", 2027)] {
+        assert!(matches!(crypto_report(&c, 1, country, year, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country} {year}");
+    }
 }
 
 /// The Ruby this report mirrors, by content: a change fails here until the port is checked and the vectors recorded again.
@@ -157,7 +161,7 @@ fn the_ruby_being_mirrored_has_not_changed() {
     use sha2::{Digest, Sha256};
     let v = vectors();
     let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 13);
+    assert_eq!(pinned.len(), 15);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, sum) in pinned {
         let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));

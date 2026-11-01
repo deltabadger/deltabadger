@@ -1,0 +1,17 @@
+Data,Data di acquisto,Attività,Quantità,Ricavi,Costo di acquisto,Utile/Perdita,Valuta,Giorni di detenzione,Commissione,Exchange,ID transazione,Costo di acquisto completo,Dati incompleti,Aliquota
+2026-03-01T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.0,90000.0,69400.0,20600.0,EUR,55,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false,33%
+
+"Quadro RT, sezione V-A (RT41–RT90)"
+Corrispettivi,90000.0
+Costi di acquisto (LIFO),69400.0
+Proventi da staking,0.0
+Risultato dell'anno (plusvalenze e proventi meno minusvalenze),20600.0
+Imponibile,20600.0
+Minusvalenza riportabile (quattro anni),0.0
+Imposta sostitutiva 33%,6798.0
+"Questo report riguarda il regime dichiarativo: escludi gli asset tassati da un intermediario italiano in regime amministrato. Le minusvalenze degli anni precedenti (RT43, fino a quattro anni) e l'eventuale rideterminazione del costo (al 1° gennaio 2023 o 2025) non sono applicate qui: la minusvalenza di un asset rideterminato non è deducibile. Una cessione effettuata prima del 1° gennaio 2025 e incassata nel 2025 va nel rigo RT41, colonne 1–2; questo report non la distingue. Le commissioni non sono considerate (Circolare 30/E, p. 50). Lo staking è considerato provento al valore lordo, prima dell'eventuale commissione registrata sulla riga; se la piattaforma ha trattenuto una quota senza registrarla, aggiungila. I costi sono calcolati con il metodo LIFO su tutti i tuoi wallet (Circolare 30/E, p. 54). Il quadro RW e l'imposta del 2‰ sul valore non sono calcolati."
+Il modello 2027 per l'anno d'imposta 2026 non è ancora pubblicato; i righi indicati seguono il modello 2026.
+
+NOTE: Commissioni pagate in un asset e non abbinate a un'operazione:
+BTC 0.01 2026-02-01
+Ciascuna è uscita dalla tua detenzione più recente di quell'asset (LIFO) senza corrispettivo; nessuna indicazione chiarisce se un asset pagato come commissione sia una cessione. Verifica ciascuna con l'estratto conto del tuo exchange.

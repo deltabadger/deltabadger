@@ -1,0 +1,29 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule,Period
+2026-03-01T10:00:00Z,2025-02-01T10:00:00Z,BTC,1.0,16000.0,10000.0,6000.0,EUR,393,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false,fifo,initial
+2026-10-01T10:00:30Z,2026-10-01T10:00:00Z,ETH,1.0,1000.0,3000.0,-2000.0,EUR,0,0.0,kraken,K-ETH-2026-10-01T10:00:30Z-ETH,true,false,4_week_rule,initial
+2026-11-20T10:00:00Z,2024-02-01T10:00:00Z,ETH,2.0,6000.0,6000.0,0.0,EUR,1023,0.0,kraken,K-ETH-2026-11-20T10:00:00Z-ETH,true,false,fifo,initial
+
+Total gains,6000.0
+Total losses,0.0
+Losses restricted by the 4-week rule (s. 581(3)),2000.0
+Restricted losses used against the sale of the assets bought again,2000.0
+Annual exemption,1270
+Taxable gains,2730.0
+CGT (33%),900.9
+"CGT (31%, disposals from 7 October 2026)",0.0
+CGT total,900.9
+  Due Dec 15 (Jan-Nov gains),900.9
+  Due Jan 31 (Dec gains),0.0
+"Form 11 lines 810/811/818/819 (CG1 lines 10/11/18/19); crypto-assets go under ""(k) Other Assets"". Losses from earlier years (line 822 of your last return) are not subtracted here: they come off before the exemption. The exemption and losses are shared with your other assets' gains. The 4-week rule (s. 581) is applied as Revenue applies it (TDM 19-04-03). This report's own readings: day 28 counts as within 4 weeks; only purchases and exchanges count as buying again (not rewards or transfers); the figure due on 15 December counts a loss as restricted when the asset was bought again in December. A spouse's or civil partner's trades are not seen. Gains on foreign currency you hold (s. 532(b)) are not computed."
+
+NOTE: Losses restricted because the same asset was bought again within 4 weeks:
+ETH 1.0 2026-10-01,2000.0
+Each of these losses can only be used against a gain when the assets bought again are sold (s. 581(3)); it is left out of this year's losses.
+
+NOTE: Restricted losses used this year against the sale of the assets bought again:
+ETH 2.0 2026-11-20,2000.0
+"Each is counted in this year's losses, up to the gain on the assets bought again."
+
+NOTE: Losses whose 4-week window is still open:
+ETH 1.0 2026-10-01,2026-10-30
+A purchase of the same asset before the date shown would still restrict these losses; make the report again after it.

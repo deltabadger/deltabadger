@@ -1,0 +1,20 @@
+Data,Data di acquisto,Attività,Quantità,Ricavi,Costo di acquisto,Utile/Perdita,Valuta,Giorni di detenzione,Commissione,Exchange,ID transazione,Costo di acquisto completo,Dati incompleti,Aliquota
+"AVVISO: 2 valori mancanti — report incompleto, non presentarlo così com'è"
+2026-02-05T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.5,90000.0,50000.0,40000.0,EUR,31,0.0,kraken,K-BTC-2026-02-05T10:00:00Z-BTC,false,true,33%
+2026-02-06T10:00:00Z,,ETH,1.0,3000.0,0.0,3000.0,EUR,0,0.0,kraken,K-ETH-2026-02-06T10:00:00Z-ETH,false,true,33%
+
+"Quadro RT, sezione V-A (RT41–RT90)"
+Corrispettivi,93000.0
+Costi di acquisto (LIFO),50000.0
+Proventi da staking,0.0
+Risultato dell'anno (plusvalenze e proventi meno minusvalenze),43000.0
+Imponibile,43000.0
+Minusvalenza riportabile (quattro anni),0.0
+Imposta sostitutiva 33%,14190.0
+"Questo report riguarda il regime dichiarativo: escludi gli asset tassati da un intermediario italiano in regime amministrato. Le minusvalenze degli anni precedenti (RT43, fino a quattro anni) e l'eventuale rideterminazione del costo (al 1° gennaio 2023 o 2025) non sono applicate qui: la minusvalenza di un asset rideterminato non è deducibile. Una cessione effettuata prima del 1° gennaio 2025 e incassata nel 2025 va nel rigo RT41, colonne 1–2; questo report non la distingue. Le commissioni non sono considerate (Circolare 30/E, p. 50). Lo staking è considerato provento al valore lordo, prima dell'eventuale commissione registrata sulla riga; se la piattaforma ha trattenuto una quota senza registrarla, aggiungila. I costi sono calcolati con il metodo LIFO su tutti i tuoi wallet (Circolare 30/E, p. 54). Il quadro RW e l'imposta del 2‰ sul valore non sono calcolati."
+Il modello 2027 per l'anno d'imposta 2026 non è ancora pubblicato; i righi indicati seguono il modello 2026.
+
+WARNING: Vendite superiori a quanto contiene il tuo storico sincronizzato; la parte non coperta da alcun acquisto è riportata con un costo di acquisto pari a zero:
+BTC 0.5 2026-02-05
+ETH 1.0 2026-02-06
+"Collega o importa il conto da cui provengono questi asset, oppure collega il deposito con cui sono arrivati, così che queste vendite abbiano il loro costo di acquisto reale."
