@@ -1,0 +1,7 @@
+Dátum,Dátum nadobudnutia,Aktívum,Množstvo,Príjem,Obstarávacia cena,Zisk/Strata,Mena,Dni držania,Poplatok,Burza,ID transakcie,Obstarávacia cena úplná,Neúplné údaje
+"UPOZORNENIE: Chýbajú hodnoty (1) — prehľad je neúplný, takto ho nepodávajte"
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,BTC,0.002,200.0,110.0,90.0,EUR,28,0.0,kraken,s1-BTC,true,true
+
+WARNING: Chýbajúce historické ceny pre:
+NOPRICE/EUR 2026-02-01
+"Aktualizujte si plán CoinGecko, alebo použite deltabadger.com pre kompletné historické dáta."

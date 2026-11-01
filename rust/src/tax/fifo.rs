@@ -26,7 +26,7 @@ use crate::figures::{at::At, budget, dec::Dec, FiguresError};
 use crate::tracker::rows::Kind;
 use crate::tracker::walk::Row;
 use crate::tracker::{fiat, stable};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 /// Tax::Methods::Fifo::IMMEDIATE_EXIT, in seconds.
 const IMMEDIATE_EXIT: f64 = 24.0 * 3600.0;
@@ -87,7 +87,7 @@ pub struct Fifo<'a> {
     out_groups: HashMap<Group, OutGroup>,
     transferred: HashMap<Group, Vec<Tranche>>,
     /// D-TAX-US-SWAP-COST: the in-legs whose fee moved, and what each out-leg's proceeds bear of it.
-    moved_in: HashSet<usize>,
+    moved_in: HashMap<usize, Dec>,
     moved_out: HashMap<usize, Dec>,
     per_venue: bool,
     /// D-TAX-US-WALLET, before the boundary: what each venue holds of each coin, in the order first touched.
@@ -117,7 +117,7 @@ fn present(s: Option<&str>) -> bool { s.is_some_and(|s| !s.trim().is_empty()) }
 impl<'a> Fifo<'a> {
     pub fn new(o: Options<'a>) -> Fifo<'a> {
         Fifo { o, lots: HashMap::new(), in_groups: HashMap::new(), out_groups: HashMap::new(), transferred: HashMap::new(),
-               moved_in: HashSet::new(), moved_out: HashMap::new(), per_venue: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
+               moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
                excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), allocation: vec![], allocation_chosen: false }
     }
 
@@ -190,27 +190,40 @@ impl<'a> Fifo<'a> {
                 _ => {}
             }
         }
+        if self.o.per_venue_from.is_some() && !self.per_venue { self.place()?; }
         Ok(())
     }
 
-    /// D-TAX-US-SWAP-COST: per group from the instant, the in-legs' fees (in fiat or a third coin) come off the out-legs'
-    /// proceeds, shared by the out-legs' worth (evenly where one is unpriced), the last taking what is left.
+    /// D-TAX-US-SWAP-COST: per group of coin legs only (a swap, or a coin-for-stablecoin trade booked as buy and sell)
+    /// from the instant, the in-legs' fees come off the out-legs' proceeds, shared by the out-legs' worth (evenly where
+    /// one is unpriced), the last taking what is left. A fee in the received coin is valued at what those units were
+    /// worth, and the net units keep only the rest of the value as their basis.
     fn move_swap_costs(&mut self, txs: &[Tx]) -> Result<(), FiguresError> {
         let Some(from) = self.o.swap_cost_to_disposed_from.filter(|_| self.o.swaps_taxable) else { return Ok(()) };
-        let mut groups: HashMap<Group, (Vec<&Row>, Vec<&Row>)> = HashMap::new();
+        let mut groups: HashMap<Group, (Vec<&Row>, Vec<&Row>, bool)> = HashMap::new();
         for r in txs.iter().map(|t| &t.row).filter(|r| r.at.0 >= from.0) {
             let Some(k) = group_key(r) else { continue };
-            match r.kind { Kind::SwapIn => groups.entry(k).or_default().0.push(r), Kind::SwapOut => groups.entry(k).or_default().1.push(r), _ => {} }
+            let g = groups.entry(k).or_default();
+            if fiat(&r.base) { g.2 = true; } else if r.kind.in_leg() { g.0.push(r); } else if r.kind.out_leg() { g.1.push(r); }
         }
-        for (ins, outs) in groups.values() {
-            if outs.is_empty() { continue; }
-            let moving: Vec<&&Row> = ins.iter().filter(|r| r.fee_fiat_value.is_positive() && r.fee_currency != Some(r.base.clone())).collect();
+        for (ins, outs, cash) in groups.values() {
+            if outs.is_empty() || *cash { continue; }
+            let mut moving: Vec<(usize, Dec)> = vec![];
+            for r in ins {
+                let in_base = r.fee_currency.as_deref() == Some(r.base.as_str());
+                let value = match (&r.fee_amount, in_base) {
+                    (Some(fee), true) if fee.is_positive() && r.amount.is_positive() => (&r.fiat_value * fee)?.div(&r.amount)?,
+                    (_, false) => r.fee_fiat_value.clone(),
+                    _ => Dec::zero(),
+                };
+                if value.is_positive() { moving.push((r.uid, value)); }
+            }
             if moving.is_empty() { continue; }
-            let total = sum(moving.iter().map(|r| &r.fee_fiat_value))?;
+            let total = sum(moving.iter().map(|(_, v)| v))?;
             let values: Vec<Dec> = outs.iter().map(|r| r.fiat_value.clone()).collect();
             let shares = allocate_shares(&if values.iter().any(Dec::is_zero) { vec![Dec::one(); outs.len()] } else { values })?;
             for (r, share) in outs.iter().zip(shares) { self.moved_out.insert(r.uid, (&total * &share)?); }
-            for r in moving { self.moved_in.insert(r.uid); }
+            self.moved_in.extend(moving);
         }
         Ok(())
     }
@@ -232,6 +245,12 @@ impl<'a> Fifo<'a> {
             }
             return Ok(());
         }
+        self.place()
+    }
+
+    /// D-TAX-US-WALLET: the pool placed on the venues holding the units (at the first row from the boundary, or at the
+    /// end of a history that stops before it).
+    fn place(&mut self) -> Result<(), FiguresError> {
         self.per_venue = true;
         let mut pooled: Vec<(Key, VecDeque<Lot>)> = self.lots.drain().filter(|(_, l)| !l.is_empty()).collect();
         pooled.sort_by(|a, b| a.0.1.cmp(&b.0.1));
@@ -297,22 +316,29 @@ impl<'a> Fifo<'a> {
     /// nothing to the cost).
     fn apply_acquisition_fee(&mut self, tx: &Tx, amount: &Dec, fiat_value: &Dec) -> Result<(Dec, Dec), FiguresError> {
         let r = &tx.row;
+        let moved = self.moved_in.get(&r.uid);
         if present(r.fee_currency.as_deref()) && r.fee_currency.as_deref() == Some(r.base.as_str()) {
             let Some(fee) = &r.fee_amount else { return Ok((amount.clone(), fiat_value.clone())) };
-            return Ok((max0((amount - fee)?), fiat_value.clone()));
+            let cost = match moved { Some(value) => max0((fiat_value - value)?), None => fiat_value.clone() };
+            return Ok((max0((amount - fee)?), cost));
         }
-        let fee_cost = if self.moved_in.contains(&r.uid) { Dec::zero() } else { r.fee_fiat_value.clone() };
+        let fee_cost = if moved.is_some() { Dec::zero() } else { r.fee_fiat_value.clone() };
         if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()) {
             if crypto_fee_asset(r) { self.spend_fee_coin(tx, fee)?; }
         }
         Ok((amount.clone(), (fiat_value + &fee_cost)?))
     }
 
-    /// `consume_disposal_fee`.
+    /// `consume_disposal_fee`. D-TAX-COIN-FEE: a fee in the coin sold leaves on top of the amount sold (the ledger's
+    /// convention, `walk::quantity_moves`); Rails left those units in the lots.
     fn consume_disposal_fee(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
         let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()) else { return Ok(()) };
-        if r.fee_currency.as_deref() == Some(r.base.as_str()) || !crypto_fee_asset(r) { return Ok(()); }
+        if r.fee_currency.as_deref() == Some(r.base.as_str()) {
+            if r.kind.out_leg() && !crate::tracker::cash(&r.base) { return self.spend_fee_coin(tx, fee); }
+            return Ok(());
+        }
+        if !crypto_fee_asset(r) { return Ok(()); }
         self.spend_fee_coin(tx, fee)
     }
 
@@ -323,7 +349,7 @@ impl<'a> Fifo<'a> {
         let (symbol, asset) = (r.fee_currency.clone().unwrap_or_default(), tx.fee_asset.clone().unwrap_or_else(|| r.fee_currency.clone().unwrap_or_default()));
         if self.o.swaps_taxable {
             let sale = Sale { asset: &asset, symbol: &symbol, amount: fee.clone(), proceeds: r.fee_fiat_value.clone(), fee: Dec::zero(),
-                              price_missing: r.price_missing && !value_missing(r) };
+                              price_missing: r.price_missing && (!value_missing(r) || r.fee_fiat_value.is_zero()) };
             return self.dispose(tx, sale, false);
         }
         let k = self.key(&r.exchange, &asset);
@@ -470,7 +496,9 @@ impl<'a> Fifo<'a> {
             self.open_swap_lot(tx, tranche_amount, cpu, t.date, t.basis_assumed || assumed, t.holding_start, unpriced);
         }
         if cash_amount.is_positive() {
-            let scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
+            let mut scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
+            // D-TAX-SWAP-FEE: when no tranche took any units, the fee joins the cash lot (Rails dropped it).
+            if !tranches.is_empty() && !rest.is_positive() { scale = (&scale + &fee_cost)?; }
             let cpu = unit(&(&cash + &scale)?, &lot_amount)?;
             let lot_assumed = assumed || (rest.is_zero() && tranches.iter().any(|t| t.basis_assumed));
             self.open_swap_lot(tx, cash_amount, cpu, r.at, lot_assumed, None, Dec::zero());
@@ -509,6 +537,11 @@ impl<'a> Fifo<'a> {
             self.consumed = (&self.consumed + &sum(tranches.iter().map(|t| &t.cost))?)?;
             return Ok(());
         };
+        if !self.in_groups.contains_key(&key) {
+            // A group with no leg coming in: the basis goes nowhere (listed by the report as an unmatched swap).
+            self.consumed = (&self.consumed + &sum(tranches.iter().map(|t| &t.cost))?)?;
+            return Ok(());
+        }
         let covered = if held < r.amount { held } else { r.amount.clone() };
         let uncovered = (&r.amount - &covered)?;
         if uncovered.is_positive() {

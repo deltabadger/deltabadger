@@ -317,10 +317,10 @@ fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
 }
 
 /// An Alpaca CFEE left standing (its day's fills differ in UTC and New York time) is dated midnight UTC; it is walked
-/// after the last fill of its coin on its venue dated that day in either calendar, so it takes lots its day's buys
-/// opened. Its own date stays (the year, the holding days and the listing read it).
+/// after the last fill of its coin on its venue in that UTC day, so it takes lots its day's buys opened. The window is
+/// the fee's own UTC day, never the next one, so every year's report (each loads at least to the UTC year's end) orders
+/// it alike. Its own date stays (the year, the holding days and the listing read it).
 fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i64, fifo::Tx)>) {
-    let new_york = |at: At| at.utc().with_timezone(&chrono_tz::America::New_York).date_naive();
     let fees: Vec<i64> = rows.iter().filter(|(id, t)| cfee.contains(id) && t.row.kind == Kind::Fee).map(|(id, _)| *id).collect();
     for fee in fees {
         let Some(i) = rows.iter().position(|(id, _)| *id == fee) else { continue };
@@ -329,7 +329,7 @@ fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i6
         let last = rows.iter().rposition(|(_, t)| {
             let r = &t.row;
             matches!(r.kind, Kind::Buy | Kind::Sell) && r.exchange == f.exchange && r.base == f.base && r.amount.is_positive()
-                && (r.at.utc().date_naive() == day || new_york(r.at) == day)
+                && r.at.utc().date_naive() == day
         });
         if let Some(last) = last.filter(|&l| l > i) { let moved = rows.remove(i); rows.insert(last, moved); }
     }

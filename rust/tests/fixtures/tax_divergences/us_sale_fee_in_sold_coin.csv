@@ -1,0 +1,4 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2024-03-01T10:00:00Z,2024-01-05T10:00:00Z,BTC,0.01,600.0,400.0,200.0,USD,56,0.0,binance,sell-BTC-2024-03-01T10:00:00Z,true,false,Short-term
+2024-03-01T10:00:00Z,2024-01-05T10:00:00Z,BTC,1.0,60000.0,40000.0,19400.0,USD,56,600.0,binance,sell-BTC-2024-03-01T10:00:00Z,true,false,Short-term
+2024-04-01T10:00:00Z,2024-01-05T10:00:00Z,BTC,0.99,59400.0,39600.0,19800.0,USD,87,0.0,binance,sell-BTC-2024-04-01T10:00:00Z,true,false,Short-term

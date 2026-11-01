@@ -379,6 +379,35 @@ module TaxVectors
         row(c, :buy, 'TON', '10', '2024-02-05T10:00:00Z', exchange: kr, quote_currency: 'USD', quote_amount: '50', base_asset_id: a.id)
         row(c, :sell, 'TON', '10', '2024-03-05T10:00:00Z', exchange: kr, quote_currency: 'USD', quote_amount: '70', base_asset_id: a.id)
       } },
+      # A sale's fee in the coin sold leaves on top of the amount sold: a disposal of those units too.
+      { name: 'us_sale_fee_in_sold_coin', year: 2024, expect: 'diverges: D-TAX-COIN-FEE', setup: lambda { |c|
+        bn = venue(c, :binance)
+        price('BTC', '2024-03-01', '60000')
+        row(c, :buy, 'BTC', '2', '2024-01-05T10:00:00Z', exchange: bn, quote_currency: 'USD', quote_amount: '80000')
+        row(c, :sell, 'BTC', '1', '2024-03-01T10:00:00Z', exchange: bn, quote_currency: 'USD', quote_amount: '60000', fee_currency: 'BTC', fee_amount: '0.01')
+        row(c, :sell, 'BTC', '0.99', '2024-04-01T10:00:00Z', exchange: bn, quote_currency: 'USD', quote_amount: '59400')
+      } },
+      # From 2025, a fee taken from the coin received: the net units keep what is left of the value, the fee comes off
+      # the coin given up; and a BTC-for-USDT trade Kraken books as a sell and a buy is such an exchange too.
+      { name: 'us_swap_cost_in_received_coin', expect: 'diverges: D-TAX-US-SWAP-COST', setup: lambda { |c|
+        bn = venue(c, :binance)
+        price('ETH', '2026-02-01', '3000')
+        price('BTC', '2026-02-01', '100000')
+        row(c, :buy, 'ETH', '1', '2026-01-05T11:00:00Z', exchange: bn, quote_currency: 'USD', quote_amount: '2500')
+        row(c, :swap_out, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: bn, group_id: 'rc', tx_id: 'rc-o')
+        row(c, :swap_in, 'BTC', '0.03', '2026-02-01T10:00:00Z', exchange: bn, group_id: 'rc', tx_id: 'rc-i', fee_currency: 'BTC', fee_amount: '0.0003')
+        row(c, :sell, 'BTC', '0.0297', '2026-03-01T10:00:00Z', exchange: bn, quote_currency: 'USD', quote_amount: '3300')
+        kr = venue(c, :kraken)
+        row(c, :buy, 'SOL', '10', '2026-01-06T10:00:00Z', exchange: kr, quote_currency: 'USD', quote_amount: '1000')
+        row(c, :sell, 'SOL', '10', '2026-02-02T10:00:00Z', exchange: kr, group_id: 'ku', tx_id: 'ku-sol')
+        row(c, :buy, 'USDT', '1500', '2026-02-02T10:00:00Z', exchange: kr, group_id: 'ku', tx_id: 'ku-usdt', fee_currency: 'USDT', fee_amount: '3')
+        row(c, :sell, 'USDT', '1497', '2026-03-02T10:00:00Z', exchange: kr, quote_currency: 'USD', quote_amount: '1497')
+      } },
+      # A 2025 report of a history that stops in 2024, held on two venues: the placement is listed all the same.
+      { name: 'us_wallet_allocation_no_2025_rows', year: 2025, expect: 'diverges: D-TAX-US-WALLET', setup: lambda { |c|
+        buy(c, 'BTC', '1', '30000', '2023-06-01T10:00:00Z')
+        buy(c, 'BTC', '1', '90000', '2024-01-05T10:00:00Z', exchange: venue(c, :kraken))
+      } },
       { name: 'us_unlinked_withdrawal_per_venue', expect: 'diverges: D-TAX-US-WALLET', setup: lambda { |c|
         price('BTC', '2026-01-06', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
@@ -624,6 +653,16 @@ module TaxVectors
         row(c, :swap_out, 'ETH', '2', '2026-02-01T10:00:00Z', exchange: venue(c, :binance), group_id: 'sf', tx_id: 'sf-o')
         row(c, :swap_in, 'BTC', '0.0666', '2026-02-01T10:00:00Z', exchange: venue(c, :binance), group_id: 'sf', tx_id: 'sf-i', fee_currency: 'BNB', fee_amount: '0.02')
         row(c, :sell, 'BTC', '0.0666', '2026-03-01T10:00:00Z', exchange: venue(c, :binance), quote_currency: 'EUR', quote_amount: '6500')
+      } },
+      # Cash and an unpriced coin of no basis bought BTC, with a fee in BNB: the fee joins the cash lot's cost.
+      { name: 'sk_swap_fee_cash_only', country: 'SK', expect: 'diverges: D-TAX-SWAP-FEE', setup: lambda { |c|
+        price('BTC', '2026-02-01', '90000', 'EUR')
+        price('BNB', '2026-02-01', '500', 'EUR')
+        kraken(c, :buy, 'BNB', '1', '400', '2025-01-02T10:00:00Z', ref: 'b0')
+        row(c, :swap_out, 'NOPRICE', '5', '2026-02-01T10:00:00Z', exchange: venue(c, :kraken), group_id: 'cf', tx_id: 'cf-o')
+        row(c, :sell, 'EUR', '100', '2026-02-01T10:00:00Z', exchange: venue(c, :kraken), group_id: 'cf', tx_id: 'cf-e')
+        row(c, :swap_in, 'BTC', '0.002', '2026-02-01T10:00:00Z', exchange: venue(c, :kraken), group_id: 'cf', tx_id: 'cf-i', fee_currency: 'BNB', fee_amount: '0.02')
+        kraken(c, :sell, 'BTC', '0.002', '200', '2026-03-01T10:00:00Z', ref: 's1')
       } },
       # Swap legs with nothing going the other way, where swaps are not taxable.
       { name: 'sk_orphan_swaps', country: 'SK', expect: 'diverges: D-TAX-ORPHAN-SWAP', setup: lambda { |c|
