@@ -585,7 +585,9 @@ fn serve_waits_out_a_just_stopped_rails_showing_the_wait_on_its_port_then_takes_
         assert!(std::time::Instant::now() < deadline, "no page while waiting");
         std::thread::sleep(std::time::Duration::from_millis(20));
     };
-    assert!(page.starts_with("HTTP/1.1 503") && page.contains("before taking over"), "{page}");
+    assert!(page.starts_with("HTTP/1.1 503") && page.contains("<h1 style=\"font-size: 1.4rem\">Deltabadger is starting</h1>")
+            && page.contains("then your bots will start again. This page reloads on its own.")
+            && page.contains("<meta http-equiv=\"refresh\" content=\"5\">"), "{page}");
     assert!(http_get(port, "/ui-ready").unwrap().starts_with("HTTP/1.1 200"));
     assert!(http_get(port, "/up").unwrap().starts_with("HTTP/1.1 503"));
     assert!(lease_of(dir.path()).is_none(), "nothing claimed while waiting");

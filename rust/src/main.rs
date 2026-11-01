@@ -170,10 +170,9 @@ fn take_lock_waiting(paths: &Paths) -> EngineLock {
         // own handlers (tests/cli.rs a_stop_between_the_wait_and_the_engine_stops_the_engine).
         let stop = deltabadger::web::refused::stop_signal();
         tokio::pin!(stop);
-        let message = format!("the previous version stopped {ago} s ago; waiting {wait} s before taking over");
-        log(&message);
+        log(&format!("the previous version stopped {ago} s ago; waiting {wait} s before taking over"));
         let page = async {
-            if let Some(port) = REFUSAL_PORT.get() { eprintln!("deltabadger: cannot show the wait on port {port}: {}", deltabadger::web::refused::show(*port, &message).await); }
+            if let Some(port) = REFUSAL_PORT.get() { eprintln!("deltabadger: cannot show the wait on port {port}: {}", deltabadger::web::refused::show_starting(*port, wait).await); }
             std::future::pending::<()>().await
         };
         tokio::select! {

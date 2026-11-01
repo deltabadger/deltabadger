@@ -11,17 +11,31 @@ use std::net::SocketAddr;
 
 /// The page for `reason` (the refusal as `serve` printed it).
 pub fn page(reason: &str) -> String {
+    document("Deltabadger didn't start", "Deltabadger 3.0 didn't start trading on this data.",
+             &format!("<pre style=\"white-space: pre-wrap; background: #f4f4f4; padding: 1rem\">{}</pre>", super::i18n::escape(reason)), "")
+}
+
+/// The page while `serve` waits `wait` seconds for a just-stopped 2.x to be gone (PLAN-B2 r2.8). It reloads itself, so the
+/// app appears once the wait is over.
+pub fn starting_page(wait: u64) -> String {
+    document("Deltabadger is starting", "Deltabadger is starting",
+             &format!("<p>The previous version stopped a moment ago. Deltabadger is waiting about {wait} seconds to make sure it has \
+                       fully shut down, then your bots will start again. This page reloads on its own.</p>"),
+             "<meta http-equiv=\"refresh\" content=\"5\">")
+}
+
+fn document(title: &str, heading: &str, body: &str, head: &str) -> String {
     format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
-             <title>Deltabadger didn't start</title></head>\
+             {head}<title>{title}</title></head>\
              <body style=\"font-family: system-ui, sans-serif; max-width: 48rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5\">\
-             <h1 style=\"font-size: 1.4rem\">Deltabadger 3.0 didn't start trading on this data.</h1>\
-             <pre style=\"white-space: pre-wrap; background: #f4f4f4; padding: 1rem\">{}</pre></body></html>",
-            super::i18n::escape(reason))
+             <h1 style=\"font-size: 1.4rem\">{heading}</h1>{body}</body></html>")
 }
 
 /// The page's routes: `/ui-ready` 200, `/health-check` and `/up` 503, anything else the page with 503.
-pub fn router(reason: &str) -> Router {
-    let body = std::sync::Arc::new(page(reason));
+pub fn router(reason: &str) -> Router { routes(page(reason)) }
+
+fn routes(page: String) -> Router {
+    let body = std::sync::Arc::new(page);
     let refused = move || {
         let body = body.clone();
         async move {
@@ -64,12 +78,12 @@ pub fn serve(port: u16, reason: &str) -> i32 {
     })
 }
 
-/// The page on 0.0.0.0:`port` for as long as the future is polled: `serve` waiting out a Rails heartbeat (PLAN-B2 r2.8).
-/// Dropping it closes the listener; the runtime's end closes the connections still open. Returns only when the port
-/// cannot be taken.
-pub async fn show(port: u16, reason: &str) -> std::io::Error {
+/// `starting_page` on 0.0.0.0:`port` for as long as the future is polled: `serve` waiting out a Rails heartbeat (PLAN-B2
+/// r2.8), with the refusal page's routes. Dropping it closes the listener; the runtime's end closes the connections still
+/// open. Returns only when the port cannot be taken.
+pub async fn show_starting(port: u16, wait: u64) -> std::io::Error {
     let listener = match tokio::net::TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await { Ok(l) => l, Err(e) => return e };
-    match axum::serve(listener, router(reason)).await { Ok(()) => std::io::Error::other("the page stopped"), Err(e) => e }
+    match axum::serve(listener, routes(starting_page(wait))).await { Ok(()) => std::io::Error::other("the page stopped"), Err(e) => e }
 }
 
 /// SIGTERM or SIGINT, with the handlers registered now, not on the first poll.
