@@ -459,9 +459,7 @@ module Pages
         'api_orders_cancel_refusals' => order_case([cancel.('/api/v1/orders/abc'), cancel.('/api/v1/orders/abc?exchange_name=Nope%3Cx%3E'),
                                                     cancel.('/api/v1/orders/abc?exchange_name=Interactive%20Brokers'), cancel.('/api/v1/orders/2'),
                                                     cancel.('/api/v1/orders/2.json'), cancel.('/api/v1/orders/999'), cancel.('/api/v1/orders/abc?exchange_name=')]),
-        # Past every refusal: Rails asks the venue (stubbed below), this build answers 501 until the engine places (PLAN-A9 O3, O4).
-        'not_ported_api_orders_market_buy' => order_case([order_post(buy, 'placed')]),
-        'not_ported_api_orders_limit_sell' => order_case([order_post('{"type":"limit_sell","exchange_name":"Alpaca","base_asset":"QQQM","quote_asset":"USD","amount":1,"price":400}', 'limit')]),
+        # Past every refusal the engine places (PLAN-A9 O3, O4); the grid runs none, so tests/orders_api.rs compares those answers.
         # PLAN-A9 O2: the cancels, sent (the venue answers as pages_settings.rb stubs it): a bot's open row by its id, and order
         # ids on the exchange path (the bot row's own id among them), accepted, refused and with a key the venue rejects.
         'api_orders_cancel_row' => order_case([cancel.('/api/v1/orders/1')]),
@@ -495,7 +493,7 @@ module Pages
         WebMock.stub_request(:get, "https://#{host}/v2/account").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_ACCOUNT, headers: json)
         WebMock.stub_request(:get, "https://#{host}/v2/positions").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_POSITIONS, headers: json)
       end
-      # PLAN-A9: an order Rails sends past every refusal (the not_ported_api_orders_ scenarios) is refused by the venue.
+      # PLAN-A9: an order Rails sends past every refusal is refused by the venue.
       %w[paper-api.alpaca.markets api.alpaca.markets].each do |host|
         WebMock.stub_request(:post, "https://#{host}/v2/orders").to_return(status: 403, body: '{"message":"no orders in the grid"}', headers: json)
       end

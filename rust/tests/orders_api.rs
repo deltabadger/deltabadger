@@ -1,5 +1,5 @@
 //! PLAN-A9 slice O1: what the order routes and tools answer where Rails has no answer to record. The refusals before the
-//! venue are compared with Rails on the page grid (api_orders_*, not_ported_api_orders_*) and the MCP control grid
+//! venue are compared with Rails on the page grid (api_orders_*) and the MCP control grid
 //! (order_*); this file holds the named divergences: D-ORDER-AMOUNT-VALIDATION and D-ORDER-IBKR (its `not_ported` answer
 //! gives the Idempotency-Key back). Cancels past the checks are sent (slice O2): tests/cancel_order.rs.
 //!
