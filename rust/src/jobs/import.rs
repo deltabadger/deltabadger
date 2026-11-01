@@ -14,6 +14,10 @@
 //! carries, so a reader between two units sees each row either as it was or as it ends, never names without their trading
 //! parameters. A stop or a deadline lands between two units, and no transaction holds the write lock for more than one
 //! unit.
+//!
+//! The same writes also exist as synchronous units (`write_assets`, `write_tokenized`, `write_indices`, `write_tickers`) on a
+//! connection the caller already holds in a transaction: no BEGIN, no pacing, no fence, no guard. The publishers above run
+//! their chunks through the same statements.
 use super::{Db, CHUNK};
 use crate::codec::format_time;
 use crate::crypto::Cipher;
@@ -299,33 +303,53 @@ pub fn plan_assets(rows: &[Value], public_url: &str) -> R<AssetsPlan> {
 /// payload, as `return if assets_data.blank?` does.
 pub async fn import_assets(db: &Db, plan: AssetsPlan, now: DateTime<Utc>) -> R<()> {
     let t = format_time(now);
-    publish(db, "assets", chunks(&plan.rows), move |c, rows: Vec<Vec<Sql>>| {
-        let mut ids = vec![];
-        for r in rows {
-            ids.push(c.prepare_cached("INSERT INTO assets (external_id, symbol, name, category, image_url, color, market_cap_rank, market_cap, circulating_supply, url, created_at, updated_at) \
-                       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11) ON CONFLICT (external_id) DO UPDATE SET symbol = excluded.symbol, \
-                       name = excluded.name, category = excluded.category, image_url = excluded.image_url, color = excluded.color, \
-                       market_cap_rank = excluded.market_cap_rank, market_cap = excluded.market_cap, circulating_supply = excluded.circulating_supply, \
-                       url = excluded.url, created_at = excluded.created_at, updated_at = excluded.updated_at RETURNING id").map_err(sql)?
-                .query_row(params_from_iter(r.into_iter().chain([Sql::Text(t.clone())])), |r| r.get(0)).map_err(sql)?);
-        }
-        Ok(Touched::Assets(ids))
-    }).await?;
-    let units: Vec<(Option<String>, Vec<String>)> = plan.types.into_iter().flat_map(|(ty, ids)| chunks(&ids).into_iter().map(move |part| (ty.clone(), part))).collect();
-    publish(db, "instrument types", units, |c, (ty, ids): (Option<String>, Vec<String>)| {
-        let marks = vec!["?"; ids.len()].join(", ");
-        match ty {
-            // NULL-safe: `where.not(instrument_type: x)` would skip the NULL rows.
-            Some(t) => {
-                let binds: Vec<String> = std::iter::once(t.clone()).chain(ids).chain(std::iter::once(t)).collect();
-                returning_assets(c, &format!("UPDATE assets SET instrument_type = ? WHERE external_id IN ({marks}) AND (instrument_type IS NULL OR instrument_type != ?) RETURNING id"), params_from_iter(&binds))
-            }
-            None => {
-                returning_assets(c, &format!("UPDATE assets SET instrument_type = NULL WHERE external_id IN ({marks}) AND instrument_type IS NOT NULL RETURNING id"), params_from_iter(&ids))
-            }
-        }
-    }).await?;
+    publish(db, "assets", chunks(&plan.rows), move |c, rows: Vec<Vec<Sql>>| upsert_assets(c, rows, &t)).await?;
+    publish(db, "instrument types", type_units(plan.types), |c, (ty, ids): (Option<String>, Vec<String>)| instrument_types(c, ty, ids)).await?;
     mark_tokenized(db).await
+}
+
+/// `import_assets`' upserts and instrument types as one synchronous write unit, on a connection the caller already holds
+/// in a transaction (no BEGIN, no pacing, no fence, no guard): the same statements, in the same order and the same
+/// chunks. The tokenized registry is `write_tokenized`, run when the caller chooses.
+pub fn write_assets(c: &Connection, plan: AssetsPlan, now: DateTime<Utc>) -> R<()> {
+    let t = format_time(now);
+    for rows in chunks(&plan.rows) { upsert_assets(c, rows, &t)?; }
+    for (ty, ids) in type_units(plan.types) { instrument_types(c, ty, ids)?; }
+    Ok(())
+}
+
+/// One chunk of the asset upserts.
+fn upsert_assets(c: &Connection, rows: Vec<Vec<Sql>>, t: &str) -> R<Touched> {
+    let mut ids = vec![];
+    for r in rows {
+        ids.push(c.prepare_cached("INSERT INTO assets (external_id, symbol, name, category, image_url, color, market_cap_rank, market_cap, circulating_supply, url, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11) ON CONFLICT (external_id) DO UPDATE SET symbol = excluded.symbol, \
+                   name = excluded.name, category = excluded.category, image_url = excluded.image_url, color = excluded.color, \
+                   market_cap_rank = excluded.market_cap_rank, market_cap = excluded.market_cap, circulating_supply = excluded.circulating_supply, \
+                   url = excluded.url, created_at = excluded.created_at, updated_at = excluded.updated_at RETURNING id").map_err(sql)?
+            .query_row(params_from_iter(r.into_iter().chain([Sql::Text(t.into())])), |r| r.get(0)).map_err(sql)?);
+    }
+    Ok(Touched::Assets(ids))
+}
+
+/// The instrument-type groups in chunks of CHUNK external ids.
+fn type_units(types: Vec<(Option<String>, Vec<String>)>) -> Vec<(Option<String>, Vec<String>)> {
+    types.into_iter().flat_map(|(ty, ids)| chunks(&ids).into_iter().map(move |part| (ty.clone(), part))).collect()
+}
+
+/// One chunk of apply_instrument_types!.
+fn instrument_types(c: &Connection, ty: Option<String>, ids: Vec<String>) -> R<Touched> {
+    let marks = vec!["?"; ids.len()].join(", ");
+    match ty {
+        // NULL-safe: `where.not(instrument_type: x)` would skip the NULL rows.
+        Some(t) => {
+            let binds: Vec<String> = std::iter::once(t.clone()).chain(ids).chain(std::iter::once(t)).collect();
+            returning_assets(c, &format!("UPDATE assets SET instrument_type = ? WHERE external_id IN ({marks}) AND (instrument_type IS NULL OR instrument_type != ?) RETURNING id"), params_from_iter(&binds))
+        }
+        None => {
+            returning_assets(c, &format!("UPDATE assets SET instrument_type = NULL WHERE external_id IN ({marks}) AND instrument_type IS NOT NULL RETURNING id"), params_from_iter(&ids))
+        }
+    }
 }
 
 fn returning_assets(c: &Connection, statement: &str, params: impl rusqlite::Params) -> R<Touched> {
@@ -337,17 +361,29 @@ fn returning_assets(c: &Connection, statement: &str, params: impl rusqlite::Para
 /// Asset.mark_tokenized! (app/models/asset.rb:25-39), the wrapper registry, update_all (updated_at stays): the rows to
 /// mark are read first, then marked in units of CHUNK.
 pub async fn mark_tokenized(db: &Db) -> R<()> {
-    let ids: Vec<i64> = db.run(|c, _| {
-        let mut s = c.prepare("SELECT id FROM assets WHERE (external_id IN ('pax-gold', 'tether-gold') OR external_id LIKE '%-xstock' \
-                               OR external_id LIKE '%-ondo-tokenized%' OR external_id LIKE '%-bstocks') \
-                               AND (instrument_type IS NULL OR instrument_type != 'tokenized') ORDER BY id").map_err(sql)?;
-        let ids = s.query_map([], |r| r.get(0)).map_err(sql)?.collect::<Result<Vec<_>, _>>().map_err(sql)?;
-        Ok(ids)
-    }).await?;
-    publish(db, "tokenized", chunks(&ids), |c, ids: Vec<i64>| {
-        let marks = vec!["?"; ids.len()].join(", ");
-        returning_assets(c, &format!("UPDATE assets SET instrument_type = 'tokenized' WHERE id IN ({marks}) RETURNING id"), params_from_iter(&ids))
-    }).await
+    let ids = db.run(|c, _| untokenized(c)).await?;
+    publish(db, "tokenized", chunks(&ids), |c, ids: Vec<i64>| tokenize(c, ids)).await
+}
+
+/// `mark_tokenized` as one synchronous write unit in the caller's transaction: the same read, then the same chunks.
+pub fn write_tokenized(c: &Connection) -> R<()> {
+    for ids in chunks(&untokenized(c)?) { tokenize(c, ids)?; }
+    Ok(())
+}
+
+/// The registry's rows not yet marked.
+fn untokenized(c: &Connection) -> R<Vec<i64>> {
+    let mut s = c.prepare("SELECT id FROM assets WHERE (external_id IN ('pax-gold', 'tether-gold') OR external_id LIKE '%-xstock' \
+                           OR external_id LIKE '%-ondo-tokenized%' OR external_id LIKE '%-bstocks') \
+                           AND (instrument_type IS NULL OR instrument_type != 'tokenized') ORDER BY id").map_err(sql)?;
+    let ids = s.query_map([], |r| r.get(0)).map_err(sql)?.collect::<Result<Vec<_>, _>>().map_err(sql)?;
+    Ok(ids)
+}
+
+/// One chunk of the marks.
+fn tokenize(c: &Connection, ids: Vec<i64>) -> R<Touched> {
+    let marks = vec!["?"; ids.len()].join(", ");
+    returning_assets(c, &format!("UPDATE assets SET instrument_type = 'tokenized' WHERE id IN ({marks}) RETURNING id"), params_from_iter(&ids))
 }
 
 /// CATEGORY_BY_TYPE (:377): ETFs and stocks are both category Stock.
@@ -681,62 +717,82 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
 pub async fn publish_tickers_fenced(db: &Db, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>, fence: Option<Fence>) -> R<Vec<i64>> {
     let t = format_time(now);
     let t2 = t.clone();
-    publish_fenced(db, "exchange assets", chunks(&plan.exchange_assets), fence, move |c, ids: Vec<i64>| {
-        for id in ids {
-            c.prepare_cached("INSERT INTO exchange_assets (asset_id, exchange_id, available, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?3) \
-                       ON CONFLICT (asset_id, exchange_id) DO UPDATE SET available = excluded.available, created_at = excluded.created_at, \
-                       updated_at = excluded.updated_at").map_err(sql)?.execute(params![id, exchange_id, t]).map_err(sql)?;
-        }
-        Ok(Touched::None)
-    }).await?;
-    publish_fenced(db, "tickers", plan.units, fence, move |c, unit: TickerUnit| {
-        let ids = unit.writes.iter().map(|w| match w {
-            TickerWrite::Tombstone { id, .. } => *id,
-            TickerWrite::Upsert { existing, id, .. } => existing.unwrap_or(*id),
-        }).collect();
-        for id in &unit.moving {
-            c.execute("UPDATE tickers SET ticker = '__moving_' || id, base = '__moving_' || id WHERE id = ?1", [id]).map_err(sql)?;
-        }
-        for w in unit.writes {
-            match w {
-                TickerWrite::Tombstone { id, ticker, base } => {
-                    c.execute("UPDATE tickers SET ticker = ?1, base = ?2, available = 0 WHERE id = ?3", params![ticker, base, id]).map_err(sql)?;
-                }
-                TickerWrite::Upsert { existing: Some(id), record: r, .. } => {
-                    c.prepare_cached("UPDATE tickers SET base = ?1, quote = ?2, ticker = ?3, minimum_base_size = ?4, minimum_quote_size = ?5, \
-                               maximum_base_size = ?6, maximum_quote_size = ?7, base_decimals = ?8, quote_decimals = ?9, price_decimals = ?10, \
-                               available = 1, trading_enabled = ?11, created_at = ?12, updated_at = ?12 WHERE id = ?13").map_err(sql)?
-                        .execute(params![r.base, r.quote, r.ticker, r.minimum_base_size, r.minimum_quote_size, r.maximum_base_size, r.maximum_quote_size,
-                                         r.base_decimals, r.quote_decimals, r.price_decimals, r.trading_enabled, t2, id]).map_err(sql)?;
-                }
-                TickerWrite::Upsert { existing: None, id, record: r } => {
-                    // `id` was planned from the table as it stood at plan time. If another writer inserted a ticker since,
-                    // this INSERT can meet its id and fail on the primary key. That is refused, not overwritten: the unit
-                    // rolls back whole, the job fails before the sweep, the units before it hold whole rows, and the next
-                    // run plans again from the table as it then stands. Nothing else inserts tickers on an install the engine runs.
-                    c.prepare_cached("INSERT INTO tickers (id, exchange_id, base, quote, ticker, base_asset_id, quote_asset_id, minimum_base_size, \
-                               minimum_quote_size, maximum_base_size, maximum_quote_size, base_decimals, quote_decimals, price_decimals, available, \
-                               trading_enabled, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 1, ?15, ?16, ?16)").map_err(sql)?
-                        .execute(params![id, exchange_id, r.base, r.quote, r.ticker, r.base_asset_id, r.quote_asset_id, r.minimum_base_size, r.minimum_quote_size,
-                                         r.maximum_base_size, r.maximum_quote_size, r.base_decimals, r.quote_decimals, r.price_decimals, r.trading_enabled, t2]).map_err(sql)?;
-                }
-            }
-        }
-        if let Some(seq) = unit.sequence {
-            // As Rails' upsert_all leaves it: one value per payload row (an explicit id moves it only to that id).
-            if c.execute("UPDATE sqlite_sequence SET seq = max(seq, ?1) WHERE name = 'tickers'", [seq]).map_err(sql)? == 0 {
-                c.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('tickers', ?1)", [seq]).map_err(sql)?;
-            }
-        }
-        Ok(Touched::Tickers(ids))
-    }).await?;
-    // update_all: updated_at stays.
-    publish_fenced(db, "sweep", chunks(&plan.sweep), fence, |c, ids: Vec<i64>| {
-        let marks = vec!["?"; ids.len()].join(", ");
-        c.execute(&format!("UPDATE tickers SET available = 0 WHERE id IN ({marks})"), params_from_iter(&ids)).map_err(sql)?;
-        Ok(Touched::Tickers(ids))
-    }).await?;
+    publish_fenced(db, "exchange assets", chunks(&plan.exchange_assets), fence, move |c, ids: Vec<i64>| exchange_assets(c, exchange_id, ids, &t)).await?;
+    publish_fenced(db, "tickers", plan.units, fence, move |c, unit: TickerUnit| ticker_unit(c, exchange_id, unit, &t2)).await?;
+    publish_fenced(db, "sweep", chunks(&plan.sweep), fence, |c, ids: Vec<i64>| sweep(c, ids)).await?;
     Ok(plan.written)
+}
+
+/// `publish_tickers` as one synchronous write unit in the caller's transaction (no BEGIN, no pacing, no fence, no guard):
+/// the same phases, units and statements, in the same order. Returns the written base_asset_ids. The plan's new ids come
+/// from the table as it stood at plan time, so several venues' plans are each made right before their own write, on
+/// this same connection (`plan_tickers_with`, then `write_tickers`, venue after venue).
+pub fn write_tickers(c: &Connection, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>) -> R<Vec<i64>> {
+    let t = format_time(now);
+    for ids in chunks(&plan.exchange_assets) { exchange_assets(c, exchange_id, ids, &t)?; }
+    for unit in plan.units { ticker_unit(c, exchange_id, unit, &t)?; }
+    for ids in chunks(&plan.sweep) { sweep(c, ids)?; }
+    Ok(plan.written)
+}
+
+/// One chunk of exchange_assets upserts.
+fn exchange_assets(c: &Connection, exchange_id: i64, ids: Vec<i64>, t: &str) -> R<Touched> {
+    for id in ids {
+        c.prepare_cached("INSERT INTO exchange_assets (asset_id, exchange_id, available, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?3) \
+                   ON CONFLICT (asset_id, exchange_id) DO UPDATE SET available = excluded.available, created_at = excluded.created_at, \
+                   updated_at = excluded.updated_at").map_err(sql)?.execute(params![id, exchange_id, t]).map_err(sql)?;
+    }
+    Ok(Touched::None)
+}
+
+/// One ticker unit.
+fn ticker_unit(c: &Connection, exchange_id: i64, unit: TickerUnit, t: &str) -> R<Touched> {
+    let ids = unit.writes.iter().map(|w| match w {
+        TickerWrite::Tombstone { id, .. } => *id,
+        TickerWrite::Upsert { existing, id, .. } => existing.unwrap_or(*id),
+    }).collect();
+    for id in &unit.moving {
+        c.execute("UPDATE tickers SET ticker = '__moving_' || id, base = '__moving_' || id WHERE id = ?1", [id]).map_err(sql)?;
+    }
+    for w in unit.writes {
+        match w {
+            TickerWrite::Tombstone { id, ticker, base } => {
+                c.execute("UPDATE tickers SET ticker = ?1, base = ?2, available = 0 WHERE id = ?3", params![ticker, base, id]).map_err(sql)?;
+            }
+            TickerWrite::Upsert { existing: Some(id), record: r, .. } => {
+                c.prepare_cached("UPDATE tickers SET base = ?1, quote = ?2, ticker = ?3, minimum_base_size = ?4, minimum_quote_size = ?5, \
+                           maximum_base_size = ?6, maximum_quote_size = ?7, base_decimals = ?8, quote_decimals = ?9, price_decimals = ?10, \
+                           available = 1, trading_enabled = ?11, created_at = ?12, updated_at = ?12 WHERE id = ?13").map_err(sql)?
+                    .execute(params![r.base, r.quote, r.ticker, r.minimum_base_size, r.minimum_quote_size, r.maximum_base_size, r.maximum_quote_size,
+                                     r.base_decimals, r.quote_decimals, r.price_decimals, r.trading_enabled, t, id]).map_err(sql)?;
+            }
+            TickerWrite::Upsert { existing: None, id, record: r } => {
+                // `id` was planned from the table as it stood at plan time. If another writer inserted a ticker since,
+                // this INSERT can meet its id and fail on the primary key. That is refused, not overwritten: the unit
+                // rolls back whole, the job fails before the sweep, the units before it hold whole rows, and the next
+                // run plans again from the table as it then stands. Nothing else inserts tickers on an install the engine runs.
+                c.prepare_cached("INSERT INTO tickers (id, exchange_id, base, quote, ticker, base_asset_id, quote_asset_id, minimum_base_size, \
+                           minimum_quote_size, maximum_base_size, maximum_quote_size, base_decimals, quote_decimals, price_decimals, available, \
+                           trading_enabled, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 1, ?15, ?16, ?16)").map_err(sql)?
+                    .execute(params![id, exchange_id, r.base, r.quote, r.ticker, r.base_asset_id, r.quote_asset_id, r.minimum_base_size, r.minimum_quote_size,
+                                     r.maximum_base_size, r.maximum_quote_size, r.base_decimals, r.quote_decimals, r.price_decimals, r.trading_enabled, t]).map_err(sql)?;
+            }
+        }
+    }
+    if let Some(seq) = unit.sequence {
+        // As Rails' upsert_all leaves it: one value per payload row (an explicit id moves it only to that id).
+        if c.execute("UPDATE sqlite_sequence SET seq = max(seq, ?1) WHERE name = 'tickers'", [seq]).map_err(sql)? == 0 {
+            c.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('tickers', ?1)", [seq]).map_err(sql)?;
+        }
+    }
+    Ok(Touched::Tickers(ids))
+}
+
+/// One chunk of the sweep. update_all: updated_at stays.
+fn sweep(c: &Connection, ids: Vec<i64>) -> R<Touched> {
+    let marks = vec!["?"; ids.len()].join(", ");
+    c.execute(&format!("UPDATE tickers SET available = 0 WHERE id IN ({marks})"), params_from_iter(&ids)).map_err(sql)?;
+    Ok(Touched::Tickers(ids))
 }
 
 /// Index::WEIGHTED_CATEGORIES (app/models/index.rb:20-33).
@@ -762,16 +818,26 @@ pub fn plan_indices(rows: &[Value]) -> R<Vec<Vec<Sql>>> {
 /// Publishes the indices (tens of rows: one unit in practice).
 pub async fn import_indices(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc>) -> R<()> {
     let t = format_time(now);
-    publish(db, "indices", chunks(&rows), move |c, rows: Vec<Vec<Sql>>| {
-        for r in rows {
-            c.prepare_cached("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, market_cap, available_exchanges, \
-                       weights, weight, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11) \
-                       ON CONFLICT (external_id, source) DO UPDATE SET name = excluded.name, description = excluded.description, \
-                       top_coins = excluded.top_coins, top_coins_by_exchange = excluded.top_coins_by_exchange, market_cap = excluded.market_cap, \
-                       available_exchanges = excluded.available_exchanges, weights = excluded.weights, weight = excluded.weight, \
-                       created_at = excluded.created_at, updated_at = excluded.updated_at").map_err(sql)?
-                .execute(params_from_iter(r.into_iter().chain([Sql::Text(t.clone())]))).map_err(sql)?;
-        }
-        Ok(Touched::None)
-    }).await
+    publish(db, "indices", chunks(&rows), move |c, rows: Vec<Vec<Sql>>| upsert_indices(c, rows, &t)).await
+}
+
+/// `import_indices` as one synchronous write unit in the caller's transaction: the same chunks, in order.
+pub fn write_indices(c: &Connection, rows: Vec<Vec<Sql>>, now: DateTime<Utc>) -> R<()> {
+    let t = format_time(now);
+    for rows in chunks(&rows) { upsert_indices(c, rows, &t)?; }
+    Ok(())
+}
+
+/// One chunk of the index upserts.
+fn upsert_indices(c: &Connection, rows: Vec<Vec<Sql>>, t: &str) -> R<Touched> {
+    for r in rows {
+        c.prepare_cached("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, market_cap, available_exchanges, \
+                   weights, weight, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11) \
+                   ON CONFLICT (external_id, source) DO UPDATE SET name = excluded.name, description = excluded.description, \
+                   top_coins = excluded.top_coins, top_coins_by_exchange = excluded.top_coins_by_exchange, market_cap = excluded.market_cap, \
+                   available_exchanges = excluded.available_exchanges, weights = excluded.weights, weight = excluded.weight, \
+                   created_at = excluded.created_at, updated_at = excluded.updated_at").map_err(sql)?
+            .execute(params_from_iter(r.into_iter().chain([Sql::Text(t.into())]))).map_err(sql)?;
+    }
+    Ok(Touched::None)
 }
