@@ -128,7 +128,7 @@ impl Report {
         // Tax::Report#taxable_entries: no fiat row reaches the engine (D-TAX-STABLE-CASH: nor a stablecoin row where a
         // stablecoin is cash), and an Alpaca CFEE goes to its fills.
         let stable_cash = !j.swaps_taxable() && self.stablecoin_as_fiat;
-        let mut taxable: Vec<Entry> = enriched.iter().filter(|e| !fiat(&e.row.base) && !(stable_cash && stable(&e.row.base))).cloned().collect();
+        let mut taxable: Vec<Entry> = enriched.iter().filter(|e| !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
         let folded = attribute_trade_fees(&self.cfee, &mut taxable)?;
         let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && e.row.amount.is_positive())
             .map(|(e, _)| &e.row).collect();
