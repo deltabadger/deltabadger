@@ -1,0 +1,41 @@
+Data,Aktywo,Ilość,Rodzaj,Kwota w walucie transakcji,Waluta transakcji,Kurs średni NBP,Data tabeli NBP,Kwota w PLN,Giełda,ID transakcji,Dane niekompletne
+"OSTRZEŻENIE: Brakuje 7 wartości — raport niekompletny, nie należy go składać w tej postaci"
+2026-01-10,BTC,0.5,Koszt,40000.0,EUR,,,0.0,kraken,K-BTC-2026-01-10T10:00:00Z-EUR,true
+2026-01-10,BTC,,Koszt,20.0,EUR,,,0.0,kraken,K-BTC-2026-01-10T10:00:00Z-EUR,true
+2026-04-01,BTC,1.2,Przychód,108000.0,EUR,,,0.0,kraken,K-BTC-2026-04-01T10:00:00Z-EUR,true
+2026-04-01,BTC,,Koszt,50.0,EUR,,,0.0,kraken,K-BTC-2026-04-01T10:00:00Z-EUR,true
+2026-04-10,SOL,3.0,Przychód,600.0,USD,,,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true
+
+"PIT-38, część E — odpłatne zbycie walut wirtualnych (art. 30b ust. 1a)"
+Przychód (b),0.0
+Koszty uzyskania przychodów poniesione w roku podatkowym (c),0.0
+Koszty uzyskania przychodów poniesione w latach ubiegłych i niepotrącone w poprzednim roku podatkowym (d),0.0
+Dochód b – (c + d) (e),0.0
+"Koszty uzyskania przychodów, które nie zostały potrącone w roku podatkowym (c + d) – b (f)",0.0
+Podstawa obliczenia podatku (po zaokrągleniu do pełnych złotych),0
+"Podatek 19%, po zaokrągleniu do pełnych złotych, przed odliczeniem podatku zapłaconego za granicą",0
+
+"Rok po roku, od pierwszego roku zsynchronizowanej historii"
+,b,c,d,e,f
+2025,0.0,0.0,0.0,0.0,0.0
+2026,0.0,0.0,0.0,0.0,0.0
+"Kolumna d wynika wyłącznie z Twojej zsynchronizowanej historii. Jeśli aktywa były kupowane na kontach, które nie są tu zsynchronizowane, albo Twój poprzedni PIT-38 wykazuje w kolumnie f inną kwotę, wpisz w kolumnie d tę kwotę i przelicz e oraz f."
+
+"WARNING: Wartości bez kursu średniego NBP (tabela A) z dni je poprzedzających, ujęte powyżej jako 0:"
+EUR 2025-03-01
+EUR 2025-03-01
+EUR 2026-01-10
+EUR 2026-01-10
+EUR 2026-04-01
+EUR 2026-04-01
+USD 2026-04-10
+"Każdy wiersz: waluta, dzień. Wygeneruj raport ponownie, gdy kursy NBP będą dostępne, albo przelicz te kwoty po kursie z ostatniej tabeli NBP sprzed każdego dnia."
+
+WARNING: Wpłaty niepołączone z wypłatą:
+BTC 0.1 2026-02-10
+"Koszt ich nabycia nie jest ujęty w kolumnie c. Jeśli zostały kupione na koncie, które nie jest tu zsynchronizowane, dolicz ten koszt wraz z dokumentem."
+
+"NOTE: Nagrody otrzymane w aktywach (staking, airdropy, kopanie, pożyczki), nieujęte jako przychód ani koszt:"
+ETH 0.01 2026-02-01
+SOL 3.0 2026-02-05
+"Sądy administracyjne uznają, że nagrody ze stakingu i airdropy nie mają kosztu i są opodatkowane dopiero przy zbyciu; organy podatkowe (KIS) traktują je jako przychód w chwili otrzymania, wykazywany w PIT-36. Kopanie nie ma kosztu (sprzęt i energia nie są kosztem). Pożyczek nie dotyczy żadne orzeczenie. Stablecoiny są walutami wirtualnymi; czy jest nią token będący pieniądzem elektronicznym, nie zostało rozstrzygnięte."

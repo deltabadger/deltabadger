@@ -1,0 +1,29 @@
+Data,Aktywo,Ilość,Rodzaj,Kwota w walucie transakcji,Waluta transakcji,Kurs średni NBP,Data tabeli NBP,Kwota w PLN,Giełda,ID transakcji,Dane niekompletne
+"OSTRZEŻENIE: Brakuje 3 wartości — raport niekompletny, nie należy go składać w tej postaci"
+2026-01-10,BTC,1.0,Koszt,60000.0,EUR,,,0.0,kraken,K-BTC-2026-01-10T10:00:00Z-EUR,true
+2026-03-10,ETH,2.0,Przychód,5000.0,EUR,,,0.0,kraken,K-ETH-2026-03-10T08:00:00Z-EUR,true
+2026-03-10,BTC,0.5,Przychód,45000.0,EUR,,,0.0,kraken,K-BTC-2026-03-10T09:00:00Z-EUR,true
+
+"PIT-38, część E — odpłatne zbycie walut wirtualnych (art. 30b ust. 1a)"
+Przychód (b),0.0
+Koszty uzyskania przychodów poniesione w roku podatkowym (c),0.0
+Koszty uzyskania przychodów poniesione w latach ubiegłych i niepotrącone w poprzednim roku podatkowym (d),0.0
+Dochód b – (c + d) (e),0.0
+"Koszty uzyskania przychodów, które nie zostały potrącone w roku podatkowym (c + d) – b (f)",0.0
+Podstawa obliczenia podatku (po zaokrągleniu do pełnych złotych),0
+"Podatek 19%, po zaokrągleniu do pełnych złotych, przed odliczeniem podatku zapłaconego za granicą",0
+
+"Rok po roku, od pierwszego roku zsynchronizowanej historii"
+,b,c,d,e,f
+2026,0.0,0.0,0.0,0.0,0.0
+"Kolumna d wynika wyłącznie z Twojej zsynchronizowanej historii. Jeśli aktywa były kupowane na kontach, które nie są tu zsynchronizowane, albo Twój poprzedni PIT-38 wykazuje w kolumnie f inną kwotę, wpisz w kolumnie d tę kwotę i przelicz e oraz f."
+
+"WARNING: Wartości bez kursu średniego NBP (tabela A) z dni je poprzedzających, ujęte powyżej jako 0:"
+EUR 2026-01-10
+EUR 2026-03-10
+EUR 2026-03-10
+"Każdy wiersz: waluta, dzień. Wygeneruj raport ponownie, gdy kursy NBP będą dostępne, albo przelicz te kwoty po kursie z ostatniej tabeli NBP sprzed każdego dnia."
+
+WARNING: Wpłaty niepołączone z wypłatą:
+ETH 2.0 2026-02-10
+"Koszt ich nabycia nie jest ujęty w kolumnie c. Jeśli zostały kupione na koncie, które nie jest tu zsynchronizowane, dolicz ten koszt wraz z dokumentem."
