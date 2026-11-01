@@ -73,7 +73,9 @@ pub const REGISTRY: [Jurisdiction; 18] = [
     // `stablecoin_ambiguous: true`.
     Jurisdiction { code: "AT", name: "Austria", locale: "de", crypto_to_crypto_taxable: Some(false), old_stock_cutoff: Some((2021, 3, 1)), ..BASE },
     Jurisdiction { code: "FR", name: "France", method: "pvct", locale: "fr", crypto_to_crypto_taxable: Some(false), annual_threshold: Some(305), ..BASE },
-    Jurisdiction { code: "IT", name: "Italy", method: "lifo", locale: "it", exemption_threshold: Some((2024, 2000)),
+    // D-TAX-IT-SWAPS: a crypto-asset exchanged for another of the same characteristics and functions is no realisation
+    // (art. 67 c. 1 lett. c-sexies, Circolare 30/E p. 47); Rails taxes it.
+    Jurisdiction { code: "IT", name: "Italy", method: "lifo", locale: "it", crypto_to_crypto_taxable: Some(false), exemption_threshold: Some((2024, 2000)),
                    tax_rate: Some(("26%", "33%", (2026, 1, 1))), ..BASE },
     Jurisdiction { code: "ES", name: "Spain", locale: "es", ..BASE },
     // D-TAX-BG-CURRENCY: leva for every tax year up to 2025 (the 2025 return "се попълва в левове"), euros from 2026
@@ -114,16 +116,21 @@ pub fn find(code: &str) -> Option<&'static Jurisdiction> { REGISTRY.iter().find(
 /// build cannot compute; the broker scope likewise until A12-7. Each later slice adds its countries; the gate goes with A12-7.
 /// Austria by its own law (A12-2b: the moving average per wallet, § 27b from 1 March 2022, `fifo::Austria`); Poland by
 /// its own report (tax/pl.rs), from 2019; Bulgaria and the Czech Republic by their own law (A12-3: bg.rs, cz.rs).
-pub const PORTED: [&str; 11] = ["US", "DE", "AT", "ES", "PT", "SK", "PL", "BG", "CZ", "DK", "GR"];
+/// Italy and Ireland by their own law (A12-4: it.rs, ie.rs).
+pub const PORTED: [&str; 13] = ["US", "DE", "AT", "ES", "PT", "SK", "PL", "BG", "CZ", "DK", "GR", "IT", "IE"];
 
 /// D-TAX-GR-NO-TAX: the last Greek year whose law was reviewed (no tax on an individual's crypto gains in force); a
 /// later one waits for the enacted law.
 const GR_LAST_YEAR: i64 = 2026;
 
 /// Whether this build computes `country`'s report for `year`: Poland's from 2019, the year its crypto regime took effect
-/// (art. 44 ust. 1 of the act of 23.10.2018); Greece's up to `GR_LAST_YEAR`; another year is refused as not ported.
+/// (art. 44 ust. 1 of the act of 23.10.2018); Greece's up to `GR_LAST_YEAR`; Italy's 2023–2026; Ireland's 2013–2026;
+/// another year is refused as not ported.
 pub fn ported(country: &str, year: i64) -> bool {
+    let within = |first: i32, last: i32| (i64::from(first)..=i64::from(last)).contains(&year);
     PORTED.contains(&country) && (country != "PL" || year >= i64::from(super::pl::FIRST_YEAR)) && (country != "GR" || year <= GR_LAST_YEAR)
+        // D-TAX-IT-YEARS, D-TAX-IE-YEARS.
+        && (country != "IT" || within(super::it::FIRST_YEAR, super::it::LAST_YEAR)) && (country != "IE" || within(super::ie::FIRST_YEAR, super::ie::LAST_YEAR))
 }
 
 pub(crate) fn ymd((y, m, d): (i32, u32, u32)) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap_or(NaiveDate::MIN) }
@@ -160,7 +167,7 @@ mod tests {
     #[test]
     fn the_registry_is_rails_order_and_the_ported_set_is_fifo_without_a_summary() {
         assert_eq!(REGISTRY.map(|j| j.code), crate::web::tracker::modal::COUNTRIES);
-        for c in PORTED { let j = find(c).unwrap(); assert_eq!(j.method, "fifo", "{c}"); }
+        for c in PORTED { let j = find(c).unwrap(); assert!(["fifo", "lifo", "fifo_4week"].contains(&j.method), "{c}"); }
         let bg = find("BG").unwrap();
         assert_eq!([2023, 2024, 2025, 2026].map(|y| bg.currency(y)), ["BGN", "BGN", "BGN", "EUR"]);
         assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && ported("CZ", 2026) && !ported("FR", 2026));

@@ -76,6 +76,32 @@ pub struct Options<'a> {
     pub tag_mining: bool,
     /// D-TAX-DK-STABLECOIN: the instant each coin's units held are recorded (`Fifo::snapshot`).
     pub snapshot_at: Option<At>,
+    /// Italy (Circolare 30/E p. 54): lots leave newest first, everywhere they leave (Rails' Lifo overrides the dequeue).
+    pub lifo: bool,
+    /// D-TAX-IT-FEES: from this instant fees count nowhere: none joins a cost, none comes off a gain, and units paid as an
+    /// own-coin fee on an acquisition leave at their share of its cost.
+    pub fees_ignored_from: Option<At>,
+    /// D-TAX-IT-PRE2023-BASIS: before this instant a swap is an exchange (the coin given sold, the coin received bought at
+    /// its value) even where `swaps_taxable` is false.
+    pub swaps_taxable_before: Option<At>,
+    /// Ireland's s. 581: the 4-week matching (D-TAX-IE-4WEEK) and the loss restriction (D-TAX-IE-RING-FENCE).
+    pub ireland: Option<Ireland<'a>>,
+}
+
+/// s. 581's windows, on the taxpayer's calendar: `from(at)` the first instant of the 4 weeks before a disposal at `at`
+/// (its local date − 28 days, from midnight), `until(at)` the first instant after the 4 weeks after it (its local date + 29
+/// days, midnight): day 28 is inside both ways.
+#[derive(Clone, Copy)]
+pub struct Ireland<'a> { pub from: &'a dyn Fn(At) -> At, pub until: &'a dyn Fn(At) -> At }
+
+/// The order lots leave a store in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Order {
+    Fifo,
+    /// Newest first; the parts come back oldest first (Rails' `unshift`).
+    Lifo,
+    /// D-TAX-IE-4WEEK (s. 581(1)–(2)): the lots dated from `.0` to `.1` newest first, then the rest oldest first.
+    Recent(At, At),
 }
 
 /// The instants Austria's rules turn on, in the taxpayer's zone.
@@ -95,11 +121,13 @@ pub struct Lot { pub amount: Dec, pub cost_per_unit: Dec, pub date: At, pub basi
                  /// D-TAX-AT-AVERAGE: more than one acquisition averaged into this lot.
                  pub averaged: bool,
                  /// `Options::tag_mining`: acquired by mining.
-                 pub mined: bool }
+                 pub mined: bool,
+                 /// D-TAX-IE-RING-FENCE: restricted loss carried by this lot (never part of its cost), and the units it covers.
+                 pub fenced: Dec, pub fenced_units: Dec }
 
 #[derive(Clone, Debug)]
 struct Tranche { amount: Dec, cost: Dec, date: At, basis_assumed: bool, unpriced: Dec, holding_start: Option<At>,
-                 technical_start: Option<At>, weight: Dec, averaged: bool, mined: bool }
+                 technical_start: Option<At>, weight: Dec, averaged: bool, mined: bool, fenced: Dec, recent: bool }
 
 /// One disposal row (`disposal_row`), `long_held` set where a holding rule split the sale.
 #[derive(Clone, Debug)]
@@ -115,7 +143,17 @@ pub struct Disposal {
     pub mined: bool,
     /// The row it disposes of (`Row::uid`): the rows of one disposal share it.
     pub source: usize,
+    /// D-TAX-IE-4WEEK: some part was matched with an acquisition of the 4 weeks before.
+    pub recent: bool,
+    /// D-TAX-IE-RING-FENCE: the part of this row's loss restricted by a reacquisition within 4 weeks after it.
+    pub restricted: Dec,
+    /// D-TAX-IE-RING-FENCE: restricted losses this row's parts used (each up to its own gain), and what they could not.
+    pub released: Dec, pub unusable: Dec,
 }
+
+/// D-TAX-IE-RING-FENCE: a loss waiting for a reacquisition: the store, the window (after the disposal, before `until`),
+/// the units still to cover, the loss per unit, and the row.
+struct Fence { key: Key, after: At, until: At, units: Dec, per_unit: Dec, row: usize }
 
 /// D-TAX-US-WALLET: one lot as placed at the boundary (`venue` None: held on no synced venue).
 #[derive(Clone, Debug)]
@@ -163,6 +201,7 @@ pub struct Fifo<'a> {
     pub allocation_chosen: bool,
     /// D-TAX-DK-STABLECOIN: each coin's units held at `Options::snapshot_at`, by symbol.
     pub snapshot: Option<Vec<(String, Dec)>>,
+    fences: Vec<Fence>,
 }
 
 fn sum<'a>(it: impl Iterator<Item = &'a Dec>) -> Result<Dec, FiguresError> {
@@ -178,7 +217,7 @@ impl<'a> Fifo<'a> {
     pub fn new(o: Options<'a>) -> Fifo<'a> {
         Fifo { o, lots: HashMap::new(), in_groups: HashMap::new(), out_groups: HashMap::new(), transferred: HashMap::new(),
                moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, averaging: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
-               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], held_back: HashMap::new(), allocation: vec![], allocation_chosen: false, snapshot: None }
+               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], held_back: HashMap::new(), allocation: vec![], allocation_chosen: false, snapshot: None, fences: vec![] }
     }
 
     /// The lots left standing, per (venue, coin).
@@ -188,13 +227,19 @@ impl<'a> Fifo<'a> {
     fn store(&mut self, venue: &str, asset: &str) -> &mut VecDeque<Lot> { let k = self.key(venue, asset); self.lots.entry(k).or_default() }
 
     /// Whether a swap at `at` is a disposal: where the law says so, and in Austria before § 27b (a Tausch under § 31).
-    fn swaps_taxable_at(&self, at: At) -> bool { self.o.swaps_taxable || self.o.austria.is_some_and(|a| at.0 < a.regime_from.0) }
+    fn swaps_taxable_at(&self, at: At) -> bool {
+        self.o.swaps_taxable || self.o.austria.is_some_and(|a| at.0 < a.regime_from.0) || self.o.swaps_taxable_before.is_some_and(|b| at.0 < b.0)
+    }
+    /// D-TAX-IT-FEES.
+    fn fees_ignored(&self, at: At) -> bool { self.o.fees_ignored_from.is_some_and(|f| at.0 >= f.0) }
+    /// The order every lot leaves in, but a disposal's under s. 581.
+    fn order(&self) -> Order { if self.o.lifo { Order::Lifo } else { Order::Fifo } }
     /// Whether Austria's § 27b is in force at `at`.
     fn austrian(&self, at: At) -> bool { self.o.austria.is_some_and(|a| at.0 >= a.regime_from.0) }
     /// D-TAX-COIN-FEE, D-TAX-AT-FEES: whether a coin paid for a service (not on a non-taxable swap) is a disposal.
     fn coin_fees_disposed(&self, at: At) -> bool { self.swaps_taxable_at(at) || self.austrian(at) }
     /// D-TAX-AT-SALE-FEE: whether a sale's fee comes off its gain.
-    fn fee_deducted(&self, at: At) -> bool { !self.austrian(at) }
+    fn fee_deducted(&self, at: At) -> bool { !self.austrian(at) && !self.fees_ignored(at) }
 
     /// D-TAX-AT-AVERAGE: every arrival. Averaging, new stock joins the store's one averaged lot (last), old stock goes
     /// ahead of it in date order; otherwise the lot queues.
@@ -236,7 +281,7 @@ impl<'a> Fifo<'a> {
     /// new-stock lot (an old unit's cost is outside the tax and goes); with no such lot it goes.
     fn shed(&mut self, k: &Key, amount: &Dec, new_from: At) -> Result<(), FiguresError> {
         let lots = self.lots.entry(k.clone()).or_default();
-        let (taken, _) = take(lots, amount)?;
+        let (taken, _) = take(lots, amount, Order::Fifo)?;
         let (mut kept, mut gone) = (Dec::zero(), Dec::zero());
         for l in &taken {
             let cost = (&l.amount * &l.cost_per_unit)?;
@@ -275,8 +320,12 @@ impl<'a> Fifo<'a> {
                     let zero = matches!(r.kind, Kind::StakingReward | Kind::Airdrop) && self.austrian(r.at);
                     let lot = Lot { cost_per_unit: if zero { Dec::zero() } else { unit(&lot_cost, &lot_amount)? }, date: r.at, basis_assumed: r.price_missing && !zero,
                                     unpriced: if value_missing(r) && !zero { lot_amount.clone() } else { Dec::zero() }, amount: lot_amount,
-                                    holding_start: None, technical_start: None, averaged: false, mined: self.o.tag_mining && r.kind == Kind::Mining };
+                                    holding_start: None, technical_start: None, averaged: false, mined: self.o.tag_mining && r.kind == Kind::Mining,
+                                    fenced: Dec::zero(), fenced_units: Dec::zero() };
                     let k = self.key(&r.exchange, asset);
+                    // D-TAX-IE-RING-FENCE: a purchase is a reacquisition (income is not: this report's reading).
+                    let mut lot = lot;
+                    if r.kind == Kind::Buy { self.fence_fill(&k, &mut lot)?; }
                     self.receive(k, lot)?;
                 }
                 Kind::Deposit => {
@@ -286,7 +335,7 @@ impl<'a> Fifo<'a> {
                     let zero = self.o.deposit_cost_zero;
                     let lot = Lot { cost_per_unit: if zero { Dec::zero() } else { unit(&lot_cost, &lot_amount)? }, date: r.at, basis_assumed: !zero,
                                     unpriced: if value_missing(r) && !zero { lot_amount.clone() } else { Dec::zero() }, amount: lot_amount,
-                                    holding_start: None, technical_start: None, averaged: false, mined: false };
+                                    holding_start: None, technical_start: None, averaged: false, mined: false, fenced: Dec::zero(), fenced_units: Dec::zero() };
                     let k = self.key(&r.exchange, asset);
                     self.receive(k, lot)?;
                 }
@@ -410,7 +459,7 @@ impl<'a> Fifo<'a> {
             let holders: Vec<(String, Dec)> = self.held.iter().filter(|((_, a), q)| *a == asset && q.is_positive()).map(|((v, _), q)| (v.clone(), q.clone())).collect();
             if holders.len() > 1 { self.allocation_chosen = true; }
             for (venue, quantity) in holders {
-                let (taken, _) = take(&mut lots, &quantity)?;
+                let (taken, _) = take(&mut lots, &quantity, Order::Fifo)?;
                 for l in &taken {
                     self.allocation.push(Placed { venue: Some(venue.clone()), symbol: symbol.clone(), amount: l.amount.clone(), cost: (&l.amount * &l.cost_per_unit)?, acquired: l.date });
                 }
@@ -449,7 +498,8 @@ impl<'a> Fifo<'a> {
             if let (true, Some(to)) = (self.per_venue, to) {
                 let moved = match &fee { Some(f) => (&r.amount - f)?, None => r.amount.clone() };
                 let k = self.key(&r.exchange, &tx.asset);
-                let (taken, _) = take(self.lots.entry(k).or_default(), &moved)?;
+                let order = self.order();
+                let (taken, _) = take(self.lots.entry(k).or_default(), &moved, order)?;
                 let dest = (Some(to.to_string()), tx.asset.clone());
                 for l in taken { self.receive(dest.clone(), l)?; }
                 self.lots.entry(dest).or_default().make_contiguous().sort_by_key(|l| l.date.0);
@@ -484,9 +534,16 @@ impl<'a> Fifo<'a> {
         if present(r.fee_currency.as_deref()) && r.fee_currency.as_deref() == Some(r.base.as_str()) {
             let Some(fee) = &r.fee_amount else { return Ok((amount.clone(), fiat_value.clone())) };
             let cost = match moved { Some(value) => max0((fiat_value - value)?), None => fiat_value.clone() };
-            return Ok((max0((amount - fee)?), cost));
+            let net = max0((amount - fee)?);
+            if self.fees_ignored(r.at) && amount.is_positive() {
+                // D-TAX-IT-FEES: the fee's units leave at their share of the cost; the rest stays the units' cost.
+                let kept = (&cost * &net)?.div(amount)?;
+                self.consumed = (&self.consumed + &(&cost - &kept)?)?;
+                return Ok((net, kept));
+            }
+            return Ok((net, cost));
         }
-        let fee_cost = if moved.is_some() { Dec::zero() } else { r.fee_fiat_value.clone() };
+        let fee_cost = if moved.is_some() || self.fees_ignored(r.at) { Dec::zero() } else { r.fee_fiat_value.clone() };
         if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()) {
             if crypto_fee_asset(r) { self.spend_fee_coin(tx, fee)?; }
         }
@@ -545,15 +602,66 @@ impl<'a> Fifo<'a> {
     /// `record_disposal`: the lots taken, then (for the row's own sale) its fee coin spent, then the rows.
     fn dispose(&mut self, tx: &Tx, sale: Sale, own: bool) -> Result<(), FiguresError> {
         let k = self.key(&tx.row.exchange, sale.asset);
-        let lots = self.lots.entry(k).or_default();
+        // D-TAX-IE-4WEEK: the acquisitions of the 4 weeks before first, newest first (never one dated after the disposal).
+        let order = match self.o.ireland { Some(ie) => Order::Recent((ie.from)(tx.row.at), tx.row.at), None => self.order() };
+        let lots = self.lots.entry(k.clone()).or_default();
         let has_lots = !lots.is_empty();
-        let (tranches, _) = dequeue_tranches(lots, &sale.amount)?;
+        let (tranches, _) = dequeue_tranches(lots, &sale.amount, order)?;
         if own { self.consume_disposal_fee(tx)?; }
         if self.o.holding.is_some() { return self.dispose_by_term(tx, &sale, tranches, has_lots); }
         if self.o.row_per_lot { return self.dispose_per_lot(tx, &sale, tranches, has_lots); }
         let uncovered = max0((&sale.amount - &sum(tranches.iter().map(|t| &t.amount))?)?);
-        let row = self.disposal_row(tx, &sale, &sale.amount, &sale.proceeds, &sale.fee, &tranches, has_lots, uncovered)?;
+        let mut row = self.disposal_row(tx, &sale, &sale.amount, &sale.proceeds, &sale.fee, &tranches, has_lots, uncovered)?;
+        if let Some(ie) = self.o.ireland {
+            // D-TAX-IE-RING-FENCE: each part's restricted loss is used up to that part's own gain.
+            for t in tranches.iter().filter(|t| t.fenced.is_positive()) {
+                let part = |v: &Dec| -> Result<Dec, FiguresError> { if sale.amount.is_positive() { Ok((v * &t.amount)?.div(&sale.amount)?) } else { Ok(Dec::zero()) } };
+                let gain = max0((&(&part(&sale.proceeds)? - &t.cost)? - &part(&sale.fee)?)?);
+                let used = if gain < t.fenced { gain } else { t.fenced.clone() };
+                row.unusable = (&row.unusable + &(&t.fenced - &used)?)?;
+                row.released = (&row.released + &used)?;
+            }
+            self.disposals.push(row);
+            let row = self.disposals.len() - 1;
+            let d = &self.disposals[row];
+            // s. 581(3): the disposal's own loss waits for a reacquisition within 4 weeks after it.
+            if d.gain_loss.is_negative() && d.amount.is_positive() {
+                let fence = Fence { key: k, after: d.at, until: (ie.until)(d.at), units: d.amount.clone(), per_unit: (&Dec::zero() - &d.gain_loss)?.div(&d.amount)?, row };
+                self.fences.push(fence);
+                // A row walked out of time order (a CFEE after its day's fills) is reacquired by lots already walked.
+                let n = self.fences.len() - 1;
+                let fk = self.fences[n].key.clone();
+                let mut lots = std::mem::take(self.lots.entry(fk.clone()).or_default());
+                let mut order: Vec<usize> = (0..lots.len()).collect();
+                order.sort_by_key(|&i| lots[i].date.0);
+                for i in order { self.fill_one(n, &mut lots[i])?; }
+                *self.lots.entry(fk).or_default() = lots;
+            }
+            return Ok(());
+        }
         self.disposals.push(row);
+        Ok(())
+    }
+
+    /// D-TAX-IE-RING-FENCE: a reacquisition of `k` covers the open losses, the oldest first.
+    fn fence_fill(&mut self, k: &Key, lot: &mut Lot) -> Result<(), FiguresError> {
+        if self.o.ireland.is_none() { return Ok(()); }
+        for n in 0..self.fences.len() { if self.fences[n].key == *k { self.fill_one(n, lot)?; } }
+        Ok(())
+    }
+
+    fn fill_one(&mut self, n: usize, lot: &mut Lot) -> Result<(), FiguresError> {
+        let f = &mut self.fences[n];
+        if !f.units.is_positive() || lot.date.0 <= f.after.0 || lot.date.0 >= f.until.0 { return Ok(()); }
+        let free = max0((&lot.amount - &lot.fenced_units)?);
+        let q = if f.units < free { f.units.clone() } else { free };
+        if !q.is_positive() { return Ok(()); }
+        let loss = (&q * &f.per_unit)?;
+        f.units = (&f.units - &q)?;
+        lot.fenced = (&lot.fenced + &loss)?;
+        lot.fenced_units = (&lot.fenced_units + &q)?;
+        let d = &mut self.disposals[f.row];
+        d.restricted = (&d.restricted + &loss)?;
         Ok(())
     }
 
@@ -625,7 +733,8 @@ impl<'a> Fifo<'a> {
     #[allow(clippy::too_many_arguments)]
     fn disposal_row(&self, tx: &Tx, sale: &Sale, amount: &Dec, proceeds: &Dec, fee: &Dec, tranches: &[Tranche], has_lots: bool, uncovered: Dec) -> Result<Disposal, FiguresError> {
         let r = &tx.row;
-        let acquired = tranches.first().map(|t| self.holding_ref(t, tx));
+        // Rails' Lifo dates a disposal at its newest part (`latest_date`).
+        let acquired = if self.o.lifo { tranches.last() } else { tranches.first() }.map(|t| self.holding_ref(t, tx));
         let cost_basis = sum(tranches.iter().map(|t| &t.cost))?;
         let basis_assumed = tranches.iter().any(|t| t.basis_assumed);
         // ((transacted_at - holding_ref_date) / 1.day).to_i: a Float of seconds, truncated.
@@ -638,7 +747,8 @@ impl<'a> Fifo<'a> {
             // `data_incomplete?`, and D-TAX-UNCOVERED.
             incomplete: sale.price_missing || basis_assumed || !has_lots || uncovered.is_positive(),
             tx_id: tx.tx_id.clone(), exchange: r.exchange.clone(), long_held: None, uncovered, averaged: tranches.iter().any(|t| t.averaged), source: r.uid,
-            mined: tranches.iter().any(|t| t.mined),
+            mined: tranches.iter().any(|t| t.mined), recent: tranches.iter().any(|t| t.recent),
+            restricted: Dec::zero(), released: Dec::zero(), unusable: Dec::zero(),
         })
     }
 
@@ -663,10 +773,11 @@ impl<'a> Fifo<'a> {
             // A fiat top-up in the group is part of what was given.
             let value = match given { Some(v) => (&(&v * &self.swap_in_share(r).0)? + &self.swap_cash_cost(r)?.1)?, None => r.fiat_value.clone() };
             let (lot_amount, lot_cost) = self.apply_acquisition_fee(tx, &r.amount, &value)?;
-            let lot = Lot { cost_per_unit: unit(&lot_cost, &lot_amount)?, date: r.at, basis_assumed: r.price_missing,
+            let mut lot = Lot { cost_per_unit: unit(&lot_cost, &lot_amount)?, date: r.at, basis_assumed: r.price_missing,
                             unpriced: if value_missing(r) { lot_amount.clone() } else { Dec::zero() }, amount: lot_amount,
-                            holding_start: None, technical_start: None, averaged: false, mined: false };
+                            holding_start: None, technical_start: None, averaged: false, mined: false, fenced: Dec::zero(), fenced_units: Dec::zero() };
             let k = self.key(&r.exchange, &tx.asset);
+            self.fence_fill(&k, &mut lot)?;
             return self.receive(k, lot);
         }
         self.add_non_taxable_swap_in_lots(tx)
@@ -690,7 +801,15 @@ impl<'a> Fifo<'a> {
             let cpu = unit(&(&r.fiat_value + &fee_cost)?, &lot_amount)?;
             return self.open_swap_lot(tx, lot_amount, cpu, r.at, true, None, unpriced);
         }
-        let transferred_cost = (&sum(tranches.iter().map(|t| &t.cost))? * &share)?;
+        let mut transferred_cost = (&sum(tranches.iter().map(|t| &t.cost))? * &share)?;
+        // D-TAX-IT-FEES: units paid as this leg's own-coin fee leave at their share of the carried basis.
+        let kept = if self.fees_ignored(r.at) && r.amount.is_positive() && lot_amount < r.amount && lot_amount.is_positive() {
+            Some(lot_amount.div(&r.amount)?) } else { None };
+        if let Some(f) = &kept {
+            let after = (&transferred_cost * f)?;
+            self.consumed = (&self.consumed + &(&transferred_cost - &after)?)?;
+            transferred_cost = after;
+        }
         if !lot_amount.is_positive() {
             let assumed = assumed || tranches.iter().any(|t| t.basis_assumed);
             return self.exhaust(tx, (&(&transferred_cost + &cash)? + &fee_cost)?, assumed);
@@ -704,12 +823,15 @@ impl<'a> Fifo<'a> {
             let tranche_amount = if i == tranches.len() - 1 { (&rest - &allocated)? } else { (&rest * &t.weight)?.div(&total_weight)? };
             allocated = (&allocated + &tranche_amount)?;
             if !tranche_amount.is_positive() { continue; }
-            let carried = (&(&t.cost * &share)? * &total_weight)?.div(&t.weight)?;
+            let mut carried = (&(&t.cost * &share)? * &total_weight)?.div(&t.weight)?;
+            if let Some(f) = &kept { carried = (&carried * f)?; }
             // D-TAX-SWAP-FEE: the lot gets weight/total of `cost`, so the fee joins whole here (Rails weighted it again).
             let cost = (&carried + &fee_cost)?;
             let unpriced = if t.amount.is_positive() { (&tranche_amount * &t.unpriced)?.div(&t.amount)? } else { Dec::zero() };
             let cpu = cost.div(&rest)?;
-            self.open_swap_lot(tx, tranche_amount, cpu, t.date, t.basis_assumed || assumed, t.holding_start, unpriced)?;
+            // Under LIFO the coin received is the newest acquisition of it, dated at the swap (its cost carried).
+            let date = if self.o.lifo { r.at } else { t.date };
+            self.open_swap_lot(tx, tranche_amount, cpu, date, t.basis_assumed || assumed, t.holding_start.filter(|_| !self.o.lifo), unpriced)?;
         }
         if cash_amount.is_positive() {
             let mut scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
@@ -761,7 +883,8 @@ impl<'a> Fifo<'a> {
     #[allow(clippy::too_many_arguments)]
     fn open_swap_lot(&mut self, tx: &Tx, amount: Dec, cost_per_unit: Dec, date: At, basis_assumed: bool, holding_start: Option<At>, unpriced: Dec) -> Result<(), FiguresError> {
         let r = &tx.row;
-        let mut lot = Lot { amount, cost_per_unit, date, basis_assumed, unpriced, holding_start: None, technical_start: None, averaged: false, mined: false };
+        let mut lot = Lot { amount, cost_per_unit, date, basis_assumed, unpriced, holding_start: None, technical_start: None, averaged: false, mined: false,
+                            fenced: Dec::zero(), fenced_units: Dec::zero() };
         if self.o.swap_resets_holding_period {
             lot.holding_start = Some(r.at);
             let held_since = holding_start.unwrap_or(date);
@@ -782,7 +905,8 @@ impl<'a> Fifo<'a> {
     fn transfer_swap_out(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
         let k = self.key(&r.exchange, &tx.asset);
-        let (mut tranches, held) = dequeue_tranches(self.lots.entry(k).or_default(), &r.amount)?;
+        let order = self.order();
+        let (mut tranches, held) = dequeue_tranches(self.lots.entry(k).or_default(), &r.amount, order)?;
         // D-TAX-COIN-FEE: the leg's fee in a coin leaves its lots too (Rails left those units to be sold again).
         self.consume_disposal_fee(tx)?;
         let Some(key) = group_key(r) else {
@@ -808,7 +932,8 @@ impl<'a> Fifo<'a> {
         let uncovered = (&r.amount - &covered)?;
         if uncovered.is_positive() {
             tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered,
-                                    holding_start: None, technical_start: None, weight: Dec::zero(), averaged: false, mined: false });
+                                    holding_start: None, technical_start: None, weight: Dec::zero(), averaged: false, mined: false,
+                                    fenced: Dec::zero(), recent: false });
         }
         let weight = self.out_groups.get(&key).and_then(|g| g.weights.get(&r.uid)).cloned()
             .ok_or_else(|| FiguresError::Data("a swap out-leg outside its group".into()))?;
@@ -888,7 +1013,8 @@ impl<'a> Fifo<'a> {
 
     /// `dequeue_cost`: the lots taken at zero, their basis gone.
     fn dequeue_cost(&mut self, k: &Key, amount: &Dec) -> Result<(), FiguresError> {
-        let (tranches, _) = dequeue_tranches(self.lots.entry(k.clone()).or_default(), amount)?;
+        let order = self.order();
+        let (tranches, _) = dequeue_tranches(self.lots.entry(k.clone()).or_default(), amount, order)?;
         self.consumed = (&self.consumed + &sum(tranches.iter().map(|t| &t.cost))?)?;
         Ok(())
     }
@@ -901,7 +1027,8 @@ fn merge(a: &Lot, b: Lot) -> Result<Lot, FiguresError> {
     let amount = (&a.amount + &b.amount)?;
     let cost = (&(&a.amount * &a.cost_per_unit)? + &(&b.amount * &b.cost_per_unit)?)?;
     Ok(Lot { cost_per_unit: unit(&cost, &amount)?, date: if b.date.0 < a.date.0 { b.date } else { a.date }, basis_assumed: a.basis_assumed || b.basis_assumed,
-             unpriced: (&a.unpriced + &b.unpriced)?, amount, holding_start: None, technical_start: None, averaged: true, mined: a.mined || b.mined })
+             unpriced: (&a.unpriced + &b.unpriced)?, amount, holding_start: None, technical_start: None, averaged: true, mined: a.mined || b.mined,
+             fenced: (&a.fenced + &b.fenced)?, fenced_units: (&a.fenced_units + &b.fenced_units)? })
 }
 
 fn group_key(r: &Row) -> Option<Group> { r.group.as_ref().map(|g| (r.exchange.clone(), g.clone())) }
@@ -943,12 +1070,13 @@ fn apply_split(lots: &mut VecDeque<Lot>, amount: &Dec, at: At) -> Result<(), Fig
             l.cost_per_unit = l.cost_per_unit.div(&factor)?;
             l.amount = (&l.amount * &factor)?;
             l.unpriced = (&l.unpriced * &factor)?;
+            l.fenced_units = (&l.fenced_units * &factor)?;
         }
     } else if amount.is_negative() && !factor.is_positive() {
         lots.clear();
     } else if amount.is_positive() && pool.is_zero() {
         lots.push_back(Lot { amount: amount.clone(), cost_per_unit: Dec::zero(), date: at, basis_assumed: true, unpriced: amount.clone(),
-                             holding_start: None, technical_start: None, averaged: false, mined: false });
+                             holding_start: None, technical_start: None, averaged: false, mined: false, fenced: Dec::zero(), fenced_units: Dec::zero() });
     }
     Ok(())
 }
@@ -1001,36 +1129,63 @@ fn settle_in_cents(rows: &mut [Disposal], proceeds: &Dec, fee: &Dec, deducted: b
     Ok(())
 }
 
-/// The lots that make up `amount`, oldest first, split where a lot is only partly taken (its unpriced units in
-/// proportion), and what was held before.
-fn take(lots: &mut VecDeque<Lot>, amount: &Dec) -> Result<(Vec<Lot>, Dec), FiguresError> {
+/// The lots that make up `amount` in `order`, split where a lot is only partly taken (its unpriced units and its fence in
+/// proportion), and what was held before. `Lifo` hands the parts back oldest first; `Recent` the recent ones first.
+fn take(lots: &mut VecDeque<Lot>, amount: &Dec, order: Order) -> Result<(Vec<Lot>, Dec), FiguresError> {
+    let (parts, held) = take_parts(lots, amount, order)?;
+    Ok((parts.into_iter().map(|(_, l)| l).collect(), held))
+}
+
+/// `take`, each part with whether it was recent.
+fn take_parts(lots: &mut VecDeque<Lot>, amount: &Dec, order: Order) -> Result<(Vec<(bool, Lot)>, Dec), FiguresError> {
     let held = sum(lots.iter().map(|l| &l.amount))?;
     let mut remaining = amount.clone();
     let mut out = vec![];
-    while remaining.is_positive() {
+    // The positions to take from, in turn; a position taken whole is removed after the walk.
+    let picks: Vec<usize> = match order {
+        Order::Fifo => (0..lots.len()).collect(),
+        Order::Lifo => (0..lots.len()).rev().collect(),
+        Order::Recent(from, to) => {
+            let mut recent: Vec<usize> = (0..lots.len()).filter(|&i| lots[i].date.0 >= from.0 && lots[i].date.0 <= to.0).collect();
+            recent.sort_by_key(|&i| std::cmp::Reverse((lots[i].date.0, i)));
+            let rest = (0..lots.len()).filter(|i| !recent.contains(i));
+            recent.iter().copied().chain(rest).collect()
+        }
+    };
+    let recent_count = match order { Order::Recent(from, to) => lots.iter().filter(|l| l.date.0 >= from.0 && l.date.0 <= to.0).count(), _ => 0 };
+    let mut emptied = vec![];
+    for (n, i) in picks.into_iter().enumerate() {
         budget::check()?;
-        let Some(lot) = lots.front_mut() else { break };
+        if !remaining.is_positive() { break; }
+        let lot = &mut lots[i];
         let part = if remaining < lot.amount { remaining.clone() } else { lot.amount.clone() };
-        let unpriced = if lot.amount.is_positive() { (&lot.unpriced * &part)?.div(&lot.amount)? } else { Dec::zero() };
-        out.push(Lot { amount: part, unpriced: unpriced.clone(), ..lot.clone() });
+        let share = |v: &Dec| -> Result<Dec, FiguresError> { if lot.amount.is_positive() { Ok((v * &part)?.div(&lot.amount)?) } else { Ok(Dec::zero()) } };
+        let (unpriced, fenced, fenced_units) = (share(&lot.unpriced)?, share(&lot.fenced)?, share(&lot.fenced_units)?);
+        out.push((n < recent_count, Lot { amount: part.clone(), unpriced: unpriced.clone(), fenced: fenced.clone(), fenced_units: fenced_units.clone(), ..lot.clone() }));
         if lot.amount <= remaining {
             remaining = (&remaining - &lot.amount)?;
-            lots.pop_front();
+            emptied.push(i);
         } else {
             lot.amount = (&lot.amount - &remaining)?;
             lot.unpriced = (&lot.unpriced - &unpriced)?;
+            lot.fenced = (&lot.fenced - &fenced)?;
+            lot.fenced_units = (&lot.fenced_units - &fenced_units)?;
             remaining = Dec::zero();
         }
     }
+    emptied.sort_unstable();
+    for i in emptied.into_iter().rev() { lots.remove(i); }
+    if order == Order::Lifo { out.reverse(); }
     Ok((out, held))
 }
 
 /// `dequeue_tranches`.
-fn dequeue_tranches(lots: &mut VecDeque<Lot>, amount: &Dec) -> Result<(Vec<Tranche>, Dec), FiguresError> {
-    let (taken, held) = take(lots, amount)?;
-    let tranches = taken.into_iter().map(|l| Ok(Tranche { cost: (&l.amount * &l.cost_per_unit)?, amount: l.amount, date: l.date,
+fn dequeue_tranches(lots: &mut VecDeque<Lot>, amount: &Dec, order: Order) -> Result<(Vec<Tranche>, Dec), FiguresError> {
+    let (taken, held) = take_parts(lots, amount, order)?;
+    let tranches = taken.into_iter().map(|(recent, l)| Ok(Tranche { cost: (&l.amount * &l.cost_per_unit)?, amount: l.amount, date: l.date,
                                                          basis_assumed: l.basis_assumed, unpriced: l.unpriced, holding_start: l.holding_start,
-                                                         technical_start: l.technical_start, weight: Dec::zero(), averaged: l.averaged, mined: l.mined }))
+                                                         technical_start: l.technical_start, weight: Dec::zero(), averaged: l.averaged, mined: l.mined,
+                                                         fenced: l.fenced, recent }))
         .collect::<Result<_, FiguresError>>()?;
     Ok((tranches, held))
 }
@@ -1075,7 +1230,7 @@ mod tests {
             rows[6].fee_asset = Some("ETH".into());
             let acquired = sum([d("300"), d("1000"), d("70"), d("2507")].iter()).unwrap();
             let holding = |_: At, _: At| false;
-            let mut f = Fifo::new(Options { swaps_taxable: taxable, stablecoin_as_fiat: false, holding: Some(&holding), swap_resets_holding_period: false, per_venue_from, swap_cost_to_disposed_from: None, austria: None, average_all, row_per_lot: false, deposit_cost_zero: false, tag_mining: false, snapshot_at: None });
+            let mut f = Fifo::new(Options { swaps_taxable: taxable, stablecoin_as_fiat: false, holding: Some(&holding), swap_resets_holding_period: false, per_venue_from, swap_cost_to_disposed_from: None, austria: None, average_all, row_per_lot: false, deposit_cost_zero: false, tag_mining: false, snapshot_at: None, lifo: false, fees_ignored_from: None, swaps_taxable_before: None, ireland: None });
             f.calculate(&rows).unwrap();
             let used = sum(f.disposals.iter().map(|x| &x.cost_basis)).unwrap();
             let total = (&(&used + &f.consumed).unwrap() + &remaining(&f)).unwrap();
@@ -1097,7 +1252,7 @@ mod tests {
         t.fee_asset = Some(t.asset.clone());
     }
     fn not_taxable() -> Options<'static> {
-        Options { swaps_taxable: false, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None, swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: false, deposit_cost_zero: false, tag_mining: false, snapshot_at: None }
+        Options { swaps_taxable: false, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None, swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: false, deposit_cost_zero: false, tag_mining: false, snapshot_at: None, lifo: false, fees_ignored_from: None, swaps_taxable_before: None, ireland: None }
     }
 
     /// D-TAX-SWAP-FEE-EXHAUSTED: a swap-in whose own-coin fee takes every unit received opens no lot; the basis it would
@@ -1197,7 +1352,7 @@ mod tests {
     fn a_lost_coin_takes_its_lots_with_no_row_and_an_oversold_sale_is_incomplete() {
         let rows = [row(0, Kind::Buy, "BTC", "1", "100", 0, "a"), row(1, Kind::Buy, "BTC", "1", "500", 1, "a"), row(2, Kind::Lost, "BTC", "1", "0", 2, "a"),
                     row(3, Kind::Sell, "BTC", "1.5", "900", 3, "a")];
-        let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None, swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: false, deposit_cost_zero: false, tag_mining: false, snapshot_at: None });
+        let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None, swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: false, deposit_cost_zero: false, tag_mining: false, snapshot_at: None, lifo: false, fees_ignored_from: None, swaps_taxable_before: None, ireland: None });
         f.calculate(&rows).unwrap();
         assert_eq!(f.disposals.len(), 1);
         let x = &f.disposals[0];
@@ -1215,7 +1370,7 @@ mod tests {
         rows[4].row.price_missing = true;
         rows[4].row.value_missing = Some(true);
         let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None,
-                                        swap_cost_to_disposed_from: None, austria: None, average_all: true, row_per_lot: false, deposit_cost_zero: true, tag_mining: false, snapshot_at: None });
+                                        swap_cost_to_disposed_from: None, austria: None, average_all: true, row_per_lot: false, deposit_cost_zero: true, tag_mining: false, snapshot_at: None, lifo: false, fees_ignored_from: None, swaps_taxable_before: None, ireland: None });
         f.calculate(&rows).unwrap();
         let got: Vec<(String, bool)> = f.disposals.iter().map(|x| (x.cost_basis.round(2).unwrap().to_s_f(), x.incomplete)).collect();
         // 35,000; then 1 @ 35,000 + 1 @ 50,000 + 1 @ 0 = 85,000 for 3.
@@ -1230,7 +1385,7 @@ mod tests {
                             row(2, Kind::Mining, "BTC", "0.5", "25.0005", 2, "a"), row(3, Kind::Sell, "BTC", "2.7", "540.0054", 3, "a")];
         rows[3].row.fee_fiat_value = d("1.001");
         let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None,
-                                        swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: true, deposit_cost_zero: false, tag_mining: true, snapshot_at: None });
+                                        swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: true, deposit_cost_zero: false, tag_mining: true, snapshot_at: None, lifo: false, fees_ignored_from: None, swaps_taxable_before: None, ireland: None });
         f.calculate(&rows).unwrap();
         let x = &f.disposals;
         assert_eq!(x.len(), 4);
@@ -1250,11 +1405,90 @@ mod tests {
         let mut rows = vec![row(0, Kind::Deposit, "ETH", "1", "2000", 0, "a"), row(1, Kind::Buy, "USDT", "10", "10", 1, "a"), row(2, Kind::Sell, "ETH", "1", "2500", 5, "a")];
         rows[0].row.value_missing = Some(true);
         let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None,
-                                        swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: true, deposit_cost_zero: true, tag_mining: false, snapshot_at: Some(at(3)) });
+                                        swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: true, deposit_cost_zero: true, tag_mining: false, snapshot_at: Some(at(3)), lifo: false, fees_ignored_from: None, swaps_taxable_before: None, ireland: None });
         f.calculate(&rows).unwrap();
         let x = &f.disposals[0];
         assert_eq!((x.cost_basis.to_s_f(), x.gain_loss.to_s_f(), x.complete, x.incomplete), ("0.0".into(), "2500.0".into(), true, false));
         let snap = f.snapshot.unwrap();
         assert_eq!(snap.iter().map(|(s, u)| format!("{s} {}", u.to_s_f())).collect::<Vec<_>>(), ["ETH 1.0", "USDT 10.0"]);
     }
+    fn plain() -> Options<'static> {
+        Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None,
+                  swap_cost_to_disposed_from: None, austria: None, average_all: false, row_per_lot: false, deposit_cost_zero: false, tag_mining: false,
+                  snapshot_at: None, lifo: false, fees_ignored_from: None, swaps_taxable_before: None, ireland: None }
+    }
+    fn cents(v: &Dec) -> String { v.round(2).unwrap().to_s_f() }
+    fn ie_from(a: At) -> At { At(a.0 - 28 * 86_400_000_000_000) }
+    fn ie_until(a: At) -> At { At(a.0 + 29 * 86_400_000_000_000) }
+    fn ireland() -> Options<'static> { Options { ireland: Some(Ireland { from: &ie_from, until: &ie_until }), ..plain() } }
+
+    /// Italy: the newest lot leaves first, the parts come back oldest first, and the row is dated at its newest part.
+    #[test]
+    fn lifo_takes_the_newest_lot_first() {
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "10000", 0, "a"), row(1, Kind::Buy, "BTC", "1", "30000", 1, "a"),
+                        row(2, Kind::Sell, "BTC", "1.5", "30000", 2, "a")];
+        let mut f = Fifo::new(Options { lifo: true, ..plain() });
+        f.calculate(&rows).unwrap();
+        assert_eq!((cents(&f.disposals[0].cost_basis), f.disposals[0].acquired), ("35000.0".to_string(), Some(at(1))));
+        assert_eq!(cents(&remaining(&f)), "5000.0");
+    }
+
+    /// D-TAX-IE-4WEEK: every acquisition of the 4 weeks before, newest first, then FIFO; none dated after the disposal.
+    #[test]
+    fn the_four_weeks_before_go_first_newest_first() {
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "10000", 0, "a"), row(1, Kind::Buy, "BTC", "0.5", "15000", 50, "a"),
+                        row(2, Kind::Buy, "BTC", "0.5", "20000", 59, "a"), row(3, Kind::Sell, "BTC", "1.2", "43200", 69, "a")];
+        let mut f = Fifo::new(ireland());
+        f.calculate(&rows).unwrap();
+        let d = &f.disposals[0];
+        assert_eq!((cents(&d.cost_basis), d.recent, d.acquired), ("37000.0".to_string(), true, Some(at(59))));
+        assert_eq!(cents(&remaining(&f)), "8000.0");
+    }
+
+    /// D-TAX-IE-RING-FENCE: a loss followed by a purchase within 4 weeks is restricted; a later sale uses it only up to the
+    /// gain of the part bought again; the rest is not usable. Basis is untouched by the fence.
+    #[test]
+    fn a_restricted_loss_is_used_by_its_own_part_only() {
+        let sale = |price: &str| vec![row(0, Kind::Buy, "ETH", "1", "1000", 0, "a"), row(1, Kind::Buy, "ETH", "1", "5000", 100, "a"),
+                                      row(2, Kind::Sell, "ETH", "1", "3000", 100, "a"), row(3, Kind::Buy, "ETH", "1", "3000", 108, "a"),
+                                      row(4, Kind::Sell, "ETH", "2", price, 191, "a")];
+        let mut f = Fifo::new(ireland());
+        f.calculate(&sale("6000")).unwrap();
+        let (loss, later) = (&f.disposals[0], &f.disposals[1]);
+        assert_eq!((cents(&loss.gain_loss), cents(&loss.restricted)), ("-2000.0".to_string(), "2000.0".to_string()));
+        assert_eq!((cents(&later.gain_loss), cents(&later.released), cents(&later.unusable)), ("2000.0".to_string(), "0.0".to_string(), "2000.0".to_string()));
+        let mut f = Fifo::new(ireland());
+        f.calculate(&sale("10000")).unwrap();
+        assert_eq!((cents(&f.disposals[1].released), cents(&f.disposals[1].unusable)), ("2000.0".to_string(), "0.0".to_string()));
+        // Outside the window (day 29 after): nothing restricted.
+        let mut rows = sale("6000");
+        rows[3].row.at = at(129);
+        let mut f = Fifo::new(ireland());
+        f.calculate(&rows).unwrap();
+        assert!(f.disposals[0].restricted.is_zero());
+    }
+
+    /// D-TAX-IE-RING-FENCE: a loss row walked after a purchase dated later than it (a CFEE after its fills) is restricted by it.
+    #[test]
+    fn a_purchase_walked_ahead_restricts_a_later_walked_loss() {
+        let mut rows = vec![row(0, Kind::Buy, "ETH", "1", "4000", 0, "a"), row(1, Kind::Buy, "ETH", "0.1", "200", 400, "a"),
+                            row(2, Kind::Fee, "ETH", "0.1", "200", 399, "a")];
+        rows[2].row.at = At(at(400).0 - 3_600_000_000_000);
+        let mut f = Fifo::new(ireland());
+        f.calculate(&rows).unwrap();
+        let fee = &f.disposals[0];
+        assert_eq!((cents(&fee.gain_loss), cents(&fee.restricted)), ("-200.0".to_string(), "200.0".to_string()));
+    }
+
+    /// D-TAX-IT-FEES: an own-coin fee's units leave at their share of the purchase's cost; a fiat fee joins no cost.
+    #[test]
+    fn ignored_fees_leave_at_their_share() {
+        let mut rows = vec![row(0, Kind::Buy, "BTC", "1", "10000", 0, "a"), row(1, Kind::Buy, "ETH", "1", "2000", 1, "a")];
+        (rows[0].row.fee_currency, rows[0].row.fee_amount) = (Some("BTC".into()), Some(d("0.01")));
+        (rows[1].row.fee_currency, rows[1].row.fee_amount, rows[1].row.fee_fiat_value) = (Some("EUR".into()), Some(d("20")), d("20"));
+        let mut f = Fifo::new(Options { fees_ignored_from: Some(at(0)), ..plain() });
+        f.calculate(&rows).unwrap();
+        assert_eq!((cents(&remaining(&f)), cents(&f.consumed)), ("11900.0".to_string(), "100.0".to_string()));
+    }
+
 }

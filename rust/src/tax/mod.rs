@@ -45,6 +45,8 @@ mod cz;
 pub mod fifo;
 pub mod job;
 pub mod jurisdictions;
+mod it;
+mod ie;
 pub mod nbp;
 pub mod pl;
 
@@ -179,6 +181,12 @@ struct Entry { id: i64, row: walk::Row, tx_id: Option<String> }
 impl Report {
     fn local(&self, at: At) -> NaiveDate { crate::web::timezone::local(at.utc(), &self.zone).date_naive() }
 
+    /// Midnight starting the local day `days` after `at`'s (s. 581's windows); `at` itself where out of range.
+    fn local_day_start(&self, at: At, days: i64) -> At {
+        let day = self.local(at) + chrono::Duration::days(days);
+        local_start(&self.zone, (day.year(), day.month(), day.day())).unwrap_or(at)
+    }
+
     /// Poland's NBP rates read again (the job loads them after `prepare`, from `nbp_needs`).
     pub fn reload_nbp(&mut self, c: &Connection) -> Result<(), FiguresError> {
         if self.nbp.is_some() { self.nbp = Some(nbp::Nbp::load(c)?); }
@@ -216,7 +224,7 @@ impl Report {
             .map(|(row, s)| Entry { id: s.id, row, tx_id: s.tx_id.clone() }).collect();
         if !j.swaps_taxable() && !self.stablecoin_as_fiat { swap_coin_for_stablecoin_groups(&mut enriched); }
         // D-TAX-SWAP-RECEIVED: a swap's proceeds are the value received (BG чл. 33 ал. 5; CZ § 3 odst. 2, GFŘ 2022).
-        if matches!(j.code, "BG" | "CZ") { value_groups(&mut enriched, |_, _| true)?; }
+        if matches!(j.code, "BG" | "CZ") { value_groups(&mut enriched, |_, _| Some(true))?; }
         let austria = (j.code == "AT").then(|| self.austria()).transpose()?;
         let mut notes = AtNotes::default();
         if j.code == "CZ" {
@@ -289,6 +297,11 @@ impl Report {
             let mut by_uid: HashMap<usize, fifo::Tx> = txs.drain(..).map(|t| (t.row.uid, t)).collect();
             txs.extend(order.iter().filter_map(|r| by_uid.remove(&r.uid)));
         }
+        // Italy's regime (L. 197/2022) and Ireland's s. 581 windows, on the taxpayer's calendar.
+        let (it, ie) = (j.code == "IT", j.code == "IE");
+        let it_from = if it { local_midnight(&self.zone, it::FIRST_YEAR) } else { None };
+        let ie_from = |at: At| self.local_day_start(at, -28);
+        let ie_until = |at: At| self.local_day_start(at, 29);
         let mut engine = fifo::Fifo::new(fifo::Options {
             swaps_taxable: j.swaps_taxable(), stablecoin_as_fiat: self.stablecoin_as_fiat,
             holding: holding.as_ref().map(|h| h as &dyn Fn(At, At) -> bool), swap_resets_holding_period: j.swap_resets_holding_period, per_venue_from,
@@ -297,6 +310,9 @@ impl Report {
             // and year-start units.
             average_all: j.code == "BG", row_per_lot: dk, deposit_cost_zero: j.code == "BG" || dk, tag_mining: dk,
             snapshot_at: if dk { local_midnight(&self.zone, year) } else { None },
+            // D-TAX-IT-FEES, D-TAX-IT-PRE2023-BASIS; LIFO as Rails.
+            lifo: it, fees_ignored_from: it_from, swaps_taxable_before: it_from,
+            ireland: ie.then_some(fifo::Ireland { from: &ie_from, until: &ie_until }),
         });
         engine.calculate(&txs)?;
         // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).
@@ -624,21 +640,22 @@ fn dk_stablecoin(symbol: &str) -> bool { stable(symbol) || symbol == "USDP" }
 
 /// D-TAX-DK-SWAP-VALUE: the side whose value both take, `true` for the coins received: a fiat stablecoin's side, else
 /// Bitcoin's, else Ether's, else the side received (Skattestyrelsen's list ends with 2022; no historical rank is held).
-fn dk_value_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> bool {
+fn dk_value_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> {
     let tests: [fn(&str) -> bool; 3] = [|b| matches!(b, "USDT" | "USDC" | "USDP" | "EURC"), |b| b == "BTC", |b| b == "ETH"];
     for t in tests {
         let (i, o) = (ins.iter().any(|r| t(&r.base)), outs.iter().any(|r| t(&r.base)));
-        if i || o { return i; }
+        if i || o { return Some(i); }
     }
-    true
+    Some(true)
 }
 
-/// D-TAX-SWAP-RECEIVED (BG, CZ: `side` always the coins received), D-TAX-DK-SWAP-VALUE (DK: `dk_value_side`).
+/// D-TAX-SWAP-RECEIVED (BG, CZ, IE: `side` always the coins received; IT: only a group with an e-money token),
+/// D-TAX-DK-SWAP-VALUE (DK: `dk_value_side`).
 /// One value for both sides of an exchange of coins (a group of coin legs only): the side `side` names (`true`: the
 /// coins received) gives its total, which the other side's legs share by their own values (evenly where one is
 /// unpriced), the last taking the rest; set on this report's copy of the rows before the engine. Returns each group so
 /// valued, listed.
-fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> bool) -> Result<Vec<String>, FiguresError> {
+fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> Option<bool>) -> Result<Vec<String>, FiguresError> {
     let mut order: Vec<(String, String)> = vec![];
     let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
     for (i, e) in rows.iter().enumerate() {
@@ -654,7 +671,8 @@ fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> bo
         if legs.iter().any(|&i| fiat(&rows[i].row.base)) { continue; }
         let (ins, outs): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| rows[i].row.kind.in_leg());
         if ins.is_empty() || outs.is_empty() { continue; }
-        let received = side(&ins.iter().map(|&i| &rows[i].row).collect::<Vec<_>>(), &outs.iter().map(|&i| &rows[i].row).collect::<Vec<_>>());
+        // `None`: the group is not valued at all (Italy: only an exchange with an e-money token is a disposal).
+        let Some(received) = side(&ins.iter().map(|&i| &rows[i].row).collect::<Vec<_>>(), &outs.iter().map(|&i| &rows[i].row).collect::<Vec<_>>()) else { continue };
         let (from, to) = if received { (&ins, &outs) } else { (&outs, &ins) };
         // A side whose value is not known values nothing: the other side keeps its own values as an estimate, marked
         // missing, so the disposal is incomplete and counted in the banner.
