@@ -136,7 +136,7 @@ pub struct Fifo<'a> {
     /// carry (row uid, cost); listed by the report, never a loss.
     pub exhausted: Vec<(usize, Dec)>,
     /// Austria: an exhausted leg's basis waiting for a same-coin leg of its swap, by (group, coin): (uid, basis, assumed).
-    held_back: HashMap<(Group, String), (usize, Dec, bool)>,
+    held_back: HashMap<(Group, String), Vec<(usize, Dec, bool)>>,
     /// D-TAX-US-WALLET: the lots as placed at the boundary, and whether the placement was a choice (a coin held on more
     /// than one venue, or off every synced one).
     pub allocation: Vec<Placed>,
@@ -292,7 +292,7 @@ impl<'a> Fifo<'a> {
         }
         if self.o.per_venue_from.is_some() && !self.per_venue { self.place()?; }
         // Austria: a basis no leg of its swap took is listed after all.
-        let mut held: Vec<(usize, Dec, bool)> = self.held_back.drain().map(|(_, v)| v).collect();
+        let mut held: Vec<(usize, Dec, bool)> = self.held_back.drain().flat_map(|(_, v)| v).collect();
         held.sort_by_key(|h| h.0);
         for (uid, basis, _) in held { self.list_exhausted(uid, basis)?; }
         Ok(())
@@ -639,7 +639,7 @@ impl<'a> Fifo<'a> {
         // A tranche can predate everything already held, and the lots are read in order.
         self.store(&r.exchange, &tx.asset).make_contiguous().sort_by_key(|l| l.date.0);
         // D-TAX-SWAP-FEE-EXHAUSTED, Austria: a same-coin leg of this swap that came first and was all fee joins this pool.
-        if let Some((_, basis, assumed)) = key.and_then(|k| self.held_back.remove(&(k, tx.asset.clone()))) { self.retain(tx, &basis, assumed)?; }
+        for (_, basis, assumed) in key.and_then(|k| self.held_back.remove(&(k, tx.asset.clone()))).unwrap_or_default() { self.retain(tx, &basis, assumed)?; }
         Ok(())
     }
 
@@ -652,9 +652,7 @@ impl<'a> Fifo<'a> {
         if self.austrian(r.at) {
             if self.retain(tx, &basis, assumed)? { return Ok(()); }
             if let Some(k) = group_key(r) {
-                let held = self.held_back.entry((k, tx.asset.clone())).or_insert((r.uid, Dec::zero(), false));
-                held.1 = (&held.1 + &basis)?;
-                held.2 |= assumed;
+                self.held_back.entry((k, tx.asset.clone())).or_default().push((r.uid, basis, assumed));
                 return Ok(());
             }
         }
@@ -1066,6 +1064,20 @@ mod tests {
             assert!(f.exhausted.is_empty(), "exhausted first {exhausted_first}");
             assert_eq!(remaining(&f).round(9).unwrap().to_s_f(), "400.0", "exhausted first {exhausted_first}");
         }
+    }
+
+    /// Austria: two same-coin legs both all fee, and no pool: each is listed with its own basis.
+    #[test]
+    fn two_exhausted_austrian_legs_are_listed_apart() {
+        let mut a = swap_leg(2, Kind::SwapIn, "ETH", "1", "100", 2);
+        fee_in_own_coin(&mut a, "1", "100");
+        let mut b = swap_leg(3, Kind::SwapIn, "ETH", "3", "300", 2);
+        fee_in_own_coin(&mut b, "3", "300");
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "400", 0, "a"), swap_leg(1, Kind::SwapOut, "BTC", "1", "400", 2), a, b];
+        let mut f = Fifo::new(austria());
+        f.calculate(&rows).unwrap();
+        assert_eq!(f.exhausted.iter().map(|(u, c)| (*u, c.round(9).unwrap().to_s_f())).collect::<Vec<_>>(),
+                   vec![(2, "100.0".to_string()), (3, "300.0".to_string())]);
     }
 
     /// Austria: a basis that was assumed stays marked so when it joins a complete pool.
