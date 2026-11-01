@@ -64,6 +64,12 @@ pub struct Options<'a> {
     pub swap_cost_to_disposed_from: Option<At>,
     /// Austria's own rules, from the instants they take effect.
     pub austria: Option<Austria>,
+    /// D-TAX-BG-AVERAGE: every store holds one lot at the weighted average from the first row (`receive` merges every
+    /// arrival into it).
+    pub average_all: bool,
+    /// D-TAX-BG-DEPOSIT-ZERO, D-TAX-DK-DEPOSIT-ZERO: an unlinked deposit opens at cost 0 (no documented purchase), neither
+    /// assumed nor unpriced.
+    pub deposit_cost_zero: bool,
 }
 
 /// The instants Austria's rules turn on, in the taxpayer's zone.
@@ -172,6 +178,12 @@ impl<'a> Fifo<'a> {
     /// D-TAX-AT-AVERAGE: every arrival. Averaging, new stock joins the store's one averaged lot (last), old stock goes
     /// ahead of it in date order; otherwise the lot queues.
     fn receive(&mut self, k: Key, lot: Lot) -> Result<(), FiguresError> {
+        if self.o.average_all {
+            // D-TAX-BG-AVERAGE: the weighted average of every unit held (ЗДДФЛ чл. 33 ал. 4).
+            let lots = self.lots.entry(k).or_default();
+            match lots.back_mut() { Some(average) => *average = merge(average, lot)?, None => lots.push_back(lot) }
+            return Ok(());
+        }
         let new_from = self.o.austria.filter(|_| self.averaging).map(|a| a.new_stock_from);
         let lots = self.lots.entry(k).or_default();
         match new_from {
@@ -248,8 +260,10 @@ impl<'a> Fifo<'a> {
                 Kind::Deposit => {
                     if r.linked { continue; }
                     let (lot_amount, lot_cost) = self.apply_acquisition_fee(tx, amount, fiat_value)?;
-                    let lot = Lot { cost_per_unit: unit(&lot_cost, &lot_amount)?, date: r.at, basis_assumed: true,
-                                    unpriced: if value_missing(r) { lot_amount.clone() } else { Dec::zero() }, amount: lot_amount,
+                    // D-TAX-BG-DEPOSIT-ZERO, D-TAX-DK-DEPOSIT-ZERO: no documented purchase price, cost 0.
+                    let zero = self.o.deposit_cost_zero;
+                    let lot = Lot { cost_per_unit: if zero { Dec::zero() } else { unit(&lot_cost, &lot_amount)? }, date: r.at, basis_assumed: !zero,
+                                    unpriced: if value_missing(r) && !zero { lot_amount.clone() } else { Dec::zero() }, amount: lot_amount,
                                     holding_start: None, technical_start: None, averaged: false };
                     let k = self.key(&r.exchange, asset);
                     self.receive(k, lot)?;
@@ -930,8 +944,9 @@ mod tests {
     /// coin, a lost coin, transfers, and the per-venue boundary.
     #[test]
     fn basis_is_conserved() {
-        let cases: [(bool, Option<At>); 3] = [(true, None), (false, None), (true, Some(at(5)))];
-        for (taxable, per_venue_from) in cases {
+        // D-TAX-BG-AVERAGE: averaging conserves units and cost across partial sales, later buys, fees and transfers.
+        let cases: [(bool, Option<At>, bool); 4] = [(true, None, false), (false, None, false), (true, Some(at(5)), false), (true, None, true)];
+        for (taxable, per_venue_from, average_all) in cases {
             let mut rows = vec![
                 row(0, Kind::Buy, "BTC", "1", "300", 0, "a"), row(1, Kind::Buy, "BTC", "3", "1000", 1, "b"), row(2, Kind::Buy, "ETH", "7", "70", 2, "a"),
                 row(3, Kind::Sell, "BTC", "0.7", "900", 3, "a"), row(4, Kind::Fee, "BTC", "0.01", "5", 4, "b"), row(5, Kind::Lost, "ETH", "1", "0", 6, "a"),
@@ -944,12 +959,12 @@ mod tests {
             rows[6].fee_asset = Some("ETH".into());
             let acquired = sum([d("300"), d("1000"), d("70"), d("2507")].iter()).unwrap();
             let holding = |_: At, _: At| false;
-            let mut f = Fifo::new(Options { swaps_taxable: taxable, stablecoin_as_fiat: false, holding: Some(&holding), swap_resets_holding_period: false, per_venue_from, swap_cost_to_disposed_from: None, austria: None });
+            let mut f = Fifo::new(Options { swaps_taxable: taxable, stablecoin_as_fiat: false, holding: Some(&holding), swap_resets_holding_period: false, per_venue_from, swap_cost_to_disposed_from: None, austria: None, average_all, deposit_cost_zero: false });
             f.calculate(&rows).unwrap();
             let used = sum(f.disposals.iter().map(|x| &x.cost_basis)).unwrap();
             let total = (&(&used + &f.consumed).unwrap() + &remaining(&f)).unwrap();
             let gap = (&total - &acquired).unwrap();
-            assert!(gap.round(9).unwrap().is_zero(), "taxable {taxable}, per venue {per_venue_from:?}: {} off", gap.to_s_f());
+            assert!(gap.round(9).unwrap().is_zero(), "taxable {taxable}, per venue {per_venue_from:?}, average {average_all}: {} off", gap.to_s_f());
         }
     }
 
@@ -957,11 +972,28 @@ mod tests {
     fn a_lost_coin_takes_its_lots_with_no_row_and_an_oversold_sale_is_incomplete() {
         let rows = [row(0, Kind::Buy, "BTC", "1", "100", 0, "a"), row(1, Kind::Buy, "BTC", "1", "500", 1, "a"), row(2, Kind::Lost, "BTC", "1", "0", 2, "a"),
                     row(3, Kind::Sell, "BTC", "1.5", "900", 3, "a")];
-        let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None, swap_cost_to_disposed_from: None, austria: None });
+        let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None, swap_cost_to_disposed_from: None, austria: None, average_all: false, deposit_cost_zero: false });
         f.calculate(&rows).unwrap();
         assert_eq!(f.disposals.len(), 1);
         let x = &f.disposals[0];
         assert_eq!((x.cost_basis.to_s_f(), x.uncovered.to_s_f(), x.complete, x.incomplete), ("500.0".into(), "0.5".into(), false, true));
         assert_eq!(f.consumed.to_s_f(), "100.0");
+    }
+
+    /// D-TAX-BG-AVERAGE: a sale takes the average of every unit held, and a later buy joins it; D-TAX-BG-DEPOSIT-ZERO: an
+    /// unlinked deposit adds units at no cost, neither assumed nor unpriced.
+    #[test]
+    fn the_bulgarian_average_and_the_deposit_at_zero() {
+        let mut rows = vec![row(0, Kind::Buy, "BTC", "1", "30000", 0, "a"), row(1, Kind::Buy, "BTC", "1", "40000", 1, "b"),
+                            row(2, Kind::Sell, "BTC", "1", "50000", 2, "a"), row(3, Kind::Buy, "BTC", "1", "50000", 3, "a"),
+                            row(4, Kind::Deposit, "BTC", "1", "0", 4, "a"), row(5, Kind::Sell, "BTC", "3", "90000", 5, "b")];
+        rows[4].row.price_missing = true;
+        rows[4].row.value_missing = Some(true);
+        let mut f = Fifo::new(Options { swaps_taxable: true, stablecoin_as_fiat: false, holding: None, swap_resets_holding_period: false, per_venue_from: None,
+                                        swap_cost_to_disposed_from: None, austria: None, average_all: true, deposit_cost_zero: true });
+        f.calculate(&rows).unwrap();
+        let got: Vec<(String, bool)> = f.disposals.iter().map(|x| (x.cost_basis.round(2).unwrap().to_s_f(), x.incomplete)).collect();
+        // 35,000; then 1 @ 35,000 + 1 @ 50,000 + 1 @ 0 = 85,000 for 3.
+        assert_eq!(got, [("35000.0".to_string(), false), ("85000.0".to_string(), false)]);
     }
 }
