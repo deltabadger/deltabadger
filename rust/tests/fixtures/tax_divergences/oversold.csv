@@ -1,0 +1,7 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+"WARNING: 1 values missing — report incomplete, do not file as-is"
+2026-01-06T10:00:00Z,2026-01-05T10:00:00Z,BTC,2.0,300.0,100.0,200.0,USD,1,0.0,alpaca,sell-BTC-2026-01-06T10:00:00Z,false,true,Short-term
+
+WARNING: Sales of more than your synced history holds; the part no purchase covers is reported at a cost basis of zero:
+BTC 1.0 2026-01-06
+"Connect or import the account these assets came from, or link the deposit that brought them in, so these sales carry their real cost basis."

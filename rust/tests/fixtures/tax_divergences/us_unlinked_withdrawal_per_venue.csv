@@ -1,0 +1,6 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2026-01-07T10:00:00Z,2026-01-05T11:00:00Z,BTC,1.0,300.0,200.0,100.0,USD,1,0.0,alpaca,sell-BTC-2026-01-07T10:00:00Z,true,false,Short-term
+
+"WARNING: Withdrawals not linked to a deposit; each is treated as a move to a wallet of your own, not as a sale:"
+BTC 1.0 2026-01-06
+"Link each one to its matching deposit in the tracker. A withdrawal that was a sale, a payment or a gift is a disposal this report does not include."

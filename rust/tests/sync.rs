@@ -1923,7 +1923,7 @@ async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_
         uid, kind, base:"AAPL".into(), amount, fiat_value, at, quote:Some("USD".into()), quote_amount:None,
         fee_fiat_value:Dec::zero(), fee_currency:None, fee_amount:None, group:None, price_missing:false,
         value_missing:Some(false), exchange:"alpaca".into(), linked:false, transfer_fee:None, swap_fiat_cost:None,
-        swap_stable_cost:None, per_share:None, to_exchange:None, orphan:false, opening:false,
+        swap_stable_cost:None, per_share:None, to_exchange:None, orphan:false, opening:false, stated_value:false, fee_missing:false,
     };
     let mut rows = vec![row(0,Kind::Buy,dec("10"),dec("900"),acquired)];
     let mut held = dec("10");

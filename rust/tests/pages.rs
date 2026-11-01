@@ -2481,6 +2481,7 @@ fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
     if !coingecko && !name.starts_with("api_tax_d_not_ported") { return Ok(()) }
     let responses = rails["responses"].as_array_mut().ok_or("no responses")?;
     let mut users_before: Option<Value> = None;
+    let mut served_last = false;
     for (i, step) in responses.iter_mut().enumerate() {
         if step["status"] != 202 {
             // After a gated create, the owner Rails left with a pending report is the owner this build never changed.
@@ -2489,6 +2490,13 @@ fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
         }
         let data: Value = serde_json::from_str(step["body"].as_str().unwrap_or_default()).map_err(|e| format!("step {i}: {e}"))?;
         if step["job_classes"] != json!(["Tax::GenerateReportJob"]) || data["data"]["state"] != "generating" { return Err(format!("step {i}: Rails no longer accepts the report: {step}")) }
+        // A jurisdiction this build computes is served, compared whole, from the owner a gated create left unchanged.
+        if !coingecko && deltabadger::tax::jurisdictions::ported(data["data"]["country"].as_str().unwrap_or_default()) {
+            if let Some(users) = &users_before { step["rows_before"]["users"] = users.clone(); }
+            served_last = true;
+            continue;
+        }
+        served_last = false;
         let message = if coingecko { deltabadger::tax::api::COINGECKO.to_string() }
                       else { deltabadger::tax::api::not_ported_message(data["data"]["name"].as_str().ok_or("no jurisdiction name")?) };
         step["status"] = json!(501);
@@ -2499,6 +2507,7 @@ fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
         for key in ["rows_before", "rows_after"] { step[key]["users"] = users.clone(); }
     }
     let users_before = users_before.ok_or("Rails accepted no create: drop or rename this scenario")?;
+    if served_last { return Ok(()) }
     for user in rails["users"].as_array_mut().ok_or("no users")? {
         let before = users_before.as_array().into_iter().flatten().find(|row| row["id"] == user["id"]).ok_or("a user Rails did not hold before")?;
         user["updated_at"] = before["updated_at"].clone();

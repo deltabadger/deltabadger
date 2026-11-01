@@ -1,10 +1,12 @@
-//! The US crypto tax report against Rails (script/rust/tax_vectors.rb records fixtures/tax_vectors.json): each scenario's
+//! The crypto tax report against Rails (script/rust/tax_vectors.rb records fixtures/tax_vectors.json): each scenario's
 //! install is rebuilt from the Rails schema and the rows Rails read, and the report must be Rails' own bytes or refusal,
-//! or, where the scenario says so, no figure at all with the stated reason: where Rails states a figure that cannot be defended.
+//! or, for a scenario that says "diverges: D-TAX-…", the Rust file checked by hand and committed in
+//! fixtures/tax_divergences/<name>.csv (TAX_DIVERGENCES_WRITE=1 writes them afresh, for review).
 use deltabadger::figures::FiguresError;
 use deltabadger::tax::{crypto_report, Outcome};
 use rusqlite::{types::Value as Sql, Connection};
 use serde_json::Value;
+use std::path::PathBuf;
 
 fn vectors() -> Value {
     serde_json::from_str(include_str!("fixtures/tax_vectors.json")).expect("tax vectors are JSON")
@@ -33,42 +35,78 @@ fn install(tables: &Value) -> Connection {
     c
 }
 
+fn rails(s: &Value) -> Outcome {
+    let rails = &s["rails"];
+    match rails.get("csv") {
+        Some(csv) => Outcome::Csv(csv.as_str().unwrap().to_string()),
+        None => Outcome::Refused {
+            reason: rails["refused"]["reason"].as_str().unwrap().to_string(),
+            symbols: rails["refused"]["symbols"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
+        },
+    }
+}
+
+fn divergence(name: &str) -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tax_divergences").join(format!("{name}.csv")) }
+
 #[test]
-fn the_us_crypto_report_is_rails_own_or_states_no_figure() {
+fn the_crypto_report_is_rails_own_or_the_named_divergence() {
     let v = vectors();
     let scenarios = v["scenarios"].as_array().unwrap();
-    assert!(scenarios.len() >= 19);
+    assert!(scenarios.len() >= 147);
+    let write = std::env::var("TAX_DIVERGENCES_WRITE").is_ok();
+    let mut failures = vec![];
     for s in scenarios {
         let name = s["name"].as_str().unwrap();
+        let country = s["country"].as_str().unwrap();
         let c = install(&s["tables"]);
         let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
-        let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), "US", s["year"].as_i64().unwrap() as i32, today);
-        let expect = s["expect"].as_str().unwrap();
-        match expect.strip_prefix("refuses: ") {
-            None => {
-                let rails = &s["rails"];
-                let want = match rails.get("csv") {
-                    Some(csv) => Outcome::Csv(csv.as_str().unwrap().to_string()),
-                    None => Outcome::Refused {
-                        reason: rails["refused"]["reason"].as_str().unwrap().to_string(),
-                        symbols: rails["refused"]["symbols"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
-                    },
-                };
-                assert_eq!(got.unwrap_or_else(|e| panic!("{name}: {e:?}")), want, "{name}");
-            }
-            Some(reason) => match got {
-                Err(FiguresError::NotComputed(m)) => assert!(m.contains(reason), "{name}: {m}"),
-                other => panic!("{name}: Rails states a figure Rust must not ({reason}), got {other:?}"),
-            },
+        let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), country, s["year"].as_i64().unwrap() as i32,
+                                s["stablecoin_as_fiat"].as_bool().unwrap(), today);
+        // Recorded for its later slice: a jurisdiction this build does not serve states no figure.
+        if !deltabadger::tax::jurisdictions::ported(country) {
+            if !matches!(got, Err(FiguresError::NotComputed(_))) { failures.push(format!("{name}: {country} is not ported, got {got:?}")); }
+            continue;
         }
+        let got = match got { Ok(g) => g, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
+        let expect = s["expect"].as_str().unwrap();
+        match expect.strip_prefix("diverges: ") {
+            None => if got != rails(s) { failures.push(format!("{name}: not Rails' file\n--- rails\n{:?}\n--- rust\n{got:?}", rails(s))) },
+            Some(id) => {
+                assert!(id.starts_with("D-TAX-"), "{name}: {id}");
+                let Outcome::Csv(csv) = &got else { failures.push(format!("{name}: refused, {got:?}")); continue };
+                if *csv == match rails(s) { Outcome::Csv(r) => r, _ => String::new() } { failures.push(format!("{name}: {id} names a divergence, but Rust wrote Rails' file")); }
+                let path = divergence(name);
+                if write { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, csv).unwrap(); }
+                match std::fs::read_to_string(&path) {
+                    Ok(want) if want == *csv => {}
+                    Ok(want) => failures.push(format!("{name}: not the reviewed {id} file\n--- reviewed\n{want}\n--- rust\n{csv}")),
+                    Err(e) => failures.push(format!("{name}: {}: {e}", path.display())),
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios:\n{}", failures.len(), scenarios.len(), failures.join("\n\n"));
+}
+
+/// Every reviewed divergence file belongs to a scenario that says so.
+#[test]
+fn no_divergence_file_is_left_over() {
+    let v = vectors();
+    let named: std::collections::HashSet<String> = v["scenarios"].as_array().unwrap().iter()
+        .filter(|s| s["expect"].as_str().unwrap().starts_with("diverges: ") && deltabadger::tax::jurisdictions::ported(s["country"].as_str().unwrap())).map(|s| format!("{}.csv", s["name"].as_str().unwrap())).collect();
+    for f in std::fs::read_dir(divergence("x").parent().unwrap()).unwrap() {
+        let f = f.unwrap().file_name().into_string().unwrap();
+        assert!(named.contains(&f), "{f} has no diverging scenario");
     }
 }
 
 #[test]
-fn other_jurisdictions_are_not_ported_yet() {
+fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    assert!(matches!(crypto_report(&c, 1, "DE", 2026, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction DE")));
+    for country in ["AT", "FR", "IT", "BG", "GR", "NL", "CH", "PL", "GB", "SE", "IE", "DK", "CZ", "XX"] {
+        assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
+    }
 }
 
 /// The Ruby this report mirrors, by content: a change fails here until the port is checked and the vectors recorded again.
@@ -77,7 +115,7 @@ fn the_ruby_being_mirrored_has_not_changed() {
     use sha2::{Digest, Sha256};
     let v = vectors();
     let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 10);
+    assert_eq!(pinned.len(), 13);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, sum) in pinned {
         let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));

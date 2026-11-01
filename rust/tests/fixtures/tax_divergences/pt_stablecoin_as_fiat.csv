@@ -1,0 +1,2 @@
+Data,Data de aquisição,Ativo,Quantidade,Receita,Custo de aquisição,Ganho/Perda,Moeda,Dias de detenção,Taxa,Exchange,ID de transação,Custo de aquisição completo,Dados incompletos,Isento
+2026-02-01T10:00:00Z,2024-06-01T10:00:00Z,BTC,0.5,44444.44,20000.0,24444.44,EUR,610,0.0,binance,cv1-out-BTC,true,false,true

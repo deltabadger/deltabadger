@@ -247,8 +247,8 @@ async fn perform<T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Optio
     let today = cx.clock.now().date_naive();
     fx::ensure_loaded(&cx.db, ecb, today).await;
     let mut allowance = Allowance::run();
-    let (user, country, year) = (r.user_id, r.country.clone(), i32::try_from(r.year).map_err(|_| "a report year out of range".to_string())?);
-    let prepared = metered(&cx.db, &mut allowance, move |c, _| crate::tax::prepare(c, user, &country, year)).await?;
+    let (user, country, year, stablecoin) = (r.user_id, r.country.clone(), i32::try_from(r.year).map_err(|_| "a report year out of range".to_string())?, r.stablecoin_as_fiat);
+    let prepared = metered(&cx.db, &mut allowance, move |c, _| crate::tax::prepare(c, user, &country, year, stablecoin)).await?;
     let report = match prepared { crate::tax::Prepared::Done(outcome) => return Ok(outcome), crate::tax::Prepared::Report(report) => report };
     let (db, request) = (cx.db.clone(), r.clone());
     fetching(&cx.db, api, &mut allowance, move |fetcher| {

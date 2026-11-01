@@ -4,7 +4,7 @@
 //! ISO 8601 in UTC with milliseconds, a settings value as stored. REST encodes it (web::rest); MCP writes text from it.
 //! Ported here: the services of the REST routes this build serves (slices A and B); the four reads (slice C) are built
 //! in web::mcp::reads, beside their venue fetches, as `Read`; the others stay where their MCP tool is.
-use super::mcp::{protocol::metadata, tools::{asset, STATUSES}};
+use super::mcp::tools::{asset, STATUSES};
 use super::{bot::{action_params::{numeric, ActionParams}, mcp_input, write::{self, Action, Failure, Outcome, Prepared}}, i18n, layout::Ctx, App, WebError};
 use std::sync::Arc;
 
@@ -344,10 +344,10 @@ pub fn transactions(c: &Connection, user: i64, bot_id: &Value, limit: &Value) ->
     Ok(Some(Res::success(json!({"count": out.len(), "transactions": out}))))
 }
 
-/// BotApi::Tax::ListJurisdictions, from the recorded registry.
+/// BotApi::Tax::ListJurisdictions: the registry projected (`tax::jurisdictions::REGISTRY`).
 pub fn tax_jurisdictions() -> Res {
-    let rows: Vec<Value> = metadata()["tax"]["jurisdictions"].as_array().into_iter().flatten()
-        .map(|r| json!({"code": r["code"], "name": r["name"], "method": r["method"], "currency": r["currency"]})).collect();
+    let rows: Vec<Value> = crate::tax::jurisdictions::REGISTRY.iter()
+        .map(|j| json!({"code": j.code, "name": j.name, "method": j.method, "currency": j.currency})).collect();
     Res::success(json!({"count": rows.len(), "jurisdictions": rows}))
 }
 

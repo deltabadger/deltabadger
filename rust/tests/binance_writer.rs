@@ -334,7 +334,7 @@ fn accounting(c:&Connection,owner:i64,expected:&Value) {
         let fee=r.fee_amount.as_ref().map(|f|(f*&price).unwrap()).unwrap_or_else(Dec::zero);
         Row{uid,kind:r.kind,base:r.base,amount:r.amount,quote:None,quote_amount:None,fiat_value:value,fee_fiat_value:fee,
             fee_currency:r.fee_currency,fee_amount:r.fee_amount,at:r.at,group:r.group,price_missing:false,value_missing:None,
-            exchange:r.venue,linked:false,transfer_fee:None,swap_fiat_cost:None,swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false}
+            exchange:r.venue,linked:false,transfer_fee:None,swap_fiat_cost:None,swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false}
     }).collect();
     let mut engine=Engine::new(false);engine.calculate(&rows).unwrap();
     let lots:std::collections::BTreeMap<_,_>=engine.remaining_lots().map(|(asset,venue,lots)| {
