@@ -179,12 +179,12 @@ fn shares(legs: &[&Stored]) -> Result<Vec<(i64, Dec, bool)>, FiguresError> {
 }
 
 /// `cash_faces`: [fiat, stablecoin] faces in USD, or None when a leg could not be converted (its warnings taken back).
-fn cash_faces(legs: &[&Stored], ps: &mut PriceService) -> Result<Option<(Dec, Dec)>, FiguresError> {
+fn cash_faces(legs: &[&Stored], ps: &mut PriceService, currency: &str) -> Result<Option<(Dec, Dec)>, FiguresError> {
     let kept = ps.warnings.len();
     let (mut f, mut s) = (Dec::zero(), Dec::zero());
     for t in legs {
-        if stable(&t.base) { s = (&s + &ps.convert_fiat(&t.amount, "USD", "USD", t.at)?)?; }
-        else { f = (&f + &ps.convert_fiat(&t.amount, &t.base, "USD", t.at)?)?; }
+        if stable(&t.base) { s = (&s + &ps.convert_fiat(&t.amount, "USD", currency, t.at)?)?; }
+        else { f = (&f + &ps.convert_fiat(&t.amount, &t.base, currency, t.at)?)?; }
     }
     if ps.warnings.len() == kept { return Ok(Some((f, s))); }
     ps.warnings.truncate(kept);
@@ -196,7 +196,7 @@ fn quote_of(legs: &[&Stored]) -> Option<String> { legs.iter().find(|t| fiat(&t.b
 
 /// `cash_leg_context`: per grouped leg, what the cash beside it says it was worth, and whether a coin-for-coin pair is a
 /// swap however the venue booked it.
-fn cash_leg_context(rows: &[Stored], ps: &mut PriceService) -> Result<HashMap<i64, Leg>, FiguresError> {
+fn cash_leg_context(rows: &[Stored], ps: &mut PriceService, currency: &str) -> Result<HashMap<i64, Leg>, FiguresError> {
     let mut order: Vec<(i64, String)> = vec![];
     let mut groups: HashMap<(i64, String), Vec<&Stored>> = HashMap::new();
     for t in rows {
@@ -225,7 +225,7 @@ fn cash_leg_context(rows: &[Stored], ps: &mut PriceService) -> Result<HashMap<i6
             for t in &ins { context.insert(t.id, Leg { price_missing: Some(true), ..Leg::default() }); }
         } else {
             if !cash_out.is_empty() && !ins.is_empty() {
-                if let Some((f, s)) = cash_faces(&cash_out, ps)? {
+                if let Some((f, s)) = cash_faces(&cash_out, ps, currency)? {
                     let mixed = !outs.is_empty();
                     for (id, share, assumed) in shares(&ins)? {
                         context.insert(id, Leg { swap_fiat: Some((&f * &share)?), swap_stable: Some((&s * &share)?),
@@ -235,7 +235,7 @@ fn cash_leg_context(rows: &[Stored], ps: &mut PriceService) -> Result<HashMap<i6
                 }
             }
             if !cash_in.is_empty() && !outs.is_empty() {
-                if let Some((f, s)) = cash_faces(&cash_in, ps)? {
+                if let Some((f, s)) = cash_faces(&cash_in, ps, currency)? {
                     let quote = quote_of(&cash_in);
                     for (id, share, assumed) in shares(&outs)? {
                         context.insert(id, Leg { fiat_value: Some((&(&f + &s)? * &share)?), quote: quote.clone(), price_missing: Some(assumed), ..Leg::default() });
@@ -247,40 +247,43 @@ fn cash_leg_context(rows: &[Stored], ps: &mut PriceService) -> Result<HashMap<i6
     Ok(context)
 }
 
-/// `resolve_fiat_value` in USD.
-fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService) -> Result<Dec, FiguresError> {
+/// `resolve_fiat_value`.
+fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService, currency: &str) -> Result<Dec, FiguresError> {
     if fiat(&t.base) { return Ok(Dec::zero()); }
     if let (Some(q), Some(qa)) = (t.quote.as_deref(), &t.quote_amount) {
-        if q == "USD" { return Ok(qa.clone()); }
-        if stable(q) { return ps.convert_fiat(qa, "USD", "USD", t.at); }
-        if fiat(q) { return ps.convert_fiat(qa, q, "USD", t.at); }
+        if q == currency { return Ok(qa.clone()); }
+        if stable(q) { return ps.convert_fiat(qa, "USD", currency, t.at); }
+        if fiat(q) { return ps.convert_fiat(qa, q, currency, t.at); }
     }
     if let Some(v) = leg.and_then(|l| l.fiat_value.clone()) { return Ok(v); }
-    if let Some(price) = &t.stated { return ps.convert_fiat(&(price * &t.amount)?, "USD", "USD", t.at); }
-    let price = ps.price_at_recorded(&t.base, "USD", t.at, Some(&t.venue), t.base_asset.as_ref())?;
+    if let Some(price) = &t.stated { return ps.convert_fiat(&(price * &t.amount)?, "USD", currency, t.at); }
+    let price = ps.price_at_recorded(&t.base, currency, t.at, Some(&t.venue), t.base_asset.as_ref())?;
     Ok((&price * &t.amount)?)
 }
 
 /// `resolve_fee_fiat_value`.
-fn fee_fiat_value(t: &Stored, ps: &mut PriceService) -> Result<Dec, FiguresError> {
+fn fee_fiat_value(t: &Stored, ps: &mut PriceService, report: &str) -> Result<Dec, FiguresError> {
     let Some(fee) = t.fee_amount.as_ref().filter(|f| !f.is_zero()) else { return Ok(Dec::zero()) };
     let currency = t.fee_currency.as_deref().unwrap_or("");
-    if currency == "USD" { return Ok(fee.clone()); }
-    if fiat(currency) { return ps.convert_fiat(fee, currency, "USD", t.at); }
-    if stable(currency) { return ps.convert_fiat(fee, "USD", "USD", t.at); }
-    let price = ps.price_at(currency, "USD", t.at, Some(&t.venue))?;
+    if currency == report { return Ok(fee.clone()); }
+    if fiat(currency) { return ps.convert_fiat(fee, currency, report, t.at); }
+    if stable(currency) { return ps.convert_fiat(fee, "USD", report, t.at); }
+    let price = ps.price_at(currency, report, t.at, Some(&t.venue))?;
     Ok((&price * fee)?)
 }
 
 /// `enrich(ordered, currency: 'USD')`, then the venue each linked row's coins went to and the orphan swap legs.
 /// `deposits` are the base amounts of every row of the account, for a linked withdrawal's fee.
-pub fn enrich(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService) -> Result<Vec<Row>, FiguresError> { enrich_with(stored, deposits, ps, true) }
+pub fn enrich(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService) -> Result<Vec<Row>, FiguresError> { enrich_with(stored, deposits, ps, true, "USD", &mut |_| {}) }
 
 /// `enrich`, its prefetch left out when `prefetch` is false (the tax report reads stored prices only).
-pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService, prefetch: bool) -> Result<Vec<Row>, FiguresError> {
+/// `on_progress(percent)` as PriceService#enrich reports it: 0–21 over the prefetch's ranges, then 21–100 over the rows.
+pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService, prefetch: bool, currency: &str, on_progress: &mut dyn FnMut(u32)) -> Result<Vec<Row>, FiguresError> {
     ps.record(stored);
-    let legs = cash_leg_context(stored, ps)?;
-    if prefetch { ps.prefetch(stored, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()))?; }
+    let legs = cash_leg_context(stored, ps, currency)?;
+    // `(done.to_f / total * 21).to_i`
+    if prefetch { ps.prefetch(stored, currency, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()), &mut |done, total| on_progress(if total > 0 { (done as f64 / total as f64 * 21.0) as u32 } else { 0 }))?; }
+    let total = stored.len();
     let links: HashMap<i64, i64> = stored.iter().filter_map(|t| t.linked_to.map(|d| (t.id, d))).collect();
     let linked_deposits: HashSet<i64> = links.values().copied().collect();
     let mut rows = Vec::with_capacity(stored.len());
@@ -290,13 +293,15 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
         let leg = legs.get(&t.id);
         let value = if matches!(t.kind, Kind::Withdrawal | Kind::Lost) {
             let kept = ps.warnings.len();
-            let v = fiat_value(t, leg, ps)?;
+            let v = fiat_value(t, leg, ps, currency)?;
             ps.warnings.truncate(kept);
             v
-        } else { fiat_value(t, leg, ps)? };
+        } else { fiat_value(t, leg, ps, currency)? };
         let value_missing = ps.warnings.len() > before || leg.and_then(|l| l.price_missing) == Some(true);
-        let fee_value = fee_fiat_value(t, ps)?;
+        let fee_value = fee_fiat_value(t, ps, currency)?;
         let price_missing = value_missing || ps.warnings.len() > before;
+        // `21 + ((index + 1).to_f / total * 79).to_i`
+        on_progress(21 + ((uid + 1) as f64 / total as f64 * 79.0) as u32);
         let transfer_fee = match (t.kind, links.get(&t.id)) {
             (Kind::Withdrawal, Some(d)) => match deposits.get(d) { Some(deposit) => Some((&t.amount - deposit)?), None => None },
             _ => None,

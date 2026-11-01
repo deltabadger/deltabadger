@@ -4,7 +4,8 @@ use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 /// D-SPLIT-API: split_bots is this build's own, after the recorded tools. PLAN-A11: the tracker tools (tracker::api::NAMES).
-pub const NAMES: [&str;37] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","export_transactions_csv","list_account_transactions","list_rules","create_rule","delete_rule","list_indices","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","sync_tracker","set_transfer_link","set_transaction_price","split_bots"];
+/// PLAN-A12 A12-1: the tax report tools (tax::api::NAMES), last.
+pub const NAMES: [&str;40] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","export_transactions_csv","list_account_transactions","list_rules","create_rule","delete_rule","list_indices","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","sync_tracker","set_transfer_link","set_transaction_price","split_bots","generate_tax_report","get_tax_report_status","download_tax_report"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -137,6 +138,12 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
     if crate::web::tracker::api::NAMES.contains(&name) {
         return Ok(Called::Done(crate::web::tracker::api::mcp(c,app,who.user_id,name,args).unwrap_or_else(|_|{
             crate::engine::log("MCP tracker tool failed");
+            tool_text("An unexpected error occurred.",true)
+        })));
+    }
+    if crate::tax::api::NAMES.contains(&name) {
+        return Ok(Called::Done(crate::tax::api::mcp(c,app,who.user_id,name,args).unwrap_or_else(|_|{
+            crate::engine::log("MCP tax tool failed");
             tool_text("An unexpected error occurred.",true)
         })));
     }

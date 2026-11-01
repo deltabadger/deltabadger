@@ -36,13 +36,6 @@ fn with_query(ctx: &Ctx, path: &str, pairs: &[(&str, Option<&str>)]) -> String {
 
 // ---- check_pending_report -------------------------------------------------------------------------------------------
 
-/// `Tax::GenerateReportJob.report_path`.
-fn report_path(ctx: &Ctx, owner: i64, country: &str, year: i64, scope: &str) -> std::path::PathBuf {
-    let scope = if matches!(scope, "crypto" | "broker") { scope } else { "crypto" };
-    let country: String = country.chars().filter(char::is_ascii_alphabetic).collect::<String>().to_uppercase();
-    ctx.app.config.tmp_dir.join("tax_reports").join(format!("{owner}_{country}_{year}_{scope}.csv"))
-}
-
 /// Ruby's `to_i` on a JSON value as the settings hold it.
 fn to_i(v: &serde_json::Value) -> i64 {
     match v {
@@ -53,30 +46,39 @@ fn to_i(v: &serde_json::Value) -> i64 {
 }
 fn ruby_s(v: &serde_json::Value) -> String { match v { serde_json::Value::String(s) => s.clone(), serde_json::Value::Null => String::new(), other => other.to_string() } }
 
-pub(super) fn pending_report(ctx: &Ctx, owner: i64, settings: &serde_json::Value) -> Result<String, WebError> {
+/// TrackerController#check_pending_report: the pending report's refusal, else its file as an auto-download, else (this
+/// build's own, D-TAX-RECONCILE) the failed alert when the slot's retained request for it failed: no file marks a failure.
+pub(super) fn pending_report(c: &Connection, ctx: &Ctx, owner: i64, settings: &serde_json::Value) -> Result<String, WebError> {
     let Some(pending) = settings.get("pending_report").filter(|v| v.is_object()) else { return Ok(String::new()) };
     let truthy = |v: &serde_json::Value| !matches!(v, serde_json::Value::Null | serde_json::Value::Bool(false));
     let (country, year) = (&pending["country"], &pending["year"]);
     if !truthy(country) || !truthy(year) { return Ok(String::new()); }
     let scope = match &pending["report_scope"] { serde_json::Value::String(s) if !crate::ruby::blank(s) => s.clone(), serde_json::Value::Null | serde_json::Value::Bool(false) => "crypto".into(), serde_json::Value::String(_) => "crypto".into(), other => other.to_string() };
-    let path = report_path(ctx, owner, &ruby_s(country), to_i(year), &scope);
-    let refusal = std::path::PathBuf::from(format!("{}.refused.json", path.display()));
+    let tmp = &ctx.app.config.tmp_dir;
+    let (country_s, year_i) = (ruby_s(country), to_i(year));
+    let refusal = crate::tax::job::refusal_path(tmp, owner, &country_s, year_i, &scope);
     if refusal.exists() {
         // `JSON.parse` failing reads as no refusal.
         if let Ok(refusal) = serde_json::from_slice::<serde_json::Value>(&std::fs::read(&refusal).map_err(|e| WebError::Config(e.to_string()))?) {
-            let key = match refusal["reason"].as_str() { Some("excess_return_of_capital") => "tracker.tax_report.refused_excess_return_of_capital", _ => "tracker.tax_report.refused_tokenized" };
-            let symbols = refusal["symbols"].as_array().ok_or_else(invalid)?.iter().map(ruby_s).collect::<Vec<_>>().join(", ");
-            let message = escape(&i18n::text(ctx.locale, key, &[("symbols", Arg::Text(&symbols))]));
-            return Ok(Refused { message }.render()?);
+            refusal["symbols"].as_array().ok_or_else(invalid)?;
+            let message = escape(&crate::tax::job::refusal_message(ctx.locale, &refusal));
+            return Ok(Refused { message, style: "warning" }.render()?);
         }
     }
-    if !path.exists() { return Ok(String::new()); }
-    let url = with_query(ctx, "/tracker/download_tax_report", &[("country", Some(&ruby_s(country))), ("report_scope", Some(&scope)), ("year", Some(&ruby_s(year)))]);
+    if !crate::tax::job::report_path(tmp, owner, &country_s, year_i, &scope).exists() {
+        // An install whose Rust migrations are pending has no request rows yet.
+        let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_tax_reports')", [], |r| r.get(0))?;
+        let failed: bool = rows && c.query_row("SELECT EXISTS(SELECT 1 FROM rust_tax_reports WHERE user_id = ?1 AND scope = ?2 AND country = ?3 AND year = ?4 AND state = 'failed')",
+                                       rusqlite::params![owner, crate::tax::job::scope_of(&scope), country_s, year_i], |r| r.get(0))?;
+        if failed { return Ok(Refused { message: escape(&i18n::text(ctx.locale, "tracker.tax_report.failed", &[])), style: "danger" }.render()?); }
+        return Ok(String::new());
+    }
+    let url = with_query(ctx, "/tracker/download_tax_report", &[("country", Some(&country_s)), ("report_scope", Some(&scope)), ("year", Some(&ruby_s(year)))]);
     Ok(format!("  <div data-controller=\"auto-download\" data-auto-download-url-value=\"{}\"></div>\n", escape(&url)))
 }
 #[derive(Template)]
 #[template(path = "tracker/report_refused.html")]
-struct Refused { message: String }
+struct Refused { message: String, style: &'static str }
 
 // ---- the figures ----------------------------------------------------------------------------------------------------
 
@@ -410,7 +412,7 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     let (filters, bar_end) = filters(c, ctx, owner, scope, show_cash, sync)?;
     let holdings_pane = holdings(c, ctx, &p, den.as_ref(), withheld)?;
     Ok(Built::Regions(Regions {
-        pending: pending_report(ctx, owner, &settings)?,
+        pending: pending_report(c, ctx, owner, &settings)?,
         filters, bar_end,
         tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
         holdings: holdings_pane.clone(),

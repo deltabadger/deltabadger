@@ -206,7 +206,7 @@ fn amount_type(kind: Kind, args: &Map<String, Value>) -> Option<String> {
 fn invalid_amount_type() -> Res { failure(Domain::ValidationFailed, "invalid_amount_type", "amount_type must be 'quote' or 'base'.") }
 
 /// BotApi::Number.integer.
-fn integer(v: &Value) -> Option<i64> {
+pub(crate) fn integer(v: &Value) -> Option<i64> {
     if let Some(f) = v.as_f64().filter(|_| v.is_f64()) { if !(f.is_finite() && f == f.floor()) { return None } }
     let n = number(v)?;
     let text = n.to_s_f();

@@ -465,34 +465,47 @@ impl<'a> PriceService<'a> {
         self.coin_ids.entry((symbol.to_string(), venue.map(|v| v.id))).or_insert_with(|| catalogue_coin_on(r, symbol, venue)).clone()
     }
 
-    /// `prefetch(transactions, currency: 'USD')`: one range per (symbol, coin) over the days of the rows that need a
-    /// price of ours, in the order the rows first name them, then each range fetched. `skip(row)` is `cash_leg_value`.
-    pub fn prefetch(&mut self, rows: &[Stored], skip: &dyn Fn(&Stored) -> bool) -> Result<(), FiguresError> {
+    /// `prefetch(transactions, currency:)`: one range per (symbol, coin) over the days of the rows that need a price of
+    /// ours, in the order the rows first name them, then (in another currency than dollars) Bitcoin over all those days,
+    /// the cross rate's leg; then each range fetched, `progress(done, total)` after each. `skip(row)` is `cash_leg_value`.
+    pub fn prefetch(&mut self, rows: &[Stored], currency: &str, skip: &dyn Fn(&Stored) -> bool, progress: &mut dyn FnMut(usize, usize)) -> Result<(), FiguresError> {
         let mut coins: Vec<(String, String, NaiveDate, NaiveDate)> = vec![];
         let mut index: HashMap<(String, String), usize> = HashMap::new();
-        let mut add = |me: &mut Self, symbol: Option<&str>, date: NaiveDate, exchange: &str, recorded: Option<&Asset>| {
+        let add = |me: &mut Self, coins: &mut Vec<(String, String, NaiveDate, NaiveDate)>, index: &mut HashMap<(String, String), usize>,
+                   symbol: Option<&str>, from: NaiveDate, to: NaiveDate, exchange: Option<&str>, recorded: Option<&Asset>| {
             let Some(symbol) = symbol.filter(|s| !s.trim().is_empty() && !fiat(s)) else { return };
-            let Some((key, security)) = me.price_key_for(symbol, Some(exchange), date, recorded) else { return };
-            let coin = match security { Some(s) => s.1, None => me.coin_id_for(symbol, Some(exchange), date) };
+            let Some((key, security)) = me.price_key_for(symbol, exchange, from, recorded) else { return };
+            let coin = match security { Some(s) => s.1, None => me.coin_id_for(symbol, exchange, from) };
             let Some(coin) = coin else { return };
             match index.get(&(key.clone(), coin.clone())) {
-                Some(&i) => { let e = &mut coins[i]; e.2 = e.2.min(date); e.3 = e.3.max(date); }
-                None => { index.insert((key.clone(), coin.clone()), coins.len()); coins.push((key, coin, date, date)); }
+                Some(&i) => { let e = &mut coins[i]; e.2 = e.2.min(from); e.3 = e.3.max(to); }
+                None => { index.insert((key.clone(), coin.clone()), coins.len()); coins.push((key, coin, from, to)); }
             }
         };
         for r in rows {
             crate::figures::budget::charge(1, 0)?;
             if skip(r) { continue; }
             if r.stated.is_some() && !r.quoted() { continue; }
-            if r.quote.as_deref() == Some("USD") && r.quote_amount.is_some() { continue; }
+            if r.quote.as_deref() == Some(currency) && r.quote_amount.is_some() { continue; }
             if r.quote.as_deref().is_some_and(|q| stable(q) || fiat(q)) && r.quote_amount.is_some() { continue; }
             let date = r.date();
-            add(self, Some(&r.base), date, &r.venue, r.base_asset.as_ref());
+            add(self, &mut coins, &mut index, Some(&r.base), date, date, Some(&r.venue), r.base_asset.as_ref());
             if r.fee_amount.as_ref().is_some_and(Dec::is_positive) && !r.fee_currency.as_deref().is_some_and(stable) {
-                add(self, r.fee_currency.as_deref(), date, &r.venue, None);
+                add(self, &mut coins, &mut index, r.fee_currency.as_deref(), date, date, Some(&r.venue), None);
             }
         }
-        for (symbol, coin, from, to) in coins { self.fetch_price_range(&Fetch::usd(coin, symbol, from, to))?; }
+        // `add_coin_dates(coins_needed, 'BTC', all_dates)`: every day any coin needs, with no venue. Each day is its own
+        // `price_key_for`; the alias and the catalogue answer BTC alike on every day, so the range is the days' span.
+        if currency != "USD" {
+            if let (Some(from), Some(to)) = (coins.iter().map(|c| c.2).min(), coins.iter().map(|c| c.3).max()) {
+                add(self, &mut coins, &mut index, Some("BTC"), from, to, None, None);
+            }
+        }
+        let total = coins.len();
+        for (n, (symbol, coin, from, to)) in coins.into_iter().enumerate() {
+            self.fetch_price_range(&Fetch { coin, symbol, currency: currency.to_string(), from, to })?;
+            progress(n + 1, total);
+        }
         Ok(())
     }
 }
