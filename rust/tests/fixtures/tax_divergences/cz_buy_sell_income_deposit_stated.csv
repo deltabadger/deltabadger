@@ -1,0 +1,26 @@
+Datum,Datum pořízení,Aktivum,Množství,Příjem,Pořizovací cena,Zisk/Ztráta,Měna,Dny držení,Poplatek,Burza,ID transakce,Pořizovací cena kompletní,Neúplná data,Osvobozeno,Důvod osvobození
+2026-04-01T10:00:00Z,2025-03-01T10:00:00Z,BTC,1.2,2700000.0,1901200.0,797550.0,CZK,396,1250.0,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,false,false,
+2026-04-10T08:00:00Z,2026-02-05T00:00:00Z,SOL,3.0,12820.8,9647.65,3173.15,CZK,64,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,false,false,
+
+"Příloha č. 2, oddíl 2, druh C – prodej kryptoaktiv"
+Příjmy pro hodnotový test (§ 4 odst. 1 písm. zj); bez USDC a EURC),2712820.8
+Hodnotový test splněn (úhrn nejvýše 100 000 Kč),Ne
+Příjmy osvobozené časovým testem (§ 4 odst. 1 písm. zk)),0.0
+ř. 207 Příjmy podle § 10 zákona,2712820.8
+ř. 208 Výdaje podle § 10 zákona,1912097.65
+ř. 209 Dílčí základ daně podle § 10 zákona (ř. 207 – ř. 208),800723.15
+"Přepočteno kurzem ČNB pro den každé transakce. Pokud v přiznání používáte jednotný kurz, použijte ho místo toho pro všechny částky. Ostatní příjmy z prodeje movitých věcí (druh C) se přičítají k tomuto řádku. Sazba daně (15 % nebo 23 %) závisí na celém Vašem základu daně. Nejsou zde rozpoznána: aktiva zděděná po příbuzném v řadě přímé nebo po manželovi či manželce (započítává se doba jejich držby), výměna nebo sloučení kryptoaktiv vydavatelem (tříletá lhůta se nepřerušuje), obchodní majetek a budoucí převody. Staking, airdropy a půjčky se počítají jako příjem v okamžiku získání v jejich hodnotě, která je pak jejich pořizovací cenou (oficiální výklad neexistuje)."
+
+Přijaté příjmy (způsob zdanění závisí na druhu příjmu a příslušných daňových předpisech — nejsou zahrnuty ve výše uvedených ziscích)
+2026-02-01,odměny ze stakingu,ETH,0.01,700.0,CZK
+2026-02-05,airdropy,SOL,3.0,9647.65,CZK
+,Celkem — odměny ze stakingu,,,700.0,CZK
+,Celkem — airdropy,,,9647.65,CZK
+
+WARNING: Pořizovací cena těchto nepropojených vkladů odhadnutá podle tržní hodnoty:
+BTC 0.1 2026-02-10
+"Propojte každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena."
+
+"NOTE: Hodnoty, které jsi zadal ručně:"
+SOL 3.0 2026-02-05,9647.65
+"Tyto částky pocházejí od tebe, ne z burzy. Před podáním přiznání je ověř podle vlastních záznamů."

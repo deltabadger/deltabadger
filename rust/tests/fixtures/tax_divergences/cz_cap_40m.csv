@@ -1,0 +1,16 @@
+Datum,Datum pořízení,Aktivum,Množství,Příjem,Pořizovací cena,Zisk/Ztráta,Měna,Dny držení,Poplatek,Burza,ID transakce,Pořizovací cena kompletní,Neúplná data,Osvobozeno,Důvod osvobození
+2026-03-02T10:00:00Z,2021-01-10T10:00:00Z,BTC,25.0,50000000.0,10000000.0,40000000.0,CZK,1877,0.0,kraken,K-BTC-2026-03-02T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+
+"Příloha č. 2, oddíl 2, druh C – prodej kryptoaktiv"
+Příjmy pro hodnotový test (§ 4 odst. 1 písm. zj); bez USDC a EURC),50000000.0
+Hodnotový test splněn (úhrn nejvýše 100 000 Kč),Ne
+Příjmy osvobozené časovým testem (§ 4 odst. 1 písm. zk)),50000000.0
+Zdanitelná část nad limit 40 000 000 Kč (§ 4 odst. 3),20.0%
+ř. 207 Příjmy podle § 10 zákona,10000000.0
+ř. 208 Výdaje podle § 10 zákona,2000000.0
+ř. 209 Dílčí základ daně podle § 10 zákona (ř. 207 – ř. 208),8000000.0
+"Přepočteno kurzem ČNB pro den každé transakce. Pokud v přiznání používáte jednotný kurz, použijte ho místo toho pro všechny částky. Ostatní příjmy z prodeje movitých věcí (druh C) se přičítají k tomuto řádku. Sazba daně (15 % nebo 23 %) závisí na celém Vašem základu daně. Nejsou zde rozpoznána: aktiva zděděná po příbuzném v řadě přímé nebo po manželovi či manželce (započítává se doba jejich držby), výměna nebo sloučení kryptoaktiv vydavatelem (tříletá lhůta se nepřerušuje), obchodní majetek a budoucí převody. Staking, airdropy a půjčky se počítají jako příjem v okamžiku získání v jejich hodnotě, která je pak jejich pořizovací cenou (oficiální výklad neexistuje)."
+
+WARNING: Osvobozené příjmy nad 5 000 000 Kč:
+BTC 25.0 2026-03-02,40000000.0
+Každý osvobozený příjem vyšší než 5 000 000 Kč je nutné oznámit správci daně do konce lhůty pro podání přiznání (§ 38v).

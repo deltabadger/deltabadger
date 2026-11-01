@@ -754,10 +754,10 @@ module Pages
                                          '1_US_2022_crypto.csv.refused.json' => '{"reason":', '1_US_2021_crypto.csv.refused.json' => TAX_TOKENIZED,
                                          '1_US_2025_broker.csv' => TAX_REPORT, '2_US_2025_crypto.csv' => TAX_REPORT }),
         'api_tax_download_empty' => tax_case([tax_download('US', 2024)], { '1_US_2024_crypto.csv' => '' }),
-        # D-TAX-NOT-PORTED-GATE: a jurisdiction whose engine this build has not ported (CZ until A12-3; validation answers first,
+        # D-TAX-NOT-PORTED-GATE: a jurisdiction whose engine this build has not ported (FR until A12-6; validation answers first,
         # as Rails), and one it has (DE since A12-2), accepted last: this build's request row would answer a later status.
         'api_tax_d_not_ported' => tax_case([tax_status('DE', 2025), tax_create({ country: 'DE', year: 'abc' }), tax_create({ country: 'de', year: 2025, force: 'yes' }),
-                                            tax_create({ country: 'cz', year: 2025 }, expect: 202), tax_status('CZ', 2025), tax_download('CZ', 2025),
+                                            tax_create({ country: 'fr', year: 2025 }, expect: 202), tax_status('FR', 2025), tax_download('FR', 2025),
                                             tax_create({ country: 'de', year: 2025 }, expect: 202)]),
         # A wealth snapshot (NL) needs no market data: Rails accepts it on an install without a provider; the US report is refused first.
         'api_tax_d_not_ported_wealth' => tax_case([tax_create(us, expect: 422), tax_create({ country: 'NL', year: 2025 }, expect: 202), tax_status('NL', 2025)], {}, {},

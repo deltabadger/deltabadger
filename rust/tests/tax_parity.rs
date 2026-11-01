@@ -20,6 +20,8 @@ fn install(tables: &Value) -> Connection {
     c.execute_batch(include_str!("../migrations/20261103000001_nbp_rates.sql")).unwrap();
     // The PL carry the user declares (D-TAX-PL-DECLARED-CARRY).
     c.execute_batch(include_str!("../migrations/20261104000001_rust_tax_pl_carry.sql")).unwrap();
+    // The ČNB fixings and their coverage (D-TAX-CZ-CNB).
+    c.execute_batch(include_str!("../migrations/20261105000001_cnb_rates.sql")).unwrap();
     for (table, rows) in tables.as_object().unwrap() {
         for row in rows.as_array().unwrap() {
             let row = row.as_object().unwrap();
@@ -39,8 +41,14 @@ fn install(tables: &Value) -> Connection {
     c
 }
 
-/// A scenario's NBP rates and coverage, as given: coverage is never inferred from the rates.
+/// A scenario's NBP and ČNB rates and coverage, as given: coverage is never inferred from the rates.
 fn nbp(c: &Connection, s: &Value) {
+    for r in s["cnb"].as_array().into_iter().flatten() {
+        c.execute("INSERT INTO cnb_rates (currency, date, rate) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_str(), r[1].as_str(), r[2].as_str()]).unwrap();
+    }
+    for r in s["cnb_coverage"].as_array().into_iter().flatten() {
+        c.execute("INSERT INTO cnb_coverage (from_date, to_date) VALUES (?1, ?2)", rusqlite::params![r[0].as_str(), r[1].as_str()]).unwrap();
+    }
     for r in s["nbp"].as_array().into_iter().flatten() {
         c.execute("INSERT INTO nbp_rates (currency, date, rate) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_str(), r[1].as_str(), r[2].as_str()]).unwrap();
     }
@@ -134,7 +142,7 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["FR", "IT", "BG", "GR", "NL", "CH", "GB", "SE", "IE", "DK", "CZ", "XX"] {
+    for country in ["FR", "IT", "GR", "NL", "CH", "GB", "SE", "IE", "DK", "XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
     // Poland's regime starts in 2019.
