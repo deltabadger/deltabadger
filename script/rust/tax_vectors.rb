@@ -791,6 +791,27 @@ module TaxVectors
         row(c, :deposit, 'BTC', '1', '2026-02-05T10:10:00Z', exchange: bn)
         row(c, :withdrawal, 'BTC', '1', '2026-02-05T10:00:00Z', exchange: kr, linked_transaction_id: AccountTransaction.order(:id).last.id)
       } },
+      # Per wallet, a chain of same-second withdrawals (Bybit to Kraken to Binance), booked in that order, walks in the order
+      # its funds allow before the sale on Binance; Rails' order reversed them (D-TRACKER-TRANSFER-ORDER; its pool takes the same lot).
+      { name: 'de_same_second_chained_transfer', country: 'DE', expect: 'parity', setup: lambda { |c|
+        by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+        kr = venue(c, :kraken)
+        bn = venue(c, :binance)
+        row(c, :buy, 'BTC', '1', '2026-01-05T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '10000')
+        row(c, :sell, 'BTC', '1', '2026-02-05T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '20000')
+        transfer(c, 'BTC', '1', '2026-02-05T10:00:00Z', from: by, to: kr)
+        transfer(c, 'BTC', '1', '2026-02-05T10:00:00Z', from: kr, to: bn)
+      } },
+      # US, per account from 2025: a same-second round trip Binance to Kraken and back, booked out-first, takes the lot out
+      # and home before the sale (Rails' order reversed them and sent Kraken's coins first, of which it held none).
+      { name: 'us_reciprocal_transfer_2025', expect: 'parity', setup: lambda { |c|
+        bn = venue(c, :binance)
+        kr = venue(c, :kraken)
+        buy(c, 'BTC', '1', '30000', '2026-01-05T10:00:00Z', exchange: bn)
+        transfer(c, 'BTC', '1', '2026-02-05T10:00:00Z', from: bn, to: kr)
+        transfer(c, 'BTC', '1', '2026-02-05T10:00:00Z', from: kr, to: bn)
+        sell(c, 'BTC', '1', '40000', '2026-03-01T10:00:00Z', exchange: bn)
+      } },
       # An unlinked withdrawal's own fee in the coin withdrawn leaves the lots as a disposal: 0.0005 BTC, €40 for €15.
       { name: 'de_unlinked_withdrawal_fee', country: 'DE', expect: 'diverges: D-TAX-COIN-FEE', setup: lambda { |c|
         price('BTC', '2026-02-01', '80000', 'EUR')
