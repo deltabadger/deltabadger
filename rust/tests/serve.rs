@@ -3004,3 +3004,56 @@ async fn the_signal_wizard_starts_a_bot_on_bybit() {
     assert!(rule.2.contains("25"), "{rule:?}");
     assert!(deltabadger::engine::eligibility::check_install(c).unwrap().eligible.contains(&bot), "the engine runs it");
 }
+
+/// T7 (PLAN-B1 §7, r6.1): `serve` on an empty STORAGE_DIR creates the install and opens on /setup: the seeds are there,
+/// exactly two database files (no cache, no cable), the marker and a Rust lease. A second start creates, migrates and
+/// seeds nothing.
+#[test]
+fn serve_on_an_empty_storage_dir_creates_the_install_and_a_second_start_creates_nothing() {
+    let (dir, logs) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let databases = || -> Vec<String> {
+        std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).filter(|n| n.ends_with(".sqlite3")).collect::<std::collections::BTreeSet<_>>().into_iter().collect()
+    };
+    let state = || {
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        let lease = deltabadger::lease::read(&c, &common::seed::cipher()).unwrap().expect("a lease row");
+        assert_eq!(lease["engine"], "rust");
+        let one = |sql: &str| -> String { c.query_row(sql, [], |r| r.get::<_, Option<String>>(0)).unwrap().unwrap_or_default() };
+        [
+            one("SELECT group_concat(version || '@' || applied_at, ',') FROM (SELECT * FROM rust_schema_migrations ORDER BY version)"),
+            one("SELECT value FROM app_configs WHERE key = 'rust_created_at'"),
+            one("SELECT value FROM app_configs WHERE key = 'rust_taken_over_at'"),
+            one("SELECT count(*) || '/' || max(id) || '/' || max(created_at) FROM exchanges"),
+            one("SELECT count(*) || '/' || max(id) || '/' || max(updated_at) FROM assets"),
+            one("SELECT count(*) || '/' || max(id) || '/' || max(updated_at) FROM tickers"),
+            one("SELECT count(*) || '/' || max(id) FROM indices"),
+            one("SELECT CAST(count(*) AS TEXT) FROM users"),
+        ]
+    };
+    let stop = |mut server: Child| {
+        Command::new("kill").args(["-TERM", &server.0.id().to_string()]).status().unwrap();
+        assert!(server.ended_within(Duration::from_secs(30)).is_some_and(|s| s.success()), "serve stops on SIGTERM");
+    };
+
+    let (server, port) = serving(dir.path(), &logs.path().join("first.log"));
+    let (status, _, _) = http(port, "GET", "/setup", None, None);
+    assert_eq!(status, 200, "/setup renders");
+    let (status, _, _) = http(port, "GET", "/bots", None, None);
+    assert_eq!(status, 302, "every page sends the first visitor to /setup");
+    assert_eq!(databases(), ["production.sqlite3", "production_queue.sqlite3"], "two files, no cache or cable");
+    let first = state();
+    assert!(!first[1].is_empty() && first[1] == first[2], "the marker, and the first claim continued the bootstrap's ownership");
+    assert!(first[3].starts_with("15/15/") && !first[5].starts_with("0/"), "seeded: {first:?}");
+    assert_eq!(first[7], "0", "no user");
+    stop(server);
+    assert!(std::fs::read_to_string(logs.path().join("first.log")).unwrap().contains("set up a new install at "), "the first start says it");
+
+    let said = logs.path().join("second.log");
+    let (server, port) = serving(dir.path(), &said);
+    assert_eq!(http(port, "GET", "/setup", None, None).0, 200);
+    stop(server);
+    let log = std::fs::read_to_string(&said).unwrap();
+    assert!(!log.contains("applied Rust migration") && !log.contains("set up a new install") && log.contains("took over (AfterCrash)"), "{log}");
+    assert_eq!(databases(), ["production.sqlite3", "production_queue.sqlite3"], "nothing created");
+    assert_eq!(state(), first, "nothing migrated or seeded");
+}

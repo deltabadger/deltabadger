@@ -6,6 +6,7 @@ pub mod decisions;
 pub mod venue_grid;
 pub mod html;
 pub mod seed;
+pub mod schema;
 pub mod scripted;
 pub mod smtp;
 pub mod web;
