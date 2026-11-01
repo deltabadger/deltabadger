@@ -1,0 +1,24 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+2026-04-01T10:00:00Z,2025-03-01T10:00:00Z,BTC,1.0,671400.0,447898.4,223190.77,DKK,396,310.83,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,false
+2026-04-01T10:00:00Z,2026-01-10T10:00:00Z,BTC,0.2,134280.0,119419.68,14798.15,DKK,81,62.17,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,false
+2026-04-10T08:00:00Z,2026-02-05T00:00:00Z,SOL,3.0,3825.64,2878.79,946.85,DKK,64,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,false
+
+Rubrik 20 Anden personlig indkomst,242023.44
+  heraf gevinster ved afståelser,238935.77
+"  heraf modtagne aktiver (staking, udlån, airdrops)",3087.67
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+Modtagne indtægter (beskatningen afhænger af indtægtstypen og de gældende skatteregler — ikke medregnet i gevinsterne ovenfor)
+2026-02-01,stakingbelønninger,ETH,0.01,208.88,DKK
+2026-02-05,airdrops,SOL,3.0,2878.79,DKK
+,I alt — stakingbelønninger,,,208.88,DKK
+,I alt — airdrops,,,2878.79,DKK
+
+"WARNING: Indskud, der ikke er knyttet til en hævning, med en anskaffelsessum på 0:"
+BTC 0.1 2026-02-10
+"Uden dokumentation for købet er anskaffelsessummen 0 kr. (Den juridiske vejledning C.C.2.1.3.3.5.2). Har du købt disse aktiver på en konto, der ikke er synkroniseret her, så synkroniser eller importér den og knyt overførslen, så købet bliver medregnet."
+
+NOTE: Værdier du selv har angivet:
+SOL 3.0 2026-02-05,2878.79
+"Disse beløb kommer fra dig, ikke fra børsen. Tjek dem mod dine egne bilag, før du indberetter."

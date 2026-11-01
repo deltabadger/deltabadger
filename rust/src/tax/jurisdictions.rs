@@ -110,13 +110,17 @@ pub fn find(code: &str) -> Option<&'static Jurisdiction> { REGISTRY.iter().find(
 /// a create for it (web, REST, MCP) is refused up front as not ported, and nothing is ever queued for a report this
 /// build cannot compute; the broker scope likewise until A12-7. Each later slice adds its countries; the gate goes with A12-7.
 /// Austria by its own law (A12-2b: the moving average per wallet, § 27b from 1 March 2022, `fifo::Austria`); Poland by
-/// its own report (tax/pl.rs), from 2019.
-pub const PORTED: [&str; 7] = ["US", "DE", "AT", "ES", "PT", "SK", "PL"];
+/// its own report (tax/pl.rs), from 2019. Denmark and Greece by their own law (A12-3).
+pub const PORTED: [&str; 9] = ["US", "DE", "AT", "ES", "PT", "SK", "PL", "DK", "GR"];
+
+/// D-TAX-GR-NO-TAX: the last Greek year whose law was reviewed (no tax on an individual's crypto gains in force); a
+/// later one waits for the enacted law.
+const GR_LAST_YEAR: i64 = 2026;
 
 /// Whether this build computes `country`'s report for `year`: Poland's from 2019, the year its crypto regime took effect
-/// (art. 44 ust. 1 of the act of 23.10.2018); an earlier year is refused as not ported.
+/// (art. 44 ust. 1 of the act of 23.10.2018); Greece's up to `GR_LAST_YEAR`; another year is refused as not ported.
 pub fn ported(country: &str, year: i64) -> bool {
-    PORTED.contains(&country) && (country != "PL" || year >= i64::from(super::pl::FIRST_YEAR))
+    PORTED.contains(&country) && (country != "PL" || year >= i64::from(super::pl::FIRST_YEAR)) && (country != "GR" || year <= GR_LAST_YEAR)
 }
 
 pub(crate) fn ymd((y, m, d): (i32, u32, u32)) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap_or(NaiveDate::MIN) }
@@ -153,10 +157,12 @@ mod tests {
     #[test]
     fn the_registry_is_rails_order_and_the_ported_set_is_fifo_without_a_summary() {
         assert_eq!(REGISTRY.map(|j| j.code), crate::web::tracker::modal::COUNTRIES);
-        for c in PORTED { let j = find(c).unwrap(); assert_eq!(j.method, "fifo", "{c}"); assert!(j.expense_deduction.is_none() && !j.per_asset_summary && j.czech_exemptions.is_none() && j.flat_tax_rate.is_none()); }
+        // DK and GR keep Rails' flags as data; their summaries are their own (D-TAX-DK-RUBRIK, D-TAX-GR-NO-TAX).
+        for c in PORTED { let j = find(c).unwrap(); assert_eq!(j.method, "fifo", "{c}"); assert!(j.expense_deduction.is_none() && j.czech_exemptions.is_none()); }
         assert_eq!(find("BG").unwrap().currency(2025), "BGN");
         assert_eq!(find("BG").unwrap().currency(2026), "EUR");
         assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && !ported("CZ", 2026));
+        assert!(ported("DK", 2026) && ported("GR", 2026) && ported("GR", 2019) && !ported("GR", 2027));
     }
 
     #[test]
