@@ -99,7 +99,7 @@ pub async fn tax_report(State(app): State<crate::web::App>, Extension(ctx): Exte
         return Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/tracker")));
     };
     if scope == "broker" { return refused(&ctx, &headers, "tracker broker tax reports").await; }
-    if !crate::tax::jurisdictions::ported(&country) { return refused(&ctx, &headers, "tracker tax reports for this jurisdiction").await; }
+    if !crate::tax::jurisdictions::ported(&country, year) { return refused(&ctx, &headers, "tracker tax reports for this jurisdiction").await; }
     let stablecoin = ctx.params.query("stablecoin_as_fiat") == Some("true");
     let (app2, ctx2) = (app.clone(), ctx.clone());
     let answer = app.db(move |c| {

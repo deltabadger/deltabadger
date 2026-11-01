@@ -1,5 +1,5 @@
 //! Tax reports (roadmap stage F): Tax::GenerateReportJob#crypto_csv and Tax::Report#to_csv over every venue the user
-//! has, for the jurisdictions `jurisdictions::PORTED` names (US DE ES PT SK). Byte for byte Rails' file where Rails is
+//! has, for the jurisdictions `jurisdictions::PORTED` names (US DE ES PT SK PL). Byte for byte Rails' file where Rails is
 //! right; where it is not, a named divergence (the engine's own are listed in fifo.rs):
 //! - D-TAX-UNCOVERED: a sale of more than the history holds is incomplete, counted in the incomplete banner, and listed
 //!   (`tax_report.warnings.uncovered_sales`).
@@ -25,6 +25,7 @@
 //!   staking and airdrops leave the income section and are listed (`zero_cost_rewards`); D-TAX-AT-MONTHLY-VALUE, income
 //!   paid more than three times a month valued at the 1st's close (VO § 4 Abs. 2); D-TAX-AT-INCOME-1-MARCH-2022, income
 //!   before § 27b listed apart (`income_before_regime`); D-TAX-AT-SPECULATION, § 31 sales listed apart (`speculation`).
+//! - Poland is no FIFO: its PIT-38 workpaper and its divergences are pl.rs's (D-TAX-PL-*), its NBP rates nbp.rs's.
 //!
 //! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
 //! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
@@ -32,6 +33,8 @@ pub mod api;
 pub mod fifo;
 pub mod job;
 pub mod jurisdictions;
+pub mod nbp;
+mod pl;
 
 use crate::figures::{at::At, budget, dec::Dec, FiguresError};
 use crate::tracker::prices::{self, alias_coin, catalogue_coin, Fetcher, PriceService, Reference, Unfetched, Venue};
@@ -68,11 +71,13 @@ pub enum Prepared { Done(Outcome), Report(Box<Report>) }
 pub struct Report {
     j: &'static Jurisdiction, year: i32, zone: String, stablecoin_as_fiat: bool, banners: Vec<String>, scoped: Vec<Stored>,
     deposits: HashMap<i64, Dec>, reference: Reference, fx: crate::tracker::fx::FxTable, cfee: HashSet<i64>,
+    /// Poland's NBP rates (D-TAX-PL-NBP); None elsewhere.
+    nbp: Option<nbp::Nbp>,
 }
 
 /// The reads of `crypto_csv` up to the enrichment: the scope, the tokenized refusal, the banners.
 pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoin_as_fiat: bool) -> Result<Prepared, FiguresError> {
-    let j = jurisdictions::find(country).filter(|_| jurisdictions::ported(country))
+    let j = jurisdictions::find(country).filter(|_| jurisdictions::ported(country, i64::from(year)))
         .ok_or_else(|| FiguresError::NotComputed(format!("the tax report is not ported for the jurisdiction {country}")))?;
     // D-TAX-AT-STABLECOIN: in Austria a stablecoin is crypto (Rz 6178b); the flag is not read.
     let stablecoin_as_fiat = stablecoin_as_fiat && j.code != "AT";
@@ -107,7 +112,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let fx = crate::tracker::fx::FxTable::load(c)?;
     let mut s = c.prepare("SELECT id FROM account_transactions WHERE json_extract(raw_data, '$.activity_type') = 'CFEE'")?;
     let cfee: HashSet<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
-    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee })))
+    let nbp = if j.code == "PL" { Some(nbp::Nbp::load(c)?) } else { None };
+    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp })))
 }
 
 /// Midnight starting 1 January of `year` in the user's zone (`ActiveSupport::TimeZone#local`).
@@ -135,9 +141,16 @@ struct Entry { id: i64, row: walk::Row, tx_id: Option<String> }
 impl Report {
     fn local(&self, at: At) -> NaiveDate { crate::web::timezone::local(at.utc(), &self.zone).date_naive() }
 
+    /// Poland's NBP rates read again (the job loads them after `prepare`, from `nbp_needs`).
+    pub fn reload_nbp(&mut self, c: &Connection) -> Result<(), FiguresError> {
+        if self.nbp.is_some() { self.nbp = Some(nbp::Nbp::load(c)?); }
+        Ok(())
+    }
+
     /// Tax::Report#to_csv from the enrichment on: prices the table lacks are fetched through `fetcher` (Rails'
     /// `prefetch` and single-day fetches), and `on_progress(percent)` is told as PriceService#enrich tells it.
     pub fn compute(&self, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Outcome, FiguresError> {
+        if self.j.code == "PL" { return self.pl_compute(fetcher, today); }
         let (j, year) = (self.j, self.year);
         let currency = j.currency(year);
         let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);

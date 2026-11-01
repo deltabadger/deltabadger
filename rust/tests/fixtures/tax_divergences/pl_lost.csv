@@ -1,0 +1,18 @@
+Data,Aktywo,Ilość,Rodzaj,Kwota w walucie transakcji,Waluta transakcji,Kurs średni NBP,Data tabeli NBP,Kwota w PLN,Giełda,ID transakcji,Dane niekompletne
+2026-01-05,BTC,1.0,Koszt,10000.0,EUR,4.3,2026-01-02,43000.0,kraken,K-BTC-2026-01-05T10:00:00Z-EUR,false
+2026-01-05,BTC,1.0,Koszt,50000.0,EUR,4.3,2026-01-02,215000.0,kraken,K-BTC-2026-01-05T11:00:00Z-EUR,false
+2026-01-07,BTC,1.0,Przychód,70000.0,EUR,4.3,2026-01-06,301000.0,kraken,K-BTC-2026-01-07T10:00:00Z-EUR,false
+
+"PIT-38, część E — odpłatne zbycie walut wirtualnych (art. 30b ust. 1a)"
+Przychód (b),301000.0
+Koszty uzyskania przychodów poniesione w roku podatkowym (c),258000.0
+Koszty uzyskania przychodów poniesione w latach ubiegłych i niepotrącone w poprzednim roku podatkowym (d),0.0
+Dochód b – (c + d) (e),43000.0
+"Koszty uzyskania przychodów, które nie zostały potrącone w roku podatkowym (c + d) – b (f)",0.0
+Podstawa obliczenia podatku (po zaokrągleniu do pełnych złotych),43000
+"Podatek 19%, po zaokrągleniu do pełnych złotych, przed odliczeniem podatku zapłaconego za granicą",8170
+
+"Rok po roku, od pierwszego roku zsynchronizowanej historii"
+,b,c,d,e,f
+2026,301000.0,258000.0,0.0,43000.0,0.0
+"Kolumna d wynika wyłącznie z Twojej zsynchronizowanej historii. Jeśli aktywa były kupowane na kontach, które nie są tu zsynchronizowane, albo Twój poprzedni PIT-38 wykazuje w kolumnie f inną kwotę, wpisz w kolumnie d tę kwotę i przelicz e oraz f."

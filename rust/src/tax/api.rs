@@ -86,7 +86,7 @@ pub fn create(c: &Connection, app: &App, user: i64, args: &serde_json::Map<Strin
     if !configured && method != "wealth_snapshot" {
         return Ok(failure(Domain::ValidationFailed, "market_data_not_configured", "Market data provider is not configured. Set up CoinGecko or Deltabadger market data in Settings first."));
     }
-    if !super::jurisdictions::ported(&code) { return Ok(not_ported(not_ported_message(&name))); }
+    if !super::jurisdictions::ported(&code, year) { return Ok(not_ported(not_ported_message(&name))); }
     if crate::web::tracker::report::coingecko(c, app)? {
         return Ok(not_ported(COINGECKO.into()));
     }
