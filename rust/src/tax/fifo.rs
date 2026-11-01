@@ -153,7 +153,7 @@ pub struct Disposal {
 
 /// D-TAX-IE-RING-FENCE: a loss waiting for a reacquisition: the store, the window (after the disposal, before `until`),
 /// the units still to cover, the loss per unit, and the row.
-struct Fence { key: Key, after: At, until: At, units: Dec, per_unit: Dec, row: usize }
+struct Fence { key: Key, after: At, until: At, units: Dec, per_unit: Dec, loss_left: Dec, row: usize }
 
 /// D-TAX-US-WALLET: one lot as placed at the boundary (`venue` None: held on no synced venue).
 #[derive(Clone, Debug)]
@@ -202,6 +202,8 @@ pub struct Fifo<'a> {
     /// D-TAX-DK-STABLECOIN: each coin's units held at `Options::snapshot_at`, by symbol.
     pub snapshot: Option<Vec<(String, Dec)>>,
     fences: Vec<Fence>,
+    /// The latest instant walked: a row walked out of time order (an Alpaca CFEE after its day's fills) takes effect then.
+    clock: At,
 }
 
 fn sum<'a>(it: impl Iterator<Item = &'a Dec>) -> Result<Dec, FiguresError> {
@@ -217,7 +219,7 @@ impl<'a> Fifo<'a> {
     pub fn new(o: Options<'a>) -> Fifo<'a> {
         Fifo { o, lots: HashMap::new(), in_groups: HashMap::new(), out_groups: HashMap::new(), transferred: HashMap::new(),
                moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, averaging: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
-               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], held_back: HashMap::new(), allocation: vec![], allocation_chosen: false, snapshot: None, fences: vec![] }
+               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], held_back: HashMap::new(), allocation: vec![], allocation_chosen: false, snapshot: None, fences: vec![], clock: At(i64::MIN) }
     }
 
     /// The lots left standing, per (venue, coin).
@@ -308,6 +310,7 @@ impl<'a> Fifo<'a> {
         self.move_swap_costs(txs)?;
         for (index, tx) in txs.iter().enumerate() {
             budget::check()?;
+            if tx.row.at.0 > self.clock.0 { self.clock = tx.row.at; }
             if let Some(a) = self.o.austria.filter(|a| !self.averaging && tx.row.at.0 >= a.average_from.0) { self.reaverage(a.new_stock_from)?; }
             if self.o.snapshot_at.is_some_and(|s| self.snapshot.is_none() && tx.row.at.0 >= s.0) { self.take_snapshot()?; }
             self.enter_row(tx)?;
@@ -602,8 +605,10 @@ impl<'a> Fifo<'a> {
     /// `record_disposal`: the lots taken, then (for the row's own sale) its fee coin spent, then the rows.
     fn dispose(&mut self, tx: &Tx, sale: Sale, own: bool) -> Result<(), FiguresError> {
         let k = self.key(&tx.row.exchange, sale.asset);
-        // D-TAX-IE-4WEEK: the acquisitions of the 4 weeks before first, newest first (never one dated after the disposal).
-        let order = match self.o.ireland { Some(ie) => Order::Recent((ie.from)(tx.row.at), tx.row.at), None => self.order() };
+        // D-TAX-IE-4WEEK: the acquisitions of the 4 weeks before first, newest first. A row walked out of time order (a CFEE
+        // after its day's fills) takes effect when walked: the fills it pays for come before it.
+        let effective = self.clock;
+        let order = match self.o.ireland { Some(ie) => Order::Recent((ie.from)(effective), effective), None => self.order() };
         let lots = self.lots.entry(k.clone()).or_default();
         let has_lots = !lots.is_empty();
         let (tranches, _) = dequeue_tranches(lots, &sale.amount, order)?;
@@ -625,17 +630,11 @@ impl<'a> Fifo<'a> {
             let row = self.disposals.len() - 1;
             let d = &self.disposals[row];
             // s. 581(3): the disposal's own loss waits for a reacquisition within 4 weeks after it.
-            if d.gain_loss.is_negative() && d.amount.is_positive() {
-                let fence = Fence { key: k, after: d.at, until: (ie.until)(d.at), units: d.amount.clone(), per_unit: (&Dec::zero() - &d.gain_loss)?.div(&d.amount)?, row };
+            // A residue below a cent (a USD conversion's last digits) is no loss.
+            if d.gain_loss.round(CENTS)?.is_negative() && d.amount.is_positive() {
+                let loss = (&Dec::zero() - &d.gain_loss)?;
+                let fence = Fence { key: k, after: effective, until: (ie.until)(effective), units: d.amount.clone(), per_unit: loss.div(&d.amount)?, loss_left: loss, row };
                 self.fences.push(fence);
-                // A row walked out of time order (a CFEE after its day's fills) is reacquired by lots already walked.
-                let n = self.fences.len() - 1;
-                let fk = self.fences[n].key.clone();
-                let mut lots = std::mem::take(self.lots.entry(fk.clone()).or_default());
-                let mut order: Vec<usize> = (0..lots.len()).collect();
-                order.sort_by_key(|&i| lots[i].date.0);
-                for i in order { self.fill_one(n, &mut lots[i])?; }
-                *self.lots.entry(fk).or_default() = lots;
             }
             return Ok(());
         }
@@ -652,11 +651,14 @@ impl<'a> Fifo<'a> {
 
     fn fill_one(&mut self, n: usize, lot: &mut Lot) -> Result<(), FiguresError> {
         let f = &mut self.fences[n];
-        if !f.units.is_positive() || lot.date.0 <= f.after.0 || lot.date.0 >= f.until.0 { return Ok(()); }
+        // Walked after the loss, so a purchase at the same instant is after it too.
+        if !f.units.is_positive() || lot.date.0 < f.after.0 || lot.date.0 >= f.until.0 { return Ok(()); }
         let free = max0((&lot.amount - &lot.fenced_units)?);
         let q = if f.units < free { f.units.clone() } else { free };
         if !q.is_positive() { return Ok(()); }
-        let loss = (&q * &f.per_unit)?;
+        // The last units take the loss that is left, so a whole restriction is the whole loss to the cent.
+        let loss = if q == f.units { f.loss_left.clone() } else { (&q * &f.per_unit)? };
+        f.loss_left = (&f.loss_left - &loss)?;
         f.units = (&f.units - &q)?;
         lot.fenced = (&lot.fenced + &loss)?;
         lot.fenced_units = (&lot.fenced_units + &q)?;
@@ -1483,16 +1485,35 @@ mod tests {
         assert!(f.disposals[0].restricted.is_zero());
     }
 
-    /// D-TAX-IE-RING-FENCE: a loss row walked after a purchase dated later than it (a CFEE after its fills) is restricted by it.
+    /// D-TAX-IE-4WEEK: a CFEE walked after its day's fills takes effect then: it is matched with the purchase it follows
+    /// (no loss, nothing restricted), even though its own time is earlier.
     #[test]
-    fn a_purchase_walked_ahead_restricts_a_later_walked_loss() {
+    fn a_fee_walked_after_its_fills_takes_effect_after_them() {
         let mut rows = vec![row(0, Kind::Buy, "ETH", "1", "4000", 0, "a"), row(1, Kind::Buy, "ETH", "0.1", "200", 400, "a"),
                             row(2, Kind::Fee, "ETH", "0.1", "200", 399, "a")];
         rows[2].row.at = At(at(400).0 - 3_600_000_000_000);
         let mut f = Fifo::new(ireland());
         f.calculate(&rows).unwrap();
         let fee = &f.disposals[0];
-        assert_eq!((cents(&fee.gain_loss), cents(&fee.restricted)), ("-200.0".to_string(), "200.0".to_string()));
+        assert_eq!((cents(&fee.cost_basis), cents(&fee.gain_loss), fee.recent, fee.restricted.is_zero()), ("200.0".to_string(), "0.0".to_string(), true, true));
+    }
+
+    /// D-TAX-IE-RING-FENCE: a purchase at the very instant of the loss, walked after it, buys again.
+    #[test]
+    fn a_purchase_at_the_same_instant_after_the_loss_restricts_it() {
+        let rows = vec![row(0, Kind::Buy, "ETH", "1", "4000", 0, "a"), row(1, Kind::Sell, "ETH", "1", "2000", 100, "a"), row(2, Kind::Buy, "ETH", "1", "2100", 100, "a")];
+        let mut f = Fifo::new(ireland());
+        f.calculate(&rows).unwrap();
+        assert_eq!(cents(&f.disposals[0].restricted), "2000.0");
+    }
+
+    /// D-TAX-IE-RING-FENCE: a whole restriction is the whole loss, to the cent (6 units, a loss of 2.015).
+    #[test]
+    fn a_whole_restriction_keeps_the_last_cent() {
+        let rows = vec![row(0, Kind::Buy, "XRP", "6", "6", 0, "a"), row(1, Kind::Sell, "XRP", "6", "3.985", 100, "a"), row(2, Kind::Buy, "XRP", "6", "3.9", 101, "a")];
+        let mut f = Fifo::new(ireland());
+        f.calculate(&rows).unwrap();
+        assert_eq!(f.disposals[0].restricted.to_s_f(), (&Dec::zero() - &f.disposals[0].gain_loss).unwrap().to_s_f());
     }
 
     /// D-TAX-IT-FEES: an own-coin fee's units leave at their share of the purchase's cost; a fiat fee joins no cost.

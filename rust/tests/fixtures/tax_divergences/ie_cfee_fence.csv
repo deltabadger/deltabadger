@@ -1,10 +1,9 @@
 Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule,Period
 2025-03-01T10:00:00Z,2024-02-01T10:00:00Z,BTC,1.0,20000.0,10000.0,10000.0,EUR,394,0.0,kraken,K-BTC-2025-03-01T10:00:00Z-BTC,true,false,fifo,initial
-2025-06-02T00:00:00Z,2024-01-10T10:00:00Z,ETH,0.1,200.0,400.0,-200.0,EUR,508,0.0,alpaca,fee-ETH-2025-06-02T00:00:00Z,true,false,fifo,initial
+2025-06-02T00:00:00Z,2025-06-02T01:00:00Z,ETH,0.1,200.0,200.0,-0.0,EUR,0,0.0,alpaca,fee-ETH-2025-06-02T00:00:00Z,true,false,4_week_rule,initial
 
 Total gains,10000.0
 Total losses,0.0
-Losses restricted by the 4-week rule (s. 581(3)),200.0
 Annual exemption,1270
 Taxable gains,8730.0
 CGT (33%),2880.9
@@ -15,7 +14,3 @@ CGT (33%),2880.9
 NOTE: Fees paid in an asset and not matched to a trade:
 ETH 0.1 2025-06-02
 Each is reported above as a disposal at its market value. Check each one against your exchange's statement.
-
-NOTE: Losses restricted because the same asset was bought again within 4 weeks:
-ETH 0.1 2025-06-02,200.0
-Each of these losses can only be used against a gain when the assets bought again are sold (s. 581(3)); it is left out of this year's losses.

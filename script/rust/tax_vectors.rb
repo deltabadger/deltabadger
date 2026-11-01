@@ -1305,6 +1305,26 @@ module TaxVectors
       end,
       # Alpaca (USD at 1.17): the CFEE is no part of the buy's cost; it takes 0.01 of it at 100, no proceeds: 14,850 /
       # 9,900 / 4,950, tax_33 1,633.50.
+      # Branch review: a CFEE of 2022 still folds into its buy's cost (fees were costs before 2023): 1 BTC for 10,500 USD
+      # (10,000 at 1.05) less 0.01 → 0.99 at 10,000; sold 2026 for 17,374.50 USD (14,850) → 4,850, tax_33 1,600.50.
+      it.('it_pre2023_cfee', 'diverges: D-TAX-IT-PRE2023-BASIS') do |c|
+        price('BTC', '2022-06-01', '10000', 'EUR')
+        buy(c, 'BTC', '1', '10500', '2022-06-01T15:00:00Z')
+        row(c, :fee, 'BTC', '0.01', '2022-06-01T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
+        sell(c, 'BTC', '0.99', '17374.50', '2026-03-10T10:00:00Z')
+      end,
+      # Branch review: a USDC fee row in a crypto-for-crypto swap's group is no exchange with an e-money token: no BTC row;
+      # ETH (cost 20,000) sold for 33,000 → 13,000, tax_33 4,290.00.
+      it.('it_emt_fee_row_not_leg', 'diverges: D-TAX-IT-SWAPS') do |c|
+        btc_on_binance.(c)
+        price('BTC', '2026-06-01', '30000', 'EUR')
+        price('ETH', '2026-06-01', '2000', 'EUR')
+        price('ETH', '2026-06-05', '2100', 'EUR')
+        swap(c, 'BTC', '1', 'ETH', '15', '2026-06-01T10:00:00Z', ref: 'cv1')
+        row(c, :fee, 'USDC', '5', '2026-06-01T10:00:00Z', exchange: b.(c), group_id: 'cv1', tx_id: 'cv1-fee-USDC')
+        transfer(c, 'ETH', '15', '2026-06-05T10:00:00Z', from: b.(c), to: k.(c))
+        kraken(c, :sell, 'ETH', '15', '33000', '2026-09-01T10:00:00Z')
+      end,
       it.('it_cfee_into_buy', 'diverges: D-TAX-IT-FEES') do |c|
         price('BTC', '2026-01-10', '10000', 'EUR')
         buy(c, 'BTC', '1', '11700', '2026-01-10T10:00:00Z')
@@ -1447,13 +1467,47 @@ module TaxVectors
         kraken(c, :buy, 'ETH', '1', '2000', '2025-12-05T10:00:00Z')
         kraken(c, :sell, 'ETH', '1', '4500', '2025-12-20T10:00:00Z')
       end,
-      # A CFEE walked after its day's fills (New York's day differs): its −200 is restricted by the 01:00Z buy → CGT 2,880.90.
+      # A CFEE walked after its day's fills (New York's day differs) takes effect then: it is matched with the 01:00Z buy
+      # it follows (s. 581(1)): 200 / 200 / 0, no loss → CGT 2,880.90.
       ie.('ie_cfee_fence', expect: 'diverges: D-TAX-IE-RING-FENCE') do |c|
         price('ETH', '2025-06-02', '2000', 'EUR')
         btc_gain.(c)
         kraken(c, :buy, 'ETH', '1', '4000', '2024-01-10T10:00:00Z')
         row(c, :fee, 'ETH', '0.1', '2025-06-02T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
         buy(c, 'ETH', '0.1', '220', '2025-06-02T01:00:00Z')
+      end,
+      # Branch review: the 01:00Z buy is sold at 02:00Z for 200 (0 gain); the CFEE then takes effect after both and comes
+      # from the 2024 lot: 200 / 400 / −200, nothing bought after it → losses 200, CGT (10,000 − 200 − 1,270) × 33% = 2,814.90.
+      ie.('ie_cfee_after_resale', expect: 'diverges: D-TAX-IE-RING-FENCE') do |c|
+        price('ETH', '2025-06-02', '2000', 'EUR')
+        btc_gain.(c)
+        kraken(c, :buy, 'ETH', '1', '4000', '2024-01-10T10:00:00Z')
+        row(c, :fee, 'ETH', '0.1', '2025-06-02T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
+        buy(c, 'ETH', '0.1', '220', '2025-06-02T01:00:00Z')
+        sell(c, 'ETH', '0.1', '220', '2025-06-02T02:00:00Z')
+      end,
+      # Branch review: a staking reward (0.2 ETH, 400) at 00:30Z, 0.1 sold at 01:00Z for 200 (0 gain); the CFEE after them is
+      # matched with the reward's other 0.1 (s. 581(1): any acquisition of the 4 weeks before): 200 / 200 / 0 → CGT 2,880.90.
+      ie.('ie_cfee_after_reward', expect: 'diverges: D-TAX-IE-RING-FENCE') do |c|
+        price('ETH', '2025-06-02', '2000', 'EUR')
+        btc_gain.(c)
+        kraken(c, :buy, 'ETH', '1', '4000', '2024-01-10T10:00:00Z')
+        row(c, :fee, 'ETH', '0.1', '2025-06-02T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
+        row(c, :staking_reward, 'ETH', '0.2', '2025-06-02T00:30:00Z')
+        sell(c, 'ETH', '0.1', '220', '2025-06-02T01:00:00Z')
+      end,
+      # Branch review: the rebuy at the very instant of the loss sale, booked after it → restricted 2,000 → CGT 2,880.90.
+      ie.('ie_fence_same_instant', expect: 'diverges: D-TAX-IE-RING-FENCE') do |c|
+        btc_gain.(c)
+        kraken(c, :buy, 'ETH', '1', '4000', '2024-01-10T10:00:00Z')
+        kraken(c, :sell, 'ETH', '1', '2000', '2025-06-02T10:00:00Z', ref: 'loss')
+        kraken(c, :buy, 'ETH', '1', '2100', '2025-06-02T10:00:00Z', ref: 'rebuy')
+      end,
+      # Branch review: an unpriced deposit at 2026-01-01T00:00Z (midnight in Dublin) is 2026's: no banner, no deposit block
+      # in the 2025 report → BTC +10,000, CGT 2,880.90.
+      ie.('ie_new_year_midnight', expect: 'diverges: D-TAX-IE-SUMMARY') do |c|
+        btc_gain.(c)
+        row(c, :deposit, 'SOL', '5', '2026-01-01T00:00:00Z', exchange: venue(c, :kraken))
       end,
       # A loss on 2026-09-20, its window open on the recording's day (2026-10-01): NOTE ie_provisional.
       ie.('ie_provisional_note', year: 2026) { |c| trade.(c, 'ETH', '1', '4000', '2000', '2025-01-10T10:00:00Z', '2026-09-20T10:00:00Z') },

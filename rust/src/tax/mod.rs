@@ -134,7 +134,9 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let stable_cash = !j.swaps_taxable() && stablecoin_as_fiat;
     // D-TAX-IE-RING-FENCE: a loss of 31 December is restricted by a purchase up to 28 January (the window's last day).
     let ahead_until = if j.code == "IE" { local_start(&zone, (year + 1, 1, 29)) } else { None };
-    let (year_rows, later): (Vec<Stored>, Vec<Stored>) = rows.into_iter().partition(|r| r.at.0 <= rows_until.0);
+    // D-TAX-IE-RING-FENCE: in Ireland a row at the year's very end (midnight) is the next year's, read only to fill fences.
+    let in_year = |r: &Stored| if j.code == "IE" { r.at.0 < rows_until.0 } else { r.at.0 <= rows_until.0 };
+    let (year_rows, later): (Vec<Stored>, Vec<Stored>) = rows.into_iter().partition(in_year);
     let mut scoped = rows::ordered_legs(year_rows, stable_cash)?;
     quote_stablecoin_legs(&mut scoped)?;
     let mut ahead = rows::ordered_legs(later.into_iter().filter(|r| ahead_until.is_some_and(|u| r.at.0 < u.0)).collect(), stable_cash)?;
@@ -398,7 +400,13 @@ impl Report {
         let stable_cash = !self.j.swaps_taxable() && self.stablecoin_as_fiat;
         let mut taxable: Vec<Entry> = enriched.iter().filter(|e| !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
         // D-TAX-IT-FEES: in Italy no CFEE joins its fill's cost; each walks after its fills as a coin fee.
-        let folded = if self.j.code == "IT" { vec![false; taxable.len()] } else { attribute_trade_fees(&self.cfee, &mut taxable)? };
+        // D-TAX-IT-FEES: from 2023 no CFEE joins its fill's cost; each walks after its fills as a coin fee. Before 2023 fees
+        // were costs (D-TAX-IT-PRE2023-BASIS) and fold as everywhere.
+        let cfee: HashSet<i64> = match (self.j.code == "IT").then(|| local_midnight(&self.zone, it::FIRST_YEAR)).flatten() {
+            Some(from) => taxable.iter().filter(|e| self.cfee.contains(&e.id) && e.row.at.0 < from.0).map(|e| e.id).collect(),
+            None => self.cfee.clone(),
+        };
+        let folded = attribute_trade_fees(&cfee, &mut taxable)?;
         let identity = |symbol: &str, r: &walk::Row| prices::coin_id(&self.reference, symbol, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()))
             .unwrap_or_else(|| format!("symbol:{symbol}"));
         let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)

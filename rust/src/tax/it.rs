@@ -39,7 +39,10 @@ pub(super) fn emt_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> 
 fn emt_groups(rows: &[Entry]) -> Vec<(Vec<usize>, Vec<usize>)> {
     let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
     for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.exchange.clone(), g.clone())).or_default().push(i); } }
-    let mut out: Vec<(Vec<usize>, Vec<usize>)> = groups.into_values().filter(|legs| !legs.iter().any(|&i| fiat(&rows[i].row.base)) && legs.iter().any(|&i| emt(&rows[i].row.base)))
+    // The trade's legs only: a fee row booked in the group (a USDC fee) makes no exchange with an e-money token.
+    let legs = |all: Vec<usize>| -> Vec<usize> { all.into_iter().filter(|&i| rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg()).collect() };
+    let mut out: Vec<(Vec<usize>, Vec<usize>)> = groups.into_values().map(legs)
+        .filter(|legs| !legs.iter().any(|&i| fiat(&rows[i].row.base)) && legs.iter().any(|&i| emt(&rows[i].row.base)))
         .map(|legs| (legs.iter().copied().filter(|&i| rows[i].row.kind.in_leg()).collect(), legs.iter().copied().filter(|&i| rows[i].row.kind.out_leg()).collect()))
         .filter(|(ins, outs): &(Vec<usize>, Vec<usize>)| !ins.is_empty() && !outs.is_empty()).collect();
     out.sort();
