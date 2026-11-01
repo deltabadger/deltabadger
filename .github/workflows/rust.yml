@@ -31,6 +31,14 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # What store::seed mirrors (rust/tests/seeds.rs checks seeds_rails.json "sources" and the bundle against db/seed_data).
+      - 'db/seeds.rb'
+      - 'db/seed_data/**'
+      - 'app/models/market_data.rb'
+      - 'app/models/market_data_settings.rb'
+      - 'app/models/asset.rb'
+      - 'script/rust/record_seeds.rb'
+      - 'script/rust/schema_template.rb'
       # What rust/src/figures mirrors (keep in sync with figures_vectors.json "ported_sources").
       - 'app/models/bot/composition/measurable.rb'
       - 'app/models/bot/composition/holding_keys.rb'
@@ -200,6 +208,14 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # What store::seed mirrors (rust/tests/seeds.rs checks seeds_rails.json "sources" and the bundle against db/seed_data).
+      - 'db/seeds.rb'
+      - 'db/seed_data/**'
+      - 'app/models/market_data.rb'
+      - 'app/models/market_data_settings.rb'
+      - 'app/models/asset.rb'
+      - 'script/rust/record_seeds.rb'
+      - 'script/rust/schema_template.rb'
       # What rust/src/figures mirrors (keep in sync with figures_vectors.json "ported_sources").
       - 'app/models/bot/composition/measurable.rb'
       - 'app/models/bot/composition/holding_keys.rb'

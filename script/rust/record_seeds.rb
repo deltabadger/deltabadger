@@ -65,13 +65,17 @@ module RecordSeeds
       saved = ENV_KEYS.to_h { [_1, ENV.fetch(_1, nil)] }
       ENV_KEYS.each { ENV.delete(_1) }
       env.each { |k, v| ENV[k] = v }
+      # A test adapter catches any job (the app's Solid Queue would write to a database this dump does not read).
+      adapter = ActiveJob::Base.queue_adapter
+      ActiveJob::Base.queue_adapter = ActiveJob::QueueAdapters::TestAdapter.new
       begin
         travel_to(NOW, with_usec: true) { Rails.application.load_seed }
+        jobs = ActiveJob::Base.queue_adapter.enqueued_jobs
+        raise "the seed enqueued #{jobs.map { _1[:job] }.inspect}" if jobs.any?
       ensure
+        ActiveJob::Base.queue_adapter = adapter
         saved.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
       end
-      adapter = ActiveJob::Base.queue_adapter
-      raise 'the seed enqueued a job' if adapter.respond_to?(:enqueued_jobs) && adapter.enqueued_jobs.any?
 
       out = dump(ActiveRecord::Base.connection.raw_connection)
       ActiveRecord::Base.connection_pool.disconnect!

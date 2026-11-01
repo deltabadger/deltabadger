@@ -22359,7 +22359,7 @@
     "app/models/asset.rb": "cf19d01807d40340626cb55125bbb91c8cc90117f75123afea862e822223e71b",
     "app/models/market_data_settings.rb": "bfce12f2ccc37d11ef7ef9261850fc86d47cf5554877750059b42e81e62f66fa",
     "rust/schema/baseline.sql": "22965f77a374f6911b15a92fc0c3f5566299842fb3bce82487e9e389d507c48f",
-    "script/rust/record_seeds.rb": "6189152882e3cada716effa1a218b7b57372bd05dae769705a3bbfbf2020b700",
+    "script/rust/record_seeds.rb": "8aff32cea6ec6e97d945bbd1c0388b473670e1020a8c92f66914aeb19c7ea1b0",
     "script/rust/schema_template.rb": "3341f739a2e1d29414e1717cf6080b6cb514bd4366d64f7379fc2d49dbd38a8c",
     "db/seed_data/assets.json": "14c08bfb06ba8c04b932f15bd7ef67b03c8cd5a4d9d7a04989e5c89506419e46",
     "db/seed_data/indices.json": "6d61e0444dd93a0c9b8cd1d4598760fc076bed5ab1a8a73201442dc85f2f9abf",

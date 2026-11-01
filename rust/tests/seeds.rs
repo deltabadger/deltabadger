@@ -46,7 +46,12 @@ fn dump(c: &Connection) -> Tables {
         if table == "app_configs" {
             let at = 1 + columns.iter().position(|c| c == "value").unwrap();
             for r in &mut rows {
-                r[at] = r[at].take().map(|v| format!("text:{}", cipher.decrypt(v.strip_prefix("text:").unwrap()).unwrap()));
+                // Encrypted as Rails writes it (an envelope; decrypt alone would pass a plain value through).
+                r[at] = r[at].take().map(|v| {
+                    let stored = v.strip_prefix("text:").unwrap();
+                    assert!(stored.starts_with("{\"p\":") && stored.contains("\"iv\""), "app_configs.value is not encrypted: {stored}");
+                    format!("text:{}", cipher.decrypt(stored).unwrap())
+                });
             }
         }
         (table, rows)
@@ -71,6 +76,11 @@ fn seeded(env: &BTreeMap<String, String>, now: DateTime<Utc>) -> Tables {
 #[test]
 fn rust_seeds_what_rails_seeds_under_each_environment() {
     let fixture: Value = serde_json::from_str(&std::fs::read_to_string(manifest("tests/fixtures/seeds_rails.json")).unwrap()).unwrap();
+    for (path, hash) in fixture["sources"].as_object().unwrap() {
+        use sha2::Digest;
+        let now = hex::encode(sha2::Sha256::digest(std::fs::read(manifest("..").join(path)).unwrap()));
+        assert_eq!(&now, hash.as_str().unwrap(), "{path} changed: re-record seeds_rails.json (script/rust/repin)");
+    }
     let now = DateTime::parse_from_rfc3339(fixture["now"].as_str().unwrap()).unwrap().with_timezone(&Utc);
     let tables = |s: &Value| -> Tables { serde_json::from_value(s["tables"].clone()).unwrap() };
     let scenarios = fixture["scenarios"].as_array().unwrap();
