@@ -128,6 +128,10 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
 
 /// `hand_back` by a process that started at `process_start` (placement::recover_since).
 pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<usize, EngineError> {
+    // PLAN-B1 r2.1: an install 3.0 created has no Rails to go back to. Refused before anything is written; the marker stays.
+    if crate::app_config::get_plain(&o.primary, lease::CREATED_AT).map_err(EngineError::Data)?.is_some() {
+        return Err(EngineError::Ineligible(vec!["this install was created by Deltabadger 3.0; there is no earlier version to hand it back to".into()]));
+    }
     if crate::sync::binance_writer::written(&o.primary)? {
         return Err(EngineError::Ineligible(vec!["Binance A12 identity data permanently requires Rust ownership".into()]));
     }

@@ -1,5 +1,5 @@
 //! `deltabadger check | run | handback | serve | sync | repair-binance-history | resolve-withdrawal | resolve-placement | reconcile-order | decide`.
-//! - check: take the engine lock, check the Rails-prepared install read-only, list the Rust migrations `run`/`serve`
+//! - check: take the engine lock, check the install read-only, list the Rust migrations `run`/`serve`
 //!   would apply, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
 //! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
@@ -12,7 +12,13 @@
 //! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
 //! and FORCE_SSL. Without data-api, run and serve import db/seed_data/catalogue.json.gz at start and the public catalogue
-//! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off). Rails creates the databases and runs its migrations; `run` and `serve` apply Rust's own (store::migrate).
+//! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off).
+//!
+//! Files: on an empty STORAGE_DIR, `run` and `serve` create the install under the engine lock (store::bootstrap: the
+//! primary, seeded and owned by Rust from its first commit, and an empty queue; never cache or cable). Every other
+//! command refuses a missing install and never creates a database file (`check` may create the directory and the lock
+//! file). A 2.x install keeps the files Rails created. `run` and `serve` apply Rust's migrations (store::migrate);
+//! `resolve-withdrawal` migrates too but never creates an install.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install_at, Refusal};
 use deltabadger::engine::run::Engine;
@@ -69,8 +75,8 @@ fn main() {
             refuse_url_overrides(&env);
             let paths=paths(&env);
             let lock=take_lock(&paths);
-            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&format!("{e:?}")));
-            let o=store::open(&paths).unwrap_or_else(|e|fail(&format!("{e:?}")));
+            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&explain(e)));
+            let o=store::open(&paths).unwrap_or_else(|e|fail(&explain(e)));
             let secret=env("SECRET_KEY_BASE").unwrap_or_else(||fail("SECRET_KEY_BASE is required"));
             let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
             let cipher=Cipher::new(&keys);
@@ -97,7 +103,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
             deltabadger::engine::placement::resolve_by_operator(&o.primary, bot_id, resolution, chrono::Utc::now())
                 .unwrap_or_else(|e| fail(&format!("{e:?}")));
             println!("resolved");
@@ -115,7 +121,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
             match deltabadger::engine::reconcile::by_operator(&o.primary, tx_id, &text, chrono::Utc::now()) {
                 Ok(deltabadger::engine::reconcile::Operator::Reconciled) => println!("reconciled"),
                 Ok(deltabadger::engine::reconcile::Operator::AlreadyReconciled) => println!("already reconciled"),
@@ -155,13 +161,14 @@ fn take_lock(paths: &Paths) -> EngineLock {
         Ok(l) => l,
         Err(LeaseError::Locked) => fail("another Deltabadger engine is running on this data"),
         Err(LeaseError::RailsAlive { seconds_ago }) => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        Err(LeaseError::Io(e)) => fail(&format!("{}: {e}", paths.lock_file().display())),
         Err(e) => fail(&format!("{e:?}")),
     }
 }
 
 fn explain(e: StoreError) -> String {
     match e {
-        StoreError::Missing { path } => format!("{} does not exist yet: start the Rails app once to set up this install", path.display()),
+        StoreError::Missing { path } => format!("no install at {} yet; `run` or `serve` creates it", path.display()),
         StoreError::Unrecognised { path } => format!("{} is not a Deltabadger database; refusing to touch it", path.display()),
         StoreError::Behind { missing } => format!("this data is behind this build ({} migration(s) missing): run the matching Rails app until its background jobs have finished, stop it, then start this again", missing.len()),
         StoreError::Unsupported { unknown } => format!("this data has migrations this build does not know ({}); use a newer build", unknown.join(", ")),
@@ -172,22 +179,26 @@ fn explain(e: StoreError) -> String {
     }
 }
 
-/// The shared start of `run`, `serve` and `handback`: no URL overrides, the instance's SECRET_KEY_BASE, the exclusive
-/// lock, and an install this build accepts. Refusals here exit 1 before any file is created or changed. `run` and `serve`
-/// (`migrate`) then apply this build's pending Rust migrations, before any writable connection is opened.
-fn open_install(env: &dyn Fn(&str) -> Option<String>, migrate: bool) -> (EngineLock, store::Opened, Cipher) {
+/// The shared start of `run`, `serve`, `handback` and `sync`: no URL overrides, the instance's SECRET_KEY_BASE, the
+/// exclusive lock, and an install this build accepts. Refusals here exit 1 before any file is created or changed. `run`
+/// and `serve` (`start`) first create the install on an empty STORAGE_DIR (store::bootstrap), then apply this build's
+/// pending Rust migrations, before any writable connection is opened.
+fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLock, store::Opened, Cipher) {
     refuse_url_overrides(env);
     let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
     let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail(&format!("encryption keys: {e:?}")));
+    let cipher = Cipher::new(&keys);
     let paths = paths(env);
     let lock = take_lock(&paths);
-    if migrate {
+    if start {
+        let _created = store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| fail(&explain(e)));
+        #[cfg(debug_assertions)]
+        if _created { store::abort_point("after-commit"); }
         for version in store::migrate(&paths, &lock).unwrap_or_else(|e| fail(&explain(e))) { log(&format!("applied Rust migration {version}")); }
     }
     let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
-    let cipher = Cipher::new(&keys);
     // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
-    if migrate { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
+    if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
     (lock, opened, cipher)
 }
@@ -267,6 +278,8 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
     };
     log(&format!("took over ({:?}): {} bot(s), {} Rails job(s) removed, {} webhook call(s) taken over, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.imported_calls, t.normalised));
+    #[cfg(debug_assertions)]
+    store::abort_point("after-claim");
     Ok(())
 }
 

@@ -1,5 +1,8 @@
-//! Rails creates these databases and runs its migrations. Rust checks them read-only and refuses anything that is
-//! not exactly what this build knows, before any write. Rust never creates a database file.
+//! Who creates the files: on an install Rails prepared (2.x), Rails created them. On an empty STORAGE_DIR, `run` and
+//! `serve` create a 3.0 install (`bootstrap`, under the engine lock): the primary and an empty queue, never cache or
+//! cable (D-BOOT-NO-CACHE-CABLE: Rust never reads them). Every other command, and `check`, refuses a missing install and
+//! never creates a database file; Rust never creates a queue for an install whose primary exists. Rust checks both
+//! files read-only and refuses anything that is not exactly what this build knows, before any write.
 //!
 //! Rust's own tables come from its own migrations (rust/migrations, embedded by build.rs), recorded in
 //! `rust_schema_migrations`; Rails' `schema_migrations` is never touched. `check` reports the ones not yet applied,
@@ -157,7 +160,7 @@ impl Paths {
 
 #[derive(Debug)]
 pub enum StoreError {
-    /// A database file is missing or empty and must be prepared by Rails.
+    /// A database file is absent, 0 bytes, or SQLite with nothing in it: no install yet (`run`/`serve` create one).
     Missing { path: PathBuf },
     /// A database has no schema_migrations table and is not recognised as an install.
     Unrecognised { path: PathBuf },
@@ -459,6 +462,10 @@ fn read_only(path: &Path) -> Result<Connection, StoreError> {
         Ok(_) => {}
     }
     let c = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    // A bootstrap a crash rolled back leaves a SQLite file with nothing in it: no install yet, as an absent file.
+    if c.query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get::<_, i64>(0))? == 0 {
+        return Err(StoreError::Missing { path: path.to_path_buf() });
+    }
     let recognised: bool = c.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations')",
         [], |r| r.get(0),
@@ -586,6 +593,8 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
         };
         run().map_err(|error| StoreError::Migration { version: m.version.into(), name: m.name.into(), error })?;
         applied.push(m.version.to_string());
+        #[cfg(debug_assertions)]
+        if applied.len() == 1 { abort_point("mid-migrate"); }
     }
     Ok(applied)
 }
@@ -619,23 +628,112 @@ const BASELINE: &str = include_str!("../schema/baseline.sql");
 /// The same for the queue database (db/queue_schema.rb), with its own `schema_migrations`/`ar_internal_metadata` rows.
 const QUEUE_BASELINE: &str = include_str!("../schema/queue_baseline.sql");
 
-/// Creates a fresh primary's schema (`BASELINE`) on an empty database. No caller yet: the bootstrap is B1-6.
+/// Creates a fresh primary's schema (`BASELINE`) on an empty database, in its own transaction (tests build installs
+/// with it; `bootstrap` writes the same baseline inside its own).
 pub fn create_schema(primary: &Connection) -> rusqlite::Result<()> {
-    create(primary, BASELINE)
+    create(primary, write_baseline)
 }
 
-/// Creates a fresh queue database's schema (`QUEUE_BASELINE`) on an empty database. No caller yet.
+/// Creates a fresh queue database's schema (`QUEUE_BASELINE`) on an empty database: the queue file `bootstrap` creates.
 pub fn create_queue_schema(queue: &Connection) -> rusqlite::Result<()> {
-    create(queue, QUEUE_BASELINE)
+    create(queue, |c| c.execute_batch(QUEUE_BASELINE))
 }
 
 /// WAL first (Rails 8's default, persistent in the file; it can't change inside a transaction), then the whole file in
 /// one BEGIN IMMEDIATE: a failure leaves the database empty.
-fn create(c: &Connection, sql: &str) -> rusqlite::Result<()> {
+fn create(c: &Connection, write: impl FnOnce(&Connection) -> rusqlite::Result<()>) -> rusqlite::Result<()> {
     c.execute_batch("PRAGMA journal_mode=WAL")?;
     let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate)?;
-    tx.execute_batch(sql)?;
+    write(&tx)?;
     tx.commit()
+}
+
+/// `BASELINE` on the caller's transaction, in two batches split at a statement end, so a debug build can die between them.
+fn write_baseline(c: &Connection) -> rusqlite::Result<()> {
+    let half = BASELINE.len() / 2;
+    let cut = BASELINE[half..].find(";\n").map_or(BASELINE.len(), |i| half + i + 2);
+    c.execute_batch(&BASELINE[..cut])?;
+    #[cfg(debug_assertions)]
+    abort_point("mid-baseline");
+    c.execute_batch(&BASELINE[cut..])
+}
+
+/// Debug builds only (PLAN-B1 r1.7): `DELTABADGER_TEST_ABORT=<step>` kills the process at that step, so tests/bootstrap.rs
+/// proves each crash by real process death. Steps: after-queue, after-wal, mid-baseline, mid-seed, before-commit,
+/// after-commit, mid-migrate, and after-claim (where the tests stop a restart). Release builds have none.
+#[cfg(debug_assertions)]
+pub fn abort_point(step: &str) {
+    if std::env::var("DELTABADGER_TEST_ABORT").is_ok_and(|s| s == step) { std::process::abort() }
+}
+
+/// Whether `q` is exactly an empty Solid Queue database as `create_queue_schema` leaves it: the same objects, and no row
+/// but the baseline's own (ar_internal_metadata compared without its stamps).
+fn is_empty_queue(q: &Connection) -> rusqlite::Result<bool> {
+    fn contents(c: &Connection) -> rusqlite::Result<Vec<(String, Vec<Vec<rusqlite::types::Value>>)>> {
+        let rows = |sql: &str| -> rusqlite::Result<Vec<Vec<rusqlite::types::Value>>> {
+            let mut st = c.prepare(sql)?;
+            let n = st.column_count();
+            let rows = st.query_map([], |r| (0..n).map(|i| r.get(i)).collect())?.collect();
+            rows
+        };
+        let mut out = vec![("sqlite_master".to_string(), rows("SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name")?)];
+        let tables: Vec<String> = c.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")?
+            .query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        for t in tables {
+            let columns = if t == "ar_internal_metadata" { "key, value" } else { "*" };
+            out.push((t.clone(), rows(&format!("SELECT {columns} FROM \"{}\" ORDER BY rowid", t.replace('"', "\"\"")))?));
+        }
+        Ok(out)
+    }
+    let fresh = Connection::open_in_memory()?;
+    fresh.execute_batch(QUEUE_BASELINE)?;
+    Ok(contents(q)? == contents(&fresh)?)
+}
+
+/// `run` and `serve` only, holding the engine lock, before `migrate` (PLAN-B1 §6, r6.1): creates a 3.0 install when the
+/// primary is absent, 0 bytes, or SQLite with nothing in it, and returns whether it did. Any other primary is left to
+/// `migrate`/`open` as before (a non-SQLite file and one without schema_migrations are refused there, untouched).
+/// - The queue first, in its own transaction: created when absent or empty; reused when it is exactly an empty Solid
+///   Queue database (a crash between the two files); anything else refuses before either file is written.
+/// - Then the primary: WAL, then one BEGIN IMMEDIATE with the baseline, Rails' seeds (D-BOOT-SEED-ONCE: only here, on an
+///   empty file, never on an existing install, unlike the entrypoint's `Asset.count == 0` re-seed), and the ownership
+///   rows (lease::begin_created). A crash before COMMIT leaves an empty file, bootstrapped again at the next start.
+/// - Cache and cable are never created (D-BOOT-NO-CACHE-CABLE). Errors name the file.
+pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -> Option<String>,
+                 version: &str, now: chrono::DateTime<chrono::Utc>) -> Result<bool, StoreError> {
+    match read_only(&paths.primary) {
+        Err(StoreError::Missing { .. }) => {}
+        Err(e) => return Err(e),
+        Ok(_) => return Ok(false),
+    }
+    let create_queue = match read_only(&paths.queue) {
+        Err(StoreError::Missing { .. }) => true,
+        Ok(q) if is_empty_queue(&q)? => false,
+        Ok(_) | Err(StoreError::Unrecognised { .. }) => return Err(StoreError::Unrecognised { path: paths.queue.clone() }),
+        Err(e) => return Err(e),
+    };
+    let at = |path: &Path, e: &dyn std::fmt::Debug| StoreError::Io(std::io::Error::other(format!("{}: {e:?}", path.display())));
+    let create = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE;
+    if create_queue {
+        let q = Connection::open_with_flags(&paths.queue, create).map_err(|e| at(&paths.queue, &e))?;
+        create_queue_schema(&q).map_err(|e| at(&paths.queue, &e))?;
+    }
+    #[cfg(debug_assertions)]
+    abort_point("after-queue");
+    let fail = |e: &dyn std::fmt::Debug| at(&paths.primary, e);
+    let c = Connection::open_with_flags(&paths.primary, create).map_err(|e| fail(&e))?;
+    c.execute_batch("PRAGMA journal_mode=WAL").map_err(|e| fail(&e))?;
+    #[cfg(debug_assertions)]
+    abort_point("after-wal");
+    configure(&c).map_err(|e| fail(&e))?;
+    let tx = rusqlite::Transaction::new_unchecked(&c, rusqlite::TransactionBehavior::Immediate).map_err(|e| fail(&e))?;
+    write_baseline(&tx).map_err(|e| fail(&e))?;
+    seed(&tx, cipher, env, now).map_err(|e| fail(&e))?;
+    crate::lease::begin_created(lock, &tx, cipher, version, now).map_err(|e| fail(&e))?;
+    #[cfg(debug_assertions)]
+    abort_point("before-commit");
+    tx.commit().map_err(|e| fail(&e))?;
+    Ok(true)
 }
 
 /// The reference data a fresh install is seeded with: one gzip of db/seed_data's assets.json, indices.json and every
@@ -683,6 +781,8 @@ pub fn seed(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -
     let assets = data("assets.json");
     if !assets.is_empty() {
         import::write_assets(c, import::plan_assets(assets, "")?, now)?;
+        #[cfg(debug_assertions)]
+        abort_point("mid-seed");
         import::write_tokenized(c)?;
     }
     import::write_indices(c, import::plan_indices(data("indices.json"))?, now)?;
