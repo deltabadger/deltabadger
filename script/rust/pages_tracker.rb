@@ -183,7 +183,7 @@ module D5Grid
     tax.call('tax_stablecoin', 'country=US&year=2025&stablecoin_as_fiat=true')
     tax.call('tax_broker', 'country=US&year=2024&report_scope=broker')
     tax.call('tax_de', 'country=DE&year=2024&stablecoin_as_fiat=false')
-    tax.call('tax_cz', 'country=CZ&year=2024&stablecoin_as_fiat=false')
+    tax.call('tax_fr', 'country=FR&year=2024&stablecoin_as_fiat=false')
     tax.call('tax_locale_de', 'country=US&year=2024&stablecoin_as_fiat=false', prefix: '/de')
     tax.call('tax_stale_refusal', 'country=US&year=2024&stablecoin_as_fiat=false', refusal)
     tax.call('tax_generating', 'country=US&year=2024&stablecoin_as_fiat=false', before: 'd5_tax_generating')

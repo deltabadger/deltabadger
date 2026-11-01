@@ -256,6 +256,12 @@ async fn perform<T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Optio
         crate::tax::nbp::ensure_loaded(&cx.db, ecb, needs, today).await;
         report = metered(&cx.db, &mut allowance, move |c, _| { let mut report = report; report.reload_nbp(c)?; Ok(report) }).await?;
     }
+    // D-TAX-CZ-CNB: the Czech report converts at the ČNB's fixings, loaded for the years it reads (the same source).
+    let years = report.cnb_needs();
+    if !years.is_empty() {
+        crate::tax::cnb::ensure_loaded(&cx.db, ecb, years, today).await;
+        report = metered(&cx.db, &mut allowance, move |c, _| { let mut report = report; report.reload_cnb(c)?; Ok(report) }).await?;
+    }
     let (db, request) = (cx.db.clone(), r.clone());
     fetching(&cx.db, api, &mut allowance, move |fetcher| {
         let mut last = 0;

@@ -1,0 +1,14 @@
+Datum,Datum pořízení,Aktivum,Množství,Příjem,Pořizovací cena,Zisk/Ztráta,Měna,Dny držení,Poplatek,Burza,ID transakce,Pořizovací cena kompletní,Neúplná data,Osvobozeno,Důvod osvobození
+2025-01-20T10:00:00Z,2024-03-04T10:00:00Z,ETH,1.0,50000.0,40000.0,10000.0,CZK,322,0.0,kraken,K-ETH-2025-01-20T10:00:00Z-ETH,true,false,false,
+2025-04-10T10:00:00Z,2024-03-04T11:00:00Z,SOL,1.0,60000.0,50000.0,10000.0,CZK,401,0.0,binance,cv1-out-SOL,true,false,false,
+2025-09-01T10:00:00Z,2025-04-10T10:00:00Z,BTC,0.5,45000.0,30000.0,15000.0,CZK,144,0.0,kraken,K-BTC-2025-09-01T10:00:00Z-BTC,true,false,false,
+
+"Příloha č. 2, oddíl 2, druh C – prodej kryptoaktiv (2025: bez osvobozených příjmů z cenných papírů a podílů, § 4 odst. 1 písm. q), u))"
+Příjmy pro hodnotový test (§ 4 odst. 1 písm. zj); bez USDC a EURC),105000.0
+Hodnotový test splněn (úhrn nejvýše 100 000 Kč),Ne
+Příjmy osvobozené časovým testem (§ 4 odst. 1 písm. zk)),0.0
+ř. 207 Příjmy podle § 10 zákona,155000.0
+ř. 208 Výdaje podle § 10 zákona,120000.0
+ř. 209 Dílčí základ daně podle § 10 zákona (ř. 207 – ř. 208),35000.0
+"Přepočteno kurzem ČNB pro den každé transakce. Pokud v přiznání používáte jednotný kurz, použijte ho místo toho pro všechny částky. Ostatní příjmy z prodeje movitých věcí (druh C) se přičítají k tomuto řádku. Sazba daně (15 % nebo 23 %) závisí na celém Vašem základu daně. Nejsou zde rozpoznána: aktiva zděděná po příbuzném v řadě přímé nebo po manželovi či manželce (započítává se doba jejich držby), výměna nebo sloučení kryptoaktiv vydavatelem (tříletá lhůta se nepřerušuje), obchodní majetek a budoucí převody. Staking, airdropy a půjčky se počítají jako příjem v okamžiku získání v jejich hodnotě, která je pak jejich pořizovací cenou (oficiální výklad neexistuje)."
+"Pro rok 2025 předběžné: do limitu 40 000 000 Kč se započítávají i Vaše osvobozené příjmy podle § 4 odst. 1 písm. q) a u) (cenné papíry a podíly), které tento přehled nezahrnuje. Přičtěte je k příjmům osvobozeným časovým testem výše (S). Pokud S přesáhne 40 000 000 Kč, nahraďte zde vypočtený podíl podílem (S − 40 000 000) / S, zahrňte tento podíl z příjmu každého převodu osvobozeného časovým testem do ř. 207 a z jeho výdajů do ř. 208 (ř. 208 nejvýše do výše ř. 207) a u každého převodu ověřte oznamovací povinnost podle § 38v u zbývající osvobozené části."

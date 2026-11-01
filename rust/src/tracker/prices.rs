@@ -306,10 +306,21 @@ fn minus(d: NaiveDate, n: u64) -> NaiveDate { d.checked_sub_days(Days::new(n)).u
 /// How many days a range spans, inclusive.
 pub fn span(from: NaiveDate, to: NaiveDate) -> i64 { (to - from).num_days() + 1 }
 
+/// D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: the conversion a tax law names (Bulgaria: the BNB peg over the ECB's rates; the
+/// Czech Republic: the ČNB fixing of the day). Where a report sets one, it alone converts: no ECB table, no BTC cross.
+pub trait Statutory {
+    /// The day a conversion at `at` reads; also its cache key.
+    fn day(&self, at: At) -> NaiveDate;
+    /// Units of `to` per unit of `from` on `day`; None: no rate (a missing value).
+    fn rate(&self, from: &str, to: &str, day: NaiveDate) -> Option<Dec>;
+}
+
 /// Tax::PriceService for one pass: its warnings, its caches, and where its fetches go.
 pub struct PriceService<'a> {
     pub r: &'a Reference,
     pub fx: &'a FxTable,
+    /// D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: set by a report whose law names its conversion (the tracker never sets it).
+    pub statutory: Option<&'a dyn Statutory>,
     pub today: NaiveDate,
     pub warnings: Vec<String>,
     warned_fx: HashSet<String>,
@@ -325,7 +336,7 @@ pub struct PriceService<'a> {
 
 impl<'a> PriceService<'a> {
     pub fn new(r: &'a Reference, fx: &'a FxTable, today: NaiveDate, fetcher: &'a mut dyn Fetcher) -> PriceService<'a> {
-        PriceService { r, fx, today, warnings: vec![], warned_fx: HashSet::new(), fx_cache: HashMap::new(), coin_ids: HashMap::new(), recorded: HashMap::new(), price_keys: HashMap::new(), fetched: HashMap::new(), fetcher }
+        PriceService { r, fx, statutory: None, today, warnings: vec![], warned_fx: HashSet::new(), fx_cache: HashMap::new(), coin_ids: HashMap::new(), recorded: HashMap::new(), price_keys: HashMap::new(), fetched: HashMap::new(), fetcher }
     }
 
     fn venue(&self, name_id: Option<&str>) -> Option<&'a Venue> { let r: &'a Reference = self.r; name_id.and_then(|n| r.venue(n)) }
@@ -371,6 +382,12 @@ impl<'a> PriceService<'a> {
     pub fn price_at_recorded(&mut self, asset: &str, currency: &str, at: At, exchange: Option<&str>, recorded: Option<&Asset>) -> Result<Dec, FiguresError> {
         if asset == currency { return Ok(Dec::one()); }
         if stable(asset) { return self.stablecoin_rate(currency, at); }
+        // D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: a coin through the euro, at the statutory rate (the GFŘ's third currency).
+        if self.statutory.is_some() && currency != "EUR" {
+            let eur = self.price_at_recorded(asset, "EUR", at, exchange, recorded)?;
+            if eur.is_zero() { return Ok(eur); }
+            return Ok((&eur * &self.fiat_exchange_rate("EUR", currency, at)?)?);
+        }
         let date = at.utc().date_naive();
         let Some((key, security)) = self.price_key_for(asset, exchange, date, recorded) else {
             self.warnings.push(format!("{asset}/{currency} {date}"));
@@ -433,11 +450,20 @@ impl<'a> PriceService<'a> {
     /// `fiat_exchange_rate`: the ECB rate, cached; a missing one warns on every record that leans on it and falls back to
     /// the BTC cross, else zero.
     fn fiat_exchange_rate(&mut self, from: &str, to: &str, at: At) -> Result<Dec, FiguresError> {
-        let date = at.utc().date_naive();
+        // D-TAX-CZ-CNB: a statutory rate is cached by the day it reads (the taxpayer's local day for the ČNB).
+        let date = self.statutory.map_or_else(|| at.utc().date_naive(), |s| s.day(at));
         let key = format!("FX/{from}/{to}/{date}");
         let warning = format!("FX {from}/{to} {date}");
         if self.warned_fx.contains(&key) { self.warnings.push(warning.clone()); }
         if let Some(r) = self.fx_cache.get(&key) { return Ok(r.clone()); }
+        if let Some(s) = self.statutory {
+            // D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: the statutory rate alone; none is a missing value (no BTC cross).
+            let rate = s.rate(from, to, date);
+            if rate.is_none() { self.warned_fx.insert(key.clone()); self.warnings.push(warning); }
+            let rate = rate.unwrap_or_else(Dec::zero);
+            self.fx_cache.insert(key, rate.clone());
+            return Ok(rate);
+        }
         if let Some(rate) = self.fx.rate(from, to, date)? {
             self.fx_cache.insert(key, rate.clone());
             return Ok(rate);
@@ -469,6 +495,8 @@ impl<'a> PriceService<'a> {
     /// ours, in the order the rows first name them, then (in another currency than dollars) Bitcoin over all those days,
     /// the cross rate's leg; then each range fetched, `progress(done, total)` after each. `skip(row)` is `cash_leg_value`.
     pub fn prefetch(&mut self, rows: &[Stored], currency: &str, skip: &dyn Fn(&Stored) -> bool, progress: &mut dyn FnMut(usize, usize)) -> Result<(), FiguresError> {
+        // D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: under a statutory conversion coins are priced in euros, with no BTC cross.
+        let priced_in = if self.statutory.is_some() { "EUR" } else { currency };
         let mut coins: Vec<(String, String, NaiveDate, NaiveDate)> = vec![];
         let mut index: HashMap<(String, String), usize> = HashMap::new();
         let add = |me: &mut Self, coins: &mut Vec<(String, String, NaiveDate, NaiveDate)>, index: &mut HashMap<(String, String), usize>,
@@ -496,14 +524,14 @@ impl<'a> PriceService<'a> {
         }
         // `add_coin_dates(coins_needed, 'BTC', all_dates)`: every day any coin needs, with no venue. Each day is its own
         // `price_key_for`; the alias and the catalogue answer BTC alike on every day, so the range is the days' span.
-        if currency != "USD" {
+        if priced_in != "USD" && self.statutory.is_none() {
             if let (Some(from), Some(to)) = (coins.iter().map(|c| c.2).min(), coins.iter().map(|c| c.3).max()) {
                 add(self, &mut coins, &mut index, Some("BTC"), from, to, None, None);
             }
         }
         let total = coins.len();
         for (n, (symbol, coin, from, to)) in coins.into_iter().enumerate() {
-            self.fetch_price_range(&Fetch { coin, symbol, currency: currency.to_string(), from, to })?;
+            self.fetch_price_range(&Fetch { coin, symbol, currency: priced_in.to_string(), from, to })?;
             progress(n + 1, total);
         }
         Ok(())
@@ -656,6 +684,35 @@ mod tests {
         let mut ps = PriceService::new(&r, &fx, day("2026-10-15"), &mut none);
         assert!(ps.price_at("BTC", "USD", at, Some("alpaca")).unwrap().is_zero());
         assert_eq!(ps.warnings, ["BTC/USD 2026-10-08"]);
+    }
+
+    /// D-TAX-CZ-CNB, D-TAX-BG-CURRENCY: under a statutory conversion a coin is its euro price times the statutory rate of the
+    /// provider's day (12:00 and 23:30 UTC on 31 March are 31 March and 1 April in Prague), and a missing rate stays a
+    /// missing value though BTC is priced in both currencies (no cross, no stored CZK price read).
+    #[test]
+    fn a_statutory_conversion_alone_on_its_own_day() {
+        struct Prague;
+        impl Statutory for Prague {
+            fn day(&self, at: At) -> NaiveDate { crate::web::timezone::local(at.utc(), "Prague").date_naive() }
+            fn rate(&self, from: &str, to: &str, day: NaiveDate) -> Option<Dec> {
+                match (from, to, day.to_string().as_str()) { ("EUR", "CZK", "2026-03-31") => Some(Dec::from_i64(25)), ("EUR", "CZK", "2026-04-01") => Some(Dec::from_i64(24)), _ => None }
+            }
+        }
+        let db = catalogue();
+        db.execute_batch("INSERT INTO assets VALUES (7, 'ethereum', 'Cryptocurrency', 'ETH', 2);
+                          INSERT INTO historical_prices (asset, currency, date, price) VALUES ('ETH', 'EUR', '2026-03-31', '2000'), ('ETH', 'CZK', '2026-03-31', '1'),
+                                 ('BTC', 'USD', '2026-03-31', '90000'), ('BTC', 'CZK', '2026-03-31', '2000000');").unwrap();
+        let r = Reference::load(&db, &venue("kraken"), &names(&["ETH", "BTC"])).unwrap();
+        let fx = FxTable::default();
+        let mut unfetched = Unfetched;
+        let mut ps = PriceService::new(&r, &fx, day("2026-10-15"), &mut unfetched);
+        ps.statutory = Some(&Prague);
+        let (noon, late) = (At::from_sql("2026-03-31 12:00:00").unwrap(), At::from_sql("2026-03-31 23:30:00").unwrap());
+        assert_eq!(ps.price_at("ETH", "CZK", noon, None).unwrap().to_s_f(), "50000.0");
+        assert_eq!(ps.price_at("ETH", "CZK", late, None).unwrap().to_s_f(), "48000.0", "the euro price of 31 March at 1 April's rate");
+        assert!(ps.warnings.is_empty(), "{:?}", ps.warnings);
+        assert!(ps.convert_fiat(&Dec::from_i64(100), "USD", "CZK", noon).unwrap().is_zero());
+        assert_eq!(ps.warnings, ["FX USD/CZK 2026-03-31"]);
     }
 
     /// fetch_price_range: nothing asked when the table covers the range; else one request from the first midnight to the

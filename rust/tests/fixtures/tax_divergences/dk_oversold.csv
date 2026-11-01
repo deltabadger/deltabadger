@@ -1,0 +1,16 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+"ADVARSEL: 2 værdier mangler — rapporten er ufuldstændig, indberet den ikke som den er"
+2026-02-05T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.0,447600.0,373000.0,74600.0,DKK,31,0.0,kraken,K-BTC-2026-02-05T10:00:00Z-BTC,true,false
+2026-02-05T10:00:00Z,,BTC,0.5,223800.0,0.0,223800.0,DKK,0,0.0,kraken,K-BTC-2026-02-05T10:00:00Z-BTC,false,true
+2026-02-06T10:00:00Z,,ETH,1.0,22380.0,0.0,22380.0,DKK,0,0.0,kraken,K-ETH-2026-02-06T10:00:00Z-ETH,false,true
+
+Rubrik 20 Anden personlig indkomst,320780.0
+  heraf gevinster ved afståelser,320780.0
+"  heraf modtagne aktiver (staking, udlån, airdrops)",0.0
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+"WARNING: Salg af mere, end din synkroniserede historik indeholder; den del, som intet køb dækker, opgøres med en anskaffelsespris på nul:"
+BTC 0.5 2026-02-05
+ETH 1.0 2026-02-06
+"Forbind eller importér den konto, aktiverne kom fra, eller tilknyt den indbetaling, de kom ind med, så salgene får deres faktiske anskaffelsespris."

@@ -1,0 +1,12 @@
+Datum,Datum pořízení,Aktivum,Množství,Příjem,Pořizovací cena,Zisk/Ztráta,Měna,Dny držení,Poplatek,Burza,ID transakce,Pořizovací cena kompletní,Neúplná data,Osvobozeno,Důvod osvobození
+2026-03-02T10:00:00Z,2022-01-10T10:00:00Z,ETH,1.0,300000.0,50000.0,249700.0,CZK,1512,300.0,kraken,K-ETH-2026-03-02T10:00:00Z-ETH,true,false,true,časový test
+2026-03-03T10:00:00Z,2026-01-12T10:00:00Z,BTC,1.0,200000.0,150000.0,49800.0,CZK,50,200.0,kraken,K-BTC-2026-03-03T10:00:00Z-BTC,true,false,false,
+
+"Příloha č. 2, oddíl 2, druh C – prodej kryptoaktiv"
+Příjmy pro hodnotový test (§ 4 odst. 1 písm. zj); bez USDC a EURC),500000.0
+Hodnotový test splněn (úhrn nejvýše 100 000 Kč),Ne
+Příjmy osvobozené časovým testem (§ 4 odst. 1 písm. zk)),300000.0
+ř. 207 Příjmy podle § 10 zákona,200000.0
+ř. 208 Výdaje podle § 10 zákona,150200.0
+ř. 209 Dílčí základ daně podle § 10 zákona (ř. 207 – ř. 208),49800.0
+"Přepočteno kurzem ČNB pro den každé transakce. Pokud v přiznání používáte jednotný kurz, použijte ho místo toho pro všechny částky. Ostatní příjmy z prodeje movitých věcí (druh C) se přičítají k tomuto řádku. Sazba daně (15 % nebo 23 %) závisí na celém Vašem základu daně. Nejsou zde rozpoznána: aktiva zděděná po příbuzném v řadě přímé nebo po manželovi či manželce (započítává se doba jejich držby), výměna nebo sloučení kryptoaktiv vydavatelem (tříletá lhůta se nepřerušuje), obchodní majetek a budoucí převody. Staking, airdropy a půjčky se počítají jako příjem v okamžiku získání v jejich hodnotě, která je pak jejich pořizovací cenou (oficiální výklad neexistuje)."

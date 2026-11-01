@@ -32,7 +32,8 @@ pub struct Jurisdiction {
     /// (max_year, amount).
     pub exemption_threshold: Option<(i32, i64)>,
     pub expense_deduction: Option<&'static str>,
-    pub currency_by_year: &'static [(i32, &'static str)],
+    /// D-TAX-BG-CURRENCY: the last tax year reported in leva (Rails' `currency_by_year` named 2025 only).
+    pub bgn_until: Option<i32>,
     pub flat_tax_rate: Option<&'static str>,
     pub wealth_tax: &'static [WealthYear],
     /// `snapshot_date: :end_of_year`.
@@ -59,7 +60,7 @@ const YEAR: Period = Period { years: 1, days: 0 };
 const BASE: Jurisdiction = Jurisdiction {
     code: "", name: "", method: "fifo", currency: "EUR", locale: "en", crypto_to_crypto_taxable: None, stablecoin_ambiguous: false,
     holding_exemption: None, holding_exemption_inclusive: false, swap_resets_holding_period: false, old_stock_cutoff: None,
-    short_long_term: false, tax_rate: None, exemption_threshold: None, expense_deduction: None, currency_by_year: &[], flat_tax_rate: None,
+    short_long_term: false, tax_rate: None, exemption_threshold: None, expense_deduction: None, bgn_until: None, flat_tax_rate: None,
     wealth_tax: &[], snapshot_end_of_year: false, summary_only_total: false, income_taxed_separately: false, annual_threshold: None,
     wash_sale: None, loss_deduction_rate: None, annual_exemption: None, split_payment: false, danish_wash_sale: false,
     per_asset_summary: false, loss_deduction_rate_on_losses: None, czech_exemptions: None,
@@ -75,7 +76,9 @@ pub const REGISTRY: [Jurisdiction; 18] = [
     Jurisdiction { code: "IT", name: "Italy", method: "lifo", locale: "it", exemption_threshold: Some((2024, 2000)),
                    tax_rate: Some(("26%", "33%", (2026, 1, 1))), ..BASE },
     Jurisdiction { code: "ES", name: "Spain", locale: "es", ..BASE },
-    Jurisdiction { code: "BG", name: "Bulgaria", locale: "bg", expense_deduction: Some("0.1"), currency_by_year: &[(2025, "BGN")], ..BASE },
+    // D-TAX-BG-CURRENCY: leva for every tax year up to 2025 (the 2025 return "се попълва в левове"), euros from 2026
+    // (ЗДДФЛ чл. 11 ал. 3); Rails has `currency_by_year: { 2025 => 'BGN' }`.
+    Jurisdiction { code: "BG", name: "Bulgaria", locale: "bg", expense_deduction: Some("0.1"), bgn_until: Some(super::bg::BGN_UNTIL), ..BASE },
     Jurisdiction { code: "GR", name: "Greece", locale: "el", flat_tax_rate: Some("0.15"), ..BASE },
     Jurisdiction { code: "NL", name: "Netherlands", method: "wealth_snapshot", locale: "nl",
                    wealth_tax: &[WealthYear { year: 2025, allowance: 57_684, deemed_return: "0.0588", rate: "0.36" },
@@ -110,21 +113,25 @@ pub fn find(code: &str) -> Option<&'static Jurisdiction> { REGISTRY.iter().find(
 /// a create for it (web, REST, MCP) is refused up front as not ported, and nothing is ever queued for a report this
 /// build cannot compute; the broker scope likewise until A12-7. Each later slice adds its countries; the gate goes with A12-7.
 /// Austria by its own law (A12-2b: the moving average per wallet, § 27b from 1 March 2022, `fifo::Austria`); Poland by
-/// its own report (tax/pl.rs), from 2019.
-pub const PORTED: [&str; 7] = ["US", "DE", "AT", "ES", "PT", "SK", "PL"];
+/// its own report (tax/pl.rs), from 2019; Bulgaria and the Czech Republic by their own law (A12-3: bg.rs, cz.rs).
+pub const PORTED: [&str; 11] = ["US", "DE", "AT", "ES", "PT", "SK", "PL", "BG", "CZ", "DK", "GR"];
+
+/// D-TAX-GR-NO-TAX: the last Greek year whose law was reviewed (no tax on an individual's crypto gains in force); a
+/// later one waits for the enacted law.
+const GR_LAST_YEAR: i64 = 2026;
 
 /// Whether this build computes `country`'s report for `year`: Poland's from 2019, the year its crypto regime took effect
-/// (art. 44 ust. 1 of the act of 23.10.2018); an earlier year is refused as not ported.
+/// (art. 44 ust. 1 of the act of 23.10.2018); Greece's up to `GR_LAST_YEAR`; another year is refused as not ported.
 pub fn ported(country: &str, year: i64) -> bool {
-    PORTED.contains(&country) && (country != "PL" || year >= i64::from(super::pl::FIRST_YEAR))
+    PORTED.contains(&country) && (country != "PL" || year >= i64::from(super::pl::FIRST_YEAR)) && (country != "GR" || year <= GR_LAST_YEAR)
 }
 
 pub(crate) fn ymd((y, m, d): (i32, u32, u32)) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap_or(NaiveDate::MIN) }
 
 impl Jurisdiction {
-    /// Tax::Report#currency: `currency_by_year[year] || currency`.
+    /// Tax::Report#currency; D-TAX-BG-CURRENCY: leva up to `bgn_until`.
     pub fn currency(&self, year: i32) -> &'static str {
-        self.currency_by_year.iter().find(|(y, _)| *y == year).map_or(self.currency, |(_, c)| c)
+        if self.bgn_until.is_some_and(|last| year <= last) { "BGN" } else { self.currency }
     }
 
     /// `Jurisdictions.holding_period`: (period, inclusive), or None where the law has none.
@@ -153,10 +160,11 @@ mod tests {
     #[test]
     fn the_registry_is_rails_order_and_the_ported_set_is_fifo_without_a_summary() {
         assert_eq!(REGISTRY.map(|j| j.code), crate::web::tracker::modal::COUNTRIES);
-        for c in PORTED { let j = find(c).unwrap(); assert_eq!(j.method, "fifo", "{c}"); assert!(j.expense_deduction.is_none() && !j.per_asset_summary && j.czech_exemptions.is_none() && j.flat_tax_rate.is_none()); }
-        assert_eq!(find("BG").unwrap().currency(2025), "BGN");
-        assert_eq!(find("BG").unwrap().currency(2026), "EUR");
-        assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && !ported("CZ", 2026));
+        for c in PORTED { let j = find(c).unwrap(); assert_eq!(j.method, "fifo", "{c}"); }
+        let bg = find("BG").unwrap();
+        assert_eq!([2023, 2024, 2025, 2026].map(|y| bg.currency(y)), ["BGN", "BGN", "BGN", "EUR"]);
+        assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && ported("CZ", 2026) && !ported("FR", 2026));
+        assert!(ported("DK", 2026) && ported("GR", 2026) && ported("GR", 2019) && !ported("GR", 2027));
     }
 
     #[test]

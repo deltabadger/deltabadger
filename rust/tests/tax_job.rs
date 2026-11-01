@@ -165,9 +165,9 @@ fn the_not_ported_gate_refuses_before_anything_is_queued() {
     let i = install();
     let app = app(&i);
     let c = open(&i);
-    let res = deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "CZ", "year": 2025})), "en").unwrap();
+    let res = deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "FR", "year": 2025})), "en").unwrap();
     assert_eq!((res.status, res.code), (deltabadger::web::bot_api::Domain::NotPorted, Some("not_ported")));
-    let text = deltabadger::tax::api::mcp(&c, &app, i.user, "generate_tax_report", &json!({"country": "CZ", "year": 2025.0})).unwrap();
+    let text = deltabadger::tax::api::mcp(&c, &app, i.user, "generate_tax_report", &json!({"country": "FR", "year": 2025.0})).unwrap();
     assert_eq!(text["isError"], true, "{text}");
     // Validation still answers first, as Rails.
     assert_eq!(deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "ZZ", "year": 2025})), "en").unwrap().code, Some("unknown_country"));
@@ -182,7 +182,7 @@ fn the_not_ported_gate_refuses_before_anything_is_queued() {
 async fn a_failed_run_keeps_its_failed_outcome_and_tells_its_panel() {
     let i = install();
     // A row this build cannot compute (nothing queues one; the run refuses it all the same).
-    queued(&open(&i), i.user, R1, "CZ", "queued");
+    queued(&open(&i), i.user, R1, "FR", "queued");
     let (db, sent) = job_db(&i);
     assert_eq!(run(&i, &db).await, Outcome::Done);
     assert_eq!(rows(&open(&i)), vec![(R1.into(), "failed".into())]);
@@ -283,8 +283,8 @@ async fn the_web_request_answers_its_own_panel_and_restores_a_refusal_it_could_n
     assert!(!refusal.exists());
     assert!(open(&i).query_row("SELECT stablecoin_as_fiat FROM rust_tax_reports", [], |r| r.get::<_, bool>(0)).unwrap());
     // The gate: a jurisdiction not ported is the refused flash, nothing queued.
-    let cz = browser.send(&app, "GET", "/tracker/tax_report?country=CZ&year=2025", None, Csrf::None, &TURBO).await;
-    assert_eq!(cz.status, 501);
+    let fr = browser.send(&app, "GET", "/tracker/tax_report?country=FR&year=2025", None, Csrf::None, &TURBO).await;
+    assert_eq!(fr.status, 501);
     assert_eq!(rows.len(), 1);
 
     // The reconcile endpoint: only the owner's request; a terminal one is broadcast again.

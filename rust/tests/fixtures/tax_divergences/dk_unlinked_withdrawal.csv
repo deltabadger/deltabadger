@@ -1,0 +1,12 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+2026-01-07T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.6,358080.0,44760.0,313320.0,DKK,2,0.0,kraken,K-BTC-2026-01-07T10:00:00Z-BTC,true,false
+
+Rubrik 20 Anden personlig indkomst,313320.0
+  heraf gevinster ved afståelser,313320.0
+"  heraf modtagne aktiver (staking, udlån, airdrops)",0.0
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+"WARNING: Udbetalinger, der ikke er knyttet til en indbetaling; hver behandles som en flytning til en wallet, du selv ejer, ikke som et salg:"
+BTC 0.4 2026-01-06
+"Knyt hver enkelt til den tilsvarende indbetaling i Tracker. En udbetaling, der var et salg, en betaling eller en gave, er en afståelse, som denne rapport ikke medtager."
