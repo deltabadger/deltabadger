@@ -607,9 +607,10 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
     Ok(report)
 }
 
-/// `check` and the takeover: check_install, plus every bot this engine would run whose reference data is past its bound
-/// (staleness.rs). A source with no stamp is logged and noted, never refused. The running engine does not call this: there
-/// the tick refuses a stale bot (tick.rs), and the engine goes on.
+/// `check` and the takeover: check_install, plus each eligible bot's flip-rule target (refused), and its reference data
+/// (staleness.rs), noted, never refused. D-UPGRADE-FRESHNESS-AT-TICK: in 3.0 only this engine refreshes reference data, and
+/// its scheduler starts after the claim, so an install Rails left stale must be taken over; the tick then refuses the stale
+/// bot (tick.rs) and run.rs retries it every 5 minutes until its source's job completes a run.
 pub fn check_install_at(c: &Connection, now: DateTime<Utc>) -> Result<Report, EngineError> {
     use super::staleness::{verdict, Verdict};
     let mut report = check_install(c)?;
@@ -622,8 +623,7 @@ pub fn check_install_at(c: &Connection, now: DateTime<Utc>) -> Result<Report, En
             continue;
         }
         match verdict(c, &bot, now)? {
-            Verdict::Stale(s) => { report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), s.message)); continue; }
-            Verdict::Unknown(s) => {
+            Verdict::Stale(s) | Verdict::Unknown(s) => {
                 let line = format!("bot {id} ({}): {}", bot.status.label(), s.message);
                 super::log(&format!("[check] {line}"));
                 report.notes.push(line);

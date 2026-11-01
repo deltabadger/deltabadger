@@ -393,7 +393,7 @@ async fn scheduler_process(command: &str, restart: bool) -> Result<(), Box<dyn s
         o.primary.execute("UPDATE app_configs SET value = json_set(value, '$.last_success_at', '2020-01-01T00:00:00Z', '$.rails_at', NULL, '$.incomplete_since', '2020-01-01T00:00:00Z') WHERE key = ?1",
             ["rust_job.sync_alpaca_crypto_from_deltabadger_job"])?;
         assert!(deltabadger::engine::eligibility::check_install_at(&o.primary, chrono::Utc::now())
-            .map_err(|e| format!("{e:?}"))?.problems.iter().any(|m| m.contains("reference data stale")));
+            .map_err(|e| format!("{e:?}"))?.notes.iter().any(|m| m.contains("reference data stale")));
     }
     drop(o);
     let mut child = Running(cli(dir.path(), &[command]).env("MARKET_DATA_URL", server.uri()).env("MARKET_DATA_TOKEN", "tok")
@@ -437,25 +437,72 @@ async fn run_and_serve_restart_a_stale_engine_owned_install_and_start_the_schedu
 }
 
 #[test]
-fn run_and_serve_refuse_stale_reference_data_while_rails_owns_the_install() -> Result<(), Box<dyn std::error::Error>> {
+fn run_and_serve_take_over_an_install_rails_left_stale_and_note_the_staleness() -> Result<(), Box<dyn std::error::Error>> {
+    // D-UPGRADE-FRESHNESS-AT-TICK (PLAN-B2 R2): only this engine's scheduler, which starts after the claim, can refresh the
+    // data, so the takeover admits the bot and notes the staleness; the tick refuses it (tests/tick_basket.rs).
     for command in ["run", "serve"] {
         let (dir, o, s) = common::install_alpaca();
-        seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00")); // never due: no call to Alpaca
         o.primary.execute("UPDATE exchange_assets SET updated_at = '2020-01-01 00:00:00'", [])?;
-        // `serve` shows the same refusal on its refusal page instead of exiting (PLAN-B2 r1.0).
-        let said = if command == "serve" {
-            let r = refused(dir.path(), &mut cli(dir.path(), &[command]));
-            assert_eq!(r.status, Some(0), "{command}: {}", r.stderr);
-            r.stderr
-        } else {
-            let out = finished(cli(dir.path(), &[command]).env("PORT", free_port().to_string()));
-            assert_eq!(out.status.code(), Some(1), "{command}: {}", stderr(&out));
-            stderr(&out)
+        drop(o);
+
+        let out = cli(dir.path(), &["check"]).output()?;
+        assert_eq!(out.status.code(), Some(0), "check: {}", stderr(&out));
+        let said = String::from_utf8_lossy(&out.stdout).to_string();
+        assert!(said.lines().any(|l| l.starts_with(&format!("note: bot {id} (scheduled): reference data stale: Alpaca crypto tickers"))), "{said}");
+        assert!(said.contains("ready: 1 bot(s) this engine can run"), "{said}");
+
+        let mut child = Running(cli(dir.path(), &[command]).env("PORT", free_port().to_string()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let stdout = child.0.stdout.take().unwrap();
+        std::thread::spawn(move || for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) { let _ = tx.send(line); });
+        let mut before = vec![];
+        let took = loop {
+            let line = rx.recv_timeout(std::time::Duration::from_secs(20)).map_err(|_| format!("{command}: no takeover within 20 s after {before:?}"))?;
+            if line.contains("took over") { break line; }
+            before.push(line);
         };
-        assert!(said.contains("reference data stale"), "{said}");
-        assert!(deltabadger::lease::read(&o.primary, &seed::cipher()).map_err(|e| format!("{e:?}"))?.is_none());
+        assert!(took.contains("1 bot(s)"), "{command}: {took}");
+        assert!(before.iter().any(|l| l.contains(&format!("[check] bot {id} (scheduled): reference data stale"))), "{command}: {before:?}");
+        assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust", "{command} took the install over");
+        assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status()?.success());
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        let status = loop {
+            if let Some(st) = child.0.try_wait()? { break st; }
+            assert!(std::time::Instant::now() < deadline, "{command} did not exit on SIGTERM");
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        assert_eq!(status.code(), Some(0), "{command}");
     }
     Ok(())
+}
+
+/// R2 as narrowed by PLAN-B2 r1.8: only freshness left the takeover. A bot whose flip rule's target direction is ineligible
+/// (here: selling, with an order of its history placed on another venue) is still refused by `check`, `run` and `serve`.
+#[test]
+fn check_run_and_serve_still_refuse_a_bot_whose_flip_target_is_ineligible() {
+    let (dir, o, s) = common::install(); // Kraken
+    let spec = BotSpec::weekly(60.0, "2099-01-01 00:00:00").with("direction", serde_json::json!("buying"))
+        .with("sell_denomination", serde_json::json!("quote")).with("sell_quote_amount", serde_json::json!(60))
+        .with("price_limited", serde_json::json!(true)).with("price_limit", serde_json::json!(60000))
+        .with("price_limit_value_condition", serde_json::json!("below")).with("price_limit_action", serde_json::json!("start_selling"));
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    let row = seed::insert_row(&o.primary, &s, id, s.btc, &serde_json::json!({"status":0,"external_status":2,"side":0,
+        "amount":"0.0012","amount_exec":"0.0012","quote_amount_exec":"60","created_at":"2026-09-02 10:00:00"}));
+    o.primary.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
+    o.primary.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE id = ?1", [row]).unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.merged_history_until_id', ?1) WHERE id = ?2", [row, id]).unwrap();
+    drop(o);
+    let reason = format!("bot {id} (scheduled): selling with 1 order(s) placed on another venue");
+    for command in ["check", "run"] {
+        let out = finished(cli(dir.path(), &[command]).env("PORT", free_port().to_string()));
+        assert_eq!(out.status.code(), Some(1), "{command}: {}", stderr(&out));
+        assert!(stderr(&out).contains(&reason), "{command}: {}", stderr(&out));
+    }
+    let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
+    assert_eq!(r.status, Some(0), "{}", r.stderr);
+    assert!(r.stderr.contains(&reason) && r.page.contains("selling with 1 order(s) placed on another venue"), "{}", r.stderr);
+    assert!(lease_of(dir.path()).is_none(), "nothing was taken over");
 }
 
 #[test]

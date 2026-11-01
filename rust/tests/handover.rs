@@ -399,22 +399,21 @@ async fn a_handback_removes_an_unhandled_continue_request() {
 
 
 #[test]
-fn stale_catalog_refuses_rails_takeover_but_allows_an_engine_owned_restart() -> Result<(), Box<dyn std::error::Error>> {
+fn a_stale_catalog_is_noted_at_a_rails_takeover_and_at_an_engine_owned_restart() -> Result<(), Box<dyn std::error::Error>> {
     use deltabadger::engine::{eligibility, staleness};
     let (dir, o, s) = common::install_alpaca();
     let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     let paths = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&paths, now()).map_err(|e| format!("{e:?}"))?;
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2020-01-01 00:00:00'", [])?;
-    assert!(matches!(handover::take_over(&lock, &o, &seed::cipher(), "test", now()), Err(EngineError::Ineligible(p)) if p.iter().any(|m| m.contains("reference data stale"))));
-    assert!(lease::read(&o.primary, &seed::cipher()).map_err(|e| format!("{e:?}"))?.is_none());
-    lease::claim(&lock, &o.primary, &seed::cipher(), "test", now()).map_err(|e| format!("{e:?}"))?;
-    staleness::seed(&o.primary, now()).map_err(|e| format!("{e:?}"))?;
+    // D-UPGRADE-FRESHNESS-AT-TICK: the takeover from Rails admits it; the tick refuses the bot (below).
+    let first = handover::take_over(&lock, &o, &seed::cipher(), "test", now()).map_err(|e| format!("{e:?}"))?;
+    assert_eq!(first.eligible, vec![bot]);
     let takeover = handover::take_over(&lock, &o, &seed::cipher(), "test", now()).map_err(|e| format!("{e:?}"))?;
     assert!(matches!(takeover.claim, Claim::AfterCrash));
     assert_eq!(takeover.eligible, vec![bot]);
     assert!(staleness::stale(&o.primary, &model::load_bot(&o.primary, bot).map_err(|e| format!("{e:?}"))?, now()).map_err(|e| format!("{e:?}"))?.is_some(), "restart cannot make stale data fresh");
-    assert!(!eligibility::check_install_at(&o.primary, now()).map_err(|e| format!("{e:?}"))?.problems.is_empty(), "check continues reporting staleness");
+    assert!(eligibility::check_install_at(&o.primary, now()).map_err(|e| format!("{e:?}"))?.notes.iter().any(|n| n.contains("reference data stale")), "check continues reporting staleness");
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', 1)", [])?;
     assert!(matches!(handover::take_over(&lock, &o, &seed::cipher(), "test", now()), Err(EngineError::Ineligible(_))), "restart still refuses unsupported work");
     Ok(())

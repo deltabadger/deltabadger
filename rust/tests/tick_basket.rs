@@ -204,6 +204,38 @@ async fn a_stale_bot_is_refused_without_ending_the_engine_and_ticks_once_refresh
     assert_eq!(t.posted_orders().len(), 1);
 }
 
+/// D-UPGRADE-FRESHNESS-AT-TICK (PLAN-B2 R2): an install Rails left stale is taken over, and the tick, not the takeover,
+/// refuses the bot. After the takeover only the job's own completed run makes the source fresh again (staleness.rs), so the
+/// bot is refused until the engine's crypto catalog job records one, and ticks on the next pass after it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bot_taken_over_stale_is_refused_at_its_tick_until_its_sources_job_completes_a_run() {
+    let dir = common::baseline_install();
+    let paths = store::Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, at(T0)).unwrap();
+    let o = store::open(&paths).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-01 10:15:00'", []).unwrap(); // Rails stopped a month ago
+    let taken = deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "test", at(T0)).expect("the takeover admits a stale install");
+    assert_eq!(taken.eligible, vec![id]);
+    let t = script(json!({}));
+    let mut e = deltabadger::engine::run::Engine::new(o.primary, ScriptedFactory(t.clone()), seed::cipher(), lock);
+    deltabadger::engine::run::step(&mut e, &FixedClock(at(T0))).await.unwrap();
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    let stale = deltabadger::engine::staleness::stale(&e.primary, &bot, at(T0)).unwrap().expect("refused stale");
+    assert_eq!(stale.source, "Alpaca crypto tickers");
+    assert!(t.requests().is_empty(), "nothing is asked of Alpaca: {:?}", t.requests());
+    assert!(bot.last_action_job_at_us().unwrap().is_none(), "a refused tick writes nothing");
+    // A Rails-style column stamp no longer counts after the takeover: still refused at the 5-minute recheck.
+    e.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 10:04:00'", []).unwrap();
+    deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-01T10:05:01Z"))).await.unwrap();
+    assert!(t.requests().is_empty(), "the column alone does not make it fresh");
+    // The engine's own catalog job completes a run: the next pass after the recheck ticks the bot.
+    deltabadger::jobs::state::record_success(&e.primary, deltabadger::jobs::reference::ALPACA_CRYPTO, None, at("2026-09-01T10:15:00Z")).unwrap();
+    deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-01T10:16:00Z"))).await.unwrap();
+    assert_eq!(t.posted_orders().len(), 1, "ticks once its source is fresh");
+}
+
 /// The wait for the next checkpoint after a settled intent survives a restart. Engine A's tick sends one order whose reply is lost, then settles the
 /// intent (`landed`: found by its client order id; else Alpaca's 404 after the 20-minute margin). Engine B, a fresh process,
 /// places nothing before the next weekly checkpoint, and buys at it.
