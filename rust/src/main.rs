@@ -157,13 +157,45 @@ fn paths(env: &dyn Fn(&str) -> Option<String>) -> Paths {
 }
 
 fn take_lock(paths: &Paths) -> EngineLock {
-    match lease::lock(paths, chrono::Utc::now()) {
-        Ok(l) => l,
+    lease::lock(paths, chrono::Utc::now()).unwrap_or_else(|e| lock_refused(paths, e))
+}
+
+/// `run` and `serve`: `take_lock`, but a Rails heartbeat under 120 s old is waited out once (lease::lock_waiting_once,
+/// PLAN-B2 R1). SIGTERM/SIGINT during the wait exits 0 with nothing held, claimed or written; `serve` shows the wait on
+/// its port meanwhile (r2.8) and closes that page before it binds the app there.
+fn take_lock_waiting(paths: &Paths) -> EngineLock {
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
+    let taken = rt.block_on(lease::lock_waiting_once(paths, chrono::Utc::now, |ago, wait| async move {
+        // Before the line below, so a stop sent after it is never missed. One sent after the wait is held for the engine's
+        // own handlers (tests/cli.rs a_stop_between_the_wait_and_the_engine_stops_the_engine).
+        let stop = deltabadger::web::refused::stop_signal();
+        tokio::pin!(stop);
+        log(&format!("the previous version stopped {ago} s ago; waiting {wait} s before taking over"));
+        let page = async {
+            if let Some(port) = REFUSAL_PORT.get() { eprintln!("deltabadger: cannot show the wait on port {port}: {}", deltabadger::web::refused::show_starting(*port, wait).await); }
+            std::future::pending::<()>().await
+        };
+        tokio::select! {
+            biased; // a stop that arrives with the timer's end wins
+            _ = &mut stop => { log("stopped on request"); std::process::exit(0) }
+            _ = tokio::time::sleep(std::time::Duration::from_secs(wait)) => {}
+            _ = page => {}
+        }
+        // Tests: a window between the wait and the engine's own handlers, for a stop to land in.
+        #[cfg(debug_assertions)]
+        if std::env::var("DELTABADGER_TEST_PAUSE").is_ok_and(|s| s == "after-wait") { std::thread::sleep(std::time::Duration::from_secs(3)); }
+    }));
+    drop(rt); // the page's open connections go with its runtime
+    taken.unwrap_or_else(|e| lock_refused(paths, e))
+}
+
+fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
+    match e {
         // Not on the refusal page: the engine that holds the lock is the one serving this install.
-        Err(LeaseError::Locked) => { eprintln!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
-        Err(LeaseError::RailsAlive { seconds_ago }) => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
-        Err(LeaseError::Io(e)) => fail(&format!("{}: {e}", paths.lock_file().display())),
-        Err(e) => fail(&format!("{e:?}")),
+        LeaseError::Locked => { eprintln!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
+        LeaseError::RailsAlive { seconds_ago } => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        LeaseError::Io(e) => fail(&format!("{}: {e}", paths.lock_file().display())),
+        e => fail(&format!("{e:?}")),
     }
 }
 
@@ -189,15 +221,15 @@ fn explain(e: StoreError, paths: &Paths) -> String {
 
 /// The shared start of `run`, `serve`, `handback` and `sync`: no URL overrides, the instance's SECRET_KEY_BASE, the
 /// exclusive lock, and an install this build accepts. Refusals here exit 1 before any file is created or changed. `run`
-/// and `serve` (`start`) first create the install on an empty STORAGE_DIR (store::bootstrap), then apply this build's
-/// pending Rust migrations, before any writable connection is opened.
+/// and `serve` (`start`) wait out a just-stopped Rails heartbeat once (take_lock_waiting), create the install on an empty
+/// STORAGE_DIR (store::bootstrap), then apply this build's pending Rust migrations, before any writable connection is opened.
 fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLock, store::Opened, Cipher) {
     refuse_url_overrides(env);
     let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
     let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail(&format!("encryption keys: {e:?}")));
     let cipher = Cipher::new(&keys);
     let paths = paths(env);
-    let lock = take_lock(&paths);
+    let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
     if start {
         let created = store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| fail(&explain(e, &paths)));
         if created {

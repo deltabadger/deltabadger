@@ -51,6 +51,62 @@ fn a_live_pre_floor_rails_blocks_until_its_heartbeat_is_stale() {
     assert!(lease::lock(&p, t0() + Duration::seconds(121)).is_ok());
 }
 
+/// PLAN-B2 R1/r1.13 for `run` and `serve`, on a fake clock: the wait is what the closure is asked for, never slept.
+/// `during` runs inside the wait, as something else would while the process sleeps.
+fn lock_waiting(p: &Paths, start: chrono::DateTime<Utc>, during: impl FnOnce(chrono::DateTime<Utc>))
+    -> (Result<lease::EngineLock, LeaseError>, Vec<(i64, u64)>) {
+    let (clock, waits) = (std::cell::Cell::new(start), std::cell::RefCell::new(vec![]));
+    let result = tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(lease::lock_waiting_once(p, || clock.get(), |ago, wait| {
+        waits.borrow_mut().push((ago, wait));
+        clock.set(clock.get() + Duration::seconds(wait as i64));
+        during(clock.get());
+        async {}
+    }));
+    (result, waits.into_inner())
+}
+
+#[test]
+fn a_just_stopped_rails_is_waited_out_once_then_checked_again() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    rails_heartbeat(&p, t0());
+    // 30 s old: waits 120 - 30 + 1 = 91 s, then takes the lock.
+    let (taken, waits) = lock_waiting(&p, t0() + Duration::seconds(30), |_| {});
+    assert!(taken.is_ok(), "{:?}", taken.err());
+    assert_eq!(waits, vec![(30, 91)]);
+    drop(taken);
+
+    // Refreshed during the wait: refused after it, with no second wait.
+    let (taken, waits) = lock_waiting(&p, t0() + Duration::seconds(30), |now| rails_heartbeat(&p, now - Duration::seconds(5)));
+    assert!(matches!(taken, Err(LeaseError::RailsAlive { seconds_ago: 5 })), "{:?}", taken.err());
+    assert_eq!(waits, vec![(30, 91)]);
+}
+
+#[test]
+fn a_heartbeat_in_the_future_is_refused_at_once() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    rails_heartbeat(&p, t0() + Duration::seconds(10));
+    let (taken, waits) = lock_waiting(&p, t0(), |_| {});
+    assert!(matches!(taken, Err(LeaseError::RailsAlive { seconds_ago: -10 })), "{:?}", taken.err());
+    assert!(waits.is_empty());
+}
+
+#[test]
+fn a_rails_that_takes_the_lock_during_the_wait_is_refused_as_locked() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    rails_heartbeat(&p, t0());
+    let rails = std::cell::RefCell::new(None);
+    let (taken, waits) = lock_waiting(&p, t0() + Duration::seconds(100), |_| {
+        let f = OpenOptions::new().write(true).open(p.lock_file()).unwrap();
+        f.try_lock_shared().expect("the lock is not held during the wait");
+        *rails.borrow_mut() = Some(f);
+    });
+    assert!(matches!(taken, Err(LeaseError::Locked)), "{:?}", taken.err());
+    assert_eq!(waits, vec![(100, 21)]);
+}
+
 #[test]
 fn claim_records_rust_ownership_encrypted_and_names_where_it_came_from() {
     let dir = common::rails_install();

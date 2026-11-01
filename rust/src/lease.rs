@@ -75,6 +75,21 @@ pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError>
     Ok(EngineLock { _file: file })
 }
 
+/// `run` and `serve` (PLAN-B2 R1, r1.13): a Rails heartbeat under 120 s old is, in 3.0, most likely a 2.x container that
+/// was just stopped, so they wait it out once and then check again exactly as `lock` does. `lock` has dropped its file,
+/// and with it the flock, before it returns RailsAlive, so nothing is held during `wait(seconds_ago, wait_seconds)`
+/// (at most 121 s). A heartbeat in the future (clock skew), a second RailsAlive, or any other error is returned as is.
+pub async fn lock_waiting_once<F: std::future::Future<Output = ()>>(paths: &Paths, now: impl Fn() -> DateTime<Utc>,
+                                                                   wait: impl FnOnce(i64, u64) -> F) -> Result<EngineLock, LeaseError> {
+    match lock(paths, now()) {
+        Err(LeaseError::RailsAlive { seconds_ago }) if (0..RAILS_ALIVE_WITHIN_SECONDS).contains(&seconds_ago) => {
+            wait(seconds_ago, (RAILS_ALIVE_WITHIN_SECONDS - seconds_ago + 1) as u64).await;
+            lock(paths, now())
+        }
+        other => other,
+    }
+}
+
 /// Every engine lock this process took, for `release_all`.
 static HELD: std::sync::Mutex<Vec<std::sync::Weak<File>>> = std::sync::Mutex::new(Vec::new());
 
