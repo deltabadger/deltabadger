@@ -35,7 +35,7 @@ fn binance_a12_recorded_accounting_baselines() {
                 fiat_value:d("fiat_value"),fee_fiat_value:d("fee_fiat_value"),fee_currency:r["fee_currency"].as_str().map(str::to_owned),fee_amount:r["fee_amount"].as_str().map(|s|Dec::parse(s).unwrap()),
                 at:At::from_sql(r["transacted_at"].as_str().unwrap()).unwrap(),group:r["group_id"].as_str().map(str::to_owned),
                 price_missing:false,value_missing:None,exchange:"binance".into(),linked:false,transfer_fee:None,swap_fiat_cost:None,
-                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false}
+                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false}
         }).collect();
         let mut engine=Engine::new(false); engine.calculate(&rows).unwrap();
         let lots: serde_json::Map<String,Value>=engine.lots.iter().map(|((_,asset),ls)|
@@ -85,6 +85,8 @@ pub struct Row {
     pub orphan: bool,
     /// An opening balance the walk booked (`open_with_what_must_have_been_held`), not a stored row.
     pub opening: bool,
+    /// `stated_value`: a price the user stated, on a row neither its own quote nor the cash beside it values.
+    pub stated_value: bool,
 }
 
 impl Row {
@@ -314,6 +316,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
             linked: links.contains_key(&t.id) || linked_deposits.contains(&t.id), transfer_fee,
             swap_fiat_cost: leg.and_then(|l| l.swap_fiat.clone()), swap_stable_cost: leg.and_then(|l| l.swap_stable.clone()),
             per_share: t.per_share.clone(), to_exchange: t.to_venue.clone(), orphan: false, opening: false,
+            stated_value: t.stated.is_some() && !(t.quoted() || leg.is_some_and(|l| l.fiat_value.is_some())),
         });
     }
     attribute_quote_row_fees(&mut rows);
@@ -389,7 +392,7 @@ fn between_venues(r: &Row) -> bool { r.linked && r.kind == Kind::Withdrawal && r
 
 /// `located_moves`: a linked transfer between venues takes the whole amount off the source and lands what arrived on
 /// the destination.
-fn located_moves(r: &Row) -> Result<Vec<(Option<String>, String, Dec)>, FiguresError> {
+pub(crate) fn located_moves(r: &Row) -> Result<Vec<(Option<String>, String, Dec)>, FiguresError> {
     let moves = row_moves(r)?.into_iter().map(|(s, a)| (Some(r.exchange.clone()), s, a));
     if !between_venues(r) { return Ok(moves.collect()); }
     let mut out: Vec<(Option<String>, String, Dec)> = moves.filter(|(_, s, _)| *s != r.base).collect();
@@ -460,7 +463,7 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
         before.entry(i).or_default().push(Row {
             uid, kind: Kind::Deposit, base: symbol, fiat_value: (&price * &quantity)?, fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None,
             amount: quantity, quote: None, quote_amount: None, at, group: None, price_missing: price.is_zero(), value_missing: None, exchange: venue,
-            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: true,
+            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: true, stated_value: false,
         });
     }
     if before.is_empty() { return Ok(rows); }
