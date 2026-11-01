@@ -91,7 +91,8 @@ fn serve_answers_on_its_port_and_holds_the_engine_lock() {
     let (dir, opened, _) = common::install(); // seeds an admin user
     drop(opened);
     let port = free_port();
-    let mut server = serve_command(dir.path(), port).stderr(Stdio::piped()).spawn().unwrap();
+    // The secret the install was seeded with (seed::cipher): another one is refused (PLAN-B2 r2.4).
+    let mut server = serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").stderr(Stdio::piped()).spawn().unwrap();
     let started = Instant::now();
     let answer = loop {
         if let Some(answer) = http_get(port, "/up") { break answer; }
@@ -2853,7 +2854,7 @@ fn serve_logs_no_webhook_token() {
     let c = seed_signal_bot(dir.path());
     c.execute_batch("CREATE TRIGGER hook_boom BEFORE UPDATE ON bot_signals WHEN OLD.token = 'tok-other' BEGIN SELECT RAISE(ABORT, 'boom'); END;").unwrap();
     let port = free_port();
-    let mut server = serve_command(dir.path(), port).stderr(Stdio::piped()).spawn().unwrap();
+    let mut server = serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").stderr(Stdio::piped()).spawn().unwrap();
     let started = Instant::now();
     while http_get(port, "/up").is_none() {
         assert!(started.elapsed() < Duration::from_secs(10) && server.try_wait().unwrap().is_none(), "serve did not come up");
