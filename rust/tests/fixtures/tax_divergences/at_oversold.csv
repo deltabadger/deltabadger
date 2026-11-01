@@ -1,9 +1,0 @@
-Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
-"WARNUNG: 2 Werte fehlen — Bericht unvollständig, so nicht einreichen"
-2026-02-05T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.5,90000.0,50000.0,40000.0,EUR,31,0.0,kraken,K-BTC-2026-02-05T10:00:00Z-BTC,true,true,false
-2026-02-06T10:00:00Z,,ETH,1.0,3000.0,0.0,3000.0,EUR,0,0.0,kraken,K-ETH-2026-02-06T10:00:00Z-ETH,false,true,false
-
-"WARNING: Verkäufe von mehr, als deine synchronisierte Historie enthält; der Teil, den kein Kauf abdeckt, wird mit Anschaffungskosten von null ausgewiesen:"
-BTC 0.5 2026-02-05
-ETH 1.0 2026-02-06
-"Verbinde oder importiere das Konto, von dem diese Assets stammen, oder verknüpfe die Einzahlung, mit der sie hereinkamen, damit diese Verkäufe ihre tatsächlichen Anschaffungskosten erhalten."

@@ -1,9 +1,0 @@
-Data,Data nabycia,Aktywo,Ilość,Przychód,Koszt nabycia,Zysk/Strata,Waluta,Dni posiadania,Opłata,Giełda,ID transakcji,Koszt nabycia kompletny,Dane niekompletne
-"OSTRZEŻENIE: Brakuje 2 wartości — raport niekompletny, nie należy go składać w tej postaci"
-2026-02-05T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.5,387000.0,215000.0,172000.0,PLN,31,0.0,kraken,K-BTC-2026-02-05T10:00:00Z-BTC,true,true
-2026-02-06T10:00:00Z,,ETH,1.0,12900.0,0.0,12900.0,PLN,0,0.0,kraken,K-ETH-2026-02-06T10:00:00Z-ETH,false,true
-
-"WARNING: Sprzedaże przekraczające to, co zawiera Twoja zsynchronizowana historia; część nieobjęta żadnym zakupem jest wykazana z zerowym kosztem nabycia:"
-BTC 0.5 2026-02-05
-ETH 1.0 2026-02-06
-"Połącz lub zaimportuj konto, z którego pochodzą te aktywa, albo połącz wpłatę, przez którą trafiły na Twoje konto, aby te sprzedaże miały rzeczywisty koszt nabycia."

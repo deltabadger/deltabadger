@@ -1,0 +1,2 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2024-03-05T10:00:00Z,2024-02-05T10:00:00Z,TON,10.0,70.0,50.0,20.0,USD,29,0.0,kraken,sell-TON-2024-03-05T10:00:00Z,true,false,Short-term

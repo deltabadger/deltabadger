@@ -1,2 +1,0 @@
-Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
-2026-02-01T10:00:00Z,2024-06-01T10:00:00Z,BTC,0.5,44444.44,20000.0,24444.44,EUR,610,0.0,binance,cv1-out-BTC,true,false,false

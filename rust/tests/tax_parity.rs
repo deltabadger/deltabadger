@@ -52,15 +52,21 @@ fn divergence(name: &str) -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 fn the_crypto_report_is_rails_own_or_the_named_divergence() {
     let v = vectors();
     let scenarios = v["scenarios"].as_array().unwrap();
-    assert!(scenarios.len() >= 138);
+    assert!(scenarios.len() >= 147);
     let write = std::env::var("TAX_DIVERGENCES_WRITE").is_ok();
     let mut failures = vec![];
     for s in scenarios {
         let name = s["name"].as_str().unwrap();
+        let country = s["country"].as_str().unwrap();
         let c = install(&s["tables"]);
         let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
-        let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), s["country"].as_str().unwrap(), s["year"].as_i64().unwrap() as i32,
+        let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), country, s["year"].as_i64().unwrap() as i32,
                                 s["stablecoin_as_fiat"].as_bool().unwrap(), today);
+        // Recorded for its later slice: a jurisdiction this build does not serve states no figure.
+        if !deltabadger::tax::jurisdictions::ported(country) {
+            if !matches!(got, Err(FiguresError::NotComputed(_))) { failures.push(format!("{name}: {country} is not ported, got {got:?}")); }
+            continue;
+        }
         let got = match got { Ok(g) => g, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
         let expect = s["expect"].as_str().unwrap();
         match expect.strip_prefix("diverges: ") {
@@ -87,7 +93,7 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
 fn no_divergence_file_is_left_over() {
     let v = vectors();
     let named: std::collections::HashSet<String> = v["scenarios"].as_array().unwrap().iter()
-        .filter(|s| s["expect"].as_str().unwrap().starts_with("diverges: ")).map(|s| format!("{}.csv", s["name"].as_str().unwrap())).collect();
+        .filter(|s| s["expect"].as_str().unwrap().starts_with("diverges: ") && deltabadger::tax::jurisdictions::ported(s["country"].as_str().unwrap())).map(|s| format!("{}.csv", s["name"].as_str().unwrap())).collect();
     for f in std::fs::read_dir(divergence("x").parent().unwrap()).unwrap() {
         let f = f.unwrap().file_name().into_string().unwrap();
         assert!(named.contains(&f), "{f} has no diverging scenario");
@@ -98,7 +104,7 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["FR", "IT", "BG", "GR", "NL", "CH", "GB", "SE", "IE", "DK", "CZ", "XX"] {
+    for country in ["AT", "FR", "IT", "BG", "GR", "NL", "CH", "PL", "GB", "SE", "IE", "DK", "CZ", "XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
 }

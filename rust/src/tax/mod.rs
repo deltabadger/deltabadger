@@ -1,18 +1,21 @@
 //! Tax reports (roadmap stage F): Tax::GenerateReportJob#crypto_csv and Tax::Report#to_csv over every venue the user
-//! has, for the jurisdictions `jurisdictions::PORTED` names (the FIFO ones without a summary section: US DE AT ES PT PL
-//! SK). Byte for byte Rails' file where Rails is right; where it is not, a named divergence:
-//! - D-TAX-UNCOVERED (fifo.rs): a sale of more than the history holds is incomplete, counted in the incomplete banner,
-//!   and listed (`tax_report.warnings.uncovered_sales`).
-//! - D-TAX-UNLINKED-DISCLOSED: coin withdrawals not linked to a deposit keep their lots (as Rails) and are listed
-//!   (`tax_report.warnings.unlinked_withdrawals`).
-//! - D-TAX-LOST (fifo.rs): lost coins leave the lots with no disposal, and are listed (`tax_report.warnings.lost`).
-//! - D-TAX-COIN-FEE (fifo.rs) and D-TAX-FEES-DISCLOSED: every coin fee of a row of its own is named in one NOTE block
-//!   (`tax_report.warnings.coin_fees`), which replaces Rails' block of the Alpaca fees whose calendar day is ambiguous.
-//! - D-TAX-US-WALLET (fifo.rs): US tax years from 2025, lots per venue.
+//! has, for the jurisdictions `jurisdictions::PORTED` names (US DE ES PT SK). Byte for byte Rails' file where Rails is
+//! right; where it is not, a named divergence (the engine's own are listed in fifo.rs):
+//! - D-TAX-UNCOVERED: a sale of more than the history holds is incomplete, counted in the incomplete banner, and listed
+//!   (`tax_report.warnings.uncovered_sales`).
+//! - D-TAX-UNLINKED-DISCLOSED: coin withdrawals not linked to a deposit keep their lots (as Rails) and are listed.
+//! - D-TAX-LOST: lost coins leave the lots with no disposal, and are listed (`tax_report.warnings.lost`).
+//! - D-TAX-FEES-DISCLOSED: every coin fee of a row of its own is named in one NOTE block (`tax_report.warnings.coin_fees`),
+//!   which replaces Rails' block of the Alpaca fees whose calendar day is ambiguous; such an Alpaca fee is walked after
+//!   its day's fills (`walk_standing_cfees_after_their_fills`).
 //! - D-TAX-STABLE-CASH: where swaps are not taxable and the user treats stablecoins as fiat, a stablecoin row is cash
 //!   and reaches no engine (Rails sold the stablecoins again, at a zero basis, after the coin that bought them was sold).
-//! - D-TAX-PT-FIAT-EXIT: a stablecoin sold in a group whose other leg is fiat (Kraken's ledger) is a fiat exit
-//!   (Rails read only the row's own quote, so Portugal's immediate exit never applied on Kraken).
+//! - D-TAX-STABLE-VALUE: a stablecoin bought or sold for fiat in a two-row group (Kraken) is valued at the fiat that
+//!   changed hands, not the dollar peg (`quote_stablecoin_legs`); Portugal's immediate fiat exit follows.
+//! - D-TAX-LOCAL-YEAR: income and the excess-ROC refusal by the taxpayer's year, as disposals (Rails: the UTC year).
+//! - D-TAX-ORPHAN-SWAP: where swaps are not taxable, swap legs with nothing going the other way are listed.
+//! - D-TAX-US-WALLET: US tax years from 2025, lots per account; a placement at 1 January 2025 that was a choice is listed
+//!   lot by lot (`tax_report.warnings.wallet_allocation`), as this report's reconstruction.
 //!
 //! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
 //! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
@@ -84,7 +87,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     if !tokenized.is_empty() { return Ok(Prepared::Done(Outcome::Refused { reason: "tokenized_unsupported".into(), symbols: tokenized })); }
     let banners = sync_issues(c, user_id, j.locale)?;
 
-    let scoped = rows::ordered(rows.into_iter().filter(|r| r.at.0 <= rows_until.0).collect());
+    let mut scoped = rows::ordered(rows.into_iter().filter(|r| r.at.0 <= rows_until.0).collect());
+    quote_stablecoin_legs(&mut scoped)?;
     let mut reference = Reference::load(c, &Venue::alpaca(c)?, &prices::symbols(&scoped))?;
     reference.record_coins(c, user_id)?;
     let fx = crate::tracker::fx::FxTable::load(c)?;
@@ -119,7 +123,8 @@ impl Report {
         let mut income: Vec<(usize, &str, Dec)> = vec![];
         for (i, e) in enriched.iter().enumerate() {
             let Some((_, name)) = INCOME.iter().find(|(k, _)| *k == e.row.kind) else { continue };
-            if e.row.at.utc().year() != year { continue; }
+            // D-TAX-LOCAL-YEAR: income by the year the taxpayer was in, as disposals are (Rails: the UTC year).
+            if self.local(e.row.at).year() != year { continue; }
             let value = if fiat(&e.row.base) { ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)? } else { e.row.fiat_value.clone() };
             income.push((i, name, value));
         }
@@ -132,8 +137,14 @@ impl Report {
         let folded = attribute_trade_fees(&self.cfee, &mut taxable)?;
         let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && e.row.amount.is_positive())
             .map(|(e, _)| &e.row).collect();
-        let mut txs: Vec<fifo::Tx> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)
-            .map(|(e, _)| fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: fiat_exit(&e.row, &enriched) }).collect();
+        let identity = |symbol: &str, r: &walk::Row| prices::coin_id(&self.reference, symbol, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()))
+            .unwrap_or_else(|| format!("symbol:{symbol}"));
+        let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)
+            .map(|(e, _)| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_deref().is_some_and(fiat),
+                                            asset: identity(&e.row.base, &e.row),
+                                            fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)) })).collect();
+        walk_standing_cfees_after_their_fills(&self.cfee, &mut entries);
+        let mut txs: Vec<fifo::Tx> = entries.into_iter().map(|(_, t)| t).collect();
 
         let holding = self.holding_rule();
         let per_venue_from = (j.code == "US" && year >= 2025).then(|| local_midnight(&self.zone, 2025)).flatten();
@@ -149,15 +160,21 @@ impl Report {
         let mut engine = fifo::Fifo::new(fifo::Options {
             swaps_taxable: j.swaps_taxable(), stablecoin_as_fiat: self.stablecoin_as_fiat,
             holding: holding.as_ref().map(|h| h as &dyn Fn(At, At) -> bool), swap_resets_holding_period: j.swap_resets_holding_period, per_venue_from,
+            swap_cost_to_disposed_from: per_venue_from,
         });
         engine.calculate(&txs)?;
-        // Tax::Report#refuse_excess_return_of_capital: this UTC year's only.
-        let mut symbols: Vec<String> = engine.excess_roc_rows.iter().map(|&i| &txs[i].row).filter(|r| r.at.utc().year() == year).map(|r| r.base.clone()).collect();
+        // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).
+        let mut symbols: Vec<String> = engine.excess_roc_rows.iter().map(|&i| &txs[i].row).filter(|r| self.local(r.at).year() == year).map(|r| r.base.clone()).collect();
         symbols.sort();
         symbols.dedup();
         if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "excess_return_of_capital".into(), symbols }); }
         let results: Vec<fifo::Disposal> = engine.disposals.into_iter().filter(|d| self.local(d.at).year() == year).collect();
-        Ok(Outcome::Csv(self.csv(currency, &results, &enriched, &income, &warnings, &standing_fees)?))
+        // D-TAX-ORPHAN-SWAP: where swaps are not taxable, a swap leg with nothing going the other way carries no basis.
+        let unmatched: Vec<&walk::Row> = if j.swaps_taxable() { vec![] } else {
+            txs.iter().map(|t| &t.row).filter(|r| r.orphan && matches!(r.kind, Kind::SwapIn | Kind::SwapOut) && !(self.stablecoin_as_fiat && stable(&r.base))).collect()
+        };
+        let allocation = if engine.allocation_chosen { engine.allocation.as_slice() } else { &[] };
+        Ok(Outcome::Csv(self.csv(currency, &results, &enriched, &income, &warnings, &standing_fees, &unmatched, allocation)?))
     }
 
     /// Tax::Report#holding_rule: the period on the calendar in the user's zone; AT's old stock only before its cutoff;
@@ -176,8 +193,9 @@ impl Report {
     fn t(&self, key: &str) -> Cell { Cell::Text(text(self.j.locale, key, &[])) }
 
     /// The file, in Rails' order, with Rust's warning blocks where they belong.
+    #[allow(clippy::too_many_arguments)]
     fn csv(&self, currency: &str, results: &[fifo::Disposal], enriched: &[Entry], income: &[(usize, &str, Dec)], warnings: &[String],
-           standing_fees: &[&walk::Row]) -> Result<String, FiguresError> {
+           standing_fees: &[&walk::Row], unmatched: &[&walk::Row], allocation: &[fifo::Placed]) -> Result<String, FiguresError> {
         let (j, l) = (self.j, self.j.locale);
         let mut out = String::new();
         let mut keys = vec!["date", "acquisition_date", "asset", "amount", "proceeds", "cost_basis", "gain_loss", "currency", "holding_days", "fee",
@@ -211,7 +229,7 @@ impl Report {
             let label = |name: &str| text(l, &format!("tax_report.income.types.{name}"), &[]);
             for (i, name, value) in income {
                 let r = &enriched[*i].row;
-                line(&mut out, &[s(date(r.at)), s(label(name)), s(r.base.clone()), n(&r.amount), cents(value)?, s(currency)]);
+                line(&mut out, &[s(self.local(r.at).format("%Y-%m-%d").to_string()), s(label(name)), s(r.base.clone()), n(&r.amount), cents(value)?, s(currency)]);
             }
             let mut kinds: Vec<&str> = vec![];
             for (_, name, _) in income { if !kinds.contains(name) { kinds.push(name); } }
@@ -245,6 +263,11 @@ impl Report {
             for r in stated { line(&mut out, &[s(listed(r, &r.amount)), cents(&r.fiat_value)?]); }
             line(&mut out, &[self.t("tax_report.warnings.stated_values_hint")]);
         }
+        self.block(&mut out, "WARNING", "unmatched_swaps", "unmatched_swaps_hint", unmatched.iter().map(|r| listed(r, &r.amount)))?;
+        let unsynced = text(l, "tax_report.warnings.wallet_allocation_unsynced", &[]);
+        let placed: Vec<String> = allocation.iter().map(|p| Ok::<_, FiguresError>(format!("{} {} {} {} {}", p.venue.as_deref().unwrap_or(&unsynced), p.symbol,
+                                                     p.amount.to_s_f(), p.cost.round(2)?.to_s_f(), date(p.acquired)))).collect::<Result<_, _>>()?;
+        self.block(&mut out, "NOTE", "wallet_allocation", "wallet_allocation_hint", placed.into_iter())?;
         let hint = if j.swaps_taxable() { "coin_fees_hint_disposal" } else { "coin_fees_hint_no_proceeds" };
         self.block(&mut out, "NOTE", "coin_fees", hint, standing_fees.iter().map(|r| listed(r, &r.amount)))?;
         Ok(out)
@@ -262,13 +285,54 @@ impl Report {
     }
 }
 
-/// `fiat_exit?`: the row's own quote is fiat; D-TAX-PT-FIAT-EXIT: or it is a stablecoin leaving in a group whose other
-/// leg is fiat coming in (Kraken books a USDT sale for euros as two rows and no quote).
-fn fiat_exit(r: &walk::Row, all: &[Entry]) -> bool {
-    if r.quote.as_deref().is_some_and(fiat) { return true; }
-    let Some(group) = &r.group else { return false };
-    stable(&r.base) && r.kind.out_leg()
-        && all.iter().any(|e| e.row.group.as_ref() == Some(group) && e.row.exchange == r.exchange && fiat(&e.row.base) && e.row.kind.in_leg())
+/// D-TAX-STABLE-VALUE: a venue's ledger that books a stablecoin bought or sold for fiat as two grouped rows and no quote
+/// (Kraken) gets the quote it left out, on this report's copy of the rows: the stablecoin legs (one coin, one direction)
+/// take the fiat legs (one currency, the other direction, nothing else in the group) as their quote, shared by quantity,
+/// the last taking what is left. Rails values them at the dollar peg instead of the cash that changed hands, and so never
+/// sees the Portuguese immediate fiat exit there. The tracker's enrichment is untouched.
+fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
+    let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
+    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.exchange_id, g.clone())).or_default().push(i); } }
+    let direction = |k: Kind| if k.in_leg() { Some(true) } else if k.out_leg() { Some(false) } else { None };
+    for legs in groups.values() {
+        let (coins, cash): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| stable(&rows[i].base));
+        let (Some(&first), Some(&paid)) = (coins.first(), cash.first()) else { continue };
+        let side = direction(rows[first].kind);
+        if side.is_none() || !coins.iter().all(|&i| rows[i].base == rows[first].base && direction(rows[i].kind) == side && rows[i].quote_amount.is_none())
+            || !cash.iter().all(|&i| fiat(&rows[i].base) && rows[i].base == rows[paid].base && direction(rows[i].kind) == side.map(|d| !d)) { continue; }
+        let mut total = Dec::zero();
+        for &i in &cash { total = (&total + &rows[i].amount)?; }
+        let mut quantity = Dec::zero();
+        for &i in &coins { quantity = (&quantity + &rows[i].amount)?; }
+        if !quantity.is_positive() { continue; }
+        let mut left = total.clone();
+        for (n, &i) in coins.iter().enumerate() {
+            let share = if n == coins.len() - 1 { left.clone() } else { (&total * &rows[i].amount)?.div(&quantity)? };
+            left = (&left - &share)?;
+            rows[i].quote = Some(rows[paid].base.clone());
+            rows[i].quote_amount = Some(share);
+        }
+    }
+    Ok(())
+}
+
+/// An Alpaca CFEE left standing (its day's fills differ in UTC and New York time) is dated midnight UTC; it is walked
+/// after the last fill of its coin on its venue dated that day in either calendar, so it takes lots its day's buys
+/// opened. Its own date stays (the year, the holding days and the listing read it).
+fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i64, fifo::Tx)>) {
+    let new_york = |at: At| at.utc().with_timezone(&chrono_tz::America::New_York).date_naive();
+    let fees: Vec<i64> = rows.iter().filter(|(id, t)| cfee.contains(id) && t.row.kind == Kind::Fee).map(|(id, _)| *id).collect();
+    for fee in fees {
+        let Some(i) = rows.iter().position(|(id, _)| *id == fee) else { continue };
+        let f = &rows[i].1.row;
+        let day = f.at.utc().date_naive();
+        let last = rows.iter().rposition(|(_, t)| {
+            let r = &t.row;
+            matches!(r.kind, Kind::Buy | Kind::Sell) && r.exchange == f.exchange && r.base == f.base && r.amount.is_positive()
+                && (r.at.utc().date_naive() == day || new_york(r.at) == day)
+        });
+        if let Some(last) = last.filter(|&l| l > i) { let moved = rows.remove(i); rows.insert(last, moved); }
+    }
 }
 
 /// Tax::CryptoScope#crypto? over the catalogue and the user's own classifications.
