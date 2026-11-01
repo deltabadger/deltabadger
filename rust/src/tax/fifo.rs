@@ -796,6 +796,8 @@ impl<'a> Fifo<'a> {
         let (share, share_assumed) = self.swap_in_share(r);
         let assumed = r.price_missing || share_assumed;
         if tranches.is_empty() && !cash_present {
+            // D-TAX-IT-DEPOSIT-ZERO: with no documented cost the cost is zero (art. 68 c. 9-bis), as an unlinked deposit's.
+            if self.o.deposit_cost_zero { return self.open_swap_lot(tx, lot_amount, Dec::zero(), r.at, false, None, Dec::zero()); }
             // D-TAX-ORPHAN-SWAP: nothing to carry; market value is an assumption, and says so.
             let unpriced = if value_missing(r) { lot_amount.clone() } else { Dec::zero() };
             let cpu = unit(&(&r.fiat_value + &fee_cost)?, &lot_amount)?;
@@ -1280,6 +1282,19 @@ mod tests {
         f.calculate(&rows).unwrap();
         assert_eq!(f.exhausted.iter().map(|(u, c)| (*u, c.to_s_f())).collect::<Vec<_>>(), vec![(2, "100.0".to_string())]);
         assert_eq!(remaining(&f).to_s_f(), "300.0");
+    }
+
+    /// D-TAX-IT-DEPOSIT-ZERO: under `deposit_cost_zero` a swap-in with nothing to carry opens at cost 0, not assumed.
+    #[test]
+    fn an_orphan_swap_in_costs_zero_under_deposit_cost_zero() {
+        let rows = vec![swap_leg(0, Kind::SwapIn, "ETH", "1", "2000", 0), row(1, Kind::Sell, "ETH", "1", "2500", 1, "a")];
+        let mut f = Fifo::new(Options { deposit_cost_zero: true, lifo: true, ..not_taxable() });
+        f.calculate(&rows).unwrap();
+        let d = &f.disposals[0];
+        assert_eq!((d.cost_basis.to_s_f(), d.gain_loss.to_s_f(), d.complete, d.incomplete), ("0.0".into(), "2500.0".into(), true, false));
+        let mut f = Fifo::new(not_taxable());
+        f.calculate(&rows).unwrap();
+        assert_eq!(f.disposals[0].cost_basis.to_s_f(), "2000.0", "elsewhere at market value, assumed");
     }
 
     fn austria() -> Options<'static> {
