@@ -130,7 +130,9 @@ module TaxVectors
     FxRate.insert_all(rows, unique_by: %i[currency date]) if rows.any?
   end
 
-  def scenarios
+  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).fetch(s[:name], s[:expect])) }
+
+  def all_scenarios
     [
       { name: 'empty', expect: 'parity' },
       { name: 'quoted_trades', expect: 'parity', setup: lambda { |c|
@@ -282,7 +284,7 @@ module TaxVectors
         kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z', exchange: kraken)
       } }
-    ] + us_more + fifo_jurisdictions + rails_cases
+    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios
   end
 
   # A12-2: US beyond Alpaca, and D-TAX-US-WALLET (lots per venue for tax years from 2025).
@@ -486,6 +488,15 @@ module TaxVectors
   end
 
   # The FIFO jurisdictions without a summary: DE AT ES PT PL SK.
+  # A12-2b: Austria's own scenarios and labels (the shared scenarios' labels by name).
+  AT_EXPECT = {}.freeze
+  def at_scenarios = []
+
+  # A12-2b: Poland's own scenarios and labels. A scenario's `nbp` ([currency, date, rate]) and `nbp_coverage`
+  # ([currency, from, to]) rows are written as given: Rails has no NBP table.
+  PL_EXPECT = {}.freeze
+  def pl_scenarios = []
+
   def fifo_jurisdictions
     eur = lambda do |c|
       price('BTC', '2025-03-01', '60000', 'EUR')
@@ -1016,7 +1027,8 @@ module TaxVectors
       conn = ActiveRecord::Base.connection
       tables = TABLES.to_h { |t| [t, conn.select_all("SELECT * FROM #{t} ORDER BY id").to_a] }
       { 'name' => scenario[:name], 'country' => country, 'year' => year, 'stablecoin_as_fiat' => stablecoin, 'now' => NOW.iso8601,
-        'user_id' => ctx[:user].id, 'expect' => scenario[:expect], 'tables' => tables, 'rails' => rails }
+        'user_id' => ctx[:user].id, 'expect' => scenario[:expect], 'tables' => tables, 'rails' => rails,
+        'nbp' => scenario.fetch(:nbp, []), 'nbp_coverage' => scenario.fetch(:nbp_coverage, []) }
     end
   end
 end
