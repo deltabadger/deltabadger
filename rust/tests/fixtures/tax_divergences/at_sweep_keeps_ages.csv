@@ -1,0 +1,5 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-03-01T10:00:00Z,2024-06-01T10:00:00Z,BTC,0.0666,6600.0,5000.0,1600.0,EUR,638,0.0,kraken,s1-BTC,true,false,false
+
+NOTE: Die Anschaffungskosten von ab 1. März 2021 angeschafften Assets sind ab 2023 der gleitende Durchschnittspreis je Asset und Konto (§ 27a Abs. 4 Z 3a EStG):
+"Das angezeigte Anschaffungsdatum eines solchen Verkaufs ist das früheste der gemittelten Einheiten. Hält ein Konto auch vor dem 1. März 2021 angeschaffte Assets, gelten diese als zuerst verkauft, sofern du nichts anderes gewählt hast (§ 3 KryptowährungsVO)."

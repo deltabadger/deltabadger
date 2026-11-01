@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); data })
 }
 /// A1 listed additions. Rails' six rule tools, extended with W2's one-matrix fields.
 /// The Rails definitions remain source-pinned by withdrawal_vectors.json.
@@ -67,6 +67,17 @@ fn split_bots(data: &mut Value) {
             "additionalProperties": false
         }
     }));
+}
+/// D-TAX-STABLECOIN-QUESTION: the web asks "treat stablecoins as fiat" for no served country, and the report reads the flag
+/// only where it is asked (`tax::prepare`), so generate_tax_report says so instead of "relevant for AT". The property stays:
+/// a client sending it is not refused.
+pub const TAX_STABLECOIN: &str = "Accepted for compatibility and ignored: every supported country treats stablecoins as crypto";
+/// D-TAX-PL-DECLARED-CARRY: the web export form's PL field, as generate_tax_report's optional `pl_carried_costs`.
+pub const TAX_PL_CARRY: &str = "PL only: column d of PIT-38 you declare for this year, in PLN (a dot, at most 2 decimals): for 2019 the costs incurred before 2019 and never deducted, for later years the unused costs from column f of your previous PIT-38. null or \"\" clears it (column d is then carried from the year before); omitted keeps what is saved, also from the web export form.";
+fn tax_stablecoin(data: &mut Value) {
+    let Some(tool) = data["tools"].as_array_mut().and_then(|tools| tools.iter_mut().find(|t| t["name"] == "generate_tax_report")) else { return };
+    tool["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"] = json!(TAX_STABLECOIN);
+    tool["inputSchema"]["properties"]["pl_carried_costs"] = json!({"type": ["string", "number", "null"], "description": TAX_PL_CARRY});
 }
 /// The schemas as recorded from Rails, before the description overlay and listed additions.
 pub fn recorded() -> Value { serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null) }

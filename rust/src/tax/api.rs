@@ -74,6 +74,9 @@ pub const COINGECKO: &str = "Tax reports need Deltabadger market data on this bu
 /// D-TAX-NOT-PORTED-GATE and the CoinGecko refusal, as the REST 501 and the tool's error text.
 fn not_ported(message: String) -> Res { failure(Domain::NotPorted, "not_ported", message) }
 
+/// D-TAX-PL-DECLARED-CARRY: the refusal of an amount `pl::carried` does not read.
+pub const INVALID_CARRY: &str = "pl_carried_costs must be an amount in PLN: 0 or more, at most 2 decimals, with a dot; null or \"\" clears it.";
+
 /// BotApi::Tax::GenerateReport#call. In ONE write transaction under the files' lock (Rails' `with_lock` around the
 /// check and the enqueue): generating → 409; the report present and not forced → 409; the report and its refusal step
 /// aside; the request inserted and `pending_report` written; commit; the stale files removed. Any failure before the
@@ -82,11 +85,14 @@ pub fn create(c: &Connection, app: &App, user: i64, args: &serde_json::Map<Strin
     let (code, year, name, method) = match params(args.get("country"), args.get("year")) { Ok(p) => p, Err(res) => return Ok(res) };
     let Some(force) = boolean(args.get("force"), false) else { return Ok(failure(Domain::ValidationFailed, "invalid_flag", "force must be true or false.")) };
     let Some(stablecoin) = boolean(args.get("stablecoin_as_fiat"), false) else { return Ok(failure(Domain::ValidationFailed, "invalid_flag", "stablecoin_as_fiat must be true or false.")) };
+    // D-TAX-PL-DECLARED-CARRY: column d as declared, saved with the request that queues (the web form's twin).
+    let Ok(carry) = super::pl::carried(args.get("pl_carried_costs")) else { return Ok(failure(Domain::ValidationFailed, "invalid_carried_costs", INVALID_CARRY)) };
+    if carry.is_some() && code != "PL" { return Ok(failure(Domain::ValidationFailed, "carried_costs_pl_only", "pl_carried_costs applies to PL reports only.")) }
     let (_, configured) = crate::web::bots::market_data(c, app)?;
     if !configured && method != "wealth_snapshot" {
         return Ok(failure(Domain::ValidationFailed, "market_data_not_configured", "Market data provider is not configured. Set up CoinGecko or Deltabadger market data in Settings first."));
     }
-    if !super::jurisdictions::ported(&code) { return Ok(not_ported(not_ported_message(&name))); }
+    if !super::jurisdictions::ported(&code, year) { return Ok(not_ported(not_ported_message(&name))); }
     if crate::web::tracker::report::coingecko(c, app)? {
         return Ok(not_ported(COINGECKO.into()));
     }
@@ -111,6 +117,7 @@ pub fn create(c: &Connection, app: &App, user: i64, args: &serde_json::Map<Strin
     let written = (|| -> Result<bool, WebError> {
         if !job::enqueue(&tx, &ask, &request, now)? { return Ok(false); }
         crate::web::tracker::report::set_pending(&tx, user, &crate::codec::format_time(now), json!({ "country": code, "year": year, "report_scope": "crypto" }))?;
+        if let Some(value) = &carry { super::pl::declare(&tx, user, year, value.as_ref(), &crate::codec::format_time(now))?; }
         tx.commit()?;
         Ok(true)
     })();

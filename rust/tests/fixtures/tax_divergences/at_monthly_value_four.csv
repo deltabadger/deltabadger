@@ -1,0 +1,16 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-04-01T10:00:00Z,2026-03-05T10:00:00Z,ETH,0.04,150.0,80.0,70.0,EUR,27,0.0,kraken,s1-ETH,true,false,false
+
+Erhaltene Einkünfte (Besteuerung je nach Einkunftsart und maßgeblichem Steuerrecht — nicht in den oben ausgewiesenen Veräußerungsgewinnen enthalten)
+2026-03-05,Lending-Zinsen,ETH,0.01,20.0,EUR
+2026-03-12,Lending-Zinsen,ETH,0.01,20.0,EUR
+2026-03-19,Lending-Zinsen,ETH,0.01,20.0,EUR
+2026-03-26,Lending-Zinsen,ETH,0.01,20.0,EUR
+,Summe Lending-Zinsen,,,80.0,EUR
+
+"NOTE: Mehr als dreimal im Monat zugeflossene Einkünfte, bewertet mit dem Tagesendkurs am Monatsersten (§ 4 Abs. 2 KryptowährungsVO):"
+kraken ETH Lending-Zinsen 2026-03 4
+"Jede Zeile: Konto, Asset, Art, Monat, Zuflüsse. Die Regel gilt je Vorgang; haben dir zwei Vorgänge auf einem Konto jeweils höchstens dreimal gezahlt, bewerte jede Zahlung stattdessen mit dem Kurs ihres Tages."
+
+NOTE: Die Anschaffungskosten von ab 1. März 2021 angeschafften Assets sind ab 2023 der gleitende Durchschnittspreis je Asset und Konto (§ 27a Abs. 4 Z 3a EStG):
+"Das angezeigte Anschaffungsdatum eines solchen Verkaufs ist das früheste der gemittelten Einheiten. Hält ein Konto auch vor dem 1. März 2021 angeschaffte Assets, gelten diese als zuerst verkauft, sofern du nichts anderes gewählt hast (§ 3 KryptowährungsVO)."

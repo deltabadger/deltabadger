@@ -1,0 +1,9 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-01-07T10:00:00Z,2026-01-05T10:00:00Z,BTC,1.0,70000.0,30000.0,40000.0,EUR,2,0.0,kraken,K-BTC-2026-01-07T10:00:00Z-BTC,true,false,false
+
+"WARNING: Als verloren markierte Assets; ihre Anschaffungskosten wurden aus deinem Bestand ausgebucht, und für sie wird keine Veräußerung ausgewiesen:"
+BTC 1.0 2026-01-06
+"Ob ein solcher Verlust abziehbar ist, hängt von den Regeln deines Landes ab. Prüfe das, bevor du ihn geltend machst."
+
+NOTE: Die Anschaffungskosten von ab 1. März 2021 angeschafften Assets sind ab 2023 der gleitende Durchschnittspreis je Asset und Konto (§ 27a Abs. 4 Z 3a EStG):
+"Das angezeigte Anschaffungsdatum eines solchen Verkaufs ist das früheste der gemittelten Einheiten. Hält ein Konto auch vor dem 1. März 2021 angeschaffte Assets, gelten diese als zuerst verkauft, sofern du nichts anderes gewählt hast (§ 3 KryptowährungsVO)."

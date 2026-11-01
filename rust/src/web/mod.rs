@@ -699,7 +699,7 @@ fn routes(app: App) -> Router {
         .route("/tracker/import", only(post(tracker::import::create)))
         .route("/tracker/import/new", only(get(tracker::import::new)))
         .route("/tracker/history_gap", only(get(tracker::gap::show)))
-        .route("/tracker/tax_report", only(get(tracker::report::tax_report)))
+        .route("/tracker/tax_report", only(get(tracker::report::tax_report).post(tracker::report::tax_report_pl)))
         .route("/tracker/download_tax_report", only(get(tracker::report::download_tax_report)))
         .route("/tracker/export", only(get(tracker::export)))
         .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))

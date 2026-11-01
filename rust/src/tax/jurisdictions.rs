@@ -20,6 +20,7 @@ pub struct Jurisdiction {
     pub locale: &'static str,
     /// None where Rails has no key (the engines' default: taxable).
     pub crypto_to_crypto_taxable: Option<bool>,
+    /// The export form asks "treat stablecoins as fiat"; the report reads the flag only then (D-TAX-STABLECOIN-QUESTION).
     pub stablecoin_ambiguous: bool,
     pub holding_exemption: Option<Period>,
     pub holding_exemption_inclusive: bool,
@@ -67,8 +68,9 @@ const BASE: Jurisdiction = Jurisdiction {
 /// Tax::Jurisdictions::REGISTRY, in its order.
 pub const REGISTRY: [Jurisdiction; 18] = [
     Jurisdiction { code: "DE", name: "Germany", locale: "de", holding_exemption: Some(YEAR), ..BASE },
-    Jurisdiction { code: "AT", name: "Austria", locale: "de", crypto_to_crypto_taxable: Some(false), stablecoin_ambiguous: true,
-                   old_stock_cutoff: Some((2021, 3, 1)), ..BASE },
+    // D-TAX-AT-STABLECOIN: a stablecoin is crypto (EStR Rz 6178b), so the question is not asked; Rails has
+    // `stablecoin_ambiguous: true`.
+    Jurisdiction { code: "AT", name: "Austria", locale: "de", crypto_to_crypto_taxable: Some(false), old_stock_cutoff: Some((2021, 3, 1)), ..BASE },
     Jurisdiction { code: "FR", name: "France", method: "pvct", locale: "fr", crypto_to_crypto_taxable: Some(false), annual_threshold: Some(305), ..BASE },
     Jurisdiction { code: "IT", name: "Italy", method: "lifo", locale: "it", exemption_threshold: Some((2024, 2000)),
                    tax_rate: Some(("26%", "33%", (2026, 1, 1))), ..BASE },
@@ -96,7 +98,9 @@ pub const REGISTRY: [Jurisdiction; 18] = [
                                                   annual_cap: 40_000_000 }), ..BASE },
     // No holding period: the 7% rate was repealed before it took effect (Act 530/2023). D-TAX-SK-SWAPS: a coin exchanged
     // for another coin is a sale (§ 2 písm. ai) ZDP, Finančná správa 293880); Rails has `crypto_to_crypto_taxable: false`.
-    Jurisdiction { code: "SK", name: "Slovakia", locale: "sk", stablecoin_ambiguous: true, ..BASE },
+    // D-TAX-STABLECOIN-QUESTION: a swap is taxed, so a stablecoin as cash or as a coin gives the same figures and the
+    // question is not asked; Rails has `stablecoin_ambiguous: true`.
+    Jurisdiction { code: "SK", name: "Slovakia", locale: "sk", ..BASE },
 ];
 
 /// `Jurisdictions.for(code)`.
@@ -105,11 +109,15 @@ pub fn find(code: &str) -> Option<&'static Jurisdiction> { REGISTRY.iter().find(
 /// D-TAX-NOT-PORTED-GATE: the jurisdictions whose crypto report this build computes. Until a jurisdiction's slice lands,
 /// a create for it (web, REST, MCP) is refused up front as not ported, and nothing is ever queued for a report this
 /// build cannot compute; the broker scope likewise until A12-7. Each later slice adds its countries; the gate goes with A12-7.
-/// AT and PL are not: Austria's moving average per wallet for holdings from 2023 and its staking rules, and Poland's
-/// costs deducted in the year paid (carried forward), are not this engine's per-sale FIFO.
-pub const PORTED: [&str; 5] = ["US", "DE", "ES", "PT", "SK"];
+/// Austria by its own law (A12-2b: the moving average per wallet, § 27b from 1 March 2022, `fifo::Austria`); Poland by
+/// its own report (tax/pl.rs), from 2019.
+pub const PORTED: [&str; 7] = ["US", "DE", "AT", "ES", "PT", "SK", "PL"];
 
-pub fn ported(country: &str) -> bool { PORTED.contains(&country) }
+/// Whether this build computes `country`'s report for `year`: Poland's from 2019, the year its crypto regime took effect
+/// (art. 44 ust. 1 of the act of 23.10.2018); an earlier year is refused as not ported.
+pub fn ported(country: &str, year: i64) -> bool {
+    PORTED.contains(&country) && (country != "PL" || year >= i64::from(super::pl::FIRST_YEAR))
+}
 
 pub(crate) fn ymd((y, m, d): (i32, u32, u32)) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap_or(NaiveDate::MIN) }
 
@@ -148,6 +156,7 @@ mod tests {
         for c in PORTED { let j = find(c).unwrap(); assert_eq!(j.method, "fifo", "{c}"); assert!(j.expense_deduction.is_none() && !j.per_asset_summary && j.czech_exemptions.is_none() && j.flat_tax_rate.is_none()); }
         assert_eq!(find("BG").unwrap().currency(2025), "BGN");
         assert_eq!(find("BG").unwrap().currency(2026), "EUR");
+        assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && !ported("CZ", 2026));
     }
 
     #[test]

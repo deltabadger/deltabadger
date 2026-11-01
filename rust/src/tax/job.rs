@@ -243,13 +243,19 @@ fn take(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Option<Request>>
 /// fetches are made on this one (`tracker::jobs::fetching`), the progress broadcast each time the percent changes.
 async fn perform<T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, r: &Request) -> Result<crate::tax::Outcome, String> {
     // D-TAX-NOT-PORTED-GATE: nothing is queued for a report this build cannot compute; a row that is anyway fails.
-    if r.scope != "crypto" || !crate::tax::jurisdictions::ported(&r.country) { return Err(format!("the {} report for {} is not ported", r.scope, r.country)); }
+    if r.scope != "crypto" || !crate::tax::jurisdictions::ported(&r.country, r.year) { return Err(format!("the {} report for {} is not ported", r.scope, r.country)); }
     let today = cx.clock.now().date_naive();
     fx::ensure_loaded(&cx.db, ecb, today).await;
     let mut allowance = Allowance::run();
     let (user, country, year, stablecoin) = (r.user_id, r.country.clone(), i32::try_from(r.year).map_err(|_| "a report year out of range".to_string())?, r.stablecoin_as_fiat);
     let prepared = metered(&cx.db, &mut allowance, move |c, _| crate::tax::prepare(c, user, &country, year, stablecoin)).await?;
-    let report = match prepared { crate::tax::Prepared::Done(outcome) => return Ok(outcome), crate::tax::Prepared::Report(report) => report };
+    let mut report = match prepared { crate::tax::Prepared::Done(outcome) => return Ok(outcome), crate::tax::Prepared::Report(report) => report };
+    // D-TAX-PL-NBP: Poland's report converts at NBP's rates, loaded for what it needs (the ECB's source serves both).
+    let needs = report.nbp_needs();
+    if !needs.is_empty() {
+        crate::tax::nbp::ensure_loaded(&cx.db, ecb, needs, today).await;
+        report = metered(&cx.db, &mut allowance, move |c, _| { let mut report = report; report.reload_nbp(c)?; Ok(report) }).await?;
+    }
     let (db, request) = (cx.db.clone(), r.clone());
     fetching(&cx.db, api, &mut allowance, move |fetcher| {
         let mut last = 0;

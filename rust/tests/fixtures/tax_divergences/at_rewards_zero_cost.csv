@@ -1,0 +1,10 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,ETH,0.1,400.0,0.0,400.0,EUR,28,0.0,kraken,s1-ETH,true,false,false
+
+Erhaltene Einkünfte (Besteuerung je nach Einkunftsart und maßgeblichem Steuerrecht — nicht in den oben ausgewiesenen Veräußerungsgewinnen enthalten)
+2026-02-10,Lending-Zinsen,SOL,1.0,15.0,EUR
+,Summe Lending-Zinsen,,,15.0,EUR
+
+"NOTE: Staking-Rewards und Airdrops, mit Anschaffungskosten von null angesetzt:"
+ETH 0.1 2026-02-01
+"Österreich besteuert diese erst beim Verkauf, mit ihrem vollen Wert (§ 27b Abs. 2 EStG); beim Erhalt sind sie keine Einkünfte. War ein Reward in Wahrheit ein Entgelt für das Verleihen deiner Assets unter anderem Namen, ist er beim Zufluss steuerpflichtig: gib ihn so an."

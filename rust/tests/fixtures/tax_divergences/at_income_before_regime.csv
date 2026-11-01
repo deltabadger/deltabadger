@@ -1,0 +1,6 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2022-06-01T10:00:00Z,2022-03-10T10:00:00Z,ETH,1.0,300.0,500.0,-200.0,EUR,83,0.0,kraken,s2-ETH,true,false,false
+
+"NOTE: Vor dem 1. März 2022 zugeflossene Einkünfte, nicht Teil der zu 27,5 % besteuerten Einkünfte:"
+BTC 0.01 2022-01-20,300.0
+"Vor dem 1. März 2022 wurden Einkünfte wie Mining oder Verleihen nach den damals geltenden Regeln besteuert, nicht nach § 27b EStG. Gib sie so an, wie diese Regeln es verlangen."
