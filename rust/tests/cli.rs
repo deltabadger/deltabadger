@@ -464,6 +464,11 @@ fn run_and_serve_take_over_an_install_rails_left_stale_and_note_the_staleness() 
         };
         assert!(took.contains("1 bot(s)"), "{command}: {took}");
         assert!(before.iter().any(|l| l.contains(&format!("[check] bot {id} (scheduled): reference data stale"))), "{command}: {before:?}");
+        // "took over" comes before the SIGTERM handler; this line comes after it, so the signal below is never the default kill.
+        loop {
+            let line = rx.recv_timeout(std::time::Duration::from_secs(20)).map_err(|_| format!("{command}: not running within 20 s"))?;
+            if line.contains("SIGTERM finishes") { break; }
+        }
         assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust", "{command} took the install over");
         assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status()?.success());
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
