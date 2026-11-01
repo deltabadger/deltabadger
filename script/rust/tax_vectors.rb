@@ -134,7 +134,7 @@ module TaxVectors
     FxRate.insert_all(rows, unique_by: %i[currency date]) if rows.any?
   end
 
-  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).fetch(s[:name], s[:expect])) }
+  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).merge(DK_EXPECT).merge(GR_EXPECT).fetch(s[:name], s[:expect])) }
 
   def all_scenarios
     [
@@ -288,7 +288,7 @@ module TaxVectors
         kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z', exchange: kraken)
       } }
-    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios
+    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios
   end
 
   # A12-2: US beyond Alpaca, and D-TAX-US-WALLET (lots per venue for tax years from 2025).
@@ -960,6 +960,144 @@ module TaxVectors
     ]
   end
 
+  # A12-3: Denmark's own scenarios and labels (PLAN-A12 "A12-3 … Vectors", figures by hand). Every DK scenario runs on
+  # the ECB's DKK rate 7.46 on every booked day and each EUR price × 7.46 as a DKK price (`dk_fx`): DKK = EUR × 7.46.
+  DK_EXPECT = {
+    'dk_buy_sell_income_deposit_stated' => 'diverges: D-TAX-DK-PER-PART',
+    # Rails' header carries its loss_denied column even with no row.
+    'dk_prior_year_only' => 'diverges: D-TAX-DK-NO-WASH-SALE',
+    'dk_missing_price' => 'diverges: D-TAX-DK-DEPOSIT-ZERO',
+    'dk_swap_chain' => 'diverges: D-TAX-DK-SWAP-VALUE',
+    'dk_stablecoin_kept' => 'diverges: D-TAX-DK-STABLECOIN',
+    'dk_stablecoin_as_fiat' => 'diverges: D-TAX-DK-STABLECOIN',
+    'dk_ecb_gap' => 'diverges: D-TAX-DK-RUBRIK',
+    'dk_oversold' => 'diverges: D-TAX-DK-PER-PART',
+    'dk_lost' => 'diverges: D-TAX-DK-RUBRIK',
+    'dk_unlinked_withdrawal' => 'diverges: D-TAX-DK-RUBRIK',
+    'dk_coin_fee' => 'diverges: D-TAX-DK-PER-PART'
+  }.freeze
+
+  def dk_fx(gaps)
+    days = AccountTransaction.pluck(:transacted_at).map { |t| t.utc.to_date }.uniq - gaps.map { |d| Date.parse(d) }
+    FxRate.insert_all(days.map { |d| { currency: 'DKK', date: d, rate: '7.46' } }, unique_by: %i[currency date]) if days.any?
+    HistoricalPrice.where(currency: 'EUR').to_a.each do |p|
+      next if HistoricalPrice.exists?(asset: p.asset, currency: 'DKK', date: p.date)
+
+      HistoricalPrice.create!(asset: p.asset, currency: 'DKK', date: p.date, price: p.price * BigDecimal('7.46'))
+    end
+  end
+
+  def dk_case(name, expect, year: 2026, &setup)
+    { name:, country: 'DK', year:, expect: "diverges: #{expect}", setup: lambda { |c|
+      user_zone(c, 'Copenhagen')
+      setup.(c)
+    } }
+  end
+
+  def dk_scenarios
+    k = ->(c, side, coin, qty, cash, at, **o) { kraken(c, side, coin, qty, cash, at, fiat: 'DKK', **o) }
+    # BTC bought for DKK on Kraken in 2025 and moved to Binance, where it is swapped in 2026.
+    btc_to_binance = lambda do |c|
+      price('BTC', '2025-07-01', '350000', 'DKK')
+      k.(c, :buy, 'BTC', '1', '300000', '2025-06-01T10:00:00Z')
+      transfer(c, 'BTC', '1', '2025-07-01T10:00:00Z', from: venue(c, :kraken), to: venue(c, :binance))
+    end
+    usd = ->(c, side, coin, qty, cash, at) { quoted(c, side, coin, qty, cash, at, fiat: 'USD') }
+    [
+      # skat.dk's Markus: +300; then +100 (0.5 of January's) and −300 (February's), not netted → rubrik 20 400, 58 300.
+      dk_case('dk_markus', 'D-TAX-DK-PER-PART') do |c|
+        k.(c, :buy, 'BTC', '1', '1000', '2026-01-10T10:00:00Z')
+        k.(c, :buy, 'BTC', '1', '1500', '2026-02-10T10:00:00Z')
+        k.(c, :sell, 'BTC', '0.5', '800', '2026-03-10T10:00:00Z')
+        k.(c, :sell, 'BTC', '1.5', '1800', '2026-04-10T10:00:00Z')
+      end,
+      # −5,000 in rubrik 58; no loss denied, no loss_denied column.
+      dk_case('dk_no_wash_sale', 'D-TAX-DK-NO-WASH-SALE') do |c|
+        k.(c, :buy, 'ETH', '1', '20000', '2026-01-10T10:00:00Z')
+        k.(c, :buy, 'ETH', '1', '25000', '2026-03-10T10:00:00Z')
+        k.(c, :sell, 'ETH', '1', '15000', '2026-04-10T10:00:00Z')
+      end,
+      # 1 BTC (700,000) for 20 ETH (680,000): one value, the BTC side's → BTC 700,000 / 300,000 / 400,000; ETH cost
+      # 700,000, sold for 690,000 → −10,000.
+      dk_case('dk_swap_one_value', 'D-TAX-DK-SWAP-VALUE') do |c|
+        btc_to_binance.(c)
+        price('BTC', '2026-02-01', '700000', 'DKK')
+        price('ETH', '2026-02-01', '34000', 'DKK')
+        price('ETH', '2026-02-02', '34000', 'DKK')
+        swap(c, 'BTC', '1', 'ETH', '20', '2026-02-01T10:00:00Z', ref: 'sv1')
+        transfer(c, 'ETH', '20', '2026-02-02T10:00:00Z', from: venue(c, :binance), to: venue(c, :kraken))
+        k.(c, :sell, 'ETH', '20', '690000', '2026-03-01T10:00:00Z')
+      end,
+      # 0.1 BTC for 10,850 USDT (10,850 × 7.46 / 1.17 = 69,180.34) → BTC 69,180.34 / 30,000 / 39,180.34 in rubrik 20;
+      # the USDT sold for 70,000 DKK → 819.66, apart.
+      dk_case('dk_stablecoin_apart', 'D-TAX-DK-STABLECOIN') do |c|
+        btc_to_binance.(c)
+        price('BTC', '2026-02-01', '700000', 'DKK')
+        swap(c, 'BTC', '0.1', 'USDT', '10850', '2026-02-01T10:00:00Z', ref: 'sa1')
+        transfer(c, 'USDT', '10850', '2026-02-01T12:00:00Z', from: venue(c, :binance), to: venue(c, :kraken))
+        k.(c, :sell, 'USDT', '10850', '70000', '2026-02-02T10:00:00Z')
+      end,
+      # An unlinked deposit of 1 ETH (worth 20,000) sold for 25,000 → cost 0, gain 25,000.
+      dk_case('dk_deposit_zero', 'D-TAX-DK-DEPOSIT-ZERO') do |c|
+        price('ETH', '2026-01-10', '20000', 'DKK')
+        row(c, :deposit, 'ETH', '1', '2026-01-10T10:00:00Z', exchange: venue(c, :kraken))
+        k.(c, :sell, 'ETH', '1', '25000', '2026-03-01T10:00:00Z')
+      end,
+      # Staking 0.1 ETH (2,000) and lending 1 SOL (1,000), no sale → rubrik 20 3,000, the summary shown.
+      dk_case('dk_income_only', 'D-TAX-DK-RUBRIK') do |c|
+        price('ETH', '2026-02-01', '20000', 'DKK')
+        price('SOL', '2026-03-01', '1000', 'DKK')
+        row(c, :staking_reward, 'ETH', '0.1', '2026-02-01T10:00:00Z', exchange: venue(c, :kraken))
+        row(c, :lending_interest, 'SOL', '1', '2026-03-01T10:00:00Z', exchange: venue(c, :kraken))
+      end,
+      # Mining 0.1 BTC worth 20,000, sold for 15,000 → row −5,000 shown, rubrik 58 0; receipt and sale listed.
+      dk_case('dk_mining_sold_at_loss', 'D-TAX-DK-RUBRIK') do |c|
+        price('BTC', '2026-02-01', '200000', 'DKK')
+        row(c, :mining, 'BTC', '0.1', '2026-02-01T10:00:00Z', exchange: venue(c, :kraken))
+        k.(c, :sell, 'BTC', '0.1', '15000', '2026-03-01T10:00:00Z')
+      end,
+      # DAI bought and held: the stablecoin NOTE lists DAI as not classified.
+      dk_case('dk_dai_only', 'D-TAX-DK-STABLECOIN') do |c|
+        usd.(c, :buy, 'DAI', '1000', '1000', '2026-02-01T10:00:00Z')
+      end,
+      # USDT bought in 2025 and untouched in 2026: held at the year's start, so the NOTE shows USDT.
+      dk_case('dk_usdt_held_no_activity', 'D-TAX-DK-STABLECOIN') do |c|
+        usd.(c, :buy, 'USDT', '1000', '1000', '2025-06-01T10:00:00Z')
+      end,
+      # USDT bought and sold out in 2026: its realised result in the NOTE, out of the totals.
+      dk_case('dk_usdt_sold_out', 'D-TAX-DK-STABLECOIN') do |c|
+        usd.(c, :buy, 'USDT', '1000', '1000', '2026-02-01T10:00:00Z')
+        usd.(c, :sell, 'USDT', '1000', '1010', '2026-03-01T10:00:00Z')
+      end,
+      # DAI 1,000 bought for 1,000 USD, sold for 1,100 USD → 7,013.68 / 6,376.07 / 637.61 in rubrik 20; DAI not classified.
+      dk_case('dk_dai_gain', 'D-TAX-DK-STABLECOIN') do |c|
+        usd.(c, :buy, 'DAI', '1000', '1000', '2026-02-01T10:00:00Z')
+        usd.(c, :sell, 'DAI', '1000', '1100', '2026-03-01T10:00:00Z')
+      end
+    ]
+  end
+
+  # A12-3: Greece. No tax on an individual's crypto gains is in force up to 2026: rows as Rails, Σ gains and Σ losses,
+  # no taxable income or tax line, NOTE gr_no_tax. Every shared GR scenario with a disposal shows it.
+  GR_EXPECT = %w[gr_buy_sell_income_deposit_stated gr_missing_price gr_swap_chain gr_stablecoin_kept gr_stablecoin_as_fiat
+                 gr_ecb_gap gr_oversold gr_lost gr_unlinked_withdrawal gr_coin_fee]
+              .to_h { |name| [name, 'diverges: D-TAX-GR-NO-TAX'] }.freeze
+  def gr_scenarios
+    two_trades = lambda do |c|
+      user_zone(c, 'Athens')
+      kraken(c, :buy, 'BTC', '1', '10000', '2025-01-10T10:00:00Z')
+      kraken(c, :buy, 'ETH', '1', '20000', '2025-02-10T10:00:00Z')
+      kraken(c, :sell, 'BTC', '1', '30000', '2025-03-10T10:00:00Z')
+      kraken(c, :sell, 'ETH', '1', '9000', '2025-04-10T10:00:00Z')
+    end
+    [
+      # +20,000 and −11,000 → gains 20,000.00, losses 11,000.00, no tax line, NOTE.
+      { name: 'gr_gains_and_losses', country: 'GR', year: 2025, expect: 'diverges: D-TAX-GR-NO-TAX', setup: two_trades },
+      # 2027 is refused as not ported until enacted law is reviewed.
+      { name: 'gr_2027_not_ported', country: 'GR', year: 2027, expect: 'parity', setup: two_trades }
+    ]
+  end
+
   # Poland's own vectors state their NBP rows (none by default), so the shared scenarios' default rates never reach them.
   def pl_case(name, year: 2026, expect: 'diverges: D-TAX-PL-COST-POOL', nbp: [], nbp_coverage: [], **opts, &setup)
     { name:, country: 'PL', year:, expect:, nbp:, nbp_coverage:, **opts, setup: lambda { |c|
@@ -1344,7 +1482,7 @@ module TaxVectors
       ]
     end
     each.('DE', 'Berlin') + each.('AT', 'Vienna') + each.('ES', 'Madrid') + each.('PT', 'Lisbon') + each.('PL', 'Warsaw') +
-      each.('SK', 'Bratislava') + each.('BG', 'Sofia') + each.('CZ', 'Prague') + holding_edges
+      each.('SK', 'Bratislava') + each.('BG', 'Sofia') + each.('CZ', 'Prague') + each.('GR', 'Athens') + each.('DK', 'Copenhagen') + holding_edges
   end
 
   def holding_edges
@@ -1801,6 +1939,7 @@ module TaxVectors
       scenario[:setup]&.call(ctx)
       cz_prices if country == 'CZ'
       ecb(Array(scenario[:fx_gap]), country)
+      dk_fx(Array(scenario[:fx_gap])) if country == 'DK'
       rails = begin
         Tax::GenerateReportJob.new.perform(ctx[:user].id, country, year, stablecoin)
         refusal = Tax::GenerateReportJob.refusal(ctx[:user].id, country, year)

@@ -1,0 +1,13 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,DAI,1000.0,7013.68,6376.07,637.61,DKK,28,0.0,bybit,sell-DAI-2026-03-01T10:00:00Z,true,false
+
+Rubrik 20 Anden personlig indkomst,637.61
+  heraf gevinster ved afståelser,637.61
+"  heraf modtagne aktiver (staking, udlån, airdrops)",0.0
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+NOTE: Stablecoins: klassifikation og realiserede resultater:
+"Ikke klassificeret, medregnet som almindelige aktiver (i rubrik 20 og 58):"
+DAI
+"Skattestyrelsen behandler USDT, USDC og USDP som finansielle kontrakter: kapitalindkomst i rubrik 346, beskattet hvert år efter lagerprincippet, som også medregner det, du ejer ved årets udgang; et nettotab kan kun modregnes i gevinster på finansielle kontrakter og fremføres i rubrik 85. De realiserede resultater ovenfor er ikke dette årsresultat. Andre stablecoins medregnes her som almindelige aktiver."

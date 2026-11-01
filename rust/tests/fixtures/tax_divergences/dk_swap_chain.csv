@@ -1,0 +1,14 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+2026-03-01T10:00:00Z,2025-02-01T10:00:00Z,BTC,0.05,41030.0,33570.0,7460.0,DKK,393,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false
+2026-03-02T10:00:00Z,2025-08-01T10:00:00Z,SOL,33.3,39746.88,37300.0,2446.88,DKK,213,0.0,kraken,K-SOL-2026-03-02T10:00:00Z-SOL,true,false
+
+Rubrik 20 Anden personlig indkomst,9906.88
+  heraf gevinster ved afståelser,9906.88
+"  heraf modtagne aktiver (staking, udlån, airdrops)",0.0
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+NOTE: Krydshandler værdiansat til én værdi for begge sider:
+ETH 3.0 → BTC 0.1 2025-02-01
+BTC 0.05 → SOL 33.3 2025-08-01
+"Skattestyrelsen kræver én værdi for begge sider af en krydshandel, først fra en stablecoin, dernæst fra det største aktiv. Den offentliggjorte prioritetsliste dækker til og med 2022; denne rapport bruger en stablecoin, dernæst bitcoin, dernæst ether, ellers det modtagne aktiv."

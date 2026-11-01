@@ -1,0 +1,18 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+2026-02-01T10:00:00Z,2024-06-01T10:00:00Z,BTC,0.5,331555.56,149200.0,182355.56,DKK,610,0.0,binance,cv1-out-BTC,true,false
+2026-02-02T10:00:00Z,2026-02-01T10:00:00Z,USDT,52000.0,333462.0,331555.56,1906.44,DKK,1,0.0,kraken,K-USDT-2026-02-02T10:00:00Z-USDT,true,false
+
+Rubrik 20 Anden personlig indkomst,182355.56
+  heraf gevinster ved afståelser,182355.56
+"  heraf modtagne aktiver (staking, udlån, airdrops)",0.0
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+NOTE: Krydshandler værdiansat til én værdi for begge sider:
+BTC 0.5 → USDT 52000.0 2026-02-01
+"Skattestyrelsen kræver én værdi for begge sider af en krydshandel, først fra en stablecoin, dernæst fra det største aktiv. Den offentliggjorte prioritetsliste dækker til og med 2022; denne rapport bruger en stablecoin, dernæst bitcoin, dernæst ether, ellers det modtagne aktiv."
+
+NOTE: Stablecoins: klassifikation og realiserede resultater:
+Finansielle kontrakter (holdt uden for rubrik 20 og 58):
+USDT,1906.44
+"Skattestyrelsen behandler USDT, USDC og USDP som finansielle kontrakter: kapitalindkomst i rubrik 346, beskattet hvert år efter lagerprincippet, som også medregner det, du ejer ved årets udgang; et nettotab kan kun modregnes i gevinster på finansielle kontrakter og fremføres i rubrik 85. De realiserede resultater ovenfor er ikke dette årsresultat. Andre stablecoins medregnes her som almindelige aktiver."
