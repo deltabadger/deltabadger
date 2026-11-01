@@ -408,6 +408,25 @@ module TaxVectors
         buy(c, 'BTC', '1', '30000', '2023-06-01T10:00:00Z')
         buy(c, 'BTC', '1', '90000', '2024-01-05T10:00:00Z', exchange: venue(c, :kraken))
       } },
+      # A New York taxpayer's CFEE at 00:00 UTC on 1 January (31 December there): only that local year's fills order it,
+      # so the 2024 and 2025 reports agree on its lots.
+      { name: 'us_cfee_new_york_year_end', year: 2024, expect: 'diverges: D-TAX-COIN-FEE', setup: lambda { |c|
+        user_zone(c, 'Eastern Time (US & Canada)')
+        price('ETH', '2025-01-01', '3000')
+        buy(c, 'ETH', '0.05', '50', '2025-01-01T02:00:00Z')
+        buy(c, 'ETH', '1', '2000', '2025-01-01T12:00:00Z')
+        buy(c, 'ETH', '0.5', '900', '2024-12-31T03:00:00Z')
+        row(c, :fee, 'ETH', '0.1', '2025-01-01T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
+      } },
+      # A fiat-funded buy grouped with a coin sale: not a coin-for-coin exchange, so the buy's fee stays its own.
+      { name: 'us_swap_cost_not_with_fiat', expect: 'parity', setup: lambda { |c|
+        kr = venue(c, :kraken)
+        price('SOL', '2026-02-02', '150')
+        row(c, :buy, 'SOL', '10', '2026-01-06T10:00:00Z', exchange: kr, quote_currency: 'USD', quote_amount: '1000')
+        row(c, :sell, 'SOL', '10', '2026-02-02T10:00:00Z', exchange: kr, group_id: 'mx', tx_id: 'mx-sol')
+        row(c, :sell, 'USD', '500', '2026-02-02T10:00:00Z', exchange: kr, group_id: 'mx', tx_id: 'mx-usd')
+        row(c, :buy, 'ETH', '0.6', '2026-02-02T10:00:00Z', exchange: kr, group_id: 'mx', tx_id: 'mx-eth', fee_currency: 'USD', fee_amount: '5')
+      } },
       { name: 'us_unlinked_withdrawal_per_venue', expect: 'diverges: D-TAX-US-WALLET', setup: lambda { |c|
         price('BTC', '2026-01-06', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')

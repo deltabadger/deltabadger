@@ -142,8 +142,14 @@ impl Report {
         let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)
             .map(|(e, _)| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_deref().is_some_and(fiat),
                                             asset: identity(&e.row.base, &e.row),
-                                            fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)) })).collect();
-        walk_standing_cfees_after_their_fills(&self.cfee, &mut entries);
+                                            fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
+                                            cash_group: false })).collect();
+        // Groups with a fiat leg, read before the fiat rows leave.
+        let cash_groups: HashSet<(String, String)> = enriched.iter().filter(|e| fiat(&e.row.base))
+            .filter_map(|e| e.row.group.clone().map(|g| (e.row.exchange.clone(), g))).collect();
+        for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.exchange.clone(), g.clone()))); }
+        let local_year = |at: At| self.local(at).year();
+        walk_standing_cfees_after_their_fills(&self.cfee, &mut entries, &local_year);
         let mut txs: Vec<fifo::Tx> = entries.into_iter().map(|(_, t)| t).collect();
 
         let holding = self.holding_rule();
@@ -317,10 +323,10 @@ fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
 }
 
 /// An Alpaca CFEE left standing (its day's fills differ in UTC and New York time) is dated midnight UTC; it is walked
-/// after the last fill of its coin on its venue in that UTC day, so it takes lots its day's buys opened. The window is
-/// the fee's own UTC day, never the next one, so every year's report (each loads at least to the UTC year's end) orders
-/// it alike. Its own date stays (the year, the holding days and the listing read it).
-fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i64, fifo::Tx)>) {
+/// after the last fill of its coin on its venue in that UTC day and in the fee's own local tax year, so it takes lots its
+/// day's buys opened, and every year's report (each loads its whole local year) orders it alike. Its own date stays (the
+/// year, the holding days and the listing read it).
+fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i64, fifo::Tx)>, local_year: &dyn Fn(At) -> i32) {
     let fees: Vec<i64> = rows.iter().filter(|(id, t)| cfee.contains(id) && t.row.kind == Kind::Fee).map(|(id, _)| *id).collect();
     for fee in fees {
         let Some(i) = rows.iter().position(|(id, _)| *id == fee) else { continue };
@@ -329,7 +335,7 @@ fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i6
         let last = rows.iter().rposition(|(_, t)| {
             let r = &t.row;
             matches!(r.kind, Kind::Buy | Kind::Sell) && r.exchange == f.exchange && r.base == f.base && r.amount.is_positive()
-                && r.at.utc().date_naive() == day
+                && r.at.utc().date_naive() == day && local_year(r.at) == local_year(f.at)
         });
         if let Some(last) = last.filter(|&l| l > i) { let moved = rows.remove(i); rows.insert(last, moved); }
     }

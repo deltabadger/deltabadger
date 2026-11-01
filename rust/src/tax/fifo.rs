@@ -35,7 +35,9 @@ const CENTS: i64 = 2;
 
 /// A row as the engine reads it: the enriched row, whether it leaves for fiat (`fiat_exit?`), and the identity of its
 /// base and fee coins (D-TAX-ASSET-IDENTITY).
-pub struct Tx { pub row: Row, pub tx_id: Option<String>, pub fiat_exit: bool, pub asset: String, pub fee_asset: Option<String> }
+pub struct Tx { pub row: Row, pub tx_id: Option<String>, pub fiat_exit: bool, pub asset: String, pub fee_asset: Option<String>,
+                /// Whether the row's group has a fiat leg (fiat rows reach no engine).
+                pub cash_group: bool }
 
 /// Report#calculation_options for this engine.
 pub struct Options<'a> {
@@ -201,10 +203,12 @@ impl<'a> Fifo<'a> {
     fn move_swap_costs(&mut self, txs: &[Tx]) -> Result<(), FiguresError> {
         let Some(from) = self.o.swap_cost_to_disposed_from.filter(|_| self.o.swaps_taxable) else { return Ok(()) };
         let mut groups: HashMap<Group, (Vec<&Row>, Vec<&Row>, bool)> = HashMap::new();
-        for r in txs.iter().map(|t| &t.row).filter(|r| r.at.0 >= from.0) {
+        for t in txs.iter().filter(|t| t.row.at.0 >= from.0) {
+            let r = &t.row;
             let Some(k) = group_key(r) else { continue };
             let g = groups.entry(k).or_default();
-            if fiat(&r.base) { g.2 = true; } else if r.kind.in_leg() { g.0.push(r); } else if r.kind.out_leg() { g.1.push(r); }
+            if t.cash_group || fiat(&r.base) { g.2 = true; }
+            if r.kind.in_leg() { g.0.push(r); } else if r.kind.out_leg() { g.1.push(r); }
         }
         for (ins, outs, cash) in groups.values() {
             if outs.is_empty() || *cash { continue; }
@@ -349,7 +353,7 @@ impl<'a> Fifo<'a> {
         let (symbol, asset) = (r.fee_currency.clone().unwrap_or_default(), tx.fee_asset.clone().unwrap_or_else(|| r.fee_currency.clone().unwrap_or_default()));
         if self.o.swaps_taxable {
             let sale = Sale { asset: &asset, symbol: &symbol, amount: fee.clone(), proceeds: r.fee_fiat_value.clone(), fee: Dec::zero(),
-                              price_missing: r.price_missing && (!value_missing(r) || r.fee_fiat_value.is_zero()) };
+                              price_missing: r.fee_missing };
             return self.dispose(tx, sale, false);
         }
         let k = self.key(&r.exchange, &asset);
@@ -774,8 +778,8 @@ mod tests {
         Tx { row: Row { uid, kind, base: base.into(), amount: d(amount), quote: Some("USD".into()), quote_amount: None, fiat_value: d(value),
                         fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None, at: at(day), group: None, price_missing: false,
                         value_missing: Some(false), exchange: venue.into(), linked: false, transfer_fee: None, swap_fiat_cost: None,
-                        swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: false, stated_value: false },
-             tx_id: None, fiat_exit: true, asset: base.into(), fee_asset: None }
+                        swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: false, stated_value: false, fee_missing: false },
+             tx_id: None, fiat_exit: true, asset: base.into(), fee_asset: None, cash_group: false }
     }
 
     fn remaining(f: &Fifo) -> Dec {
