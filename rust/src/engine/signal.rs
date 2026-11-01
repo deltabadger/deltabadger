@@ -126,6 +126,14 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
     if !(BOT_WORKING.contains(&bot.status) && rule.enabled) { return refuse(Some("signal_ignored")); }
     // An earlier order may be on the venue: wait for its resolution, until the call expires (R8a's retry_job).
     if blocked(&bot) { return Ok(Step::Waiting(expires_at(&call))); }
+    // D-UPGRADE-FRESHNESS-AT-TICK: the takeover admits stale reference data, so every order path refuses it, as the tick does.
+    if let Some(stale) = super::staleness::reference_stale(c, &bot, now)? {
+        model::locked(c, |tx| {
+            model::log_activity(tx, bot_id, "execution_failed", model::Level::Error, json!({"error": stale.message}), now)?;
+            consume(tx, bot_id, &call, None, now)
+        })?;
+        return Ok(Step::Ran);
+    }
     if model::key_pending(c, &bot)? { return refuse(Some("signal_api_key_pending")); }
     let ticker = model::ticker_for(c, &bot)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no ticker")))?;
     let prepared = super::placement::prepare(c, venue).await?;
@@ -424,6 +432,11 @@ pub async fn run_api_order<V: Venue>(c: &Connection, venue: &V, request: &api_or
     // settings after it as `Changed`, so a pair edited after this check is never placed under the caller's request.
     if let Some(res) = crate::web::bot_api::orders::late_refusal(c, &bot, request).map_err(|e| EngineError::Data(format!("{e:?}")))? {
         return { api_orders::finish(c, request.id, &Outcome::Refused { code: res.code.unwrap_or("order_failed").into(), message: res.message })?; Ok(Step::Ran) };
+    }
+    // D-UPGRADE-FRESHNESS-AT-TICK: nothing is sized from reference data past its bound.
+    if let Some(stale) = super::staleness::reference_stale(c, &bot, clock.now())? {
+        api_orders::finish(c, request.id, &Outcome::Refused { code: "order_failed".into(), message: stale.message })?;
+        return Ok(Step::Ran);
     }
     let src = Source::Api(request);
     let side = request.side;

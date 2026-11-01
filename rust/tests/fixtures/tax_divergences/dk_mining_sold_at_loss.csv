@@ -1,0 +1,17 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,BTC,0.1,15000.0,20000.0,-5000.0,DKK,28,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false
+
+Rubrik 20 Anden personlig indkomst,0.0
+  heraf gevinster ved afståelser,0.0
+"  heraf modtagne aktiver (staking, udlån, airdrops)",0.0
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+Modtagne indtægter (beskatningen afhænger af indtægtstypen og de gældende skatteregler — ikke medregnet i gevinsterne ovenfor)
+2026-02-01,indtægter fra mining,BTC,0.1,20000.0,DKK
+,I alt — indtægter fra mining,,,20000.0,DKK
+
+"NOTE: Mining og anden indkomst, ikke med i rubrik 20 eller 58:"
+indtægter fra mining BTC 0.1 2026-02-01,20000.0
+Salgspris BTC 0.1 2026-03-01,15000.0
+"Mining er hobbyvirksomhed: overskuddet oplyses i rubrik 20 efter reglerne for hobbyvirksomhed (et underskud kan ikke fradrages), og salg af minede aktiver hører til den. Modtagelserne og salgene af minede aktiver nedenfor er holdt uden for rubrik 20 og 58, så du kan medregne dem dér. Anden indkomst er vist, så du selv kan henføre den."

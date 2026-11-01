@@ -619,3 +619,58 @@ async fn a_signal_buy_of_a_locked_asset_consumes_the_call_and_places_nothing() {
     assert_eq!(signal::run_next(c, &s.venue, s.bot, &at(T0), &cx).await.unwrap(), Step::Ran);
     assert_eq!(s.venue.sent().len(), 1, "rule off: placed");
 }
+
+struct AlpacaScripted(deltabadger::venue::http::ScriptedTransport);
+impl deltabadger::venue::VenueFactory for AlpacaScripted {
+    type V = deltabadger::venue::alpaca::AlpacaVenue<deltabadger::venue::http::ScriptedTransport>;
+    fn for_bot(&self, _t: &str, _c: Option<deltabadger::crypto::Credentials>) -> Self::V { common::scripted::venue(&self.0) }
+}
+
+/// D-UPGRADE-FRESHNESS-AT-TICK: the takeover admits an Alpaca signal bot whose crypto catalog Rails left stale, so its two
+/// order paths refuse it as the tick does, before anything is asked of Alpaca: a webhook call is consumed with an
+/// `execution_failed` line naming the stale source, and a bot-linked API order is answered `order_failed` with the same text.
+/// Once the catalog job completes a run, the next call places.
+#[tokio::test(flavor = "current_thread")]
+async fn a_signal_bot_taken_over_stale_refuses_its_calls_and_api_orders_until_its_catalog_is_refreshed() {
+    use deltabadger::engine::api_orders::{self, Outcome};
+    let dir = common::baseline_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, t(T0)).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    o.primary.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+                       VALUES ('Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+                      params![s.exchange_id, s.user_id, json!({ "base_asset_id": s.btc, "quote_asset_id": s.quote }).to_string()]).unwrap();
+    let bot = o.primary.last_insert_rowid();
+    o.primary.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+                       VALUES (?1, 0, 0, '60', 1, 'tok-1', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [bot]).unwrap();
+    let rule = o.primary.last_insert_rowid();
+    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-01 10:15:00'", []).unwrap(); // Rails stopped a month ago
+    let taken = deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "test", t(T0)).expect("the takeover admits a stale install");
+    assert_eq!(taken.eligible, vec![bot]);
+    let tr = common::scripted::script(json!({}));
+    let mut e = Engine::new(o.primary, AlpacaScripted(tr.clone()), seed::cipher(), lock);
+
+    call(&e.primary, bot, rule, 1, T0);
+    run::step(&mut e, &plus(T0, 1.0)).await.unwrap();
+    assert!(tr.requests().is_empty(), "nothing is asked of Alpaca: {:?}", tr.requests());
+    assert_eq!(calls(&e.primary, bot), 0, "the call is consumed");
+    let failed: Vec<_> = lines(&e.primary).into_iter().filter(|(k, _)| k == "execution_failed").collect();
+    assert!(failed.len() == 1 && failed[0].1["error"].as_str().is_some_and(|m| m.contains("reference data stale: Alpaca crypto tickers")), "{failed:?}");
+
+    let loaded = model::load_bot(&e.primary, bot).unwrap();
+    let amount = deltabadger::ruby::BigDec::parse("60").unwrap();
+    let empty = serde_json::Map::new();
+    let id = api_orders::insert(&e.primary, &api_orders::New::Bot { user_id: s.user_id, bot: &loaded, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty }, t(T0) + chrono::Duration::seconds(2)).unwrap();
+    run::step(&mut e, &plus(T0, 3.0)).await.unwrap();
+    match api_orders::state(&e.primary, id).unwrap() {
+        Some((_, Some(Outcome::Refused { code, message }))) => assert!(code == "order_failed" && message.contains("reference data stale: Alpaca crypto tickers"), "{code}: {message}"),
+        other => panic!("{other:?}"),
+    }
+    assert!(tr.requests().is_empty(), "nothing is asked of Alpaca: {:?}", tr.requests());
+
+    deltabadger::jobs::state::record_success(&e.primary, deltabadger::jobs::reference::ALPACA_CRYPTO, None, t(T0) + chrono::Duration::seconds(60)).unwrap();
+    call(&e.primary, bot, rule, 2, "2026-09-01T14:02:00Z");
+    run::step(&mut e, &at("2026-09-01T14:02:01Z")).await.unwrap();
+    assert_eq!((tr.posted_orders().len(), calls(&e.primary, bot)), (1, 0), "places once the catalog is fresh");
+}

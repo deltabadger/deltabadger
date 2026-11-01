@@ -1,0 +1,21 @@
+Datum,Datum pořízení,Aktivum,Množství,Příjem,Pořizovací cena,Zisk/Ztráta,Měna,Dny držení,Poplatek,Burza,ID transakce,Pořizovací cena kompletní,Neúplná data,Osvobozeno,Důvod osvobození
+2026-03-02T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1876,0.0,kraken,K-BTC-2026-03-02T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-03T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1877,0.0,kraken,K-BTC-2026-03-03T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-04T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1878,0.0,kraken,K-BTC-2026-03-04T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-05T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1879,0.0,kraken,K-BTC-2026-03-05T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-06T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1880,0.0,kraken,K-BTC-2026-03-06T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-07T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1881,0.0,kraken,K-BTC-2026-03-07T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-08T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1882,0.0,kraken,K-BTC-2026-03-08T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-09T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1883,0.0,kraken,K-BTC-2026-03-09T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-10T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1884,0.0,kraken,K-BTC-2026-03-10T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+2026-03-11T10:00:00Z,2021-01-11T10:00:00Z,BTC,1.0,5500000.0,1000000.0,4500000.0,CZK,1885,0.0,kraken,K-BTC-2026-03-11T10:00:00Z-BTC,true,false,true,"časový test, krácení § 4 odst. 3"
+
+"Příloha č. 2, oddíl 2, druh C – prodej kryptoaktiv"
+Příjmy pro hodnotový test (§ 4 odst. 1 písm. zj); bez USDC a EURC),55000000.0
+Hodnotový test splněn (úhrn nejvýše 100 000 Kč),Ne
+Příjmy osvobozené časovým testem (§ 4 odst. 1 písm. zk)),55000000.0
+Zdanitelná část nad limit 40 000 000 Kč (§ 4 odst. 3),27.27%
+ř. 207 Příjmy podle § 10 zákona,15000000.0
+ř. 208 Výdaje podle § 10 zákona,2727272.73
+ř. 209 Dílčí základ daně podle § 10 zákona (ř. 207 – ř. 208),12272727.27
+"Přepočteno kurzem ČNB pro den každé transakce. Pokud v přiznání používáte jednotný kurz, použijte ho místo toho pro všechny částky. Ostatní příjmy z prodeje movitých věcí (druh C) se přičítají k tomuto řádku. Sazba daně (15 % nebo 23 %) závisí na celém Vašem základu daně. Nejsou zde rozpoznána: aktiva zděděná po příbuzném v řadě přímé nebo po manželovi či manželce (započítává se doba jejich držby), výměna nebo sloučení kryptoaktiv vydavatelem (tříletá lhůta se nepřerušuje), obchodní majetek a budoucí převody. Staking, airdropy a půjčky se počítají jako příjem v okamžiku získání v jejich hodnotě, která je pak jejich pořizovací cenou (oficiální výklad neexistuje)."

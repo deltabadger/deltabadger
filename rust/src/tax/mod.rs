@@ -26,10 +26,22 @@
 //!   paid more than three times a month valued at the 1st's close (VO § 4 Abs. 2); D-TAX-AT-INCOME-1-MARCH-2022, income
 //!   before § 27b listed apart (`income_before_regime`); D-TAX-AT-SPECULATION, § 31 sales listed apart (`speculation`).
 //! - Poland is no FIFO: its PIT-38 workpaper and its divergences are pl.rs's (D-TAX-PL-*), its NBP rates nbp.rs's.
+//! - Bulgaria (bg.rs): D-TAX-BG-AVERAGE, D-TAX-BG-CURRENCY, D-TAX-BG-ANNUAL, D-TAX-BG-DEPOSIT-ZERO. The Czech Republic
+//!   (cz.rs, its ČNB rates cnb.rs's): D-TAX-CZ-CNB, D-TAX-CZ-EMT, D-TAX-CZ-CAP, D-TAX-CZ-PRILOHA2, D-TAX-CZ-MINING
+//!   (mining at cost 0, no income), D-TAX-CZ-SWAP-FEE (a swap's in-leg fee is an expense of the disposal). Both:
+//!   D-TAX-SWAP-RECEIVED (`value_groups`): a swap's proceeds are the value received.
+//! - Denmark (SL § 5 a, PSL § 3, DJV C.C.2.1.3.3.5): D-TAX-DK-PER-PART, a row per FIFO part (`fifo::Options::row_per_lot`);
+//!   D-TAX-DK-NO-WASH-SALE, no loss denied and no `loss_denied` column; D-TAX-DK-RUBRIK, rubrik 20 and 58 in place of Rails'
+//!   per-asset lines; D-TAX-DK-SWAP-VALUE, one value for both sides of an exchange (`value_groups`); D-TAX-DK-DEPOSIT-ZERO,
+//!   an unlinked deposit at cost 0; D-TAX-DK-STABLECOIN, USDT, USDC and USDP out of the rubrik totals, listed.
+//! - Greece: D-TAX-GR-NO-TAX, no tax on an individual's crypto gains is in force up to 2026 (no tax line, a NOTE).
 //!
 //! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
 //! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
 pub mod api;
+mod bg;
+pub mod cnb;
+mod cz;
 pub mod fifo;
 pub mod job;
 pub mod jurisdictions;
@@ -75,6 +87,8 @@ pub struct Report {
     nbp: Option<nbp::Nbp>,
     /// Poland: column d as the user declared it, by year up to the report's (D-TAX-PL-DECLARED-CARRY).
     carry: std::collections::BTreeMap<i32, Dec>,
+    /// The Czech Republic's ČNB fixings (D-TAX-CZ-CNB); None elsewhere.
+    cnb: Option<cnb::Cnb>,
 }
 
 /// The reads of `crypto_csv` up to the enrichment: the scope, the tokenized refusal, the banners.
@@ -118,7 +132,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let cfee: HashSet<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let nbp = if j.code == "PL" { Some(nbp::Nbp::load(c)?) } else { None };
     let carry = if j.code == "PL" { pl::declared(c, user_id, year)? } else { Default::default() };
-    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry })))
+    let cnb = if j.code == "CZ" { Some(cnb::Cnb::load(c)?) } else { None };
+    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb })))
 }
 
 /// Midnight starting 1 January of `year` in the user's zone (`ActiveSupport::TimeZone#local`).
@@ -135,11 +150,27 @@ const AT_REGIME_FROM: (i32, u32, u32) = (2022, 3, 1);
 /// KryptowährungsVO § 7, Rz 6178aa: the moving average from 1 January 2023; Rz 6178p: VO § 4 Abs. 2 from then too.
 const AT_AVERAGE_FROM: (i32, u32, u32) = (2023, 1, 1);
 
-/// What the Austrian report states beside the disposals: § 27b income, the rest listed apart.
+/// What a report states beside the disposals: Austria's § 27b income and the rest listed apart; Bulgaria's and the Czech
+/// Republic's summaries and notes.
 #[derive(Default)]
 struct AtNotes { speculation: Vec<(String, Dec)>, before_regime: Vec<(String, Dec)>, zero_cost: Vec<String>, monthly: Vec<String>, averaged: bool,
                  /// D-TAX-SWAP-FEE-EXHAUSTED (any country where swaps are not taxable): the swap-ins of the year and their basis.
-                 exhausted: Vec<(String, Dec)> }
+                 exhausted: Vec<(String, Dec)>,
+                 /// The summary block after the rows (D-TAX-BG-ANNUAL, D-TAX-CZ-PRILOHA2), as CSV lines.
+                 summary: String,
+                 /// D-TAX-CZ-PRILOHA2: per row, (tax_exempt, exempt_reason).
+                 exempt: Vec<(bool, Option<String>)>,
+                 /// § 38v: the exempt receipts above 5,000,000 CZK.
+                 notice: Vec<(String, Dec)>,
+                 /// D-TAX-CZ-MINING: mining receipts held at cost 0.
+                 mined: Vec<String>,
+                 /// D-TAX-BG-AVERAGE: a disposal took the average.
+                 bg_average: bool,
+
+                 /// D-TAX-DK-SWAP-VALUE: the exchanges valued at one value.
+                 swap_values: Vec<String>,
+                 /// D-TAX-DK-STABLECOIN: the stablecoins held in the year (from the engine's year-start units and the year's rows).
+                 stablecoins: Vec<String> }
 
 /// An enriched row and what the report reads beside it.
 #[derive(Clone)]
@@ -154,6 +185,21 @@ impl Report {
         Ok(())
     }
 
+    /// D-TAX-CZ-CNB: the years whose ČNB file the Czech report reads, from the year of its first value less a week (early
+    /// January reads December's fixing) to the report year; none elsewhere.
+    pub fn cnb_needs(&self) -> Vec<i32> {
+        if self.cnb.is_none() { return vec![]; }
+        let Some(first) = self.scoped.iter().map(|r| self.local(r.at)).min() else { return vec![] };
+        let from = first.checked_sub_days(chrono::Days::new(7)).unwrap_or(first).year();
+        (from..=self.year).collect()
+    }
+
+    /// The ČNB rates read again (the job loads them after `prepare`, from `cnb_needs`).
+    pub fn reload_cnb(&mut self, c: &Connection) -> Result<(), FiguresError> {
+        if self.cnb.is_some() { self.cnb = Some(cnb::Cnb::load(c)?); }
+        Ok(())
+    }
+
     /// Tax::Report#to_csv from the enrichment on: prices the table lacks are fetched through `fetcher` (Rails'
     /// `prefetch` and single-day fetches), and `on_progress(percent)` is told as PriceService#enrich tells it.
     pub fn compute(&self, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Outcome, FiguresError> {
@@ -161,17 +207,36 @@ impl Report {
         let (j, year) = (self.j, self.year);
         let currency = j.currency(year);
         let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);
+        // D-TAX-BG-CURRENCY: BNB's peg over the ECB's rates; D-TAX-CZ-CNB: the ČNB fixing of the day.
+        let peg = bg::Peg { fx: &self.fx };
+        let none = cnb::Cnb::default();
+        let daily = cnb::Daily { cnb: self.cnb.as_ref().unwrap_or(&none), zone: &self.zone };
+        ps.statutory = match j.code { "BG" => Some(&peg), "CZ" => Some(&daily), _ => None };
         let mut enriched: Vec<Entry> = walk::enrich_with(&self.scoped, &self.deposits, &mut ps, true, currency, on_progress)?.into_iter().zip(&self.scoped)
             .map(|(row, s)| Entry { id: s.id, row, tx_id: s.tx_id.clone() }).collect();
         if !j.swaps_taxable() && !self.stablecoin_as_fiat { swap_coin_for_stablecoin_groups(&mut enriched); }
+        // D-TAX-SWAP-RECEIVED: a swap's proceeds are the value received (BG чл. 33 ал. 5; CZ § 3 odst. 2, GFŘ 2022).
+        if matches!(j.code, "BG" | "CZ") { value_groups(&mut enriched, |_, _| true)?; }
         let austria = (j.code == "AT").then(|| self.austria()).transpose()?;
         let mut notes = AtNotes::default();
+        if j.code == "CZ" {
+            // D-TAX-CZ-MINING: mining is no income when received; the mined units cost 0 (GFŘ 2022 Ad A).
+            for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Mining && !fiat(&e.row.base)) {
+                notes.mined.push(format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at)));
+                (e.row.fiat_value, e.row.price_missing, e.row.value_missing) = (Dec::zero(), false, Some(false));
+            }
+        }
+        let dk = j.code == "DK";
+        // D-TAX-DK-SWAP-VALUE (SKM2024.218.SKTST): one value for both sides of an exchange.
+        if dk { notes.swap_values = value_groups(&mut enriched, dk_value_side)?; }
         if let Some(a) = &austria { notes.monthly = self.value_monthly(&mut enriched, &mut ps, currency, a.average_from)?; }
         // Income of the UTC year, a fiat row converted at the day's rate (Tax::Report#income_value), valued before the
         // engine: its missing rate counts towards the banner.
         let mut income: Vec<(usize, &str, Dec)> = vec![];
         for (i, e) in enriched.iter().enumerate() {
             let Some((kind, name)) = INCOME.iter().find(|(k, _)| *k == e.row.kind) else { continue };
+            // D-TAX-CZ-MINING.
+            if j.code == "CZ" && *kind == Kind::Mining && !fiat(&e.row.base) { continue; }
             if let Some(a) = austria.as_ref().filter(|_| matches!(kind, Kind::StakingReward | Kind::Airdrop) && !fiat(&e.row.base)) {
                 // D-TAX-AT-REWARDS: not income; held at zero, listed (the whole history, as the deposit block).
                 if e.row.at.0 >= a.regime_from.0 { notes.zero_cost.push(format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at))); continue; }
@@ -214,7 +279,8 @@ impl Report {
         // D-TAX-DE-WALLET: Germany keeps the order of use per wallet from the first row (BMF 6 March 2025, Rz. 61).
         // D-TAX-AT-WALLET: Austria's average is per wallet (VO § 2 Abs. 1; an exchange account is one, § 6 Z 2).
         let per_venue_from = match j.code { "US" if year >= 2025 => local_midnight(&self.zone, 2025), "DE" | "AT" => Some(At(i64::MIN)), _ => None };
-        let swap_cost_to_disposed_from = per_venue_from.filter(|_| j.code == "US");
+        // D-TAX-CZ-SWAP-FEE: a fee on a swap's in-leg is an expense of the disposal (§ 10 odst. 5), from the start of time.
+        let swap_cost_to_disposed_from = if j.code == "CZ" { Some(At(i64::MIN)) } else { per_venue_from.filter(|_| j.code == "US") };
         // D-TAX-US-WALLET: per venue, a withdrawal to another venue is walked within its instant as soon as its funds allow
         // (`transfers_first`, the tracker's own order), so a same-instant sale on the far venue takes the lots it brought.
         // The pooled years keep Rails' order.
@@ -227,6 +293,10 @@ impl Report {
             swaps_taxable: j.swaps_taxable(), stablecoin_as_fiat: self.stablecoin_as_fiat,
             holding: holding.as_ref().map(|h| h as &dyn Fn(At, At) -> bool), swap_resets_holding_period: j.swap_resets_holding_period, per_venue_from,
             swap_cost_to_disposed_from, austria,
+            // D-TAX-BG-AVERAGE, D-TAX-BG-DEPOSIT-ZERO; D-TAX-DK-PER-PART, D-TAX-DK-DEPOSIT-ZERO, Denmark's mining provenance
+            // and year-start units.
+            average_all: j.code == "BG", row_per_lot: dk, deposit_cost_zero: j.code == "BG" || dk, tag_mining: dk,
+            snapshot_at: if dk { local_midnight(&self.zone, year) } else { None },
         });
         engine.calculate(&txs)?;
         // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).
@@ -234,7 +304,22 @@ impl Report {
         symbols.sort();
         symbols.dedup();
         if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "excess_return_of_capital".into(), symbols }); }
-        let results: Vec<fifo::Disposal> = engine.disposals.into_iter().filter(|d| self.local(d.at).year() == year).collect();
+        let mut results: Vec<fifo::Disposal> = engine.disposals.into_iter().filter(|d| self.local(d.at).year() == year).collect();
+        if matches!(j.code, "BG" | "CZ") {
+            // Each printed row reconciles in cents (proceeds − cost − fee = gain), and the summary adds the printed figures.
+            for d in &mut results {
+                (d.proceeds, d.cost_basis, d.fee) = (d.proceeds.round(2)?, d.cost_basis.round(2)?, d.fee.round(2)?);
+                d.gain_loss = (&(&d.proceeds - &d.cost_basis)? - &d.fee)?;
+            }
+        }
+        if j.code == "BG" {
+            bg::annual(&mut notes.summary, j.locale, year, &results)?;
+            notes.bg_average = !results.is_empty();
+        }
+        if let Some(czech) = j.czech_exemptions {
+            let y = cz::year(j.locale, year, &results, &|d| self.local(d.at), jurisdictions::ymd(czech.exemptions_from))?;
+            (notes.summary, notes.exempt, notes.notice) = (y.summary, y.exempt, y.notice);
+        }
         if let Some(a) = &austria {
             // D-TAX-AT-SPECULATION: before § 27b, a sale held a year or less was § 31 income.
             notes.speculation = results.iter().filter(|d| d.at.0 < a.regime_from.0 && d.long_held != Some(true))
@@ -249,6 +334,14 @@ impl Report {
         for (uid, basis) in &engine.exhausted {
             let Some(r) = txs.iter().map(|t| &t.row).find(|r| r.uid == *uid).filter(|r| self.local(r.at).year() == year) else { continue };
             notes.exhausted.push((format!("{} {} {}", r.base, r.amount.to_s_f(), date(r.at)), basis.clone()));
+        }
+        if dk {
+            // D-TAX-DK-STABLECOIN: held at the year's start, or any row of it in the year.
+            let mut held: Vec<String> = engine.snapshot.iter().flatten().filter(|(sym, units)| dk_stablecoin(sym) && units.is_positive()).map(|(sym, _)| sym.clone())
+                .chain(enriched.iter().map(|e| &e.row).filter(|r| dk_stablecoin(&r.base) && self.local(r.at).year() == year).map(|r| r.base.clone())).collect();
+            held.sort();
+            held.dedup();
+            notes.stablecoins = held;
         }
         let allocation = if engine.allocation_chosen { engine.allocation.as_slice() } else { &[] };
         Ok(Outcome::Csv(self.csv(currency, &results, &enriched, &income, &warnings, &standing_fees, &unmatched, allocation, &notes)?))
@@ -314,6 +407,7 @@ impl Report {
         if j.holding_exemption.is_some() { keys.push("tax_exempt"); }
         if j.old_stock_cutoff.is_some() { keys.push("old_stock"); }
         if j.short_long_term { keys.push("term"); }
+        if j.czech_exemptions.is_some() { keys.extend(["tax_exempt", "exempt_reason"]); }
         line(&mut out, &keys.iter().map(|k| self.t(&format!("tax_report.headers.{k}"))).collect::<Vec<_>>());
         for b in &self.banners { line(&mut out, &[s(b.clone())]); }
         let uncovered: Vec<&fifo::Disposal> = results.iter().filter(|d| d.uncovered.is_positive()).collect();
@@ -324,7 +418,7 @@ impl Report {
             line(&mut out, &[s(format!("{}: {banner}", text(l, "tax_report.incomplete_banner_prefix", &[])))]);
         }
         if results.is_empty() { line(&mut out, &[self.t("tax_report.no_taxable_transactions")]); }
-        for d in results {
+        for (i, d) in results.iter().enumerate() {
             let held = d.long_held == Some(true);
             let mut row = vec![s(iso(d.at)), d.acquired.map_or(Cell::Nil, |a| s(iso(a))), s(d.asset.clone()), n(&d.amount), cents(&d.proceeds)?,
                                cents(&d.cost_basis)?, cents(&d.gain_loss)?, s(currency), Cell::Raw(d.holding_days.to_string()), cents(&d.fee)?,
@@ -332,8 +426,24 @@ impl Report {
             if j.holding_exemption.is_some() { row.push(Cell::Raw(held.to_string())); }
             if j.old_stock_cutoff.is_some() { row.push(Cell::Raw(held.to_string())); }
             if j.short_long_term { row.push(self.t(&format!("tax_report.values.term_{}", if held { "long" } else { "short" }))); }
+            if j.czech_exemptions.is_some() {
+                let (exempt, reason) = at.exempt.get(i).cloned().unwrap_or((false, None));
+                row.extend([Cell::Raw(exempt.to_string()), reason.map_or(Cell::Nil, s)]);
+            }
             line(&mut out, &row);
         }
+        out.push_str(&at.summary);
+        // D-TAX-GR-NO-TAX: Σ gains and Σ losses (Rails' two lines), no taxable income and no tax line.
+        if j.code == "GR" && !results.is_empty() {
+            let (mut gains, mut losses) = (Dec::zero(), Dec::zero());
+            for d in results {
+                if d.gain_loss.is_positive() { gains = (&gains + &d.gain_loss)?; } else if d.gain_loss.is_negative() { losses = (&losses - &d.gain_loss)?; }
+            }
+            line(&mut out, &[]);
+            line(&mut out, &[self.t("tax_report.summary.total_gains"), cents(&gains)?]);
+            line(&mut out, &[self.t("tax_report.summary.total_losses"), cents(&losses)?]);
+        }
+        if j.code == "DK" && (!results.is_empty() || !income.is_empty()) { self.dk_summary(&mut out, results, income)?; }
         if !income.is_empty() {
             line(&mut out, &[]);
             line(&mut out, &[self.t("tax_report.income.header")]);
@@ -362,11 +472,16 @@ impl Report {
                    uncovered.iter().map(|d| format!("{} {} {}", d.asset, d.uncovered.to_s_f(), date(d.at))))?;
         let deposits: Vec<String> = enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Deposit && !r.linked && !fiat(&r.base))
             .map(|r| listed(r, &r.amount)).collect();
-        self.block(&mut out, "WARNING", "deposit_basis_assumed", "deposit_basis_assumed_hint", deposits.into_iter())?;
+        // D-TAX-BG-DEPOSIT-ZERO, D-TAX-DK-DEPOSIT-ZERO: at cost 0, not at an assumed market value.
+        let (heading, hint) = match j.code { "BG" => ("deposit_basis_zero", "deposit_basis_zero_hint_bg"),
+            "DK" => ("deposit_basis_zero", "deposit_basis_zero_hint_dk"), _ => ("deposit_basis_assumed", "deposit_basis_assumed_hint") };
+        self.block(&mut out, "WARNING", heading, hint, deposits.into_iter())?;
         self.block(&mut out, "WARNING", "unlinked_withdrawals", "unlinked_withdrawals_hint",
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Withdrawal && !r.linked && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
         self.block(&mut out, "WARNING", "lost", "lost_hint",
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Lost && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
+        // § 38v ZDP.
+        self.valued(&mut out, "WARNING", "cz_notice_38v", &at.notice, None)?;
         let stated: Vec<&walk::Row> = enriched.iter().map(|e| &e.row).filter(|r| r.stated_value).collect();
         if !stated.is_empty() {
             line(&mut out, &[]);
@@ -375,7 +490,7 @@ impl Report {
             line(&mut out, &[self.t("tax_report.warnings.stated_values_hint")]);
         }
         self.block(&mut out, "WARNING", "unmatched_swaps", "unmatched_swaps_hint", unmatched.iter().map(|r| listed(r, &r.amount)))?;
-        self.valued(&mut out, "swap_fee_exhausted", &at.exhausted, Some(currency))?;
+        self.valued(&mut out, "NOTE", "swap_fee_exhausted", &at.exhausted, Some(currency))?;
         let unsynced = text(l, "tax_report.warnings.wallet_allocation_unsynced", &[]);
         let placed: Vec<String> = allocation.iter().map(|p| Ok::<_, FiguresError>(format!("{} {} {} {} {}", p.venue.as_deref().unwrap_or(&unsynced), p.symbol,
                                                      p.amount.to_s_f(), p.cost.round(2)?.to_s_f(), date(p.acquired)))).collect::<Result<_, _>>()?;
@@ -383,8 +498,9 @@ impl Report {
         // D-TAX-AT-FEES: in Austria a fee row of its own is a disposal.
         let hint = if j.swaps_taxable() || j.code == "AT" { "coin_fees_hint_disposal" } else { "coin_fees_hint_no_proceeds" };
         self.block(&mut out, "NOTE", "coin_fees", hint, standing_fees.iter().map(|r| listed(r, &r.amount)))?;
-        self.valued(&mut out, "speculation", &at.speculation, None)?;
-        self.valued(&mut out, "income_before_regime", &at.before_regime, None)?;
+        self.valued(&mut out, "NOTE", "speculation", &at.speculation, None)?;
+        self.valued(&mut out, "NOTE", "income_before_regime", &at.before_regime, None)?;
+        self.block(&mut out, "NOTE", "cz_mining", "cz_mining_hint", at.mined.iter().cloned())?;
         self.block(&mut out, "NOTE", "zero_cost_rewards", "zero_cost_rewards_hint", at.zero_cost.iter().cloned())?;
         self.block(&mut out, "NOTE", "monthly_value", "monthly_value_hint", at.monthly.iter().cloned())?;
         if at.averaged {
@@ -392,15 +508,77 @@ impl Report {
             line(&mut out, &[s(format!("NOTE: {}:", text(l, "tax_report.warnings.average_cost", &[])))]);
             line(&mut out, &[self.t("tax_report.warnings.average_cost_hint")]);
         }
+        if at.bg_average {
+            line(&mut out, &[]);
+            line(&mut out, &[s(format!("NOTE: {}:", text(l, "tax_report.warnings.average_cost_bg", &[])))]);
+            line(&mut out, &[self.t("tax_report.warnings.average_cost_hint_bg")]);
+        }
+        if j.code == "DK" { self.dk_notes(&mut out, results, enriched, income, at)?; }
+        if j.code == "GR" && !results.is_empty() {
+            line(&mut out, &[]);
+            line(&mut out, &[s(format!("NOTE: {}:", text(l, "tax_report.warnings.gr_no_tax", &[])))]);
+            line(&mut out, &[self.t("tax_report.warnings.gr_no_tax_hint")]);
+        }
         Ok(out)
     }
 
-    /// A NOTE block whose lines carry an amount, as the stated-values one.
-    /// `currency`: written after each amount (D-TAX-SWAP-FEE-EXHAUSTED, whose block may stand with no other figure).
-    fn valued(&self, out: &mut String, heading: &str, lines: &[(String, Dec)], currency: Option<&str>) -> Result<(), FiguresError> {
+    /// D-TAX-DK-RUBRIK: rubrik 20 = the gains, part by part, and the assets received (staking, lending, airdrops); rubrik 58
+    /// = the losses, part by part. Contract stablecoins (D-TAX-DK-STABLECOIN) and sales of mined assets stay out.
+    fn dk_summary(&self, out: &mut String, results: &[fifo::Disposal], income: &[(usize, &str, Dec)]) -> Result<(), FiguresError> {
+        let (mut gains, mut losses, mut received) = (Dec::zero(), Dec::zero(), Dec::zero());
+        for d in results.iter().filter(|d| !dk_contract(&d.asset) && !d.mined) {
+            let v = d.gain_loss.round(2)?;
+            if v.is_positive() { gains = (&gains + &v)?; } else { losses = (&losses - &v)?; }
+        }
+        for (_, _, v) in income.iter().filter(|(_, n, _)| DK_RECEIVED.contains(n)) { received = (&received + &v.round(2)?)?; }
+        line(out, &[]);
+        line(out, &[self.t("tax_report.dk.rubrik_20"), cents(&(&gains + &received)?)?]);
+        line(out, &[s(format!("  {}", text(self.j.locale, "tax_report.dk.of_which_gains", &[]))), cents(&gains)?]);
+        line(out, &[s(format!("  {}", text(self.j.locale, "tax_report.dk.of_which_income", &[]))), cents(&received)?]);
+        line(out, &[self.t("tax_report.dk.rubrik_58"), cents(&losses)?]);
+        line(out, &[self.t("tax_report.dk.hint")]);
+        Ok(())
+    }
+
+    /// Denmark's NOTE blocks: D-TAX-DK-SWAP-VALUE, D-TAX-DK-STABLECOIN, and mining and other income (hobby, apart).
+    fn dk_notes(&self, out: &mut String, results: &[fifo::Disposal], enriched: &[Entry], income: &[(usize, &str, Dec)], at: &AtNotes) -> Result<(), FiguresError> {
+        let l = self.j.locale;
+        self.block(out, "NOTE", "dk_swap_value", "dk_swap_value_hint", at.swap_values.iter().cloned())?;
+        if !at.stablecoins.is_empty() {
+            line(out, &[]);
+            line(out, &[s(format!("NOTE: {}:", text(l, "tax_report.warnings.dk_stablecoins", &[])))]);
+            let (contracts, others): (Vec<&String>, Vec<&String>) = at.stablecoins.iter().partition(|c| dk_contract(c));
+            if !contracts.is_empty() {
+                line(out, &[self.t("tax_report.warnings.dk_stablecoins_contracts")]);
+                for c in contracts {
+                    let mut result = Dec::zero();
+                    for d in results.iter().filter(|d| d.asset == **c) { result = (&result + &d.gain_loss.round(2)?)?; }
+                    line(out, &[s(c.clone()), cents(&result)?]);
+                }
+            }
+            if !others.is_empty() {
+                line(out, &[self.t("tax_report.warnings.dk_stablecoins_other")]);
+                for c in others { line(out, &[s(c.clone())]); }
+            }
+            line(out, &[self.t("tax_report.warnings.dk_stablecoins_hint")]);
+        }
+        let mut apart: Vec<(String, Dec)> = vec![];
+        for (i, name, value) in income.iter().filter(|(_, n, _)| !DK_RECEIVED.contains(n)) {
+            let r = &enriched[*i].row;
+            let label = text(l, &format!("tax_report.income.types.{name}"), &[]);
+            apart.push((format!("{label} {} {} {}", r.base, r.amount.to_s_f(), date(r.at)), value.clone()));
+        }
+        let sold = text(l, "tax_report.headers.proceeds", &[]);
+        for d in results.iter().filter(|d| d.mined) { apart.push((format!("{sold} {} {} {}", d.asset, d.amount.to_s_f(), date(d.at)), d.proceeds.clone())); }
+        self.valued(out, "NOTE", "dk_mining_other", &apart, None)
+    }
+
+    /// A block whose lines carry an amount, as the stated-values one. `currency`: written after each amount
+    /// (D-TAX-SWAP-FEE-EXHAUSTED, whose block may stand with no other figure).
+    fn valued(&self, out: &mut String, label: &str, heading: &str, lines: &[(String, Dec)], currency: Option<&str>) -> Result<(), FiguresError> {
         if lines.is_empty() { return Ok(()); }
         line(out, &[]);
-        line(out, &[s(format!("NOTE: {}:", text(self.j.locale, &format!("tax_report.warnings.{heading}"), &[])))]);
+        line(out, &[s(format!("{label}: {}:", text(self.j.locale, &format!("tax_report.warnings.{heading}"), &[])))]);
         for (x, v) in lines {
             let mut cells = vec![s(x.clone()), cents(v)?];
             if let Some(c) = currency { cells.push(s(c.to_string())); }
@@ -434,6 +612,74 @@ fn swap_coin_for_stablecoin_groups(rows: &mut [Entry]) {
         if !(legs.iter().any(|&i| rows[i].row.kind == Kind::Buy) && legs.iter().any(|&i| rows[i].row.kind == Kind::Sell)) { continue; }
         for &i in legs { rows[i].row.kind = if rows[i].row.kind == Kind::Buy { Kind::SwapIn } else { Kind::SwapOut }; }
     }
+}
+
+/// D-TAX-DK-RUBRIK: the income types in rubrik 20 (mining is a hobby account, other income for the user to classify).
+const DK_RECEIVED: [&str; 3] = ["staking_reward", "lending_interest", "airdrop"];
+
+/// D-TAX-DK-STABLECOIN: the stablecoins Skattestyrelsen treats as financial contracts (SKM2022.300.SR as skat.dk applies it).
+fn dk_contract(symbol: &str) -> bool { matches!(symbol, "USDT" | "USDC" | "USDP") }
+/// Every stablecoin the NOTE names: the contracts, and the others as not classified.
+fn dk_stablecoin(symbol: &str) -> bool { stable(symbol) || symbol == "USDP" }
+
+/// D-TAX-DK-SWAP-VALUE: the side whose value both take, `true` for the coins received: a fiat stablecoin's side, else
+/// Bitcoin's, else Ether's, else the side received (Skattestyrelsen's list ends with 2022; no historical rank is held).
+fn dk_value_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> bool {
+    let tests: [fn(&str) -> bool; 3] = [|b| matches!(b, "USDT" | "USDC" | "USDP" | "EURC"), |b| b == "BTC", |b| b == "ETH"];
+    for t in tests {
+        let (i, o) = (ins.iter().any(|r| t(&r.base)), outs.iter().any(|r| t(&r.base)));
+        if i || o { return i; }
+    }
+    true
+}
+
+/// D-TAX-SWAP-RECEIVED (BG, CZ: `side` always the coins received), D-TAX-DK-SWAP-VALUE (DK: `dk_value_side`).
+/// One value for both sides of an exchange of coins (a group of coin legs only): the side `side` names (`true`: the
+/// coins received) gives its total, which the other side's legs share by their own values (evenly where one is
+/// unpriced), the last taking the rest; set on this report's copy of the rows before the engine. Returns each group so
+/// valued, listed.
+fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> bool) -> Result<Vec<String>, FiguresError> {
+    let mut order: Vec<(String, String)> = vec![];
+    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
+    for (i, e) in rows.iter().enumerate() {
+        let Some(g) = &e.row.group else { continue };
+        let k = (e.row.exchange.clone(), g.clone());
+        if !groups.contains_key(&k) { order.push(k.clone()); }
+        groups.entry(k).or_default().push(i);
+    }
+    let mut listed = vec![];
+    for k in order {
+        // The trade's legs; a fee row booked in the group is no leg (it is walked on its own).
+        let legs: Vec<usize> = groups[&k].iter().copied().filter(|&i| rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg()).collect();
+        if legs.iter().any(|&i| fiat(&rows[i].row.base)) { continue; }
+        let (ins, outs): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| rows[i].row.kind.in_leg());
+        if ins.is_empty() || outs.is_empty() { continue; }
+        let received = side(&ins.iter().map(|&i| &rows[i].row).collect::<Vec<_>>(), &outs.iter().map(|&i| &rows[i].row).collect::<Vec<_>>());
+        let (from, to) = if received { (&ins, &outs) } else { (&outs, &ins) };
+        // A side whose value is not known values nothing: the other side keeps its own values as an estimate, marked
+        // missing, so the disposal is incomplete and counted in the banner.
+        if from.iter().any(|&i| rows[i].row.value_missing.unwrap_or(rows[i].row.price_missing)) {
+            for &i in to { let r = &mut rows[i].row; (r.price_missing, r.value_missing) = (true, Some(true)); }
+            continue;
+        }
+        let mut value = Dec::zero();
+        for &i in from { value = (&value + &rows[i].row.fiat_value)?; }
+        if !value.is_positive() { continue; }
+        let even = to.iter().any(|&i| !rows[i].row.fiat_value.is_positive());
+        let mut weight = Dec::zero();
+        for &i in to { weight = (&weight + &if even { Dec::one() } else { rows[i].row.fiat_value.clone() })?; }
+        let mut left = value.clone();
+        for (n, &i) in to.iter().enumerate() {
+            let r = &mut rows[i].row;
+            let share = if n == to.len() - 1 { left.clone() } else { (&value * &if even { Dec::one() } else { r.fiat_value.clone() })?.div(&weight)? };
+            left = (&left - &share)?;
+            r.fiat_value = share;
+            (r.price_missing, r.value_missing) = (r.fee_missing, Some(false));
+        }
+        let legs = |side: &[usize]| side.iter().map(|&i| format!("{} {}", rows[i].row.base, rows[i].row.amount.to_s_f())).collect::<Vec<_>>().join(" + ");
+        listed.push(format!("{} → {} {}", legs(&outs), legs(&ins), date(rows[outs[0]].row.at)));
+    }
+    Ok(listed)
 }
 
 /// D-TAX-STABLE-VALUE: a venue's ledger that books a stablecoin bought or sold for fiat as two grouped rows and no quote

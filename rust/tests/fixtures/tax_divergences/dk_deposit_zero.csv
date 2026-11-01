@@ -1,0 +1,12 @@
+Dato,Anskaffelsesdato,Aktiv,Antal,Salgspris,Anskaffelsespris,Gevinst/Tab,Valuta,Holdedage,Gebyr,Børs,Transaktions-ID,Anskaffelsespris komplet,Ufuldstændige data
+2026-03-01T10:00:00Z,2026-01-10T10:00:00Z,ETH,1.0,25000.0,0.0,25000.0,DKK,50,0.0,kraken,K-ETH-2026-03-01T10:00:00Z-ETH,true,false
+
+Rubrik 20 Anden personlig indkomst,25000.0
+  heraf gevinster ved afståelser,25000.0
+"  heraf modtagne aktiver (staking, udlån, airdrops)",0.0
+Rubrik 58 Øvrige lønmodtagerudgifter,0.0
+"Hvert salg opgøres del for del efter FIFO, og gevinster og tab modregnes ikke. Et tab er et fradrag med værdi efter din kommune- og kirkeskatteprocent (Skattestyrelsen runder det af til 26 %) i den skattepligtige indkomst, ikke i den personlige indkomst. Én undtagelse: har du købt et aktiv i ét køb, mens du ikke ejede noget af det, og solgt det i flere omgange inden for året uden nye køb imellem, må gevinster og tab på det modregnes; det gør denne rapport ikke."
+
+"WARNING: Indskud, der ikke er knyttet til en hævning, med en anskaffelsessum på 0:"
+ETH 1.0 2026-01-10
+"Uden dokumentation for købet er anskaffelsessummen 0 kr. (Den juridiske vejledning C.C.2.1.3.3.5.2). Har du købt disse aktiver på en konto, der ikke er synkroniseret her, så synkroniser eller importér den og knyt overførslen, så købet bliver medregnet."
