@@ -1,0 +1,14 @@
+Data,Data di acquisto,Attività,Quantità,Ricavi,Costo di acquisto,Utile/Perdita,Valuta,Giorni di detenzione,Commissione,Exchange,ID transazione,Costo di acquisto completo,Dati incompleti,Aliquota
+2023-06-01T10:00:00Z,2023-02-01T10:00:00Z,ETH,1.0,2500.0,5000.0,-2500.0,EUR,120,0.0,kraken,K-ETH-2023-06-01T10:00:00Z-ETH,true,false,26%
+
+"Quadro RT, sezione II-B (RT31–RT39)"
+Corrispettivi,2500.0
+Costi di acquisto (LIFO),5000.0
+Proventi da staking,0.0
+Risultato dell'anno (plusvalenze e proventi meno minusvalenze),-2500.0
+Soglia di 2.000 euro (cessioni fino al 31.12.2024),2000.0
+Imponibile,0.0
+Minusvalenza riportabile (quattro anni),500.0
+Imposta sostitutiva 26%,0.0
+"Secondo il modello 2024 (RT33: ""non inferiore a 2.000 euro""), imposta",0.0
+"Questo report riguarda il regime dichiarativo: escludi gli asset tassati da un intermediario italiano in regime amministrato. Le minusvalenze degli anni precedenti (RT34) e l'eventuale rideterminazione del costo al 1° gennaio 2023 non sono applicate qui: la minusvalenza di un asset rideterminato non è deducibile. Le commissioni non sono considerate (Circolare 30/E, p. 50). Lo staking è considerato provento al valore lordo, prima dell'eventuale commissione registrata sulla riga; se la piattaforma ha trattenuto una quota senza registrarla, aggiungila. I costi sono calcolati con il metodo LIFO su tutti i tuoi wallet (Circolare 30/E, p. 54). Il quadro RW e l'imposta del 2‰ sul valore non sono calcolati."

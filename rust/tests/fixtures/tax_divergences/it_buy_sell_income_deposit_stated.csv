@@ -1,0 +1,32 @@
+Data,Data di acquisto,Attività,Quantità,Ricavi,Costo di acquisto,Utile/Perdita,Valuta,Giorni di detenzione,Commissione,Exchange,ID transazione,Costo di acquisto completo,Dati incompleti,Aliquota
+2026-04-01T10:00:00Z,2026-02-10T08:00:00Z,BTC,1.2,108000.0,76000.0,32000.0,EUR,50,50.0,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,false,33%
+2026-04-10T08:00:00Z,2026-02-05T00:00:00Z,SOL,3.0,512.82,385.9,126.92,EUR,64,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,false,33%
+
+"Quadro RT, sezione V-A (RT41–RT90)"
+Corrispettivi,108512.82
+Costi di acquisto (LIFO),76385.9
+Proventi da staking,28.0
+Risultato dell'anno (plusvalenze e proventi meno minusvalenze),32154.92
+Imponibile,32154.92
+Minusvalenza riportabile (quattro anni),0.0
+Imposta sostitutiva 33%,10611.12
+"Questo report riguarda il regime dichiarativo: escludi gli asset tassati da un intermediario italiano in regime amministrato. Le minusvalenze degli anni precedenti (RT43, fino a quattro anni) e l'eventuale rideterminazione del costo (al 1° gennaio 2023 o 2025) non sono applicate qui: la minusvalenza di un asset rideterminato non è deducibile. Una cessione effettuata prima del 1° gennaio 2025 e incassata nel 2025 va nel rigo RT41, colonne 1–2; questo report non la distingue. Le commissioni non sono considerate (Circolare 30/E, p. 50). Lo staking è considerato provento al valore lordo, prima dell'eventuale commissione registrata sulla riga; se la piattaforma ha trattenuto una quota senza registrarla, aggiungila. I costi sono calcolati con il metodo LIFO su tutti i tuoi wallet (Circolare 30/E, p. 54). Il quadro RW e l'imposta del 2‰ sul valore non sono calcolati."
+Il modello 2027 per l'anno d'imposta 2026 non è ancora pubblicato; i righi indicati seguono il modello 2026.
+
+Redditi percepiti (il trattamento fiscale dipende dalla tipologia di reddito e dalla giurisdizione applicabile — non inclusi nelle plusvalenze sopra indicate)
+2026-02-01,ricompense da staking,ETH,0.01,28.0,EUR
+2026-02-05,airdrop,SOL,3.0,385.9,EUR
+,Totale — ricompense da staking,,,28.0,EUR
+,Totale — airdrop,,,385.9,EUR
+
+"WARNING: Depositi non collegati a un prelievo, con costo 0:"
+BTC 0.1 2026-02-10
+"Senza un costo di acquisto documentato il costo è pari a zero (art. 68 c. 9-bis TUIR). Sincronizza o importa il conto in cui questi asset sono stati acquistati e collega il trasferimento, così l'acquisto viene considerato."
+
+NOTE: Valori inseriti da te a mano:
+SOL 3.0 2026-02-05,385.9
+"Questi importi sono tuoi, non dell'exchange. Verificali con i tuoi documenti prima di presentare la dichiarazione."
+
+NOTE: Altre entrate non incluse nel riepilogo:
+airdrop SOL 3.0 2026-02-05,385.9
+"Nessuna indicazione chiarisce come sono tassati airdrop, mining, lending e altre entrate; sono elencati nella sezione dei proventi ed esclusi dai totali. Il valore di ogni entrata all'accredito è usato come costo alla vendita (una lettura: nessuna indicazione lo stabilisce)."
