@@ -104,7 +104,7 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["AT", "FR", "IT", "BG", "GR", "NL", "CH", "PL", "GB", "SE", "IE", "DK", "CZ", "XX"] {
+    for country in ["FR", "IT", "BG", "GR", "NL", "CH", "PL", "GB", "SE", "IE", "DK", "CZ", "XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
 }

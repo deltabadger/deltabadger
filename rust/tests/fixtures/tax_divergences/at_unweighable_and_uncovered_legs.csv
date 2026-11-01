@@ -1,0 +1,11 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+"WARNUNG: 2 Werte fehlen — Bericht unvollständig, so nicht einreichen"
+2026-03-01T10:00:00Z,2026-02-01T10:00:00Z,BTC,0.015,1500.0,0.0,1500.0,EUR,28,0.0,binance,sell-BTC-2026-03-01T10:00:00Z,false,true,false
+
+WARNING: Historische Preise fehlen für:
+NOPRICE/EUR 2026-02-01
+Aktualisiere deinen CoinGecko-Plan oder nutze deltabadger.com für vollständige historische Daten.
+
+"WARNING: Verkäufe von mehr, als deine synchronisierte Historie enthält; der Teil, den kein Kauf abdeckt, wird mit Anschaffungskosten von null ausgewiesen:"
+BTC 0.005 2026-03-01
+"Verbinde oder importiere das Konto, von dem diese Assets stammen, oder verknüpfe die Einzahlung, mit der sie hereinkamen, damit diese Verkäufe ihre tatsächlichen Anschaffungskosten erhalten."

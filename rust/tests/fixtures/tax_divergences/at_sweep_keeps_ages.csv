@@ -1,0 +1,7 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+"WARNUNG: 1 Werte fehlen — Bericht unvollständig, so nicht einreichen"
+2026-03-01T10:00:00Z,,BTC,0.0666,6600.0,0.0,6600.0,EUR,0,0.0,kraken,s1-BTC,false,true,false
+
+"WARNING: Verkäufe von mehr, als deine synchronisierte Historie enthält; der Teil, den kein Kauf abdeckt, wird mit Anschaffungskosten von null ausgewiesen:"
+BTC 0.0666 2026-03-01
+"Verbinde oder importiere das Konto, von dem diese Assets stammen, oder verknüpfe die Einzahlung, mit der sie hereinkamen, damit diese Verkäufe ihre tatsächlichen Anschaffungskosten erhalten."

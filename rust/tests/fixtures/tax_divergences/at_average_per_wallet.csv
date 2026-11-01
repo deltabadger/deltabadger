@@ -1,0 +1,2 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-03-02T10:00:00Z,2024-02-05T10:00:00Z,ETH,1.0,40.0,10.0,30.0,EUR,756,0.0,kraken,s1-ETH,true,false,false
