@@ -105,6 +105,8 @@ pub struct Placed { pub venue: Option<String>, pub symbol: String, pub amount: D
 
 type Key = (Option<String>, String);
 type Group = (String, String);
+/// D-TAX-SWAP-FEE-EXHAUSTED, Austria: an exhausted leg waiting for its swap's pool: (uid, basis, assumed).
+type Held = (usize, Dec, bool);
 struct InGroup { shares: HashMap<usize, Dec>, basis_assumed: bool }
 struct OutGroup { weights: HashMap<usize, Dec>, value: Dec }
 
@@ -136,7 +138,7 @@ pub struct Fifo<'a> {
     /// carry (row uid, cost); listed by the report, never a loss.
     pub exhausted: Vec<(usize, Dec)>,
     /// Austria: an exhausted leg's basis waiting for a same-coin leg of its swap, by (group, coin): (uid, basis, assumed).
-    held_back: HashMap<(Group, String), Vec<(usize, Dec, bool)>>,
+    held_back: HashMap<(Group, String), Vec<Held>>,
     /// D-TAX-US-WALLET: the lots as placed at the boundary, and whether the placement was a choice (a coin held on more
     /// than one venue, or off every synced one).
     pub allocation: Vec<Placed>,
@@ -292,7 +294,7 @@ impl<'a> Fifo<'a> {
         }
         if self.o.per_venue_from.is_some() && !self.per_venue { self.place()?; }
         // Austria: a basis no leg of its swap took is listed after all.
-        let mut held: Vec<(usize, Dec, bool)> = self.held_back.drain().flat_map(|(_, v)| v).collect();
+        let mut held: Vec<Held> = self.held_back.drain().flat_map(|(_, v)| v).collect();
         held.sort_by_key(|h| h.0);
         for (uid, basis, _) in held { self.list_exhausted(uid, basis)?; }
         Ok(())
