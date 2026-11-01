@@ -77,6 +77,9 @@ type Fixing = (NaiveDate, Vec<(String, Dec)>);
 /// each fixing's rates per one unit. Refused unless every line parses, every row has its header's count, and the rows lie
 /// in `year`.
 fn parse_year(body: &str, year: i32) -> Result<Vec<Fixing>, String> {
+    // A body cut short can still parse line by line (`…|21.368` cut to `…|2`): only a body ending with its line break,
+    // every rate in ČNB's three decimals, is whole.
+    if !body.ends_with('\n') { return Err("a body not ending with a line break".into()); }
     let mut header: Option<Vec<(Dec, String)>> = None;
     let mut out = vec![];
     for line in body.lines().map(str::trim).filter(|l| !l.is_empty()) {
@@ -94,7 +97,9 @@ fn parse_year(body: &str, year: i32) -> Result<Vec<Fixing>, String> {
         if day.year() != year { return Err(format!("a row of {day} in the file of {year}")); }
         if fields.len() - 1 != columns.len() { return Err(format!("{} rates under {} columns on {day}", fields.len() - 1, columns.len())); }
         let rates = fields[1..].iter().zip(columns).map(|(v, (amount, code))| {
-            let v = Dec::strict(&v.trim().replace(',', ".")).ok().filter(Dec::is_positive).ok_or_else(|| format!("a rate {v:?} on {day}"))?;
+            let v = v.trim().replace(',', ".");
+            let three = v.split_once('.').is_some_and(|(i, f)| !i.is_empty() && i.bytes().all(|b| b.is_ascii_digit()) && f.len() == 3 && f.bytes().all(|b| b.is_ascii_digit()));
+            let v = Dec::strict(&v).ok().filter(|v| three && v.is_positive()).ok_or_else(|| format!("a rate {v:?} on {day}"))?;
             Ok((code.clone(), v.div(amount).map_err(|e| format!("{e:?}"))?))
         }).collect::<Result<Vec<_>, String>>()?;
         out.push((day, rates));
@@ -220,6 +225,10 @@ mod tests {
         assert_eq!(rate(&table(&db).await, "USD", "2025-06-01").as_deref(), Some("24.0"));
         assert!(parse_year("02.01.2025|25.1\n", 2025).is_err() && parse_year("Date|1 EUR\n02.01.2025|25.1|1\n", 2025).is_err());
         assert!(parse_year("Date|1 EUR\n02.01.2024|25.1\n", 2025).is_err(), "a row of another year");
+        // Cut inside the last rate or before the last line break: syntactically valid lines, still refused.
+        assert!(parse_year("Date|1 EUR|1 USD\n31.12.2025|25.000|2\n", 2025).is_err());
+        assert!(parse_year("Date|1 EUR|1 USD\n31.12.2025|25.000|21.368", 2025).is_err());
+        assert!(parse_year("Date|1 EUR|1 USD\n31.12.2025|25.000|21.368\n", 2025).is_ok());
     }
 
     /// A past year whose file ends early covers only to its last row when the daily answer for 31 December is dated later

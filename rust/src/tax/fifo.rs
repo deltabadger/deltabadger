@@ -113,6 +113,8 @@ pub struct Disposal {
     pub averaged: bool,
     /// `Options::tag_mining`: some of it came from a mined lot (with `row_per_lot`, all of it).
     pub mined: bool,
+    /// The row it disposes of (`Row::uid`): the rows of one disposal share it.
+    pub source: usize,
 }
 
 /// D-TAX-US-WALLET: one lot as placed at the boundary (`venue` None: held on no synced venue).
@@ -624,7 +626,7 @@ impl<'a> Fifo<'a> {
             complete: has_lots && !uncovered.is_positive(),
             // `data_incomplete?`, and D-TAX-UNCOVERED.
             incomplete: sale.price_missing || basis_assumed || !has_lots || uncovered.is_positive(),
-            tx_id: tx.tx_id.clone(), exchange: r.exchange.clone(), long_held: None, uncovered, averaged: tranches.iter().any(|t| t.averaged),
+            tx_id: tx.tx_id.clone(), exchange: r.exchange.clone(), long_held: None, uncovered, averaged: tranches.iter().any(|t| t.averaged), source: r.uid,
             mined: tranches.iter().any(|t| t.mined),
         })
     }

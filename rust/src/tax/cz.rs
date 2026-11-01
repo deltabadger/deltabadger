@@ -68,14 +68,14 @@ pub(super) fn year(locale: &str, year: i32, results: &[Disposal], local: &dyn Fn
     }).collect();
 
     // § 38v: per receipt (a disposal's rows summed), its exempt part after the cap.
-    // (tx id, instant, venue), "asset day", amount, exempt part.
-    type Receipt = ((String, i64, String), String, Dec, Dec);
+    // (the disposed row, the asset), "asset day", amount, exempt part.
+    type Receipt = ((usize, String), String, Dec, Dec);
     let mut receipts: Vec<Receipt> = vec![];
     let day = |d: &Disposal| d.at.utc().format("%Y-%m-%d").to_string();
     for (i, d) in results.iter().enumerate() {
         let Some(_) = reasons[i] else { continue };
         let exempt = if time(i) { (&d.proceeds * &(&Dec::one() - &share)?)? } else { d.proceeds.clone() };
-        let key = (d.tx_id.clone().unwrap_or_default(), d.at.0, d.exchange.clone());
+        let key = (d.source, d.asset.clone());
         match receipts.iter_mut().find(|r| r.0 == key) {
             Some(r) => { r.2 = (&r.2 + &d.amount)?; r.3 = (&r.3 + &exempt)?; }
             None => receipts.push((key, format!("{} {}", d.asset, day(d)), d.amount.clone(), exempt)),

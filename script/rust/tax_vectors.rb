@@ -1185,6 +1185,27 @@ module TaxVectors
         transfer(c, 'BTC', '1', '2025-06-02T10:00:00Z', from: venue(c, :kraken), to: venue(c, :binance))
         swap(c, 'BTC', '0.1', 'SOL', '33.3', '2026-02-02T10:00:00Z', ref: 'cv1')
       end,
+      # Branch review: the coin received has no price. The BTC keeps its own value as the estimate (5,000.00 / 3,000.00 /
+      # 2,000.00) and is incomplete; the banner counts the missing price.
+      bg.('bg_swap_received_unpriced', expect: 'diverges: D-TAX-SWAP-RECEIVED') do |c|
+        price('BTC', '2025-06-02', '35000', 'EUR')
+        price('BTC', '2026-02-02', '50000', 'EUR')
+        kraken(c, :buy, 'BTC', '1', '30000', '2025-03-03T10:00:00Z')
+        transfer(c, 'BTC', '1', '2025-06-02T10:00:00Z', from: venue(c, :kraken), to: venue(c, :binance))
+        swap(c, 'BTC', '0.1', 'PEPE', '1000000', '2026-02-02T10:00:00Z', ref: 'cv1')
+      end,
+      # Branch review: a fee row booked in the swap's group is no leg. The swap is valued at the SOL received (4,995.00 /
+      # 3,000.00 / 1,995.00) and the 0.001 BTC fee is its own disposal (50.00 / 30.00 / 20.00) → к.3 5,045.00, к.4 3,030.00,
+      # к.5 2,015.00, ред 6 201.50, ред 7 1,813.50, tax 181.35.
+      bg.('bg_swap_with_fee_row', expect: 'diverges: D-TAX-SWAP-RECEIVED') do |c|
+        price('BTC', '2025-06-02', '35000', 'EUR')
+        price('BTC', '2026-02-02', '50000', 'EUR')
+        price('SOL', '2026-02-02', '150', 'EUR')
+        kraken(c, :buy, 'BTC', '1', '30000', '2025-03-03T10:00:00Z')
+        transfer(c, 'BTC', '1', '2025-06-02T10:00:00Z', from: venue(c, :kraken), to: venue(c, :binance))
+        swap(c, 'BTC', '0.1', 'SOL', '33.3', '2026-02-02T10:00:00Z', ref: 'cv1')
+        row(c, :fee, 'BTC', '0.001', '2026-02-02T10:00:00Z', exchange: venue(c, :binance), group_id: 'cv1')
+      end,
       # Bought 2025 for 58,674.90 BGN, sold 2026 for 40,000 EUR: cost 30,000.00, gain 10,000.00.
       bg.('bg_bgn_leg_2026', expect: 'diverges: D-TAX-BG-CURRENCY') do |c|
         quoted(c, :buy, 'BTC', '1', '58674.90', '2025-06-02T10:00:00Z', fiat: 'BGN')
@@ -1292,6 +1313,13 @@ module TaxVectors
       cz.('cz_cap_38v', expect: 'diverges: D-TAX-CZ-CAP') do |c|
         k.(c, :buy, 'BTC', '10', '10000000', '2021-01-11T10:00:00Z')
         (2..11).each { |d| k.(c, :sell, 'BTC', '1', '5500000', format('2026-03-%02dT10:00:00Z', d)) }
+      end,
+      # Branch review: two sales with no transaction id in the same second on one venue are two receipts. Each
+      # 3,000,000 / 250,000 / 2,750,000, časový test; value test 6,000,000 fails; ř. 207–209 0; no § 38v line (each
+      # exempt receipt 3,000,000 ≤ 5,000,000).
+      cz.('cz_38v_same_second', expect: 'diverges: D-TAX-CZ-PRILOHA2') do |c|
+        quoted(c, :buy, 'BTC', '2', '500000', '2021-01-11T10:00:00Z', fiat: 'CZK')
+        2.times { quoted(c, :sell, 'BTC', '1', '3000000', '2026-03-02T10:00:00Z', fiat: 'CZK', tx_id: nil) }
       end,
       # Mining at cost 0 and no income: 250,000 / 0 / 250,000; NOTE.
       cz.('cz_mining_zero_cost', expect: 'diverges: D-TAX-CZ-MINING') do |c|

@@ -669,14 +669,19 @@ fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> bo
     }
     let mut listed = vec![];
     for k in order {
-        let legs = &groups[&k];
-        if legs.iter().any(|&i| fiat(&rows[i].row.base) || !(rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg())) { continue; }
+        // The trade's legs; a fee row booked in the group is no leg (it is walked on its own).
+        let legs: Vec<usize> = groups[&k].iter().copied().filter(|&i| rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg()).collect();
+        if legs.iter().any(|&i| fiat(&rows[i].row.base)) { continue; }
         let (ins, outs): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| rows[i].row.kind.in_leg());
         if ins.is_empty() || outs.is_empty() { continue; }
         let received = side(&ins.iter().map(|&i| &rows[i].row).collect::<Vec<_>>(), &outs.iter().map(|&i| &rows[i].row).collect::<Vec<_>>());
         let (from, to) = if received { (&ins, &outs) } else { (&outs, &ins) };
-        // A side whose value is not known values nothing.
-        if from.iter().any(|&i| rows[i].row.value_missing.unwrap_or(rows[i].row.price_missing)) { continue; }
+        // A side whose value is not known values nothing: the other side keeps its own values as an estimate, marked
+        // missing, so the disposal is incomplete and counted in the banner.
+        if from.iter().any(|&i| rows[i].row.value_missing.unwrap_or(rows[i].row.price_missing)) {
+            for &i in to { let r = &mut rows[i].row; (r.price_missing, r.value_missing) = (true, Some(true)); }
+            continue;
+        }
         let mut value = Dec::zero();
         for &i in from { value = (&value + &rows[i].row.fiat_value)?; }
         if !value.is_positive() { continue; }
