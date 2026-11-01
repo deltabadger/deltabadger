@@ -51,6 +51,12 @@ impl Notifications {
             (self.log)("[setup] completion broadcast failed");
         }
     }
+    /// A tax report request's panel (`broadcast_replace_to "user_<id>", :tax_report`).
+    pub fn tax_report(&self, owner: i64, payload: &str) {
+        if (self.send)(&format!("user_{owner}:tax_report"), payload).is_err() {
+            (self.log)("[tax] report broadcast failed");
+        }
+    }
     fn publish(&self, owner: i64, payload: &str) {
         if (self.send)(&format!("user_{owner}:sync"), payload).is_err() {
             (self.log)("[tracker] completion broadcast failed");

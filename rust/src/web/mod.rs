@@ -257,7 +257,7 @@ impl Config {
             setup_token: env("SETUP_TOKEN"),
             claim_token: present("CLAIM_TOKEN"),
             launchpad_url: env("LAUNCHPAD_URL").unwrap_or_else(|| launchpad::DEFAULT_URL.into()),
-            tmp_dir: present("APP_TMP_DIR").map_or_else(|| std::path::PathBuf::from("tmp"), std::path::PathBuf::from),
+            tmp_dir: present("APP_TMP_DIR").map_or_else(|| std::path::PathBuf::from("tmp"), std::path::PathBuf::from), // = tax::job::tmp_dir
         })
     }
 
@@ -698,7 +698,8 @@ fn routes(app: App) -> Router {
         .route("/tracker/import", only(post(tracker::import::create)))
         .route("/tracker/import/new", only(get(tracker::import::new)))
         .route("/tracker/history_gap", only(get(tracker::gap::show)))
-        .route("/tracker/tax_report", only(get(tracker::modal::deferred_report)))
+        .route("/tracker/tax_report", only(get(tracker::report::tax_report)))
+        .route("/tracker/download_tax_report", only(get(tracker::report::download_tax_report)))
         .route("/tracker/export", only(get(tracker::export)))
         .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))
         .route("/tracker/transactions/{id}/price", only(patch(tracker::transaction::update_price)))
@@ -794,6 +795,7 @@ fn routes(app: App) -> Router {
         .route("/broadcasts/price_drop_limit_info_update", only(post(broadcasts::price_drop_limit_info_update)))
         .route("/broadcasts/moving_average_limit_info_update", only(post(broadcasts::moving_average_limit_info_update)))
         .route("/broadcasts/indicator_limit_info_update", only(post(broadcasts::indicator_limit_info_update)))
+        .route("/broadcasts/tax_report_state", only(post(tracker::report::tax_report_state)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))

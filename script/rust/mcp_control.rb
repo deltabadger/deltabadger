@@ -221,6 +221,7 @@ module McpControl
     settings_form(s)
     order_scenarios(s)
     tracker_scenarios(s)
+    tax_scenarios(s)
     prefixes = ENV.fetch('M4', '').split(',')
     selected = s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }
     raise 'empty M4 scenario filter' if selected.empty?
@@ -482,6 +483,89 @@ module McpControl
     s['tracker_second_user'] = tracker_ready + [list.().merge('headers' => list.()['headers'].merge('Authorization' => 'Bearer second-token'))]
   end
 
+  # PLAN-A12 A12-1: the three tax report tools, granted and switched on for the owner. The first step may carry the
+  # scenario's install state, applied by `grid` (tax_install): report and refusal files by name under <scenario>/tmp/tax_reports
+  # ('tax_fixtures'), a report already generating ('tax_generating': an unfinished Solid Queue job under the job's concurrency
+  # key; tests/mcp_control.rs holds the same as this build's request row) and the market data provider ('tax_market_data').
+  # ActiveJob's test adapter holds no slot for an accepted create: no scenario asks again after one (see pages_api.rb).
+  TAX_NAMES = McpParity::TAX_NAMES
+
+  def tax_ready(extra = [], install = {})
+    on = TAX_NAMES.map { |n| "'$.tool_permissions.#{n}',json('true')" }.join(',')
+    fixtures = ["UPDATE connected_clients SET mcp_tools=#{ActiveRecord::Base.connection.quote((NAMES + TAX_NAMES).to_json)}",
+                "UPDATE users SET mcp_settings=json_set(mcp_settings,#{on})"]
+    [McpParity.init.merge('sql' => fixtures + extra).merge(install), McpParity.session_rpc('notifications/initialized', {}, nil)]
+  end
+
+  def tax_install(dir, install)
+    install.fetch('tax_fixtures', {}).each do |name, body|
+      path = File.join(dir, 'tmp', 'tax_reports', name)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, body)
+    end
+    Pages.connect(dir)
+    case install['tax_market_data']
+    when 'none' then AppConfig.where(key: %w[market_data_provider market_data_url market_data_token]).delete_all
+    when 'coingecko'
+      AppConfig.where(key: %w[market_data_url market_data_token]).delete_all
+      AppConfig.set('market_data_provider', 'coingecko')
+    end
+    if install['tax_generating']
+      SolidQueue::Record.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production_queue.sqlite3'))
+      SolidQueue::Job.create!(queue_name: 'low_priority', class_name: 'Tax::GenerateReportJob', arguments: {},
+                              concurrency_key: Tax::GenerateReportJob.new(User.find_by!(email: 'owner@example.com').id, 'XX', 0).concurrency_key)
+      SolidQueue::Record.connection_pool.disconnect!
+    end
+    ActiveRecord::Base.connection_pool.disconnect!
+  end
+
+  def tax_scenarios(s)
+    report = Pages::ApiGrid::TAX_REPORT
+    files = { '1_US_2024_crypto.csv' => report, '1_US_2023_crypto.csv.refused.json' => Pages::ApiGrid::TAX_EXCESS,
+              '1_US_2022_crypto.csv.refused.json' => '{"reason":', '1_US_2021_crypto.csv.refused.json' => Pages::ApiGrid::TAX_TOKENIZED,
+              '1_US_2025_broker.csv' => report, '2_US_2025_crypto.csv' => report }
+    ready = { '1_US_2025_crypto.csv' => report }
+    refused = { '1_US_2025_crypto.csv.refused.json' => Pages::ApiGrid::TAX_TOKENIZED }
+    us = { country: 'US', year: 2025 }
+    generate = ->(args = us) { McpParity.tool('generate_tax_report', args) }
+    status = ->(args = us) { McpParity.tool('get_tax_report_status', args) }
+    download = ->(args = us) { McpParity.tool('download_tax_report', args) }
+    at = ->(country, year) { { country:, year: } }
+    s['tax_generate'] = tax_ready + [generate.()]
+    s['tax_generate_options'] = tax_ready + [generate.(country: ' us ', year: 2025, stablecoin_as_fiat: true, force: false)]
+    s['tax_generate_refusals'] = tax_ready + [generate.(at.('XX', 2025)), generate.(at.('US', 2008)), generate.(at.('US', 2101)), generate.(at.('US', 2025.5)),
+                                              generate.(at.(' ', 2025)), generate.(at.('', 2025)), generate.(at.('U<b>', 2025)), generate.(at.('XX', 2025.5))]
+    s['tax_generate_ready'] = tax_ready([], 'tax_fixtures' => ready) + [generate.(), generate.(us.merge(force: false)), status.(), download.(),
+                                                                         generate.(us.merge(force: true))]
+    s['tax_generate_generating'] = tax_ready([], 'tax_generating' => true) + [status.(), generate.(), generate.(us.merge(force: true)), status.(at.('US', 2024)),
+                                                                             download.(), generate.(at.('XX', 2025))]
+    s['tax_generate_generating_ready'] = tax_ready([], 'tax_generating' => true, 'tax_fixtures' => ready) + [generate.(), status.(), download.()]
+    s['tax_generate_refused'] = tax_ready([], 'tax_fixtures' => refused) + [status.(), download.(), generate.()]
+    s['tax_generate_ready_and_refused'] = tax_ready([], 'tax_fixtures' => ready.merge(refused)) + [status.(), download.(), generate.(), generate.(us.merge(force: true))]
+    s['tax_market_data_off'] = tax_ready([], 'tax_market_data' => 'none') + [generate.(), status.(), download.()]
+    s['tax_status'] = tax_ready([], 'tax_fixtures' => files) + [status.(at.('US', 2024)), status.(at.('us', 2024)), status.(at.('US', 2023)), status.(at.('US', 2022)),
+                                                                status.(at.('US', 2021)), status.(), status.(at.('DE', 2025)), status.(at.('XX', 2025)),
+                                                                status.(at.('US', 2008)), status.(at.('US', 2024.5)), status.(at.('US', 2024.0))]
+    s['tax_download'] = tax_ready([], 'tax_fixtures' => files) + [download.(at.('US', 2024)), download.(at.('us', 2024)), download.(at.('US', 2023)),
+                                                                  download.(at.('US', 2022)), download.(at.('US', 2021)), download.(), download.(at.('XX', 2024)),
+                                                                  download.(at.('US', 2101)), download.(at.('US', 2024))]
+    [generate.({}), generate.(country: 'US'), generate.(country: 'US', year: '2025'), generate.(country: 1, year: 2025),
+     generate.(us.merge(force: 'true')), generate.(us.merge(stablecoin_as_fiat: 1)), generate.(us.merge(report_scope: 'broker')),
+     status.(country: 'US'), status.(at.('US', '2025')), download.(year: 2025), download.(us.merge(extra: true))].each_with_index do |step, i|
+      s["tax_schema_#{i}"] = tax_ready + [step]
+    end
+    s['tax_not_granted'] = tax_ready(["UPDATE connected_clients SET mcp_tools=#{ActiveRecord::Base.connection.quote(NAMES.to_json)}"], 'tax_fixtures' => ready) +
+                           [generate.(), status.(), download.()]
+    s['tax_disabled'] = tax_ready(["UPDATE users SET mcp_settings=json_set(mcp_settings,#{TAX_NAMES.map { |n| "'$.tool_permissions.#{n}',json('false')" }.join(',')})"],
+                                  'tax_fixtures' => ready) + [generate.(), status.(), download.()]
+    s['tax_paper'] = tax_ready(["UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"], 'tax_fixtures' => ready) +
+                     [status.(), download.(), generate.(us.merge(force: true))]
+    # D-TAX-NOT-PORTED-GATE and the CoinGecko gate (tests/mcp_control.rs tax_difference): validation still answers first.
+    s['tax_d_not_ported'] = tax_ready + [generate.(at.('DE', 2008)), generate.(at.('de', 2025)), status.(at.('DE', 2025))]
+    s['tax_d_not_ported_wealth'] = tax_ready([], 'tax_market_data' => 'none') + [generate.(), generate.(at.('NL', 2025)), status.(at.('NL', 2025))]
+    s['tax_d_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.(), status.()]
+  end
+
   def grid(root)
     raise 'M4 root must be empty' if Dir.exist?(root) && !Dir.empty?(root)
 
@@ -493,6 +577,8 @@ module McpControl
       FileUtils.mkdir_p(dir)
       %w[production.sqlite3 production_queue.sqlite3 secret_key_base].each { |f| FileUtils.cp(File.join(template, f), File.join(dir, f)) }
       File.write(File.join(dir, 'steps.json'), JSON.pretty_generate(steps))
+      install = steps.first.slice('tax_fixtures', 'tax_generating', 'tax_market_data')
+      tax_install(dir, install) unless install.empty?
     end
     puts "#{scenarios.size} M4 scenarios"
   end
@@ -505,6 +591,11 @@ module McpControl
         row.transform_values! { |v| v.is_a?(Float) ? { 'float_bits' => [v].pack('G').unpack1('H*') } : v }
       end
       [t, rows]
+    end.tap do |rows|
+      # PLAN-A12: the reports asked for (Tax::GenerateReportJob's arguments), as (user, country, year, stablecoin, scope).
+      asked = ActiveJob::Base.queue_adapter.respond_to?(:enqueued_jobs) ? ActiveJob::Base.queue_adapter.enqueued_jobs : []
+      asked = asked.select { |job| job[:job] == Tax::GenerateReportJob }.map { |job| job[:args].first(4) + [job[:args][4] || 'crypto'] }
+      rows['tax_jobs'] = asked.sort_by(&:to_json) if asked.any?
     end
   end
 
@@ -518,7 +609,10 @@ module McpControl
     McpParity.singleton_class.define_method(:snapshot) { McpControl.snapshot }
     # A standalone dry-run market order reads the touch first (Exchange::Dryable#set_dry_market_order); the price is not shown.
     WebMock.stub_request(:any, /data\.alpaca\.markets/).to_return(status: 503, body: '{"message":"unavailable"}')
-    Dir[File.join(root, '*/steps.json')].each { |p| McpParity.play(File.dirname(p), JSON.parse(File.read(p))) }
+    Dir[File.join(root, '*/steps.json')].each do |p|
+      ENV.store('APP_TMP_DIR', File.join(File.dirname(p), 'tmp')) # AppPaths.tmp (the tax reports), as tests/common/web.rs sets it
+      McpParity.play(File.dirname(p), JSON.parse(File.read(p)))
+    end
   end
 
   def numbers(path)

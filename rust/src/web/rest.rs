@@ -31,7 +31,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Unported }
+enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Tax(crate::tax::api::Route), Unported }
 
 /// OrdersController#create and #destroy (PLAN-A9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -127,10 +127,14 @@ fn route(method: &Method, path: &str) -> Option<Route> {
             (name.map(Gate::Tool), name.and_then(rules::Action::tool).map_or(Action::Unported, Action::Rules))
         }
         ["tax", "jurisdictions"] if get => (tool("list_tax_jurisdictions"), Action::TaxJurisdictions),
-        ["tax", "reports"] if post => (tool("generate_tax_report"), Action::Unported),
+        ["tax", "reports"] if post => (tool("generate_tax_report"), Action::Tax(crate::tax::api::Route::Create)),
         ["tax", "reports", country, year, rest @ ..] if get => {
             path.extend([("country", country.to_string()), ("year", year.to_string())]);
-            (match rest { [] => tool("get_tax_report_status"), ["download"] => tool("download_tax_report"), _ => None }, Action::Unported)
+            match rest {
+                [] => (tool("get_tax_report_status"), Action::Tax(crate::tax::api::Route::Status)),
+                ["download"] => (tool("download_tax_report"), Action::Tax(crate::tax::api::Route::Download)),
+                _ => (None, Action::Unported),
+            }
         }
         _ => (None, Action::Unported),
     };
@@ -176,8 +180,12 @@ fn json_body(content_type: Option<&str>) -> bool {
 /// An answer before the shared headers: the envelope a controller renders, or a response made below the controllers.
 /// `Pending`: a read's venue fetch, run outside the database before the read is finished and rendered.
 /// `Head`: `head <status>` (an empty body under `text/html`, the controller's headers).
-pub(crate) enum Answer { Json(StatusCode, String), Csv(Box<tracker::Csv>), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request),
+pub(crate) enum Answer { Json(StatusCode, String), Csv(Box<CsvAnswer>), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>), Rules(rules::Request),
     Order(Box<OrderJob>), Cancel(Box<bot_api::orders::CancelJob>) }
+
+/// `send_data` (PLAN-A12 r1 #14): the body, the attachment's name, and the headers a route adds (the transactions
+/// export's counts). TransactionsController#send_csv and TaxReportsController#download share it.
+pub(crate) struct CsvAnswer { pub body: String, pub filename: String, pub headers: Vec<(header::HeaderName, String)> }
 
 /// `POST /api/v1/orders` past its gate: everything from the Idempotency-Key's claim on, run by one detached task
 /// (PLAN-A9 r1 §3), so a dropped connection never strands the key or the queued request.
@@ -391,7 +399,20 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             match tracker::rest(c, app, user, route, p)? {
                 tracker::Out::Res(res) => render(res),
                 tracker::Out::Accepted(res) => { let mut answer = render(res); if let Answer::Json(status, _) = &mut answer { *status = StatusCode::ACCEPTED; } answer }
-                tracker::Out::Csv(csv) => Answer::Csv(Box::new(csv)),
+                tracker::Out::Csv(csv) => {
+                    let x = |n: &'static str| header::HeaderName::from_static(n);
+                    Answer::Csv(Box::new(CsvAnswer { body: csv.csv, filename: format!("account_transactions_{}.csv", app.now().date_naive()),
+                        headers: vec![(x("x-total-transactions"), csv.total.to_string()), (x("x-returned-transactions"), csv.returned.to_string()), (x("x-truncated"), csv.truncated.to_string())] }))
+                }
+            }
+        }
+        Action::Tax(route) => {
+            let Ok(p) = params() else { return Ok(bad_request()) };
+            match crate::tax::api::rest(c, app, user, route, p)? {
+                crate::tax::api::Out::Res(res) => render(res),
+                crate::tax::api::Out::Accepted(res) => { let mut answer = render(res); if let Answer::Json(status, _) = &mut answer { *status = StatusCode::ACCEPTED; } answer }
+                // DownloadReport's send_data: the report, never deleted.
+                crate::tax::api::Out::Csv { csv, filename } => Answer::Csv(Box::new(CsvAnswer { body: csv, filename, headers: vec![] })),
             }
         }
         Action::Split => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::split(c, app, user, p.get("bot_ids"), p.get("keep_proceeds_for"))?) }
@@ -510,7 +531,10 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
     let rendered = |status: StatusCode, content_type: &str, body: String, extra: Vec<(header::HeaderName, String)>| {
         let tag = (matches!(status, StatusCode::OK | StatusCode::CREATED) && !body.is_empty())
             .then(|| format!("W/\"{}\"", &hex::encode(Sha256::digest(body.as_bytes()))[..32]));
+        // Rack::ETag on a 200 or 201 it cannot tag (an empty body): `no-cache` (an empty tax report's download).
+        let untagged = matches!(status, StatusCode::OK | StatusCode::CREATED) && body.is_empty();
         let mut response = (status, [(header::CONTENT_TYPE, content_type.to_string())], body).into_response();
+        if untagged { response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache")); }
         for (name, value) in extra { if let Ok(value) = HeaderValue::from_str(&value) { response.headers_mut().insert(name, value); } }
         let fresh = status == StatusCode::OK && tag.is_some() && tag.as_deref() == if_none_match;
         if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) {
@@ -530,11 +554,10 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
         Answer::Json(status, body) => rendered(status, "application/json; charset=utf-8", body, vec![]),
         // TransactionsController#send_csv: the one answer outside the envelope.
         Answer::Csv(csv) => {
-            let name = format!("account_transactions_{}.csv", app.now().date_naive());
-            let x = |n: &'static str| header::HeaderName::from_static(n);
-            rendered(StatusCode::OK, "text/csv", csv.csv, vec![(x("x-total-transactions"), csv.total.to_string()), (x("x-returned-transactions"), csv.returned.to_string()),
-                (x("x-truncated"), csv.truncated.to_string()), (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{name}\"")),
-                (x("content-transfer-encoding"), "binary".into())])
+            let CsvAnswer { body, filename, mut headers } = *csv;
+            headers.extend([(header::CONTENT_DISPOSITION, format!("attachment; filename=\"{filename}\"")),
+                            (header::HeaderName::from_static("content-transfer-encoding"), "binary".into())]);
+            rendered(StatusCode::OK, "text/csv", body, headers)
         }
         Answer::Head(status) => {
             let mut response = (status, [(header::CONTENT_TYPE, "text/html")]).into_response();

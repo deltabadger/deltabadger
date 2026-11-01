@@ -1681,6 +1681,89 @@
       }
     },
     {
+      "name": "generate_tax_report",
+      "description": "Generate a tax report for a specific country and year. Runs in the background — use get_tax_report_status to check when ready.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "description": "Two-letter country code (e.g. 'US', 'DE', 'GB')"
+          },
+          "year": {
+            "type": "number",
+            "description": "Tax year (e.g. 2025)"
+          },
+          "stablecoin_as_fiat": {
+            "type": "boolean",
+            "description": "Treat stablecoins as fiat (relevant for AT)"
+          },
+          "force": {
+            "type": "boolean",
+            "description": "Replace a report that already exists for this country and year"
+          }
+        },
+        "required": [
+          "country",
+          "year"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_tax_report_status",
+      "description": "Check whether a previously requested tax report is ready for download",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "description": "Two-letter country code (e.g. 'US', 'DE')"
+          },
+          "year": {
+            "type": "number",
+            "description": "Tax year"
+          }
+        },
+        "required": [
+          "country",
+          "year"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "download_tax_report",
+      "description": "Retrieve the contents of a generated tax report as CSV",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "description": "Two-letter country code (e.g. 'US', 'DE')"
+          },
+          "year": {
+            "type": "number",
+            "description": "Tax year"
+          }
+        },
+        "required": [
+          "country",
+          "year"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
       "name": "export_transactions_csv",
       "description": "Export account transactions as CSV with optional exchange and date filters",
       "inputSchema": {
@@ -2245,6 +2328,15 @@
     "app/services/bot_api/boolean.rb": "1c75d892936c42d34770e044fa8b640fc49d5413e6e9cc61afb875719ab36e81",
     "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
     "app/controllers/api/v1/transactions_controller.rb": "5ec5364b6d3dda09309f80e131e65327bae6c19ac34e74732547a3432ea22129",
-    "app/controllers/api/v1/tracker_controller.rb": "a010bc0d5b1b4d47e20d5dca82fd8de76ec1e973b20bf6455698da59fff0f55c"
+    "app/controllers/api/v1/tracker_controller.rb": "a010bc0d5b1b4d47e20d5dca82fd8de76ec1e973b20bf6455698da59fff0f55c",
+    "app/services/bot_api/tax/params.rb": "946023f0b0ee1f758157f8e0f7893fc4cabe814148340dc1e6596e1e4bc7056d",
+    "app/services/bot_api/tax/generate_report.rb": "bc74dade17bf7542e8d87b9d8085959d657be06a286c365c4cc20e291c4789cb",
+    "app/services/bot_api/tax/report_status.rb": "1d4ea437e78be4c84dfdfd1562ba4e1d7ec985754eeac1de22438f1fdb709e41",
+    "app/services/bot_api/tax/download_report.rb": "be9d4b4920462af134a0ad9a62664666bd4200928255242e06a7a6a87b4e87b2",
+    "app/services/bot_api/tax/generating.rb": "4d55fee4b94e1d608bf34421273120c57893b7057aaa55382cf28ddc3fa900f4",
+    "app/jobs/tax/generate_report_job.rb": "c8d9fbc2ab484ca6442c3fa7bda3f44ec1964afd342310f1e966721945dfec32",
+    "app/controllers/api/v1/tax_reports_controller.rb": "19888dc389cf1aa4b14d9f92f95af70cb1c2ac66d2d5c1d1874f41ab031f59f8",
+    "app/models/market_data_settings.rb": "bfce12f2ccc37d11ef7ef9261850fc86d47cf5554877750059b42e81e62f66fa",
+    "app/models/app_paths.rb": "e4272709d8fb4485aa30a3fbdeb3f8b80899d1487972e6464bbeaf87f41e45f7"
   }
 }

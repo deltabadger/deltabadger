@@ -12,6 +12,18 @@ fn read(p: impl AsRef<Path>) -> Value { serde_json::from_slice(&std::fs::read(p)
 fn copy_install(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for f in ["production.sqlite3", "production_queue.sqlite3", "secret_key_base"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
+    // The tax report fixtures (mcp_control.rb tax_install), under the instance's tmp/ as APP_TMP_DIR names it.
+    if from.join("tmp").is_dir() { common::copy_tree(&from.join("tmp"), &to.join("tmp")); }
+}
+/// PLAN-A12 A12-1: a tax_ scenario's install as `serve` opens it (this build's migrations applied), with the report
+/// mcp_control.rb holds as generating (an unfinished Solid Queue job) held as this build's request row (the A12-1 contract).
+fn tax_install(dir: &Path, steps: &Value) {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
+    if steps[0]["tax_generating"] == true {
+        c.execute("INSERT INTO rust_tax_reports(request, user_id, scope, country, year, stablecoin_as_fiat, locale, state, created_at) \
+                   VALUES ('00000000000000000000000000000001', (SELECT id FROM users WHERE email = 'owner@example.com'), 'crypto', 'US', 2025, 0, 'en', 'queued', '2026-09-10 12:00:00')", []).unwrap();
+    }
 }
 async fn play(dir: &Path, steps: &[Value], mut session: Option<String>) -> Value {
     let app = web::app(dir, &std::fs::read_to_string(dir.join("secret_key_base")).unwrap(), TestClock::at(AT));
@@ -52,6 +64,16 @@ fn snapshot(dir:&Path)->Value {
         }).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
         tables.insert(table.to_string(),json!(rows));
     }
+    // PLAN-A12: the reports asked for, as (user, country, year, stablecoin_as_fiat, scope): this build's request rows (all but
+    // the seeded generating one), where Rails records its enqueued Tax::GenerateReportJob (mcp_control.rb snapshot).
+    let mut asked:Vec<Value>=vec![];
+    // No such table before this build's migrations (every scenario but the tax_ ones): nothing asked.
+    if let Ok(mut q)=c.prepare("SELECT user_id, country, year, stablecoin_as_fiat, scope FROM rust_tax_reports WHERE request <> '00000000000000000000000000000001' ORDER BY id") {
+        let rows=q.query_map([],|r|Ok(json!([r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,i64>(3)?!=0,r.get::<_,String>(4)?]))).unwrap();
+        asked=rows.collect::<Result<_,_>>().unwrap();
+    }
+    asked.sort_by_key(Value::to_string);
+    if !asked.is_empty() { tables.insert("tax_jobs".into(),json!(asked)); }
     common::ownership_business_rows(Value::Object(tables))
 }
 fn comparable(mut transcript: Value) -> Value {
@@ -59,7 +81,7 @@ fn comparable(mut transcript: Value) -> Value {
     if let Some(id) = transcript["session"].as_str().map(str::to_string) {
         assert_eq!(id.len(),32); assert!(id.bytes().all(|b| b.is_ascii_hexdigit()));
         for table in transcript["rows"].as_object_mut().unwrap().values_mut() {
-            for row in table.as_array_mut().unwrap(){for (key,value) in row.as_object_mut().unwrap(){if ["id","session_id"].contains(&key.as_str()) && value==&json!(id){*value=json!("<session>");}}}
+            for row in table.as_array_mut().unwrap(){let Some(row)=row.as_object_mut() else {continue}; for (key,value) in row{if ["id","session_id"].contains(&key.as_str()) && value==&json!(id){*value=json!("<session>");}}}
         }
         for response in transcript["responses"].as_array_mut().unwrap() {
             if response["headers"].get("mcp-session-id").is_some() { response["headers"]["mcp-session-id"] = json!("<session>"); }
@@ -91,6 +113,7 @@ async fn control_transcripts() {
         let steps = read(dir.join("steps.json"));
         let rust = tempfile::tempdir().unwrap();
         copy_install(dir, rust.path());
+        if dir.file_name().unwrap().to_string_lossy().starts_with("tax_") { tax_install(rust.path(), &steps); }
         let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds") || dir.file_name().unwrap().to_string_lossy().starts_with("settings_form_") || dir.file_name().unwrap().to_string_lossy().starts_with("create_refused_");
         let before=if unicode_symbol {
             let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
@@ -279,6 +302,7 @@ async fn control_transcripts() {
             continue;
         }
         if let Err(why)=tracker_difference(&name,&mut want) { failures.push(format!("{name} (listed divergence): {why}")); continue; }
+        if let Err(why)=tax_difference(&name,&mut want,&got) { failures.push(format!("{name} (listed divergence): {why}")); continue; }
         let continuation=["start_continue_created","start_continue_empty","start_continue_within"].contains(&name.as_ref());
         assert_eq!(requests,usize::from(continuation),"{name}");
         if got!=want {
@@ -335,6 +359,44 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
         // Two calls Rails answered alike share their stored copies: the first rewrite took both.
         if stored==0 && !rewritten.contains(&old) { return Err(format!("step {i}: the session holds no copy of Rails' result")); }
         rewritten.push(old);
+    }
+    Ok(())
+}
+
+/// D-TAX-NOT-PORTED-GATE and the CoinGecko gate (PLAN-A12 item 6, r1 item 8): a generate_tax_report this build cannot compute
+/// yet answers its refusal as an error text, nothing written or queued. Every call Rails started in a `tax_d_` scenario becomes
+/// that answer (in the response and the session's stored copy), after checking Rails started it; its job and the owner's
+/// pending_report are taken back (Rails' users rows become this build's, once they differ in nothing else).
+fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
+    use deltabadger::web::mcp::protocol::tool_text;
+    let coingecko=name.starts_with("tax_d_coingecko");
+    if !coingecko && !name.starts_with("tax_d_not_ported") { return Ok(()) }
+    let mut gated=0;
+    for i in 0..want["responses"].as_array().ok_or("no responses")?.len() {
+        let Some(mut body)=want["responses"][i]["body"].as_str().and_then(|b|serde_json::from_str::<Value>(b).ok()) else {continue};
+        let Some(shown)=body["result"]["content"][0]["text"].as_str().map(str::to_string) else {continue};
+        let Some(country)=shown.strip_prefix("Tax report generation started for ").and_then(|rest|rest.split(" (").next()) else {continue};
+        let owed=tool_text(&if coingecko {deltabadger::tax::api::COINGECKO.to_string()}
+                            else {deltabadger::tax::api::not_ported_message(country)},true);
+        let old=std::mem::replace(&mut body["result"],owed.clone());
+        want["responses"][i]["body"]=json!(serde_json::to_string(&body).unwrap());
+        for message in want["rows"]["action_mcp_session_messages"].as_array_mut().ok_or("no session messages")? {
+            let Some(mut json)=message["message_json"].as_str().and_then(|t|serde_json::from_str::<Value>(t).ok()) else {continue};
+            if json["result"]!=old {continue}
+            json["result"]=owed.clone();
+            message["message_json"]=json!(serde_json::to_string(&json).unwrap());
+        }
+        gated+=1;
+    }
+    if gated==0 { return Err("Rails started no report: drop or rename this scenario".into()) }
+    let jobs=want["rows"].as_object_mut().unwrap().shift_remove("tax_jobs").ok_or("Rails queued no report")?;
+    if jobs.as_array().map_or(0,Vec::len)!=gated { return Err(format!("Rails queued {jobs} for {gated} started reports")) }
+    let users=want["rows"]["users"].as_array_mut().ok_or("no users")?;
+    for (theirs,ours) in users.iter_mut().zip(got["rows"]["users"].as_array().ok_or("no users")?) {
+        let mut same=theirs.clone();
+        for key in ["tracker_settings","updated_at"] { same[key]=ours[key].clone(); }
+        if same!=*ours { return Err(format!("Rails' user differs beyond its pending report: {theirs}")) }
+        *theirs=ours.clone();
     }
     Ok(())
 }
