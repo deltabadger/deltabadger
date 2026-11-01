@@ -161,7 +161,7 @@ fn the_ruby_being_mirrored_has_not_changed() {
     use sha2::{Digest, Sha256};
     let v = vectors();
     let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 13);
+    assert_eq!(pinned.len(), 15);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, sum) in pinned {
         let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
