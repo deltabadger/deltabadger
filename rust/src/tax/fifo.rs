@@ -11,7 +11,8 @@
 //!   coins again later at their old basis).
 //! - D-TAX-COIN-FEE: where spending a coin is a disposal (`crypto_to_crypto_taxable`), every fee paid in a coin is one:
 //!   a fee of a row of its own, a fee in a third coin on a trade, and a linked transfer's network fee are each a
-//!   disposal of that coin at its value, its basis from the lots, no fee column. Elsewhere their lots go at zero, as Rails.
+//!   disposal of that coin at its value, its basis from the lots, no fee column. Elsewhere their lots go at zero, as Rails,
+//!   and so do a non-taxable swap out-leg's (Rails never took those).
 //! - D-TAX-SWAP-FEE: a fee on a swap-in that carries several tranches joins the cost once (Rails weighted it twice, so
 //!   two equal tranches carried half of it).
 //! - D-TAX-US-SWAP-COST: US, from 2025 (Treas. Reg. 1.1012-1(h)(2)): the cost of a coin-for-coin exchange belongs to the
@@ -536,6 +537,8 @@ impl<'a> Fifo<'a> {
         let r = &tx.row;
         let k = self.key(&r.exchange, &tx.asset);
         let (mut tranches, held) = dequeue_tranches(self.lots.entry(k).or_default(), &r.amount)?;
+        // D-TAX-COIN-FEE: the leg's fee in a coin leaves its lots too (Rails left those units to be sold again).
+        self.consume_disposal_fee(tx)?;
         let Some(key) = group_key(r) else {
             // An out-leg with no group: its basis goes nowhere (listed by the report as an unmatched swap).
             self.consumed = (&self.consumed + &sum(tranches.iter().map(|t| &t.cost))?)?;

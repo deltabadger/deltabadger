@@ -94,8 +94,9 @@ pub const REGISTRY: [Jurisdiction; 18] = [
     Jurisdiction { code: "CZ", name: "Czech Republic", currency: "CZK", locale: "cs",
                    czech_exemptions: Some(Czech { time_test: Period { years: 3, days: 0 }, exemptions_from: (2025, 2, 15), value_test: 100_000,
                                                   annual_cap: 40_000_000 }), ..BASE },
-    // No holding period: the 7% rate was repealed before it took effect (Act 530/2023).
-    Jurisdiction { code: "SK", name: "Slovakia", locale: "sk", crypto_to_crypto_taxable: Some(false), stablecoin_ambiguous: true, ..BASE },
+    // No holding period: the 7% rate was repealed before it took effect (Act 530/2023). D-TAX-SK-SWAPS: a coin exchanged
+    // for another coin is a sale (§ 2 písm. ai) ZDP, Finančná správa 293880); Rails has `crypto_to_crypto_taxable: false`.
+    Jurisdiction { code: "SK", name: "Slovakia", locale: "sk", stablecoin_ambiguous: true, ..BASE },
 ];
 
 /// `Jurisdictions.for(code)`.

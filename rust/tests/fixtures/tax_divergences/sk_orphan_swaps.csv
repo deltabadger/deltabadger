@@ -1,7 +1,3 @@
 Dátum,Dátum nadobudnutia,Aktívum,Množstvo,Príjem,Obstarávacia cena,Zisk/Strata,Mena,Dni držania,Poplatok,Burza,ID transakcie,Obstarávacia cena úplná,Neúplné údaje
-2026-03-01T10:00:00Z,2026-02-03T10:00:00Z,BTC,0.03,2900.0,2700.0,200.0,EUR,26,0.0,binance,sell-BTC-2026-03-01T10:00:00Z,true,true
-
-"WARNING: Časti výmen bez časti v opačnom smere; kde výmeny nepodliehajú zdaneniu, nebolo možné preniesť obstarávaciu cenu odchádzajúcej časti a pri prichádzajúcej časti sa obstarávacia cena predpokladala v trhovej hodnote:"
-ETH 1.0 2026-02-01
-BTC 0.03 2026-02-03
-"Synchronizuj alebo importuj účet, na ktorom je druhá strana každej výmeny, aby sa jej obstarávacia cena preniesla."
+2026-02-01T10:00:00Z,2025-01-03T10:00:00Z,ETH,1.0,3000.0,1000.0,2000.0,EUR,394,0.0,binance,o1-o,true,false
+2026-03-01T10:00:00Z,2026-02-03T10:00:00Z,BTC,0.03,2900.0,2700.0,200.0,EUR,26,0.0,binance,sell-BTC-2026-03-01T10:00:00Z,true,false
