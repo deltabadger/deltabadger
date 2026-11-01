@@ -2,5 +2,5 @@ Data,Data de aquisição,Ativo,Quantidade,Receita,Custo de aquisição,Ganho/Per
 Nenhuma transação tributável encontrada para este período.
 
 "NOTE: Permutas cuja comissão consumiu todas as unidades recebidas (custo de aquisição que deixou de ser transportado, na moeda do relatório):"
-ETH 0.05 2026-02-01,100.0
+ETH 0.05 2026-02-01,100.0,EUR
 "Este relatório não transporta qualquer custo de aquisição destas permutas nem inclui por isso qualquer perda dedutível. O montante é o custo de aquisição do que entregaste, não o valor de mercado da comissão. Pergunta ao teu consultor fiscal se é dedutível."

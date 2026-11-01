@@ -2,5 +2,5 @@ Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Ve
 Keine steuerpflichtigen Transaktionen für diesen Zeitraum gefunden.
 
 "NOTE: Tausche, deren Gebühr jede erhaltene Einheit aufgezehrt hat (nicht mehr fortgeführte Anschaffungskosten, in der Berichtswährung):"
-ETH 0.05 2026-02-01,100.0
+ETH 0.05 2026-02-01,100.0,EUR
 "Dieser Bericht führt für diese Tausche keine Anschaffungskosten fort und setzt dafür keinen abzugsfähigen Verlust an. Der Betrag sind die Anschaffungskosten dessen, was du hingegeben hast, nicht der Marktwert der Gebühr. Frag deine Steuerberatung, ob er abzugsfähig ist."

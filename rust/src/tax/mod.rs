@@ -375,7 +375,7 @@ impl Report {
             line(&mut out, &[self.t("tax_report.warnings.stated_values_hint")]);
         }
         self.block(&mut out, "WARNING", "unmatched_swaps", "unmatched_swaps_hint", unmatched.iter().map(|r| listed(r, &r.amount)))?;
-        self.valued(&mut out, "swap_fee_exhausted", &at.exhausted)?;
+        self.valued(&mut out, "swap_fee_exhausted", &at.exhausted, Some(currency))?;
         let unsynced = text(l, "tax_report.warnings.wallet_allocation_unsynced", &[]);
         let placed: Vec<String> = allocation.iter().map(|p| Ok::<_, FiguresError>(format!("{} {} {} {} {}", p.venue.as_deref().unwrap_or(&unsynced), p.symbol,
                                                      p.amount.to_s_f(), p.cost.round(2)?.to_s_f(), date(p.acquired)))).collect::<Result<_, _>>()?;
@@ -383,8 +383,8 @@ impl Report {
         // D-TAX-AT-FEES: in Austria a fee row of its own is a disposal.
         let hint = if j.swaps_taxable() || j.code == "AT" { "coin_fees_hint_disposal" } else { "coin_fees_hint_no_proceeds" };
         self.block(&mut out, "NOTE", "coin_fees", hint, standing_fees.iter().map(|r| listed(r, &r.amount)))?;
-        self.valued(&mut out, "speculation", &at.speculation)?;
-        self.valued(&mut out, "income_before_regime", &at.before_regime)?;
+        self.valued(&mut out, "speculation", &at.speculation, None)?;
+        self.valued(&mut out, "income_before_regime", &at.before_regime, None)?;
         self.block(&mut out, "NOTE", "zero_cost_rewards", "zero_cost_rewards_hint", at.zero_cost.iter().cloned())?;
         self.block(&mut out, "NOTE", "monthly_value", "monthly_value_hint", at.monthly.iter().cloned())?;
         if at.averaged {
@@ -396,11 +396,16 @@ impl Report {
     }
 
     /// A NOTE block whose lines carry an amount, as the stated-values one.
-    fn valued(&self, out: &mut String, heading: &str, lines: &[(String, Dec)]) -> Result<(), FiguresError> {
+    /// `currency`: written after each amount (D-TAX-SWAP-FEE-EXHAUSTED, whose block may stand with no other figure).
+    fn valued(&self, out: &mut String, heading: &str, lines: &[(String, Dec)], currency: Option<&str>) -> Result<(), FiguresError> {
         if lines.is_empty() { return Ok(()); }
         line(out, &[]);
         line(out, &[s(format!("NOTE: {}:", text(self.j.locale, &format!("tax_report.warnings.{heading}"), &[])))]);
-        for (x, v) in lines { line(out, &[s(x.clone()), cents(v)?]); }
+        for (x, v) in lines {
+            let mut cells = vec![s(x.clone()), cents(v)?];
+            if let Some(c) = currency { cells.push(s(c.to_string())); }
+            line(out, &cells);
+        }
         line(out, &[self.t(&format!("tax_report.warnings.{heading}_hint"))]);
         Ok(())
     }

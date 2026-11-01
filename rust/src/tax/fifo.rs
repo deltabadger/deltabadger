@@ -135,6 +135,8 @@ pub struct Fifo<'a> {
     /// D-TAX-SWAP-FEE-EXHAUSTED: swap-ins whose own-coin fee took every unit received, with the basis they could not
     /// carry (row uid, cost); listed by the report, never a loss.
     pub exhausted: Vec<(usize, Dec)>,
+    /// Austria: an exhausted leg's basis waiting for a same-coin leg of its swap, by (group, coin): (uid, basis, assumed).
+    held_back: HashMap<(Group, String), (usize, Dec, bool)>,
     /// D-TAX-US-WALLET: the lots as placed at the boundary, and whether the placement was a choice (a coin held on more
     /// than one venue, or off every synced one).
     pub allocation: Vec<Placed>,
@@ -154,7 +156,7 @@ impl<'a> Fifo<'a> {
     pub fn new(o: Options<'a>) -> Fifo<'a> {
         Fifo { o, lots: HashMap::new(), in_groups: HashMap::new(), out_groups: HashMap::new(), transferred: HashMap::new(),
                moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, averaging: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
-               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], allocation: vec![], allocation_chosen: false }
+               excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], held_back: HashMap::new(), allocation: vec![], allocation_chosen: false }
     }
 
     /// The lots left standing, per (venue, coin).
@@ -289,6 +291,10 @@ impl<'a> Fifo<'a> {
             }
         }
         if self.o.per_venue_from.is_some() && !self.per_venue { self.place()?; }
+        // Austria: a basis no leg of its swap took is listed after all.
+        let mut held: Vec<(usize, Dec, bool)> = self.held_back.drain().map(|(_, v)| v).collect();
+        held.sort_by_key(|h| h.0);
+        for (uid, basis, _) in held { self.list_exhausted(uid, basis)?; }
         Ok(())
     }
 
@@ -602,7 +608,10 @@ impl<'a> Fifo<'a> {
             return self.open_swap_lot(tx, lot_amount, cpu, r.at, true, None, unpriced);
         }
         let transferred_cost = (&sum(tranches.iter().map(|t| &t.cost))? * &share)?;
-        if !lot_amount.is_positive() { return self.exhaust(tx, (&(&transferred_cost + &cash)? + &fee_cost)?); }
+        if !lot_amount.is_positive() {
+            let assumed = assumed || tranches.iter().any(|t| t.basis_assumed);
+            return self.exhaust(tx, (&(&transferred_cost + &cash)? + &fee_cost)?, assumed);
+        }
         let coin_value = (&self.swap_out_value(key.as_ref()) * &share)?;
         let cash_amount = cash_lot_amount(&lot_amount, &cash, &coin_value, &transferred_cost, &tranches)?;
         let rest = (&lot_amount - &cash_amount)?;
@@ -629,23 +638,42 @@ impl<'a> Fifo<'a> {
         }
         // A tranche can predate everything already held, and the lots are read in order.
         self.store(&r.exchange, &tx.asset).make_contiguous().sort_by_key(|l| l.date.0);
+        // D-TAX-SWAP-FEE-EXHAUSTED, Austria: a same-coin leg of this swap that came first and was all fee joins this pool.
+        if let Some((_, basis, assumed)) = key.and_then(|k| self.held_back.remove(&(k, tx.asset.clone()))) { self.retain(tx, &basis, assumed)?; }
         Ok(())
     }
 
     /// D-TAX-SWAP-FEE-EXHAUSTED: the fee took every unit received, so no lot carries `basis`. Austria: the fee's units left
     /// the pool and their cost stays in it (Rz 6178ad), on the wallet's first new-stock lot of the coin, as `shed`; with
     /// none, and elsewhere, it is listed (no authority makes it a loss) and accounted for as consumed.
-    fn exhaust(&mut self, tx: &Tx, basis: Dec) -> Result<(), FiguresError> {
+    /// In Austria a same-coin leg of the same swap still to come keeps it (`held_back`, either order gives one pool).
+    fn exhaust(&mut self, tx: &Tx, basis: Dec, assumed: bool) -> Result<(), FiguresError> {
         let r = &tx.row;
-        if let Some(from) = self.o.austria.filter(|_| self.austrian(r.at)).map(|a| a.new_stock_from) {
-            let k = self.key(&r.exchange, &tx.asset);
-            if let Some(l) = self.lots.entry(k).or_default().iter_mut().find(|l| l.date.0 >= from.0 && l.amount.is_positive()) {
-                l.cost_per_unit = (&(&l.amount * &l.cost_per_unit)? + &basis)?.div(&l.amount)?;
+        if self.austrian(r.at) {
+            if self.retain(tx, &basis, assumed)? { return Ok(()); }
+            if let Some(k) = group_key(r) {
+                let held = self.held_back.entry((k, tx.asset.clone())).or_insert((r.uid, Dec::zero(), false));
+                held.1 = (&held.1 + &basis)?;
+                held.2 |= assumed;
                 return Ok(());
             }
         }
+        self.list_exhausted(r.uid, basis)
+    }
+
+    /// Austria: `basis` onto the wallet's first new-stock lot of the coin, keeping its assumption; false with none.
+    fn retain(&mut self, tx: &Tx, basis: &Dec, assumed: bool) -> Result<bool, FiguresError> {
+        let Some(from) = self.o.austria.map(|a| a.new_stock_from) else { return Ok(false) };
+        let k = self.key(&tx.row.exchange, &tx.asset);
+        let Some(l) = self.lots.entry(k).or_default().iter_mut().find(|l| l.date.0 >= from.0 && l.amount.is_positive()) else { return Ok(false) };
+        l.cost_per_unit = (&(&l.amount * &l.cost_per_unit)? + basis)?.div(&l.amount)?;
+        l.basis_assumed |= assumed;
+        Ok(true)
+    }
+
+    fn list_exhausted(&mut self, uid: usize, basis: Dec) -> Result<(), FiguresError> {
         self.consumed = (&self.consumed + &basis)?;
-        self.exhausted.push((r.uid, basis));
+        self.exhausted.push((uid, basis));
         Ok(())
     }
 
@@ -1015,6 +1043,46 @@ mod tests {
         f.calculate(&rows).unwrap();
         assert_eq!(f.exhausted.iter().map(|(u, c)| (*u, c.to_s_f())).collect::<Vec<_>>(), vec![(2, "100.0".to_string())]);
         assert_eq!(remaining(&f).to_s_f(), "300.0");
+    }
+
+    fn austria() -> Options<'static> {
+        let a = Austria { new_stock_from: at(-1000), regime_from: at(-500), average_from: at(-100) };
+        Options { austria: Some(a), ..not_taxable() }
+    }
+
+    /// Austria: an exhausted leg's basis stays with the coin's pool (Rz 6178ad), whichever same-coin leg of the swap comes
+    /// first: €400 into 1 ETH (all fee) and 3 ETH keeps €400 on the 3 ETH, in both orders, and nothing is listed.
+    #[test]
+    fn an_austrian_exhausted_leg_joins_its_sibling_in_either_order() {
+        for exhausted_first in [true, false] {
+            let mut a = swap_leg(2, Kind::SwapIn, "ETH", "1", "100", 2);
+            fee_in_own_coin(&mut a, "1", "100");
+            let mut b = swap_leg(3, Kind::SwapIn, "ETH", "3", "300", 2);
+            if !exhausted_first { b.row.uid = 2; a.row.uid = 3; }
+            let (first, second) = if exhausted_first { (a, b) } else { (b, a) };
+            let rows = vec![row(0, Kind::Buy, "BTC", "1", "400", 0, "a"), swap_leg(1, Kind::SwapOut, "BTC", "1", "400", 2), first, second];
+            let mut f = Fifo::new(austria());
+            f.calculate(&rows).unwrap();
+            assert!(f.exhausted.is_empty(), "exhausted first {exhausted_first}");
+            assert_eq!(remaining(&f).round(9).unwrap().to_s_f(), "400.0", "exhausted first {exhausted_first}");
+        }
+    }
+
+    /// Austria: a basis that was assumed stays marked so when it joins a complete pool.
+    #[test]
+    fn an_austrian_retained_basis_keeps_its_assumption() {
+        let mut btc = row(1, Kind::Buy, "BTC", "1", "400", 1, "a");
+        btc.row.price_missing = true;
+        let mut leg = swap_leg(3, Kind::SwapIn, "ETH", "0.05", "400", 2);
+        fee_in_own_coin(&mut leg, "0.05", "400");
+        let rows = vec![row(0, Kind::Buy, "ETH", "1", "200", 0, "a"), btc, swap_leg(2, Kind::SwapOut, "BTC", "1", "400", 2), leg];
+        let mut f = Fifo::new(austria());
+        f.calculate(&rows).unwrap();
+        assert!(f.exhausted.is_empty());
+        let eth: Vec<&Lot> = f.lots().filter(|(k, _)| k.1 == "ETH").flat_map(|(_, l)| l.iter()).collect();
+        assert_eq!(eth.len(), 1);
+        assert_eq!((&eth[0].amount * &eth[0].cost_per_unit).unwrap().to_s_f(), "600.0");
+        assert!(eth[0].basis_assumed);
     }
 
     /// A fee short of the whole receipt changes nothing: the net units carry the basis.
