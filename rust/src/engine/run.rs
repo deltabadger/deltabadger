@@ -1204,13 +1204,15 @@ pub async fn run_api_orders<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Cloc
     for id in api_orders::queued(&e.primary)? {
         if e.stopping() || tokio::time::Instant::now() >= until { break; }
         let Some(request) = api_orders::take(&e.primary, id, clock.now())? else { continue };
-        let result = api_order(e, &request, clock).await;
-        e.events.send(EngineEvent::OrderUpdated { bot_id: request.bot_id });
+        let result = match request.bot_id {
+            Some(bot_id) => { let r = api_order(e, &request, bot_id, clock).await; e.events.send(EngineEvent::OrderUpdated { bot_id }); r }
+            None => standalone_order(e, &request, clock).await,
+        };
         // Every path answers; one that did not (nothing sent) must not leave its caller waiting for the cap.
         if result.is_ok() && api_orders::still_taken(&e.primary, id)? { api_orders::finish(&e.primary, id, &Outcome::Busy)?; }
         if let Err(err) = result {
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
-            super::log(&format!("[engine] api order {id} (bot {}): {err:?}", request.bot_id));
+            super::log(&format!("[engine] api order {id} (bot {:?}): {err:?}", request.bot_id));
             let mid_send = e.primary.query_row("SELECT state = 'sending' FROM rust_api_orders WHERE id = ?1", [id], |r| r.get::<_, bool>(0)).optional()?.unwrap_or(false);
             let outcome = if mid_send { Outcome::Ambiguous { errors: vec!["the order's outcome could not be recorded".into()] } }
                 else { Outcome::Failed { errors: vec!["An unexpected error occurred.".into()] } };
@@ -1222,12 +1224,12 @@ pub async fn run_api_orders<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Cloc
 
 /// One taken request: the key validation saw, then the order (signal::run_api_order, which asks BotOrder's late
 /// `bot_refusal` on the bot it sizes from). Retried in the same take while the pair changed under it, until its send deadline.
-async fn api_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orders::Request, clock: &dyn Clock) -> Result<(), EngineError> {
+async fn api_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orders::Request, bot_id: i64, clock: &dyn Clock) -> Result<(), EngineError> {
     use super::api_orders::{self, Outcome};
     loop {
         let now = clock.now();
         if now > request.send_by { return api_orders::finish(&e.primary, request.id, &Outcome::Busy); }
-        let bot = model::load_bot(&e.primary, request.bot_id)?;
+        let bot = model::load_bot(&e.primary, bot_id)?;
         let (venue, producer) = e.venue_for(&bot)?;
         if producer.is_none() || producer != request.credential_version {
             let exchange = model::exchange_name(&e.primary, &bot)?;
@@ -1248,4 +1250,23 @@ async fn api_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orde
         after_tick(e, bot.id, &start, last_tx, None, clock, &producer)?;
         if step? != super::signal::Step::Again { return Ok(()); }
     }
+}
+
+/// PLAN-A9 O4: one taken standalone request (no bot): the account's trading key on its venue, as validation saw it, then
+/// api_orders::place_standalone. A key replaced since validation places nothing (`api_key_missing`).
+async fn standalone_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orders::Request, clock: &dyn Clock) -> Result<(), EngineError> {
+    use super::api_orders::{self, Outcome};
+    let exchange_id = request.standalone.as_ref().map(|s| s.exchange_id).ok_or_else(|| EngineError::Data(format!("api order {}: no bot and no exchange", request.id)))?;
+    if clock.now() > request.send_by { return api_orders::finish(&e.primary, request.id, &Outcome::Busy); }
+    let (venue, producer) = venue_for(&e.primary, &e.factory, &e.cipher, &model::Bot::key_holder(request.user_id, exchange_id))?;
+    if producer.is_none() || producer != request.credential_version {
+        let exchange: String = e.primary.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get(0)).optional()?.unwrap_or_default();
+        return api_orders::finish(&e.primary, request.id, &Outcome::Refused { code: "api_key_missing".into(),
+            message: format!("No valid API key found for {exchange}. Please add an API key in Settings.") });
+    }
+    let stop = e.stop.clone();
+    let stopping = move || stop.load(Ordering::SeqCst);
+    let cx = TickContext { credential_version: producer, prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
+                           stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
+    api_orders::place_standalone(&e.primary, &venue, request, clock, &cx).await
 }

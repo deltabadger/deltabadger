@@ -71,6 +71,10 @@ pub trait Transport {
     /// The moment a request signed now is stamped with (Binance's `timestamp`), read just before it is sent: the transport's
     /// own clock, the one that also bounds a placement's send (`not_after`). A scripted transport reads the system clock.
     fn now(&self) -> DateTime<Utc> { Utc::now() }
+    /// The clock an order's send deadline is checked against after an adapter's own pre-send read (PLAN-A9 O4 r1 §1):
+    /// `now`. None where replies take no time and no clock was set (a scripted transport left unset, as it ignores
+    /// `not_after`), so no deadline can pass during its reads.
+    fn deadline_clock(&self) -> Option<DateTime<Utc>> { Some(self.now()) }
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
     /// `send`, refusing a response body over `limit` bytes. The real transport stops reading at the limit; a transport
     /// that has the whole answer in hand (the scripted one, a test wrapper) is checked after the fact.
@@ -439,6 +443,7 @@ impl ScriptedTransport {
 
 impl Transport for ScriptedTransport {
     fn now(&self) -> DateTime<Utc> { self.s.borrow().now.unwrap_or_else(Utc::now) }
+    fn deadline_clock(&self) -> Option<DateTime<Utc>> { self.s.borrow().now }
     /// A reply's "content_type" when scripted; else a JSON body answers as application/json and a string body with none.
     async fn send_typed(&self, r: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
         let resp = self.send(r).await?;

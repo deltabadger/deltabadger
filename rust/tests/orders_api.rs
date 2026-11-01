@@ -1,8 +1,7 @@
 //! PLAN-A9 slice O1: what the order routes and tools answer where Rails has no answer to record. The refusals before the
 //! venue are compared with Rails on the page grid (api_orders_*, not_ported_api_orders_*) and the MCP control grid
-//! (order_*); this file holds the named divergences: D-ORDER-AMOUNT-VALIDATION, D-ORDER-IBKR, and the `not_ported` answer
-//! of a standalone order that passes every check, which gives its Idempotency-Key back. Cancels past the checks are
-//! sent (slice O2): tests/cancel_order.rs.
+//! (order_*); this file holds the named divergences: D-ORDER-AMOUNT-VALIDATION and D-ORDER-IBKR (its `not_ported` answer
+//! gives the Idempotency-Key back). Cancels past the checks are sent (slice O2): tests/cancel_order.rs.
 //!
 //! Slice O3 (the second half): an order through a signal bot, queued for the engine and waited for (D-ORDER-QUEUED,
 //! D-ORDER-WAIT-CAP, D-ORDER-API-CAP), with the web app and the engine on one database and a scripted Kraken.
@@ -71,7 +70,7 @@ fn keys(d: &tempfile::TempDir) -> Vec<(String, String)> {
 const UNPORTED_POST: &str = "POST /api/v1/orders is not served by this build yet.";
 
 #[tokio::test(flavor = "current_thread")]
-async fn rest_refuses_what_rails_hands_the_venue_and_answers_not_ported_standalone_past_every_check() {
+async fn rest_refuses_what_rails_hands_the_venue_and_queues_standalone_past_every_check() {
     let (d, app, bot) = install();
     let pair = json!({"type": "market_buy", "exchange_name": "Alpaca", "base_asset": "BTC", "quote_asset": "USD"});
     let with = |extra: Value| { let mut b = pair.clone(); b.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone()); b };
@@ -87,17 +86,22 @@ async fn rest_refuses_what_rails_hands_the_venue_and_answers_not_ported_standalo
         assert_eq!((status, answer), (422, json!({"data": null, "error": {"code": code, "message": message}})), "{body}");
     }
     let stored = keys(&d).len();
-    // Past every check: 501, and the key is given back, so the same request may be sent again once a build places it.
-    // D-ORDER-MARKET-PRICE: a market order's `price` is ignored (Rails' market services raise on it).
-    for body in [with(json!({"amount": 10})), with(json!({"amount": 10, "price": 100})),
-                 // D-ORDER-IBKR: Rails' checks pass on a venue this build does not trade.
-                 json!({"type": "limit_buy", "exchange_name": "Interactive Brokers", "base_asset": "BTC", "quote_asset": "USD", "amount": 10, "price": 400})] {
-        for _ in 0..2 {
-            let (status, answer) = order(&app, body.clone(), "same-key").await;
-            assert_eq!((status, answer), (501, json!({"data": null, "error": {"code": "not_ported", "message": UNPORTED_POST}})), "{body}");
-        }
+    // D-ORDER-IBKR: Rails' checks pass on a venue this build does not trade: 501, and the key is given back.
+    let ibkr = json!({"type": "limit_buy", "exchange_name": "Interactive Brokers", "base_asset": "BTC", "quote_asset": "USD", "amount": 10, "price": 400});
+    for _ in 0..2 {
+        let (status, answer) = order(&app, ibkr.clone(), "same-key").await;
+        assert_eq!((status, answer), (501, json!({"data": null, "error": {"code": "not_ported", "message": UNPORTED_POST}})));
     }
     assert_eq!(keys(&d).len(), stored, "a not_ported answer claims no key");
+    // PLAN-A9 O4: past every check a standalone order is queued for the engine; with none attached it is withdrawn at
+    // once (venue_busy, nothing placed) and the answer is stored with the key. D-ORDER-MARKET-PRICE: a market order's
+    // `price` is ignored (Rails' market services raise on it).
+    for (body, key) in [(with(json!({"amount": 10})), "standalone"), (with(json!({"amount": 10, "price": 100})), "standalone-priced")] {
+        for _ in 0..2 {
+            let (status, answer) = order(&app, body.clone(), key).await;
+            assert_eq!((status, answer), refusal(409, "venue_busy", "Alpaca is busy with another order from your bots. Nothing was placed; try again."), "{body}");
+        }
+    }
     assert!(keys(&d).iter().all(|(_, state)| state == "completed"));
     // Through a bot with no engine attached: withdrawn at once, nothing queued; the answer is stored with the key.
     let (status, answer) = order(&app, json!({"type": "market_sell", "bot_id": bot, "amount": "0.5"}), "through-bot").await;
@@ -110,7 +114,7 @@ async fn rest_refuses_what_rails_hands_the_venue_and_answers_not_ported_standalo
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn mcp_answers_venue_busy_with_no_engine_not_ported_standalone_and_on_ibkr_dry_runs() {
+async fn mcp_answers_venue_busy_with_no_engine_and_on_ibkr_dry_runs() {
     let (d, app, bot) = install();
     let (_, session, _) = send(&app, "POST", "/mcp", "orders-mcp", Some(json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
         "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "orders", "version": "1"}}})), &[]).await;
@@ -125,9 +129,9 @@ async fn mcp_answers_venue_busy_with_no_engine_not_ported_standalone_and_on_ibkr
         }
     };
     let refused = |text: &str| json!({"isError": true, "content": [{"type": "text", "text": text}]});
-    let placing = "This app can't run that yet: orders placed through MCP or the REST API";
-    assert_eq!(call("market_buy", json!({"bot_id": bot, "amount": 10})).await, refused("Alpaca is busy with another order from your bots. Nothing was placed; try again."));
-    assert_eq!(call("market_sell", json!({"exchange_name": "alpaca", "base_asset": "btc", "quote_asset": "usd", "amount": 0.001})).await, refused(placing));
+    let busy = "Alpaca is busy with another order from your bots. Nothing was placed; try again.";
+    assert_eq!(call("market_buy", json!({"bot_id": bot, "amount": 10})).await, refused(busy));
+    assert_eq!(call("market_sell", json!({"exchange_name": "alpaca", "base_asset": "btc", "quote_asset": "usd", "amount": 0.001})).await, refused(busy));
     // A wash-sale lock's last day is a calendar day before the deadline in the caller's zone: 2026-10-26 00:00 UTC is the
     // 25th at 23:00 in the Azores once summer time has ended, so the 24th (24 hours before would read the 25th).
     {
@@ -288,7 +292,7 @@ async fn a_request_no_pass_takes_within_ten_seconds_is_withdrawn_and_never_sent(
     let side = deltabadger::venue::Side::Buy;
     let amount = deltabadger::ruby::BigDec::parse("1").unwrap();
     let empty = serde_json::Map::new();
-    let new = || api_orders::New { user_id: k.user, bot: &bot, side, amount: &amount, in_base: false, supplied: &empty };
+    let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side, amount: &amount, in_base: false, supplied: &empty };
     let first = api_orders::insert(k.c(), &new(), kt(0).0).unwrap();
     assert!(api_orders::take(k.c(), first, kt(0).0).unwrap().is_some());
     assert!(!api_orders::withdraw(k.c(), first).unwrap());
@@ -335,7 +339,7 @@ async fn a_restart_withdraws_queued_requests_answers_taken_ones_busy_and_leaves_
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
     let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
     let empty = serde_json::Map::new();
-    let new = || api_orders::New { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
+    let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
     let (q, t, s) = (api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap());
     api_orders::take(k.c(), t, kt(0).0).unwrap();
     api_orders::take(k.c(), s, kt(0).0).unwrap();
@@ -502,4 +506,198 @@ async fn the_answer_names_the_pair_that_was_placed() {
     run::step(&mut k.e, &kt(0)).await.unwrap();
     let (status, body) = request.await.unwrap();
     assert_eq!((status, body["data"]["pair"].clone()), (201, json!("XBTX/EUR")));
+}
+
+// ---- O4: standalone orders (no bot_id), placed by the engine on the account ---------------------------------------------
+
+fn standalone(kind: &str, extra: Value) -> Value {
+    let mut b = json!({"type": kind, "exchange_name": "Kraken", "base_asset": "BTC", "quote_asset": "EUR"});
+    b.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+    b
+}
+fn retained(k: &Kraken) -> Vec<(String, Option<String>)> {
+    k.c().prepare("SELECT o.state || ' ' || coalesce(json_extract(o.outcome, '$.kind'), ''), s.external_id FROM rust_api_orders o \
+                   LEFT JOIN rust_api_order_standalone s ON s.order_id = o.id ORDER BY o.id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_standalone_order_is_placed_in_one_pass_answers_rails_bytes_replays_and_is_kept_for_cancel() {
+    let mut k = kraken(priced());
+    let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "one");
+    queued(&k, 1).await;
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    let (status, body) = request.await.unwrap();
+    assert_eq!((status, body.clone()), (201, json!({"data": {"dry_run": false, "exchange": "Kraken", "pair": "BTC/EUR", "side": "buy", "order_type": "market",
+        "amount": "100", "amount_type": "quote", "upstream": {"order_id": "OFAKE-1"}}, "error": null})));
+    // The caller's denomination as sent (Kraken's viqc), no row, no bot touched.
+    assert_eq!((k.venue.sent().len(), k.venue.sent()[0].volume.as_str(), k.venue.sent()[0].quote_volume), (1, "100.0", true));
+    assert!(k.rows().is_empty());
+    // D-ORDER-STANDALONE-LOG: answered, read, and kept with the venue's id.
+    assert_eq!(retained(&k), vec![("done placed".to_string(), Some("OFAKE-1".to_string()))]);
+    let (status, again) = order(&k.app, standalone("market_buy", json!({"amount": "100"})), "one").await;
+    assert_eq!((status, again, k.venue.sent().len()), (201, body, 1), "the stored bytes, nothing sent again");
+    // A limit order: base at the floored price, its price as sent echoed.
+    let request = post(&k.app, standalone("limit_sell", json!({"amount": "100", "amount_type": "quote", "price": 70000})), "limit");
+    queued(&k, 1).await;
+    run::step(&mut k.e, &kt(1)).await.unwrap();
+    assert_eq!(request.await.unwrap(), (201, json!({"data": {"dry_run": false, "exchange": "Kraken", "pair": "BTC/EUR", "side": "sell", "order_type": "limit",
+        "amount": "100", "amount_type": "quote", "price": 70000, "upstream": {"order_id": "OFAKE-2"}}, "error": null})));
+    let sent = &k.venue.sent()[1];
+    assert_eq!((sent.volume.as_str(), &sent.kind, sent.quote_volume), ("0.00142857", &deltabadger::venue::OrderKind::Limit { price: "70000.0".into() }, false));
+    // Kept through the start-up sweep of answered rows (a day later) as well.
+    deltabadger::engine::api_orders::sweep_at_start(k.c(), kt(86_400).0).unwrap();
+    assert_eq!(retained(&k).len(), 2);
+    // r3 §1, D-ORDER-KRAKEN-QUOTE-SELL: Rails' adapter raises before sending; here Rails' message as order_failed, nothing sent.
+    let request = post(&k.app, standalone("market_sell", json!({"amount": "100", "amount_type": "quote"})), "quote-sell");
+    queued(&k, 1).await;
+    run::step(&mut k.e, &kt(2)).await.unwrap();
+    assert_eq!(request.await.unwrap(), refusal(502, "order_failed", "Order failed: Kraken does not support market sell orders in quote currency"));
+    assert_eq!(k.venue.sent().len(), 2);
+    assert_eq!(retained(&k).len(), 2, "a failed standalone order is not kept");
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_standalone_order_no_pass_takes_is_withdrawn_and_one_the_venue_never_answers_is_ambiguous_at_the_cap() {
+    let mut k = kraken(priced());
+    let (status, body) = order(&k.app, standalone("market_buy", json!({"amount": "100"})), "late").await;
+    assert_eq!((status, body), refusal(409, "venue_busy", "Kraken is busy with another order from your bots. Nothing was placed; try again."));
+    run::step(&mut k.e, &kt(11)).await.unwrap();
+    assert!(k.venue.sent().is_empty());
+    assert_eq!(k.count("SELECT count(*) FROM rust_api_orders"), 0);
+
+    let gate = std::rc::Rc::new(tokio::sync::Notify::new());
+    let mut k = kraken(priced().hold_add(gate.clone()));
+    let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "held");
+    queued(&k, 1).await;
+    // The engine bounds its one send by the request budget (TOTAL_TIMEOUT) and answers first; the order may be on Kraken.
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    assert_eq!(request.await.unwrap(), refusal(502, "placement_ambiguous", "The order may or may not have been placed: the exchange did not answer in time. Check Kraken before sending it again."));
+    assert!(retained(&k).is_empty(), "an ambiguous order is answered and forgotten: only a placed one is kept");
+    drop(gate);
+}
+
+/// §3.2 item 3 and r1 §5: the key, the pair and a buy's wash-sale lock are asked again at the claim, with the request's
+/// codes and texts; nothing is sent.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_standalone_order_asks_again_at_its_claim_what_changed_after_validation() {
+    async fn once(k: &mut Kraken, change: &str, key: &str) -> (u16, Value) {
+        let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), key);
+        queued(k, 1).await;
+        k.c().execute_batch(change).unwrap();
+        run::step(&mut k.e, &kt(0)).await.unwrap();
+        request.await.unwrap()
+    }
+    let mut k = kraken(priced());
+    let replaced = format!("UPDATE api_keys SET secret='{}'", common::seed::cipher().encrypt("b3RoZXI="));
+    assert_eq!(once(&mut k, &replaced, "key").await, refusal(403, "api_key_missing", "No valid API key found for Kraken. Please add an API key in Settings."));
+    let mut k = kraken(priced());
+    assert_eq!(once(&mut k, "UPDATE tickers SET trading_enabled=0", "pair").await, refusal(409, "ticker_not_tradable", "Trading pair BTC/EUR is not tradable on Kraken."));
+    // The lock's last day in the surface's zone: REST in UTC (the 25th), MCP in the user's (the Azores: the 24th). Rails
+    // names the ticker's base (Kraken's XBT).
+    let mut k = kraken(priced());
+    k.c().execute("UPDATE users SET wash_sale_enabled=1, wash_sale_jurisdiction='US', time_zone='Azores'", []).unwrap();
+    let lock = format!("INSERT INTO wash_sale_locks (user_id,asset_id,buy_locked_until,source,created_at,updated_at) \
+                        SELECT {}, id, '2026-10-26 00:00:00', 'order', '{T}', '{T}' FROM assets WHERE symbol='BTC'", k.user);
+    assert_eq!(once(&mut k, &lock, "lock").await, refusal(409, "wash_sale_locked", "XBT is locked until 2026-10-25 after a sale at a loss. Change this in account settings."));
+    use deltabadger::engine::api_orders;
+    k.c().execute("DELETE FROM wash_sale_locks", []).unwrap();
+    let ticker: i64 = k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap();
+    let exchange: i64 = k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap();
+    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let pair: serde_json::Map<String, Value> = [("base_asset".to_string(), json!("BTC")), ("quote_asset".to_string(), json!("EUR"))].into_iter().collect();
+    let id = api_orders::insert(k.c(), &api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
+        standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: true } }, kt(0).0).unwrap();
+    k.c().execute_batch(&lock).unwrap();
+    let request = api_orders::take(k.c(), id, kt(0).0).unwrap().unwrap();
+    let refused = deltabadger::web::bot_api::orders::standalone_late_refusal(k.c(), kt(0).0, &request).unwrap().unwrap();
+    assert_eq!(refused.message, "XBT is locked until 2026-10-24 after a sale at a loss. Change this in account settings.");
+    // The pair gone since validation (the engine refuses a whole install with a bot on a missing ticker, so asked directly):
+    // Lookup.find_ticker's refusal, with the pair the caller named.
+    k.c().execute("DELETE FROM tickers", []).unwrap();
+    let gone = deltabadger::web::bot_api::orders::standalone_late_refusal(k.c(), kt(0).0, &request).unwrap().unwrap();
+    assert_eq!((gone.code, gone.message.as_str()), (Some("pair_not_found"), "Trading pair BTC/EUR not found on Kraken."));
+    assert!(k.venue.sent().is_empty());
+}
+
+/// r2: an API order's deadline at the venue is min(claim + the send window, send_by), on both paths; past send_by, busy.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn send_by_bounds_the_order_at_the_venue_on_both_paths() {
+    let send_by = K0.parse::<chrono::DateTime<chrono::Utc>>().unwrap() + chrono::Duration::seconds(60);
+    for body in [standalone("market_buy", json!({"amount": "100"})), json!({"type": "market_buy", "bot_id": 0, "amount": "100"})] {
+        let mut k = kraken(priced());
+        let body = if body["bot_id"] == 0 { buy(&k, json!("100")) } else { body };
+        let request = post(&k.app, body.clone(), "late-claim");
+        queued(&k, 1).await;
+        run::step(&mut k.e, &kt(55)).await.unwrap();
+        assert_eq!(request.await.unwrap().0, 201, "{body}");
+        assert_eq!(k.venue.sent()[0].deadline, send_by, "{body}: claimed at 55 s, the venue's deadline is send_by, not 65 s");
+        let mut k = kraken(priced());
+        let request = post(&k.app, body.clone(), "too-late");
+        queued(&k, 1).await;
+        run::step(&mut k.e, &kt(61)).await.unwrap();
+        assert_eq!(request.await.unwrap(), refusal(409, "venue_busy", "Kraken is busy with another order from your bots. Nothing was placed; try again."));
+        assert!(k.venue.sent().is_empty());
+    }
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_restart_answers_a_standalone_sending_order_unknown_and_never_sends_it_again() {
+    let mut k = kraken(priced());
+    use deltabadger::engine::api_orders;
+    let ticker: i64 = k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap();
+    let exchange: i64 = k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap();
+    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let pair = serde_json::Map::new();
+    let new = || api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
+        standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: false } };
+    let (t, s) = (api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap());
+    api_orders::take(k.c(), t, kt(0).0).unwrap();
+    api_orders::take(k.c(), s, kt(0).0).unwrap();
+    assert!(api_orders::claim(k.c(), s, "cl-1", None, &json!({})).unwrap());
+    api_orders::sweep_at_start(k.c(), kt(1).0).unwrap();
+    run::step(&mut k.e, &kt(1)).await.unwrap();
+    let state = |id: i64| k.c().query_row("SELECT state || ' ' || coalesce(json_extract(outcome, '$.kind'), '') FROM rust_api_orders WHERE id=?1", [id], |r| r.get::<_, String>(0)).unwrap();
+    assert_eq!((state(t), state(s)), ("done busy".into(), "done unknown".into()));
+    assert!(k.venue.sent().is_empty());
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_standalone_client_that_hangs_up_mid_wait_still_leaves_its_key_completed() {
+    let mut k = kraken(priced());
+    let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "gone");
+    queued(&k, 1).await;
+    request.abort();
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    for _ in 0..200 {
+        if keys(&k.d) == vec![("gone".to_string(), "completed".to_string())] { break }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    assert_eq!(keys(&k.d), vec![("gone".to_string(), "completed".to_string())]);
+    let stored: String = k.c().query_row("SELECT response_body FROM idempotency_keys", [], |r| r.get(0)).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&stored).unwrap()["data"]["upstream"]["order_id"], "OFAKE-1");
+}
+
+/// r0 §2.4, r1 §3: Exchange#place_limit_order's sizing (grid-orders' Kraken edges and Hyperliquid's significant figures).
+#[tokio::test(flavor = "current_thread")]
+async fn limit_order_sizes_as_place_limit_order() {
+    use deltabadger::engine::{amount::limit_order, venue_rules::{for_exchange, HYPERLIQUID}};
+    let k = kraken(priced());
+    let ticker = deltabadger::engine::model::ticker_by_id(k.c(), k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap(),
+                                                          k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap()).unwrap().unwrap();
+    let rules = for_exchange("Exchanges::Kraken").unwrap();
+    let d = |s: &str| deltabadger::ruby::BigDec::parse(s).unwrap();
+    let buy = deltabadger::venue::Side::Buy;
+    let sized = |amount: &str, quote: bool, price: &str| limit_order(&ticker, rules, buy, &d(amount), quote, &d(price)).map(|p| (p.volume.to_s_f(), p.price.to_s_f()));
+    let (min, base, code) = (ticker.minimum_base_size.to_s_f(), ticker.base_code.clone(), ticker.ticker.clone());
+    assert_eq!(sized("0.001", false, "49000.37"), Ok(("0.001".into(), "49000.3".into())));
+    assert_eq!(sized("100.123456", true, "49000"), Ok(("0.00204333".into(), "49000.0".into())));
+    assert_eq!(sized("0.000000001", false, "49000"), Err(format!("Limit order of 0.0 {base} is below the minimum of {min} {base} for {code}")));
+    assert_eq!(sized("0.00000001", false, "49000"), Err(format!("Limit order of 0.00000001 {base} is below the minimum of {min} {base} for {code}")));
+    for quote in [false, true] {
+        assert_eq!(sized("0.001", quote, "0.01"), Err(format!("Invalid limit price for {code}: the limit price must be positive")));
+    }
+    // Hyperliquid: five significant figures, so a fractional price floors to a whole one.
+    let hl = limit_order(&ticker, &HYPERLIQUID, buy, &d("100"), true, &d("64006.123")).unwrap();
+    assert_eq!((hl.price.to_s_f(), hl.quote_type), ("64006.0".into(), false));
 }

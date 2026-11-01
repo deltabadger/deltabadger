@@ -211,9 +211,7 @@ impl OrderPlan {
         let qty = if self.quote_type {
             self.volume.div(&price).ok_or_else(|| "zero limit price".to_string())?.floor(base_decimals)
         } else { self.volume.floor(base_decimals) };
-        Ok((qty.is_zero() || qty < t.minimum_base_size).then(|| format!(
-            "Limit order of {} {} is below the minimum of {} {} for {}",
-            qty.to_s_f(), t.base_code, t.minimum_base_size.to_s_f(), t.base_code, t.ticker)))
+        Ok(limit_below_minimum(t, &qty))
     }
 
     /// `Err` only for a ticker precision outside `ruby::MAX_SCALE` (then `size` refused the plan already).
@@ -278,6 +276,69 @@ impl OrderPlan {
         json!({ "base": self.ticker.base_symbol, "quote": self.ticker.quote_symbol, "amount": self.amount.to_s_f(),
                 "quote_amount": self.quote_amount.to_s_f(), "price": self.price.to_s_f() })
     }
+}
+
+/// Exchange#place_limit_order's refusal of a quantity that floors to nothing or under the venue's base floor.
+fn limit_below_minimum(t: &Ticker, qty: &BigDec) -> Option<String> {
+    (qty.is_zero() || *qty < t.minimum_base_size).then(|| format!("Limit order of {} {} is below the minimum of {} {} for {}",
+        qty.to_s_f(), t.base_code, t.minimum_base_size.to_s_f(), t.base_code, t.ticker))
+}
+
+/// PLAN-A9 O4 r0 §2.4, r1 §3: Exchange#place_limit_order for a standalone limit order. The price on the venue's tick
+/// (`VenueRules::adjusted_price`, floor: Hyperliquid's significant figures too), refused unless positive; the amount
+/// floored in its own denomination; a quote amount becomes base at that price, floored; zero or under the base minimum
+/// is refused. Always sent in base (`set_limit_order` takes a base amount). `Err`: Rails' text, nothing sent.
+pub fn limit_order(ticker: &Ticker, rules: &VenueRules, side: Side, amount: &BigDec, in_quote: bool, price: &BigDec) -> Result<OrderPlan, String> {
+    let (base_decimals, quote_decimals, _) = ticker.scales()?;
+    let price = rules.adjusted_price(price, ticker, Rounding::Floor)?;
+    if !price.is_positive() { return Err(format!("Invalid limit price for {}: the limit price must be positive", ticker.ticker)); }
+    let amount = amount.floor(if in_quote { quote_decimals } else { base_decimals });
+    let base = if in_quote { amount.div(&price).ok_or("divided by 0")? } else { amount }.floor(base_decimals);
+    if let Some(refusal) = limit_below_minimum(ticker, &base) { return Err(refusal); }
+    Ok(OrderPlan { ticker: ticker.clone(), side, limit: true, quote_amount: &base * &price, price, amount: base.clone(), quote_type: false, volume: base,
+                   kind: TxKind::Regular, origin: Origin::Base, wire_price: None })
+}
+
+/// How a standalone market order reaches each venue (PLAN-A9 O4 r4 §2): what a Rails adapter refuses before sending,
+/// and whether the order needs the touch (`market_price_for`) to be sent.
+pub enum MarketWire {
+    /// Rails' adapter raises before sending (D-ORDER-KRAKEN-QUOTE-SELL); the text.
+    Refused(&'static str),
+    /// Sent in the caller's denomination with no read.
+    Direct,
+    /// Needs the crossed or floored touch: a crossing venue (Gemini, Hyperliquid), Bitrue's quote amount, Bitget's base
+    /// buy or quote sell.
+    Priced,
+}
+pub fn market_wire(rules: &VenueRules, side: Side, in_base: bool) -> MarketWire {
+    match rules.exchange_type {
+        "Exchanges::Kraken" if side == Side::Sell && !in_base => MarketWire::Refused("Kraken does not support market sell orders in quote currency"),
+        "Exchanges::Bitrue" if !in_base => MarketWire::Priced,
+        "Exchanges::Bitget" if in_base == (side == Side::Buy) => MarketWire::Priced,
+        _ if rules.cross.is_some() => MarketWire::Priced,
+        _ => MarketWire::Direct,
+    }
+}
+
+/// The standalone market plan (PLAN-A9 O4 r1 §2): the caller's amount in its own denomination (`in_denomination`), no
+/// minimum and no balance. Where the adapter has no wire field for that denomination it is converted as that venue's
+/// Rails `set_market_order` converts: Bitrue and the crossing venues to base at `touch` (the ask for a buy, the bid for a
+/// sell; crossed already on Gemini and Hyperliquid), floored to base_decimals; Bitget by its wire format (`to_order`,
+/// at the floored touch). `touch`: `market_price_read`'s price where `market_wire` is `Priced`.
+pub fn market_order(ticker: &Ticker, rules: &VenueRules, side: Side, amount: &BigDec, in_base: bool, touch: Option<&BigDec>) -> Result<OrderPlan, String> {
+    let (base_decimals, _, _) = ticker.scales()?;
+    let price = touch.cloned().unwrap_or_else(BigDec::zero);
+    let plan = OrderPlan { ticker: ticker.clone(), side, limit: false, price: price.clone(),
+                           amount: if in_base { amount.clone() } else { BigDec::zero() }, quote_amount: if in_base { BigDec::zero() } else { amount.clone() },
+                           quote_type: !in_base, volume: BigDec::zero(), kind: TxKind::Regular, origin: if in_base { Origin::Base } else { Origin::QuoteBudget }, wire_price: None };
+    let plan = plan.in_denomination(amount, !in_base)?;
+    let converts = !in_base && (rules.exchange_type == "Exchanges::Bitrue" || rules.cross.is_some());
+    let plan = if converts {
+        let base = amount.div(&price).ok_or("divided by 0")?.floor(base_decimals);
+        OrderPlan { amount: base.clone(), quote_type: false, volume: base, ..plan }
+    } else { plan };
+    if rules.cross.is_some() { return plan.with_wire_price(rules, &price, true).map_err(|e| format!("{e:?}")); }
+    Ok(plan)
 }
 
 pub enum RowKind { Submitted { external_id: String }, Failed { errors: Vec<String> }, Skipped }

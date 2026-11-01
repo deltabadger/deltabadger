@@ -285,7 +285,7 @@ pub(crate) fn locked_buy(c: &Connection, bot: &Bot, ticker: &model::Ticker, side
 
 /// Exchange#with_transient_retry: an idempotent read tried up to 3 times, 0.5 s × n apart, while it fails transiently (a
 /// transport failure, or a venue's transient text). READS ONLY.
-async fn retrying<T, F, Fut>(venue: &impl Venue, read: F) -> Result<Result<T, VenueError>, EngineError>
+pub(crate) async fn retrying<T, F, Fut>(venue: &impl Venue, read: F) -> Result<Result<T, VenueError>, EngineError>
 where F: Fn() -> Fut, Fut: std::future::Future<Output = Result<Result<T, VenueError>, EngineError>> {
     let mut tries = 0;
     loop {
@@ -302,7 +302,7 @@ where F: Fn() -> Fut, Fut: std::future::Future<Output = Result<Result<T, VenueEr
 }
 
 /// A read's failure as Rails raises it into the row: `result.errors.to_sentence`, or the transport's own message.
-fn message(e: VenueError) -> String {
+pub(crate) fn message(e: VenueError) -> String {
     match e { VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. } => to_sentence(&e), VenueError::Transient(m) | VenueError::Ambiguous(m) => m }
 }
 
@@ -419,7 +419,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
 pub async fn run_api_order<V: Venue>(c: &Connection, venue: &V, request: &api_orders::Request, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {
     let handle = crate::venue::Handle::new(venue, cx.credential_version.clone());
     let venue = &handle;
-    let bot = model::load_bot(c, request.bot_id)?;
+    let bot = model::load_bot(c, request.bot_id.ok_or_else(|| EngineError::Data(format!("api order {}: no bot", request.id)))?)?;
     // BotOrder's late `bot_refusal`, on this very snapshot: the claim (placement::begin_signal) refuses any change to its
     // settings after it as `Changed`, so a pair edited after this check is never placed under the caller's request.
     if let Some(res) = crate::web::bot_api::orders::late_refusal(c, &bot, request).map_err(|e| EngineError::Data(format!("{e:?}")))? {

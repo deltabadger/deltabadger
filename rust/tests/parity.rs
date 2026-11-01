@@ -2990,3 +2990,55 @@ async fn flip_condition_grid_matches_rails_and_rule_off_buy_twins() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// PLAN-A9 O4: standalone market and limit orders (no bot_id) through their MCP tools on every trading venue's kit.
+/// 15 kits x 10 cells, Kraken's limit-sizing edges and two-error rejection, Hyperliquid's fractional limit price.
+const ORDERS_GRID_SIZE: usize = (15 * 10) + 6 + 1 + 2;
+
+/// PLAN-A9 O4 (grid-orders). Every request sent, the service's Result and the MCP tool's text must match per cell, except
+/// these named differences, each asserted exactly:
+/// - D-HYPERLIQUID-MARKET-IOC: a Hyperliquid market order is Ioc in Rust, Gtc in Rails, at the same price and size.
+/// - D-ORDER-AMBIGUOUS (`server_error`): a 5xx may have placed the order. Rails answers `order_failed` with the body;
+///   Rust answers 502 `placement_ambiguous`. The same single request is sent.
+/// - D-ORDER-KRAKEN-QUOTE-SELL: Rails' Kraken adapter raises on a quote market sell before sending (MCP's error, REST's
+///   500); Rust refuses it as `order_failed` with Rails' message. Nothing is sent on either side.
+/// Rails' side is also pinned to the committed recording (tests/fixtures/grid_orders_rails.json), so Rails drifting under
+/// the grid shows as a fixture diff rather than as a silent pass.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn rails_and_rust_place_identically_across_the_orders_grid() {
+    let (_copies, outputs) = grid_outputs("grid-orders", ORDERS_GRID_SIZE).await;
+    let recorded: serde_json::Value = serde_json::from_str(include_str!("fixtures/grid_orders_rails.json")).unwrap();
+    let kraken_quote_sell = "Kraken does not support market sell orders in quote currency";
+    let mut failures = vec![];
+    for (name, _, rails_out, rust_out) in &outputs {
+        let pinned = &recorded[name.as_str()];
+        if pinned["sent"] != rails_out["sent"] || pinned["order"] != rails_out["orders"][0] {
+            failures.push(format!("{name}: Rails no longer answers as recorded\n  recorded: {pinned}\n  now:      {}", rails_out["orders"][0]));
+            continue;
+        }
+        let comparison;
+        // Every Hyperliquid cell but the limit ones is a market order (`rejected` and `server_error` are market buys).
+        let rust_out = if name.starts_with("orders-hyperliquid-") && !name.contains("-limit-") && !rust_out["sent"].as_array().is_none_or(|s| s.is_empty()) {
+            comparison = hyperliquid_market_ioc_comparison(name, rails_out, rust_out);
+            &comparison
+        } else { rust_out };
+        // What Rust is compared on: Rails' entry without the tool's arguments and a raise (Rust has neither).
+        let mut rails = rails_out.clone();
+        for o in rails["orders"].as_array_mut().into_iter().flatten() { o.as_object_mut().unwrap().retain(|k, _| k == "result" || k == "mcp"); }
+        let (r, u) = (&rails["orders"][0], &rust_out["orders"][0]);
+        let differs = if name.ends_with("-server_error") {
+            let one_sent = rails["sent"].as_array().unwrap().len() == 1 && rust_out["sent"] == rails["sent"];
+            !(one_sent && r["result"]["code"] == "order_failed" && u["result"]["code"] == "placement_ambiguous" && u["result"]["status"] == "upstream_failed"
+              && u["mcp"]["isError"] == true && rust_out["changes"] == rails["changes"])
+        } else if name == "orders-kraken-market-sell-quote" {
+            let message = format!("Order failed: {kraken_quote_sell}");
+            !(rails_out["orders"][0]["raised"]["message"] == kraken_quote_sell && rails["sent"] == serde_json::json!([]) && rust_out["sent"] == serde_json::json!([])
+              && u["result"] == serde_json::json!({ "status": "upstream_failed", "code": "order_failed", "message": message, "data": null })
+              && u["mcp"] == serde_json::json!({ "content": [{ "type": "text", "text": message }], "isError": true }))
+        } else {
+            rails["sent"] != rust_out["sent"] || rails["orders"] != rust_out["orders"] || rails["changes"] != rust_out["changes"]
+        };
+        if differs { failures.push(format!("{name}\n  rails: {rails}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+}
