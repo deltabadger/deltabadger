@@ -12,7 +12,8 @@
 //! carry it); app_configs.created_at/updated_at (the rows the claim and the start write: engine_lease, rust_job.*);
 //! the lease's `since` (rewritten by the claim); rust_schema_migrations.applied_at; ar_internal_metadata's stamps
 //! (common::schema::dump leaves them out).
-#![cfg(unix)]
+// The abort points exist only in debug builds; under --release `run` would not die and these tests would wait.
+#![cfg(all(unix, debug_assertions))]
 mod common;
 use common::schema::{dump, next_ids, rows, snapshot, Rows, Tables};
 use rusqlite::Connection;
@@ -36,18 +37,36 @@ fn command(dir: &Path, args: &[&str]) -> Command {
     c
 }
 
+/// The command's output, killed if it is still running after 120 s (a missed abort point must fail, not hang).
+fn output(mut c: impl std::borrow::BorrowMut<Command>) -> Output {
+    let c = c.borrow_mut();
+    let child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    let pid = child.id();
+    let (done, wait) = std::sync::mpsc::channel::<()>();
+    let watchdog = std::thread::spawn(move || {
+        if wait.recv_timeout(std::time::Duration::from_secs(120)).is_err() {
+            let _ = Command::new("kill").args(["-KILL", &pid.to_string()]).status();
+        }
+    });
+    let out = child.wait_with_output().unwrap();
+    let _ = done.send(());
+    watchdog.join().unwrap();
+    assert_ne!(out.status.signal(), Some(9), "still running after 120 s:\n{}", said(&out));
+    out
+}
+
 fn said(out: &Output) -> String { format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)) }
 
 /// `run`, killed at `step`.
 fn run_until(dir: &Path, step: &str) -> Output {
-    let out = command(dir, &["run"]).env("DELTABADGER_TEST_ABORT", step).output().unwrap();
+    let out = output(command(dir, &["run"]).env("DELTABADGER_TEST_ABORT", step));
     assert_eq!(out.status.signal(), Some(6), "run should die at {step}: {:?}\n{}", out.status, said(&out));
     out
 }
 
 /// `run` that is refused before it claims anything.
 fn refused(dir: &Path) -> String {
-    let out = command(dir, &["run"]).env("DELTABADGER_TEST_ABORT", "after-claim").output().unwrap();
+    let out = output(command(dir, &["run"]).env("DELTABADGER_TEST_ABORT", "after-claim"));
     assert_eq!(out.status.code(), Some(1), "run should be refused: {:?}\n{}", out.status, said(&out));
     said(&out)
 }
@@ -143,7 +162,7 @@ fn a_bootstrap_killed_at_any_step_ends_as_an_uninterrupted_one_after_a_restart()
         assert!(dir.path().join(QUEUE).exists(), "{step}: the queue comes first");
         if ["after-queue", "after-wal", "mid-baseline", "mid-seed", "before-commit"].contains(&step) {
             // Nothing committed: `check` sees no install, as on an empty directory.
-            let check = command(dir.path(), &["check"]).output().unwrap();
+            let check = output(command(dir.path(), &["check"]));
             assert!(said(&check).contains("no install at") && !check.status.success(), "{step}: {}", said(&check));
         }
         let out = run_until(dir.path(), "after-claim");
@@ -202,7 +221,7 @@ fn a_primary_that_is_not_sqlite_or_not_an_install_is_refused_and_untouched() {
 fn pending_rust_migrations_after_the_bootstrap_commit_are_resumed() {
     let dir = tempfile::tempdir().unwrap();
     run_until(dir.path(), "after-commit");
-    let check = command(dir.path(), &["check"]).output().unwrap();
+    let check = output(command(dir.path(), &["check"]));
     assert!(said(&check).contains("pending Rust migration"), "{}", said(&check));
     let out = run_until(dir.path(), "after-claim");
     assert!(said(&out).contains("applied Rust migration"), "{}", said(&out));
@@ -241,7 +260,7 @@ fn a_read_only_directory_fails_naming_the_path_and_leaves_nothing() {
         let dir = tempfile::tempdir().unwrap();
         if lock_there { std::fs::write(dir.path().join(".engine.lock"), b"").unwrap(); }
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
-        let out = command(dir.path(), &["run"]).output().unwrap();
+        let out = output(command(dir.path(), &["run"]));
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
         assert_eq!(out.status.code(), Some(1), "{}", said(&out));
         let named = if lock_there { dir.path().join(QUEUE) } else { dir.path().join(".engine.lock") };
@@ -312,7 +331,7 @@ fn handback_refuses_an_install_rust_created() {
     run_until(dir.path(), "after-claim");
     sql(dir.path(), PRIMARY, "PRAGMA wal_checkpoint(TRUNCATE)");
     let before = files(dir.path());
-    let out = command(dir.path(), &["handback"]).output().unwrap();
+    let out = output(command(dir.path(), &["handback"]));
     assert_eq!(out.status.code(), Some(1), "{}", said(&out));
     assert!(said(&out).contains("this install was created by Deltabadger 3.0; there is no earlier version to hand it back to"), "{}", said(&out));
     assert_eq!(files(dir.path()), before, "nothing written");
@@ -325,7 +344,7 @@ fn handback_refuses_an_install_rust_created() {
 fn every_other_command_creates_no_database_file() {
     for args in [&["check"][..], &["resolve-withdrawal", "1", "--not-sent"], &["handback"], &["resolve-placement", "1", "--not-placed"], &["sync", "ledger"]] {
         let dir = tempfile::tempdir().unwrap();
-        let out = command(dir.path(), args).output().unwrap();
+        let out = output(command(dir.path(), args));
         assert_eq!(out.status.code(), Some(1), "{args:?}: {}", said(&out));
         assert!(said(&out).contains(&format!("no install at {} yet; `run` or `serve` creates it", dir.path().join(PRIMARY).display())), "{args:?}: {}", said(&out));
         assert!(files(dir.path()).is_empty(), "{args:?}: {:?}", files(dir.path()).keys());
