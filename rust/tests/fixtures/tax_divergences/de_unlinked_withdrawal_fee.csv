@@ -1,0 +1,7 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Steuerfrei
+2026-02-01T10:00:00Z,2025-01-05T10:00:00Z,BTC,0.0005,40.0,15.0,25.0,EUR,392,0.0,kraken,withdrawal-BTC-2026-02-01T10:00:00Z,true,false,true
+2026-03-01T10:00:00Z,2025-01-05T10:00:00Z,BTC,0.9,72000.0,27000.0,45000.0,EUR,420,0.0,kraken,s1-BTC,true,false,true
+
+"WARNING: Nicht mit einer Einzahlung verknüpfte Auszahlungen; jede wird als Übertrag auf eine eigene Wallet behandelt, nicht als Verkauf:"
+BTC 0.1 2026-02-01
+"Verknüpfe jede im Tracker mit der passenden Einzahlung. Eine Auszahlung, die ein Verkauf, eine Zahlung oder eine Schenkung war, ist eine Veräußerung, die dieser Bericht nicht enthält."

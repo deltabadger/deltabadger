@@ -308,9 +308,22 @@ impl<'a> Fifo<'a> {
                 dest.extend(taken);
                 dest.make_contiguous().sort_by_key(|l| l.date.0);
             }
-        } else if self.per_venue {
-            let k = self.key(&r.exchange, &tx.asset);
-            self.dequeue_cost(&k, &r.amount)?;
+        } else {
+            // D-TAX-COIN-FEE: an unlinked withdrawal's fee in its own coin is inside its amount (`walk::quantity_moves`) and
+            // was spent, not moved: it leaves the lots as the fee it is, the rest as the withdrawal. Rails kept it.
+            let mut amount = r.amount.clone();
+            if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str())) {
+                self.spend_fee_coin(tx, fee)?;
+                amount = max0((&amount - fee)?);
+            }
+            if self.per_venue {
+                let k = self.key(&r.exchange, &tx.asset);
+                self.dequeue_cost(&k, &amount)?;
+            }
+        }
+        // D-TAX-COIN-FEE: a fee in another coin on any withdrawal leaves that coin's lots (Rails never took it).
+        if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()).filter(|_| crypto_fee_asset(r) && r.fee_currency.as_deref() != Some(r.base.as_str())) {
+            self.spend_fee_coin(tx, fee)?;
         }
         Ok(())
     }

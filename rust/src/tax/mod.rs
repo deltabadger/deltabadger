@@ -122,8 +122,9 @@ impl Report {
         let (j, year) = (self.j, self.year);
         let currency = j.currency(year);
         let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);
-        let enriched: Vec<Entry> = walk::enrich_with(&self.scoped, &self.deposits, &mut ps, true, currency, on_progress)?.into_iter().zip(&self.scoped)
+        let mut enriched: Vec<Entry> = walk::enrich_with(&self.scoped, &self.deposits, &mut ps, true, currency, on_progress)?.into_iter().zip(&self.scoped)
             .map(|(row, s)| Entry { id: s.id, row, tx_id: s.tx_id.clone() }).collect();
+        if !j.swaps_taxable() && !self.stablecoin_as_fiat { swap_coin_for_stablecoin_groups(&mut enriched); }
         // Income of the UTC year, a fiat row converted at the day's rate (Tax::Report#income_value), valued before the
         // engine: its missing rate counts towards the banner.
         let mut income: Vec<(usize, &str, Dec)> = vec![];
@@ -329,6 +330,24 @@ fn split_coin_quoted_trades(rows: Vec<Stored>, stable_cash: bool) -> Vec<Stored>
         if buying { out.push(other); out.push(own); } else { out.push(own); out.push(other); }
     }
     out
+}
+
+/// D-TAX-COIN-QUOTE, grouped legs: where swaps are not taxable and a stablecoin is a coin, a group of coin legs only (no
+/// fiat), its stablecoins all going one way and its other coins the other, booked as buy and sell (Kraken's ledger, which
+/// the enrichment reads with the stablecoin as cash), is the swap it is: its legs walk as swap legs. Rails taxed the coin
+/// as sold.
+fn swap_coin_for_stablecoin_groups(rows: &mut [Entry]) {
+    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
+    for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.exchange.clone(), g.clone())).or_default().push(i); } }
+    for legs in groups.values() {
+        let trade = |k: Kind| matches!(k, Kind::Buy | Kind::Sell);
+        if legs.iter().any(|&i| fiat(&rows[i].row.base) || !trade(rows[i].row.kind)) { continue; }
+        let (stables, coins): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| stable(&rows[i].row.base));
+        let (Some(&s0), Some(&c0)) = (stables.first(), coins.first()) else { continue };
+        let side = rows[s0].row.kind;
+        if rows[c0].row.kind == side || !stables.iter().all(|&i| rows[i].row.kind == side) || !coins.iter().all(|&i| rows[i].row.kind != side) { continue; }
+        for &i in legs { rows[i].row.kind = if rows[i].row.kind == Kind::Buy { Kind::SwapIn } else { Kind::SwapOut }; }
+    }
 }
 
 /// D-TAX-STABLE-VALUE: a venue's ledger that books a stablecoin bought or sold for fiat as two grouped rows and no quote
