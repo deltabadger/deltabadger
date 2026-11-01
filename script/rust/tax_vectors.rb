@@ -497,12 +497,13 @@ module TaxVectors
     'at_coin_fee' => 'diverges: D-TAX-AT-FEES',
     'at_old_stock' => 'diverges: D-TAX-AT-AVERAGE',
     'at_old_stock_held_short' => 'diverges: D-TAX-AT-SPECULATION',
-    'at_sweep_keeps_ages' => 'diverges: D-TAX-AT-WALLET',
-    'at_sweep_several_coins' => 'diverges: D-TAX-AT-WALLET',
-    'at_swap_fills_and_values' => 'diverges: D-TAX-AT-WALLET',
-    'at_unweighable_and_uncovered_legs' => 'diverges: D-TAX-AT-WALLET',
-    'at_swap_in_fees' => 'diverges: D-TAX-AT-WALLET',
-    'at_mixed_cash_and_coin' => 'diverges: D-TAX-AT-AVERAGE'
+    'at_sweep_keeps_ages' => 'diverges: D-TAX-AT-OLD-SWAP',
+    'at_sweep_several_coins' => 'diverges: D-TAX-AT-AVERAGE',
+    'at_swap_fills_and_values' => 'diverges: D-TAX-AT-AVERAGE',
+    'at_unweighable_and_uncovered_legs' => 'diverges: D-TAX-AT-AVERAGE',
+    'at_swap_in_fees' => 'diverges: D-TAX-AT-FEES',
+    'at_mixed_cash_and_coin' => 'diverges: D-TAX-AT-AVERAGE',
+    'at_older_tranche_and_unpriced' => 'diverges: D-TAX-AT-AVERAGE'
   }.freeze
   # Every figure is the plan's (PLAN-A12-tax-reports.md, A12-2b, Vectors), computed by hand; Vienna, euros.
   def at_scenarios
@@ -906,7 +907,11 @@ module TaxVectors
         price('BTC', '2025-06-01', '90000', 'EUR')
         kraken(c, :buy, 'ETH', '1', '1000', '2020-06-01T10:00:00Z', ref: 'b1')
         kraken(c, :buy, 'ETH', '1', '2000', '2024-06-01T10:00:00Z', ref: 'b2')
+        price('ETH', '2025-05-01', '2900', 'EUR')
+        price('BTC', '2026-02-01', '95000', 'EUR')
+        transfer(c, 'ETH', '2', '2025-05-01T10:00:00Z', from: venue(c, :kraken), to: venue(c, :binance))
         swap(c, 'ETH', '2', 'BTC', '0.0666', '2025-06-01T10:00:00Z', ref: 'cv1')
+        transfer(c, 'BTC', '0.0666', '2026-02-01T10:00:00Z', from: venue(c, :binance), to: venue(c, :kraken))
         kraken(c, :sell, 'BTC', '0.0666', '6600', '2026-03-01T10:00:00Z', ref: 's1')
       } },
       # 365 days, counted inclusive.
@@ -1163,6 +1168,10 @@ module TaxVectors
         price('BNB', '2026-02-01', '500', 'EUR')
         kraken(c, :buy, 'ETH', '0.1', '200', '2025-01-01T10:00:00Z', ref: 'b1')
         kraken(c, :buy, 'SOL', '2', '100', '2025-02-01T10:00:00Z', ref: 'b2')
+        price('ETH', '2026-01-15', '3000', 'EUR')
+        price('SOL', '2026-01-15', '150', 'EUR')
+        transfer(c, 'ETH', '0.1', '2026-01-15T10:00:00Z', from: k.(c), to: b.(c))
+        transfer(c, 'SOL', '2', '2026-01-15T11:00:00Z', from: k.(c), to: b.(c))
         row(c, :swap_out, 'ETH', '0.1', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'dust', tx_id: 'd1')
         row(c, :swap_out, 'SOL', '2', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'dust', tx_id: 'd2')
         row(c, :swap_in, 'BNB', '1.2', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'dust', tx_id: 'd3')
@@ -1178,6 +1187,8 @@ module TaxVectors
         price('SOL', '2026-02-01', '150', 'EUR')
         kraken(c, :buy, 'ETH', '2', '2000', '2025-01-01T10:00:00Z', ref: 'b1')
         kraken(c, :buy, 'ETH', '2', '4000', '2025-06-01T10:00:00Z', ref: 'b2')
+        price('ETH', '2026-01-15', '3000', 'EUR')
+        transfer(c, 'ETH', '4', '2026-01-15T10:00:00Z', from: k.(c), to: b.(c))
         row(c, :swap_out, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'f1', tx_id: 'f1o')
         row(c, :swap_in, 'BTC', '0.01', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'f1', tx_id: 'f1a')
         row(c, :swap_in, 'BTC', '0.0233', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'f1', tx_id: 'f1b')
@@ -1193,11 +1204,15 @@ module TaxVectors
         price('ETH', '2026-02-01', '3000', 'EUR')
         price('BTC', '2026-02-01', '90000', 'EUR')
         kraken(c, :buy, 'ETH', '1', '1000', '2025-01-01T10:00:00Z', ref: 'b1')
+        price('ETH', '2026-01-15', '3000', 'EUR')
+        price('BTC', '2026-02-15', '90000', 'EUR')
+        transfer(c, 'ETH', '1', '2026-01-15T10:00:00Z', from: k.(c), to: b.(c))
         row(c, :swap_out, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'g', tx_id: 'g1')
         row(c, :swap_in, 'BTC', '0.01', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'g', tx_id: 'g2')
         row(c, :swap_in, 'NOPRICE', '5', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'g', tx_id: 'g3')
         row(c, :swap_out, 'ETH', '0.5', '2026-02-01T11:00:00Z', exchange: k.(c), group_id: 'g', tx_id: 'g4')
         row(c, :swap_in, 'BTC', '0.005', '2026-02-01T11:00:00Z', exchange: k.(c), group_id: 'g', tx_id: 'g5')
+        transfer(c, 'BTC', '0.005', '2026-02-15T10:00:00Z', from: k.(c), to: b.(c))
         row(c, :sell, 'BTC', '0.015', '2026-03-01T10:00:00Z', exchange: b.(c), quote_currency: 'EUR', quote_amount: '1500')
       } },
       # A fee on the swap-in: in the received coin it nets what arrived; in a third coin it leaves that coin and joins
@@ -1210,6 +1225,10 @@ module TaxVectors
         price('BNB', '2026-02-02', '500', 'EUR')
         kraken(c, :buy, 'ETH', '2', '2000', '2025-01-01T10:00:00Z', ref: 'b1')
         kraken(c, :buy, 'BNB', '1', '400', '2025-01-02T10:00:00Z', ref: 'b2')
+        price('ETH', '2026-01-15', '3000', 'EUR')
+        price('BNB', '2026-01-15', '500', 'EUR')
+        transfer(c, 'ETH', '2', '2026-01-15T10:00:00Z', from: k.(c), to: b.(c))
+        transfer(c, 'BNB', '1', '2026-01-15T11:00:00Z', from: k.(c), to: b.(c))
         row(c, :swap_out, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'h1', tx_id: 'h1o')
         row(c, :swap_in, 'BTC', '0.0333', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'h1', tx_id: 'h1i', fee_currency: 'BTC', fee_amount: '0.0003')
         row(c, :swap_out, 'ETH', '1', '2026-02-02T10:00:00Z', exchange: b.(c), group_id: 'h2', tx_id: 'h2o')
@@ -1232,6 +1251,8 @@ module TaxVectors
         price('BTC', '2026-02-01', '90000', 'EUR')
         kraken(c, :buy, 'BTC', '0.01', '900', '2025-06-01T10:00:00Z', ref: 'b1')
         row(c, :deposit, 'ETH', '1', '2024-01-01T10:00:00Z', exchange: b.(c))
+        price('BTC', '2026-01-15', '90000', 'EUR')
+        transfer(c, 'BTC', '0.01', '2026-01-15T10:00:00Z', from: k.(c), to: b.(c))
         row(c, :swap_out, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'o', tx_id: 'o1')
         row(c, :swap_in, 'BTC', '0.03', '2026-02-01T10:00:00Z', exchange: b.(c), group_id: 'o', tx_id: 'o2')
         row(c, :sell, 'BTC', '0.02', '2026-03-01T10:00:00Z', exchange: b.(c), quote_currency: 'EUR', quote_amount: '1900')
