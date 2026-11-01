@@ -610,11 +610,25 @@ module TaxVectors
     ]
   end
 
-  def pl_case(name, year: 2026, expect: 'diverges: D-TAX-PL-COST-POOL', **opts, &setup)
-    { name:, country: 'PL', year:, expect:, **opts, setup: lambda { |c|
+  # Poland's own vectors state their NBP rows (none by default), so the shared scenarios' default rates never reach them.
+  def pl_case(name, year: 2026, expect: 'diverges: D-TAX-PL-COST-POOL', nbp: [], nbp_coverage: [], **opts, &setup)
+    { name:, country: 'PL', year:, expect:, nbp:, nbp_coverage:, **opts, setup: lambda { |c|
       user_zone(c, 'Warsaw')
       setup.(c)
     } }
+  end
+
+  # NBP table A for a PL scenario that states none (the shared ones), as `ecb` gives every scenario the ECB's: USD and
+  # EUR on every weekday from a week before its first row to its last, each currency covered over that span.
+  NBP_DEFAULT = { 'USD' => '3.9000', 'EUR' => '4.3000' }.freeze
+  def pl_default_nbp(scenario)
+    return [scenario.fetch(:nbp, []), scenario.fetch(:nbp_coverage, [])] if scenario[:country] != 'PL' || scenario.key?(:nbp)
+    days = AccountTransaction.pluck(:transacted_at).map { |t| t.in_time_zone('Warsaw').to_date }
+    return [[], []] if days.empty?
+    span = (days.min - 7)..days.max
+    weekdays = span.reject { |d| d.saturday? || d.sunday? }
+    [NBP_DEFAULT.flat_map { |cur, rate| weekdays.map { |d| [cur, d.iso8601, rate] } },
+     NBP_DEFAULT.keys.map { |cur| [cur, span.first.iso8601, span.last.iso8601] }]
   end
 
   # A Bybit row quoted in cash: one row per trade.
@@ -1154,7 +1168,7 @@ module TaxVectors
       tables = TABLES.to_h { |t| [t, conn.select_all("SELECT * FROM #{t} ORDER BY id").to_a] }
       { 'name' => scenario[:name], 'country' => country, 'year' => year, 'stablecoin_as_fiat' => stablecoin, 'now' => NOW.iso8601,
         'user_id' => ctx[:user].id, 'expect' => scenario[:expect], 'tables' => tables, 'rails' => rails,
-        'nbp' => scenario.fetch(:nbp, []), 'nbp_coverage' => scenario.fetch(:nbp_coverage, []) }
+        'nbp' => (nbp = pl_default_nbp(scenario))[0], 'nbp_coverage' => nbp[1] }
     end
   end
 end

@@ -1,23 +1,17 @@
 Data,Aktywo,Ilość,Rodzaj,Kwota w walucie transakcji,Waluta transakcji,Kurs średni NBP,Data tabeli NBP,Kwota w PLN,Giełda,ID transakcji,Dane niekompletne
-"OSTRZEŻENIE: Brakuje 2 wartości — raport niekompletny, nie należy go składać w tej postaci"
-2025-03-01,BTC,1.0,Koszt,60000.0,EUR,,,0.0,kraken,K-BTC-2025-03-01T10:00:00Z-EUR,true
-2025-03-01,BTC,,Koszt,40.0,EUR,,,0.0,kraken,K-BTC-2025-03-01T10:00:00Z-EUR,true
+2025-03-01,BTC,1.0,Koszt,60000.0,EUR,4.3,2025-02-28,258000.0,kraken,K-BTC-2025-03-01T10:00:00Z-EUR,false
+2025-03-01,BTC,,Koszt,40.0,EUR,4.3,2025-02-28,172.0,kraken,K-BTC-2025-03-01T10:00:00Z-EUR,false
 
 "PIT-38, część E — odpłatne zbycie walut wirtualnych (art. 30b ust. 1a)"
 Przychód (b),0.0
-Koszty uzyskania przychodów poniesione w roku podatkowym (c),0.0
+Koszty uzyskania przychodów poniesione w roku podatkowym (c),258172.0
 Koszty uzyskania przychodów poniesione w latach ubiegłych i niepotrącone w poprzednim roku podatkowym (d),0.0
 Dochód b – (c + d) (e),0.0
-"Koszty uzyskania przychodów, które nie zostały potrącone w roku podatkowym (c + d) – b (f)",0.0
+"Koszty uzyskania przychodów, które nie zostały potrącone w roku podatkowym (c + d) – b (f)",258172.0
 Podstawa obliczenia podatku (po zaokrągleniu do pełnych złotych),0
 "Podatek 19%, po zaokrągleniu do pełnych złotych, przed odliczeniem podatku zapłaconego za granicą",0
 
 "Rok po roku, od pierwszego roku zsynchronizowanej historii"
 ,b,c,d,e,f
-2025,0.0,0.0,0.0,0.0,0.0
+2025,0.0,258172.0,0.0,0.0,258172.0
 "Kolumna d wynika wyłącznie z Twojej zsynchronizowanej historii. Jeśli aktywa były kupowane na kontach, które nie są tu zsynchronizowane, albo Twój poprzedni PIT-38 wykazuje w kolumnie f inną kwotę, wpisz w kolumnie d tę kwotę i przelicz e oraz f."
-
-"WARNING: Wartości bez kursu średniego NBP (tabela A) z dni je poprzedzających, ujęte powyżej jako 0:"
-EUR 2025-03-01
-EUR 2025-03-01
-"Każdy wiersz: waluta, dzień. Wygeneruj raport ponownie, gdy kursy NBP będą dostępne, albo przelicz te kwoty po kursie z ostatniej tabeli NBP sprzed każdego dnia."
