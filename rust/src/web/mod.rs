@@ -29,6 +29,7 @@ pub mod mcp;
 pub mod multipart;
 pub mod oauth;
 pub mod rate_limit;
+pub mod refused;
 pub mod rest;
 mod rest_idempotency;
 pub mod ring;
@@ -806,6 +807,7 @@ fn routes(app: App) -> Router {
         // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
+        .route("/ui-ready", only(get(refused::ui_ready)))
         .route("/csp-report", only(post(csp_report)))
         .route("/cable", only(get(cable::connect)))
         .with_state(app)

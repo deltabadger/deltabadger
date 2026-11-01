@@ -70,7 +70,19 @@ pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError>
             }
         }
     }
-    Ok(EngineLock { _file: std::sync::Arc::new(file) })
+    let file = std::sync::Arc::new(file);
+    HELD.lock().unwrap_or_else(|e| e.into_inner()).push(std::sync::Arc::downgrade(&file));
+    Ok(EngineLock { _file: file })
+}
+
+/// Every engine lock this process took, for `release_all`.
+static HELD: std::sync::Mutex<Vec<std::sync::Weak<File>>> = std::sync::Mutex::new(Vec::new());
+
+/// Gives up every engine lock this process still holds, for a process that will never touch the install again but does
+/// not exit yet: `serve` showing its refusal page (web::refused) before it has claimed anything. The handles stay open;
+/// only the flock goes, so Rails or another engine may start on the install.
+pub fn release_all() {
+    for file in HELD.lock().unwrap_or_else(|e| e.into_inner()).drain(..).filter_map(|f| f.upgrade()) { let _ = file.unlock(); }
 }
 
 pub fn read(primary: &Connection, cipher: &Cipher) -> Result<Option<Value>, LeaseError> {

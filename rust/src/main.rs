@@ -159,7 +159,8 @@ fn paths(env: &dyn Fn(&str) -> Option<String>) -> Paths {
 fn take_lock(paths: &Paths) -> EngineLock {
     match lease::lock(paths, chrono::Utc::now()) {
         Ok(l) => l,
-        Err(LeaseError::Locked) => fail("another Deltabadger engine is running on this data"),
+        // Not on the refusal page: the engine that holds the lock is the one serving this install.
+        Err(LeaseError::Locked) => { eprintln!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
         Err(LeaseError::RailsAlive { seconds_ago }) => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         Err(LeaseError::Io(e)) => fail(&format!("{}: {e}", paths.lock_file().display())),
         Err(e) => fail(&format!("{e:?}")),
@@ -275,17 +276,17 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     Ok(supervisor::Service { name: "scheduler", run: Box::pin(scheduler.run(engine.stop_handle().subscribe(), clock)) })
 }
 
-/// The takeover `run` and `serve` share. Refusals exit 1 before anything is claimed; a takeover that fails after the
-/// claim exits 2.
-fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), i32> {
+/// The takeover `run` and `serve` share: Err(exit code, what it printed after "deltabadger: "). Refusals are
+/// EXIT_REFUSED before anything is claimed; a takeover that fails after the claim is EXIT_ENGINE_ERROR.
+fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), (i32, String)> {
+    let refused = |code: i32, message: String| { eprintln!("deltabadger: {message}"); Err((code, message)) };
     if let Err(problems) = alpaca::preflight(&o.primary, cipher) {
-        eprintln!("deltabadger: refusing to take this install over:\n{}", problems.join("\n"));
-        return Err(EXIT_REFUSED);
+        return refused(EXIT_REFUSED, format!("refusing to take this install over:\n{}", problems.join("\n")));
     }
     let t = match handover::take_over(lock, o, cipher, env!("CARGO_PKG_VERSION"), chrono::Utc::now()) {
         Ok(t) => t,
-        Err(EngineError::Ineligible(p)) => { eprintln!("deltabadger: this install uses things only the full app runs:\n{}", p.join("\n")); return Err(EXIT_REFUSED); }
-        Err(e) => { eprintln!("deltabadger: takeover failed: {e:?}"); return Err(EXIT_ENGINE_ERROR); }
+        Err(EngineError::Ineligible(p)) => return refused(EXIT_REFUSED, format!("this install uses things only the full app runs:\n{}", p.join("\n"))),
+        Err(e) => return refused(EXIT_ENGINE_ERROR, format!("takeover failed: {e:?}")),
     };
     log(&format!("took over ({:?}): {} bot(s), {} Rails job(s) removed, {} webhook call(s) taken over, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.imported_calls, t.normalised));
@@ -300,7 +301,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     // and a service may still be draining then.
     let _held = lock.clone();
     let mail = mail_sender(env, &cipher);
-    if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
+    if let Err((code, _)) = claim_install(&lock, &o, &cipher) { return code; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let code = rt.block_on(async move {
         let factory = LiveFactory::for_install(&o.primary, &cipher);
@@ -325,9 +326,17 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 }
 
 /// `deltabadger serve`: `run` and the web UI in one process. Every refusal, the web side's
-/// included (assets, config, the port), comes before the claim, so a `serve` that cannot serve leaves
-/// the install Rails'. Exit codes as `run`: 0 stopped as asked, 1 refused before claiming, 2 ended otherwise.
+/// included (config, the port), comes before the claim, so a `serve` that cannot serve leaves
+/// the install Rails'. Once PORT is read, a refusal shows the refusal page there until SIGTERM (web::refused, PLAN-B2
+/// r1.0), except when another engine holds the install or the port cannot be taken. Exit codes: 0 stopped as asked
+/// (the refusal page too), 1 refused with nothing shown, 2 ended otherwise.
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
+    let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
+        Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
+        None => 3000,
+    };
+    REFUSAL_PORT.set(port).expect("serve runs once");
+    // The refusal page needs no assets, so a build without them says so in the browser too.
     if !deltabadger::web::assets::BUILT {
         fail(deltabadger::web::assets::MISSING);
     }
@@ -339,20 +348,23 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     if let Err(refusal) = handover::startup_report(&o.primary, &cipher, chrono::Utc::now()).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
         fail(&refusal.message());
     }
-    let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
-        Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
-        None => 3000,
-    };
     let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
     // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.
     let install = paths(env);
     let own = store::open(&install).unwrap_or_else(|e| fail(&explain(e, &install))).primary;
     let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).and_then(|app| app.with_queue_path(install.queue))
         .unwrap_or_else(|e| fail(&web_problem(e)));
-    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
-    let listener = rt.block_on(deltabadger::web::server::bind(&app, port)).unwrap_or_else(|e| fail(&web_problem(e)));
     let mail = mail_sender(env, &cipher);
-    if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
+    // The port cannot be taken: there is nowhere to show the refusal page either.
+    let listener = rt.block_on(deltabadger::web::server::bind(&app, port))
+        .unwrap_or_else(|e| { eprintln!("deltabadger: {}", web_problem(e)); std::process::exit(EXIT_REFUSED) });
+    if let Err((code, message)) = claim_install(&lock, &o, &cipher) {
+        if code != EXIT_REFUSED { return code; }
+        // Nothing was claimed: the port goes to the refusal page, and the lock goes with this process's other handles.
+        drop((listener, mail, app, o, lock, _held, rt));
+        return deltabadger::web::refused::serve(port, &message);
+    }
     let code = rt.block_on(async move {
         let factory = LiveFactory::for_install(&o.primary, &cipher);
         let mut engine = Engine::new(o.primary, factory, cipher, lock);
@@ -547,7 +559,14 @@ fn web_problem(e: deltabadger::web::WebError) -> String {
     }
 }
 
+/// `serve`'s port once it is read: from then on a refusal shows the refusal page there (PLAN-B2 r1.0).
+static REFUSAL_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+
 fn fail(msg: &str) -> ! {
     eprintln!("deltabadger: {msg}");
+    // Every `fail` in `serve` comes before the takeover (claim_install): nothing was taken over from Rails and nothing
+    // trades. A new install bootstrap created is Rust's from its first commit (lease::begin_created), so a later refusal
+    // leaves it Rust's and idle, as an exit did. The lock goes now; the idle handles the frames below read nothing more.
+    if let Some(port) = REFUSAL_PORT.get() { lease::release_all(); std::process::exit(deltabadger::web::refused::serve(*port, msg)); }
     std::process::exit(1)
 }
