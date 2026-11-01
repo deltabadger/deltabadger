@@ -733,8 +733,9 @@ fn an_amount_limited_alpaca_bot_is_eligible_unless_its_limit_or_stamp_is_unreada
 }
 
 #[test]
-fn check_and_the_takeover_refuse_an_install_whose_alpaca_tickers_are_stale() {
-    use deltabadger::engine::{handover, EngineError};
+/// D-UPGRADE-FRESHNESS-AT-TICK: `check` and the takeover note stale Alpaca tickers and admit the bot; its tick refuses it.
+fn check_and_the_takeover_note_stale_alpaca_tickers_and_admit_the_bot() {
+    use deltabadger::engine::{handover, model};
     use deltabadger::{lease, store};
     let now: chrono::DateTime<chrono::Utc> = "2026-09-01T10:00:00Z".parse().unwrap();
     let dir = common::baseline_install();
@@ -747,14 +748,14 @@ fn check_and_the_takeover_refuse_an_install_whose_alpaca_tickers_are_stale() {
     assert_eq!(eligibility::check_install_at(&o.primary, now).unwrap().eligible, vec![id]);
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 08:00:00'", []).unwrap(); // 50 h
     let r = eligibility::check_install_at(&o.primary, now).unwrap();
-    assert!(r.eligible.is_empty());
-    let p = r.problems.iter().find(|p| p.contains(&format!("bot {id}"))).expect("the bot is named");
-    assert!(p.contains("Alpaca crypto tickers") && p.contains("exchange_assets.updated_at") && p.contains("50h 0m old") && p.contains("49h bound"), "{p}");
-    assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "the running engine's pass refuses the tick, not the install");
-    match handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", now) {
-        Err(EngineError::Ineligible(problems)) => assert!(problems.iter().any(|m| m.contains("Alpaca crypto tickers")), "{problems:?}"),
-        other => panic!("the takeover must refuse a stale install: {:?}", other.map(|t| t.eligible)),
-    }
+    assert_eq!(r.eligible, vec![id]);
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    let p = r.notes.iter().find(|p| p.contains(&format!("bot {id}"))).expect("the bot is named");
+    assert!(p.contains("reference data stale") && p.contains("Alpaca crypto tickers") && p.contains("exchange_assets.updated_at") && p.contains("50h 0m old") && p.contains("49h bound"), "{p}");
+    let t = handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", now).unwrap_or_else(|e| panic!("the takeover admits a stale install: {e:?}"));
+    assert_eq!(t.eligible, vec![id]);
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert!(deltabadger::engine::staleness::stale(&o.primary, &bot, now).unwrap().is_some(), "the tick refuses it");
 }
 
 /// Ticker::TechnicallyAnalyzable writes an all-time high with `update!` (technically_analyzable.rb:125),
@@ -767,7 +768,7 @@ fn an_all_time_high_write_cannot_make_a_stale_catalog_read_fresh() {
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 08:00:00'", []).unwrap(); // the last sync, 50 h ago
     o.primary.execute("UPDATE tickers SET ath = 70000, ath_updated_at = '2026-09-01 09:59:00', updated_at = '2026-09-01 09:59:00'", []).unwrap();
     let r = eligibility::check_install_at(&o.primary, now).unwrap();
-    assert!(r.eligible.is_empty() && r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("50h 0m old")), "{:?}", r.problems);
+    assert!(r.notes.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("reference data stale") && p.contains("50h 0m old")), "{:?}", r.notes);
 }
 
 /// With no sync stamp (no app_configs alpaca_crypto_listings_last_good_count: a self-hosted install, or
@@ -801,10 +802,11 @@ fn the_49_hour_bound_is_inclusive() {
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let now: chrono::DateTime<chrono::Utc> = "2026-09-01T10:00:00Z".parse().unwrap();
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 09:00:00'", []).unwrap(); // exactly 49 h
-    assert_eq!(eligibility::check_install_at(&o.primary, now).unwrap().eligible, vec![id]);
+    assert!(eligibility::check_install_at(&o.primary, now).unwrap().notes.is_empty());
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 08:59:59'", []).unwrap(); // 49 h 0 m 1 s
     let r = eligibility::check_install_at(&o.primary, now).unwrap();
-    assert!(r.eligible.is_empty() && r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("49h 0m old")), "{:?}", r.problems);
+    assert!(r.notes.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("reference data stale") && p.contains("49h 0m old")), "{:?}", r.notes);
+    assert_eq!(r.eligible, vec![id], "noted, not refused");
 }
 
 /// What `check`, `serve` and the takeover print names what is not supported, never an internal plan.

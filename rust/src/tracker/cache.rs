@@ -10,8 +10,9 @@ use serde_json::{json, Value};
 pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
 /// The calculation a stored summary was made by: a summary of another one is cold (4: a broker name that is both a
-/// security and a coin is priced by the asset its rows recorded).
-const SCHEMA: u64 = 4;
+/// security and a coin is priced by the asset its rows recorded; 5: coin-quoted rows are two legs, transfers wait for their
+/// funds, a swap-in's fee joins its lots once).
+const SCHEMA: u64 = 5;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
@@ -300,7 +301,7 @@ mod tests {
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Warm(_)));
         let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();
-        raw["schema"]=serde_json::json!(3);app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
+        raw["schema"]=serde_json::json!(4);app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
         c.pragma_update(None,"query_only",true).unwrap();let before=c.total_changes();
         assert_eq!(version(&c,1).unwrap(),v,"neither the rows nor the prices moved");
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));

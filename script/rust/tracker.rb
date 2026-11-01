@@ -38,8 +38,11 @@ module ScriptedTracker
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     raise Harness::Unscripted, "unscripted HTTP call #{key} to #{host}" if script.nil?
 
-    requests[kind] << [key, URI.decode_www_form(env.url.query.to_s).sort]
-    queue = script[key] or raise Harness::Unscripted, "unscripted call #{key}"
+    query = URI.decode_www_form(env.url.query.to_s)
+    requests[kind] << [key, query.sort]
+    # A coin's own answers ("GET /api/v1/historical_prices coin_id=bitcoin") before the path's, taken in call order.
+    coin = query.to_h['coin_id']
+    queue = (coin && script["#{key} coin_id=#{coin}"]) || script[key] or raise Harness::Unscripted, "unscripted call #{key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 
@@ -424,7 +427,7 @@ module TrackerParity
     ] + venue_scenarios
   end
 
-  COINS = { 'USDT' => 'tether', 'BNB' => 'binancecoin', 'SHIB' => 'shiba-inu', 'DOGE' => 'dogecoin', 'LUNA' => 'terra-luna-2',
+  COINS = { 'USDT' => 'tether', 'BNB' => 'binancecoin', 'KCS' => 'kucoin-shares', 'SHIB' => 'shiba-inu', 'DOGE' => 'dogecoin', 'LUNA' => 'terra-luna-2',
             'NXS' => 'nexus', 'SOL' => 'solana', 'EUR' => 'eur', 'GBP' => 'gbp' }.freeze
   ECB = "GET /service/data/EXR/D.#{Tax::EcbFxRates::CURRENCIES.join('+')}.EUR.SP00.A".freeze
 
@@ -527,6 +530,401 @@ module TrackerParity
       { name: 'kraken_style_fiat_leg_fee_sell', market: { HISTORY => [flat(60_000)] }, setup: ->(c) { sell_case.call(c, '2026-09-15T10:00:00Z', usd_sept) } },
       { name: 'kraken_style_fiat_leg_fee_buy_no_rate', market: cross, setup: ->(c) { buy_case.call(c, '2026-09-15T10:00:00Z', usd_gap) } },
       { name: 'kraken_style_fiat_leg_fee_sell_no_rate', market: cross, setup: ->(c) { sell_case.call(c, '2026-09-15T10:00:00Z', usd_gap) } }
+    ]
+  end
+
+  # A coin's daily closes from 1 September to 1 October, each price from its day on: { '2026-09-01' => 50_000, '2026-09-10' => 60_000 }.
+  def closes(steps)
+    days = (Date.new(2026, 9, 1)..Date.new(2026, 10, 1)).map(&:to_s)
+    history(days.map { |d| [d, steps.select { |from, _| from <= d }.max_by(&:first).last] })
+  end
+
+  # data-api answers per coin (the harness answers a coin's own key first).
+  def priced(prices) = prices.to_h { |coin, steps| ["#{HISTORY} coin_id=#{coin}", [closes(steps.is_a?(Hash) ? steps : { '2026-09-01' => steps })]] }
+
+  D0 = '2026-09-01T10:00:00Z'.freeze
+  D1 = '2026-09-02T10:00:00Z'.freeze
+  D2 = '2026-09-10T10:00:00Z'.freeze
+  # BTC 50,000 to 9 September, 60,000 from the 10th; ETH 3,000; KCS 10; USDT 1.
+  COIN_QUOTE_MARKET = { 'bitcoin' => { '2026-09-01' => 50_000, '2026-09-10' => 60_000 }, 'ethereum' => 3000, 'kucoin-shares' => 10, 'tether' => 1 }.freeze
+  COIN_QUOTING = [Exchanges::Bybit, Exchanges::Mexc, Exchanges::Bitget, Exchanges::Gemini, Exchanges::Bingx, Exchanges::Bitrue,
+                  Exchanges::Bitvavo, Exchanges::Hyperliquid, Exchanges::Kucoin].freeze
+
+  def coin_venue(c, klass) = venue(c, klass, klass.name.demodulize)
+
+  # 50,000 USDT in, 1 BTC bought for it on D1.
+  def coin_base(c, ex, usdt: '50000')
+    coins(c, 'USDT')
+    deposit(c, usdt, D0, currency: 'USDT', exchange: ex)
+    buy(c, 'BTC', '1', '50000', D1, quote: 'USDT', exchange: ex)
+  end
+
+  # A trade booked as one row quoted in a coin.
+  def coin_trade(c, ex, type, base, amount, quote, paid, at = D2, fee: nil)
+    row(c, type, base, amount, at, exchange: ex, quote_currency: quote, quote_amount: paid, **(fee ? { fee_currency: fee[0], fee_amount: fee[1] } : {}))
+  end
+
+  # D-TRACKER-COIN-QUOTE (and the swap fee, the history's sell fee): coin-for-coin trades booked as one row quoted in a coin.
+  def coin_quote_scenarios
+    m = priced(COIN_QUOTE_MARKET)
+    q = 'diverges: D-TRACKER-COIN-QUOTE'
+    [
+      { name: 'cq_every_venue', expect: q, market: m,
+        setup: lambda { |c|
+          COIN_QUOTING.each do |klass|
+            ex = coin_venue(c, klass)
+            coin_base(c, ex)
+            coin_trade(c, ex, :sell, 'BTC', '0.5', 'ETH', '10')
+            balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+            balance(c, 'ETH', '10', usd_price: '3000', exchange: ex)
+          end
+        } },
+      { name: 'cq_buy_fee_in_quote', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bitvavo)
+          coin_base(c, ex)
+          coin_trade(c, ex, :buy, 'ETH', '10', 'BTC', '0.5', fee: %w[BTC 0.001])
+          balance(c, 'BTC', '0.499', usd_price: '60000', exchange: ex)
+          balance(c, 'ETH', '10', usd_price: '3000', exchange: ex)
+        } },
+      { name: 'cq_buy_fee_in_base', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Hyperliquid)
+          coin_base(c, ex)
+          coin_trade(c, ex, :buy, 'ETH', '10', 'BTC', '0.5', fee: %w[ETH 0.01])
+          balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+          balance(c, 'ETH', '9.99', usd_price: '3000', exchange: ex)
+        } },
+      { name: 'cq_sell_fee_third_coin', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Kucoin)
+          coins(c, 'KCS')
+          coin_base(c, ex, usdt: '51000')
+          buy(c, 'KCS', '100', '10', D1, quote: 'USDT', exchange: ex)
+          coin_trade(c, ex, :sell, 'BTC', '0.5', 'ETH', '10', fee: %w[KCS 1])
+          balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+          balance(c, 'ETH', '10', usd_price: '3000', exchange: ex)
+          balance(c, 'KCS', '99', usd_price: '10', exchange: ex)
+        } },
+      { name: 'cq_sell_fee_third_coin_two_lots', expect: 'diverges: D-TRACKER-COIN-QUOTE + D-TRACKER-SWAP-FEE', market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Kucoin)
+          coins(c, 'USDT', 'KCS')
+          deposit(c, '51000', D0, currency: 'USDT', exchange: ex)
+          buy(c, 'KCS', '100', '10', D1, quote: 'USDT', exchange: ex)
+          buy(c, 'BTC', '0.5', '50000', D1, quote: 'USDT', exchange: ex)
+          buy(c, 'BTC', '0.5', '50000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: ex)
+          coin_trade(c, ex, :sell, 'BTC', '1', 'ETH', '20', fee: %w[KCS 1])
+          balance(c, 'ETH', '20', usd_price: '3000', exchange: ex)
+          balance(c, 'KCS', '99', usd_price: '10', exchange: ex)
+        } },
+      { name: 'cq_sell_fee_in_quote', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coin_base(c, ex)
+          coin_trade(c, ex, :sell, 'BTC', '0.5', 'ETH', '10', fee: %w[ETH 0.01])
+          balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+          balance(c, 'ETH', '9.99', usd_price: '3000', exchange: ex)
+        } },
+      { name: 'cq_quote_never_held', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coin_trade(c, ex, :buy, 'ETH', '10', 'BTC', '0.5')
+          balance(c, 'ETH', '10', usd_price: '3000', exchange: ex)
+        } },
+      { name: 'cq_stable_quoted_sale', market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coin_base(c, ex)
+          coin_trade(c, ex, :sell, 'BTC', '1', 'USDT', '60000', fee: %w[USDT 60])
+          balance(c, 'USDT', '59940', usd_price: '1', exchange: ex)
+        } },
+      # USDT sold for BTC in one row on Bybit; the same trade booked the usual way on MEXC.
+      { name: 'cq_stable_base_sell', expect: q, market: m,
+        setup: lambda { |c|
+          coins(c, 'USDT')
+          by = coin_venue(c, Exchanges::Bybit)
+          deposit(c, '50000', D0, currency: 'USDT', exchange: by)
+          coin_trade(c, by, :sell, 'USDT', '50000', 'BTC', '1', D1)
+          mx = coin_venue(c, Exchanges::Mexc)
+          coin_base(c, mx)
+          [by, mx].each { |ex| balance(c, 'BTC', '1', usd_price: '60000', exchange: ex) }
+        } },
+      { name: 'cq_stable_base_buy', expect: q, market: m,
+        setup: lambda { |c|
+          by = coin_venue(c, Exchanges::Bybit)
+          coin_base(c, by)
+          coin_trade(c, by, :buy, 'USDT', '30000', 'BTC', '0.5')
+          mx = coin_venue(c, Exchanges::Mexc)
+          coin_base(c, mx)
+          coin_trade(c, mx, :sell, 'BTC', '0.5', 'USDT', '30000')
+          [by, mx].each do |ex|
+            balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+            balance(c, 'USDT', '30000', usd_price: '1', exchange: ex)
+          end
+        } },
+      { name: 'cq_stable_base_sell_fee', expect: 'diverges: D-TRACKER-COIN-QUOTE + D-TRACKER-HISTORY-SELL-FEE', market: m,
+        setup: lambda { |c|
+          coins(c, 'USDT')
+          ex = coin_venue(c, Exchanges::Bybit)
+          deposit(c, '50010', D0, currency: 'USDT', exchange: ex)
+          coin_trade(c, ex, :sell, 'USDT', '50000', 'BTC', '1', D1, fee: %w[USDT 10])
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: ex)
+        } },
+      { name: 'cq_fiat_base_sell_fee', expect: 'diverges: D-TRACKER-COIN-QUOTE + D-TRACKER-HISTORY-SELL-FEE', market: m,
+        setup: lambda { |c|
+          rates('USD', '2026-09-01', '2026-09-29', '1.1')
+          coins(c, 'EUR')
+          ex = coin_venue(c, Exchanges::Bitvavo)
+          deposit(c, '1002', D0, currency: 'EUR', exchange: ex)
+          coin_trade(c, ex, :sell, 'EUR', '1000', 'BTC', '0.02', D1, fee: %w[EUR 2])
+          balance(c, 'BTC', '0.02', usd_price: '60000', exchange: ex)
+        } },
+      { name: 'cq_stable_base_sell_fee_short', expect: 'diverges: D-TRACKER-COIN-QUOTE + D-TRACKER-HISTORY-SELL-FEE', market: m,
+        setup: lambda { |c|
+          coins(c, 'USDT')
+          ex = binance(c)
+          deposit(c, '50000', D0, currency: 'USDT', exchange: ex)
+          coin_trade(c, ex, :sell, 'USDT', '50000', 'BTC', '1', D1, fee: %w[USDT 10])
+          deposit(c, '10', D2, currency: 'USDT', exchange: ex)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: ex)
+          balance(c, 'USDT', '10', usd_price: '1', exchange: ex)
+        } },
+      # Trades after the balances were taken: what the page adds to them.
+      { name: 'cq_since_sync_buy', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coin_base(c, ex)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: ex)
+          coin_trade(c, ex, :buy, 'ETH', '10', 'BTC', '0.5', '2026-10-01T02:45:00Z', fee: %w[BTC 0.001])
+        } },
+      { name: 'cq_since_sync_sell', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coin_base(c, ex)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: ex)
+          coin_trade(c, ex, :sell, 'BTC', '0.5', 'ETH', '10', '2026-10-01T02:45:00Z')
+        } },
+      { name: 'cq_same_instant_buy_then_split', expect: q, market: m,
+        setup: lambda { |c|
+          coins(c, 'USDT')
+          ex = coin_venue(c, Exchanges::Bybit)
+          deposit(c, '50000', D0, currency: 'USDT', exchange: ex)
+          buy(c, 'BTC', '1', '50000', D2, quote: 'USDT', exchange: ex)
+          coin_trade(c, ex, :sell, 'BTC', '1', 'ETH', '20')
+          balance(c, 'ETH', '20', usd_price: '3000', exchange: ex)
+        } },
+      # The coin received has no price anywhere: held, at the basis it carried, unpriced.
+      { name: 'cq_quote_unpriced', expect: q, market: m.merge("#{HISTORY} coin_id=xyz-coin" => [history([])]),
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          asset(c, 'XYZ', 'xyz-coin')
+          coin_base(c, ex)
+          coin_trade(c, ex, :sell, 'BTC', '0.5', 'XYZ', '10')
+          balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+          balance(c, 'XYZ', '10', exchange: ex)
+        } },
+      # A fee in the coin bought takes all of it: the 100 of BTC basis it carried is a realised loss.
+      { name: 'cq_fee_takes_everything', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coins(c, 'USDT')
+          deposit(c, '100', D0, currency: 'USDT', exchange: ex)
+          buy(c, 'BTC', '0.002', '50000', D1, quote: 'USDT', exchange: ex)
+          coin_trade(c, ex, :buy, 'ETH', '0.05', 'BTC', '0.002', fee: %w[ETH 0.05])
+        } },
+      { name: 'cq_wash_coin_quoted_loss', expect: q, market: m,
+        setup: lambda { |c|
+          c[:user].update_columns(wash_sale_enabled: true)
+          ex = coin_venue(c, Exchanges::Bybit)
+          coins(c, 'USDT')
+          ticker(c, ex, 'BTC', 'USDT')
+          deposit(c, '60000', D0, currency: 'USDT', exchange: ex)
+          buy(c, 'BTC', '1', '60000', D1, quote: 'USDT', exchange: ex)
+          coin_trade(c, ex, :sell, 'BTC', '1', 'ETH', '20', '2026-09-05T10:00:00Z')
+          balance(c, 'ETH', '20', usd_price: '3000', exchange: ex)
+        } },
+      { name: 'cq_wash_existing_lock', expect: q, market: m,
+        setup: lambda { |c|
+          c[:user].update_columns(wash_sale_enabled: true)
+          ex = coin_venue(c, Exchanges::Bybit)
+          coins(c, 'USDT')
+          ticker(c, ex, 'BTC', 'USDT')
+          WashSaleLock.create!(user: c[:user], asset: c[:assets]['BTC'], buy_locked_until: Time.utc(2026, 10, 7), confirmed_locked_until: Time.utc(2026, 10, 7),
+                               source: 'ledger')
+          deposit(c, '60000', D0, currency: 'USDT', exchange: ex)
+          buy(c, 'BTC', '1', '60000', D1, quote: 'USDT', exchange: ex)
+          coin_trade(c, ex, :sell, 'BTC', '1', 'ETH', '20', '2026-09-05T10:00:00Z')
+          balance(c, 'ETH', '20', usd_price: '3000', exchange: ex)
+        } },
+      { name: 'cq_history_sell_fee', expect: 'diverges: D-TRACKER-HISTORY-SELL-FEE', market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coins(c, 'USDT')
+          deposit(c, '1', D0, currency: 'BTC', exchange: ex)
+          sell(c, 'BTC', '0.5', '30000', D2, quote: 'USDT', exchange: ex, fee_currency: 'BTC', fee_amount: '0.01')
+          balance(c, 'BTC', '0.49', usd_price: '60000', exchange: ex)
+          balance(c, 'USDT', '15000', usd_price: '1', exchange: ex)
+        } },
+      # An imported row of the venue carries the group the new leg would take: the leg takes another.
+      { name: 'cq_group_collision', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coin_base(c, ex)
+          sale = coin_trade(c, ex, :sell, 'BTC', '0.5', 'ETH', '10')
+          deposit(c, '0', '2026-09-11T10:00:00Z', currency: 'USDT', exchange: ex, group_id: "coin-quote:#{sale.id}")
+          balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+          balance(c, 'ETH', '10', usd_price: '3000', exchange: ex)
+        } },
+      { name: 'cq_binance_two_lot_swap_fee', expect: 'diverges: D-TRACKER-SWAP-FEE', market: priced('bitcoin' => 60_000, 'ethereum' => 2000, 'binancecoin' => 300, 'tether' => 1),
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT', 'BNB')
+          deposit(c, '2300', D0, currency: 'USDT', exchange: b)
+          buy(c, 'BNB', '1', '300', D1, quote: 'USDT', exchange: b)
+          buy(c, 'ETH', '0.5', '2000', D1, quote: 'USDT', exchange: b)
+          buy(c, 'ETH', '0.5', '2000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+          row(c, :swap_out, 'ETH', '1', D2, exchange: b, group_id: 'swap_ETHBTC-9', tx_id: 'ETHBTC-9-out')
+          row(c, :swap_in, 'BTC', '0.05', D2, exchange: b, group_id: 'swap_ETHBTC-9', tx_id: 'ETHBTC-9-in', fee_currency: 'BNB', fee_amount: '0.1')
+          balance(c, 'BTC', '0.05', usd_price: '60000', exchange: b)
+          balance(c, 'BNB', '0.9', usd_price: '300', exchange: b)
+        } }
+    ]
+  end
+
+  T = '2026-09-10T10:00:00Z'.freeze
+
+  # A 1 BTC withdrawal at `at` linked to its deposit ten minutes later.
+  def send_btc(c, from, to, at = T, qty: '1')
+    arrived = row(c, :deposit, 'BTC', qty, (Time.iso8601(at) + 600).utc.iso8601, exchange: to)
+    row(c, :withdrawal, 'BTC', qty, at, exchange: from, linked_transaction_id: arrived.id)
+  end
+
+  # 60,000 USDT in on `ex`, 1 BTC bought with it on D1.
+  def holds_btc(c, ex)
+    coins(c, 'USDT')
+    deposit(c, '60000', D0, currency: 'USDT', exchange: ex)
+    buy(c, 'BTC', '1', '60000', D1, quote: 'USDT', exchange: ex)
+  end
+
+  # D-TRACKER-TRANSFER-ORDER: same-instant withdrawals between venues (A Binance, B Kraken, C Bybit; BTC 60,000 every day).
+  def transfer_order_scenarios
+    m = priced('bitcoin' => 60_000, 'tether' => 1)
+    o = 'diverges: D-TRACKER-TRANSFER-ORDER'
+    abc = ->(c) { [binance(c), kraken(c), coin_venue(c, Exchanges::Bybit)] }
+    [
+      { name: 'to_same_second_transfer_past_deposit', expect: o, market: priced('bitcoin' => 20_000, 'tether' => 1),
+        setup: lambda { |c|
+          bn, kr, by = abc.(c)
+          coins(c, 'USDT')
+          deposit(c, '10000', D0, currency: 'USDT', exchange: by)
+          buy(c, 'BTC', '1', '10000', D1, quote: 'USDT', exchange: by)
+          sell(c, 'BTC', '1', '20000', T, quote: 'USDT', exchange: bn)
+          arrived = row(c, :deposit, 'BTC', '1', T, exchange: kr)
+          row(c, :withdrawal, 'BTC', '1', '2026-09-10T09:00:00Z', exchange: by, linked_transaction_id: arrived.id)
+          send_btc(c, kr, bn)
+          balance(c, 'USDT', '20000', usd_price: '1', exchange: bn)
+        } },
+      { name: 'to_chain_funded_by_deposit', expect: o, market: m,
+        setup: lambda { |c|
+          a, b, cc = abc.(c)
+          deposit(c, '1', T, currency: 'BTC', exchange: a)
+          send_btc(c, a, b)
+          send_btc(c, b, cc)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: cc)
+        } },
+      { name: 'to_chain_ab_bc', expect: o, market: m,
+        setup: lambda { |c|
+          a, b, cc = abc.(c)
+          holds_btc(c, a)
+          send_btc(c, a, b)
+          send_btc(c, b, cc)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: cc)
+        } },
+      { name: 'to_chain_bc_ab', market: m,
+        setup: lambda { |c|
+          a, b, cc = abc.(c)
+          holds_btc(c, a)
+          send_btc(c, b, cc)
+          send_btc(c, a, b)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: cc)
+        } },
+      { name: 'to_reciprocal_ab_ba', expect: o, market: m,
+        setup: lambda { |c|
+          a, b, = abc.(c)
+          holds_btc(c, a)
+          send_btc(c, a, b)
+          send_btc(c, b, a)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: a)
+        } },
+      { name: 'to_reciprocal_ba_ab', market: m,
+        setup: lambda { |c|
+          a, b, = abc.(c)
+          holds_btc(c, a)
+          send_btc(c, b, a)
+          send_btc(c, a, b)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: a)
+        } },
+      { name: 'to_cycle_unfunded', expect: o, market: m,
+        setup: lambda { |c|
+          a, b, cc = abc.(c)
+          send_btc(c, a, b)
+          send_btc(c, b, cc)
+          send_btc(c, cc, a)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: cc)
+        } },
+      { name: 'to_cycle_funded_forward', expect: o, market: m,
+        setup: lambda { |c|
+          a, b, cc = abc.(c)
+          holds_btc(c, a)
+          send_btc(c, a, b)
+          send_btc(c, b, cc)
+          send_btc(c, cc, a)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: a)
+        } },
+      { name: 'to_cycle_funded_reverse', market: m,
+        setup: lambda { |c|
+          a, b, cc = abc.(c)
+          holds_btc(c, a)
+          send_btc(c, cc, a)
+          send_btc(c, b, cc)
+          send_btc(c, a, b)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: a)
+        } },
+      { name: 'to_opening_then_reciprocal', expect: o, market: m,
+        setup: lambda { |c|
+          a, b, = abc.(c)
+          row(c, :withdrawal, 'BTC', '1', '2026-09-08T10:00:00Z', exchange: a)
+          deposit(c, '1', '2026-09-09T10:00:00Z', currency: 'BTC', exchange: a)
+          send_btc(c, a, b)
+          send_btc(c, b, a)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: a)
+        } },
+      { name: 'to_cash_linked_deposit_fee_fx',
+        market: m,
+        setup: lambda { |c|
+          FxRate.delete_all
+          rates('USD', '2026-09-01', '2026-09-09', '1.0')
+          rates('USD', '2026-09-10', '2026-09-30', '2.0')
+          a, b, cc = abc.(c)
+          coins(c, 'EUR')
+          deposit(c, '100', D0, currency: 'EUR', exchange: a)
+          arrived = row(c, :deposit, 'EUR', '100', T, exchange: b, fee_currency: 'EUR', fee_amount: '1')
+          row(c, :withdrawal, 'EUR', '100', D1, exchange: a, linked_transaction_id: arrived.id)
+          onward = row(c, :deposit, 'EUR', '100', '2026-09-10T10:10:00Z', exchange: cc)
+          row(c, :withdrawal, 'EUR', '100', T, exchange: b, linked_transaction_id: onward.id)
+          balance(c, 'EUR', '100', usd_price: '2', exchange: cc)
+        } },
+      { name: 'to_adjustments_then_reciprocal', expect: o, market: m,
+        setup: lambda { |c|
+          a, b, = abc.(c)
+          holds_btc(c, b)
+          row(c, :adjustment, 'BTC', '-1', '2026-09-09T10:00:00Z', exchange: a)
+          row(c, :adjustment, 'BTC', '1', '2026-09-09T11:00:00Z', exchange: a)
+          send_btc(c, b, a)
+          send_btc(c, a, b)
+          balance(c, 'BTC', '1', usd_price: '60000', exchange: b)
+        } }
     ]
   end
 
@@ -835,7 +1233,7 @@ module TrackerParity
           row(c, :fee, 'NXS', '0.1', '2026-09-10T05:00:00Z', exchange: b, tx_id: 'nxs-fee-1')
           balance(c, 'NXS', '2.9', exchange: b)
         } },
-      { name: 'same_coin_sale_fee', market: { HISTORY => [flat(1), flat(60_000)] },
+      { name: 'same_coin_sale_fee', expect: 'diverges: D-TRACKER-HISTORY-SELL-FEE', market: { HISTORY => [flat(1), flat(60_000)] },
         setup: lambda { |c|
           b = binance(c)
           coins(c, 'USDT')
@@ -875,7 +1273,7 @@ module TrackerParity
         } },
       # Fees FIFO never applies (Engine#settle_fee): a third coin paid on a withdrawal, and a coin's own fee on the out-leg
       # of a coin-for-coin swap, charged on top.
-      { name: 'fees_fifo_never_applied', market: { HISTORY => [flat(1), flat(2500), flat(310), flat(60_000)] },
+      { name: 'fees_fifo_never_applied', expect: 'diverges: D-TRACKER-HISTORY-SELL-FEE', market: { HISTORY => [flat(1), flat(2500), flat(310), flat(60_000)] },
         setup: lambda { |c|
           b = binance(c)
           coins(c, 'USDT', 'BNB')
@@ -891,7 +1289,7 @@ module TrackerParity
           balance(c, 'ETH', '0.395', usd_price: '2500', exchange: b)
           balance(c, 'BTC', '0.025', usd_price: '61000', exchange: b)
         } }
-    ] + ecb_scenarios + wash_scenarios + kraken_scenarios
+    ] + ecb_scenarios + wash_scenarios + kraken_scenarios + coin_quote_scenarios + transfer_order_scenarios
     list.map { |sc| sc.merge(rust_balances: true) }
   end
 
@@ -905,7 +1303,8 @@ module TrackerParity
                  JSON.pretty_generate({ 'parity_scratch' => true, 'user_id' => ctx[:user].id, 'at' => AT,
                                         'market' => sc[:market] || {}, 'alpaca' => sc[:alpaca] || {}, 'ecb' => sc[:ecb] || {} }
                                         .merge(sc[:rust_balances] ? { 'balances_synced_by_rust' => true } : {})
-                                        .merge(sc[:backfill_only] ? { 'backfill_only' => true } : {})))
+                                        .merge(sc[:backfill_only] ? { 'backfill_only' => true } : {})
+                                        .merge(sc[:expect] ? { 'expect' => sc[:expect] } : {})))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"

@@ -3,7 +3,9 @@
 //! PortfolioSnapshot::BackfillJob) and the Rust jobs run on copies of one install over the same scripted data-api and
 //! Alpaca bodies, at one instant. The scopes the walk stated, the figures of each of today's rows, the snapshot rows,
 //! the lock rows, the stored prices, the history keys and the requests sent must be identical, except in the listed
-//! divergences, where Rails' result and Rust's are each asserted.
+//! divergences, where Rails' result and Rust's are each asserted. A scenario that says "diverges: D-TRACKER-…" states the
+//! Rust output checked by hand and committed in fixtures/tracker_divergences/<name>.json (TRACKER_DIVERGENCES_WRITE=1 writes
+//! them afresh, for review), Rails' differs, and `reviewed_figures` asserts the figures it was reviewed for.
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -39,6 +41,112 @@ fn cipher() -> Arc<deltabadger::crypto::Cipher> {
 
 fn read(path: &Path) -> Value { serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap() }
 
+/// A reviewed divergence's Rust output (TRACKER_DIVERGENCES_WRITE=1 writes it afresh, for review).
+fn reviewed(name: &str) -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracker_divergences").join(format!("{name}.json")) }
+
+/// The figures each reviewed divergence was checked by hand to state (Rust, and Rails where it names Rails' error).
+fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>) {
+    let side = |name: &str, rails: bool| { let (a, b) = &outputs[name]; if rails { a.clone() } else { b.clone() } };
+    // "SYMBOL quantity@cost" of a scope's positions, in symbol order; a scope is "whole" or an exchange id.
+    let positions = |name: &str, scope: &str, rails: bool| -> String {
+        let out = side(name, rails);
+        let s = if scope == "whole" { out["ledger"]["whole"].clone() } else { out["ledger"]["venues"][scope].clone() };
+        s["positions"].as_array().unwrap().iter().map(|p| format!("{} {}@{}", p["symbol"].as_str().unwrap(), p["quantity"].as_str().unwrap(), p["cost"].as_str().unwrap()))
+            .collect::<Vec<_>>().join(", ")
+    };
+    let field = |name: &str, scope: &str, key: &str, rails: bool| -> String {
+        let out = side(name, rails);
+        let s = if scope == "whole" { out["ledger"]["whole"].clone() } else { out["ledger"]["venues"][scope].clone() };
+        s[key].as_str().map_or_else(|| s[key].to_string(), str::to_string)
+    };
+    let figure = |name: &str, key: &str, rails: bool| side(name, rails)["ledger"]["figures"]["whole"][key].as_str().unwrap().to_string();
+    let snapshot = |name: &str, date: &str, rails: bool| -> (String, String) {
+        let out = side(name, rails);
+        let row = out["tables"]["portfolio_snapshots"].as_array().unwrap().iter().find(|r| r["date"] == date).unwrap().clone();
+        let num = |v: &Value| match v { Value::Object(m) => f64::from_be_bytes(u64::from_str_radix(m["f"].as_str().unwrap(), 16).unwrap().to_be_bytes()).to_string(), v => v.to_string() };
+        (num(&row["value_usd"]), num(&row["held_value_usd"]))
+    };
+    // D-TRACKER-COIN-QUOTE. Each of the nine venues: 0.5 BTC sold for 10 ETH carries its 25,000 to the ETH; Rails realised 5,000.
+    for venue in 2..=10 {
+        let v = venue.to_string();
+        assert_eq!(positions("cq_every_venue", &v, false), "BTC 0.5@25000.0, ETH 10.0@25000.0", "venue {v}");
+        assert_eq!((field("cq_every_venue", &v, "realised", false), field("cq_every_venue", &v, "realised", true)), ("0.0".into(), "5000.0".into()));
+        assert_eq!(positions("cq_every_venue", &v, true), "BTC 0.5@25000.0");
+    }
+    assert_eq!(figure("cq_every_venue", "unrealised", false), "90000.0");
+    // A fee in the coin paid goes with it (taken at its basis: −50); in the coin received, it nets the units; a third coin, its value joins the cost.
+    assert_eq!(positions("cq_buy_fee_in_quote", "whole", false), "BTC 0.499@24950.0, ETH 10.0@25000.0");
+    assert_eq!((field("cq_buy_fee_in_quote", "whole", "realised", false), field("cq_buy_fee_in_quote", "whole", "fees", false)), ("-50.0".into(), "60.0".into()));
+    assert_eq!(positions("cq_buy_fee_in_quote", "whole", true), "BTC 1.0@50000.0, ETH 10.0@30060.0");
+    assert!(positions("cq_buy_fee_in_base", "whole", false).starts_with("BTC 0.5@25000.0, ETH 9.99@24999.99"));
+    assert_eq!(positions("cq_sell_fee_third_coin", "whole", false), "BTC 0.5@25000.0, ETH 10.0@25010.0, KCS 99.0@990.0");
+    assert_eq!(field("cq_sell_fee_third_coin", "whole", "fees", false), "10.0");
+    assert!(positions("cq_sell_fee_in_quote", "whole", false).starts_with("BTC 0.5@25000.0, ETH 9.99@24999.99"));
+    // D-TRACKER-SWAP-FEE: over two lots the KCS fee joins once (50,005 under Rails' allocation).
+    assert_eq!(positions("cq_sell_fee_third_coin_two_lots", "whole", false), "ETH 20.0@50010.0, KCS 99.0@990.0");
+    assert_eq!(figure("cq_sell_fee_third_coin_two_lots", "unrealised", false), "9990.0");
+    assert_eq!(positions("cq_binance_two_lot_swap_fee", "whole", false), "BNB 0.9@270.0, BTC 0.05@2030.0");
+    assert_eq!(positions("cq_binance_two_lot_swap_fee", "whole", true), "BNB 0.9@270.0, BTC 0.05@2015.0");
+    // A quote coin never held opens what was spent (money in); Rails held ETH with nothing in.
+    assert_eq!((field("cq_quote_never_held", "whole", "openings", false), field("cq_quote_never_held", "whole", "total_invested", false)), (r#"[["BTC","0.5"]]"#.into(), "30000.0".into()));
+    assert_eq!(field("cq_quote_never_held", "whole", "total_invested", true), "0.0");
+    // A cash base sold or bought for a coin reads as the cash trade booked the usual way (the control venue, id 3).
+    assert_eq!(positions("cq_stable_base_sell", "2", false), positions("cq_stable_base_sell", "3", false));
+    assert_eq!(positions("cq_stable_base_sell", "2", false), "BTC 1.0@50000.0");
+    for key in ["realised", "cash", "total_invested"] { assert_eq!(field("cq_stable_base_buy", "2", key, false), field("cq_stable_base_buy", "3", key, false), "{key}"); }
+    assert_eq!((positions("cq_stable_base_buy", "2", false), field("cq_stable_base_buy", "2", "realised", false)), ("BTC 0.5@25000.0".into(), "5000.0".into()));
+    // Its fee leaves the cash, in the ledger and the history alike (D-TRACKER-HISTORY-SELL-FEE).
+    assert_eq!((positions("cq_stable_base_sell_fee", "whole", false), field("cq_stable_base_sell_fee", "whole", "cash", false)), ("BTC 1.0@50000.0".into(), r#"[["USDT","0.0"]]"#.into()));
+    assert_eq!(snapshot("cq_stable_base_sell_fee", "2026-09-16", false), ("60000".into(), "60000".into()), "no USDT left");
+    assert_eq!(snapshot("cq_stable_base_sell_fee", "2026-09-16", true), ("60010".into(), "60000".into()));
+    assert_eq!((positions("cq_fiat_base_sell_fee", "whole", false), field("cq_fiat_base_sell_fee", "whole", "fees", false)), ("BTC 0.02@1102.2".into(), "2.2".into()));
+    assert_eq!(snapshot("cq_fiat_base_sell_fee", "2026-09-16", false), ("1200".into(), "1200".into()));
+    assert_eq!((field("cq_stable_base_sell_fee_short", "whole", "total_invested", false), field("cq_stable_base_sell_fee_short", "whole", "cash", false)),
+               ("50020.0".into(), r#"[["USDT","10.0"]]"#.into()));
+    assert_eq!(snapshot("cq_stable_base_sell_fee_short", "2026-09-16", false), ("60010".into(), "60000".into()));
+    // Since the sync: both coins move (ETH, unpriced at the venue, at its cost).
+    let holdings = |name: &str, rails: bool| side(name, rails)["ledger"]["figures"]["whole"]["holdings"].as_array().unwrap().iter()
+        .map(|h| format!("{} {}", h["symbol"].as_str().unwrap(), h["quantity"].as_str().unwrap())).collect::<Vec<_>>().join(", ");
+    assert_eq!((holdings("cq_since_sync_buy", false), figure("cq_since_sync_buy", "value", false)), ("BTC 0.499, ETH 10.0".into(), "54940.0".into()));
+    assert_eq!(holdings("cq_since_sync_buy", true), "BTC 0.999, ETH 10.0");
+    assert_eq!((holdings("cq_since_sync_sell", false), figure("cq_since_sync_sell", "value", false)), ("BTC 0.5, ETH 10.0".into(), "55000.0".into()));
+    assert_eq!(holdings("cq_since_sync_sell", true), "BTC 0.5");
+    assert_eq!((positions("cq_same_instant_buy_then_split", "whole", false), field("cq_same_instant_buy_then_split", "whole", "realised", true)), ("ETH 20.0@50000.0".into(), "10000.0".into()));
+    assert_eq!((positions("cq_quote_unpriced", "whole", false), field("cq_quote_unpriced", "whole", "incomplete", false)), ("BTC 0.5@25000.0, XYZ 10.0@25000.0".into(), "true".into()));
+    // The unpriced coin held is shown at the basis it carried, its note saying the basis is an estimate; the day is partial.
+    let xyz = side("cq_quote_unpriced", false)["ledger"]["figures"]["whole"]["holdings"].as_array().unwrap().iter().find(|h| h["symbol"] == "XYZ").unwrap().clone();
+    assert_eq!((xyz["quantity"].as_str(), xyz["value"].as_str(), xyz["note"]["kind"].as_str()), (Some("10.0"), Some("25000.0"), Some("estimated")));
+    assert_eq!(figure("cq_quote_unpriced", "value", false), "55000.0");
+    assert_eq!((field("cq_fee_takes_everything", "whole", "realised", false), positions("cq_fee_takes_everything", "whole", false)), ("-100.0".into(), "".into()));
+    // No loss, so no lock (Rails: BTC locked to 6 October); a lock already armed stays as it was.
+    assert_eq!(side("cq_wash_coin_quoted_loss", false)["tables"]["wash_sale_locks"], json!([]));
+    assert_ne!(side("cq_wash_coin_quoted_loss", true)["tables"]["wash_sale_locks"], json!([]));
+    assert_eq!(side("cq_wash_existing_lock", false)["tables"]["wash_sale_locks"], side("cq_wash_existing_lock", true)["tables"]["wash_sale_locks"]);
+    assert_eq!(positions("cq_group_collision", "whole", false), positions("cq_every_venue", "2", false));
+    // D-TRACKER-HISTORY-SELL-FEE: the history holds 0.49 BTC as the ledger does (Rails 0.5).
+    assert_eq!(snapshot("cq_history_sell_fee", "2026-09-16", false).1, "29400");
+    assert_eq!(snapshot("cq_history_sell_fee", "2026-09-16", true).1, "30000");
+    assert_eq!(snapshot("same_coin_sale_fee", "2026-09-20", false), ("1599.4".into(), "599.4".into()));
+    assert_eq!(snapshot("fees_fifo_never_applied", "2026-09-09", false), ("85340".into(), "85140".into()), "0.005 ETH less at the history's close");
+    // D-TRACKER-TRANSFER-ORDER (A Binance 2, B Kraken 3, C Bybit 4): no phantom opening, nothing invested twice.
+    for (name, rust, rails) in [("to_same_second_transfer_past_deposit", "10000.0", "30000.0"), ("to_chain_funded_by_deposit", "60000.0", "120000.0"),
+                                ("to_chain_ab_bc", "60000.0", "120000.0"), ("to_reciprocal_ab_ba", "60000.0", "120000.0"), ("to_cycle_unfunded", "60000.0", "120000.0"),
+                                ("to_cycle_funded_forward", "60000.0", "180000.0"), ("to_opening_then_reciprocal", "60000.0", "120000.0"),
+                                ("to_adjustments_then_reciprocal", "60000.0", "120000.0")] {
+        assert_eq!((field(name, "whole", "total_invested", false), field(name, "whole", "total_invested", true)), (rust.into(), rails.into()), "{name}");
+    }
+    assert_eq!((field("to_same_second_transfer_past_deposit", "whole", "realised", false), field("to_same_second_transfer_past_deposit", "whole", "openings", false)), ("10000.0".into(), "[]".into()));
+    assert_eq!(positions("to_chain_funded_by_deposit", "whole", false), "BTC 1.0@60000.0");
+    assert_eq!(field("to_cycle_unfunded", "4", "openings", false), r#"[["BTC","1.0"]]"#, "one opening, on C");
+    assert_eq!(field("to_opening_then_reciprocal", "2", "openings", false), r#"[["BTC","1.0"]]"#, "the opening the earlier withdrawal forced, on A alone");
+    assert_eq!((positions("to_adjustments_then_reciprocal", "2", false), positions("to_adjustments_then_reciprocal", "3", false)), ("".into(), "BTC 1.0@60000.0".into()));
+    // The parity cases of the same schedule (Rails' order is already funded).
+    for name in ["to_chain_bc_ab", "to_reciprocal_ba_ab", "to_cycle_funded_reverse", "cq_stable_quoted_sale", "to_cash_linked_deposit_fee_fx"] {
+        assert_eq!(side(name, false), side(name, true), "{name}");
+    }
+    assert_eq!(field("to_cash_linked_deposit_fee_fx", "4", "cash_basis", false), r#"[["EUR","101.0"]]"#, "C's euros carry the basis the deposit's fee left");
+}
+
 /// R: legacy fixture balances have no credential provenance. Retain every historical
 /// amount; R4 refuses today's snapshots and associated wash-lock publication until a producer sync succeeds.
 const UNKNOWN_ORIGIN: &[&str] = &["other_venue_balance", "a_failed_sync_and_stale_prices", "stale_prices_alone", "cash_beyond_the_history_and_an_unpriced_holding", "a_failed_price_fetched_again", "bought_since_the_sync", "buys_priced", "coin_fee_stated_price", "coin_fee_then_withdrawal", "departed_and_cash_short", "dividends_fees_withdrawal", "linked_dollars", "old_loss_outside_the_horizon", "return_of_capital", "sale_gain_with_a_losing_lot", "sell_at_loss_wash_off", "sell_at_loss_wash_on", "sold_before_any_buy", "split_priced_by_a_second_fetch"];
@@ -66,12 +174,14 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 67, "the tracker grid");
+    assert_eq!(dirs.len(), 67 + 23 + 12, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let (mut failures, mut divergences) = (vec![], vec![]);
+    let mut reviewed_names: Vec<String> = vec![];
+    let mut outputs: std::collections::HashMap<String, (Value, Value)> = std::collections::HashMap::new();
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let scenario=read(&rust_root.path().join(&name).join("scenario.json"));
@@ -80,14 +190,36 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
         drop(initial);
         let rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
         let rails_out = read(&d.join("rails.json"));
+        // A reviewed divergence (D-TRACKER-…): Rust's output is the file checked by hand, and Rails' is not.
+        if let Some(id) = scenario["expect"].as_str().and_then(|e| e.strip_prefix("diverges: ")) {
+            assert!(id.split(" + ").all(|d| d.starts_with("D-TRACKER-")), "{name}: {id}");
+            let path = reviewed(&name);
+            let text = serde_json::to_string_pretty(&rust_out).unwrap() + "\n";
+            if std::env::var("TRACKER_DIVERGENCES_WRITE").is_ok() { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, &text).unwrap(); }
+            if rails_out == rust_out { failures.push(format!("{name}: {id} names a divergence, but Rust stated Rails' output")); }
+            match std::fs::read_to_string(&path) {
+                Ok(want) if want == text => {}
+                Ok(_) => failures.push(format!("{name}: not the reviewed {id} output ({})\n  rails: {rails_out}\n  rust:  {rust_out}", path.display())),
+                Err(e) => failures.push(format!("{name}: {}: {e}\n  rails: {rails_out}\n  rust:  {rust_out}", path.display())),
+            }
+            reviewed_names.push(name.clone());
+            outputs.insert(name, (rails_out, rust_out));
+            continue;
+        }
         match unknown_origin(&name,&rails_out,&rust_out,&before_locks) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => divergences.push(name),
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
-            None => {}
+            None => { outputs.insert(name, (rails_out, rust_out)); }
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+    // Every reviewed file is a diverging scenario's.
+    for f in std::fs::read_dir(reviewed("x").parent().unwrap()).unwrap() {
+        let f = f.unwrap().file_name().into_string().unwrap();
+        assert!(reviewed_names.iter().any(|n| format!("{n}.json") == f), "{f} has no diverging scenario");
+    }
+    reviewed_figures(&outputs);
     let mut expected=UNKNOWN_ORIGIN.iter().map(|name|name.to_string()).collect::<Vec<_>>();
     expected.sort();
     assert_eq!(divergences,expected,"all reviewed legacy-origin and original divergences are exercised");

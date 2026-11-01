@@ -21,6 +21,15 @@ const HISTORY_VERSION: i64 = 1;
 
 pub fn history_key(user_id: i64) -> String { format!("snapshot_history_version_{user_id}") }
 pub fn price_key(user_id: i64) -> String { format!("snapshot_price_generation_{user_id}") }
+/// The calculation a stored history was swept by (Rust's own key; Rails has none): a history of another one is swept again.
+/// 2: coin-quoted single rows are two legs (D-TRACKER-COIN-QUOTE), transfers wait for their funds (D-TRACKER-TRANSFER-ORDER),
+/// a non-cash sale's own fee leaves (D-TRACKER-HISTORY-SELL-FEE).
+pub const CALCULATION: &str = "2";
+pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
+/// Records that the user's history is this calculation's.
+pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
+    crate::app_config::set(c, cipher, &calculation_key(user_id), CALCULATION, now).map_err(FiguresError::Data)
+}
 
 /// `PortfolioSnapshot.history_version`: what a stored history was swept from (every row, today's included).
 pub fn history_version(c: &Connection, user_id: i64) -> Result<String, FiguresError> {
@@ -70,6 +79,7 @@ pub fn wanted(c: &Connection, cipher: &Cipher, user_id: i64, today: NaiveDate) -
         partial |= scope.is_none() && window.iter().any(|(_, _, p)| *p);
     }
     if crate::app_config::get(c, cipher, &history_key(user_id)).map_err(FiguresError::Data)? != Some(history_version(c, user_id)?) { return Ok(true); }
+    if crate::app_config::get(c, cipher, &calculation_key(user_id)).map_err(FiguresError::Data)?.as_deref() != Some(CALCULATION) { return Ok(true); }
     Ok(partial && crate::app_config::get(c, cipher, &price_key(user_id)).map_err(FiguresError::Data)? != Some(generation(c)?.to_string()))
 }
 
@@ -401,9 +411,11 @@ fn apply(held: &mut Held, t: &Stored, linked: &dyn Fn(&Stored) -> bool, by_id: &
         Kind::ReturnOfCapital | Kind::Unsupported => {}
     }
     // `consume_fee`: a fee not in the base leaves its own currency; in the base only on a settlement leg of cash.
+    // D-TRACKER-HISTORY-SELL-FEE: and a coin's own fee on its sale, on top, as the ledger takes it (`quantity_moves`).
     if let (Some(fc), Some(fee)) = (t.fee_currency.as_deref().filter(|c| !c.trim().is_empty()), &t.fee_amount) {
-        let cash_leg = matches!(t.kind, Kind::Sell | Kind::SwapOut) && t.quote.as_deref().is_none_or(|q| q.trim().is_empty()) && super::cash(&t.base);
-        if fee.is_positive() && (fc != t.base || cash_leg) { add(held, venue, fc, &fee.neg())?; }
+        let out_leg = matches!(t.kind, Kind::Sell | Kind::SwapOut);
+        let cash_leg = out_leg && t.quote.as_deref().is_none_or(|q| q.trim().is_empty()) && super::cash(&t.base);
+        if fee.is_positive() && (fc != t.base || cash_leg || (out_leg && !super::cash(&t.base))) { add(held, venue, fc, &fee.neg())?; }
     }
     // `apply_quote`.
     if let (Some(quote), Some(qa)) = (t.quote.as_deref().filter(|q| !q.trim().is_empty()), &t.quote_amount) {
@@ -427,6 +439,7 @@ pub fn store(c: &crate::engine::model::FencedTransaction<'_>, cipher: &Cipher, u
                                     col(&day.held_value)?, col(&day.held_cost)?, day.partial])?;
     }
     crate::app_config::set(c, cipher, &history_key(user_id), version, now).map_err(FiguresError::Data)?;
+    mark_calculated(c, cipher, user_id, now)?;
     crate::app_config::set(c, cipher, &price_key(user_id), &generation(c)?.to_string(), now).map_err(FiguresError::Data)
 }
 
@@ -507,6 +520,7 @@ mod tests {
     fn swept(c: &Connection) -> crate::crypto::Cipher {
         let cipher = crate::crypto::Cipher::new(&EncryptionKeys::resolve(&|_| None, "backfill-tests").unwrap());
         crate::app_config::set(c, &cipher, &history_key(1), &history_version(c, 1).unwrap(), "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
+        mark_calculated(c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         let mut d = day("2026-09-01");
         while d <= day("2026-10-01") {
             c.execute("INSERT INTO portfolio_snapshots (user_id, date, held_cost_usd, partial) VALUES (1, ?1, 400, 0)", [d.to_string()]).unwrap();
@@ -530,6 +544,13 @@ mod tests {
         c.execute("INSERT INTO portfolio_snapshots (user_id, date, held_cost_usd, partial) VALUES (1, '2026-08-20', NULL, 1)", []).unwrap();
         c.execute("INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, held_cost_usd, partial) VALUES (1, 1, '2026-08-25', 400, 0)", []).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "rows before the first transaction");
+        // A history another calculation swept (a 2.x install's, or this build's before D-TRACKER-COIN-QUOTE) is swept again.
+        c.execute("DELETE FROM app_configs WHERE key = ?1", [calculation_key(1)]).unwrap();
+        assert!(wanted(&c, &cipher, 1, today).unwrap(), "no calculation stamp");
+        crate::app_config::set(&c, &cipher, &calculation_key(1), "1", "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
+        assert!(wanted(&c, &cipher, 1, today).unwrap(), "an older calculation");
+        mark_calculated(&c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
+        assert!(!wanted(&c, &cipher, 1, today).unwrap(), "this calculation's");
         for (why, change) in [("a week offline", "DELETE FROM portfolio_snapshots WHERE date BETWEEN '2026-09-23' AND '2026-09-30'"),
                               ("a venue's row missing", "DELETE FROM portfolio_venue_snapshots WHERE date = '2026-09-15'"),
                               ("a venue's history starting late", "DELETE FROM portfolio_venue_snapshots WHERE date BETWEEN '2026-09-01' AND '2026-09-03'"),
@@ -540,6 +561,41 @@ mod tests {
             c.execute(change, []).unwrap();
             assert!(wanted(&c, &cipher, 1, today).unwrap(), "{why}");
         }
+    }
+
+    fn leg(id: i64, venue: &str, kind: Kind, base: &str, amount: &str, at: &str) -> Stored {
+        Stored { id, venue: venue.into(), kind, base: base.into(), amount: Dec::strict(amount).unwrap(), quote: None, quote_amount: None,
+                 at: At::from_sql(at).unwrap(), ..bought("BTC") }
+    }
+
+    /// D-TRACKER-HISTORY-SELL-FEE: a coin's own fee on its sale leaves on top, as the ledger takes it; a cash sale with a quote
+    /// keeps Rails' reading (the fee inside).
+    #[test]
+    fn a_coin_sale_s_own_fee_leaves_the_history() {
+        let fee = |r: Stored, c: &str, a: &str| Stored { fee_currency: Some(c.into()), fee_amount: Some(Dec::strict(a).unwrap()), ..r };
+        let quoted = |r: Stored, c: &str, a: &str| Stored { quote: Some(c.into()), quote_amount: Some(Dec::strict(a).unwrap()), ..r };
+        let rows = [leg(1, "binance", Kind::Deposit, "BTC", "1", "2026-09-01 10:00:00"),
+                    fee(quoted(leg(2, "binance", Kind::Sell, "BTC", "0.5", "2026-09-02 10:00:00"), "USDT", "15000"), "BTC", "0.01")];
+        let h = held(&rows).unwrap();
+        assert_eq!((h["binance"]["BTC"].to_s_f(), h["binance"]["USDT"].to_s_f()), ("0.49".to_string(), "15000.0".to_string()), "Rails: 0.5");
+        let rows = [leg(1, "binance", Kind::Deposit, "USDT", "100", "2026-09-01 10:00:00"),
+                    fee(quoted(leg(2, "binance", Kind::Sell, "USDT", "50", "2026-09-02 10:00:00"), "USD", "50"), "USDT", "1")];
+        assert_eq!(held(&rows).unwrap()["binance"]["USDT"].to_s_f(), "50.0");
+    }
+
+    /// D-TRACKER-COIN-QUOTE: USDT sold for BTC in one row, a 10 USDT fee on top, on a venue that lends no cash: read as its
+    /// legs, the history takes the fee in its holdings and reads the 10 USDT short as cash that was there (V8e).
+    #[test]
+    fn a_cash_sale_for_a_coin_takes_its_fee_in_the_history_s_holdings_and_shortfall() {
+        let sale = Stored { quote: Some("BTC".into()), quote_amount: Some(Dec::one()), fee_currency: Some("USDT".into()), fee_amount: Some(Dec::strict("10").unwrap()),
+                            ..leg(2, "binance", Kind::Sell, "USDT", "50000", "2026-09-01 11:00:00") };
+        let rows = vec![leg(1, "binance", Kind::Deposit, "USDT", "50000", "2026-09-01 10:00:00"), sale, leg(3, "binance", Kind::Deposit, "USDT", "10", "2026-09-02 10:00:00")];
+        let legs = super::super::rows::split_coin_quoted_trades(rows, true).unwrap();
+        let ids = HashMap::from([("binance".to_string(), 2)]);
+        let swept = sweep(&Plan::default(), &Prices::new(), &legs, &[], day("2026-09-01"), day("2026-09-02"), &super::super::fx::FxTable::default(), &ids).unwrap();
+        let cash: Vec<String> = swept.whole.iter().map(|(_, d)| (&d.value - d.held_value.as_ref().unwrap()).unwrap().to_s_f()).collect();
+        assert_eq!(cash, ["0.0", "10.0"], "the shortfall is cash that was there; then 10 arrive");
+        assert_eq!(held(&legs).unwrap()["binance"]["BTC"].to_s_f(), "1.0");
     }
 
     /// Planning many distinct symbols is linear work, each row and instrument a step: refused under an allowance it
