@@ -832,6 +832,29 @@ pub fn open(paths: &Paths) -> Result<Opened, StoreError> {
     Ok(Opened { primary, queue })
 }
 
+/// `check`'s copy of an install that passed `check` (PLAN-B2 r1.9): both databases copied into memory, each in one
+/// backup step (one read transaction: a consistent snapshot, WAL included). The files are only read; no file is created.
+pub fn copy_in_memory(paths: &Paths) -> Result<Opened, StoreError> {
+    let copy = |path: &Path| -> Result<Connection, StoreError> {
+        let from = read_only(path)?;
+        let mut to = Connection::open_in_memory()?;
+        // -1: every page in one step, so one read transaction (run_to_completion steps by a positive page count).
+        let step = rusqlite::backup::Backup::new(&from, &mut to)?.step(-1)?;
+        if step != rusqlite::backup::StepResult::Done {
+            return Err(StoreError::Io(std::io::Error::other(format!("{}: could not copy it ({step:?})", path.display()))));
+        }
+        configure(&to)?;
+        Ok(to)
+    };
+    Ok(Opened { primary: copy(&paths.primary)?, queue: copy(&paths.queue)? })
+}
+
+/// This build's pending Rust migrations applied to `copy_in_memory`'s primary, by the code `migrate` runs, so `check`
+/// assesses the state `run` and `serve` will start from (PLAN-B2 r2.2).
+pub fn migrate_copy(copy: &Opened) -> Result<Vec<String>, StoreError> {
+    apply(&copy.primary, &REGISTRY)
+}
+
 /// Sets the connection timeout and foreign keys; Rails owns the journal mode.
 pub fn configure(c: &Connection) -> rusqlite::Result<()> {
     c.busy_timeout(std::time::Duration::from_millis(5_000))?;
