@@ -443,11 +443,15 @@ impl<'a> Fifo<'a> {
     /// `group_legs`.
     fn group_legs<'t>(&self, txs: &'t [Tx], kind: Kind) -> Vec<(Group, Vec<&'t Row>)> {
         let mut groups: Vec<(Group, Vec<&Row>)> = vec![];
+        let mut index: HashMap<Group, usize> = HashMap::new();
         for r in txs.iter().map(|t| &t.row) {
             if r.kind != kind || self.non_taxable_stablecoin_swap(&r.base) { continue; }
             if kind == Kind::SwapOut && self.fiat_disposal(r) { continue; }
             let Some(key) = group_key(r) else { continue };
-            match groups.iter_mut().find(|(k, _)| *k == key) { Some((_, g)) => g.push(r), None => groups.push((key, vec![r])) }
+            match index.get(&key) {
+                Some(&i) => groups[i].1.push(r),
+                None => { index.insert(key.clone(), groups.len()); groups.push((key, vec![r])); }
+            }
         }
         groups
     }

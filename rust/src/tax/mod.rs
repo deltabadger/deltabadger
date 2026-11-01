@@ -132,11 +132,20 @@ impl Report {
         let folded = attribute_trade_fees(&self.cfee, &mut taxable)?;
         let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && e.row.amount.is_positive())
             .map(|(e, _)| &e.row).collect();
-        let txs: Vec<fifo::Tx> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)
+        let mut txs: Vec<fifo::Tx> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)
             .map(|(e, _)| fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: fiat_exit(&e.row, &enriched) }).collect();
 
         let holding = self.holding_rule();
         let per_venue_from = (j.code == "US" && year >= 2025).then(|| local_midnight(&self.zone, 2025)).flatten();
+        // D-TAX-US-WALLET: per venue, a withdrawal to another venue is walked first within its second (`transfers_first`),
+        // so a same-second sale on the far venue takes the lots it brought. The pooled years keep Rails' order.
+        if let Some(from) = per_venue_from {
+            let split = txs.iter().position(|t| t.row.at.0 >= from.0).unwrap_or(txs.len());
+            let tail: Vec<fifo::Tx> = txs.split_off(split);
+            let order = walk::transfers_first(&tail.iter().map(|t| t.row.clone()).collect::<Vec<_>>());
+            let mut by_uid: HashMap<usize, fifo::Tx> = tail.into_iter().map(|t| (t.row.uid, t)).collect();
+            txs.extend(order.iter().filter_map(|r| by_uid.remove(&r.uid)));
+        }
         let mut engine = fifo::Fifo::new(fifo::Options {
             swaps_taxable: j.swaps_taxable(), stablecoin_as_fiat: self.stablecoin_as_fiat,
             holding: holding.as_ref().map(|h| h as &dyn Fn(At, At) -> bool), swap_resets_holding_period: j.swap_resets_holding_period, per_venue_from,

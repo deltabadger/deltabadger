@@ -331,6 +331,15 @@ module TaxVectors
       # The same history for 2025: the pool as it stands at the end of 2024 is placed on the venues holding the units,
       # so no lot the 2024 report used is used again, and the 2025 Kraken sale takes Kraken's 2025 lot.
       { name: 'us_wallet_2025_per_venue', year: 2025, expect: 'diverges: D-TAX-US-WALLET', setup: ->(c) { wallet_boundary(c) } },
+      # A sale on Kraken stored before the withdrawal that brought its coins, in the same second: walked after it.
+      { name: 'us_wallet_same_second_transfer', expect: 'parity', setup: lambda { |c|
+        kr = venue(c, :kraken)
+        price('BTC', '2026-01-10', '95000')
+        buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
+        sell(c, 'BTC', '1', '200', '2026-01-10T10:00:00Z', exchange: kr)
+        row(c, :deposit, 'BTC', '1', '2026-01-10T10:10:00Z', exchange: kr)
+        row(c, :withdrawal, 'BTC', '1', '2026-01-10T10:00:00Z', linked_transaction_id: AccountTransaction.order(:id).last.id)
+      } },
       { name: 'us_unlinked_withdrawal_per_venue', expect: 'diverges: D-TAX-US-WALLET', setup: lambda { |c|
         price('BTC', '2026-01-06', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
