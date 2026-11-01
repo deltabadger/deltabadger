@@ -233,7 +233,8 @@ fn explain(e: StoreError, paths: &Paths) -> String {
 /// SECRET_KEY_BASE, the exclusive lock, and an install this build accepts and this secret reads (check_readable).
 /// Refusals here exit 1 before any file is created or changed. `run` and `serve` (`start`) wait out a just-stopped Rails
 /// heartbeat once (take_lock_waiting) and create the install on an empty STORAGE_DIR (store::bootstrap: a new install
-/// holds nothing encrypted but its own lease); after check_readable they apply this build's pending Rust migrations,
+/// holds nothing encrypted but its own lease); after check_readable they copy an install the lease does not give to this
+/// engine (back_up), then apply this build's pending Rust migrations,
 /// before any writable connection is opened (PLAN-B2 r4.6).
 fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLock, store::Opened, Cipher) {
     refuse_url_overrides(env);
@@ -242,16 +243,14 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     let cipher = Cipher::new(&keys);
     let paths = paths(env);
     let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
-    if start {
-        let created = store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| fail(&explain(e, &paths)));
-        if created {
-            log(&format!("set up a new install at {}", paths.primary.display()));
-            #[cfg(debug_assertions)]
-            store::abort_point("after-commit");
-        }
+    let created = start && store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| fail(&explain(e, &paths)));
+    if created {
+        log(&format!("set up a new install at {}", paths.primary.display()));
+        #[cfg(debug_assertions)]
+        store::abort_point("after-commit");
     }
     check_readable(&paths, &cipher);
-    // B2-4: the backup before the first takeover goes here, before anything below writes.
+    if start && !created && !owned_by_rust(&paths, &cipher) { back_up(&paths) }
     if start {
         for version in store::migrate(&paths, &lock).unwrap_or_else(|e| fail(&explain(e, &paths))) { log(&format!("applied Rust migration {version}")); }
     }
@@ -260,6 +259,24 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
     (lock, opened, cipher)
+}
+
+/// Whether the lease says this engine owns the install (PLAN-B2 §1 row 9). Absent, `none` (rows 6-8) or unreadable is not:
+/// a copy too many is harmless, one too few is not.
+fn owned_by_rust(paths: &Paths, cipher: &Cipher) -> bool {
+    let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
+    matches!(lease::read(&c, cipher), Ok(Some(v)) if v["engine"] == "rust")
+}
+
+/// The copy before a takeover from Rails (PLAN-B2 r3.4, §5): C5a once a new copy is complete; a failure stops the start
+/// with C5b (r6 Q3) before anything is migrated or claimed.
+fn back_up(paths: &Paths) {
+    match store::backup(paths, chrono::Utc::now()) {
+        Ok(store::Backup::Made(dir)) => log(&format!("backed up this install to {} before taking it over", dir.display())),
+        Ok(store::Backup::Unchanged(dir)) => log(&format!("this install hasn't changed since its backup at {}", dir.display())),
+        Err(e) => fail(&format!("can't back up this install to {} ({e}), so 3.0 didn't take it over. Free some space, then start again.",
+                                store::backups_dir(paths).display())),
+    }
 }
 
 /// C9 (PLAN-B2 r2.4, r6): SECRET_KEY_BASE is not the one this install's encrypted data was written with.

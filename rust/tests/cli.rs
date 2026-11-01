@@ -5,9 +5,14 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 fn cli(dir: &Path, args: &[&str]) -> Command {
-    // These process tests exercise takeover/reference jobs, not Alpaca. Keep newly registered venue jobs
-    // outside their short lifetime; their network behavior is tested through sync's scripted factory.
-    if args.first().is_some_and(|arg| ["run", "serve"].contains(arg)) && dir.join("production.sqlite3").exists() {
+    if args.first().is_some_and(|arg| ["run", "serve"].contains(arg)) && dir.join("production.sqlite3").exists() { quiet_venue_jobs(dir) }
+    bare(dir, args)
+}
+
+/// These process tests exercise takeover/reference jobs, not Alpaca. Keep newly registered venue jobs
+/// outside their short lifetime; their network behavior is tested through sync's scripted factory.
+fn quiet_venue_jobs(dir: &Path) {
+    {
         let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
         if let Ok(mut stmt) = c.prepare("SELECT id FROM api_keys") {
             for key in stmt.query_map([], |r| r.get::<_,i64>(0)).unwrap() {
@@ -22,6 +27,10 @@ fn cli(dir: &Path, args: &[&str]) -> Command {
             }
         };
     }
+}
+
+/// `cli` without quiet_venue_jobs' write, for tests that compare the install's state across starts.
+fn bare(dir: &Path, args: &[&str]) -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_deltabadger"));
     c.args(args).env("STORAGE_DIR", dir).env("SECRET_KEY_BASE", "engine-test-secret")
         .env("IBKR_CATALOGUE_URL", "off") // no public snapshot fetch from a process test
@@ -111,6 +120,7 @@ fn run_takes_over_and_stops_cleanly_on_sigterm_then_handback_returns_the_install
     drop(o);
     let mut child = cli(dir.path(), &["run"]).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
     let mut lines = std::io::BufReader::new(child.stdout.take().unwrap()).lines();
+    assert!(lines.next().expect("a log line").unwrap().contains("backed up this install"), "C5a comes first");
     let took = lines.next().expect("a log line").unwrap();
     assert!(took.contains("took over"), "{took}");
     let running = lines.next().expect("a log line").unwrap();
@@ -189,6 +199,7 @@ fn serve_takes_the_install_over_holds_the_one_lock_until_sigterm_stops_both_then
     let stdout = child.0.stdout.take().unwrap();
     std::thread::spawn(move || for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) { let _ = tx.send(line); });
     let next = || rx.recv_timeout(std::time::Duration::from_secs(20)).expect("a log line within 20 s");
+    assert!(next().contains("backed up this install"), "C5a comes first");
     let took = next();
     assert!(took.contains("took over"), "{took}");
     let running = next();
@@ -599,6 +610,7 @@ fn serve_waits_out_a_just_stopped_rails_showing_the_wait_on_its_port_then_takes_
     assert!(http_get(port, "/ui-ready").unwrap().starts_with("HTTP/1.1 200"));
     assert!(http_get(port, "/up").unwrap().starts_with("HTTP/1.1 503"));
     assert!(lease_of(dir.path()).is_none(), "nothing claimed while waiting");
+    assert!(next().contains("backed up this install"), "C5a, after the wait");
     let took = next();
     assert!(took.contains("took over"), "{took}");
     let running = next();
@@ -780,4 +792,236 @@ fn check_assesses_the_install_as_serve_will_after_its_pending_migrations() {
     assert!(lines.find(|l| l.contains("running")).is_some(), "signal handlers are registered before this line");
     assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
     assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
+}
+
+// --- B2-4: the backup before a takeover from Rails (PLAN-B2 r3.4, §5, r6 Q3) ---
+
+const DATABASES: [&str; 2] = ["production.sqlite3", "production_queue.sqlite3"];
+
+/// Every entry of `backups/`, oldest first (complete copies and any `.partial`).
+fn backups(dir: &Path) -> Vec<std::path::PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir.join("backups")) else { return vec![] };
+    let mut all: Vec<_> = entries.map(|e| e.unwrap().path()).collect();
+    all.sort();
+    all
+}
+
+/// Opens a copy without writing next to it (no -wal or -shm in a backup folder).
+fn frozen(path: &Path) -> rusqlite::Connection {
+    rusqlite::Connection::open_with_flags(format!("file:{}?immutable=1", path.display()),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_URI).unwrap()
+}
+
+/// Both databases' snapshots (schema.rs); `live` folds the WAL in first.
+fn snapshots(dir: &Path, live: bool) -> Vec<std::collections::BTreeMap<String, common::schema::Rows>> {
+    DATABASES.iter().map(|f| {
+        if live { rusqlite::Connection::open(dir.join(f)).unwrap().execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap(); }
+        common::schema::snapshot(&frozen(&dir.join(f)))
+    }).collect()
+}
+
+/// Snapshots compared by section, naming the sections that differ (a whole snapshot is megabytes).
+fn same(got: &[std::collections::BTreeMap<String, common::schema::Rows>], want: &[std::collections::BTreeMap<String, common::schema::Rows>], what: &str) {
+    for (f, (g, w)) in DATABASES.iter().zip(got.iter().zip(want)) {
+        let differ: Vec<&String> = g.keys().chain(w.keys()).filter(|k| g.get(*k) != w.get(*k)).collect();
+        assert!(differ.is_empty(), "{what}: {f} differs in {differ:?}");
+    }
+}
+
+/// The pending Rust migrations `check` lists.
+fn pending(dir: &Path) -> Vec<String> {
+    let out = bare(dir, &["check"]).output().unwrap();
+    String::from_utf8_lossy(&out.stdout).lines().filter(|l| l.contains("pending Rust migration")).map(str::to_string).collect()
+}
+
+/// `run` up to its claim (debug abort point after-claim): stdout and stderr.
+fn run_to_claim(dir: &Path) -> String {
+    let out = bare(dir, &["run"]).env("DELTABADGER_TEST_ABORT", "after-claim").output().unwrap();
+    format!("{}{}", String::from_utf8_lossy(&out.stdout), stderr(&out))
+}
+
+/// The user's restore (§5): the copy's files over the install's, without -wal and -shm.
+fn restore(from: &Path, dir: &Path) {
+    for f in DATABASES {
+        std::fs::copy(from.join(f), dir.join(f)).unwrap();
+        for side in ["-wal", "-shm"] { let _ = std::fs::remove_file(dir.join(format!("{f}{side}"))); }
+    }
+}
+
+/// A 2.x install (Rails migrations only) with a Kraken key and a bot; `refusing` makes the assessment refuse it.
+fn two_x_install(refusing: bool) -> (tempfile::TempDir, i64) {
+    let dir = common::rails_install_unmigrated();
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    let bot = BotSpec::weekly(60.0, "2099-01-01 00:00:00");
+    let bot = if refusing { bot.with("future_price_drop_limited", serde_json::json!(true)) } else { bot };
+    let bot = seed::insert_bot(&c, &s, &bot);
+    quiet_venue_jobs(dir.path()); // once, as part of the 2.x state: `bare` starts write nothing before the copy
+    (dir, bot)
+}
+
+#[test]
+fn serve_backs_a_2x_install_up_before_taking_it_over_and_the_copy_restores_it() {
+    use sha2::Digest;
+    let (dir, _) = two_x_install(false);
+    let before = snapshots(dir.path(), true);
+    let pending_before = pending(dir.path());
+    assert!(!pending_before.is_empty(), "a 2.x install has this build's migrations pending");
+    let (mut child, rx) = spawn_logged(bare(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
+    let lines: Vec<String> = std::iter::from_fn(|| rx.recv_timeout(std::time::Duration::from_secs(30)).ok()).take_while(|l| !l.contains("running")).collect();
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
+
+    let made = backups(dir.path());
+    assert_eq!(made.len(), 1, "{made:?}");
+    let copy = &made[0];
+    assert!(copy.file_name().unwrap().to_string_lossy().starts_with("pre-3.0-") && copy.extension().is_none_or(|e| e != "partial"), "{copy:?}");
+    let said = lines.iter().position(|l| l.contains(&format!("backed up this install to {} before taking it over", copy.display())));
+    let took = lines.iter().position(|l| l.contains("took over"));
+    assert!(said.is_some() && said < took, "C5a, then the takeover: {lines:?}");
+    for f in DATABASES {
+        let ok: String = frozen(&copy.join(f)).query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(ok, "ok", "{f}");
+    }
+    same(&snapshots(copy, false), &before, "the copy is the install as 2.x left it");
+    let digest: String = DATABASES.iter().map(|f| format!("{}  {f}\n", hex::encode(sha2::Sha256::digest(std::fs::read(copy.join(f)).unwrap())))).collect();
+    assert_eq!(std::fs::read_to_string(copy.join("digest")).unwrap(), digest);
+
+    // A restart of the install Rust now owns (lease `rust`) copies nothing.
+    assert!(run_to_claim(dir.path()).contains("took over (AfterCrash)"));
+    assert_eq!(backups(dir.path()), made, "no copy on a restart");
+
+    restore(copy, dir.path());
+    same(&snapshots(dir.path(), true), &before, "restored to the state 2.x left");
+    assert_eq!(pending(dir.path()), pending_before, "and 2.x's own: every Rust migration pending again");
+}
+
+#[test]
+fn a_handed_back_install_is_backed_up_with_its_tax_rows_and_refused_starts_add_one_copy_per_state() {
+    let dir = common::rails_install();
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    let bot = seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
+    let now = chrono::Utc::now();
+    let lock = deltabadger::lease::lock(&paths, now).unwrap();
+    deltabadger::lease::claim(&lock, &c, &seed::cipher(), "test", now).unwrap();
+    drop(lock);
+    quiet_venue_jobs(dir.path());
+    let handback = || { let out = bare(dir.path(), &["handback"]).output().unwrap(); assert_eq!(out.status.code(), Some(0), "{}", stderr(&out)); };
+    handback();
+    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "none");
+    // r7.1: what the user typed into the Polish report.
+    c.execute("INSERT INTO rust_tax_pl_carry (user_id, year, costs, updated_at) VALUES (?1, 2024, '1234.56', '2026-11-01 10:00:00')", [s.user_id]).unwrap();
+    let carry = |c: &rusqlite::Connection| -> Vec<(i64, i64, String)> {
+        c.prepare("SELECT user_id, year, costs FROM rust_tax_pl_carry").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+    };
+    let typed = carry(&c);
+    assert_eq!(typed.len(), 1);
+
+    let said = run_to_claim(dir.path());
+    let made = backups(dir.path());
+    assert_eq!(made.len(), 1, "{made:?}");
+    assert!(said.contains(&format!("backed up this install to {} before taking it over", made[0].display())) && said.contains("took over (AfterHandback)"), "{said}");
+    assert_eq!(carry(&frozen(&made[0].join(DATABASES[0]))), typed, "the typed rows are in the copy");
+
+    // Handed back again, now with a bot the assessment refuses: three refused starts, one new copy.
+    handback();
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', json('true')) WHERE id = ?1", [bot]).unwrap();
+    for n in 1..=3 {
+        let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
+        assert!(r.stderr.contains("future_price_drop_limited"), "start {n}: {}", r.stderr);
+        assert_eq!(backups(dir.path()).len(), 2, "start {n}: {:?}", backups(dir.path()));
+    }
+    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "none", "nothing claimed");
+    // A 2.x change that queued nothing (here a setting edited by hand) is a new state: a new copy.
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount', 61) WHERE id = ?1", [bot]).unwrap();
+    refused(dir.path(), &mut bare(dir.path(), &["serve"]));
+    assert_eq!(backups(dir.path()).len(), 3);
+    c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('hand_edited', 'x', '2026-11-01', '2026-11-01')", []).unwrap();
+    refused(dir.path(), &mut bare(dir.path(), &["serve"]));
+    assert_eq!(backups(dir.path()).len(), 4);
+    assert!(backups(dir.path()).iter().all(|b| b.extension().is_none_or(|e| e != "partial")));
+
+    // The typed rows come back with a restore.
+    c.execute("DELETE FROM rust_tax_pl_carry", []).unwrap();
+    drop(c);
+    restore(&made[0], dir.path());
+    assert_eq!(carry(&rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap()), typed);
+}
+
+/// r4.6: the assessment runs after the migrations, so a refused first start has migrated: the original, then the
+/// migrated state, then nothing new.
+#[test]
+fn three_refused_starts_of_a_2x_install_keep_the_original_and_the_migrated_state() {
+    let (dir, _) = two_x_install(true);
+    let before = snapshots(dir.path(), true);
+    for n in 1..=3 {
+        let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
+        assert!(r.stderr.contains("future_price_drop_limited"), "start {n}: {}", r.stderr);
+        assert_eq!(backups(dir.path()).len(), n.min(2), "start {n}: {:?}", backups(dir.path()));
+    }
+    same(&snapshots(&backups(dir.path())[0], false), &before, "the original");
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+}
+
+#[test]
+fn a_crash_mid_migrate_or_mid_backup_leaves_one_copy_per_state_and_no_partial() {
+    let (dir, _) = two_x_install(false);
+    let before = snapshots(dir.path(), true);
+    // The same function on a separate copy of the untouched files: what the first backup must be, byte for byte.
+    let pristine = tempfile::tempdir().unwrap();
+    for f in DATABASES { std::fs::copy(dir.path().join(f), pristine.path().join(f)).unwrap(); }
+    let deltabadger::store::Backup::Made(reference) = deltabadger::store::backup(&deltabadger::store::Paths::from_env(&|_| None, pristine.path()), chrono::Utc::now()).unwrap()
+        else { panic!("a first backup is made") };
+
+    let out = bare(dir.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "mid-migrate").output().unwrap();
+    assert!(!out.status.success());
+    assert_eq!(backups(dir.path()).len(), 1);
+    assert!(run_to_claim(dir.path()).contains("took over (FromRails)"));
+    let made = backups(dir.path());
+    assert_eq!(made.len(), 2, "the original and the half-migrated state: {made:?}");
+    for f in DATABASES.iter().chain(&["digest"]) {
+        assert!(std::fs::read(made[0].join(f)).unwrap() == std::fs::read(reference.join(f)).unwrap(), "{f}: the first copy is the untouched install's");
+    }
+    same(&snapshots(&made[0], false), &before, "the original");
+    run_to_claim(dir.path());
+    assert_eq!(backups(dir.path()), made, "a third start adds none");
+
+    // Killed between the copy and its rename: the next start deletes the .partial and makes one complete copy.
+    let (dir, _) = two_x_install(false);
+    let before = snapshots(dir.path(), true);
+    let untouched = files_of(dir.path());
+    let out = bare(dir.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "mid-backup").output().unwrap();
+    assert!(!out.status.success());
+    let left = backups(dir.path());
+    assert!(left.len() == 1 && left[0].extension().is_some_and(|e| e == "partial"), "{left:?}");
+    assert_eq!(files_of(dir.path()), untouched, "nothing migrated before the copy is complete");
+    assert!(run_to_claim(dir.path()).contains("took over (FromRails)"));
+    let made = backups(dir.path());
+    assert!(made.len() == 1 && made[0].extension().is_none_or(|e| e != "partial"), "{made:?}");
+    same(&snapshots(&made[0], false), &before, "the original");
+}
+
+/// C5b (r6 Q3 = a hard stop): no copy, no takeover.
+#[test]
+fn a_start_that_cannot_back_up_stops_before_any_write() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, _) = two_x_install(false);
+    snapshots(dir.path(), true);
+    let shelf = dir.path().join("backups");
+    std::fs::create_dir(&shelf).unwrap();
+    std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let before = files_of(dir.path());
+    let c5b = format!("can't back up this install to {} (", shelf.display());
+    let out = finished(&mut bare(dir.path(), &["run"]));
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr(&out).contains(&c5b) && stderr(&out).contains("), so 3.0 didn't take it over. Free some space, then start again."), "{}", stderr(&out));
+    let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
+    assert!(r.stderr.contains(&c5b), "{}", r.stderr);
+    assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains("back up this install to") && r.page.contains("Free some space, then start again."), "{}", r.page);
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+    assert_eq!(files_of(dir.path()), before, "nothing migrated");
+    assert!(backups(dir.path()).is_empty());
+    std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o755)).unwrap();
 }

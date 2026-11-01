@@ -178,6 +178,7 @@ fn an_uninterrupted_bootstrap_makes_two_files_owned_by_rust() {
     let out = run_until(dir.path(), "after-claim");
     assert!(said(&out).contains(&format!("set up a new install at {}\n", dir.path().join(PRIMARY).display())), "{}", said(&out));
     assert_eq!(databases(dir.path()), [PRIMARY, QUEUE], "no cache or cable");
+    assert!(!dir.path().join("backups").exists(), "a new install has nothing to back up (PLAN-B2 §5)");
     for file in [PRIMARY, QUEUE] {
         let c = Connection::open(dir.path().join(file)).unwrap();
         assert_eq!(c.query_row("PRAGMA journal_mode", [], |r| r.get::<_, String>(0)).unwrap(), "wal", "{file}");
@@ -226,6 +227,7 @@ fn pending_rust_migrations_after_the_bootstrap_commit_are_resumed() {
     assert!(said(&check).contains("pending Rust migration"), "{}", said(&check));
     let out = run_until(dir.path(), "after-claim");
     assert!(said(&out).contains("applied Rust migration"), "{}", said(&out));
+    assert!(!dir.path().join("backups").exists(), "the restart of a new install is Rust's (lease `rust`): no copy");
     let c = Connection::open(dir.path().join(PRIMARY)).unwrap();
     let n: i64 = c.query_row("SELECT count(*) FROM rust_schema_migrations", [], |r| r.get(0)).unwrap();
     assert_eq!(n as usize, deltabadger::store::REGISTRY.migrations.len());

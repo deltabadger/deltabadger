@@ -673,7 +673,7 @@ fn write_baseline(c: &Connection) -> rusqlite::Result<()> {
 
 /// Debug builds only (PLAN-B1 r1.7): `DELTABADGER_TEST_ABORT=<step>` kills the process at that step, so tests/bootstrap.rs
 /// proves each crash by real process death. Steps: after-queue, after-wal, mid-baseline, mid-seed, before-commit,
-/// after-commit, mid-migrate, and after-claim (where the tests stop a restart). Release builds have none.
+/// after-commit, mid-migrate, mid-backup, and after-claim (where the tests stop a restart). Release builds have none.
 #[cfg(debug_assertions)]
 pub fn abort_point(step: &str) {
     if std::env::var("DELTABADGER_TEST_ABORT").is_ok_and(|s| s == step) { std::process::abort() }
@@ -847,6 +847,77 @@ pub fn copy_in_memory(paths: &Paths) -> Result<Opened, StoreError> {
         Ok(to)
     };
     Ok(Opened { primary: copy(&paths.primary)?, queue: copy(&paths.queue)? })
+}
+
+/// Where `backup` keeps its copies: `backups/` next to the primary.
+pub fn backups_dir(paths: &Paths) -> PathBuf {
+    paths.primary.parent().unwrap_or(Path::new(".")).join("backups")
+}
+
+/// What `backup` left: a new complete copy, or the newest one, which already holds this state.
+#[derive(Debug, PartialEq)]
+pub enum Backup { Made(PathBuf), Unchanged(PathBuf) }
+
+/// A copy of the primary and the queue (PLAN-B2 r3.4, §5), for the user's way back to the state the install was in; the
+/// caller holds the engine lock and nothing has written yet. Each file in one backup step (one read transaction, WAL
+/// included), under its own name, into `backups/pre-3.0-<UTC>.partial/`; then a `digest` (`shasum -a 256 -c` format) of
+/// both. Equal to the newest complete copy's digest → the partial copy is deleted (one copy per distinct state); otherwise
+/// the digest is written, everything fsynced, and the folder renamed to `pre-3.0-<UTC>/`. Copies are never replaced or
+/// deleted. A `.partial` left by a crash is deleted first; one this call made is deleted on its error. Cache and cable are
+/// not copied. The error is the operator's words for what failed.
+pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backup, String> {
+    use sha2::Digest;
+    let dir = backups_dir(paths);
+    let io = |what: &Path, e: std::io::Error| format!("{}: {e}", what.display());
+    std::fs::create_dir_all(&dir).map_err(|e| io(&dir, e))?;
+    let mut complete = Vec::new();
+    for entry in std::fs::read_dir(&dir).map_err(|e| io(&dir, e))? {
+        let name = entry.map_err(|e| io(&dir, e))?.file_name().to_string_lossy().into_owned();
+        if !name.starts_with("pre-3.0-") { continue }
+        if name.ends_with(".partial") { std::fs::remove_dir_all(dir.join(&name)).map_err(|e| io(&dir.join(&name), e))?; } else { complete.push(name) }
+    }
+    let newest = complete.into_iter().max();
+    // Microseconds, after a lock that serialises starts: no two starts share a name. A clock set back still sorts after
+    // the newest copy, so "newest" stays the last one made.
+    let mut name = format!("pre-3.0-{}", now.format("%Y%m%dT%H%M%S%.6fZ"));
+    if let Some(newest) = newest.as_ref().filter(|n| **n >= name) { name = format!("{newest}-1"); }
+    let partial = dir.join(format!("{name}.partial"));
+    std::fs::create_dir(&partial).map_err(|e| io(&partial, e))?;
+    let made = (|| -> Result<Backup, String> {
+        let mut digest = String::new();
+        let mut copies = Vec::new();
+        for from in [&paths.primary, &paths.queue] {
+            let file = from.file_name().ok_or_else(|| format!("{}: no file name", from.display()))?;
+            let to = partial.join(file);
+            let source = read_only(from).map_err(|e| format!("{}: {e:?}", from.display()))?;
+            let mut target = Connection::open(&to).map_err(|e| format!("{}: {e}", to.display()))?;
+            let step = rusqlite::backup::Backup::new(&source, &mut target).and_then(|b| b.step(-1)).map_err(|e| format!("{}: {e}", to.display()))?;
+            if step != rusqlite::backup::StepResult::Done { return Err(format!("{}: could not copy it ({step:?})", from.display())) }
+            target.close().map_err(|(_, e)| format!("{}: {e}", to.display()))?;
+            let mut hash = sha2::Sha256::new();
+            std::io::copy(&mut std::fs::File::open(&to).map_err(|e| io(&to, e))?, &mut hash).map_err(|e| io(&to, e))?;
+            digest.push_str(&format!("{}  {}\n", hex::encode(hash.finalize()), file.to_string_lossy()));
+            copies.push(to);
+        }
+        if let Some(newest) = newest.as_ref().filter(|n| std::fs::read_to_string(dir.join(n).join("digest")).is_ok_and(|d| d == digest)) {
+            std::fs::remove_dir_all(&partial).map_err(|e| io(&partial, e))?;
+            return Ok(Backup::Unchanged(dir.join(newest)));
+        }
+        let digest_file = partial.join("digest");
+        std::fs::write(&digest_file, &digest).map_err(|e| io(&digest_file, e))?;
+        copies.push(digest_file);
+        let sync = |p: &Path| std::fs::File::open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e));
+        for p in copies.iter().map(PathBuf::as_path).chain([partial.as_path()]) { sync(p)?; }
+        #[cfg(debug_assertions)]
+        abort_point("mid-backup");
+        let done = dir.join(&name);
+        std::fs::rename(&partial, &done).map_err(|e| io(&done, e))?;
+        sync(&dir)?;
+        sync(dir.parent().unwrap_or(Path::new(".")))?;
+        Ok(Backup::Made(done))
+    })();
+    if made.is_err() { let _ = std::fs::remove_dir_all(&partial); }
+    made
 }
 
 /// This build's pending Rust migrations applied to `copy_in_memory`'s primary, by the code `migrate` runs, so `check`
