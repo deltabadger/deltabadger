@@ -11,7 +11,7 @@ use rusqlite::Connection;
 
 fn at(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
 fn db() -> (tempfile::TempDir, Connection) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
     (dir, o.primary)
 }

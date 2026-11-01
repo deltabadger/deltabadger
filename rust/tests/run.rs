@@ -15,7 +15,7 @@ use serde_json::json;
 fn at(s: &str) -> FixedClock { FixedClock(s.parse::<DateTime<Utc>>().unwrap()) }
 fn us(s: &str) -> i64 { s.parse::<DateTime<Utc>>().unwrap().timestamp_micros() }
 fn engine(spec: BotSpec, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, i64, seed::Seeded) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, "2026-09-01T00:00:00Z".parse().unwrap()).unwrap();
     let o = store::open(&p).unwrap();

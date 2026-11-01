@@ -170,7 +170,7 @@ fn engine_setup() -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot,
     use common::seed::{self, BotSpec};
     use deltabadger::engine::amount::{self, Sizing};
     use deltabadger::ruby::BigDec;
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     o.primary.execute_batch("UPDATE exchanges SET type='Exchanges::Kucoin',name='KuCoin'; UPDATE tickers SET ticker='BTC-EUR',base='BTC'").unwrap();

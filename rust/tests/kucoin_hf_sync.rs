@@ -145,7 +145,7 @@ struct Fx { dir: tempfile::TempDir, c: Connection, cipher: deltabadger::crypto::
 
 impl Fx {
     fn new() -> Self {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         deltabadger::store::configure(&c).unwrap();
         c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, 'KuCoin', '0.1', '0.1', '2026-01-01', '2026-01-01')", [KUCOIN]).unwrap();

@@ -1,4 +1,4 @@
-//! The tracker's jobs on a Rails-prepared install, under the real scheduler: a sync wakes the walk, which writes
+//! The tracker's jobs on a baseline install, under the real scheduler: a sync wakes the walk, which writes
 //! today's rows; the backfill runs at 03:00 when a sweep is wanted, and wakes the walk after it. (Agreement with Rails'
 //! figures: tracker_parity.rs.)
 mod common;

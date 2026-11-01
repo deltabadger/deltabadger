@@ -79,7 +79,7 @@ fn the_amount_and_the_disable_match_rails() {
 }
 
 fn engine(v: &Value, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, i64) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, "2026-01-01T00:00:00Z".parse().unwrap()).unwrap();
     let o = store::open(&p).unwrap();

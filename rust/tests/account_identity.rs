@@ -25,7 +25,7 @@ struct Fx { dir: tempfile::TempDir, c: Connection, cipher: Cipher, user: i64 }
 
 impl Fx {
     fn new() -> Self {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         deltabadger::store::configure(&c).unwrap();
         c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01')", []).unwrap();

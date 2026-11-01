@@ -187,7 +187,7 @@ impl deltabadger::venue::VenueFactory for ScriptedFactory {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_stale_bot_is_refused_without_ending_the_engine_and_ticks_once_refreshed() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&paths).unwrap();
@@ -208,7 +208,7 @@ async fn a_stale_bot_is_refused_without_ending_the_engine_and_ticks_once_refresh
 /// intent (`landed`: found by its client order id; else Alpaca's 404 after the 20-minute margin). Engine B, a fresh process,
 /// places nothing before the next weekly checkpoint, and buys at it.
 async fn restart_after_settlement(landed: bool) {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let o = store::open(&paths).unwrap();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -257,7 +257,7 @@ async fn a_restart_after_a_not_placed_settlement_waits_for_the_next_checkpoint()
 struct Install { _dir: tempfile::TempDir, paths: store::Paths, id: i64, t: ScriptedTransport }
 impl Install {
     fn new(weights: &[f64], t: ScriptedTransport) -> Self {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let paths = store::Paths::from_env(&|_| None, dir.path());
         let o = store::open(&paths).unwrap();
         let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -386,7 +386,7 @@ async fn run_on<V: deltabadger::venue::Venue>(o: &store::Opened, v: &V, id: i64,
 /// once Rails refreshed the catalog.
 #[tokio::test(flavor = "current_thread")]
 async fn a_stale_retrying_bot_is_rechecked_after_a_bounded_wait_not_in_a_tight_loop() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&paths).unwrap();

@@ -44,7 +44,7 @@ pub fn try_rails(args: &[&str]) -> Result<(), String> {
     };
     // The oracle's own queue/cache/cable databases must exist (ActionJob queries Solid Queue directly,
     // broadcasts write Solid Cable): load every schema into the scratch files first.
-    run(&["db:schema:load"])?;
+    run(&["runner", "script/rust/schema_template.rb"])?;
     let mut full = vec!["runner", "script/rust/decisions.rb"];
     full.extend_from_slice(args);
     run(&full)

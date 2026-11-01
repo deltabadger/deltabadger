@@ -271,7 +271,7 @@ mod action_race {
     /// and retain the actual ActionJob timestamp as well as its decision label.
     async fn rails_continue() -> Result<Value> {
         tokio::task::spawn_blocking(|| -> std::result::Result<Value,String> {
-            let dir=common::rails_install();
+            let dir=common::baseline_install();
             let output=dir.path().join("continue.json");
             let code=r###"
 require 'json'

@@ -25,7 +25,7 @@ impl deltabadger::venue::VenueFactory for Factory {
 struct Rig { dir: tempfile::TempDir, s: seed::Seeded, id: i64 }
 impl Rig {
     fn new(bot: &BotSpec) -> Self {
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let o = store::open(&store::Paths::from_env(&|_| None, dir.path())).unwrap();
         let s = seed::seed_alpaca(&o.primary, &seed::cipher());
         let id = seed::insert_bot(&o.primary, &s, bot);

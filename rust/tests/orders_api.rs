@@ -173,7 +173,7 @@ impl Kraken {
 /// A Kraken install (BTC/EUR, a correct key), a working signal bot with a buy rule, the client's tokens, the web app with
 /// the engine attached (its clock at K0) and the engine on a fake Kraken priced at 49990.1 / 50000.2.
 fn kraken(venue: FakeVenue) -> Kraken {
-    let d = common::rails_install();
+    let d = common::baseline_install();
     let p = deltabadger::store::Paths::from_env(&|_| None, d.path());
     let lock = deltabadger::lease::lock(&p, "2026-09-01T00:00:00Z".parse().unwrap()).unwrap();
     let o = deltabadger::store::open(&p).unwrap();

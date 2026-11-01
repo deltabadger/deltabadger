@@ -85,10 +85,10 @@ fn ordinary_install(r: &Rig) {
     }
 }
 
-/// A Rails-prepared Kraken install with one bot, locked as `serve` locks it: the engine on one connection, the web on
+/// A baseline Kraken install with one bot, locked as `serve` locks it: the engine on one connection, the web on
 /// its own, a listener bound but not yet serving.
 async fn rig(v: FakeVenue, spec: BotSpec) -> Rig {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, chrono::Utc::now()).unwrap();
     let o = store::open(&p).unwrap();

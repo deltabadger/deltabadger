@@ -209,7 +209,7 @@ async fn a_rejected_key_on_the_clock_fails_the_tick_as_invalid_key() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_parked_bot_is_not_ticked_before_next_open_and_buys_at_it() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&paths).unwrap();
@@ -442,7 +442,7 @@ impl deltabadger::venue::VenueFactory for RacingFactory {
 /// which near the close would push the buy to the next session. An unrelated retry backoff (a transient failure) is left alone.
 #[tokio::test(flavor = "current_thread")]
 async fn a_retrying_bot_waiting_for_a_ledger_refresh_places_as_soon_as_the_refresh_succeeds() {
-    let dir = common::rails_install();
+    let dir = common::baseline_install();
     let paths = store::Paths::from_env(&|_| None, dir.path());
     let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
     let o = store::open(&paths).unwrap();

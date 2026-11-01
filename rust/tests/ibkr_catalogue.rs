@@ -61,7 +61,7 @@ fn add_assets(c: &Connection) {
 
 /// An install with the IBKR venue and the fixtures' assets (`usd` comes from the sync itself).
 fn install() -> tempfile::TempDir {
-    let d = common::rails_install();
+    let d = common::baseline_install();
     let c = primary(&d);
     c.execute("INSERT INTO exchanges (type, name, available, maker_fee, taker_fee, created_at, updated_at) \
                VALUES ('Exchanges::Ibkr', 'Interactive Brokers', 1, '0.0', '0.0', '2026-01-01', '2026-01-01')", []).unwrap();

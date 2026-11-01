@@ -13,7 +13,7 @@ fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/histories.js
 fn now() -> DateTime<Utc> { "2026-01-05T12:00:00Z".parse().unwrap() }
 fn stamp(offset: i64) -> String { deltabadger::codec::format_time(now() + Duration::seconds(offset)) }
 fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, BTreeMap<String, i64>) {
-    let d=common::rails_install();
+    let d=common::baseline_install();
     let o=deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_|None,d.path())).unwrap();
     let s=seed::seed_alpaca(&o.primary,cipher());
     let pair = case["pair"].clone();

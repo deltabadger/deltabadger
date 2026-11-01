@@ -1,4 +1,4 @@
-//! Web action and authentication tests that require a Rails-prepared install.
+//! Web action and authentication tests that require a prepared install.
 mod common;
 
 #[test]
@@ -395,7 +395,7 @@ mod action_draft {
         let cases = field(group, "cases").as_array().ok_or("cases are not an array")?;
         assert_eq!(cases.len(), 5562, "pin the implementation-base inventory");
         assert_eq!(cases.len(), field(group, "count").as_u64().ok_or("count")? as usize);
-        let dir = common::rails_install();
+        let dir = common::baseline_install();
         let c = Connection::open(dir.path().join("production.sqlite3"))?;
         c.execute_batch("PRAGMA foreign_keys = OFF")?;
         for (table, rows) in field(group, "rows").as_object().ok_or("rows")? {
@@ -1934,7 +1934,7 @@ mod action_race {
     /// and retain the actual ActionJob timestamp as well as its decision label.
     async fn rails_continue() -> Result<Value> {
         tokio::task::spawn_blocking(|| -> std::result::Result<Value,String> {
-            let dir=common::rails_install();
+            let dir=common::baseline_install();
             let output=dir.path().join("continue.json");
             let code=r###"
 require 'json'

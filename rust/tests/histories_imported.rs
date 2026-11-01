@@ -33,7 +33,7 @@ fn install(c: &Connection, tables: &Value) {
 }
 
 fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot) {
-    let d = common::rails_install();
+    let d = common::baseline_install();
     let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, d.path())).unwrap();
     install(&o.primary, &case["tables"]);
     let bot = model::load_bot(&o.primary, case["bot_id"].as_i64().unwrap()).unwrap();
