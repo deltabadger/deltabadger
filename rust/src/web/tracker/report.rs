@@ -100,9 +100,10 @@ pub async fn tax_report(State(app): State<crate::web::App>, Extension(ctx): Exte
 pub async fn tax_report_pl(State(app): State<crate::web::App>, Extension(ctx): Extension<Ctx>, headers: HeaderMap) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     let year = ctx.params.form("year").map_or(0, crate::ruby::to_i);
-    let raw = ctx.params.form("pl_carried_costs").unwrap_or("").trim().to_string();
-    let Ok(carry) = crate::tax::pl::carried(Some(&Value::String(raw.clone()))) else {
-        let block = super::modal::pl_block(&ctx, year, &raw, true);
+    // Absent keeps what is saved and "" clears it, as on REST and MCP; the text is read as typed (no trimming).
+    let raw = ctx.params.form("pl_carried_costs").map(str::to_string);
+    let Ok(carry) = crate::tax::pl::carried(raw.clone().map(Value::String).as_ref()) else {
+        let block = super::modal::pl_block(&ctx, year, raw.as_deref().unwrap_or(""), true);
         return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
                    turbo::stream("replace", &format!("pl-carry-{year}"), &block)).into_response());
     };

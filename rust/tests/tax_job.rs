@@ -434,6 +434,11 @@ async fn the_pl_form_generates_with_its_carry_and_keeps_the_modal_on_a_refused_a
     // The modal shows what is saved.
     let modal = browser.send(&app, "GET", "/tracker/export_modal", None, Csrf::None, &frame).await;
     assert!(modal.body.contains("value=\"6014.0\""), "{}", modal.body);
+    // Spaces only are refused, as on REST and MCP; without the field, what is saved stays.
+    assert_eq!(browser.send(&app, "POST", "/tracker/tax_report", Some(&post("  ")), Csrf::Header, &TURBO).await.status, 422);
+    assert_eq!(browser.send(&app, "POST", "/tracker/tax_report", Some(&[("year", "2025")]), Csrf::Header, &TURBO).await.status, 200);
+    assert_eq!(carry(&c, i.user), vec![(2025, "6014.0".to_string())]);
+    free_slot(&c);
     // Empty clears.
     assert_eq!(browser.send(&app, "POST", "/tracker/tax_report", Some(&post("")), Csrf::Header, &TURBO).await.status, 200);
     assert!(carry(&c, i.user).is_empty());
