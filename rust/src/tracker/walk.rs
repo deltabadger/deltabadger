@@ -183,14 +183,17 @@ fn shares(legs: &[&Stored]) -> Result<Vec<(i64, Dec, bool)>, FiguresError> {
 }
 
 /// `cash_faces`: [fiat, stablecoin] faces in USD, or None when a leg could not be converted (its warnings taken back).
-fn cash_faces(legs: &[&Stored], ps: &mut PriceService, currency: &str) -> Result<Option<(Dec, Dec)>, FiguresError> {
+/// D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: under a statutory conversion a leg that could not be converted is a missing value
+/// (its warning kept, the third field true), never replaced by the coin's price.
+fn cash_faces(legs: &[&Stored], ps: &mut PriceService, currency: &str) -> Result<Option<(Dec, Dec, bool)>, FiguresError> {
     let kept = ps.warnings.len();
     let (mut f, mut s) = (Dec::zero(), Dec::zero());
     for t in legs {
         if stable(&t.base) { s = (&s + &ps.convert_fiat(&t.amount, "USD", currency, t.at)?)?; }
         else { f = (&f + &ps.convert_fiat(&t.amount, &t.base, currency, t.at)?)?; }
     }
-    if ps.warnings.len() == kept { return Ok(Some((f, s))); }
+    if ps.warnings.len() == kept { return Ok(Some((f, s, false))); }
+    if ps.statutory.is_some() { return Ok(Some((f, s, true))); }
     ps.warnings.truncate(kept);
     Ok(None)
 }
@@ -229,20 +232,20 @@ fn cash_leg_context(rows: &[Stored], ps: &mut PriceService, currency: &str) -> R
             for t in &ins { context.insert(t.id, Leg { price_missing: Some(true), ..Leg::default() }); }
         } else {
             if !cash_out.is_empty() && !ins.is_empty() {
-                if let Some((f, s)) = cash_faces(&cash_out, ps, currency)? {
+                if let Some((f, s, missing)) = cash_faces(&cash_out, ps, currency)? {
                     let mixed = !outs.is_empty();
                     for (id, share, assumed) in shares(&ins)? {
                         context.insert(id, Leg { swap_fiat: Some((&f * &share)?), swap_stable: Some((&s * &share)?),
                                                  fiat_value: if mixed { None } else { Some((&(&f + &s)? * &share)?) },
-                                                 price_missing: assumed.then_some(true), ..Leg::default() });
+                                                 price_missing: (assumed || missing).then_some(true), ..Leg::default() });
                     }
                 }
             }
             if !cash_in.is_empty() && !outs.is_empty() {
-                if let Some((f, s)) = cash_faces(&cash_in, ps, currency)? {
+                if let Some((f, s, missing)) = cash_faces(&cash_in, ps, currency)? {
                     let quote = quote_of(&cash_in);
                     for (id, share, assumed) in shares(&outs)? {
-                        context.insert(id, Leg { fiat_value: Some((&(&f + &s)? * &share)?), quote: quote.clone(), price_missing: Some(assumed), ..Leg::default() });
+                        context.insert(id, Leg { fiat_value: Some((&(&f + &s)? * &share)?), quote: quote.clone(), price_missing: Some(assumed || missing), ..Leg::default() });
                     }
                 }
             }
