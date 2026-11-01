@@ -35,8 +35,9 @@ pub fn active_job(queue: &Connection, class: &str, gid: &str) -> rusqlite::Resul
     }))
 }
 
-/// An engine-owned install must start its scheduler to refresh stale reference data. Keep structural refusals on
-/// restart; a takeover from Rails also checks freshness. Per-tick staleness checks remain active in both cases.
+/// An engine-owned install keeps only check_install's refusals on restart. A takeover from Rails adds the flip-rule
+/// check and notes stale reference data without refusing it (check_install_at, D-UPGRADE-FRESHNESS-AT-TICK): the scheduler
+/// that refreshes it starts only after the claim. The tick refuses a stale bot in both cases.
 pub fn startup_report(c: &rusqlite::Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<eligibility::Report, EngineError> {
     if lease::read(c, cipher)?.is_some_and(|v| v["engine"] == "rust") {
         eligibility::check_install(c)

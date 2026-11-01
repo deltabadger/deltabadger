@@ -1,7 +1,8 @@
 //! Reference data only a Rails job refreshes. While the engine owns an install, Rails is stopped
 //! and its recurring jobs do not run, so each source the tick reads is trusted only within a bound of about two missed
-//! refreshes of the job that refreshes it. Past it the engine refuses the bot's tick (tick.rs) and `check` refuses the install
-//! (eligibility::check_install_at). A source Rails stamps nowhere is `Unknown`: logged at the door, never refused.
+//! refreshes of the job that refreshes it. Past it the engine refuses the bot's tick (tick.rs); `check` and the takeover
+//! (eligibility::check_install_at) note it and admit the bot (D-UPGRADE-FRESHNESS-AT-TICK: only this engine's scheduler,
+//! which starts after the claim, can refresh it). A source Rails stamps nowhere is `Unknown`: noted at the door too.
 //! After the takeover a source is as fresh as its job's last complete run here (jobs::state), never its column's newest
 //! stamp, which a partial import of this engine may have moved; `check` reports every source (`report`).
 use super::model::{self, Bot};
@@ -204,7 +205,8 @@ fn judge(c: &Connection, s: &Source, (at, bound): Clock, now: DateTime<Utc>) -> 
 
 /// The door (`check` and the takeover, through eligibility::check_install_at): the newer of the job record and Rails'
 /// column where it is trusted, so a takeover after Rails refreshed the data is admitted even when a record from an earlier
-/// takeover is older, and a partial import of this engine never is. With neither, Unknown: noted, never refused.
+/// takeover is older, and a partial import of this engine never is. With neither, Unknown. Either verdict is noted at the
+/// door, never refused there (D-UPGRADE-FRESHNESS-AT-TICK); the tick refuses a stale bot (`stale`).
 fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
     match newest(record_at(c, s)?.flatten(), trusted_column(c, s, s.per_exchange.then_some(bot.exchange_id))?) {
         Some(at) => Ok(judge(c, s, at, now).map_or(Verdict::Fresh, Verdict::Stale)),
@@ -269,7 +271,8 @@ pub fn seed(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
 }
 
 /// `deltabadger check`: each source this install has, its last complete refresh as the door reads it, its age against
-/// its bound, and its job's state. Informational: only a source an eligible bot depends on refuses (check_install_at).
+/// its bound, and its job's state. Informational: a source an eligible bot depends on is a `note:` line there
+/// (check_install_at), and its tick is refused until the source is refreshed.
 pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineError> {
     let mut lines = vec![];
     for (src, exchange, label) in targets(c)? {
