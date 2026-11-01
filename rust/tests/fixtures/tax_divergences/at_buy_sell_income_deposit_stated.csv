@@ -1,0 +1,19 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-04-01T10:00:00Z,2025-03-01T10:00:00Z,BTC,1.2,108000.0,81795.0,26205.0,EUR,396,50.0,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,true,false
+2026-04-10T08:00:00Z,2026-02-05T00:00:00Z,SOL,3.0,512.82,0.0,512.82,EUR,64,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,false,false
+
+WARNING: Anschaffungskosten für diese nicht verknüpften Einzahlungen zum Marktwert angesetzt:
+BTC 0.1 2026-02-10
+"Verknüpfe jede Einzahlung im Tracker mit der passenden Auszahlung, um die tatsächlichen Anschaffungskosten zu verwenden."
+
+NOTE: Von dir selbst angegebene Werte:
+SOL 3.0 2026-02-05,385.9
+"Diese Beträge stammen von dir, nicht von der Börse. Prüfe sie vor der Abgabe anhand deiner eigenen Unterlagen."
+
+"NOTE: Staking-Rewards und Airdrops, mit Anschaffungskosten von null angesetzt:"
+ETH 0.01 2026-02-01
+SOL 3.0 2026-02-05
+"Österreich besteuert diese erst beim Verkauf, mit ihrem vollen Wert (§ 27b Abs. 2 EStG); beim Erhalt sind sie keine Einkünfte. War ein Reward in Wahrheit ein Entgelt für das Verleihen deiner Assets unter anderem Namen, ist er beim Zufluss steuerpflichtig: gib ihn so an."
+
+NOTE: Die Anschaffungskosten von ab 1. März 2021 angeschafften Assets sind ab 2023 der gleitende Durchschnittspreis je Asset und Konto (§ 27a Abs. 4 Z 3a EStG):
+"Das angezeigte Anschaffungsdatum eines solchen Verkaufs ist das früheste der gemittelten Einheiten. Hält ein Konto auch vor dem 1. März 2021 angeschaffte Assets, gelten diese als zuerst verkauft, sofern du nichts anderes gewählt hast (§ 3 KryptowährungsVO)."

@@ -106,6 +106,10 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("year", "INTEGER", true), ("stablecoin_as_fiat", "INTEGER", true), ("locale", "TEXT", true), ("state", "TEXT", true),
         ("created_at", "TEXT", true), ("started_at", "TEXT", false), ("finished_at", "TEXT", false)],
         unique_indexes: &[&["request"]] }),
+    ("20261103000001", TableContract { name: "nbp_rates", columns: &[("currency", "TEXT", true), ("date", "TEXT", true), ("rate", "TEXT", true)],
+        unique_indexes: &[&["currency", "date"]] }),
+    ("20261103000001", TableContract { name: "nbp_coverage", columns: &[("currency", "TEXT", true), ("from_date", "TEXT", true), ("to_date", "TEXT", true)],
+        unique_indexes: &[] }),
 
 ];
 

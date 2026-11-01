@@ -1,0 +1,6 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2021-12-01T10:00:00Z,2021-02-01T10:00:00Z,BTC,1.0,50000.0,40000.0,10000.0,EUR,303,0.0,kraken,s1-BTC,true,false,false
+
+"NOTE: Veräußerungen vor dem 1. März 2022, als Spekulationsgeschäfte steuerpflichtig (Behaltedauer höchstens ein Jahr, § 31 EStG):"
+BTC 1.0 2021-12-01,10000.0
+"Sie werden innerhalb des Jahres miteinander ausgeglichen, nicht aber mit den zu 27,5 % besteuerten Gewinnen und Verlusten. Ihre Summe ist steuerfrei, wenn sie im Jahr 440 € nicht übersteigt; ein Gesamtverlust ist nicht ausgleichsfähig."

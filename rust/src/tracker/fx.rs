@@ -94,7 +94,7 @@ impl Transport for Plain {
 pub enum Source { Live(Plain), Scripted(crate::venue::http::ScriptedTransport) }
 
 impl Source {
-    async fn get(&self, base: &str, path: String, query: Vec<(&'static str, String)>) -> Result<HttpResponse, TransportError> {
+    pub(crate) async fn get(&self, base: &str, path: String, query: Vec<(&'static str, String)>) -> Result<HttpResponse, TransportError> {
         let req = HttpRequest { method: "GET", base: base.into(), path, query, body: None, not_after: None };
         match self { Source::Live(t) => t.send_limited(&req, MAX_BODY).await, Source::Scripted(t) => t.send_limited(&req, MAX_BODY).await }
     }

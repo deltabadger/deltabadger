@@ -376,9 +376,10 @@ fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
     for i in 0..want["responses"].as_array().ok_or("no responses")?.len() {
         let Some(mut body)=want["responses"][i]["body"].as_str().and_then(|b|serde_json::from_str::<Value>(b).ok()) else {continue};
         let Some(shown)=body["result"]["content"][0]["text"].as_str().map(str::to_string) else {continue};
-        let Some(country)=shown.strip_prefix("Tax report generation started for ").and_then(|rest|rest.split(" (").next()) else {continue};
+        let Some((country,year))=shown.strip_prefix("Tax report generation started for ").and_then(|rest|rest.split_once(" (")) else {continue};
+        let year:i64=year.chars().take_while(char::is_ascii_digit).collect::<String>().parse().unwrap_or(0);
         // A jurisdiction this build computes is served, compared whole.
-        if !coingecko && deltabadger::tax::jurisdictions::REGISTRY.iter().any(|j|j.name==country && deltabadger::tax::jurisdictions::ported(j.code)) {served_last=true;continue}
+        if !coingecko && deltabadger::tax::jurisdictions::REGISTRY.iter().any(|j|j.name==country && deltabadger::tax::jurisdictions::ported(j.code,year)) {served_last=true;continue}
         served_last=false;
         let owed=tool_text(&if coingecko {deltabadger::tax::api::COINGECKO.to_string()}
                             else {deltabadger::tax::api::not_ported_message(country)},true);
@@ -395,7 +396,7 @@ fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
     if gated==0 { return Err("Rails started no report: drop or rename this scenario".into()) }
     let jobs=want["rows"].as_object_mut().unwrap().shift_remove("tax_jobs").ok_or("Rails queued no report")?;
     let (served,held):(Vec<Value>,Vec<Value>)=jobs.as_array().into_iter().flatten().cloned()
-        .partition(|j|!coingecko && deltabadger::tax::jurisdictions::ported(&j[1].as_str().unwrap_or_default().to_uppercase()));
+        .partition(|j|!coingecko && deltabadger::tax::jurisdictions::ported(&j[1].as_str().unwrap_or_default().to_uppercase(),j[2].as_i64().unwrap_or(0)));
     if held.len()!=gated { return Err(format!("Rails queued {jobs} for {gated} started reports")) }
     if !served.is_empty() { want["rows"]["tax_jobs"]=json!(served); }
     if served_last { return Ok(()) }
