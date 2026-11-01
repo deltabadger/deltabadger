@@ -20,6 +20,7 @@ pub struct Jurisdiction {
     pub locale: &'static str,
     /// None where Rails has no key (the engines' default: taxable).
     pub crypto_to_crypto_taxable: Option<bool>,
+    /// The export form asks "treat stablecoins as fiat"; the report reads the flag only then (D-TAX-STABLECOIN-QUESTION).
     pub stablecoin_ambiguous: bool,
     pub holding_exemption: Option<Period>,
     pub holding_exemption_inclusive: bool,
@@ -97,7 +98,9 @@ pub const REGISTRY: [Jurisdiction; 18] = [
                                                   annual_cap: 40_000_000 }), ..BASE },
     // No holding period: the 7% rate was repealed before it took effect (Act 530/2023). D-TAX-SK-SWAPS: a coin exchanged
     // for another coin is a sale (§ 2 písm. ai) ZDP, Finančná správa 293880); Rails has `crypto_to_crypto_taxable: false`.
-    Jurisdiction { code: "SK", name: "Slovakia", locale: "sk", stablecoin_ambiguous: true, ..BASE },
+    // D-TAX-STABLECOIN-QUESTION: a swap is taxed, so a stablecoin as cash or as a coin gives the same figures and the
+    // question is not asked; Rails has `stablecoin_ambiguous: true`.
+    Jurisdiction { code: "SK", name: "Slovakia", locale: "sk", ..BASE },
 ];
 
 /// `Jurisdictions.for(code)`.

@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); data })
 }
 /// A1 listed additions. Rails' six rule tools, extended with W2's one-matrix fields.
 /// The Rails definitions remain source-pinned by withdrawal_vectors.json.
@@ -67,6 +67,14 @@ fn split_bots(data: &mut Value) {
             "additionalProperties": false
         }
     }));
+}
+/// D-TAX-STABLECOIN-QUESTION: the web asks "treat stablecoins as fiat" for no served country, and the report reads the flag
+/// only where it is asked (`tax::prepare`), so generate_tax_report says so instead of "relevant for AT". The property stays:
+/// a client sending it is not refused.
+pub const TAX_STABLECOIN: &str = "Accepted for compatibility and ignored: every supported country treats stablecoins as crypto";
+fn tax_stablecoin(data: &mut Value) {
+    let Some(tool) = data["tools"].as_array_mut().and_then(|tools| tools.iter_mut().find(|t| t["name"] == "generate_tax_report")) else { return };
+    tool["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"] = json!(TAX_STABLECOIN);
 }
 /// The schemas as recorded from Rails, before the description overlay and listed additions.
 pub fn recorded() -> Value { serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null) }

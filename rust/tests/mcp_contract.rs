@@ -49,7 +49,13 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     for (name,schema) in recorded["tools"][at]["inputSchema"]["properties"].as_object_mut().unwrap().iter_mut(){
         if schema["description"]!=wanted[name]["description"]{changed.push(name.clone());schema["description"]=wanted[name]["description"].clone();}
     }
-    assert_eq!(recorded,ours,"only descriptions of update_bot_settings change");
+    // D-TAX-STABLECOIN-QUESTION: generate_tax_report's flag says it is ignored (no served country asks it).
+    let tax=|v:&Value|v["tools"].as_array().unwrap().iter().position(|t|t["name"]=="generate_tax_report").unwrap();
+    let (r,o)=(tax(&recorded),tax(&ours));
+    assert_eq!(recorded["tools"][r]["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"],"Treat stablecoins as fiat (relevant for AT)");
+    assert_eq!(ours["tools"][o]["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"],protocol::TAX_STABLECOIN);
+    recorded["tools"][r]["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"]=protocol::TAX_STABLECOIN.into();
+    assert_eq!(recorded,ours,"only descriptions of update_bot_settings and generate_tax_report's stablecoin flag change");
     assert_eq!(changed, [
         "quote_amount_limited", "quote_amount_limit",
         "price_limited", "price_limit_mode", "price_limit_value_condition", "price_limit", "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_in_ticker_id",

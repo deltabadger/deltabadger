@@ -177,6 +177,19 @@ fn tax_files(root: &Path) -> std::collections::BTreeMap<String, String> {
 }
 
 /// D-IMPORT-FORMATS: the dialog offers Rust's KuCoin format beside Rails' two; the rest of it is Rails' bytes.
+/// D-TAX-STABLECOIN-QUESTION: Rails asks "treat stablecoins as fiat" for AT and SK; the report reads the flag for neither
+/// (D-TAX-AT-STABLECOIN, D-TAX-SK-SWAPS), so no country option is marked ambiguous and the checkbox is never shown.
+fn stablecoin_question(body: &str) -> String {
+    let mut out = body.to_string();
+    for code in ["AT", "SK"] {
+        let option = regex::Regex::new(&format!(r#"(<option value="{code}" [^>]*data-stablecoin-ambiguous=")true(")"#)).unwrap();
+        assert!(option.is_match(&out), "Rails asks the stablecoin question for {code}");
+        out = option.replace(&out, "${1}false${2}").into_owned();
+    }
+    assert!(!out.contains(r#"data-stablecoin-ambiguous="true""#), "Rails asks it for no other country");
+    out
+}
+
 fn without_kucoin_format(body: &str) -> String {
     let option = regex::Regex::new(r#"\n *<button type="button" class="segmented__option" role="radio" aria-checked="false" tabindex="-1" data-value="kucoin"[^\n]*</button>"#).unwrap();
     assert!(option.is_match(body), "the KuCoin format is offered");
@@ -305,6 +318,7 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             }
             let body = if name == "import_new" { without_kucoin_format(&answer.body) } else if tax { reconcile(&answer.body) } else { answer.body.clone() };
             let rails_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
+            let rails_body = if rails_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&rails_body) } else { rails_body };
             assert_eq!(mask_csrf(&body),mask_csrf(&rails_body),"{name}: body bytes");
         } }
         else {

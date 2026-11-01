@@ -79,8 +79,10 @@ pub struct Report {
 pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoin_as_fiat: bool) -> Result<Prepared, FiguresError> {
     let j = jurisdictions::find(country).filter(|_| jurisdictions::ported(country, i64::from(year)))
         .ok_or_else(|| FiguresError::NotComputed(format!("the tax report is not ported for the jurisdiction {country}")))?;
-    // D-TAX-AT-STABLECOIN: in Austria a stablecoin is crypto (Rz 6178b); the flag is not read.
-    let stablecoin_as_fiat = stablecoin_as_fiat && j.code != "AT";
+    // D-TAX-STABLECOIN-QUESTION: the flag is read only where the export form asks it (`stablecoin_ambiguous`), and no
+    // served country asks it (D-TAX-AT-STABLECOIN, D-TAX-SK-SWAPS). Rails' form sends a hidden box's value with every
+    // request, and REST and MCP take it for any country; this one gate makes every surface compute what the web shows.
+    let stablecoin_as_fiat = stablecoin_as_fiat && j.stablecoin_ambiguous;
     let all = rows::load_all(c, user_id)?;
     let deposits: HashMap<i64, Dec> = all.iter().map(|r| (r.id, r.amount.clone())).collect();
     // GenerateReportJob#crypto_transactions: every row of a crypto venue; of a stock venue, those of a crypto symbol.

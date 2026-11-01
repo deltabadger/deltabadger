@@ -21,7 +21,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
     let type_switch=crate::web::bots::Segmented{fluid:true,label:ctx.t("tracker.export_modal.title"),key:None,frame:None,options:vec![option("tax_report",!transactions),option("transactions",transactions)],links:false}.render()?;
     let mut countries=String::new();
     for code in COUNTRIES{
-        countries.push_str(&format!("              <option value=\"{code}\" {} data-stablecoin-ambiguous=\"{}\">{}</option>\n",if settings["country"]==code{"selected"}else{""},matches!(code,"AT"|"SK"),ctx.t(&format!("tracker.export_modal.countries.{code}"))));
+        countries.push_str(&format!("              <option value=\"{code}\" {} data-stablecoin-ambiguous=\"{}\">{}</option>\n",if settings["country"]==code{"selected"}else{""},crate::tax::jurisdictions::find(code).is_some_and(|j|j.stablecoin_ambiguous),ctx.t(&format!("tracker.export_modal.countries.{code}"))));
     }
     let year=ctx.now.year();
     let selected=if settings["year"].is_null(){i64::from(year-1)}else{crate::ruby::to_i(&text(&settings["year"]))};

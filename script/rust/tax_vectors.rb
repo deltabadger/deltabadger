@@ -897,6 +897,14 @@ module TaxVectors
         k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
         swap(c, 'BTC', '0.5', 'USDT', '16000', '2026-02-04T10:00:00Z', ref: 'cv1')
       end,
+      # D-TAX-STABLECOIN-QUESTION: under the flag a single row quoted in USDT is split as without it (the flag had kept it
+      # whole for PL). The swap is no revenue and no cost; its 30 USDT fee is revenue at its value (D-TAX-PL-SWAP-FEE):
+      # 30 × $1 × 4.0000 = 120.00. b 120.00; c 10,000.00; f 9,880.00.
+      pl_case('pl_stablecoin_quoted_flag_on', stablecoin: true, expect: 'diverges: D-TAX-STABLECOIN-QUESTION', **usd_0203) do |c|
+        price('USDT', '2026-02-04', '1')
+        k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
+        quoted(c, :sell, 'BTC', '0.5', '30000', '2026-02-04T10:00:00Z', fiat: 'USDT', fee_currency: 'USDT', fee_amount: '30')
+      end,
       # Listed with the PL hint, no figure. c 10,000; f 10,000.
       pl_case('pl_unlinked_withdrawal_listed') do |c|
         k.(c, :buy, 'BTC', '1', '10000', '2026-01-05T10:00:00Z')
@@ -1038,8 +1046,12 @@ module TaxVectors
         # The USDT sold for euros on Kraken is valued at the euros received (and in Portugal is the immediate fiat exit).
         { name: "#{cc}_stablecoin_kept", country:, expect: 'diverges: D-TAX-STABLE-VALUE', setup: ->(c) { user_zone(c, zone); stable.(c) } },
         # Where swaps are not taxable, a stablecoin under the flag is cash: its sale for euros is no second disposal.
+        # D-TAX-STABLECOIN-QUESTION: the flag is read only where the question is asked, and no served country asks it,
+        # so Portugal computes its stablecoins as coins under the flag too.
         { name: "#{cc}_stablecoin_as_fiat", country:, stablecoin: true,
-          expect: %w[DE ES SK].include?(country) ? 'diverges: D-TAX-STABLE-VALUE' : 'diverges: D-TAX-STABLE-CASH', setup: ->(c) { user_zone(c, zone); stable.(c) } },
+          expect: if %w[DE ES SK].include?(country) then 'diverges: D-TAX-STABLE-VALUE'
+                  elsif country == 'PT' then 'diverges: D-TAX-STABLECOIN-QUESTION'
+                  else 'diverges: D-TAX-STABLE-CASH' end, setup: ->(c) { user_zone(c, zone); stable.(c) } },
         { name: "#{cc}_ecb_gap", country:, fx_gap: %w[2026-05-15], expect: 'parity', setup: ->(c) { user_zone(c, zone); gap.(c) } },
         { name: "#{cc}_oversold", country:, expect: 'diverges: D-TAX-UNCOVERED', setup: ->(c) { user_zone(c, zone); oversold.(c) } },
         { name: "#{cc}_lost", country:, expect: 'diverges: D-TAX-LOST', setup: ->(c) { user_zone(c, zone); lost.(c) } },
