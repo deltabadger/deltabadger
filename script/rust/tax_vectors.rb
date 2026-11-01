@@ -427,6 +427,15 @@ module TaxVectors
         row(c, :sell, 'USD', '500', '2026-02-02T10:00:00Z', exchange: kr, group_id: 'mx', tx_id: 'mx-usd')
         row(c, :buy, 'ETH', '0.6', '2026-02-02T10:00:00Z', exchange: kr, group_id: 'mx', tx_id: 'mx-eth', fee_currency: 'USD', fee_amount: '5')
       } },
+      # A coin-for-coin trade Bybit books as one sell of BTC quoted in ETH: the ETH it brought is held, at its value then.
+      { name: 'us_coin_quoted_pair', year: 2024, expect: 'diverges: D-TAX-COIN-QUOTE', setup: lambda { |c|
+        by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+        price('BTC', '2024-02-01', '48000')
+        price('ETH', '2024-02-01', '3000')
+        row(c, :buy, 'BTC', '1', '2024-01-05T10:00:00Z', exchange: by, quote_currency: 'USDT', quote_amount: '30000')
+        row(c, :sell, 'BTC', '0.5', '2024-02-01T10:00:00Z', exchange: by, quote_currency: 'ETH', quote_amount: '8', fee_currency: 'ETH', fee_amount: '0.01')
+        row(c, :sell, 'ETH', '7.99', '2024-03-01T10:00:00Z', exchange: by, quote_currency: 'USDT', quote_amount: '28000')
+      } },
       { name: 'us_unlinked_withdrawal_per_venue', expect: 'diverges: D-TAX-US-WALLET', setup: lambda { |c|
         price('BTC', '2026-01-06', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
@@ -697,6 +706,16 @@ module TaxVectors
         user_zone(c, 'Berlin')
         price('ETH', '2025-12-31', '3000', 'EUR')
         row(c, :staking_reward, 'ETH', '0.1', '2025-12-31T23:30:00Z', exchange: venue(c, :kraken))
+      } },
+      # The same trade where swaps are not taxable: the BTC's basis travels into the ETH, no sale until the ETH is sold.
+      { name: 'pt_coin_quoted_pair', country: 'PT', expect: 'diverges: D-TAX-COIN-QUOTE', setup: lambda { |c|
+        by = Exchanges::Bybit.create!(name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1')
+        price('BTC', '2026-02-01', '41000', 'EUR')
+        price('ETH', '2026-02-01', '2560', 'EUR')
+        kraken(c, :buy, 'BTC', '1', '25000', '2025-06-05T10:00:00Z', ref: 'b1')
+        transfer(c, 'BTC', '1', '2025-07-01T10:00:00Z', from: venue(c, :kraken), to: by)
+        row(c, :sell, 'BTC', '0.5', '2026-02-01T10:00:00Z', exchange: by, quote_currency: 'ETH', quote_amount: '8')
+        row(c, :sell, 'ETH', '8', '2026-03-01T10:00:00Z', exchange: by, quote_currency: 'EUR', quote_amount: '22000')
       } },
       { name: 'sk_no_holding_period', country: 'SK', expect: 'parity', setup: lambda { |c|
         kraken(c, :buy, 'BTC', '1', '20000', '2020-03-10T10:00:00Z', ref: 'b1')

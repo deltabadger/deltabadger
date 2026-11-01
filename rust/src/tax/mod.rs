@@ -10,6 +10,8 @@
 //!   its day's fills (`walk_standing_cfees_after_their_fills`).
 //! - D-TAX-STABLE-CASH: where swaps are not taxable and the user treats stablecoins as fiat, a stablecoin row is cash
 //!   and reaches no engine (Rails sold the stablecoins again, at a zero basis, after the coin that bought them was sold).
+//! - D-TAX-COIN-QUOTE: a coin-for-coin trade booked as one row quoted in a coin is read as its two swap legs
+//!   (`split_coin_quoted_trades`), so the quote coin moves too.
 //! - D-TAX-STABLE-VALUE: a stablecoin bought or sold for fiat in a two-row group (Kraken) is valued at the fiat that
 //!   changed hands, not the dollar peg (`quote_stablecoin_legs`); Portugal's immediate fiat exit follows.
 //! - D-TAX-LOCAL-YEAR: income and the excess-ROC refusal by the taxpayer's year, as disposals (Rails: the UTC year).
@@ -87,7 +89,7 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     if !tokenized.is_empty() { return Ok(Prepared::Done(Outcome::Refused { reason: "tokenized_unsupported".into(), symbols: tokenized })); }
     let banners = sync_issues(c, user_id, j.locale)?;
 
-    let mut scoped = rows::ordered(rows.into_iter().filter(|r| r.at.0 <= rows_until.0).collect());
+    let mut scoped = rows::ordered(split_coin_quoted_trades(rows.into_iter().filter(|r| r.at.0 <= rows_until.0).collect()));
     quote_stablecoin_legs(&mut scoped)?;
     let mut reference = Reference::load(c, &Venue::alpaca(c)?, &prices::symbols(&scoped))?;
     reference.record_coins(c, user_id)?;
@@ -289,6 +291,34 @@ impl Report {
         line(out, &[self.t(&format!("tax_report.warnings.{hint}"))]);
         Ok(())
     }
+}
+
+/// D-TAX-COIN-QUOTE: a trade of a coin for a coin booked as one buy or sell row quoted in the other coin (Bybit, MEXC,
+/// Bitget, Gemini, BingX, Bitrue, Bitvavo, Hyperliquid, KuCoin; Binance and Coinbase store two swap legs) becomes, on this
+/// report's copy of the rows, the two legs it is: the row's coin coming in or going out, and the quote coin the other
+/// way, grouped. Rails read the row alone, so the quote coin never moved: the coin paid kept its lots, the coin received
+/// had none, and where swaps are not taxable the trade was taxed as a sale. The fee goes with the leg of its own coin,
+/// else with the coin coming in (as Binance books it). The new leg's id is the row's negated, unique and never stored.
+fn split_coin_quoted_trades(rows: Vec<Stored>) -> Vec<Stored> {
+    let mut out = Vec::with_capacity(rows.len());
+    for r in rows {
+        let Some((quote, paid)) = r.quote.clone().zip(r.quote_amount.clone()) else { out.push(r); continue };
+        if !matches!(r.kind, Kind::Buy | Kind::Sell) || crate::tracker::cash(&quote) || quote.trim().is_empty() || r.group.is_some() { out.push(r); continue; }
+        let buying = r.kind == Kind::Buy;
+        let group = Some(format!("coin-quote:{}", r.id));
+        let fee_on_quote = r.fee_currency.as_deref() == Some(quote.as_str()) || (!buying && r.fee_currency.as_deref() != Some(r.base.as_str()));
+        let (fee_currency, fee_amount) = (r.fee_currency.clone(), r.fee_amount.clone());
+        let other = Stored {
+            id: -r.id, kind: if buying { Kind::SwapOut } else { Kind::SwapIn }, base: quote, amount: paid, quote: None, quote_amount: None,
+            fee_currency: if fee_on_quote { fee_currency.clone() } else { None }, fee_amount: if fee_on_quote { fee_amount.clone() } else { None },
+            tx_id: r.tx_id.as_ref().map(|t| format!("{t}-quote")), group: group.clone(), stated: None, linked_to: None, to_venue: None,
+            to_exchange_id: None, base_asset: None, per_share: None, ..r.clone()
+        };
+        out.push(Stored { kind: if buying { Kind::SwapIn } else { Kind::SwapOut }, quote: None, quote_amount: None, group,
+                          fee_currency: if fee_on_quote { None } else { fee_currency }, fee_amount: if fee_on_quote { None } else { fee_amount }, ..r });
+        out.push(other);
+    }
+    out
 }
 
 /// D-TAX-STABLE-VALUE: a venue's ledger that books a stablecoin bought or sold for fiat as two grouped rows and no quote
