@@ -169,7 +169,8 @@ impl Aside {
 }
 
 fn remove(path: &Path) -> Result<(), String> {
-    match std::fs::remove_file(path) { Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(format!("cannot remove a tax report file: {e}")), _ => Ok(()) }
+    // Absent (or under no directory at all) is removed.
+    match std::fs::remove_file(path) { Err(e) if path.exists() => Err(format!("cannot remove a tax report file: {e}")), _ => Ok(()) }
 }
 
 // ---- the run ---------------------------------------------------------------------------------------------------------
@@ -214,8 +215,11 @@ impl<T: Transport> Job for TaxReport<T> {
                 Ok(outcome) => outcome,
                 Err(_) => Err(format!("dropped past its {DEADLINE:?} deadline")),
             };
+            // A publish that could not write its file fails the request as a raised run does (Rails' rescue broadcasts
+            // report_failed); one that failed after its commit is finished by the next run's recovery.
+            let outcome = match outcome { Ok(done) => publish(&cx.db, &self.tmp, &r, done).await, Err(e) => Err(e) };
             let ended = match outcome {
-                Ok(done) => publish(&cx.db, &self.tmp, &r, done).await,
+                Ok(()) => Ok(()),
                 Err(e) => { crate::engine::log(&format!("[tax] report {} for user {} failed: {e}", r.id, r.user_id)); fail(&cx.db, &self.tmp, &r).await }
             };
             // The next request waits for its own run.
@@ -279,9 +283,10 @@ async fn publish(db: &Db, tmp: &Path, r: &Request, done: crate::tax::Outcome) ->
                                rusqlite::params![row.id, state, stamp(Utc::now())]).map_err(|e| e.to_string())?;
         tx.commit().map_err(|e| e.to_string())?;
         if moved == 0 { remove(&published)?; return Ok(false); }
-        std::fs::rename(&published, &target).map_err(|e| format!("cannot publish the tax report: {e}"))?;
-        // Publishing and clearing the other kind's file are one step (a stale CSV beside a refusal, or the reverse).
+        // Publishing and clearing the other kind's file are one step (a stale CSV beside a refusal, or the reverse). The
+        // other goes first: a crash between the two leaves `.tmp.<request>` for recovery to finish, never both files.
         remove(&other)?;
+        std::fs::rename(&published, &target).map_err(|e| format!("cannot publish the tax report: {e}"))?;
         Ok(true)
     }).await?;
     if kept { broadcast(db, &Request { state: state.into(), ..r.clone() }, &panel); }

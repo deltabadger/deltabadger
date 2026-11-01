@@ -315,3 +315,15 @@ async fn the_web_download_sends_once_and_a_reload_shows_a_failed_request() {
     let page = browser.get(&app, "/tracker").await;
     assert!(page.body.contains("salert--danger"), "{}", page.body);
 }
+
+#[tokio::test]
+async fn a_report_that_cannot_be_written_fails_its_request() {
+    let i = install();
+    queued(&open(&i), i.user, R1, "US", "queued");
+    // `tmp/tax_reports` is a file: the report's directory cannot be made.
+    write(&tmp(&i).join("tax_reports"), "not a directory");
+    let (db, sent) = job_db(&i);
+    assert_eq!(run(&i, &db).await, Outcome::Done);
+    assert_eq!(rows(&open(&i)), vec![(R1.into(), "failed".into())]);
+    assert!(sent.lock().unwrap().last().unwrap().1.contains("salert--danger"));
+}
