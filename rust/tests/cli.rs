@@ -215,16 +215,63 @@ fn serve_takes_the_install_over_holds_the_one_lock_until_sigterm_stops_both_then
     assert_eq!((row["engine"].as_str(), row["handed_back"].as_bool()), (Some("none"), Some(true)));
 }
 
+/// A refused `serve` (PLAN-B2 r1.0): what it printed, the page's answer for `/`, `/health-check`, `/up` and
+/// `/ui-ready`, and its exit status once SIGTERM stops it. While the page is up the install's engine lock is free.
+struct Refused { stderr: String, page: String, health: String, up: String, ready: String, lock_free: bool, status: Option<i32> }
+
+fn refused(dir: &Path, cmd: &mut Command) -> Refused {
+    use std::io::Read;
+    let port = free_port();
+    let mut child = Running(cmd.env("PORT", port.to_string()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().unwrap());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let ready = loop {
+        if let Some(answer) = http_get(port, "/ui-ready") { break answer; }
+        assert!(child.0.try_wait().unwrap().is_none(), "serve exited instead of showing the refusal page");
+        assert!(std::time::Instant::now() < deadline, "no refusal page after 20 s");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    };
+    let (page, health, up) = (http_get(port, "/").unwrap(), http_get(port, "/health-check").unwrap(), http_get(port, "/up").unwrap());
+    let lock_free = std::fs::File::open(dir.join(".engine.lock")).unwrap().try_lock().is_ok();
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    while child.0.try_wait().unwrap().is_none() {
+        assert!(std::time::Instant::now() < deadline + std::time::Duration::from_secs(20), "the refusal page did not stop on SIGTERM");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let mut stderr = String::new();
+    child.0.stderr.take().unwrap().read_to_string(&mut stderr).unwrap();
+    Refused { stderr, page, health, up, ready, lock_free, status: child.0.wait().unwrap().code() }
+}
+
+fn http_get(port: u16, path: &str) -> Option<String> {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).ok()?;
+    stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).ok()?;
+    write!(stream, "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").ok()?;
+    let mut answer = String::new();
+    stream.read_to_string(&mut answer).ok()?;
+    Some(answer)
+}
+
+/// Every file of the install, byte for byte. Not writes: the lock file, the -shm index any open of a WAL database makes
+/// (no data), and an empty -wal.
+fn files_of(dir: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
+    let incidental = |p: &Path| p.ends_with(".engine.lock") || p.extension().is_some_and(|e| e == "sqlite3-shm")
+        || (p.extension().is_some_and(|e| e == "sqlite3-wal") && p.metadata().is_ok_and(|m| m.len() == 0));
+    std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_file() && !incidental(p))
+        .map(|p| (p.file_name().unwrap().to_string_lossy().into_owned(), std::fs::read(&p).unwrap())).collect()
+}
+
 #[test]
 fn serve_refusals_come_before_the_claim() {
-    // What the engine refuses: a Kraken bot without a key.
+    // What the engine refuses: a Kraken bot without a key. The refusal page says why; nothing is claimed.
     let (dir, o, s) = common::install();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
     drop(o);
-    let out = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
-    assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("no Kraken API key"), "{}", stderr(&out));
+    let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
+    assert_eq!(r.status, Some(0), "stopped as asked");
+    assert!(r.stderr.contains("no Kraken API key"), "{}", r.stderr);
+    assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains("no Kraken API key") && r.page.contains("didn't start trading"), "{}", r.page);
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 
     // What the web refuses: a port already taken.
@@ -244,10 +291,11 @@ fn serve_refuses_an_ineligible_install_in_the_words_check_uses() {
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("future_price_drop_limited", serde_json::json!(true)));
     drop(o);
     let checked = cli(dir.path(), &["check"]).output().unwrap();
-    let served = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
-    assert_eq!((checked.status.code(), served.status.code()), (Some(1), Some(1)));
-    assert!(stderr(&served).contains(&format!("bot {id} (scheduled): future_price_drop_limited")), "{}", stderr(&served));
-    assert_eq!(stderr(&served), stderr(&checked), "the same words, byte for byte");
+    let served = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
+    assert_eq!((checked.status.code(), served.status), (Some(1), Some(0)));
+    assert!(served.stderr.contains(&format!("bot {id} (scheduled): future_price_drop_limited")), "{}", served.stderr);
+    assert_eq!(served.stderr, stderr(&checked), "the same words, byte for byte");
+    assert!(served.page.contains(&format!("bot {id} (scheduled): future_price_drop_limited")), "the page shows them too: {}", served.page);
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }
 
@@ -387,9 +435,17 @@ fn run_and_serve_refuse_stale_reference_data_while_rails_owns_the_install() -> R
         let (dir, o, s) = common::install_alpaca();
         seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
         o.primary.execute("UPDATE exchange_assets SET updated_at = '2020-01-01 00:00:00'", [])?;
-        let out = finished(cli(dir.path(), &[command]).env("PORT", free_port().to_string()));
-        assert_eq!(out.status.code(), Some(1), "{command}: {}", stderr(&out));
-        assert!(stderr(&out).contains("reference data stale"));
+        // `serve` shows the same refusal on its refusal page instead of exiting (PLAN-B2 r1.0).
+        let said = if command == "serve" {
+            let r = refused(dir.path(), &mut cli(dir.path(), &[command]));
+            assert_eq!(r.status, Some(0), "{command}: {}", r.stderr);
+            r.stderr
+        } else {
+            let out = finished(cli(dir.path(), &[command]).env("PORT", free_port().to_string()));
+            assert_eq!(out.status.code(), Some(1), "{command}: {}", stderr(&out));
+            stderr(&out)
+        };
+        assert!(said.contains("reference data stale"), "{said}");
         assert!(deltabadger::lease::read(&o.primary, &seed::cipher()).map_err(|e| format!("{e:?}"))?.is_none());
     }
     Ok(())
@@ -405,4 +461,28 @@ fn binance_repair_requires_explicit_mode_approval_and_rust_ownership() {
     let out=cli(dir.path(),&["repair-binance-history","--inventory"]).output().unwrap();
     assert!(!out.status.success());assert!(stderr(&out).contains("Rust ownership required"));
     assert!(deltabadger::lease::read(&o.primary,&seed::cipher()).unwrap().is_none());
+}
+
+/// PLAN-B2 B2-0 (r1.0, r2.8): a store refusal (here Behind: the newest Rails migration missing) keeps `serve` up on the
+/// refusal page. Every path shows the refusal with 503, `/health-check` and `/up` are 503, `/ui-ready` is 200, the engine
+/// lock is free while it shows, no file changes, and SIGTERM stops it with 0. `run` and `check` still just exit 1.
+#[test]
+fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
+    let dir = common::rails_install_unmigrated();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute("DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations)", []).unwrap();
+    drop(c);
+    let before = files_of(dir.path());
+    let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
+    assert_eq!(r.status, Some(0), "stopped as asked: {}", r.stderr);
+    assert!(r.stderr.contains("this data is behind this build"), "{}", r.stderr);
+    for answer in [&r.page, &r.health, &r.up] { assert!(answer.starts_with("HTTP/1.1 503"), "{answer}"); }
+    assert!(r.page.contains("this data is behind this build") && r.page.contains("<h1"), "{}", r.page);
+    assert!(r.ready.starts_with("HTTP/1.1 200"), "{}", r.ready);
+    assert!(r.lock_free, "the refusal page holds no engine lock");
+    assert_eq!(files_of(dir.path()), before, "a refused serve writes nothing");
+    for cmd in ["run", "check"] {
+        let out = finished(&mut cli(dir.path(), &[cmd]));
+        assert_eq!(out.status.code(), Some(1), "{cmd}: {}", stderr(&out));
+    }
 }

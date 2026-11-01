@@ -78,9 +78,12 @@ fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
 fn serve_needs_the_secret_key_base() {
     let (dir, opened, _) = common::install();
     drop(opened);
-    let out = serve_command(dir.path(), free_port()).env_remove("SECRET_KEY_BASE").output().unwrap();
-    assert!(!out.status.success());
-    assert!(String::from_utf8_lossy(&out.stderr).contains("SECRET_KEY_BASE is not set"), "{}", String::from_utf8_lossy(&out.stderr));
+    let (port, log) = (free_port(), tempfile::NamedTempFile::new().unwrap());
+    let mut server = Child(serve_command(dir.path(), port).env_remove("SECRET_KEY_BASE").stdout(Stdio::null()).stderr(log.reopen().unwrap()).spawn().unwrap());
+    let (ended, page) = server.refused_on(port);
+    assert_eq!(ended.code(), Some(0));
+    let said = std::fs::read_to_string(log.path()).unwrap();
+    assert!(said.contains("SECRET_KEY_BASE is not set") && page.contains("SECRET_KEY_BASE is not set"), "{said}\n{page}");
 }
 
 #[test]
@@ -420,6 +423,24 @@ impl Drop for Child {
 }
 
 impl Child {
+    /// A refused `serve` on `port` (PLAN-B2 r1.0): waits up to 30 s for its refusal page (`/ui-ready` 200 while `/up` is
+    /// 503), reads its page at `/`, stops it with SIGTERM and returns how it ended (0: stopped as asked) and the page.
+    fn refused_on(&mut self, port: u16) -> (std::process::ExitStatus, String) {
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            assert!(self.0.try_wait().unwrap().is_none(), "serve ended instead of showing its refusal page");
+            assert!(Instant::now() < deadline, "no refusal page within 30 s");
+            if http_get(port, "/ui-ready").is_some_and(|a| a.starts_with("HTTP/1.1 200")) {
+                assert!(http_get(port, "/up").is_some_and(|a| a.starts_with("HTTP/1.1 503")), "a refused serve is not up");
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let page = http_get(port, "/").expect("the refusal page");
+        assert!(Command::new("kill").args(["-TERM", &self.0.id().to_string()]).status().unwrap().success());
+        (self.ended_within(Duration::from_secs(20)).expect("the refusal page stops on SIGTERM"), page)
+    }
+
     /// How it ended, if it ends within `patience`. Never waits longer.
     fn ended_within(&mut self, patience: Duration) -> Option<std::process::ExitStatus> {
         let deadline = Instant::now() + patience;
@@ -529,11 +550,11 @@ fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refu
     assert!(said("serve.log").contains(&format!("bot {basket} (scheduled)")) && said("serve.log").contains("rebalance_pending in phase"), "{}", said("serve.log"));
     assert!(!up_within(port, Duration::from_secs(2)), "and the pages went with it");
 
-    // Started on that install, the executable does not come up: refused before anything is served.
+    // Started on that install, the executable does not trade: refused before anything is claimed, it shows why.
     let out = std::fs::File::create(logs.path().join("again.log")).unwrap();
-    let mut again = Child(serve_command(dir.path(), free_port()).env("SECRET_KEY_BASE", "engine-test-secret").stdout(out.try_clone().unwrap()).stderr(out).spawn().unwrap());
-    let refused = again.ended_within(Duration::from_secs(30)).unwrap_or_else(|| panic!("serve neither refused nor ended within 30 s: {}", said("again.log")));
-    assert_eq!(refused.code(), Some(1), "{}", said("again.log"));
+    let again_port = free_port();
+    let mut again = Child(serve_command(dir.path(), again_port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(out.try_clone().unwrap()).stderr(out).spawn().unwrap());
+    assert_eq!(again.refused_on(again_port).0.code(), Some(0), "{}", said("again.log"));
     assert!(said("again.log").contains(&format!("bot {basket} (scheduled)")) && said("again.log").contains("rebalance_pending in phase"), "{}", said("again.log"));
 }
 
@@ -2943,9 +2964,10 @@ fn serve_admits_an_abandoned_rebalance_only_when_halted_for_resume() {
     let row = seed::insert_row(&opened.primary, &seeded, id, seeded.btc, &serde_json::json!({"created_at":"2026-09-01 10:00:01","external_status":4,"side":0,"external_id":"abandoned","amount":"0.001","price":"64000"}));
     opened.primary.execute("UPDATE transactions SET transaction_type='REBALANCE' WHERE id=?1", [row]).unwrap();
     let port = free_port();
-    let before = serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").output().unwrap();
-    assert!(!before.status.success());
-    assert!(String::from_utf8_lossy(&before.stderr).contains("abandoned REBALANCE"));
+    let log = tempfile::NamedTempFile::new().unwrap();
+    let mut before = Child(serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(Stdio::null()).stderr(log.reopen().unwrap()).spawn().unwrap());
+    assert_eq!(before.refused_on(port).0.code(), Some(0));
+    assert!(std::fs::read_to_string(log.path()).unwrap().contains("abandoned REBALANCE"));
     opened.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}')) WHERE id=?1", [id]).unwrap();
     let mut server = Child(serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
     let started = Instant::now();
