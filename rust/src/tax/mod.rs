@@ -11,7 +11,7 @@
 //! - D-TAX-STABLE-CASH: where swaps are not taxable and the user treats stablecoins as fiat, a stablecoin row is cash
 //!   and reaches no engine (Rails sold the stablecoins again, at a zero basis, after the coin that bought them was sold).
 //! - D-TAX-COIN-QUOTE: a coin-for-coin trade booked as one row quoted in a coin is read as its two swap legs
-//!   (`split_coin_quoted_trades`), so the quote coin moves too.
+//!   (`rows::split_coin_quoted_trades`, the tracker's own reading, D-TRACKER-COIN-QUOTE), so the quote coin moves too.
 //! - D-TAX-STABLE-VALUE: a stablecoin bought or sold for fiat in a two-row group (Kraken) is valued at the fiat that
 //!   changed hands, not the dollar peg (`quote_stablecoin_legs`); Portugal's immediate fiat exit follows.
 //! - D-TAX-LOCAL-YEAR: income and the excess-ROC refusal by the taxpayer's year, as disposals (Rails: the UTC year).
@@ -93,7 +93,7 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
 
     // D-TAX-COIN-QUOTE after ordering, so the two legs keep the row's place (a negated id must not anchor the group).
     let stable_cash = !j.swaps_taxable() && stablecoin_as_fiat;
-    let mut scoped = split_coin_quoted_trades(rows::ordered(rows.into_iter().filter(|r| r.at.0 <= rows_until.0).collect()), stable_cash);
+    let mut scoped = rows::ordered_legs(rows.into_iter().filter(|r| r.at.0 <= rows_until.0).collect(), stable_cash)?;
     quote_stablecoin_legs(&mut scoped)?;
     let mut reference = Reference::load(c, &Venue::alpaca(c)?, &prices::symbols(&scoped))?;
     reference.record_coins(c, user_id)?;
@@ -163,14 +163,12 @@ impl Report {
         // D-TAX-DE-WALLET: Germany keeps the order of use per wallet from the first row (BMF 6 March 2025, Rz. 61).
         let per_venue_from = match j.code { "US" if year >= 2025 => local_midnight(&self.zone, 2025), "DE" => Some(At(i64::MIN)), _ => None };
         let swap_cost_to_disposed_from = per_venue_from.filter(|_| j.code == "US");
-        // D-TAX-US-WALLET: per venue, a withdrawal to another venue is walked first within its second (`transfers_first`),
-        // so a same-second sale on the far venue takes the lots it brought. The pooled years keep Rails' order.
+        // D-TAX-US-WALLET: per venue, a withdrawal to another venue is walked within its instant as soon as its funds allow
+        // (`transfers_first`, the tracker's own order), so a same-instant sale on the far venue takes the lots it brought.
+        // The pooled years keep Rails' order.
         if let Some(from) = per_venue_from {
-            let split = txs.iter().position(|t| t.row.at.0 >= from.0).unwrap_or(txs.len());
-            // A linked deposit changes nothing per venue (its withdrawal carried the lots), so it is no ordering barrier.
-            let tail: Vec<fifo::Tx> = txs.split_off(split).into_iter().filter(|t| !(t.row.kind == Kind::Deposit && t.row.linked)).collect();
-            let order = walk::transfers_first(&tail.iter().map(|t| t.row.clone()).collect::<Vec<_>>());
-            let mut by_uid: HashMap<usize, fifo::Tx> = tail.into_iter().map(|t| (t.row.uid, t)).collect();
+            let order = walk::transfers_first(&txs.iter().map(|t| t.row.clone()).collect::<Vec<_>>(), from)?;
+            let mut by_uid: HashMap<usize, fifo::Tx> = txs.drain(..).map(|t| (t.row.uid, t)).collect();
             txs.extend(order.iter().filter_map(|r| by_uid.remove(&r.uid)));
         }
         let mut engine = fifo::Fifo::new(fifo::Options {
@@ -299,37 +297,6 @@ impl Report {
         line(out, &[self.t(&format!("tax_report.warnings.{hint}"))]);
         Ok(())
     }
-}
-
-/// D-TAX-COIN-QUOTE: a trade of a coin for a coin booked as one buy or sell row quoted in the other coin (Bybit, MEXC,
-/// Bitget, Gemini, BingX, Bitrue, Bitvavo, Hyperliquid, KuCoin; Binance and Coinbase store two swap legs) becomes, on this
-/// report's copy of the rows, the two legs it is (a stablecoin quote too, unless the stablecoin is cash): the row's coin coming in or going out, and the quote coin the other
-/// way, grouped. Rails read the row alone, so the quote coin never moved: the coin paid kept its lots, the coin received
-/// had none, and where swaps are not taxable the trade was taxed as a sale. The fee goes with the leg of its own coin,
-/// else with the coin coming in (as Binance books it). The new leg's id is the row's negated, unique and never stored.
-fn split_coin_quoted_trades(rows: Vec<Stored>, stable_cash: bool) -> Vec<Stored> {
-    let mut out = Vec::with_capacity(rows.len());
-    for r in rows {
-        let Some((quote, paid)) = r.quote.clone().zip(r.quote_amount.clone()) else { out.push(r); continue };
-        if !matches!(r.kind, Kind::Buy | Kind::Sell) || fiat(&quote) || stable_cash && stable(&quote) || quote.trim().is_empty() || r.group.is_some() {
-            out.push(r); continue;
-        }
-        let buying = r.kind == Kind::Buy;
-        let group = Some(format!("coin-quote:{}", r.id));
-        let fee_on_quote = r.fee_currency.as_deref() == Some(quote.as_str()) || (!buying && r.fee_currency.as_deref() != Some(r.base.as_str()));
-        let (fee_currency, fee_amount) = (r.fee_currency.clone(), r.fee_amount.clone());
-        let other = Stored {
-            id: -r.id, kind: if buying { Kind::SwapOut } else { Kind::SwapIn }, base: quote, amount: paid, quote: None, quote_amount: None,
-            fee_currency: if fee_on_quote { fee_currency.clone() } else { None }, fee_amount: if fee_on_quote { fee_amount.clone() } else { None },
-            tx_id: r.tx_id.as_ref().map(|t| format!("{t}-quote")), group: group.clone(), stated: None, linked_to: None, to_venue: None,
-            to_exchange_id: None, base_asset: None, per_share: None, ..r.clone()
-        };
-        let own = Stored { kind: if buying { Kind::SwapIn } else { Kind::SwapOut }, quote: None, quote_amount: None, group,
-                           fee_currency: if fee_on_quote { None } else { fee_currency }, fee_amount: if fee_on_quote { None } else { fee_amount }, ..r };
-        // The out-leg first, as `rows::ordered` lays out a group.
-        if buying { out.push(other); out.push(own); } else { out.push(own); out.push(other); }
-    }
-    out
 }
 
 /// D-TAX-COIN-QUOTE, grouped legs: where swaps are not taxable and a stablecoin is a coin, a group of coin legs only (no
