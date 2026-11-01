@@ -454,6 +454,16 @@ module TaxVectors
         row(c, :buy, 'BTC', '1', '2026-02-01T10:00:00Z', exchange: by, quote_currency: 'USD', quote_amount: '40000')
         row(c, :sell, 'BTC', '1', '2026-02-01T10:00:00Z', exchange: by, quote_currency: 'ETH', quote_amount: '20')
       } },
+      # A withdrawal's fee in another coin is spent: 0.1 BNB worth $60 against $50 of basis.
+      { name: 'us_withdrawal_fee_third_coin', expect: 'diverges: D-TAX-COIN-FEE', setup: lambda { |c|
+        bn = venue(c, :binance)
+        price('BNB', '2026-02-01', '600')
+        price('ETH', '2026-02-01', '3100')
+        buy(c, 'BNB', '1', '500', '2026-01-05T10:00:00Z', exchange: bn)
+        buy(c, 'ETH', '1', '3000', '2026-01-06T10:00:00Z', exchange: bn)
+        row(c, :withdrawal, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: bn, fee_currency: 'BNB', fee_amount: '0.1')
+        sell(c, 'BNB', '0.9', '630', '2026-03-01T10:00:00Z', exchange: bn)
+      } },
       { name: 'us_unlinked_withdrawal_per_venue', expect: 'diverges: D-TAX-US-WALLET', setup: lambda { |c|
         price('BTC', '2026-01-06', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
@@ -548,7 +558,8 @@ module TaxVectors
       user_zone(c, 'Vienna')
       bn = venue(c, :binance)
       price('BTC', '2021-12-01', '30000', 'EUR')
-      price('ETH', '2021-12-01', '3000', 'EUR')
+      # ETH's own price that day (2,900 × 10) differs: the ETH still costs the 30,000 given (§ 6 Z 14).
+      price('ETH', '2021-12-01', '2900', 'EUR')
       row(c, :buy, 'BTC', '1', '2021-03-05T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '20000')
       swap(c, 'BTC', '1', 'ETH', '10', '2021-12-01T10:00:00Z', ref: 'sw')
       row(c, :sell, 'ETH', '10', '2025-06-01T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '40000')
@@ -653,6 +664,36 @@ module TaxVectors
         row(c, :buy, 'BTC', '1', '2022-06-01T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '30000')
         swap(c, 'BTC', '2', 'ETH', '40', '2024-06-01T10:00:00Z', ref: 'ms')
         row(c, :sell, 'ETH', '40', '2026-03-02T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '120000')
+      } },
+      # A fiat purchase booked as swap legs (EUR out, ETH in, €10 fee): a purchase, its fee part of the cost → 1,010 / 990.
+      { name: 'at_fiat_swap_legs_fee', country: 'AT', expect: 'parity', setup: lambda { |c|
+        user_zone(c, 'Vienna')
+        bn = venue(c, :binance)
+        price('ETH', '2026-02-01', '1000', 'EUR')
+        row(c, :swap_out, 'EUR', '1000', '2026-02-01T10:00:00Z', exchange: bn, group_id: 'fp', tx_id: 'fp-o')
+        row(c, :swap_in, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: bn, group_id: 'fp', tx_id: 'fp-i', fee_currency: 'EUR', fee_amount: '10')
+        row(c, :sell, 'ETH', '1', '2026-03-01T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '2000')
+      } },
+      # A withdrawal's fee in another coin pays for a service (Rz 6178v): 0.1 BNB, €60 for €50; then 0.9 BNB at €450.
+      { name: 'at_withdrawal_fee_third_coin', country: 'AT', expect: 'diverges: D-TAX-AT-FEES', setup: lambda { |c|
+        user_zone(c, 'Vienna')
+        bn = venue(c, :binance)
+        price('BNB', '2026-02-01', '600', 'EUR')
+        price('ETH', '2026-02-01', '3000', 'EUR')
+        row(c, :buy, 'BNB', '1', '2025-06-01T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '500')
+        row(c, :buy, 'ETH', '1', '2025-06-02T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '2000')
+        row(c, :withdrawal, 'ETH', '1', '2026-02-01T10:00:00Z', exchange: bn, fee_currency: 'BNB', fee_amount: '0.1')
+        row(c, :sell, 'BNB', '0.9', '2026-03-01T10:00:00Z', exchange: bn, quote_currency: 'EUR', quote_amount: '630')
+      } },
+      # BTC for USDT in Kraken's grouped rows is a swap (Rz 6178b: stablecoins are crypto): the USDT carries the BTC's
+      # €20,000; the USDT sold for €65,000 in 2026 → 45,000.
+      { name: 'at_kraken_coin_for_stablecoin', country: 'AT', expect: 'diverges: D-TAX-COIN-QUOTE', setup: lambda { |c|
+        user_zone(c, 'Vienna')
+        price('BTC', '2025-06-10', '55000', 'EUR')
+        price('USDT', '2025-06-10', '0.9', 'EUR')
+        kraken(c, :buy, 'BTC', '1', '20000', '2024-06-01T10:00:00Z', ref: 'b1')
+        kraken(c, :sell, 'BTC', '1', '60000', '2025-06-10T10:00:00Z', fiat: 'USDT', ref: 's1')
+        kraken(c, :sell, 'USDT', '60000', '65000', '2026-03-01T10:00:00Z', ref: 's2')
       } },
       { name: 'at_swap_before_march_2022_2021', country: 'AT', year: 2021, expect: 'diverges: D-TAX-AT-SWAP-1-MARCH-2022', setup: ->(c) { swap_2021.(c) } },
       { name: 'at_swap_before_march_2022_2025', country: 'AT', year: 2025, expect: 'diverges: D-TAX-AT-SWAP-1-MARCH-2022', setup: ->(c) { swap_2021.(c) } },
@@ -1176,6 +1217,22 @@ module TaxVectors
         row(c, :withdrawal, 'BTC', '1', '2026-02-05T09:00:00Z', exchange: by, linked_transaction_id: AccountTransaction.order(:id).last.id)
         row(c, :deposit, 'BTC', '1', '2026-02-05T10:10:00Z', exchange: bn)
         row(c, :withdrawal, 'BTC', '1', '2026-02-05T10:00:00Z', exchange: kr, linked_transaction_id: AccountTransaction.order(:id).last.id)
+      } },
+      # An unlinked withdrawal's own fee in the coin withdrawn leaves the lots as a disposal: 0.0005 BTC, €40 for €15.
+      { name: 'de_unlinked_withdrawal_fee', country: 'DE', expect: 'diverges: D-TAX-COIN-FEE', setup: lambda { |c|
+        price('BTC', '2026-02-01', '80000', 'EUR')
+        kraken(c, :buy, 'BTC', '1', '30000', '2025-01-05T10:00:00Z', ref: 'b1')
+        row(c, :withdrawal, 'BTC', '0.1', '2026-02-01T10:00:00Z', exchange: venue(c, :kraken), fee_currency: 'BTC', fee_amount: '0.0005')
+        # The fee is inside the 0.1: Kraken keeps 0.9, all of it covered (cost 27,000).
+        kraken(c, :sell, 'BTC', '0.9', '72000', '2026-03-01T10:00:00Z', ref: 's1')
+      } },
+      # Portugal: BTC for USDT in Kraken's two grouped rows is a swap, not a sale: the USDT carries the BTC's €20,000.
+      { name: 'pt_kraken_coin_for_stablecoin', country: 'PT', expect: 'diverges: D-TAX-COIN-QUOTE', setup: lambda { |c|
+        price('BTC', '2025-06-10', '55000', 'EUR')
+        price('USDT', '2025-06-10', '0.9', 'EUR')
+        kraken(c, :buy, 'BTC', '1', '20000', '2024-06-01T10:00:00Z', ref: 'b1')
+        kraken(c, :sell, 'BTC', '1', '60000', '2025-06-10T10:00:00Z', fiat: 'USDT', ref: 's1')
+        kraken(c, :sell, 'USDT', '60000', '54000', '2026-03-01T10:00:00Z', ref: 's2')
       } },
       # Germany: the order of use is kept per wallet; a sale on Kraken takes Kraken's lot, not Bybit's older one.
       { name: 'de_per_wallet', country: 'DE', expect: 'diverges: D-TAX-DE-WALLET', setup: lambda { |c|

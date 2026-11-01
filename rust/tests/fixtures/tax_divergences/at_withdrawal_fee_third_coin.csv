@@ -1,0 +1,7 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-02-01T10:00:00Z,2025-06-01T10:00:00Z,BNB,0.1,60.0,50.0,10.0,EUR,245,0.0,binance,withdrawal-ETH-2026-02-01T10:00:00Z,true,false,false
+2026-03-01T10:00:00Z,2025-06-01T10:00:00Z,BNB,0.9,630.0,450.0,180.0,EUR,273,0.0,binance,sell-BNB-2026-03-01T10:00:00Z,true,false,false
+
+"WARNING: Nicht mit einer Einzahlung verknüpfte Auszahlungen; jede wird als Übertrag auf eine eigene Wallet behandelt, nicht als Verkauf:"
+ETH 1.0 2026-02-01
+"Verknüpfe jede im Tracker mit der passenden Einzahlung. Eine Auszahlung, die ein Verkauf, eine Zahlung oder eine Schenkung war, ist eine Veräußerung, die dieser Bericht nicht enthält."

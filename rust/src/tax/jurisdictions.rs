@@ -153,7 +153,7 @@ mod tests {
         for c in PORTED { let j = find(c).unwrap(); assert_eq!(j.method, "fifo", "{c}"); assert!(j.expense_deduction.is_none() && !j.per_asset_summary && j.czech_exemptions.is_none() && j.flat_tax_rate.is_none()); }
         assert_eq!(find("BG").unwrap().currency(2025), "BGN");
         assert_eq!(find("BG").unwrap().currency(2026), "EUR");
-        assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && !ported("AT", 2026));
+        assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && !ported("CZ", 2026));
     }
 
     #[test]

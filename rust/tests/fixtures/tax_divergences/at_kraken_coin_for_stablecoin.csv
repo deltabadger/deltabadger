@@ -1,0 +1,2 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-03-01T10:00:00Z,2024-06-01T10:00:00Z,USDT,60000.0,65000.0,20000.0,45000.0,EUR,638,0.0,kraken,s2-USDT,true,false,false

@@ -401,19 +401,21 @@ impl<'a> Fifo<'a> {
                 self.lots.entry(dest).or_default().make_contiguous().sort_by_key(|l| l.date.0);
             }
         } else {
+            // D-TAX-COIN-FEE: an unlinked withdrawal's fee in its own coin is inside its amount (`walk::quantity_moves`) and
+            // was spent, not moved: it leaves the lots as the fee it is, the rest as the withdrawal. Rails kept it.
             let mut amount = r.amount.clone();
-            // D-TAX-AT-FEES: an unlinked withdrawal's network fee in its own coin paid for a service (Rz 6178v).
-            let fee = r.fee_amount.clone().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str()));
-            if let Some(fee) = fee.filter(|_| self.austrian(r.at)) {
-                let proceeds = if r.amount.is_positive() { (&r.fiat_value * &fee)?.div(&r.amount)? } else { Dec::zero() };
-                let sale = Sale { asset: &tx.asset, symbol: &r.base, amount: fee.clone(), proceeds, fee: Dec::zero(), price_missing: r.fiat_value.is_zero() };
-                self.dispose(tx, sale, false)?;
-                amount = max0((&amount - &fee)?);
+            if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str())) {
+                self.spend_fee_coin(tx, fee)?;
+                amount = max0((&amount - fee)?);
             }
             if self.per_venue {
                 let k = self.key(&r.exchange, &tx.asset);
                 self.dequeue_cost(&k, &amount)?;
             }
+        }
+        // D-TAX-COIN-FEE: a fee in another coin on any withdrawal leaves that coin's lots (Rails never took it).
+        if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()).filter(|_| crypto_fee_asset(r) && r.fee_currency.as_deref() != Some(r.base.as_str())) {
+            self.spend_fee_coin(tx, fee)?;
         }
         Ok(())
     }
@@ -563,7 +565,11 @@ impl<'a> Fifo<'a> {
     fn add_swap_in_lot(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
         if self.swaps_taxable_at(r.at) {
-            let (lot_amount, lot_cost) = self.apply_acquisition_fee(tx, &r.amount, &r.fiat_value)?;
+            // D-TAX-AT-SWAP-1-MARCH-2022: an Austrian Tausch before § 27b acquires at the value of what was given (§ 6 Z 14),
+            // the out-legs' worth by this leg's share; elsewhere, and with no out-leg priced, its own value.
+            let given = self.o.austria.and_then(|_| group_key(r)).map(|k| self.swap_out_value(Some(&k))).filter(Dec::is_positive);
+            let value = match given { Some(v) => (&v * &self.swap_in_share(r).0)?, None => r.fiat_value.clone() };
+            let (lot_amount, lot_cost) = self.apply_acquisition_fee(tx, &r.amount, &value)?;
             let lot = Lot { cost_per_unit: unit(&lot_cost, &lot_amount)?, date: r.at, basis_assumed: r.price_missing,
                             unpriced: if value_missing(r) { lot_amount.clone() } else { Dec::zero() }, amount: lot_amount,
                             holding_start: None, technical_start: None, averaged: false };
@@ -580,8 +586,9 @@ impl<'a> Fifo<'a> {
         let tranches: Vec<Tranche> = key.as_ref().and_then(|k| self.transferred.get(k)).cloned().unwrap_or_default();
         let (cash_present, cash) = self.swap_cash_cost(r)?;
         let (lot_amount, paid) = self.apply_acquisition_fee(tx, &r.amount, &cash)?;
-        // D-TAX-AT-FEES: a swap's costs are ignored (§ 27b Abs. 3), a fee in fiat too.
-        let fee_cost = if self.austrian(r.at) { Dec::zero() } else { (&paid - &cash)? };
+        // D-TAX-AT-FEES: a crypto↔crypto swap's costs are ignored (§ 27b Abs. 3), a fee in fiat too; a group that spent cash is
+        // a purchase, whose fee is part of the cost (Rz 6178y).
+        let fee_cost = if self.austrian(r.at) && !cash_present { Dec::zero() } else { (&paid - &cash)? };
         let (share, share_assumed) = self.swap_in_share(r);
         let assumed = r.price_missing || share_assumed;
         if tranches.is_empty() && !cash_present {
