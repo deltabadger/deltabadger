@@ -673,7 +673,7 @@ fn write_baseline(c: &Connection) -> rusqlite::Result<()> {
 
 /// Debug builds only (PLAN-B1 r1.7): `DELTABADGER_TEST_ABORT=<step>` kills the process at that step, so tests/bootstrap.rs
 /// proves each crash by real process death. Steps: after-queue, after-wal, mid-baseline, mid-seed, before-commit,
-/// after-commit, mid-migrate, and after-claim (where the tests stop a restart). Release builds have none.
+/// after-commit, mid-migrate, mid-backup, and after-claim (where the tests stop a restart). Release builds have none.
 #[cfg(debug_assertions)]
 pub fn abort_point(step: &str) {
     if std::env::var("DELTABADGER_TEST_ABORT").is_ok_and(|s| s == step) { std::process::abort() }
@@ -849,6 +849,124 @@ pub fn copy_in_memory(paths: &Paths) -> Result<Opened, StoreError> {
     Ok(Opened { primary: copy(&paths.primary)?, queue: copy(&paths.queue)? })
 }
 
+/// Where `backup` keeps its copies: `backups/` next to the primary.
+pub fn backups_dir(paths: &Paths) -> PathBuf {
+    paths.primary.parent().unwrap_or(Path::new(".")).join("backups")
+}
+
+/// What `backup` left: a new complete copy, or the newest one, which already holds this state.
+#[derive(Debug, PartialEq)]
+pub enum Backup { Made(PathBuf), Unchanged(PathBuf) }
+
+/// Why `backup` made no copy, sorted for what the user can do about it.
+#[derive(Debug, PartialEq)]
+pub enum BackupError {
+    /// Both databases have this file name, or one is named `digest`: one folder can't hold both copies and the digest.
+    SameName(String),
+    DiskFull,
+    NotWritable,
+    /// Anything else, in the system's words.
+    Other(String),
+}
+
+impl BackupError {
+    fn io(path: &Path, e: std::io::Error) -> Self {
+        use std::io::ErrorKind::*;
+        match e.kind() {
+            StorageFull | QuotaExceeded => Self::DiskFull,
+            PermissionDenied | ReadOnlyFilesystem => Self::NotWritable,
+            _ => Self::Other(format!("{}: {e}", path.display())),
+        }
+    }
+
+    fn sqlite(path: &Path, e: rusqlite::Error) -> Self {
+        use rusqlite::ErrorCode::*;
+        match e.sqlite_error_code() {
+            Some(DiskFull) => Self::DiskFull,
+            Some(ReadOnly | PermissionDenied | CannotOpen) => Self::NotWritable,
+            _ => Self::Other(format!("{}: {e}", path.display())),
+        }
+    }
+}
+
+/// A copy of the primary and the queue (PLAN-B2 r3.4, §5), for the user's way back to the state the install was in; the
+/// caller holds the engine lock and nothing has written yet. Each file in one backup step (one read transaction, WAL
+/// included), under its own name, into `backups/pre-3.0-<UTC>.partial/`; then a `digest` (`shasum -a 256 -c` format) of
+/// both. When the newest complete copy holds this state (its digest and its files, rehashed, both equal) the partial copy
+/// is deleted (one copy per distinct state); otherwise the digest is written, everything fsynced, and the folder renamed
+/// to `pre-3.0-<UTC>/`. Copies are never replaced or deleted. A `.partial` left by a crash is deleted first; one this call
+/// made is deleted on its error. Cache and cable are not copied. The error says what the user can do about it (BackupError).
+pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backup, BackupError> {
+    use sha2::Digest;
+    const STAMP: &str = "%Y%m%dT%H%M%S%.6fZ";
+    let dir = backups_dir(paths);
+    let io = BackupError::io;
+    let names: Vec<String> = [&paths.primary, &paths.queue].iter()
+        .map(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()).ok_or_else(|| BackupError::Other(format!("{}: no file name", p.display()))))
+        .collect::<Result<_, _>>()?;
+    // One folder holds both copies and the digest under their own names: two of them alike would overwrite one another.
+    if names[0] == names[1] || names.iter().any(|n| n == "digest") {
+        return Err(BackupError::SameName(if names[0] == names[1] { names[0].clone() } else { "digest".into() }));
+    }
+    std::fs::create_dir_all(&dir).map_err(|e| io(&dir, e))?;
+    let mut complete = Vec::new();
+    for entry in std::fs::read_dir(&dir).map_err(|e| io(&dir, e))? {
+        let name = entry.map_err(|e| io(&dir, e))?.file_name().to_string_lossy().into_owned();
+        if !name.starts_with("pre-3.0-") { continue }
+        if name.ends_with(".partial") { std::fs::remove_dir_all(dir.join(&name)).map_err(|e| io(&dir.join(&name), e))?; } else { complete.push(name) }
+    }
+    let newest = complete.into_iter().max();
+    // Microseconds, after a lock that serialises starts: no two starts share a name. A clock set back still names the copy
+    // after the newest one (1 µs later), so "newest" stays the last one made and names keep one length.
+    let after_newest = newest.as_deref().and_then(|n| n.strip_prefix("pre-3.0-"))
+        .and_then(|t| chrono::NaiveDateTime::parse_from_str(t, STAMP).ok()).map(|t| t.and_utc() + chrono::Duration::microseconds(1));
+    let name = format!("pre-3.0-{}", after_newest.map_or(now, |t| t.max(now)).format(STAMP));
+    let digest_of = |folder: &Path| -> Result<String, BackupError> {
+        names.iter().map(|n| {
+            let file = folder.join(n);
+            let mut hash = sha2::Sha256::new();
+            std::io::copy(&mut std::fs::File::open(&file).map_err(|e| io(&file, e))?, &mut hash).map_err(|e| io(&file, e))?;
+            Ok(format!("{}  {n}\n", hex::encode(hash.finalize())))
+        }).collect()
+    };
+    // ponytail: Windows can't open a folder to fsync it (std has no FILE_FLAG_BACKUP_SEMANTICS); there the files are
+    // synced and the folders are left to NTFS's own journal. Add a Windows-specific folder flush if B7 needs one.
+    let sync = |p: &Path| if cfg!(not(unix)) && p.is_dir() { Ok(()) } else { std::fs::File::open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e)) };
+    let partial = dir.join(format!("{name}.partial"));
+    std::fs::create_dir(&partial).map_err(|e| io(&partial, e))?;
+    let made = (|| -> Result<Backup, BackupError> {
+        for (from, n) in [&paths.primary, &paths.queue].into_iter().zip(&names) {
+            let to = partial.join(n);
+            let source = read_only(from).map_err(|e| BackupError::Other(format!("{}: {e:?}", from.display())))?;
+            let mut target = Connection::open(&to).map_err(|e| BackupError::sqlite(&to, e))?;
+            let step = rusqlite::backup::Backup::new(&source, &mut target).and_then(|b| b.step(-1)).map_err(|e| BackupError::sqlite(&to, e))?;
+            if step != rusqlite::backup::StepResult::Done { return Err(BackupError::Other(format!("{}: could not copy it ({step:?})", from.display()))) }
+            target.close().map_err(|(_, e)| BackupError::sqlite(&to, e))?;
+        }
+        let digest = digest_of(&partial)?;
+        let holds = |n: &String| { let d = dir.join(n); std::fs::read_to_string(d.join("digest")).is_ok_and(|s| s == digest) && digest_of(&d).is_ok_and(|s| s == digest) };
+        if let Some(newest) = newest.as_ref().filter(|n| holds(n)) {
+            std::fs::remove_dir_all(&partial).map_err(|e| io(&partial, e))?;
+            // A crash between that copy's rename and its folder's fsync: finish them now.
+            sync(&dir)?;
+            sync(dir.parent().unwrap_or(Path::new(".")))?;
+            return Ok(Backup::Unchanged(dir.join(newest)));
+        }
+        let digest_file = partial.join("digest");
+        std::fs::write(&digest_file, &digest).map_err(|e| io(&digest_file, e))?;
+        for p in names.iter().map(|n| partial.join(n)).chain([digest_file, partial.clone()]) { sync(&p)?; }
+        #[cfg(debug_assertions)]
+        abort_point("mid-backup");
+        let done = dir.join(&name);
+        std::fs::rename(&partial, &done).map_err(|e| io(&done, e))?;
+        sync(&dir)?;
+        sync(dir.parent().unwrap_or(Path::new(".")))?;
+        Ok(Backup::Made(done))
+    })();
+    if made.is_err() { let _ = std::fs::remove_dir_all(&partial); }
+    made
+}
+
 /// This build's pending Rust migrations applied to `copy_in_memory`'s primary, by the code `migrate` runs, so `check`
 /// assesses the state `run` and `serve` will start from (PLAN-B2 r2.2).
 pub fn migrate_copy(copy: &Opened) -> Result<Vec<String>, StoreError> {
@@ -859,4 +977,27 @@ pub fn migrate_copy(copy: &Opened) -> Result<Vec<String>, StoreError> {
 pub fn configure(c: &Connection) -> rusqlite::Result<()> {
     c.busy_timeout(std::time::Duration::from_millis(5_000))?;
     c.pragma_update(None, "foreign_keys", "ON")
+}
+
+#[cfg(test)]
+mod backup_error_tests {
+    use super::BackupError;
+    use std::path::Path;
+
+    /// A full disk can't be made in a test; the sorting of the errors that report one can.
+    #[test]
+    fn errors_are_sorted_by_what_the_user_can_do() {
+        use std::io::{Error, ErrorKind};
+        let p = Path::new("/x");
+        assert_eq!(BackupError::io(p, Error::from(ErrorKind::StorageFull)), BackupError::DiskFull);
+        assert_eq!(BackupError::io(p, Error::from(ErrorKind::QuotaExceeded)), BackupError::DiskFull);
+        assert_eq!(BackupError::io(p, Error::from(ErrorKind::PermissionDenied)), BackupError::NotWritable);
+        assert_eq!(BackupError::io(p, Error::from(ErrorKind::ReadOnlyFilesystem)), BackupError::NotWritable);
+        assert!(matches!(BackupError::io(p, Error::from(ErrorKind::NotFound)), BackupError::Other(w) if w.starts_with("/x: ")));
+        let sqlite = |code: i32| rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(code), None);
+        assert_eq!(BackupError::sqlite(p, sqlite(rusqlite::ffi::SQLITE_FULL)), BackupError::DiskFull);
+        assert_eq!(BackupError::sqlite(p, sqlite(rusqlite::ffi::SQLITE_READONLY)), BackupError::NotWritable);
+        assert_eq!(BackupError::sqlite(p, sqlite(rusqlite::ffi::SQLITE_CANTOPEN)), BackupError::NotWritable);
+        assert!(matches!(BackupError::sqlite(p, sqlite(rusqlite::ffi::SQLITE_CORRUPT)), BackupError::Other(_)));
+    }
 }

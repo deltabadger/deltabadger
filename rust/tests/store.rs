@@ -123,3 +123,91 @@ fn a_table_rust_uses_that_differs_in_structure_is_incompatible() {
         }
     }
 }
+
+// --- B2-4: store::backup (PLAN-B2 r3.4) ---
+
+/// A 2.x install's two files at `p` (each made from the Rails template).
+fn install_at(p: &Paths) {
+    let template = common::rails_install_unmigrated();
+    for (from, to) in [("production.sqlite3", &p.primary), ("production_queue.sqlite3", &p.queue)] {
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::copy(template.path().join(from), to).unwrap();
+    }
+}
+
+fn made(b: Result<store::Backup, store::BackupError>) -> std::path::PathBuf {
+    match b { Ok(store::Backup::Made(dir)) => dir, other => panic!("expected a new copy, got {other:?}") }
+}
+
+/// QUEUE_DATABASE_PATH may name a file with the primary's name in another folder, or a file may be named like the digest:
+/// one folder can't hold them all, so the start stops before anything is copied, naming the file.
+#[test]
+fn a_queue_named_like_the_primary_or_the_digest_stops_before_any_copy() {
+    for (primary, queue, name) in [("data/db.sqlite3", "queue/db.sqlite3", "db.sqlite3"), ("data/digest", "queue/q.sqlite3", "digest")] {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths { primary: dir.path().join(primary), queue: dir.path().join(queue) };
+        install_at(&p);
+        assert_eq!(store::backup(&p, chrono::Utc::now()), Err(store::BackupError::SameName(name.into())));
+        assert!(!dir.path().join("data/backups").exists(), "{name}: nothing made");
+    }
+}
+
+/// Neither a full disk nor a folder that can't be written to: the system's own words, naming the path.
+#[test]
+fn any_other_failure_is_told_in_the_systems_words() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    std::fs::write(dir.path().join("backups"), b"a file where the folder goes").unwrap();
+    match store::backup(&p, chrono::Utc::now()) {
+        Err(store::BackupError::Other(why)) => assert!(why.contains(&dir.path().join("backups").display().to_string()), "{why}"),
+        other => panic!("{other:?}"),
+    }
+}
+
+/// A read-only `backups/` is "can't be written to", and leaves no copy behind (Unix mode bits).
+#[cfg(unix)]
+#[test]
+fn a_folder_that_cannot_be_written_to_is_said_so() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    let shelf = dir.path().join("backups");
+    std::fs::create_dir(&shelf).unwrap();
+    std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o555)).unwrap();
+    assert_eq!(store::backup(&p, chrono::Utc::now()), Err(store::BackupError::NotWritable));
+    std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(std::fs::read_dir(&shelf).unwrap().count(), 0);
+}
+
+/// The newest copy damaged after it was made (a file truncated): an unchanged install is copied again, not deduplicated
+/// against a digest its files no longer match.
+#[test]
+fn a_damaged_newest_copy_is_not_taken_as_the_install_unchanged() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    let first = made(store::backup(&p, chrono::Utc::now()));
+    assert!(matches!(store::backup(&p, chrono::Utc::now()), Ok(store::Backup::Unchanged(d)) if d == first), "unchanged while intact");
+    std::fs::write(first.join("production.sqlite3"), b"").unwrap();
+    made(store::backup(&p, chrono::Utc::now()));
+}
+
+/// A clock set back: each new copy still sorts after the newest, and names keep one length.
+#[test]
+fn copies_made_under_a_clock_set_back_sort_after_the_newest_with_bounded_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    let now = chrono::Utc::now();
+    let mut names = vec![made(store::backup(&p, now))];
+    for n in 0..5 {
+        exec(&p.primary, &format!("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('k{n}', 'v', '2026-01-01', '2026-01-01')"));
+        names.push(made(store::backup(&p, now - chrono::Duration::hours(1))));
+    }
+    let mut sorted = names.clone();
+    sorted.sort();
+    assert_eq!(sorted, names, "newest last");
+    assert!(names.iter().all(|n| n.as_os_str().len() == names[0].as_os_str().len()), "{names:?}");
+}
