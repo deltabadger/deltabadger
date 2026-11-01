@@ -1,0 +1,18 @@
+Data,Aktywo,Ilość,Rodzaj,Kwota w walucie transakcji,Waluta transakcji,Kurs średni NBP,Data tabeli NBP,Kwota w PLN,Giełda,ID transakcji,Dane niekompletne
+2026-03-02,BTC,0.1,Przychód,1000.0,PLN,1.0,,1000.0,kraken,K-BTC-2026-03-02T10:00:00Z-PLN,false
+
+"PIT-38, część E — odpłatne zbycie walut wirtualnych (art. 30b ust. 1a)"
+Przychód (b),1000.0
+Koszty uzyskania przychodów poniesione w roku podatkowym (c),0.0
+Koszty uzyskania przychodów poniesione w latach ubiegłych i niepotrącone w poprzednim roku podatkowym (d),3000.0
+Dochód b – (c + d) (e),0.0
+"Koszty uzyskania przychodów, które nie zostały potrącone w roku podatkowym (c + d) – b (f)",2000.0
+Podstawa obliczenia podatku (po zaokrągleniu do pełnych złotych),0
+"Podatek 19%, po zaokrągleniu do pełnych złotych, przed odliczeniem podatku zapłaconego za granicą",0
+
+"Rok po roku, od pierwszego roku wpisanego przez Ciebie lub zsynchronizowanego"
+,b,c,d,e,f
+2024,0.0,0.0,3000.0,0.0,3000.0,zadeklarowane
+2025,0.0,0.0,3000.0,0.0,3000.0
+2026,1000.0,0.0,3000.0,0.0,2000.0
+"Lata oznaczone jako zadeklarowane zaczynają się od wpisanej przez Ciebie kwoty. Pozostałe przenoszą kolumnę f z poprzedniego roku i dodają to, co wynika z Twojej zsynchronizowanej historii."

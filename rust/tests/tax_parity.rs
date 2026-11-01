@@ -16,6 +16,10 @@ fn install(tables: &Value) -> Connection {
     let c = Connection::open_in_memory().unwrap();
     c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
     c.execute_batch("PRAGMA foreign_keys = OFF").unwrap();
+    // Rust's own NBP tables (D-TAX-PL-NBP), from the migration that creates them.
+    c.execute_batch(include_str!("../migrations/20261103000001_nbp_rates.sql")).unwrap();
+    // The PL carry the user declares (D-TAX-PL-DECLARED-CARRY).
+    c.execute_batch(include_str!("../migrations/20261104000001_rust_tax_pl_carry.sql")).unwrap();
     for (table, rows) in tables.as_object().unwrap() {
         for row in rows.as_array().unwrap() {
             let row = row.as_object().unwrap();
@@ -33,6 +37,23 @@ fn install(tables: &Value) -> Connection {
         }
     }
     c
+}
+
+/// A scenario's NBP rates and coverage, as given: coverage is never inferred from the rates.
+fn nbp(c: &Connection, s: &Value) {
+    for r in s["nbp"].as_array().into_iter().flatten() {
+        c.execute("INSERT INTO nbp_rates (currency, date, rate) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_str(), r[1].as_str(), r[2].as_str()]).unwrap();
+    }
+    for r in s["nbp_coverage"].as_array().into_iter().flatten() {
+        c.execute("INSERT INTO nbp_coverage (currency, from_date, to_date) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_str(), r[1].as_str(), r[2].as_str()]).unwrap();
+    }
+    // [user, year, costs]: the scenario's user ("self") or another ("other").
+    let me = s["user_id"].as_i64().unwrap();
+    for r in s["pl_carry"].as_array().into_iter().flatten() {
+        let user = if r[0] == "self" { me } else { me + 1 };
+        c.execute("INSERT INTO rust_tax_pl_carry (user_id, year, costs, updated_at) VALUES (?1, ?2, ?3, '2026-09-10 12:00:00')",
+                  rusqlite::params![user, r[1].as_i64(), r[2].as_str()]).unwrap();
+    }
 }
 
 fn rails(s: &Value) -> Outcome {
@@ -59,11 +80,13 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
         let name = s["name"].as_str().unwrap();
         let country = s["country"].as_str().unwrap();
         let c = install(&s["tables"]);
+        nbp(&c, s);
+        let year = s["year"].as_i64().unwrap();
         let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
-        let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), country, s["year"].as_i64().unwrap() as i32,
+        let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), country, year as i32,
                                 s["stablecoin_as_fiat"].as_bool().unwrap(), today);
         // Recorded for its later slice: a jurisdiction this build does not serve states no figure.
-        if !deltabadger::tax::jurisdictions::ported(country) {
+        if !deltabadger::tax::jurisdictions::ported(country, year) {
             if !matches!(got, Err(FiguresError::NotComputed(_))) { failures.push(format!("{name}: {country} is not ported, got {got:?}")); }
             continue;
         }
@@ -88,12 +111,19 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
     assert!(failures.is_empty(), "{} of {} scenarios:\n{}", failures.len(), scenarios.len(), failures.join("\n\n"));
 }
 
+/// D-TAX-PL-DECLARED-CARRY: a declaration for a later year is not read, so the 2024 file is the one without it.
+#[test]
+fn a_later_years_declared_carry_is_not_read() {
+    let file = |name: &str| std::fs::read_to_string(divergence(name)).unwrap();
+    assert_eq!(file("pl_declared_future_ignored_2024"), file("pl_carry_two_years_2024"));
+}
+
 /// Every reviewed divergence file belongs to a scenario that says so.
 #[test]
 fn no_divergence_file_is_left_over() {
     let v = vectors();
     let named: std::collections::HashSet<String> = v["scenarios"].as_array().unwrap().iter()
-        .filter(|s| s["expect"].as_str().unwrap().starts_with("diverges: ") && deltabadger::tax::jurisdictions::ported(s["country"].as_str().unwrap())).map(|s| format!("{}.csv", s["name"].as_str().unwrap())).collect();
+        .filter(|s| s["expect"].as_str().unwrap().starts_with("diverges: ") && deltabadger::tax::jurisdictions::ported(s["country"].as_str().unwrap(), s["year"].as_i64().unwrap())).map(|s| format!("{}.csv", s["name"].as_str().unwrap())).collect();
     for f in std::fs::read_dir(divergence("x").parent().unwrap()).unwrap() {
         let f = f.unwrap().file_name().into_string().unwrap();
         assert!(named.contains(&f), "{f} has no diverging scenario");
@@ -104,9 +134,11 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["AT", "FR", "IT", "BG", "GR", "NL", "CH", "PL", "GB", "SE", "IE", "DK", "CZ", "XX"] {
+    for country in ["FR", "IT", "BG", "GR", "NL", "CH", "GB", "SE", "IE", "DK", "CZ", "XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
+    // Poland's regime starts in 2019.
+    assert!(matches!(crypto_report(&c, 1, "PL", 2018, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction PL")));
 }
 
 /// The Ruby this report mirrors, by content: a change fails here until the port is checked and the vectors recorded again.

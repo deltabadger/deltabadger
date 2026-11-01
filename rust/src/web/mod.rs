@@ -29,6 +29,7 @@ pub mod mcp;
 pub mod multipart;
 pub mod oauth;
 pub mod rate_limit;
+pub mod refused;
 pub mod rest;
 mod rest_idempotency;
 pub mod ring;
@@ -698,7 +699,7 @@ fn routes(app: App) -> Router {
         .route("/tracker/import", only(post(tracker::import::create)))
         .route("/tracker/import/new", only(get(tracker::import::new)))
         .route("/tracker/history_gap", only(get(tracker::gap::show)))
-        .route("/tracker/tax_report", only(get(tracker::report::tax_report)))
+        .route("/tracker/tax_report", only(get(tracker::report::tax_report).post(tracker::report::tax_report_pl)))
         .route("/tracker/download_tax_report", only(get(tracker::report::download_tax_report)))
         .route("/tracker/export", only(get(tracker::export)))
         .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))
@@ -806,6 +807,7 @@ fn routes(app: App) -> Router {
         // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
+        .route("/ui-ready", only(get(refused::ui_ready)))
         .route("/csp-report", only(post(csp_report)))
         .route("/cable", only(get(cable::connect)))
         .with_state(app)

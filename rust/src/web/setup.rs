@@ -24,8 +24,8 @@ pub fn admin_exists(c: &Connection) -> Result<bool, WebError> {
 /// Whether ApplicationController#redirect_to_setup_if_needed stands in front of this request. Everything the
 /// pipeline serves is ApplicationController's, except: setup itself; Doorkeeper's authorize page
 /// (Oauth::BaseController); the `/settings` route redirect, which the router answers before any controller; and
-/// the versioned API (ActionController::API), which this build does not serve. /up, /health-check, /csp-report,
-/// /cable and the OAuth API are outside the pipeline already.
+/// the versioned API (ActionController::API), which this build does not serve. /up, /health-check, /ui-ready,
+/// /csp-report, /cable and the OAuth API are outside the pipeline already.
 pub fn gated(params: &Params) -> bool {
     let unprefixed = params.path_locale.is_none();
     let path = params.route_path.as_str();

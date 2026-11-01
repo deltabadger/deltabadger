@@ -2491,7 +2491,7 @@ fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
         let data: Value = serde_json::from_str(step["body"].as_str().unwrap_or_default()).map_err(|e| format!("step {i}: {e}"))?;
         if step["job_classes"] != json!(["Tax::GenerateReportJob"]) || data["data"]["state"] != "generating" { return Err(format!("step {i}: Rails no longer accepts the report: {step}")) }
         // A jurisdiction this build computes is served, compared whole, from the owner a gated create left unchanged.
-        if !coingecko && deltabadger::tax::jurisdictions::ported(data["data"]["country"].as_str().unwrap_or_default()) {
+        if !coingecko && deltabadger::tax::jurisdictions::ported(data["data"]["country"].as_str().unwrap_or_default(), data["data"]["year"].as_i64().unwrap_or(0)) {
             if let Some(users) = &users_before { step["rows_before"]["users"] = users.clone(); }
             served_last = true;
             continue;
