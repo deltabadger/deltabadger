@@ -1,0 +1,2 @@
+Datum,Anschaffungsdatum,Vermögenswert,Menge,Erlös,Anschaffungskosten,Gewinn/Verlust,Währung,Haltedauer (Tage),Gebühr,Börse,Transaktions-ID,Anschaffungskosten vollständig,Daten unvollständig,Altbestand
+2026-03-01T10:00:00Z,2024-06-01T10:00:00Z,ETH,1.0,2000.0,800.0,1200.0,EUR,638,0.0,binance,sell-ETH-2026-03-01T10:00:00Z,true,false,false

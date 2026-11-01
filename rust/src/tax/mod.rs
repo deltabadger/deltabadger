@@ -438,19 +438,15 @@ fn split_coin_quoted_trades(rows: Vec<Stored>, stable_cash: bool) -> Vec<Stored>
 }
 
 /// D-TAX-COIN-QUOTE, grouped legs: where swaps are not taxable and a stablecoin is a coin, a group of coin legs only (no
-/// fiat), its stablecoins all going one way and its other coins the other, booked as buy and sell (Kraken's ledger, which
-/// the enrichment reads with the stablecoin as cash), is the swap it is: its legs walk as swap legs. Rails taxed the coin
-/// as sold.
+/// fiat) booked as buy and sell, both ways present (Kraken's ledger, which the enrichment reads with a stablecoin as
+/// cash), is the swap it is: its legs walk as swap legs. A coin for a stablecoin and a stablecoin for another are both
+/// crypto for crypto. Rails taxed the leg given as sold.
 fn swap_coin_for_stablecoin_groups(rows: &mut [Entry]) {
     let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
     for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.exchange.clone(), g.clone())).or_default().push(i); } }
     for legs in groups.values() {
-        let trade = |k: Kind| matches!(k, Kind::Buy | Kind::Sell);
-        if legs.iter().any(|&i| fiat(&rows[i].row.base) || !trade(rows[i].row.kind)) { continue; }
-        let (stables, coins): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| stable(&rows[i].row.base));
-        let (Some(&s0), Some(&c0)) = (stables.first(), coins.first()) else { continue };
-        let side = rows[s0].row.kind;
-        if rows[c0].row.kind == side || !stables.iter().all(|&i| rows[i].row.kind == side) || !coins.iter().all(|&i| rows[i].row.kind != side) { continue; }
+        if legs.iter().any(|&i| fiat(&rows[i].row.base) || !matches!(rows[i].row.kind, Kind::Buy | Kind::Sell)) { continue; }
+        if !(legs.iter().any(|&i| rows[i].row.kind == Kind::Buy) && legs.iter().any(|&i| rows[i].row.kind == Kind::Sell)) { continue; }
         for &i in legs { rows[i].row.kind = if rows[i].row.kind == Kind::Buy { Kind::SwapIn } else { Kind::SwapOut }; }
     }
 }

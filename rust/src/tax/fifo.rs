@@ -568,7 +568,8 @@ impl<'a> Fifo<'a> {
             // D-TAX-AT-SWAP-1-MARCH-2022: an Austrian Tausch before § 27b acquires at the value of what was given (§ 6 Z 14),
             // the out-legs' worth by this leg's share; elsewhere, and with no out-leg priced, its own value.
             let given = self.o.austria.and_then(|_| group_key(r)).map(|k| self.swap_out_value(Some(&k))).filter(Dec::is_positive);
-            let value = match given { Some(v) => (&v * &self.swap_in_share(r).0)?, None => r.fiat_value.clone() };
+            // A fiat top-up in the group is part of what was given.
+            let value = match given { Some(v) => (&(&v * &self.swap_in_share(r).0)? + &self.swap_cash_cost(r)?.1)?, None => r.fiat_value.clone() };
             let (lot_amount, lot_cost) = self.apply_acquisition_fee(tx, &r.amount, &value)?;
             let lot = Lot { cost_per_unit: unit(&lot_cost, &lot_amount)?, date: r.at, basis_assumed: r.price_missing,
                             unpriced: if value_missing(r) { lot_amount.clone() } else { Dec::zero() }, amount: lot_amount,
@@ -586,9 +587,9 @@ impl<'a> Fifo<'a> {
         let tranches: Vec<Tranche> = key.as_ref().and_then(|k| self.transferred.get(k)).cloned().unwrap_or_default();
         let (cash_present, cash) = self.swap_cash_cost(r)?;
         let (lot_amount, paid) = self.apply_acquisition_fee(tx, &r.amount, &cash)?;
-        // D-TAX-AT-FEES: a crypto↔crypto swap's costs are ignored (§ 27b Abs. 3), a fee in fiat too; a group that spent cash is
-        // a purchase, whose fee is part of the cost (Rz 6178y).
-        let fee_cost = if self.austrian(r.at) && !cash_present { Dec::zero() } else { (&paid - &cash)? };
+        // D-TAX-AT-FEES: a crypto↔crypto swap's costs are ignored (§ 27b Abs. 3), a fee in fiat too; a group that spent fiat
+        // is a purchase, whose fee is part of the cost (Rz 6178y). A stablecoin's leg (cash to the enrichment, cost 0) is not.
+        let fee_cost = if self.austrian(r.at) && !cash.is_positive() { Dec::zero() } else { (&paid - &cash)? };
         let (share, share_assumed) = self.swap_in_share(r);
         let assumed = r.price_missing || share_assumed;
         if tranches.is_empty() && !cash_present {
