@@ -1,6 +1,7 @@
 //! `deltabadger check | run | handback | serve | sync | repair-binance-history | resolve-withdrawal | resolve-placement | reconcile-order | decide`.
 //! - check: take the engine lock, check the install read-only, list the Rust migrations `run`/`serve`
-//!   would apply, and exit.
+//!   would apply, and report on an in-memory copy with them applied (with SECRET_KEY_BASE, after the same secret check
+//!   `run`/`serve` make), and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
 //! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
 //! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
@@ -41,11 +42,19 @@ fn main() {
             let _lock = take_lock(&paths);
             let report = store::check(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
             for version in &report.pending_rust { println!("pending Rust migration {version}: run or serve applies it"); }
-            let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-                .unwrap_or_else(|e| fail(&format!("{e}")));
-            if let Some(secret) = env("SECRET_KEY_BASE") {
-                let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("index encryption configuration unreadable"));
-                deltabadger::engine::provider::bind(&c,&Cipher::new(&keys),&env).unwrap_or_else(|_|fail("index configuration reader unavailable"));
+            // What `run` and `serve` will start from (PLAN-B2 r1.9, r2.2): the files copied into memory, the secret checked
+            // as they check it, then this build's pending migrations applied to the copy. The files are only read.
+            let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
+            let cipher = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).map(|secret| {
+                let cipher = Cipher::new(&EncryptionKeys::resolve(&env, &secret).unwrap_or_else(|_| fail("index encryption configuration unreadable")));
+                if !deltabadger::crypto::reads_install(&copy.primary, &cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
+                cipher
+            });
+            if cipher.is_none() { println!("{SECRET_NOT_CHECKED}"); }
+            store::migrate_copy(&copy).unwrap_or_else(|e| fail(&explain(e, &paths)));
+            let c = copy.primary;
+            if let Some(cipher) = &cipher {
+                deltabadger::engine::provider::bind(&c,cipher,&env).unwrap_or_else(|_|fail("index configuration reader unavailable"));
             }
             // Every background job's last run and every reference source's age (informational, no keys needed).
             for (name, s) in match deltabadger::jobs::state::all(&c){Ok(states)=>states,Err(_)=>fail("cannot read job state")} { let description=if ["ledger_sync","balance_sync","api_key_validator"].iter().any(|job|name.starts_with(job)){s.describe_venue()}else{s.describe()};println!("job {name}: {description}"); }
@@ -75,11 +84,12 @@ fn main() {
             refuse_url_overrides(&env);
             let paths=paths(&env);
             let lock=take_lock(&paths);
-            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&explain(e, &paths)));
-            let o=store::open(&paths).unwrap_or_else(|e|fail(&explain(e, &paths)));
             let secret=env("SECRET_KEY_BASE").unwrap_or_else(||fail("SECRET_KEY_BASE is required"));
             let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
             let cipher=Cipher::new(&keys);
+            check_readable(&paths,&cipher);
+            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&explain(e, &paths)));
+            let o=store::open(&paths).unwrap_or_else(|e|fail(&explain(e, &paths)));
             if let Target::RailsList(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::seed_rails_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
@@ -219,10 +229,12 @@ fn explain(e: StoreError, paths: &Paths) -> String {
     }
 }
 
-/// The shared start of `run`, `serve`, `handback` and `sync`: no URL overrides, the instance's SECRET_KEY_BASE, the
-/// exclusive lock, and an install this build accepts. Refusals here exit 1 before any file is created or changed. `run`
-/// and `serve` (`start`) wait out a just-stopped Rails heartbeat once (take_lock_waiting), create the install on an empty
-/// STORAGE_DIR (store::bootstrap), then apply this build's pending Rust migrations, before any writable connection is opened.
+/// The shared start of `run`, `serve`, `handback`, `sync` and `repair-binance-history`: no URL overrides, the instance's
+/// SECRET_KEY_BASE, the exclusive lock, and an install this build accepts and this secret reads (check_readable).
+/// Refusals here exit 1 before any file is created or changed. `run` and `serve` (`start`) wait out a just-stopped Rails
+/// heartbeat once (take_lock_waiting) and create the install on an empty STORAGE_DIR (store::bootstrap: a new install
+/// holds nothing encrypted but its own lease); after check_readable they apply this build's pending Rust migrations,
+/// before any writable connection is opened (PLAN-B2 r4.6).
 fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLock, store::Opened, Cipher) {
     refuse_url_overrides(env);
     let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
@@ -237,6 +249,10 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
             #[cfg(debug_assertions)]
             store::abort_point("after-commit");
         }
+    }
+    check_readable(&paths, &cipher);
+    // B2-4: the backup before the first takeover goes here, before anything below writes.
+    if start {
         for version in store::migrate(&paths, &lock).unwrap_or_else(|e| fail(&explain(e, &paths))) { log(&format!("applied Rust migration {version}")); }
     }
     let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
@@ -244,6 +260,21 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
     (lock, opened, cipher)
+}
+
+/// C9 (PLAN-B2 r2.4, r6): SECRET_KEY_BASE is not the one this install's encrypted data was written with.
+const WRONG_SECRET: &str = "can't read this install with this SECRET_KEY_BASE. Use the secret this install was created with.";
+/// `check` without SECRET_KEY_BASE: what it could not look at.
+const SECRET_NOT_CHECKED: &str = "note: SECRET_KEY_BASE isn't set, so this didn't check that the install's stored keys can be read. Set it to the instance's own to check that too.";
+
+/// The read-only head of every command that writes with the instance's keys (PLAN-B2 r4.6): the store check first (a
+/// Behind or foreign install is refused in its own words, before anything else is read), then whether this secret reads
+/// the install (crypto::reads_install). Nothing is written before either refusal: `identity::initialize` would clear
+/// every known account identity under a wrong secret.
+fn check_readable(paths: &Paths, cipher: &Cipher) {
+    store::check(paths).unwrap_or_else(|e| fail(&explain(e, paths)));
+    let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
+    if !deltabadger::crypto::reads_install(&c, cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
 }
 
 /// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),

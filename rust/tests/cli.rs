@@ -78,9 +78,10 @@ fn run_refuses_a_kraken_bot_without_a_key_a_live_key_and_an_unreadable_key_and_c
     let (dir, o, s) = common::install_alpaca();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     drop(o);
+    // A key no secret reads is a wrong secret: refused before preflight (PLAN-B2 r2.4), with C9.
     let out = cli(dir.path(), &["run"]).env("SECRET_KEY_BASE", "another-instance").output().unwrap();
     assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("api key unreadable"), "{}", stderr(&out));
+    assert!(stderr(&out).contains(WRONG_SECRET), "{}", stderr(&out));
     assert!(lease_of(dir.path()).is_none());
 }
 
@@ -123,9 +124,11 @@ fn run_takes_over_and_stops_cleanly_on_sigterm_then_handback_returns_the_install
         std::thread::sleep(std::time::Duration::from_millis(50));
     };
     assert_eq!(status.code(), Some(0));
+    let before = files_of(dir.path());
     let wrong = cli(dir.path(), &["handback"]).env("SECRET_KEY_BASE", "another-instance").output().unwrap();
     assert_eq!(wrong.status.code(), Some(1), "a wrong secret is refused before anything is written");
-    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust", "the row is untouched and still Rust's");
+    assert!(stderr(&wrong).contains(WRONG_SECRET), "{}", stderr(&wrong));
+    assert_eq!(files_of(dir.path()), before, "the lease row is untouched and still Rust's");
     let out = cli(dir.path(), &["handback"]).output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
     let row = lease_of(dir.path()).unwrap();
@@ -673,4 +676,108 @@ fn a_stop_between_the_wait_and_the_engine_stops_the_engine() {
     let lines: Vec<String> = rx.try_iter().collect();
     assert!(lines.iter().any(|l| l.contains("took over")), "the stop landed after the wait: {lines:?}");
     assert!(lines.iter().any(|l| l.contains("stopped on request")), "{lines:?}");
+}
+
+// ---- PLAN-B2 r4.6 / r2.4: the store check, then the secret check, before anything is written ----------------------------
+
+/// C9, as `run`, `serve`, `handback` and `check` print it.
+const WRONG_SECRET: &str = "can't read this install with this SECRET_KEY_BASE. Use the secret this install was created with.";
+
+/// A 2.x install's first start with a wrong secret: refused with C9 on the refusal page before any Rust migration, so
+/// every file is byte-equal (a migration, the identity reset or a claim would each change one).
+#[test]
+fn serve_with_a_wrong_secret_on_an_unmigrated_2x_install_refuses_before_any_write() {
+    let dir = common::rails_install_unmigrated();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    drop(c);
+    let mut cmd = cli(dir.path(), &["serve"]);
+    cmd.env("SECRET_KEY_BASE", "another-instance");
+    let before = files_of(dir.path());
+    let r = refused(dir.path(), &mut cmd);
+    assert_eq!(r.status, Some(0), "stopped as asked: {}", r.stderr);
+    assert!(r.stderr.contains(WRONG_SECRET), "{}", r.stderr);
+    assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains("SECRET_KEY_BASE"), "{}", r.page);
+    assert_eq!(files_of(dir.path()), before, "no Rust migration, no write");
+}
+
+/// A Rust-owned install with known account identities: a wrong secret refuses before identity::initialize, which would
+/// read the unreadable identity key as an encryption reset and clear them.
+#[test]
+fn run_with_a_wrong_secret_leaves_known_account_identities_untouched() {
+    let (dir, o, s) = common::install_alpaca();
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    let now = chrono::Utc::now();
+    deltabadger::app_config::set(&o.primary, &seed::cipher(), deltabadger::identity::KEY_CONFIG, &"ab".repeat(32), now).unwrap();
+    o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, fingerprint, account_id_enc, created_at, updated_at) VALUES (?1, ?2, 'fp', x'01', '2026-01-01', '2026-01-01')",
+                      [s.user_id, s.exchange_id]).unwrap();
+    let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, now).unwrap();
+    deltabadger::lease::claim(&lock, &o.primary, &seed::cipher(), "test", now).unwrap();
+    drop((lock, o));
+    let mut cmd = cli(dir.path(), &["run"]);
+    cmd.env("SECRET_KEY_BASE", "another-instance");
+    let before = files_of(dir.path());
+    let out = finished(&mut cmd);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr(&out).contains(WRONG_SECRET), "{}", stderr(&out));
+    assert_eq!(files_of(dir.path()), before, "the identity key and exchange_accounts are byte-equal");
+}
+
+/// v2.0.0's primary (its 49 migrations, which are this build's first 49) with no other Rails table: Behind in today's
+/// words, before the secret check could read app_configs (there is none); a wrong secret changes nothing about that.
+#[test]
+fn a_v2_0_0_primary_is_behind_before_the_secret_check() {
+    let dir = tempfile::tempdir().unwrap();
+    let template = common::rails_install_unmigrated();
+    std::fs::copy(template.path().join("production_queue.sqlite3"), dir.path().join("production_queue.sqlite3")).unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch("CREATE TABLE schema_migrations (version varchar NOT NULL PRIMARY KEY)").unwrap();
+    let mut versions: Vec<&str> = deltabadger::store::MIGRATIONS.to_vec();
+    versions.sort();
+    for v in &versions[..49] { c.execute("INSERT INTO schema_migrations (version) VALUES (?1)", [v]).unwrap(); }
+    drop(c);
+    let before = files_of(dir.path());
+    for cmd in ["run", "check"] {
+        let out = finished(cli(dir.path(), &[cmd]).env("SECRET_KEY_BASE", "another-instance"));
+        assert_eq!(out.status.code(), Some(1), "{cmd}");
+        assert!(stderr(&out).contains("this data is behind this build (74 migration(s) missing)"), "{cmd}: {}", stderr(&out));
+        assert!(!stderr(&out).contains(WRONG_SECRET), "{cmd}");
+    }
+    assert_eq!(files_of(dir.path()), before);
+}
+
+/// `check` predicts `serve` (PLAN-B2 r2.2): an index bot holding a malformed switch Rails never read ("1") is refused, but a pending
+/// Rust migration (clear_stray_conditions) turns it off at the start, so `check` assesses a copy with it applied and
+/// says ready, writing nothing; `serve` then takes the install over.
+#[test]
+fn check_assesses_the_install_as_serve_will_after_its_pending_migrations() {
+    let dir = common::rails_install_unmigrated();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    let bot = seed::index_bot(&c, &s, "ignored", 3, 0.0, false);
+    c.execute("UPDATE bots SET started_at = '2099-01-01 00:00:00', settings = json_set(settings, '$.price_limited', '1') WHERE id = ?1", [bot]).unwrap();
+    drop(c);
+    let before = files_of(dir.path());
+    let out = cli(dir.path(), &["check"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{stdout}{}", stderr(&out));
+    assert!(stdout.contains("pending Rust migration 20261025000001") && stdout.contains("ready: 1 bot(s)"), "{stdout}");
+    assert!(!stdout.contains("SECRET_KEY_BASE"), "{stdout}");
+    let keyless = cli(dir.path(), &["check"]).env_remove("SECRET_KEY_BASE").output().unwrap();
+    let keyless_out = String::from_utf8_lossy(&keyless.stdout);
+    assert_eq!(keyless.status.code(), Some(0), "{keyless_out}{}", stderr(&keyless));
+    assert!(keyless_out.contains("note: SECRET_KEY_BASE isn't set, so this didn't check that the install's stored keys can be read.") && keyless_out.contains("ready: 1 bot(s)"), "{keyless_out}");
+    let wrong = cli(dir.path(), &["check"]).env("SECRET_KEY_BASE", "another-instance").output().unwrap();
+    assert_eq!(wrong.status.code(), Some(1));
+    assert!(stderr(&wrong).contains(WRONG_SECRET), "{}", stderr(&wrong));
+    assert_eq!(files_of(dir.path()), before, "check changes no byte");
+
+    let (mut child, rx) = spawn_logged(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
+    let mut lines = std::iter::from_fn(|| rx.recv_timeout(std::time::Duration::from_secs(30)).ok());
+    assert!(lines.find(|l| l.contains("took over")).is_some_and(|l| l.contains("1 bot(s)")), "serve took the install over with the bot");
+    assert!(lines.find(|l| l.contains("running")).is_some(), "signal handlers are registered before this line");
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
 }

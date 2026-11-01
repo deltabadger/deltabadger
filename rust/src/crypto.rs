@@ -141,6 +141,38 @@ fn envelope(stored: &str) -> Option<(String, serde_json::Map<String, Value>)> {
     Some((v.get("p")?.as_str()?.to_string(), v.get("h")?.as_object()?.clone()))
 }
 
+/// Whether this SECRET_KEY_BASE (as `cipher`) can read the install (PLAN-B2 r2.4), read-only. One sample of each
+/// encrypted class present (the engine lease, the account identity key, any other encrypted `app_configs` row, an
+/// `api_keys` credential, a user's 2FA seed), each the first stored value shaped as Rails' encrypted message: a plain
+/// value in an encrypted column reads as itself under any key (support_unencrypted_data), so it proves nothing. False
+/// when samples exist and none opens: a wrong secret, under which `identity::key` would clear every known account
+/// identity. One readable sample is enough: an unreadable identity key beside a readable credential is an encryption
+/// reset, which identity::initialize handles. Reads only Rails tables, which every install that passed store::check has.
+pub fn reads_install(c: &rusqlite::Connection, cipher: &Cipher) -> rusqlite::Result<bool> {
+    let (lease, identity) = (crate::lease::KEY, crate::identity::KEY_CONFIG);
+    let classes = [
+        ("SELECT value FROM app_configs WHERE key = ?1", vec![lease]),
+        ("SELECT value FROM app_configs WHERE key = ?1", vec![identity]),
+        ("SELECT value FROM app_configs WHERE key NOT IN (?1, ?2) ORDER BY id", vec![lease, identity]),
+        ("SELECT value FROM (SELECT id, key AS value FROM api_keys UNION ALL SELECT id, secret FROM api_keys \
+          UNION ALL SELECT id, passphrase FROM api_keys) ORDER BY id", vec![]),
+        ("SELECT otp_secret_key FROM users ORDER BY id", vec![]),
+    ];
+    let mut samples = 0;
+    for (sql, args) in classes {
+        let mut st = c.prepare(sql)?;
+        let mut rows = st.query(rusqlite::params_from_iter(args))?;
+        while let Some(row) = rows.next()? {
+            let Some(value) = row.get::<_, Option<String>>(0)? else { continue };
+            if envelope(&value).is_none() { continue; }
+            if cipher.decrypt(&value).is_ok() { return Ok(true); }
+            samples += 1;
+            break;
+        }
+    }
+    Ok(samples == 0)
+}
+
 /// R2: the sole venue-text decision, before storing, returning or logging it.
 pub const VENUE_TEXT_REDACTED: &str = "Venue diagnostic omitted to protect stored credentials.";
 pub fn scrub_known(text: &str, values: &[&str]) -> String {
