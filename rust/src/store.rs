@@ -638,6 +638,72 @@ fn create(c: &Connection, sql: &str) -> rusqlite::Result<()> {
     tx.commit()
 }
 
+/// The reference data a fresh install is seeded with: one gzip of db/seed_data's assets.json, indices.json and every
+/// tickers/*.json, keyed by that path, each file's text verbatim. Generated and proved equal to db/seed_data by
+/// tests/seeds.rs (B1_REGENERATE=1 rewrites it).
+const SEED_DATA: &[u8] = include_bytes!("../seed/seed_data.json.gz");
+
+/// db/seeds.rb's 15 exchanges, in its order: (type, name, maker_fee, taker_fee).
+const EXCHANGES: [(&str, &str, &str, &str); 15] = [
+    ("Exchanges::Binance", "Binance", "0.1", "0.1"), ("Exchanges::BinanceUs", "Binance.US", "0.0", "0.01"),
+    ("Exchanges::Kraken", "Kraken", "0.25", "0.4"), ("Exchanges::Coinbase", "Coinbase", "0.6", "1.2"),
+    ("Exchanges::Bitget", "Bitget", "0.1", "0.1"), ("Exchanges::Kucoin", "KuCoin", "0.1", "0.1"),
+    ("Exchanges::Bybit", "Bybit", "0.1", "0.1"), ("Exchanges::Mexc", "MEXC", "0.0", "0.05"),
+    ("Exchanges::Gemini", "Gemini", "0.2", "0.4"), ("Exchanges::Bitvavo", "Bitvavo", "0.15", "0.25"),
+    ("Exchanges::Hyperliquid", "Hyperliquid", "0.01", "0.035"), ("Exchanges::Bingx", "BingX", "0.1", "0.1"),
+    ("Exchanges::Bitrue", "Bitrue", "0.1", "0.1"), ("Exchanges::Alpaca", "Alpaca", "0.0", "0.0"),
+    ("Exchanges::Ibkr", "Interactive Brokers", "0.0", "0.0"),
+];
+
+/// The seed bundle's files, by path in byte order (Ruby's sorted glob: binance.json before binance_us.json).
+pub fn seed_files() -> Result<std::collections::BTreeMap<String, serde_json::Value>, String> {
+    use std::io::Read;
+    let mut json = Vec::new();
+    flate2::read::GzDecoder::new(SEED_DATA).read_to_end(&mut json).map_err(|e| format!("seed bundle: {e}"))?;
+    serde_json::from_slice(&json).map_err(|e| format!("seed bundle: {e}"))
+}
+
+/// Rails.application.load_seed (db/seeds.rb) on a fresh primary, in the transaction the caller holds (no BEGIN, no
+/// pacing, no guard): the exchanges, then MarketData.import_assets! (upserts, instrument types, Asset.mark_tokenized!,
+/// as Rails runs them), import_indices!, import_tickers! per ticker file whose stem is an available exchange's name_id
+/// (a file without one is skipped), each planned on this connection right before its write; then the two app_configs
+/// defaults. Every stamp is `now`. No user, nothing enqueued.
+pub fn seed(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -> Option<String>, now: chrono::DateTime<chrono::Utc>) -> Result<(), String> {
+    use crate::jobs::import;
+    let sql = |e: rusqlite::Error| format!("seed: {e}");
+    let t = crate::codec::format_time(now);
+    // find_or_create_by!(name:).update!(fees): on an empty table, one row per exchange, both stamps the same instant.
+    for (ty, name, maker, taker) in EXCHANGES {
+        c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+                  (ty, name, maker, taker, &t)).map_err(sql)?;
+    }
+    let files = seed_files()?;
+    let data = |path: &str| files.get(path).map(|f| &f["data"]).and_then(|d| d.as_array()).map_or(&[][..], |a| a.as_slice());
+    // `return if assets_data.blank?`. No public URL: the bundle carries no logo_url (tests/seeds.rs holds it to that).
+    let assets = data("assets.json");
+    if !assets.is_empty() {
+        import::write_assets(c, import::plan_assets(assets, "")?, now)?;
+        import::write_tokenized(c)?;
+    }
+    import::write_indices(c, import::plan_indices(data("indices.json"))?, now)?;
+    let mut s = c.prepare("SELECT id, type FROM exchanges WHERE available = 1 ORDER BY id").map_err(sql)?;
+    let venues: Vec<(i64, String)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(sql)?.collect::<Result<_, _>>().map_err(sql)?;
+    for (path, _) in files.iter().filter(|(p, _)| p.starts_with("tickers/")) {
+        let stem = path.trim_start_matches("tickers/").trim_end_matches(".json");
+        let Some((id, _)) = venues.iter().find(|(_, ty)| crate::jobs::reference::name_id(ty) == stem) else { continue };
+        let plan = import::plan_tickers_with(c, *id, data(path), None, false)?;
+        import::write_tickers(c, *id, plan, now)?;
+    }
+    // `ENV[...].present?` and a blank provider (always blank on a fresh install, checked as Rails checks it).
+    let present = |key: &str| env(key).is_some_and(|v| !v.trim().is_empty());
+    for (var, key, value) in [("SMTP_ADDRESS", "smtp_provider", "env_smtp"), ("MARKET_DATA_URL", "market_data_provider", "deltabadger")] {
+        if present(var) && crate::app_config::get(c, cipher, key)?.is_none_or(|v| v.trim().is_empty()) {
+            crate::app_config::set(c, cipher, key, value, now)?;
+        }
+    }
+    Ok(())
+}
+
 pub struct Opened {
     pub primary: Connection,
     pub queue: Connection,
