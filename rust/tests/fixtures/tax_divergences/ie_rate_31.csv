@@ -1,0 +1,19 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule,Period
+2026-03-01T10:00:00Z,2025-02-01T10:00:00Z,BTC,1.0,16000.0,10000.0,6000.0,EUR,393,0.0,kraken,K-BTC-2026-03-01T10:00:00Z-BTC,true,false,fifo,initial
+2026-10-15T10:00:00Z,2025-02-01T10:00:00Z,ETH,1.0,2000.0,4000.0,-2000.0,EUR,621,0.0,kraken,K-ETH-2026-10-15T10:00:00Z-ETH,true,false,fifo,initial
+2026-11-02T10:00:00Z,2025-02-01T10:00:00Z,SOL,100.0,10000.0,6000.0,4000.0,EUR,639,0.0,kraken,K-SOL-2026-11-02T10:00:00Z-SOL,true,false,fifo,initial
+
+Total gains,10000.0
+Total losses,2000.0
+Annual exemption,1270
+Taxable gains,6730.0
+CGT (33%),900.9
+"CGT (31%, disposals from 7 October 2026)",1240.0
+CGT total,2140.9
+  Due Dec 15 (Jan-Nov gains),2140.9
+  Due Jan 31 (Dec gains),0.0
+"Form 11 lines 810/811/818/819 (CG1 lines 10/11/18/19); crypto-assets go under ""(k) Other Assets"". Losses from earlier years (line 822 of your last return) are not subtracted here: they come off before the exemption. The exemption and losses are shared with your other assets' gains. The 4-week rule (s. 581) is applied as Revenue applies it (TDM 19-04-03). This report's own readings: day 28 counts as within 4 weeks; only purchases and exchanges count as buying again (not rewards or transfers); the figure due on 15 December counts a loss as restricted when the asset was bought again in December. A spouse's or civil partner's trades are not seen. Gains on foreign currency you hold (s. 532(b)) are not computed."
+
+NOTE: Losses whose 4-week window is still open:
+ETH 1.0 2026-10-15,2026-11-13
+A purchase of the same asset before the date shown would still restrict these losses; make the report again after it.
