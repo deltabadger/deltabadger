@@ -82,10 +82,10 @@
     },
     "figures": {
       "whole": {
-        "value": "30000.0",
-        "invested": "25000.0",
-        "held_value": "30000.0",
-        "held_cost": "25000.0",
+        "value": "55000.0",
+        "invested": "50000.0",
+        "held_value": "55000.0",
+        "held_cost": "50000.0",
         "fees": "0.0",
         "realised": "0.0",
         "unrealised": "5000.0",
@@ -99,24 +99,40 @@
             "unrealised": "5000.0",
             "percent": "20.0",
             "note": null
+          },
+          {
+            "symbol": "XYZ",
+            "quantity": "10.0",
+            "value": "25000.0",
+            "cost": "25000.0",
+            "unrealised": "0.0",
+            "percent": "0.0",
+            "note": {
+              "kind": "estimated",
+              "symbol": "XYZ",
+              "exchange": "Bybit",
+              "history": "10.0",
+              "held": "10.0",
+              "amount": "25000.0"
+            }
           }
         ],
         "notes": [
           {
-            "kind": "left",
+            "kind": "estimated",
             "symbol": "XYZ",
-            "exchange": null,
+            "exchange": "Bybit",
             "history": "10.0",
-            "held": "0.0",
+            "held": "10.0",
             "amount": "25000.0"
           }
         ]
       },
       "2": {
-        "value": "30000.0",
-        "invested": "25000.0",
-        "held_value": "30000.0",
-        "held_cost": "25000.0",
+        "value": "55000.0",
+        "invested": "50000.0",
+        "held_value": "55000.0",
+        "held_cost": "50000.0",
         "fees": "0.0",
         "realised": "0.0",
         "unrealised": "5000.0",
@@ -130,15 +146,31 @@
             "unrealised": "5000.0",
             "percent": "20.0",
             "note": null
+          },
+          {
+            "symbol": "XYZ",
+            "quantity": "10.0",
+            "value": "25000.0",
+            "cost": "25000.0",
+            "unrealised": "0.0",
+            "percent": "0.0",
+            "note": {
+              "kind": "estimated",
+              "symbol": "XYZ",
+              "exchange": "Bybit",
+              "history": "10.0",
+              "held": "10.0",
+              "amount": "25000.0"
+            }
           }
         ],
         "notes": [
           {
-            "kind": "left",
+            "kind": "estimated",
             "symbol": "XYZ",
-            "exchange": null,
+            "exchange": "Bybit",
             "history": "10.0",
-            "held": "0.0",
+            "held": "10.0",
             "amount": "25000.0"
           }
         ]
@@ -421,12 +453,12 @@
       },
       {
         "date": "2026-10-01",
-        "held_cost_usd": 25000,
-        "held_value_usd": 30000,
-        "invested_usd": 25000,
+        "held_cost_usd": 50000,
+        "held_value_usd": 55000,
+        "invested_usd": 50000,
         "partial": 1,
         "user_id": 1,
-        "value_usd": 30000
+        "value_usd": 55000
       }
     ],
     "portfolio_venue_snapshots": [
@@ -734,10 +766,10 @@
         "user_id": 1,
         "exchange_id": 2,
         "date": "2026-10-01",
-        "value_usd": 30000,
-        "invested_usd": 25000,
-        "held_value_usd": 30000,
-        "held_cost_usd": 25000,
+        "value_usd": 55000,
+        "invested_usd": 50000,
+        "held_value_usd": 55000,
+        "held_cost_usd": 50000,
         "partial": 1
       }
     ],
@@ -1006,6 +1038,90 @@
         [
           [
             "coin_id",
+            "xyz-coin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1788998400"
+          ],
+          [
+            "to",
+            "1789084800"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "xyz-coin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "xyz-coin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1788998400"
+          ],
+          [
+            "to",
+            "1789084800"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "xyz-coin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
             "bitcoin"
           ],
           [
@@ -1019,6 +1135,69 @@
           [
             "to",
             "1790812800"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "xyz-coin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1788998400"
+          ],
+          [
+            "to",
+            "1790812800"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "xyz-coin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1788998400"
+          ],
+          [
+            "to",
+            "1789084800"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "xyz-coin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
           ]
         ]
       ]

@@ -113,6 +113,11 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
     assert_eq!(holdings("cq_since_sync_sell", true), "BTC 0.5");
     assert_eq!((positions("cq_same_instant_buy_then_split", "whole", false), field("cq_same_instant_buy_then_split", "whole", "realised", true)), ("ETH 20.0@50000.0".into(), "10000.0".into()));
     assert_eq!((positions("cq_quote_unpriced", "whole", false), field("cq_quote_unpriced", "whole", "incomplete", false)), ("BTC 0.5@25000.0, XYZ 10.0@25000.0".into(), "true".into()));
+    // The unpriced coin held is shown at the basis it carried, its note saying the basis is an estimate; the day is partial.
+    let xyz = side("cq_quote_unpriced", false)["ledger"]["figures"]["whole"]["holdings"].as_array().unwrap().iter().find(|h| h["symbol"] == "XYZ").unwrap().clone();
+    assert_eq!((xyz["quantity"].as_str(), xyz["value"].as_str(), xyz["note"]["kind"].as_str()), (Some("10.0"), Some("25000.0"), Some("estimated")));
+    assert_eq!(figure("cq_quote_unpriced", "value", false), "55000.0");
+    assert_eq!((field("cq_fee_takes_everything", "whole", "realised", false), positions("cq_fee_takes_everything", "whole", false)), ("-100.0".into(), "".into()));
     // No loss, so no lock (Rails: BTC locked to 6 October); a lock already armed stays as it was.
     assert_eq!(side("cq_wash_coin_quoted_loss", false)["tables"]["wash_sale_locks"], json!([]));
     assert_ne!(side("cq_wash_coin_quoted_loss", true)["tables"]["wash_sale_locks"], json!([]));
@@ -169,7 +174,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 67 + 22 + 12, "the tracker grid");
+    assert_eq!(dirs.len(), 67 + 23 + 12, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 

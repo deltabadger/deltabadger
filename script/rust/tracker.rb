@@ -714,12 +714,24 @@ module TrackerParity
           coin_trade(c, ex, :sell, 'BTC', '1', 'ETH', '20')
           balance(c, 'ETH', '20', usd_price: '3000', exchange: ex)
         } },
-      { name: 'cq_quote_unpriced', expect: q, market: m,
+      # The coin received has no price anywhere: held, at the basis it carried, unpriced.
+      { name: 'cq_quote_unpriced', expect: q, market: m.merge("#{HISTORY} coin_id=xyz-coin" => [history([])]),
         setup: lambda { |c|
           ex = coin_venue(c, Exchanges::Bybit)
+          asset(c, 'XYZ', 'xyz-coin')
           coin_base(c, ex)
           coin_trade(c, ex, :sell, 'BTC', '0.5', 'XYZ', '10')
           balance(c, 'BTC', '0.5', usd_price: '60000', exchange: ex)
+          balance(c, 'XYZ', '10', exchange: ex)
+        } },
+      # A fee in the coin bought takes all of it: the 100 of BTC basis it carried is a realised loss.
+      { name: 'cq_fee_takes_everything', expect: q, market: m,
+        setup: lambda { |c|
+          ex = coin_venue(c, Exchanges::Bybit)
+          coins(c, 'USDT')
+          deposit(c, '100', D0, currency: 'USDT', exchange: ex)
+          buy(c, 'BTC', '0.002', '50000', D1, quote: 'USDT', exchange: ex)
+          coin_trade(c, ex, :buy, 'ETH', '0.05', 'BTC', '0.002', fee: %w[ETH 0.05])
         } },
       { name: 'cq_wash_coin_quoted_loss', expect: q, market: m,
         setup: lambda { |c|
