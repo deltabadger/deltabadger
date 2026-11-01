@@ -2,8 +2,8 @@
 #   bin/rails runner script/rust/pages.rb grid <root>    # one install per scenario, with scenario.json
 #   bin/rails runner script/rust/pages.rb record <root>  # Rails' answers per <root>/<scenario>/ -> rails.json
 # Run it as rust/tests/pages.rs does: RAILS_ENV=test, with every *_DATABASE_URL pointing at scratch files
-# that have the schemas loaded (bin/rails db:schema:load). Test, not development: development adds a
-# profiler script and cookie to every page and serves assets without fingerprints.
+# that have the schemas loaded (bin/rails runner script/rust/schema_template.rb). Test, not development: development
+# adds a profiler script and cookie to every page and serves assets without fingerprints.
 # PAGES=login,two_factor limits the grid to scenarios whose name starts with one of the prefixes.
 require 'json'
 require 'digest'
