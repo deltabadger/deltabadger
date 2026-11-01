@@ -374,7 +374,14 @@ pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict,
 }
 
 pub fn stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    if let Some(s) = reference_stale(c, bot, now)? { return Ok(Some(s)); }
+    ledger_stale(c, bot, now)
+}
+
+/// `stale` without the account ledger: the signal and API order paths (signal.rs), which never sized from the ledger and so
+/// never waited for its sync (D-UPGRADE-FRESHNESS-AT-TICK).
+pub fn reference_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     if let Some(s) = super::provider::stale(c, bot)? { return Ok(Some(s)); }
     for source in bot_sources(c, bot)? { if let Some(s) = source_stale(c, bot, source, now)? { return Ok(Some(s)); } }
-    ledger_stale(c, bot, now)
+    Ok(None)
 }
