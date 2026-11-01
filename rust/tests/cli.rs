@@ -120,7 +120,7 @@ fn run_takes_over_and_stops_cleanly_on_sigterm_then_handback_returns_the_install
     drop(o);
     let mut child = cli(dir.path(), &["run"]).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
     let mut lines = std::io::BufReader::new(child.stdout.take().unwrap()).lines();
-    assert!(lines.next().expect("a log line").unwrap().contains("backed up this install"), "C5a comes first");
+    assert!(lines.next().expect("a log line").unwrap().contains("Saved a copy of your data to"), "C5a comes first");
     let took = lines.next().expect("a log line").unwrap();
     assert!(took.contains("took over"), "{took}");
     let running = lines.next().expect("a log line").unwrap();
@@ -199,7 +199,7 @@ fn serve_takes_the_install_over_holds_the_one_lock_until_sigterm_stops_both_then
     let stdout = child.0.stdout.take().unwrap();
     std::thread::spawn(move || for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) { let _ = tx.send(line); });
     let next = || rx.recv_timeout(std::time::Duration::from_secs(20)).expect("a log line within 20 s");
-    assert!(next().contains("backed up this install"), "C5a comes first");
+    assert!(next().contains("Saved a copy of your data to"), "C5a comes first");
     let took = next();
     assert!(took.contains("took over"), "{took}");
     let running = next();
@@ -610,7 +610,7 @@ fn serve_waits_out_a_just_stopped_rails_showing_the_wait_on_its_port_then_takes_
     assert!(http_get(port, "/ui-ready").unwrap().starts_with("HTTP/1.1 200"));
     assert!(http_get(port, "/up").unwrap().starts_with("HTTP/1.1 503"));
     assert!(lease_of(dir.path()).is_none(), "nothing claimed while waiting");
-    assert!(next().contains("backed up this install"), "C5a, after the wait");
+    assert!(next().contains("Saved a copy of your data to"), "C5a, after the wait");
     let took = next();
     assert!(took.contains("took over"), "{took}");
     let running = next();
@@ -876,7 +876,7 @@ fn serve_backs_a_2x_install_up_before_taking_it_over_and_the_copy_restores_it() 
     assert_eq!(made.len(), 1, "{made:?}");
     let copy = &made[0];
     assert!(copy.file_name().unwrap().to_string_lossy().starts_with("pre-3.0-") && copy.extension().is_none_or(|e| e != "partial"), "{copy:?}");
-    let said = lines.iter().position(|l| l.contains(&format!("backed up this install to {} before taking it over", copy.display())));
+    let said = lines.iter().position(|l| l.contains(&format!("Saved a copy of your data to {} before updating it for Deltabadger 3.0.", copy.display())));
     let took = lines.iter().position(|l| l.contains("took over"));
     assert!(said.is_some() && said < took, "C5a, then the takeover: {lines:?}");
     for f in DATABASES {
@@ -922,7 +922,7 @@ fn a_handed_back_install_is_backed_up_with_its_tax_rows_and_refused_starts_add_o
     let said = run_to_claim(dir.path());
     let made = backups(dir.path());
     assert_eq!(made.len(), 1, "{made:?}");
-    assert!(said.contains(&format!("backed up this install to {} before taking it over", made[0].display())) && said.contains("took over (AfterHandback)"), "{said}");
+    assert!(said.contains(&format!("Saved a copy of your data to {} before updating it for Deltabadger 3.0.", made[0].display())) && said.contains("took over (AfterHandback)"), "{said}");
     assert_eq!(carry(&frozen(&made[0].join(DATABASES[0]))), typed, "the typed rows are in the copy");
 
     // Handed back again, now with a bot the assessment refuses: three refused starts, one new copy.
@@ -1003,7 +1003,8 @@ fn a_crash_mid_migrate_or_mid_backup_leaves_one_copy_per_state_and_no_partial() 
     same(&snapshots(&made[0], false), &before, "the original");
 }
 
-/// C5b (r6 Q3 = a hard stop): no copy, no takeover.
+/// C5b (r6 Q3 = a hard stop): no copy, no takeover. Unix only: it makes `backups/` read-only by mode bits.
+#[cfg(unix)]
 #[test]
 fn a_start_that_cannot_back_up_stops_before_any_write() {
     use std::os::unix::fs::PermissionsExt;
@@ -1013,13 +1014,14 @@ fn a_start_that_cannot_back_up_stops_before_any_write() {
     std::fs::create_dir(&shelf).unwrap();
     std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o555)).unwrap();
     let before = files_of(dir.path());
-    let c5b = format!("can't back up this install to {} (", shelf.display());
+    let c5b = format!("Deltabadger 3.0 didn't start: it couldn't save a copy of your data to {} first (this folder can't be written to). \
+                       Your data hasn't been changed. Make sure Deltabadger can write to this folder, then start it again.", shelf.display());
     let out = finished(&mut bare(dir.path(), &["run"]));
     assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains(&c5b) && stderr(&out).contains("), so 3.0 didn't take it over. Free some space, then start again."), "{}", stderr(&out));
+    assert!(stderr(&out).contains(&c5b), "{}", stderr(&out));
     let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
     assert!(r.stderr.contains(&c5b), "{}", r.stderr);
-    assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains("back up this install to") && r.page.contains("Free some space, then start again."), "{}", r.page);
+    assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains(&deltabadger::web::i18n::escape(&c5b)), "{}", r.page);
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
     assert_eq!(files_of(dir.path()), before, "nothing migrated");
     assert!(backups(dir.path()).is_empty());

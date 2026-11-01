@@ -135,24 +135,50 @@ fn install_at(p: &Paths) {
     }
 }
 
-fn made(b: Result<store::Backup, String>) -> std::path::PathBuf {
+fn made(b: Result<store::Backup, store::BackupError>) -> std::path::PathBuf {
     match b { Ok(store::Backup::Made(dir)) => dir, other => panic!("expected a new copy, got {other:?}") }
 }
 
-/// QUEUE_DATABASE_PATH may name a file with the primary's name in another folder: one copy must not overwrite the other.
+/// QUEUE_DATABASE_PATH may name a file with the primary's name in another folder, or a file may be named like the digest:
+/// one folder can't hold them all, so the start stops before anything is copied, naming the file.
 #[test]
-fn a_queue_named_like_the_primary_never_overwrites_its_copy() {
-    let dir = tempfile::tempdir().unwrap();
-    let p = Paths { primary: dir.path().join("data/db.sqlite3"), queue: dir.path().join("queue/db.sqlite3") };
-    install_at(&p);
-    let copy = store::backup(&p, chrono::Utc::now());
-    if let Ok(store::Backup::Made(copy)) = &copy {
-        let c = Connection::open(copy.join("db.sqlite3")).unwrap();
-        let tables: i64 = c.query_row("SELECT count(*) FROM sqlite_master WHERE name = 'bots'", [], |r| r.get(0)).unwrap();
-        assert_eq!(tables, 1, "the primary's copy was overwritten by the queue's");
+fn a_queue_named_like_the_primary_or_the_digest_stops_before_any_copy() {
+    for (primary, queue, name) in [("data/db.sqlite3", "queue/db.sqlite3", "db.sqlite3"), ("data/digest", "queue/q.sqlite3", "digest")] {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths { primary: dir.path().join(primary), queue: dir.path().join(queue) };
+        install_at(&p);
+        assert_eq!(store::backup(&p, chrono::Utc::now()), Err(store::BackupError::SameName(name.into())));
+        assert!(!dir.path().join("data/backups").exists(), "{name}: nothing made");
     }
-    // Either refused, or both copies whole: never one file silently standing in for two.
-    if let Ok(store::Backup::Made(copy)) = copy { assert_eq!(std::fs::read_dir(&copy).unwrap().count(), 3, "two databases and the digest"); }
+}
+
+/// Neither a full disk nor a folder that can't be written to: the system's own words, naming the path.
+#[test]
+fn any_other_failure_is_told_in_the_systems_words() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    std::fs::write(dir.path().join("backups"), b"a file where the folder goes").unwrap();
+    match store::backup(&p, chrono::Utc::now()) {
+        Err(store::BackupError::Other(why)) => assert!(why.contains(&dir.path().join("backups").display().to_string()), "{why}"),
+        other => panic!("{other:?}"),
+    }
+}
+
+/// A read-only `backups/` is "can't be written to", and leaves no copy behind (Unix mode bits).
+#[cfg(unix)]
+#[test]
+fn a_folder_that_cannot_be_written_to_is_said_so() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let p = paths(dir.path());
+    install_at(&p);
+    let shelf = dir.path().join("backups");
+    std::fs::create_dir(&shelf).unwrap();
+    std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o555)).unwrap();
+    assert_eq!(store::backup(&p, chrono::Utc::now()), Err(store::BackupError::NotWritable));
+    std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(std::fs::read_dir(&shelf).unwrap().count(), 0);
 }
 
 /// The newest copy damaged after it was made (a file truncated): an unchanged install is copied again, not deduplicated

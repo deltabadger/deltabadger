@@ -269,13 +269,24 @@ fn owned_by_rust(paths: &Paths, cipher: &Cipher) -> bool {
 }
 
 /// The copy before a takeover from Rails (PLAN-B2 r3.4, §5): C5a once a new copy is complete; a failure stops the start
-/// with C5b (r6 Q3) before anything is migrated or claimed.
+/// with C5b (r6 Q3) before anything is migrated or claimed, in the user's words: what happened, then what to do.
 fn back_up(paths: &Paths) {
     match store::backup(paths, chrono::Utc::now()) {
-        Ok(store::Backup::Made(dir)) => log(&format!("backed up this install to {} before taking it over", dir.display())),
-        Ok(store::Backup::Unchanged(dir)) => log(&format!("this install hasn't changed since its backup at {}", dir.display())),
-        Err(e) => fail(&format!("can't back up this install to {} ({e}), so 3.0 didn't take it over. Free some space, then start again.",
-                                store::backups_dir(paths).display())),
+        Ok(store::Backup::Made(dir)) => log(&format!("Saved a copy of your data to {} before updating it for Deltabadger 3.0.", dir.display())),
+        Ok(store::Backup::Unchanged(dir)) => log(&format!("Your data hasn't changed since the copy in {}, so no new copy was needed.", dir.display())),
+        Err(store::BackupError::SameName(name)) if name == "digest" => fail(&format!("Deltabadger 3.0 didn't start: one of your data files is called {name}, \
+            the name its copy uses for its checksums. Your data hasn't been changed. Rename that file (the DATABASE_PATH or QUEUE_DATABASE_PATH setting), then start again.")),
+        Err(store::BackupError::SameName(name)) => fail(&format!("Deltabadger 3.0 didn't start: your two data files are both called {name}, so it can't keep a \
+            copy of both in one folder. Your data hasn't been changed. Rename one of them (the DATABASE_PATH or QUEUE_DATABASE_PATH setting), then start again.")),
+        Err(e) => {
+            let (reason, todo) = match e {
+                store::BackupError::DiskFull => ("the disk is full".to_string(), "Free some space on the disk, then start Deltabadger again."),
+                store::BackupError::NotWritable => ("this folder can't be written to".to_string(), "Make sure Deltabadger can write to this folder, then start it again."),
+                store::BackupError::Other(why) | store::BackupError::SameName(why) => (why, "Check the disk and this folder, then start Deltabadger again."),
+            };
+            fail(&format!("Deltabadger 3.0 didn't start: it couldn't save a copy of your data to {} first ({reason}). Your data hasn't been changed. {todo}",
+                          store::backups_dir(paths).display()))
+        }
     }
 }
 
