@@ -3,6 +3,10 @@
 //! ordinary test runs never need Docker. CI's `image` job builds the image and sets it.
 #![cfg(unix)]
 
+mod common;
+
+use deltabadger::crypto::{Cipher, EncryptionKeys};
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
@@ -86,14 +90,29 @@ impl Container {
         format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))
     }
 
+    /// What the container wrote to stderr alone.
+    fn stderr(&self) -> String {
+        String::from_utf8_lossy(&Command::new("docker").args(["logs", &self.id]).output().unwrap().stderr).into_owned()
+    }
+
     /// The HTTP status of GET `path`, or None while nothing answers.
-    fn status(&self, path: &str) -> Option<u16> {
+    fn status(&self, path: &str) -> Option<u16> { self.get(path).map(|(status, _)| status) }
+
+    /// GET `path`: its status and the whole response.
+    fn get(&self, path: &str) -> Option<(u16, String)> {
         let mut stream = std::net::TcpStream::connect(("127.0.0.1", self.port)).ok()?;
         stream.set_read_timeout(Some(Duration::from_secs(5))).ok()?;
-        write!(stream, "GET {path} HTTP/1.0\r\nHost: localhost\r\n\r\n").ok()?;
-        let mut head = [0u8; 12];
-        stream.read_exact(&mut head).ok()?;
-        std::str::from_utf8(&head[9..12]).ok()?.parse().ok()
+        write!(stream, "GET {path} HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n").ok()?;
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response).ok()?;
+        let response = String::from_utf8_lossy(&response).into_owned();
+        Some((response.get(9..12)?.parse().ok()?, response))
+    }
+
+    /// `docker stop` (SIGTERM, Docker's 10 s): the exit code.
+    fn stop(&self) -> String {
+        docker(&["stop", &self.id]);
+        docker(&["inspect", "-f", "{{.State.ExitCode}}", &self.id])
     }
 
     /// Waits up to two minutes for `path` to answer `want`.
@@ -159,4 +178,247 @@ fn docker_stop_stops_serve_cleanly() {
     assert!(started.elapsed() < Duration::from_secs(9), "took {:?}", started.elapsed());
     assert_eq!(docker(&["inspect", "-f", "{{.State.ExitCode}}", &app.id]), "0", "{}", app.logs());
     assert!(app.logs().contains("stopped on request"), "{}", app.logs());
+}
+
+// ---- B3-2: the first start on a 2.x volume (PLAN-B3 §2, §8 slice 2) ----
+
+/// The last 2.x release. Its own entrypoint makes and reads every `.secrets` below, and its own `migrate` makes format 1.
+const RAILS_2X: &str = "ghcr.io/deltabadger/deltabadger:2.70.21";
+/// C9 (main.rs WRONG_SECRET), as the refusal page escapes it.
+const C9: &str = "can&#39;t read this install with this SECRET_KEY_BASE";
+/// A second pair and secret, for the starts that must be refused.
+const OTHER_PAIR: [&str; 2] = ["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=b3-2-other-key", "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=b3-2-other-salt"];
+const OTHER_SECRET: &str = "SECRET_KEY_BASE=b3-2-other-secret";
+
+fn uid_gid() -> String { format!("{}:{}", id("-u"), id("-g")) }
+
+/// Runs `script` in the 2.70.21 image under bash with its docker-entrypoint.sh sourced (not run), on `dir` at /s with
+/// SECRETS_FILE=/s/.secrets and the `-e` values in `env`, offline; the files go back to this user. Its stdout.
+fn entrypoint_2x(dir: &Path, env: &[&str], script: &str) -> String {
+    let mount = format!("{}:/s", dir.display());
+    let script = format!("set -e; source /app/docker-entrypoint.sh; {script}; chown -R {} /s", uid_gid());
+    let mut args = vec!["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "bash", "-v", &mount,
+                        "-e", "DELTABADGER_ENTRYPOINT_SOURCED=1", "-e", "SECRETS_FILE=/s/.secrets"];
+    for e in env { args.extend(["-e", e]); }
+    args.extend([RAILS_2X, "-c", &script]);
+    docker(&args)
+}
+
+/// The keys the install in `dir` is encrypted under, read the way 2.x reads them: 2.70.21's load_secrets over `dir`'s
+/// `.secrets` with the container's `env` (env first), then EncryptionKeys::resolve over what it exported.
+fn keys_2x(dir: &Path, env: &[&str]) -> (String, EncryptionKeys) {
+    let out = entrypoint_2x(dir, env, "load_secrets >/dev/null; for v in SECRET_KEY_BASE ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY \
+        ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL; do printf '%s=%s\\n' \"$v\" \"${!v}\"; done");
+    let vars: HashMap<String, String> = out.lines().filter_map(|l| l.split_once('=')).map(|(k, v)| (k.into(), v.into())).collect();
+    let secret = vars["SECRET_KEY_BASE"].clone();
+    let keys = EncryptionKeys::resolve(&|name| vars.get(name).cloned(), &secret).expect("2.x's values resolve");
+    (secret, keys)
+}
+
+/// Copies `dir` into the named volume `volume` (root, ownership as in `dir`; the entrypoint gives it to 1000 on start).
+fn put(image: &str, volume: &Volume, dir: &Path) {
+    let src = format!("{}:/src", dir.display());
+    docker(&["run", "--rm", "--user", "0", "--entrypoint", "cp", "-v", &volume.mount(), "-v", &src, image, "-a", "/src/.", "/app/storage/"]);
+}
+
+/// A copy of the volume on this host, owned by this user (for SQLite reads and the backup folder).
+fn take(image: &str, volume: &Volume) -> tempfile::TempDir {
+    let out = tempfile::tempdir().unwrap();
+    let dst = format!("{}:/out", out.path().display());
+    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), "-v", &dst, image, "-c",
+             &format!("cp -a /app/storage/. /out/ && chown -R {} /out", uid_gid())]);
+    out
+}
+
+/// Every folder and every file's sha256 on the volume, `.secrets` included. As tests/cli.rs files_of: the engine lock,
+/// SQLite's -shm and an empty -wal are incidental (taking the lock creates the first; opening a file the others).
+fn snapshot(image: &str, volume: &Volume) -> String {
+    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
+             "cd /app/storage && find . -type d | sort && find . -type f ! -name .engine.lock ! -name '*-shm' ! \\( -name '*-wal' -empty \\) \
+              -exec sha256sum {} + | sort -k2"])
+}
+
+/// A 2.x volume and what 3.0 needs to start on it: `env`, the container env this format runs with; `wrong`, an env
+/// that must be refused with C9 (a different secret or pair from the one the data was written with); `cipher`, the
+/// data's own keys.
+struct TwoX { volume: Volume, env: Vec<String>, wrong: Vec<String>, cipher: Cipher }
+
+/// Formats 2-5 (§2): the install exactly as Rails prepares it (rails_install_unmigrated) in `dir`, its `.secrets`
+/// written there by 2.70.21's generate_secrets under `gen_env` and then `edit`ed, a Kraken key encrypted under the keys
+/// 2.x reads from that file with `env`, all copied into a named volume.
+fn two_x(image: &str, gen_env: &[&str], edit: impl FnOnce(&Path), env: &[&str], wrong: &[&str]) -> TwoX {
+    let dir = common::rails_install_unmigrated();
+    entrypoint_2x(dir.path(), gen_env, "generate_secrets");
+    edit(dir.path());
+    let (_, keys) = keys_2x(dir.path(), env);
+    let cipher = Cipher::new(&keys);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    common::seed::seed_kraken(&c, &cipher);
+    drop(c);
+    let volume = Volume::named();
+    put(image, &volume, dir.path());
+    TwoX { volume, env: env.iter().map(|s| s.to_string()).collect(), wrong: wrong.iter().map(|s| s.to_string()).collect(), cipher }
+}
+
+fn e_args(env: &[String]) -> Vec<&str> { env.iter().flat_map(|e| ["-e", e.as_str()]).collect() }
+
+/// A start this volume must refuse with C9: the refusal page on every path with 503, `/health-check` 503,
+/// `/ui-ready` 200, SIGTERM → 0, and every file byte-equal. The non-vacuity half of each format: C9 refuses only when
+/// the install holds an encrypted sample and none opens (PLAN-B2 r2.4), so a passing start on the same volume means
+/// its keys read that sample.
+fn refused_with_c9(image: &str, volume: &Volume, env: &[String]) {
+    let before = snapshot(image, volume);
+    let app = Container::start(image, volume, &e_args(env), &[]);
+    app.wait_for("/health-check", 503);
+    let (status, page) = app.get("/").unwrap();
+    assert_eq!(status, 503);
+    assert!(page.contains(C9), "{page}\n{}", app.logs());
+    assert_eq!(app.status("/ui-ready"), Some(200));
+    assert_eq!(app.stop(), "0", "{}", app.logs());
+    drop(app);
+    assert_eq!(snapshot(image, volume), before, "a refused start changes no file");
+}
+
+/// The takeover itself: `serve` claims the install (`/health-check` 200, the "took over" line, never C9), saves its
+/// copy under backups/pre-3.0-<UTC>/ first, and the lease reads `rust` under the data's own keys. Stopped (0) after.
+fn takes_over(image: &str, two_x: &TwoX) {
+    let app = Container::start(image, &two_x.volume, &e_args(&two_x.env), &[]);
+    app.wait_for("/health-check", 200);
+    let logs = app.logs();
+    assert!(logs.contains("took over (") && !logs.contains("can't read this install"), "{logs}");
+    assert_eq!(app.stop(), "0", "{}", app.logs());
+    drop(app);
+    let copy = take(image, &two_x.volume);
+    let backups: Vec<_> = std::fs::read_dir(copy.path().join("backups")).expect("a backups folder").flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+    assert!(backups.len() == 1 && backups[0].starts_with("pre-3.0-"), "{backups:?}");
+    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
+    let lease = deltabadger::lease::read(&c, &two_x.cipher).unwrap().expect("a lease");
+    assert_eq!(lease["engine"], "rust", "{lease}");
+}
+
+/// Format 1, real 2.x: 2.70.21's `migrate` on an empty volume creates the install and its `.secrets` (SECRET_KEY_BASE +
+/// pair), and 2.70.21's `rake runner` stores an encrypted app_config, so Rails itself encrypted it under that file.
+#[test]
+fn format_1_a_volume_made_by_2x_migrate_is_taken_over() {
+    let Some(image) = image() else { return };
+    let volume = Volume::named();
+    let mount = volume.mount();
+    docker(&["run", "--rm", "--network", "none", "-v", &mount, RAILS_2X, "migrate"]);
+    docker(&["run", "--rm", "--network", "none", "-v", &mount, RAILS_2X, "rake", "runner",
+             "AppConfig.create!(key: 'coingecko_api_key', value: 'b3-2-sample')"]);
+    let copy = take(&image, &volume);
+    let (_, keys) = keys_2x(copy.path(), &[]);
+    let stored: String = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap()
+        .query_row("SELECT value FROM app_configs WHERE key = 'coingecko_api_key'", [], |r| r.get(0)).unwrap();
+    assert!(stored.starts_with("{\"p\":"), "Rails stored it encrypted: {stored}");
+    let fixture = TwoX { volume, env: vec![], wrong: OTHER_PAIR.map(String::from).to_vec(), cipher: Cipher::new(&keys) };
+    refused_with_c9(&image, &fixture.volume, &fixture.wrong);
+    takes_over(&image, &fixture);
+}
+
+/// Format 2, Umbrel's shape: SECRET_KEY_BASE in the env, the file with the pair only.
+#[test]
+fn format_2_secret_in_the_env_and_the_pair_in_the_file_is_taken_over() {
+    let Some(image) = image() else { return };
+    let env = ["SECRET_KEY_BASE=b3-2-umbrel-secret"];
+    let fixture = two_x(&image, &env, |_| {}, &env, &[env[0], OTHER_PAIR[0], OTHER_PAIR[1]]);
+    let file = std::fs::read_to_string(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    assert!(!file.contains("SECRET_KEY_BASE=") && file.contains("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY="), "{file}");
+    refused_with_c9(&image, &fixture.volume, &fixture.wrong);
+    takes_over(&image, &fixture);
+}
+
+/// Format 3, derived keys: the database was there before the file, so the file holds SECRET_KEY_BASE only and the keys
+/// are derived from it. Also item 3 (wrong secret) on a volume 3.0 has taken over: C9, nothing changed.
+#[test]
+fn format_3_secret_only_with_derived_keys_is_taken_over() {
+    let Some(image) = image() else { return };
+    let fixture = two_x(&image, &["DATABASE_PATH=/s/production.sqlite3"], |_| {}, &[], &[OTHER_SECRET]);
+    let file = std::fs::read_to_string(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    assert!(file.contains("SECRET_KEY_BASE=") && !file.contains("ACTIVE_RECORD_ENCRYPTION"), "{file}");
+    refused_with_c9(&image, &fixture.volume, &fixture.wrong);
+    takes_over(&image, &fixture);
+    refused_with_c9(&image, &fixture.volume, &fixture.wrong);
+}
+
+/// Format 4, external keys: the pair in the env, the file with SECRET_KEY_BASE and the marker. Without the pair the
+/// start is refused on the marker (EncryptionKeys' ExternalMarkerWithoutKeys) and nothing changes.
+#[test]
+fn format_4_external_keys_are_taken_over_and_refused_once_the_env_loses_them() {
+    let Some(image) = image() else { return };
+    let pair = ["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=b3-2-external-key", "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=b3-2-external-salt"];
+    let fixture = two_x(&image, &pair, |_| {}, &pair, &OTHER_PAIR);
+    let file = std::fs::read_to_string(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    assert!(file.contains("ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL=true") && !file.contains("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY="), "{file}");
+    refused_with_c9(&image, &fixture.volume, &fixture.wrong);
+
+    let before = snapshot(&image, &fixture.volume);
+    let app = Container::start(&image, &fixture.volume, &[], &[]);
+    app.wait_for("/health-check", 503);
+    assert!(app.stderr().contains("deltabadger: encryption keys: ExternalMarkerWithoutKeys"), "{}", app.logs());
+    assert!(app.get("/").unwrap().1.contains("ExternalMarkerWithoutKeys"));
+    assert_eq!(app.stop(), "0", "{}", app.logs());
+    drop(app);
+    assert_eq!(snapshot(&image, &fixture.volume), before, "the refused start changes no file, .secrets included");
+
+    takes_over(&image, &fixture);
+}
+
+/// Format 5, an old file: SECRET_KEY_BASE with the legacy APP_ENCRYPTION_KEY / DEVISE_SECRET_KEY lines (written
+/// before the pair existed, so the keys are derived) and CRLF line ends.
+#[test]
+fn format_5_an_old_crlf_file_with_legacy_keys_is_taken_over() {
+    let Some(image) = image() else { return };
+    let old = |dir: &Path| {
+        let file = dir.join(".secrets");
+        let new = std::fs::read_to_string(&file).unwrap();
+        let lines: Vec<String> = new.lines().filter(|l| !l.starts_with("ACTIVE_RECORD_ENCRYPTION_")).map(String::from)
+            .chain(["APP_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef".into(), "DEVISE_SECRET_KEY=fedcba9876543210fedcba9876543210".into()])
+            .collect();
+        std::fs::write(&file, lines.join("\r\n") + "\r\n").unwrap();
+    };
+    let fixture = two_x(&image, &[], old, &[], &[OTHER_SECRET]);
+    let file = std::fs::read_to_string(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    assert!(file.contains("SECRET_KEY_BASE=") && file.contains("DEVISE_SECRET_KEY=") && file.contains("\r\n") && !file.contains("ACTIVE_RECORD"), "{file:?}");
+    refused_with_c9(&image, &fixture.volume, &fixture.wrong);
+    takes_over(&image, &fixture);
+}
+
+/// Behind (B2's C1): the newest Rails migrations missing. The refusal page with C1, `/health-check` 503, `/ui-ready`
+/// 200, the operator's detail on stderr, SIGTERM → 0, and the volume exactly as it was: no backups folder, `.secrets`
+/// and every data file byte-equal.
+#[test]
+fn a_behind_2x_volume_is_refused_untouched() {
+    let Some(image) = image() else { return };
+    let behind = |dir: &Path| {
+        rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().execute(
+            "DELETE FROM schema_migrations WHERE version IN (SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 3)", []).unwrap();
+    };
+    let TwoX { volume, .. } = two_x(&image, &["DATABASE_PATH=/s/production.sqlite3"], behind, &[], &[]);
+    let before = snapshot(&image, &volume);
+
+    let app = Container::start(&image, &volume, &[], &[]);
+    app.wait_for("/health-check", 503);
+    let (status, page) = app.get("/").unwrap();
+    assert_eq!(status, 503);
+    assert!(page.contains("this data is from an older version of Deltabadger"), "{page}");
+    assert_eq!(app.status("/ui-ready"), Some(200));
+    assert!(app.stderr().contains("this data is behind this build (3 migration(s) missing)"), "{}", app.logs());
+    assert_eq!(app.stop(), "0", "{}", app.logs());
+    drop(app);
+    let after = snapshot(&image, &volume);
+    assert_eq!(after, before, "a Behind volume is not touched");
+    assert!(!after.contains("./backups"), "{after}");
+}
+
+/// Launchpad's shape (hosted): no command, started as root, its env. SECRET_KEY_BASE from the env; the rest is
+/// ignored or read as before (PLAN-B3 §1.2) and does not stop the takeover.
+#[test]
+fn launchpads_shape_takes_a_2x_volume_over() {
+    let Some(image) = image() else { return };
+    let env = ["SECRET_KEY_BASE=b3-2-hosted-secret", "AUTO_MIGRATE=true", "SOLID_QUEUE_IN_PUMA=true", "APP_ROOT_URL=https://b3-2.example.test",
+               "MCP_ENABLED=true", "DELTABADGER_UPDATE_CHECK=false", "SETUP_TOKEN=b3-2-setup-token"];
+    let fixture = two_x(&image, &env[..1], |_| {}, &env, &[]);
+    takes_over(&image, &fixture);
 }
