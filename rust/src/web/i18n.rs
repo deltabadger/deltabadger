@@ -15,6 +15,8 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.tracker.import.identity_refused_history", "Nothing imported. Your saved Binance history needs a repair before this file can be added. Updating Deltabadger runs the repair, then try the import again."),
     // D-IMPORT-COUNTS (PLAN-A8-bot-csv): Rust-only, after Rails' import notice.
     ("en.bot.details.stats.import_skipped", "Skipped %{count} row(s): not closed, not this bot's assets or quote, or an asset name that fits more than one."),
+    // PLAN-B2 C2 (B2-5, D-UPGRADE-SET-ASIDE): Rust-only, the stop_message_key of a bot a takeover set aside.
+    ("en.bot.status.set_aside", "Deltabadger 3.0 stopped this bot while updating your data: %{reason} Nothing was bought or sold."),
     ("en.rules.tile.withdrawal_unconfirmed", "Withdrawal status unconfirmed — not retried, to avoid sending it twice. Check %{exchange}."),
     ("bg.tax_report.warnings.unmatched_swaps", "Страни на замяна без страна в обратната посока; където замените не се облагат, цената на придобиване на изходяща страна не можа да бъде пренесена, а за входяща страна е приета цена на придобиване по пазарна стойност"),
     ("bg.tax_report.warnings.unmatched_swaps_hint", "Синхронизирай или импортирай сметката, която съдържа другата страна на всяка замяна, за да се пренесе цената ѝ на придобиване."),

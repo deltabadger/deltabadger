@@ -28,7 +28,7 @@ use deltabadger::jobs;
 use deltabadger::lease::{self, EngineLock, LeaseError};
 use deltabadger::store::{self, Paths, StoreError};
 use deltabadger::supervisor::{self, Ended};
-use deltabadger::venue::alpaca::{self, LiveFactory};
+use deltabadger::venue::alpaca::LiveFactory;
 
 const EXIT_REFUSED: i32 = 1;
 const EXIT_ENGINE_ERROR: i32 = 2;
@@ -61,15 +61,22 @@ fn main() {
             for line in deltabadger::engine::staleness::report(&c, chrono::Utc::now()).unwrap_or_default() { println!("reference {line}"); }
             for (id, _) in deltabadger::engine::index::resync_marked(&c).unwrap_or_default() { println!("resync bot {id}: a composition resync is pending"); }
             // The words `serve` refuses with too (Refusal::message). Stale or unstamped reference data is noted, never refused.
-            match check_install_at(&c, chrono::Utc::now()).map_err(Refusal::Failed) {
-                Ok(report) => {
-                    for note in &report.notes { println!("note: {note}"); }
-                    match report.refusal() {
+            // The takeover's set-aside on the copy (PLAN-B2 r1.9): the bots `serve` will stop, then what it would refuse.
+            let now = chrono::Utc::now();
+            let first = !cipher.as_ref().is_some_and(|cipher| matches!(lease::read(&c, cipher), Ok(Some(v)) if v["engine"] == "rust"));
+            // On a transaction of the copy (a rule's log needs one); the copy is dropped unwritten either way.
+            let tx = deltabadger::engine::model::immediate(&c).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            match deltabadger::engine::set_aside::apply(&tx, cipher.as_ref(), &|c| check_install_at(c, now), now) {
+                Ok(Ok(plan)) => {
+                    for note in &plan.report.notes { println!("note: {note}"); }
+                    for aside in &plan.bots { println!("{}", deltabadger::engine::set_aside::would_stop(aside)); }
+                    match plan.report.refusal() {
                         Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
                         Err(refusal) => fail(&refusal.message()),
                     }
                 }
-                Err(refusal) => fail(&refusal.message()),
+                Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard, first)),
+                Err(e) => fail(&Refusal::Failed(e).message()),
             }
         }
         Some("run") => std::process::exit(run_engine(&env)),
@@ -371,14 +378,16 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
 /// EXIT_REFUSED before anything is claimed; a takeover that fails after the claim is EXIT_ENGINE_ERROR.
 fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), (i32, String)> {
     let refused = |code: i32, message: String| { eprintln!("deltabadger: {message}"); Err((code, message)) };
-    if let Err(problems) = alpaca::preflight(&o.primary, cipher) {
-        return refused(EXIT_REFUSED, format!("refusing to take this install over:\n{}", problems.join("\n")));
-    }
+    // preflight's refusals (venue, key) are the takeover's own now: a working bot without a key is set aside, one that
+    // still owes orders is a hard stop (set_aside::apply).
     let t = match handover::take_over(lock, o, cipher, env!("CARGO_PKG_VERSION"), chrono::Utc::now()) {
         Ok(t) => t,
+        Err(EngineError::HardStop(message)) => return refused(EXIT_REFUSED, message),
         Err(EngineError::Ineligible(p)) => return refused(EXIT_REFUSED, format!("this install uses things only the full app runs:\n{}", p.join("\n"))),
         Err(e) => return refused(EXIT_ENGINE_ERROR, format!("takeover failed: {e:?}")),
     };
+    for aside in &t.set_aside { log(&deltabadger::engine::set_aside::stopped(aside)); }
+    for rule in &t.rules_stopped { log(&format!("stopped rule {rule}: its exchange has no withdrawals in this build")); }
     log(&format!("took over ({:?}): {} bot(s), {} Rails job(s) removed, {} webhook call(s) taken over, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.imported_calls, t.normalised));
     #[cfg(debug_assertions)]
@@ -436,8 +445,16 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let _held = lock.clone();
     // In `check`'s words, and before anything else prints: each line names the bot and the reason. Venue and key
     // problems stay `preflight`'s (`claim_install`, below).
-    if let Err(refusal) = handover::startup_report(&o.primary, &cipher, chrono::Utc::now()).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
-        fail(&refusal.message());
+    // The takeover's own set-aside, on a transaction rolled back: the bots it will stop, or the hard stop, before the web.
+    {
+        let now = chrono::Utc::now();
+        let first = !owned_by_rust(&paths(env), &cipher);
+        let tx = deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e| fail(&format!("{e:?}")));
+        match deltabadger::engine::set_aside::apply(&tx, Some(&cipher), &|c| handover::startup_report(c, &cipher, now), now) {
+            Ok(Ok(plan)) => for aside in &plan.bots { log(&deltabadger::engine::set_aside::would_stop(aside)); },
+            Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard, first)),
+            Err(e) => fail(&Refusal::Failed(e).message()),
+        }
     }
     let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
     // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.

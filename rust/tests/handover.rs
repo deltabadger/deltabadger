@@ -38,8 +38,10 @@ fn takeover_claims_the_install_removes_only_its_bots_rails_jobs_and_unsticks_exe
     }
 }
 
+/// PLAN-B2 R3 (D-UPGRADE-SET-ASIDE): a working bot this build refuses is stopped with its reasons, its Rails job goes as
+/// for every bot the engine now owns, and the install is taken over.
 #[test]
-fn an_ineligible_install_is_refused_before_anything_is_written() {
+fn an_ineligible_working_bot_is_set_aside_and_the_install_is_taken_over() {
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -47,7 +49,40 @@ fn an_ineligible_install_is_refused_before_anything_is_written() {
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("future_price_drop_limited", json!(true)));
     job(&o.queue, "Bot::ActionJob", &format!("gid://deltabadger/Bots::DcaMultiAsset/{b}"));
-    assert!(matches!(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()), Err(EngineError::Ineligible(_))));
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(t.set_aside.iter().map(|a| a.id).collect::<Vec<_>>(), vec![b]);
+    assert!(t.eligible.is_empty());
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    assert_eq!(bot.status, deltabadger::enums::BotStatus::Stopped);
+    assert!(deltabadger::engine::set_aside::reasons(bot.transient.get(deltabadger::engine::set_aside::KEY)).is_some_and(|r| r.len() == 1), "{:?}", bot.transient);
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "the stopped bot's Rails job goes");
+}
+
+/// PLAN-B2 R4, r1.4: an ineligible bot with work in flight cannot be set aside (row 26): the takeover refuses with C6, and
+/// its transaction rolls back: nothing is stopped, claimed or deleted.
+#[test]
+fn an_ineligible_bot_with_work_in_flight_is_a_hard_stop_and_nothing_is_written() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let healthy = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("future_price_drop_limited", json!(true)));
+    seed::insert_row(&o.primary, &s, b, s.btc, &json!({"external_id":"WAIT", "external_status":0, "side":0,
+        "amount":"0.001", "quote_amount":"60", "amount_exec":"0", "quote_amount_exec":"0", "created_at":"2026-09-01 10:00:01"}));
+    job(&o.queue, "Bot::ActionJob", &format!("gid://deltabadger/Bots::DcaMultiAsset/{b}"));
+    let dump = |c: &rusqlite::Connection| c.query_row("SELECT group_concat(id || status || transient_data || coalesce(stop_message_key, ''), ';') FROM bots", [], |r| r.get::<_, String>(0)).unwrap();
+    let before = (dump(&o.primary), count(&o.primary, "SELECT count(*) FROM bot_activity_logs"));
+    match handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()) {
+        Err(EngineError::HardStop(message)) => {
+            assert!(message.starts_with("Deltabadger 3.0 didn't start") && message.contains(&format!("Bot {b}: It has open orders.")) && !message.contains(&format!("Bot {healthy}")), "{message}");
+            assert!(message.ends_with("start Deltabadger 2.70.21 again and contact support."), "a first takeover: {message}");
+        }
+        other => panic!("{:?}", other.map(|t| t.eligible)),
+    }
+    assert_eq!((dump(&o.primary), count(&o.primary, "SELECT count(*) FROM bot_activity_logs")), before, "the stop rolled back");
     assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none(), "no claim");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1, "Rails' job untouched");
 }
@@ -415,7 +450,10 @@ fn a_stale_catalog_is_noted_at_a_rails_takeover_and_at_an_engine_owned_restart()
     assert!(staleness::stale(&o.primary, &model::load_bot(&o.primary, bot).map_err(|e| format!("{e:?}"))?, now()).map_err(|e| format!("{e:?}"))?.is_some(), "restart cannot make stale data fresh");
     assert!(eligibility::check_install_at(&o.primary, now()).map_err(|e| format!("{e:?}"))?.notes.iter().any(|n| n.contains("reference data stale")), "check continues reporting staleness");
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', 1)", [])?;
-    assert!(matches!(handover::take_over(&lock, &o, &seed::cipher(), "test", now()), Err(EngineError::Ineligible(_))), "restart still refuses unsupported work");
+    // PLAN-B2 R3: every start, not only the first: a restart sets a newly refused bot aside instead of refusing the install.
+    let restart = handover::take_over(&lock, &o, &seed::cipher(), "test", now()).map_err(|e| format!("{e:?}"))?;
+    assert_eq!((restart.set_aside.iter().map(|a| a.id).collect::<Vec<_>>(), restart.eligible), (vec![bot], vec![]));
+    assert_eq!(model::load_bot(&o.primary, bot).map_err(|e| format!("{e:?}"))?.status, deltabadger::enums::BotStatus::Stopped);
     Ok(())
 }
 

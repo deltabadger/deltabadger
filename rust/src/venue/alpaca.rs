@@ -729,15 +729,20 @@ pub fn preflight(c: &Connection, cipher: &Cipher) -> Result<Vec<i64>, Vec<String
 
 /// `preflight` for the bots a `check_install` just found eligible, with the problems it found: the guard has its own
 /// report in hand, and does not read the whole install a second time.
-pub fn preflight_after(c: &Connection, cipher: &Cipher, mut ids: Vec<i64>, mut problems: Vec<String>) -> Result<Vec<i64>, Vec<String>> {
-    let mut s = c.prepare(
-        "SELECT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL \
-         UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY 1")
-        .map_err(|e| vec![format!("{e:?}")])?;
-    let owing = s.query_map([], |r| r.get::<_, i64>(0)).and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| vec![format!("{e:?}")])?;
-    for id in owing { if !ids.contains(&id) { ids.push(id); } }
+pub fn preflight_after(c: &Connection, cipher: &Cipher, ids: Vec<i64>, mut problems: Vec<String>) -> Result<Vec<i64>, Vec<String>> {
+    let ids = with_owing(c, ids).map_err(|e| vec![format!("{e:?}")])?;
     for (id, why) in untradable(c, cipher, &ids) { problems.push(format!("bot {id}: {}", why.text())); }
     if problems.is_empty() { Ok(ids) } else { Err(problems) }
+}
+
+/// `ids`, then every other bot the engine will call a venue for: one with an outstanding order or a placement intent.
+pub fn with_owing(c: &Connection, mut ids: Vec<i64>) -> rusqlite::Result<Vec<i64>> {
+    let mut s = c.prepare(
+        "SELECT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL \
+         UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY 1")?;
+    let owing = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    for id in owing { if !ids.contains(&id) { ids.push(id); } }
+    Ok(ids)
 }
 
 /// Why `preflight` cannot trade a bot (PLAN-B2 r1.4): its exchange has no Rust code, it has no key, or its key (or its row)

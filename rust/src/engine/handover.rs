@@ -11,7 +11,9 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde_json::Value;
 
-pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize, pub imported_calls: usize }
+pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize, pub imported_calls: usize,
+    /// The bots and rules this start set aside (set_aside::apply), in the claim's own transaction.
+    pub set_aside: Vec<super::set_aside::Aside>, pub rules_stopped: Vec<i64> }
 
 const RAILS_BOT_JOBS: [&str; 5] = ["Bot::ActionJob", "Bot::BroadcastAfterScheduledActionJob", "Bot::FetchAndUpdateOrderJob", "Bot::FetchAndUpdateOpenOrdersJob", "Bot::PriceLimitCheckJob"];
 
@@ -48,11 +50,9 @@ pub fn startup_report(c: &rusqlite::Connection, cipher: &Cipher, now: DateTime<U
 
 pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Takeover, EngineError> {
     super::provider::bind_cipher(&o.primary,cipher)?;
-    let report = startup_report(&o.primary, cipher, now)?;
-    let mut problems = report.problems.clone();
-    problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
-    problems.extend(super::rules::takeover_problems(&o.primary,&o.queue)?);
+    let problems = super::rules::takeover_problems(&o.primary,&o.queue)?;
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
+    let first = !lease::read(&o.primary, cipher)?.is_some_and(|v| v["engine"] == "rust");
     // Rails' webhook calls, read and judged before anything changes owner: a claimed or unreadable one refuses here.
     refuse_composition_jobs(o)?;
     let signal_jobs = signal_jobs(o)?;
@@ -60,6 +60,14 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
+    // PLAN-B2 R3 (D-UPGRADE-SET-ASIDE): before the claim, every working bot or rule this build refuses is stopped with its
+    // reasons, and the check runs again on this transaction. What it still refuses is a hard stop: returning drops `tx`,
+    // so nothing here is written. The bots the engine then runs are the second check's.
+    let plan = match super::set_aside::apply(&tx, Some(cipher), &|c| startup_report(c, cipher, now), now)? {
+        Ok(plan) => plan,
+        Err(hard) => return Err(EngineError::HardStop(super::set_aside::hard_stop(&hard, first))),
+    };
+    let report = plan.report;
     // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
     super::reconcile::mark_adopted(&tx, cipher, now)?;
     let claim = lease::claim(lock, &tx, cipher, version, now)?;
@@ -75,9 +83,11 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     tx.commit()?;
     let deleted_signal_jobs = finish_signal_import(o, now)? + super::rules::finish_cleanup(&o.primary,&o.queue,now)?;
 
-    // GlobalID names the STI class: Bots::DcaMultiAsset or Bots::DcaIndex.
+    // GlobalID names the STI class: Bots::DcaMultiAsset or Bots::DcaIndex. A bot set aside is stopped, as Rails' stop
+    // leaves it, so its Rails jobs go too.
     let mut gids: Vec<String> = vec![];
-    for id in &report.eligible {
+    let aside: Vec<i64> = plan.bots.iter().map(|b| b.id).collect();
+    for id in report.eligible.iter().chain(&aside) {
         let ty: String = o.primary.query_row("SELECT type FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
         gids.push(format!("gid://deltabadger/{ty}/{id}"));
     }
@@ -120,7 +130,8 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         normalised += model::unstick(&tx, *id, now)? as usize; // the last run (Rails' or ours) was cut short
     }
     tx.commit()?;
-    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len() + resyncs.len() + deleted_signal_jobs, normalised, imported_calls })
+    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len() + resyncs.len() + deleted_signal_jobs, normalised, imported_calls,
+                  set_aside: plan.bots, rules_stopped: plan.rules })
 }
 
 pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
