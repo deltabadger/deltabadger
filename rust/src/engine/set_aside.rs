@@ -79,6 +79,13 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
         let work: Vec<&Reason> = reasons.iter().filter(|r| matches!(r.kind, Kind::Work(_))).collect();
         for r in if work.is_empty() { reasons.iter().collect() } else { work } { add(&mut left, *id, sentence(tx, *id, r)?); }
     }
+    // A bot set aside with an order whose outcome is unknown would still have it recovered and polled once stopped: work
+    // in flight, as an open order is (Codex review).
+    for aside in &bots {
+        let intent: bool = tx.query_row("SELECT json_type(transient_data, '$.rust_placement') IS NOT NULL AND json_type(transient_data, '$.rust_placement') <> 'null' FROM bots WHERE id = ?1",
+                                        [aside.id], |r| r.get(0))?;
+        if intent { add(&mut left, aside.id, "It has an order whose result isn't known yet.".into()); }
+    }
     // Support's lines read the install as it is (the stops roll back): the first check's, then preflight's on what is left.
     let mut details = first.problems.clone();
     details.extend(first.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
@@ -197,7 +204,7 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
             capital(&feature(key).unwrap_or_else(|| "one of its conditions".into())), exchange_name(c, bot_id)?),
         Kind::Feature(Feature::IbkrLimit) => format!("Limit orders on Interactive Brokers aren't supported in Deltabadger 3.0 yet. Switch the bot to market orders, {again}"),
         Kind::Feature(Feature::IndexSelling) => format!("An index bot can't sell in Deltabadger 3.0. Switch it back to buying, {again}"),
-        Kind::Feature(Feature::BotType(_)) => "Deltabadger 3.0 can't run this kind of bot yet. Keep it stopped, or delete it.".into(),
+        Kind::Feature(Feature::BotType(_)) => "Deltabadger 3.0 can't run this kind of bot yet. Keep it stopped.".into(),
         Kind::Flip { condition, to_selling, .. } => {
             let way = if *to_selling { "selling" } else { "buying" };
             format!("When {} is met it would start {way}, and Deltabadger 3.0 couldn't run it that way. Check its {way} settings, or change what the condition does, {again}",

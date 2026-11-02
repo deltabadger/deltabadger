@@ -226,7 +226,7 @@ fn serve_takes_the_install_over_holds_the_one_lock_until_sigterm_stops_both_then
 
 /// A refused `serve` (PLAN-B2 r1.0): what it printed, the page's answer for `/`, `/health-check`, `/up` and
 /// `/ui-ready`, and its exit status once SIGTERM stops it. While the page is up the install's engine lock is free.
-struct Refused { stderr: String, page: String, health: String, up: String, ready: String, lock_free: bool, status: Option<i32> }
+struct Refused { stderr: String, page: String, health: String, up: String, ready: String, lock_free: bool, writable: bool, status: Option<i32> }
 
 fn refused(dir: &Path, cmd: &mut Command) -> Refused {
     use std::io::Read;
@@ -241,6 +241,8 @@ fn refused(dir: &Path, cmd: &mut Command) -> Refused {
     };
     let (page, health, up) = (http_get(port, "/").unwrap(), http_get(port, "/health-check").unwrap(), http_get(port, "/up").unwrap());
     let lock_free = std::fs::File::open(dir.join(".engine.lock")).unwrap().try_lock().is_ok();
+    // No write transaction left open behind the page: another process can write the install.
+    let writable = rusqlite::Connection::open(dir.join("production.sqlite3")).is_ok_and(|c| c.execute_batch("BEGIN IMMEDIATE; ROLLBACK;").is_ok());
     // A client that sent half a request and keeps the socket open must not hold the stop (at most 5 s).
     let mut half = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
     std::io::Write::write_all(&mut half, b"GET / HTTP/1.1\r\nHost: loc").unwrap();
@@ -255,7 +257,7 @@ fn refused(dir: &Path, cmd: &mut Command) -> Refused {
     drop(half);
     let mut stderr = String::new();
     child.0.stderr.take().unwrap().read_to_string(&mut stderr).unwrap();
-    Refused { stderr, page, health, up, ready, lock_free, status: child.0.wait().unwrap().code() }
+    Refused { stderr, page, health, up, ready, lock_free, writable, status: child.0.wait().unwrap().code() }
 }
 
 fn http_get(port: u16, path: &str) -> Option<String> {
@@ -292,6 +294,7 @@ fn serve_refusals_come_before_the_claim() {
     assert!(r.stderr.contains(&format!("bot {bot}: no Kraken API key")), "{}", r.stderr);
     assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains(&line) && r.page.contains("didn't start"), "{}", r.page);
     assert!(!r.page.contains(&format!("bot {bot}: no Kraken API key")), "support's line stays off the page");
+    assert!(r.writable, "the early check's transaction rolled back before the page");
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 
     // What the web refuses: a port already taken.
@@ -368,6 +371,14 @@ fn check_says_what_serve_then_sets_aside_and_every_start_sets_aside_what_it_refu
     let said = serve_until_running(dir.path());
     assert!(said.iter().any(|l| l.contains(&format!("stopped Bot {later}: There's no Kraken API key. Add your key in Settings, then start the bot again."))), "{said:?}");
     assert_eq!(status(later), 2);
+    // On an install the engine owns, `check` reads it as the start does: a flip target is checked per tick and by the guard,
+    // not at a restart (R2, r1.8), so `check` names no stop that `serve` would not make.
+    db().execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit_action', 'start_selling', '$.sell_interval', 'nonsense'), \
+                  status = 1 WHERE id = ?1", [later]).unwrap();
+    db().execute("UPDATE bots SET settings = json_remove(settings, '$.future_price_drop_limited'), status = 1 WHERE id = ?1", [healthy]).unwrap();
+    let checked = bare(dir.path(), &["check"]).env("SECRET_KEY_BASE", "engine-test-secret").output().unwrap();
+    let said = String::from_utf8_lossy(&checked.stdout);
+    assert!(said.contains(&format!("Bot {later} will be stopped")) && !said.contains("When the price condition is met"), "the key, not the flip: {said}");
 }
 
 /// `run` and `serve` with the mail sender as a service of the supervisor, as processes: what a bot is owed goes out

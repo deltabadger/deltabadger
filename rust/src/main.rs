@@ -64,11 +64,15 @@ fn main() {
             // The takeover's set-aside on the copy (PLAN-B2 r1.9): the bots `serve` will stop, then what it would refuse.
             let now = chrono::Utc::now();
             let first = !cipher.as_ref().is_some_and(|cipher| matches!(lease::read(&c, cipher), Ok(Some(v)) if v["engine"] == "rust"));
-            // On a transaction of the copy (a rule's log needs one); the copy is dropped unwritten either way.
+            // Stale or unstamped reference data, noted on every install (D-UPGRADE-FRESHNESS-AT-TICK).
+            for note in check_install_at(&c, now).map(|r| r.notes).unwrap_or_default() { println!("note: {note}"); }
+            // On a transaction of the copy (a rule's log needs one); the copy is dropped unwritten either way. The check is the
+            // start's own (handover::startup_report: an engine-owned install's restart checks no flip target); without the
+            // secret the lease can't be read, and the takeover's is used.
             let tx = deltabadger::engine::model::immediate(&c).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            match deltabadger::engine::set_aside::apply(&tx, cipher.as_ref(), &|c| check_install_at(c, now), now) {
+            let report = |c: &rusqlite::Connection| match &cipher { Some(cipher) => handover::startup_report(c, cipher, now), None => check_install_at(c, now) };
+            match deltabadger::engine::set_aside::apply(&tx, cipher.as_ref(), &report, now) {
                 Ok(Ok(plan)) => {
-                    for note in &plan.report.notes { println!("note: {note}"); }
                     for aside in &plan.bots { println!("{}", deltabadger::engine::set_aside::would_stop(aside)); }
                     match plan.report.refusal() {
                         Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
@@ -450,7 +454,10 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         let now = chrono::Utc::now();
         let first = !owned_by_rust(&paths(env), &cipher);
         let tx = deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e| fail(&format!("{e:?}")));
-        match deltabadger::engine::set_aside::apply(&tx, Some(&cipher), &|c| handover::startup_report(c, &cipher, now), now) {
+        let outcome = deltabadger::engine::set_aside::apply(&tx, Some(&cipher), &|c| handover::startup_report(c, &cipher, now), now);
+        // Rolled back before anything else: a refusal page must not hold a write transaction on the install.
+        drop(tx);
+        match outcome {
             Ok(Ok(plan)) => for aside in &plan.bots { log(&deltabadger::engine::set_aside::would_stop(aside)); },
             Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard, first)),
             Err(e) => fail(&Refusal::Failed(e).message()),

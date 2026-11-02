@@ -206,20 +206,24 @@ async fn set_aside_page(app: &App, ctx: &Ctx, user: &User, segment: &str) -> Res
     let Some(id) = super::id_from_path(segment.split('.').next().unwrap_or(segment)) else { return Ok(None) };
     let (inner, owner, view) = (app.clone(), user.clone(), ctx.clone());
     let found = app.db(move |c| {
-        let transient: Option<String> = c.query_row("SELECT transient_data FROM bots WHERE id = ?1 AND user_id = ?2 AND status = ?3",
-            (id, owner.id, BotStatus::Stopped as i64), |r| r.get(0)).optional()?;
-        let transient: serde_json::Value = transient.and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+        let row: Option<(String, Option<String>)> = c.query_row("SELECT transient_data, type FROM bots WHERE id = ?1 AND user_id = ?2 AND status = ?3",
+            (id, owner.id, BotStatus::Stopped as i64), |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+        let Some((transient, class)) = row else { return Ok(None) };
+        let transient: serde_json::Value = serde_json::from_str(&transient).unwrap_or_default();
+        // Delete only where a lifecycle writer takes the bot: a basket, an index or a signal bot.
+        let deletable = matches!(class.as_deref(), Some("Bots::DcaMultiAsset" | "Bots::DcaIndex" | crate::engine::model::SIGNAL_TYPE));
         let Some(reasons) = crate::engine::set_aside::reasons(transient.get(crate::engine::set_aside::KEY)) else { return Ok(None) };
         let name = crate::engine::set_aside::name(c, id)?;
-        Ok(Some((name, crate::engine::set_aside::message(view.locale, &reasons), Shell::load(c, &inner, &owner)?)))
+        Ok(Some((name, crate::engine::set_aside::message(view.locale, &reasons), deletable, Shell::load(c, &inner, &owner)?)))
     }).await?;
-    let Some((name, message, shell)) = found else { return Ok(None) };
+    let Some((name, message, deletable, shell)) = found else { return Ok(None) };
     let csrf = ctx.csrf_token();
     let e = i18n::escape;
-    let body = format!("<div class=\"page\" id=\"bot_set_aside_{id}\">\n  <h1>{}</h1>\n  <p>{}</p>\n  \
-        <form action=\"{}\" method=\"post\" data-turbo=\"false\">\n    <input type=\"hidden\" name=\"_method\" value=\"delete\">\n    \
-        <input type=\"hidden\" name=\"authenticity_token\" value=\"{}\">\n    <button type=\"submit\" class=\"button button--danger\">{}</button>\n  </form>\n</div>",
-        e(&name), e(&message), e(&ctx.path(&format!("/bots/{id}/delete"))), e(&csrf), e(&i18n::text(ctx.locale, "button.delete", &[])));
+    // Submitted by Turbo, as every bot form: the delete answers with a Turbo Stream.
+    let delete = if deletable { format!("\n  <form action=\"{}\" method=\"post\">\n    <input type=\"hidden\" name=\"_method\" value=\"delete\">\n    \
+        <input type=\"hidden\" name=\"authenticity_token\" value=\"{}\">\n    <button type=\"submit\" class=\"button button--danger\">{}</button>\n  </form>",
+        e(&ctx.path(&format!("/bots/{id}/delete"))), e(&csrf), e(&i18n::text(ctx.locale, "button.delete", &[]))) } else { String::new() };
+    let body = format!("<div class=\"page\" id=\"bot_set_aside_{id}\">\n  <h1>{}</h1>\n  <p>{}</p>{delete}\n</div>", e(&name), e(&message));
     Ok(Some(shell::application(ctx, &csrf, user, &shell, Page { status: StatusCode::OK, body, flash_now: vec![] })?))
 }
 

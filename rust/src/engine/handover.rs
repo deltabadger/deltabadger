@@ -86,8 +86,12 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // GlobalID names the STI class: Bots::DcaMultiAsset or Bots::DcaIndex. A bot set aside is stopped, as Rails' stop
     // leaves it, so its Rails jobs go too.
     let mut gids: Vec<String> = vec![];
-    let aside: Vec<i64> = plan.bots.iter().map(|b| b.id).collect();
-    for id in report.eligible.iter().chain(&aside) {
+    // Every bot carrying a set-aside, not only this start's: a crash between the claim's commit and the deletes below must
+    // not leave its jobs for good.
+    let mut s = o.primary.prepare(&format!("SELECT id FROM bots WHERE json_type(transient_data, '$.{}') IS NOT NULL", super::set_aside::KEY))?;
+    let aside: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    drop(s);
+    for id in report.eligible.iter().chain(aside.iter().filter(|id| !report.eligible.contains(id))) {
         let ty: String = o.primary.query_row("SELECT type FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
         gids.push(format!("gid://deltabadger/{ty}/{id}"));
     }

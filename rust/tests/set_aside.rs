@@ -143,6 +143,49 @@ fn work_in_flight_and_unreadable_rows_stay_hard_stops_and_write_nothing() {
     }
 }
 
+/// Codex review: a set-aside bot with an order whose outcome is unknown would still be recovered (and its order polled) once
+/// stopped: it is work in flight, a hard stop.
+#[test]
+fn a_bot_with_an_unresolved_order_is_not_set_aside() {
+    let (dir, o, s) = common::install();
+    let bot = seed::insert_bot(&o.primary, &s, &plain().with("future_price_drop_limited", json!(true)));
+    let intent = json!({ "side": "buy", "transaction_type": "REGULAR", "amount": "0.001", "volume": "0.001" }).to_string();
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2", rusqlite::params![intent, bot]).unwrap();
+    let before = state(&o.primary);
+    match take_over(dir.path(), &o) {
+        Err(EngineError::HardStop(message)) => assert!(message.contains(&format!("Bot {bot}: It has an order whose result isn't known yet.")), "{message}"),
+        other => panic!("{:?}", other.map(|t| t.eligible)),
+    }
+    assert_eq!(state(&o.primary), before);
+}
+
+/// Codex review (disproved): a row whose class is NULL fails the takeover before its transaction (the Rails command-job
+/// check reads every bot's class), so nothing is stopped or claimed: it never reaches the set-aside or the claim.
+#[test]
+fn a_bot_without_a_type_fails_the_takeover_before_anything_is_written() {
+    let (dir, o, s) = common::install();
+    let bot = seed::insert_bot(&o.primary, &s, &plain());
+    o.primary.execute("UPDATE bots SET type = NULL WHERE id = ?1", [bot]).unwrap();
+    let before = state(&o.primary);
+    assert!(matches!(take_over(dir.path(), &o), Err(EngineError::Sqlite(_))));
+    assert_eq!(state(&o.primary), before);
+    assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none());
+}
+
+/// Codex review: a set-aside bot's Rails jobs go at every start, not only the one that set it aside (a crash between the
+/// claim's commit and the queue delete leaves them).
+#[test]
+fn a_set_aside_bots_rails_jobs_go_at_a_later_start_too() {
+    let (dir, o, s) = common::install();
+    let bot = seed::insert_bot(&o.primary, &s, &plain().with("future_price_drop_limited", json!(true)));
+    take_over(dir.path(), &o).unwrap();
+    o.queue.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, priority, active_job_id, created_at, updated_at) VALUES ('default', 'Bot::ActionJob', ?1, 0, 'left-behind', '2026-09-01', '2026-09-01')",
+        [json!({ "arguments": [{ "_aj_globalid": format!("gid://deltabadger/Bots::DcaMultiAsset/{bot}") }] }).to_string()]).unwrap();
+    take_over(dir.path(), &o).unwrap();
+    let left: i64 = o.queue.query_row("SELECT count(*) FROM solid_queue_jobs WHERE active_job_id = 'left-behind'", [], |r| r.get(0)).unwrap();
+    assert_eq!(left, 0);
+}
+
 /// r1.4: two bots on one venue, one set aside: the other runs.
 #[test]
 fn two_bots_on_one_venue_one_set_aside_the_other_runs() {
@@ -203,6 +246,13 @@ mod web {
         let page = b.get(&app, &format!("/bots/{elsewhere}")).await;
         assert_eq!(page.status, 200, "{:.400}", page.body);
         assert!(page.body.contains(shown) && page.body.contains("can&#39;t trade on BitMart yet") && page.body.contains(&format!("action=\"/bots/{elsewhere}/delete\"")), "{:.3000}", page.body);
+        let block = page.body.split(&format!("id=\"bot_set_aside_{elsewhere}\"")).nth(1).and_then(|b| b.split("</div>").next()).unwrap_or_default();
+        assert!(block.contains("<form") && !block.contains("data-turbo"), "Turbo submits the delete, as every bot form: its answer is a Turbo Stream: {block}");
+        // A bot of a kind no lifecycle writer takes: no Delete it could not carry out.
+        let odd = seed::insert_bot(c, &s, &BotSpec { status: 2, ..plain() });
+        c.execute("UPDATE bots SET type = 'Bots::Legacy', transient_data = json_set(transient_data, '$.rust_set_aside', json('{\"reasons\":[\"x\"],\"at\":\"t\"}')) WHERE id = ?1", [odd])?;
+        let page = b.get(&app, &format!("/bots/{odd}")).await;
+        assert!(page.body.contains(shown) && !page.body.contains(&format!("/bots/{odd}/delete")), "{} {:.2000}", page.status, page.body);
 
         let list = b.get(&app, "/bots").await;
         assert_eq!(list.status, 200);
