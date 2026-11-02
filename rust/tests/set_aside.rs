@@ -171,7 +171,8 @@ fn a_bot_without_a_type_fails_the_takeover_before_anything_is_written() {
     let bot = seed::insert_bot(&o.primary, &s, &plain());
     o.primary.execute("UPDATE bots SET type = NULL WHERE id = ?1", [bot]).unwrap();
     let before = state(&o.primary);
-    assert!(matches!(take_over(dir.path(), &o), Err(EngineError::Sqlite(_))));
+    let r = take_over(dir.path(), &o);
+    assert!(matches!(r, Err(EngineError::Sqlite(_))), "{:?}", r.as_ref().map(|t| t.eligible.clone()).map_err(|e| format!("{e:?}")));
     assert_eq!(state(&o.primary), before);
     assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none());
 }

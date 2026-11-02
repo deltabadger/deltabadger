@@ -391,7 +391,6 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
     };
     for aside in &t.set_aside { log(&deltabadger::engine::set_aside::stopped(aside)); }
     for rule in &t.rules_stopped { log(&format!("stopped rule {rule}: its exchange has no withdrawals in this build")); }
-    for line in &t.log { log(line); }
     // D-UPGRADE-RAILS-WORK-DROPPED: the queued jobs with nothing left to finish are counted here.
     log(&format!("took over ({:?}): {} bot(s), {} queued job(s) removed, {} of them with nothing left to do, {} webhook call(s) taken over, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.dropped_jobs, t.imported_calls, t.normalised));

@@ -1348,3 +1348,43 @@ fn the_takeovers_lines_read_in_plain_words() {
         assert!(c12.ends_with("Check your exchange.") && !c12.contains("2."), "{c12}");
     }
 }
+
+/// Codex B2-6a P1: a handback after a crash between the claim and the queue delete finishes the queue first, so Rails is
+/// never handed a row the takeover already acted on (a StopJob run twice, a dropped command run after all).
+#[tokio::test(flavor = "current_thread")]
+async fn a_handback_after_a_crash_before_the_queue_delete_hands_rails_none_of_those_rows() {
+    let (_dir, l, o, _s, b) = dca_install();
+    let row = queued(&o.queue, "Bot::RedeployJob", json!([gid(b)]), "ready");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    o.queue.execute("INSERT INTO solid_queue_jobs (id, queue_name, class_name, arguments, priority, created_at, updated_at) VALUES (?1, 'default', 'Bot::RedeployJob', ?2, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                    rusqlite::params![row, json!({ "arguments": [gid(b)] }).to_string()]).unwrap();
+    set_exec(&o.queue, row, "ready");
+    deltabadger::app_config::set_plain(&o.primary, handover::QUEUE_DONE_KEY, &json!([row]).to_string(), now()).unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RedeployJob'"), 0, "the dropped command never reaches Rails");
+    assert_eq!(deltabadger::app_config::get_plain(&o.primary, handover::QUEUE_DONE_KEY).unwrap(), None);
+}
+
+/// Codex B2-6a P1: a soft-deleted bot's exchange order is still on the exchange, and Rails' job would still record it: a
+/// hard stop, as for any bot. Only a bot whose row is gone has nothing to record into.
+#[test]
+fn a_fetch_and_create_order_job_of_a_deleted_bot_is_still_a_hard_stop() {
+    let (_dir, l, o, _s, b) = dca_install();
+    o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", rusqlite::params![deltabadger::enums::BotStatus::Deleted as i64, b]).unwrap();
+    queued(&o.queue, "Bot::FetchAndCreateOrderJob", json!([gid(b), "OQCLML-BW3P3-BUCMWZ"]), "scheduled");
+    let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
+    assert!(message.contains("OQCLML-BW3P3-BUCMWZ"), "{message}");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1);
+}
+
+/// Codex B2-6a P2: Rails' own ambiguity is read before the takeover writes its lines (a dropped command's here), so a
+/// takeover line never hides it.
+#[test]
+fn rails_last_ambiguity_still_gets_its_line_beside_a_dropped_command() {
+    let (_dir, l, o, _s, b) = dca_install();
+    model::log_activity(&o.primary, b, "placement_ambiguous", model::Level::Warning, json!({ "error": "timeout" }), now() - chrono::Duration::hours(1)).unwrap();
+    queued(&o.queue, "Bot::RedeployJob", json!([gid(b)]), "ready");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let lines = bot_events(&o.primary, b);
+    assert!(lines.contains(&handover::UPGRADE_COMMAND_DROPPED.to_string()) && lines.contains(&handover::UPGRADE_ORDER_UNRECORDED.to_string()), "{lines:?}");
+}

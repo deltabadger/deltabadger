@@ -137,6 +137,10 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // Rails' queue, read and judged before anything changes owner (PLAN-B2 r1.3, r3.1, r4.2-r4.7, r5, r6 fork A). A row a
     // takeover already acted on (QUEUE_DONE_KEY) is only deleted again. What may hold an order nothing records is a hard
     // stop here, before anything is written.
+    // Every bot's class, read before anything is written: a row without one fails the takeover here, never after the claim.
+    let mut s = o.primary.prepare("SELECT type FROM bots")?;
+    for class in s.query_map([], |r| r.get::<_, String>(0))? { class?; }
+    drop(s);
     let done_before = queue_done(&o.primary)?;
     let (signal_jobs, unread_signals) = signal_jobs(o, &done_before)?;
     let mut work = queue_work(o, &done_before)?;
@@ -148,6 +152,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     if !work.hard.is_empty() {
         return Err(EngineError::HardStop(super::set_aside::hard_stop(&super::set_aside::Hard { lines: work.hard, details: work.details })));
     }
+    work.rails_ambiguous = rails_ambiguous(&o.primary)?;
     let mut rule_jobs=super::rules::jobs(&o.primary,&o.queue)?;
     // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
@@ -179,6 +184,9 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let mut done = done_before;
     done.extend(work.done.iter().filter(|row| !done.contains(row)).copied().collect::<Vec<_>>());
     write_queue_done(&tx, &done, now)?;
+    // Before the commit: once it lands, a crash would skip these rows for good, so the line must already be out. A failed
+    // commit repeats it next start, which is harmless.
+    for line in &work.log { super::log(line); }
     tx.commit()?;
     // A crash here leaves the outcomes committed and Rails' rows queued: the next start deletes them and repeats nothing.
     #[cfg(debug_assertions)]
@@ -285,9 +293,21 @@ fn live_bot(c: &Connection, id: i64) -> Result<bool, EngineError> {
     Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND status <> ?2)", params![id, BotStatus::Deleted as i64], |r| r.get(0))?)
 }
 
+fn bot_row(c: &Connection, id: i64) -> Result<bool, EngineError> {
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1)", [id], |r| r.get(0))?)
+}
+
 /// A claimed or failed Bot::SignalJob on a signal bot with no marker of its own (r4.2, D-UPGRADE-CLAIMED-SIGNAL).
 /// `triggered_at`: the call's time, or why it can't be read (kept in the line's details).
 struct Unresolved { bot: i64, marker_id: String, side: Option<crate::venue::Side>, triggered_at: Result<DateTime<Utc>, String> }
+
+/// The DCA bots whose newest activity line is Rails' own placement_ambiguous, read before the takeover writes any line.
+fn rails_ambiguous(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    let mut s = c.prepare("SELECT b.id FROM bots b WHERE b.type <> ?1 AND b.status <> ?2 AND (SELECT l.event FROM bot_activity_logs l WHERE l.bot_id = b.id \
+                           ORDER BY l.created_at DESC, l.id DESC LIMIT 1) = 'placement_ambiguous' ORDER BY b.id")?;
+    let ids = s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| r.get::<_, i64>(0))?.collect::<Result<_, _>>()?;
+    Ok(ids)
+}
 
 /// What the claim transaction does with Rails' queue, and what it deletes after the commit.
 #[derive(Default)]
@@ -300,8 +320,9 @@ struct QueueWork {
     signals: Vec<Unresolved>,
     /// (bot, class, claimed or failed).
     commands: Vec<(i64, String, bool)>,
-    /// Bots of a claimed or failed Bot::ActionJob (C12).
+    /// Bots of a claimed or failed Bot::ActionJob (C12), and (rails_ambiguous) those Rails' last line left ambiguous.
     unrecorded: Vec<i64>,
+    rails_ambiguous: Vec<i64>,
     /// Start-log lines.
     log: Vec<String>,
     hard: Vec<String>,
@@ -345,7 +366,8 @@ fn queue_work(o: &Opened, skip: &[i64]) -> Result<QueueWork, EngineError> {
                 // r6 fork A: Rails placed this order and never recorded it; the job holds its id. Nothing here records it.
                 let order = argument(args, 1).map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string)).unwrap_or_default();
                 match bot_of(args, None) {
-                    Some(bot) if !live_bot(c, bot)? => { w.done.push(row.id); w.dropped += 1; }
+                    // A soft-deleted bot's order is still on the exchange: only a bot whose row is gone has nothing to record it in.
+                    Some(bot) if !bot_row(c, bot)? => { w.done.push(row.id); w.dropped += 1; }
                     Some(bot) => {
                         w.hard.push(format!("{}: order {order} was placed on your exchange before the update but isn't recorded here yet.", super::set_aside::name(c, bot)?));
                         w.details.push(format!("solid_queue_jobs {}: Bot::FetchAndCreateOrderJob bot {bot} order {order}", row.id));
@@ -430,11 +452,7 @@ fn apply_queue_work(tx: &Connection, w: &QueueWork, from_rails: bool, now: DateT
     // C12: a claimed or failed ActionJob, and, at the first takeover from Rails, a DCA bot whose last line is Rails' own
     // placement_ambiguous (the order Rails' KNOWN GAP leaves unrecorded).
     let mut bots = w.unrecorded.clone();
-    if from_rails {
-        let mut s = tx.prepare("SELECT b.id FROM bots b WHERE b.type <> ?1 AND b.status <> ?2 AND (SELECT l.event FROM bot_activity_logs l WHERE l.bot_id = b.id \
-                                ORDER BY l.created_at DESC, l.id DESC LIMIT 1) = 'placement_ambiguous' ORDER BY b.id")?;
-        for id in s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| r.get::<_, i64>(0))? { let id = id?; if !bots.contains(&id) { bots.push(id); } }
-    }
+    if from_rails { for id in &w.rails_ambiguous { if !bots.contains(id) { bots.push(*id); } } }
     for bot in bots { model::log_activity(tx, bot, UPGRADE_ORDER_UNRECORDED, Level::Warning, json!({}), now)?; }
     Ok(())
 }
@@ -475,6 +493,12 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_rust_only_conditions(&o.primary)?;
     refuse_ibkr(&o.primary, clock.now())?;
     hand_back_calls(o, clock.now())?;
+    // Rails must never be handed a row a takeover already acted on (QUEUE_DONE_KEY): a crash before its delete is finished
+    // here, and a row that still won't go refuses.
+    finish_queue_work(o, clock.now())?;
+    if !queue_done(&o.primary)?.is_empty() {
+        return Err(EngineError::Ineligible(vec!["queued jobs the takeover already handled are still in the queue; start the engine once, then hand back".into()]));
+    }
     let problems=super::rules::handback_problems(&o.primary)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
     let mut unresolved = vec![];
@@ -605,7 +629,10 @@ type SignalJob = (String, Option<(i64, model::SignalCall)>);
 /// Every waiting Bot::SignalJob row (ready, scheduled or blocked; a claimed or failed one is queue_work's), in queue order, and
 /// the waiting rows this build cannot read (no job id, arguments it does not read): (queue row, start-log line). Those are
 /// deleted, never placed (D-UPGRADE-UNREAD-SIGNAL; Rails' discard_on discards what it cannot deserialize).
-fn signal_jobs(o: &Opened, skip: &[i64]) -> Result<(Vec<SignalJob>, Vec<(i64, String)>), EngineError> {
+/// (queue row, start-log line) of a waiting call this build can't read.
+type UnreadSignal = (i64, String);
+
+fn signal_jobs(o: &Opened, skip: &[i64]) -> Result<(Vec<SignalJob>, Vec<UnreadSignal>), EngineError> {
     let mut s = o.queue.prepare("SELECT j.active_job_id, j.arguments, j.id FROM solid_queue_jobs j WHERE j.class_name = 'Bot::SignalJob' AND j.finished_at IS NULL \
                                  AND NOT EXISTS (SELECT 1 FROM solid_queue_claimed_executions c WHERE c.job_id = j.id) \
                                  AND NOT EXISTS (SELECT 1 FROM solid_queue_failed_executions f WHERE f.job_id = j.id) ORDER BY j.id")?;
