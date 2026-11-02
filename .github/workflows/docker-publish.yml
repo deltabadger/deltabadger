@@ -109,8 +109,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           load: true
           tags: deltabadger:smoke
-          # Never pushed: no attestation, so the build stays one image manifest and its metadata names the config
-          # digest the check below compares, whichever image store the runner's Docker uses.
+          # Never pushed: no attestation, so the loaded image is one plain image manifest on either image store.
           provenance: false
           sbom: false
 
@@ -137,11 +136,12 @@ jobs:
         env:
           REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-          # Not outputs.imageid: with the containerd image store buildx loads through the OCI importer and imageid is
-          # the manifest digest. The build's metadata names the config digest on either store.
-          SMOKED: ${{ fromJSON(steps.smoke.outputs.metadata)['containerimage.config.digest'] }}
+        # The smoked digest is read from the image the smoke test ran, through `docker save`. The build's outputs
+        # can't give it: on the containerd image store (the amd64 runner) buildx loads through the OCI importer, and
+        # then neither imageid nor the metadata names the config digest (v3.0.0-beta.1's amd64 leg failed here).
         run: |
           set -euo pipefail
+          SMOKED=$(bash script/rust/image_config_digest.sh deltabadger:smoke)
           raw=$(docker buildx imagetools inspect --raw "$REF")
           # An index (the image and its provenance attestation): take this platform's image manifest.
           manifest=$(jq -r --arg arch "$ARCH" '.manifests // [] | map(select(.platform.architecture == $arch)) | .[0].digest // empty' <<< "$raw")
