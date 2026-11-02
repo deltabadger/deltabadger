@@ -157,14 +157,14 @@ async fn the_one_asset_job_keeps_its_own_record() {
     let before = state::read(&c, reference::ASSETS, None).unwrap();
     let t = ScriptedTransport::default();
     demo(&t).reply("GET /api/v3/coins/ethereum", 200, json!({ "symbol": "eth", "name": "Ethereum", "image": { "large": "https://img/eth.png" } }));
-    let api = Rc::new(None::<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>);
     let cg = clients(&t);
     // As jobs::resolve builds it in production, with the scripted clients.
     let resolver: deltabadger::jobs::Resolver = Box::new(move |name, scope| {
         assert_eq!(name, reference::ASSET_DATA);
         Ok(Box::new(reference::AssetData { cg: cg.clone(), asset: scope.unwrap().parse().unwrap() }) as Box<dyn Job>)
     });
-    let scheduler = deltabadger::jobs::Scheduler::new(c, seed::cipher(), reference::shared_jobs_with(api, clients(&t)), None).with_resolver(resolver);
+    // Only the woken job: a scheduled bulk run would race it for the transport.
+    let scheduler = deltabadger::jobs::Scheduler::new(c, seed::cipher(), vec![], None).with_resolver(resolver);
     scheduler.wakers().wake(reference::ASSET_DATA, Some(&id.to_string()), None);
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let db = || reopen(&d);

@@ -298,6 +298,9 @@ impl CoinGecko for Ranking {
 pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome {
     let captured = cx.db.run(|c, cipher| {
         crate::engine::provider::bind_cipher(c,cipher).map_err(|e|format!("{e:?}"))?;
+        // The key and the fingerprint from one snapshot, so a switch between the two reads can't pair them.
+        let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
+        let c = &*tx;
         let key = crate::engine::provider::coingecko_key(c).map_err(|_|"index configuration unreadable")?
             .ok_or_else(||NOT_PORTED.to_string())?;
         let fingerprint = crate::engine::provider::fingerprint(c).map_err(|_|"index configuration unreadable")?
@@ -373,7 +376,7 @@ async fn coingecko_assets(cg: &Clients, cx: &Cx<'_>) -> Outcome {
         };
         for row in rows { if let Some(id) = row["id"].as_str() { by_id.entry(id.to_string()).or_insert_with(|| row.clone()); } } // uniq! keeps the first
     }
-    refresh(cx, &assets, |ext| by_id.get(ext).cloned(), ids.len()).await
+    refresh(cx, &assets, |ext| by_id.get(ext).cloned(), ids.len(), true).await
 }
 
 /// The coingecko provider's key, read as the job's guards read it: None when the install is not configured or not on
@@ -406,7 +409,8 @@ fn ruby_class(v: &Value) -> &'static str {
 }
 
 /// The per-asset refresh both paths share: each asset's coin (if answered) cast and published; the outcome.
-async fn refresh(cx: &Cx<'_>, assets: &[(i64, String)], coin: impl Fn(&str) -> Option<Value>, asked: usize) -> Outcome {
+/// `bulk`: the ASSETS job, whose record is marked incomplete before its first write (the one-asset job has its own).
+async fn refresh(cx: &Cx<'_>, assets: &[(i64, String)], coin: impl Fn(&str) -> Option<Value>, asked: usize, bulk: bool) -> Outcome {
     let mut rows = vec![];
     let mut answered = 0;
     for (id, ext) in assets {
@@ -420,6 +424,7 @@ async fn refresh(cx: &Cx<'_>, assets: &[(i64, String)], coin: impl Fn(&str) -> O
     }
     if answered == 0 { return Outcome::Failed(format!("CoinGecko answered no coin of the {asked} asked; nothing refreshed")); }
     let now = cx.clock.now();
+    if bulk { if let Err(m) = incomplete(cx, ASSETS, now).await { return Outcome::Failed(m); } }
     done(import::refresh_assets(&cx.db, rows, now).await)
 }
 
@@ -447,7 +452,7 @@ pub async fn asset_data(cg: &Clients, asset: i64, cx: Cx<'_>) -> Outcome {
     if s.deltabadger() || !s.configured || BLACKLIST.contains(&ext.as_str()) { return Outcome::NothingNew; }
     let Some(key) = s.coingecko_key() else { return Outcome::Failed("CoinGecko API key not configured".into()) };
     let data = match cg(key).coin(&ext).await { Ok(d) => d, Err(e) => return api_failure(e) };
-    refresh(&cx, &[(asset, ext.clone())], |_| Some(data.clone()), 1).await
+    refresh(&cx, &[(asset, ext.clone())], |_| Some(data.clone()), 1, false).await
 }
 
 /// ticker_data_from_listing_row (:677-704): the base from the row's public id ("crypto:bitcoin" → "bitcoin"), the pair from

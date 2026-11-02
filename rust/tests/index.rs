@@ -777,6 +777,33 @@ async fn bundled_stablecoins_are_excluded_from_the_preview() {
     for symbol in ["BTC", "ETH"] { assert!(preview.contains(&format!("data-ticker-symbol=\"{symbol}\"")), "{symbol} missing from preview"); }
 }
 
+/// PLAN-A17 item 4, the engine's leg of "key setup → wizard → Top Coins bot → engine ticks it" (the web legs are the page
+/// grid's wizard_index_top_coingecko): on a CoinGecko key with no data-api, a Top Coins bot waits until the ranking job has
+/// recorded that provider, then the ordinary tick buys its members.
+#[tokio::test(flavor = "current_thread")]
+async fn a_top_coins_bot_on_a_coingecko_key_ticks_once_the_ranking_is_the_providers() {
+    use deltabadger::{app_config, engine::provider};
+    let (_d, o, _s, id) = bundled_stablecoin_index().await;
+    let c = &o.primary;
+    c.execute("DELETE FROM app_configs WHERE key IN ('market_data_url','market_data_token')", []).unwrap();
+    app_config::set(c, &seed::cipher(), "market_data_provider", "coingecko", at(T0)).unwrap();
+    app_config::set(c, &seed::cipher(), "coingecko_api_key", "CG-test-key", at(T0)).unwrap();
+    let venue = || deltabadger::venue::fake::FakeVenue::new()
+        .ticker("USDSEUR", "10", "10", "10").ticker("USDEEUR", "10", "10", "10").ticker("USD1EUR", "10", "10", "10")
+        .ticker("BTCEUR", "10", "10", "10").ticker("ETHEUR", "10", "10", "10");
+    let bot = model::load_bot(c, id).unwrap();
+    assert!(eligibility::bot_reasons(c, &bot).unwrap().is_empty(), "Top Coins on a CoinGecko key is admitted");
+    let first = venue();
+    tick::tick(c, &first, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(first.sent().is_empty(), "the stored ranking is still the previous provider's: nothing bought");
+    // What coingecko_indices records after a complete ranking refresh.
+    provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    let second = venue();
+    let out = tick::tick(c, &second, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(in_index(&o, id).iter().map(|(s, _)| s.as_str()).collect::<Vec<_>>(), ["BTC", "ETH"]);
+}
+
 /// D-ASSET-TAXONOMY grid: Rails' generated rows retain their routing category;
 /// the asset classifier corrects all 55 stablecoins in this supported catalogue.
 #[test]

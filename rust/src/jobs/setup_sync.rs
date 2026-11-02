@@ -109,10 +109,15 @@ impl<T: Transport + 'static> Job for SeedAndSync<T> {
             // mark_sync_completed (only from in_progress), or mark_sync_failed (always), then the broadcast.
             let (failed, ended) = (failure.is_some(), cx.clock.now());
             let completed = cx.db.run(move |c, cipher| {
-                // The request this run served, unless a newer one came meanwhile or the run stopped on a closed quota.
-                if !keep_request && request.is_some() && app_config::get_plain(c, REQUEST)? == request { app_config::delete(c, REQUEST)?; }
-                let in_progress = app_config::get(c, cipher, STATUS)?.as_deref() == Some("in_progress");
-                if failed || in_progress { app_config::set(c, cipher, STATUS, "completed", ended)?; }
+                let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
+                // The request this run served, unless a newer one came meanwhile or the run stopped on a closed quota: one
+                // conditional delete, so a save between the read and the delete is never lost.
+                if let (false, Some(served)) = (keep_request, &request) {
+                    tx.execute("DELETE FROM app_configs WHERE key = ?1 AND value = ?2", [REQUEST, served.as_str()]).map_err(|e| e.to_string())?;
+                }
+                let in_progress = app_config::get(&tx, cipher, STATUS)?.as_deref() == Some("in_progress");
+                if failed || in_progress { app_config::set(&tx, cipher, STATUS, "completed", ended)?; }
+                tx.commit().map_err(|e| e.to_string())?;
                 Ok(failed || in_progress)
             }).await;
             match completed {

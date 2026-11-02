@@ -103,6 +103,9 @@ impl<T: Transport> CoinGecko<T> {
     /// Once per client.
     pub async fn plan(&self) -> Result<Plan, ApiError> {
         self.plan.get_or_try_init(|| async {
+            // The ping counts against the key's quota too: it takes a slot of the demo pace (the stricter one), as the plan
+            // is not yet known.
+            match &self.throttle { Some(t) => t.acquire().await, None => throttle(&self.key, Plan::Demo).acquire().await }
             match self.transport.send_limited(&Self::request(PRO, "/ping", &[]), 64 * 1024).await {
                 Ok(r) if r.status == 200 => Ok(Plan::Pro),
                 Ok(r) if r.status == 429 => Err(ApiError::Failed { status: Some(429), message: "CoinGecko plan check: HTTP 429".into() }),
@@ -113,7 +116,7 @@ impl<T: Transport> CoinGecko<T> {
         }).await.copied()
     }
 
-    /// One GET of `path` under /api/v3, after the plan and a throttle slot. HTTP ≥ 400 is `Failed` with its status.
+    /// One GET of `path` under /api/v3, after the plan and a throttle slot. Any answer but 2xx is `Failed` with its status.
     pub async fn get(&self, path: &str, query: &[(&'static str, String)]) -> Result<Value, ApiError> {
         let plan = self.plan().await?;
         match &self.throttle { Some(t) => t.acquire().await, None => throttle(&self.key, plan).acquire().await }
@@ -123,7 +126,7 @@ impl<T: Transport> CoinGecko<T> {
             Err(TransportError::Permanent(m)) => return Err(ApiError::Failed { status: None, message: self.transport.redact_diagnostic(&m) }),
             Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => return Err(ApiError::Transient(self.transport.redact_diagnostic(&m))),
         };
-        if resp.status >= 400 { return Err(ApiError::Failed { status: Some(resp.status), message: format!("CoinGecko {path}: HTTP {}", resp.status) }); }
+        if !(200..300).contains(&resp.status) { return Err(ApiError::Failed { status: Some(resp.status), message: format!("CoinGecko {path}: HTTP {}", resp.status) }); }
         if resp.body.trim().is_empty() { return Ok(Value::Null); }
         let status = resp.status;
         tokio::task::spawn_blocking(move || serde_json::from_str::<Value>(&resp.body))
