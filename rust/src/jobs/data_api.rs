@@ -1,6 +1,5 @@
 //! Clients::MarketData (app/models/clients/market_data.rb) over a Transport, with Client#with_rescue's outcomes
 //! (app/models/client.rb:175-182, :244-264): the market-data service ("data-api") hosted instances read their catalogue from.
-use crate::app_config;
 use crate::crypto::Cipher;
 use crate::venue::http::{self, HttpRequest, HttpResponse, Transport, TransportError};
 use rusqlite::Connection;
@@ -30,13 +29,10 @@ pub struct Config { pub url: String, pub token: String }
 /// None: another provider, whose sync this build does not port.
 pub fn config(env: &dyn Fn(&str) -> Option<String>, c: &Connection, cipher: &Cipher) -> Result<Option<Config>, String> {
     crate::engine::provider::bind(c,cipher,env).map_err(|_| "index configuration reader unavailable".to_string())?;
-    let env_url = env("MARKET_DATA_URL").filter(|v| !v.trim().is_empty());
-    let deltabadger = env_url.is_some() || app_config::get(c, cipher, "market_data_provider")?.as_deref() == Some("deltabadger");
-    if !deltabadger { return Ok(None); }
-    let pick = |key: &str, var: &str| -> Result<String, String> {
-        if app_config::exists(c, key)? { Ok(app_config::get(c, cipher, key)?.unwrap_or_default()) } else { Ok(env(var).unwrap_or_default()) }
-    };
-    Ok(Some(Config { url: pick("market_data_url", "MARKET_DATA_URL")?, token: pick("market_data_token", "MARKET_DATA_TOKEN")? }))
+    match crate::market_data::read(c, cipher, &crate::market_data::Env::read(env))?.provider {
+        crate::market_data::Provider::DataApi(config) => Ok(Some(config)),
+        _ => Ok(None),
+    }
 }
 
 #[derive(Debug, PartialEq)]

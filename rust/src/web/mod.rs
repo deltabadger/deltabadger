@@ -186,6 +186,8 @@ pub struct Config {
     pub own_origin: Option<String>,
     /// MarketDataSettings.deltabadger_available?: a hosted install, where stock trading is always on.
     pub market_data_url: bool,
+    /// MARKET_DATA_URL, MARKET_DATA_TOKEN and COINGECKO_API_KEY as the process started with them (market_data::decide).
+    pub market_data_env: crate::market_data::Env,
     /// production.rb's `config.hosts`: the hosts a request may name, from ALLOWED_HOSTS. Empty when
     /// that is not set, and then every host is served, as in Rails (`config.hosts.clear`).
     pub allowed_hosts: Vec<String>,
@@ -256,6 +258,7 @@ impl Config {
             behind_proxy: env_boolean(env("BEHIND_PROXY")).unwrap_or(force_ssl),
             own_origin,
             market_data_url: present("MARKET_DATA_URL").is_some(),
+            market_data_env: crate::market_data::Env::read(env),
             allowed_hosts: allowed_hosts(env("ALLOWED_HOSTS").as_deref()),
             setup_token: env("SETUP_TOKEN"),
             claim_token: present("CLAIM_TOKEN"),
