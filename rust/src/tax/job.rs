@@ -267,9 +267,22 @@ async fn perform<T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Optio
         crate::tax::cnb::ensure_loaded(&cx.db, ecb, years, today).await;
         report = metered(&cx.db, &mut allowance, move |c, _| { let mut report = report; report.reload_cnb(c)?; Ok(report) }).await?;
     }
+    // D-TAX-CH-ESTV: the Swiss report's Kursliste values, for its finished years, where the install reaches the network.
+    if matches!(ecb, Some(fx::Source::Live(_))) {
+        let (r2, needs) = metered(&cx.db, &mut allowance, move |_, _| { let needs = report.estv_needs(today)?; Ok((report, needs)) }).await?;
+        report = r2;
+        if !needs.is_empty() {
+            crate::tax::estv::ensure_loaded(&cx.db, &crate::tax::estv::Live { base: crate::tax::estv::ICTAX_BASE.into() }, needs, today).await;
+            report = metered(&cx.db, &mut allowance, move |c, _| { let mut report = report; report.reload_estv(c)?; Ok(report) }).await?;
+        }
+    }
+    // r3 item 3: a wealth report runs without market data, as Rails' does: stored prices are read, missing ones are warnings.
+    let unfetched = api.is_none() && report.is_wealth();
     let (db, request) = (cx.db.clone(), r.clone());
     fetching(&cx.db, api, &mut allowance, move |fetcher| {
         let mut last = 0;
+        let mut none = crate::tracker::prices::Unfetched;
+        let fetcher: &mut dyn crate::tracker::prices::Fetcher = if unfetched { &mut none } else { fetcher };
         report.compute(fetcher, today, &mut |percent| {
             if percent != last { last = percent; broadcast(&db, &request, &Panel::Progress(percent)); }
         })

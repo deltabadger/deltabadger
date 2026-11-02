@@ -111,13 +111,16 @@ pub const REGISTRY: [Jurisdiction; 18] = [
 /// `Jurisdictions.for(code)`.
 pub fn find(code: &str) -> Option<&'static Jurisdiction> { REGISTRY.iter().find(|j| j.code == code) }
 
-/// D-TAX-NOT-PORTED-GATE: the jurisdictions whose crypto report this build computes. Until a jurisdiction's slice lands,
-/// a create for it (web, REST, MCP) is refused up front as not ported, and nothing is ever queued for a report this
-/// build cannot compute; the broker scope likewise until A12-7. Each later slice adds its countries; the gate goes with A12-7.
+/// D-TAX-NOT-PORTED-GATE: the jurisdictions whose crypto report this build computes, and (`ported`) the years whose law was
+/// reviewed. A create this build cannot compute (web, REST, MCP) is refused up front as not ported, and nothing is ever
+/// queued for it: since A12-6 every jurisdiction is served, and the gate holds a year outside `ported`, the broker scope
+/// until A12-7 and an install on CoinGecko prices until A17 (an unknown country is a validation error first).
 /// Austria by its own law (A12-2b: the moving average per wallet, § 27b from 1 March 2022, `fifo::Austria`); Poland by
 /// its own report (tax/pl.rs), from 2019; Bulgaria and the Czech Republic by their own law (A12-3: bg.rs, cz.rs).
-/// Italy and Ireland by their own law (A12-4: it.rs, ie.rs); Sweden and the United Kingdom (A12-5: se.rs, gb.rs).
-pub const PORTED: [&str; 15] = ["US", "DE", "AT", "ES", "PT", "SK", "PL", "BG", "CZ", "DK", "GR", "IT", "IE", "SE", "GB"];
+/// Italy and Ireland by their own law (A12-4: it.rs, ie.rs); Sweden and the United Kingdom (A12-5: se.rs, gb.rs); France, the
+/// Netherlands and Switzerland (A12-6: fr.rs, nl.rs, ch.rs). Every jurisdiction is served: the gate keeps the years outside
+/// `ported`, the broker scope until A12-7 and CoinGecko installs until A17.
+pub const PORTED: [&str; 18] = ["US", "DE", "AT", "ES", "PT", "SK", "PL", "BG", "CZ", "DK", "GR", "IT", "IE", "SE", "GB", "FR", "NL", "CH"];
 
 /// D-TAX-GR-NO-TAX: the last Greek year whose law was reviewed (no tax on an individual's crypto gains in force); a
 /// later one waits for the enacted law.
@@ -125,14 +128,17 @@ const GR_LAST_YEAR: i64 = 2026;
 
 /// Whether this build computes `country`'s report for `year`: Poland's from 2019, the year its crypto regime took effect
 /// (art. 44 ust. 1 of the act of 23.10.2018); Greece's up to `GR_LAST_YEAR`; Italy's 2023–2026; Ireland's 2013–2026;
-/// Sweden's 2020–2026 and the United Kingdom's tax years 2020/21–2026/27 (D-TAX-SE-YEARS, D-TAX-GB-YEARS); another year
-/// is refused as not ported.
+/// Sweden's 2020–2026 and the United Kingdom's tax years 2020/21–2026/27 (D-TAX-SE-YEARS, D-TAX-GB-YEARS); France's
+/// 2019–2026, the Netherlands' 2021–2026 and Switzerland's 2020–2026 (D-TAX-FR-YEARS, D-TAX-NL-YEARS, D-TAX-CH-YEARS); another
+/// year is refused as not ported.
 pub fn ported(country: &str, year: i64) -> bool {
     let within = |first: i32, last: i32| (i64::from(first)..=i64::from(last)).contains(&year);
     PORTED.contains(&country) && (country != "PL" || year >= i64::from(super::pl::FIRST_YEAR)) && (country != "GR" || year <= GR_LAST_YEAR)
         // D-TAX-IT-YEARS, D-TAX-IE-YEARS.
         && (country != "IT" || within(super::it::FIRST_YEAR, super::it::LAST_YEAR)) && (country != "IE" || within(super::ie::FIRST_YEAR, super::ie::LAST_YEAR))
         && (country != "SE" || within(super::se::FIRST_YEAR, super::se::LAST_YEAR)) && (country != "GB" || within(super::gb::FIRST_YEAR, super::gb::LAST_YEAR))
+        && (country != "FR" || within(super::fr::FIRST_YEAR, super::fr::LAST_YEAR)) && (country != "NL" || within(super::nl::FIRST_YEAR, super::nl::LAST_YEAR))
+        && (country != "CH" || within(super::ch::FIRST_YEAR, super::ch::LAST_YEAR))
 }
 
 pub(crate) fn ymd((y, m, d): (i32, u32, u32)) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap_or(NaiveDate::MIN) }
@@ -169,10 +175,11 @@ mod tests {
     #[test]
     fn the_registry_is_rails_order_and_the_ported_set_is_fifo_without_a_summary() {
         assert_eq!(REGISTRY.map(|j| j.code), crate::web::tracker::modal::COUNTRIES);
-        for c in PORTED { let j = find(c).unwrap(); assert!(["fifo", "lifo", "fifo_4week", "weighted_average", "share_pooling"].contains(&j.method), "{c}"); }
+        for c in PORTED { let j = find(c).unwrap(); assert!(["fifo", "lifo", "fifo_4week", "weighted_average", "share_pooling", "pvct", "wealth_snapshot"].contains(&j.method), "{c}"); }
         let bg = find("BG").unwrap();
         assert_eq!([2023, 2024, 2025, 2026].map(|y| bg.currency(y)), ["BGN", "BGN", "BGN", "EUR"]);
-        assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && ported("CZ", 2026) && !ported("FR", 2026));
+        assert!(!ported("PL", 2018) && ported("PL", 2019) && ported("US", 2018) && ported("AT", 2026) && ported("CZ", 2026) && ported("FR", 2026));
+        assert!(!ported("FR", 2018) && ported("FR", 2019) && !ported("NL", 2020) && ported("NL", 2021) && !ported("CH", 2019) && ported("CH", 2026) && !ported("CH", 2027));
         assert!(ported("DK", 2026) && ported("GR", 2026) && ported("GR", 2019) && !ported("GR", 2027));
     }
 
