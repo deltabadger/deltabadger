@@ -1153,6 +1153,7 @@ fn a_crash_between_the_claim_and_the_queue_delete_acts_on_rails_jobs_once() {
 
 /// A 2.x install whose user has stored history and no key, with Rails' tracker jobs for that user still queued
 /// (PLAN-B2 r3.3, r4.4, r4.5: a waiting LedgerJob, a failed ::Retry, a claimed BackfillJob).
+#[cfg(unix)] // its tests are unix-only (signals)
 fn two_x_install_with_tracker_jobs() -> (tempfile::TempDir, i64, Vec<i64>) {
     let dir = common::rails_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
@@ -1180,11 +1181,13 @@ fn two_x_install_with_tracker_jobs() -> (tempfile::TempDir, i64, Vec<i64>) {
     (dir, s.user_id, rows)
 }
 
+#[cfg(unix)] // its tests are unix-only (signals)
 fn rails_wakes(dir: &Path) -> Option<String> {
     rusqlite::Connection::open(dir.join(DATABASES[0])).unwrap().query_row("SELECT value FROM app_configs WHERE key = 'rust_rails_wakes'", [], |r| r.get(0)).ok()
 }
 
 /// `run` until every line in `until` has been logged (or 60 s), then SIGTERM; its lines.
+#[cfg(unix)] // its tests are unix-only (signals)
 fn run_until(dir: &Path, until: &[String]) -> Vec<String> {
     let (mut child, rx) = spawn_logged(&mut bare(dir, &["run"]));
     let mut lines: Vec<String> = vec![];
