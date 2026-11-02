@@ -598,3 +598,26 @@ async fn csv_first_internal_legs_get_their_kraken_metadata_and_link() {
     let fee = w.rows.iter().find(|r| r.linked && r.amount.to_f() == 1.1).and_then(|r| r.transfer_fee.clone()).unwrap().to_f();
     assert!((fee - 0.1).abs() < 1e-12, "transfer fee {fee}");
 }
+
+/// Plan A15: the trade a Kraken xStock bot makes (NVDAx bought for USD, under `aclass=tokenized_asset`) is stored and walked
+/// exactly as the same trade on a crypto pair (XXBT): same entry types, amounts and fees, the asset resolved, the walk's
+/// holding the same. Tax then refuses the tokenized year (tokenized_unsupported, tracker_populated.rs), as on every venue.
+#[tokio::test(flavor = "current_thread")]
+async fn an_xstock_trade_reads_as_the_same_trade_on_a_crypto_pair() {
+    let mut seen = vec![];
+    for (code, symbol) in [("NVDAx", "NVDAx"), ("XXBT", "BTC")] {
+        let fx = Fx::new();
+        let (user, key) = fx.user("o@example.com");
+        let entries = vec![entry("D1", "ZUSD", "deposit", "", "1000.0000", "0", secs(10, 1), "D1"),
+                           entry("T1", code, "trade", "", "1.0000000000", "0.0010000000", secs(11, 1), "T1"),
+                           entry("T2", "ZUSD", "trade", "", "-180.0000", "0.1800", secs(11, 1), "T1")];
+        fx.sync_through(key, &Kraken::new(50, entries), false).await;
+        type Seen = (String, i64, String, f64, Option<String>, Option<f64>, bool);
+        let rows: Vec<Seen> = fx.rows(user).into_iter()
+            .map(|r| (r.0, r.1, if r.2 == symbol { "BASE".into() } else { r.2 }, r.3, r.4.map(|f| if f == symbol { "BASE".into() } else { f }), r.5, r.6.is_some())).collect();
+        assert!(rows.iter().all(|r| r.6), "{code}: every row resolves its asset: {rows:?}");
+        let (coins, cash, openings, _) = walked(&fx, user);
+        seen.push((rows, coins.get(symbol).copied(), cash, openings));
+    }
+    assert_eq!(seen[0], seen[1]);
+}

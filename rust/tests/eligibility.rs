@@ -150,7 +150,7 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
             c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
             c.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("category", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
-        ("Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here",
+        ("Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here",
          Box::new(|c, s| { c.execute("UPDATE assets SET category = 'Tokenized Stock', instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("type", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
         ("smart interval amount", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("smart_intervaled", json!(true))))),
@@ -1166,7 +1166,7 @@ fn tokenized_crypto_is_admitted_and_tokenized_stocks_refused() {
         o.primary.execute("UPDATE assets SET category = 'Stock' WHERE id = ?1", [s.btc]).unwrap();
         let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
         let want = if alpaca { "tokenized BTC on Alpaca (no recorded Rails vector for tokenized pairs on this venue)".to_string() }
-                   else { "Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here".to_string() };
+                   else { "Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here".to_string() };
         assert_eq!(reasons, vec![want], "{venue}");
     }
     let (_d, o, s) = install();
@@ -1209,7 +1209,7 @@ fn a_tokenized_stock_runs_on_hyperliquid_only() {
     let refused = reasons("Exchanges::Binance");
     assert!(refused.iter().any(|r| r.starts_with("tokenized BTC on ") && r.ends_with(" (no recorded Rails vector for tokenized pairs on this venue)")), "{refused:?}");
     let refused = reasons("Exchanges::Kraken");
-    assert!(refused.contains(&"Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here".to_string()), "{refused:?}");
+    assert!(refused.contains(&"Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here".to_string()), "{refused:?}");
     // instrument_type 'tokenized' outside the crypto category reads the same way.
     o.primary.execute("UPDATE assets SET category = 'Stock', instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap();
     assert_eq!(reasons("Exchanges::Hyperliquid"), Vec::<String>::new());

@@ -1229,7 +1229,8 @@ impl MarketData for Reader<'_> {
             // Rails asks them one by one and stops at the first failure; the first failure in its order is the one returned.
             let mut failed = None;
             for code in missing {
-                match self.get(ticker(vec![("pair", code.clone())])) {
+                // An xStock is asked for with its class (D-KRAKEN-TOKENIZED): the bulk read is the currency class only.
+                match self.get(ticker(crate::venue::kraken::ticker_query(&code))) {
                     Ok(Answer::Json(body)) => match crate::venue::kraken::pair_price(&body, &code) {
                         Ok(Some(p)) => out.push((code, price(p))),
                         Ok(None) => {}

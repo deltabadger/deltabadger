@@ -122,8 +122,13 @@ async fn assets_publish_in_chunks_and_the_tokenized_registry_is_null_safe() {
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM assets"), 1_201);
     assert_eq!(one::<f64>(&c, "SELECT circulating_supply FROM assets LIMIT 1"), 120456789.1234568, "BigDecimal(f.round(8), 16).round(8)");
     asset(&c, "nvda-xstock", "NVDAX", "Cryptocurrency");
+    // D-TOK-XSTOCKS (plan A15): the catalogue files the SpaceX xStock as `spacex-xstocks`, which Rails' `%-xstock` misses.
+    asset(&c, "spacex-xstocks", "SPCXX", "Cryptocurrency");
+    asset(&c, "xstockscoin", "XSC", "Cryptocurrency");
     import::mark_tokenized(&db).await.unwrap();
     assert_eq!(one::<String>(&c, "SELECT instrument_type FROM assets WHERE external_id = 'nvda-xstock'"), "tokenized");
+    assert_eq!(one::<String>(&c, "SELECT instrument_type FROM assets WHERE external_id = 'spacex-xstocks'"), "tokenized");
+    assert_eq!(one::<Option<String>>(&c, "SELECT instrument_type FROM assets WHERE external_id = 'xstockscoin'"), None, "the issuer suffix only");
 }
 
 /// `n` Kraken EUR pairs stored under old names with old parameters; returns the venue and the base asset ids.

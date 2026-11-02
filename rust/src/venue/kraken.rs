@@ -223,9 +223,23 @@ pub fn ohlc_interval(timeframe: Timeframe) -> &'static str {
 /// Clients::Kraken#get_ohlc_data: one public OHLC read of `pair` at `interval` since `since` (seconds). Kraken answers
 /// with at most its 720 most recent candles whatever `since` says; nothing pages.
 pub fn ohlc_request(base: &str, pair: &str, interval: &str, since: i64) -> HttpRequest {
-    HttpRequest { method: "GET", base: base.into(), path: OHLC.into(), body: None, not_after: None,
-                  query: vec![("interval", interval.into()), ("pair", pair.into()), ("since", since.to_string())] }
+    let mut query = vec![("interval", interval.into()), ("pair", pair.into()), ("since", since.to_string())];
+    query.extend(asset_class(pair));
+    HttpRequest { method: "GET", base: base.into(), path: OHLC.into(), body: None, not_after: None, query }
 }
+
+/// D-KRAKEN-TOKENIZED (plan A15): a Kraken xStock code (pair `NVDAxUSD`, base `NVDAx`). Kraken spells every xStock with a
+/// lowercase `x` and every currency code in capitals, so a lowercase letter is the tokenized_asset class.
+// ponytail: Kraken's naming convention, not a documented contract; the upgrade is the AssetPairs `aclass_base` carried in
+// the catalogue. A tokenized pair named otherwise gets no asset_class and Kraken refuses it: it fails closed.
+pub fn tokenized(code: &str) -> bool { code.bytes().any(|b| b.is_ascii_lowercase()) }
+
+/// AddOrder, Ticker and OHLC: "required on requests for non-crypto pairs, i.e. use `tokenized_asset` for xStocks" (Kraken's
+/// REST docs). Rails never sends it (honeymaker Clients::Kraken), so Rails lists these pairs untradable.
+fn asset_class(pair: &str) -> Option<(&'static str, String)> { tokenized(pair).then(|| ("asset_class", "tokenized_asset".to_string())) }
+
+/// One pair's public Ticker query, for the adapter and the page reader alike: `pair`, and an xStock's class.
+pub fn ticker_query(pair: &str) -> Vec<(&'static str, String)> { std::iter::once(("pair", pair.to_string())).chain(asset_class(pair)).collect() }
 /// The rows of an OHLC answer as Exchanges::Kraken#get_candles walks them, each with its time in whole seconds: a missing
 /// or null `error` is dig_or_raise's KeyError, a non-empty one the venue's refusal; the rows sit under `result`'s first key
 /// but `last`. Every structural miss Rails raises on (no `result`, no pair key, rows or a row that is no array, a time that
@@ -443,17 +457,18 @@ impl<T: Transport> Venue for KrakenVenue<T> {
 
     /// Exchanges::Kraken#get_ticker_information: public Ticker by the ticker's own pair.
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
-        let body = self.call(&self.public(TICKER, vec![("pair", ticker.ticker.clone())]), false).await?;
+        let body = self.call(&self.public(TICKER, ticker_query(&ticker.ticker)), false).await?;
         ticker_price(&body, ticker, side)
     }
 
     /// #set_market_order / #set_limit_order through Clients::Kraken#add_order: the gem's fields in its order, plus Rust's
-    /// `cl_ord_id` and `deadline` (RFC 3339, UTC, milliseconds; Kraken drops the order after it). Sent at most once.
+    /// `asset_class` for an xStock (D-KRAKEN-TOKENIZED), `cl_ord_id` and `deadline` (RFC 3339, UTC, milliseconds; Kraken drops the order after it). Sent at most once.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let (ordertype, price) = match &o.kind { OrderKind::Market => ("market", None), OrderKind::Limit { price } => ("limit", Some(price.clone())),
                                                  OrderKind::Crossed { .. } => return Err(super::not_crossing("Kraken")) };
-        let mut fields = vec![("ordertype", ordertype.to_string()), ("type", o.side.as_str().into()), ("volume", o.volume.clone()), ("pair", o.pair.clone()),
-                              ("cl_ord_id", o.cl_ord_id.clone())];
+        let mut fields = vec![("ordertype", ordertype.to_string()), ("type", o.side.as_str().into()), ("volume", o.volume.clone()), ("pair", o.pair.clone())];
+        fields.extend(asset_class(&o.pair));
+        fields.push(("cl_ord_id", o.cl_ord_id.clone()));
         if let Some(p) = price { fields.push(("price", p)); }
         if o.quote_volume { fields.push(("oflags", "viqc".into())); }
         fields.push(("deadline", o.deadline.to_rfc3339_opts(SecondsFormat::Millis, true)));
@@ -539,7 +554,8 @@ impl<T: Transport> Venue for KrakenVenue<T> {
         let body = self.fetch_prices(&self.public(TICKER, vec![])).await?;
         let (mut prices, missing) = ticker_prices(&body, symbols)?;
         for code in missing {
-            let body = self.fetch_prices(&self.public(TICKER, vec![("pair", code.clone())])).await?;
+            // The all-pairs read is the currency class only; an xStock comes back missing and is asked for with its class.
+            let body = self.fetch_prices(&self.public(TICKER, ticker_query(&code))).await?;
             if let Some(p) = pair_price(&body, &code)? { prices.push((code, p)); }
         }
         Ok(prices.into_iter().map(|(code, p)| (code, Value::String(p.to_s_f()))).collect())
