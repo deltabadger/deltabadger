@@ -1,6 +1,9 @@
 name: Rust engine
 
 on:
+  # The image job only: base images and package repositories change under an unchanged repository.
+  schedule:
+    - cron: '17 3 * * *'
   # main only: a branch is checked by its pull request (pushing to it ran the same suite twice before).
   push:
     branches: [main]
@@ -14,6 +17,9 @@ on:
       - 'docker-entrypoint.sh'
       - '.dockerignore'
       - 'test/config/docker_entrypoint_secrets_test.rb'
+      # Read by the build too: the app version the binary embeds, and build.rs's gates.
+      - 'src-tauri/Cargo.toml'
+      - 'script/rust/**'
       # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
       # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
       - 'db/migrate/**'
@@ -198,6 +204,9 @@ on:
       - 'docker-entrypoint.sh'
       - '.dockerignore'
       - 'test/config/docker_entrypoint_secrets_test.rb'
+      # Read by the build too: the app version the binary embeds, and build.rs's gates.
+      - 'src-tauri/Cargo.toml'
+      - 'script/rust/**'
       # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
       # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
       - 'db/migrate/**'
@@ -385,6 +394,7 @@ concurrency:
 
 jobs:
   rust:
+    if: github.event_name != 'schedule'
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -482,6 +492,7 @@ jobs:
         run: cargo test --locked --test image --test entrypoint
 
   full-suite:
+    if: github.event_name != 'schedule'
     name: Full Rust suite with Rails parity (${{ matrix.partition }}/5)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
