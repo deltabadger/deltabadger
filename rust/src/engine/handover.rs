@@ -602,6 +602,123 @@ fn command_action(class: &str) -> &'static str {
     }
 }
 
+/// Where a piece of Rust-only state lives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Held {
+    /// A table Rust's migrations create and 2.x's schema lacks.
+    Table,
+    /// An `app_configs` key; one ending in ':' or '.' is a prefix.
+    AppConfig,
+    /// A `bots.transient_data` key.
+    Bot,
+    /// A field inside a Rails row's JSON.
+    Field,
+    /// A text key with no 2.x translation: a `stop_message_key` or a `bot_activity_logs.event`.
+    Text,
+}
+
+/// What a handback does with one piece of Rust-only state (PLAN-B2 §7, r1.10, r7.1). Rails is never handed state it
+/// can't run safely: an order only Rust records, a rule only Rust runs, a pending decision only Rust settles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Handback {
+    /// Refused while it exists; the refusal line contains this text. Nothing is written.
+    Refuses(&'static str),
+    /// Waited for: the handback ends Unresolved (exit 3) or waits out the webhook calls, then settles it.
+    Waits,
+    /// Finished or removed by the handback, before the lease moves.
+    Settled,
+    /// Handed back as it is: 2.x never reads it, and a reclaim finds it again.
+    Ignored,
+    /// Handed back: 2.x's adoption acts on it (config/initializers/engine_lease.rb `adopt_handback!`).
+    Adopted,
+    /// Handed back: a cache 2.x never reads, refilled on demand.
+    Cache,
+}
+
+/// Every piece of Rust-only state and its one handback outcome (PLAN-B2 r1.10). Pinned against the code by tests/handover.rs
+/// `every_rust_only_state_has_a_handback_outcome` (every table Rust's migrations add, every rust_… key in src/), and
+/// each refusing or waiting row is run by `each_refusing_state_refuses_the_handback_and_writes_nothing`.
+pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
+    use Handback::*;
+    use Held::*;
+    &[
+        // ---- tables ----
+        // The user's imported accounts and rows (tracker): 2.x never reads them.
+        (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
+        (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
+        // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on Rails' own rows (D-IBKR-HANDBACK).
+        (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
+        (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
+        // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
+        (Table, "kucoin_coverage", Refuses("KuCoin HF history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
+        // API orders (D-ORDER-QUEUED): one placed through a bot is that bot's rust_placement (a wait). A standalone one is
+        // never sent again after a restart (api_orders::sweep_at_start); once placed it is a venue order no bot follows,
+        // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
+        // its stored route (a KuCoin HF or UTA family) is this engine's; 2.x's cancel sends on its own route.
+        (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
+        // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
+        (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
+        (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
+        (Table, "rust_withdrawal_candidates", Ignored), (Table, "rust_withdrawal_ids", Ignored), (Table, "rust_rule_log_origins", Ignored),
+        (Table, "rust_rails_attempt_acks", Ignored), (Table, "rust_rails_job_acks", Ignored), (Table, "rust_recorder_runs", Ignored),
+        // Tax: a queued report runs after a reclaim; the carried costs are the user's (r7.1: intact after handback, 2.x boot
+        // and reclaim).
+        (Table, "rust_tax_reports", Ignored), (Table, "rust_tax_pl_carry", Ignored),
+        (Table, "nbp_rates", Cache), (Table, "nbp_coverage", Cache), (Table, "cnb_rates", Cache), (Table, "cnb_coverage", Cache),
+        (Table, "estv_crypto_values", Cache),
+        // Rust's migration record: 2.x's db:migrate leaves it alone.
+        (Table, "rust_schema_migrations", Ignored),
+        // ---- app_configs ----
+        (AppConfig, "engine_lease", Adopted),
+        (AppConfig, "rust_created_at", Refuses("this install was created new, so there is no earlier app to hand it back to.")),
+        (AppConfig, "rust_taken_over_at", Ignored), (AppConfig, "rust_handed_back_at", Ignored),
+        (AppConfig, "rust_binance_a12_v1:", Refuses("Binance A12 identity data permanently requires Rust ownership")),
+        (AppConfig, "rust_binance_repair_gaps.", Ignored), (AppConfig, "rust_account_identity_key_v1", Ignored),
+        (AppConfig, "rust_coinbase_size_in_quote_repaired_at", Ignored),
+        // KuCoin (reconcile.rs): an HF or UTA order record refuses; a Classic one is Rails' own route. An obligation or an
+        // unproven route sits on Rails' own transaction row, which adopt_handback! polls while it is open.
+        (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF orders are Rust-only")),
+        (AppConfig, "rust_kucoin_unresolved:", Ignored), (AppConfig, "rust_kucoin_evidence:", Ignored), (AppConfig, "rust_kucoin_origin:", Ignored),
+        (AppConfig, "rust_kucoin_hf_gap.", Ignored),
+        // A user cancel's re-read: adopt_handback! polls every open order.
+        (AppConfig, "rust_cancel_reread:", Ignored),
+        // The takeover's journals: the queue rows it handled are deleted first (finish_queue_work, finish_signal_import);
+        // a row that won't go refuses. The wakes are woken again at a reclaim.
+        (AppConfig, "rust_rails_queue_done", Settled), (AppConfig, "rust_signal_import", Settled), (AppConfig, "rust_rails_wakes", Ignored),
+        (AppConfig, "rust_rule_import", Refuses("withdrawal job cleanup is pending")),
+        (AppConfig, "rust_rule_job_cleanup", Refuses("withdrawal job cleanup is pending")),
+        (AppConfig, "rust_rules_fired_at", Ignored),
+        (AppConfig, "rust_job.", Ignored), (AppConfig, "rust_sync.", Ignored), (AppConfig, "rust_tracker_gaps.", Ignored),
+        (AppConfig, "rust_tracker_ledger.", Cache),
+        // ---- bots.transient_data ----
+        (Bot, "rust_placement", Waits), (Bot, "rust_reversal_cancels", Waits), (Bot, "rust_signal_calls", Waits),
+        (Bot, "rust_base_cap_rotation_pending", Refuses("run the engine to settle the base-cap rotation decision before handing back")),
+        (Bot, "rust_redeploy_request", Refuses("redeploy request pending; run the engine before handing back")),
+        (Bot, "liquidation_selling_since.holdings", Refuses("liquidation request pending; run the engine before handing back")),
+        (Bot, "rust_amount_limit_stops_pending", Settled), (Bot, "rust_condition_check_dead", Settled), (Bot, "rust_condition_info", Settled),
+        (Bot, "rust_condition_info_wanted", Settled), (Bot, "rust_defer_until", Settled), (Bot, "rust_continue_start", Settled),
+        (Bot, "rust_index_resync", Adopted),
+        // D-HANDBACK-SPLIT-HOLD: 2.x does not compare a split against the venue's positions, so it would trade the bot.
+        (Bot, "rust_split_hold", Refuses("its holdings disagree with a stock split")),
+        // A set-aside bot is stopped; 2.x shows its stop key untranslated (D-HANDBACK-RUST-TEXT).
+        (Bot, "rust_set_aside", Ignored),
+        // Mail 2.x never sends.
+        (Bot, "rust_set_aside_mail_pending", Ignored), (Bot, "rust_error_mail_pending", Ignored), (Bot, "rust_stopped_mail_pending", Ignored),
+        (Bot, "rust_limit_mail_pending", Ignored), (Bot, "rust_base_limit_mail_pending", Ignored), (Bot, "rust_funds_mail_pending", Ignored),
+        (Bot, "rust_base_cap_stop_mailed", Ignored),
+        // The tick's own holds and stamps; a halted rebalance's halt is Rails' own rebalance_pending.
+        (Bot, "rust_failure_origin", Ignored), (Bot, "rust_flip_refusal", Ignored),
+        (Bot, "rust_history_generation", Ignored), (Bot, "run_generation", Ignored), (Bot, "tick_generation", Ignored), (Bot, "rust_rebalance_halted", Ignored), (Bot, "rust_rebalance_resolution", Ignored),
+        (Bot, "rust_rebalance_resolved_orders", Ignored),
+        // ---- elsewhere ----
+        // In account_transactions.raw_data of rows this engine wrote: 2.x reads neither field.
+        (Field, "rust_split_legs", Ignored), (Field, "amounts_inexact", Ignored), (Field, "source_rows", Ignored),
+        // D-HANDBACK-RUST-TEXT: 2.x renders these as a missing translation (no raise); never rewritten or cleared.
+        (Text, super::set_aside::STOP_KEY, Ignored), (Text, UPGRADE_SIGNAL_UNRESOLVED, Ignored), (Text, UPGRADE_COMMAND_DROPPED, Ignored),
+        (Text, UPGRADE_ORDER_UNRECORDED, Ignored),
+    ]
+};
+
 pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
     hand_back_since(lock, o, factory, cipher, clock, DateTime::<Utc>::MIN_UTC).await
 }
@@ -644,6 +761,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     for id in super::reversal::pending_settlements(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
     refuse_pending_rotations(&o.primary)?;
+    refuse_split_holds(&o.primary)?;
     refuse_commands(&o.primary)?;
     // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
     // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row
@@ -662,6 +780,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_rust_only_conditions(&tx)?;
     refuse_ibkr(&tx, now)?;
     refuse_pending_rotations(&tx)?;
+    refuse_split_holds(&tx)?;
     refuse_commands(&tx)?;
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
@@ -885,6 +1004,16 @@ fn refuse_pending_rotations(c: &Connection) -> Result<(), EngineError> {
     let ids = s.query_map([format!("$.{key}")], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     if ids.is_empty() { return Ok(()); }
     Err(EngineError::Ineligible(ids.into_iter().map(|id| format!("bot {id}: {key} is pending; run the engine to settle the base-cap rotation decision before handing back")).collect()))
+}
+
+/// D-HANDBACK-SPLIT-HOLD: a bot this engine holds because a stock split disagrees with the venue's positions (tick.rs,
+/// `rust_split_hold`); 2.x makes no such comparison and would trade it. The hold clears at the bot's next tick that agrees.
+fn refuse_split_holds(c: &Connection) -> Result<(), EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_type(transient_data, '$.rust_split_hold') IS NOT NULL AND status <> ?1 ORDER BY id")?;
+    let ids = s.query_map([BotStatus::Deleted as i64], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    if ids.is_empty() { return Ok(()); }
+    Err(EngineError::Ineligible(ids.into_iter().map(|id| format!("bot {id}: trading is held because its holdings disagree with a stock split; \
+        let this engine run the bot until the hold clears before handing back")).collect()))
 }
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {

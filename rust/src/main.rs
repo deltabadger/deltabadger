@@ -40,18 +40,18 @@ fn main() {
             refuse_url_overrides(&env);
             let paths = paths(&env);
             let _lock = take_lock(&paths);
-            let report = store::check(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
+            let report = store::check(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
             for version in &report.pending_rust { println!("pending Rust migration {version}: run or serve applies it"); }
             // What `run` and `serve` will start from (PLAN-B2 r1.9, r2.2): the files copied into memory, the secret checked
             // as they check it, then this build's pending migrations applied to the copy. The files are only read.
-            let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
+            let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
             let cipher = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).map(|secret| {
                 let cipher = Cipher::new(&EncryptionKeys::resolve(&env, &secret).unwrap_or_else(|_| fail("index encryption configuration unreadable")));
                 if !deltabadger::crypto::reads_install(&copy.primary, &cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
                 cipher
             });
             if cipher.is_none() { println!("{SECRET_NOT_CHECKED}"); }
-            store::migrate_copy(&copy).unwrap_or_else(|e| fail(&explain(e, &paths)));
+            store::migrate_copy(&copy).unwrap_or_else(|e| refuse_store(e, &paths));
             let c = copy.primary;
             if let Some(cipher) = &cipher {
                 deltabadger::engine::provider::bind(&c,cipher,&env).unwrap_or_else(|_|fail("index configuration reader unavailable"));
@@ -98,8 +98,8 @@ fn main() {
             let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
             let cipher=Cipher::new(&keys);
             check_readable(&paths,&cipher);
-            store::migrate(&paths,&lock).unwrap_or_else(|e|fail(&explain(e, &paths)));
-            let o=store::open(&paths).unwrap_or_else(|e|fail(&explain(e, &paths)));
+            store::migrate(&paths,&lock).unwrap_or_else(|e|refuse_store(e, &paths));
+            let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths));
             if let Target::RailsList(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::seed_rails_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
@@ -123,7 +123,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
+            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
             deltabadger::engine::placement::resolve_by_operator(&o.primary, bot_id, resolution, chrono::Utc::now())
                 .unwrap_or_else(|e| fail(&format!("{e:?}")));
             println!("resolved");
@@ -141,7 +141,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
+            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
             match deltabadger::engine::reconcile::by_operator(&o.primary, tx_id, &text, chrono::Utc::now()) {
                 Ok(deltabadger::engine::reconcile::Operator::Reconciled) => println!("reconciled"),
                 Ok(deltabadger::engine::reconcile::Operator::AlreadyReconciled) => println!("already reconciled"),
@@ -213,9 +213,32 @@ fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
     match e {
         // Not on the refusal page: the engine that holds the lock is the one serving this install.
         LeaseError::Locked => { eprintln!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
-        LeaseError::RailsAlive { seconds_ago } => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        // A heartbeat in the future is a clock ahead of this one: the detail's negative age says so.
+        LeaseError::RailsAlive { seconds_ago } => fail_with(RAILS_ALIVE, &format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         LeaseError::Io(e) => fail(&format!("{}: {e}", paths.lock_file().display())),
         e => fail(&format!("{e:?}")),
+    }
+}
+
+/// C1, the user's words (no version); the operator's detail names the release that brings the data up to date.
+const BEHIND: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Go back to your previous \
+                      Deltabadger, update it to its latest version and start it. Once it has finished starting, stop it and start this \
+                      again. Nothing was changed.";
+const RAILS_ALIVE: &str = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. \
+                           Stop it, then start this again. Nothing was changed.";
+// Not "Nothing was changed": the Rust migrations and the backup ran before the takeover refused.
+const TAKEOVER_INELIGIBLE: &str = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was bought or \
+                                   sold. Contact support.";
+
+fn behind_detail(missing: usize) -> String {
+    format!("this data is behind this build ({missing} migration(s) missing): run Deltabadger 2.70.21 until its background jobs have finished, stop it, then start this again")
+}
+
+/// `fail` for a store refusal: Behind in the user's words with the operator's detail, the rest in `explain`'s.
+fn refuse_store(e: StoreError, paths: &Paths) -> ! {
+    match e {
+        StoreError::Behind { missing } => fail_with(BEHIND, &behind_detail(missing.len())),
+        e => fail(&explain(e, paths)),
     }
 }
 
@@ -223,6 +246,7 @@ fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
 /// the primary first) from a missing install.
 fn explain(e: StoreError, paths: &Paths) -> String {
     match e {
+        StoreError::Behind { missing } => format!("{BEHIND}\n{}", behind_detail(missing.len())),
         StoreError::Missing { path } if path == paths.queue => format!("the job queue {} is missing, but this install's data is at {}. Put the queue file back, or set QUEUE_DATABASE_PATH to where it is, then start again.", path.display(), paths.primary.display()),
         StoreError::Missing { path } => format!("there's no Deltabadger data at {} yet. Start \"deltabadger serve\" to set up a new install.", path.display()),
         StoreError::QueueInTheWay { path } => {
@@ -230,7 +254,6 @@ fn explain(e: StoreError, paths: &Paths) -> String {
             format!("can't set up a new install: {queue} already has data in it, but {primary} doesn't exist. If this is an existing install, restore {primary} or set DATABASE_PATH to it. To start fresh, move {queue} out of the way.")
         }
         StoreError::Unrecognised { path } => format!("{} is not a Deltabadger database; refusing to touch it", path.display()),
-        StoreError::Behind { missing } => format!("this data is behind this build ({} migration(s) missing): run the matching Rails app until its background jobs have finished, stop it, then start this again", missing.len()),
         StoreError::Unsupported { unknown } => format!("this data has migrations this build does not know ({}); use a newer build", unknown.join(", ")),
         StoreError::Diverged { .. } => "this data's migration history differs from this build's; refusing".into(),
         StoreError::Incompatible { problems } => format!("this data's structure differs from what this build expects:\n{}", problems.join("\n")),
@@ -253,7 +276,7 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     let cipher = Cipher::new(&keys);
     let paths = paths(env);
     let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
-    let created = start && store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| fail(&explain(e, &paths)));
+    let created = start && store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths));
     if created {
         log(&format!("set up a new install at {}", paths.primary.display()));
         #[cfg(debug_assertions)]
@@ -262,9 +285,9 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     check_readable(&paths, &cipher);
     if start && !created && !owned_by_rust(&paths, &cipher) { back_up(&paths) }
     if start {
-        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| fail(&explain(e, &paths))) { log(&format!("applied Rust migration {version}")); }
+        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths)) { log(&format!("applied Rust migration {version}")); }
     }
-    let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e, &paths)));
+    let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
     // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
     if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
@@ -310,7 +333,7 @@ const SECRET_NOT_CHECKED: &str = "note: SECRET_KEY_BASE isn't set, so this didn'
 /// the install (crypto::reads_install). Nothing is written before either refusal: `identity::initialize` would clear
 /// every known account identity under a wrong secret.
 fn check_readable(paths: &Paths, cipher: &Cipher) {
-    store::check(paths).unwrap_or_else(|e| fail(&explain(e, paths)));
+    store::check(paths).unwrap_or_else(|e| refuse_store(e, paths));
     let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
     if !deltabadger::crypto::reads_install(&c, cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
 }
@@ -319,7 +342,7 @@ fn check_readable(paths: &Paths, cipher: &Cipher) {
 /// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
 fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
     let install = paths(env);
-    let own = store::open(&install).unwrap_or_else(|e| fail(&explain(e, &install))).primary;
+    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install)).primary;
     deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
 }
 
@@ -389,7 +412,8 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
     let t = match handover::take_over(lock, o, cipher, env!("CARGO_PKG_VERSION"), chrono::Utc::now()) {
         Ok(t) => t,
         Err(EngineError::HardStop(message)) => return refused(EXIT_REFUSED, message),
-        Err(EngineError::Ineligible(p)) => return refused(EXIT_REFUSED, format!("this install uses things only the full app runs:\n{}", p.join("\n"))),
+        // The lines are support's (e.g. a Rails withdrawal to resolve with resolve-withdrawal): stderr only.
+        Err(EngineError::Ineligible(p)) => { eprintln!("deltabadger: {}", p.join("\n")); return refused(EXIT_REFUSED, TAKEOVER_INELIGIBLE.into()) }
         Err(e) => return refused(EXIT_ENGINE_ERROR, format!("takeover failed: {e:?}")),
     };
     for aside in &t.set_aside { log(&deltabadger::engine::set_aside::stopped(aside)); }
@@ -468,7 +492,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
     // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.
     let install = paths(env);
-    let own = store::open(&install).unwrap_or_else(|e| fail(&explain(e, &install))).primary;
+    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install)).primary;
     let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).and_then(|app| app.with_queue_path(install.queue))
         .unwrap_or_else(|e| fail(&web_problem(e)));
     let mail = mail_sender(env, &cipher);
@@ -520,7 +544,7 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let result = rt.block_on(async { handover::hand_back_cli(&lock, &o, &LiveFactory::for_install(&o.primary, &cipher), &cipher, &SystemClock).await });
     let code = handover::handback_exit_code(&result);
     match result {
-        Ok(n) => log(&format!("handed back: {n} bot(s) scheduled; the Rails app may start now")),
+        Ok(n) => log(&format!("handed back: {n} bot(s) scheduled. You can start Deltabadger 2.70.21 now.")),
         Err(EngineError::Unresolved(ids)) => {
             eprintln!("deltabadger: handback refused: the venue could not yet account for the order of bot(s) {ids:?}.\n\
                        Look each order up on the venue's own site by its client order id (bots.transient_data.rust_placement.cl_ord_id),\n\
@@ -681,6 +705,16 @@ static REFUSAL_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
 
 fn fail(msg: &str) -> ! {
     eprintln!("deltabadger: {msg}");
+    refuse(msg)
+}
+
+/// `fail`, with the operator's `detail` after the user's `line` on stderr; the refusal page shows the line alone.
+fn fail_with(line: &str, detail: &str) -> ! {
+    eprintln!("deltabadger: {line}\ndeltabadger: {detail}");
+    refuse(line)
+}
+
+fn refuse(msg: &str) -> ! {
     // Every `fail` in `serve` comes before the takeover (claim_install): nothing was taken over from Rails and nothing
     // trades. A new install bootstrap created is Rust's from its first commit (lease::begin_created), so a later refusal
     // leaves it Rust's and idle, as an exit did. The lock goes now; the idle handles the frames below read nothing more.

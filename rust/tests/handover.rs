@@ -1503,3 +1503,239 @@ fn a_wake_row_queued_after_an_earlier_takeover_is_owed_a_new_run() {
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", later).unwrap();
     assert_eq!(handover::due_rails_wakes(&o.primary, later).unwrap(), [(TRACKER_LEDGER.to_string(), scope)]);
 }
+
+// ---- PLAN-B2 B2-7: the handback matrix (r1.10, r7.1) and Rust-only texts on 2.x (D-HANDBACK-RUST-TEXT) -------------------
+
+/// `"rust_…"` literals in src/ that name no stored state: the index provider's SQL functions.
+const NOT_STATE: &[&str] = &["rust_index_env", "rust_index_decrypt"];
+
+/// The states that refuse or wait, written out here too: moving one to a handed-back outcome in HANDBACK_STATE must change
+/// this list as well.
+const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdrawal_intents", "rust_rule_evaluations", "rust_created_at",
+    "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
+    "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold"];
+
+/// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
+const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
+    ("ibkr_reservations", "tests/ibkr_placement.rs the_handback_is_refused_while_ibkr_holds_anything"),
+    ("rust_placement", "tests/handover.rs an_unresolved_order_blocks_handback_and_rails_keeps_refusing"),
+];
+
+fn rs_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() { rs_files(&path, out) } else if path.extension().is_some_and(|e| e == "rs") { out.push(path) }
+    }
+}
+
+/// Whether `literal` (a key or a key path found in src/) is the state `row` names: the key itself, a key under a prefix
+/// row (ending in ':' or '.'), or a path inside the key.
+fn names(row: &str, literal: &str) -> bool {
+    literal == row || ((row.ends_with(':') || row.ends_with('.')) && literal.starts_with(row)) || literal.starts_with(&format!("{row}."))
+}
+
+/// PLAN-B2 r1.10: every piece of Rust-only state has exactly one handback outcome in handover::HANDBACK_STATE, built from the
+/// code: every table Rust's migrations create that 2.x's db/schema.rb lacks, every `"rust_…"` key in src/, every activity
+/// event the takeover writes. A row naming nothing the code still has fails too.
+#[test]
+fn every_rust_only_state_has_a_handback_outcome() {
+    use handover::{Held, HANDBACK_STATE};
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let rows: std::collections::BTreeSet<&str> = HANDBACK_STATE.iter().map(|(_, name, _)| *name).collect();
+    assert_eq!(rows.len(), HANDBACK_STATE.len(), "a state listed twice");
+    let schema = std::fs::read_to_string(root.parent().unwrap().join("db/schema.rb")).unwrap();
+    let rails: std::collections::BTreeSet<String> = regex::Regex::new(r#"create_table "([a-z_0-9]+)""#).unwrap()
+        .captures_iter(&schema).map(|m| m[1].to_string()).collect();
+    assert!(rails.contains("bots") && rails.contains("app_configs"), "{rails:?}");
+    let mut found = std::collections::BTreeSet::new();
+    let create = regex::Regex::new(r"CREATE TABLE ([a-z_0-9]+)").unwrap();
+    for entry in std::fs::read_dir(root.join("migrations")).unwrap() {
+        for m in create.captures_iter(&std::fs::read_to_string(entry.unwrap().path()).unwrap()) {
+            if !rails.contains(&m[1]) { found.insert(m[1].to_string()); }
+        }
+    }
+    assert!(found.contains("rust_tax_pl_carry") && found.contains("estv_crypto_values"), "{found:?}");
+    let tables = found.clone();
+    let mut files = vec![];
+    rs_files(&root.join("src"), &mut files);
+    // The table itself is not the code it is pinned against.
+    let source: String = files.iter().map(|f| {
+        let text = std::fs::read_to_string(f).unwrap();
+        match (text.find("pub const HANDBACK_STATE"), f.ends_with("engine/handover.rs")) {
+            (Some(start), true) => { let end = start + text[start..].find("\n};").unwrap(); format!("{}{}", &text[..start], &text[end..]) }
+            _ => text,
+        }
+    }).collect();
+    assert!(!source.contains("(AppConfig, \"rust_created_at\""), "the table is cut out of the scanned source");
+    let literal = regex::Regex::new(r#""(rust_[a-z0-9_.:]*)"#).unwrap();
+    for m in literal.captures_iter(&source) {
+        if !NOT_STATE.contains(&&m[1]) { found.insert(m[1].to_string()); }
+    }
+    // The takeover's activity events and the set-aside stop key: 2.x has no translation for them.
+    let events = regex::Regex::new(r#"pub const UPGRADE_[A-Z_]+: &str = "([a-z_]+)""#).unwrap();
+    for m in events.captures_iter(&source) { found.insert(m[1].to_string()); }
+    found.insert(deltabadger::engine::set_aside::STOP_KEY.to_string());
+    // The transient keys the engine declares its own, prefixed or not (parity's list, the mail markers).
+    found.extend(deltabadger::parity::RUST_KEYS.iter().chain(deltabadger::engine::notice::KEYS.iter()).map(|k| k.to_string()));
+    let missing: Vec<_> = found.iter().filter(|f| !rows.iter().any(|r| names(r, f))).collect();
+    assert!(missing.is_empty(), "Rust-only state without a handback outcome in handover::HANDBACK_STATE: {missing:?}");
+    let stale: Vec<_> = rows.iter().filter(|r| !found.iter().any(|f| names(r, f)) && !source.contains(**r)).collect();
+    assert!(stale.is_empty(), "handover::HANDBACK_STATE names state the code no longer has: {stale:?}");
+    for (held, name, _) in HANDBACK_STATE {
+        assert_eq!(*held == Held::Table, tables.contains(*name) || *name == "rust_schema_migrations", "{name} is held as {held:?}");
+    }
+    let en = std::fs::read_to_string(root.parent().unwrap().join("config/locales/base.en.yml")).unwrap();
+    for (_, name, _) in HANDBACK_STATE.iter().filter(|(held, _, _)| *held == Held::Text) {
+        let leaf = name.rsplit('.').next().unwrap();
+        assert!(!en.contains(&format!(" {leaf}:")), "{name} has a 2.x translation now: it is no longer Rust-only text");
+    }
+}
+
+/// A taken-over 2.x install holding exactly the state `name` names, on `bot`.
+fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
+    let set = |key: &str, value: &str| deltabadger::app_config::set_plain(&o.primary, key, value, now()).unwrap();
+    let transient = |path: &str, value: &str| { o.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{path}', json(?1)) WHERE id = ?2"), rusqlite::params![value, bot]).unwrap(); };
+    match name {
+        "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
+        "rust_withdrawal_intents" => { o.primary.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
+                                                          VALUES ('rule:1', 'dispatched', 'c', '2026-09-30 12:00:00', 1, 'd', 'h', 'a', 'k', 'p', 'f', '1', '1')", []).unwrap(); }
+        "rust_rule_evaluations" => { o.primary.execute("INSERT INTO rust_rule_evaluations (rule_id, source, created_at) VALUES (1, 'start', '2026-09-30 12:00:00')", []).unwrap(); }
+        "rust_created_at" => set(lease::CREATED_AT, "2026-09-30T12:00:00.000Z"),
+        "rust_binance_a12_v1:" => set("rust_binance_a12_v1:install_written", "1"),
+        "rust_kucoin_order:" => {
+            let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_id": "HF1", "external_status": 2, "created_at": "2026-09-01 10:00:00"}));
+            set(&format!("{}{row}", deltabadger::venue::kucoin::ORDER_RECORD), r#"{"family":"ClassicHf"}"#);
+        }
+        "rust_rule_import" | "rust_rule_job_cleanup" => set(name, r#"["job-1"]"#),
+        "rust_reversal_cancels" => transient(name, r#"[{"transaction_id":1}]"#),
+        "rust_signal_calls" => {
+            o.primary.execute("UPDATE bots SET type = 'Bots::Signal' WHERE id = ?1", [bot]).unwrap();
+            model::append_signal_call(&o.primary, bot, &model::SignalCall { source: "hook:x".into(), signal_id: 1, triggered_at: now() }).unwrap();
+        }
+        "rust_base_cap_rotation_pending" => transient(name, "true"),
+        "rust_redeploy_request" => transient(name, "{}"),
+        "rust_split_hold" => transient(name, r#"{"reason":"positions differ","at":"2026-09-30T12:00:00.000Z"}"#),
+        "liquidation_selling_since.holdings" => transient("liquidation_selling_since", r#"{"holdings":{}}"#),
+        other => panic!("{other}: no setup in the matrix run and not in PROVEN_ELSEWHERE"),
+    }
+}
+
+/// PLAN-B2 r1.10: on a 2.x-born install, each refusing state refuses the handback with its line, and each waiting state
+/// makes it wait, with nothing written either way.
+#[tokio::test(flavor = "current_thread")]
+async fn each_refusing_state_refuses_the_handback_and_writes_nothing() {
+    use handover::Handback;
+    let mut ran = 0;
+    for (_, name, outcome) in handover::HANDBACK_STATE {
+        if !matches!(outcome, Handback::Refuses(_) | Handback::Waits) || PROVEN_ELSEWHERE.iter().any(|(n, _)| n == name) { continue; }
+        let dir = common::rails_install();
+        let p = Paths::from_env(&|_| None, dir.path());
+        let l = lease::lock(&p, now()).unwrap();
+        let o = store::open(&p).unwrap();
+        let s = seed::seed_kraken(&o.primary, &seed::cipher());
+        let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+        handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+        hold(name, &o, &s, bot);
+        let before = common::schema::dump(&o.primary);
+        let r = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
+        match (outcome, &r) {
+            (Handback::Refuses(line), Err(EngineError::Ineligible(lines))) => assert!(lines.iter().any(|l| l.contains(line)), "{name}: {lines:?}"),
+            (Handback::Waits, Err(EngineError::Unresolved(_) | EngineError::SignalCallsWaiting(_))) => {}
+            _ => panic!("{name}: expected {outcome:?}, got {r:?}"),
+        }
+        assert_eq!(common::schema::dump(&o.primary), before, "{name}: nothing written");
+        assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "{name}");
+        ran += 1;
+    }
+    let refusing: std::collections::BTreeSet<&str> = handover::HANDBACK_STATE.iter().filter(|(_, _, o)| matches!(o, Handback::Refuses(_) | Handback::Waits)).map(|(_, n, _)| *n).collect();
+    assert_eq!(refusing, REFUSING.iter().copied().collect(), "the refusing states changed");
+    assert_eq!(ran + PROVEN_ELSEWHERE.len(), refusing.len(), "every refusing or waiting state is run here or proven elsewhere");
+}
+
+/// PLAN-B2 r1.10, r7.1, D-HANDBACK-RUST-TEXT: a 2.x-born install holding every handed-back state is handed back; `check`
+/// reads it as handed back; 2.70.21 boots, adopts it, leaves every ignored key as it was and shows the Rust-only texts (a
+/// set-aside bot's stop key, the takeover's activity lines) as missing translations without raising; a reclaim finds the
+/// carried tax costs intact.
+#[tokio::test(flavor = "current_thread")]
+async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untranslated() {
+    use handover::{Handback, Held};
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let aside = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("future_price_drop_limited", json!(true)));
+    let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(t.set_aside.iter().map(|a| a.id).collect::<Vec<_>>(), [aside]);
+    for event in [handover::UPGRADE_SIGNAL_UNRESOLVED, handover::UPGRADE_COMMAND_DROPPED, handover::UPGRADE_ORDER_UNRECORDED] {
+        model::log_activity(&o.primary, bot, event, model::Level::Warning, json!({}), now()).unwrap();
+    }
+    // Every handed-back key, beside what the takeover wrote itself.
+    let mut keys = vec![];
+    for (held, name, outcome) in handover::HANDBACK_STATE {
+        if !matches!(outcome, Handback::Ignored | Handback::Cache) { continue; }
+        match held {
+            Held::AppConfig => {
+                let key = if name.ends_with(':') || name.ends_with('.') { format!("{name}1") } else { name.to_string() };
+                o.primary.execute("INSERT OR IGNORE INTO app_configs (key, value, created_at, updated_at) VALUES (?1, '{}', '2026-09-30', '2026-09-30')", [&key]).unwrap();
+                keys.push(key);
+            }
+            // A generation is a counter the engine reads as one.
+            Held::Bot => if o.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{name}', json(?2)) WHERE id = ?1 AND json_type(transient_data, '$.{name}') IS NULL"),
+                                              rusqlite::params![bot, if name.ends_with("generation") { "1" } else { "{}" }]).unwrap() == 1 {
+                keys.push(format!("bot:{name}"));
+            },
+            Held::Table | Held::Field | Held::Text => {}
+        }
+    }
+    o.primary.execute("INSERT INTO rust_tax_pl_carry (user_id, year, costs, updated_at) VALUES (?1, 2024, '{\"BTC\":\"12.5\"}', '2026-09-30'), (?1, 2025, '{}', '2026-09-30')", [s.user_id]).unwrap();
+    let carry = |c: &rusqlite::Connection| c.query_row("SELECT group_concat(user_id || year || costs || updated_at, ';') FROM rust_tax_pl_carry", [], |r| r.get::<_, String>(0)).unwrap();
+    let held = |c: &rusqlite::Connection| keys.iter().filter(|k| {
+        match k.strip_prefix("bot:") {
+            Some(name) => c.query_row(&format!("SELECT json_type(transient_data, '$.{name}') IS NOT NULL FROM bots WHERE id = ?1"), [bot], |r| r.get::<_, bool>(0)).unwrap(),
+            None => c.query_row("SELECT EXISTS (SELECT 1 FROM app_configs WHERE key = ?1)", [k], |r| r.get::<_, bool>(0)).unwrap(),
+        }
+    }).count();
+    let carried = carry(&o.primary);
+    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
+    assert_eq!(held(&o.primary), keys.len(), "the handback keeps what it hands back");
+    drop((l, o));
+
+    // `check` reads the result as handed back: nothing to refuse, the lease Rails' to adopt.
+    let check = Command::new(env!("CARGO_BIN_EXE_deltabadger")).arg("check").env("STORAGE_DIR", dir.path()).env("SECRET_KEY_BASE", "engine-test-secret")
+        .env("IBKR_CATALOGUE_URL", "off").env_remove("DATABASE_PATH").env_remove("QUEUE_DATABASE_PATH").env_remove("DATABASE_URL")
+        .env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").output().unwrap();
+    assert!(check.status.success(), "{}", String::from_utf8_lossy(&check.stderr));
+    let c = rusqlite::Connection::open(&p.primary).unwrap();
+    let lease = lease::read(&c, &seed::cipher()).unwrap().unwrap();
+    assert_eq!((lease["engine"].as_str(), lease["handed_back"].as_bool()), (Some("none"), Some(true)));
+    drop(c);
+
+    // 2.70.21 boots on it and renders the set-aside bot's status bar and both bots' activity lines.
+    let script = format!("[{aside}, {bot}].each do |id|\n  b = Bot.find(id)\n  puts \"STATUS #{{id}} \" + ApplicationController.render(partial: 'bots/status/status_bar', locals: {{ bot: b }}).squish\n  \
+                          BotActivityLog.where(bot_id: id).order(:id).each {{ |a| puts \"EVENT #{{a.event}} \" + ApplicationController.helpers.bot_activity_summary(a).to_s.squish }}\nend\nputs :rendered");
+    let scratch = tempfile::tempdir().unwrap();
+    let file = scratch.path().join("render.rb");
+    std::fs::write(&file, script).unwrap();
+    let out = rails_on(dir.path(), scratch.path(), &["runner", file.to_str().unwrap()]).output().expect("bin/rails runs");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success() && stdout.contains("rendered"), "2.x raises on a Rust-only text: {}\n{stdout}", String::from_utf8_lossy(&out.stderr));
+    // D-HANDBACK-RUST-TEXT: no raise, a missing translation (an inherited display gap; no Rails polish).
+    let line = |prefix: &str| stdout.lines().find(|l| l.starts_with(prefix)).unwrap_or_else(|| panic!("{prefix}: {stdout}")).to_lowercase();
+    assert!(line(&format!("STATUS {aside} ")).contains("translation missing: en.bot.status.set_aside"), "{stdout}");
+    for event in [handover::UPGRADE_SIGNAL_UNRESOLVED, handover::UPGRADE_COMMAND_DROPPED, handover::UPGRADE_ORDER_UNRECORDED] {
+        assert!(line(&format!("EVENT {event} ")).contains(&format!("translation missing: en.bot_activity.events.{event}")), "{stdout}");
+    }
+    let c = rusqlite::Connection::open(&p.primary).unwrap();
+    assert_eq!(count(&c, "SELECT count(*) FROM app_configs WHERE key = 'engine_lease'"), 0, "adopted");
+    assert_eq!(held(&c), keys.len(), "2.x leaves every ignored key as it was");
+    assert_eq!(carry(&c), carried, "r7.1: carried costs intact after 2.x");
+    drop(c);
+
+    // The reclaim finds them.
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    assert!(matches!(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap().claim, Claim::FromRails));
+    assert_eq!(carry(&o.primary), carried, "r7.1: carried costs intact after the reclaim");
+}
