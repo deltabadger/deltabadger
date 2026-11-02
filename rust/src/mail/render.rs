@@ -108,6 +108,16 @@ pub fn set_aside(from: &str, urls: &Urls, to: &Recipient, label: &str, reasons: 
     message(from, false, &to.email, subject, urls, &body)
 }
 
+/// D-MAIL-STOPPED-SAYS-WHY: #stopped_by_error led by `why` (the status line's sentence for the stop's kind), Rails' subject,
+/// the exchange's words quoted below. No text of its own, so every locale reads it in its own words.
+pub fn stopped_saying_why(from: &str, urls: &Urls, to: &Recipient, label: &str, exchange_name: &str, why: &str, error: &str) -> Message {
+    let subject = i18n::text(to.locale, "bot_alerts_mailer.stopped_by_error.subject", &[("label", Arg::Text(label))]);
+    let e = i18n::escape;
+    let html = format!("<p><b>{}</b>: {}</p><blockquote><b>{}:</b> <b>{}</b></blockquote>", e(label), e(why), e(&exchange_name.to_uppercase()), e(error));
+    let body = format!("{}{html}", opening(to.locale, &subject, &to.name));
+    message(from, false, &to.email, subject, urls, &body)
+}
+
 /// BotAlertsMailer#stopped_by_amount_limit. `amount` is `quote_amount_limit.to_s`.
 pub fn stopped_by_amount_limit(from: &str, urls: &Urls, to: &Recipient, label: &str, amount: &str, quote: &str) -> Message {
     let subject = i18n::text(to.locale, "bot_alerts_mailer.stopped_by_amount_limit.subject", &[("label", Arg::Text(label))]);
@@ -253,12 +263,12 @@ fn ruby_to_s(v: Option<&Value>) -> String {
 /// A bot whose label is blank is named by Rails the first time it loads the row; here the label is used as stored
 /// (a listed divergence that needs a bot Rails never loaded).
 pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls: &Urls) -> Result<Option<Message>, EngineError> {
-    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
     let row: Option<Row> = c.query_row(
-        "SELECT b.label, b.settings, u.email, u.name, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
+        "SELECT b.label, b.settings, u.email, u.name, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2), b.stop_message_key FROM bots b JOIN users u ON u.id = b.user_id \
          LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
-        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))).optional()?;
-    let Some((label, settings, Some(email), name, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
+        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?))).optional()?;
+    let Some((label, settings, Some(email), name, stored_locale, exchange_name, exchange_type, base_marker, stop_key)) = row else { return Ok(None) };
     let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(format!("bot {bot_id}: settings: {e}")))?;
     let to = Recipient { email, name: bounded(&name.unwrap_or_default(), NAME_LIMIT), locale: user_locale(stored_locale.as_deref()) };
     let label = bounded(&label.unwrap_or_default(), NAME_LIMIT);
@@ -272,6 +282,14 @@ pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls
             (Some(exchange_name), Some(quote)) => Some(end_of_funds(from, urls, &to, &exchange_name, &quote)),
             _ => None,
         },
+        // D-MAIL-STOPPED-SAYS-WHY: while the bot still carries the stop's key, the mail leads with the sentence its status
+        // line shows for that kind of failure (what is wrong and what to do), then the exchange's own words. Rails' frame
+        // says "the exchange kept rejecting its orders" for every kind, and puts the instruction before the problem.
+        Notice::StoppedByError { error } if stop_key.as_deref().is_some_and(|k| k.starts_with("bot.status.stopped_by_error.")) && exchange_name.is_some() => {
+            let exchange_name = exchange_name.unwrap_or_default();
+            let sentence = humanize_error(exchange_type.as_deref().unwrap_or_default(), &exchange_name, to.locale, &bounded(error, ERROR_LIMIT));
+            Some(stopped_saying_why(from, urls, &to, &label, &exchange_name, &i18n::text(to.locale, stop_key.as_deref().unwrap_or_default(), &[]), &sentence))
+        }
         Notice::Error { error, .. } | Notice::StoppedByError { error } => exchange_name.map(|exchange_name| {
             let sentence = humanize_error(exchange_type.as_deref().unwrap_or_default(), &exchange_name, to.locale, &bounded(error, ERROR_LIMIT));
             failure(from, urls, &to, matches!(notice, Notice::StoppedByError { .. }), &label, &exchange_name, &sentence)

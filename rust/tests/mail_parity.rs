@@ -513,3 +513,30 @@ fn a_label_a_name_and_an_error_are_bounded_in_a_mail_and_ordinary_ones_are_untou
     assert!(mail.html.contains(&format!("<b>{}…</b>", "e".repeat(500))) && !mail.html.contains(&"e".repeat(501)));
     assert!(mail.html.len() < 4000, "{} bytes", mail.html.len());
 }
+
+/// D-MAIL-STOPPED-SAYS-WHY: a bot stopped for a blocking failure is mailed the sentence its status line shows for that
+/// kind (what is wrong, what to do), in the owner's language, before the exchange's own words; Rails' frame ("the exchange
+/// kept rejecting its orders … Sort the problem out") goes. A bot no longer carrying the stop's key gets Rails' mail.
+#[test]
+fn the_stopped_mail_says_what_is_wrong_and_what_to_do() {
+    use deltabadger::engine::notice::Notice;
+    let (_d, o, s) = common::install();
+    let bot = common::seed::insert_bot(&o.primary, &s, &common::seed::BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    o.primary.execute("UPDATE bots SET status = 2, label = 'My bot', stop_message_key = 'bot.status.stopped_by_error.invalid_key' WHERE id = ?1", [bot]).unwrap();
+    let urls = deltabadger::mail::render::Urls { root: "http://localhost:3000/".into() };
+    let notice = Notice::StoppedByError { error: "EAPI:Invalid key".into() };
+    let mail = |locale: &str| {
+        o.primary.execute("UPDATE users SET locale = ?1 WHERE id = ?2", rusqlite::params![locale, s.user_id]).unwrap();
+        deltabadger::mail::render::for_notice(&o.primary, bot, &notice, "bot@example.com", &urls).unwrap().unwrap()
+    };
+    for locale in ["en", "pl"] {
+        let m = mail(locale);
+        let why = deltabadger::web::i18n::escape(&deltabadger::web::i18n::text(locale, "bot.status.stopped_by_error.invalid_key", &[]));
+        assert!(m.html.contains(&format!("<p><b>My bot</b>: {why}</p>")), "{locale}: {}", m.html);
+        assert!(m.html.contains("<blockquote><b>KRAKEN:</b>"), "{locale}: the exchange's words follow: {}", m.html);
+        assert_eq!(m.subject, deltabadger::web::i18n::text(locale, "bot_alerts_mailer.stopped_by_error.subject", &[("label", deltabadger::web::i18n::Arg::Text("My bot"))]));
+    }
+    assert!(!mail("en").html.contains("Sort the problem out"));
+    o.primary.execute("UPDATE bots SET stop_message_key = NULL WHERE id = ?1", [bot]).unwrap();
+    assert!(mail("en").html.contains("Sort the problem out"), "without the key, Rails' mail");
+}
