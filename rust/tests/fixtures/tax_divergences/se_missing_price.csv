@@ -1,0 +1,24 @@
+Datum,Tillgång,Antal,Försäljningspris,Omkostnadsbelopp,Vinst/Förlust,Valuta,Avgift,Börs,Transaktions-ID,Omkostnadsbelopp komplett,Ofullständiga data
+"VARNING: 1 värden saknas — rapporten är ofullständig, lämna inte in den som den är"
+2026-03-10T08:00:00Z,ETH,2.0,55000.0,0.0,55000.0,SEK,0.0,kraken,K-ETH-2026-03-10T08:00:00Z-ETH,true,true
+2026-03-10T09:00:00Z,BTC,0.5,495000.0,330000.0,165000.0,SEK,0.0,kraken,K-BTC-2026-03-10T09:00:00Z-BTC,true,false
+
+"Bilaga K4, avsnitt D (övriga värdepapper, andra tillgångar)"
+Beteckning,Antal,Försäljningspris,Omkostnadsbelopp,Vinst,Förlust
+BTC,0.5,495000.0,330000.0,165000.0,
+ETH,2.0,55000.0,0.0,55000.0,
+Summa vinst (punkt 7.5),220000.0
+"Summa förlust (punkt 8.4, hela förlusten)",0.0
+"Avdragsgill förlust, 70 % (Skatteverket räknar om automatiskt)",0.0
+Ränteinkomster m.m. från kryptotillgångar (punkt 7.2),0.0
+"Överskott (+) eller underskott (−) av kapital, kryptotillgångar",220000.0
+Skatt 30 %,66000.0
+"Redovisas brutto: summa vinst vid punkt 7.5 och hela förlusten vid punkt 8.4; Skatteverket räknar själv om förlusten till 70 %. Resultatet och skatten gäller bara dina kryptotillgångar: andra kapitalinkomster och avdrag ändrar dem. Omkostnadsbeloppet är genomsnittet (genomsnittsmetoden) över alla dina konton. Beloppen är omräknade med ECB:s dagliga kurs; Skatteverket anger Riksbankens kurs, som kan skilja sig något. Punkterna är de i deklarationen för inkomstår 2025. Utländsk valuta som köpts eller använts (bilaga K4 avsnitt C) räknas inte här."
+
+WARNING: Historiska priser saknas för:
+ETH/SEK 2026-02-10
+Uppgradera ditt CoinGecko-abonnemang eller använd deltabadger.com för fullständig historik.
+
+WARNING: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar:
+ETH 2.0 2026-02-10
+Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.

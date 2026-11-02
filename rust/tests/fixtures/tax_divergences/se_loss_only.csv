@@ -1,0 +1,13 @@
+Datum,Tillgång,Antal,Försäljningspris,Omkostnadsbelopp,Vinst/Förlust,Valuta,Avgift,Börs,Transaktions-ID,Omkostnadsbelopp komplett,Ofullständiga data
+2025-08-01T10:00:00Z,ETH,1.0,33000.0,44000.0,-11000.0,SEK,0.0,kraken,K-ETH-2025-08-01T10:00:00Z-ETH,true,false
+
+"Bilaga K4, avsnitt D (övriga värdepapper, andra tillgångar)"
+Beteckning,Antal,Försäljningspris,Omkostnadsbelopp,Vinst,Förlust
+ETH,1.0,33000.0,44000.0,,11000.0
+Summa vinst (punkt 7.5),0.0
+"Summa förlust (punkt 8.4, hela förlusten)",11000.0
+"Avdragsgill förlust, 70 % (Skatteverket räknar om automatiskt)",7700.0
+Ränteinkomster m.m. från kryptotillgångar (punkt 7.2),0.0
+"Överskott (+) eller underskott (−) av kapital, kryptotillgångar",-7700.0
+"Skattereduktion för underskott (30 % upp till 100 000 kr, 21 % därutöver)",2310.0
+"Redovisas brutto: summa vinst vid punkt 7.5 och hela förlusten vid punkt 8.4; Skatteverket räknar själv om förlusten till 70 %. Resultatet och skatten gäller bara dina kryptotillgångar: andra kapitalinkomster och avdrag ändrar dem. Omkostnadsbeloppet är genomsnittet (genomsnittsmetoden) över alla dina konton. Beloppen är omräknade med ECB:s dagliga kurs; Skatteverket anger Riksbankens kurs, som kan skilja sig något. Punkterna är de i deklarationen för inkomstår 2025. Utländsk valuta som köpts eller använts (bilaga K4 avsnitt C) räknas inte här."

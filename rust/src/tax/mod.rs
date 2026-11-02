@@ -40,6 +40,8 @@
 //! - Ireland (ie.rs; the engine's s. 581 in fifo.rs): D-TAX-IE-4WEEK (`matching_rule`), D-TAX-IE-RING-FENCE (with the 28
 //!   days after the year walked only to fill fences), D-TAX-IE-RATE, D-TAX-IE-PERIODS, D-TAX-IE-SUMMARY, D-TAX-IE-YEARS;
 //!   D-TAX-SWAP-RECEIVED as BG and CZ.
+//! - Sweden (se.rs; the engine's average, D-TAX-LOST-POOLED, D-TAX-COIN-FEE for acquisitions, D-TAX-SE-SWAP-FEE): D-TAX-SE-K4,
+//!   D-TAX-SE-INCOME, D-TAX-SE-AIRDROP, D-TAX-SE-YEARS; D-TAX-SWAP-RECEIVED as BG and CZ.
 //!
 //! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
 //! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
@@ -195,6 +197,8 @@ struct AtNotes { speculation: Vec<(String, Dec)>, before_regime: Vec<(String, De
                  stablecoins: Vec<String>,
                  /// Italy's notes (it.rs).
                  it: it::Notes,
+                 /// D-TAX-SE-INCOME: Sweden's mining and airdrops of the year, with their values.
+                 se_income: Vec<(String, Dec)>,
                  /// Ireland's NOTE blocks (D-TAX-IE-RING-FENCE, `ie_provisional`), as CSV lines at the file's end.
                  tail: String }
 
@@ -262,6 +266,9 @@ impl Report {
         }
         let austria = (j.code == "AT").then(|| self.austria()).transpose()?;
         let mut notes = AtNotes::default();
+        let se = j.code == "SE";
+        // D-TAX-SE-AIRDROP: an airdrop's treatment has no guidance; its lot opens at its value, marked assumed.
+        if se { for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Airdrop && !fiat(&e.row.base)) { e.row.price_missing = true; } }
         if j.code == "CZ" {
             // D-TAX-CZ-MINING: mining is no income when received; the mined units cost 0 (GFŘ 2022 Ad A).
             for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Mining && !fiat(&e.row.base)) {
@@ -291,6 +298,12 @@ impl Report {
             if austria.as_ref().is_some_and(|a| e.row.at.0 < a.regime_from.0) {
                 notes.before_regime.push((format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at)), value));
                 continue;
+            }
+            // D-TAX-SE-INCOME, D-TAX-SE-AIRDROP: mining (1.6) and airdrops listed; an airdrop leaves the income section.
+            if se && matches!(kind, Kind::Mining | Kind::Airdrop) {
+                let label = text(j.locale, &format!("tax_report.income.types.{name}"), &[]);
+                notes.se_income.push((format!("{label} {} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at)), value.clone()));
+                if *kind == Kind::Airdrop { continue; }
             }
             income.push((i, name, value));
         }
@@ -393,6 +406,10 @@ impl Report {
             held.sort();
             held.dedup();
             notes.stablecoins = held;
+        }
+        if se {
+            let capital: Vec<Dec> = income.iter().filter(|(_, n, _)| matches!(*n, "staking_reward" | "lending_interest")).map(|(_, _, v)| v.clone()).collect();
+            notes.summary = se::k4(j.locale, &results, &capital)?;
         }
         if j.code == "IE" {
             let y = ie::year(j.locale, j.annual_exemption.unwrap_or(0), &results, &|d| self.local(d.at), today)?;
@@ -583,7 +600,9 @@ impl Report {
         self.block(&mut out, "WARNING", heading, hint, deposits.into_iter())?;
         self.block(&mut out, "WARNING", "unlinked_withdrawals", "unlinked_withdrawals_hint",
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Withdrawal && !r.linked && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
-        self.block(&mut out, "WARNING", "lost", "lost_hint",
+        // D-TAX-LOST-POOLED: in Sweden a lost coin stays in the average, with no deduction.
+        let (lost, lost_hint) = if j.code == "SE" { ("lost_se", "lost_hint_se") } else { ("lost", "lost_hint") };
+        self.block(&mut out, "WARNING", lost, lost_hint,
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Lost && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
         // § 38v ZDP.
         self.valued(&mut out, "WARNING", "cz_notice_38v", &at.notice, None)?;
@@ -620,6 +639,7 @@ impl Report {
         }
         if j.code == "DK" { self.dk_notes(&mut out, results, enriched, income, at)?; }
         if j.code == "IT" { self.it_notes(&mut out, &at.it, currency)?; }
+        self.valued(&mut out, "NOTE", "se_income", &at.se_income, None)?;
         if j.code == "GR" && !results.is_empty() {
             line(&mut out, &[]);
             line(&mut out, &[s(format!("NOTE: {}:", text(l, "tax_report.warnings.gr_no_tax", &[])))]);

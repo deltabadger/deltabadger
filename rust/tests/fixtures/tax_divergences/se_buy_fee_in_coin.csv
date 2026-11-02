@@ -1,0 +1,15 @@
+Datum,Tillgång,Antal,Försäljningspris,Omkostnadsbelopp,Vinst/Förlust,Valuta,Avgift,Börs,Transaktions-ID,Omkostnadsbelopp komplett,Ofullständiga data
+2025-06-01T10:00:00Z,BTC,0.01,3300.0,3333.0,-33.0,SEK,0.0,kraken,bf-BTC,true,false
+2025-09-01T10:00:00Z,BTC,0.99,435600.0,329967.0,105633.0,SEK,0.0,kraken,K-BTC-2025-09-01T10:00:00Z-BTC,true,false
+
+"Bilaga K4, avsnitt D (övriga värdepapper, andra tillgångar)"
+Beteckning,Antal,Försäljningspris,Omkostnadsbelopp,Vinst,Förlust
+BTC,0.99,435600.0,329967.0,105633.0,
+BTC,0.01,3300.0,3333.0,,33.0
+Summa vinst (punkt 7.5),105633.0
+"Summa förlust (punkt 8.4, hela förlusten)",33.0
+"Avdragsgill förlust, 70 % (Skatteverket räknar om automatiskt)",23.1
+Ränteinkomster m.m. från kryptotillgångar (punkt 7.2),0.0
+"Överskott (+) eller underskott (−) av kapital, kryptotillgångar",105609.9
+Skatt 30 %,31682.97
+"Redovisas brutto: summa vinst vid punkt 7.5 och hela förlusten vid punkt 8.4; Skatteverket räknar själv om förlusten till 70 %. Resultatet och skatten gäller bara dina kryptotillgångar: andra kapitalinkomster och avdrag ändrar dem. Omkostnadsbeloppet är genomsnittet (genomsnittsmetoden) över alla dina konton. Beloppen är omräknade med ECB:s dagliga kurs; Skatteverket anger Riksbankens kurs, som kan skilja sig något. Punkterna är de i deklarationen för inkomstår 2025. Utländsk valuta som köpts eller använts (bilaga K4 avsnitt C) räknas inte här."
