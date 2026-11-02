@@ -1,0 +1,15 @@
+Stichtag,Vermögenswert,Menge,Wert,Währung
+2025-12-31,BTC,0.5,34785.99,CHF
+2025-12-31,ETH,5.0,12000.0,CHF
+2025-12-31,SOL,100.0,11000.0,CHF
+2025-12-31,USDT,1000.0,791.47,CHF
+,,Gesamtwert,58577.46,
+"Vermögenssteuer ist kantonal: Tragen Sie die Bestände im Wertschriftenverzeichnis als übrige Guthaben ein, zum Steuerwert in ganzen Franken. Kryptoerträge sind ohne Verrechnungssteuer. Guthaben in Fiatwährung auf den Plattformen sind ebenfalls Vermögen und hier nicht berechnet."
+
+"NOTE: Zum Marktkurs bewertet, nicht zum ESTV-Kurs:"
+SOL 100.0
+"Die ESTV führt für diese Vermögenswerte keinen Jahresendkurs, oder ihre Kursliste war nicht erreichbar: verwendet wird der Jahresendkurs der Plattformen. Wo die ESTV einen Kurs führt, ist dieser zu deklarieren."
+
+NOTE: Verkäufe im Jahr (private Kapitalgewinne):
+Handelsvolumen (nur Käufe und Verkäufe gegen Fiat) 70900.00 CHF; fünffacher Bestand am 1. Januar: 0.00 CHF
+"Private Kapitalgewinne sind steuerfrei und Verluste nicht abziehbar, ausser Sie gelten als gewerbsmässiger Händler. Die Safe-Harbour-Regel verlangt alle fünf Punkte: jede Anlage mindestens 6 Monate gehalten, Volumen höchstens das Fünffache des Bestands zu Jahresbeginn, Gewinne unter der Hälfte des Reineinkommens, keine Fremdfinanzierung (oder Erträge über den Schuldzinsen), Derivate nur zur Absicherung. Wer einen Punkt nicht erfüllt, ist damit nicht automatisch gewerbsmässig. Tausche zwischen Vermögenswerten sind im angegebenen Volumen nicht enthalten."

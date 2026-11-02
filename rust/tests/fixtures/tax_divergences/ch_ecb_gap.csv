@@ -1,0 +1,17 @@
+Stichtag,Vermögenswert,Menge,Wert,Währung
+"WARNUNG: 1 Werte fehlen — Bericht unvollständig, so nicht einreichen"
+2026-10-01,BTC,0.5,45000.0,CHF
+,,Gesamtwert,45000.0,
+"Vermögenssteuer ist kantonal: Tragen Sie die Bestände im Wertschriftenverzeichnis als übrige Guthaben ein, zum Steuerwert in ganzen Franken. Kryptoerträge sind ohne Verrechnungssteuer. Guthaben in Fiatwährung auf den Plattformen sind ebenfalls Vermögen und hier nicht berechnet."
+
+WARNING: Historische Preise fehlen für:
+FX USD/CHF 2026-05-15
+Aktualisiere deinen CoinGecko-Plan oder nutze deltabadger.com für vollständige historische Daten.
+
+NOTE: Verkäufe im Jahr (private Kapitalgewinne):
+BTC 0.5 2026-05-15
+Handelsvolumen (nur Käufe und Verkäufe gegen Fiat) 40420.00 CHF; fünffacher Bestand am 1. Januar: 400000.00 CHF
+"Private Kapitalgewinne sind steuerfrei und Verluste nicht abziehbar, ausser Sie gelten als gewerbsmässiger Händler. Die Safe-Harbour-Regel verlangt alle fünf Punkte: jede Anlage mindestens 6 Monate gehalten, Volumen höchstens das Fünffache des Bestands zu Jahresbeginn, Gewinne unter der Hälfte des Reineinkommens, keine Fremdfinanzierung (oder Erträge über den Schuldzinsen), Derivate nur zur Absicherung. Wer einen Punkt nicht erfüllt, ist damit nicht automatisch gewerbsmässig. Tausche zwischen Vermögenswerten sind im angegebenen Volumen nicht enthalten."
+
+NOTE: Vorläufig:
+"Das Jahr ist nicht abgeschlossen, oder die ESTV-Jahresendkurse waren nicht für jeden Vermögenswert abrufbar: Bestände oder Kurse können die heutigen sein, und ein ESTV-Kurs kann noch gelten."

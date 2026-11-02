@@ -157,9 +157,7 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["XX"] {
-        assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
-    }
+    assert!(matches!(crypto_report(&c, 1, "XX", 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction XX")));
     // Poland's regime starts in 2019.
     assert!(matches!(crypto_report(&c, 1, "PL", 2018, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction PL")));
     // D-TAX-GR-NO-TAX: Greece is served up to 2026 only, until enacted law is reviewed.

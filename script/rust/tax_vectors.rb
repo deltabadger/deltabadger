@@ -2094,6 +2094,21 @@ module TaxVectors
         row(c, :buy, 'ETH', '1', '2025-02-01T10:00:00Z', exchange: kr, group_id: 'cf', tx_id: 'cf-ETH', fee_currency: 'ETH', fee_amount: '0.01')
         row(c, :sell, 'EUR', '1000', '2025-02-01T10:00:00Z', exchange: kr, group_id: 'cf', tx_id: 'cf-EUR')
       end,
+      # r4 item 1: two coins under one ticker (TON on Kraken and on Binance) are priced for neither: both listed unpriced,
+      # total 0.00, the banner counting them.
+      nl.('nl_two_tons') do |c|
+        kr, bn = venue(c, :kraken), venue(c, :binance)
+        a = Asset.create!(external_id: 'the-open-network', symbol: 'TON', name: 'Toncoin', category: 'Cryptocurrency')
+        b = Asset.create!(external_id: 'tokamak-network', symbol: 'TON', name: 'Tokamak', category: 'Cryptocurrency')
+        [[kr, a], [kr, c[:assets]['USD']], [bn, b], [bn, c[:assets]['USD']]].each { |ex, as| ExchangeAsset.create!(exchange: ex, asset: as, available: true) }
+        sizes = { base_decimals: 8, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.00000001', minimum_quote_size: '1' }
+        Ticker.create!(exchange: kr, ticker: 'TON/USD', base: 'TON', quote: 'USD', base_asset: a, quote_asset: c[:assets]['USD'], **sizes)
+        Ticker.create!(exchange: bn, ticker: 'TONUSD', base: 'TON', quote: 'USD', base_asset: b, quote_asset: c[:assets]['USD'], **sizes)
+        eur.('TON', '2025-01-01', '5')
+        eur.('TON', '2026-01-01', '4')
+        row(c, :buy, 'TON', '10', '2024-01-05T10:00:00Z', exchange: bn, quote_currency: 'USD', quote_amount: '20', base_asset_id: b.id)
+        row(c, :buy, 'TON', '10', '2024-02-05T10:00:00Z', exchange: kr, quote_currency: 'USD', quote_amount: '50', base_asset_id: a.id)
+      end,
       # D-TAX-NL-YEARS: 2021–2026 only.
       nl.('nl_2020_not_ported', year: 2020, expect: 'parity') { |c| kraken(c, :buy, 'BTC', '1', '100', '2019-05-01T09:00:00Z') },
       nl.('nl_2027_not_ported', year: 2027, expect: 'parity') { |c| kraken(c, :buy, 'BTC', '1', '100', '2026-05-01T09:00:00Z') }
