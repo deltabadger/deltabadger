@@ -468,10 +468,10 @@ impl<'a> Walk<'a> {
     fn rate(&self, r: &Rec) -> Option<Dec> { self.rates.get(&r.id).cloned().flatten() }
 
     fn walk_symbol(&mut self, symbol: &str) -> R<()> {
-        // In the order of the days the report dates them (a fill by the taxpayer's day, a non-trade row by Alpaca's), so a year
-        // boundary never passes a row of the year before it.
+        // By the year the report dates each row in (a fill by the taxpayer's day, a non-trade row by Alpaca's), then in time: a year
+        // boundary never passes a row of the year before it, and within a year a split stays after the lots it splits.
         let mut recs = self.states[symbol].recs.clone();
-        recs.sort_by_key(|&i| (self.recs[i].date(), self.recs[i].at, self.recs[i].id));
+        recs.sort_by_key(|&i| (self.recs[i].date().year(), self.recs[i].at, self.recs[i].id));
         let first_buy = recs.iter().map(|&i| &self.recs[i]).filter(|r| r.kind == BUY).map(Rec::date).min();
         let mut boundary = first_buy.map(|day| day.year());
         for i in recs {
@@ -1032,6 +1032,19 @@ mod tests {
         // The report itself refuses the missing closes too.
         let csv = report(&c, 1, LAST_YEAR, &HashSet::new()).unwrap();
         assert!(csv.contains("Kein Rücknahmepreis zum Jahreswechsel 2023") && csv.contains("ohne vollständig belegten Bestand"), "{csv}");
+    }
+
+    /// A split booked minutes after a fill keeps its place, though the fill's day (Berlin) is a day after the split's (UTC).
+    #[test]
+    fn a_split_after_a_late_fill_splits_it() {
+        let c = install();
+        c.execute_batch("UPDATE users SET time_zone = 'Europe/Berlin'").unwrap();
+        row(&c, BUY, "10", "1080", "2025-01-06 23:10:00");
+        c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, created_at, updated_at) \
+                   VALUES (1, 1, ?1, 'FNDX', '10', '2025-01-06 23:20:00', '{\"activity_type\":\"SPLIT\"}', '2026-01-01', '2026-01-01')", [ADJUSTMENT]).unwrap();
+        row(&c, SELL, "20", "2160", "2025-01-08 15:00:00");
+        let rows = classification_rows(&c, 1, 1, LAST_YEAR).unwrap();
+        assert!(rows[0].reasons.is_empty(), "{rows:?}");
     }
 
     #[test]
