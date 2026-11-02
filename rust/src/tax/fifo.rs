@@ -1393,6 +1393,9 @@ fn dequeue_tranches(lots: &mut VecDeque<Lot>, amount: &Dec, order: Order) -> Res
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Event { pub acq: bool, pub uid: usize, pub ordinal: usize, pub asset: String, pub day: NaiveDate, pub units: Dec }
 
+/// A coin's identity and a local day.
+type CoinDay = (String, NaiveDate);
+
 /// One coin's day: units acquired and how many of them are matched, units disposed of, and the events of each.
 #[derive(Clone, Debug)]
 struct Day { acquired: Dec, matched: Dec, acqs: usize, disposed: Dec, disps: usize }
@@ -1412,7 +1415,8 @@ pub fn identify(events: Vec<Event>) -> Result<Identification, FiguresError> {
         if e.acq { d.acquired = (&d.acquired + &e.units)?; d.acqs += 1; } else { d.disposed = (&d.disposed + &e.units)?; d.disps += 1; }
     }
     let mut matches: HashMap<(String, NaiveDate), Vec<(NaiveDate, Dec)>> = HashMap::new();
-    let (mut free, mut open): (HashMap<(String, NaiveDate), Dec>, Vec<((String, NaiveDate), Dec)>) = (HashMap::new(), vec![]);
+    let mut free: HashMap<CoinDay, Dec> = HashMap::new();
+    let mut open: Vec<(CoinDay, Dec)> = vec![];
     for (k, d) in &mut days {
         let m = if d.acquired < d.disposed { d.acquired.clone() } else { d.disposed.clone() };
         if m.is_positive() { matches.entry(k.clone()).or_default().push((k.1, m.clone())); }
@@ -1507,7 +1511,7 @@ impl<'a> Fifo<'a> {
         let (mut same, mut later) = (vec![], vec![]);
         for (x, m) in matches {
             let used = p.used.entry(x).or_insert_with(Dec::zero);
-            let units = if last { (&m - &*used)? } else if d.disposed.is_positive() { (&(&m * &sale.amount)?).div(&d.disposed)? } else { Dec::zero() };
+            let units = if last { (&m - &*used)? } else if d.disposed.is_positive() { (&m * &sale.amount)?.div(&d.disposed)? } else { Dec::zero() };
             *used = (&*used + &units)?;
             if units.is_positive() { if x == day { same.push((x, units)); } else { later.push((x, units)); } }
         }
