@@ -499,6 +499,12 @@ jobs:
       # it, or to the image, is proved before a tag depends on it.
       - name: Publish smoke test
         run: bash script/rust/image_smoke.sh deltabadger:ci
+      # docker-publish.yml's "pushed is smoked" check reads the smoked image's config digest this way; the two runners
+      # differ in image store (containerd on amd64, classic on arm64), so both are proved here.
+      - name: Config digest of the built image
+        run: |
+          docker info -f 'image store: {{.Driver}} {{json .DriverStatus}}'
+          bash script/rust/image_config_digest.sh deltabadger:ci
       - name: Install native gem dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y libsqlite3-dev libvips-dev libsodium-dev libyaml-dev libcurl4-openssl-dev
       - uses: ruby/setup-ruby@v1
