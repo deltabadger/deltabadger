@@ -133,6 +133,8 @@ impl crate::venue::http::Transport for StepWire<'_> {
         let mut query: Vec<String> = r.query.iter().map(|(k, v)| format!("{k}={v}")).collect();
         query.sort();
         let line = if query.is_empty() { format!("{} {host}{}", r.method, r.path) } else { format!("{} {host}{}?{}", r.method, r.path, query.join("&")) };
+        // A POST's body is part of its line, as the Rails harness logs it (Hyperliquid's reads are all POST /info).
+        let line = match &r.body { Some(body) => format!("{line} {body}"), None => line };
         self.asked.borrow_mut().push(line.clone());
         let reply = scripted(self.script, &line).ok_or_else(|| crate::venue::http::TransportError::Permanent("Unscripted market request".into()))?;
         if reply["network"].is_string() { return Err(crate::venue::http::TransportError::NotSent("Market data unavailable".into())); }
