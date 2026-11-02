@@ -38,6 +38,7 @@ use crate::figures::{at::At, budget, dec::Dec, FiguresError};
 use crate::tracker::rows::Kind;
 use crate::tracker::walk::Row;
 use crate::tracker::{fiat, stable};
+use chrono::NaiveDate;
 use std::collections::{HashMap, VecDeque};
 
 /// Tax::Methods::Fifo::IMMEDIATE_EXIT, in seconds.
@@ -52,7 +53,7 @@ pub struct Tx { pub row: Row, pub tx_id: Option<String>, pub fiat_exit: bool, pu
                 pub cash_group: bool }
 
 /// Report#calculation_options for this engine.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Options<'a> {
     pub swaps_taxable: bool,
     pub stablecoin_as_fiat: bool,
@@ -98,7 +99,13 @@ pub struct Options<'a> {
     /// SE, GB: a fee of a group's row in a coin the group receives is spent after the group's last in-leg (the coin it
     /// is paid in arrives first), and a fee row of the group is the swap's fee.
     pub defer_group_fees: bool,
+    /// The United Kingdom's identification (TCGA 1992 ss. 104, 105, 106A): the engine walks twice (`calculate`).
+    pub uk: Option<Uk<'a>>,
 }
+
+/// GB: `day(at)` is the taxpayer's calendar day of an instant (the same day, the 30 days after).
+#[derive(Clone, Copy)]
+pub struct Uk<'a> { pub day: &'a dyn Fn(At) -> NaiveDate }
 
 /// s. 581's windows, on the taxpayer's calendar: `from(at)` the first instant of the 4 weeks before a disposal at `at`
 /// (its local date − 28 days, from midnight), `until(at)` the first instant after the 4 weeks after it (its local date + 29
@@ -165,6 +172,8 @@ pub struct Disposal {
     pub effective: At,
     /// GB's identification (`same_day`, `bed_and_breakfast`, `section104`: Rails' values); None elsewhere.
     pub rule: Option<&'static str>,
+    /// The coin's identity (`Tx::asset`), which `asset` spells as its symbol.
+    pub asset_id: String,
 }
 
 /// D-TAX-IE-RING-FENCE: a loss waiting for a reacquisition: the store, the window (after the disposal, before `until`),
@@ -234,6 +243,11 @@ pub struct Fifo<'a> {
     added_in: HashMap<usize, Dec>,
     /// The latest instant walked: a row walked out of time order (an Alpaca CFEE after its day's fills) takes effect then.
     clock: At,
+    /// `Options::uk`: the walk's events and, in walk 2, the identification it applies.
+    uk: UkWalk,
+    /// D-TAX-GB-UNSUPPORTED-ACTION: a stock event (a split, a return of capital) dated within a matched pair's days, as
+    /// (row index, the pair's disposal day).
+    pub unsupported: Vec<(usize, NaiveDate)>,
 }
 
 fn sum<'a>(it: impl Iterator<Item = &'a Dec>) -> Result<Dec, FiguresError> {
@@ -250,7 +264,8 @@ impl<'a> Fifo<'a> {
         Fifo { o, lots: HashMap::new(), in_groups: HashMap::new(), out_groups: HashMap::new(), transferred: HashMap::new(),
                moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, averaging: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
                excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], held_back: HashMap::new(), allocation: vec![], allocation_chosen: false, snapshot: None, fences: vec![], clock: At(i64::MIN),
-               index: 0, group_in: HashMap::new(), flushed: Default::default(), deferred: vec![], added_in: HashMap::new() }
+               index: 0, group_in: HashMap::new(), flushed: Default::default(), deferred: vec![], added_in: HashMap::new(),
+               uk: UkWalk::default(), unsupported: vec![] }
     }
 
     /// The lots left standing, per (venue, coin).
@@ -328,8 +343,20 @@ impl<'a> Fifo<'a> {
         Ok(())
     }
 
-    /// `calculate(transactions, **options)`.
+    /// `calculate(transactions, **options)`. GB walks twice: walk 1 records the events, `identify` matches them, and this
+    /// engine's walk applies the identification (its events asserted the same).
     pub fn calculate(&mut self, txs: &[Tx]) -> Result<(), FiguresError> {
+        if self.o.uk.is_some() && self.uk.ident.is_none() {
+            let mut first = Fifo::new(self.o.clone());
+            first.walk(txs)?;
+            self.uk.ident = Some(identify(std::mem::take(&mut first.uk.events))?);
+        }
+        self.walk(txs)?;
+        if self.uk.ident.is_some() { self.resolve()?; }
+        Ok(())
+    }
+
+    fn walk(&mut self, txs: &[Tx]) -> Result<(), FiguresError> {
         for tx in txs {
             self.symbols.entry(tx.asset.clone()).or_insert_with(|| tx.row.base.clone());
             if let (Some(a), Some(s)) = (&tx.fee_asset, &tx.row.fee_currency) { self.symbols.entry(a.clone()).or_insert_with(|| s.clone()); }
@@ -379,7 +406,7 @@ impl<'a> Fifo<'a> {
                 // D-TAX-IE-RING-FENCE: a purchase is a reacquisition (income is not: this report's reading).
                 let mut lot = lot;
                 if r.kind == Kind::Buy { self.fence_fill(&k, &mut lot)?; }
-                self.receive(k, lot)?;
+                self.acquire(tx, k, lot)?;
                 self.own_fee(tx)?;
             }
             Kind::Deposit => {
@@ -403,8 +430,9 @@ impl<'a> Fifo<'a> {
                 else { self.sell(tx)?; }
             }
             Kind::Sell => self.sell(tx)?,
-            Kind::Adjustment => { let at = r.at; let lots = self.store(&r.exchange, asset); apply_split(lots, amount, at)?; }
+            Kind::Adjustment => { self.stock_event(tx, index); let at = r.at; let lots = self.store(&r.exchange, asset); apply_split(lots, amount, at)?; }
             Kind::ReturnOfCapital => {
+                self.stock_event(tx, index);
                 let lots = self.key(&r.exchange, asset);
                 let excess = reduce_lot_basis(self.lots.entry(lots).or_default(), r)?;
                 self.excess_roc = (&self.excess_roc + &excess)?;
@@ -739,6 +767,11 @@ impl<'a> Fifo<'a> {
 
     /// `record_disposal`: the lots taken, then (for the row's own sale) its fee coin spent, then the rows.
     fn dispose(&mut self, tx: &Tx, sale: Sale, own: bool) -> Result<(), FiguresError> {
+        if let Some(uk) = self.o.uk {
+            let day = (uk.day)(tx.row.at);
+            self.uk.record(false, tx.row.uid, sale.asset, day, &sale.amount);
+            if self.uk.ident.is_some() { return self.dispose_uk(tx, sale, own, day); }
+        }
         let k = self.key(&tx.row.exchange, sale.asset);
         // D-TAX-IE-4WEEK: the acquisitions of the 4 weeks before first, newest first. A row walked out of time order (a CFEE
         // after its day's fills) takes effect when walked: the fills it pays for come before it.
@@ -848,21 +881,7 @@ impl<'a> Fifo<'a> {
                                             if part.is_empty() { uncovered.clone() } else { Dec::zero() })?;
             rows.push(row);
         }
-        let total = |f: fn(&Disposal) -> &Dec| -> Result<Dec, FiguresError> { Ok(sum(rows.iter().map(f))?.round(CENTS)?) };
-        let mut left = [total(|r| &r.proceeds)?, total(|r| &r.cost_basis)?, total(|r| &r.fee)?];
-        let count = rows.len();
-        // The cost's rest goes to the last part a lot covered (an uncovered part has none).
-        let cost_last = rows.iter().rposition(|r| !r.uncovered.is_positive()).unwrap_or(count - 1);
-        for (n, row) in rows.iter_mut().enumerate() {
-            let lasts = [n == count - 1, n == cost_last, n == count - 1];
-            let mut three = [row.proceeds.clone(), row.cost_basis.clone(), row.fee.clone()];
-            for ((t, l), last) in three.iter_mut().zip(left.iter_mut()).zip(lasts) {
-                *t = if last { l.clone() } else { t.round(CENTS)? };
-                *l = (&*l - &*t)?;
-            }
-            [row.proceeds, row.cost_basis, row.fee] = three;
-            row.gain_loss = if self.fee_deducted(row.at) { (&(&row.proceeds - &row.cost_basis)? - &row.fee)? } else { (&row.proceeds - &row.cost_basis)? };
-        }
+        settle_per_part(&mut rows, self.fee_deducted(tx.row.at))?;
         self.disposals.extend(rows);
         Ok(())
     }
@@ -886,6 +905,7 @@ impl<'a> Fifo<'a> {
             tx_id: tx.tx_id.clone(), exchange: r.exchange.clone(), long_held: None, uncovered, averaged: tranches.iter().any(|t| t.averaged), source: r.uid,
             mined: tranches.iter().any(|t| t.mined), recent: tranches.iter().any(|t| t.recent),
             restricted: Dec::zero(), released: Dec::zero(), unusable: Dec::zero(), effective: if self.clock.0 > r.at.0 { self.clock } else { r.at }, rule: None,
+            asset_id: sale.asset.to_string(),
         })
     }
 
@@ -915,7 +935,7 @@ impl<'a> Fifo<'a> {
                             holding_start: None, technical_start: None, averaged: false, mined: false, fenced: Dec::zero(), fenced_units: Dec::zero() };
             let k = self.key(&r.exchange, &tx.asset);
             self.fence_fill(&k, &mut lot)?;
-            self.receive(k, lot)?;
+            self.acquire(tx, k, lot)?;
             return self.own_fee(tx);
         }
         self.add_non_taxable_swap_in_lots(tx)
@@ -1256,6 +1276,26 @@ fn roc_per_unit(r: &Row) -> Result<Option<Dec>, FiguresError> {
     Ok(Some((per_share * &multiplier)?))
 }
 
+/// D-TAX-DK-PER-PART's cents, a disposal's rows: proceeds, cost and fee each to the cent, the last row taking the rounded
+/// rest of each, the last row a lot covered (in part) the cost's (a wholly uncovered part has none); the gain from the three.
+fn settle_per_part(rows: &mut [Disposal], deducted: bool) -> Result<(), FiguresError> {
+    let total = |f: fn(&Disposal) -> &Dec| -> Result<Dec, FiguresError> { Ok(sum(rows.iter().map(f))?.round(CENTS)?) };
+    let mut left = [total(|r| &r.proceeds)?, total(|r| &r.cost_basis)?, total(|r| &r.fee)?];
+    let count = rows.len();
+    let cost_last = rows.iter().rposition(|r| !(r.uncovered.is_positive() && r.uncovered >= r.amount)).unwrap_or(count.saturating_sub(1));
+    for (n, row) in rows.iter_mut().enumerate() {
+        let lasts = [n == count - 1, n == cost_last, n == count - 1];
+        let mut three = [row.proceeds.clone(), row.cost_basis.clone(), row.fee.clone()];
+        for ((t, l), last) in three.iter_mut().zip(left.iter_mut()).zip(lasts) {
+            *t = if last { l.clone() } else { t.round(CENTS)? };
+            *l = (&*l - &*t)?;
+        }
+        [row.proceeds, row.cost_basis, row.fee] = three;
+        row.gain_loss = if deducted { (&(&row.proceeds - &row.cost_basis)? - &row.fee)? } else { (&row.proceeds - &row.cost_basis)? };
+    }
+    Ok(())
+}
+
 /// `settle_in_cents`: every row but the last cut to the cent, the last taking what is left; the fee off the gain only
 /// where `deducted` (D-TAX-AT-SALE-FEE).
 fn settle_in_cents(rows: &mut [Disposal], proceeds: &Dec, fee: &Dec, deducted: bool) -> Result<(), FiguresError> {
@@ -1335,6 +1375,216 @@ fn dequeue_tranches(lots: &mut VecDeque<Lot>, amount: &Dec, order: Order) -> Res
                                                          fenced: l.fenced, recent }))
         .collect::<Result<_, FiguresError>>()?;
     Ok((tranches, held))
+}
+
+// --- The United Kingdom's identification (TCGA 1992 ss. 104, 105, 106A; `Options::uk`) --------------------------------
+//
+// Walk 1 records the engine's own acquisitions and disposals (`Event`), in walk order; `identify` matches them per coin:
+// the day's acquisitions with its disposals (s. 105(1)(a): each day one acquisition and one disposal), then each disposal
+// day's rest, earlier days first (s. 106A(4)), with the acquisitions of the 30 days after it, earliest first (s. 106A(5));
+// the rest comes from the s. 104 pool as it stands. Walk 2, on the same rows, moves each matched share of an acquisition
+// out of the pool into its day's bucket (s. 105(3), 106A(5ZA)), and a disposal takes its share of its day's matches and
+// the rest from the pool; the matched rows' costs are read from the buckets after the walk. The identification moves cost,
+// never units or control flow, so both walks record the same events: asserted. Stock events (`Adjustment`,
+// `ReturnOfCapital`) restate the pool only; a bucket is not rescaled (one within a matched pair refuses the report).
+
+/// One acquisition (an acquired lot: a buy, a taxable swap-in, income) or disposal (every `dispose`), as recorded: the row
+/// (`Row::uid`), its ordinal within the row, the coin's identity, the taxpayer's day, and the units asked.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Event { pub acq: bool, pub uid: usize, pub ordinal: usize, pub asset: String, pub day: NaiveDate, pub units: Dec }
+
+/// A coin's identity and a local day.
+type CoinDay = (String, NaiveDate);
+
+/// One coin's day: units acquired and how many of them are matched, units disposed of, and the events of each.
+#[derive(Clone, Debug)]
+struct Day { acquired: Dec, matched: Dec, acqs: usize, disposed: Dec, disps: usize }
+impl Default for Day { fn default() -> Day { Day { acquired: Dec::zero(), matched: Dec::zero(), acqs: 0, disposed: Dec::zero(), disps: 0 } } }
+
+/// What `identify` decides: per (coin, disposal day) its matches, (acquisition day, units), the same day first, then the
+/// 30 days ascending; per (coin, day) its totals.
+#[derive(Debug, Default)]
+pub struct Identification { events: Vec<Event>, matches: HashMap<(String, NaiveDate), Vec<(NaiveDate, Dec)>>, days: HashMap<(String, NaiveDate), Day> }
+
+/// The identification of `events` (s. 105(1), s. 106A(4)–(5)): same day first on every day, then disposal days ascending
+/// against acquisition days d+1 … d+30 ascending (day 30 inside, CG51560 Ex. 1).
+pub fn identify(events: Vec<Event>) -> Result<Identification, FiguresError> {
+    let mut days: HashMap<(String, NaiveDate), Day> = HashMap::new();
+    for e in &events {
+        let d = days.entry((e.asset.clone(), e.day)).or_default();
+        if e.acq { d.acquired = (&d.acquired + &e.units)?; d.acqs += 1; } else { d.disposed = (&d.disposed + &e.units)?; d.disps += 1; }
+    }
+    let mut matches: HashMap<(String, NaiveDate), Vec<(NaiveDate, Dec)>> = HashMap::new();
+    let mut free: HashMap<CoinDay, Dec> = HashMap::new();
+    let mut open: Vec<(CoinDay, Dec)> = vec![];
+    for (k, d) in &mut days {
+        let m = if d.acquired < d.disposed { d.acquired.clone() } else { d.disposed.clone() };
+        if m.is_positive() { matches.entry(k.clone()).or_default().push((k.1, m.clone())); }
+        d.matched = m.clone();
+        free.insert(k.clone(), (&d.acquired - &m)?);
+        let rest = (&d.disposed - &m)?;
+        if rest.is_positive() { open.push((k.clone(), rest)); }
+    }
+    open.sort_by(|a, b| a.0.cmp(&b.0));
+    for ((asset, day), mut rest) in open {
+        for n in 1..=30 {
+            let Some(x) = day.checked_add_days(chrono::Days::new(n)) else { break };
+            let Some(a) = free.get_mut(&(asset.clone(), x)).filter(|a| a.is_positive()) else { continue };
+            let t = if rest < *a { rest.clone() } else { a.clone() };
+            *a = (&*a - &t)?;
+            rest = (&rest - &t)?;
+            let d = days.get_mut(&(asset.clone(), x)).expect("an acquisition day");
+            d.matched = (&d.matched + &t)?;
+            matches.entry((asset.clone(), day)).or_default().push((x, t));
+            if !rest.is_positive() { break; }
+        }
+    }
+    Ok(Identification { events, matches, days })
+}
+
+/// The matched shares of one day's acquisitions: units, cost, whether any was assumed, the unpriced units, the first.
+#[derive(Clone, Debug)]
+struct Bucket { units: Dec, cost: Dec, assumed: bool, unpriced: Dec, first: At }
+
+/// What walk 2 has placed of a (coin, day): acquisitions walked and units moved to the bucket; disposals walked and the
+/// matched units each acquisition day gave them.
+#[derive(Default)]
+struct Placing { acqs: usize, units: Option<Dec>, disps: usize, used: HashMap<NaiveDate, Dec> }
+
+/// A disposal's rows from `start`: per row its matches (None: the pool's row).
+struct UkRows { start: usize, parts: Vec<Option<Vec<(NaiveDate, Dec)>>> }
+
+#[derive(Default)]
+struct UkWalk { events: Vec<Event>, ordinals: HashMap<usize, usize>, ident: Option<Identification>, buckets: HashMap<(String, NaiveDate), Bucket>,
+                placed: HashMap<(String, NaiveDate), Placing>, rows: Vec<UkRows> }
+
+impl UkWalk {
+    fn record(&mut self, acq: bool, uid: usize, asset: &str, day: NaiveDate, units: &Dec) {
+        let ordinal = self.ordinals.entry(uid).or_insert(0);
+        self.events.push(Event { acq, uid, ordinal: *ordinal, asset: asset.to_string(), day, units: units.clone() });
+        *ordinal += 1;
+    }
+}
+
+impl<'a> Fifo<'a> {
+    /// An acquired lot: GB records it, and in walk 2 its share of the day's matched units leaves for the day's bucket.
+    fn acquire(&mut self, tx: &Tx, k: Key, mut lot: Lot) -> Result<(), FiguresError> {
+        let Some(uk) = self.o.uk else { return self.receive(k, lot) };
+        let day = (uk.day)(lot.date);
+        self.uk.record(true, tx.row.uid, &k.1, day, &lot.amount);
+        let UkWalk { ident, placed, buckets, .. } = &mut self.uk;
+        let Some(ident) = ident else { return self.receive(k, lot) };
+        let id = (k.1.clone(), day);
+        let d = ident.days.get(&id).cloned().unwrap_or_default();
+        if d.matched.is_positive() && lot.amount.is_positive() {
+            let p = placed.entry(id.clone()).or_default();
+            p.acqs += 1;
+            let so_far = p.units.clone().unwrap_or_else(Dec::zero);
+            // The day's last acquisition takes the rest, so the bucket holds exactly the matched units.
+            let share = if p.acqs == d.acqs { (&d.matched - &so_far)? } else { (&lot.amount * &d.matched)?.div(&d.acquired)? };
+            let units = if share > lot.amount { lot.amount.clone() } else { max0(share) };
+            p.units = Some((&so_far + &units)?);
+            let unpriced = (&lot.unpriced * &units)?.div(&lot.amount)?;
+            let b = buckets.entry(id).or_insert_with(|| Bucket { units: Dec::zero(), cost: Dec::zero(), assumed: false, unpriced: Dec::zero(), first: lot.date });
+            b.units = (&b.units + &units)?;
+            b.cost = (&b.cost + &(&units * &lot.cost_per_unit)?)?;
+            b.assumed |= lot.basis_assumed && units.is_positive();
+            b.unpriced = (&b.unpriced + &unpriced)?;
+            if lot.date.0 < b.first.0 { b.first = lot.date; }
+            lot.amount = (&lot.amount - &units)?;
+            lot.unpriced = (&lot.unpriced - &unpriced)?;
+            if !lot.amount.is_positive() { return Ok(()); }
+        }
+        self.receive(k, lot)
+    }
+
+    /// A disposal in walk 2: its share of the day's same-day and 30-day matches (`units / D_d`, the day's last disposal
+    /// taking the rest), the rest from the pool; rows `same_day`, `bed_and_breakfast`, `section104`, in Rails' order.
+    fn dispose_uk(&mut self, tx: &Tx, sale: Sale, own: bool, day: NaiveDate) -> Result<(), FiguresError> {
+        let id = (sale.asset.to_string(), day);
+        let ident = self.uk.ident.as_ref().expect("walk 2");
+        let d = ident.days.get(&id).cloned().unwrap_or_default();
+        let matches = ident.matches.get(&id).cloned().unwrap_or_default();
+        let p = self.uk.placed.entry(id).or_default();
+        p.disps += 1;
+        let last = p.disps == d.disps;
+        let (mut same, mut later) = (vec![], vec![]);
+        for (x, m) in matches {
+            let used = p.used.entry(x).or_insert_with(Dec::zero);
+            let units = if last { (&m - &*used)? } else if d.disposed.is_positive() { (&m * &sale.amount)?.div(&d.disposed)? } else { Dec::zero() };
+            *used = (&*used + &units)?;
+            if units.is_positive() { if x == day { same.push((x, units)); } else { later.push((x, units)); } }
+        }
+        let matched = sum(same.iter().chain(&later).map(|(_, u)| u))?;
+        let rest = max0((&sale.amount - &matched)?);
+        let k = self.key(&tx.row.exchange, sale.asset);
+        let lots = self.lots.entry(k).or_default();
+        let has_lots = !lots.is_empty();
+        let (tranches, _) = dequeue_tranches(lots, &rest, Order::Fifo)?;
+        if own { self.consume_disposal_fee(tx)?; }
+        let share = |v: &Dec, u: &Dec| -> Result<Dec, FiguresError> { if sale.amount.is_positive() { Ok((v * u)?.div(&sale.amount)?) } else { Ok(v.clone()) } };
+        let (mut rows, mut parts) = (vec![], vec![]);
+        for (rule, group) in [("same_day", same), ("bed_and_breakfast", later)] {
+            if group.is_empty() { continue; }
+            let units = sum(group.iter().map(|(_, u)| u))?;
+            let mut row = self.disposal_row(tx, &sale, &units, &share(&sale.proceeds, &units)?, &share(&sale.fee, &units)?, &[], true, Dec::zero())?;
+            row.rule = Some(rule);
+            rows.push(row);
+            parts.push(Some(group));
+        }
+        if rest.is_positive() || rows.is_empty() {
+            let uncovered = max0((&rest - &sum(tranches.iter().map(|t| &t.amount))?)?);
+            let mut row = self.disposal_row(tx, &sale, &rest, &share(&sale.proceeds, &rest)?, &share(&sale.fee, &rest)?, &tranches, has_lots, uncovered)?;
+            (row.rule, row.acquired, row.holding_days) = (Some("section104"), None, 0);
+            rows.push(row);
+            parts.push(None);
+        }
+        self.uk.rows.push(UkRows { start: self.disposals.len(), parts });
+        self.disposals.extend(rows);
+        Ok(())
+    }
+
+    /// D-TAX-GB-UNSUPPORTED-ACTION: a stock event of a coin dated within a matched pair's days (the disposal's day to its
+    /// last matched acquisition's day) is noted with the pair's disposal day.
+    fn stock_event(&mut self, tx: &Tx, index: usize) {
+        let (Some(uk), Some(ident)) = (self.o.uk, self.uk.ident.as_ref()) else { return };
+        let day = (uk.day)(tx.row.at);
+        let pair = ident.matches.iter().filter(|((asset, _), _)| *asset == tx.asset)
+            .find(|((_, d), m)| *d <= day && m.iter().any(|(x, _)| *x >= day)).map(|((_, d), _)| *d);
+        if let Some(d) = pair { self.unsupported.push((index, d)); }
+    }
+
+    /// After walk 2: the events asserted the same as walk 1's, then each matched row's cost from its buckets (`bucket cost ×
+    /// units / bucket units`), its data marked incomplete where an acquisition it took was assumed or unpriced, its
+    /// acquisition date and holding days as Rails gives them; each disposal's rows settled in cents.
+    fn resolve(&mut self) -> Result<(), FiguresError> {
+        let Some(ident) = self.uk.ident.take() else { return Ok(()) };
+        if self.uk.events != ident.events { return Err(FiguresError::Data("the two walks of the identification differ".into())); }
+        for g in std::mem::take(&mut self.uk.rows) {
+            for (n, parts) in g.parts.iter().enumerate() {
+                let Some(parts) = parts else { continue };
+                let row = &mut self.disposals[g.start + n];
+                let mut cost = Dec::zero();
+                let mut first = None;
+                for (x, units) in parts {
+                    let b = self.uk.buckets.get(&(row.asset_id.clone(), *x)).filter(|b| b.units.is_positive())
+                        .ok_or_else(|| FiguresError::Data("a match with no acquisition".into()))?;
+                    cost = (&cost + &(&b.cost * units)?.div(&b.units)?)?;
+                    row.incomplete |= b.assumed || b.unpriced.is_positive();
+                    first = first.or(Some(b.first));
+                }
+                row.cost_basis = cost;
+                // Rails' `match_and_record`: the disposal's own date on the same day, the first acquisition's on the 30 days.
+                if let Some(f) = first {
+                    row.acquired = Some(if row.rule == Some("same_day") { row.at } else { f });
+                    row.holding_days = ((row.at.minus(f) / 86_400.0) as i64).abs();
+                }
+            }
+            let deducted = self.fee_deducted(self.disposals[g.start].at);
+            settle_per_part(&mut self.disposals[g.start..g.start + g.parts.len()], deducted)?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -1747,4 +1997,163 @@ mod tests {
             assert_eq!((held(&f, "SOL"), held(&f, "ETH")), (("9.0".into(), "9000.0".into()), ("1.0".into(), "20000.0".into())), "ETH first: {eth_first}");
         }
     }
+
+    // --- A12-5: the swap fee's shares and the United Kingdom's identification -------------------------------------------
+
+    fn pooled() -> Options<'static> {
+        Options { average_all: true, lost_kept: true, own_fee_disposed: true, defer_group_fees: true, swap_fee_split: true,
+                  swap_cost_to_disposed_from: Some(at(-10_000)), ..plain() }
+    }
+    fn utc_day(a: At) -> NaiveDate { a.utc().date_naive() }
+    fn uk() -> Options<'static> { Options { uk: Some(Uk { day: &utc_day }), ..pooled() } }
+    fn eth_cost(f: &Fifo) -> String { cents(&f.lots().filter(|(k, _)| k.1 == "ETH").map(|(_, l)| sum(l.iter().map(|x| &x.amount)).map(|_| l.iter().map(|x| (&x.amount * &x.cost_per_unit).unwrap()).fold(Dec::zero(), |a, b| (&a + &b).unwrap()))).next().unwrap().unwrap()) }
+
+    /// D-TAX-GB-SWAP-FEE (CRYPTO22150): half a swap's fee to each side: an in-leg's own-coin fee (0.3 ETH, 300), an
+    /// out-leg's fiat fee (100), and a fee row of the group (0.3 ETH, 300).
+    #[test]
+    fn a_swap_fee_is_split_both_ways() {
+        let base = || vec![row(0, Kind::Buy, "BTC", "1", "20000", 0, "a"), swap_leg(1, Kind::SwapOut, "BTC", "1", "30000", 5), swap_leg(2, Kind::SwapIn, "ETH", "30", "30000", 5)];
+        // In-leg fee: BTC fee 150; ETH acquired at 30,150, the fee's 0.3 disposed of at 301.50.
+        let mut rows = base();
+        fee_in_own_coin(&mut rows[2], "0.3", "300");
+        let mut f = Fifo::new(pooled());
+        f.calculate(&rows).unwrap();
+        assert_eq!((cents(&f.disposals[0].fee), cents(&f.disposals[0].gain_loss)), ("150.0".into(), "9850.0".into()));
+        assert_eq!((cents(&f.disposals[1].cost_basis), eth_cost(&f)), ("301.5".into(), "29848.5".into()));
+        // Out-leg fee in cash: half (50) off the BTC disposal's fee onto the ETH's cost.
+        let mut rows = base();
+        (rows[1].row.fee_currency, rows[1].row.fee_amount, rows[1].row.fee_fiat_value) = (Some("GBP".into()), Some(d("100")), d("100"));
+        let mut f = Fifo::new(pooled());
+        f.calculate(&rows).unwrap();
+        assert_eq!((cents(&f.disposals[0].fee), eth_cost(&f)), ("50.0".into(), "30050.0".into()));
+        // A fee row of the group: as the in-leg's fee.
+        let mut rows = base();
+        let mut fee = swap_leg(3, Kind::Fee, "ETH", "0.3", "300", 5);
+        fee.row.quote = None;
+        rows.push(fee);
+        let mut f = Fifo::new(pooled());
+        f.calculate(&rows).unwrap();
+        assert_eq!((cents(&f.disposals[0].fee), cents(&f.disposals[1].cost_basis), eth_cost(&f)), ("150.0".into(), "301.5".into(), "29848.5".into()));
+    }
+
+    fn ev(acq: bool, day: i64, units: &str) -> Event { Event { acq, uid: 0, ordinal: 0, asset: "ETH".into(), day: utc_day(at(day)), units: d(units) } }
+    fn matched(i: &Identification, day: i64) -> Vec<(i64, String)> {
+        i.matches.get(&("ETH".to_string(), utc_day(at(day)))).into_iter().flatten()
+            .map(|(x, u)| ((*x - utc_day(at(0))).num_days(), u.to_s_f())).collect()
+    }
+
+    /// s. 105(1), s. 106A(4)–(5): the same day first, day 30 inside and 31 out, the earliest acquisition first, the earlier
+    /// disposal first, and a same-day surplus left to an earlier disposal.
+    #[test]
+    fn identify_follows_the_statute() {
+        let i = identify(vec![ev(false, 10, "1"), ev(true, 10, "0.4"), ev(true, 40, "1"), ev(true, 41, "1")]).unwrap();
+        assert_eq!(matched(&i, 10), [(10, "0.4".into()), (40, "0.6".into())]);
+        let i = identify(vec![ev(false, 10, "1"), ev(true, 41, "1")]).unwrap();
+        assert!(matched(&i, 10).is_empty(), "day 31");
+        let i = identify(vec![ev(false, 10, "2"), ev(true, 12, "1"), ev(true, 11, "0.5"), ev(true, 15, "1")]).unwrap();
+        assert_eq!(matched(&i, 10), [(11, "0.5".into()), (12, "1.0".into()), (15, "0.5".into())]);
+        let i = identify(vec![ev(false, 10, "1"), ev(false, 12, "1"), ev(true, 14, "1.5")]).unwrap();
+        assert_eq!((matched(&i, 10), matched(&i, 12)), (vec![(14, "1.0".into())], vec![(14, "0.5".into())]));
+        // gb_future_same_day_priority: the 14th's own disposal takes its purchase before the 10th's 30 days.
+        let i = identify(vec![ev(false, 10, "1"), ev(true, 14, "1.5"), ev(false, 14, "1")]).unwrap();
+        assert_eq!((matched(&i, 10), matched(&i, 14)), (vec![(14, "0.5".into())], vec![(14, "1.0".into())]));
+    }
+
+    /// D-TAX-GB-SAME-DAY: the day's acquisitions one acquisition, every disposal of the day at its average; the pool keeps
+    /// 1 @ 10,000. D-TAX-GB-POOL: matched units never enter the pool.
+    #[test]
+    fn the_same_day_is_one_acquisition_and_one_disposal() {
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "10000", 0, "a"), row(1, Kind::Buy, "BTC", "1", "20000", 10, "a"), row(2, Kind::Sell, "BTC", "1.5", "36000", 10, "a"),
+                        row(3, Kind::Buy, "BTC", "1", "30000", 10, "a"), row(4, Kind::Sell, "BTC", "0.5", "13000", 10, "a")];
+        let mut f = Fifo::new(uk());
+        f.calculate(&rows).unwrap();
+        let got: Vec<(&str, String, String)> = f.disposals.iter().map(|x| (x.rule.unwrap(), cents(&x.cost_basis), cents(&x.gain_loss))).collect();
+        assert_eq!(got, [("same_day", "37500.0".into(), "-1500.0".into()), ("same_day", "12500.0".into(), "500.0".into())]);
+        assert_eq!(cents(&remaining(&f)), "10000.0");
+    }
+
+    /// A disposal matched in full with nothing in the pool is covered and complete; one partly matched has only its rest
+    /// uncovered, at zero.
+    #[test]
+    fn a_match_covers_what_the_pool_lacks() {
+        let mut f = Fifo::new(uk());
+        f.calculate(&[row(0, Kind::Sell, "ETH", "1", "3000", 5, "a"), row(1, Kind::Buy, "ETH", "1", "2800", 6, "a")]).unwrap();
+        let x = &f.disposals[0];
+        assert_eq!((f.disposals.len(), x.rule, cents(&x.cost_basis), x.complete, x.incomplete), (1, Some("bed_and_breakfast"), "2800.0".into(), true, false));
+        let mut f = Fifo::new(uk());
+        f.calculate(&[row(0, Kind::Sell, "ETH", "2", "6000", 5, "a"), row(1, Kind::Buy, "ETH", "1", "2800", 6, "a")]).unwrap();
+        let (a, b) = (&f.disposals[0], &f.disposals[1]);
+        assert_eq!((a.rule, cents(&a.cost_basis), a.complete, a.incomplete), (Some("bed_and_breakfast"), "2800.0".into(), true, false));
+        assert_eq!((b.rule, cents(&b.cost_basis), b.uncovered.to_s_f(), b.complete, b.incomplete), (Some("section104"), "0.0".into(), "1.0".into(), false, true));
+    }
+
+    /// An assumed acquisition (an unpriced reward) marks the rows it is matched with incomplete; the pool's own row not.
+    #[test]
+    fn an_assumed_match_is_incomplete() {
+        let mut reward = row(2, Kind::StakingReward, "ETH", "0.1", "0", 8, "a");
+        (reward.row.price_missing, reward.row.value_missing) = (true, Some(true));
+        let mut f = Fifo::new(uk());
+        f.calculate(&[row(0, Kind::Buy, "ETH", "1", "1000", 0, "a"), row(1, Kind::Sell, "ETH", "1", "3000", 5, "a"), reward]).unwrap();
+        let got: Vec<(&str, String, bool)> = f.disposals.iter().map(|x| (x.rule.unwrap(), cents(&x.cost_basis), x.incomplete)).collect();
+        assert_eq!(got, [("bed_and_breakfast", "0.0".into(), true), ("section104", "900.0".into(), false)]);
+    }
+
+    /// Σ basis used + basis left = Σ cost acquired, through same-day and 30-day matches, the pool, a coin fee, a lost coin,
+    /// an own-coin purchase fee and an oversold sale.
+    #[test]
+    fn the_identification_conserves_basis() {
+        let mut rows = vec![row(0, Kind::Buy, "BTC", "2", "300", 0, "a"), row(1, Kind::Sell, "BTC", "1.5", "900", 3, "a"), row(2, Kind::Buy, "BTC", "0.7", "400", 3, "b"),
+                            row(3, Kind::Fee, "BTC", "0.01", "5", 4, "b"), row(4, Kind::Buy, "BTC", "1", "700", 9, "a"), row(5, Kind::Lost, "BTC", "0.2", "0", 10, "a"),
+                            row(6, Kind::Buy, "BTC", "3", "2100", 11, "a"), row(7, Kind::Sell, "BTC", "9", "9000", 12, "a"), row(8, Kind::Buy, "BTC", "0.3", "333", 20, "b")];
+        fee_in_own_coin(&mut rows[6], "0.03", "21");
+        let acquired = sum([d("300"), d("400"), d("700"), d("2121"), d("333")].iter()).unwrap();
+        let mut f = Fifo::new(uk());
+        f.calculate(&rows).unwrap();
+        let used = sum(f.disposals.iter().map(|x| &x.cost_basis)).unwrap();
+        let gap = (&(&(&used + &f.consumed).unwrap() + &remaining(&f)).unwrap() - &acquired).unwrap();
+        assert!(gap.round(2).unwrap().is_zero(), "{} off", gap.to_s_f());
+        assert!(f.disposals.iter().any(|x| x.rule == Some("same_day")) && f.disposals.iter().any(|x| x.rule == Some("bed_and_breakfast")));
+    }
+
+    /// r1 item 6: proceeds 1.005 and basis 0.004 over a same-day row and a pool row: each row to the cent, the last taking
+    /// the rounded rest, every row reconciled.
+    #[test]
+    fn a_disposals_rows_settle_in_cents() {
+        let rows = vec![row(0, Kind::Buy, "BTC", "0.5", "0.002", 0, "a"), row(1, Kind::Buy, "BTC", "0.5", "0.002", 1, "a"), row(2, Kind::Sell, "BTC", "1", "1.005", 1, "a")];
+        let mut f = Fifo::new(uk());
+        f.calculate(&rows).unwrap();
+        let x = &f.disposals;
+        assert_eq!(x.iter().map(|r| r.rule.unwrap()).collect::<Vec<_>>(), ["same_day", "section104"]);
+        for r in x {
+            for v in [&r.proceeds, &r.cost_basis, &r.fee, &r.gain_loss] { assert_eq!(v.round(2).unwrap(), *v); }
+            assert_eq!(r.gain_loss, (&(&r.proceeds - &r.cost_basis).unwrap() - &r.fee).unwrap());
+        }
+        assert_eq!(sum(x.iter().map(|r| &r.proceeds)).unwrap(), d("1.005").round(2).unwrap());
+        assert_eq!(sum(x.iter().map(|r| &r.cost_basis)).unwrap(), d("0.004").round(2).unwrap());
+    }
+
+    /// The second walk refuses when its events are not the first walk's.
+    #[test]
+    fn walks_with_different_events_are_refused() {
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "100", 0, "a"), row(1, Kind::Sell, "BTC", "1", "200", 1, "a")];
+        let mut f = Fifo::new(uk());
+        f.uk.ident = Some(identify(vec![ev(true, 0, "1")]).unwrap());
+        assert!(matches!(f.calculate(&rows), Err(FiguresError::Data(_))));
+    }
+
+    /// D-TAX-GB-UNSUPPORTED-ACTION: a split between a disposal and its 30-day purchase is noted; one after the pair not.
+    #[test]
+    fn a_split_within_a_matched_pair_is_noted() {
+        let walk = |split_day: i64| {
+            let rows = vec![row(0, Kind::Buy, "ETH", "1", "1000", 0, "a"), row(1, Kind::Sell, "ETH", "1", "3000", 5, "a"),
+                            row(2, Kind::Adjustment, "ETH", "1", "0", split_day, "a"), row(3, Kind::Buy, "ETH", "1", "2800", 9, "a")];
+            let mut rows = rows;
+            rows.sort_by_key(|t| t.row.at.0);
+            let mut f = Fifo::new(uk());
+            f.calculate(&rows).unwrap();
+            f.unsupported.len()
+        };
+        assert_eq!((walk(7), walk(20)), (1, 0));
+    }
+
 }

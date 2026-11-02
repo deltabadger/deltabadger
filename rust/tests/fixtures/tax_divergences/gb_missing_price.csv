@@ -1,0 +1,11 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule
+"WARNING: 1 values missing — report incomplete, do not file as-is"
+No taxable transactions found for this period.
+
+WARNING: Missing historical prices for:
+ETH/GBP 2026-02-10
+Upgrade your CoinGecko plan or use deltabadger.com for full historical data.
+
+WARNING: Cost basis assumed at market value for these unlinked deposits:
+ETH 2.0 2026-02-10
+"These deposits are treated as your own assets brought in, at their market value on the day as an assumed cost; they are not matched as acquisitions with earlier disposals. Sync or import the account they came from and link the transfer, so the real cost is used."

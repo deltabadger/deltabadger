@@ -1,0 +1,10 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule
+No taxable transactions found for this period.
+
+NOTE: Airdrops received:
+SOL 10.0 2025-05-01,1200.0,GBP
+"An airdrop is income only if it was given for a service (CRYPTO21250); its value is then income and its cost. The ledger does not say which, so these are not in the income section, and their cost here is their market value on receipt, marked as assumed. An airdrop not given for a service may cost £0 (s. 17(2))."
+
+NOTE: Airdrops that may be forks:
+SOL 10.0 2025-05-01
+"A hard fork is no income: the new coins take part of the original coins' cost, split justly and reasonably between the two pools (CRYPTO22300). Forks are not detected here, so the original coin's later disposals overstate its cost; check these receipts."

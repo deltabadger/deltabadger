@@ -90,7 +90,7 @@ mod tests {
         Disposal { at: At(0), acquired: None, asset: asset.into(), amount: d(amount), proceeds: d(proceeds), cost_basis: d(cost), fee: d(fee), gain_loss: gain,
                    holding_days: 0, complete: true, incomplete: false, tx_id: None, exchange: "Kraken".into(), long_held: None, uncovered: Dec::zero(),
                    averaged: false, mined: false, source: 0, recent: false, restricted: Dec::zero(), released: Dec::zero(), unusable: Dec::zero(),
-                   effective: At(0), rule: None }
+                   effective: At(0), rule: None, asset_id: asset.into() }
     }
 
     /// `se_average_gain_and_loss`'s rows: BTC vinst 1.5 / 439,835 / 313,681.50 / 126,153.50; ETH förlust 2 / 33,000 /

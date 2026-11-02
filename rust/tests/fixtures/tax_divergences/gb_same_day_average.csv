@@ -1,0 +1,17 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule
+2025-06-02T09:00:00Z,2025-06-02T09:00:00Z,BTC,1.5,36000.0,37500.0,-1500.0,GBP,0,0.0,kraken,K-BTC-2025-06-02T09:00:00Z-BTC,true,false,same_day
+2025-06-02T11:00:00Z,2025-06-02T11:00:00Z,BTC,0.5,13000.0,12500.0,500.0,GBP,0,0.0,kraken,K-BTC-2025-06-02T11:00:00Z-BTC,true,false,same_day
+
+"Capital Gains Tax summary: cryptoassets, tax year 6 April 2025 to 5 April 2026"
+Number of disposals (box 13.1),1
+Disposal proceeds (box 13.2),49000.0
+"Allowable costs, including purchase price (box 13.3)",50000.0
+"Gains in the year, before losses (box 13.4)",0.0
+Losses in the year (box 13.5),1000.0
+Net gains,-1000.0
+Annual exempt amount,3000.0
+Taxable gains (before losses brought forward),0.0
+Loss to carry forward (claim within 4 years),1000.0
+Tax if all within the basic rate band,0.0
+Tax at the higher rate,0.0
+"A disposal is a token's disposals of one day, matched with that day's acquisitions, then with those of the next 30 days (earliest first), then the section 104 pool; the days are your local calendar days. Losses brought forward (box 45) and gains on other assets are not applied here; the annual exempt amount and losses are shared with them. Which rate applies depends on your income. File SA108 when your proceeds exceed £50,000, your gains exceed the annual exempt amount, or you have a loss to claim. Lost or stolen coins are no disposal: a negligible value claim on the whole pool is yours to make. Income is at its market value on receipt; airdrops are listed apart (an airdrop not given for a service may cost £0: s. 17(2)). A fee row booked apart from any trade is a disposal of its coins, not a cost of a trade. Fiat currency held abroad is a chargeable asset not computed here."
