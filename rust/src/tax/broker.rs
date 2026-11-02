@@ -190,7 +190,8 @@ impl Rec {
     }
     /// What a withholding row withheld, signed: Alpaca books the debit negative and a refund positive.
     fn withheld_usd(&self) -> R<Dec> {
-        match self.raw.get("net_amount").filter(|v| !v.is_null() && v.as_str() != Some("")) { Some(v) => Ok(Dec::to_d(v)?.neg()), None => Ok(abs(&self.amount)) }
+        // Without Alpaca's net amount (an imported row) the row's own sign: a positive amount withheld, a negative one refunded.
+        match self.raw.get("net_amount").filter(|v| !v.is_null() && v.as_str() != Some("")) { Some(v) => Ok(Dec::to_d(v)?.neg()), None => Ok(self.amount.clone()) }
     }
     /// The shares a distribution was paid on (Alpaca's `qty`), when the activity states them.
     fn qty(&self) -> R<Option<Dec>> {
@@ -467,7 +468,10 @@ impl<'a> Walk<'a> {
     fn rate(&self, r: &Rec) -> Option<Dec> { self.rates.get(&r.id).cloned().flatten() }
 
     fn walk_symbol(&mut self, symbol: &str) -> R<()> {
-        let recs = self.states[symbol].recs.clone();
+        // In the order of the days the report dates them (a fill by the taxpayer's day, a non-trade row by Alpaca's), so a year
+        // boundary never passes a row of the year before it.
+        let mut recs = self.states[symbol].recs.clone();
+        recs.sort_by_key(|&i| (self.recs[i].date(), self.recs[i].at, self.recs[i].id));
         let first_buy = recs.iter().map(|&i| &self.recs[i]).filter(|r| r.kind == BUY).map(Rec::date).min();
         let mut boundary = first_buy.map(|day| day.year());
         for i in recs {
@@ -591,7 +595,8 @@ impl<'a> Walk<'a> {
         let creditable = match symbol {
             // DBA USA Art. 11: interest is taxed only where its owner lives; US tax on it is reclaimed, never credited.
             _ if activity.starts_with("INT") => Dec::zero(),
-            None => Dec::zero(),
+            // A dividend's withholding that names no security matches no income: not credited, and said.
+            None => { self.warn("withholding_unmatched", None, Detail::Date(r.date())); Dec::zero() }
             Some(symbol) => {
                 let key = (symbol.to_string(), r.date());
                 let gross = self.gross_by_day.get(&key).cloned().flatten().filter(Dec::is_positive);

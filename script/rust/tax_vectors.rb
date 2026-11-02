@@ -3034,6 +3034,19 @@ module TaxVectors
       br.('de_broker_roc_qty', 'diverges: D-TAX-BROKER-ROC-DIVIDEND') do |c|
         fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIVROC', 'FNDX', '108', '2024-07-01', qty: '100')
       end,
+      br.('de_broker_local_boundary', 'diverges: D-TAX-BROKER-LOCAL-DATE') do |c|
+        user_zone(c, 'Europe/Berlin'); fund_2024.(c)
+        fill(c, :sell, 'FNDX', '10', '1080', '2024-12-31', time: '23:10:00')
+        row(c, :other_income, 'USD', '108', '2024-12-31T23:20:00Z', quote_currency: 'FNDX', tx_id: 'div-late',
+            raw_data: { 'activity_type' => 'DIV', 'net_amount' => '108', 'per_share_amount' => '1.08', 'symbol' => 'FNDX' })
+      end,
+      br.('de_broker_imported_withholding', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03')
+        row(c, :other_income, 'USD', '110', '2025-06-02T00:00:00Z', quote_currency: 'ZQX', tx_id: 'imp-div')
+        row(c, :withholding_tax, 'USD', '22', '2025-06-02T00:00:00Z', quote_currency: 'ZQX', tx_id: 'imp-wht')
+        row(c, :withholding_tax, 'USD', '-11', '2025-06-02T00:00:00Z', quote_currency: 'ZQX', tx_id: 'imp-wht-refund')
+      end,
+      br.('de_broker_withholding_no_symbol', 'diverges: D-TAX-BROKER-CREDIT') { |c| nta(c, 'DIVNRA', nil, '11', '2025-06-02') },
       br.('de_broker_dividend_qty', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
         fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIV', 'FNDX', '108', '2024-07-01', qty: '100')
       end,
