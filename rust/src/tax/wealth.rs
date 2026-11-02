@@ -74,10 +74,16 @@ impl Report {
         held(&self.scoped, &self.deposits, until, &|symbol, r| self.coin(symbol, &r.venue, r.at.utc().date_naive()))
     }
 
-    /// The price of one unit of a holding dated `day` (r3 item 2): only when its symbol that day still means its coin; else
-    /// none, listed with the price warnings. A zero price is none (`price_at` warned).
-    pub(super) fn unit_price(&self, ps: &mut PriceService, h: &Held, currency: &str, day: NaiveDate) -> Result<Option<Dec>, FiguresError> {
-        if self.coin(&h.symbol, &h.venue, day) != h.asset {
+    /// Whether a holding's ticker names it, and only it, on `day` (r3 item 2, r4 item 1): its price or ESTV value may be read.
+    pub(super) fn priceable(&self, h: &Held, all: &[Held], day: NaiveDate) -> bool {
+        !all.iter().any(|o| o.symbol == h.symbol && o.asset != h.asset) && self.coin(&h.symbol, &h.venue, day) == h.asset
+    }
+
+    /// The price of one unit of a holding dated `day` (r3 item 2): only when its symbol that day still means its coin, and
+    /// (r4 item 1) no other coin of `all` is held under the same ticker (prices are stored by ticker); else none, listed with
+    /// the price warnings. A zero price is none (`price_at` warned).
+    pub(super) fn unit_price(&self, ps: &mut PriceService, h: &Held, all: &[Held], currency: &str, day: NaiveDate) -> Result<Option<Dec>, FiguresError> {
+        if !self.priceable(h, all, day) {
             ps.warnings.push(format!("{}/{currency} {day}", h.symbol));
             return Ok(None);
         }
@@ -152,6 +158,7 @@ pub(super) fn summary(out: &mut String, label: String, value: Option<Cell>) { li
 pub(super) fn fixed(v: &Dec, places: i64) -> Result<String, FiguresError> {
     let t = v.round(places)?.to_s_f();
     let (whole, frac) = t.split_once('.').unwrap_or((&t, ""));
+    if places <= 0 { return Ok(whole.to_string()); }
     Ok(format!("{whole}.{frac:0<width$}", width = usize::try_from(places).unwrap_or(2)))
 }
 
