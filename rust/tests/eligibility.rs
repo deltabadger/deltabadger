@@ -670,11 +670,6 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); c.execute("UPDATE transactions SET external_status = 1 WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
-        ("1 split(s) recorded for its assets", Box::new(move |c, s, eth| {
-            c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
-                       VALUES (?1, ?2, 15, 'BTC', 0, '{\"corporate_action\":\"split\"}', '2026-09-01', '2026-09-01', '2026-09-01')", rusqlite::params![s.user_id, s.exchange_id]).unwrap();
-            seed::insert_bot(c, s, &half(s, eth))
-        })),
     ];
     for (reason, make) in cases {
         let (_d, o, s) = common::install_alpaca();
@@ -686,6 +681,25 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
         assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains(reason)), "{reason}: {:?}", r.problems);
         assert!(r.eligible.is_empty(), "{reason}");
     }
+}
+
+/// A14: a split row naming a coin's symbol, and the generation the sync moved for it, refuse nothing. A split is a
+/// security's corporate action and never applies to a coin (D-SPLIT-NEVER-A-COIN); the engine reads every split it
+/// applies, and stands a tick down on one it cannot size or trust.
+#[test]
+fn an_all_crypto_bot_with_a_split_row_or_a_restated_generation_is_eligible() {
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
+                       VALUES (?1, ?2, 15, 'BTC', 0, '{\"corporate_action\":\"split\",\"split_ratio\":\"4:1\"}', '2026-09-01 00:00:00', '2026-09-01', '2026-09-01')",
+                      rusqlite::params![s.user_id, s.exchange_id]).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.5)]));
+    history_row(&o.primary, &s, id, 0, "REGULAR", Some(s.btc), "OBTC-1");
+    o.primary.execute("UPDATE transactions SET base = 'BTC', price = '64000', amount = '0.001', amount_exec = '0.001', quote_amount = '64', quote_amount_exec = '64' WHERE bot_id = ?1", [id]).unwrap();
+    o.primary.execute("UPDATE bots SET restatement_generation = 2 WHERE id = ?1", [id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty() && r.unreadable.is_empty(), "{:?} {:?}", r.problems, r.unreadable);
+    assert_eq!(r.eligible, vec![id]);
 }
 
 /// An exited member (in_index = false) is a holding only and never refuses the bot, whether settings still
@@ -825,13 +839,11 @@ fn refusals_and_notes_name_no_internal_plan() {
     let (_d, o, s) = common::install_alpaca();
     let (eth, _) = seed::add_eth_sol(&o.primary, &s);
     seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.5)]).with("direction", json!("sideways")));
-    o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
-                       VALUES (?1, ?2, 15, 'BTC', 0, '{\"corporate_action\":\"split\"}', '2026-09-01', '2026-09-01', '2026-09-01')", rusqlite::params![s.user_id, s.exchange_id]).unwrap();
     o.primary.execute("DELETE FROM app_configs WHERE key = 'alpaca_crypto_listings_last_good_count'", []).unwrap();
     let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
     lines.extend(r.problems);
     lines.extend(r.notes);
-    for needle in ["an index bot that sells", "direction", "split(s)"] {
+    for needle in ["an index bot that sells", "direction"] {
         assert!(lines.iter().any(|l| l.contains(needle)), "{needle}: {lines:?}");
     }
     assert!(lines.iter().all(|l| !l.contains("Plan ")), "{lines:?}");

@@ -100,6 +100,13 @@ pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
         let day = row.at.0.div_euclid(86_400_000_000_000);
         for (holding, strings) in holdings.iter().zip(&holding_strings) {
             budget::charge(1, 0)?;
+            // D-SPLIT-NEVER-A-COIN: a split is a security's corporate action. Rails resolves an asset-less report by its
+            // name, and on Alpaca a name a security shares with a coin restates the coin (or leaves it unresolved for
+            // good). The holding's asset decides, else the report's; a coin is neither restated nor held unresolved.
+            if let Some(id) = holding.asset_id.or(reported) {
+                if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }
+                if categories[&id].as_deref() == Some("Cryptocurrency") { continue; }
+            }
             let date = match (holding.asset_id, reported) {
                 (Some(asset_id), Some(reported)) => {
                     if !(reported == asset_id && asset_pairs.contains(&(row.exchange_id, asset_id))) { continue; }

@@ -318,6 +318,13 @@ async fn figures_fragments_match_the_rails_page_partials() {
         if name == "boundaries" { boundaries(&dir); currencies += 100; continue; }
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
         let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        if name == "crypto_security_split_nameonly" {
+            // D-SPLIT-NEVER-A-COIN: Rails' name fallback restates the coin by the security's split; this page is Rails' own
+            // rendering of the twin whose report recorded the security.
+            let twin: Value = serde_json::from_str(&std::fs::read_to_string(dir.with_file_name("crypto_security_split").join("rails.json")).unwrap()).unwrap();
+            assert_ne!(expected["bots"], twin["bots"], "{name}: Rails no longer restates the coin: drop the divergence");
+            expected = twin;
+        }
         if ["pair_row_zero_proceeds", "pair_row_open_partial"].contains(&name) {
             // D-PAIR-FILL-VALUE: keep Rails' omitted holding as evidence, then compare every rendered fragment and
             // broadcast against Rails' own rendering with the executed value supplied by the counterfactual reader.
