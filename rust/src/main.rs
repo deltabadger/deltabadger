@@ -347,7 +347,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
-    registered.push(deltabadger::tax::job::job(api.clone(), deltabadger::sync::jobs::Connect::ecb(&LiveFactory::new()), deltabadger::tax::job::tmp_dir(env)));
+    registered.push(deltabadger::tax::job::job(api.clone(), LiveFactory::new(), deltabadger::tax::job::tmp_dir(env)));
     registered.push(Box::new(deltabadger::sync::binance_repair::HistoryRepair::new(LiveFactory::new())));
     registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
     // The self-hosted catalogue (Ibkr plan R2): the bundle at every start, the public snapshot daily.

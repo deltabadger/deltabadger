@@ -1,0 +1,30 @@
+Anlage KAP / KAP-INV — Berechnungsgrundlage,Alpaca,2025
+WARNUNG: Bericht unvollständig — bitte die Hinweise unten beachten; so nicht einreichen
+
+ZUSAMMENFASSUNG — ANLAGE KAP
+Zeile,Bezeichnung,Betrag (EUR)
+19,Ausländische Kapitalerträge,100.0
+20,In Zeile 19 enthaltene Gewinne aus der Veräußerung von Aktien,0.0
+22,In Zeile 19 enthaltene Verluste ohne Verluste aus der Veräußerung von Aktien,0.0
+23,In Zeile 19 enthaltene Verluste aus der Veräußerung von Aktien,0.0
+41,Anrechenbare noch nicht angerechnete ausländische Steuern,25.0
+
+AUFSTELLUNG — ERTRÄGE
+Datum,Wertpapier,Buchungsart,Zuordnung,Betrag (USD),EZB-Kurs (USD je EUR),Betrag (EUR),Status
+2025-06-02,ZQX,DIVFT,"Quellensteuer (Anlage KAP, Zeile 41)",33.0,1.1,30.0,
+2025-06-02,ZQX,DIVFT,"Quellensteuer, nicht anrechenbar (nicht in Zeile 41)",,,5.0,
+2025-06-02,ZQX,DIVROC,Dividende (Anlage KAP),110.0,1.1,100.0,
+
+HINWEISE
+ZQX,"Ausländische Quellensteuer vom 2025-06-02, kein US-Emittent: Zeile 41 rechnet höchstens 25 % des Ertrags an. Maßgeblich ist der Satz des Doppelbesteuerungsabkommens mit dem Staat des Emittenten — bitte prüfen."
+
+RECHTLICHE HINWEISE
+"Dieser Bericht ist eine Rechenhilfe und keine Steuerberatung. Prüfen Sie alle Beträge, bevor Sie sie in die Steuererklärung übernehmen."
+"Währungsgewinne und -verluste aus USD-Guthaben beim Broker sind nicht enthalten. Bei einem verzinsten Guthaben sind sie Einkünfte nach § 20 Abs. 2 Satz 1 Nr. 7 EStG (Anlage KAP), bei einem unverzinsten private Veräußerungsgeschäfte nach § 23 EStG (Anlage SO; nur innerhalb eines Jahres, Freigrenze 1.000 €). BMF-Schreiben vom 14.05.2025, Rn. 131."
+"In den USA aufgelegte ETFs gelten hier ohne Nachweis nach §20 Abs. 4 InvStG als sonstige Fonds (0 % Teilfreistellung). Wer eine andere Fondskategorie wählt, trägt die Nachweispflicht für die Kapitalbeteiligungsquote selbst."
+Umrechnung zu den Euro-Referenzkursen der EZB; für Tage ohne Kurs gilt der Kurs des vorherigen Bankarbeitstags.
+Zeile 41 enthält nur die anrechenbare Quellensteuer: bei einer US-Dividende höchstens 15 % (Doppelbesteuerungsabkommen) und höchstens 25 % des Ertrags nach Teilfreistellung (§ 32d Abs. 5 EStG); US-Steuer auf Zinsen (gesondert gebucht) ist nicht anrechenbar. Den Teil über dem Abkommenssatz (bei Zinsen die ganze US-Steuer) können Sie beim IRS zurückfordern; der Teil über der deutschen Höchstgrenze wird weder angerechnet noch erstattet.
+"Kapitalrückzahlungen (DIVROC) US-amerikanischer Gesellschaften und Fonds sind hier Ausschüttungen (§ 27 Abs. 8 KStG, § 2 Abs. 11 InvStG). Nur eine nachgewiesene Einlagenrückgewähr (ab 2023 durch Feststellung des Bundeszentralamts für Steuern) ist keine Einnahme und mindert stattdessen die Anschaffungskosten; das ist hier nicht berechnet."
+"Die Vorabpauschale zieht die Ausschüttungen des ganzen Kalenderjahres ab, soweit sie in Ihrem Konto gebucht sind. Ausschüttungen vor Ihrem ersten Kauf im Jahr fehlen hier; dann ist die Vorabpauschale eine Obergrenze (siehe Hinweise)."
+Die gewählte Fondskategorie gilt für die ganze Besitzzeit. Ein Wechsel der Kategorie (§ 22 InvStG: fiktive Veräußerung und Neuanschaffung) ist nicht abgebildet.
+Regulatorische Sammelgebühren lassen sich keiner einzelnen Veräußerung zurechnen und werden deshalb von keinem Betrag abgezogen; sie sind nur nachrichtlich ausgewiesen.

@@ -22,6 +22,7 @@
 //! `report_failed`, where Rails would run on.
 use crate::jobs::data_api::DataApi;
 use crate::jobs::{Cx, Db, Job, JobFuture, Outcome, Retry, Spec, Wake};
+use crate::sync::jobs::Connect;
 use crate::tracker::fx;
 use crate::tracker::jobs::{fetching, message, metered, Allowance};
 use crate::venue::http::Transport;
@@ -203,9 +204,9 @@ pub fn terminal(tmp: &Path, r: &Request) -> Option<Panel> {
 
 /// `tax_report`: one request per run, the oldest queued; woken by every accepted create and at start-up, and again by
 /// itself while requests wait.
-pub struct TaxReport<T: Transport> { pub api: Rc<Option<DataApi<T>>>, pub ecb: Option<fx::Source>, pub tmp: PathBuf }
+pub struct TaxReport<C: Connect, T: Transport> { pub api: Rc<Option<DataApi<T>>>, pub ecb: Option<fx::Source>, pub venues: C, pub tmp: PathBuf }
 
-impl<T: Transport> Job for TaxReport<T> {
+impl<C: Connect, T: Transport> Job for TaxReport<C, T> {
     fn spec(&self) -> Spec {
         // A little past the run's own deadline: the run ends itself `failed` first (`perform_within`).
         Spec { name: JOB, scope: None, schedule: None, jitter: crate::jobs::schedule::Jitter::NONE, retry: Retry::None, deadline: DEADLINE + std::time::Duration::from_secs(60) }
@@ -216,7 +217,7 @@ impl<T: Transport> Job for TaxReport<T> {
             let now = cx.clock.now();
             let taken = cx.db.run(move |c, _| take(c, now).map_err(|e| e.to_string())).await;
             let r = match taken { Ok(Some(r)) => r, Ok(None) => return Outcome::NothingNew, Err(e) => return Outcome::Failed(e) };
-            let outcome = match tokio::time::timeout(DEADLINE, perform(&cx, (*self.api).as_ref(), self.ecb.as_ref(), &r)).await {
+            let outcome = match tokio::time::timeout(DEADLINE, perform(&cx, (*self.api).as_ref(), self.ecb.as_ref(), &self.venues, &r)).await {
                 Ok(outcome) => outcome,
                 Err(_) => Err(format!("dropped past its {DEADLINE:?} deadline")),
             };
@@ -246,9 +247,10 @@ fn take(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Option<Request>>
 
 /// `perform` up to the file: the ECB rates, the report's reads, then its enrichment on a blocking thread whose price
 /// fetches are made on this one (`tracker::jobs::fetching`), the progress broadcast each time the percent changes.
-async fn perform<T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, r: &Request) -> Result<crate::tax::Outcome, String> {
+async fn perform<C: Connect, T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, venues: &C, r: &Request) -> Result<crate::tax::Outcome, String> {
+    if r.scope == "broker" { return broker(cx, ecb, venues, r).await; }
     // D-TAX-NOT-PORTED-GATE: nothing is queued for a report this build cannot compute; a row that is anyway fails.
-    if r.scope != "crypto" || !crate::tax::jurisdictions::ported(&r.country, r.year) { return Err(format!("the {} report for {} is not ported", r.scope, r.country)); }
+    if !crate::tax::jurisdictions::ported(&r.country, r.year) { return Err(format!("the {} report for {} is not ported", r.scope, r.country)); }
     let today = cx.clock.now().date_naive();
     fx::ensure_loaded(&cx.db, ecb, today).await;
     let mut allowance = Allowance::run();
@@ -274,6 +276,24 @@ async fn perform<T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Optio
             if percent != last { last = percent; broadcast(&db, &request, &Panel::Progress(percent)); }
         })
     }).await?.map_err(message)
+}
+
+/// GenerateReportJob#broker_csv: Rails' checks (each fails the run, as its ArgumentError does), the ECB rates, the year
+/// boundary closes the report will ask for fetched from the broker (`stock_price_range`; a window it answers with nothing
+/// is refused as missing), then the report.
+async fn broker<C: Connect>(cx: &Cx<'_>, ecb: Option<&fx::Source>, venues: &C, r: &Request) -> Result<crate::tax::Outcome, String> {
+    let (user, country, year) = (r.user_id, r.country.clone(), r.year);
+    let exchange = cx.db.run(move |c, _| Ok(crate::tax::broker::check(c, user, &country, year))).await??;
+    let year = i32::try_from(year).map_err(|_| "a report year out of range".to_string())?;
+    fx::ensure_loaded(&cx.db, ecb, cx.clock.now().date_naive()).await;
+    let mut allowance = Allowance::run();
+    let windows = metered(&cx.db, &mut allowance, move |c, _| crate::tax::broker::needs(c, user, year)).await?;
+    let mut failed = std::collections::HashSet::new();
+    for w in windows {
+        if crate::tracker::prices::stock_price_range(&cx.db, venues, user, exchange, &w.symbol, (w.from, w.to), w.fresh()).await?.is_empty() { failed.insert(w); }
+    }
+    let csv = metered(&cx.db, &mut allowance, move |c, _| crate::tax::broker::report(c, user, year, &failed)).await?;
+    Ok(crate::tax::Outcome::Csv(csv))
 }
 
 /// The row's outcome committed, then the file renamed into place, under the file lock; then the broadcast. A row that is
@@ -426,8 +446,8 @@ fn owner(target: &str) -> Option<(i64, &'static str)> {
 }
 
 /// Construct the job for the scheduler.
-pub fn job<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>, ecb: Option<fx::Source>, tmp: PathBuf) -> Box<dyn Job> {
-    Box::new(TaxReport { api, ecb, tmp })
+pub fn job<C: Connect + 'static, T: Transport + 'static>(api: Rc<Option<DataApi<T>>>, venues: C, tmp: PathBuf) -> Box<dyn Job> {
+    Box::new(TaxReport { api, ecb: venues.ecb(), venues, tmp })
 }
 
 #[cfg(test)]

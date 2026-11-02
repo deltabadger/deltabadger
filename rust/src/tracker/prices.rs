@@ -651,16 +651,19 @@ pub fn last_weekday(from: NaiveDate, to: NaiveDate) -> NaiveDate {
 
 /// Tax::PriceService#stock_price_range (USD; the caller converts): the stored closes of `stock:SYM` over `from..=to`,
 /// fetched first from the broker when none is stored from the window's last weekday on. Rails' contract: no ticker of
-/// the symbol on the venue, no key, or any failure of the request → an empty map, even with partial stored rows.
-pub async fn stock_price_range<C: crate::sync::jobs::Connect>(db: &crate::jobs::Db, venues: &C, user_id: i64, venue: i64, symbol: &str, from: NaiveDate, to: NaiveDate) -> Result<BTreeMap<NaiveDate, Dec>, String> {
+/// the symbol on the venue, no key, or any failure of the request → an empty map, even with partial stored rows. The key is
+/// the user's `correct` one on the venue, else any (BrokerReport#initialize).
+/// `fresh`: the days a stored close spares the fetch (Rails: the window's last weekday on, `(last_weekday(from, to), to)`).
+pub async fn stock_price_range<C: crate::sync::jobs::Connect>(db: &crate::jobs::Db, venues: &C, user_id: i64, venue: i64, symbol: &str, (from, to): (NaiveDate, NaiveDate),
+    fresh: (NaiveDate, NaiveDate)) -> Result<BTreeMap<NaiveDate, Dec>, String> {
     let asset = format!("stock:{symbol}");
     let have = read_closes(db, &asset, from, to).await?;
-    if have.range(last_weekday(from, to)..).next().is_some() { return Ok(have); }
+    if have.range(fresh.0..=fresh.1).next().is_some() { return Ok(have); }
     let sym = symbol.to_string();
     let key = db.run(move |c, cipher| {
         let ticker: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM tickers WHERE exchange_id = ?1 AND base = ?2)", rusqlite::params![venue, sym], |r| r.get(0)).map_err(|e| e.to_string())?;
         if !ticker { return Ok(None); }
-        let id: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id LIMIT 1", [user_id, venue], |r| r.get(0)).optional().map_err(|e| e.to_string())?;
+        let id: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY status = 1 DESC, id LIMIT 1", [user_id, venue], |r| r.get(0)).optional().map_err(|e| e.to_string())?;
         let Some(id) = id else { return Ok(None) };
         crate::sync::credentials_with_version(c, cipher, id).map(Some).map_err(|e| e.0)
     }).await?;

@@ -123,12 +123,13 @@ async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Ask
         flash::set(&ctx.session, flash::ALERT, ctx.t("tracker.tax_report.invalid_country"));
         return Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/tracker")));
     };
-    if scope == "broker" { return refused(&ctx, &headers, "tracker broker tax reports").await; }
-    if !crate::tax::jurisdictions::ported(&country, year) { return refused(&ctx, &headers, "tracker tax reports for this jurisdiction").await; }
+    // The broker report (A12-7) is queued as Rails queues it; its run refuses what Rails' refuses (another country or year).
+    if scope == "crypto" && !crate::tax::jurisdictions::ported(&country, year) { return refused(&ctx, &headers, "tracker tax reports for this jurisdiction").await; }
     let stablecoin = stablecoin.as_deref() == Some("true");
     let (app2, ctx2) = (app.clone(), ctx.clone());
     let answer = app.db(move |c| {
-        if coingecko(c, &app2)? { return Ok(None); }
+        // The broker report reads the broker's closes, never the market-data provider's.
+        if scope == "crypto" && coingecko(c, &app2)? { return Ok(None); }
         let tmp = &app2.config.tmp_dir;
         let _files = job::files(owner, scope);
         let request = job::token();

@@ -46,6 +46,8 @@ module TaxVectors
     app/models/tax/methods/return_of_capital.rb app/models/tax/ecb_fx_rates.rb app/services/bot_api/tax/list_jurisdictions.rb
     app/models/tax/methods/lifo.rb app/models/tax/methods/fifo4_week.rb app/models/tax/methods/weighted_average.rb
     app/models/tax/methods/share_pooling.rb app/models/tax/methods/pooled_holdings.rb
+    app/models/tax/broker_report.rb app/models/tax/broker_report_csv.rb app/models/tax/lot_ledger.rb app/models/tax/vorabpauschale.rb
+    app/models/fund_classification.rb
   ].freeze
 
   # The schema is loaded before travelling: a migration stamped after NOW would not load.
@@ -290,7 +292,8 @@ module TaxVectors
         kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z', exchange: kraken)
       } }
-    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios + gb_scenarios
+    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios + gb_scenarios +
+      broker_scenarios
   end
 
   # A12-2: US beyond Alpaca, and D-TAX-US-WALLET (lots per venue for tax years from 2025).
@@ -2912,11 +2915,177 @@ module TaxVectors
   end
 
 
+  # ---- A12-7: the German broker report (Anlage KAP / KAP-INV), `report_scope: 'broker'` ------------------------------------
+  # Securities and funds on Alpaca; closes stored as `stock:SYM` USD rows; NTA rows booked at the date's midnight (UTC), as
+  # Exchanges::Alpaca#non_trade_timestamp books them. Figures: PLAN-A12-tax-reports.md "A12-7" and its revisions.
+  # A bars request (Exchanges::Alpaca#get_candles) answers the scenario's `bars` ({ SYM => [[day, close], …] or :fail }); every
+  # call is logged.
+  BARS = {} # rubocop:disable Style/MutableConstant
+  BARS_LOG = [] # rubocop:disable Style/MutableConstant
+  Exchanges::Alpaca.prepend(Module.new do
+    def get_candles(ticker:, start_at:, timeframe:)
+      TaxVectors::BARS_LOG << [ticker.base, start_at.utc.iso8601, timeframe.to_i]
+      script = TaxVectors::BARS.fetch(ticker.base, [])
+      return Result::Failure.new('broker outage') if script == :fail
+
+      Result::Success.new(script.filter_map do |day, close|
+        t = Time.utc(*day.split('-').map(&:to_i))
+        [t, close, close, close, close, '1000'] if t >= start_at
+      end)
+    end
+  end)
+
+  def security(c, sym, type = 'stock', ticker: false)
+    a = Asset.create!(external_id: "#{sym}.XNAS", symbol: sym, name: sym, category: type == 'etf' ? 'ETF' : 'Stock', instrument_type: type)
+    ExchangeAsset.create!(exchange: c[:alpaca], asset: a, available: true)
+    return unless ticker
+
+    Ticker.create!(exchange: c[:alpaca], ticker: sym, base: sym, quote: 'USD', base_asset: a, quote_asset: c[:assets]['USD'], base_decimals: 9,
+                   quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+  end
+
+  def classify(c, sym, kind, category = nil) = FundClassification.create!(user: c[:user], symbol: sym, kind:, fund_category: category)
+  def close(sym, day, usd) = price("stock:#{sym}", day, usd)
+  def fill(c, side, sym, qty, usd, day, time: '15:00:00') = row(c, side, sym, qty, "#{day}T#{time}Z", quote_currency: 'USD', quote_amount: usd, tx_id: "fill-#{side}-#{sym}-#{day}-#{time}")
+
+  # An Alpaca non-trade activity as the ledger sync stores it (Exchanges::Alpaca#normalize_activity).
+  def nta(c, activity, sym, usd, day, per_share: nil, qty: nil, refund: false)
+    raw = { 'activity_type' => activity, 'net_amount' => usd, 'date' => day }
+    raw['per_share_amount'] = per_share if per_share
+    raw['symbol'] = sym if sym
+    at = "#{day}T00:00:00Z"
+    id = "#{activity}-#{sym}-#{day}-#{(c[:nta] = c.fetch(:nta, 0) + 1)}"
+    case activity
+    when 'DIV', 'INT'
+      row(c, :other_income, 'USD', usd.delete('-'), at, quote_currency: sym, raw_data: raw, tx_id: id)
+    when 'DIVNRA', 'DIVFT', 'DIVTW', 'INTNRA', 'INTTW'
+      row(c, :withholding_tax, 'USD', usd.delete('-'), at, quote_currency: sym, raw_data: raw.merge('net_amount' => refund ? usd : "-#{usd.delete('-')}"), tx_id: id)
+    when 'DIVROC'
+      row(c, :return_of_capital, sym, qty, at, quote_currency: 'USD', quote_amount: usd, raw_data: raw.merge('qty' => qty), tx_id: id)
+    when 'FEE'
+      row(c, :fee, 'USD', usd.delete('-'), at, raw_data: raw.merge('net_amount' => "-#{usd.delete('-')}"), tx_id: id)
+    when 'SPLIT'
+      row(c, :adjustment, sym, usd, at, raw_data: { 'activity_type' => 'SPLIT', 'corporate_action' => 'split', 'symbol' => sym, 'qty' => usd }, tx_id: id)
+    else
+      row(c, :unsupported_activity, sym || 'USD', '1', at, raw_data: raw, tx_id: id)
+    end
+  end
+
+  def broker_scenarios
+    br = ->(name, expect = 'parity', year: 2025, bars: nil, &setup) { { name:, country: 'DE', year:, scope: 'broker', expect:, bars:, setup: } }
+    zqx = ->(c) { security(c, 'ZQX') }
+    fndx = ->(c, ticker: false) { security(c, 'FNDX', 'etf', ticker:) }
+    # FNDX bought on 2 January 2024 at 100 €/share and the 2024 boundary closes (start 100 €, end 110 €).
+    fund_2024 = lambda do |c, start: '108', finish: '118.80', bought: '2024-01-02', usd: '10800'|
+      fndx.(c)
+      fill(c, :buy, 'FNDX', '100', usd, bought)
+      close('FNDX', '2023-12-29', '107')
+      close('FNDX', '2024-01-02', start)
+      close('FNDX', '2024-12-31', finish)
+    end
+    dividend = ->(c, sym, usd, tax, day, kind: 'DIVNRA') { nta(c, 'DIV', sym, usd, day); nta(c, kind, sym, tax, day) if tax }
+    [
+      br.('de_broker_shares') do |c|
+        zqx.(c); security(c, 'LSX')
+        fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); fill(c, :sell, 'ZQX', '10', '2200', '2025-04-01')
+        fill(c, :buy, 'LSX', '10', '2160', '2024-02-01'); fill(c, :sell, 'LSX', '10', '1100', '2025-05-02')
+        nta(c, 'FEE', nil, '1.10', '2025-06-02')
+        row(c, :buy, 'BTC', '0.01', '2025-03-03T15:00:00Z', quote_currency: 'USD', quote_amount: '900')
+      end,
+      br.('de_broker_lots') do |c|
+        zqx.(c)
+        fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); fill(c, :buy, 'ZQX', '10', '2160', '2024-03-01'); fill(c, :sell, 'ZQX', '15', '3300', '2025-03-03')
+      end,
+      br.('de_broker_split') do |c|
+        zqx.(c)
+        fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); nta(c, 'SPLIT', 'ZQX', '30', '2024-06-03'); fill(c, :sell, 'ZQX', '40', '2200', '2025-03-03')
+      end,
+      br.('de_broker_dividend_15') { |c| zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '110', '16.50', '2025-06-02') },
+      br.('de_broker_dividend_30', 'diverges: D-TAX-BROKER-CREDIT') { |c| zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '110', '33', '2025-06-02') },
+      br.('de_broker_two_withholdings', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '110', '11', '2025-06-02'); nta(c, 'DIVNRA', 'ZQX', '11', '2025-06-02')
+      end,
+      br.('de_broker_withholding_refund', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '110', '33', '2025-06-02')
+        nta(c, 'DIVNRA', 'ZQX', '16.50', '2025-06-02', refund: true)
+      end,
+      br.('de_broker_two_distributions', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); nta(c, 'DIV', 'ZQX', '110', '2025-06-02'); dividend.(c, 'ZQX', '110', '33', '2025-06-02')
+      end,
+      br.('de_broker_divft', 'diverges: D-TAX-BROKER-CREDIT') { |c| zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '77', '33', '2025-06-02', kind: 'DIVFT') },
+      br.('de_broker_interest', 'diverges: D-TAX-BROKER-CREDIT') { |c| nta(c, 'INT', nil, '55', '2025-07-01'); nta(c, 'INTNRA', nil, '5.50', '2025-07-01') },
+      br.('de_broker_interest_reversal') { |c| nta(c, 'INT', nil, '55', '2025-03-03'); nta(c, 'INT', nil, '-11', '2025-04-01') },
+      br.('de_broker_roc', 'diverges: D-TAX-BROKER-ROC-DIVIDEND') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); nta(c, 'DIVROC', 'ZQX', '110', '2025-06-02', per_share: '11', qty: '10')
+        fill(c, :sell, 'ZQX', '10', '2200', '2025-09-01')
+      end,
+      br.('de_broker_roc_divft', 'diverges: D-TAX-BROKER-ROC-DIVIDEND') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); nta(c, 'DIVROC', 'ZQX', '77', '2025-06-02', per_share: '7.7', qty: '10')
+        nta(c, 'DIVFT', 'ZQX', '33', '2025-06-02')
+      end,
+      br.('de_broker_uncovered') { |c| zqx.(c); fill(c, :buy, 'ZQX', '5', '535', '2023-03-01'); fill(c, :sell, 'ZQX', '10', '2200', '2025-03-03') },
+      { **br.('de_broker_missing_fx') { |c| zqx.(c); fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); fill(c, :sell, 'ZQX', '10', '2200', '2025-03-03') }, fx_gap: %w[2025-03-03] },
+      br.('de_broker_unclassified') { |c| fill(c, :buy, 'XYZQ', '1', '107', '2025-03-03') },
+      br.('de_broker_refused_withholding', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); nta(c, 'OPEXP', 'ZQX', '0', '2025-02-03'); dividend.(c, 'ZQX', '110', '33', '2025-06-02')
+      end,
+      br.('de_broker_fund_categories', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        { 'EQF' => 'equity_fund', 'MXF' => 'mixed_fund', 'REF' => 'real_estate_fund', 'FRF' => 'foreign_real_estate_fund', 'FNDX' => 'other_fund' }.each do |sym, cat|
+          security(c, sym, 'etf'); classify(c, sym, :fund, cat)
+          fill(c, :buy, sym, '10', '1100', '2025-01-02'); dividend.(c, sym, '110', '16.50', '2025-06-02')
+        end
+      end,
+      br.('de_broker_fund_sale_prior_vap', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') { |c| fund_2024.(c); fill(c, :sell, 'FNDX', '100', '13200', '2025-06-02') },
+      br.('de_broker_vap_start', 'diverges: D-TAX-BROKER-VAP-START') { |c| fund_2024.(c, start: '112.32', usd: '11232') },
+      br.('de_broker_vap_months', 'diverges: D-TAX-BROKER-VAP-MONTHS') { |c| fund_2024.(c, finish: '109.08', bought: '2024-04-15') },
+      br.('de_broker_vap_distribution') { |c| fund_2024.(c); nta(c, 'DIV', 'FNDX', '216', '2024-07-01', per_share: '2.16') },
+      br.('de_broker_vap_distribution_before', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
+        fund_2024.(c); nta(c, 'DIV', 'FNDX', '108', '2024-03-01', per_share: '1.08'); fill(c, :buy, 'FNDX', '100', '10800', '2024-05-02')
+      end,
+      br.('de_broker_fund_split_vap', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
+        fndx.(c); fill(c, :buy, 'FNDX', '100', '10700', '2023-01-03')
+        { '2022-12-30' => '105', '2023-01-03' => '107', '2023-12-29' => '117.70', '2024-01-02' => '118.80', '2024-12-31' => '64.80' }.each { |d, p| close('FNDX', d, p) }
+        nta(c, 'DIV', 'FNDX', '10.80', '2024-03-01', per_share: '0.108'); nta(c, 'SPLIT', 'FNDX', '100', '2024-06-03')
+        nta(c, 'DIV', 'FNDX', '10.80', '2024-09-03', per_share: '0.054'); fill(c, :sell, 'FNDX', '50', '1650', '2025-06-02')
+      end,
+      br.('de_broker_negative_basiszins', 'diverges: D-TAX-BROKER-VAP-NO-PRICE', year: 2023) do |c|
+        fndx.(c); fill(c, :buy, 'FNDX', '100', '10500', '2022-03-01'); fill(c, :sell, 'FNDX', '100', '11770', '2023-09-01')
+      end,
+      br.('de_broker_2023_fund', 'diverges: D-TAX-BROKER-2023-LINES', year: 2023) { |c| fndx.(c); fill(c, :buy, 'FNDX', '100', '10700', '2023-02-01'); nta(c, 'DIV', 'FNDX', '107', '2023-06-01') },
+      br.('de_broker_vap_2024', year: 2024) do |c|
+        fndx.(c); fill(c, :buy, 'FNDX', '100', '10500', '2022-12-01')
+        { '2021-12-31' => '120', '2022-12-30' => '105', '2023-01-03' => '107', '2023-12-29' => '117.70' }.each { |d, p| close('FNDX', d, p) }
+      end,
+      br.('de_broker_missing_close') { |c| fndx.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-01-02') },
+      br.('de_broker_outage', bars: { 'FNDX' => :fail }) { |c| fndx.(c, ticker: true); fill(c, :buy, 'FNDX', '100', '10800', '2024-01-02') },
+      br.('de_broker_fetched', 'fetch', bars: { 'FNDX' => [%w[2023-12-28 106], %w[2023-12-29 107], %w[2024-01-02 108], %w[2024-01-03 108.5], %w[2024-12-30 118], %w[2024-12-31 118.80]] }) do |c|
+        fndx.(c, ticker: true); fill(c, :buy, 'FNDX', '100', '10800', '2024-01-02')
+      end,
+      br.('de_broker_local_year', 'diverges: D-TAX-BROKER-LOCAL-DATE') do |c|
+        user_zone(c, 'Europe/Berlin'); zqx.(c)
+        fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); fill(c, :sell, 'ZQX', '10', '2160', '2024-12-31', time: '23:30:00')
+      end,
+      br.('de_broker_2022_failed', 'failed', year: 2022) { |c| zqx.(c); fill(c, :buy, 'ZQX', '10', '1070', '2022-03-01') },
+      br.('de_broker_2026_failed', 'failed', year: 2026) { |c| zqx.(c); fill(c, :buy, 'ZQX', '10', '1070', '2025-03-03') },
+      { **br.('de_broker_us_failed', 'failed') { |c| zqx.(c) }, country: 'US' }
+    ]
+  end
+
+  # Every day a broker scenario converts on: its rows', its stored closes' and its scripted bars'.
+  def broker_ecb(scenario)
+    days = HistoricalPrice.where('asset LIKE ?', 'stock:%').pluck(:date) +
+           Array(scenario[:bars]).flat_map { |_, bars| bars == :fail ? [] : bars.map { |d, _| Date.parse(d) } }
+    gaps = Array(scenario[:fx_gap]).map { |d| Date.parse(d) }
+    rows = (days.uniq - gaps).map { |d| { currency: 'USD', date: d, rate: USD_PER_EUR.fetch(d.year, '1.1') } }
+    FxRate.insert_all(rows, unique_by: %i[currency date]) if rows.any?
+  end
+
   def run(scenario, dir)
     file = File.join(dir, "#{scenario[:name]}.sqlite3")
     year = scenario.fetch(:year, 2026)
     country = scenario.fetch(:country, 'US')
     stablecoin = scenario.fetch(:stablecoin, false)
+    scope = scenario.fetch(:scope, 'crypto')
     schema(file)
     travel_to(NOW) do
       ctx = build
@@ -2926,20 +3095,31 @@ module TaxVectors
       gb_prices if country == 'GB'
       ecb(Array(scenario[:fx_gap]), country)
       dk_fx(Array(scenario[:fx_gap])) if country == 'DK'
-      rails = begin
-        Tax::GenerateReportJob.new.perform(ctx[:user].id, country, year, stablecoin)
-        refusal = Tax::GenerateReportJob.refusal(ctx[:user].id, country, year)
-        refusal ? { 'refused' => refusal } : { 'csv' => File.read(Tax::GenerateReportJob.report_path(ctx[:user].id, country, year)) }
-      ensure
-        FileUtils.rm_f(Tax::GenerateReportJob.report_path(ctx[:user].id, country, year))
-        FileUtils.rm_f(Tax::GenerateReportJob.refusal_path(ctx[:user].id, country, year))
-      end
+      broker_ecb(scenario) if scope == 'broker'
       conn = ActiveRecord::Base.connection
-      tables = TABLES.to_h { |t| [t, conn.select_all("SELECT * FROM #{t} ORDER BY id").to_a] }
+      dump = -> { TABLES.to_h { |t| [t, conn.select_all("SELECT * FROM #{t} ORDER BY id").to_a] } }
+      before = dump.() if scenario[:bars]
+      BARS.replace(scenario[:bars] || {})
+      BARS_LOG.clear
+      rails = begin
+        Tax::GenerateReportJob.new.perform(ctx[:user].id, country, year, stablecoin, scope)
+        refusal = Tax::GenerateReportJob.refusal(ctx[:user].id, country, year, scope)
+        refusal ? { 'refused' => refusal } : { 'csv' => File.read(Tax::GenerateReportJob.report_path(ctx[:user].id, country, year, scope)) }
+      rescue ArgumentError => e
+        raise unless scope == 'broker'
+
+        { 'failed' => e.message }
+      ensure
+        FileUtils.rm_f(Tax::GenerateReportJob.report_path(ctx[:user].id, country, year, scope))
+        FileUtils.rm_f(Tax::GenerateReportJob.refusal_path(ctx[:user].id, country, year, scope))
+      end
+      tables = dump.()
       { 'name' => scenario[:name], 'country' => country, 'year' => year, 'stablecoin_as_fiat' => stablecoin, 'now' => NOW.iso8601,
         'user_id' => ctx[:user].id, 'expect' => scenario[:expect], 'tables' => tables, 'rails' => rails,
         'nbp' => (nbp = pl_default_nbp(scenario))[0], 'nbp_coverage' => nbp[1], 'pl_carry' => scenario.fetch(:pl_carry, []),
         'cnb' => (cnb = cz_default_cnb(scenario))[0], 'cnb_coverage' => cnb[1] }
+        .merge(scope == 'broker' ? { 'scope' => 'broker', 'bars' => scenario[:bars]&.transform_values { |v| v == :fail ? 'fail' : v },
+                                     'bars_log' => BARS_LOG.dup, 'tables_before' => before }.compact : {})
     end
   end
 end

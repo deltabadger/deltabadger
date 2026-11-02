@@ -57,8 +57,20 @@ fn job_db(i: &Install) -> (Db, Sent) {
     (db, sent)
 }
 
-async fn run(i: &Install, db: &Db) -> Outcome {
-    let job = tax::job::<ScriptedTransport>(std::rc::Rc::new(None), None, tmp(i));
+/// Alpaca as a script (the broker report's bars); nothing is asked of it unless a test scripts it.
+#[derive(Clone)]
+struct Bars(ScriptedTransport);
+impl deltabadger::sync::jobs::Connect for Bars {
+    type T = ScriptedTransport;
+    fn connect(&self, _: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<ScriptedTransport> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(self.0.clone(), deltabadger::venue::alpaca::Urls::for_passphrase(None))
+    }
+}
+
+async fn run(i: &Install, db: &Db) -> Outcome { run_with(i, db, ScriptedTransport::from_script(&json!({}))).await }
+
+async fn run_with(i: &Install, db: &Db, alpaca: ScriptedTransport) -> Outcome {
+    let job = tax::job::<Bars, ScriptedTransport>(std::rc::Rc::new(None), Bars(alpaca), tmp(i));
     let clock = FixedClock(web::at(T0));
     job.run(Cx { db: db.clone(), clock: &clock, wakers: Wakers::default() }, vec![]).await
 }
