@@ -1,7 +1,7 @@
 Stichtag,Vermögenswert,Menge,Wert,Währung
 2025-12-31,ETH,10.1,24240.0,CHF
 ,,Gesamtwert,24240.0,
-"Vermögenssteuer ist kantonal: Tragen Sie die Bestände im Wertschriftenverzeichnis als übrige Guthaben ein, zum Steuerwert in ganzen Franken. Kryptoerträge sind ohne Verrechnungssteuer. Guthaben in Fiatwährung auf den Plattformen sind ebenfalls Vermögen und hier nicht berechnet."
+"Vermögenssteuer ist kantonal: Trag die Bestände im Wertschriftenverzeichnis als übrige Guthaben ein, zum Steuerwert in ganzen Franken. Kryptoerträge sind ohne Verrechnungssteuer. Guthaben in Fiatwährung auf den Plattformen sind ebenfalls Vermögen und hier nicht berechnet."
 
 Erhaltene Einkünfte (Besteuerung je nach Einkunftsart und maßgeblichem Steuerrecht — nicht in den oben ausgewiesenen Veräußerungsgewinnen enthalten)
 2025-03-01,Staking-Erträge,ETH,0.1,250.0,CHF
@@ -9,4 +9,4 @@ Erhaltene Einkünfte (Besteuerung je nach Einkunftsart und maßgeblichem Steuerr
 
 NOTE: Verkäufe im Jahr (private Kapitalgewinne):
 Handelsvolumen (nur Käufe und Verkäufe gegen Fiat) 25000.00 CHF; fünffacher Bestand am 1. Januar: 0.00 CHF
-"Private Kapitalgewinne sind steuerfrei und Verluste nicht abziehbar, ausser Sie gelten als gewerbsmässiger Händler. Die Safe-Harbour-Regel verlangt alle fünf Punkte: jede Anlage mindestens 6 Monate gehalten, Volumen höchstens das Fünffache des Bestands zu Jahresbeginn, Gewinne unter der Hälfte des Reineinkommens, keine Fremdfinanzierung (oder Erträge über den Schuldzinsen), Derivate nur zur Absicherung. Wer einen Punkt nicht erfüllt, ist damit nicht automatisch gewerbsmässig. Tausche zwischen Vermögenswerten sind im angegebenen Volumen nicht enthalten."
+"Private Kapitalgewinne sind steuerfrei und Verluste nicht abziehbar, ausser du giltst als gewerbsmässiger Händler. Die Safe-Harbour-Regel verlangt alle fünf Punkte: jede Anlage mindestens 6 Monate gehalten, Volumen höchstens das Fünffache des Bestands zu Jahresbeginn, Gewinne unter der Hälfte deines Reineinkommens, keine Fremdfinanzierung (oder Erträge über den Schuldzinsen), Derivate nur zur Absicherung. Einen Punkt nicht zu erfüllen, macht dich nicht automatisch gewerbsmässig. Tausche zwischen Vermögenswerten sind im angegebenen Volumen nicht enthalten."
