@@ -594,7 +594,8 @@ fn evaluate_all_claimed_skip_and_recorded_child_do_not_refan() {
     let d = Db::new();
     d.job("all", true, true);
     d.job("child", false, true);
-    assert_eq!(rules::takeover_problems(&d.c, &d.q).unwrap().len(), 2);
+    // PLAN-B2 r4.7: the claimed fan-out is acknowledged at the claim; only its claimed child refuses.
+    assert_eq!(rules::takeover_problems(&d.c, &d.q).unwrap().len(), 1);
     let log = d.log("Withdrew", Some("X"));
     d.c.execute(
         "UPDATE rule_logs SET details=json_set(details,'$.withdrawal_id',42) WHERE id=?1",

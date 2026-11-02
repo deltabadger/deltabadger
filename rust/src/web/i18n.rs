@@ -19,6 +19,10 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.bot_alerts_mailer.set_aside.subject", "%{label} was stopped"),
     ("en.bot_alerts_mailer.set_aside.template_html", "<p>Deltabadger stopped your bot <b>%{label}</b> while updating your data. Nothing was bought or sold.</p><p>%{reasons}</p>"),
     ("en.bot.status.set_aside", "Deltabadger stopped this bot while updating your data: %{reason} Nothing was bought or sold."),
+    // PLAN-B2 C3, C4, C12 (B2-6): Rust-only, the activity lines a takeover writes for work Rails left in its queue.
+    ("en.bot_activity.events.upgrade_signal_unresolved", "A webhook call (%{call}) may or may not have placed an order: Deltabadger stopped while placing it. Check your exchange, then confirm it on this page. Until then this bot places nothing."),
+    ("en.bot_activity.events.upgrade_command_dropped", "Your request to %{action} didn't run before the update. Request it again."),
+    ("en.bot_activity.events.upgrade_order_unrecorded", "An order for this bot may have been sent to your exchange just before the update without being recorded here. Check your exchange."),
     ("en.rules.tile.withdrawal_unconfirmed", "Withdrawal status unconfirmed — not retried, to avoid sending it twice. Check %{exchange}."),
     ("bg.tax_report.warnings.unmatched_swaps", "Страни на замяна без страна в обратната посока; където замените не се облагат, цената на придобиване на изходяща страна не можа да бъде пренесена, а за входяща страна е приета цена на придобиване по пазарна стойност"),
     ("bg.tax_report.warnings.unmatched_swaps_hint", "Синхронизирай или импортирай сметката, която съдържа другата страна на всяка замяна, за да се пренесе цената ѝ на придобиване."),

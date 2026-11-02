@@ -2924,6 +2924,34 @@ async fn a_resolve_lifts_a_lone_marker_and_leaves_one_the_engine_still_settles()
     assert_eq!(state().1, 1, "a repeat is stale and writes nothing");
 }
 
+/// PLAN-B2 r4.2: the marker a takeover writes for a claimed webhook call whose rule is gone has no `side`. The page shows
+/// it with its Resolve form, and Resolve lifts it with its line, as for Rails' own marker.
+#[tokio::test(flavor = "current_thread")]
+async fn a_takeover_marker_without_side_shows_and_resolves() {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let transient = json!({ "signal_placement_unresolved": { "id": "rails-job:00000000-0000-4000-8000-000000000009", "at": "2026-09-10T11:00:00Z",
+                                                             "error": "Deltabadger stopped while placing it" } });
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, label, settings, transient_data, created_at, updated_at) \
+               VALUES ('Bots::Signal', 2, ?1, ?2, 'Signals', ?3, ?4, '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              (seeded.exchange_id, seeded.user_id, json!({ "base_asset_id": seeded.btc, "quote_asset_id": seeded.quote }).to_string(), transient.to_string())).unwrap();
+    let id = c.last_insert_rowid();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{:.500}", page.body);
+    assert!(page.body.contains("name=\"marker_id\" value=\"rails-job:00000000-0000-4000-8000-000000000009\""), "{:.2000}", page.body);
+    let answer = browser.send(&app, "POST", &format!("/bots/{id}/signal_resolution"), Some(&[("marker_id", "rails-job:00000000-0000-4000-8000-000000000009")]), web::Csrf::Header, &[]).await;
+    assert_eq!(answer.status, 302);
+    let (left, lines): (String, i64) = c.query_row("SELECT transient_data, (SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1) FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((serde_json::from_str::<serde_json::Value>(&left).unwrap(), lines), (json!({}), 1), "lifted with its line");
+}
+
 /// Slice 8c-2: a signal bot's Stop from its page commits even where another of the owner's bots cannot be drawn (a stored
 /// time it cannot parse): the answer is a refresh, as every bot's Stop answers it (action_view::lifecycle_response).
 #[tokio::test(flavor = "current_thread")]
