@@ -188,8 +188,10 @@ mod tests {
         assert_eq!(rows(&db).await, vec![]);
         let big = MockServer::start().await;
         Mock::given(method("GET")).and(path("/authentication/session.json"))
-            .respond_with(ResponseTemplate::new(200).set_body_string(format!("{{\"status\":\"SUCCESS\",\"pad\":\"{}\"}}", "x".repeat(5 << 20)))).mount(&big).await;
-        assert!(Live { base: big.uri() }.values(day("2025-12-31"), &["BTC".into()]).await.is_err());
+            .respond_with(ResponseTemplate::new(200).set_body_string(format!("{{\"status\":\"SUCCESS\",\"data\":{{\"csrfToken\":\"tok-1\"}},\"pad\":\"{}\"}}", "x".repeat(5 << 20)))).mount(&big).await;
+        // A valid session past the limit: refused by the limit, not by a missing token or catalogue.
+        let err = Live { base: big.uri() }.values(day("2025-12-31"), &["BTC".into()]).await.unwrap_err();
+        assert!(!err.contains("CSRF") && !err.contains("token list"), "{err}");
     }
 
 }
