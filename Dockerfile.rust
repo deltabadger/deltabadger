@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1
+# Deltabadger 3.0: the Rust program alone, no Ruby. The same contract as the 2.x image (Dockerfile):
+# data in /app/storage, SECRET_KEY_BASE from the environment or /app/storage/.secrets, port 3000,
+# /health-check. Built from source, natively on each platform (amd64, arm64).
+#   docker build -f Dockerfile.rust .
+
+# Stage 1: the web assets the binary embeds (rust/build.rs): bun + dart-sass, no Ruby.
+FROM oven/bun:1.3-slim AS assets
+WORKDIR /src
+COPY package.json bun.lock Gemfile.lock ./
+COPY script/rust/build_assets.sh script/rust/build_assets.sh
+COPY app/javascript app/javascript
+COPY app/assets app/assets
+RUN bash script/rust/build_assets.sh
+
+# Stage 2: the release binary. build.rs reads the repository (locales, assets, public/, the frozen
+# migration list) and runs a python3 gate on every build.
+FROM rust:1.94.0-slim-trixie AS build
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends python3 && \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+COPY --from=assets /src/app/assets/builds/application.js /src/app/assets/builds/application.css app/assets/builds/
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/rust/target \
+    cd rust && cargo build --release --locked && cp target/release/deltabadger /usr/local/bin/deltabadger
+# The release's catalogue snapshot, when the build has one (docker-publish.yml's release-catalogue job).
+RUN mkdir -p /out/seed_data && { cp db/seed_data/catalogue.json.gz /out/seed_data/ 2>/dev/null || true; }
+
+# Stage 3: runtime. CA certificates for venue and mail TLS; curl for the health checks (the image's
+# own and the ones existing compose files run). Time zones are compiled into the binary.
+FROM debian:trixie-slim AS runtime
+
+LABEL maintainer="Deltabadger"
+LABEL org.opencontainers.image.title="Deltabadger"
+LABEL org.opencontainers.image.description="Crypto DCA Bot Platform"
+
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# The uid every existing volume is owned by.
+RUN groupadd --gid 1000 deltabadger && \
+    useradd --uid 1000 --gid deltabadger --shell /bin/bash --create-home deltabadger
+
+WORKDIR /app
+ENV STORAGE_DIR=/app/storage
+
+COPY --from=build /usr/local/bin/deltabadger /usr/local/bin/deltabadger
+COPY --from=build /out/seed_data/ /app/db/seed_data/
+COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+RUN mkdir -p /app/storage /app/log /app/tmp && \
+    chown -R deltabadger:deltabadger /app/storage /app/log /app/tmp
+
+# Starts as root so the entrypoint can fix a volume's ownership, then drops to 1000; `user: 1000:1000`
+# skips that, as with the 2.x image.
+EXPOSE 3000
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -fsS "http://localhost:${PORT:-3000}/health-check" || exit 1
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["web"]
