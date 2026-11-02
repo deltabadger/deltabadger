@@ -153,7 +153,7 @@ mod tests {
         let loss = Disposal { at: at("2026-06-02T00:00:00Z"), acquired: None, asset: "ETH".into(), amount: d("0.1"), proceeds: d("200"), cost_basis: d("400"),
                            fee: Dec::zero(), gain_loss: d("-200"), holding_days: 0, complete: true, incomplete: false, tx_id: None, exchange: "alpaca".into(),
                            long_held: None, uncovered: Dec::zero(), averaged: false, mined: false, source: 0, recent: false, restricted: Dec::zero(),
-                           released: Dec::zero(), unusable: Dec::zero(), effective: at("2026-06-03T00:30:00Z") };
+                           released: Dec::zero(), unusable: Dec::zero(), effective: at("2026-06-03T00:30:00Z"), rule: None };
         let today = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         let y = year("en", 1270, &[loss], &|r: &Disposal| r.at.utc().date_naive(), today).unwrap();
         assert!(y.notes.contains("2026-07-02"), "{}", y.notes);

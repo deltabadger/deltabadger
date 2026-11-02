@@ -52,6 +52,8 @@ pub mod job;
 pub mod jurisdictions;
 mod it;
 mod ie;
+mod se;
+mod gb;
 pub mod nbp;
 pub mod pl;
 
@@ -250,7 +252,7 @@ impl Report {
         if !j.swaps_taxable() && !self.stablecoin_as_fiat { swap_coin_for_stablecoin_groups(&mut enriched, j.code == "IT"); }
         // D-TAX-SWAP-RECEIVED: a swap's proceeds are the value received (BG чл. 33 ал. 5; CZ § 3 odst. 2, GFŘ 2022; IE s. 547
         // and TDM 02-01-03 §4, the money's worth received).
-        let received = matches!(j.code, "BG" | "CZ" | "IE");
+        let received = matches!(j.code, "BG" | "CZ" | "IE" | "SE" | "GB");
         if received { value_groups(&mut enriched, |_, _| Some(true))?; }
         // D-TAX-IT-SWAPS: an exchange with an e-money token is a disposal at the value received.
         if j.code == "IT" {
@@ -314,7 +316,9 @@ impl Report {
         // D-TAX-AT-WALLET: Austria's average is per wallet (VO § 2 Abs. 1; an exchange account is one, § 6 Z 2).
         let per_venue_from = match j.code { "US" if year >= 2025 => local_midnight(&self.zone, 2025), "DE" | "AT" => Some(At(i64::MIN)), _ => None };
         // D-TAX-CZ-SWAP-FEE: a fee on a swap's in-leg is an expense of the disposal (§ 10 odst. 5), from the start of time.
-        let swap_cost_to_disposed_from = if j.code == "CZ" { Some(At(i64::MIN)) } else { per_venue_from.filter(|_| j.code == "US") };
+        // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a swap's fee to the coin given (SE: all of it; GB: half), from the start.
+        let swap_cost_to_disposed_from = if matches!(j.code, "CZ" | "SE" | "GB") { Some(At(i64::MIN)) } else { per_venue_from.filter(|_| j.code == "US") };
+        let pooled = matches!(j.code, "SE" | "GB");
         // D-TAX-US-WALLET: per venue, a withdrawal to another venue is walked within its instant as soon as its funds allow
         // (`transfers_first`, the tracker's own order), so a same-instant sale on the far venue takes the lots it brought.
         // The pooled years keep Rails' order.
@@ -334,12 +338,15 @@ impl Report {
             swap_cost_to_disposed_from, austria,
             // D-TAX-BG-AVERAGE, D-TAX-BG-DEPOSIT-ZERO; D-TAX-DK-PER-PART, D-TAX-DK-DEPOSIT-ZERO, Denmark's mining provenance
             // and year-start units.
-            average_all: j.code == "BG", row_per_lot: dk, deposit_cost_zero: j.code == "BG" || dk || it, tag_mining: dk,
+            // D-TAX-SE-AVERAGE (genomsnittsmetoden), GB's s. 104 pool: one average per coin per person.
+            average_all: matches!(j.code, "BG" | "SE" | "GB"), row_per_lot: dk, deposit_cost_zero: j.code == "BG" || dk || it, tag_mining: dk,
             // D-TAX-IT-DEPOSIT-ZERO (art. 68 c. 9-bis); the year-start units for Italy's stablecoin NOTE too.
             snapshot_at: if dk || it { local_midnight(&self.zone, year) } else { None },
             // D-TAX-IT-FEES, D-TAX-IT-PRE2023-BASIS; LIFO as Rails.
             lifo: it, fees_ignored_from: it_from, swaps_taxable_before: it_from,
             ireland: ie.then_some(fifo::Ireland { from: &ie_from, until: &ie_until }),
+            // D-TAX-LOST-POOLED, D-TAX-COIN-FEE (acquisitions), D-TAX-GB-SWAP-FEE, and the funding order of a swap's fees.
+            lost_kept: pooled, own_fee_disposed: pooled, swap_fee_split: j.code == "GB", defer_group_fees: pooled,
         });
         engine.calculate(&txs)?;
         // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).
@@ -408,7 +415,8 @@ impl Report {
             Some(from) => taxable.iter().filter(|e| self.cfee.contains(&e.id) && e.row.at.0 < from.0).map(|e| e.id).collect(),
             None => self.cfee.clone(),
         };
-        let folded = attribute_trade_fees(&cfee, &mut taxable)?;
+        // D-TAX-COIN-FEE, acquisitions (SE, GB): a CFEE is its fill's expense and a disposal of its own.
+        let folded = attribute_trade_fees(&cfee, &mut taxable, matches!(self.j.code, "SE" | "GB"))?;
         let identity = |symbol: &str, r: &walk::Row| prices::coin_id(&self.reference, symbol, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()))
             .unwrap_or_else(|| format!("symbol:{symbol}"));
         let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)
@@ -480,12 +488,16 @@ impl Report {
            standing_fees: &[&walk::Row], unmatched: &[&walk::Row], allocation: &[fifo::Placed], at: &AtNotes) -> Result<String, FiguresError> {
         let (j, l) = (self.j, self.j.locale);
         let mut out = String::new();
-        let mut keys = vec!["date", "acquisition_date", "asset", "amount", "proceeds", "cost_basis", "gain_loss", "currency", "holding_days", "fee",
-                            "exchange", "tx_id", "cost_basis_complete", "data_incomplete"];
+        // Rails' weighted-average columns (SE): an average has no acquisition date or holding days.
+        let average = j.method == "weighted_average";
+        let mut keys = if average { vec!["date", "asset", "amount", "proceeds", "cost_basis", "gain_loss", "currency", "fee", "exchange", "tx_id",
+                                         "cost_basis_complete", "data_incomplete"] }
+            else { vec!["date", "acquisition_date", "asset", "amount", "proceeds", "cost_basis", "gain_loss", "currency", "holding_days", "fee",
+                        "exchange", "tx_id", "cost_basis_complete", "data_incomplete"] };
         if j.holding_exemption.is_some() { keys.push("tax_exempt"); }
         if j.old_stock_cutoff.is_some() { keys.push("old_stock"); }
         if j.short_long_term { keys.push("term"); }
-        if j.method == "fifo_4week" { keys.push("matching_rule"); }
+        if matches!(j.method, "fifo_4week" | "share_pooling") { keys.push("matching_rule"); }
         if j.split_payment { keys.push("period"); }
         if j.tax_rate.is_some() { keys.push("tax_rate"); }
         if j.czech_exemptions.is_some() { keys.extend(["tax_exempt", "exempt_reason"]); }
@@ -501,6 +513,12 @@ impl Report {
         if results.is_empty() { line(&mut out, &[self.t("tax_report.no_taxable_transactions")]); }
         for (i, d) in results.iter().enumerate() {
             let held = d.long_held == Some(true);
+            if average {
+                line(&mut out, &[s(iso(d.at)), s(d.asset.clone()), n(&d.amount), cents(&d.proceeds)?, cents(&d.cost_basis)?, cents(&d.gain_loss)?, s(currency),
+                                 cents(&d.fee)?, s(d.exchange.clone()), d.tx_id.clone().map_or(Cell::Nil, s), Cell::Raw(d.complete.to_string()),
+                                 Cell::Raw(d.incomplete.to_string())]);
+                continue;
+            }
             let mut row = vec![s(iso(d.at)), d.acquired.map_or(Cell::Nil, |a| s(iso(a))), s(d.asset.clone()), n(&d.amount), cents(&d.proceeds)?,
                                cents(&d.cost_basis)?, cents(&d.gain_loss)?, s(currency), Cell::Raw(d.holding_days.to_string()), cents(&d.fee)?,
                                s(d.exchange.clone()), d.tx_id.clone().map_or(Cell::Nil, s), Cell::Raw(d.complete.to_string()), Cell::Raw(d.incomplete.to_string())];
@@ -509,6 +527,7 @@ impl Report {
             if j.short_long_term { row.push(self.t(&format!("tax_report.values.term_{}", if held { "long" } else { "short" }))); }
             // D-TAX-IE-4WEEK: `4_week_rule` where a part was an acquisition of the 4 weeks before (Rails' values).
             if j.method == "fifo_4week" { row.push(s(if d.recent { "4_week_rule" } else { "fifo" })); }
+            if j.method == "share_pooling" { row.push(s(d.rule.unwrap_or("section104"))); }
             // December's disposals are the later period (s. 959AQ), on the taxpayer's calendar.
             if j.split_payment { row.push(s(if self.local(d.at).month() == 12 { "later" } else { "initial" })); }
             if let Some(rate) = j.tax_rate { row.push(s(it::rate(rate, self.local(d.at), &d.asset))); }
@@ -906,7 +925,9 @@ fn sync_issues(c: &Connection, user_id: i64, locale: &str) -> Result<Vec<String>
 /// goes to that day's fills of the coin on its venue when the UTC and the New York calendars give the same fills, buys
 /// first (fewer coins, same cost), else sales (more coins out, same proceeds), pro rata by amount, the last fill taking
 /// what is left. Returns, per row, whether it was folded away.
-fn attribute_trade_fees(cfee: &HashSet<i64>, entries: &mut [Entry]) -> Result<Vec<bool>, FiguresError> {
+/// `expense` (SE, GB): the CFEE's value is shared to the fills as their fee instead (a buy's cost, a sale's deduction), and
+/// the CFEE stays a row of its own (a coin paid as a fee is a disposal).
+fn attribute_trade_fees(cfee: &HashSet<i64>, entries: &mut [Entry], expense: bool) -> Result<Vec<bool>, FiguresError> {
     let new_york = |at: At| at.utc().with_timezone(&chrono_tz::America::New_York).date_naive();
     let ids: Vec<i64> = entries.iter().map(|e| e.id).collect();
     let mut rows: Vec<&mut walk::Row> = entries.iter_mut().map(|e| &mut e.row).collect();
@@ -914,7 +935,7 @@ fn attribute_trade_fees(cfee: &HashSet<i64>, entries: &mut [Entry]) -> Result<Ve
     for i in 0..rows.len() {
         let fee = &rows[i];
         if fee.kind != Kind::Fee || !cfee.contains(&ids[i]) || !fee.amount.is_positive() { continue; }
-        let (day, base, venue, amount) = (fee.at.utc().date_naive(), fee.base.clone(), fee.exchange.clone(), fee.amount.clone());
+        let (day, base, venue, amount, value) = (fee.at.utc().date_naive(), fee.base.clone(), fee.exchange.clone(), fee.amount.clone(), fee.fiat_value.clone());
         let same_coin: Vec<usize> = (0..rows.len()).filter(|&j| {
             let r = &rows[j];
             matches!(r.kind, Kind::Buy | Kind::Sell) && r.exchange == venue && r.base == base && r.amount.is_positive()
@@ -926,6 +947,16 @@ fn attribute_trade_fees(cfee: &HashSet<i64>, entries: &mut [Entry]) -> Result<Ve
         let fills = if buys.is_empty() { fills } else { buys };
         let mut total = Dec::zero();
         for &j in &fills { total = (&total + &rows[j].amount)?; }
+        if expense {
+            let mut left = value.clone();
+            for (n, &j) in fills.iter().enumerate() {
+                let r = &mut *rows[j];
+                let share = if n == fills.len() - 1 { left.clone() } else { (&value * &r.amount)?.div(&total)? };
+                left = (&left - &share)?;
+                r.fee_fiat_value = (&r.fee_fiat_value + &share)?;
+            }
+            continue;
+        }
         let mut left = amount.clone();
         for (n, &j) in fills.iter().enumerate() {
             let r = &mut *rows[j];

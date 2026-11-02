@@ -142,15 +142,15 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["FR", "NL", "CH", "GB", "SE", "XX"] {
+    for country in ["FR", "NL", "CH", "XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
     // Poland's regime starts in 2019.
     assert!(matches!(crypto_report(&c, 1, "PL", 2018, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction PL")));
     // D-TAX-GR-NO-TAX: Greece is served up to 2026 only, until enacted law is reviewed.
     assert!(matches!(crypto_report(&c, 1, "GR", 2027, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction GR")));
-    // D-TAX-IT-YEARS: Italy's crypto-asset regime, 2023–2026; D-TAX-IE-YEARS: Ireland 2013–2026.
-    for (country, year) in [("IT", 2022), ("IT", 2027), ("IE", 2012), ("IE", 2027)] {
+    // D-TAX-IT-YEARS: Italy 2023–2026; D-TAX-IE-YEARS: Ireland 2013–2026; D-TAX-SE-YEARS, D-TAX-GB-YEARS: 2020–2026.
+    for (country, year) in [("IT", 2022), ("IT", 2027), ("IE", 2012), ("IE", 2027), ("SE", 2019), ("SE", 2027), ("GB", 2019), ("GB", 2027)] {
         assert!(matches!(crypto_report(&c, 1, country, year, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country} {year}");
     }
 }
