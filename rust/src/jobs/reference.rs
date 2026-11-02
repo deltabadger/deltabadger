@@ -71,8 +71,8 @@ impl<T: Transport + 'static> Job for Reference<T> {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(run(self.kind, Option::as_ref(&self.api), &self.cg, cx)) }
 }
 
-/// The six jobs, sharing one client, and the one-asset job's factory. `api` None: the install is not on the deltabadger
-/// provider (CoinGecko's live clients serve the jobs ported for it).
+/// The six jobs, sharing one client. `api` None: the install is not on the deltabadger provider (CoinGecko's live
+/// clients serve the jobs ported for it). The one-asset job is per asset: jobs::resolve builds it on its wake.
 pub fn jobs<T: Transport + 'static>(api: Option<DataApi<T>>) -> Vec<Box<dyn Job>> {
     shared_jobs(Rc::new(api))
 }
@@ -81,9 +81,7 @@ pub fn shared_jobs<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>) -> Vec<B
 
 /// The same with the CoinGecko clients a test hands.
 pub fn shared_jobs_with<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>, cg: Clients) -> Vec<Box<dyn Job>> {
-    let mut jobs: Vec<Box<dyn Job>> = KINDS.iter().map(|k| Box::new(Reference { kind: *k, api: api.clone(), cg: cg.clone() }) as Box<dyn Job>).collect();
-    jobs.push(Box::new(AssetDataFactory(cg)));
-    jobs
+    KINDS.iter().map(|k| Box::new(Reference { kind: *k, api: api.clone(), cg: cg.clone() }) as Box<dyn Job>).collect()
 }
 
 /// One run of the job named `name`, as the scheduler runs it (the parity harness).
@@ -428,16 +426,6 @@ async fn refresh(cx: &Cx<'_>, assets: &[(i64, String)], coin: impl Fn(&str) -> O
 /// Asset::FetchDataFromCoingeckoJob (D-CG one-asset job, PLAN-A17 item 10): one asset's `coins/{id}`, registered per
 /// asset (its own record, so it never moves the bulk refresh's).
 pub const ASSET_DATA: &str = "fetch_data_from_coingecko_job";
-
-struct AssetDataFactory(Clients);
-impl Job for AssetDataFactory {
-    fn spec(&self) -> Spec { Spec { name: "coingecko_asset_factory", scope: None, schedule: None, jitter: Jitter::NONE, retry: Retry::None, deadline: DEADLINE } }
-    fn spawn(&self, name: &str, scope: Option<&str>) -> Option<Box<dyn Job>> {
-        let id = scope?.parse::<i64>().ok().filter(|id| *id > 0)?;
-        (name == ASSET_DATA).then(|| Box::new(AssetData { cg: self.0.clone(), asset: id }) as Box<dyn Job>)
-    }
-    fn run<'a>(&'a self, _cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(async { Outcome::Failed("scope factory cannot run as a job".into()) }) }
-}
 
 pub struct AssetData { pub cg: Clients, pub asset: i64 }
 impl Job for AssetData {

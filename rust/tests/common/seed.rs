@@ -229,6 +229,9 @@ pub fn index_bot(c: &Connection, s: &Seeded, external_id: &str, num_coins: i64, 
     for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","https://data.invalid"),("market_data_token","scripted-token")] {
         deltabadger::app_config::set_plain(c,key,value,"2026-01-01T00:00:00Z".parse().unwrap()).unwrap();
     }
+    // As a complete index refresh under this configuration leaves it (engine::provider::record).
+    let fingerprint = deltabadger::engine::provider::fingerprint(c).unwrap().unwrap();
+    deltabadger::engine::provider::record(c, &fingerprint, "2026-01-01T00:00:00Z".parse().unwrap()).unwrap();
     let settings = json!({ "quote_asset_id": s.quote, "quote_amount": 60.0, "interval": "week", "num_coins": num_coins,
                            "allocation_flattening": flattening, "index_type": "category", "index_category_id": external_id, "hold_all": hold_all });
     c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \

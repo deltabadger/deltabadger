@@ -470,3 +470,23 @@ async fn an_index_bot_switched_to_a_venue_without_one_of_its_members_resyncs_and
         .map(|r| r.body.clone().unwrap_or_default()["symbol"].as_str().unwrap_or_default().to_string()).collect();
     assert_eq!(pairs, ["BTC-USDT", "ETH-USDT"], "the bot buys what the resync seated");
 }
+
+/// PLAN-A17 item 6a (D-CG-RESYNC-FENCED): after a provider or credential change, a marked bot's resync writes no member and
+/// keeps its marker until a complete refresh records the new configuration; then it applies.
+#[tokio::test(flavor = "current_thread")]
+async fn a_resync_waits_for_a_complete_refresh_after_a_provider_change() {
+    let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
+    r.mark();
+    deltabadger::app_config::set_plain(&r.c(), "market_data_token", "rotated-token", at(NOW)).unwrap();
+    let mut e = r.engine();
+    step(&mut e, NOW).await;
+    assert!(r.members().is_empty(), "no member written from the previous configuration's ranking");
+    assert!(r.marker().is_some(), "the marker stays");
+    let c = r.c();
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    let fingerprint = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
+    deltabadger::engine::provider::record(&c, &fingerprint, at(NOW)).unwrap();
+    step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert_eq!(r.members(), ["AAA", "BBB", "CCC"]);
+    assert_eq!(r.marker(), None);
+}

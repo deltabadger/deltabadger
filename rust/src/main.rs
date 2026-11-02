@@ -394,7 +394,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     for key in unbound {
         scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
     }
-    for (job, scope) in &rails_wakes { scheduler.wakers().wake(job, Some(scope), None); }
+    for (job, scope) in &rails_wakes { scheduler.wakers().wake(job, scope.as_deref(), None); }
     scheduler.wakers().attach_engine(engine.wake_handle());
     let scheduler = if let Some(web) = app {
         web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;

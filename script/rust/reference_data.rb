@@ -20,6 +20,10 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 module ScriptedDataApi
   URL = 'http://data-api:3000'.freeze # the docker alias: absolutize_logo_url rewrites it to the public host
   TOKEN = 'parity-token'.freeze
+  # PLAN-A17: CoinGecko is scripted beneath the same adapters. Its requests are logged with their host (the plan ping
+  # picks pro or demo), and answered by the host-less key, as rust/src/venue/http.rs's ScriptedTransport answers them.
+  COINGECKO_KEY = 'CG-parity-key'.freeze
+  COINGECKO_HOSTS = { 'pro-api.coingecko.com' => 'x-cg-pro-api-key', 'api.coingecko.com' => 'x-cg-demo-api-key' }.freeze
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "data-api" port 3000')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) }
@@ -34,11 +38,17 @@ module ScriptedDataApi
 
   module Adapter
     def call(env)
-      raise Harness::Unscripted, "unscripted HTTP call #{env.url}" unless ScriptedDataApi.http && env.url.host == 'data-api'
-      raise Harness::Unscripted, 'no bearer token' unless env.request_headers['Authorization'] == "Bearer #{ScriptedDataApi::TOKEN}"
+      host = env.url.host
+      raise Harness::Unscripted, "unscripted HTTP call #{env.url}" unless ScriptedDataApi.http && (host == 'data-api' || ScriptedDataApi::COINGECKO_HOSTS.key?(host))
+      if host == 'data-api'
+        raise Harness::Unscripted, 'no bearer token' unless env.request_headers['Authorization'] == "Bearer #{ScriptedDataApi::TOKEN}"
+      else
+        header = ScriptedDataApi::COINGECKO_HOSTS.fetch(host)
+        raise Harness::Unscripted, "no #{header}" unless env.request_headers[header] == ScriptedDataApi::COINGECKO_KEY
+      end
 
       key = ScriptedDataApi.key(env)
-      ScriptedDataApi.requests << key
+      ScriptedDataApi.requests << (host == 'data-api' ? key : key.sub(' ', " #{host}"))
       queue = ScriptedDataApi.http[key] || ScriptedDataApi.http[key.split('?').first] or raise Harness::Unscripted, "unscripted data-api call #{key}"
       reply = queue.size > 1 ? queue.shift : queue.first
       raise ScriptedDataApi::NETWORK.fetch(reply['network']).call if reply['network']
@@ -65,6 +75,7 @@ module Reference
     'sync_indices_from_coingecko_job' => 'Index::SyncFromCoingeckoJob',
     'sync_all_tickers_and_assets_job' => 'Exchange::SyncTickersAndAssetsJob',
     'fetch_all_assets_data_from_coingecko_job' => 'Asset::FetchAllAssetsDataFromCoingeckoJob',
+    'fetch_data_from_coingecko_job' => 'Asset::FetchDataFromCoingeckoJob',
     'prune_bot_activity_logs_job' => 'BotActivityLog::PruneJob'
   }.freeze
   PRE_SEND = { 'network' => 'pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused' }.freeze
@@ -177,11 +188,72 @@ module Reference
     asset('usd', 'USD', 'Fiat')
   end
 
+  # A CoinGecko install (PLAN-A17): the provider and the key as the settings page saves them, no data-api.
+  def coingecko_install(key: ScriptedDataApi::COINGECKO_KEY)
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
+    AppConfig.coingecko_api_key = key
+  end
+
+  # A coins/markets row as CoinGecko answers it.
+  def gecko(id, sym, extra = {})
+    { 'id' => id, 'symbol' => sym, 'name' => sym.upcase, 'image' => "https://coin-images.coingecko.com/coins/images/1/large/#{id}.png",
+      'current_price' => 1.5, 'market_cap' => 123_456_789.0, 'market_cap_rank' => 42, 'circulating_supply' => 1_000_000.25 }.merge(extra)
+  end
+
+  def markets_key(ids) = "GET /api/v3/coins/markets?ids=#{ids.join(',')}&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd"
+
+  def coingecko_scenarios(add)
+    off = {}
+    demo = { 'GET /api/v3/ping' => [error(401, { 'error' => 'invalid key' })] }
+    pro = { 'GET /api/v3/ping' => [ok('gecko_says' => '(V3) To the Moon!')] }
+    seed = lambda do
+      coingecko_install
+      asset('bitcoin', 'BTC', 'Cryptocurrency', name: 'BTC', url: 'https://www.coingecko.com/coins/bitcoin',
+            image_url: 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png', market_cap: 123_456_789, market_cap_rank: 42,
+            circulating_supply: '1000000.25') # unchanged by the answer: update! writes nothing
+      asset('ethereum', 'ETH', 'Cryptocurrency')
+      asset('pax-gold', 'PAXG', 'Cryptocurrency') # absent from the answer; the registry classifies it
+      asset('covalent', 'CQT', 'Cryptocurrency')  # blacklisted: asked, never written
+      asset('AAPL.US', 'AAPL', 'Stock')           # not crypto: not asked
+      asset('usd', 'USD', 'Fiat')
+      asset('nameless', 'NL', 'Cryptocurrency')   # answered without a name, and last: Rails raises there (D-CG-ASSET-ROW-SKIPS)
+    end
+    ids = %w[bitcoin ethereum pax-gold covalent nameless]
+    answer = [gecko('bitcoin', 'btc'), gecko('ethereum', 'eth', 'market_cap' => 4.2e11, 'circulating_supply' => 120_000_000.123456789,
+                                                   'market_cap_rank' => 2, 'image' => nil),
+              gecko('covalent', 'cqt'), gecko('nameless', 'nl', 'name' => nil), gecko('bitcoin', 'dup-ignored')]
+    job = 'fetch_all_assets_data_from_coingecko_job'
+    add.('coingecko-assets', job, demo.merge(markets_key(ids) => [ok(answer)]), env: off, &seed)
+    add.('coingecko-assets-pro', job, pro.merge(markets_key(ids) => [ok(answer)]), env: off, &seed)
+    add.('coingecko-assets-429', job, demo.merge(markets_key(ids) => [error(429, { 'status' => { 'error_code' => 429 } })]), env: off, &seed)
+    add.('coingecko-assets-invalid-key', job, demo.merge(markets_key(ids) => [error(401, { 'status' => { 'error_code' => 10_002 } })]), env: off, &seed)
+    # A ping 429 is D-CG-PLAN-PING (Rails falls to demo and goes on asking): Rust-only, tests/reference_jobs.rs.
+    add.('coingecko-assets-blank-key', job, {}, env: off) do
+      seed.call
+      AppConfig.coingecko_api_key = ''
+    end
+    many = (1..251).map { |i| format('coin-%03d', i) }
+    add.('coingecko-assets-two-batches', job, demo.merge(markets_key(many.first(250)) => [ok([gecko('coin-001', 'c1')])],
+                                                         markets_key(many.last(1)) => [ok([gecko('coin-251', 'c251')])]), env: off) do
+      coingecko_install
+      many.each { |id| asset(id, id.upcase, 'Cryptocurrency') }
+    end
+    one = 'fetch_data_from_coingecko_job'
+    coin_key = 'GET /api/v3/coins/ethereum?community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false'
+    detail = { 'id' => 'ethereum', 'symbol' => 'eth', 'name' => 'Ethereum', 'web_slug' => 'ethereum-web',
+               'image' => { 'thumb' => 't.png', 'large' => 'https://coin-images.coingecko.com/coins/images/279/large/ethereum.png' },
+               'market_cap_rank' => 2, 'market_data' => { 'market_cap' => { 'usd' => 4.2e11 }, 'circulating_supply' => 120_000_000.5 } }
+    add.('coingecko-asset-one', one, demo.merge(coin_key => [ok(detail)]), env: off, asset: 'ethereum', &seed)
+    add.('coingecko-asset-one-blacklisted', one, {}, env: off, asset: 'covalent', &seed)
+    add.('coingecko-asset-one-failed', one, demo.merge(coin_key => [error(404, { 'error' => 'coin not found' })]), env: off, asset: 'ethereum', raises: true, &seed)
+  end
+
   def scenarios # rubocop:disable Metrics/MethodLength,Metrics/AbcSize
     list = []
-    add = lambda do |name, job, http, env: ON, raises: false, &setup|
-      list << { 'name' => name, 'job' => job, 'http' => http, 'env' => env, 'raises' => raises, 'setup' => setup }
+    add = lambda do |name, job, http, env: ON, raises: false, asset: nil, &setup|
+      list << { 'name' => name, 'job' => job, 'http' => http, 'env' => env, 'raises' => raises, 'asset' => asset, 'setup' => setup }
     end
+    coingecko_scenarios(add)
 
     # Asset::FetchAllAssetsDataFromCoingeckoJob
     job = 'fetch_all_assets_data_from_coingecko_job'
@@ -418,7 +490,7 @@ module Reference
       build(dir, sc)
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate({
-        'parity_scratch' => true, 'job' => sc['job'], 'at' => AT, 'env' => sc['env'], 'script' => sc['http'], 'raises' => sc['raises'],
+        'parity_scratch' => true, 'job' => sc['job'], 'at' => AT, 'env' => sc['env'], 'script' => sc['http'], 'raises' => sc['raises'], 'asset' => sc['asset'],
         # The keys this Rails encrypted the scenario's app_configs with, so the Rust side reads them as Rails does.
         'encryption' => { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt }
       }))
@@ -428,8 +500,10 @@ module Reference
   end
 
   # SyncAllTickersAndAssetsJob only enqueues one job per venue, a minute apart: each runs now, in id order, and fails alone.
-  def perform(job)
-    if job == 'sync_all_tickers_and_assets_job'
+  def perform(job, asset = nil)
+    if job == 'fetch_data_from_coingecko_job'
+      Asset::FetchDataFromCoingeckoJob.perform_now(Asset.find_by!(external_id: asset))
+    elsif job == 'sync_all_tickers_and_assets_job'
       Exchange.available.where.not(type: Exchange::STOCK_TYPES).order(:id).each do |exchange|
         Exchange::SyncTickersAndAssetsJob.perform_now(exchange)
       rescue StandardError
@@ -443,6 +517,7 @@ module Reference
   def record(root)
     ActiveJob::Base.queue_adapter = :test # a retry is recorded, never run
     Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedDataApi::Adapter)
+    Faraday::Adapter.lookup_middleware(:net_http).prepend(ScriptedDataApi::Adapter) # Clients::Coingecko's plan ping
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
       sc = JSON.parse(File.read(path))
@@ -451,9 +526,12 @@ module Reference
       %w[MARKET_DATA_URL MARKET_DATA_TOKEN].each { |k| sc['env'].key?(k) ? ENV[k] = sc['env'][k] : ENV.delete(k) }
       ScriptedDataApi.http = sc['script'].transform_values(&:dup)
       ScriptedDataApi.requests = []
+      # Clients::Coingecko and MarketData memoise the plan and the client per key for the process: each scenario pings anew.
+      Clients::Coingecko.instance_variable_set(:@detect_plan, nil)
+      MarketData.instance_variable_set(:@coingecko, nil)
       before = snapshot
       raised = begin
-        travel_to(Time.iso8601(sc['at']), with_usec: true) { perform(sc['job']) }
+        travel_to(Time.iso8601(sc['at']), with_usec: true) { perform(sc['job'], sc['asset']) }
         false
       rescue StandardError => e
         raise unless sc['raises']
