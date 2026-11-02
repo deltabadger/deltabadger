@@ -1867,6 +1867,23 @@ module TaxVectors
         transfer(c, 'ETH', '30', '2025-08-01T09:00:00Z', from: b, to: venue(c, :kraken))
         k.(c, :sell, 'ETH', '30', '32000', '2025-09-01T09:00:00Z')
       end,
+      # Confirmation round: a fiat fee row of a look-ahead swap. 30 ETH £30,000 (2024-01-10, Kraken), to Binance; sold 5 April
+      # 2025 for £32,000; on 10 April 30 ETH bought in a swap of 1 BTC (£30,000) with a £100 fee row → 2024/25:
+      # bed_and_breakfast 32,000 / 30,050 / 1,950 (the swap-in bears half the fee).
+      gb.('gb_lookahead_fiat_fee', year: 2024, expect: 'diverges: D-TAX-GB-SWAP-FEE') do |c|
+        gbp.('ETH', '2024-02-01', '1000')
+        gbp.('BTC', '2025-04-10', '30000')
+        gbp.('ETH', '2025-04-10', '1000')
+        k.(c, :buy, 'ETH', '30', '30000', '2024-01-10T10:00:00Z')
+        k.(c, :buy, 'BTC', '1', '20000', '2024-01-10T10:00:00Z')
+        transfer(c, 'BTC', '1', '2024-02-01T10:00:00Z', from: venue(c, :kraken), to: venue(c, :binance))
+        gbp.('BTC', '2024-02-01', '25000')
+        k.(c, :sell, 'ETH', '30', '32000', '2025-04-05T09:00:00Z')
+        b = venue(c, :binance)
+        row(c, :swap_out, 'BTC', '1', '2025-04-10T09:00:00Z', exchange: b, group_id: 'lf', tx_id: 'lf-out')
+        row(c, :swap_in, 'ETH', '30', '2025-04-10T09:00:00Z', exchange: b, group_id: 'lf', tx_id: 'lf-in')
+        row(c, :fee, 'GBP', '100', '2025-04-10T09:00:00Z', exchange: b, group_id: 'lf', tx_id: 'lf-fee')
+      end,
       # Branch review: an unlinked deposit's own-coin fee is a disposal. 1 BTC £10,000 (2024-01-10); deposit 1 BTC (2025-06-01,
       # £30,000) with a 0.01 BTC fee → pool 2 @ 40,000; fee 300 / 200 / 100 (section104: a deposit is no acquisition);
       # 1.99 sold for £60,000 (2025-09-01) → 60,000 / 39,800 / 20,200.

@@ -322,11 +322,7 @@ impl Report {
         if let Some(a) = &austria { notes.monthly = self.value_monthly(&mut enriched, &mut ps, currency, a.average_from)?; }
         // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a swap's group, its value in the report's currency (a
         // missing rate counts towards the banner).
-        if matches!(j.code, "SE" | "GB") {
-            for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Fee && e.row.group.is_some() && fiat(&e.row.base)) {
-                e.row.fiat_value = ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)?;
-            }
-        }
+        if matches!(j.code, "SE" | "GB") { value_fiat_fee_rows(&mut enriched, &mut ps, currency)?; }
         // Income of the UTC year, a fiat row converted at the day's rate (Tax::Report#income_value), valued before the
         // engine: its missing rate counts towards the banner.
         let mut income: Vec<(usize, &str, Dec)> = vec![];
@@ -374,6 +370,8 @@ impl Report {
             let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);
             ahead = walk::enrich_with(&self.ahead, &self.deposits, &mut ps, true, currency, &mut |_| {})?.into_iter().zip(&self.ahead)
                 .map(|(mut row, s)| { row.uid += next; Entry { id: s.id, row, tx_id: s.tx_id.clone() } }).collect();
+            // D-TAX-GB-SWAP-FEE: the look-ahead's swaps carry their fiat fee rows too.
+            value_fiat_fee_rows(&mut ahead, &mut ps, currency)?;
             if received { value_groups(&mut ahead, |_, _| Some(true))?; }
             if gb {
                 assume_airdrops(&mut ahead);
@@ -833,6 +831,14 @@ fn swap_coin_for_stablecoin_groups(rows: &mut [Entry], italy: bool) {
         if italy && legs.iter().any(|&i| it::emt(&rows[i].row.base)) { continue; }
         for &i in legs { rows[i].row.kind = if rows[i].row.kind == Kind::Buy { Kind::SwapIn } else { Kind::SwapOut }; }
     }
+}
+
+/// D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a swap's group, its value in the report's currency.
+fn value_fiat_fee_rows(rows: &mut [Entry], ps: &mut PriceService, currency: &str) -> Result<(), FiguresError> {
+    for e in rows.iter_mut().filter(|e| e.row.kind == Kind::Fee && e.row.group.is_some() && fiat(&e.row.base)) {
+        e.row.fiat_value = ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)?;
+    }
+    Ok(())
 }
 
 /// D-TAX-DK-RUBRIK: the income types in rubrik 20 (mining is a hobby account, other income for the user to classify).
