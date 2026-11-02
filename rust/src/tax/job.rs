@@ -75,7 +75,12 @@ pub fn symbols(refusal: &Value) -> String {
 
 /// Tax::GenerateReportJob.refusal_message, in `locale` (text, not yet escaped).
 pub fn refusal_message(locale: &str, refusal: &Value) -> String {
-    let key = if refusal["reason"] == "excess_return_of_capital" { "tracker.tax_report.refused_excess_return_of_capital" } else { "tracker.tax_report.refused_tokenized" };
+    let key = match refusal["reason"].as_str() {
+        Some("excess_return_of_capital") => "tracker.tax_report.refused_excess_return_of_capital",
+        // D-TAX-GB-UNSUPPORTED-ACTION.
+        Some("unsupported_corporate_action") => "tracker.tax_report.refused_unsupported_corporate_action",
+        _ => "tracker.tax_report.refused_tokenized",
+    };
     crate::web::i18n::text(locale, key, &[("symbols", crate::web::i18n::Arg::Text(&symbols(refusal)))])
 }
 

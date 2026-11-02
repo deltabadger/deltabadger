@@ -1,0 +1,18 @@
+Datum,Tillgång,Antal,Försäljningspris,Omkostnadsbelopp,Vinst/Förlust,Valuta,Avgift,Börs,Transaktions-ID,Omkostnadsbelopp komplett,Ofullständiga data
+2025-06-01T10:00:00Z,BTC,0.01,3300.0,2200.0,1100.0,SEK,0.0,kraken,deposit-BTC-2025-06-01T10:00:00Z,true,true
+2025-09-01T10:00:00Z,BTC,1.99,660000.0,437800.0,222200.0,SEK,0.0,kraken,K-BTC-2025-09-01T10:00:00Z-BTC,true,true
+
+"Bilaga K4, avsnitt D (övriga värdepapper, andra tillgångar)"
+Beteckning,Antal,Försäljningspris,Omkostnadsbelopp,Vinst,Förlust
+BTC,2.0,663300.0,440000.0,223300.0,
+Summa vinst (punkt 7.5),223300.0
+"Summa förlust (punkt 8.4, hela förlusten)",0.0
+"Avdragsgill förlust, 70 % (Skatteverket räknar om automatiskt)",0.0
+Ränteinkomster m.m. från kryptotillgångar (punkt 7.2),0.0
+"Överskott (+) eller underskott (−) av kapital, kryptotillgångar",223300.0
+Skatt 30 %,66990.0
+"Redovisas brutto: summa vinst vid punkt 7.5 och hela förlusten vid punkt 8.4; Skatteverket räknar själv om förlusten till 70 %. Resultatet och skatten gäller bara dina kryptotillgångar: andra kapitalinkomster och avdrag ändrar dem. Omkostnadsbeloppet är genomsnittet (genomsnittsmetoden) över alla dina konton. Beloppen är omräknade med ECB:s dagliga kurs; Skatteverket anger Riksbankens kurs, som kan skilja sig något. Punkterna är de i deklarationen för inkomstår 2025. Utländsk valuta som köpts eller använts (bilaga K4 avsnitt C) räknas inte här."
+
+WARNING: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar:
+BTC 1.0 2025-06-01
+Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.

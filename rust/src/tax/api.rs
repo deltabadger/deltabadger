@@ -152,6 +152,8 @@ pub fn refused_because(reason: &Value, symbols: &Value) -> String {
     let symbols = job::symbols(&json!({ "symbols": symbols }));
     if reason == "excess_return_of_capital" {
         format!("a return of capital on {symbols} exceeded its cost basis, and the report has no row for that gain. Deltabadger does not report it yet.")
+    } else if reason == "unsupported_corporate_action" {
+        format!("a split or a return of capital on {symbols} falls between a disposal and the purchase it is matched with under the same-day or 30-day rule. Deltabadger cannot restate that match yet.")
     } else {
         format!("{symbols} are tokenized securities, whose tax treatment differs from crypto. Deltabadger does not report them yet.")
     }

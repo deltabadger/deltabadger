@@ -1,0 +1,31 @@
+Datum,Tillgång,Antal,Försäljningspris,Omkostnadsbelopp,Vinst/Förlust,Valuta,Avgift,Börs,Transaktions-ID,Omkostnadsbelopp komplett,Ofullständiga data
+2026-04-01T10:00:00Z,BTC,1.2,1188000.0,899745.0,287705.0,SEK,550.0,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,true
+2026-04-10T08:00:00Z,SOL,3.0,5641.03,4244.87,1396.16,SEK,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,true
+
+"Bilaga K4, avsnitt D (övriga värdepapper, andra tillgångar)"
+Beteckning,Antal,Försäljningspris,Omkostnadsbelopp,Vinst,Förlust
+BTC,1.2,1187450.0,899745.0,287705.0,
+SOL,3.0,5641.03,4244.87,1396.16,
+Summa vinst (punkt 7.5),289101.16
+"Summa förlust (punkt 8.4, hela förlusten)",0.0
+"Avdragsgill förlust, 70 % (Skatteverket räknar om automatiskt)",0.0
+Ränteinkomster m.m. från kryptotillgångar (punkt 7.2),308.0
+"Överskott (+) eller underskott (−) av kapital, kryptotillgångar",289409.16
+Skatt 30 %,86822.75
+"Redovisas brutto: summa vinst vid punkt 7.5 och hela förlusten vid punkt 8.4; Skatteverket räknar själv om förlusten till 70 %. Resultatet och skatten gäller bara dina kryptotillgångar: andra kapitalinkomster och avdrag ändrar dem. Omkostnadsbeloppet är genomsnittet (genomsnittsmetoden) över alla dina konton. Beloppen är omräknade med ECB:s dagliga kurs; Skatteverket anger Riksbankens kurs, som kan skilja sig något. Punkterna är de i deklarationen för inkomstår 2025. Utländsk valuta som köpts eller använts (bilaga K4 avsnitt C) räknas inte här."
+
+Mottagna inkomster (beskattningen beror på inkomstslag och tillämpliga skatteregler — ingår inte i vinsterna ovan)
+2026-02-01,stakingbelöningar,ETH,0.01,308.0,SEK
+,Totalt — stakingbelöningar,,,308.0,SEK
+
+WARNING: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar:
+BTC 0.1 2026-02-10
+Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.
+
+NOTE: Värden du angett för hand:
+SOL 3.0 2026-02-05,4244.87
+"De här beloppen kommer från dig, inte från börsen. Stäm av dem mot dina egna underlag innan du deklarerar."
+
+NOTE: Inkomster av mottagna tillgångar:
+airdrops SOL 3.0 2026-02-05,4244.87
+"Staking och ränta på utlånade tillgångar är kapitalinkomst vid punkt 7.2 (i sammanställningen ovan). Mining är hobbyinkomst vid punkt 1.6 och ingår inte i kapitalresultatet. För airdrops och forks finns ingen vägledning: här har de sitt marknadsvärde vid mottagandet som omkostnadsbelopp; kontrollera hur de ska redovisas. Att låna ut tillgångar, eller byta dem mot en stakingtoken, är i sig en avyttring som den här rapporten inte ser."

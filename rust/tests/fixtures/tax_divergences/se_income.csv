@@ -1,0 +1,24 @@
+Datum,Tillgång,Antal,Försäljningspris,Omkostnadsbelopp,Vinst/Förlust,Valuta,Avgift,Börs,Transaktions-ID,Omkostnadsbelopp komplett,Ofullständiga data
+2025-06-01T10:00:00Z,ETH,1.1,33000.0,25000.0,8000.0,SEK,0.0,kraken,K-ETH-2025-06-01T10:00:00Z-ETH,true,false
+
+"Bilaga K4, avsnitt D (övriga värdepapper, andra tillgångar)"
+Beteckning,Antal,Försäljningspris,Omkostnadsbelopp,Vinst,Förlust
+ETH,1.1,33000.0,25000.0,8000.0,
+Summa vinst (punkt 7.5),8000.0
+"Summa förlust (punkt 8.4, hela förlusten)",0.0
+"Avdragsgill förlust, 70 % (Skatteverket räknar om automatiskt)",0.0
+Ränteinkomster m.m. från kryptotillgångar (punkt 7.2),3000.0
+"Överskott (+) eller underskott (−) av kapital, kryptotillgångar",11000.0
+Skatt 30 %,3300.0
+"Redovisas brutto: summa vinst vid punkt 7.5 och hela förlusten vid punkt 8.4; Skatteverket räknar själv om förlusten till 70 %. Resultatet och skatten gäller bara dina kryptotillgångar: andra kapitalinkomster och avdrag ändrar dem. Omkostnadsbeloppet är genomsnittet (genomsnittsmetoden) över alla dina konton. Beloppen är omräknade med ECB:s dagliga kurs; Skatteverket anger Riksbankens kurs, som kan skilja sig något. Punkterna är de i deklarationen för inkomstår 2025. Utländsk valuta som köpts eller använts (bilaga K4 avsnitt C) räknas inte här."
+
+Mottagna inkomster (beskattningen beror på inkomstslag och tillämpliga skatteregler — ingår inte i vinsterna ovan)
+2025-03-01,stakingbelöningar,ETH,0.1,3000.0,SEK
+2025-04-01,inkomster från mining,BTC,0.01,3500.0,SEK
+,Totalt — stakingbelöningar,,,3000.0,SEK
+,Totalt — inkomster från mining,,,3500.0,SEK
+
+NOTE: Inkomster av mottagna tillgångar:
+inkomster från mining BTC 0.01 2025-04-01,3500.0
+airdrops SOL 10.0 2025-04-15,15000.0
+"Staking och ränta på utlånade tillgångar är kapitalinkomst vid punkt 7.2 (i sammanställningen ovan). Mining är hobbyinkomst vid punkt 1.6 och ingår inte i kapitalresultatet. För airdrops och forks finns ingen vägledning: här har de sitt marknadsvärde vid mottagandet som omkostnadsbelopp; kontrollera hur de ska redovisas. Att låna ut tillgångar, eller byta dem mot en stakingtoken, är i sig en avyttring som den här rapporten inte ser."

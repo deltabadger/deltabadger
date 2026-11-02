@@ -100,6 +100,15 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
         }
         let got = match got { Ok(g) => g, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
         let expect = s["expect"].as_str().unwrap();
+        // "refuses: D-TAX-… <reason> <symbols…>": Rust refuses where Rails writes a file.
+        if let Some(rest) = expect.strip_prefix("refuses: ") {
+            let mut words = rest.split(' ');
+            let (id, reason) = (words.next().unwrap(), words.next().unwrap().to_string());
+            assert!(id.starts_with("D-TAX-"), "{name}: {id}");
+            let want = Outcome::Refused { reason, symbols: words.map(String::from).collect() };
+            if got != want { failures.push(format!("{name}: {id}: {got:?}")); }
+            continue;
+        }
         match expect.strip_prefix("diverges: ") {
             None => if got != rails(s) { failures.push(format!("{name}: not Rails' file\n--- rails\n{:?}\n--- rust\n{got:?}", rails(s))) },
             Some(id) => {
@@ -142,15 +151,15 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["FR", "NL", "CH", "GB", "SE", "XX"] {
+    for country in ["FR", "NL", "CH", "XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
     // Poland's regime starts in 2019.
     assert!(matches!(crypto_report(&c, 1, "PL", 2018, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction PL")));
     // D-TAX-GR-NO-TAX: Greece is served up to 2026 only, until enacted law is reviewed.
     assert!(matches!(crypto_report(&c, 1, "GR", 2027, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction GR")));
-    // D-TAX-IT-YEARS: Italy's crypto-asset regime, 2023–2026; D-TAX-IE-YEARS: Ireland 2013–2026.
-    for (country, year) in [("IT", 2022), ("IT", 2027), ("IE", 2012), ("IE", 2027)] {
+    // D-TAX-IT-YEARS: Italy 2023–2026; D-TAX-IE-YEARS: Ireland 2013–2026; D-TAX-SE-YEARS, D-TAX-GB-YEARS: 2020–2026.
+    for (country, year) in [("IT", 2022), ("IT", 2027), ("IE", 2012), ("IE", 2027), ("SE", 2019), ("SE", 2027), ("GB", 2019), ("GB", 2027)] {
         assert!(matches!(crypto_report(&c, 1, country, year, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country} {year}");
     }
 }
@@ -161,7 +170,7 @@ fn the_ruby_being_mirrored_has_not_changed() {
     use sha2::{Digest, Sha256};
     let v = vectors();
     let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 15);
+    assert_eq!(pinned.len(), 18);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, sum) in pinned {
         let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
