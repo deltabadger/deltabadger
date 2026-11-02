@@ -46,12 +46,15 @@ module ScriptedMarket
             elsif path.match?(%r{\A/v2/[^/]+/candles\z}) then %w[end interval limit start] # and a Bitvavo page
             elsif path == '/api/v2/spot/market/candles' then %w[endTime granularity limit startTime symbol] # and a Bitget page
             elsif path == '/v5/market/kline' then %w[category interval limit start symbol] # and a Bybit page
+            elsif path.match?(%r{\A/api/v3/brokerage/market/products/[^/]+/candles\z}) then %w[end granularity start] # and a Coinbase window
             elsif path == '/0/public/OHLC' then %w[interval pair since] # and a Kraken read
             elsif path == '/0/public/Ticker' then %w[pair] # Kraken's bulk Ticker, or one pair's
             else []
             end
     host = [80, 443].include?(env.url.port) ? env.url.host : "#{env.url.host}:#{env.url.port}"
-    line = ->(pairs) { ["#{env.method.to_s.upcase} #{host}#{path}", pairs.map { |k, v| "#{k}=#{v}" }.join('&')].reject(&:empty?).join('?') }
+    # A POST's body (already JSON here) is part of its line: Hyperliquid's allMids and each candleSnapshot are POST /info.
+    body = env.method == :post ? env.body.to_s : ''
+    line = ->(pairs) { ["#{env.method.to_s.upcase} #{host}#{path}", pairs.map { |k, v| "#{k}=#{v}" }.join('&')].reject(&:empty?).join('?') + (body.empty? ? '' : " #{body}") }
     [line.call(query.select { |k, _| picks.include?(k) }), line.call(query)]
   end
 
@@ -224,16 +227,23 @@ module Figures
                     'kraken' => ['Exchanges::Kraken', 'Kraken', '', { 'BTC' => 'XBT' }], 'mexc' => ['Exchanges::Mexc', 'MEXC', ''],
                     'bitrue' => ['Exchanges::Bitrue', 'Bitrue', ''], 'bingx' => ['Exchanges::Bingx', 'BingX', '-'],
                     'bitvavo' => ['Exchanges::Bitvavo', 'Bitvavo', '-'], 'bitget' => ['Exchanges::Bitget', 'Bitget', ''],
-                    'bybit' => ['Exchanges::Bybit', 'Bybit', ''] }.freeze
+                    'bybit' => ['Exchanges::Bybit', 'Bybit', ''], 'gemini' => ['Exchanges::Gemini', 'Gemini', ''],
+                    'hyperliquid' => ['Exchanges::Hyperliquid', 'Hyperliquid', ''], 'coinbase' => ['Exchanges::Coinbase', 'Coinbase', '-'] }.freeze
+  # Venues whose listings are not named base + joint + quote: Gemini's codes are lowercase; Hyperliquid's are spot pair
+  # indexes, and it lists a tokenized stock (AAA) beside BTC and ETH.
+  VENUE_CODES = { 'gemini' => { 'BTC' => 'btcusd', 'ETH' => 'ethusd' },
+                  'hyperliquid' => { 'BTC' => '@142', 'ETH' => '@151', 'AAA' => '@333' } }.freeze
 
   # A crypto venue beside Alpaca, for the scenarios whose bots trade there: its listings quoted in USD, so no conversion
   # stands between its figures and the account's.
   def crypto_venue(venue, assets)
     type, name, joint, names = CRYPTO_VENUES.fetch(venue)
     exchange = type.constantize.create!(name:, maker_fee: '0.1', taker_fee: '0.1')
-    %w[USD BTC ETH].each { |symbol| ExchangeAsset.create!(exchange:, asset: assets[symbol], available: true) }
-    %w[BTC ETH].each do |base|
-      Ticker.create!(exchange:, ticker: "#{names&.dig(base) || base}#{joint}USD", base:, quote: 'USD', base_asset: assets[base], quote_asset: assets['USD'],
+    codes = VENUE_CODES[venue]
+    bases = codes&.keys || %w[BTC ETH]
+    (%w[USD] + bases).each { |symbol| ExchangeAsset.create!(exchange:, asset: assets[symbol], available: true) }
+    bases.each do |base|
+      Ticker.create!(exchange:, ticker: codes&.dig(base) || "#{names&.dig(base) || base}#{joint}USD", base:, quote: 'USD', base_asset: assets[base], quote_asset: assets['USD'],
                      base_decimals: 8, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.00000001', minimum_quote_size: '1')
     end
     exchange
@@ -788,7 +798,8 @@ module Figures
       scenario('account_nothing_invested', NOW, [basket(two, [], label: 'a'), basket(%w[CCC], [], label: 'b')], market)
     ]
     list + kucoin_scenarios + binance_scenarios + kraken_scenarios + mexc_scenarios + bitrue_scenarios + bingx_scenarios +
-      bitvavo_scenarios + bitget_scenarios + bybit_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
+      bitvavo_scenarios + bitget_scenarios + bybit_scenarios + gemini_scenarios + hyperliquid_scenarios + coinbase_scenarios +
+      pair_scenarios + (1..24).map { |seed| random_history(seed) }
   end
 
   # ---- pair bots: Bots::DcaSingleAsset::Measurable, for Bots::DcaSingleAsset and Bots::Signal ---------------------
@@ -1324,6 +1335,187 @@ module Figures
         bybit_step(KC_NOW, bybit_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc, answer: ->(start, reply) { start > KC_SINCE.to_i ? SERVER_ERROR : reply })
                              .merge(bybit_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth)),
                    prices: BYBIT_REFUSED)
+      ])
+    ]
+  end
+
+  # A transient connection failure at a venue's host, as Client.network_failure reports it (a raise to a retry).
+  def refused_at(host) = { 'network' => 'transient', 'message' => %(Faraday::ConnectionFailed: Connection refused - connect(2) for "#{host}" port 443) }
+
+  # ---- Gemini: Exchanges::Gemini#get_tickers_prices (pricefeed, pairs downcased) and #get_candles (one read of the fixed
+  # recent window /v2/candles serves, no start, kept from the start on) under CandleSeriesCache, one cache across the steps.
+  # The KuCoin orders and clock; the window is shorter than the bot's history, so its grid starts at the window.
+
+  GEMINI = 'api.gemini.com'.freeze
+  GEMINI_WINDOW = 500 # daily candles in Gemini's window
+
+  def gemini_prices(prices) = { "GET #{GEMINI}/v1/pricefeed" => prices.is_a?(Hash) && !prices.key?('status') && !prices.key?('network') ? ok(prices.map { |pair, price| { 'pair' => pair, 'price' => price, 'percentChange24h' => '0.0000' } }) : prices }
+
+  # The one read Exchanges::Gemini#get_candles makes for a daily series at `now`: the last GEMINI_WINDOW days up to now,
+  # those `open` gives a time (nil: none), newest first, the open one included, numbers as Gemini sends them.
+  def gemini_candles(symbol, now, open, answer: ->(reply) { reply })
+    to = time(now).to_i
+    times = ((to - (to % D) - (GEMINI_WINDOW * D))..to).step(D).select { |t| open.call(t) }
+    rows = times.reverse.map { |t| [t * 1000, open.call(t).to_f, 1.0, 1.0, 1.0, 1.0] }
+    { "GET #{GEMINI}/v2/candles/#{symbol}/1day" => answer.call(ok(rows)) }
+  end
+
+  def gemini_step(at, extra = {}, prices: { 'BTCUSD' => '91000.5', 'ETHUSD' => '2750.25', 'XRPUSD' => '0' })
+    gemini_prices(prices).merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def gemini_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'gemini')
+    b = KC_NOW + (3 * D)
+    c = b + (3 * D)
+    [
+      # A cold read (the window, whatever the start), a tail (the same read, kept from the last stored candle on), then a
+      # tail whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('gemini_series', c, bot, {}, steps: [
+        gemini_step(KC_NOW, gemini_candles('btcusd', KC_NOW, kc_btc).merge(gemini_candles('ethusd', KC_NOW, kc_eth))),
+        gemini_step(b, gemini_candles('btcusd', b, kc_btc).merge(gemini_candles('ethusd', b, kc_eth))),
+        gemini_step(c, gemini_candles('btcusd', c, kc_btc(2)).merge(gemini_candles('ethusd', c, kc_eth)))
+      ]),
+      # BTC's read failing leaves only BTC without a grid.
+      scenario('gemini_failed_page', KC_NOW, bot, {}, steps: [
+        gemini_step(KC_NOW, gemini_candles('btcusd', KC_NOW, kc_btc, answer: ->(_) { SERVER_ERROR }).merge(gemini_candles('ethusd', KC_NOW, kc_eth)))
+      ]),
+      # The pricefeed answering an error: the bot's prices stale.
+      scenario('gemini_stale', KC_NOW, bot, {}, steps: [
+        gemini_step(KC_NOW, gemini_candles('btcusd', KC_NOW, kc_btc).merge(gemini_candles('ethusd', KC_NOW, kc_eth)), prices: SERVER_ERROR)
+      ]),
+      # The pricefeed's connection refused: honeymaker returns it a Failure, so stale too (not raised).
+      scenario('gemini_refused', KC_NOW, bot, {}, steps: [
+        gemini_step(KC_NOW, gemini_candles('btcusd', KC_NOW, kc_btc).merge(gemini_candles('ethusd', KC_NOW, kc_eth)), prices: refused_at(GEMINI))
+      ])
+    ]
+  end
+
+  # ---- Hyperliquid: Exchanges::Hyperliquid#get_tickers_prices (POST /info allMids, kept to the available listings) and
+  # #get_candles (one POST /info candleSnapshot from the start to now) under CandleSeriesCache, one cache across the steps.
+  # The KuCoin orders and clock. Its listings are spot pair indexes; AAA is a tokenized stock.
+
+  HYPERLIQUID = 'api.hyperliquid.xyz'.freeze
+  HL_INFO = "POST #{HYPERLIQUID}/info".freeze
+  # Rails locks Hyperliquid's bots to limit orders (Bot::LimitOrderable); a basket's settings must say so to be valid.
+  HL_LIMIT = { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.01 }.freeze
+
+  def hl_prices(mids) = { %(#{HL_INFO} {"type":"allMids"}) => mids.is_a?(Hash) && !mids.key?('status') && !mids.key?('network') ? ok(mids) : mids }
+
+  # The one candleSnapshot Exchanges::Hyperliquid#get_candles sends for a daily series from `start` at `now`: the candles
+  # `open` gives a time (nil: none) from the start to now, oldest first, the open one included.
+  def hl_candles(coin, start, now, open, answer: ->(reply) { reply })
+    from = time(start).to_i
+    rows = ((from + ((D - (from % D)) % D))..time(now).to_i).step(D).select { |t| open.call(t) }.map do |t|
+      { 't' => t * 1000, 'T' => ((t + D) * 1000) - 1, 's' => coin, 'i' => '1d', 'o' => open.call(t), 'c' => open.call(t), 'h' => open.call(t), 'l' => open.call(t), 'v' => '1.0', 'n' => 10 }
+    end
+    body = { type: 'candleSnapshot', req: { coin:, interval: '1d', startTime: from * 1000, endTime: time(now).to_i * 1000 } }.to_json
+    { "#{HL_INFO} #{body}" => answer.call(ok(rows)) }
+  end
+
+  def hl_step(at, extra = {}, mids: { '@142' => '91000.5', '@151' => '2750.25', '@333' => '104.52', 'BTC' => '91010.0', '@999' => '0' })
+    hl_prices(mids).merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def hyperliquid_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'hyperliquid', settings: HL_LIMIT)
+    last_a = Time.utc(2026, 3, 11)
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    stock = basket(%w[BTC AAA], [buy('BTC', KC_FIRST, '50000', '0.001'), buy('AAA', KC_FIRST + (1600 * D), '95', '1.5')], venue: 'hyperliquid', settings: HL_LIMIT)
+    eth = pair([buy('ETH', KC_FIRST, '1500', '0.01')], members: %w[ETH], venue: 'hyperliquid')
+    [
+      # A cold read, a tail from the last stored candle, then a tail whose overlapping candle moved (BTC) and the whole
+      # series read again.
+      scenario('hyperliquid_series', c, bot, {}, steps: [
+        hl_step(KC_NOW, hl_candles('@142', KC_SINCE, KC_NOW, kc_btc).merge(hl_candles('@151', KC_SINCE, KC_NOW, kc_eth))),
+        hl_step(b, hl_candles('@142', last_a, b, kc_btc).merge(hl_candles('@151', last_a, b, kc_eth))),
+        hl_step(c, hl_candles('@142', last_b, c, kc_btc(2)).merge(hl_candles('@142', KC_SINCE, c, kc_btc(2))).merge(hl_candles('@151', last_b, c, kc_eth)))
+      ]),
+      # BTC's snapshot failing leaves only BTC without a grid.
+      scenario('hyperliquid_failed_page', KC_NOW, bot, {}, steps: [
+        hl_step(KC_NOW, hl_candles('@142', KC_SINCE, KC_NOW, kc_btc, answer: ->(_) { SERVER_ERROR }).merge(hl_candles('@151', KC_SINCE, KC_NOW, kc_eth)))
+      ]),
+      # allMids answering an error: the bot's prices stale.
+      scenario('hyperliquid_stale', KC_NOW, bot, {}, steps: [
+        hl_step(KC_NOW, hl_candles('@142', KC_SINCE, KC_NOW, kc_btc).merge(hl_candles('@151', KC_SINCE, KC_NOW, kc_eth)), mids: SERVER_ERROR)
+      ]),
+      # allMids' connection refused: honeymaker returns it a Failure, so stale too (not raised).
+      scenario('hyperliquid_refused', KC_NOW, bot, {}, steps: [
+        hl_step(KC_NOW, hl_candles('@142', KC_SINCE, KC_NOW, kc_btc).merge(hl_candles('@151', KC_SINCE, KC_NOW, kc_eth)), mids: refused_at(HYPERLIQUID))
+      ]),
+      # A tokenized stock (AAA at @333) priced from allMids and charted from its candleSnapshot, beside BTC.
+      scenario('hyperliquid_stock', KC_NOW, stock, {}, steps: [
+        hl_step(KC_NOW, hl_candles('@142', KC_SINCE, KC_NOW, kc_btc).merge(hl_candles('@333', KC_SINCE, KC_NOW, ->(t) { t >= ETH_LISTED ? format('%.2f', 90 + ((t / D % 7) * 0.5)) : nil })))
+      ]),
+      # A pair bot whose listing is no longer available: Rails' mids leave it out, so its figures are stale.
+      scenario('hyperliquid_unavailable', KC_NOW, eth, {}, steps: [
+        hl_step(KC_NOW, hl_candles('@151', KC_SINCE, KC_NOW, kc_eth))
+      ], sql: ["UPDATE tickers SET available = 0 WHERE ticker = '@151'"])
+    ]
+  end
+
+  # ---- Coinbase: Exchanges::Coinbase#get_tickers_prices (market/products) and #get_candles (windows of 350 periods from the
+  # start to now, the next from a second after the latest candle so far, or from the window's end while there is none)
+  # under CandleSeriesCache, one cache across the steps. The KuCoin orders and clock.
+
+  COINBASE = 'api.coinbase.com'.freeze
+
+  def coinbase_prices(prices) = { "GET #{COINBASE}/api/v3/brokerage/market/products" => prices.is_a?(Hash) && !prices.key?('status') && !prices.key?('network') ? ok('products' => prices.map { |id, price| { 'product_id' => id, 'price' => price, 'status' => 'online' } }, 'num_products' => prices.size) : prices }
+
+  # The windows Exchanges::Coinbase#get_candles reads for a daily series from `start` at `now`: each from its start to
+  # min(start + 350 days, now), the candles `open` gives a time (nil: none) within it, newest first, the open one included.
+  # `answer` may replace a window's reply (by its start).
+  def coinbase_walk(product, start, now, open, answer: ->(_start, reply) { reply })
+    script = {}
+    from = time(start).to_i
+    to = time(now).to_i
+    latest = nil
+    1000.times do
+      ending = [from + (350 * D), to].min
+      times = ((from + ((D - (from % D)) % D))..ending).step(D).select { |t| open.call(t) }
+      latest = times.last || latest
+      rows = times.reverse.map { |t| { 'start' => t.to_s, 'low' => '1', 'high' => '1', 'open' => open.call(t), 'close' => '1', 'volume' => '1' } }
+      script["GET #{COINBASE}/api/v3/brokerage/market/products/#{product}/candles?end=#{ending}&granularity=ONE_DAY&start=#{from}"] = answer.call(from, ok('candles' => rows))
+      break if ending == to
+
+      from = latest ? latest + 1 : ending
+    end
+    script
+  end
+
+  def coinbase_step(at, extra = {}, prices: { 'BTC-USD' => '91000.5', 'ETH-USD' => '2750.25', 'XRP-USD' => '0' })
+    coinbase_prices(prices).merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def coinbase_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'coinbase')
+    last_a = Time.utc(2026, 3, 11)
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold walk (BTC across six windows; ETH's windows before its listing empty), a tail from the last stored candle,
+      # then a tail whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('coinbase_series', c, bot, {}, steps: [
+        coinbase_step(KC_NOW, coinbase_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc).merge(coinbase_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth))),
+        coinbase_step(b, coinbase_walk('BTC-USD', last_a, b, kc_btc).merge(coinbase_walk('ETH-USD', last_a, b, kc_eth))),
+        coinbase_step(c, coinbase_walk('BTC-USD', last_b, c, kc_btc(2)).merge(coinbase_walk('BTC-USD', KC_SINCE, c, kc_btc(2)))
+                         .merge(coinbase_walk('ETH-USD', last_b, c, kc_eth)))
+      ]),
+      # A later window that fails leaves only BTC without a grid.
+      scenario('coinbase_failed_page', KC_NOW, bot, {}, steps: [
+        coinbase_step(KC_NOW, coinbase_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc, answer: ->(start, reply) { start > KC_SINCE.to_i ? SERVER_ERROR : reply })
+                                .merge(coinbase_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth)))
+      ]),
+      # The products read answering an error: the bot's prices stale.
+      scenario('coinbase_stale', KC_NOW, bot, {}, steps: [
+        coinbase_step(KC_NOW, coinbase_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc).merge(coinbase_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth)), prices: SERVER_ERROR)
+      ]),
+      # The products read's connection refused: honeymaker returns it a Failure, so stale too (not raised).
+      scenario('coinbase_refused', KC_NOW, bot, {}, steps: [
+        coinbase_step(KC_NOW, coinbase_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc).merge(coinbase_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth)), prices: refused_at(COINBASE))
       ])
     ]
   end
