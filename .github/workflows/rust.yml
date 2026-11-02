@@ -499,8 +499,8 @@ jobs:
       # it, or to the image, is proved before a tag depends on it.
       - name: Publish smoke test
         run: bash script/rust/image_smoke.sh deltabadger:ci
-      # docker-publish.yml's "pushed is smoked" check reads the smoked image's config digest this way; the two runners
-      # differ in image store (containerd on amd64, classic on arm64), so both are proved here.
+      # docker-publish.yml's "pushed is smoked" check reads the smoked image's config digest this way (proved on the
+      # publish runners themselves by publish-digest below).
       - name: Config digest of the built image
         run: |
           docker info -f 'image store: {{.Driver}} {{json .DriverStatus}}'
@@ -575,6 +575,55 @@ jobs:
           want=$(tr ' ' '\n' <<< "$WANT" | sort | xargs)
           echo "got:  $got"; echo "want: $want"
           [ "$got" = "$want" ] || { echo "::error::${{ matrix.tag }} under LATEST_MAJOR=${{ matrix.major }} publishes '$got', not '$want'"; exit 1; }
+
+  # docker-publish.yml's "pushed is smoked" check, on the runners the publish uses (their Docker image stores differ:
+  # v3.0.0-beta.1's ubuntu-latest amd64 leg ran the containerd store, where buildx reports no config digest for a
+  # loaded image, and the check failed closed). Same actions, same load build; a small image instead of the 3.0 one,
+  # since only the digest path is under test: the config digest script/rust/image_config_digest.sh reads from the
+  # loaded image must equal the one a cache-hit build through the image exporter (the push path) records.
+  publish-digest:
+    if: github.event_name != 'schedule'
+    name: publish-digest ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm] # docker-publish.yml's build matrix
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Image store
+        run: docker info -f '{{.Driver}} {{json .DriverStatus}}'
+      - name: A small image
+        run: |
+          mkdir -p "$RUNNER_TEMP/probe"
+          printf 'FROM debian:trixie-slim\nRUN echo %s > /probe\nLABEL probe=b3-5\n' "$GITHUB_SHA" > "$RUNNER_TEMP/probe/Dockerfile"
+      - name: Build it as the smoke build does
+        id: smoke
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ runner.temp }}/probe
+          load: true
+          tags: deltabadger:smoke
+          provenance: false
+          sbom: false
+      - name: Build it through the image exporter
+        id: pushed
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ runner.temp }}/probe
+          provenance: false
+          outputs: type=image,name=ghcr.io/deltabadger/deltabadger,push-by-digest=true,name-canonical=true,push=false
+      - name: The loaded image's config digest is the exported one's
+        env:
+          PUSHED: ${{ fromJSON(steps.pushed.outputs.metadata)['containerimage.config.digest'] }}
+          # What beta.1 compared with; empty on the containerd store.
+          METADATA: ${{ fromJSON(steps.smoke.outputs.metadata)['containerimage.config.digest'] }}
+        run: |
+          set -euo pipefail
+          smoked=$(bash script/rust/image_config_digest.sh deltabadger:smoke)
+          echo "smoked $smoked, exported $PUSHED, the load build's own metadata '${METADATA}'"
+          [ -n "$PUSHED" ] && [ "$smoked" = "$PUSHED" ]
 
   full-suite:
     if: github.event_name != 'schedule'
