@@ -148,7 +148,8 @@ impl Container {
     fn status(&self, path: &str) -> Option<u16> {
         if self.port != 0 { return self.get(path).map(|(status, _)| status) }
         let url = format!("http://localhost:3000{path}");
-        let out = docker_out(&["exec", &self.id, "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", &url]);
+        // 5 s, as `get`'s read timeout: a server that accepts and never answers can't outlast `wait_for`'s deadline.
+        let out = docker_out(&["exec", &self.id, "curl", "-s", "--max-time", "5", "-o", "/dev/null", "-w", "%{http_code}", &url]);
         String::from_utf8_lossy(&out.stdout).trim().parse().ok().filter(|&status| status != 0) // 000: nothing answers
     }
 
