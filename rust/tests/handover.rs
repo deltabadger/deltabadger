@@ -1488,3 +1488,18 @@ impl deltabadger::sync::jobs::Connect for Egress {
     }
     fn key_check_egress(&self, _: &str, _: Option<String>) -> Result<(String, reqwest::Client), String> { Ok((self.0.clone(), reqwest::Client::builder().no_proxy().build().unwrap())) }
 }
+
+/// A wake row Rails queued after an earlier takeover (a handback, Rails ran again) is new work: its entry takes the new
+/// takeover's time, so a run before it does not count, though the old entry was still journalled.
+#[test]
+fn a_wake_row_queued_after_an_earlier_takeover_is_owed_a_new_run() {
+    let (_dir, l, o, s, _b) = dca_install();
+    let scope = s.user_id.to_string();
+    queued(&o.queue, "Tracker::LedgerJob", json!([s.user_id]), "ready");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    deltabadger::jobs::state::record_success(&o.primary, TRACKER_LEDGER, Some(&scope), now() + chrono::Duration::minutes(1)).unwrap();
+    queued(&o.queue, "Tracker::LedgerJob", json!([s.user_id]), "ready");
+    let later = now() + chrono::Duration::hours(1);
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", later).unwrap();
+    assert_eq!(handover::due_rails_wakes(&o.primary, later).unwrap(), [(TRACKER_LEDGER.to_string(), scope)]);
+}

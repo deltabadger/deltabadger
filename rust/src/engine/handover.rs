@@ -542,7 +542,7 @@ fn write_rails_wakes(c: &Connection, wakes: &[RailsWake], now: DateTime<Utc>) ->
     crate::app_config::set_plain(c, RAILS_WAKES_KEY, &serde_json::to_string(wakes).expect("wakes serialise"), now).map_err(EngineError::Data)
 }
 
-/// In the claim transaction: each (job, scope) not journalled yet joins the journal at `now`. The time is in the job
+/// In the claim transaction: each (job, scope) is journalled at `now`. The time is in the job
 /// state's own precision (jobs::state), so a run recorded after it never reads as earlier.
 fn import_wakes(tx: &Connection, wakes: &[(&'static str, i64)], now: DateTime<Utc>) -> Result<(), EngineError> {
     if wakes.is_empty() { return Ok(()); }
@@ -550,7 +550,12 @@ fn import_wakes(tx: &Connection, wakes: &[(&'static str, i64)], now: DateTime<Ut
     let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     for (job, id) in wakes {
         let scope = id.to_string();
-        if !all.iter().any(|w| w.job == *job && w.scope == scope) { all.push(RailsWake { job: job.to_string(), scope, at: at.clone() }); }
+        // A row taken now is new work even beside an entry still journalled (Rails queued it after a handback): its time is
+        // this takeover's. A crash replay never gets here twice for one row (QUEUE_DONE_KEY skips it).
+        match all.iter_mut().find(|w| w.job == *job && w.scope == scope) {
+            Some(w) => w.at.clone_from(&at),
+            None => all.push(RailsWake { job: job.to_string(), scope, at: at.clone() }),
+        }
     }
     write_rails_wakes(tx, &all, now)
 }
