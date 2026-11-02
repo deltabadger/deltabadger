@@ -588,7 +588,18 @@ jobs:
     env:
       APP_ROOT_URL: http://localhost:3000
       SKIP_TEST_DATABASE: 'true'
+      # About 200 test binaries, each linking the whole crate: with line tables (profile.dev) they took ~44 GB of
+      # target, more than some runners have free, and rust-lld died mid-link (SIGBUS, "No space left on device").
+      # No debuginfo in CI's test builds; panics keep their file:line. Local builds and the release are unchanged.
+      CARGO_PROFILE_DEV_DEBUG: 'false'
+      CARGO_PROFILE_DEV_STRIP: debuginfo
     steps:
+      # Some ubuntu-24.04 runners have a 72 GB disk with ~12 GB free, less than the test build needs (~15 GB without
+      # debuginfo). This job uses none of these preinstalled SDKs.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install native gem dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y libsqlite3-dev libvips-dev libsodium-dev libyaml-dev libcurl4-openssl-dev gdb
