@@ -370,6 +370,9 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         _ if bot.kind == Kind::Basket && !bot.allocations_balanced() => text = Some(t("bot.dca_multi_asset.normalize_first")),
         BotStatus::Stopped => {
             text = Some(match bot.stop_message_key.as_deref().filter(|key| !key.trim().is_empty()) {
+                // PLAN-B2 r1.12: a bot a takeover set aside says why, from the reasons it carries.
+                Some(crate::engine::set_aside::STOP_KEY) => format!("{}: {}", t("bot.status.paused"), crate::engine::set_aside::message(ctx.locale,
+                    &crate::engine::set_aside::reasons(bot.transient.get(crate::engine::set_aside::KEY)).unwrap_or_default())),
                 Some(key) => format!("{}: {}", t("bot.status.paused"), t(key)),
                 None => t("bot.status.paused"),
             });

@@ -200,6 +200,33 @@ pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, delete
     Ok((found, configured))
 }
 
+/// PLAN-B2 r2.6: a bot these pages do not render, which a takeover set aside, shows why it was stopped (C2) and the one
+/// control the guard admits for a stopped bot with no work: delete. None: not set aside (the generic refusal stands).
+async fn set_aside_page(app: &App, ctx: &Ctx, user: &User, segment: &str) -> Result<Option<Response>, WebError> {
+    let Some(id) = super::id_from_path(segment.split('.').next().unwrap_or(segment)) else { return Ok(None) };
+    let (inner, owner, view) = (app.clone(), user.clone(), ctx.clone());
+    let found = app.db(move |c| {
+        let row: Option<(String, Option<String>)> = c.query_row("SELECT transient_data, type FROM bots WHERE id = ?1 AND user_id = ?2 AND status = ?3",
+            (id, owner.id, BotStatus::Stopped as i64), |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+        let Some((transient, class)) = row else { return Ok(None) };
+        let transient: serde_json::Value = serde_json::from_str(&transient).unwrap_or_default();
+        // Delete only where a lifecycle writer takes the bot: a basket, an index or a signal bot.
+        let deletable = matches!(class.as_deref(), Some("Bots::DcaMultiAsset" | "Bots::DcaIndex" | crate::engine::model::SIGNAL_TYPE));
+        let Some(reasons) = crate::engine::set_aside::reasons(transient.get(crate::engine::set_aside::KEY)) else { return Ok(None) };
+        let name = crate::engine::set_aside::name(c, id)?;
+        Ok(Some((name, crate::engine::set_aside::message(view.locale, &reasons), deletable, Shell::load(c, &inner, &owner)?)))
+    }).await?;
+    let Some((name, message, deletable, shell)) = found else { return Ok(None) };
+    let csrf = ctx.csrf_token();
+    let e = i18n::escape;
+    // Submitted by Turbo, as every bot form: the delete answers with a Turbo Stream.
+    let delete = if deletable { format!("\n  <form action=\"{}\" method=\"post\">\n    <input type=\"hidden\" name=\"_method\" value=\"delete\">\n    \
+        <input type=\"hidden\" name=\"authenticity_token\" value=\"{}\">\n    <button type=\"submit\" class=\"button button--danger\">{}</button>\n  </form>",
+        e(&ctx.path(&format!("/bots/{id}/delete"))), e(&csrf), e(&i18n::text(ctx.locale, "button.delete", &[]))) } else { String::new() };
+    let body = format!("<div class=\"page\" id=\"bot_set_aside_{id}\">\n  <h1>{}</h1>\n  <p>{}</p>{delete}\n</div>", e(&name), e(&message));
+    Ok(Some(shell::application(ctx, &csrf, user, &shell, Page { status: StatusCode::OK, body, flash_now: vec![] })?))
+}
+
 /// `redirect_to bots_path, alert: t('bot.not_found')`.
 pub(super) fn not_found(ctx: &Ctx) -> Response {
     flash::set(&ctx.session, flash::ALERT, i18n::text(ctx.locale, "bot.not_found", &[]));
@@ -230,7 +257,10 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     let (bot, configured) = match app.db(move |c| find(c, &inner, &owner, &id_part, false, asked, locale)).await {
         Ok((Found::Bot(bot), configured)) => (*bot, configured),
         Ok((Found::Missing, _)) => return Ok(not_found(&ctx)),
-        Ok((Found::NotPorted(reason), _)) => return Ok(layout::refused(&ctx, reason)),
+        Ok((Found::NotPorted(reason), _)) => {
+            if !feed { if let Some(page) = set_aside_page(&app, &ctx, &user, &segment).await? { return Ok(page); } }
+            return Ok(layout::refused(&ctx, reason));
+        }
         Err(error) => return layout::or_refused(&ctx, error),
     };
     if feed {

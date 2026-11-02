@@ -628,7 +628,9 @@ fn lifecycle_write(c: &Connection, locale: &str, heard: &Ctx, bot: &Bot, action:
             let stamp = crate::codec::format_time(now);
             let (started, key): (Option<String>, Option<String>) = c.query_row("SELECT started_at, stop_message_key FROM bots WHERE id = ?1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
             if fresh && started.as_deref() != Some(stamp.as_str()) || key.is_some() {
-                c.execute("UPDATE bots SET started_at = CASE WHEN ?1 THEN ?2 ELSE started_at END, stop_message_key = NULL, updated_at = ?2 WHERE id = ?3", (fresh, &stamp, bot.id))?;
+                // A start also ends a takeover's set-aside (engine::set_aside::KEY).
+                c.execute("UPDATE bots SET started_at = CASE WHEN ?1 THEN ?2 ELSE started_at END, stop_message_key = NULL, \
+                           transient_data = json_remove(transient_data, '$.rust_set_aside'), updated_at = ?2 WHERE id = ?3", (fresh, &stamp, bot.id))?;
             }
             save(c, heard, owner, bot.id, BotStatus::Scheduled, false, &mut out)?;
             model::log_activity(c, bot.id, "started", Level::Info, json!({ "start_fresh": fresh }), now)?;

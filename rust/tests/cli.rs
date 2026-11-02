@@ -74,16 +74,8 @@ fn run_and_handback_refuse_a_database_url_and_a_missing_secret_before_touching_a
 }
 
 #[test]
-fn run_refuses_a_kraken_bot_without_a_key_a_live_key_and_an_unreadable_key_and_claims_nothing() {
-    let (dir, o, s) = common::install();
-    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    o.primary.execute("DELETE FROM api_keys", []).unwrap();
-    drop(o);
-    let out = cli(dir.path(), &["run"]).output().unwrap();
-    assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("no Kraken API key"), "{}", stderr(&out));
-    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
-
+fn run_refuses_a_key_no_secret_reads_and_claims_nothing() {
+    // A working bot without a key is set aside (tests/set_aside.rs, and serve below); one whose key no secret reads is not.
     let (dir, o, s) = common::install_alpaca();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     drop(o);
@@ -108,7 +100,8 @@ fn run_refuses_a_stopped_bot_whose_orders_it_could_not_poll() {
     drop(o);
     let out = cli(dir.path(), &["run"]).output().unwrap();
     assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains(&format!("bot {bot}: no Kraken API key")), "{}", stderr(&out));
+    assert!(stderr(&out).contains(&format!("bot {bot}: no Kraken API key")), "support's line: {}", stderr(&out));
+    assert!(stderr(&out).contains(&format!("Bot {bot}: It has open orders, and there's no Kraken API key to look after them.")), "C6: {}", stderr(&out));
     assert!(lease_of(dir.path()).is_none());
 }
 
@@ -146,13 +139,15 @@ fn run_takes_over_and_stops_cleanly_on_sigterm_then_handback_returns_the_install
 }
 
 #[test]
-fn check_names_each_ineligible_bot_and_its_reason() {
+fn check_names_each_bot_it_would_stop_and_its_reason() {
     let (dir, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("future_price_drop_limited", serde_json::json!(true)));
     drop(o);
     let out = cli(dir.path(), &["check"]).output().unwrap();
-    assert_eq!(out.status.code(), Some(1));
-    assert_eq!(stderr(&out), format!("deltabadger: this install uses things only the full app runs:\nbot {id} (scheduled): future_price_drop_limited\n"));
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let said = String::from_utf8_lossy(&out.stdout);
+    assert!(said.contains(&format!("\nBot {id} will be stopped when Deltabadger 3.0 starts: It uses a setting Deltabadger 3.0 doesn't support on this bot yet. Check its settings, then start the bot again.\n")), "{said}");
+    assert!(said.contains("ready: 0 bot(s) this engine can run"), "{said}");
 }
 
 fn free_port() -> u16 { std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port() }
@@ -231,7 +226,7 @@ fn serve_takes_the_install_over_holds_the_one_lock_until_sigterm_stops_both_then
 
 /// A refused `serve` (PLAN-B2 r1.0): what it printed, the page's answer for `/`, `/health-check`, `/up` and
 /// `/ui-ready`, and its exit status once SIGTERM stops it. While the page is up the install's engine lock is free.
-struct Refused { stderr: String, page: String, health: String, up: String, ready: String, lock_free: bool, status: Option<i32> }
+struct Refused { stderr: String, page: String, health: String, up: String, ready: String, lock_free: bool, writable: bool, status: Option<i32> }
 
 fn refused(dir: &Path, cmd: &mut Command) -> Refused {
     use std::io::Read;
@@ -246,6 +241,8 @@ fn refused(dir: &Path, cmd: &mut Command) -> Refused {
     };
     let (page, health, up) = (http_get(port, "/").unwrap(), http_get(port, "/health-check").unwrap(), http_get(port, "/up").unwrap());
     let lock_free = std::fs::File::open(dir.join(".engine.lock")).unwrap().try_lock().is_ok();
+    // No write transaction left open behind the page: another process can write the install.
+    let writable = rusqlite::Connection::open(dir.join("production.sqlite3")).is_ok_and(|c| c.execute_batch("BEGIN IMMEDIATE; ROLLBACK;").is_ok());
     // A client that sent half a request and keeps the socket open must not hold the stop (at most 5 s).
     let mut half = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
     std::io::Write::write_all(&mut half, b"GET / HTTP/1.1\r\nHost: loc").unwrap();
@@ -260,7 +257,7 @@ fn refused(dir: &Path, cmd: &mut Command) -> Refused {
     drop(half);
     let mut stderr = String::new();
     child.0.stderr.take().unwrap().read_to_string(&mut stderr).unwrap();
-    Refused { stderr, page, health, up, ready, lock_free, status: child.0.wait().unwrap().code() }
+    Refused { stderr, page, health, up, ready, lock_free, writable, status: child.0.wait().unwrap().code() }
 }
 
 fn http_get(port: u16, path: &str) -> Option<String> {
@@ -284,15 +281,20 @@ fn files_of(dir: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
 
 #[test]
 fn serve_refusals_come_before_the_claim() {
-    // What the engine refuses: a Kraken bot without a key. The refusal page says why; nothing is claimed.
+    // What the engine cannot set aside (PLAN-B2 R4): a working Kraken bot with an open order and no key to poll it. The
+    // refusal page says why in C6; nothing is claimed.
     let (dir, o, s) = common::install();
-    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    open_order(&o.primary, &s, bot);
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
     drop(o);
     let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
     assert_eq!(r.status, Some(0), "stopped as asked");
-    assert!(r.stderr.contains("no Kraken API key"), "{}", r.stderr);
-    assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains("no Kraken API key") && r.page.contains("didn't start trading"), "{}", r.page);
+    let line = format!("Bot {bot}: It has open orders, and there&#39;s no Kraken API key to look after them.");
+    assert!(r.stderr.contains(&format!("bot {bot}: no Kraken API key")), "{}", r.stderr);
+    assert!(r.page.starts_with("HTTP/1.1 503") && r.page.contains(&line) && r.page.contains("didn't start"), "{}", r.page);
+    assert!(!r.page.contains(&format!("bot {bot}: no Kraken API key")), "support's line stays off the page");
+    assert!(r.writable, "the early check's transaction rolled back before the page");
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 
     // What the web refuses: a port already taken.
@@ -305,19 +307,78 @@ fn serve_refusals_come_before_the_claim() {
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }
 
-/// `serve`'s eligibility refusal names the bot and the reason in the words `check` uses.
+/// Starts `serve` and reads its log until it runs; then stops it. Returns the log.
+fn serve_until_running(dir: &Path) -> Vec<String> {
+    let (mut child, rx) = spawn_logged(bare(dir, &["serve"]).env("PORT", free_port().to_string()));
+    let mut lines = vec![];
+    while let Ok(line) = rx.recv_timeout(std::time::Duration::from_secs(30)) {
+        let running = line.contains("running");
+        lines.push(line);
+        if running { break; }
+    }
+    assert!(lines.last().is_some_and(|l| l.contains("running")), "serve did not start: {lines:?}");
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
+    lines
+}
+
+/// PLAN-B2 R3, r1.9, r1.4 (B2-5): on a 2.x install, `check` names each bot `serve` will stop and writes nothing; `serve`
+/// then stops exactly those, with the same reasons, stops the withdrawal rule, and runs the rest. A later start (lease
+/// `rust`) sets aside a bot that became refused, and a working bot whose key is gone, instead of refusing.
 #[test]
-fn serve_refuses_an_ineligible_install_in_the_words_check_uses() {
-    let (dir, o, s) = common::install_alpaca(); // seeds an admin user
-    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("future_price_drop_limited", serde_json::json!(true)));
-    drop(o);
-    let checked = cli(dir.path(), &["check"]).output().unwrap();
-    let served = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
-    assert_eq!((checked.status.code(), served.status), (Some(1), Some(0)));
-    assert!(served.stderr.contains(&format!("bot {id} (scheduled): future_price_drop_limited")), "{}", served.stderr);
-    assert_eq!(served.stderr, stderr(&checked), "the same words, byte for byte");
-    assert!(served.page.contains(&format!("bot {id} (scheduled): future_price_drop_limited")), "the page shows them too: {}", served.page);
-    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+fn check_says_what_serve_then_sets_aside_and_every_start_sets_aside_what_it_refuses() {
+    let dir = common::rails_install_unmigrated();
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    let spec = || BotSpec::weekly(60.0, "2099-01-01 00:00:00");
+    let healthy = seed::insert_bot(&c, &s, &spec());
+    let later = seed::insert_bot(&c, &s, &spec());
+    let feature = seed::insert_bot(&c, &s, &spec().with("future_price_drop_limited", serde_json::json!(true)));
+    let flip = seed::insert_bot(&c, &s, &spec().with("price_limited", serde_json::json!(true)).with("price_limit_action", serde_json::json!("start_selling"))
+        .with("sell_interval", serde_json::json!("nonsense")));
+    c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Bitrue', 'Bitrue', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO rules (type, status, user_id, exchange_id, settings, created_at, updated_at) VALUES ('Rules::Withdrawal', 1, ?1, last_insert_rowid(), '{}', '2026-01-01', '2026-01-01')", [s.user_id]).unwrap();
+    let rule = c.last_insert_rowid();
+    quiet_venue_jobs(dir.path());
+    drop(c);
+    // A connection per use: one opened before serve turned the file to WAL must not write after it.
+    let db = || rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    let status = |bot: i64| db().query_row("SELECT status FROM bots WHERE id = ?1", [bot], |r| r.get::<_, i64>(0)).unwrap();
+
+    let before = files_of(dir.path());
+    let checked = bare(dir.path(), &["check"]).output().unwrap();
+    assert_eq!(checked.status.code(), Some(0), "{}", stderr(&checked));
+    assert_eq!(files_of(dir.path()), before, "check writes nothing");
+    let would: Vec<String> = String::from_utf8_lossy(&checked.stdout).lines().filter(|l| l.contains("will be stopped when")).map(str::to_string).collect();
+    assert_eq!(would.len(), 2, "{would:?}");
+
+    let said = serve_until_running(dir.path());
+    let stopped: Vec<String> = said.iter().filter_map(|l| l.split_once(" stopped Bot ").map(|(_, rest)| format!("Bot {rest}"))).collect();
+    let expected: Vec<String> = would.iter().map(|l| l.replace(" will be stopped when Deltabadger 3.0 starts:", ":")).collect();
+    assert_eq!(stopped, expected, "serve stops what check said, in its words: {said:?}");
+    assert!(said.iter().any(|l| l.contains(&format!("stopped rule {rule}"))), "{said:?}");
+    assert_eq!([healthy, later, feature, flip].map(status), [1, 1, 2, 2]);
+    assert_eq!(db().query_row("SELECT status FROM rules WHERE id = ?1", [rule], |r| r.get::<_, i64>(0)).unwrap(), 2);
+    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust");
+
+    // A restart on an install the engine owns: a newly refused bot is set aside, not the whole install refused.
+    db().execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', json('true')) WHERE id = ?1", [healthy]).unwrap();
+    let said = serve_until_running(dir.path());
+    assert!(said.iter().any(|l| l.contains(&format!("stopped Bot {healthy}: It uses a setting"))), "{said:?}");
+    assert_eq!([healthy, later].map(status), [2, 1]);
+    // And a working bot whose key is gone.
+    db().execute("DELETE FROM api_keys", []).unwrap();
+    let said = serve_until_running(dir.path());
+    assert!(said.iter().any(|l| l.contains(&format!("stopped Bot {later}: There's no Kraken API key. Add your key in Settings, then start the bot again."))), "{said:?}");
+    assert_eq!(status(later), 2);
+    // On an install the engine owns, `check` reads it as the start does: a flip target is checked per tick and by the guard,
+    // not at a restart (R2, r1.8), so `check` names no stop that `serve` would not make.
+    db().execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit_action', 'start_selling', '$.sell_interval', 'nonsense'), \
+                  status = 1 WHERE id = ?1", [later]).unwrap();
+    db().execute("UPDATE bots SET settings = json_remove(settings, '$.future_price_drop_limited'), status = 1 WHERE id = ?1", [healthy]).unwrap();
+    let checked = bare(dir.path(), &["check"]).env("SECRET_KEY_BASE", "engine-test-secret").output().unwrap();
+    let said = String::from_utf8_lossy(&checked.stdout);
+    assert!(said.contains(&format!("Bot {later} will be stopped")) && !said.contains("When the price condition is met"), "the key, not the flip: {said}");
 }
 
 /// `run` and `serve` with the mail sender as a service of the supervisor, as processes: what a bot is owed goes out
@@ -494,34 +555,6 @@ fn run_and_serve_take_over_an_install_rails_left_stale_and_note_the_staleness() 
         assert_eq!(status.code(), Some(0), "{command}");
     }
     Ok(())
-}
-
-/// R2 as narrowed by PLAN-B2 r1.8: only freshness left the takeover. A bot whose flip rule's target direction is ineligible
-/// (here: selling, with an order of its history placed on another venue) is still refused by `check`, `run` and `serve`.
-#[test]
-fn check_run_and_serve_still_refuse_a_bot_whose_flip_target_is_ineligible() {
-    let (dir, o, s) = common::install(); // Kraken
-    let spec = BotSpec::weekly(60.0, "2099-01-01 00:00:00").with("direction", serde_json::json!("buying"))
-        .with("sell_denomination", serde_json::json!("quote")).with("sell_quote_amount", serde_json::json!(60))
-        .with("price_limited", serde_json::json!(true)).with("price_limit", serde_json::json!(60000))
-        .with("price_limit_value_condition", serde_json::json!("below")).with("price_limit_action", serde_json::json!("start_selling"));
-    let id = seed::insert_bot(&o.primary, &s, &spec);
-    let row = seed::insert_row(&o.primary, &s, id, s.btc, &serde_json::json!({"status":0,"external_status":2,"side":0,
-        "amount":"0.0012","amount_exec":"0.0012","quote_amount_exec":"60","created_at":"2026-09-02 10:00:00"}));
-    o.primary.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
-    o.primary.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE id = ?1", [row]).unwrap();
-    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.merged_history_until_id', ?1) WHERE id = ?2", [row, id]).unwrap();
-    drop(o);
-    let reason = format!("bot {id} (scheduled): selling with 1 order(s) placed on another venue");
-    for command in ["check", "run"] {
-        let out = finished(cli(dir.path(), &[command]).env("PORT", free_port().to_string()));
-        assert_eq!(out.status.code(), Some(1), "{command}: {}", stderr(&out));
-        assert!(stderr(&out).contains(&reason), "{command}: {}", stderr(&out));
-    }
-    let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
-    assert_eq!(r.status, Some(0), "{}", r.stderr);
-    assert!(r.stderr.contains(&reason) && r.page.contains("selling with 1 order(s) placed on another venue"), "{}", r.stderr);
-    assert!(lease_of(dir.path()).is_none(), "nothing was taken over");
 }
 
 #[test]
@@ -849,6 +882,11 @@ fn restore(from: &Path, dir: &Path) {
 }
 
 /// A 2.x install (Rails migrations only) with a Kraken key and a bot; `refusing` makes the assessment refuse it.
+fn open_order(c: &rusqlite::Connection, s: &seed::Seeded, bot: i64) {
+    seed::insert_row(c, s, bot, s.btc, &serde_json::json!({"external_id":"WAIT", "external_status":0, "side":0,
+        "amount":"0.001", "quote_amount":"60", "amount_exec":"0", "quote_amount_exec":"0", "created_at":"2026-09-01 10:00:01"}));
+}
+
 fn two_x_install(refusing: bool) -> (tempfile::TempDir, i64) {
     let dir = common::rails_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
@@ -856,6 +894,8 @@ fn two_x_install(refusing: bool) -> (tempfile::TempDir, i64) {
     let bot = BotSpec::weekly(60.0, "2099-01-01 00:00:00");
     let bot = if refusing { bot.with("future_price_drop_limited", serde_json::json!(true)) } else { bot };
     let bot = seed::insert_bot(&c, &s, &bot);
+    // Refused for good (PLAN-B2 R4): an ineligible bot with an order still open cannot be set aside.
+    if refusing { open_order(&c, &s, bot); }
     quiet_venue_jobs(dir.path()); // once, as part of the 2.x state: `bare` starts write nothing before the copy
     (dir, bot)
 }
@@ -928,6 +968,7 @@ fn a_handed_back_install_is_backed_up_with_its_tax_rows_and_refused_starts_add_o
     // Handed back again, now with a bot the assessment refuses: three refused starts, one new copy.
     handback();
     c.execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', json('true')) WHERE id = ?1", [bot]).unwrap();
+    open_order(&c, &s, bot);
     for n in 1..=3 {
         let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
         assert!(r.stderr.contains("future_price_drop_limited"), "start {n}: {}", r.stderr);

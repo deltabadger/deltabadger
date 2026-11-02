@@ -303,11 +303,12 @@ pub(super) fn stored_carry(raw: &serde_json::Map<String, Value>, value: Value) -
     match raw.get("missed_quote_amount") { Some(old) if ruby_equal(old, &value) => old.clone(), _ => value }
 }
 
+/// A start also ends a takeover's set-aside (engine::set_aside::KEY): the owner has started the bot again.
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
-    transient_data = json_set(CASE WHEN ?4 THEN json_replace(transient_data, \
+    transient_data = json_remove(json_set(CASE WHEN ?4 THEN json_replace(transient_data, \
       '$.last_action_job_at', json('null'), '$.missed_quote_amount', json('null')) \
-      ELSE transient_data END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), updated_at = ?5 \
+      ELSE transient_data END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), '$.rust_set_aside'), updated_at = ?5 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
 
 /// Bots::DcaIndex::INDEX_DEFINITION_KEYS (dca_index.rb:388-389).

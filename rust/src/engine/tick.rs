@@ -73,27 +73,38 @@ pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: DateTime<U
 /// The stop (with its marker) and its activity-log row are one transaction on every path: the caller's when it has one,
 /// else this call's own. A log row that cannot be written leaves the bot working and nothing owed, so a retry writes all three.
 pub fn stop_owing_mail(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    stop_if(c, bot_id, stop_message_key, mail, &format!("status IN ({})", model::working_list()), now)
+    stop_if(c, bot_id, stop_message_key, mail, None, &format!("status IN ({})", model::working_list()), now)
+}
+
+/// `stop_owing_mail` for a bot a takeover sets aside (PLAN-B2 R3, r1.12): in the same statement `transient_data.<key>` =
+/// `aside` (its reasons, kept until the bot's next start), and the `stopped` line carries `reason` beside its key.
+pub fn stop_setting_aside(c: &Connection, bot_id: i64, stop_message_key: &str, mail: (&str, Value), aside: (&str, Value), reason: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    stop_if(c, bot_id, stop_message_key, Some(mail), Some((aside, reason)), &format!("status IN ({})", model::working_list()), now)
 }
 
 /// The one stop write: status, stopped_at, stop_message_key and the optional mail marker where `condition` holds, then its
 /// `stopped` log, in one transaction. Returns whether it stopped the bot.
-fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, condition: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
+fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, aside: Option<((&str, Value), &str)>,
+           condition: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
     if c.is_autocommit() {
         let tx = model::immediate_retry_busy(c)?;
-        let stopped = stop_if(&tx, bot_id, stop_message_key, mail, condition, now)?;
+        let stopped = stop_if(&tx, bot_id, stop_message_key, mail, aside, condition, now)?;
         tx.commit()?;
         return Ok(stopped);
     }
     let (path, marker) = match &mail { Some((key, marker)) => (format!("$.{key}"), marker.to_string()), None => ("$".into(), String::new()) };
+    let (aside_path, aside_value) = match &aside { Some(((key, value), _)) => (format!("$.{key}"), value.to_string()), None => ("$".into(), String::new()) };
     model::locked(c, |c| {
         // STOP invalidates even a same-timestamp run; preserve every unrelated transient key.
         let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2, \
-                                    transient_data = json_set(CASE WHEN ?5 = '$' THEN transient_data ELSE json_set(transient_data, ?5, json(?6)) END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'),0)+1) \
+                                    transient_data = json_set(CASE WHEN ?7 = '$' THEN (CASE WHEN ?5 = '$' THEN transient_data ELSE json_set(transient_data, ?5, json(?6)) END) \
+                                    ELSE json_set(CASE WHEN ?5 = '$' THEN transient_data ELSE json_set(transient_data, ?5, json(?6)) END, ?7, json(?8)) END, \
+                                    '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'),0)+1) \
                                     WHERE id = ?4 AND {condition}"),
-                  params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id, path, marker])?;
+                  params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id, path, marker, aside_path, aside_value])?;
         if n == 0 { return Ok(false); }
-        model::log_activity(c, bot_id, "stopped", Level::Info, json!({ "stop_message_key": stop_message_key }), now)?;
+        let details = match &aside { Some((_, reason)) => json!({ "stop_message_key": stop_message_key, "reason": reason }), None => json!({ "stop_message_key": stop_message_key }) };
+        model::log_activity(c, bot_id, "stopped", Level::Info, details, now)?;
         Ok(true)
     })
 }
@@ -104,7 +115,7 @@ fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&s
 /// does, so the marker (notice::LIMIT) is written where the stop is counted (polling::apply_committed).
 /// The base cap's (Bot::BaseAmountLimitable#handle_base_amount_limit_update) is the same stop with `amount_sold`.
 pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, cap: super::amount_limit::Cap, now: DateTime<Utc>) -> Result<(), EngineError> {
-    stop_if(c, bot_id, cap.stop_message_key(), None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
+    stop_if(c, bot_id, cap.stop_message_key(), None, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
 }
 
 /// The amount-limit stops a sweep counted (polling::apply_committed), one per qualifying fill callback, as Rails runs one

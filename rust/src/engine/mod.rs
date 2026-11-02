@@ -38,6 +38,8 @@ pub enum EngineError {
     /// A stored value this build cannot read the way Rails wrote it.
     Data(String),
     Ineligible(Vec<String>),
+    /// What a start could not set aside (set_aside::apply), in C6's words: nothing was written.
+    HardStop(String),
     /// Bots whose order the venue could not yet account for (handback refuses while any exist).
     Unresolved(Vec<i64>),
     /// A webhook call still valid until the time given (engine::signal::expires_at): the handback waits for it to expire.
@@ -93,4 +95,5 @@ pub mod redeploy;
 pub mod technical;
 
 pub mod rules;
+pub mod set_aside;
 pub mod withdrawal;

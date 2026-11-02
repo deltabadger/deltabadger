@@ -346,7 +346,8 @@ impl<'a> Rows<'a> {
             },
             "stopped" => match detail("stop_message_key") {
                 key if key.trim().is_empty() => event("stopped", &[]),
-                key => event("stopped_with_reason", &[("reason", Arg::Text(&i18n::text(self.ctx.locale, &key, &[])))]),
+                // A set-aside stop's line carries its reasons (PLAN-B2 r1.12); other keys take no argument.
+                key => event("stopped_with_reason", &[("reason", Arg::Text(&i18n::text(self.ctx.locale, &key, &[("reason", Arg::Text(&detail("reason")))])))]),
             },
             "liquidation_failed" | "redeploy_failed" => event(&log.event, &[("error", Arg::Text(&detail("reason")))]),
             "liquidation_batch_cut_short" => event(&log.event, &[("bases", Arg::Text(&detail("bases")))]),
