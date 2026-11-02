@@ -63,7 +63,6 @@ fn main() {
             // The words `serve` refuses with too (Refusal::message). Stale or unstamped reference data is noted, never refused.
             // The takeover's set-aside on the copy (PLAN-B2 r1.9): the bots `serve` will stop, then what it would refuse.
             let now = chrono::Utc::now();
-            let first = !cipher.as_ref().is_some_and(|cipher| matches!(lease::read(&c, cipher), Ok(Some(v)) if v["engine"] == "rust"));
             // Stale or unstamped reference data, noted on every install (D-UPGRADE-FRESHNESS-AT-TICK).
             for note in check_install_at(&c, now).map(|r| r.notes).unwrap_or_default() { println!("note: {note}"); }
             // On a transaction of the copy (a rule's log needs one); the copy is dropped unwritten either way. The check is the
@@ -79,7 +78,7 @@ fn main() {
                         Err(refusal) => fail(&refusal.message()),
                     }
                 }
-                Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard, first)),
+                Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard)),
                 Err(e) => fail(&Refusal::Failed(e).message()),
             }
         }
@@ -283,11 +282,11 @@ fn owned_by_rust(paths: &Paths, cipher: &Cipher) -> bool {
 /// with C5b (r6 Q3) before anything is migrated or claimed, in the user's words: what happened, then what to do.
 fn back_up(paths: &Paths) {
     match store::backup(paths, chrono::Utc::now()) {
-        Ok(store::Backup::Made(dir)) => log(&format!("Saved a copy of your data to {} before updating it for Deltabadger 3.0.", dir.display())),
+        Ok(store::Backup::Made(dir)) => log(&format!("Saved a copy of your data to {} before updating it.", dir.display())),
         Ok(store::Backup::Unchanged(dir)) => log(&format!("Your data hasn't changed since the copy in {}, so no new copy was needed.", dir.display())),
-        Err(store::BackupError::SameName(name)) if name == "digest" => fail(&format!("Deltabadger 3.0 didn't start: one of your data files is called {name}, \
+        Err(store::BackupError::SameName(name)) if name == "digest" => fail(&format!("Deltabadger didn't start: one of your data files is called {name}, \
             the name its copy uses for its checksums. Your data hasn't been changed. Rename that file (the DATABASE_PATH or QUEUE_DATABASE_PATH setting), then start again.")),
-        Err(store::BackupError::SameName(name)) => fail(&format!("Deltabadger 3.0 didn't start: your two data files are both called {name}, so it can't keep a \
+        Err(store::BackupError::SameName(name)) => fail(&format!("Deltabadger didn't start: your two data files are both called {name}, so it can't keep a \
             copy of both in one folder. Your data hasn't been changed. Rename one of them (the DATABASE_PATH or QUEUE_DATABASE_PATH setting), then start again.")),
         Err(e) => {
             let (reason, todo) = match e {
@@ -295,7 +294,7 @@ fn back_up(paths: &Paths) {
                 store::BackupError::NotWritable => ("this folder can't be written to".to_string(), "Make sure Deltabadger can write to this folder, then start it again."),
                 store::BackupError::Other(why) | store::BackupError::SameName(why) => (why, "Check the disk and this folder, then start Deltabadger again."),
             };
-            fail(&format!("Deltabadger 3.0 didn't start: it couldn't save a copy of your data to {} first ({reason}). Your data hasn't been changed. {todo}",
+            fail(&format!("Deltabadger didn't start: it couldn't save a copy of your data to {} first ({reason}). Your data hasn't been changed. {todo}",
                           store::backups_dir(paths).display()))
         }
     }
@@ -452,14 +451,13 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     // The takeover's own set-aside, on a transaction rolled back: the bots it will stop, or the hard stop, before the web.
     {
         let now = chrono::Utc::now();
-        let first = !owned_by_rust(&paths(env), &cipher);
         let tx = deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e| fail(&format!("{e:?}")));
         let outcome = deltabadger::engine::set_aside::apply(&tx, Some(&cipher), &|c| handover::startup_report(c, &cipher, now), now);
         // Rolled back before anything else: a refusal page must not hold a write transaction on the install.
         drop(tx);
         match outcome {
             Ok(Ok(plan)) => for aside in &plan.bots { log(&deltabadger::engine::set_aside::would_stop(aside)); },
-            Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard, first)),
+            Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard)),
             Err(e) => fail(&Refusal::Failed(e).message()),
         }
     }

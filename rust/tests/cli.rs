@@ -146,7 +146,7 @@ fn check_names_each_bot_it_would_stop_and_its_reason() {
     let out = cli(dir.path(), &["check"]).output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
     let said = String::from_utf8_lossy(&out.stdout);
-    assert!(said.contains(&format!("\nBot {id} will be stopped when Deltabadger 3.0 starts: It uses a setting Deltabadger 3.0 doesn't support on this bot yet. Check its settings, then start the bot again.\n")), "{said}");
+    assert!(said.contains(&format!("\nBot {id} will be stopped at the next start: It uses a setting that isn't supported on this bot yet. Check its settings, then start the bot again.\n")), "{said}");
     assert!(said.contains("ready: 0 bot(s) this engine can run"), "{said}");
 }
 
@@ -349,12 +349,12 @@ fn check_says_what_serve_then_sets_aside_and_every_start_sets_aside_what_it_refu
     let checked = bare(dir.path(), &["check"]).output().unwrap();
     assert_eq!(checked.status.code(), Some(0), "{}", stderr(&checked));
     assert_eq!(files_of(dir.path()), before, "check writes nothing");
-    let would: Vec<String> = String::from_utf8_lossy(&checked.stdout).lines().filter(|l| l.contains("will be stopped when")).map(str::to_string).collect();
+    let would: Vec<String> = String::from_utf8_lossy(&checked.stdout).lines().filter(|l| l.contains("will be stopped at the next start")).map(str::to_string).collect();
     assert_eq!(would.len(), 2, "{would:?}");
 
     let said = serve_until_running(dir.path());
     let stopped: Vec<String> = said.iter().filter_map(|l| l.split_once(" stopped Bot ").map(|(_, rest)| format!("Bot {rest}"))).collect();
-    let expected: Vec<String> = would.iter().map(|l| l.replace(" will be stopped when Deltabadger 3.0 starts:", ":")).collect();
+    let expected: Vec<String> = would.iter().map(|l| l.replace(" will be stopped at the next start:", ":")).collect();
     assert_eq!(stopped, expected, "serve stops what check said, in its words: {said:?}");
     assert!(said.iter().any(|l| l.contains(&format!("stopped rule {rule}"))), "{said:?}");
     assert_eq!([healthy, later, feature, flip].map(status), [1, 1, 2, 2]);
@@ -916,7 +916,7 @@ fn serve_backs_a_2x_install_up_before_taking_it_over_and_the_copy_restores_it() 
     assert_eq!(made.len(), 1, "{made:?}");
     let copy = &made[0];
     assert!(copy.file_name().unwrap().to_string_lossy().starts_with("pre-3.0-") && copy.extension().is_none_or(|e| e != "partial"), "{copy:?}");
-    let said = lines.iter().position(|l| l.contains(&format!("Saved a copy of your data to {} before updating it for Deltabadger 3.0.", copy.display())));
+    let said = lines.iter().position(|l| l.contains(&format!("Saved a copy of your data to {} before updating it.", copy.display())));
     let took = lines.iter().position(|l| l.contains("took over"));
     assert!(said.is_some() && said < took, "C5a, then the takeover: {lines:?}");
     for f in DATABASES {
@@ -962,7 +962,7 @@ fn a_handed_back_install_is_backed_up_with_its_tax_rows_and_refused_starts_add_o
     let said = run_to_claim(dir.path());
     let made = backups(dir.path());
     assert_eq!(made.len(), 1, "{made:?}");
-    assert!(said.contains(&format!("Saved a copy of your data to {} before updating it for Deltabadger 3.0.", made[0].display())) && said.contains("took over (AfterHandback)"), "{said}");
+    assert!(said.contains(&format!("Saved a copy of your data to {} before updating it.", made[0].display())) && said.contains("took over (AfterHandback)"), "{said}");
     assert_eq!(carry(&frozen(&made[0].join(DATABASES[0]))), typed, "the typed rows are in the copy");
 
     // Handed back again, now with a bot the assessment refuses: three refused starts, one new copy.
@@ -1055,7 +1055,7 @@ fn a_start_that_cannot_back_up_stops_before_any_write() {
     std::fs::create_dir(&shelf).unwrap();
     std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o555)).unwrap();
     let before = files_of(dir.path());
-    let c5b = format!("Deltabadger 3.0 didn't start: it couldn't save a copy of your data to {} first (this folder can't be written to). \
+    let c5b = format!("Deltabadger didn't start: it couldn't save a copy of your data to {} first (this folder can't be written to). \
                        Your data hasn't been changed. Make sure Deltabadger can write to this folder, then start it again.", shelf.display());
     let out = finished(&mut bare(dir.path(), &["run"]));
     assert_eq!(out.status.code(), Some(1));

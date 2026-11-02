@@ -100,6 +100,14 @@ pub fn failure(from: &str, urls: &Urls, to: &Recipient, stopped: bool, label: &s
     message(from, false, &to.email, subject, urls, &body)
 }
 
+/// D-UPGRADE-SET-ASIDE: a takeover stopped the bot, with the reasons in the owner's words (Rust-only text, web::i18n).
+pub fn set_aside(from: &str, urls: &Urls, to: &Recipient, label: &str, reasons: &str) -> Message {
+    let subject = i18n::text(to.locale, "bot_alerts_mailer.set_aside.subject", &[("label", Arg::Text(label))]);
+    let html = i18n::t(to.locale, "bot_alerts_mailer.set_aside.template_html", &[("label", Arg::Text(label)), ("reasons", Arg::Text(reasons))]);
+    let body = format!("{}{html}", opening(to.locale, &subject, &to.name));
+    message(from, false, &to.email, subject, urls, &body)
+}
+
 /// BotAlertsMailer#stopped_by_amount_limit. `amount` is `quote_amount_limit.to_s`.
 pub fn stopped_by_amount_limit(from: &str, urls: &Urls, to: &Recipient, label: &str, amount: &str, quote: &str) -> Message {
     let subject = i18n::text(to.locale, "bot_alerts_mailer.stopped_by_amount_limit.subject", &[("label", Arg::Text(label))]);
@@ -268,6 +276,7 @@ pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls
             let sentence = humanize_error(exchange_type.as_deref().unwrap_or_default(), &exchange_name, to.locale, &bounded(error, ERROR_LIMIT));
             failure(from, urls, &to, matches!(notice, Notice::StoppedByError { .. }), &label, &exchange_name, &sentence)
         }),
+        Notice::SetAside { reasons } => Some(set_aside(from, urls, &to, &label, reasons)),
         Notice::StoppedByAmountLimit => symbol(settings.get("quote_asset_id").and_then(Value::as_i64))?
             .map(|quote| stopped_by_amount_limit(from, urls, &to, &label, &ruby_to_s(settings.get("quote_amount_limit")), &quote)),
         Notice::StoppedByBaseAmountLimit => base_mail_values(c, bot_id, &settings, base_marker.as_deref())?

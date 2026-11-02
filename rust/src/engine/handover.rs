@@ -52,7 +52,6 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     super::provider::bind_cipher(&o.primary,cipher)?;
     let problems = super::rules::takeover_problems(&o.primary,&o.queue)?;
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    let first = !lease::read(&o.primary, cipher)?.is_some_and(|v| v["engine"] == "rust");
     // Rails' webhook calls, read and judged before anything changes owner: a claimed or unreadable one refuses here.
     refuse_composition_jobs(o)?;
     let signal_jobs = signal_jobs(o)?;
@@ -65,7 +64,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // so nothing here is written. The bots the engine then runs are the second check's.
     let plan = match super::set_aside::apply(&tx, Some(cipher), &|c| startup_report(c, cipher, now), now)? {
         Ok(plan) => plan,
-        Err(hard) => return Err(EngineError::HardStop(super::set_aside::hard_stop(&hard, first))),
+        Err(hard) => return Err(EngineError::HardStop(super::set_aside::hard_stop(&hard))),
     };
     let report = plan.report;
     // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
@@ -146,7 +145,7 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
 pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<usize, EngineError> {
     // PLAN-B1 r2.1: an install 3.0 created has no Rails to go back to. Refused before anything is written; the marker stays.
     if crate::app_config::get_plain(&o.primary, lease::CREATED_AT).map_err(EngineError::Data)?.is_some() {
-        return Err(EngineError::Ineligible(vec!["this install was created by Deltabadger 3.0, so there is no earlier version to hand it back to.".into()]));
+        return Err(EngineError::Ineligible(vec!["this install was created new, so there is no earlier app to hand it back to.".into()]));
     }
     if crate::sync::binance_writer::written(&o.primary)? {
         return Err(EngineError::Ineligible(vec!["Binance A12 identity data permanently requires Rust ownership".into()]));

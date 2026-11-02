@@ -77,8 +77,8 @@ fn an_ineligible_bot_with_work_in_flight_is_a_hard_stop_and_nothing_is_written()
     let before = (dump(&o.primary), count(&o.primary, "SELECT count(*) FROM bot_activity_logs"));
     match handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()) {
         Err(EngineError::HardStop(message)) => {
-            assert!(message.starts_with("Deltabadger 3.0 didn't start") && message.contains(&format!("Bot {b}: It has open orders.")) && !message.contains(&format!("Bot {healthy}")), "{message}");
-            assert!(message.ends_with("start Deltabadger 2.70.21 again and contact support."), "a first takeover: {message}");
+            assert!(message.starts_with("Deltabadger didn't start") && message.contains(&format!("Bot {b}: It has open orders.")) && !message.contains(&format!("Bot {healthy}")), "{message}");
+            assert!(message.ends_with("Nothing was bought or sold. Contact support."), "{message}");
         }
         other => panic!("{:?}", other.map(|t| t.eligible)),
     }

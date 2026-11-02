@@ -27,7 +27,7 @@ fn state(c: &rusqlite::Connection) -> (String, i64, i64) {
      c.query_row("SELECT count(*) FROM bot_activity_logs", [], |r| r.get(0)).unwrap(),
      c.query_row("SELECT count(*) FROM rule_logs", [], |r| r.get(0)).unwrap())
 }
-const FEATURE: &str = "It uses a setting Deltabadger 3.0 doesn't support on this bot yet. Check its settings, then start the bot again.";
+const FEATURE: &str = "It uses a setting that isn't supported on this bot yet. Check its settings, then start the bot again.";
 const NO_KEY: &str = "There's no Kraken API key. Add your key in Settings, then start the bot again.";
 
 /// Each candidate kind (rows 24, 25, 28, r1.8) is set aside with its reason in the same takeover, and the healthy bot runs.
@@ -49,7 +49,7 @@ fn each_kind_of_candidate_is_stopped_with_its_reason_and_the_other_bots_run() {
     assert_eq!(t.rules_stopped, vec![rule]);
     assert_eq!(status(c, healthy), BotStatus::Scheduled);
     assert_eq!(reasons(c, feature), vec![FEATURE.to_string()]);
-    assert_eq!(reasons(c, flip), vec!["When the price condition is met it would start selling, and Deltabadger 3.0 couldn't run it that way. Check its selling settings, or change what the condition does, then start the bot again.".to_string()]);
+    assert_eq!(reasons(c, flip), vec!["When the price condition is met it would start selling, and it couldn't run that way. Check its selling settings, or change what the condition does, then start the bot again.".to_string()]);
     for bot in [feature, flip] {
         assert_eq!(status(c, bot), BotStatus::Stopped);
         let key: String = c.query_row("SELECT stop_message_key FROM bots WHERE id = ?1", [bot], |r| r.get(0)).unwrap();
@@ -57,7 +57,7 @@ fn each_kind_of_candidate_is_stopped_with_its_reason_and_the_other_bots_run() {
     }
     let (rule_status, log): (i64, String) = c.query_row("SELECT r.status, l.message FROM rules r JOIN rule_logs l ON l.rule_id = r.id WHERE r.id = ?1", [rule], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(rule_status, 2, "Rails' stopped");
-    assert_eq!(log, "Deltabadger 3.0 can't withdraw from Bitrue yet, so it stopped this rule while updating your data. Nothing was withdrawn.");
+    assert_eq!(log, "Withdrawals from Bitrue aren't supported yet, so this rule was stopped while updating your data. Nothing was withdrawn.");
     // A restart finds nothing more to set aside: the stopped bots are no longer refused.
     let again = take_over(dir.path(), &o).unwrap();
     assert!(again.set_aside.is_empty() && again.rules_stopped.is_empty());
@@ -71,18 +71,22 @@ fn the_reason_is_stored_on_the_row_the_activity_line_and_the_mail() {
     let c = &o.primary;
     let bot = seed::insert_bot(c, &s, &plain().with("future_price_drop_limited", json!(true)));
     take_over(dir.path(), &o).unwrap();
-    let shown = format!("Deltabadger 3.0 stopped this bot while updating your data: {FEATURE} Nothing was bought or sold.");
     let (details, n): (String, i64) = c.query_row("SELECT details, count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'stopped'", [bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(n, 1);
     let details: serde_json::Value = serde_json::from_str(&details).unwrap();
     assert_eq!((details["stop_message_key"].as_str(), details["reason"].as_str()), (Some(set_aside::STOP_KEY), Some(FEATURE)));
     let transient = model::load_bot(c, bot).unwrap().transient;
     let pending = notice::pending_in(bot, transient.as_object().unwrap());
-    let Some(notice::Pending { notice: notice::Notice::StoppedByError { error }, .. }) = pending.first() else { panic!("{pending:?}") };
-    assert_eq!(error, &shown);
+    let Some(notice::Pending { notice: notice::Notice::SetAside { reasons: said }, .. }) = pending.first() else { panic!("{pending:?}") };
+    assert_eq!(said, FEATURE);
+    assert_eq!(pending.len(), 1, "its own mail, not the stopped-by-error one too");
     let urls = deltabadger::mail::render::Urls { root: "http://localhost:3000/".into() };
     let mail = deltabadger::mail::render::for_notice(c, bot, &pending[0].notice, "bot@example.com", &urls).unwrap().unwrap();
-    assert!(mail.html.contains(&deltabadger::web::i18n::escape(&shown)), "{}", mail.html);
+    let label: String = c.query_row("SELECT coalesce(label, '') FROM bots WHERE id = ?1", [bot], |r| r.get(0)).unwrap();
+    assert_eq!(mail.subject, format!("{label} was stopped"));
+    assert!(mail.html.contains("Deltabadger stopped your bot") && mail.html.contains("Nothing was bought or sold.")
+        && mail.html.contains(&deltabadger::web::i18n::escape(FEATURE)), "{}", mail.html);
+    assert!(!mail.html.contains("rejecting") && !mail.html.contains("3.0"), "{}", mail.html);
     assert!(notice::clear(c, &seed::cipher(), &pending[0]).unwrap());
     assert_eq!(reasons(c, bot), vec![FEATURE.to_string()], "the mail sent, the row keeps its reasons");
 }
@@ -107,7 +111,7 @@ fn work_in_flight_and_unreadable_rows_stay_hard_stops_and_write_nothing() {
     let cases: Vec<(&str, Make)> = vec![
         ("ineligible and rebalancing", Box::new(|c, s| {
             let bot = seed::insert_bot(c, s, &plain().with("future_price_drop_limited", json!(true)).with("rebalance_enabled", json!(true)).with("rebalance_threshold", json!(0.05)));
-            (bot, "It still rebalances, in a way Deltabadger 3.0 can't run.")
+            (bot, "It still rebalances, in a way that isn't supported yet.")
         })),
         ("no key and an open order", Box::new(|c, s| {
             let bot = seed::insert_bot(c, s, &plain());
@@ -123,7 +127,7 @@ fn work_in_flight_and_unreadable_rows_stay_hard_stops_and_write_nothing() {
         ("an unreadable row", Box::new(|c, s| {
             let bot = seed::insert_bot(c, s, &BotSpec { status: 2, ..plain() });
             c.execute("UPDATE bots SET started_at = 'garbage' WHERE id = ?1", [bot]).unwrap();
-            (bot, "Deltabadger 3.0 can't read this bot's data.")
+            (bot, "This bot's data can't be read.")
         })),
     ];
     for (case, make) in cases {
@@ -229,7 +233,7 @@ mod web {
         let app = common::web::app(dir.path(), "engine-test-secret", common::web::TestClock::starting(now()));
         let mut b = browser(&app, s.user_id);
 
-        let shown = "Deltabadger 3.0 stopped this bot while updating your data:";
+        let shown = "Deltabadger stopped this bot while updating your data:";
         for bot in [feature, flip] {
             let page = b.get(&app, &format!("/bots/{bot}")).await;
             assert_eq!(page.status, 200, "{:.400}", page.body);
@@ -245,7 +249,7 @@ mod web {
         // A bot on an exchange this build has no code for: its own page, the reason and Delete.
         let page = b.get(&app, &format!("/bots/{elsewhere}")).await;
         assert_eq!(page.status, 200, "{:.400}", page.body);
-        assert!(page.body.contains(shown) && page.body.contains("can&#39;t trade on BitMart yet") && page.body.contains(&format!("action=\"/bots/{elsewhere}/delete\"")), "{:.3000}", page.body);
+        assert!(page.body.contains(shown) && page.body.contains("Trading on BitMart isn&#39;t supported yet") && page.body.contains(&format!("action=\"/bots/{elsewhere}/delete\"")), "{:.3000}", page.body);
         let block = page.body.split(&format!("id=\"bot_set_aside_{elsewhere}\"")).nth(1).and_then(|b| b.split("</div>").next()).unwrap_or_default();
         assert!(block.contains("<form") && !block.contains("data-turbo"), "Turbo submits the delete, as every bot form: its answer is a Turbo Stream: {block}");
         // A bot of a kind no lifecycle writer takes: no Delete it could not carry out.

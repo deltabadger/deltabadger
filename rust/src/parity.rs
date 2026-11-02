@@ -185,6 +185,8 @@ fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
         let mut mail = json!({ "mail": p.notice.mail() });
         match &p.notice {
             Notice::EndOfFunds { quote_asset_id } => mail["quote"] = c.query_row("SELECT symbol FROM assets WHERE id = ?1", [quote_asset_id], |r| r.get::<_, String>(0))?.into(),
+            // Rust-only (D-UPGRADE-SET-ASIDE): Rails never sends it, so no recording has it.
+            Notice::SetAside { reasons } => mail["reasons"] = reasons.clone().into(),
             Notice::Error { error, .. } | Notice::StoppedByError { error } => {
                 mail["errors"] = json!([crate::mail::render::humanize_error(&exchange_type, &exchange_name, crate::mail::render::user_locale(locale.as_deref()), error)]);
             }
