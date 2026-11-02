@@ -878,7 +878,7 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
 /// or 12 and trades on that.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
-    let (_copies, outputs) = grid_outputs("grid-basket-sell", 278).await;
+    let (_copies, outputs) = grid_outputs("grid-basket-sell", 280).await;
     let mut failures = vec![];
     let diverges = |name: &str| name.contains("-unreadable_price-") && (name.contains("-binance-") || name.contains("-kucoin-"));
     for (name, _, rails_out, rust_out) in &outputs {
@@ -922,7 +922,8 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
         } else if name.contains("-w50-foreign_crypto-") { Some(&["BTC", "ETH"])
         } else if name.contains("-floor_handover-") || name.contains("-nothing_free_top-") { Some(&["ETH"])
         } else if name.contains("-free_below-") || name.contains("-resting_top-") { Some(&["BTC", "ETH"])
-        } else if name.starts_with("basket-sell-stock-open-") { Some(&["AAPL"])
+        // A14 (split): AAPL held through a settled 2:1 split (4 restated) is still the member furthest over its target.
+        } else if name.starts_with("basket-sell-stock-open-") || name.starts_with("basket-sell-stock-split-") { Some(&["AAPL"])
         } else if name.starts_with("basket-sell-stock-foreign-") { Some(&["MSFT"])
         } else if name.starts_with("basket-sell-stock-closed-") { Some(&[])
         } else { None };
@@ -1054,6 +1055,36 @@ async fn rails_and_rust_rebalance_identically() {
 
 const ALPACA_DIVERGENCES: [&str; 3] = ["add_server_error", "add_unreadable", "untradable_clock_closed"];
 
+/// D-SPLIT-NEVER-A-COIN: a security's split that recorded no asset (named on the venue, held in both classes, or not listed).
+/// Rails restates the coin, or cannot attribute the split, and stands the tick down; Rust decides as Rails does where the
+/// report recorded the security (`security_split` of the same interval and mode).
+const COIN_SPLITS: [&str; 3] = ["security_split_bothclasses", "security_split_nameonly", "security_split_unlisted"]; // sorted
+
+/// Ok(true) where Rails visibly stood the coin down: inside the two-day quarantine of a restatement it made, or for good on
+/// a split it could not attribute. A week's tick lands after that quarantine, where Rails' phantom restatement no longer
+/// shows in a quote-sized buy.
+fn coin_never_split(rails_out: &serde_json::Value, rust_out: &serde_json::Value, twin: &Path) -> Result<bool, String> {
+    let twin: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(twin.join("rails.json")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    if twin["sent"].as_array().is_none_or(Vec::is_empty) { return Err(format!("the twin sent nothing: {twin}")); }
+    // The twin is an install of its own: its seeded rows were written at other instants (a row the tick writes carries
+    // the scenario's clock on both sides).
+    fn seeded(v: &serde_json::Value) -> serde_json::Value {
+        match v {
+            serde_json::Value::Object(m) => m.iter().filter(|(k, _)| !["created_at", "updated_at"].contains(&k.as_str())).map(|(k, v)| (k.clone(), seeded(v))).collect(),
+            serde_json::Value::Array(a) => a.iter().map(seeded).collect(),
+            other => other.clone(),
+        }
+    }
+    let twin = seeded(&twin);
+    if seeded(rust_out) != twin { return Err(format!("Rust does not decide as Rails does for the security's own report\n  twin:  {twin}\n  rust:  {rust_out}")); }
+    if seeded(rails_out) == twin { return Ok(false); }
+    let events: Vec<&str> = rails_out["changes"]["bot_activity_logs"].as_array().ok_or("no activity")?.iter().filter_map(|l| l["after"]["event"].as_str()).collect();
+    if events != ["dca_skipped_restatement"] || rails_out["sent"].as_array().is_none_or(|s| !s.is_empty()) {
+        return Err(format!("Rails differs from the twin other than by standing the coin down\n  rails: {rails_out}"));
+    }
+    Ok(true)
+}
+
 fn crypto_ignores_the_stock_clock(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let rails_events: Vec<&str> = rails_out["changes"]["bot_activity_logs"].as_array().unwrap().iter().filter_map(|l| l["after"]["event"].as_str()).collect();
     if !rails_events.contains(&"market_closed") { return Err(format!("Rails no longer parks it behind the clock: drop the listed divergence\n  rails: {rails_out}")); }
@@ -1073,12 +1104,13 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
     built_grid("grid-alpaca", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    // 369 (with #451's unreadable-number variants) and the six mail variants (54 scenarios).
-    assert_eq!(dirs.len(), 423, "the Alpaca grid has {} scenarios", dirs.len());
+    // 369 (with #451's unreadable-number variants), the six mail variants (54 scenarios) and A14's four security splits (36).
+    assert_eq!(dirs.len(), 459, "the Alpaca grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let mut failures = vec![];
+    let mut coin_stood_down = std::collections::BTreeMap::new();
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let mut rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
@@ -1096,6 +1128,9 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
             Some(unreadable_number_refused(&name, &rust_dir, &rails_out, &rust_out, true))
         } else if name.ends_with("-untradable_clock_closed") {
             Some(crypto_ignores_the_stock_clock(&rust_dir, &rails_out, &rust_out))
+        } else if let Some((v, twin)) = COIN_SPLITS.iter().find_map(|v| name.strip_suffix(&format!("-{v}")).map(|t| (v, t))) {
+            Some(coin_never_split(&rails_out, &rust_out, &rails_root.path().join(format!("{twin}-security_split")))
+                .map(|stood_down| if stood_down { *coin_stood_down.entry(*v).or_insert(0) += 1; }))
         } else if ALPACA_DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
             Some(intent_kept(&rust_dir, &rails_out, &rust_out))
         } else {
@@ -1108,6 +1143,8 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
             None => {}
         }
     }
+    // The divergence is real only if Rails shows it: in each variant, some cell where it stood the coin down.
+    if failures.is_empty() { assert_eq!(coin_stood_down.keys().copied().collect::<Vec<_>>(), COIN_SPLITS.to_vec(), "{coin_stood_down:?}"); }
     // The comparison below sees the funds notification only if Rails really sends it one way and not the other: a Rust side
     // that suppressed it (or sent it always) then differs in `funds_notified` and fails.
     for d in &dirs {
@@ -1832,7 +1869,7 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
     rails(&["grid-stock", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 124, "the stock grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 152, "the stock grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -1865,7 +1902,12 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
         let r: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
         let events: Vec<&str> = r["changes"]["bot_activity_logs"].as_array().ok_or("expected JSON array")?.iter().filter_map(|l| l["after"]["event"].as_str()).collect();
         if name.ends_with("-closed") { assert_eq!(events, ["market_closed"], "{name}"); }
-        if name.ends_with("-split_recent") || name.ends_with("-split_unresolved") { assert_eq!(events, ["dca_skipped_restatement"], "{name}"); }
+        let stands_down = ["split_recent", "split_unresolved", "split_reverse_recent", "basket_split_recent", "basket_split_unresolved"];
+        if stands_down.iter().any(|v| name.ends_with(&format!("-{v}"))) { assert_eq!(events, ["dca_skipped_restatement"], "{name}"); }
+        // A14: a split that moved nothing, or is not in effect yet, stands nothing down: the tick sends its order.
+        if ["split_before_position", "split_future", "split_between_buys", "split_reverse_settled"].iter().any(|v| name.ends_with(&format!("-{v}"))) {
+            assert!(!events.contains(&"dca_skipped_restatement") && r["sent"].as_array().is_some_and(|s| !s.is_empty()), "{name}: {events:?}");
+        }
         if name.ends_with("-sweep_done_for_day") || name.ends_with("-sweep_held") { assert!(!events.contains(&"execution_failed"), "{name}: open, the sweep goes on"); }
         if name.ends_with("-funds_low_buying_power") { assert_eq!(r["funds_notified"], true, "{name}: a stock bot spends buying_power"); }
         if name.ends_with("-funds_low_cash_only") { assert_eq!(r["funds_notified"], false, "{name}"); }
