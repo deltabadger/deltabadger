@@ -119,6 +119,8 @@ pub struct Report {
     ahead: Vec<Stored>,
     /// D-TAX-GB-AIRDROP: the rows whose venue label names a fork.
     forks: HashSet<i64>,
+    /// D-TAX-CH-ESTV: Switzerland's Kursliste values; None elsewhere.
+    estv: Option<estv::Estv>,
 }
 
 /// The reads of `crypto_csv` up to the enrichment: the scope, the tokenized refusal, the banners.
@@ -179,7 +181,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let carry = if j.code == "PL" { pl::declared(c, user_id, year)? } else { Default::default() };
     let cnb = if j.code == "CZ" { Some(cnb::Cnb::load(c)?) } else { None };
     let forks = if gb { fork_rows(c, user_id)? } else { HashSet::new() };
-    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb, ahead, forks })))
+    let estv = if j.code == "CH" { Some(estv::Estv::load(c)?) } else { None };
+    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb, ahead, forks, estv })))
 }
 
 /// D-TAX-GB-AIRDROP (r3 item 3): the user's rows whose venue label names a fork: the row's own description (Binance's
@@ -292,6 +295,8 @@ impl Report {
     /// `prefetch` and single-day fetches), and `on_progress(percent)` is told as PriceService#enrich tells it.
     pub fn compute(&self, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Outcome, FiguresError> {
         if self.j.code == "PL" { return self.pl_compute(fetcher, today); }
+        // NL and CH (wealth.rs): units at an instant, no enrichment of every row.
+        if self.is_wealth() { return self.wealth_report(fetcher, today, on_progress); }
         let (j, year) = (self.j, self.year);
         let currency = j.currency(year);
         let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);

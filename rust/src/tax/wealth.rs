@@ -6,9 +6,13 @@
 //!   assumption): counted, less the withdrawal's own fee (listed by the report).
 //! - D-TAX-WEALTH-LOST: a `lost` row leaves the holdings (Rails never removed it).
 //! - Holdings by asset identity (D-TAX-ASSET-IDENTITY), the symbol of the first row shown.
+use super::{cents, line, n, s, Cell, Outcome, Report};
 use crate::figures::{at::At, dec::Dec, FiguresError};
+use crate::tracker::prices::{self, Fetcher, PriceService};
 use crate::tracker::rows::{Kind, Stored};
 use crate::tracker::{fiat, stable, walk};
+use crate::web::i18n::{text, Arg};
+use chrono::NaiveDate;
 use std::collections::{HashMap, HashSet};
 
 /// One coin held: its identity, symbol and venue (of its first row), and the units.
@@ -49,6 +53,113 @@ pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: 
     }
     out.retain(|h| h.units.is_positive());
     Ok(out)
+}
+
+// ---- the wealth report (NL, CH): the shared steps; each country's figures are nl.rs's and ch.rs's ----------------------
+
+/// What a country's wealth figures give the file: the holdings valued on `day`, its summary (and income section) as CSV
+/// lines, its NOTE blocks, and the instant up to which unlinked withdrawals and lost coins are listed.
+pub(super) struct Wealth { pub day: NaiveDate, pub lines: Vec<(Held, Dec)>, pub summary: String, pub income: String, pub notes: String, pub until: At }
+
+impl Report {
+    pub fn is_wealth(&self) -> bool { self.j.method == "wealth_snapshot" }
+
+    /// The coin `symbol` means on `venue` on `day` (D-TAX-ASSET-IDENTITY), or the symbol itself where none is known.
+    pub(super) fn coin(&self, symbol: &str, venue: &str, day: NaiveDate) -> String {
+        prices::coin_id(&self.reference, symbol, self.reference.venue(venue), Some(day)).unwrap_or_else(|| format!("symbol:{symbol}"))
+    }
+
+    /// `held` over the report's rows, each symbol read as the coin it meant on its row's day.
+    pub(super) fn held_at(&self, until: At) -> Result<Vec<Held>, FiguresError> {
+        held(&self.scoped, &self.deposits, until, &|symbol, r| self.coin(symbol, &r.venue, r.at.utc().date_naive()))
+    }
+
+    /// Whether a holding's ticker names it, and only it, on `day` (r3 item 2, r4 item 1): its price or ESTV value may be read.
+    pub(super) fn priceable(&self, h: &Held, all: &[Held], day: NaiveDate) -> bool {
+        !all.iter().any(|o| o.symbol == h.symbol && o.asset != h.asset) && self.coin(&h.symbol, &h.venue, day) == h.asset
+    }
+
+    /// The price of one unit of a holding dated `day` (r3 item 2): only when its symbol that day still means its coin, and
+    /// (r4 item 1) no other coin of `all` is held under the same ticker (prices are stored by ticker); else none, listed with
+    /// the price warnings. A zero price is none (`price_at` warned).
+    pub(super) fn unit_price(&self, ps: &mut PriceService, h: &Held, all: &[Held], currency: &str, day: NaiveDate) -> Result<Option<Dec>, FiguresError> {
+        if !self.priceable(h, all, day) {
+            ps.warnings.push(format!("{}/{currency} {day}", h.symbol));
+            return Ok(None);
+        }
+        let at = At::from_utc(day.and_time(chrono::NaiveTime::MIN).and_utc()).ok_or_else(|| FiguresError::Data("a day out of range".into()))?;
+        let price = ps.price_at(&h.symbol, currency, at, Some(&h.venue))?;
+        Ok(Some(price).filter(|p| !p.is_zero()))
+    }
+
+    /// D-TAX-NL-ACTUAL, D-TAX-CH-KS36: the fiat paid for coins and received for them in the report's year, gross of fees,
+    /// in `currency` at the day's rate: a coin row's own fiat quote, or the fiat leg of a trade booked as a group (Kraken).
+    /// A stablecoin is a coin.
+    pub(super) fn fiat_trades(&self, ps: &mut PriceService, currency: &str) -> Result<(Dec, Dec), FiguresError> {
+        let traded: HashSet<(i64, &str)> = self.scoped.iter().filter(|r| !fiat(&r.base) && matches!(r.kind, Kind::Buy | Kind::Sell))
+            .filter_map(|r| r.group.as_deref().map(|g| (r.exchange_id, g))).collect();
+        let (mut paid, mut received) = (Dec::zero(), Dec::zero());
+        for r in self.scoped.iter().filter(|r| self.in_year(r.at) && matches!(r.kind, Kind::Buy | Kind::Sell)) {
+            let (cash, amount, pays) = match (&r.group, fiat(&r.base)) {
+                (Some(g), true) if traded.contains(&(r.exchange_id, g.as_str())) => (r.base.as_str(), &r.amount, r.kind == Kind::Sell),
+                (None, false) => match (r.quote.as_deref(), &r.quote_amount) { (Some(q), Some(a)) if fiat(q) => (q, a, r.kind == Kind::Buy), _ => continue },
+                _ => continue,
+            };
+            let value = ps.convert_fiat(amount, cash, currency, r.at)?;
+            if pays { paid = (&paid + &value)?; } else { received = (&received + &value)?; }
+        }
+        Ok((paid, received))
+    }
+
+    /// Tax::Report#to_csv for a wealth snapshot: its rows by value, its summary, then Rust's blocks.
+    pub(super) fn wealth_report(&self, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Outcome, FiguresError> {
+        on_progress(50);
+        let currency = self.j.currency(self.year);
+        let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);
+        let mut w = if self.j.code == "CH" { self.ch(&mut ps, today)? } else { self.nl(&mut ps, today)? };
+        let warnings = { let mut seen = HashSet::new(); ps.warnings.iter().filter(|w| seen.insert(w.as_str())).cloned().collect::<Vec<_>>() };
+        drop(ps);
+        on_progress(100);
+        let l = self.j.locale;
+        let mut out = String::new();
+        line(&mut out, &["reference_date", "asset", "amount", "value", "currency"].map(|k| self.t(&format!("tax_report.headers.{k}"))));
+        for b in &self.banners { line(&mut out, &[s(b.clone())]); }
+        if !warnings.is_empty() {
+            let banner = text(l, "tax_report.incomplete_banner", &[("missing", Arg::Text(&warnings.len().to_string()))]);
+            line(&mut out, &[s(format!("{}: {banner}", text(l, "tax_report.incomplete_banner_prefix", &[])))]);
+        }
+        // Rails' order: by value, the highest first.
+        w.lines.sort_by(|a, b| b.1.to_f().total_cmp(&a.1.to_f()));
+        for (h, value) in &w.lines { line(&mut out, &[s(w.day.to_string()), s(h.symbol.clone()), n(&h.units), cents(value)?, s(currency)]); }
+        out.push_str(&w.summary);
+        out.push_str(&w.income);
+        if !warnings.is_empty() {
+            line(&mut out, &[]);
+            line(&mut out, &[s(format!("WARNING: {}:", text(l, "tax_report.warnings.missing_prices", &[])))]);
+            for x in &warnings { line(&mut out, &[s(x.clone())]); }
+            line(&mut out, &[self.t("tax_report.warnings.upgrade_hint")]);
+        }
+        let before = |kind: Kind| self.scoped.iter().filter(move |r| r.kind == kind && r.at.0 < w.until.0 && !fiat(&r.base));
+        let linked: HashSet<i64> = self.scoped.iter().filter_map(|r| r.linked_to).collect();
+        let listed = |r: &Stored| format!("{} {} {}", r.base, r.amount.to_s_f(), r.at.utc().format("%Y-%m-%d"));
+        // D-TAX-SNAPSHOT-KEEPS: still counted as the user's; D-TAX-WEALTH-LOST: no longer counted.
+        self.block(&mut out, "WARNING", "unlinked_withdrawals", "unlinked_withdrawals_hint",
+                   before(Kind::Withdrawal).filter(|r| r.linked_to.is_none() && !linked.contains(&r.id)).map(listed))?;
+        self.block(&mut out, "WARNING", "lost", "lost_hint", before(Kind::Lost).map(listed))?;
+        out.push_str(&w.notes);
+        Ok(Outcome::Csv(out))
+    }
+}
+
+/// A summary line as Rails writes one: `[nil, nil, label, value, nil]`.
+pub(super) fn summary(out: &mut String, label: String, value: Option<Cell>) { line(out, &[Cell::Nil, Cell::Nil, s(label), value.unwrap_or(Cell::Nil), Cell::Nil]); }
+
+/// A decimal with exactly `places` decimals.
+pub(super) fn fixed(v: &Dec, places: i64) -> Result<String, FiguresError> {
+    let t = v.round(places)?.to_s_f();
+    let (whole, frac) = t.split_once('.').unwrap_or((&t, ""));
+    if places <= 0 { return Ok(whole.to_string()); }
+    Ok(format!("{whole}.{frac:0<width$}", width = usize::try_from(places).unwrap_or(2)))
 }
 
 #[cfg(test)]
