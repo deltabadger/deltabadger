@@ -436,8 +436,12 @@ impl<'a> Fifo<'a> {
             Kind::Deposit if !r.linked => (if self.o.deposit_cost_zero { Dec::zero() } else { r.fiat_value.clone() }, self.o.deposit_cost_zero),
             Kind::SwapIn if !self.swaps_taxable_at(r.at) => match self.swap_cash_cost(r)? {
                 (true, cash) => ((&cash + &fiat_fee)?, true),
+                // r5 item 2: a fiat leg in its group whose value was lost (a missing rate): the spending is unknown.
+                _ if tx.cash_group => (Dec::zero(), false),
                 _ => return Ok(()),
             },
+            // r5 item 2: the same for a swap-out that left for fiat but lost its quote: a cession this walk cannot see.
+            Kind::SwapOut if tx.cash_group && !self.fiat_disposal(r) && !self.swaps_taxable_at(r.at) => (Dec::zero(), false),
             _ => return Ok(()),
         };
         if !priced || r.price_missing && spent.is_positive() { self.pvct.uncertain = true; }
@@ -2281,6 +2285,36 @@ mod tests {
         let mut f = Fifo::new(Options { swaps_taxable: false, pvct_from: Some(at(5)), ..plain() });
         f.calculate(&[row(0, Kind::Buy, "BTC", "1", "1000", 0, "a"), unpriced, row(2, Kind::Sell, "BTC", "1", "2000", 7, "a")]).unwrap();
         assert!(f.pvct.points[0].uncertain);
+    }
+
+
+    /// r4 item 2, r5 item 3: under `pvct_from` a linked deposit's attached fee (own coin, third coin) leaves the units the next
+    /// cession sees, beside the transfer's inferred network fee; nothing is spent. A swap leg of a fiat group with no cash
+    /// value makes the state uncertain (r5 item 2).
+    #[test]
+    fn pvct_linked_deposit_fees_leave_the_units() {
+        let mut out = row(2, Kind::Withdrawal, "BTC", "1", "0", 2, "a");
+        (out.row.linked, out.row.transfer_fee, out.row.to_exchange) = (true, Some(d("0.0005")), Some("b".into()));
+        let mut inn = row(3, Kind::Deposit, "BTC", "0.9995", "0", 2, "b");
+        inn.row.linked = true;
+        (inn.row.fee_currency, inn.row.fee_amount) = (Some("BTC".into()), Some(d("0.001")));
+        let mut eth_in = row(5, Kind::Deposit, "ETH", "1", "0", 4, "b");
+        eth_in.row.linked = true;
+        (eth_in.row.fee_currency, eth_in.row.fee_amount, eth_in.fee_asset) = (Some("SOL".into()), Some(d("0.5")), Some("SOL".into()));
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "1000", 0, "a"), row(1, Kind::Buy, "SOL", "10", "100", 0, "a"), out, inn,
+                        row(4, Kind::Buy, "ETH", "1", "50", 3, "a"), eth_in, row(6, Kind::Sell, "BTC", "0.1", "200", 5, "b")];
+        let mut f = Fifo::new(Options { swaps_taxable: false, pvct_from: Some(at(0)), ..plain() });
+        f.calculate(&rows).unwrap();
+        let p = &f.pvct.points[0];
+        let held: Vec<(String, String)> = p.held.iter().map(|(a, _, _, u)| (a.clone(), u.to_s_f())).collect();
+        // BTC 1 − 0.0005 network − 0.001 attached = 0.9985; SOL 10 − 0.5; ETH 1 (the transfer moved it, nothing spent).
+        assert_eq!(held, [("BTC".to_string(), "0.9985".to_string()), ("ETH".into(), "1.0".into()), ("SOL".into(), "9.5".into())]);
+        assert_eq!((p.gross.to_s_f(), p.uncertain), ("1150.0".to_string(), false));
+        let mut lost = row(1, Kind::SwapIn, "ETH", "1", "0", 1, "a");
+        (lost.row.group, lost.cash_group) = (Some("g".into()), true);
+        let mut f = Fifo::new(Options { swaps_taxable: false, pvct_from: Some(at(0)), ..plain() });
+        f.calculate(&[row(0, Kind::Buy, "BTC", "1", "1000", 0, "a"), lost, row(2, Kind::Sell, "BTC", "1", "2000", 2, "a")]).unwrap();
+        assert!(f.pvct.points[0].uncertain, "a fiat group's leg with no cash value");
     }
 
 }
