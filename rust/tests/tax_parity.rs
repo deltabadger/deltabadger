@@ -219,7 +219,7 @@ fn the_broker_report_is_rails_own_or_the_named_divergence() {
         let csv = match deltabadger::tax::broker::report(&c, user, year as i32, &Default::default()) { Ok(csv) => csv, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
         let rails = s["rails"]["csv"].as_str().unwrap_or("");
         // D-TAX-BROKER-DISCLOSURES: this build's legal notes, every one, and none of the three Rails states that no longer hold.
-        if &csv[before_disclosures(&csv).len()..] != notes() { failures.push(format!("{name}: not this build's legal notes")); }
+        if csv[before_disclosures(&csv).len()..] != notes() { failures.push(format!("{name}: not this build's legal notes")); }
         match expect.strip_prefix("diverges: ") {
             None => if before_disclosures(&csv) != before_disclosures(rails) {
                 failures.push(format!("{name}: not Rails' file\n--- rails\n{rails}\n--- rust\n{csv}"));

@@ -545,7 +545,8 @@ async fn a_broker_outage_refuses_the_fund_as_missing_a_price() {
 async fn a_partial_start_window_is_no_start_value() {
     let i = install();
     fund(&i, true);
-    open(&i).execute_batch("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:FNDX', 'USD', '2024-01-10', '109'), ('stock:FNDX', 'USD', '2024-12-31', '118.8')").unwrap();
+    // 3 January is within the first trading days, but the 2nd is not stored: fetched, and an answer with no bar confirms nothing.
+    open(&i).execute_batch("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:FNDX', 'USD', '2024-01-03', '108.5'), ('stock:FNDX', 'USD', '2024-12-31', '118.8')").unwrap();
     broker_row(&open(&i), i.user, "DE");
     let (db, _) = job_db(&i);
     // Only the start window is asked for (the end window is fresh); its answer is empty.
@@ -588,4 +589,17 @@ async fn a_broker_create_is_queued_on_a_coingecko_install() {
     assert_eq!(broker.status, 200, "{}", broker.body);
     let scope: String = open(&i).query_row("SELECT scope FROM rust_tax_reports", [], |r| r.get(0)).unwrap();
     assert_eq!(scope, "broker");
+}
+
+/// The end window's last close not stored: fetched; an answer with no bar in the window leaves a partial cache unconfirmed.
+#[tokio::test]
+async fn a_partial_end_window_answered_empty_is_no_end_value() {
+    let i = install();
+    fund(&i, true);
+    open(&i).execute_batch("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:FNDX', 'USD', '2024-01-02', '108'), ('stock:FNDX', 'USD', '2024-12-27', '117')").unwrap();
+    broker_row(&open(&i), i.user, "DE");
+    let (db, _) = job_db(&i);
+    assert_eq!(run_with(&i, &db, bars(json!([{ "status": 200, "body": { "bars": [], "next_page_token": null } }]))).await, Outcome::Done);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
+    assert!(csv.contains("FNDX,\"Kein Rücknahmepreis zum Jahreswechsel 2024 verfügbar"), "{csv}");
 }

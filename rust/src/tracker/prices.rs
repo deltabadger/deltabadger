@@ -611,9 +611,10 @@ pub fn bar_rows(body: &serde_json::Value, symbol: &str, from: NaiveDate, to: Nai
 
 /// The request of Tax::PriceService#stock_price_range: every page of `symbol`'s daily bars from `from`'s midnight (UTC),
 /// each naming the next as Clients::Alpaca#get_bars reads them, and the days of `from..=to` not in `have` stored under
-/// `stock:SYM`, fenced on the key's version. False when any page failed or a bar cannot be read (nothing stored).
+/// `stock:SYM`, fenced on the key's version. The number of bars the answer holds inside the window; None when any page
+/// failed or a bar cannot be read (nothing stored).
 pub async fn fetch_stock_bars<C: crate::sync::jobs::Connect>(db: &crate::jobs::Db, venues: &C, key: &(crate::crypto::Credentials, crate::engine::model::CredentialVersion),
-    symbol: &str, (from, to): (NaiveDate, NaiveDate), have: &HashSet<NaiveDate>) -> Result<bool, String> {
+    symbol: &str, (from, to): (NaiveDate, NaiveDate), have: &HashSet<NaiveDate>) -> Result<Option<usize>, String> {
     let (credentials, version) = key;
     let start = format!("{from}T00:00:00Z");
     let raw = venues.connect(credentials);
@@ -624,14 +625,16 @@ pub async fn fetch_stock_bars<C: crate::sync::jobs::Connect>(db: &crate::jobs::D
         let mut query = vec![("limit", "10000".to_string())];
         if let Some(token) = token.take() { query.push(("page_token", token)); }
         query.extend([("start", start.clone()), ("timeframe", "1Day".into())]);
-        let Ok(body) = handle.read(true, &format!("/v2/stocks/{symbol}/bars"), query, 8 * 1024 * 1024).await.value else { return Ok(false) };
-        let Ok(text) = body.text() else { return Ok(false) };
-        let Ok(mut json) = serde_json::from_str::<serde_json::Value>(text) else { return Ok(false) };
+        let Ok(body) = handle.read(true, &format!("/v2/stocks/{symbol}/bars"), query, 8 * 1024 * 1024).await.value else { return Ok(None) };
+        let Ok(text) = body.text() else { return Ok(None) };
+        let Ok(mut json) = serde_json::from_str::<serde_json::Value>(text) else { return Ok(None) };
         all.extend(json["bars"].as_array_mut().map(std::mem::take).into_iter().flatten());
         match json["next_page_token"].as_str().filter(|t| !t.is_empty()) { Some(next) => token = Some(next.to_string()), None => break }
     }
-    let Some(rows) = bar_rows(&serde_json::json!({ "bars": all }), symbol, from, to, have) else { return Ok(false) };
-    if rows.is_empty() { return Ok(true); }
+    let answer = serde_json::json!({ "bars": all });
+    let Some(answered) = bar_rows(&answer, symbol, from, to, &HashSet::new()).map(|rows| rows.len()) else { return Ok(None) };
+    let Some(rows) = bar_rows(&answer, symbol, from, to, have) else { return Ok(None) };
+    if rows.is_empty() { return Ok(Some(answered)); }
     let version = version.clone();
     db.run(move |c, _| {
         let tx = crate::engine::model::immediate(c).map_err(|_| "cannot begin bar cache write")?;
@@ -639,7 +642,7 @@ pub async fn fetch_stock_bars<C: crate::sync::jobs::Connect>(db: &crate::jobs::D
         store_bars(&fenced, &rows).map_err(super::jobs::message)?;
         tx.commit().map_err(|e| e.to_string())
     }).await?;
-    Ok(true)
+    Ok(Some(answered))
 }
 
 /// The last weekday of `from..=to` (else `to`): `stock_price_range` fetches unless a close is stored from it on.
@@ -668,7 +671,8 @@ pub async fn stock_price_range<C: crate::sync::jobs::Connect>(db: &crate::jobs::
         crate::sync::credentials_with_version(c, cipher, id).map(Some).map_err(|e| e.0)
     }).await?;
     let Some(key) = key else { return Ok(BTreeMap::new()) };
-    if !fetch_stock_bars(db, venues, &key, symbol, (from, to), &have.keys().copied().collect()).await? { return Ok(BTreeMap::new()); }
+    // An answer with no bar inside the window confirms nothing a partial cache holds (D-TAX-BROKER-VAP-START): no closes.
+    if !fetch_stock_bars(db, venues, &key, symbol, (from, to), &have.keys().copied().collect()).await?.is_some_and(|n| n > 0) { return Ok(BTreeMap::new()); }
     read_closes(db, &asset, from, to).await
 }
 

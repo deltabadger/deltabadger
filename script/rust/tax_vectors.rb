@@ -3020,6 +3020,12 @@ module TaxVectors
       br.('de_broker_mixed_withholding', 'diverges: D-TAX-BROKER-CREDIT') do |c|
         zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '110', '22', '2025-06-02'); nta(c, 'DIVFT', 'ZQX', '1.10', '2025-06-02')
       end,
+      br.('de_broker_mixed_withholding_reversed', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); nta(c, 'DIVFT', 'ZQX', '1.10', '2025-06-02'); dividend.(c, 'ZQX', '110', '22', '2025-06-02')
+      end,
+      br.('de_broker_distribution_estimated', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
+        fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIV', 'FNDX', '108', '2024-07-01')
+      end,
       br.('de_broker_dividend_qty', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
         fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIV', 'FNDX', '108', '2024-07-01', qty: '100')
       end,
