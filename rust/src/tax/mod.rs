@@ -431,6 +431,7 @@ impl Report {
             lost_kept: pooled, own_fee_disposed: pooled, swap_fee_split: j.code == "GB", defer_group_fees: pooled,
             // D-TAX-GB-S104, D-TAX-GB-POOL, D-TAX-GB-SAME-DAY, D-TAX-GB-30DAY: the identification, on the taxpayer's calendar.
             uk: gb.then_some(fifo::Uk { day: &uk_day }),
+            pvct_from: None,
         });
         engine.calculate(&txs)?;
         // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).

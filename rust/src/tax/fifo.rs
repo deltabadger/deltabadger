@@ -101,7 +101,24 @@ pub struct Options<'a> {
     pub defer_group_fees: bool,
     /// The United Kingdom's identification (TCGA 1992 ss. 104, 105, 106A): the engine walks twice (`calculate`).
     pub uk: Option<Uk<'a>>,
+    /// France's PVCT (CGI art. 150 VH bis III): from this instant `Fifo::pvct` records the acquisition price paid and, before
+    /// each cession, the units held.
+    pub pvct_from: Option<At>,
 }
+
+/// `Options::pvct_from`: what France's formula reads from the walk. `opening` is the cost of the lots held at the instant (l. 220
+/// starts from it: § 130); `acquired` the fiat spent on acquisitions since (l. 220's additions, each at its spending before
+/// any fee took its units, a third coin's fee value left out: that coin's own cost is already in); `uncertain` whether any of
+/// it rests on an assumed or unpriced value (the opening lots, or an acquisition since).
+#[derive(Debug, Clone)]
+pub struct Pvct { pub opening: Option<Dec>, pub acquired: Dec, pub uncertain: bool, pub points: Vec<Point> }
+
+impl Default for Pvct { fn default() -> Pvct { Pvct { opening: None, acquired: Dec::zero(), uncertain: false, points: vec![] } } }
+
+/// Before one cession (its row's uid): each coin held across every store (identity, symbol, venue of a lot, units), l. 220
+/// at that moment and whether it was uncertain then.
+#[derive(Debug, Clone)]
+pub struct Point { pub uid: usize, pub held: Vec<(String, String, String, Dec)>, pub gross: Dec, pub uncertain: bool }
 
 /// GB: `day(at)` is the taxpayer's calendar day of an instant (the same day, the 30 days after).
 #[derive(Clone, Copy)]
@@ -214,6 +231,8 @@ pub struct Fifo<'a> {
     /// D-TAX-US-WALLET, before the boundary: what each venue holds of each coin, in the order first touched.
     held: Vec<((String, String), Dec)>,
     symbols: HashMap<String, String>,
+    /// The venue of each coin's first row (its identity's venue where lots are not kept per venue).
+    venues: HashMap<String, String>,
     pub disposals: Vec<Disposal>,
     /// `excess_roc_rows`, as indexes into the rows.
     pub excess_roc_rows: Vec<usize>,
@@ -248,6 +267,8 @@ pub struct Fifo<'a> {
     /// D-TAX-GB-UNSUPPORTED-ACTION: a stock event (a split, a return of capital) dated within a matched pair's days, as
     /// (row index, the pair's disposal day).
     pub unsupported: Vec<(usize, NaiveDate)>,
+    /// `Options::pvct_from`.
+    pub pvct: Pvct,
 }
 
 fn sum<'a>(it: impl Iterator<Item = &'a Dec>) -> Result<Dec, FiguresError> {
@@ -262,10 +283,10 @@ fn present(s: Option<&str>) -> bool { s.is_some_and(|s| !s.trim().is_empty()) }
 impl<'a> Fifo<'a> {
     pub fn new(o: Options<'a>) -> Fifo<'a> {
         Fifo { o, lots: HashMap::new(), in_groups: HashMap::new(), out_groups: HashMap::new(), transferred: HashMap::new(),
-               moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, averaging: false, held: vec![], symbols: HashMap::new(), disposals: vec![],
+               moved_in: HashMap::new(), moved_out: HashMap::new(), per_venue: false, averaging: false, held: vec![], symbols: HashMap::new(), venues: HashMap::new(), disposals: vec![],
                excess_roc_rows: vec![], excess_roc: Dec::zero(), consumed: Dec::zero(), exhausted: vec![], held_back: HashMap::new(), allocation: vec![], allocation_chosen: false, snapshot: None, fences: vec![], clock: At(i64::MIN),
                index: 0, group_in: HashMap::new(), flushed: Default::default(), deferred: vec![], added_in: HashMap::new(),
-               uk: UkWalk::default(), unsupported: vec![] }
+               uk: UkWalk::default(), unsupported: vec![], pvct: Pvct::default() }
     }
 
     /// The lots left standing, per (venue, coin).
@@ -359,6 +380,7 @@ impl<'a> Fifo<'a> {
     fn walk(&mut self, txs: &[Tx]) -> Result<(), FiguresError> {
         for tx in txs {
             self.symbols.entry(tx.asset.clone()).or_insert_with(|| tx.row.base.clone());
+            self.venues.entry(tx.asset.clone()).or_insert_with(|| tx.row.exchange.clone());
             if let (Some(a), Some(s)) = (&tx.fee_asset, &tx.row.fee_currency) { self.symbols.entry(a.clone()).or_insert_with(|| s.clone()); }
         }
         if !self.o.swaps_taxable {
@@ -372,6 +394,8 @@ impl<'a> Fifo<'a> {
             if tx.row.at.0 > self.clock.0 { self.clock = tx.row.at; }
             if let Some(a) = self.o.austria.filter(|a| !self.averaging && tx.row.at.0 >= a.average_from.0) { self.reaverage(a.new_stock_from)?; }
             if self.o.snapshot_at.is_some_and(|s| self.snapshot.is_none() && tx.row.at.0 >= s.0) { self.take_snapshot()?; }
+            if self.o.pvct_from.is_some_and(|f| self.pvct.opening.is_none() && tx.row.at.0 >= f.0) { self.open_pvct()?; }
+            if self.o.pvct_from.is_some_and(|f| tx.row.at.0 >= f.0) { self.pvct_spent(tx)?; }
             self.enter_row(tx)?;
             self.walk_row(tx, index)?;
             // SE, GB: a group's fees in a coin it receives, once its last in-leg is walked.
@@ -385,6 +409,57 @@ impl<'a> Fifo<'a> {
         held.sort_by_key(|h| h.0);
         for (uid, basis, _) in held { self.list_exhausted(uid, basis)?; }
         if self.o.snapshot_at.is_some() && self.snapshot.is_none() { self.take_snapshot()?; }
+        if self.o.pvct_from.is_some() && self.pvct.opening.is_none() { self.open_pvct()?; }
+        Ok(())
+    }
+
+    /// `Options::pvct_from` reached: the cost of every lot held, and whether any is assumed or unpriced.
+    fn open_pvct(&mut self) -> Result<(), FiguresError> {
+        let mut cost = Dec::zero();
+        for l in self.lots.values().flatten() {
+            cost = (&cost + &(&l.amount * &l.cost_per_unit)?)?;
+            if l.amount.is_positive() && (l.basis_assumed || l.unpriced.is_positive()) { self.pvct.uncertain = true; }
+        }
+        self.pvct.opening = Some(cost);
+        Ok(())
+    }
+
+    /// The fiat a row spends on an acquisition (l. 220): an income row or a purchase at its value plus a fiat fee; a swap-in at
+    /// the cash its group spent plus a fiat fee; an unlinked deposit at its cost (0 where `deposit_cost_zero`). A coin-for-coin
+    /// swap and a linked deposit spend nothing; a fee in a third coin is not spending (that coin's cost is already counted).
+    fn pvct_spent(&mut self, tx: &Tx) -> Result<(), FiguresError> {
+        let r = &tx.row;
+        if fiat(&r.base) { return Ok(()); }
+        let fiat_fee = if r.fee_currency.as_deref().is_none_or(|f| f.trim().is_empty() || fiat(f)) { r.fee_fiat_value.clone() } else { Dec::zero() };
+        let (spent, priced) = match r.kind {
+            Kind::Buy | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => ((&r.fiat_value + &fiat_fee)?, !value_missing(r)),
+            Kind::Deposit if !r.linked => (if self.o.deposit_cost_zero { Dec::zero() } else { r.fiat_value.clone() }, self.o.deposit_cost_zero),
+            Kind::SwapIn if !self.swaps_taxable_at(r.at) => match self.swap_cash_cost(r)? {
+                (true, cash) => ((&cash + &fiat_fee)?, true),
+                _ => return Ok(()),
+            },
+            _ => return Ok(()),
+        };
+        if !priced || r.price_missing && spent.is_positive() { self.pvct.uncertain = true; }
+        self.pvct.acquired = (&self.pvct.acquired + &spent)?;
+        Ok(())
+    }
+
+    /// Before a cession from `Options::pvct_from`: the units held of every coin (the coin sold included), l. 220 and its state.
+    fn pvct_point(&mut self, uid: usize) -> Result<(), FiguresError> {
+        let mut held: Vec<(String, String, String, Dec)> = vec![];
+        for ((venue, asset), lots) in &self.lots {
+            let units = sum(lots.iter().map(|l| &l.amount))?;
+            if !units.is_positive() { continue; }
+            let symbol = self.symbols.get(asset).cloned().unwrap_or_else(|| asset.clone());
+            match held.iter_mut().find(|(a, ..)| a == asset) {
+                Some((.., u)) => *u = (&*u + &units)?,
+                None => held.push((asset.clone(), symbol, venue.clone().or_else(|| self.venues.get(asset).cloned()).unwrap_or_default(), units)),
+            }
+        }
+        held.sort_by(|a, b| a.0.cmp(&b.0));
+        let gross = (&self.pvct.opening.clone().unwrap_or_else(Dec::zero) + &self.pvct.acquired)?;
+        self.pvct.points.push(Point { uid, held, gross, uncertain: self.pvct.uncertain });
         Ok(())
     }
 
@@ -765,6 +840,7 @@ impl<'a> Fifo<'a> {
     /// `record_disposal` of the row's own coin; its fee as Rails takes it, plus any swap cost moved onto it.
     fn sell(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
+        if self.o.pvct_from.is_some_and(|f| r.at.0 >= f.0) { self.pvct_point(r.uid)?; }
         let fee = match self.moved_out.get(&r.uid) { Some(m) => (&r.fee_fiat_value + m)?, None => r.fee_fiat_value.clone() };
         let sale = Sale { asset: &tx.asset, symbol: &r.base, amount: r.amount.clone(), proceeds: r.fiat_value.clone(), fee, price_missing: r.price_missing };
         self.dispose(tx, sale, true)
@@ -2162,6 +2238,38 @@ mod tests {
             f.unsupported.len()
         };
         assert_eq!((walk(7), walk(20)), (1, 0));
+    }
+
+
+    /// `Options::pvct_from` (A12-6 r1 item 2, r2 item 4): l. 220 opens at the lots held (the €1,000 lot sold before), a swap
+    /// moves units and adds nothing, a lost coin leaves the units and the sum, a third coin's fee is no spending, an
+    /// acquisition whose own-coin fee takes every unit still spent its €10, and a fiat-funded swap-in spent its cash.
+    #[test]
+    fn pvct_records_the_acquisition_price_and_the_units_before_each_cession() {
+        let grouped = |mut t: Tx, g: &str| { t.row.group = Some(g.into()); t.row.quote = None; t.fiat_exit = false; t };
+        let mut third = row(7, Kind::Buy, "SOL", "10", "500", 8, "a");
+        (third.row.fee_currency, third.row.fee_amount, third.row.fee_fiat_value, third.fee_asset) = (Some("ETH".into()), Some(d("0.1")), d("30"), Some("ETH".into()));
+        let mut eaten = row(8, Kind::Buy, "ETH", "0.004", "10", 9, "a");
+        (eaten.row.fee_currency, eaten.row.fee_amount, eaten.row.fee_fiat_value) = (Some("ETH".into()), Some(d("0.004")), d("10"));
+        let mut cash_in = grouped(row(9, Kind::SwapIn, "SOL", "5", "200", 10, "a"), "k");
+        cash_in.row.swap_fiat_cost = Some(d("200"));
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "1000", 0, "a"), row(1, Kind::Buy, "BTC", "1", "3000", 1, "a"), row(2, Kind::Sell, "BTC", "1", "2000", 2, "a"),
+                        grouped(row(3, Kind::SwapOut, "BTC", "0.5", "2000", 6, "a"), "g"), grouped(row(4, Kind::SwapIn, "ETH", "10", "2000", 6, "a"), "g"),
+                        row(5, Kind::Lost, "ETH", "1", "0", 7, "a"), third, eaten, cash_in, row(10, Kind::Sell, "SOL", "15", "900", 11, "a")];
+        let mut f = Fifo::new(Options { swaps_taxable: false, pvct_from: Some(at(5)), ..plain() });
+        f.calculate(&rows).unwrap();
+        assert_eq!(f.pvct.opening.as_ref().map(Dec::to_s_f).as_deref(), Some("3000.0"));
+        assert_eq!(f.pvct.points.len(), 1, "a point before the 2019-on cession only");
+        let p = &f.pvct.points[0];
+        assert_eq!((p.uid, p.gross.to_s_f(), p.uncertain), (10, "3710.0".to_string(), false));
+        let held: Vec<(String, String)> = p.held.iter().map(|(a, _, _, u)| (a.clone(), u.to_s_f())).collect();
+        assert_eq!(held, [("BTC".to_string(), "0.5".to_string()), ("ETH".into(), "8.9".into()), ("SOL".into(), "15.0".into())]);
+        // An unpriced acquisition after the instant makes every later cession uncertain.
+        let mut unpriced = row(1, Kind::Airdrop, "SOL", "10", "0", 6, "a");
+        (unpriced.row.price_missing, unpriced.row.value_missing) = (true, Some(true));
+        let mut f = Fifo::new(Options { swaps_taxable: false, pvct_from: Some(at(5)), ..plain() });
+        f.calculate(&[row(0, Kind::Buy, "BTC", "1", "1000", 0, "a"), unpriced, row(2, Kind::Sell, "BTC", "1", "2000", 7, "a")]).unwrap();
+        assert!(f.pvct.points[0].uncertain);
     }
 
 }
