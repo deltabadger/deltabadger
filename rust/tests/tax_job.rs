@@ -477,6 +477,29 @@ async fn the_pl_form_generates_with_its_carry_and_keeps_the_modal_on_a_refused_a
     assert_eq!((rows(&c), carry(&c, i.user)), (before, vec![(2025, "100.0".to_string())]));
 }
 
+/// PLAN-B2 r7.2 (B2-6b pin): a 2.x install stopped while its Tax::GenerateReportJob was queued. The takeover drops the job
+/// (D-UPGRADE-RAILS-WORK-DROPPED); the leftover `pending_report` shows nothing in progress on the tracker page, and the
+/// API/MCP status says `none`: the user asks for the report again.
+#[tokio::test]
+async fn a_rails_report_job_dropped_at_takeover_leaves_nothing_in_progress() {
+    let i = install();
+    open(&i).execute("UPDATE users SET tracker_settings='{\"pending_report\":{\"country\":\"US\",\"year\":2025,\"report_scope\":\"crypto\"}}' WHERE id=?1", [i.user]).unwrap();
+    let paths = deltabadger::store::Paths::from_env(&|_| None, i.d.path());
+    let o = deltabadger::store::open(&paths).unwrap();
+    o.queue.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, active_job_id, priority, created_at, updated_at) VALUES ('default', 'Tax::GenerateReportJob', ?1, 'r', 0, '2026-09-10 11:00:00', '2026-09-10 11:00:00')",
+                    [json!({ "job_class": "Tax::GenerateReportJob", "arguments": [i.user, "US", 2025, false] }).to_string()]).unwrap();
+    let lock = deltabadger::lease::lock(&paths, web::at(T0)).unwrap();
+    let t = deltabadger::engine::handover::take_over(&lock, &o, &common::seed::cipher(), "0.2.0", web::at(T0)).unwrap();
+    drop((lock, o));
+    assert_eq!(t.dropped_jobs, 1);
+    let (app, mut browser) = signed_in(&i).await;
+    let status = deltabadger::tax::api::status(&open(&i), &app, i.user, &args(json!({"country": "US", "year": 2025}))).unwrap().data;
+    assert_eq!(status["state"], "none");
+    let page = browser.get(&app, "/tracker").await;
+    assert_eq!(page.status, 200);
+    assert!(!page.body.contains("tax-report-") && !page.body.contains("auto-download") && !page.body.contains("salert"), "{}", page.body);
+}
+
 // ---- A12-7: the broker report's run ----------------------------------------------------------------------------------
 
 /// FNDX, an ETF on the install's Alpaca (with a ticker when `ticker`), 100 bought on 2 January 2024 for $10,800; the ECB's

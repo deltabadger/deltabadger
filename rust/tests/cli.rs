@@ -1107,3 +1107,92 @@ fn a_crash_between_the_claim_and_the_queue_delete_acts_on_rails_jobs_once() {
     let (set, after, status, queued) = state();
     assert_eq!((set, after, status, queued), (None, lines, 2, 0), "the rows go; nothing twice");
 }
+
+/// A 2.x install whose user has stored history and no key, with Rails' tracker jobs for that user still queued
+/// (PLAN-B2 r3.3, r4.4, r4.5: a waiting LedgerJob, a failed ::Retry, a claimed BackfillJob).
+fn two_x_install_with_tracker_jobs() -> (tempfile::TempDir, i64, Vec<i64>) {
+    let dir = common::rails_install_unmigrated();
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    // Dated today: the backfill's own check (backfill::wanted) has no past day to sweep, so its run needs no market data.
+    let today = deltabadger::codec::format_time(chrono::Utc::now());
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, created_at, updated_at) \
+               VALUES (?1, ?2, 0, 'BTC', '0.1', 'EUR', '5000', ?3, '{}', ?3, ?3)", rusqlite::params![s.user_id, s.exchange_id, today]).unwrap();
+    c.execute("DELETE FROM api_keys", []).unwrap();
+    let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
+    let mut rows = vec![];
+    for (class, args, exec) in [("Tracker::LedgerJob", serde_json::json!([s.user_id]), "ready"), ("Tracker::LedgerJob::Retry", serde_json::json!([s.user_id]), "failed"),
+                                ("PortfolioSnapshot::BackfillJob", serde_json::json!([s.user_id, null]), "claimed")] {
+        q.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, active_job_id, priority, created_at, updated_at) VALUES ('default', ?1, ?2, ?3, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                  rusqlite::params![class, serde_json::json!({ "job_class": class, "arguments": args }).to_string(), format!("job-{class}")]).unwrap();
+        let id = q.last_insert_rowid();
+        let sql = match exec {
+            "ready" => "INSERT INTO solid_queue_ready_executions (job_id, queue_name, priority, created_at) VALUES (?1, 'default', 0, '2026-09-30 11:00:00')",
+            "failed" => "INSERT INTO solid_queue_failed_executions (job_id, error, created_at) VALUES (?1, 'pruned', '2026-09-30 11:00:00')",
+            _ => "INSERT INTO solid_queue_claimed_executions (job_id, process_id, created_at) VALUES (?1, 7, '2026-09-30 11:00:00')",
+        };
+        q.execute(sql, [id]).unwrap();
+        rows.push(id);
+    }
+    (dir, s.user_id, rows)
+}
+
+fn rails_wakes(dir: &Path) -> Option<String> {
+    rusqlite::Connection::open(dir.join(DATABASES[0])).unwrap().query_row("SELECT value FROM app_configs WHERE key = 'rust_rails_wakes'", [], |r| r.get(0)).ok()
+}
+
+/// `run` until every line in `until` has been logged (or 60 s), then SIGTERM; its lines.
+fn run_until(dir: &Path, until: &[String]) -> Vec<String> {
+    let (mut child, rx) = spawn_logged(&mut bare(dir, &["run"]));
+    let mut lines: Vec<String> = vec![];
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    while !until.iter().all(|u| lines.iter().any(|l| l.contains(u.as_str()))) && std::time::Instant::now() < deadline {
+        if let Ok(line) = rx.recv_timeout(std::time::Duration::from_secs(1)) { lines.push(line); }
+    }
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0), "{lines:?}");
+    lines
+}
+
+/// PLAN-B2 r3.3, r4.4 (B2-6b): Rails' queued tracker work for a user with stored history and no key runs at the first
+/// start (no precondition skips it), its job state records the runs, and the next start removes the entries and wakes
+/// nothing again.
+#[cfg(unix)]
+#[test]
+fn rails_tracker_jobs_for_a_user_without_a_key_run_after_the_takeover_and_leave_the_journal() {
+    let (dir, user, _) = two_x_install_with_tracker_jobs();
+    let ran = |job: &str| format!("[jobs] {job} Some(\"{user}\"):");
+    let (ledger, backfill) = (ran("tracker_ledger"), ran("portfolio_backfill"));
+    let lines = run_until(dir.path(), &[ledger.clone(), backfill.clone()]);
+    assert!(lines.iter().any(|l| l.contains(&ledger)) && lines.iter().any(|l| l.contains(&backfill)), "{lines:?}");
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    for job in ["tracker_ledger", "portfolio_backfill"] {
+        assert!(deltabadger::jobs::state::read(&c, job, Some(&user.to_string())).unwrap().last_run_at.is_some(), "{job} ran: {lines:?}");
+    }
+    let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
+    assert_eq!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    let journal: Vec<serde_json::Value> = serde_json::from_str(&rails_wakes(dir.path()).expect("journalled until the next start")).unwrap();
+    assert_eq!(journal.iter().map(|w| w["job"].as_str().unwrap()).collect::<Vec<_>>(), ["tracker_ledger", "portfolio_backfill"], "LedgerJob and ::Retry are one");
+    let again = run_until(dir.path(), &["running".to_string()]);
+    assert_eq!(rails_wakes(dir.path()), None, "the runs are seen at the next start: {again:?}");
+    assert!(!again.iter().any(|l| l.contains(&ledger) || l.contains(&backfill)), "nothing is woken again: {again:?}");
+}
+
+/// PLAN-B2 r3.3 (B2-6b): a process killed after the claim committed and before Rails' wake rows left the queue. The
+/// journal committed with the claim and names each job once; the next start deletes the rows and imports nothing again.
+#[cfg(all(unix, debug_assertions))]
+#[test]
+fn a_crash_between_the_wake_journal_and_the_queue_delete_imports_nothing_twice() {
+    let (dir, _, rows) = two_x_install_with_tracker_jobs();
+    let out = bare(dir.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "after-queue-commit").output().unwrap();
+    assert!(!out.status.success(), "aborted: {}", stderr(&out));
+    let journal = rails_wakes(dir.path()).expect("the journal committed with the claim");
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    let set: String = c.query_row("SELECT value FROM app_configs WHERE key = 'rust_rails_queue_done'", [], |r| r.get(0)).unwrap();
+    assert_eq!(serde_json::from_str::<Vec<i64>>(&set).unwrap(), rows);
+    let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
+    assert_eq!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 3, "rows still queued");
+    assert!(run_to_claim(dir.path()).contains("took over (AfterCrash)"));
+    assert_eq!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "the rows go");
+    assert_eq!(rails_wakes(dir.path()), Some(journal), "nothing journalled twice");
+}
