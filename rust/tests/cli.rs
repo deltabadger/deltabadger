@@ -134,6 +134,8 @@ fn run_takes_over_and_stops_cleanly_on_sigterm_then_handback_returns_the_install
     assert_eq!(files_of(dir.path()), before, "the lease row is untouched and still Rust's");
     let out = cli(dir.path(), &["handback"]).output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    // C8: an operator command, so it names the release to start.
+    assert!(String::from_utf8_lossy(&out.stdout).contains("handed back: 1 bot(s) scheduled. You can start Deltabadger 2.70.21 now.\n"), "{}", String::from_utf8_lossy(&out.stdout));
     let row = lease_of(dir.path()).unwrap();
     assert_eq!((row["engine"].as_str(), row["handed_back"].as_bool()), (Some("none"), Some(true)));
 }
@@ -581,9 +583,11 @@ fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
     let before = files_of(dir.path());
     let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
     assert_eq!(r.status, Some(0), "stopped as asked: {}", r.stderr);
-    assert!(r.stderr.contains("this data is behind this build"), "{}", r.stderr);
+    // C1: the user's words on the page and first on stderr; the operator's detail (the release to run) on stderr only.
+    assert!(r.stderr.contains(&format!("deltabadger: {BEHIND}\ndeltabadger: this data is behind this build (1 migration(s) missing): run Deltabadger 2.70.21 until")), "{}", r.stderr);
     for answer in [&r.page, &r.health, &r.up] { assert!(answer.starts_with("HTTP/1.1 503"), "{answer}"); }
-    assert!(r.page.contains("this data is behind this build") && r.page.contains("<h1"), "{}", r.page);
+    assert!(r.page.contains(&BEHIND.replace('\'', "&#39;")) && r.page.contains("<h1"), "{}", r.page);
+    assert!(!r.page.contains("2.70.21") && !r.page.contains("migration"), "no version or internal term on the page: {}", r.page);
     assert!(r.ready.starts_with("HTTP/1.1 200"), "{}", r.ready);
     assert!(r.lock_free, "the refusal page holds no engine lock");
     assert_eq!(files_of(dir.path()), before, "a refused serve writes nothing");
@@ -591,6 +595,45 @@ fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
         let out = finished(&mut cli(dir.path(), &[cmd]));
         assert_eq!(out.status.code(), Some(1), "{cmd}: {}", stderr(&out));
     }
+}
+
+/// C1 as the page and stderr show it.
+const BEHIND: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Go back to your previous Deltabadger, \
+                      update it to its latest version and start it. Once it has finished starting, stop it and start this again. Nothing was changed.";
+
+/// A heartbeat in the future (a clock ahead of this one) is refused at once: the user's words on the page, the heartbeat's
+/// age on stderr only.
+#[test]
+fn a_future_heartbeat_refuses_serve_in_plain_words() {
+    let dir = common::rails_install();
+    rails_heartbeat(dir.path(), -600);
+    let before = files_of(dir.path());
+    let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
+    assert_eq!(r.status, Some(0), "{}", r.stderr);
+    let line = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. Stop it, then start this again. Nothing was changed.";
+    assert!(r.stderr.contains(&format!("deltabadger: {line}\ndeltabadger: the Rails app looks alive (job heartbeat -")), "{}", r.stderr);
+    assert!(r.page.contains(&line.replace('\'', "&#39;")) && !r.page.contains("heartbeat") && !r.page.contains("Rails"), "{}", r.page);
+    assert_eq!(files_of(dir.path()), before);
+}
+
+/// A takeover refused for support (an unconfirmed Rails withdrawal): the page says so in plain words; the lines, which name
+/// support's command, go to stderr only.
+#[test]
+fn a_takeover_refused_for_support_shows_plain_words_and_logs_the_lines() {
+    let (dir, o, s) = common::install();
+    o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',2,?1,?2,?3,'{}','2026-09-30 12:00:00','2026-09-30 12:00:00')",
+                      rusqlite::params![s.user_id, s.exchange_id, s.btc]).unwrap();
+    let rule = o.primary.last_insert_rowid();
+    o.primary.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(?1,2,'Unexpected error: unreadable','{}','2026-09-30 12:00:00')", [rule]).unwrap();
+    let attempt = o.primary.last_insert_rowid();
+    drop(o);
+    let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
+    assert_eq!(r.status, Some(0), "{}", r.stderr);
+    let line = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was changed. Contact support.";
+    let support = format!("rule {rule}: Rails attempt {attempt} is unconfirmed; resolve-withdrawal --rails {attempt}");
+    assert!(r.stderr.contains(&support) && r.stderr.contains(&format!("deltabadger: {line}")), "{}", r.stderr);
+    assert!(r.page.contains(&line.replace('\'', "&#39;")) && !r.page.contains("resolve-withdrawal"), "{}", r.page);
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }
 
 /// A Solid Queue heartbeat `seconds_ago` old, as a pre-floor 2.x Rails leaves it (no flock).
@@ -681,7 +724,7 @@ fn check_and_handback_refuse_a_fresh_heartbeat_at_once() {
         let out = finished(&mut cli(dir.path(), &[cmd]));
         assert_eq!(out.status.code(), Some(1), "{cmd}");
         let err = stderr(&out);
-        assert!(err.contains("the Rails app looks alive (job heartbeat ") && err.contains("s ago); stop it first"), "{cmd}: {err}");
+        assert!(err.contains("the Rails app looks alive (job heartbeat ") && err.contains("s ago); stop it first") && err.contains("still seems to be running on this data"), "{cmd}: {err}");
         assert!(started.elapsed() < std::time::Duration::from_secs(10), "{cmd} took {:?}", started.elapsed());
     }
 }

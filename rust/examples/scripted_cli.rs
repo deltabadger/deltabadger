@@ -311,7 +311,7 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let result = rt.block_on(async { handover::hand_back_cli(&lock, &o, &LiveFactory::new(), &cipher, &SystemClock).await });
     let code = handover::handback_exit_code(&result);
     match result {
-        Ok(n) => log(&format!("handed back: {n} bot(s) scheduled; the Rails app may start now")),
+        Ok(n) => log(&format!("handed back: {n} bot(s) scheduled. You can start Deltabadger 2.70.21 now.")),
         Err(EngineError::Unresolved(ids)) => {
             eprintln!("deltabadger: handback refused: the venue could not yet account for the order of bot(s) {ids:?}.\n\
                        Look each order up on the venue's own site by its client order id (bots.transient_data.rust_placement.cl_ord_id),\n\
