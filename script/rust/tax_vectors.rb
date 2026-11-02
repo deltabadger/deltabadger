@@ -125,7 +125,7 @@ module TaxVectors
 
   USD_PER_EUR = { 2021 => '1.2', 2022 => '1.05', 2023 => '1.07', 2024 => '1.08', 2025 => '1.1', 2026 => '1.17' }.freeze
   # A12-3: the ECB's rate of the report currency where Rails converts into it (CZ: CZK prices are EUR × 25; BG: the peg).
-  ECB_EXTRA = { 'CZ' => %w[CZK 25.0], 'BG' => %w[BGN 1.95583], 'SE' => %w[SEK 11.0], 'GB' => %w[GBP 0.85] }.freeze
+  ECB_EXTRA = { 'CZ' => %w[CZK 25.0], 'BG' => %w[BGN 1.95583], 'SE' => %w[SEK 11.0], 'GB' => %w[GBP 0.85], 'CH' => %w[CHF 0.94] }.freeze
   # The ECB's rate for every day a row was booked on, but the gaps.
   def ecb(gaps, country = nil)
     days = AccountTransaction.pluck(:transacted_at).map { |t| t.utc.to_date }.uniq - gaps.map { |d| Date.parse(d) }
@@ -137,7 +137,7 @@ module TaxVectors
     FxRate.insert_all(rows, unique_by: %i[currency date]) if rows.any?
   end
 
-  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).merge(DK_EXPECT).merge(GR_EXPECT).merge(IT_EXPECT).merge(IE_EXPECT).merge(SE_EXPECT).merge(GB_EXPECT).fetch(s[:name], s[:expect])) }
+  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).merge(DK_EXPECT).merge(GR_EXPECT).merge(IT_EXPECT).merge(IE_EXPECT).merge(SE_EXPECT).merge(GB_EXPECT).merge(NL_EXPECT).merge(CH_EXPECT).fetch(s[:name], s[:expect])) }
 
   def all_scenarios
     [
@@ -291,7 +291,7 @@ module TaxVectors
         kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z', exchange: kraken)
       } }
-    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios + gb_scenarios
+    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios + gb_scenarios + nl_scenarios + ch_scenarios
   end
 
   # A12-2: US beyond Alpaca, and D-TAX-US-WALLET (lots per venue for tax years from 2025).
@@ -2000,6 +2000,175 @@ module TaxVectors
     ]
   end
 
+  # A12-6: the wealth reports' valuation days carry an ECB rate (a stablecoin at the peg, CHF at 0.94 per euro).
+  WEALTH_DAYS = %w[2023-12-31 2024-01-01 2024-12-31 2025-01-01 2025-12-31 2026-01-01 2026-10-01].freeze
+  def wealth_fx(country)
+    rows = WEALTH_DAYS.map { |d| Date.parse(d) }.flat_map do |d|
+      [{ currency: 'USD', date: d, rate: USD_PER_EUR.fetch(d.year, '1.1') }] + (country == 'CH' ? [{ currency: 'CHF', date: d, rate: '0.94' }] : [])
+    end
+    FxRate.insert_all(rows, unique_by: %i[currency date])
+  end
+
+  # A12-6: the Netherlands, box 3 at 1 January (PLAN-A12 "A12-6", r0-r3; figures by hand there). Amsterdam; every scenario
+  # shows the box 3 summary (D-TAX-NL-BOX3). The shared templates' valuation prices, where a scenario states none.
+  NL_EXPECT = %w[nl_buy_sell_income_deposit_stated nl_prior_year_only nl_missing_price nl_swap_chain nl_stablecoin_kept
+                 nl_stablecoin_as_fiat nl_ecb_gap nl_oversold nl_lost nl_unlinked_withdrawal nl_coin_fee]
+              .to_h { |name| [name, 'diverges: D-TAX-NL-BOX3'] }.freeze
+  def nl_prices
+    { %w[BTC 2025-01-01] => '90000', %w[ETH 2025-01-01] => '3200', %w[BTC 2026-01-01] => '85000', %w[ETH 2026-01-01] => '2500',
+      %w[SOL 2026-01-01] => '120' }.each do |(asset, day), value|
+      HistoricalPrice.find_or_create_by!(asset:, currency: 'EUR', date: Date.parse(day)) { |h| h.price = value }
+    end
+    wealth_fx('NL')
+  end
+
+  def nl_scenarios
+    nl = ->(name, year: 2025, expect: 'diverges: D-TAX-NL-BOX3', &setup) { { name:, country: 'NL', year:, expect:, setup: ->(c) { user_zone(c, 'Amsterdam'); setup.(c) } } }
+    eur = ->(coin, day, value) { price(coin, day, value, 'EUR') }
+    # 1 BTC and 10 ETH (to Binance) in 2024; 0.1 BTC at 23:30 UTC on 31 December (1 January in Amsterdam); 0.5 BTC sold.
+    peildatum = lambda do |c|
+      kr, bn = venue(c, :kraken), venue(c, :binance)
+      eur.('BTC', '2025-01-01', '90000')
+      eur.('ETH', '2025-01-01', '3200')
+      eur.('BTC', '2026-01-01', '80000')
+      eur.('ETH', '2026-01-01', '2500')
+      eur.('ETH', '2024-07-01', '3000')
+      kraken(c, :buy, 'BTC', '1', '40000', '2024-03-01T10:00:00Z')
+      kraken(c, :buy, 'ETH', '10', '30000', '2024-06-01T10:00:00Z')
+      transfer(c, 'ETH', '10', '2024-07-01T10:00:00Z', from: kr, to: bn)
+      kraken(c, :buy, 'BTC', '0.1', '9000', '2024-12-31T23:30:00Z')
+      kraken(c, :sell, 'BTC', '0.5', '45000', '2025-06-01T10:00:00Z')
+    end
+    [
+      # D-TAX-NL-PEILDATUM, -RATES, -ACTUAL: BTC 1 90,000.00, ETH 10 32,000.00, total 122,000.00, grondslag 64,316.00, 5.88%
+      # 3,781.78, tax 1,361.44; 1 January 2026 73,000.00, purchases 9,000.00, sales 45,000.00, contribution −13,000.00.
+      nl.('nl_peildatum_2025') { |c| peildatum.(c) },
+      # BTC 0.6 48,000.00, ETH 10 25,000.00, total 73,000.00, grondslag 13,643.00, 6.00% 818.58, tax 294.69; not yet known.
+      nl.('nl_peildatum_2026', year: 2026) { |c| peildatum.(c) },
+      # 2 BTC 76,000.00, allowance 57,000, 19,000.00, 6.04% 1,147.60, tax 413.14.
+      nl.('nl_2024_rates', year: 2024) do |c|
+        eur.('BTC', '2024-01-01', '38000')
+        kraken(c, :buy, 'BTC', '2', '40000', '2023-05-01T10:00:00Z')
+      end,
+      # D-TAX-SNAPSHOT-KEEPS (r1 item 7): ETH 1.99 6,368.00, the withdrawal listed. (The shared `nl_unlinked_withdrawal` is
+      # the 2026 template.)
+      nl.('nl_unlinked_withdrawal_kept') do |c|
+        kraken(c, :buy, 'ETH', '2', '4000', '2024-05-01T10:00:00Z')
+        row(c, :withdrawal, 'ETH', '1', '2024-09-01T10:00:00Z', exchange: venue(c, :kraken), fee_currency: 'ETH', fee_amount: '0.01')
+      end,
+      # D-TAX-WEALTH-LOST: ETH 1 3,200.00, the lost row listed.
+      nl.('nl_lost_leaves') do |c|
+        kraken(c, :buy, 'ETH', '2', '4000', '2024-05-01T10:00:00Z')
+        row(c, :lost, 'ETH', '1', '2024-09-01T10:00:00Z', exchange: venue(c, :kraken))
+      end,
+      # ETH 1.5 4,800.00, BTC 0.01 900.00, total 5,700.00, tax 0.00.
+      nl.('nl_income') do |c|
+        kr = venue(c, :kraken)
+        eur.('ETH', '2024-10-01', '2300')
+        eur.('BTC', '2024-11-01', '65000')
+        kraken(c, :buy, 'ETH', '1', '2000', '2024-05-01T10:00:00Z')
+        row(c, :staking_reward, 'ETH', '0.5', '2024-10-01T00:00:00Z', exchange: kr)
+        row(c, :mining, 'BTC', '0.01', '2024-11-01T00:00:00Z', exchange: kr)
+      end,
+      # D-TAX-WEALTH-HOLDINGS: BTC 0.099 8,910.00, USDT 1,000 at the peg (909.09).
+      nl.('nl_fees_and_quote') do |c|
+        kr, bn = venue(c, :kraken), venue(c, :binance)
+        eur.('USDT', '2024-07-15', '0.92')
+        eur.('BTC', '2024-09-01', '55000')
+        kraken(c, :buy, 'USDT', '10000', '9200', '2024-07-01T10:00:00Z')
+        transfer(c, 'USDT', '10000', '2024-07-15T10:00:00Z', from: kr, to: bn)
+        row(c, :buy, 'BTC', '0.1', '2024-08-01T10:00:00Z', exchange: bn, quote_currency: 'USDT', quote_amount: '9000')
+        row(c, :fee, 'BTC', '0.001', '2024-09-01T10:00:00Z', exchange: bn)
+      end,
+      # D-TAX-NL-ACTUAL, gross (r1 item 8): V0 0, V1 1,000.00, purchases 1,000.00, sales 1,200.00, contribution 1,200.00.
+      nl.('nl_actual_gross') do |c|
+        eur.('ETH', '2026-01-01', '2000')
+        kraken(c, :buy, 'ETH', '1', '1000', '2025-02-01T10:00:00Z', fee: '10')
+        kraken(c, :sell, 'ETH', '0.5', '1200', '2025-06-01T10:00:00Z', fee: '12')
+      end,
+      # D-TAX-NL-ACTUAL, coin fees (r2 item 1, r3 item 1): V1 990.00, purchases 1,000.00, coin fees 10.00, contribution 0.00.
+      nl.('nl_actual_coin_fee') do |c|
+        kr = venue(c, :kraken)
+        eur.('ETH', '2025-02-01', '1000')
+        eur.('ETH', '2026-01-01', '1000')
+        row(c, :buy, 'ETH', '1', '2025-02-01T10:00:00Z', exchange: kr, group_id: 'cf', tx_id: 'cf-ETH', fee_currency: 'ETH', fee_amount: '0.01')
+        row(c, :sell, 'EUR', '1000', '2025-02-01T10:00:00Z', exchange: kr, group_id: 'cf', tx_id: 'cf-EUR')
+      end,
+      # D-TAX-NL-YEARS: 2021–2026 only.
+      nl.('nl_2020_not_ported', year: 2020, expect: 'parity') { |c| kraken(c, :buy, 'BTC', '1', '100', '2019-05-01T09:00:00Z') },
+      nl.('nl_2027_not_ported', year: 2027, expect: 'parity') { |c| kraken(c, :buy, 'BTC', '1', '100', '2026-05-01T09:00:00Z') }
+    ]
+  end
+
+  # A12-6: Switzerland, the wealth at 31 December at the ESTV values (PLAN-A12 "A12-6", r0-r3). Zurich, CHF = EUR × 0.94
+  # (ECB_EXTRA); `estv` the Kursliste rows the install holds. The shared templates (2026, a year not ended) are provisional.
+  CH_EXPECT = %w[ch_buy_sell_income_deposit_stated ch_prior_year_only ch_missing_price ch_swap_chain ch_stablecoin_kept
+                 ch_stablecoin_as_fiat ch_ecb_gap ch_oversold ch_lost ch_unlinked_withdrawal ch_coin_fee]
+              .to_h { |name| [name, 'diverges: D-TAX-CH-YEAR-END'] }.freeze
+  # The shared templates' valuation prices (BTC CHF 80,000 on 2025-12-31; BTC 90,000 and ETH 3,000 on 2026-10-01) where a
+  # scenario states none, then every EUR price × 0.94.
+  def ch_prices
+    { %w[BTC 2025-12-31] => '80000', %w[BTC 2026-10-01] => '90000', %w[ETH 2026-10-01] => '3000' }.each do |(asset, day), value|
+      HistoricalPrice.find_or_create_by!(asset:, currency: 'CHF', date: Date.parse(day)) { |h| h.price = value }
+    end
+    HistoricalPrice.where(currency: 'EUR').find_each do |p|
+      HistoricalPrice.find_or_create_by!(asset: p.asset, currency: 'CHF', date: p.date) { |h| h.price = p.price * BigDecimal('0.94') }
+    end
+    wealth_fx('CH')
+  end
+
+  def ch_scenarios
+    ch = ->(name, year: 2025, expect: 'diverges: D-TAX-CH-ESTV', estv: [], &setup) { { name:, country: 'CH', year:, expect:, estv:, setup: ->(c) { user_zone(c, 'Zurich'); setup.(c) } } }
+    chf = ->(coin, day, value) { price(coin, day, value, 'CHF') }
+    k = ->(c, side, coin, qty, cash, at) { kraken(c, side, coin, qty, cash, at, fiat: 'CHF') }
+    # Kraken CHF buys 0.5 BTC, 5 ETH, 100 SOL, 1,000 USDT; 1 ETH at 23:30 UTC on 31 December (2026 in Zurich).
+    year_end = lambda do |c|
+      chf.('BTC', '2025-12-31', '75000')
+      chf.('ETH', '2025-12-31', '2450')
+      chf.('SOL', '2025-12-31', '110')
+      k.(c, :buy, 'BTC', '0.5', '40000', '2025-02-01T10:00:00Z')
+      k.(c, :buy, 'ETH', '5', '15000', '2025-03-01T10:00:00Z')
+      k.(c, :buy, 'SOL', '100', '15000', '2025-04-01T10:00:00Z')
+      k.(c, :buy, 'USDT', '1000', '900', '2025-05-01T10:00:00Z')
+      k.(c, :buy, 'ETH', '1', '3000', '2025-12-31T23:30:00Z')
+    end
+    listed = [[2025, 'BTC', '69571.988489'], [2025, 'ETH', '2400'], [2025, 'USDT', '0.791468'], [2025, 'SOL', nil]]
+    [
+      # D-TAX-CH-YEAR-END, -ESTV: BTC 34,785.99, ETH 12,000.00, SOL 11,000.00 (market, listed), USDT 791.47, total 58,577.46.
+      ch.('ch_year_end_estv', estv: listed) { |c| year_end.(c) },
+      # r3 item 4: no ESTV row → BTC 37,500.00, ETH 12,250.00, SOL 11,000.00, USDT 854.55, total 61,604.55; all listed, provisional.
+      ch.('ch_estv_unreachable') { |c| year_end.(c) },
+      # BTC absent (unresolved) → BTC 37,500.00 (listed, provisional), ETH 12,000.00, SOL 11,000.00 (listed), USDT 791.47, total 61,291.47.
+      ch.('ch_estv_missing_row', estv: listed.reject { |r| r[1] == 'BTC' }) { |c| year_end.(c) },
+      # D-TAX-CH-KS36: no holdings; the sale listed; volume 5,000.00.
+      ch.('ch_sale_listed') do |c|
+        k.(c, :buy, 'ETH', '1', '2000', '2025-01-10T10:00:00Z')
+        k.(c, :sell, 'ETH', '1', '3000', '2025-06-01T10:00:00Z')
+      end,
+      # D-TAX-CH-INCOME: income 250.00 CHF; ETH 10.1 × 2,400 = 24,240.00.
+      ch.('ch_staking_income', expect: 'diverges: D-TAX-CH-INCOME', estv: [[2025, 'ETH', '2400']]) do |c|
+        chf.('ETH', '2025-03-01', '2500')
+        k.(c, :buy, 'ETH', '10', '25000', '2025-01-10T10:00:00Z')
+        row(c, :staking_reward, 'ETH', '0.1', '2025-03-01T00:00:00Z', exchange: venue(c, :kraken))
+      end,
+      # D-TAX-CH-KS36: volume 178,600.00 vs 5 × 88,000 = 440,000.00; BTC 1 69,571.99.
+      ch.('ch_ks36', expect: 'diverges: D-TAX-CH-KS36', estv: [[2024, 'BTC', '88000'], [2025, 'BTC', '69571.988489']]) do |c|
+        kraken(c, :buy, 'BTC', '1', '30000', '2024-02-01T10:00:00Z')
+        kraken(c, :buy, 'BTC', '1', '90000', '2025-03-01T10:00:00Z')
+        kraken(c, :sell, 'BTC', '1', '100000', '2025-08-01T10:00:00Z')
+      end,
+      # D-TAX-CH-NO-VALUE: PEPE 0.00, NOTE ch_no_value.
+      ch.('ch_no_value', expect: 'diverges: D-TAX-CH-NO-VALUE', estv: [[2025, 'PEPE', nil]]) do |c|
+        k.(c, :buy, 'PEPE', '1000000', '10', '2025-05-01T10:00:00Z')
+      end,
+      # A year not ended (today 2026-10-01): BTC 1 at CHF 90,000 dated 2026-10-01, provisional.
+      ch.('ch_provisional', year: 2026, expect: 'diverges: D-TAX-CH-YEAR-END') { |c| k.(c, :buy, 'BTC', '1', '60000', '2026-02-01T10:00:00Z') },
+      # D-TAX-CH-YEARS: 2020–2026 only.
+      ch.('ch_2019_not_ported', year: 2019, expect: 'parity') { |c| k.(c, :buy, 'BTC', '1', '100', '2019-05-01T09:00:00Z') },
+      ch.('ch_2027_not_ported', year: 2027, expect: 'parity') { |c| k.(c, :buy, 'BTC', '1', '100', '2026-05-01T09:00:00Z') }
+    ]
+  end
+
   # Poland's own vectors state their NBP rows (none by default), so the shared scenarios' default rates never reach them.
   def pl_case(name, year: 2026, expect: 'diverges: D-TAX-PL-COST-POOL', nbp: [], nbp_coverage: [], **opts, &setup)
     { name:, country: 'PL', year:, expect:, nbp:, nbp_coverage:, **opts, setup: lambda { |c|
@@ -2413,7 +2582,7 @@ module TaxVectors
     end
     each.('DE', 'Berlin') + each.('AT', 'Vienna') + each.('ES', 'Madrid') + each.('PT', 'Lisbon') + each.('PL', 'Warsaw') +
       each.('SK', 'Bratislava') + each.('BG', 'Sofia') + each.('CZ', 'Prague') + each.('GR', 'Athens') + each.('DK', 'Copenhagen') + each.('IT', 'Rome') +
-      each.('IE', 'Dublin') + each.('SE', 'Stockholm') + each.('GB', 'London') + holding_edges
+      each.('IE', 'Dublin') + each.('SE', 'Stockholm') + each.('GB', 'London') + each.('NL', 'Amsterdam') + each.('CH', 'Zurich') + holding_edges
   end
 
   def holding_edges
@@ -2925,6 +3094,8 @@ module TaxVectors
       cz_prices if country == 'CZ'
       se_prices if country == 'SE'
       gb_prices if country == 'GB'
+      nl_prices if country == 'NL'
+      ch_prices if country == 'CH'
       ecb(Array(scenario[:fx_gap]), country)
       dk_fx(Array(scenario[:fx_gap])) if country == 'DK'
       rails = begin
