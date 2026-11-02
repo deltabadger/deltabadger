@@ -1516,6 +1516,10 @@ module Pages
       original_adapter = ActiveJob::Base.queue_adapter
       action_scenario = scenario['steps'].any? { |step| step['action_snapshot'] || step['settings_snapshot'] }
       ActiveJob::Base.queue_adapter = :test if action_scenario
+      # pages_accounts.rb: a scenario that records mail runs deliver_later at once, as a delivered mail.
+      ActiveJob::Base.queue_adapter = :inline if !action_scenario && scenario['steps'].any? { |step| step['mails'] }
+      ActionMailer::Base.deliveries.clear
+      mailed_token = nil
       travel_to(now, with_usec: true) { enqueue_jobs(scenario.fetch('jobs', {})) } # the queue database is one for the whole grid
       responses = scenario['steps'].each_with_index.map do |step, index|
         client = clients[step['client'] || 'main']
@@ -1533,6 +1537,8 @@ module Pages
 
             request_path = request_path.sub('__R2_TOKEN__', CGI.escape(token))
           end
+          request_path = Pages.with_mailed_token(request_path, mailed_token)
+          params = params.transform_values { |value| Pages.with_mailed_token(value, mailed_token) } if params.is_a?(Hash)
           if %w[form both].include?(step['csrf'])
             action = step['path'].split('?').first
             params['authenticity_token'] = form_token(client[:page], action) or raise "#{dir} step #{index}: the last page has no form posting to #{action}"
@@ -1626,6 +1632,11 @@ module Pages
         answer['session'] = step['session'].to_h { |key| [key, content[key].as_json] } if step['session']
         answer['broadcasts'] = broadcasts if step['broadcasts']
         answer['tax_files'] = tax_files(dir) if step['tax_files']
+        delivered = ActionMailer::Base.deliveries.dup
+        ActionMailer::Base.deliveries.clear
+        delivered.each { |mail| mailed_token = Pages.mailed_token(mail.html_part&.body || mail.body) || mailed_token }
+        answer['mails'] = delivered.map { |mail| { 'to' => mail.to.join(','), 'subject' => mail.subject } } if step['mails']
+        answer['account_rows'] = Pages.account_rows(step['account_rows']) if step['account_rows']
         answer
       end
       ActiveJob::Base.queue_adapter = original_adapter if action_scenario
@@ -1648,6 +1659,7 @@ require_relative 'pages_api'
 require_relative 'pages_signals'
 require_relative 'pages_rules'
 require_relative 'pages_bot_csv'
+require_relative 'pages_accounts'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)

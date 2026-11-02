@@ -1,0 +1,24 @@
+{
+  "secret_key_base": "a16-fixture-secret-not-for-any-install",
+  "key_digest": "OpenSSL::Digest::SHA1",
+  "iterations": 65536,
+  "cases": [
+    {
+      "raw": "seededResetToken0001",
+      "digest": "82876b2f4d65015e1900162bdafb5c7a43ed2eb1ada9612174687d8c83d18845"
+    },
+    {
+      "raw": "xz-Q_9aBcDeFgHiJkLmN",
+      "digest": "4fcb7809d52ded8a0e6f70bc293c6c98e2412fad82b207c71d1fbf339e2d7782"
+    },
+    {
+      "raw": "Ünïcode token",
+      "digest": "7ae8bed431b000368403656b826a051bff0b8346f92514abab879a34c7fdb4e3"
+    },
+    {
+      "raw": "a",
+      "digest": "1e24604541b42cb842190266f8462da37ddebf9603ae784ff90d543bf99251e4"
+    }
+  ],
+  "blank_digest": false
+}
