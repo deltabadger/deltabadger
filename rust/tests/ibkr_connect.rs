@@ -108,3 +108,43 @@ async fn disconnect_drops_the_key_and_its_binding_and_keeps_its_ledger_rows() {
     assert_eq!(fx.c.query_row("SELECT count(*), max(api_key_id) FROM account_transactions", [], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?))).unwrap(), (1, None));
     assert!(fx.page().await.contains("Start setup"));
 }
+
+/// PLAN-B2 r2.5 (B2-6b): a 2.x key row whose Ibkr::GenerateConnectionKeysJob was still queued gets its material at the
+/// takeover, as the job would (D-IBKR-DHGROUP: ffdhe2048, not a generated prime): the wizard shows the downloads, not
+/// D-IBKR-RECONNECT's Disconnect. A key that has its material already keeps it byte for byte (the job's own guard).
+#[tokio::test(flavor = "current_thread")]
+async fn a_queued_key_job_fills_a_blank_key_at_takeover_and_never_rotates_one() {
+    for blank in [true, false] {
+        let mut fx = hosted().await;
+        let before = if blank {
+            fx.c.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, created_at, updated_at) VALUES(?1, ?2, 0, 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", (fx.user, fx.exchange)).unwrap();
+            assert!(fx.page().await.contains("be used now"), "Rails' job never ran: D-IBKR-RECONNECT");
+            None
+        } else {
+            assert_eq!(fx.post("/settings/ibkr_connect", &[]).await, 302);
+            Some(fx.c.query_row("SELECT rsa_signature_key, rsa_encryption_key, dh_param, updated_at FROM api_keys", [], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?))).unwrap())
+        };
+        let key: i64 = fx.c.query_row("SELECT id FROM api_keys", [], |r| r.get(0)).unwrap();
+        let paths = deltabadger::store::Paths::from_env(&|_| None, fx._dir.path());
+        let o = deltabadger::store::open(&paths).unwrap();
+        o.queue.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, active_job_id, priority, created_at, updated_at) VALUES ('default', 'Ibkr::GenerateConnectionKeysJob', ?1, 'k', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
+                        [serde_json::json!({ "job_class": "Ibkr::GenerateConnectionKeysJob", "arguments": [key] }).to_string()]).unwrap();
+        let lock = deltabadger::lease::lock(&paths, chrono::Utc::now()).unwrap();
+        let t = deltabadger::engine::handover::take_over(&lock, &o, &fx.app.cipher, "0.2.0", chrono::Utc::now()).unwrap();
+        drop(lock);
+        assert_eq!(o.queue.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "the job leaves the queue");
+        assert_eq!(t.dropped_jobs, usize::from(!blank), "a key with its material has nothing left to do");
+        let (status, signing, encryption, dh) = fx.key().unwrap();
+        assert!(signer::usable(&signing, &encryption, &dh));
+        assert_eq!(status, 0);
+        if let Some(before) = before {
+            let after = fx.c.query_row("SELECT rsa_signature_key, rsa_encryption_key, dh_param, updated_at FROM api_keys", [], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?))).unwrap();
+            assert_eq!(after, before, "never rotated");
+        } else {
+            assert_eq!(dh, signer::ffdhe2048_pem(), "D-IBKR-DHGROUP");
+            assert_ne!(signing, encryption);
+        }
+        let page = fx.page().await;
+        assert!(page.contains("artifact=signing") && page.contains("api_key[access_token]") && !page.contains("be used now"), "the downloads: {page}");
+    }
+}

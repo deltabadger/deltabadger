@@ -1119,17 +1119,20 @@ fn hard_stop(r: Result<handover::Takeover, EngineError>) -> String {
 }
 
 /// r3.2, r4.5: one queue holding a row of every class in handover::RAILS_WORK (FetchAndCreateOrderJob apart: a hard stop of
-/// its own) gets each row's outcome: money work handled, the rest dropped and counted, B2-6b's classes still queued.
+/// its own) gets each row's outcome: money work handled, wakes journalled, the rest dropped and counted.
 #[test]
 fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
     use handover::RailsWork;
-    let (_dir, l, o, _s, b) = dca_install();
+    let (_dir, l, o, s, b) = dca_install();
     let mut rows = vec![];
     for (class, work) in handover::RAILS_WORK {
         if *work == RailsWork::FetchOrder { continue; }
         let args = match *class {
             "Bot::StopJob" => json!([gid(b), { "stop_message_key": "bot.settings.extra_amount_limit.amount_spent", "_aj_ruby2_keywords": ["stop_message_key"] }]),
             "Rule::ExecuteJob" => json!([{ "_aj_globalid": "gid://deltabadger/Rules::Withdrawal/99" }]),
+            "ApiKeyValidatorJob" => json!([s.api_key_id]),
+            "Ibkr::GenerateConnectionKeysJob" => json!([999]), // no such key: Rails' job returns
+            _ if matches!(work, RailsWork::Wake(_)) => json!([s.user_id]),
             _ => json!([gid(b)]),
         };
         rows.push((*class, *work, queued(&o.queue, class, args, "ready")));
@@ -1137,10 +1140,12 @@ fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     let left: Vec<String> = { let mut s = o.queue.prepare("SELECT class_name FROM solid_queue_jobs ORDER BY id").unwrap(); s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
     for (class, work, _) in &rows {
-        let kept = matches!(work, RailsWork::Wake(_) | RailsWork::IbkrKeys | RailsWork::Resync);
-        assert_eq!(left.iter().any(|c| c == class), kept, "{class} ({work:?}): kept only for B2-6b, or a resync of no index bot");
+        let kept = matches!(work, RailsWork::Resync);
+        assert_eq!(left.iter().any(|c| c == class), kept, "{class} ({work:?}): only a resync of no index bot stays");
     }
-    let dropped = rows.iter().filter(|(_, w, _)| *w == RailsWork::Dropped).count();
+    let dropped = rows.iter().filter(|(_, w, _)| matches!(w, RailsWork::Dropped | RailsWork::IbkrKeys)).count();
+    assert_eq!(wake_journal(&o), [(TRACKER_LEDGER.to_string(), s.user_id.to_string()), (PORTFOLIO_BACKFILL.to_string(), s.user_id.to_string()),
+                                  (API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string())]);
     // The waiting signal job names a basket, not a signal bot: Rails' discard, through the import set.
     assert_eq!(t.dropped_jobs, dropped);
     assert_eq!(stopped_with(&o.primary, b), (2, Some("bot.settings.extra_amount_limit.amount_spent".into())), "Bot::StopJob ran");
@@ -1387,4 +1392,99 @@ fn rails_last_ambiguity_still_gets_its_line_beside_a_dropped_command() {
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     let lines = bot_events(&o.primary, b);
     assert!(lines.contains(&handover::UPGRADE_COMMAND_DROPPED.to_string()) && lines.contains(&handover::UPGRADE_ORDER_UNRECORDED.to_string()), "{lines:?}");
+}
+
+// ---- PLAN-B2 B2-6b: Rails' wakes, IBKR keys -----------------------------------------------------------------------------
+
+use deltabadger::sync::jobs::API_KEY_VALIDATOR;
+use deltabadger::tracker::jobs::{PORTFOLIO_BACKFILL, TRACKER_LEDGER};
+
+/// The wake journal's (job, scope) pairs, in order.
+fn wake_journal(o: &store::Opened) -> Vec<(String, String)> {
+    let Some(text) = deltabadger::app_config::get_plain(&o.primary, handover::RAILS_WAKES_KEY).unwrap() else { return vec![] };
+    serde_json::from_str::<Vec<serde_json::Value>>(&text).unwrap().iter().map(|w| (w["job"].as_str().unwrap().to_string(), w["scope"].as_str().unwrap().to_string())).collect()
+}
+
+/// r3.3, r4.4, r4.5: every unfinished wake row (waiting, claimed or failed) becomes one journal entry per job and scope
+/// (LedgerJob and ::Retry are one), and leaves the queue; a row naming nothing there is dropped and logged. The entry is
+/// woken at every start until its job has run since the takeover (D-UPGRADE-RAILS-WAKES), whatever the user's keys (here only a Kraken key, which
+/// no tracker sync reads); then it goes. A user or key gone since is dropped at the start.
+#[test]
+fn rails_wake_rows_become_one_journal_entry_each_woken_until_their_job_runs() {
+    let (_dir, l, o, s, _b) = dca_install();
+    let (user, key) = (s.user_id, s.api_key_id);
+    for (class, args, exec) in [("Tracker::LedgerJob", json!([user]), "ready"), ("Tracker::LedgerJob::Retry", json!([user]), "failed"),
+                                ("PortfolioSnapshot::BackfillJob", json!([user, null]), "claimed"), ("ApiKeyValidatorJob", json!([key]), "scheduled")] {
+        queued(&o.queue, class, args, exec);
+    }
+    let gone = queued(&o.queue, "Tracker::LedgerJob", json!([999]), "ready");
+    let unread = queued(&o.queue, "PortfolioSnapshot::BackfillJob", json!([gid(1)]), "ready");
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "every row leaves the queue");
+    assert_eq!(t.dropped_jobs, 2);
+    assert!(t.log.contains(&format!("dropped Tracker::LedgerJob (queue row {gone}): it names no user this install has")), "{:?}", t.log);
+    assert!(t.log.contains(&format!("dropped PortfolioSnapshot::BackfillJob (queue row {unread}): it names no user this install has")), "{:?}", t.log);
+    let all = vec![(TRACKER_LEDGER.to_string(), user.to_string()), (PORTFOLIO_BACKFILL.to_string(), user.to_string()), (API_KEY_VALIDATOR.to_string(), key.to_string())];
+    assert_eq!(wake_journal(&o), all);
+    // A restart before any run (or between a wake and its run) wakes every entry again.
+    for _ in 0..2 { assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all); }
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(wake_journal(&o), all, "a restart imports nothing again");
+    // A run before the takeover doesn't count, and a failed one leaves its entry; a run since it does.
+    deltabadger::jobs::state::record_run(&o.primary, TRACKER_LEDGER, Some(&user.to_string()), now() - chrono::Duration::hours(1)).unwrap();
+    deltabadger::jobs::state::record_error(&o.primary, PORTFOLIO_BACKFILL, Some(&user.to_string()), now() + chrono::Duration::hours(1), "no prices").unwrap();
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all);
+    deltabadger::jobs::state::record_success(&o.primary, TRACKER_LEDGER, Some(&user.to_string()), now()).unwrap();
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all[1..]);
+    assert_eq!(wake_journal(&o), all[1..]);
+    // The key is gone (Rails' job would fail on it): dropped.
+    o.primary.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all[1..2]);
+}
+
+/// r4.4: a pending ApiKeyValidatorJob for a Kraken key is run by the scheduler as the binary builds it (the resolver
+/// registers the key's validator on the wake): the key is validated and the entry goes at the next start.
+#[tokio::test(flavor = "current_thread")]
+async fn a_pending_validator_job_for_a_kraken_key_validates_it() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let (dir, l, o, s, _b) = dca_install();
+    o.primary.execute("UPDATE api_keys SET status = 0 WHERE id = ?1", [s.api_key_id]).unwrap();
+    queued(&o.queue, "ApiKeyValidatorJob", json!([s.api_key_id]), "failed");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/0/private/GetApiKeyInfo")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"error": [], "result": {"permissions":
+        ["query-funds", "query-open-trades", "query-closed-trades", "modify-trades", "close-trades", "query-ledger"]}}))).expect(1).mount(&server).await;
+    let db = || rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let wakes = handover::due_rails_wakes(&db(), chrono::Utc::now()).unwrap();
+    assert_eq!(wakes, [(API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string())]);
+    let api = std::rc::Rc::new(None::<deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>);
+    let scheduler = deltabadger::jobs::Scheduler::new(db(), seed::cipher(), vec![], None)
+        .with_resolver(deltabadger::jobs::resolve::all(Egress(server.uri()), api, deltabadger::tracker::jobs::system_wall()));
+    for (job, scope) in &wakes { scheduler.wakers().wake(job, Some(scope), None); }
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let key = s.api_key_id;
+    let (ended, ()) = tokio::join!(scheduler.run(stopped, &deltabadger::engine::SystemClock), async {
+        for _ in 0..100 {
+            if deltabadger::jobs::state::read(&db(), API_KEY_VALIDATOR, Some(&key.to_string())).unwrap().last_run_at.is_some() { break; }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        stop.send(true).unwrap();
+    });
+    ended.unwrap();
+    server.verify().await;
+    assert_eq!(db().query_row("SELECT status FROM api_keys WHERE id = ?1", [key], |r| r.get::<_, i64>(0)).unwrap(), 1, "validated");
+    assert!(handover::due_rails_wakes(&db(), chrono::Utc::now()).unwrap().is_empty());
+    assert_eq!(deltabadger::app_config::get_plain(&db(), handover::RAILS_WAKES_KEY).unwrap(), None, "the entry is gone");
+}
+
+/// Every venue's key check at the test's server.
+#[derive(Clone)]
+struct Egress(String);
+impl deltabadger::sync::jobs::Connect for Egress {
+    type T = deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self, c: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone()),
+                                                     deltabadger::venue::alpaca::Urls { trading: self.0.clone(), data: self.0.clone() })
+    }
+    fn key_check_egress(&self, _: &str, _: Option<String>) -> Result<(String, reqwest::Client), String> { Ok((self.0.clone(), reqwest::Client::builder().no_proxy().build().unwrap())) }
 }
