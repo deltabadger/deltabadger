@@ -32,6 +32,8 @@ pub const ERROR: &str = "rust_error_mail_pending";
 pub const STOPPED: &str = "rust_stopped_mail_pending";
 pub const LIMIT: &str = "rust_limit_mail_pending";
 pub const BASE_LIMIT: &str = "rust_base_limit_mail_pending";
+/// A takeover set the bot aside (engine::set_aside): its own mail, with the reasons in the owner's words. Rust-only.
+pub const SET_ASIDE: &str = "rust_set_aside_mail_pending";
 pub const KEYS: [&str; 5] = [FUNDS, ERROR, STOPPED, LIMIT, BASE_LIMIT];
 /// The most an error text may be, in a marker and in the mail built from it.
 pub const ERROR_LIMIT: usize = 500;
@@ -57,6 +59,8 @@ pub enum Notice {
     /// #notify_stopped_by_base_amount_limit: a sell fill took the bot to its base cap (or, D-6D-2, a rotation into selling
     /// found it used) and stopped it.
     StoppedByBaseAmountLimit,
+    /// D-UPGRADE-SET-ASIDE: a takeover stopped the bot; `reasons` are the owner's sentences (Rust-only, no Rails mail).
+    SetAside { reasons: String },
 }
 
 impl Notice {
@@ -68,6 +72,7 @@ impl Notice {
             Notice::StoppedByError { .. } => "stopped_by_error",
             Notice::StoppedByAmountLimit => "stopped_by_amount_limit",
             Notice::StoppedByBaseAmountLimit => "stopped_by_base_amount_limit",
+            Notice::SetAside { .. } => "set_aside",
         }
     }
 }
@@ -106,6 +111,7 @@ pub fn pending_in(bot_id: i64, transient: &Map<String, Value>) -> Vec<Pending> {
     if let Some((at, error)) = transient.get(STOPPED).and_then(|v| Some((at(v)?, error(v)?))) { out.push(Pending { bot_id, stamped_at: at, notice: Notice::StoppedByError { error } }); }
     if let Some(at) = transient.get(LIMIT).and_then(at) { out.push(Pending { bot_id, stamped_at: at, notice: Notice::StoppedByAmountLimit }); }
     if let Some(at) = transient.get(BASE_LIMIT).and_then(at) { out.push(Pending { bot_id, stamped_at: at, notice: Notice::StoppedByBaseAmountLimit }); }
+    if let Some((at, reasons)) = transient.get(SET_ASIDE).and_then(|v| Some((at(v)?, error(v)?))) { out.push(Pending { bot_id, stamped_at: at, notice: Notice::SetAside { reasons } }); }
     out
 }
 
@@ -139,6 +145,7 @@ pub fn clear(c: &Connection, cipher: &Cipher, p: &Pending) -> Result<bool, Engin
         Notice::StoppedByError { .. } => format!("$.{STOPPED}"),
         Notice::StoppedByAmountLimit => format!("$.{LIMIT}"),
         Notice::StoppedByBaseAmountLimit => format!("$.{BASE_LIMIT}"),
+        Notice::SetAside { .. } => format!("$.{SET_ASIDE}"),
     };
     let tx = model::immediate(c)?;
     let n = tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, ?1) WHERE id = ?2 AND json_extract(transient_data, ?3) = ?4",

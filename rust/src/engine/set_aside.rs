@@ -56,9 +56,9 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
         let status: i64 = tx.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
         if !BOT_WORKING.iter().any(|s| *s as i64 == status) { continue; }
         let reason = reasons.join(" ");
-        let shown = crate::web::i18n::text("en", STOP_KEY, &[("reason", crate::web::i18n::Arg::Text(&reason))]);
         let aside = json!({ "reasons": reasons, "at": crate::codec::format_time(now) });
-        super::tick::stop_setting_aside(tx, id, STOP_KEY, (super::notice::STOPPED, super::notice::stopped_marker(&shown, now)), (KEY, aside), &reason, now)?;
+        // Its own mail (notice::SET_ASIDE), not Rails' stopped-by-error one: nothing was rejected by the exchange.
+        super::tick::stop_setting_aside(tx, id, STOP_KEY, (super::notice::SET_ASIDE, super::notice::stopped_marker(&reason, now)), (KEY, aside), &reason, now)?;
         bots.push(Aside { id, name: name(tx, id)?, reasons });
     }
     for id in &first.rules {
@@ -89,14 +89,14 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
     // Support's lines read the install as it is (the stops roll back): the first check's, then preflight's on what is left.
     let mut details = first.problems.clone();
     details.extend(first.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
-    for (id, _) in &after.unreadable { add(&mut left, *id, "Deltabadger 3.0 can't read this bot's data.".into()); }
+    for (id, _) in &after.unreadable { add(&mut left, *id, "This bot's data can't be read.".into()); }
     if let Some(cipher) = cipher {
         let ids = alpaca::with_owing(tx, after.eligible.clone())?;
         for (id, why) in alpaca::untradable(tx, cipher, &ids) {
             details.push(format!("bot {id}: {}", why.text()));
             let said = match why {
                 Untradable::Missing(name) => format!("It has open orders, and there's no {name} API key to look after them."),
-                Untradable::NotConnected(_) => format!("It has open orders on {}, which Deltabadger 3.0 can't trade on yet.", exchange_name(tx, id)?),
+                Untradable::NotConnected(_) => { let e = exchange_name(tx, id)?; format!("It has open orders on {e}, and trading on {e} isn't supported yet.") },
                 Untradable::Unreadable(_) => "Its API key can't be read with this install's secret.".into(),
             };
             add(&mut left, id, said);
@@ -122,7 +122,7 @@ pub fn message(locale: &str, reasons: &[String]) -> String {
 
 /// `check`'s line for a bot `apply` sets aside.
 pub fn would_stop(aside: &Aside) -> String {
-    format!("{} will be stopped when Deltabadger 3.0 starts: {}", aside.name, aside.reasons.join(" "))
+    format!("{} will be stopped at the next start: {}", aside.name, aside.reasons.join(" "))
 }
 
 /// The start log's line for it.
@@ -130,13 +130,12 @@ pub fn stopped(aside: &Aside) -> String {
     format!("stopped {}: {}", aside.name, aside.reasons.join(" "))
 }
 
-/// C6: the hard stop, one line per bot. `first`: nothing was ever taken over (the lease is not Rust's). The details go to
-/// stderr first, beside the refusal, for support; the page shows only C6.
-pub fn hard_stop(hard: &Hard, first: bool) -> String {
+/// C6: the hard stop, one line per bot. The details go to stderr first, beside the refusal, for support; the page shows
+/// only C6.
+pub fn hard_stop(hard: &Hard) -> String {
     for line in &hard.details { eprintln!("deltabadger: [check] {line}"); }
     let lines = &hard.lines;
-    let then = if first { "To keep trading, start Deltabadger 2.70.21 again and contact support." } else { "Contact support." };
-    format!("Deltabadger 3.0 didn't start: it can't safely stop these bots for you, because they have orders or data it can't account for yet:\n{}\nNothing was bought or sold. {then}",
+    format!("Deltabadger didn't start: it can't safely stop these bots for you, because they have orders or data it can't account for yet:\n{}\nNothing was bought or sold. Contact support.",
             lines.join("\n"))
 }
 
@@ -159,7 +158,7 @@ fn symbol(c: &Connection, asset: i64) -> Result<String, EngineError> {
 }
 
 fn exchange(c: &Connection, bot_id: i64) -> Result<String, EngineError> {
-    Ok(format!("Deltabadger 3.0 can't trade on {} yet. Keep the bot stopped, or delete it.", exchange_name(c, bot_id)?))
+    Ok(format!("Trading on {} isn't supported yet. Keep the bot stopped, or delete it.", exchange_name(c, bot_id)?))
 }
 
 fn no_key(exchange: &str) -> String { format!("There's no {exchange} API key. Add your key in Settings, then start the bot again.") }
@@ -168,7 +167,7 @@ fn no_key(exchange: &str) -> String { format!("There's no {exchange} API key. Ad
 fn rule_stopped(c: &Connection, rule: i64) -> Result<String, EngineError> {
     let name: Option<String> = c.query_row("SELECT e.name FROM rules r JOIN exchanges e ON e.id = r.exchange_id WHERE r.id = ?1", [rule], |r| r.get(0)).optional()?.flatten();
     let name = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "this exchange".into());
-    Ok(format!("Deltabadger 3.0 can't withdraw from {name} yet, so it stopped this rule while updating your data. Nothing was withdrawn."))
+    Ok(format!("Withdrawals from {name} aren't supported yet, so this rule was stopped while updating your data. Nothing was withdrawn."))
 }
 
 /// A switch's setting key in the owner's words ("the price drop condition"), or None for a key the pages never name.
@@ -187,7 +186,7 @@ fn action(action: &str) -> &'static str {
     match action { "pause" => "pause the bot", "start_selling" => "start selling", "start_buying" => "start buying", "stop" => "stop the bot", _ => "do something else" }
 }
 
-const SETTINGS: &str = "Some of its settings are saved in a form Deltabadger 3.0 can't read. Open the bot's settings, check them and save, then start the bot again. If that doesn't help, contact support.";
+const SETTINGS: &str = "Some of its settings are saved in a form that can't be read. Open the bot's settings, check them and save, then start the bot again. If that doesn't help, contact support.";
 
 /// One reason in the owner's words: what is wrong, then what to do (b2-5 reason inventory, groups A–K).
 pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, EngineError> {
@@ -195,24 +194,24 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
     Ok(match &reason.kind {
         Kind::Exchange => exchange(c, bot_id)?,
         Kind::Feature(Feature::Setting(key)) => match feature(key) {
-            Some(f) => format!("It uses {f}, which Deltabadger 3.0 doesn't support on this bot yet. Turn it off in the bot's settings, {again}"),
-            None => format!("It uses a setting Deltabadger 3.0 doesn't support on this bot yet. Check its settings, {again}"),
+            Some(f) => format!("It uses {f}, which isn't supported on this bot yet. Turn it off in the bot's settings, {again}"),
+            None => format!("It uses a setting that isn't supported on this bot yet. Check its settings, {again}"),
         },
-        Kind::Feature(Feature::Action { setting, action: a }) => format!("{} is set to {}, which Deltabadger 3.0 doesn't support yet. Change what it does or turn it off, {again}",
+        Kind::Feature(Feature::Action { setting, action: a }) => format!("{} is set to {}, which isn't supported yet. Change what it does or turn it off, {again}",
             capital(&feature(setting).unwrap_or_else(|| "one of its conditions".into())), action(a)),
-        Kind::Feature(Feature::ConditionCandles(key)) => format!("{} isn't available on {} in Deltabadger 3.0 yet. Turn it off in the bot's settings, {again}",
+        Kind::Feature(Feature::ConditionCandles(key)) => format!("{} isn't available on {} yet. Turn it off in the bot's settings, {again}",
             capital(&feature(key).unwrap_or_else(|| "one of its conditions".into())), exchange_name(c, bot_id)?),
-        Kind::Feature(Feature::IbkrLimit) => format!("Limit orders on Interactive Brokers aren't supported in Deltabadger 3.0 yet. Switch the bot to market orders, {again}"),
-        Kind::Feature(Feature::IndexSelling) => format!("An index bot can't sell in Deltabadger 3.0. Switch it back to buying, {again}"),
-        Kind::Feature(Feature::BotType(_)) => "Deltabadger 3.0 can't run this kind of bot yet. Keep it stopped.".into(),
+        Kind::Feature(Feature::IbkrLimit) => format!("Limit orders on Interactive Brokers aren't supported yet. Switch the bot to market orders, {again}"),
+        Kind::Feature(Feature::IndexSelling) => format!("An index bot can't sell. Switch it back to buying, {again}"),
+        Kind::Feature(Feature::BotType(_)) => "This kind of bot isn't supported yet. Keep it stopped.".into(),
         Kind::Flip { condition, to_selling, .. } => {
             let way = if *to_selling { "selling" } else { "buying" };
-            format!("When {} is met it would start {way}, and Deltabadger 3.0 couldn't run it that way. Check its {way} settings, or change what the condition does, {again}",
+            format!("When {} is met it would start {way}, and it couldn't run that way. Check its {way} settings, or change what the condition does, {again}",
                     feature(condition).unwrap_or_else(|| "one of its conditions".into()))
         }
         Kind::StartTime(StartTime::Moved) => "Its starting time no longer matches when it started (a clock change can do this). Set the starting time again, then start the bot.".into(),
         Kind::StartTime(StartTime::Continued) => "It was continued with a starting time set. Start it fresh, or turn the starting time off, then start the bot.".into(),
-        Kind::StartTime(StartTime::TimeZone) => "Your time zone isn't one Deltabadger 3.0 recognizes. Choose your time zone again in Settings, then start the bot.".into(),
+        Kind::StartTime(StartTime::TimeZone) => "Your time zone isn't one Deltabadger recognizes. Choose your time zone again in Settings, then start the bot.".into(),
         Kind::Asset(Some(asset)) => format!("{} can't be traded by this bot on {}. Remove it from the bot or choose another exchange, {again}", symbol(c, *asset)?, exchange_name(c, bot_id)?),
         Kind::Asset(None) => format!("This bot's quote currency can't be used on {}. Choose another one, {again}", exchange_name(c, bot_id)?),
         Kind::Allocations(Allocations::Unbalanced(sum)) => match sum.parse::<f64>() {
@@ -230,15 +229,15 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
                 History::SpecialRows => "rebalancing, liquidation or redeploy orders", History::ForeignSells => "orders on another exchange",
                 History::IndexAssets => "index assets", History::Restated => "prices restated by an earlier version",
             };
-            format!("Its order history has {what} that Deltabadger 3.0 can't account for yet. Keep the bot stopped and contact support.")
+            format!("Its order history has {what} that can't be accounted for yet. Keep the bot stopped and contact support.")
         }
         Kind::IndexData => format!("Index bots need Deltabadger's market data, which isn't set up here. Set it up in Settings, {again}"),
         Kind::Work(w) => match w {
-            Work::UnknownStatus => "It has orders in a state Deltabadger 3.0 can't read.",
+            Work::UnknownStatus => "It has orders in a state that can't be read.",
             Work::Pending => "It has a rebalance that didn't finish.",
             Work::Waiting => "It has rebalancing, liquidation or redeploy orders still open.",
             Work::Abandoned => "It has a rebalancing order whose fill is unknown.",
-            Work::Rebalancing => "It still rebalances, in a way Deltabadger 3.0 can't run.",
+            Work::Rebalancing => "It still rebalances, in a way that isn't supported yet.",
             Work::Outstanding => "It has open orders.",
         }.into(),
     })

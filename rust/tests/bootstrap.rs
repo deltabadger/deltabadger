@@ -339,7 +339,7 @@ fn handback_refuses_an_install_rust_created() {
     let before = files(dir.path());
     let out = output(command(dir.path(), &["handback"]));
     assert_eq!(out.status.code(), Some(1), "{}", said(&out));
-    assert!(said(&out).contains("deltabadger: handback refused: this install was created by Deltabadger 3.0, so there is no earlier version to hand it back to.\n"), "{}", said(&out));
+    assert!(said(&out).contains("deltabadger: handback refused: this install was created new, so there is no earlier app to hand it back to.\n"), "{}", said(&out));
     assert_eq!(files(dir.path()), before, "nothing written");
     let c = Connection::open(dir.path().join(PRIMARY)).unwrap();
     assert_eq!(deltabadger::lease::read(&c, &common::seed::cipher()).unwrap().unwrap()["engine"], "rust");

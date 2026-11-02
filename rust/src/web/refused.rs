@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 
 /// The page for `reason` (the refusal as `serve` printed it).
 pub fn page(reason: &str) -> String {
-    document("Deltabadger didn't start", "Deltabadger 3.0 didn't start trading on this data.",
+    document("Deltabadger didn't start", "Deltabadger didn't start trading on this data.",
              &format!("<pre style=\"white-space: pre-wrap; background: #f4f4f4; padding: 1rem\">{}</pre>", super::i18n::escape(reason)), "")
 }
 
