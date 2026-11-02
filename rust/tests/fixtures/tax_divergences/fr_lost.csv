@@ -10,7 +10,7 @@ Plus-value à reporter en case 3AN (déclaration 2042 C),10000.0
 "Impôt sur le revenu, prélèvement forfaitaire 12,8 %",1280.0
 "Prélèvements sociaux 18,6 %",1860.0
 Total,3140.0
-"L'impôt indiqué est le prélèvement forfaitaire ; vous pouvez opter pour le barème progressif (case 3CN), qui dépend de l'ensemble de vos revenus. La valeur du portefeuille et le total de 305 € doivent inclure tous les portefeuilles de votre foyer, y compris ceux qui ne sont pas synchronisés ici : ajoutez-les, sinon les plus-values sont fausses. Les frais ne sont déduits que sur justificatifs. Un échange entre actifs avec soulte n'est pas détecté. Le staking, le prêt et le minage n'ajoutent rien au prix d'acquisition ; les airdrops y ajoutent leur valeur à la réception. Un actif payé en frais de réseau n'est pas traité comme une cession. Les comptes détenus à l'étranger se déclarent sur le formulaire 3916-bis."
+"L'impôt indiqué est le prélèvement forfaitaire ; tu peux opter pour le barème progressif (case 3CN), qui dépend de l'ensemble de tes revenus. La valeur du portefeuille et le total de 305 € doivent inclure tous les portefeuilles de ton foyer, y compris ceux qui ne sont pas synchronisés ici : ajoute-les, sinon les plus-values sont fausses. Les frais ne sont déduits que sur justificatifs. Un échange entre actifs avec soulte n'est pas détecté. Le staking, le prêt et le minage n'ajoutent rien au prix d'acquisition ; les airdrops y ajoutent leur valeur à la réception. Un actif payé en frais de réseau n'est pas traité comme une cession. Les comptes détenus à l'étranger se déclarent sur le formulaire 3916-bis."
 
 WARNING: Actifs marqués comme perdus ; leur coût d’acquisition a été retiré de tes avoirs et aucune cession n’est déclarée pour eux:
 BTC 1.0 2026-01-06
