@@ -80,10 +80,10 @@ pub async fn send(app: &App, mail: AccountMail, locale: &'static str) {
         Ok(None) => return, // the row is gone: nobody to write to
         Err(error) => return log(kind, &format!("cannot be prepared ({})", reason(&error))),
     };
-    let delivery = app.settings_mailer.deliver(message, settings, app.now());
     let Ok(permit) = app.account_mail_slots.clone().try_acquire_owned() else {
         return log(kind, "dropped: too many account mails are being sent");
     };
+    let delivery = app.settings_mailer.deliver(message, settings, app.now());
     // Delivery continues after a browser disconnects, as Rails' after-commit callback does.
     tokio::spawn(async move {
         let _permit = permit;

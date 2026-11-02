@@ -1639,7 +1639,7 @@ module Pages
         answer['account_rows'] = Pages.account_rows(step['account_rows']) if step['account_rows']
         answer
       end
-      ActiveJob::Base.queue_adapter = original_adapter if action_scenario
+      ActiveJob::Base.queue_adapter = original_adapter # :test for action scenarios, :inline for mail ones
       saved_env.each { |name, value| value.nil? ? ENV.delete(name) : ENV.store(name, value) }
       travel_back
       users = ActiveRecord::Base.connection.select_all("SELECT #{USER_COLUMNS.join(', ')} FROM users ORDER BY id").to_a

@@ -235,6 +235,7 @@ async fn a_full_mail_pool_drops_mail_not_answers() {
     for _ in 0..5 { seen.push(visible(&h.request_reset(&mut Browser::default(), "owner@example.com").await)); }
     assert!(seen.windows(2).all(|w| w[0] == w[1]));
     assert_eq!(h.app.account_mail_slots.available_permits(), 0);
+    assert_eq!(h.sent().len(), 4, "the dropped mail never reaches the mailer");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -326,4 +327,50 @@ async fn a_lock_expired_on_the_clock_is_lifted_and_the_counter_is_shared_with_lo
     let lifted = h.user("owner@example.com");
     assert_eq!((&lifted[3], &lifted[4]), (&serde_json::json!(0), &Value::Null));
     assert_eq!(lifted[0], locked[0]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_malformed_gmail_alias_answers_alike_with_or_without_its_account() {
+    // D-SIGNUP-TAKEN-NEEDS-VALID-ADDRESS: Rails drops the format error once the alias is taken, so "ann+!@gmail.com"
+    // passed (303, the owner mailed) when ann@gmail.com existed and was refused (422) otherwise.
+    let mut seen = vec![];
+    for existing in [true, false] {
+        let h = harness();
+        if existing {
+            db(&h.dir).execute("INSERT INTO users (name, email, encrypted_password, created_at, updated_at) VALUES ('Ann', 'ann@gmail.com', 'x', '2026-01-01', '2026-01-01')", []).unwrap();
+        }
+        let answer = h.signup(&mut Browser::default(), "ann+!@gmail.com", PASSWORD).await;
+        assert_eq!(answer.status, 422);
+        assert!(h.sent().is_empty(), "nobody is mailed for a malformed address");
+        seen.push(visible(&answer));
+    }
+    assert_eq!(seen[0], seen[1]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_reset_request_waits_for_a_busy_database_alike_for_any_address() {
+    // Known or not, the request takes the write lock: held elsewhere, both wait for it, and answer alike once it is free.
+    let h = harness();
+    let hold = std::time::Duration::from_millis(600);
+    let mut seen = vec![];
+    for email in ["owner@example.com", "nobody@example.com"] {
+        let mut browser = Browser::default();
+        browser.get(&h.app, "/password/new").await;
+        let path = h.dir.path().join("production.sqlite3");
+        let locked = std::sync::mpsc::channel();
+        let holder = std::thread::spawn(move || {
+            let c = Connection::open(path).unwrap();
+            c.execute_batch("BEGIN IMMEDIATE").unwrap();
+            locked.0.send(()).unwrap();
+            std::thread::sleep(hold);
+            c.execute_batch("COMMIT").unwrap();
+        });
+        locked.1.recv().unwrap();
+        let started = std::time::Instant::now();
+        let answer = browser.post(&h.app, "/password", &[("user[email]", email)]).await;
+        assert!(started.elapsed() >= hold / 2, "{email} did not wait for the write lock");
+        holder.join().unwrap();
+        seen.push(visible(&answer));
+    }
+    assert_eq!(seen[0], seen[1]);
 }

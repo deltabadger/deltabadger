@@ -67,13 +67,21 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let email = setup::normalized_email(ctx.params.form("user[email]").unwrap_or(""));
     let (inner, now) = (app.clone(), ctx.now);
+    // The write lock is taken for every address, known or not: under a busy database both wait alike.
     let issued = app.db(move |c| {
-        if email.is_empty() { return Ok(None) }
-        let Some(id) = c.query_row("SELECT id FROM users WHERE email = ?1", [&email], |r| r.get::<_, i64>(0)).optional()? else { return Ok(None) };
-        // set_reset_password_token: a new token each time, which ends the one before.
-        let (raw, digest) = inner.reset_tokens.generate();
-        c.execute("UPDATE users SET reset_password_token = ?1, reset_password_sent_at = ?2, updated_at = ?2 WHERE id = ?3", (&digest, format_time(now), id))?;
-        Ok(Some((id, raw)))
+        let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+        let id = if email.is_empty() { None } else { tx.query_row("SELECT id FROM users WHERE email = ?1", [&email], |r| r.get::<_, i64>(0)).optional()? };
+        let issued = match id {
+            Some(id) => {
+                // set_reset_password_token: a new token each time, which ends the one before.
+                let (raw, digest) = inner.reset_tokens.generate();
+                tx.execute("UPDATE users SET reset_password_token = ?1, reset_password_sent_at = ?2, updated_at = ?2 WHERE id = ?3", (&digest, format_time(now), id))?;
+                Some((id, raw))
+            }
+            None => None,
+        };
+        tx.commit()?;
+        Ok(issued)
     }).await?;
     if let Some((user_id, token)) = issued {
         mail::send(&app, AccountMail::ResetPassword { user_id, token }, ctx.locale).await;

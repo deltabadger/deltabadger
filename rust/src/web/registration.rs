@@ -102,8 +102,13 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
         let errors = setup::validate(&tx, locale, name.as_deref(), &address, password.as_deref())?;
         // Rails drops every email error once one is :taken, and answers as for a new account if nothing else is wrong.
-        let taken = errors.iter().any(|e| e.attribute == "email" && e.kind == Some("taken"));
-        let errors: Vec<FieldError> = errors.into_iter().filter(|e| !(taken && e.attribute == "email")).collect();
+        // D-SIGNUP-TAKEN-NEEDS-VALID-ADDRESS: so a malformed Gmail alias ("ann+!@gmail.com") passed whenever its base account
+        // existed and was refused otherwise, telling which. Here :taken counts only for an address valid on its own; the
+        // taken error itself is never shown.
+        let email_error = |e: &FieldError| e.attribute == "email";
+        let taken = errors.iter().any(|e| email_error(e) && e.kind == Some("taken"))
+            && errors.iter().all(|e| !email_error(e) || e.kind == Some("taken"));
+        let errors: Vec<FieldError> = errors.into_iter().filter(|e| !(email_error(e) && (taken || e.kind == Some("taken")))).collect();
         if !errors.is_empty() { return Ok(Outcome::Invalid(errors)) }
         if taken { return Ok(Outcome::Taken(real_email(&tx, &address)?)) }
         let hash = hash.ok_or_else(|| WebError::Config("a valid signup without a password hash".into()))?;
