@@ -1670,4 +1670,81 @@ mod tests {
         assert_eq!((cents(&remaining(&f)), cents(&f.consumed)), ("11900.0".to_string(), "100.0".to_string()));
     }
 
+    /// Sweden's options (mod.rs passes them for SE): one average per coin, swaps taxable, a swap's fee to the coin given.
+    fn sweden() -> Options<'static> {
+        Options { average_all: true, lost_kept: true, own_fee_disposed: true, defer_group_fees: true, swap_cost_to_disposed_from: Some(At(i64::MIN)), ..plain() }
+    }
+    /// (asset, amount, proceeds, cost, fee, gain) of each disposal, in cents.
+    fn rows_of(f: &Fifo) -> Vec<(String, String, String, String, String, String)> {
+        f.disposals.iter().map(|x| (x.asset.clone(), x.amount.to_s_f(), cents(&x.proceeds), cents(&x.cost_basis), cents(&x.fee), cents(&x.gain_loss))).collect()
+    }
+    fn held(f: &Fifo, asset: &str) -> (String, String) {
+        let (mut units, mut cost) = (Dec::zero(), Dec::zero());
+        for l in f.lots().filter(|(k, _)| k.1 == asset).flat_map(|(_, l)| l) { units = (&units + &l.amount).unwrap(); cost = (&cost + &(&l.amount * &l.cost_per_unit).unwrap()).unwrap(); }
+        (units.to_s_f(), cents(&cost))
+    }
+    fn r6(a: &str, b: &str, c: &str, d: &str, e: &str, g: &str) -> (String, String, String, String, String, String) {
+        (a.into(), b.into(), c.into(), d.into(), e.into(), g.into())
+    }
+
+    /// D-TAX-LOST-POOLED (`se_lost_kept`): a lost coin stays in the pool (2 @ 44,000 + 1 @ 33,000 = 3 @ 77,000); without the
+    /// option it leaves at the average (2 @ 55,000).
+    #[test]
+    fn a_lost_coin_stays_in_the_pool() {
+        let rows = vec![row(0, Kind::Buy, "ETH", "2", "44000", 0, "a"), row(1, Kind::Lost, "ETH", "1", "0", 1, "a"),
+                        row(2, Kind::Buy, "ETH", "1", "33000", 2, "a"), row(3, Kind::Sell, "ETH", "1", "27500", 3, "a")];
+        let mut f = Fifo::new(sweden());
+        f.calculate(&rows).unwrap();
+        assert_eq!(rows_of(&f), [r6("ETH", "1.0", "27500.0", "25666.67", "0.0", "1833.33")]);
+        assert_eq!(held(&f, "ETH"), ("2.0".into(), "51333.33".into()));
+        let mut f = Fifo::new(Options { lost_kept: false, ..sweden() });
+        f.calculate(&rows).unwrap();
+        assert_eq!(cents(&f.disposals[0].cost_basis), "27500.0");
+    }
+
+    /// D-TAX-COIN-FEE, acquisitions (`se_buy_fee_in_coin`): the gross unit at its value plus the fee's (333,300), then the
+    /// fee's 0.01 disposed of at its value (3,300 / 3,333 / −33); 0.99 left at 329,967.
+    #[test]
+    fn an_own_coin_purchase_fee_is_a_cost_and_a_disposal() {
+        let mut rows = vec![row(0, Kind::Buy, "BTC", "1", "330000", 0, "a"), row(1, Kind::Sell, "BTC", "0.99", "435600", 1, "a")];
+        fee_in_own_coin(&mut rows[0], "0.01", "3300");
+        let mut f = Fifo::new(sweden());
+        f.calculate(&rows).unwrap();
+        assert_eq!(rows_of(&f), [r6("BTC", "0.01", "3300.0", "3333.0", "0.0", "-33.0"), r6("BTC", "0.99", "435600.0", "329967.0", "0.0", "105633.0")]);
+        assert!(f.disposals.iter().all(|x| x.uncovered.is_zero()));
+    }
+
+    /// `defer_group_fees` (`se_grouped_fee_first_id`): a fee row of the swap in the coin received, walked before the swap-in,
+    /// waits for it: the swap bears its value (330,000 / 220,000 / 3,300 / 106,700) and it is a disposal of the ETH received
+    /// (3,300 / 3,300 / 0), nothing uncovered.
+    #[test]
+    fn a_grouped_fee_row_before_its_swap_in_waits_for_it() {
+        let mut fee = swap_leg(2, Kind::Fee, "ETH", "0.1", "3300", 1);
+        fee.row.quote = None;
+        let rows = vec![row(0, Kind::Buy, "BTC", "1", "220000", 0, "a"), swap_leg(1, Kind::SwapOut, "BTC", "1", "330000", 1), fee,
+                        swap_leg(3, Kind::SwapIn, "ETH", "10", "330000", 1)];
+        let mut f = Fifo::new(sweden());
+        f.calculate(&rows).unwrap();
+        assert_eq!(rows_of(&f), [r6("BTC", "1.0", "330000.0", "220000.0", "3300.0", "106700.0"), r6("ETH", "0.1", "3300.0", "3300.0", "0.0", "0.0")]);
+        assert!(f.disposals.iter().all(|x| x.uncovered.is_zero()));
+        assert_eq!(held(&f, "ETH"), ("9.9".into(), "326700.0".into()));
+    }
+
+    /// `defer_group_fees` (`se_fee_in_other_incoming_coin`, `_reversed`): an in-leg's fee in another coin the swap receives
+    /// is spent after the last in-leg, either leg order: BTC 30,000 / 20,000 / 1,000 / 9,000; the SOL fee 1,000 / 1,000 / 0;
+    /// SOL 9 at 9,000, ETH 1 at 20,000.
+    #[test]
+    fn an_in_leg_fee_in_another_incoming_coin_waits_for_it() {
+        for eth_first in [true, false] {
+            let mut eth = swap_leg(if eth_first { 2 } else { 3 }, Kind::SwapIn, "ETH", "1", "20000", 1);
+            (eth.row.fee_currency, eth.row.fee_amount, eth.row.fee_fiat_value, eth.fee_asset) = (Some("SOL".into()), Some(d("1")), d("1000"), Some("SOL".into()));
+            let sol = swap_leg(if eth_first { 3 } else { 2 }, Kind::SwapIn, "SOL", "10", "10000", 1);
+            let mut rows = vec![row(0, Kind::Buy, "BTC", "1", "200000", 0, "a"), swap_leg(1, Kind::SwapOut, "BTC", "0.1", "30000", 1)];
+            if eth_first { rows.extend([eth, sol]); } else { rows.extend([sol, eth]); }
+            let mut f = Fifo::new(sweden());
+            f.calculate(&rows).unwrap();
+            assert_eq!(rows_of(&f), [r6("BTC", "0.1", "30000.0", "20000.0", "1000.0", "9000.0"), r6("SOL", "1.0", "1000.0", "1000.0", "0.0", "0.0")], "ETH first: {eth_first}");
+            assert_eq!((held(&f, "SOL"), held(&f, "ETH")), (("9.0".into(), "9000.0".into()), ("1.0".into(), "20000.0".into())), "ETH first: {eth_first}");
+        }
+    }
 }
