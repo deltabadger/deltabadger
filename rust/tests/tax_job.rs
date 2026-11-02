@@ -192,6 +192,19 @@ async fn a_failed_run_keeps_its_failed_outcome_and_tells_its_panel() {
     assert_eq!(files(&tmp(&i)), Vec::<String>::new());
 }
 
+/// r3 item 3: a wealth report on an install with no market-data provider runs as Rails' does: the NL 2025 file values the
+/// holdings of 1 January 2026 with no stored price, so it is ready and counts the missing value.
+#[tokio::test]
+async fn a_wealth_report_without_market_data_is_ready_and_counts_what_is_missing() {
+    let i = install();
+    queued(&open(&i), i.user, R1, "NL", "queued");
+    let (db, _) = job_db(&i);
+    assert_eq!(run(&i, &db).await, Outcome::Done);
+    assert_eq!(rows(&open(&i)), vec![(R1.into(), "ready".into())]);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "NL", 2025, "crypto")).unwrap();
+    assert!(csv.contains("waarden ontbreken") && csv.contains("BTC/EUR 2026-01-01"), "{csv}");
+}
+
 #[tokio::test]
 async fn recovery_finishes_or_undoes_what_a_crash_left_and_is_idempotent() {
     let i = install();
