@@ -1,6 +1,7 @@
 //! The reference-data jobs of config/recurring.yml, each a port of its Rails job on the deltabadger market-data provider.
 //! HTTP is awaited on the runtime thread. Everything after it (the walk of the payload, the casts, the writes) runs in a
 //! `Db::run` closure on the blocking pool, and the writes in units of CHUNK rows (import::publish).
+use super::coingecko::{self, Clients};
 use super::data_api::{self, ApiError, DataApi, MAX_REFERENCE_BODY};
 use super::import::{self, present, truthy};
 use super::schedule::{Jitter, Schedule};
@@ -63,33 +64,42 @@ fn spec(kind: Kind) -> Spec {
 /// Every job's spec, in registration order.
 pub fn specs() -> Vec<Spec> { KINDS.iter().map(|k| spec(*k)).collect() }
 
-struct Reference<T: Transport> { kind: Kind, api: Rc<Option<DataApi<T>>> }
+struct Reference<T: Transport> { kind: Kind, api: Rc<Option<DataApi<T>>>, cg: Clients }
 
 impl<T: Transport + 'static> Job for Reference<T> {
     fn spec(&self) -> Spec { spec(self.kind) }
-    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(run(self.kind, Option::as_ref(&self.api), cx)) }
+    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(run(self.kind, Option::as_ref(&self.api), &self.cg, cx)) }
 }
 
-/// The six jobs, sharing one client. `api` None: the install is not on the deltabadger provider.
+/// The six jobs, sharing one client, and the one-asset job's factory. `api` None: the install is not on the deltabadger
+/// provider (CoinGecko's live clients serve the jobs ported for it).
 pub fn jobs<T: Transport + 'static>(api: Option<DataApi<T>>) -> Vec<Box<dyn Job>> {
     shared_jobs(Rc::new(api))
 }
 
-pub fn shared_jobs<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>) -> Vec<Box<dyn Job>> {
-    KINDS.iter().map(|k| Box::new(Reference { kind: *k, api: api.clone() }) as Box<dyn Job>).collect()
+pub fn shared_jobs<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>) -> Vec<Box<dyn Job>> { shared_jobs_with(api, coingecko::live_clients()) }
+
+/// The same with the CoinGecko clients a test hands.
+pub fn shared_jobs_with<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>, cg: Clients) -> Vec<Box<dyn Job>> {
+    let mut jobs: Vec<Box<dyn Job>> = KINDS.iter().map(|k| Box::new(Reference { kind: *k, api: api.clone(), cg: cg.clone() }) as Box<dyn Job>).collect();
+    jobs.push(Box::new(AssetDataFactory(cg)));
+    jobs
 }
 
 /// One run of the job named `name`, as the scheduler runs it (the parity harness).
-pub async fn run_once<T: Transport>(name: &str, api: Option<DataApi<T>>, cx: Cx<'_>) -> Outcome {
+pub async fn run_once<T: Transport>(name: &str, api: Option<DataApi<T>>, cx: Cx<'_>) -> Outcome { run_once_with(name, api, &coingecko::live_clients(), cx).await }
+
+pub async fn run_once_with<T: Transport>(name: &str, api: Option<DataApi<T>>, cg: &Clients, cx: Cx<'_>) -> Outcome {
     match KINDS.iter().find(|k| spec(**k).name == name) {
-        Some(k) => run(*k, api.as_ref(), cx).await,
+        Some(k) => run(*k, api.as_ref(), cg, cx).await,
         None => Outcome::Failed(format!("no job named {name}")),
     }
 }
 
-async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cx: Cx<'_>) -> Outcome {
+async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cg: &Clients, cx: Cx<'_>) -> Outcome {
     if kind == Kind::Prune { return prune(&cx).await; }
-    if kind == Kind::Indices && api.is_none() { return coingecko_indices(&LiveCoinGecko, &cx).await; }
+    if kind == Kind::Indices && api.is_none() { return coingecko_indices(&Ranking(cg.clone()), &cx).await; }
+    if kind == Kind::Assets && api.is_none() { return coingecko_assets(cg, &cx).await; }
     let Some(api) = api else { return Outcome::Failed(NOT_PORTED.into()) };
     let feeds = Feeds::Api(api);
     match kind {
@@ -279,23 +289,11 @@ pub trait CoinGecko {
     fn markets<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>>;
 }
 
-struct LiveCoinGecko;
-impl CoinGecko for LiveCoinGecko {
+/// The ranking through the shared client (jobs::coingecko): one `coins/markets` page of 250, after the plan ping.
+pub struct Ranking(pub Clients);
+impl CoinGecko for Ranking {
     fn markets<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>> {
-        Box::pin(async move {
-            let client = crate::venue::http::client();
-            // Clients::Coingecko.detect_plan: the pro ping selects the URL and key header.
-            let ping = client.get("https://pro-api.coingecko.com/api/v3/ping").header("x-cg-pro-api-key", key).send().await
-                .map_err(|_| ApiError::Transient("CoinGecko plan check failed".into()))?;
-            let (base, header) = if ping.status().is_success() { ("https://pro-api.coingecko.com", "x-cg-pro-api-key") }
-                else { ("https://api.coingecko.com", "x-cg-demo-api-key") };
-            let reply = client.get(format!("{base}/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false")).header(header, key)
-                .send().await.map_err(|_| ApiError::Transient("CoinGecko ranking request failed".into()))?;
-            let reply = crate::venue::http::read_limited(reply, MAX_REFERENCE_BODY).await
-                .map_err(|_| ApiError::Transient("CoinGecko ranking response unavailable".into()))?;
-            if reply.status != 200 { return Err(ApiError::Failed{status:Some(reply.status),message:format!("CoinGecko ranking HTTP {}",reply.status)}); }
-            serde_json::from_str(&reply.body).map_err(|_| ApiError::Failed{status:Some(200),message:"Unreadable CoinGecko ranking".into()})
-        })
+        Box::pin(async move { (self.0)(key).markets(None, None, 250, 1).await })
     }
 }
 
@@ -311,7 +309,12 @@ pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome 
     let (key,captured) = match captured { Ok(v)=>v, Err(e)=>return Outcome::Failed(e) };
     // Same PullFailed classification as indices() above: feed failures (including HTTP 5xx
     // and timeouts) use the indices job's four attempts, with a 15-minute wait.
-    let body = match fetch.markets(&key).await { Ok(body)=>body, Err(e)=>return Outcome::Transient(e.message()) };
+    // A 429 (the plan ping's or the ranking's) stays a rate limit, which the same Retry still retries.
+    let body = match fetch.markets(&key).await {
+        Ok(body)=>body,
+        Err(e) if e.rate_limited() => return Outcome::RateLimited(e.message()),
+        Err(e)=>return Outcome::Transient(e.message()),
+    };
     let Some(rows) = body.as_array().filter(|rows|!rows.is_empty() && rows.len()<=250) else {
         return Outcome::Failed("CoinGecko ranking is empty or malformed; previous ranking kept".into());
     };
@@ -344,6 +347,119 @@ pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome 
         Ok(())
     }).map_err(|e|format!("{e:?}"))).await;
     match result { Ok(())=>{cx.wakers.wake_engine();Outcome::Done},Err(e)=>Outcome::Failed(e) }
+}
+
+/// MarketData.sync_assets_from_coingecko! (market_data.rb:61-90), as Asset::FetchAllAssetsDataFromCoingeckoJob runs it on
+/// the coingecko provider: `return unless configured?`, a blank key a Failure before anything; `Asset.mark_tokenized!`,
+/// committed whatever follows; every crypto external id, 250 per `coins/markets?ids=` page (Coingecko#
+/// get_coins_list_with_market_data, all batches before any write, a failed one ending the run); then each crypto asset the
+/// answer carries refreshed (asset.rb:147-166), the blacklist skipped, a coin without symbol or name skipped
+/// (D-CG-ASSET-ROW-SKIPS). Asset::InferColorFromImageJob on a changed image is F25's, not ported.
+/// Done only when some asset was refreshed or confirmed; ids asked and no coin answered certifies nothing (Failed).
+async fn coingecko_assets(cg: &Clients, cx: &Cx<'_>) -> Outcome {
+    let key = match coingecko_key(cx).await { Ok(Some(k)) => k, Ok(None) => return Outcome::NothingNew, Err(m) => return Outcome::Failed(m) };
+    if let Err(m) = import::mark_tokenized(&cx.db).await { return Outcome::Failed(m); }
+    let assets = match cx.db.run(|c, _| crypto_assets(c)).await { Ok(a) => a, Err(m) => return Outcome::Failed(m) };
+    if assets.is_empty() { return Outcome::NothingNew; } // `return Result::Success.new if asset_ids.empty?`
+    let ids: Vec<String> = assets.iter().map(|(_, ext)| ext.clone()).collect();
+    let batches: Vec<&[String]> = ids.chunks(250).collect();
+    // `100.times`: a 101st batch raises "Too many attempts" after the 100th request.
+    let client = cg(&key);
+    let mut by_id: std::collections::HashMap<String, Value> = Default::default();
+    for (i, batch) in batches.iter().enumerate() {
+        if i == 100 { return Outcome::Failed("Too many attempts to get coins with market data from CoinGecko. Adjust the number of pages in the loop if needed.".into()); }
+        let rows = match client.markets(Some(batch), None, 250, 1).await {
+            Ok(Value::Array(rows)) => rows,
+            Ok(other) => return Outcome::Failed(format!("no implicit conversion of {} into Array", ruby_class(&other))),
+            Err(e) => return api_failure(e),
+        };
+        for row in rows { if let Some(id) = row["id"].as_str() { by_id.entry(id.to_string()).or_insert_with(|| row.clone()); } } // uniq! keeps the first
+    }
+    refresh(cx, &assets, |ext| by_id.get(ext).cloned(), ids.len()).await
+}
+
+/// The coingecko provider's key, read as the job's guards read it: None when the install is not configured or not on
+/// coingecko (`return unless MarketData.configured?`, then sync_assets!'s provider case); Err for a blank key.
+async fn coingecko_key(cx: &Cx<'_>) -> Result<Option<String>, String> {
+    cx.db.run(|c, cipher| {
+        crate::engine::provider::bind_cipher(c, cipher).map_err(|e| format!("{e:?}"))?;
+        let s = crate::engine::provider::settings(c).map_err(|e| format!("{e:?}"))?;
+        match (s.configured, &s.provider) {
+            (true, crate::market_data::Provider::CoinGecko { key: Some(k) }) => Ok(Some(k.clone())),
+            (true, crate::market_data::Provider::CoinGecko { key: None }) => Err("CoinGecko API key not configured".into()),
+            (true, crate::market_data::Provider::None) => Err("No market data provider configured".into()),
+            _ => Ok(None),
+        }
+    }).await
+}
+
+/// `Asset.where(category: 'Cryptocurrency')`, as `pluck(:external_id).compact` and `find_each` read it: by id.
+fn crypto_assets(c: &Connection) -> Result<Vec<(i64, String)>, String> {
+    let mut s = c.prepare("SELECT id, external_id FROM assets WHERE category = 'Cryptocurrency' AND external_id IS NOT NULL ORDER BY id").map_err(|e| e.to_string())?;
+    let rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string());
+    rows
+}
+
+/// Asset::COINGECKO_BLACKLISTED_IDS (asset.rb:46-49).
+const BLACKLIST: [&str; 2] = ["covalent", "assister-ai"];
+
+fn ruby_class(v: &Value) -> &'static str {
+    match v { Value::Object(_) => "Hash", Value::String(_) => "String", Value::Null => "nil", Value::Bool(true) => "true", Value::Bool(false) => "false", Value::Number(_) => "Integer", Value::Array(_) => "Array" }
+}
+
+/// The per-asset refresh both paths share: each asset's coin (if answered) cast and published; the outcome.
+async fn refresh(cx: &Cx<'_>, assets: &[(i64, String)], coin: impl Fn(&str) -> Option<Value>, asked: usize) -> Outcome {
+    let mut rows = vec![];
+    let mut answered = 0;
+    for (id, ext) in assets {
+        if BLACKLIST.contains(&ext.as_str()) { continue; }
+        let Some(data) = coin(ext) else { continue };
+        match import::coingecko_columns(ext, &data) {
+            Ok(Some(cols)) => { answered += 1; rows.push((*id, cols)); }
+            Ok(None) => crate::engine::log(&format!("[jobs] CoinGecko: skipped {ext}: no symbol or name in the answer")),
+            Err(m) => return Outcome::Failed(m),
+        }
+    }
+    if answered == 0 { return Outcome::Failed(format!("CoinGecko answered no coin of the {asked} asked; nothing refreshed")); }
+    let now = cx.clock.now();
+    done(import::refresh_assets(&cx.db, rows, now).await)
+}
+
+/// Asset::FetchDataFromCoingeckoJob (D-CG one-asset job, PLAN-A17 item 10): one asset's `coins/{id}`, registered per
+/// asset (its own record, so it never moves the bulk refresh's).
+pub const ASSET_DATA: &str = "fetch_data_from_coingecko_job";
+
+struct AssetDataFactory(Clients);
+impl Job for AssetDataFactory {
+    fn spec(&self) -> Spec { Spec { name: "coingecko_asset_factory", scope: None, schedule: None, jitter: Jitter::NONE, retry: Retry::None, deadline: DEADLINE } }
+    fn spawn(&self, name: &str, scope: Option<&str>) -> Option<Box<dyn Job>> {
+        let id = scope?.parse::<i64>().ok().filter(|id| *id > 0)?;
+        (name == ASSET_DATA).then(|| Box::new(AssetData { cg: self.0.clone(), asset: id }) as Box<dyn Job>)
+    }
+    fn run<'a>(&'a self, _cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(async { Outcome::Failed("scope factory cannot run as a job".into()) }) }
+}
+
+pub struct AssetData { pub cg: Clients, pub asset: i64 }
+impl Job for AssetData {
+    fn spec(&self) -> Spec { Spec { name: ASSET_DATA, scope: Some(self.asset.to_string()), schedule: None, jitter: Jitter::NONE, retry: Retry::None, deadline: DEADLINE } }
+    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(asset_data(&self.cg, self.asset, cx)) }
+}
+
+/// fetch_data_from_coingecko_job.rb + Asset#sync_data_with_coingecko, Rails' guards in Rails' order, each before any
+/// request: the deltabadger provider; not configured; a blacklisted id; a blank key (a Failure).
+pub async fn asset_data(cg: &Clients, asset: i64, cx: Cx<'_>) -> Outcome {
+    let guard = cx.db.run(move |c, cipher| {
+        crate::engine::provider::bind_cipher(c, cipher).map_err(|e| format!("{e:?}"))?;
+        let s = crate::engine::provider::settings(c).map_err(|e| format!("{e:?}"))?;
+        let ext: Option<String> = c.query_row("SELECT external_id FROM assets WHERE id = ?1", [asset], |r| r.get(0)).optional().map_err(|e| e.to_string())?;
+        Ok((s, ext))
+    }).await;
+    let (s, ext) = match guard { Ok(v) => v, Err(m) => return Outcome::Failed(m) };
+    let Some(ext) = ext else { return Outcome::Failed(format!("Couldn't find Asset with 'id'={asset}")) };
+    if s.deltabadger() || !s.configured || BLACKLIST.contains(&ext.as_str()) { return Outcome::NothingNew; }
+    let Some(key) = s.coingecko_key() else { return Outcome::Failed("CoinGecko API key not configured".into()) };
+    let data = match cg(key).coin(&ext).await { Ok(d) => d, Err(e) => return api_failure(e) };
+    refresh(&cx, &[(asset, ext.clone())], |_| Some(data.clone()), 1).await
 }
 
 /// ticker_data_from_listing_row (:677-704): the base from the row's public id ("crypto:bitcoin" → "bitcoin"), the pair from

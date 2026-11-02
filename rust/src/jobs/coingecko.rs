@@ -148,6 +148,26 @@ impl<T: Transport> CoinGecko<T> {
     }
 }
 
+pub type Fut<'a> = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, ApiError>> + 'a>>;
+
+/// What the jobs ask CoinGecko, object-safe so a job holds live or scripted clients alike.
+pub trait Api {
+    fn markets<'a>(&'a self, ids: Option<&'a [String]>, category: Option<&'a str>, per_page: usize, page: usize) -> Fut<'a>;
+    fn coin<'a>(&'a self, id: &'a str) -> Fut<'a>;
+}
+
+impl<T: Transport> Api for CoinGecko<T> {
+    fn markets<'a>(&'a self, ids: Option<&'a [String]>, category: Option<&'a str>, per_page: usize, page: usize) -> Fut<'a> {
+        Box::pin(CoinGecko::markets(self, ids, category, per_page, page))
+    }
+    fn coin<'a>(&'a self, id: &'a str) -> Fut<'a> { Box::pin(CoinGecko::coin(self, id)) }
+}
+
+/// A client for a key: `live` in production; a test hands scripted ones.
+pub type Clients = std::rc::Rc<dyn Fn(&str) -> Box<dyn Api>>;
+
+pub fn live_clients() -> Clients { std::rc::Rc::new(|key: &str| Box::new(CoinGecko::live(key)) as Box<dyn Api>) }
+
 /// The key check of the tracker and wizard (`validate_coingecko_api_key`: get_top_coins_by_market_cap(limit: 5), one
 /// `coins/markets` page of 250): valid when CoinGecko answers a list. One deadline over the whole check (plan ping,
 /// throttle wait, request). Never cached (D-CG-KEY-CHECK-UNCACHED); no answer is "invalid", not an error page
