@@ -54,6 +54,14 @@ module Pages
   # brokerage session of ibkr_key_verdicts.json's one_account case, then its accounts, or a brokerage session that fails.
   IBKR_ACCOUNTS = { 'tok-pending' => { 'accounts' => [] }, 'tok-correct' => { 'accounts' => ['U1234567'], 'selectedAccount' => 'U1234567' } }.freeze
   IBKR_FAILING = 'tok-failure'
+  # A17-1: the CoinGecko keys the steps submit (dummies; CoinGecko is stubbed), and its coins/markets answer: the Top Coins
+  # ranking the wizard's crypto indices store (pages_wizard.rb index_fixture), by market cap.
+  CG_KEY = 'CG-test-key'
+  CG_BAD = 'CG-bad-key'
+  CG_COINS = %w[btc eth solana ada-coin avax-coin dot-coin link-coin].each_with_index.map do |id, rank|
+    { 'id' => id, 'symbol' => id.split('-').first, 'name' => id.split('-').first.upcase, 'image' => '', 'current_price' => 10 - rank,
+      'market_cap' => (7 - rank) * 1_000_000_000.0, 'market_cap_rank' => rank + 1, 'circulating_supply' => 1_000_000 }
+  end.freeze
 
   module SettingsGrid
     def scenarios
@@ -159,10 +167,31 @@ module Pages
                .to_return(status:, body:, headers: { 'Content-Type' => 'application/json' })
       end
       ibkr_stubs
+      coingecko_stubs
       super
     ensure
       WebMock.reset!
       WebMock.disable!
+    end
+
+    # CoinGecko's side of a key check (Coingecko#get_top_coins_by_market_cap through Clients::Coingecko): the plan ping on the
+    # paid API refuses every key (a demo key), the demo API answers the coins, a key it refuses with 401. rust/tests/pages.rs
+    # mounts the same.
+    def coingecko_stubs
+      json = { 'Content-Type' => 'application/json' }
+      WebMock.stub_request(:get, 'https://pro-api.coingecko.com/api/v3/ping').to_return(status: 401, body: '{"error":"invalid"}', headers: json)
+      markets = %r{\Ahttps://api\.coingecko\.com/api/v3/coins/markets}
+      WebMock.stub_request(:get, markets).to_return(status: 200, body: CG_COINS.to_json, headers: json)
+      WebMock.stub_request(:get, markets).with(headers: { 'x-cg-demo-api-key' => CG_BAD })
+             .to_return(status: 401, body: '{"status":{"error_code":10002}}', headers: json)
+    end
+
+    # The plan Clients::Coingecko detected and the client MarketData holds are memoised for the process: each scenario starts
+    # without them, so its first CoinGecko call pings as a fresh process does.
+    def connect(dir)
+      Clients::Coingecko.instance_variable_set(:@detect_plan, nil)
+      MarketData.instance_variable_set(:@coingecko, nil)
+      super
     end
 
     # IBKR's side of an activation (ApiKey#validate_credentials! through Clients::Ibkr::Session): Rails' DH random fixed as
@@ -468,6 +497,7 @@ module Pages
     grid['settings_key_permissions_page'] = settings_case(get('/settings/api_key_permissions/1'), fixture: 'keys')
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
     tracker_connect_scenarios(grid)
+    market_data_scenarios(grid)
     ibkr_connect_scenarios(grid)
     venue_key_scenarios(grid)
     preference_scenarios(grid)
@@ -717,6 +747,45 @@ module Pages
       settings_case(form.('/settings/ibkr_connect', { '_method' => 'delete' }, 'csrf' => 'header', 'may_mutate' => %w[bots]))
       .merge('install' => 'alpaca', 'typed_stocks' => true, 'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' },
              'bots' => [running('single', '2026-09-08T13:30:00Z', 'exchange' => 'Interactive Brokers'), running('single', '2026-09-08T13:30:00Z')])
+  end
+
+  # A17-1: the container's market data on Connect (SettingsController#update_market_data, #disconnect_market_data,
+  # #resync_assets) and the tracker's CoinGecko step (TrackerController#connect_market_data, #setup_coingecko, the export modal
+  # with no market data). Admin only; a member is refused.
+  def self.market_data_scenarios(grid)
+    write = ->(action, form, status = 200) { settings_write(action, form, status) }
+    patch = ->(form, status = 200) { write.('update_market_data', { '_method' => 'patch' }.merge(form), status) }
+    on = ->(*steps, configs: {}, user: owner) { settings_case(get('/settings/connect'), *steps, user:).merge('app_configs' => configs) }
+    coingecko = { 'market_data_provider' => 'coingecko', 'coingecko_api_key' => CG_KEY }
+    platform = { 'platform_connected_at' => '2026-01-01T00:00:00Z', 'market_data_url' => 'http://data-api.invalid', 'market_data_token' => 'platform-token' }
+    member = owner('admin' => false)
+    grid['settings_market_data_update_coingecko_new_key'] = on.(patch.({ 'market_data_provider' => 'coingecko', 'coingecko_api_key' => CG_KEY }))
+    # D-CG-SETTINGS-KEY-CHECKED: Rails saves a key it never checked.
+    grid['settings_market_data_update_coingecko_bad_key'] = on.(patch.({ 'market_data_provider' => 'coingecko', 'coingecko_api_key' => CG_BAD }))
+    grid['settings_market_data_update_coingecko_stored_key'] = on.(patch.({ 'market_data_provider' => 'coingecko' }), configs: { 'coingecko_api_key' => CG_KEY })
+    grid['settings_market_data_update_coingecko_no_key_form'] = on.(patch.({ 'market_data_provider' => 'coingecko' }))
+    grid['settings_market_data_update_off'] = on.(patch.({ 'market_data_provider' => '' }), configs: coingecko)
+    grid['settings_market_data_update_deltabadger_refused'] = on.(patch.({ 'market_data_provider' => 'deltabadger' }, 422), configs: coingecko)
+    grid['settings_market_data_disconnect'] = on.(write.('disconnect_market_data', { '_method' => 'delete' }), configs: coingecko)
+    # D-CG-DISCONNECT-KEEPS-PLATFORM: Rails also drops a claimed platform's data-api credentials.
+    grid['settings_market_data_disconnect_platform'] = on.(write.('disconnect_market_data', { '_method' => 'delete' }), configs: coingecko.merge(platform))
+    grid['settings_market_data_resync'] = on.(write.('resync_assets', {}), configs: coingecko)
+    grid['settings_market_data_update_nonadmin'] =
+      settings_case(patch.({ 'market_data_provider' => 'coingecko', 'coingecko_api_key' => CG_KEY }, 403), user: member)
+    grid['settings_market_data_disconnect_nonadmin'] =
+      settings_case(write.('disconnect_market_data', { '_method' => 'delete' }, 403), user: member).merge('app_configs' => coingecko)
+    grid['settings_market_data_resync_nonadmin'] = settings_case(write.('resync_assets', {}, 403), user: member).merge('app_configs' => coingecko)
+
+    connect = ->(path = '/tracker/connect_market_data') { get(path, 'Turbo-Frame' => 'modal') }
+    setup = lambda do |key, status = 200|
+      post('/tracker/setup_coingecko', { 'api_key' => key }, 'csrf' => 'header', 'headers' => TURBO, 'expect' => status, 'settings_snapshot' => true)
+    end
+    %w[en de].each { |locale| grid["settings_tracker_connect_market_data_#{locale}"] = settings_case(connect.("/#{locale}/tracker/connect_market_data")) }
+    grid['settings_tracker_connect_market_data_nonadmin'] = settings_case(connect.(), user: member)
+    grid['settings_tracker_export_modal_unconfigured'] = settings_case(connect.('/tracker/export_modal'))
+    grid['settings_setup_coingecko_tracker_ok'] = settings_case(connect.(), setup.(CG_KEY))
+    grid['settings_setup_coingecko_tracker_bad_key'] = settings_case(connect.(), setup.(CG_BAD, 422))
+    grid['settings_setup_coingecko_tracker_non_admin'] = settings_case(connect.(), setup.(CG_KEY, 403), user: member)
   end
 
   # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).

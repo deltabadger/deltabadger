@@ -276,7 +276,8 @@ module Pages
     end
 
     IDX = '/bots/dca_indexes'.freeze
-    IDX_SETUP_NEW = "#{IDX}/setup_coingecko/new".freeze
+    IDX_SETUP = "#{IDX}/setup_coingecko".freeze
+    IDX_SETUP_NEW = "#{IDX_SETUP}/new".freeze
     IDX_PICK = "#{IDX}/pick_index".freeze
     IDX_PICK_NEW = "#{IDX_PICK}/new".freeze
     IDX_EXCHANGE = "#{IDX}/pick_exchange".freeze
@@ -309,6 +310,9 @@ module Pages
                       description: "Base chains & their tokens. #{'Long text ' * 20}", available_exchanges: { 'Exchanges::Binance' => 6 })
       end
       AppConfig.where(key: %w[market_data_provider market_data_url market_data_token]).delete_all if scenario['market_data'] == 'none'
+      # 'cg_market_caps': the coins' market caps as CoinGecko's stubbed answer gives them (pages_settings.rb CG_COINS), so the
+      # stored ranking this build reads (D-INDEX-TOP-N) is the one Rails asks CoinGecko for.
+      CG_COINS.each { |coin| Asset.where(external_id: coin['id']).update_all(market_cap: coin['market_cap']) } if scenario['cg_market_caps']
     end
 
     def index_scenarios(chooser)
@@ -384,6 +388,26 @@ module Pages
           chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_step.("/de#{IDX_SETUP_NEW}"), wz_step.("/pl#{IDX_SETUP_NEW}"), wz_step.(IDX_PICK_NEW),
           wz_bare.(IDX_PICK, ND100), wz_step.(IDX_EXCHANGE_NEW), wz_step.(IDX_KEY_NEW), wz_step.(IDX_QUOTE_NEW)
         ) },
+        # A17-1: the CoinGecko step's key, checked against CoinGecko (stubbed: pages_settings.rb coingecko_stubs), saved, then the
+        # index picker; a key CoinGecko refuses; a member, who is not asked.
+        'wizard_setup_coingecko_ok' => { 'user' => owner, 'install' => 'alpaca', 'market_data' => 'none', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_submit.(IDX_SETUP, { 'api_key' => CG_KEY }).merge('expect' => 302, 'settings_snapshot' => true),
+          wz_step.(IDX_PICK_NEW)
+        ) },
+        'wizard_setup_coingecko_bad_key' => { 'user' => owner, 'install' => 'alpaca', 'market_data' => 'none', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_submit.(IDX_SETUP, { 'api_key' => CG_BAD }).merge('expect' => 422, 'settings_snapshot' => true)
+        ) },
+        'wizard_setup_coingecko_non_admin' => { 'user' => owner, 'install' => 'alpaca', 'market_data' => 'none', 'extra_users' => [member], 'steps' => [
+          get('/login'), login(email: 'second@example.com'), chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW),
+          wz_bare.(IDX_SETUP, { 'api_key' => CG_KEY }).merge('expect' => 403, 'settings_snapshot' => true)
+        ] },
+        # Top coins on Kraken on a CoinGecko install (D-INDEX-TOP-N: the engine follows the stored ranking): the key, the picker,
+        # the venue, its key, the EUR quote, the bot and its page.
+        'wizard_index_top_coingecko' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_submit.(IDX_SETUP, { 'api_key' => CG_KEY }).merge('expect' => 302),
+          wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(3), wz_step.(IDX_KEY_NEW),
+          wz_key.('kraken-correct', IDX_KEY), wz_step.(IDX_QUOTE_NEW), ix_quote.(18), get('/bots/1')
+        ), 'crypto_indices' => true, 'market_data' => 'none', 'cg_market_caps' => true, 'venue_keys' => {}),
         'wizard_index_unconfigured_member' => { 'user' => owner, 'install' => 'alpaca', 'market_data' => 'none', 'extra_users' => [member], 'steps' => [
           get('/login'), login(email: 'second@example.com'), chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_step.("/de#{IDX_SETUP_NEW}")
         ] }
