@@ -96,13 +96,15 @@ impl Report {
     /// in `currency` at the day's rate: a coin row's own fiat quote, or the fiat leg of a trade booked as a group (Kraken).
     /// A stablecoin is a coin.
     pub(super) fn fiat_trades(&self, ps: &mut PriceService, currency: &str) -> Result<(Dec, Dec), FiguresError> {
-        let traded: HashSet<(i64, &str)> = self.scoped.iter().filter(|r| !fiat(&r.base) && matches!(r.kind, Kind::Buy | Kind::Sell))
+        // A trade's legs: bought and sold rows, and swap legs (a fiat-funded convert books its fiat as a swap leg).
+        let leg = |k: Kind| matches!(k, Kind::Buy | Kind::Sell | Kind::SwapIn | Kind::SwapOut);
+        let traded: HashSet<(i64, &str)> = self.scoped.iter().filter(|r| !fiat(&r.base) && leg(r.kind))
             .filter_map(|r| r.group.as_deref().map(|g| (r.exchange_id, g))).collect();
         let (mut paid, mut received) = (Dec::zero(), Dec::zero());
-        for r in self.scoped.iter().filter(|r| self.in_year(r.at) && matches!(r.kind, Kind::Buy | Kind::Sell)) {
+        for r in self.scoped.iter().filter(|r| self.in_year(r.at) && leg(r.kind)) {
             let (cash, amount, pays) = match (&r.group, fiat(&r.base)) {
-                (Some(g), true) if traded.contains(&(r.exchange_id, g.as_str())) => (r.base.as_str(), &r.amount, r.kind == Kind::Sell),
-                (None, false) => match (r.quote.as_deref(), &r.quote_amount) { (Some(q), Some(a)) if fiat(q) => (q, a, r.kind == Kind::Buy), _ => continue },
+                (Some(g), true) if traded.contains(&(r.exchange_id, g.as_str())) => (r.base.as_str(), &r.amount, r.kind.out_leg()),
+                (None, false) => match (r.quote.as_deref(), &r.quote_amount) { (Some(q), Some(a)) if fiat(q) => (q, a, r.kind.in_leg()), _ => continue },
                 _ => continue,
             };
             let value = ps.convert_fiat(amount, cash, currency, r.at)?;

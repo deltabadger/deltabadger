@@ -489,7 +489,7 @@ impl Report {
             for p in &engine.pvct.points {
                 let Some(d) = engine.disposals.iter().find(|d| d.source == p.uid) else { continue };
                 let (value, unpriced) = fr::value(&mut ps, currency, p, d)?;
-                let own = txs.iter().find(|t| t.row.uid == p.uid).is_some_and(|t| t.row.value_missing.unwrap_or(t.row.price_missing));
+                let own = txs.iter().find(|t| t.row.uid == p.uid).is_some_and(|t| t.row.value_missing.unwrap_or(t.row.price_missing) || t.row.fee_missing);
                 inputs.push(fr::Input { source: p.uid, proceeds: d.proceeds.clone(), fee: d.fee.clone(), gross: p.gross.clone(), value,
                                         missing: p.uncertain || unpriced || own || d.uncovered.is_positive() });
             }
@@ -511,6 +511,10 @@ impl Report {
                     _ => coin_fee.map(|(c, a)| (c.to_string(), a.clone())),
                 };
                 if let Some((coin, units)) = listed { notes.fr_fees.push(format!("{coin} {} {}", units.to_s_f(), date(r.at))); }
+                // A linked withdrawal's fee in another coin is paid beside its network fee (branch review).
+                if r.kind == Kind::Withdrawal && r.linked {
+                    if let Some((c, a)) = coin_fee.filter(|(c, _)| *c != r.base) { notes.fr_fees.push(format!("{c} {} {}", a.to_s_f(), date(r.at))); }
+                }
             }
         }
         // D-TAX-SE-K4: Sweden's rows too, so the K4 sums are the printed rows'.

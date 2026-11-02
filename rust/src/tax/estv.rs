@@ -49,7 +49,9 @@ impl Live {
         let session = answer(session).await?;
         let token = session["data"]["csrfToken"].as_str().filter(|t| !t.is_empty()).ok_or("no CSRF token in the session")?.to_string();
         let listed = answer(client.get(format!("{}/coreGadget/tokens.json", self.base)).header(reqwest::header::COOKIE, &cookie).send().await.map_err(|e| e.to_string())?).await?;
-        let listed: HashSet<&str> = listed["data"].as_array().ok_or("no token list")?.iter().filter_map(|t| t["token"]["shortName"].as_str()).collect();
+        // Branch review: a NULL is stored only from a whole catalogue: an entry with no symbol, or none at all, answers nothing.
+        let entries = listed["data"].as_array().filter(|a| !a.is_empty()).ok_or("no token list")?;
+        let listed: HashSet<&str> = entries.iter().map(|t| t["token"]["shortName"].as_str().filter(|s| !s.is_empty())).collect::<Option<_>>().ok_or("a token with no symbol")?;
         let mut out: Vec<(String, Option<Dec>)> = symbols.iter().filter(|s| !listed.contains(s.as_str())).map(|s| (s.clone(), None)).collect();
         let asked: Vec<&String> = symbols.iter().filter(|s| listed.contains(s.as_str())).collect();
         if asked.is_empty() { return Ok(out); }
@@ -70,7 +72,9 @@ impl Live {
 async fn answer(r: reqwest::Response) -> Result<Value, String> {
     let status = r.status().as_u16();
     if !(200..300).contains(&status) { return Err(format!("HTTP {status}")); }
-    let body: Value = serde_json::from_str(&r.text().await.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    // Branch review: read chunk by chunk, never past 4 MiB (the catalogue is a few kB).
+    let body = crate::venue::http::read_limited(r, 4 << 20).await.map_err(|e| format!("{e:?}"))?.body;
+    let body: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
     if body["status"].as_str() != Some("SUCCESS") { return Err(format!("status {}", body["status"])); }
     Ok(body)
 }
@@ -170,4 +174,22 @@ mod tests {
         ensure_loaded(&db, &live, vec![(2026, vec!["BTC".into()])], day("2026-11-02")).await;
         assert_eq!(rows(&db).await, vec![]);
     }
+
+    /// Branch review: a catalogue with an entry that names no symbol stores no NULL (nothing is "not listed" from it), and a
+    /// body past the read limit is refused.
+    #[tokio::test]
+    async fn a_malformed_catalogue_or_an_oversized_body_stores_nothing() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/authentication/session.json")).respond_with(ok(json!({ "csrfToken": "tok-1" }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/coreGadget/tokens.json")).respond_with(ok(json!([{ "token": {} }]))).expect(1).mount(&server).await;
+        let db = db();
+        let live = Live { base: server.uri() };
+        ensure_loaded(&db, &live, needs(), day("2026-11-02")).await;
+        assert_eq!(rows(&db).await, vec![]);
+        let big = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/authentication/session.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(format!("{{\"status\":\"SUCCESS\",\"pad\":\"{}\"}}", "x".repeat(5 << 20)))).mount(&big).await;
+        assert!(Live { base: big.uri() }.values(day("2025-12-31"), &["BTC".into()]).await.is_err());
+    }
+
 }

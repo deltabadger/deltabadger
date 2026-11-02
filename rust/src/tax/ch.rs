@@ -124,7 +124,12 @@ impl Report {
         // year before's end).
         let start = self.held_at(instant(local_midnight(&self.zone, y))?)?;
         let mut opening = Dec::zero();
-        for h in &start { opening = (&opening + &self.ch_value(ps, h, &start, Some(y - 1), ymd(y - 1, 12, 31)?)?.0)?; }
+        for h in &start {
+            let (value, state) = self.ch_value(ps, h, &start, Some(y - 1), ymd(y - 1, 12, 31)?)?;
+            // Branch review: the KS 36 limit rests on an ESTV value that could not be read: provisional too.
+            if state == Valued::Unresolved { provisional = true; }
+            opening = (&opening + &value)?;
+        }
         let (paid, got) = self.fiat_trades(ps, "CHF")?;
         let volume = (&paid + &got)?;
         let sales: Vec<String> = self.scoped.iter().filter(|r| self.in_year(r.at) && r.kind == Kind::Sell && !fiat(&r.base))

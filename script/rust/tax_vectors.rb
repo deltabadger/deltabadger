@@ -2020,7 +2020,7 @@ module TaxVectors
   end
 
   def fr_scenarios
-    fr = ->(name, year: 2025, expect: 'diverges: D-TAX-FR-2086', &setup) { { name:, country: 'FR', year:, expect:, setup: ->(c) { user_zone(c, 'Paris'); setup.(c) } } }
+    fr = ->(name, year: 2025, expect: 'diverges: D-TAX-FR-2086', **opts, &setup) { { name:, country: 'FR', year:, expect:, **opts, setup: ->(c) { user_zone(c, 'Paris'); setup.(c) } } }
     eur = ->(coin, day, value) { price(coin, day, value, 'EUR') }
     kr = ->(c) { venue(c, :kraken) }
     bn = ->(c) { venue(c, :binance) }
@@ -2143,6 +2143,27 @@ module TaxVectors
       end,
       # D-TAX-FR-NETWORK-FEE: a 0.0005 network fee (1 sent, 0.9995 arrived) and a 0.0001 fee row, no cessions, both listed:
       # V 60,000, l.220 50,000, +10,000.00; IR 1,280.00, PS 1,860.00, total 3,140.00.
+      # Branch review: a linked withdrawal's fee in another coin (0.1 ETH) is listed beside its network fee (0.0005 BTC) and
+      # leaves the ETH units: V 60,000 + 0.9 × 2,500 = 62,250, l. 220 53,000, fraction 51,084.34, +8,915.66.
+      fr.('fr_withdrawal_third_coin_fee', expect: 'diverges: D-TAX-FR-NETWORK-FEE') do |c|
+        eur.('BTC', '2025-02-01', '55000')
+        eur.('ETH', '2025-02-01', '3000')
+        eur.('BTC', '2025-03-01', '56000')
+        eur.('ETH', '2025-05-01', '2500')
+        kraken(c, :buy, 'BTC', '1', '50000', '2025-01-10T10:00:00Z')
+        kraken(c, :buy, 'ETH', '1', '3000', '2025-01-10T11:00:00Z')
+        row(c, :deposit, 'BTC', '0.9995', '2025-02-01T10:10:00Z', exchange: bn.(c))
+        deposit = AccountTransaction.order(:id).last
+        row(c, :withdrawal, 'BTC', '1', '2025-02-01T10:00:00Z', exchange: kr.(c), linked_transaction_id: deposit.id, fee_currency: 'ETH', fee_amount: '0.1')
+        transfer(c, 'BTC', '0.9995', '2025-03-01T10:00:00Z', from: bn.(c), to: kr.(c))
+        kraken(c, :sell, 'BTC', '0.9995', '60000', '2025-05-01T10:00:00Z')
+      end,
+      # Branch review: a sale's fee with no rate (USD on an ECB gap day) marks the cession incomplete: +1,000.00 (fee 0), banner.
+      fr.('fr_fee_missing_rate', expect: 'diverges: D-TAX-FR-INCOMPLETE', fx_gap: %w[2025-06-02]) do |c|
+        kraken(c, :buy, 'ETH', '1', '1000', '2025-01-10T10:00:00Z')
+        row(c, :sell, 'ETH', '1', '2025-06-02T10:00:00Z', exchange: kr.(c), group_id: 'fm', tx_id: 'fm-ETH')
+        row(c, :buy, 'EUR', '2000', '2025-06-02T10:00:00Z', exchange: kr.(c), group_id: 'fm', tx_id: 'fm-EUR', fee_currency: 'USD', fee_amount: '10')
+      end,
       fr.('fr_network_fee', expect: 'diverges: D-TAX-FR-NETWORK-FEE') do |c|
         eur.('BTC', '2025-02-01', '55000')
         eur.('BTC', '2025-03-01', '56000')
@@ -2249,6 +2270,13 @@ module TaxVectors
         row(c, :fee, 'BTC', '0.001', '2024-09-01T10:00:00Z', exchange: bn)
       end,
       # D-TAX-NL-ACTUAL, gross (r1 item 8): V0 0, V1 1,000.00, purchases 1,000.00, sales 1,200.00, contribution 1,200.00.
+      # Branch review: a fiat-funded convert (EUR as a swap leg) is a purchase: V1 2,000.00, purchases 1,000.00, contribution 1,000.00.
+      nl.('nl_actual_fiat_swap') do |c|
+        bn = venue(c, :binance)
+        eur.('ETH', '2026-01-01', '2000')
+        row(c, :swap_out, 'EUR', '1000', '2025-03-01T10:00:00Z', exchange: bn, group_id: 'fs', tx_id: 'fs-out-EUR')
+        row(c, :swap_in, 'ETH', '1', '2025-03-01T10:00:00Z', exchange: bn, group_id: 'fs', tx_id: 'fs-in-ETH')
+      end,
       nl.('nl_actual_gross') do |c|
         eur.('ETH', '2026-01-01', '2000')
         kraken(c, :buy, 'ETH', '1', '1000', '2025-02-01T10:00:00Z', fee: '10')
@@ -2336,6 +2364,13 @@ module TaxVectors
       end,
       # D-TAX-CH-KS36: volume 178,600.00 vs 5 × 88,000 = 440,000.00; BTC 1 69,571.99.
       ch.('ch_ks36', expect: 'diverges: D-TAX-CH-KS36', estv: [[2024, 'BTC', '88000'], [2025, 'BTC', '69571.988489']]) do |c|
+        kraken(c, :buy, 'BTC', '1', '30000', '2024-02-01T10:00:00Z')
+        kraken(c, :buy, 'BTC', '1', '90000', '2025-03-01T10:00:00Z')
+        kraken(c, :sell, 'BTC', '1', '100000', '2025-08-01T10:00:00Z')
+      end,
+      # Branch review: no ESTV row for 2024 (the KS 36 opening): BTC at CHF 90,000 on 2024-12-31, limit 450,000.00, provisional.
+      ch.('ch_ks36_opening_unresolved', expect: 'diverges: D-TAX-CH-KS36', estv: [[2025, 'BTC', '69571.988489']]) do |c|
+        price('BTC', '2024-12-31', '90000', 'CHF')
         kraken(c, :buy, 'BTC', '1', '30000', '2024-02-01T10:00:00Z')
         kraken(c, :buy, 'BTC', '1', '90000', '2025-03-01T10:00:00Z')
         kraken(c, :sell, 'BTC', '1', '100000', '2025-08-01T10:00:00Z')
