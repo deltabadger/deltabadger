@@ -321,6 +321,13 @@ pub fn tally(page: &[Value]) -> Vec<(Value, usize)> {
     out
 }
 
+/// The mids of an allMids answer as Exchanges::Hyperliquid#get_tickers_prices reads them, before its keep to the listed
+/// pairs: every coin's mid; a mid that is no decimal is left out (as Binance's and KuCoin's). Shared by the engine
+/// (`tickers_prices`) and the figures.
+pub fn mids(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
+    Ok(body.as_object().ok_or_else(unreadable)?.iter().filter_map(|(pair, v)| crate::ruby::json_to_d(v).ok().flatten().map(|p| (pair.clone(), p))).collect())
+}
+
 /// Exchanges::Hyperliquid#get_candles' interval for each timeframe: 3 days, 1 week and 1 month are daily, built.
 pub fn candle_interval(timeframe: Timeframe) -> &'static str {
     match timeframe {
@@ -465,10 +472,8 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
     /// Exchanges::Hyperliquid#get_tickers_prices: allMids, the listed pairs' mids (Rails caches the answer for a minute; this
     /// reads fresh). Each price is its decimal's `to_s('F')`; a mid that is no decimal is left out (as Binance's and KuCoin's).
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
-        let mids = self.info("allMids", vec![]).await?;
-        let mids = mids.as_object().ok_or_else(unreadable)?;
-        Ok(mids.iter().filter(|(pair, _)| self.pairs.by_symbol.contains_key(*pair))
-            .filter_map(|(pair, v)| crate::ruby::json_to_d(v).ok().flatten().map(|p| (pair.clone(), Value::String(p.to_s_f())))).collect())
+        let body = self.info("allMids", vec![]).await?;
+        Ok(mids(&body)?.into_iter().filter(|(pair, _)| self.pairs.by_symbol.contains_key(pair)).map(|(pair, p)| (pair, Value::String(p.to_s_f()))).collect())
     }
 
     /// #cancel_order through Clients::Hyperliquid#cancel → Exchange#cancel: `{type: cancel, cancels: [{a, o}]}` for the pair

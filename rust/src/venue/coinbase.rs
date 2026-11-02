@@ -248,6 +248,18 @@ fn format_transport(e: http::TransportError) -> String {
         | http::TransportError::MaybeSent(m) => m,
     }
 }
+/// Exchanges::Coinbase#get_tickers_prices' path (Clients::Coinbase#list_public_products, no parameters).
+pub const PRODUCTS: &str = "/api/v3/brokerage/market/products";
+/// The prices of a market/products answer as Exchanges::Coinbase#get_tickers_prices reads them: every product's
+/// `product_id` and `price`; a price that is no decimal is left out. Shared by the engine (`tickers_prices`) and the figures.
+pub fn ticker_prices(b: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
+    let mut out = vec![];
+    for p in b["products"].as_array().ok_or_else(unreadable)? {
+        let symbol = p["product_id"].as_str().ok_or_else(unreadable)?;
+        if let Ok(price) = dec(&p["price"]) { out.push((symbol.into(), price)); }
+    }
+    Ok(out)
+}
 /// Exchanges::Coinbase#get_candles' granularity for each timeframe and its length in seconds: 4 hours are two-hourly,
 /// 3 days, 1 week and 1 month daily, built.
 pub fn candle_granularity(timeframe: Timeframe) -> (&'static str, i64) {
@@ -483,18 +495,11 @@ impl<T: Transport> super::Venue for CoinbaseVenue<T> {
     ) -> Result<Vec<(String, Value)>, VenueError> {
         let b = self
             .call(
-                &self.request("GET", "/api/v3/brokerage/market/products", vec![], None),
+                &self.request("GET", PRODUCTS, vec![], None),
                 false,
             )
             .await?;
-        let mut out = vec![];
-        for p in b["products"].as_array().ok_or_else(unreadable)? {
-            let symbol = p["product_id"].as_str().ok_or_else(unreadable)?;
-            if let Ok(price) = dec(&p["price"]) {
-                out.push((symbol.into(), json!(price.to_s_f())));
-            }
-        }
-        Ok(out)
+        Ok(ticker_prices(&b)?.into_iter().map(|(symbol, price)| (symbol, json!(price.to_s_f()))).collect())
     }
     async fn cancel(&self, id: &str) -> Result<(), VenueError> {
         let b = self
