@@ -26,21 +26,23 @@ impl Plan {
 /// The header a request to `base` carries the key in: `x-cg-pro-api-key` on the pro host, else `x-cg-demo-api-key`.
 pub fn header_for(base: &str) -> &'static str { if base == PRO { "x-cg-pro-api-key" } else { "x-cg-demo-api-key" } }
 
-/// Faraday's `rate_limit` middleware: at most `limit` requests in any 60 s, a request over it waiting for the oldest to
-/// age out. On tokio's clock, so a test with a paused clock sees the wait.
-pub struct Throttle { limit: usize, sent: Mutex<VecDeque<Instant>> }
+/// Faraday's `rate_limit` middleware: one key's requests of the last 60 s, whatever host or plan they went to; a request
+/// waits while the window holds its limit (the lower of the caller's and `cap`). On tokio's clock, so a test with a paused
+/// clock sees the wait.
+pub struct Throttle { cap: usize, sent: Mutex<VecDeque<Instant>> }
 
 impl Throttle {
-    pub fn new(limit: usize) -> Self { Self { limit, sent: Mutex::new(VecDeque::new()) } }
+    pub fn new(cap: usize) -> Self { Self { cap, sent: Mutex::new(VecDeque::new()) } }
 
-    /// Waits for a slot, then takes it.
-    pub async fn acquire(&self) {
+    /// Waits until the window holds fewer than `limit` requests, then takes a slot.
+    pub async fn acquire(&self, limit: usize) {
+        let limit = limit.min(self.cap);
         loop {
             let wait = {
                 let mut sent = self.sent.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 let now = Instant::now();
                 while sent.front().is_some_and(|t| now.duration_since(*t) >= Duration::from_secs(60)) { sent.pop_front(); }
-                if sent.len() < self.limit { sent.push_back(now); return; }
+                if sent.len() < limit { sent.push_back(now); return; }
                 Duration::from_secs(60) - now.duration_since(sent[0])
             };
             tokio::time::sleep(wait).await;
@@ -48,13 +50,14 @@ impl Throttle {
     }
 }
 
-/// The process's throttle for a key on a plan. ponytail: one map entry per key ever used in the process (a handful).
-type Throttles = Mutex<HashMap<(String, u8), Arc<Throttle>>>;
+/// The process's throttle for a key: one request history the plan ping and every call share. ponytail: one map entry per
+/// key ever used in the process (a handful).
+type Throttles = Mutex<HashMap<String, Arc<Throttle>>>;
 
-pub fn throttle(key: &str, plan: Plan) -> Arc<Throttle> {
+pub fn throttle(key: &str) -> Arc<Throttle> {
     static ALL: OnceLock<Throttles> = OnceLock::new();
     let mut all = ALL.get_or_init(Default::default).lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    all.entry((key.to_string(), plan as u8)).or_insert_with(|| Arc::new(Throttle::new(plan.per_minute()))).clone()
+    all.entry(key.to_string()).or_insert_with(|| Arc::new(Throttle::new(usize::MAX))).clone()
 }
 
 /// The live transport: the key in the header its host takes, JSON, bounded bodies.
@@ -94,6 +97,10 @@ impl<T: Transport> CoinGecko<T> {
     pub fn with_throttle(mut self, t: Arc<Throttle>) -> Self { self.throttle = Some(t); self }
     pub fn transport(&self) -> &T { &self.transport }
 
+    async fn slot(&self, limit: usize) {
+        match &self.throttle { Some(t) => t.acquire(limit).await, None => throttle(&self.key).acquire(limit).await }
+    }
+
     fn request(base: &str, path: &str, query: &[(&'static str, String)]) -> HttpRequest {
         HttpRequest { method: "GET", base: base.into(), path: format!("{PATH}{path}"), query: query.to_vec(), body: None, not_after: None }
     }
@@ -105,7 +112,7 @@ impl<T: Transport> CoinGecko<T> {
         self.plan.get_or_try_init(|| async {
             // The ping counts against the key's quota too: it takes a slot of the demo pace (the stricter one), as the plan
             // is not yet known.
-            match &self.throttle { Some(t) => t.acquire().await, None => throttle(&self.key, Plan::Demo).acquire().await }
+            self.slot(Plan::Demo.per_minute()).await;
             match self.transport.send_limited(&Self::request(PRO, "/ping", &[]), 64 * 1024).await {
                 Ok(r) if r.status == 200 => Ok(Plan::Pro),
                 Ok(r) if r.status == 429 => Err(ApiError::Failed { status: Some(429), message: "CoinGecko plan check: HTTP 429".into() }),
@@ -119,7 +126,7 @@ impl<T: Transport> CoinGecko<T> {
     /// One GET of `path` under /api/v3, after the plan and a throttle slot. Any answer but 2xx is `Failed` with its status.
     pub async fn get(&self, path: &str, query: &[(&'static str, String)]) -> Result<Value, ApiError> {
         let plan = self.plan().await?;
-        match &self.throttle { Some(t) => t.acquire().await, None => throttle(&self.key, plan).acquire().await }
+        self.slot(plan.per_minute()).await;
         let req = Self::request(plan.base(), path, query);
         let resp = match self.transport.send_limited(&req, MAX_REFERENCE_BODY).await {
             Ok(r) => r,
@@ -221,10 +228,32 @@ mod tests {
         rt().block_on(async {
             let th = Throttle::new(30);
             let start = Instant::now();
-            for _ in 0..30 { th.acquire().await; }
+            for _ in 0..30 { th.acquire(30).await; }
             assert_eq!(start.elapsed(), Duration::ZERO);
-            th.acquire().await;
+            th.acquire(30).await;
             assert_eq!(start.elapsed(), Duration::from_secs(60));
+        });
+    }
+
+    /// The ping and the calls of every client of one key share one minute: a pro key that has spent 30 requests makes
+    /// a new client's ping wait, and the key's 251st request of a minute waits whatever asked it.
+    #[test]
+    fn one_key_shares_one_window_across_clients_and_the_ping() {
+        rt().block_on(async {
+            let t = ScriptedTransport::default();
+            t.reply("GET /api/v3/ping", 200, json!({})).reply("GET /api/v3/coins/markets", 200, json!([]));
+            let key = "shared-window-test-key";
+            let start = Instant::now();
+            let first = CoinGecko::new(key, t.clone());
+            for _ in 0..29 { first.markets(None, None, 250, 1).await.unwrap(); }
+            assert_eq!((t.requests().len(), start.elapsed()), (30, Duration::ZERO), "ping + 29 calls at once");
+            CoinGecko::new(key, t.clone()).plan().await.unwrap();
+            assert_eq!(start.elapsed(), Duration::from_secs(60), "a second client's ping waits for the key's window");
+            // The window now holds that ping; 249 pro calls fill it to 250 at once.
+            for _ in 0..249 { first.markets(None, None, 250, 1).await.unwrap(); }
+            assert_eq!((t.requests().len(), start.elapsed()), (280, Duration::from_secs(60)));
+            first.markets(None, None, 250, 1).await.unwrap();
+            assert_eq!(start.elapsed(), Duration::from_secs(120), "the 251st request of the minute waits");
         });
     }
 
@@ -239,7 +268,7 @@ mod tests {
             assert!(!check(&CoinGecko::new("k", bad).with_throttle(Arc::new(Throttle::new(30)))).await);
             // A full throttle: the wait counts against the deadline.
             let full = Arc::new(Throttle::new(1));
-            full.acquire().await;
+            full.acquire(1).await;
             let t = ScriptedTransport::default();
             t.reply("GET /api/v3/ping", 200, json!({})).reply("GET /api/v3/coins/markets", 200, json!([]));
             let start = Instant::now();
