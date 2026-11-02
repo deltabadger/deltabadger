@@ -284,9 +284,11 @@ fn action_rows(dir: &Path, cipher: &deltabadger::crypto::Cipher) -> Result<(Valu
             actions.insert(table, value);
         }
         else {
-            // D-CG-SETUP-DURABLE: the setup run a save asks for is Rust's own row.
+            // Rust's own rows: the setup run a save asks for (D-CG-SETUP-DURABLE), and the provider the stored ranking
+            // came from, which the grid's resync records as the fixture's (parity::resync_marked).
             if table == "app_configs" {
-                if let Some(rows) = value.as_array_mut() { rows.retain(|row| row["key"] != deltabadger::jobs::setup_sync::REQUEST); }
+                let own = [deltabadger::jobs::setup_sync::REQUEST, deltabadger::engine::provider::KEY];
+                if let Some(rows) = value.as_array_mut() { rows.retain(|row| !own.iter().any(|key| row["key"] == *key)); }
             }
             others.insert(table, value);
         }

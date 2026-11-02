@@ -141,6 +141,8 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
                     } else {
                         config(crate::app_config::set(&tx, cipher, "market_data_provider", "coingecko", now))?;
                         config(crate::app_config::set(&tx, cipher, "coingecko_api_key", &key, now))?;
+                        // D-CG-SETTINGS-SAVE-SYNCS: Rails' update_market_data enqueues nothing, so a fresh key syncs
+                        // nothing until the schedules fire; here it asks for the setup run the tracker's save asks for.
                         request_setup(&tx, &inner)?;
                         requested = true;
                         Some("settings.market_data.updated")

@@ -996,6 +996,8 @@ fn add_stock_bodies(c: &Connection, bot: &crate::engine::model::Bot, script: &mu
 pub async fn resync_marked(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), EngineError> {
     // As `serve` opens the engine's connection: the install's market-data provider readable.
     crate::engine::provider::bind(c, cipher, &|_| None)?;
+    // A Rails fixture's stored ranking is its provider's complete answer: the refresh fence holds, as on the order grid.
+    if let Some(hash) = crate::engine::provider::fingerprint(c)? { crate::engine::provider::record(c, &hash, now)?; }
     let (prices, mut state) = (PriceCache::default(), crate::engine::run::Resyncs::default());
     for (id, marker) in crate::engine::index::resync_marked(c)? {
         let venue = crate::venue::fake::FakeVenue::new().on_price(|| panic!("a page-grid resync probed a newcomer's price"));

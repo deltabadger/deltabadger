@@ -5,7 +5,7 @@ use crate::{app_config, crypto::Cipher, jobs::data_api::Config};
 use chrono::{DateTime,Utc};
 use rusqlite::{Connection, OptionalExtension, functions::FunctionFlags};
 use sha2::{Digest,Sha256};
-const KEY: &str = "rust_job.index_provider";
+pub const KEY: &str = "rust_job.index_provider";
 const MESSAGE: &str = "index needs a configured provider and a complete index refresh for its current configuration";
 
 /// Register the existing cipher, not new key derivation, on this connection. Functions are
