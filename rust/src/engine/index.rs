@@ -250,7 +250,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now != source_before || super::provider::fingerprint(tx)? != provider_before;
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
         if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
-        let mut reasons = super::eligibility::bot_reasons(tx, &current)?;
+        let mut reasons = super::eligibility::bot_reasons_typed(tx, &current)?;
         let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
         super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
         if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }

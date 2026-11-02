@@ -385,13 +385,13 @@ fn the_guard_refuses_a_write_that_makes_the_install_ineligible_and_names_the_bot
 #[test]
 fn a_report_refuses_problems_first_then_unreadable_rows_in_checks_words() {
     let unreadable = vec![(7, "Data(\"x\")".to_string())];
-    let r = eligibility::Report { eligible: vec![1], problems: vec![], unreadable: unreadable.clone(), notes: vec![] };
+    let r = eligibility::Report { eligible: vec![1], problems: vec![], unreadable: unreadable.clone(), notes: vec![] , ..Default::default() };
     let refused = r.refusal().unwrap_err();
     assert_eq!(refused.message(), format!("unreadable bot rows: {unreadable:?}"), "check's own format");
     assert_eq!(refused.reason(), "bot 7: unreadable (Data(\"x\"))");
-    let r = eligibility::Report { eligible: vec![], problems: vec!["bot 3 (stopped): x".into()], unreadable, notes: vec![] };
+    let r = eligibility::Report { eligible: vec![], problems: vec!["bot 3 (stopped): x".into()], unreadable, notes: vec![] , ..Default::default() };
     assert!(matches!(r.refusal(), Err(eligibility::Refusal::Ineligible(_))), "problems come first, as check reports them");
-    let r = eligibility::Report { eligible: vec![1, 2], problems: vec![], unreadable: vec![], notes: vec![] };
+    let r = eligibility::Report { eligible: vec![1, 2], problems: vec![], unreadable: vec![], notes: vec![] , ..Default::default() };
     assert_eq!(r.refusal().unwrap(), vec![1, 2]);
 }
 
@@ -1250,4 +1250,56 @@ fn inherited_rebalance_halts_do_not_mask_other_admission_or_guard_refusals() {
             assert!(eligibility::guard(&tx, &seed::cipher(), Some(id)).is_err(), "{status}: {sql}");
         }
     }
+}
+
+/// PLAN-B2 R3, r1.4 (B2-5a): the report names the same findings by id and kind as its problem lines, word for word: a
+/// working bot's reasons (`refused`), a stopped bot's work (`held`), a working withdrawal rule (`rules`), a flip target's
+/// reasons (check_install_at), and preflight's refusals by bot (`untradable`).
+#[test]
+fn the_report_types_every_finding_beside_its_problem_line() {
+    use deltabadger::engine::eligibility::{Allocations, Feature, Kind, Work};
+    use deltabadger::venue::alpaca::{self, Untradable};
+    let (_d, o, s) = install();
+    let working = seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5)]).with("future_limited", json!(1)));
+    let stopped = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() }.with("future_limited", json!(1)));
+    seed::insert_row(&o.primary, &s, stopped, s.btc, &json!({"external_id":"WAIT", "external_status":0, "side":0,
+        "amount":"0.001", "quote_amount":"60", "amount_exec":"0", "quote_amount_exec":"0", "created_at":"2026-09-01 10:00:01"}));
+    let flip = seed::insert_bot(&o.primary, &s, &plain().with("price_limited", json!(true)).with("price_limit_action", json!("start_selling"))
+        .with("sell_interval", json!("nonsense")));
+    o.primary.execute("INSERT INTO rules (type, status, user_id, settings, created_at, updated_at) VALUES ('Rules::Withdrawal', 1, ?1, '{}', '2026-01-01', '2026-01-01')", [s.user_id]).unwrap();
+    let rule: i64 = o.primary.query_row("SELECT max(id) FROM rules", [], |r| r.get(0)).unwrap();
+
+    let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
+    assert_eq!(r.rules, vec![rule]);
+    let line = |id: i64| r.problems.iter().find(|p| p.starts_with(&format!("bot {id} "))).unwrap_or_else(|| panic!("bot {id}: {:?}", r.problems)).clone();
+    for (id, reasons) in &r.refused {
+        let texts: Vec<&str> = reasons.iter().map(|r| r.text.as_str()).collect();
+        assert!(line(*id).ends_with(&format!("): {}", texts.join(", "))), "bot {id}: {texts:?} vs {}", line(*id));
+    }
+    for (id, reasons) in &r.held { assert!(reasons.iter().all(|t| line(*id).contains(&t.text)), "bot {id}: {reasons:?} vs {}", line(*id)); }
+    assert_eq!(r.refused.len() + r.held.len() + r.rules.len(), r.problems.len(), "{:?}", r.problems);
+    let kinds = |id: i64, list: &[(i64, Vec<eligibility::Reason>)]| list.iter().find(|(b, _)| *b == id).map(|(_, r)| r.iter().map(|r| r.kind.clone()).collect::<Vec<_>>()).unwrap_or_default();
+    let w = kinds(working, &r.refused);
+    assert!(w.contains(&Kind::Feature(Feature::Setting("future_limited".into()))), "{w:?}");
+    assert!(w.iter().any(|k| matches!(k, Kind::Allocations(Allocations::Unbalanced(sum)) if sum == "0.5")), "{w:?}");
+    assert!(kinds(stopped, &r.refused).is_empty());
+    let h = kinds(stopped, &r.held);
+    assert!(h.contains(&Kind::Work(Work::Outstanding)) && h.contains(&Kind::Feature(Feature::Setting("future_limited".into()))), "{h:?}");
+    let f = kinds(flip, &r.refused);
+    assert!(!f.is_empty() && f.iter().all(|k| matches!(k, Kind::Flip { condition, to_selling: true, inner } if condition == "price_limited" && inner.kind == Kind::Settings)), "{f:?}");
+    assert!(line(flip).contains("sell_interval"), "{}", line(flip));
+
+    // An unreadable threshold keeps refusing a stopped basket (it still rebalances): work, never set aside.
+    for status in [1, 2] {
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain() }.with("rebalance_enabled", json!(true)).with("rebalance_threshold", json!([1])));
+        let r = eligibility::check_install(&o.primary).unwrap();
+        let k = kinds(id, if status == 1 { &r.refused } else { &r.held });
+        assert!(k.contains(&Kind::Work(Work::Rebalancing)) && !k.contains(&Kind::Settings), "status {status}: {k:?}");
+        o.primary.execute("DELETE FROM bots WHERE id = ?1", [id]).unwrap();
+    }
+
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
+    assert_eq!(alpaca::untradable(&o.primary, &seed::cipher(), &[working, stopped]), vec![(working, Untradable::Missing("Kraken")), (stopped, Untradable::Missing("Kraken"))]);
+    let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();
+    assert!(e.contains(&format!("bot {stopped}: no Kraken API key")), "{e:?}");
 }
