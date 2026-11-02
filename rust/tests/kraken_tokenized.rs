@@ -98,6 +98,9 @@ async fn an_xstock_bot_places_its_buy_with_asset_class_and_stores_the_txid() {
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert_eq!((sent[0]["pair"].as_str(), sent[0]["asset_class"].as_str()), (Some("NVDAxUSD"), Some("tokenized_asset")), "{sent:?}");
     assert_eq!(rows(&o), vec![(0, Some("OX-NVDA-1".into()))]);
+    // The price the buy was sized at was read with the class too.
+    let priced: Vec<_> = t.requests().into_iter().filter(|r| r.path == "/0/public/Ticker").map(|r| r.query).collect();
+    assert!(!priced.is_empty() && priced.iter().all(|q| q.contains(&("asset_class", "tokenized_asset".to_string()))), "{priced:?}");
 }
 
 /// The region case: Kraken refuses an account that may not trade xStocks. The existing `restricted` outcome, never a silent
