@@ -22,6 +22,7 @@ services:
     volumes:
       - storage:/app/storage
     restart: unless-stopped
+    stop_grace_period: 60s
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health-check"]
       interval: 30s

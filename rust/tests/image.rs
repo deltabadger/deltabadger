@@ -33,16 +33,26 @@ fn unique(prefix: &str) -> String {
     format!("{prefix}{}x{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst))
 }
 
-/// Runs `command`, which starts the container `name`, and gives it a minute to exit. One still running then is removed
-/// and the test fails: a command that wrongly starts an engine fails instead of hanging.
+/// Runs `command`, which starts the container `name`, and gives it a minute to exit. Past that the test fails: a
+/// command that wrongly starts an engine fails instead of hanging. The client is killed and reaped first, so it can't
+/// create the container after the cleanup; then the container is removed until Docker no longer lists it.
 fn exits(mut command: Command, name: &str) -> Output {
     let child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().expect("docker runs");
+    let pid = child.id().to_string();
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || { let _ = tx.send(child.wait_with_output()); });
-    match rx.recv_timeout(Duration::from_secs(60)) {
-        Ok(out) => out.unwrap(),
-        Err(_) => { let _ = docker_out(&["rm", "-f", name]); panic!("{name} was still running after a minute") }
+    if let Ok(out) = rx.recv_timeout(Duration::from_secs(60)) { return out.unwrap(); }
+    let _ = Command::new("kill").args(["-9", &pid]).status();
+    let _ = rx.recv();
+    let filter = format!("name=^{name}$");
+    let start = Instant::now();
+    loop {
+        let _ = docker_out(&["rm", "-f", name]);
+        if docker(&["ps", "-a", "-q", "--filter", &filter]).is_empty() { break; }
+        assert!(start.elapsed() < Duration::from_secs(30), "{name} could not be removed");
+        std::thread::sleep(Duration::from_millis(500));
     }
+    panic!("{name} was still running after a minute")
 }
 
 /// `docker run --rm` of `args` (options, image, command), bounded as `exits`.
@@ -88,15 +98,22 @@ impl Drop for Volume {
 struct Container { id: String, port: u16 }
 
 impl Container {
-    fn start(image: &str, volume: &Volume, extra: &[&str], command: &[&str]) -> Self {
-        let mut args = vec!["run", "-d", "-p", "127.0.0.1::3000", "-e", "IBKR_CATALOGUE_URL=off"];
+    fn start(image: &str, volume: &Volume, extra: &[&str], command: &[&str]) -> Self { Self::run(image, volume, true, extra, command) }
+
+    /// As `start`, on `--network none`: nothing reachable outside the container, so no venue and no order; nothing is
+    /// published either (port 0), and `status` asks from inside with the image's curl.
+    fn offline(image: &str, volume: &Volume, extra: &[&str], command: &[&str]) -> Self { Self::run(image, volume, false, extra, command) }
+
+    fn run(image: &str, volume: &Volume, publish: bool, extra: &[&str], command: &[&str]) -> Self {
+        let mut args = vec!["run", "-d", "-e", "IBKR_CATALOGUE_URL=off"];
+        args.extend(if publish { ["-p", "127.0.0.1::3000"] } else { ["--network", "none"] });
         let mount = volume.mount();
         args.extend(["-v", &mount]);
         args.extend(extra);
         args.push(image);
         args.extend(command);
         let id = docker(&args);
-        let port = Self::mapped(&id);
+        let port = if publish { Self::mapped(&id) } else { 0 };
         Container { id, port }
     }
 
@@ -127,7 +144,14 @@ impl Container {
     }
 
     /// The HTTP status of GET `path`, or None while nothing answers.
-    fn status(&self, path: &str) -> Option<u16> { self.get(path).map(|(status, _)| status) }
+    /// Without a published port (`offline`, a compose service on `network_mode: none`) it is asked from inside.
+    fn status(&self, path: &str) -> Option<u16> {
+        if self.port != 0 { return self.get(path).map(|(status, _)| status) }
+        let url = format!("http://localhost:3000{path}");
+        // 5 s, as `get`'s read timeout: a server that accepts and never answers can't outlast `wait_for`'s deadline.
+        let out = docker_out(&["exec", &self.id, "curl", "-s", "--max-time", "5", "-o", "/dev/null", "-w", "%{http_code}", &url]);
+        String::from_utf8_lossy(&out.stdout).trim().parse().ok().filter(|&status| status != 0) // 000: nothing answers
+    }
 
     /// GET `path`: its status and the whole response.
     fn get(&self, path: &str) -> Option<(u16, String)> {
@@ -144,6 +168,15 @@ impl Container {
     fn stop(&self) -> String {
         docker(&["stop", &self.id]);
         docker(&["inspect", "-f", "{{.State.ExitCode}}", &self.id])
+    }
+
+    /// `stop` that must exit 0 within `limit`: how long it took.
+    fn stops_within(&self, limit: Duration) -> Duration {
+        let start = Instant::now();
+        assert_eq!(self.stop(), "0", "{}", self.logs());
+        let took = start.elapsed();
+        assert!(took < limit, "took {took:?} to stop\n{}", self.logs());
+        took
     }
 
     /// Waits up to two minutes for `path` to answer `want`.
@@ -306,7 +339,7 @@ fn refused_with_c9(image: &str, volume: &Volume, env: &[String]) {
     assert_eq!(status, 503);
     assert!(page.contains(C9), "{page}\n{}", app.logs());
     assert_eq!(app.status("/ui-ready"), Some(200));
-    assert_eq!(app.stop(), "0", "{}", app.logs());
+    app.stops_within(Duration::from_secs(2)); // the refusal page stops at once (r3.1)
     drop(app);
     assert_eq!(snapshot(image, volume), before, "a refused start changes no file");
 }
@@ -343,9 +376,14 @@ fn left_taken_over(image: &str, volume: &Volume, cipher: &Cipher, secrets: &[u8]
     let backups: Vec<_> = std::fs::read_dir(copy.path().join("backups")).expect("a backups folder").flatten()
         .map(|e| e.file_name().to_string_lossy().into_owned()).collect();
     assert!(backups.len() == 1 && backups[0].starts_with("pre-3.0-"), "{backups:?}");
-    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
-    let lease = deltabadger::lease::read(&c, cipher).unwrap().expect("a lease");
-    assert_eq!(lease["engine"], "rust", "{lease}");
+    let owned = lease(image, volume, cipher).expect("a lease");
+    assert_eq!(owned["engine"], "rust", "{owned}");
+}
+
+/// The lease row (app_configs engine_lease) on the volume, read under `cipher`; None once there is no row.
+fn lease(image: &str, volume: &Volume, cipher: &Cipher) -> Option<serde_json::Value> {
+    let copy = take(image, volume);
+    deltabadger::lease::read(&rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap(), cipher).unwrap()
 }
 
 /// Format 1's volume (below): 2.70.21's `migrate` on an empty named volume, then a Rails-encrypted sample.
@@ -531,13 +569,6 @@ impl Drop for Project {
     fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--remove-orphans", "-t", "5"]); }
 }
 
-/// Every path on the volume (without the lock and SQLite's -wal/-shm, which a running engine changes) and `.secrets`'
-/// sha256: what a refused start must leave as it was while the first engine keeps writing its databases.
-fn paths(image: &str, volume: &Volume) -> String {
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
-             "cd /app/storage && find . ! -name .engine.lock ! -name '*-shm' ! -name '*-wal' | sort && sha256sum .secrets"])
-}
-
 /// Umbrel's compose (deltabadger/docker-compose.yml) as 2.x users have it, on a 2.x Umbrel install (format 2: the
 /// secret is `${APP_SEED}-secret-key-base` in the env, the pair in `.secrets`). The override only swaps both images for
 /// the 3.0 one, drops `app_proxy` (Umbrel's own) and publishes `web`'s 3000 for the test. One engine trades: `web`
@@ -586,21 +617,22 @@ fn umbrels_two_service_compose_runs_one_engine() {
     assert_eq!(logs.matches("took over (").count(), 1, "one takeover across both services:\n{logs}");
 
     // A second engine on the same data, through the same compose: refused, nothing written, the first one still serves.
+    // `web` is paused around each (its lock stays held), so every file's bytes can be compared, databases included.
     for command in ["serve", "run"] {
-        let before = paths(&image, &storage);
+        docker(&["pause", &web.id]);
+        let before = snapshot(&image, &storage);
         let name = unique("dbsecond");
         let out = exits(project.command(&["run", "--rm", "-T", "--no-deps", "--name", &name, "web", command]), &name);
         let said = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
         assert_eq!(out.status.code(), Some(1), "{command}: {said}");
         assert!(said.contains(LOCKED), "{command}: {said}");
-        assert_eq!(paths(&image, &storage), before, "a refused {command} writes nothing");
+        assert_eq!(snapshot(&image, &storage), before, "a refused {command} writes nothing");
+        docker(&["unpause", &web.id]);
         assert_eq!(web.status("/health-check"), Some(200));
     }
 
     // `jobs` stops on SIGTERM at once with 0; `web` keeps serving.
-    let start = Instant::now();
-    assert_eq!(jobs.stop(), "0", "{}", jobs.logs());
-    assert!(start.elapsed() < Duration::from_secs(2), "jobs took {:?} to stop", start.elapsed());
+    jobs.stops_within(Duration::from_secs(2));
     assert_eq!(web.status("/health-check"), Some(200));
 
     assert_eq!(web.stop(), "0", "{}", web.logs());
@@ -621,6 +653,7 @@ fn the_own_server_compose_takes_a_2x_volume_over() {
         &[("APP_PORT", &port)]);
     project.ok(&["up", "-d"]);
     let app = project.container("deltabadger");
+    assert_eq!(docker(&["inspect", "-f", "{{.Config.StopTimeout}}", &app.id]), "60", "stop_grace_period (Q2)");
     app.wait_for("/health-check", 200);
     assert!(app.logs().contains("took over ("), "{}", app.logs());
     project.ok(&["stop"]);
@@ -667,4 +700,82 @@ fn rails_commands_are_refused_and_change_nothing() {
         assert!(String::from_utf8_lossy(&out.stderr).contains(R1), "{command:?}: {}", String::from_utf8_lossy(&out.stderr));
         assert_eq!(snapshot(&image, &fixture.volume), before, "{command:?} changes no file");
     }
+}
+
+// ---- B3-4: stop and handback (PLAN-B3 §1.4, §3, §8 slice 4 as r3.1 rewrote it) ----
+
+/// C8 (main.rs hand_back), handback's success line.
+const C8: &str = "scheduled. You can start Deltabadger 2.70.21 now.";
+
+/// docker-compose.build.yml builds the Rails Dockerfile until B3-7, so only its config is read here; its grace period is
+/// the 60 s docker-compose.yml's container shows (the_own_server_compose_takes_a_2x_volume_over).
+#[test]
+fn the_build_compose_gives_its_service_60_s_to_stop() {
+    let Some(_) = image() else { return };
+    let file = format!("{}/../docker-compose.build.yml", env!("CARGO_MANIFEST_DIR"));
+    let config = docker(&["compose", "-f", &file, "config"]);
+    assert!(config.contains("stop_grace_period: 1m0s"), "{config}");
+}
+
+/// A 2.x volume (format 1) 3.0 has taken over, served offline. SIGKILL (what Docker sends once the stop timeout runs
+/// out) leaves it taken over; `docker start` continues the same ownership (AfterCrash: no second takeover, no second
+/// backup); then a default `docker stop` (SIGTERM, 10 s) stops it on request with 0, well inside the 10 s. That an
+/// order survives the kill is the engine's, proven in-process (tests/placement.rs, tests/signal.rs,
+/// tests/withdrawal_engine.rs), not here (r3.1): offline, nothing is placed.
+#[test]
+fn a_taken_over_volume_restarts_after_a_kill_and_stops_on_sigterm() {
+    let Some(image) = image() else { return };
+    let fixture = made_by_2x_migrate(&image);
+    let secrets = std::fs::read(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    let app = Container::offline(&image, &fixture.volume, &[], &[]);
+    app.wait_for("/health-check", 200);
+    docker(&["kill", "-s", "KILL", &app.id]);
+    assert_eq!(docker(&["inspect", "-f", "{{.State.ExitCode}}", &app.id]), "137");
+    left_taken_over(&image, &fixture.volume, &fixture.cipher, &secrets);
+
+    docker(&["start", &app.id]);
+    app.wait_for("/health-check", 200);
+    let logs = app.logs();
+    assert_eq!(logs.matches("took over (").count(), 2, "{logs}");
+    assert!(logs.contains("took over (FromRails)") && logs.contains("took over (AfterCrash)"), "{logs}");
+    let took = app.stops_within(Duration::from_secs(9));
+    eprintln!("docker stop of a serving taken-over install: {took:?}");
+    assert!(app.logs().contains("stopped on request"), "{}", app.logs());
+    drop(app);
+    left_taken_over(&image, &fixture.volume, &fixture.cipher, &secrets);
+}
+
+/// The way back to 2.x through the own-server compose (PLAN-B3 §3), offline (`network_mode: none`): `up -d` takes a
+/// format-1 volume over; `docker compose stop`; `docker compose run --rm deltabadger handback` exits 0 with C8 and
+/// leaves the lease handed back. 2.70.21's `standalone` then boots on the same volume without a HeldError, serves 200
+/// and adopts the bots: its `adopt_handback!` deletes the lease row. Both leases are read under the volume's own keys.
+#[test]
+fn handback_through_the_compose_gives_the_volume_back_to_2x() {
+    let Some(image) = image() else { return };
+    let fixture = made_by_2x_migrate(&image);
+    let Volume::Named(volume) = &fixture.volume else { unreachable!() };
+    let project = Project::new("docker-compose.yml",
+        &format!("services:\n  deltabadger:\n    image: {image}\n    network_mode: none\n    ports: !reset []\n\
+                  volumes:\n  storage:\n    name: {volume}\n    external: true\n"), &[]);
+    project.ok(&["up", "-d"]);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("took over ("), "{}", app.logs());
+    project.ok(&["stop"]);
+    assert_eq!(docker(&["inspect", "-f", "{{.State.ExitCode}}", &app.id]), "0", "{}", app.logs());
+
+    let name = unique("dbhandback");
+    let out = exits(project.command(&["run", "--rm", "-T", "--name", &name, "deltabadger", "handback"]), &name);
+    let said = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert_eq!(out.status.code(), Some(0), "{said}");
+    assert!(String::from_utf8_lossy(&out.stdout).contains(C8), "{said}");
+    let back = lease(&image, &fixture.volume, &fixture.cipher).expect("a lease");
+    assert!(back["engine"] == "none" && back["released_by"] == "rust" && back["handed_back"] == true, "{back}");
+
+    let rails = Container::offline(RAILS_2X, &fixture.volume, &[], &["standalone"]);
+    rails.wait_for("/health-check", 200);
+    assert!(!rails.logs().contains("HeldError"), "{}", rails.logs());
+    docker(&["stop", &rails.id]);
+    drop(rails);
+    assert_eq!(lease(&image, &fixture.volume, &fixture.cipher), None, "2.70.21 adopted the handback and deleted the row");
 }
