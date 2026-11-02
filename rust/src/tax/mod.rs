@@ -40,6 +40,11 @@
 //! - Ireland (ie.rs; the engine's s. 581 in fifo.rs): D-TAX-IE-4WEEK (`matching_rule`), D-TAX-IE-RING-FENCE (with the 28
 //!   days after the year walked only to fill fences), D-TAX-IE-RATE, D-TAX-IE-PERIODS, D-TAX-IE-SUMMARY, D-TAX-IE-YEARS;
 //!   D-TAX-SWAP-RECEIVED as BG and CZ.
+//! - The United Kingdom (gb.rs; the engine's identification in fifo.rs, `Options::uk`): D-TAX-GB-TAX-YEAR (6 April to 5
+//!   April, `in_year`), with the rows to 8 May walked so the year's disposals see their 30 days (r4 item 1; their price
+//!   warnings kept); D-TAX-GB-UNSUPPORTED-ACTION (a stock event within a matched pair refuses the report);
+//!   D-TAX-GB-DEPOSIT (an unlinked deposit joins the pool, matches nothing); D-TAX-GB-AIRDROP (no income line, listed,
+//!   its cost assumed; a fork by its venue label listed too); D-TAX-GB-SA108; D-TAX-SWAP-RECEIVED as BG and CZ.
 //!
 //! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
 //! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
@@ -98,8 +103,11 @@ pub struct Report {
     carry: std::collections::BTreeMap<i32, Dec>,
     /// The Czech Republic's ČNB fixings (D-TAX-CZ-CNB); None elsewhere.
     cnb: Option<cnb::Cnb>,
-    /// D-TAX-IE-RING-FENCE (r1 item 4): Ireland's rows of the 28 days after the year, which only fill the year's fences.
+    /// D-TAX-IE-RING-FENCE (r1 item 4): Ireland's rows of the 28 days after the year, which only fill the year's fences;
+    /// GB's to 8 May, which only complete the year's matches.
     ahead: Vec<Stored>,
+    /// D-TAX-GB-AIRDROP: the rows whose venue label names a fork.
+    forks: HashSet<i64>,
 }
 
 /// The reads of `crypto_csv` up to the enrichment: the scope, the tokenized refusal, the banners.
@@ -131,15 +139,19 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     // D-TAX-IE-RING-FENCE: in Ireland the year ends at the taxpayer's midnight (east of UTC too, before the UTC end); a row
     // from that instant is the next year's, read only to fill fences, and refuses nothing.
     let ie_end = local_end.filter(|_| j.code == "IE");
-    let tokenized = tokenized_symbols(c, rows.iter().filter(|r| r.at.0 < ie_end.unwrap_or(rows_until).0))?;
+    // D-TAX-GB-TAX-YEAR: the United Kingdom's year ends at the taxpayer's midnight starting 6 April (s. 288(1ZA)).
+    let gb = j.code == "GB";
+    let year_end = if gb { local_start(&zone, (year + 1, 4, 6)) } else { ie_end };
+    let tokenized = tokenized_symbols(c, rows.iter().filter(|r| r.at.0 < year_end.unwrap_or(rows_until).0))?;
     if !tokenized.is_empty() { return Ok(Prepared::Done(Outcome::Refused { reason: "tokenized_unsupported".into(), symbols: tokenized })); }
     let banners = sync_issues(c, user_id, j.locale)?;
 
     // D-TAX-COIN-QUOTE after ordering, so the two legs keep the row's place (a negated id must not anchor the group).
     let stable_cash = !j.swaps_taxable() && stablecoin_as_fiat;
     // D-TAX-IE-RING-FENCE: a loss of 31 December is restricted by a purchase up to 28 January (the window's last day).
-    let ahead_until = if j.code == "IE" { local_start(&zone, (year + 1, 1, 29)) } else { None };
-    let in_year = |r: &Stored| match ie_end { Some(end) => r.at.0 < end.0, None => r.at.0 <= rows_until.0 };
+    // GB (r4 item 1): the 30 days after 5 April and the two days an Alpaca fee's fills can reach past them, to 8 May.
+    let ahead_until = if j.code == "IE" { local_start(&zone, (year + 1, 1, 29)) } else if gb { local_start(&zone, (year + 1, 5, 8)) } else { None };
+    let in_year = |r: &Stored| match year_end { Some(end) => r.at.0 < end.0, None => r.at.0 <= rows_until.0 };
     let (year_rows, later): (Vec<Stored>, Vec<Stored>) = rows.into_iter().partition(in_year);
     let mut scoped = rows::ordered_legs(year_rows, stable_cash)?;
     quote_stablecoin_legs(&mut scoped)?;
@@ -155,7 +167,23 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let nbp = if j.code == "PL" { Some(nbp::Nbp::load(c)?) } else { None };
     let carry = if j.code == "PL" { pl::declared(c, user_id, year)? } else { Default::default() };
     let cnb = if j.code == "CZ" { Some(cnb::Cnb::load(c)?) } else { None };
-    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb, ahead })))
+    let forks = if gb { fork_rows(c, user_id)? } else { HashSet::new() };
+    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb, ahead, forks })))
+}
+
+/// D-TAX-GB-AIRDROP (r3 item 3): the user's rows whose venue label names a fork: the row's own description (Binance's
+/// distributions), or for a KuCoin export the type of the rows it was derived from (`Airdrop/Fork`).
+fn fork_rows(c: &Connection, user_id: i64) -> Result<HashSet<i64>, FiguresError> {
+    let mut s = c.prepare("SELECT id FROM account_transactions WHERE user_id = ?1 AND lower(coalesce(description, '')) LIKE '%fork%'")?;
+    let mut ids: HashSet<i64> = s.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    let imports: bool = c.query_row("SELECT count(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'import_rows'", [], |r| r.get(0))?;
+    if imports {
+        let mut s = c.prepare("SELECT DISTINCT t.id FROM account_transactions t, json_each(t.raw_data, '$.source_rows') j \
+                               JOIN import_rows i ON i.user_id = t.user_id AND i.exchange_id = t.exchange_id AND i.row_id = j.value \
+                               WHERE t.user_id = ?1 AND json_valid(t.raw_data) AND lower(i.row_type) LIKE '%fork%'")?;
+        ids.extend(s.query_map([user_id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?);
+    }
+    Ok(ids)
 }
 
 /// Midnight starting 1 January of `year` in the user's zone (`ActiveSupport::TimeZone#local`).
@@ -196,7 +224,9 @@ struct AtNotes { speculation: Vec<(String, Dec)>, before_regime: Vec<(String, De
                  /// Italy's notes (it.rs).
                  it: it::Notes,
                  /// Ireland's NOTE blocks (D-TAX-IE-RING-FENCE, `ie_provisional`), as CSV lines at the file's end.
-                 tail: String }
+                 tail: String,
+                 /// D-TAX-GB-AIRDROP: the year's airdrops with their value, and those whose label names a fork.
+                 gb_airdrops: Vec<(String, Dec)>, gb_forks: Vec<String> }
 
 /// `Report::txs`: the rows kept, whether each was folded away, and what the engine walks.
 type Walked = (Vec<Entry>, Vec<bool>, Vec<fifo::Tx>);
@@ -207,6 +237,13 @@ struct Entry { id: i64, row: walk::Row, tx_id: Option<String> }
 
 impl Report {
     fn local(&self, at: At) -> NaiveDate { crate::web::timezone::local(at.utc(), &self.zone).date_naive() }
+
+    /// Whether an instant is in the report's year: D-TAX-GB-TAX-YEAR, the tax year from 6 April on the taxpayer's calendar;
+    /// elsewhere the local calendar year (D-TAX-LOCAL-YEAR).
+    fn in_year(&self, at: At) -> bool {
+        let day = self.local(at);
+        if self.j.code == "GB" { gb::tax_year(day) == self.year } else { day.year() == self.year }
+    }
 
     /// Midnight starting the local day `days` after `at`'s (s. 581's windows); `at` itself where out of range.
     fn local_day_start(&self, at: At, days: i64) -> At {
@@ -269,6 +306,9 @@ impl Report {
                 (e.row.fiat_value, e.row.price_missing, e.row.value_missing) = (Dec::zero(), false, Some(false));
             }
         }
+        // D-TAX-GB-AIRDROP (r2 item 5): an airdrop's purpose is not in the ledger: its lot opens at its value, assumed.
+        let gb = j.code == "GB";
+        if gb { assume_airdrops(&mut enriched); }
         let dk = j.code == "DK";
         // D-TAX-DK-SWAP-VALUE (SKM2024.218.SKTST): one value for both sides of an exchange.
         if dk { notes.swap_values = value_groups(&mut enriched, dk_value_side)?; }
@@ -285,8 +325,15 @@ impl Report {
                 if e.row.at.0 >= a.regime_from.0 { notes.zero_cost.push(format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at))); continue; }
             }
             // D-TAX-LOCAL-YEAR: income by the year the taxpayer was in, as disposals are (Rails: the UTC year).
-            if self.local(e.row.at).year() != year { continue; }
+            if !self.in_year(e.row.at) { continue; }
             let value = if fiat(&e.row.base) { ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)? } else { e.row.fiat_value.clone() };
+            // D-TAX-GB-AIRDROP: not income here (income only if given for a service, CRYPTO21250): listed with its value.
+            if gb && *kind == Kind::Airdrop && !fiat(&e.row.base) {
+                let label = format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at));
+                if self.forks.contains(&e.id) { notes.gb_forks.push(label.clone()); }
+                notes.gb_airdrops.push((label, value));
+                continue;
+            }
             // D-TAX-AT-INCOME-1-MARCH-2022: before § 27b, no part of the income taxed at 27.5%.
             if austria.as_ref().is_some_and(|a| e.row.at.0 < a.regime_from.0) {
                 notes.before_regime.push((format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at)), value));
@@ -294,22 +341,31 @@ impl Report {
             }
             income.push((i, name, value));
         }
-        let warnings = { let mut seen = HashSet::new(); ps.warnings.iter().filter(|w| seen.insert(w.as_str())).cloned().collect::<Vec<_>>() };
+        let mut warnings = { let mut seen = HashSet::new(); ps.warnings.iter().filter(|w| seen.insert(w.as_str())).cloned().collect::<Vec<_>>() };
         drop(ps);
 
-        let (taxable, folded, mut txs) = self.txs(&enriched)?;
-        let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && e.row.amount.is_positive())
-            .map(|(e, _)| &e.row).collect();
         // D-TAX-IE-RING-FENCE (r2 item 4, r3 item 3): the 28 days after the year, enriched apart (their warnings dropped,
         // their uids past the year's), walked after the year's rows; their disposals and income never reach the file.
+        // GB (r1 item 5, r3 item 1): the rows to 8 May likewise, their price warnings kept (their acquisitions' costs reach
+        // the year's rows), and the fee attribution run over the year and them together.
+        let next = enriched.iter().map(|e| e.row.uid + 1).max().unwrap_or(0);
+        let mut ahead: Vec<Entry> = vec![];
         if !self.ahead.is_empty() {
             let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);
-            let next = enriched.iter().map(|e| e.row.uid + 1).max().unwrap_or(0);
-            let mut ahead: Vec<Entry> = walk::enrich_with(&self.ahead, &self.deposits, &mut ps, true, currency, &mut |_| {})?.into_iter().zip(&self.ahead)
+            ahead = walk::enrich_with(&self.ahead, &self.deposits, &mut ps, true, currency, &mut |_| {})?.into_iter().zip(&self.ahead)
                 .map(|(mut row, s)| { row.uid += next; Entry { id: s.id, row, tx_id: s.tx_id.clone() } }).collect();
             if received { value_groups(&mut ahead, |_, _| Some(true))?; }
-            txs.extend(self.txs(&ahead)?.2);
+            if gb {
+                assume_airdrops(&mut ahead);
+                for w in &ps.warnings { if !warnings.contains(w) { warnings.push(w.clone()); } }
+            }
         }
+        let together: Vec<Entry>;
+        let walked = if gb && !ahead.is_empty() { together = enriched.iter().chain(&ahead).cloned().collect(); &together } else { &enriched };
+        let (taxable, folded, mut txs) = self.txs(walked)?;
+        let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && e.row.amount.is_positive() && e.row.uid < next)
+            .map(|(e, _)| &e.row).collect();
+        if !gb && !ahead.is_empty() { txs.extend(self.txs(&ahead)?.2); }
 
         let holding = self.holding_rule();
         // D-TAX-DE-WALLET: Germany keeps the order of use per wallet from the first row (BMF 6 March 2025, Rz. 61).
@@ -332,6 +388,7 @@ impl Report {
         let it_from = if it { local_midnight(&self.zone, it::FIRST_YEAR) } else { None };
         let ie_from = |at: At| self.local_day_start(at, -28);
         let ie_until = |at: At| self.local_day_start(at, 29);
+        let uk_day = |at: At| self.local(at);
         let mut engine = fifo::Fifo::new(fifo::Options {
             swaps_taxable: j.swaps_taxable(), stablecoin_as_fiat: self.stablecoin_as_fiat,
             holding: holding.as_ref().map(|h| h as &dyn Fn(At, At) -> bool), swap_resets_holding_period: j.swap_resets_holding_period, per_venue_from,
@@ -347,14 +404,22 @@ impl Report {
             ireland: ie.then_some(fifo::Ireland { from: &ie_from, until: &ie_until }),
             // D-TAX-LOST-POOLED, D-TAX-COIN-FEE (acquisitions), D-TAX-GB-SWAP-FEE, and the funding order of a swap's fees.
             lost_kept: pooled, own_fee_disposed: pooled, swap_fee_split: j.code == "GB", defer_group_fees: pooled,
+            // D-TAX-GB-S104, D-TAX-GB-POOL, D-TAX-GB-SAME-DAY, D-TAX-GB-30DAY: the identification, on the taxpayer's calendar.
+            uk: gb.then_some(fifo::Uk { day: &uk_day }),
         });
         engine.calculate(&txs)?;
         // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).
-        let mut symbols: Vec<String> = engine.excess_roc_rows.iter().map(|&i| &txs[i].row).filter(|r| self.local(r.at).year() == year).map(|r| r.base.clone()).collect();
+        let mut symbols: Vec<String> = engine.excess_roc_rows.iter().map(|&i| &txs[i].row).filter(|r| self.in_year(r.at)).map(|r| r.base.clone()).collect();
         symbols.sort();
         symbols.dedup();
         if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "excess_return_of_capital".into(), symbols }); }
-        let mut results: Vec<fifo::Disposal> = engine.disposals.into_iter().filter(|d| self.local(d.at).year() == year).collect();
+        // D-TAX-GB-UNSUPPORTED-ACTION (r2 item 3): a split or a return of capital within a pair matched by a disposal of the
+        // year: the match cannot be restated.
+        let mut symbols: Vec<String> = engine.unsupported.iter().filter(|(_, day)| gb::tax_year(*day) == year).map(|&(i, _)| txs[i].row.base.clone()).collect();
+        symbols.sort();
+        symbols.dedup();
+        if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "unsupported_corporate_action".into(), symbols }); }
+        let mut results: Vec<fifo::Disposal> = engine.disposals.into_iter().filter(|d| self.in_year(d.at)).collect();
         if matches!(j.code, "BG" | "CZ") {
             // Each printed row reconciles in cents (proceeds − cost − fee = gain), and the summary adds the printed figures.
             for d in &mut results {
@@ -383,7 +448,7 @@ impl Report {
         };
         // D-TAX-SWAP-FEE-EXHAUSTED: the swaps of the taxpayer's year whose fee took everything received.
         for (uid, basis) in &engine.exhausted {
-            let Some(r) = txs.iter().map(|t| &t.row).find(|r| r.uid == *uid).filter(|r| self.local(r.at).year() == year) else { continue };
+            let Some(r) = txs.iter().map(|t| &t.row).find(|r| r.uid == *uid).filter(|r| self.in_year(r.at)) else { continue };
             notes.exhausted.push((format!("{} {} {}", r.base, r.amount.to_s_f(), date(r.at)), basis.clone()));
         }
         if dk {
@@ -393,6 +458,10 @@ impl Report {
             held.sort();
             held.dedup();
             notes.stablecoins = held;
+        }
+        if gb {
+            let y = gb::year(j.locale, year, &results, &|d| self.local(d.at), today)?;
+            (notes.summary, notes.tail) = (y.summary, y.notes);
         }
         if j.code == "IE" {
             let y = ie::year(j.locale, j.annual_exemption.unwrap_or(0), &results, &|d| self.local(d.at), today)?;
@@ -520,7 +589,9 @@ impl Report {
                 continue;
             }
             let mut row = vec![s(iso(d.at)), d.acquired.map_or(Cell::Nil, |a| s(iso(a))), s(d.asset.clone()), n(&d.amount), cents(&d.proceeds)?,
-                               cents(&d.cost_basis)?, cents(&d.gain_loss)?, s(currency), Cell::Raw(d.holding_days.to_string()), cents(&d.fee)?,
+                               cents(&d.cost_basis)?, cents(&d.gain_loss)?, s(currency),
+                               // Rails' pool rows have no holding days.
+                               if d.rule == Some("section104") { Cell::Nil } else { Cell::Raw(d.holding_days.to_string()) }, cents(&d.fee)?,
                                s(d.exchange.clone()), d.tx_id.clone().map_or(Cell::Nil, s), Cell::Raw(d.complete.to_string()), Cell::Raw(d.incomplete.to_string())];
             if j.holding_exemption.is_some() { row.push(Cell::Raw(held.to_string())); }
             if j.old_stock_cutoff.is_some() { row.push(Cell::Raw(held.to_string())); }
@@ -579,11 +650,14 @@ impl Report {
             .map(|r| listed(r, &r.amount)).collect();
         // D-TAX-BG-DEPOSIT-ZERO, D-TAX-DK-DEPOSIT-ZERO: at cost 0, not at an assumed market value.
         let (heading, hint) = match j.code { "BG" => ("deposit_basis_zero", "deposit_basis_zero_hint_bg"),
-            "DK" => ("deposit_basis_zero", "deposit_basis_zero_hint_dk"), "IT" => ("deposit_basis_zero", "deposit_basis_zero_hint_it"), _ => ("deposit_basis_assumed", "deposit_basis_assumed_hint") };
+            "DK" => ("deposit_basis_zero", "deposit_basis_zero_hint_dk"), "IT" => ("deposit_basis_zero", "deposit_basis_zero_hint_it"),
+            // D-TAX-GB-DEPOSIT: assets brought in, not acquisitions: not matched.
+            "GB" => ("deposit_basis_assumed", "deposit_basis_assumed_hint_gb"), _ => ("deposit_basis_assumed", "deposit_basis_assumed_hint") };
         self.block(&mut out, "WARNING", heading, hint, deposits.into_iter())?;
         self.block(&mut out, "WARNING", "unlinked_withdrawals", "unlinked_withdrawals_hint",
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Withdrawal && !r.linked && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
-        self.block(&mut out, "WARNING", "lost", "lost_hint",
+        // D-TAX-LOST-POOLED: in the UK no disposal; a negligible value claim is the user's.
+        self.block(&mut out, "WARNING", "lost", if j.code == "GB" { "lost_hint_gb" } else { "lost_hint" },
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Lost && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
         // § 38v ZDP.
         self.valued(&mut out, "WARNING", "cz_notice_38v", &at.notice, None)?;
@@ -608,6 +682,8 @@ impl Report {
         self.block(&mut out, "NOTE", "cz_mining", "cz_mining_hint", at.mined.iter().cloned())?;
         self.block(&mut out, "NOTE", "zero_cost_rewards", "zero_cost_rewards_hint", at.zero_cost.iter().cloned())?;
         self.block(&mut out, "NOTE", "monthly_value", "monthly_value_hint", at.monthly.iter().cloned())?;
+        self.valued(&mut out, "NOTE", "gb_airdrops", &at.gb_airdrops, Some(currency))?;
+        self.block(&mut out, "NOTE", "gb_forks", "gb_forks_hint", at.gb_forks.iter().cloned())?;
         if at.averaged {
             line(&mut out, &[]);
             line(&mut out, &[s(format!("NOTE: {}:", text(l, "tax_report.warnings.average_cost", &[])))]);
@@ -705,6 +781,11 @@ impl Report {
         line(out, &[self.t(&format!("tax_report.warnings.{hint}"))]);
         Ok(())
     }
+}
+
+/// D-TAX-GB-AIRDROP: every airdrop's lot opens at its value marked assumed (a disposal using it is incomplete).
+fn assume_airdrops(rows: &mut [Entry]) {
+    for e in rows.iter_mut().filter(|e| e.row.kind == Kind::Airdrop && !fiat(&e.row.base)) { e.row.price_missing = true; }
 }
 
 /// D-TAX-COIN-QUOTE, grouped legs: where swaps are not taxable and a stablecoin is a coin, a group of coin legs only (no
