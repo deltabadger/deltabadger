@@ -109,6 +109,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           load: true
           tags: deltabadger:smoke
+          # Never pushed: no attestation, so the build stays one image manifest and its metadata names the config
+          # digest the check below compares, whichever image store the runner's Docker uses.
+          provenance: false
+          sbom: false
 
       - name: Smoke test
         if: env.DOCKERFILE == 'Dockerfile.rust'
@@ -133,7 +137,9 @@ jobs:
         env:
           REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-          SMOKED: ${{ steps.smoke.outputs.imageid }}
+          # Not outputs.imageid: with the containerd image store buildx loads through the OCI importer and imageid is
+          # the manifest digest. The build's metadata names the config digest on either store.
+          SMOKED: ${{ fromJSON(steps.smoke.outputs.metadata)['containerimage.config.digest'] }}
         run: |
           set -euo pipefail
           raw=$(docker buildx imagetools inspect --raw "$REF")
