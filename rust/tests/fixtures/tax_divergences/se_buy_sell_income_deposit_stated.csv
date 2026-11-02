@@ -1,6 +1,6 @@
 Datum,Tillgång,Antal,Försäljningspris,Omkostnadsbelopp,Vinst/Förlust,Valuta,Avgift,Börs,Transaktions-ID,Omkostnadsbelopp komplett,Ofullständiga data
 2026-04-01T10:00:00Z,BTC,1.2,1188000.0,899745.0,287705.0,SEK,550.0,kraken,K-BTC-2026-04-01T10:00:00Z-BTC,true,true
-2026-04-10T08:00:00Z,SOL,3.0,5641.03,4244.87,1396.15,SEK,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,true
+2026-04-10T08:00:00Z,SOL,3.0,5641.03,4244.87,1396.16,SEK,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,true
 
 "Bilaga K4, avsnitt D (övriga värdepapper, andra tillgångar)"
 Beteckning,Antal,Försäljningspris,Omkostnadsbelopp,Vinst,Förlust

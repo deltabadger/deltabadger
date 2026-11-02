@@ -1623,6 +1623,7 @@ module TaxVectors
       fee.() if fee_row == :first
       row(c, :swap_in, 'ETH', '10', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'sv', tx_id: 'sv-in-ETH', **in_fee)
       fee.() if fee_row == :after
+      row(c, :fee, 'EUR', '100', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'sv', tx_id: 'sv-fee-EUR') if fee_row == :fiat
       transfer(c, 'ETH', eth, '2025-08-01T10:00:00Z', from: bn, to: kr)
       kraken(c, :sell, 'ETH', eth, '32000', '2025-09-01T10:00:00Z')
     end
@@ -1661,6 +1662,16 @@ module TaxVectors
       # A fee row of 0.1 ETH (3,300 kr) in the group → BTC 330,000 / 220,000 / fee 3,300 / 106,700; the fee 0.1 ETH 3,300 /
       # 3,300 / 0; 9.9 ETH 352,000 / 326,700 / 25,300.
       se.('se_grouped_fee_row', expect: 'diverges: D-TAX-COIN-FEE') { |c| swap_received.(c, eth: '9.9', fee_row: :after) },
+      # Branch review: a €100 fee row of the swap's group (1,100 kr) → the same figures as se_swap_fee (Rails dropped it).
+      se.('se_fiat_fee_row', expect: 'diverges: D-TAX-SE-SWAP-FEE') { |c| swap_received.(c, fee_row: :fiat) },
+      # Branch review: an unlinked deposit's own-coin fee is a disposal. 1 BTC €10,000 (110,000 kr); deposit 1 BTC (330,000 kr)
+      # with a 0.01 BTC fee → pool 2 @ 440,000; fee 3,300 / 2,200 / 1,100; 1.99 sold for €60,000 → 660,000 / 437,800 / 222,200.
+      se.('se_deposit_fee', expect: 'diverges: D-TAX-COIN-FEE') do |c|
+        price('BTC', '2025-06-01', '330000', 'SEK')
+        kraken(c, :buy, 'BTC', '1', '10000', '2025-01-10T10:00:00Z')
+        row(c, :deposit, 'BTC', '1', '2025-06-01T10:00:00Z', exchange: venue(c, :kraken), fee_currency: 'BTC', fee_amount: '0.01')
+        kraken(c, :sell, 'BTC', '1.99', '60000', '2025-09-01T10:00:00Z')
+      end,
       # The same with the fee row's id before the swap-in's: the same figures.
       se.('se_grouped_fee_first_id', expect: 'diverges: D-TAX-COIN-FEE') { |c| swap_received.(c, eth: '9.9', fee_row: :first) },
       # BTC 30,000 / 20,000 / fee 1,000 / 9,000; the SOL fee 1 SOL 1,000 / 1,000 / 0 (either leg order).
@@ -1757,7 +1768,7 @@ module TaxVectors
       b = venue(c, :binance)
       row(c, :swap_out, 'BTC', '1', '2025-06-01T09:00:00Z', exchange: b, group_id: 'sf', tx_id: 'sf-out')
       row(c, :swap_in, 'ETH', '30', '2025-06-01T09:00:00Z', exchange: b, group_id: 'sf', tx_id: 'sf-in', **(fee_row ? {} : { fee_currency: 'ETH', fee_amount: '0.3' }))
-      row(c, :fee, 'ETH', '0.3', '2025-06-01T09:00:00Z', exchange: b, group_id: 'sf', tx_id: 'sf-fee') if fee_row
+      row(c, :fee, 'ETH', '0.3', '2025-06-01T09:00:00Z', exchange: b, group_id: 'sf', tx_id: 'sf-fee') if fee_row == true
       transfer(c, 'ETH', '29.7', '2025-08-01T09:00:00Z', from: b, to: venue(c, :kraken))
       k.(c, :sell, 'ETH', '29.7', '32000', '2025-09-01T09:00:00Z')
     end
@@ -1772,6 +1783,13 @@ module TaxVectors
       cfee.(c, fee_at)
       buy(c, 'BTC', '1', '44000', at)
       sell(c, 'BTC', '0.99', '55000', '2025-09-01T14:00:00Z')
+    end
+    cross = lambda do |c|
+      k.(c, :buy, 'ETH', '4', '4000', '2024-01-10T10:00:00Z')
+      k.(c, :sell, 'ETH', '1', '3000', '2025-04-05T09:00:00Z')
+      k.(c, :sell, 'ETH', '1', '3000', '2025-04-06T09:00:00Z')
+      row(c, :adjustment, 'ETH', '2', '2025-04-07T09:00:00Z', exchange: venue(c, :kraken))
+      k.(c, :buy, 'ETH', '4', '5600', '2025-04-10T09:00:00Z')
     end
     [
       # 250 / 100 / 150 (Rails: the pool at the end, 200 / 50) → disposals 1, gains 150.00, taxable 0.00.
@@ -1833,6 +1851,31 @@ module TaxVectors
       gb.('gb_swap_fee_split', expect: 'diverges: D-TAX-GB-SWAP-FEE') { |c| swap_fee.(c) },
       # The 0.3 ETH as a fee row of the swap: the same figures.
       gb.('gb_grouped_fee_row', expect: 'diverges: D-TAX-GB-SWAP-FEE') { |c| swap_fee.(c, fee_row: true) },
+      # Branch review: a £100 fee row of the swap's group (no coin fee) → BTC 30,000 / 20,000 / fee 50 / 9,950; 30 ETH at
+      # 30,050, sold for £32,000 → 1,950 → disposals 2, proceeds 62,000.00, costs 50,100.00, gains 11,900.00.
+      gb.('gb_fiat_fee_row', expect: 'diverges: D-TAX-GB-SWAP-FEE') do |c|
+        gbp.('BTC', '2024-02-01', '25000')
+        gbp.('BTC', '2025-06-01', '30000')
+        gbp.('ETH', '2025-06-01', '1000')
+        gbp.('ETH', '2025-08-01', '1050')
+        k.(c, :buy, 'BTC', '1', '20000', '2024-01-10T10:00:00Z')
+        transfer(c, 'BTC', '1', '2024-02-01T10:00:00Z', from: venue(c, :kraken), to: venue(c, :binance))
+        b = venue(c, :binance)
+        row(c, :swap_out, 'BTC', '1', '2025-06-01T09:00:00Z', exchange: b, group_id: 'ff', tx_id: 'ff-out')
+        row(c, :swap_in, 'ETH', '30', '2025-06-01T09:00:00Z', exchange: b, group_id: 'ff', tx_id: 'ff-in')
+        row(c, :fee, 'GBP', '100', '2025-06-01T09:00:00Z', exchange: b, group_id: 'ff', tx_id: 'ff-fee')
+        transfer(c, 'ETH', '30', '2025-08-01T09:00:00Z', from: b, to: venue(c, :kraken))
+        k.(c, :sell, 'ETH', '30', '32000', '2025-09-01T09:00:00Z')
+      end,
+      # Branch review: an unlinked deposit's own-coin fee is a disposal. 1 BTC £10,000 (2024-01-10); deposit 1 BTC (2025-06-01,
+      # £30,000) with a 0.01 BTC fee → pool 2 @ 40,000; fee 300 / 200 / 100 (section104: a deposit is no acquisition);
+      # 1.99 sold for £60,000 (2025-09-01) → 60,000 / 39,800 / 20,200.
+      gb.('gb_deposit_fee', expect: 'diverges: D-TAX-GB-DEPOSIT') do |c|
+        gbp.('BTC', '2025-06-01', '30000')
+        k.(c, :buy, 'BTC', '1', '10000', '2024-01-10T10:00:00Z')
+        row(c, :deposit, 'BTC', '1', '2025-06-01T09:00:00Z', exchange: venue(c, :kraken), fee_currency: 'BTC', fee_amount: '0.01')
+        k.(c, :sell, 'BTC', '1.99', '60000', '2025-09-01T09:00:00Z')
+      end,
       # bed_and_breakfast 0.1: 200 / 250 / −50, section104 0.9: 1,800 / 900 / 900 → disposals 1, gains 850.00; staking 250.00.
       gb.('gb_staking_matched', expect: 'diverges: D-TAX-GB-30DAY') do |c|
         gbp.('ETH', '2025-06-01', '2500')
@@ -1922,6 +1965,10 @@ module TaxVectors
         row(c, :adjustment, 'ETH', '1', '2025-07-05T09:00:00Z', exchange: venue(c, :kraken))
         k.(c, :buy, 'ETH', '1', '2800', '2025-07-10T09:00:00Z')
       end,
+      # Branch review: sales on 5 and 6 April 2025 (two tax years) both matched with the 10 April purchase, a split on 7 April
+      # between them: each year's report refuses (one pair was recorded before).
+      gb.('gb_split_cross_year_2024', year: 2024, expect: 'refuses: D-TAX-GB-UNSUPPORTED-ACTION unsupported_corporate_action ETH', &cross),
+      gb.('gb_split_cross_year_2025', expect: 'refuses: D-TAX-GB-UNSUPPORTED-ACTION unsupported_corporate_action ETH', &cross),
       # The 06-10 pair same day 2,900 / 2,800 / 100; the 06-01 sale section104 3,000 / 1,000 / 2,000.
       gb.('gb_future_same_day_priority', expect: 'diverges: D-TAX-GB-SAME-DAY') do |c|
         k.(c, :buy, 'ETH', '2', '2000', '2024-01-10T10:00:00Z')

@@ -320,6 +320,13 @@ impl Report {
         // D-TAX-DK-SWAP-VALUE (SKM2024.218.SKTST): one value for both sides of an exchange.
         if dk { notes.swap_values = value_groups(&mut enriched, dk_value_side)?; }
         if let Some(a) = &austria { notes.monthly = self.value_monthly(&mut enriched, &mut ps, currency, a.average_from)?; }
+        // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a swap's group, its value in the report's currency (a
+        // missing rate counts towards the banner).
+        if matches!(j.code, "SE" | "GB") {
+            for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Fee && e.row.group.is_some() && fiat(&e.row.base)) {
+                e.row.fiat_value = ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)?;
+            }
+        }
         // Income of the UTC year, a fiat row converted at the day's rate (Tax::Report#income_value), valued before the
         // engine: its missing rate counts towards the banner.
         let mut income: Vec<(usize, &str, Dec)> = vec![];
@@ -376,7 +383,7 @@ impl Report {
         let together: Vec<Entry>;
         let walked = if gb && !ahead.is_empty() { together = enriched.iter().chain(&ahead).cloned().collect(); &together } else { &enriched };
         let (taxable, folded, mut txs) = self.txs(walked)?;
-        let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && e.row.amount.is_positive() && e.row.uid < next)
+        let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && !fiat(&e.row.base) && e.row.amount.is_positive() && e.row.uid < next)
             // GB: a fee row of a swap is that swap's fee (D-TAX-GB-SWAP-FEE), not one matched to no trade.
             .filter(|(e, _)| !(gb && e.row.group.is_some()))
             .map(|(e, _)| &e.row).collect();
@@ -435,7 +442,8 @@ impl Report {
         symbols.dedup();
         if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "unsupported_corporate_action".into(), symbols }); }
         let mut results: Vec<fifo::Disposal> = engine.disposals.into_iter().filter(|d| self.in_year(d.at)).collect();
-        if matches!(j.code, "BG" | "CZ") {
+        // D-TAX-SE-K4: Sweden's rows too, so the K4 sums are the printed rows'.
+        if matches!(j.code, "BG" | "CZ" | "SE") {
             // Each printed row reconciles in cents (proceeds − cost − fee = gain), and the summary adds the printed figures.
             for d in &mut results {
                 (d.proceeds, d.cost_basis, d.fee) = (d.proceeds.round(2)?, d.cost_basis.round(2)?, d.fee.round(2)?);
@@ -495,7 +503,9 @@ impl Report {
     /// what the engine walks.
     fn txs(&self, enriched: &[Entry]) -> Result<Walked, FiguresError> {
         let stable_cash = !self.j.swaps_taxable() && self.stablecoin_as_fiat;
-        let mut taxable: Vec<Entry> = enriched.iter().filter(|e| !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
+        // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a group stays, as the swap's fee (it moves no coin).
+        let swap_fee = |e: &Entry| matches!(self.j.code, "SE" | "GB") && e.row.kind == Kind::Fee && e.row.group.is_some();
+        let mut taxable: Vec<Entry> = enriched.iter().filter(|e| swap_fee(e) || !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
         // D-TAX-IT-FEES: in Italy no CFEE joins its fill's cost; each walks after its fills as a coin fee.
         // D-TAX-IT-FEES: from 2023 no CFEE joins its fill's cost; each walks after its fills as a coin fee. Before 2023 fees
         // were costs (D-TAX-IT-PRE2023-BASIS) and fold as everywhere.
@@ -513,7 +523,7 @@ impl Report {
                                             fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
                                             cash_group: false })).collect();
         // Groups with a fiat leg, read before the fiat rows leave.
-        let cash_groups: HashSet<(String, String)> = enriched.iter().filter(|e| fiat(&e.row.base))
+        let cash_groups: HashSet<(String, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
             .filter_map(|e| e.row.group.clone().map(|g| (e.row.exchange.clone(), g))).collect();
         for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.exchange.clone(), g.clone()))); }
         let local_year = |at: At| self.local(at).year();

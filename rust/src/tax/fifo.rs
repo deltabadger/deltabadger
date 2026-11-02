@@ -419,6 +419,8 @@ impl<'a> Fifo<'a> {
                                 holding_start: None, technical_start: None, averaged: false, mined: false, fenced: Dec::zero(), fenced_units: Dec::zero() };
                 let k = self.key(&r.exchange, asset);
                 self.receive(k, lot)?;
+                // D-TAX-COIN-FEE (SE, GB): its own-coin fee, spent on the way in, is a disposal.
+                self.own_fee(tx)?;
             }
             Kind::SwapIn => {
                 if self.non_taxable_stablecoin_swap(&r.base) { return Ok(()); }
@@ -533,7 +535,8 @@ impl<'a> Fifo<'a> {
             let r = &t.row;
             let Some(k) = group_key(r) else { continue };
             let g = groups.entry(k).or_default();
-            if t.cash_group || fiat(&r.base) { g.2 = true; }
+            // A fiat fee row of the group (SE, GB keep them) is the swap's fee, not a cash leg.
+            if t.cash_group || (fiat(&r.base) && r.kind != Kind::Fee) { g.2 = true; }
             if r.kind.in_leg() { g.0.push(r); } else if r.kind.out_leg() { g.1.push(r); }
             // A fee row of the group is the swap's fee (SE, GB).
             else if r.kind == Kind::Fee && self.o.defer_group_fees && r.fiat_value.is_positive() { g.3.push(r); }
@@ -693,7 +696,9 @@ impl<'a> Fifo<'a> {
             let Some(fee) = &r.fee_amount else { return Ok((amount.clone(), fiat_value.clone())) };
             // D-TAX-COIN-FEE, acquisitions: the gross units at the value plus the fee's (less what the swap moved off);
             // `own_fee` then disposes of the fee's units.
-            if self.o.own_fee_disposed && fee.is_positive() && r.kind != Kind::Deposit {
+            if self.o.own_fee_disposed && fee.is_positive() {
+                // A deposit's fee is no cost of an acquisition (the deposit is coins brought in): the gross units at their value.
+                if r.kind == Kind::Deposit { return Ok((amount.clone(), fiat_value.clone())); }
                 let cost = (&(fiat_value + &own_fee_value(r)?)? - &moved.cloned().unwrap_or_else(Dec::zero))?;
                 return Ok((amount.clone(), max0(cost)));
             }
@@ -1549,9 +1554,12 @@ impl<'a> Fifo<'a> {
     fn stock_event(&mut self, tx: &Tx, index: usize) {
         let (Some(uk), Some(ident)) = (self.o.uk, self.uk.ident.as_ref()) else { return };
         let day = (uk.day)(tx.row.at);
-        let pair = ident.matches.iter().filter(|((asset, _), _)| *asset == tx.asset)
-            .find(|((_, d), m)| *d <= day && m.iter().any(|(x, _)| *x >= day)).map(|((_, d), _)| *d);
-        if let Some(d) = pair { self.unsupported.push((index, d)); }
+        // Every pair it falls within (pairs of two tax years can overlap it): each year's report refuses.
+        let mut days: Vec<_> = ident.matches.iter().filter(|((asset, d), m)| *asset == tx.asset && *d <= day && m.iter().any(|(x, _)| *x >= day))
+            .map(|((_, d), _)| *d).collect();
+        days.sort();
+        days.dedup();
+        for d in days { self.unsupported.push((index, d)); }
     }
 
     /// After walk 2: the events asserted the same as walk 1's, then each matched row's cost from its buckets (`bucket cost ×
