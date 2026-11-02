@@ -500,29 +500,46 @@ fn closes(c: &Connection) -> Vec<(String, String)> {
     s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
 }
 
-/// The run fetches the year-boundary closes from the broker (the year's first trading days and its last days), stores them,
-/// and writes the report: de_broker_fetched's figure (VAP 2024 = 100 × 100 × 0.7 × 2.29 % = 160.30, Rails' too).
+/// The run fetches the year-boundary closes from the broker (the year's first trading days and its last days, every page),
+/// stores them, and writes the report: Rails' file for the same history and bars (`de_broker_fetched` in tax_vectors.json)
+/// but for the named parts: the incomplete banner and the unseen-distributions warning (D-TAX-BROKER-VAP-DISTRIBUTIONS: FNDX
+/// was bought with nothing held) and the legal notes (D-TAX-BROKER-DISCLOSURES). VAP 2024 = 100 × 100 × 0.7 × 2.29 % = 160.30.
 #[tokio::test]
 async fn a_broker_run_fetches_its_closes_then_publishes_the_report() {
     let i = install();
     fund(&i, true);
     broker_row(&open(&i), i.user, "DE");
-    let body = json!({ "bars": [{ "t": "2024-01-02T05:00:00Z", "c": 108 }, { "t": "2024-01-03T05:00:00Z", "c": 108.5 },
-                                { "t": "2024-12-30T05:00:00Z", "c": 118 }, { "t": "2024-12-31T05:00:00Z", "c": 118.8 }], "next_page_token": null });
+    let bar = |t: &str, c: f64| json!({ "t": format!("{t}T05:00:00Z"), "c": c });
+    let all = [bar("2024-01-02", 108.0), bar("2024-01-03", 108.5), bar("2024-12-30", 118.0), bar("2024-12-31", 118.8)];
+    let alpaca = bars(json!([
+        { "status": 200, "body": { "bars": [all[0].clone(), all[1].clone()], "next_page_token": "p2" } },
+        { "status": 200, "body": { "bars": [all[2].clone(), all[3].clone()], "next_page_token": null } },
+        { "status": 200, "body": { "bars": all, "next_page_token": null } },
+    ]));
     let (db, _) = job_db(&i);
-    assert_eq!(run_with(&i, &db, bars(json!([{ "status": 200, "body": body }, { "status": 200, "body": body }]))).await, Outcome::Done);
+    assert_eq!(run_with(&i, &db, alpaca.clone()).await, Outcome::Done);
     assert_eq!(rows(&open(&i)), vec![(R1.into(), "ready".into())]);
-    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
-    assert!(csv.contains("13,Sonstige Fonds,Vorabpauschale (vor Teilfreistellung),160.3\n"), "{csv}");
-    // Rails' figures for the same history and bars (tax_vectors.json, `de_broker_fetched`): the KAP-INV summary, line by line.
-    let vectors: Value = serde_json::from_str(include_str!("fixtures/tax_vectors.json")).unwrap();
-    let rails = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["rails"]["csv"].as_str().unwrap().to_string();
-    let kap_inv = |csv: &str| csv.split("\n\n").find(|block| block.starts_with("ZUSAMMENFASSUNG — ANLAGE KAP-INV")).map(str::to_string);
-    assert_eq!(kap_inv(&csv), kap_inv(&rails));
-    assert!(kap_inv(&rails).is_some());
+    // The start window from 2 January (two pages), then the end window from 22 December.
+    let asked: Vec<Vec<(&str, String)>> = alpaca.requests().into_iter().map(|r| { assert_eq!(r.path, "/v2/stocks/FNDX/bars"); r.query }).collect();
+    let q = |start: &str, token: Option<&str>| {
+        let mut q = vec![("limit", "10000".to_string())];
+        if let Some(t) = token { q.push(("page_token", t.to_string())); }
+        q.extend([("start", start.to_string()), ("timeframe", "1Day".to_string())]);
+        q
+    };
+    assert_eq!(asked, vec![q("2024-01-02T00:00:00Z", None), q("2024-01-02T00:00:00Z", Some("p2")), q("2024-12-22T00:00:00Z", None)]);
     // Each window keeps the closes inside it.
     assert_eq!(closes(&open(&i)), vec![("2024-01-02".into(), "108".into()), ("2024-01-03".into(), "108.5".into()), ("2024-12-30".into(), "118".into()),
                                        ("2024-12-31".into(), "118.8".into())]);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
+    assert!(csv.contains("13,Sonstige Fonds,Vorabpauschale (vor Teilfreistellung),160.3\n"), "{csv}");
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/tax_vectors.json")).unwrap();
+    let rails = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["rails"]["csv"].as_str().unwrap().to_string();
+    let before_notes = |csv: &str| csv.split("\n\nRECHTLICHE HINWEISE\n").next().unwrap().to_string();
+    let named = before_notes(&csv).lines().filter(|l| !l.starts_with("WARNUNG:")).collect::<Vec<_>>().join("\n");
+    let named = named.split("\n\nHINWEISE\n").next().unwrap().to_string();
+    assert_eq!(named, before_notes(&rails));
+    assert!(csv.contains("FNDX,\"Vorabpauschale 2024: Ausschüttungen des Fonds vor Ihrem ersten Kauf"), "{csv}");
 }
 
 /// A broker outage leaves the fund without its boundary closes: refused as missing (de_broker_outage), nothing stored.

@@ -672,7 +672,7 @@ pub async fn stock_price_range<C: crate::sync::jobs::Connect>(db: &crate::jobs::
     }).await?;
     let Some(key) = key else { return Ok(BTreeMap::new()) };
     // An answer with no bar inside the window confirms nothing a partial cache holds (D-TAX-BROKER-VAP-START): no closes.
-    if !fetch_stock_bars(db, venues, &key, symbol, (from, to), &have.keys().copied().collect()).await?.is_some_and(|n| n > 0) { return Ok(BTreeMap::new()); }
+    if fetch_stock_bars(db, venues, &key, symbol, (from, to), &have.keys().copied().collect()).await?.is_none_or(|n| n == 0) { return Ok(BTreeMap::new()); }
     read_closes(db, &asset, from, to).await
 }
 

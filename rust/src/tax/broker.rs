@@ -85,10 +85,10 @@ pub fn broker_exchange(c: &Connection, user: i64) -> R<Option<i64>> {
 // ---- the lot ledger (Tax::LotLedger) ----------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-struct Lot { units: Dec, cost: Dec, acquired: NaiveDate, fx: Option<Dec>, vap_per_unit: Dec, blind: bool, uncertain: BTreeMap<i32, &'static str> }
+struct Lot { units: Dec, cost: Dec, acquired: NaiveDate, fx: Option<Dec>, vap_per_unit: Dec, blind: bool, uncertain: BTreeSet<(i32, &'static str)> }
 
 #[derive(Clone, Debug)]
-struct Match { units: Dec, cost: Dec, acquired: Option<NaiveDate>, fx: Option<Dec>, vap: Dec, uncovered: bool, uncertain: BTreeMap<i32, &'static str> }
+struct Match { units: Dec, cost: Dec, acquired: Option<NaiveDate>, fx: Option<Dec>, vap: Dec, uncovered: bool, uncertain: BTreeSet<(i32, &'static str)> }
 
 #[derive(Default)]
 struct Ledger { lots: Vec<Lot>, splits: Vec<(NaiveDate, Dec)>, blind_since: Option<NaiveDate> }
@@ -106,7 +106,7 @@ impl Ledger {
     fn acquire(&mut self, units: Dec, cost: Dec, date: NaiveDate, fx: Option<Dec>) {
         if self.lots.iter().all(|l| l.units.is_zero()) { self.blind_since = Some(date); }
         let blind = self.blind_since.is_some_and(|since| since.year() == date.year());
-        self.lots.push(Lot { units, cost, acquired: date, fx, vap_per_unit: Dec::zero(), blind, uncertain: BTreeMap::new() });
+        self.lots.push(Lot { units, cost, acquired: date, fx, vap_per_unit: Dec::zero(), blind, uncertain: BTreeSet::new() });
     }
 
     fn adjust(&mut self, delta: &Dec, date: NaiveDate) -> R<()> {
@@ -142,7 +142,7 @@ impl Ledger {
             remaining = sub(&remaining, &taken)?;
         }
         if remaining.is_positive() {
-            matches.push(Match { units: remaining, cost: Dec::zero(), acquired: None, fx: None, vap: Dec::zero(), uncovered: true, uncertain: BTreeMap::new() });
+            matches.push(Match { units: remaining, cost: Dec::zero(), acquired: None, fx: None, vap: Dec::zero(), uncovered: true, uncertain: BTreeSet::new() });
         }
         Ok(matches)
     }
@@ -525,7 +525,8 @@ impl<'a> Walk<'a> {
         let state = &self.states[symbol];
         let gain = match &proceeds_eur { None => None, Some(p) => { let g = sub(p, &cost)?; Some(if state.fund() { sub(&g, &vap)? } else { g }) } };
         if !self.report_year(r) { return Ok(()); }
-        let uncertain: BTreeSet<(i32, &'static str)> = matches.iter().filter(|m| m.vap.is_positive()).flat_map(|m| m.uncertain.iter().map(|(y, c)| (*y, *c))).collect();
+        // A deduction resting on an uncertain year (an estimated one even at zero: it may have been too low) is said again here.
+        let uncertain: BTreeSet<(i32, &'static str)> = matches.iter().flat_map(|m| m.uncertain.iter().copied()).collect();
         for (year, code) in uncertain { self.warn(code, Some(symbol.to_string()), Detail::Year(year)); }
         if let Some(g) = &gain {
             let s = self.state(symbol);
@@ -557,7 +558,7 @@ impl<'a> Walk<'a> {
         // Per share as stated, else over the shares it was paid on (`qty`); only then over the shares held that day (Rails).
         let per_share_usd = match (r.per_share()?, r.qty()?) {
             (Some(p), _) => Some(mul(&p, &scale)?),
-            (None, Some(qty)) if r.kind == OTHER_INCOME => Some(div(&gross_usd, &qty)?),
+            (None, Some(qty)) => Some(div(&gross_usd, &qty)?),
             _ => None,
         };
         let date = r.date();
@@ -710,14 +711,15 @@ impl<'a> Walk<'a> {
         // A blind lot may have missed distributions the ledger cannot show: its VAP is an upper bound, marked on the lot (a later
         // sale's deduction is then a lower bound of its gain) and said where it is declared.
         let unseen = accruals.iter().any(|(n, vap, _)| vap.is_positive() && s.ledger.lots[*n].blind && s.ledger.lots[*n].acquired.year() == year);
-        let estimated = accruals.iter().any(|(_, vap, e)| *e && vap.is_positive());
+        // An estimate can err either way, so it is said even where it gave no Vorabpauschale.
+        let estimated = accruals.iter().any(|(_, _, e)| *e);
         if unseen && declared { self.warn(UNSEEN, Some(symbol.to_string()), Detail::Year(year)); }
         if estimated && declared { self.warn(ESTIMATED, Some(symbol.to_string()), Detail::Year(year)); }
         let s = self.state(symbol);
         for (n, vap, estimated) in accruals {
             let lot = &mut s.ledger.lots[n];
-            if vap.is_positive() && lot.blind && lot.acquired.year() == year { lot.uncertain.insert(year, UNSEEN); }
-            if vap.is_positive() && estimated { lot.uncertain.entry(year).or_insert(ESTIMATED); }
+            if vap.is_positive() && lot.blind && lot.acquired.year() == year { lot.uncertain.insert((year, UNSEEN)); }
+            if estimated { lot.uncertain.insert((year, ESTIMATED)); }
             if lot.units.is_positive() { lot.vap_per_unit = add(&lot.vap_per_unit, &div(&vap, &lot.units)?)?; }
             if declared { s.inv.vap = add(&s.inv.vap, &vap)?; }
         }

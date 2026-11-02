@@ -3026,6 +3026,14 @@ module TaxVectors
       br.('de_broker_distribution_estimated', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
         fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIV', 'FNDX', '108', '2024-07-01')
       end,
+      br.('de_broker_estimated_zero', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
+        fndx.(c); fill(c, :buy, 'FNDX', '200', '21600', '2024-01-02'); fill(c, :sell, 'FNDX', '100', '11880', '2024-06-03')
+        { '2023-12-29' => '107', '2024-01-02' => '108', '2024-12-31' => '118.80' }.each { |d, p| close('FNDX', d, p) }
+        nta(c, 'DIV', 'FNDX', '216', '2024-07-01'); fill(c, :sell, 'FNDX', '50', '6600', '2025-06-02')
+      end,
+      br.('de_broker_roc_qty', 'diverges: D-TAX-BROKER-ROC-DIVIDEND') do |c|
+        fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIVROC', 'FNDX', '108', '2024-07-01', qty: '100')
+      end,
       br.('de_broker_dividend_qty', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
         fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIV', 'FNDX', '108', '2024-07-01', qty: '100')
       end,
