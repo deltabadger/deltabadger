@@ -44,7 +44,8 @@ module TaxVectors
     app/models/tax/methods/acquisition_fee.rb app/models/tax/price_service.rb app/models/tax/crypto_scope.rb
     app/models/tax/asset_identity.rb app/models/tax/jurisdictions.rb app/models/api_key.rb app/models/concerns/csv_safe.rb
     app/models/tax/methods/return_of_capital.rb app/models/tax/ecb_fx_rates.rb app/services/bot_api/tax/list_jurisdictions.rb
-    app/models/tax/methods/lifo.rb app/models/tax/methods/fifo4_week.rb
+    app/models/tax/methods/lifo.rb app/models/tax/methods/fifo4_week.rb app/models/tax/methods/weighted_average.rb
+    app/models/tax/methods/share_pooling.rb app/models/tax/methods/pooled_holdings.rb
   ].freeze
 
   # The schema is loaded before travelling: a migration stamped after NOW would not load.
@@ -123,7 +124,7 @@ module TaxVectors
 
   USD_PER_EUR = { 2021 => '1.2', 2022 => '1.05', 2023 => '1.07', 2024 => '1.08', 2025 => '1.1', 2026 => '1.17' }.freeze
   # A12-3: the ECB's rate of the report currency where Rails converts into it (CZ: CZK prices are EUR × 25; BG: the peg).
-  ECB_EXTRA = { 'CZ' => %w[CZK 25.0], 'BG' => %w[BGN 1.95583] }.freeze
+  ECB_EXTRA = { 'CZ' => %w[CZK 25.0], 'BG' => %w[BGN 1.95583], 'SE' => %w[SEK 11.0] }.freeze
   # The ECB's rate for every day a row was booked on, but the gaps.
   def ecb(gaps, country = nil)
     days = AccountTransaction.pluck(:transacted_at).map { |t| t.utc.to_date }.uniq - gaps.map { |d| Date.parse(d) }
@@ -135,7 +136,7 @@ module TaxVectors
     FxRate.insert_all(rows, unique_by: %i[currency date]) if rows.any?
   end
 
-  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).merge(DK_EXPECT).merge(GR_EXPECT).merge(IT_EXPECT).merge(IE_EXPECT).fetch(s[:name], s[:expect])) }
+  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).merge(DK_EXPECT).merge(GR_EXPECT).merge(IT_EXPECT).merge(IE_EXPECT).merge(SE_EXPECT).fetch(s[:name], s[:expect])) }
 
   def all_scenarios
     [
@@ -289,7 +290,7 @@ module TaxVectors
         kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z', exchange: kraken)
       } }
-    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios
+    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios
   end
 
   # A12-2: US beyond Alpaca, and D-TAX-US-WALLET (lots per venue for tax years from 2025).
@@ -1595,6 +1596,125 @@ module TaxVectors
     ]
   end
 
+  # A12-5: Sweden by its own law (PLAN-A12 "A12-5", r0-r5; every figure computed by hand there). Stockholm, SEK = EUR × 11
+  # (ECB_EXTRA); Kraken trades in EUR, SEK prices for swaps, transfers and income. Every scenario with a disposal shows the
+  # K4 summary (D-TAX-SE-K4).
+  SE_EXPECT = %w[se_buy_sell_income_deposit_stated se_missing_price se_swap_chain se_stablecoin_kept se_stablecoin_as_fiat
+                 se_ecb_gap se_oversold se_lost se_unlinked_withdrawal se_coin_fee]
+              .to_h { |name| [name, 'diverges: D-TAX-SE-K4'] }.freeze
+  def se_scenarios
+    se = ->(name, year: 2025, expect: 'diverges: D-TAX-SE-K4', &setup) { { name:, country: 'SE', year:, expect:, setup: ->(c) { user_zone(c, 'Stockholm'); setup.(c) } } }
+    trade = lambda do |c, coin, qty, cost, proceeds, bought, sold|
+      kraken(c, :buy, coin, qty, cost, bought)
+      kraken(c, :sell, coin, qty, proceeds, sold)
+    end
+    # 1 BTC €20,000 on Kraken, to Binance; on 06-01 1 BTC (352,000 kr) for 10 ETH (33,000 kr each); `fee` the swap's own
+    # rows (the in-leg's fee, a fee row before or after the in-leg); `eth` ETH back to Kraken, sold for €32,000.
+    swap_received = lambda do |c, eth: '10', in_fee: {}, fee_row: nil|
+      bn, kr = venue(c, :binance), venue(c, :kraken)
+      price('BTC', '2025-02-01', '330000', 'SEK')
+      price('BTC', '2025-06-01', '352000', 'SEK')
+      price('ETH', '2025-06-01', '33000', 'SEK')
+      price('ETH', '2025-08-01', '34000', 'SEK')
+      kraken(c, :buy, 'BTC', '1', '20000', '2025-01-10T10:00:00Z')
+      transfer(c, 'BTC', '1', '2025-02-01T10:00:00Z', from: kr, to: bn)
+      row(c, :swap_out, 'BTC', '1', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'sv', tx_id: 'sv-out-BTC')
+      fee = -> { row(c, :fee, 'ETH', '0.1', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'sv', tx_id: 'sv-fee-ETH') }
+      fee.() if fee_row == :first
+      row(c, :swap_in, 'ETH', '10', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'sv', tx_id: 'sv-in-ETH', **in_fee)
+      fee.() if fee_row == :after
+      transfer(c, 'ETH', eth, '2025-08-01T10:00:00Z', from: bn, to: kr)
+      kraken(c, :sell, 'ETH', eth, '32000', '2025-09-01T10:00:00Z')
+    end
+    # 1 BTC 200,000 kr to Binance; 0.1 BTC (30,000 kr) → 1 ETH (20,000 kr) + 10 SOL (10,000 kr), the ETH leg paying 1 SOL.
+    other_incoming = lambda do |c, eth_first|
+      bn, kr = venue(c, :binance), venue(c, :kraken)
+      price('BTC', '2025-02-01', '210000', 'SEK')
+      price('BTC', '2025-06-01', '300000', 'SEK')
+      price('ETH', '2025-06-01', '20000', 'SEK')
+      price('SOL', '2025-06-01', '1000', 'SEK')
+      kraken(c, :buy, 'BTC', '1', '200000', '2025-01-10T10:00:00Z', fiat: 'SEK')
+      transfer(c, 'BTC', '1', '2025-02-01T10:00:00Z', from: kr, to: bn)
+      row(c, :swap_out, 'BTC', '0.1', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'oi', tx_id: 'oi-out-BTC')
+      eth = -> { row(c, :swap_in, 'ETH', '1', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'oi', tx_id: 'oi-in-ETH', fee_currency: 'SOL', fee_amount: '1') }
+      sol = -> { row(c, :swap_in, 'SOL', '10', '2025-06-01T10:00:00Z', exchange: bn, group_id: 'oi', tx_id: 'oi-in-SOL') }
+      eth_first ? (eth.(); sol.()) : (sol.(); eth.())
+    end
+    [
+      # BTC: 165,000 / 82,582.50 / fee 165 / 82,252.50; 275,000 / 231,099.00 / 43,901.00; ETH 33,000 / 44,000 / −11,000.
+      # K4: BTC vinst 1.5 / 439,835.00 / 313,681.50 / 126,153.50; ETH förlust 2 / 33,000.00 / 44,000.00 / 11,000.00;
+      # 7.5 126,153.50; 8.4 11,000.00; 70% 7,700.00; result 118,453.50; tax 35,536.05.
+      se.('se_average_gain_and_loss') do |c|
+        kraken(c, :buy, 'BTC', '1', '10000', '2025-01-10T10:00:00Z', fee: '10')
+        kraken(c, :buy, 'ETH', '2', '4000', '2025-02-01T10:00:00Z')
+        kraken(c, :buy, 'BTC', '1', '20000', '2025-03-10T10:00:00Z', fee: '20')
+        kraken(c, :sell, 'BTC', '0.5', '15000', '2025-05-10T10:00:00Z', fee: '15')
+        kraken(c, :buy, 'BTC', '1', '30000', '2025-07-10T10:00:00Z')
+        kraken(c, :sell, 'ETH', '2', '3000', '2025-08-01T10:00:00Z')
+        kraken(c, :sell, 'BTC', '1', '25000', '2025-09-10T10:00:00Z')
+      end,
+      # BTC 330,000 / 220,000 / 110,000 (Rails 352,000 / 132,000); ETH 352,000 / 330,000 / 22,000 → 7.5 132,000.00, tax 39,600.00.
+      se.('se_swap_value_received', expect: 'diverges: D-TAX-SWAP-RECEIVED') { |c| swap_received.(c) },
+      # D-TAX-SE-SWAP-FEE: a €100 fee on the in-leg (1,100 kr) → BTC 330,000 / 220,000 / fee 1,100 / 108,900; ETH 352,000 /
+      # 330,000 / 22,000.
+      se.('se_swap_fee', expect: 'diverges: D-TAX-SE-SWAP-FEE') { |c| swap_received.(c, in_fee: { fee_currency: 'EUR', fee_amount: '100' }) },
+      # A fee row of 0.1 ETH (3,300 kr) in the group → BTC 330,000 / 220,000 / fee 3,300 / 106,700; the fee 0.1 ETH 3,300 /
+      # 3,300 / 0; 9.9 ETH 352,000 / 326,700 / 25,300.
+      se.('se_grouped_fee_row', expect: 'diverges: D-TAX-COIN-FEE') { |c| swap_received.(c, eth: '9.9', fee_row: :after) },
+      # The same with the fee row's id before the swap-in's: the same figures.
+      se.('se_grouped_fee_first_id', expect: 'diverges: D-TAX-COIN-FEE') { |c| swap_received.(c, eth: '9.9', fee_row: :first) },
+      # BTC 30,000 / 20,000 / fee 1,000 / 9,000; the SOL fee 1 SOL 1,000 / 1,000 / 0 (either leg order).
+      se.('se_fee_in_other_incoming_coin', expect: 'diverges: D-TAX-COIN-FEE') { |c| other_incoming.(c, true) },
+      se.('se_fee_in_other_incoming_coin_reversed', expect: 'diverges: D-TAX-COIN-FEE') { |c| other_incoming.(c, false) },
+      # Staking 0.1 ETH (3,000 kr, 7.2), mining 0.01 BTC (3,500 kr, 1.6), airdrop 10 SOL (15,000 kr, listed); 1.1 ETH sold:
+      # 33,000 / 25,000 / 8,000 → 7.5 8,000.00, 7.2 3,000.00, result 11,000.00, tax 3,300.00.
+      se.('se_income', expect: 'diverges: D-TAX-SE-INCOME') do |c|
+        kr = venue(c, :kraken)
+        price('ETH', '2025-03-01', '30000', 'SEK')
+        price('BTC', '2025-04-01', '350000', 'SEK')
+        price('SOL', '2025-04-15', '1500', 'SEK')
+        kraken(c, :buy, 'ETH', '1', '2000', '2025-01-10T10:00:00Z')
+        row(c, :staking_reward, 'ETH', '0.1', '2025-03-01T00:00:00Z', exchange: kr)
+        row(c, :mining, 'BTC', '0.01', '2025-04-01T00:00:00Z', exchange: kr)
+        row(c, :airdrop, 'SOL', '10', '2025-04-15T00:00:00Z', exchange: kr)
+        kraken(c, :sell, 'ETH', '1.1', '3000', '2025-06-01T10:00:00Z')
+      end,
+      # 8.4 11,000.00, 70% 7,700.00, result −7,700.00, reduction 2,310.00.
+      se.('se_loss_only') { |c| trade.(c, 'ETH', '1', '4000', '3000', '2025-02-01T10:00:00Z', '2025-08-01T10:00:00Z') },
+      # Loss 440,000; 70% 308,000; reduction 30% × 100,000 + 21% × 208,000 = 73,680.00.
+      se.('se_deficit_above_100k') { |c| trade.(c, 'BTC', '1', '100000', '60000', '2025-02-01T10:00:00Z', '2025-08-01T10:00:00Z') },
+      # D-TAX-LOST-POOLED: the lost ETH stays in the pool: 3 @ 77,000 kr; 1 sold → 27,500 / 25,666.67 / 1,833.33.
+      se.('se_lost_kept', expect: 'diverges: D-TAX-LOST-POOLED') do |c|
+        price('ETH', '2025-03-01', '22000', 'SEK')
+        kraken(c, :buy, 'ETH', '2', '4000', '2025-01-10T10:00:00Z')
+        row(c, :lost, 'ETH', '1', '2025-03-01T10:00:00Z', exchange: venue(c, :kraken))
+        kraken(c, :buy, 'ETH', '1', '3000', '2025-04-01T10:00:00Z')
+        kraken(c, :sell, 'ETH', '1', '2500', '2025-05-01T10:00:00Z')
+      end,
+      # D-TAX-COIN-FEE (acquisitions): 1 BTC at 333,300 kr; the fee 0.01 BTC 3,300 / 3,333 / −33; 0.99 sold 435,600 / 329,967 /
+      # 105,633 → 7.5 105,633.00, 8.4 33.00, 70% 23.10, result 105,609.90, tax 31,682.97.
+      se.('se_buy_fee_in_coin', expect: 'diverges: D-TAX-COIN-FEE') do |c|
+        kr = venue(c, :kraken)
+        price('BTC', '2025-06-01', '330000', 'SEK')
+        row(c, :buy, 'BTC', '1', '2025-06-01T10:00:00Z', exchange: kr, group_id: 'bf', tx_id: 'bf-BTC', fee_currency: 'BTC', fee_amount: '0.01')
+        row(c, :sell, 'EUR', '30000', '2025-06-01T10:00:00Z', exchange: kr, group_id: 'bf', tx_id: 'bf-EUR')
+        kraken(c, :sell, 'BTC', '0.99', '39600', '2025-09-01T10:00:00Z')
+      end,
+      # D-TAX-SE-YEARS: 2020–2026 only.
+      se.('se_2019_not_ported', year: 2019, expect: 'parity') { |c| trade.(c, 'BTC', '1', '100', '200', '2019-02-01T10:00:00Z', '2019-03-01T10:00:00Z') },
+      se.('se_2027_not_ported', year: 2027, expect: 'parity') { |c| trade.(c, 'BTC', '1', '100', '200', '2026-02-01T10:00:00Z', '2027-03-01T10:00:00Z') }
+    ]
+  end
+
+  # The SEK prices of the shared templates: every EUR price × 11 (the ECB SEK rate the SE scenarios give), where the
+  # scenario states none.
+  def se_prices
+    HistoricalPrice.where(currency: 'EUR').find_each do |p|
+      next if HistoricalPrice.exists?(asset: p.asset, currency: 'SEK', date: p.date)
+      HistoricalPrice.create!(asset: p.asset, currency: 'SEK', date: p.date, price: p.price * 11)
+    end
+  end
+
   # Poland's own vectors state their NBP rows (none by default), so the shared scenarios' default rates never reach them.
   def pl_case(name, year: 2026, expect: 'diverges: D-TAX-PL-COST-POOL', nbp: [], nbp_coverage: [], **opts, &setup)
     { name:, country: 'PL', year:, expect:, nbp:, nbp_coverage:, **opts, setup: lambda { |c|
@@ -2008,7 +2128,7 @@ module TaxVectors
     end
     each.('DE', 'Berlin') + each.('AT', 'Vienna') + each.('ES', 'Madrid') + each.('PT', 'Lisbon') + each.('PL', 'Warsaw') +
       each.('SK', 'Bratislava') + each.('BG', 'Sofia') + each.('CZ', 'Prague') + each.('GR', 'Athens') + each.('DK', 'Copenhagen') + each.('IT', 'Rome') +
-      each.('IE', 'Dublin') + holding_edges
+      each.('IE', 'Dublin') + each.('SE', 'Stockholm') + holding_edges
   end
 
   def holding_edges
@@ -2518,6 +2638,7 @@ module TaxVectors
       ctx = build
       scenario[:setup]&.call(ctx)
       cz_prices if country == 'CZ'
+      se_prices if country == 'SE'
       ecb(Array(scenario[:fx_gap]), country)
       dk_fx(Array(scenario[:fx_gap])) if country == 'DK'
       rails = begin
