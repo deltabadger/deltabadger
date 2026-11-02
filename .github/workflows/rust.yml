@@ -16,6 +16,9 @@ on:
       - 'docker/**'
       - 'docker-entrypoint.sh'
       - '.dockerignore'
+      # The compose files the image tests run (tests/image.rs).
+      - 'docker-compose.yml'
+      - 'deltabadger/docker-compose.yml'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -203,6 +206,9 @@ on:
       - 'docker/**'
       - 'docker-entrypoint.sh'
       - '.dockerignore'
+      # The compose files the image tests run (tests/image.rs).
+      - 'docker-compose.yml'
+      - 'deltabadger/docker-compose.yml'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -477,6 +483,9 @@ jobs:
         run: docker build -f Dockerfile.rust -t deltabadger:ci .
       - name: Image size
         run: docker image ls deltabadger:ci
+      # The command tests run Umbrel's and the own-server compose files through the Compose v2 the runners ship.
+      - name: Docker Compose
+        run: docker compose version
       # The takeover tests start on volumes made by the last 2.x image and by Rails itself (rails_install).
       - name: Pull the last 2.x image
         run: docker pull ghcr.io/deltabadger/deltabadger:2.70.21

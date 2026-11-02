@@ -9,7 +9,7 @@ use deltabadger::crypto::{Cipher, EncryptionKeys};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
 fn image() -> Option<String> {
@@ -19,9 +19,38 @@ fn image() -> Option<String> {
 }
 
 fn docker(args: &[&str]) -> String {
-    let out = Command::new("docker").args(args).output().expect("docker runs");
+    let out = docker_out(args);
     assert!(out.status.success(), "docker {args:?}: {}", String::from_utf8_lossy(&out.stderr));
     String::from_utf8(out.stdout).unwrap().trim().to_string()
+}
+
+/// `docker args`, whatever its exit code.
+fn docker_out(args: &[&str]) -> Output { Command::new("docker").args(args).output().expect("docker runs") }
+
+/// A name no other container or project of this run uses.
+fn unique(prefix: &str) -> String {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    format!("{prefix}{}x{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst))
+}
+
+/// Runs `command`, which starts the container `name`, and gives it a minute to exit. One still running then is removed
+/// and the test fails: a command that wrongly starts an engine fails instead of hanging.
+fn exits(mut command: Command, name: &str) -> Output {
+    let child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().expect("docker runs");
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || { let _ = tx.send(child.wait_with_output()); });
+    match rx.recv_timeout(Duration::from_secs(60)) {
+        Ok(out) => out.unwrap(),
+        Err(_) => { let _ = docker_out(&["rm", "-f", name]); panic!("{name} was still running after a minute") }
+    }
+}
+
+/// `docker run --rm` of `args` (options, image, command), bounded as `exits`.
+fn run_once(args: &[&str]) -> Output {
+    let name = unique("dbrun");
+    let mut command = Command::new("docker");
+    command.args(["run", "--rm", "--name", &name]).args(args);
+    exits(command, &name)
 }
 
 fn id(flag: &str) -> String { String::from_utf8(Command::new("id").arg(flag).output().unwrap().stdout).unwrap().trim().to_string() }
@@ -30,15 +59,16 @@ fn id(flag: &str) -> String { String::from_utf8(Command::new("id").arg(flag).out
 /// host, so ownership reads as it does in production (Docker Desktop and OrbStack show bind-mounted host files as
 /// root's). Or a temp dir bind-mounted there, for a container that runs as this user; dropping it gives its files back
 /// to this user first, so the temp dir can be removed.
-enum Volume { Named(String), Bind { dir: tempfile::TempDir, image: String } }
+/// `At` is a mount (`<host dir>:/app/storage`) inside a folder another `Volume` owns and cleans up.
+enum Volume { Named(String), Bind { dir: tempfile::TempDir, image: String }, At(String) }
 
 impl Volume {
     fn named() -> Self { Volume::Named(docker(&["volume", "create"])) }
     fn bind(image: &str) -> Self { Volume::Bind { dir: tempfile::tempdir().unwrap(), image: image.into() } }
     fn mount(&self) -> String {
-        match self { Volume::Named(name) => format!("{name}:/app/storage"), Volume::Bind { dir, .. } => format!("{}:/app/storage", dir.path().display()) }
+        match self { Volume::Named(name) => format!("{name}:/app/storage"), Volume::Bind { dir, .. } => format!("{}:/app/storage", dir.path().display()), Volume::At(mount) => mount.clone() }
     }
-    fn path(&self) -> &Path { match self { Volume::Bind { dir, .. } => dir.path(), Volume::Named(_) => panic!("a named volume has no host path") } }
+    fn path(&self) -> &Path { match self { Volume::Bind { dir, .. } => dir.path(), _ => panic!("only a Bind has a host path") } }
 }
 
 impl Drop for Volume {
@@ -49,6 +79,7 @@ impl Drop for Volume {
                 let owner = format!("{}:{}", id("-u"), id("-g"));
                 let _ = Command::new("docker").args(["run", "--rm", "--user", "0", "--entrypoint", "chown", "-v", &self.mount(), image, "-R", &owner, "/app/storage"]).output();
             }
+            Volume::At(_) => {}
         }
     }
 }
@@ -302,14 +333,28 @@ fn takes_over(image: &str, two_x: &TwoX) {
     assert!(logs.contains("took over (") && !logs.contains("can't read this install"), "{logs}");
     assert_eq!(app.stop(), "0", "{}", app.logs());
     drop(app);
-    let copy = take(image, &two_x.volume);
+    left_taken_over(image, &two_x.volume, &two_x.cipher, &secrets);
+}
+
+/// The volume after a stopped takeover: `.secrets` equal to `secrets`, one backups/pre-3.0-<UTC>/, lease `rust`.
+fn left_taken_over(image: &str, volume: &Volume, cipher: &Cipher, secrets: &[u8]) {
+    let copy = take(image, volume);
     assert_eq!(std::fs::read(copy.path().join(".secrets")).unwrap(), secrets, "a takeover never rewrites .secrets");
     let backups: Vec<_> = std::fs::read_dir(copy.path().join("backups")).expect("a backups folder").flatten()
         .map(|e| e.file_name().to_string_lossy().into_owned()).collect();
     assert!(backups.len() == 1 && backups[0].starts_with("pre-3.0-"), "{backups:?}");
     let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
-    let lease = deltabadger::lease::read(&c, &two_x.cipher).unwrap().expect("a lease");
+    let lease = deltabadger::lease::read(&c, cipher).unwrap().expect("a lease");
     assert_eq!(lease["engine"], "rust", "{lease}");
+}
+
+/// Format 1's volume (below): 2.70.21's `migrate` on an empty named volume, then a Rails-encrypted sample.
+fn made_by_2x_migrate(image: &str) -> TwoX {
+    let volume = Volume::named();
+    docker(&["run", "--rm", "--network", "none", "-v", &volume.mount(), RAILS_2X, "migrate"]);
+    rails_encrypts_a_sample(&volume, &[]);
+    let (_, keys) = keys_2x(take(image, &volume).path(), &[]);
+    TwoX { volume, env: vec![], wrong: OTHER_PAIR.map(String::from).to_vec(), cipher: Cipher::new(&keys) }
 }
 
 /// Format 1, real 2.x: 2.70.21's `migrate` on an empty volume creates the install and its `.secrets` (SECRET_KEY_BASE +
@@ -317,12 +362,7 @@ fn takes_over(image: &str, two_x: &TwoX) {
 #[test]
 fn format_1_a_volume_made_by_2x_migrate_is_taken_over() {
     let Some(image) = image() else { return };
-    let volume = Volume::named();
-    let mount = volume.mount();
-    docker(&["run", "--rm", "--network", "none", "-v", &mount, RAILS_2X, "migrate"]);
-    rails_encrypts_a_sample(&volume, &[]);
-    let (_, keys) = keys_2x(take(&image, &volume).path(), &[]);
-    let fixture = TwoX { volume, env: vec![], wrong: OTHER_PAIR.map(String::from).to_vec(), cipher: Cipher::new(&keys) };
+    let fixture = made_by_2x_migrate(&image);
     refused_with_c9(&image, &fixture.volume, &fixture.wrong);
     takes_over(&image, &fixture);
 }
@@ -431,4 +471,200 @@ fn launchpads_shape_takes_a_2x_volume_over() {
                "MCP_ENABLED=true", "DELTABADGER_UPDATE_CHECK=false", "SETUP_TOKEN=b3-2-setup-token"];
     let fixture = two_x(&image, &env[..1], |_| {}, &env, &[]);
     takes_over(&image, &fixture);
+}
+
+// ---- B3-3: the commands and both compose files (PLAN-B3 §1.3, §3, §8 slice 3) ----
+
+/// J1, M1, R1 (docker/entrypoint.sh, PLAN-B3 §3 as approved).
+const J1: &str = "This service no longer does anything: Deltabadger now runs its background work in its main service. You can remove this one.";
+const M1: &str = "Nothing to do: Deltabadger updates its data itself when it starts.";
+const R1: &str = "This command isn't available in this version of Deltabadger.";
+/// main.rs on LeaseError::Locked.
+const LOCKED: &str = "deltabadger: another Deltabadger engine is running on this data";
+
+/// A compose project: the repository's compose `file` as it is, plus an override written here, under a project name no
+/// other test uses, with `env` as the compose's own environment. `down -v` on drop, after a failure too.
+struct Project { name: String, file: String, overrides: tempfile::TempDir, env: Vec<(String, String)> }
+
+impl Project {
+    fn new(file: &str, override_yaml: &str, env: &[(&str, &str)]) -> Self {
+        let name = unique("dbimage");
+        let overrides = tempfile::tempdir().unwrap();
+        std::fs::write(overrides.path().join("override.yml"), override_yaml).unwrap();
+        let file = format!("{}/../{file}", env!("CARGO_MANIFEST_DIR"));
+        Project { name, file, overrides, env: env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() }
+    }
+
+    fn command(&self, args: &[&str]) -> Command {
+        let over = self.overrides.path().join("override.yml");
+        let mut command = Command::new("docker");
+        command.args(["compose", "-p", &self.name, "-f", &self.file, "-f", over.to_str().unwrap()]).args(args)
+            .envs(self.env.iter().map(|(k, v)| (k, v)));
+        command
+    }
+
+    /// `docker compose <args>` on this project, whatever its exit code.
+    fn compose(&self, args: &[&str]) -> Output { self.command(args).output().expect("docker compose runs") }
+
+    fn ok(&self, args: &[&str]) -> String {
+        let out = self.compose(args);
+        assert!(out.status.success(), "docker compose {args:?}: {}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        String::from_utf8(out.stdout).unwrap().trim().to_string()
+    }
+
+    /// The service's container, reached on its published port 3000 (when it has one).
+    fn container(&self, service: &str) -> Container {
+        let id = self.ok(&["ps", "-q", service]);
+        assert!(!id.is_empty(), "{service} has no container: {}", self.logs());
+        let port = docker_out(&["port", &id, "3000/tcp"]).stdout;
+        let port = String::from_utf8_lossy(&port).lines().next().and_then(|l| l.rsplit(':').next()).and_then(|p| p.parse().ok()).unwrap_or(0);
+        Container { id, port }
+    }
+
+    fn logs(&self) -> String {
+        let out = self.compose(&["logs", "--no-color"]);
+        format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))
+    }
+}
+
+impl Drop for Project {
+    fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--remove-orphans", "-t", "5"]); }
+}
+
+/// Every path on the volume (without the lock and SQLite's -wal/-shm, which a running engine changes) and `.secrets`'
+/// sha256: what a refused start must leave as it was while the first engine keeps writing its databases.
+fn paths(image: &str, volume: &Volume) -> String {
+    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
+             "cd /app/storage && find . ! -name .engine.lock ! -name '*-shm' ! -name '*-wal' | sort && sha256sum .secrets"])
+}
+
+/// Umbrel's compose (deltabadger/docker-compose.yml) as 2.x users have it, on a 2.x Umbrel install (format 2: the
+/// secret is `${APP_SEED}-secret-key-base` in the env, the pair in `.secrets`). The override only swaps both images for
+/// the 3.0 one, drops `app_proxy` (Umbrel's own) and publishes `web`'s 3000 for the test. One engine trades: `web`
+/// takes the install over; `jobs` waits for `web` to be healthy, logs J1 and runs no `deltabadger`; a second engine
+/// started through the compose (`run --rm web serve`, `run --rm web run`) is refused as Locked and writes nothing.
+/// `jobs`' own health is not checked: its Solid Queue probe reports unhealthy on 3.0 (PLAN-B3 §1.4, cosmetic; B5
+/// deletes the service).
+#[test]
+fn umbrels_two_service_compose_runs_one_engine() {
+    let Some(image) = image() else { return };
+    let seed = "b3-3-umbrel-seed";
+    let secret = format!("SECRET_KEY_BASE={seed}-secret-key-base");
+    let fixture = two_x(&image, &[&secret], |_| {}, &[&secret], &[]);
+    // APP_DATA_DIR, with the install in its data/storage. A bind, as Umbrel mounts it; its files go back to this user
+    // on drop (the entrypoint gives them to 1000).
+    let data = Volume::bind(&image);
+    std::fs::create_dir_all(data.path().join("data/storage")).unwrap();
+    std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
+    let storage = Volume::At(format!("{}/data/storage:/app/storage", data.path().display()));
+    docker(&["run", "--rm", "--user", "0", "--entrypoint", "cp", "-v", &fixture.volume.mount(), "-v", &format!("{}/data/storage:/out", data.path().display()),
+             &image, "-a", "/app/storage/.", "/out/"]);
+    let secrets = std::fs::read(take(&image, &storage).path().join(".secrets")).unwrap();
+
+    let override_yaml = format!("services:\n  app_proxy: !reset null\n  web:\n    image: {image}\n    ports: [\"127.0.0.1::3000\"]\n  jobs:\n    image: {image}\n");
+    let app_data_dir = data.path().display().to_string();
+    let project = Project::new("deltabadger/docker-compose.yml", &override_yaml,
+                               &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", seed), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
+
+    project.ok(&["up", "-d", "web"]);
+    let web = project.container("web");
+    web.wait_for("/health-check", 200);
+    assert_eq!(std::fs::read(take(&image, &storage).path().join(".secrets")).unwrap(), secrets, "web's takeover keeps .secrets");
+
+    // The whole compose, as Umbrel starts it: `jobs` only once `web` is healthy (the image HEALTHCHECK).
+    project.ok(&["up", "-d"]);
+    let jobs = project.container("jobs");
+    let start = Instant::now();
+    while !jobs.logs().contains(J1) && start.elapsed() < Duration::from_secs(30) { std::thread::sleep(Duration::from_millis(500)); }
+    assert!(jobs.logs().contains(J1), "{}", project.logs());
+    assert_eq!(docker(&["inspect", "-f", "{{.State.Running}} {{.RestartCount}}", &jobs.id]), "true 0", "{}", project.logs());
+    let top = docker(&["top", &jobs.id, "-o", "pid,comm"]);
+    assert!(top.lines().any(|l| l.ends_with(" sleep")), "the idle loop shows:\n{top}");
+    assert!(!top.lines().any(|l| l.split_whitespace().nth(1) == Some("deltabadger")), "jobs runs no engine:\n{top}");
+    assert_eq!(std::fs::read(take(&image, &storage).path().join(".secrets")).unwrap(), secrets, "jobs keeps .secrets");
+    let logs = project.logs();
+    assert_eq!(logs.matches("took over (").count(), 1, "one takeover across both services:\n{logs}");
+
+    // A second engine on the same data, through the same compose: refused, nothing written, the first one still serves.
+    for command in ["serve", "run"] {
+        let before = paths(&image, &storage);
+        let name = unique("dbsecond");
+        let out = exits(project.command(&["run", "--rm", "-T", "--no-deps", "--name", &name, "web", command]), &name);
+        let said = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        assert_eq!(out.status.code(), Some(1), "{command}: {said}");
+        assert!(said.contains(LOCKED), "{command}: {said}");
+        assert_eq!(paths(&image, &storage), before, "a refused {command} writes nothing");
+        assert_eq!(web.status("/health-check"), Some(200));
+    }
+
+    // `jobs` stops on SIGTERM at once with 0; `web` keeps serving.
+    let start = Instant::now();
+    assert_eq!(jobs.stop(), "0", "{}", jobs.logs());
+    assert!(start.elapsed() < Duration::from_secs(2), "jobs took {:?} to stop", start.elapsed());
+    assert_eq!(web.status("/health-check"), Some(200));
+
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+    left_taken_over(&image, &storage, &fixture.cipher, &secrets);
+}
+
+/// The own-server compose (docker-compose.yml, `standalone`) on a real 2.x volume (format 1). The override swaps the
+/// image and points `storage` at this test's volume; APP_PORT is a free port.
+#[test]
+fn the_own_server_compose_takes_a_2x_volume_over() {
+    let Some(image) = image() else { return };
+    let fixture = made_by_2x_migrate(&image);
+    let secrets = std::fs::read(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    let Volume::Named(name) = &fixture.volume else { unreachable!() };
+    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port().to_string();
+    let project = Project::new("docker-compose.yml",
+        &format!("services:\n  deltabadger:\n    image: {image}\nvolumes:\n  storage:\n    name: {name}\n    external: true\n"),
+        &[("APP_PORT", &port)]);
+    project.ok(&["up", "-d"]);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("took over ("), "{}", app.logs());
+    project.ok(&["stop"]);
+    assert_eq!(docker(&["inspect", "-f", "{{.State.ExitCode}}", &app.id]), "0", "{}", app.logs());
+    left_taken_over(&image, &fixture.volume, &fixture.cipher, &secrets);
+}
+
+/// `migrate` and `setup` on an empty volume, started as root: exit 0, M1, a `.secrets` (600, owned by 1000) and nothing
+/// else: no database, no backups. `serve` on the same volume then creates the install on that same `.secrets`.
+#[test]
+fn migrate_and_setup_on_an_empty_volume_write_secrets_only() {
+    let Some(image) = image() else { return };
+    for command in ["migrate", "setup"] {
+        let volume = Volume::named();
+        let out = run_once(&["-v", &volume.mount(), &image, command]);
+        assert_eq!(out.status.code(), Some(0), "{command}: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(String::from_utf8_lossy(&out.stdout).contains(M1), "{command}: {}", String::from_utf8_lossy(&out.stdout));
+        let state = docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), &image, "-c",
+                             "cd /app/storage && find . | sort && stat -c '%u %a' .secrets"]);
+        assert_eq!(state, ".\n./.secrets\n1000 600", "{command} leaves .secrets only");
+        let secrets = std::fs::read(take(&image, &volume).path().join(".secrets")).unwrap();
+
+        let app = Container::start(&image, &volume, &[], &[]);
+        app.wait_for("/health-check", 200);
+        assert!(app.logs().contains("set up a new install"), "{}", app.logs());
+        assert_eq!(app.stop(), "0", "{}", app.logs());
+        drop(app);
+        assert_eq!(std::fs::read(take(&image, &volume).path().join(".secrets")).unwrap(), secrets, "serve keeps {command}'s .secrets");
+    }
+}
+
+/// `console`, `rake …` and `export` (Rails' own) on a 2.x volume: exit 64, R1 on stderr, every file byte-equal.
+#[test]
+fn rails_commands_are_refused_and_change_nothing() {
+    let Some(image) = image() else { return };
+    let fixture = made_by_2x_migrate(&image);
+    let before = snapshot(&image, &fixture.volume);
+    for command in [&["console"][..], &["rake", "db:migrate"], &["export"]] {
+        let mount = fixture.volume.mount();
+        let mut args = vec!["--network", "none", "-v", &mount, &image];
+        args.extend(command);
+        let out = run_once(&args);
+        assert_eq!(out.status.code(), Some(64), "{command:?}: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(String::from_utf8_lossy(&out.stderr).contains(R1), "{command:?}: {}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(snapshot(&image, &fixture.volume), before, "{command:?} changes no file");
+    }
 }
