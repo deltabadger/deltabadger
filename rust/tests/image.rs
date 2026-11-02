@@ -33,16 +33,26 @@ fn unique(prefix: &str) -> String {
     format!("{prefix}{}x{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst))
 }
 
-/// Runs `command`, which starts the container `name`, and gives it a minute to exit. One still running then is removed
-/// and the test fails: a command that wrongly starts an engine fails instead of hanging.
+/// Runs `command`, which starts the container `name`, and gives it a minute to exit. Past that the test fails: a
+/// command that wrongly starts an engine fails instead of hanging. The client is killed and reaped first, so it can't
+/// create the container after the cleanup; then the container is removed until Docker no longer lists it.
 fn exits(mut command: Command, name: &str) -> Output {
     let child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().expect("docker runs");
+    let pid = child.id().to_string();
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || { let _ = tx.send(child.wait_with_output()); });
-    match rx.recv_timeout(Duration::from_secs(60)) {
-        Ok(out) => out.unwrap(),
-        Err(_) => { let _ = docker_out(&["rm", "-f", name]); panic!("{name} was still running after a minute") }
+    if let Ok(out) = rx.recv_timeout(Duration::from_secs(60)) { return out.unwrap(); }
+    let _ = Command::new("kill").args(["-9", &pid]).status();
+    let _ = rx.recv();
+    let filter = format!("name=^{name}$");
+    let start = Instant::now();
+    loop {
+        let _ = docker_out(&["rm", "-f", name]);
+        if docker(&["ps", "-a", "-q", "--filter", &filter]).is_empty() { break; }
+        assert!(start.elapsed() < Duration::from_secs(30), "{name} could not be removed");
+        std::thread::sleep(Duration::from_millis(500));
     }
+    panic!("{name} was still running after a minute")
 }
 
 /// `docker run --rm` of `args` (options, image, command), bounded as `exits`.
@@ -531,13 +541,6 @@ impl Drop for Project {
     fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--remove-orphans", "-t", "5"]); }
 }
 
-/// Every path on the volume (without the lock and SQLite's -wal/-shm, which a running engine changes) and `.secrets`'
-/// sha256: what a refused start must leave as it was while the first engine keeps writing its databases.
-fn paths(image: &str, volume: &Volume) -> String {
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
-             "cd /app/storage && find . ! -name .engine.lock ! -name '*-shm' ! -name '*-wal' | sort && sha256sum .secrets"])
-}
-
 /// Umbrel's compose (deltabadger/docker-compose.yml) as 2.x users have it, on a 2.x Umbrel install (format 2: the
 /// secret is `${APP_SEED}-secret-key-base` in the env, the pair in `.secrets`). The override only swaps both images for
 /// the 3.0 one, drops `app_proxy` (Umbrel's own) and publishes `web`'s 3000 for the test. One engine trades: `web`
@@ -586,14 +589,17 @@ fn umbrels_two_service_compose_runs_one_engine() {
     assert_eq!(logs.matches("took over (").count(), 1, "one takeover across both services:\n{logs}");
 
     // A second engine on the same data, through the same compose: refused, nothing written, the first one still serves.
+    // `web` is paused around each (its lock stays held), so every file's bytes can be compared, databases included.
     for command in ["serve", "run"] {
-        let before = paths(&image, &storage);
+        docker(&["pause", &web.id]);
+        let before = snapshot(&image, &storage);
         let name = unique("dbsecond");
         let out = exits(project.command(&["run", "--rm", "-T", "--no-deps", "--name", &name, "web", command]), &name);
         let said = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
         assert_eq!(out.status.code(), Some(1), "{command}: {said}");
         assert!(said.contains(LOCKED), "{command}: {said}");
-        assert_eq!(paths(&image, &storage), before, "a refused {command} writes nothing");
+        assert_eq!(snapshot(&image, &storage), before, "a refused {command} writes nothing");
+        docker(&["unpause", &web.id]);
         assert_eq!(web.status("/health-check"), Some(200));
     }
 
