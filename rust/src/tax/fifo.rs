@@ -485,7 +485,18 @@ impl<'a> Fifo<'a> {
                 self.own_fee(tx)?;
             }
             Kind::Deposit => {
-                if r.linked { return Ok(()); }
+                if r.linked {
+                    // D-TAX-FR-NETWORK-FEE (r4 item 2): a fee attached to a linked deposit leaves its coin's units (no cession here);
+                    // elsewhere as before (moving it would restate every other report's figures: a later slice's question).
+                    if self.o.pvct_from.is_some() {
+                        if let Some(fee) = r.fee_amount.clone().filter(Dec::is_positive) {
+                            let symbol = r.fee_currency.clone().unwrap_or_default();
+                            let asset = if symbol == r.base { tx.asset.clone() } else { tx.fee_asset.clone().unwrap_or_else(|| symbol.clone()) };
+                            self.consume_fee_in_kind(&r.exchange, &symbol, &asset, &fee)?;
+                        }
+                    }
+                    return Ok(());
+                }
                 let (lot_amount, lot_cost) = self.apply_acquisition_fee(tx, amount, fiat_value)?;
                 // D-TAX-DK-DEPOSIT-ZERO (and BG's): with no documented purchase the cost is 0, a fact, not an assumption.
                 let zero = self.o.deposit_cost_zero;

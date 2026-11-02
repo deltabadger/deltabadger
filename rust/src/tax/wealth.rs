@@ -29,6 +29,9 @@ pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: 
         };
         let own_fee = r.fee_amount.clone().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str()));
         let mut moves = walk::quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_deref(), r.fee_amount.as_ref(), linked, transfer_fee.as_ref())?;
+        // r4 item 2: an own-coin fee attached to a linked deposit leaves too (`quantity_moves` takes a third coin's already; the
+        // principal is not credited again, and the inferred network fee is the withdrawal's amount less the deposit's gross).
+        if r.kind == Kind::Deposit && linked { if let Some(f) = &own_fee { moves.push((r.base.clone(), f.neg())); } }
         for (symbol, delta) in moves.iter_mut().filter(|(s, _)| *s == r.base) {
             // D-TAX-SNAPSHOT-KEEPS: an unlinked withdrawal takes out only its own fee.
             if r.kind == Kind::Withdrawal && !linked { *delta = own_fee.clone().map_or_else(Dec::zero, |f| f.neg()); }
@@ -83,5 +86,10 @@ mod tests {
         let rows = [row(1, Kind::Buy, "BTC", "1", 0), out, row(3, Kind::Deposit, "BTC", "0.9995", 6)];
         assert_eq!(units(&rows, 5), [("BTC".to_string(), "0.9995".to_string())]);
         assert_eq!(units(&rows, 9), [("BTC".to_string(), "0.9995".to_string())]);
+        // Codex r4: buy 1, withdraw 1, linked deposit gross 1 with a 0.001 BTC fee → 0.999.
+        let mut out = row(2, Kind::Withdrawal, "BTC", "1", 3);
+        out.linked_to = Some(3);
+        let rows = [row(1, Kind::Buy, "BTC", "1", 0), out, fee(row(3, Kind::Deposit, "BTC", "1", 4), "BTC", "0.001")];
+        assert_eq!(units(&rows, 9), [("BTC".to_string(), "0.999".to_string())]);
     }
 }
