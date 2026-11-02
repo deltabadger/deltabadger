@@ -2953,6 +2953,7 @@ module TaxVectors
     raw = { 'activity_type' => activity, 'net_amount' => usd, 'date' => day }
     raw['per_share_amount'] = per_share if per_share
     raw['symbol'] = sym if sym
+    raw['qty'] = qty if qty && activity == 'DIV'
     at = "#{day}T00:00:00Z"
     id = "#{activity}-#{sym}-#{day}-#{(c[:nta] = c.fetch(:nta, 0) + 1)}"
     case activity
@@ -3012,9 +3013,19 @@ module TaxVectors
       br.('de_broker_two_distributions', 'diverges: D-TAX-BROKER-CREDIT') do |c|
         zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); nta(c, 'DIV', 'ZQX', '110', '2025-06-02'); dividend.(c, 'ZQX', '110', '33', '2025-06-02')
       end,
+      br.('de_broker_divft_cancelled', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '77', '33', '2025-06-02', kind: 'DIVFT')
+        nta(c, 'DIV', 'ZQX', '-77', '2025-06-02'); nta(c, 'DIVFT', 'ZQX', '33', '2025-06-02', refund: true)
+      end,
+      br.('de_broker_mixed_withholding', 'diverges: D-TAX-BROKER-CREDIT') do |c|
+        zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '110', '22', '2025-06-02'); nta(c, 'DIVFT', 'ZQX', '1.10', '2025-06-02')
+      end,
+      br.('de_broker_dividend_qty', 'diverges: D-TAX-BROKER-VAP-DISTRIBUTIONS') do |c|
+        fund_2024.(c); fill(c, :buy, 'FNDX', '100', '10800', '2024-06-28'); nta(c, 'DIV', 'FNDX', '108', '2024-07-01', qty: '100')
+      end,
       br.('de_broker_divft', 'diverges: D-TAX-BROKER-CREDIT') { |c| zqx.(c); fill(c, :buy, 'ZQX', '100', '10700', '2023-01-03'); dividend.(c, 'ZQX', '77', '33', '2025-06-02', kind: 'DIVFT') },
       br.('de_broker_interest', 'diverges: D-TAX-BROKER-CREDIT') { |c| nta(c, 'INT', nil, '55', '2025-07-01'); nta(c, 'INTNRA', nil, '5.50', '2025-07-01') },
-      br.('de_broker_interest_reversal') { |c| nta(c, 'INT', nil, '55', '2025-03-03'); nta(c, 'INT', nil, '-11', '2025-04-01') },
+      br.('de_broker_interest_reversal', 'diverges: D-TAX-BROKER-NEGATIVE-INTEREST') { |c| nta(c, 'INT', nil, '55', '2025-03-03'); nta(c, 'INT', nil, '-11', '2025-04-01') },
       br.('de_broker_roc', 'diverges: D-TAX-BROKER-ROC-DIVIDEND') do |c|
         zqx.(c); fill(c, :buy, 'ZQX', '10', '1070', '2023-03-01'); nta(c, 'DIVROC', 'ZQX', '110', '2025-06-02', per_share: '11', qty: '10')
         fill(c, :sell, 'ZQX', '10', '2200', '2025-09-01')

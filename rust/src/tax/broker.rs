@@ -14,7 +14,8 @@
 //! - D-TAX-BROKER-VAP-DISTRIBUTIONS: the fund's distributions of the whole year count for every lot (§ 18 Abs. 1 S. 1).
 //! - D-TAX-BROKER-VAP-NO-PRICE: a year with no positive Basiszins asks for no price.
 //! - D-TAX-BROKER-2023-LINES: the 2023 report has no Vorabpauschale rows (KAP-INV 2023 lines 9–13 "frei").
-//! - D-TAX-BROKER-PANEL: the classification panel shows every refusal but a missing price (`classification_rows`).
+//! - D-TAX-BROKER-PANEL: the classification panel shows an uncovered sale and a missing Basiszins too (`classification_rows`);
+//!   a missing close or ECB rate stays the report's (the run fetches both before its walk).
 use super::{line, Cell, CryptoScope};
 use crate::figures::{dec::Dec, FiguresError};
 use crate::tracker::fx::FxTable;
@@ -187,6 +188,14 @@ impl Rec {
             None => Ok(self.quote_amount.clone().unwrap_or_else(Dec::zero)),
         }
     }
+    /// What a withholding row withheld, signed: Alpaca books the debit negative and a refund positive.
+    fn withheld_usd(&self) -> R<Dec> {
+        match self.raw.get("net_amount").filter(|v| !v.is_null() && v.as_str() != Some("")) { Some(v) => Ok(Dec::to_d(v)?.neg()), None => Ok(abs(&self.amount)) }
+    }
+    /// The shares a distribution was paid on (Alpaca's `qty`), when the activity states them.
+    fn qty(&self) -> R<Option<Dec>> {
+        match self.raw.get("qty").filter(|v| !v.is_null() && v.as_str() != Some("")) { Some(v) => Ok(Some(Dec::to_d(v)?).filter(Dec::is_positive)), None => Ok(None) }
+    }
     /// `signed_usd`: the activity's own net amount keeps a reversal's sign.
     fn signed_usd(&self) -> R<Dec> {
         match self.raw.get("net_amount").filter(|v| !v.is_null() && v.as_str() != Some("")) {
@@ -229,15 +238,19 @@ pub struct Window { pub symbol: String, pub from: NaiveDate, pub to: NaiveDate, 
 
 impl Window {
     /// The days a stored close makes the window fresh (no fetch): the end window's from its last weekday on (Rails); the start
-    /// window's within its first three weekdays, where the year's first trading day is (D-TAX-BROKER-VAP-START).
+    /// window's on its first weekday (in a holiday year the window is fetched again; the answer holds the first trading
+    /// day's close, which must lie within the first three weekdays: D-TAX-BROKER-VAP-START).
     pub fn fresh(&self) -> (NaiveDate, NaiveDate) {
         if !self.first { return (crate::tracker::prices::last_weekday(self.from, self.to), self.to); }
         // The first three weekdays from 2 January: a holiday (2 January 2023) moves the first close a day or two.
         let weekday = |d: &NaiveDate| d.weekday().number_from_monday() <= 5;
         let days: Vec<NaiveDate> = self.from.iter_days().filter(weekday).take(3).collect();
-        (days[0], days[2])
+        (days[0], days[0])
     }
 }
+
+/// The third weekday from `from`: a start close later than it is not the year's first (a holiday moves it a day or two).
+fn first_days_end(from: NaiveDate) -> NaiveDate { from.iter_days().filter(|d| d.weekday().number_from_monday() <= 5).nth(2).unwrap_or(from) }
 
 /// A year-boundary close: none, the close (its day, EUR), or a close whose day has no ECB rate.
 enum Pick { Nothing, Close(NaiveDate, Dec), NoRate(NaiveDate) }
@@ -264,7 +277,7 @@ impl Closes<'_> {
         let chosen = if w.first { closes.into_iter().next() } else { closes.into_iter().next_back() };
         let Some((day, close)) = chosen else { return Ok(Pick::Nothing) };
         // A start close past the first trading days (a partial cache, an empty fetch) is no start value.
-        if w.first && day > w.fresh().1 { return Ok(Pick::Nothing); }
+        if w.first && day > first_days_end(w.from) { return Ok(Pick::Nothing); }
         Ok(match fx.rate("EUR", "USD", day)? { Some(rate) => Pick::Close(day, div(&close, &rate)?), None => Pick::NoRate(day) })
     }
     fn panel(&self) -> bool { matches!(self, Closes::Panel(_)) }
@@ -318,7 +331,7 @@ struct Walk<'a> {
     gross_by_day: BTreeMap<(String, NaiveDate), Option<Dec>>,
     /// What has been credited against each (symbol, day)'s income: one allowance per income item, not per withholding row.
     credited: BTreeMap<(String, NaiveDate), Dec>,
-    withheld: BTreeMap<(String, NaiveDate), Dec>,
+    withheld: BTreeMap<(String, NaiveDate, bool), Dec>,
     /// How many distribution rows each (symbol, day) has (more than one: the allowance is pooled, and said).
     paid_by_day: BTreeMap<(String, NaiveDate), usize>,
     states: BTreeMap<String, State>, refusals: BTreeMap<String, BTreeSet<&'static str>>,
@@ -380,7 +393,7 @@ impl<'a> Walk<'a> {
         for r in self.recs.iter().filter(|r| r.kind == WITHHOLDING && r.activity() == "DIVFT") {
             let Some(symbol) = r.symbol() else { continue };
             let total = divft.entry((symbol, r.date())).or_insert_with(Dec::zero);
-            *total = add(total, &abs(&r.amount))?;
+            *total = add(total, &r.withheld_usd()?)?;
         }
         let mut groups: BTreeMap<(String, NaiveDate), Vec<usize>> = BTreeMap::new();
         for (i, r) in self.recs.iter().enumerate() {
@@ -428,7 +441,8 @@ impl<'a> Walk<'a> {
             let (id, day, symbol) = (r.id, r.date(), r.symbol());
             let rate = self.fx.rate("EUR", "USD", day)?;
             self.rates.insert(id, rate.clone());
-            if rate.is_some() { continue; }
+            // The run loads the ECB's rates before its walk; the panel reads what is stored, so a gap there refuses nothing.
+            if rate.is_some() || self.closes.panel() { continue; }
             match symbol {
                 Some(symbol) => self.refuse(&symbol, "missing_fx", Detail::Date(day)),
                 None => self.warn("missing_fx", None, Detail::Date(day)),
@@ -537,7 +551,12 @@ impl<'a> Walk<'a> {
         let gross_usd = self.distribution_usd(r)?;
         let gross_eur = match &rate { Some(rate) => Some(div(&gross_usd, rate)?), None => None };
         let scale = self.scale.get(&r.id).cloned().unwrap_or_else(Dec::one);
-        let per_share_usd = match r.per_share()? { Some(p) => Some(mul(&p, &scale)?), None => None };
+        // Per share as stated, else over the shares it was paid on (`qty`); only then over the shares held that day (Rails).
+        let per_share_usd = match (r.per_share()?, r.qty()?) {
+            (Some(p), _) => Some(mul(&p, &scale)?),
+            (None, Some(qty)) if r.kind == OTHER_INCOME => Some(div(&gross_usd, &qty)?),
+            _ => None,
+        };
         let date = r.date();
         let mut outstanding = Dec::zero();
         for l in self.states[symbol].ledger.lots.iter().filter(|l| l.acquired <= date) { outstanding = add(&outstanding, &l.units)?; }
@@ -558,7 +577,7 @@ impl<'a> Walk<'a> {
     fn withholding(&mut self, symbol: Option<&str>, r: &Rec) -> R<()> {
         let rate = self.rate(r);
         // Alpaca books a withholding as a debit (negative net amount) and a refund as a credit.
-        let usd = match r.raw.get("net_amount").filter(|v| !v.is_null() && v.as_str() != Some("")) { Some(v) => Dec::to_d(v)?.neg(), None => abs(&r.amount) };
+        let usd = r.withheld_usd()?;
         let eur = match &rate { Some(rate) => Some(div(&usd, rate)?), None => None };
         if !self.report_year(r) { return Ok(()); }
         let activity = r.activity();
@@ -576,13 +595,19 @@ impl<'a> Walk<'a> {
                     None => { self.warn("withholding_unmatched", Some(symbol.to_string()), Detail::Date(r.date())); Dec::zero() }
                     Some(gross) => {
                         if self.paid_by_day.get(&key).is_some_and(|n| *n > 1) { self.warn("withholding_pooled", Some(symbol.to_string()), Detail::Date(r.date())); }
-                        let taxable = div(&mul(&gross, &Dec::from_i64(100 - self.states[symbol].exemption()))?, &Dec::from_i64(100))?;
-                        let mut cap = mul(&taxable, &d("0.25"))?;
-                        if matches!(activity.as_str(), "DIVNRA" | "DIVTW") { cap = min(cap, mul(&gross, &d("0.15"))?); }
-                        else { self.warn("withholding_country_unknown", Some(symbol.to_string()), Detail::Date(r.date())); }
-                        let withheld = self.withheld.entry(key.clone()).or_insert_with(Dec::zero);
-                        *withheld = add(withheld, &eur)?;
-                        let total = min(max(Dec::zero(), withheld.clone()), cap);
+                        // One German ceiling per item (25 % of its taxable part); under it each kind of withholding its own allowance:
+                        // US tax at most 15 % of the gross (the treaty), another state's (DIVFT) the ceiling alone. Order-free.
+                        let ceiling = mul(&div(&mul(&gross, &Dec::from_i64(100 - self.states[symbol].exemption()))?, &Dec::from_i64(100))?, &d("0.25"))?;
+                        let us = matches!(activity.as_str(), "DIVNRA" | "DIVTW");
+                        if !us { self.warn("withholding_country_unknown", Some(symbol.to_string()), Detail::Date(r.date())); }
+                        let held = self.withheld.entry((key.0.clone(), key.1, us)).or_insert_with(Dec::zero);
+                        *held = add(held, &eur)?;
+                        let part = |us: bool| -> R<Dec> {
+                            let held = self.withheld.get(&(key.0.clone(), key.1, us)).cloned().unwrap_or_else(Dec::zero);
+                            let cap = if us { min(ceiling.clone(), mul(&gross, &d("0.15"))?) } else { ceiling.clone() };
+                            Ok(min(max(Dec::zero(), held), cap))
+                        };
+                        let total = min(add(&part(true)?, &part(false)?)?, ceiling.clone());
                         let credited = self.credited.entry(key).or_insert_with(Dec::zero);
                         let change = sub(&total, credited)?;
                         *credited = total;
@@ -611,6 +636,13 @@ impl<'a> Walk<'a> {
                     let usd = r.signed_usd()?;
                     let eur = match &rate { Some(rate) => Some(div(&usd, rate)?), None => None };
                     if !self.report_year(&r) { continue; }
+                    // D-TAX-BROKER-NEGATIVE-INTEREST: Alpaca's INT is credit and margin interest; a debit is interest paid, which
+                    // § 20 Abs. 9 EStG does not let reduce the income (a reversal of a credit would: the user is asked).
+                    if usd.is_negative() {
+                        self.warn("negative_interest", None, Detail::Date(r.date()));
+                        self.income.push(Income { symbol: None, date: r.date(), activity: r.activity(), bucket: "margin_interest", usd: Some(usd), fx: rate, eur, refused: false });
+                        continue;
+                    }
                     self.income.push(Income { symbol: None, date: r.date(), activity: r.activity(), bucket: "kap_interest", usd: Some(usd), fx: rate, eur: eur.clone(), refused: false });
                     if let Some(eur) = eur { self.cash.z19 = add(&self.cash.z19, &eur)?; }
                 }
@@ -642,7 +674,7 @@ impl<'a> Walk<'a> {
         let end = self.closes.pick(&self.fx, window(ymd(year, 12, 22), ymd(year, 12, 31), false))?;
         let ((start_day, start), (end_day, end)) = match (start, end) {
             (Pick::Close(a, x), Pick::Close(b, y)) => ((a, x), (b, y)),
-            (Pick::NoRate(day), _) | (_, Pick::NoRate(day)) => { self.refuse(symbol, "missing_fx", Detail::Date(day)); return Ok(()); }
+            (Pick::NoRate(day), _) | (_, Pick::NoRate(day)) => { if !self.closes.panel() { self.refuse(symbol, "missing_fx", Detail::Date(day)); } return Ok(()); }
             _ => { if !self.closes.panel() { self.refuse(symbol, "missing_price", Detail::Year(year)); } return Ok(()); }
         };
         let year_end = ymd(year, 12, 31);
@@ -765,7 +797,7 @@ pub fn needs(c: &Connection, user: i64, year: i32) -> R<Vec<Window>> {
 }
 
 /// `classification_rows` (D-TAX-BROKER-PANEL): the panel's to-do list, from the same walk run on what is stored, so it
-/// shows every refusal the report would make but a missing close (the run fetches the closes first).
+/// shows every refusal the report would make but a missing close or ECB rate (the run fetches both first).
 pub fn classification_rows(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<SymbolRow>> {
     let closes = Closes::Panel(c);
     let mut walk = Walk::new(c, user, exchange, year, &closes)?;
@@ -933,6 +965,58 @@ mod tests {
         assert_eq!((l.lots[0].units.clone(), l.lots[0].cost.clone()), (n("5"), n("150")));
         let over = l.dispose(&n("8")).unwrap();
         assert!(over[1].uncovered && over[1].units == n("3") && l.lots.is_empty());
+    }
+
+    /// An install with the Rails schema, an Alpaca user (id 1, venue 1) and ECB dollar rates of 1.08 through 2023 and 2024.
+    fn install() -> Connection {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(include_str!("../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        c.execute_batch("PRAGMA foreign_keys = OFF;
+            INSERT INTO users (id, email, created_at, updated_at, time_zone) VALUES (1, 'o@example.com', '2026-01-01', '2026-01-01', 'UTC');
+            INSERT INTO exchanges (id, type, name, created_at, updated_at) VALUES (1, 'Exchanges::Alpaca', 'Alpaca', '2026-01-01', '2026-01-01');
+            INSERT INTO assets (external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES ('FNDX.XNAS', 'FNDX', 'FNDX', 'ETF', 'etf', '2026-01-01', '2026-01-01');").unwrap();
+        let mut day = ymd(2023, 1, 1);
+        while day <= ymd(2025, 12, 31) {
+            c.execute("INSERT INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, '1.08')", [day.to_string()]).unwrap();
+            day = day.succ_opt().unwrap();
+        }
+        c
+    }
+
+    fn row(c: &Connection, kind: i64, amount: &str, usd: &str, at: &str) {
+        c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, created_at, updated_at) \
+                   VALUES (1, 1, ?1, 'FNDX', ?2, 'USD', ?3, ?4, '{}', '2026-01-01', '2026-01-01')", rusqlite::params![kind, amount, usd, at]).unwrap();
+    }
+
+    /// D-TAX-BROKER-VAP-START: 2 January 2023 was an NYSE holiday; the 3rd is the year's first close and makes the window fresh.
+    #[test]
+    fn the_year_s_first_close_may_follow_a_holiday() {
+        let w = Window { symbol: "FNDX".into(), from: ymd(2023, 1, 2), to: ymd(2023, 1, 10), first: true };
+        assert_eq!(w.fresh(), (ymd(2023, 1, 2), ymd(2023, 1, 2)));
+        let c = install();
+        c.execute_batch("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:FNDX', 'USD', '2023-01-03', '108'), ('stock:FNDX', 'USD', '2023-01-09', '120')").unwrap();
+        let fx = FxTable::load(&c).unwrap();
+        let failed = HashSet::new();
+        let closes = Closes::Stored { c: &c, failed: &failed };
+        assert!(matches!(closes.pick(&fx, w.clone()).unwrap(), Pick::Close(day, eur) if day == ymd(2023, 1, 3) && eur == n("100")));
+        // Only a later close stored: no start value.
+        c.execute_batch("DELETE FROM historical_prices WHERE date = '2023-01-03'").unwrap();
+        assert!(matches!(closes.pick(&fx, w).unwrap(), Pick::Nothing));
+    }
+
+    /// D-TAX-BROKER-PANEL: the panel's rows carry the walk's refusals but a missing close, and the walk asks for nothing.
+    #[test]
+    fn the_panel_shows_the_walk_s_refusals_but_a_missing_close() {
+        let c = install();
+        row(&c, BUY, "100", "10800", "2023-03-01 15:00:00");
+        row(&c, SELL, "150", "16200", "2025-03-03 15:00:00");
+        let before: i64 = c.query_row("SELECT count(*) FROM historical_prices", [], |r| r.get(0)).unwrap();
+        let rows = classification_rows(&c, 1, 1, LAST_YEAR).unwrap();
+        assert_eq!(rows, vec![SymbolRow { symbol: "FNDX".into(), kind: Some(1), category: Some(4), persisted: false, reasons: vec!["uncovered_disposal"] }]);
+        assert_eq!(c.query_row("SELECT count(*) FROM historical_prices", [], |r| r.get::<_, i64>(0)).unwrap(), before);
+        // The report itself refuses the missing closes too.
+        let csv = report(&c, 1, LAST_YEAR, &HashSet::new()).unwrap();
+        assert!(csv.contains("Kein Rücknahmepreis zum Jahreswechsel 2023") && csv.contains("ohne vollständig belegten Bestand"), "{csv}");
     }
 
     #[test]

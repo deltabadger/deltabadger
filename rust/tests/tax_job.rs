@@ -7,6 +7,7 @@ use deltabadger::engine::FixedClock;
 use deltabadger::jobs::{notifications::Notifications, Cx, Db, Outcome, Wakers};
 use deltabadger::tax::job as tax;
 use deltabadger::venue::http::ScriptedTransport;
+use chrono::Datelike;
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
@@ -461,4 +462,130 @@ async fn the_pl_form_generates_with_its_carry_and_keeps_the_modal_on_a_refused_a
     let before = rows(&c);
     assert_eq!(browser.send(&app, "POST", "/tracker/tax_report", Some(&post("200")), Csrf::Header, &TURBO).await.status, 500);
     assert_eq!((rows(&c), carry(&c, i.user)), (before, vec![(2025, "100.0".to_string())]));
+}
+
+// ---- A12-7: the broker report's run ----------------------------------------------------------------------------------
+
+/// FNDX, an ETF on the install's Alpaca (with a ticker when `ticker`), 100 bought on 2 January 2024 for $10,800; the ECB's
+/// dollar rate on every day around the 2024 boundaries (1.07 in 2023, 1.08 after).
+fn fund(i: &Install, ticker: bool) {
+    let c = open(i);
+    let (exchange, key): (i64, i64) = c.query_row("SELECT exchange_id, id FROM api_keys WHERE user_id = ?1", [i.user], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES ('FNDX.XNAS', 'FNDX', 'FNDX', 'ETF', 'etf', ?1, ?1)", [T0]).unwrap();
+    let asset = c.last_insert_rowid();
+    if ticker {
+        let usd: i64 = c.query_row("SELECT id FROM assets WHERE symbol = 'USD'", [], |r| r.get(0)).unwrap();
+        c.execute("INSERT INTO tickers (base, base_asset_id, base_decimals, created_at, exchange_id, minimum_base_size, minimum_quote_size, price_decimals, quote, quote_asset_id, \
+                   quote_decimals, ticker, updated_at) VALUES ('FNDX', ?1, 9, ?2, ?3, '0.000000001', '1', 2, 'USD', ?4, 2, 'FNDX', ?2)", rusqlite::params![asset, T0, exchange, usd]).unwrap();
+    }
+    c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at, \
+               raw_data, manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 'FNDX', '100', 'USD', '10800', 'fndx-1', '2024-01-02 15:00:00', '{}', '{}', 0, ?4, ?4)",
+              rusqlite::params![i.user, key, exchange, T0]).unwrap();
+    let mut day = chrono::NaiveDate::from_ymd_opt(2023, 12, 20).unwrap();
+    while day <= chrono::NaiveDate::from_ymd_opt(2025, 1, 10).unwrap() {
+        c.execute("INSERT OR IGNORE INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, ?2)", rusqlite::params![day.to_string(), if day.year() == 2023 { "1.07" } else { "1.08" }]).unwrap();
+        day = day.succ_opt().unwrap();
+    }
+}
+
+fn broker_row(c: &Connection, user: i64, country: &str) {
+    c.execute("INSERT INTO rust_tax_reports (request, user_id, scope, country, year, stablecoin_as_fiat, locale, state, created_at) \
+               VALUES (?1, ?2, 'broker', ?3, 2025, 0, 'en', 'queued', '2026-09-10 12:00:00')", rusqlite::params![R1, user, country]).unwrap();
+}
+
+fn bars(replies: Value) -> ScriptedTransport { ScriptedTransport::from_script(&json!({ "GET /v2/stocks/FNDX/bars": replies })) }
+
+fn closes(c: &Connection) -> Vec<(String, String)> {
+    let mut s = c.prepare("SELECT date, CAST(price AS TEXT) FROM historical_prices WHERE asset = 'stock:FNDX' ORDER BY date").unwrap();
+    s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
+}
+
+/// The run fetches the year-boundary closes from the broker (the year's first trading days and its last days), stores them,
+/// and writes the report: de_broker_fetched's figure (VAP 2024 = 100 × 100 × 0.7 × 2.29 % = 160.30, Rails' too).
+#[tokio::test]
+async fn a_broker_run_fetches_its_closes_then_publishes_the_report() {
+    let i = install();
+    fund(&i, true);
+    broker_row(&open(&i), i.user, "DE");
+    let body = json!({ "bars": [{ "t": "2024-01-02T05:00:00Z", "c": 108 }, { "t": "2024-01-03T05:00:00Z", "c": 108.5 },
+                                { "t": "2024-12-30T05:00:00Z", "c": 118 }, { "t": "2024-12-31T05:00:00Z", "c": 118.8 }], "next_page_token": null });
+    let (db, _) = job_db(&i);
+    assert_eq!(run_with(&i, &db, bars(json!([{ "status": 200, "body": body }, { "status": 200, "body": body }]))).await, Outcome::Done);
+    assert_eq!(rows(&open(&i)), vec![(R1.into(), "ready".into())]);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
+    assert!(csv.contains("13,Sonstige Fonds,Vorabpauschale (vor Teilfreistellung),160.3\n"), "{csv}");
+    // Rails' figures for the same history and bars (tax_vectors.json, `de_broker_fetched`): the KAP-INV summary, line by line.
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/tax_vectors.json")).unwrap();
+    let rails = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["rails"]["csv"].as_str().unwrap().to_string();
+    let kap_inv = |csv: &str| csv.split("\n\n").find(|block| block.starts_with("ZUSAMMENFASSUNG — ANLAGE KAP-INV")).map(str::to_string);
+    assert_eq!(kap_inv(&csv), kap_inv(&rails));
+    assert!(kap_inv(&rails).is_some());
+    // Each window keeps the closes inside it.
+    assert_eq!(closes(&open(&i)), vec![("2024-01-02".into(), "108".into()), ("2024-01-03".into(), "108.5".into()), ("2024-12-30".into(), "118".into()),
+                                       ("2024-12-31".into(), "118.8".into())]);
+}
+
+/// A broker outage leaves the fund without its boundary closes: refused as missing (de_broker_outage), nothing stored.
+#[tokio::test]
+async fn a_broker_outage_refuses_the_fund_as_missing_a_price() {
+    let i = install();
+    fund(&i, true);
+    broker_row(&open(&i), i.user, "DE");
+    let (db, _) = job_db(&i);
+    assert_eq!(run_with(&i, &db, bars(json!([{ "status": 500, "body": {} }, { "status": 500, "body": {} }]))).await, Outcome::Done);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
+    assert!(csv.contains("FNDX,\"Kein Rücknahmepreis zum Jahreswechsel 2024 verfügbar"), "{csv}");
+    assert!(!csv.contains("ZUSAMMENFASSUNG — ANLAGE KAP-INV"), "{csv}");
+    assert!(closes(&open(&i)).is_empty());
+}
+
+/// D-TAX-BROKER-VAP-START: a start window holding only a later close (a partial cache) is fetched; when the answer brings no
+/// first trading day's close, the later one is no start value.
+#[tokio::test]
+async fn a_partial_start_window_is_no_start_value() {
+    let i = install();
+    fund(&i, true);
+    open(&i).execute_batch("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:FNDX', 'USD', '2024-01-10', '109'), ('stock:FNDX', 'USD', '2024-12-31', '118.8')").unwrap();
+    broker_row(&open(&i), i.user, "DE");
+    let (db, _) = job_db(&i);
+    // Only the start window is asked for (the end window is fresh); its answer is empty.
+    assert_eq!(run_with(&i, &db, bars(json!([{ "status": 200, "body": { "bars": [], "next_page_token": null } }]))).await, Outcome::Done);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
+    assert!(csv.contains("FNDX,\"Kein Rücknahmepreis zum Jahreswechsel 2024 verfügbar"), "{csv}");
+}
+
+/// GenerateReportJob#broker_csv's ArgumentErrors: another country, or no Alpaca ledger, fails the run.
+#[tokio::test]
+async fn a_broker_run_for_another_country_or_without_a_ledger_fails() {
+    let i = install();
+    broker_row(&open(&i), i.user, "US");
+    let (db, _) = job_db(&i);
+    assert_eq!(run(&i, &db).await, Outcome::Done);
+    assert_eq!(rows(&open(&i)), vec![(R1.into(), "failed".into())]);
+    let c = open(&i);
+    c.execute_batch("DELETE FROM rust_tax_reports; DELETE FROM account_transactions; DELETE FROM api_keys;").unwrap();
+    broker_row(&c, i.user, "DE");
+    assert_eq!(run(&i, &db).await, Outcome::Done);
+    assert_eq!(rows(&open(&i)), vec![(R1.into(), "failed".into())]);
+    assert!(files(&tmp(&i)).is_empty());
+}
+
+/// The broker report reads the broker's closes, never the market-data provider's: queued on a CoinGecko install too.
+#[tokio::test]
+async fn a_broker_create_is_queued_on_a_coingecko_install() {
+    let i = install();
+    // No data-api configured, CoinGecko the provider (as the not-ported gate test sets it).
+    let app = web::app_in(i.d.path(), "engine-test-secret", None, &Map::new(), TestClock::at(T0));
+    app.attach_engine(Default::default());
+    app.attach_jobs(Wakers::default()).unwrap();
+    open(&i).execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('market_data_provider', 'coingecko', '2026-01-01', '2026-01-01')", []).unwrap();
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let crypto = browser.send(&app, "GET", "/tracker/tax_report?country=DE&year=2025", None, Csrf::None, &TURBO).await;
+    assert_eq!(crypto.status, 501, "{}", crypto.body);
+    let broker = browser.send(&app, "GET", "/tracker/tax_report?country=DE&year=2025&report_scope=broker", None, Csrf::None, &TURBO).await;
+    assert_eq!(broker.status, 200, "{}", broker.body);
+    let scope: String = open(&i).query_row("SELECT scope FROM rust_tax_reports", [], |r| r.get(0)).unwrap();
+    assert_eq!(scope, "broker");
 }

@@ -184,6 +184,15 @@ fn before_disclosures(csv: &str) -> &str {
     csv.find(&format!("\n{header}\n")).map_or(csv, |at| &csv[..at])
 }
 
+/// The legal notes every broker file ends with, exactly (Ruby's CSV quotes a cell holding a comma or a quote).
+fn notes() -> String {
+    let t = |key: &str| deltabadger::web::i18n::text("de", key, &[]);
+    let cell = |v: String| if v.contains([',', '"']) { format!("\"{}\"", v.replace('"', "\"\"")) } else { v };
+    let mut out = format!("\n{}\n", t("tax_report.broker.sections.disclosures"));
+    for key in deltabadger::tax::broker::DISCLOSURES { out.push_str(&cell(t(key))); out.push('\n'); }
+    out
+}
+
 /// PLAN-A12 A12-7: the German broker report against Rails (`scope: broker` scenarios). "parity": Rails' bytes up to the legal
 /// notes, then this build's notes (D-TAX-BROKER-DISCLOSURES); "diverges: D-TAX-BROKER-…": the reviewed file; "failed": the
 /// run fails as Rails' ArgumentError does. "fetch": Rails' side of a fetch, whose Rust side is tax_job.rs's.
@@ -210,11 +219,7 @@ fn the_broker_report_is_rails_own_or_the_named_divergence() {
         let csv = match deltabadger::tax::broker::report(&c, user, year as i32, &Default::default()) { Ok(csv) => csv, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
         let rails = s["rails"]["csv"].as_str().unwrap_or("");
         // D-TAX-BROKER-DISCLOSURES: this build's legal notes, every one, and none of the three Rails states that no longer hold.
-        let notes = &csv[before_disclosures(&csv).len()..];
-        for key in deltabadger::tax::broker::DISCLOSURES { if !notes.contains(&deltabadger::web::i18n::text("de", key, &[])) { failures.push(format!("{name}: {key} missing")); } }
-        for gone in ["vorabpauschale_start_value", "interest_withholding_net", "withholding_credit_limit", "usd_balance_fx"] {
-            if notes.contains(&deltabadger::web::i18n::text("de", &format!("tax_report.broker.disclosures.{gone}"), &[])) { failures.push(format!("{name}: {gone} still stated")); }
-        }
+        if &csv[before_disclosures(&csv).len()..] != notes() { failures.push(format!("{name}: not this build's legal notes")); }
         match expect.strip_prefix("diverges: ") {
             None => if before_disclosures(&csv) != before_disclosures(rails) {
                 failures.push(format!("{name}: not Rails' file\n--- rails\n{rails}\n--- rust\n{csv}"));
