@@ -382,6 +382,7 @@ module Decisions
     (sc['exited'] || []).each do |sym|
       bot.bot_index_assets.where(asset_id: assets.fetch(sym).id).update_all(in_index: false, exited_at: Time.iso8601(sc['started_at']) + 600)
     end
+    security_split(user, exchange, quote, bot, sc['security_split']) if sc['security_split']
     bot
   end
 
@@ -655,6 +656,14 @@ module Decisions
             { 'GET /v2/orders/OTX-1' => [ok(filled)] }
           end }
       }
+      # A14: a 4:1 split of a security named like the coin (Alpaca lists a BTC security beside BTC/USD), booked half an hour
+      # after the coin was bought, and the generation the sync moved. Recorded the security's asset: parity. Recorded none
+      # (named on the venue, or not listed at all) or both classes held: Rails restates or holds the coin; Rust never does
+      # (D-SPLIT-NEVER-A-COIN, rust/tests/parity.rs).
+      { 'security_split' => { 'listed' => true, 'recorded' => true }, 'security_split_nameonly' => { 'listed' => true },
+        'security_split_bothclasses' => { 'listed' => true, 'both_classes' => true }, 'security_split_unlisted' => {} }.each do |name, split|
+        variants[name] = { 'at' => after.(1), 'transactions' => [closed], 'security_split' => split.merge('at' => '2026-09-01 10:30:00') }
+      end
       # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, in the answer to the
       # placement, and in the follow-up poll of a waiting order.
       { 'nan' => 'NaN', 'infinity' => 'Infinity', 'garbage' => 'garbage' }.each do |label, bad|
@@ -674,7 +683,8 @@ module Decisions
             'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
             'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => ticker,
             'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'alpaca' => http.merge(v_http) },
-            'tick' => v.fetch('tick', true), 'poll' => v['poll'], 'funds_notified_at' => v['funds_notified_at'] }
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'], 'funds_notified_at' => v['funds_notified_at'],
+            'security_split' => v['security_split'] }.compact
         end
       end
     end
@@ -1724,6 +1734,29 @@ module Decisions
     { 'at' => sc['at'], 'holdings' => holdings }
   end
 
+  # A14: the BTC security, listed or not; the account's buy of it when both classes are held; the split as the account sync
+  # books it (Exchanges::Alpaca#normalize_split, #merge_split_entries), with the security's asset recorded or none; and
+  # the generation AccountTransactionSync.expire_restated_bots moved (the bot traded a name the split names).
+  def security_split(user, exchange, quote, bot, split)
+    stock = Asset.create!(external_id: 'BTC.US', symbol: 'BTC', name: 'BTC', category: 'Stock', instrument_type: 'stock')
+    if split['listed']
+      ExchangeAsset.create!(exchange:, asset: stock, available: true)
+      Ticker.create!(exchange:, ticker: 'BTC', base: 'BTC', quote: 'USD', base_asset: stock, quote_asset: quote,
+                     **MarketData::STOCK_TICKER_DEFAULTS.transform_keys(&:to_sym))
+    end
+    if split['both_classes']
+      AccountTransaction.insert!({ 'user_id' => user.id, 'exchange_id' => exchange.id, 'entry_type' => 0, 'base_currency' => 'BTC', 'base_asset_id' => stock.id,
+                                   'base_amount' => 10, 'quote_currency' => 'USD', 'quote_amount' => 300, 'raw_data' => {}, 'transacted_at' => '2026-08-01 00:00:00',
+                                   'created_at' => '2026-08-01 00:00:00', 'updated_at' => '2026-08-01 00:00:00' })
+    end
+    raw = { 'activity_type' => 'SPLIT', 'symbol' => 'BTC', 'corporate_action' => 'split', 'split_ratio' => '4:1', 'qty' => '-10',
+            'merged_activity_ids' => %w[remove add] }
+    AccountTransaction.insert!({ 'user_id' => user.id, 'exchange_id' => exchange.id, 'entry_type' => 15, 'base_currency' => 'BTC',
+                                 'base_asset_id' => (stock.id if split['recorded']), 'base_amount' => 30, 'transacted_at' => split['at'], 'raw_data' => raw,
+                                 'created_at' => split['at'], 'updated_at' => split['at'] })
+    bot.update_columns(restatement_generation: 1)
+  end
+
   # Plan 2d: Alpaca stocks and ETFs. Tuesday 2026-09-01, 10:00 EDT; September is EDT, so a session is 13:30–20:00 UTC.
   STOCK_STARTED = '2026-09-01T14:00:00.123456Z'
 
@@ -1779,12 +1812,19 @@ module Decisions
                                    'transacted_at' => s['at'], 'raw_data' => raw, 'created_at' => s['at'], 'updated_at' => s['at'] })
     end
     unless sc.fetch('splits', []).empty?
+      # What the venue holds: each row restated by the splits after it and in effect at the tick.
+      tick_at = Time.iso8601(sc['at'])
       positions = assets.filter_map do |sym, asset|
-        held = bot.transactions.submitted.where(base_asset_id: asset.id).sum(:amount_exec).to_d
-        sc.fetch('splits', []).select { |sp| sp['name'] == sym && sp['ratio'] }.each do |sp|
-          p,q = sp['ratio'].split(':').map(&:to_d); held *= p/q
+        held = bot.transactions.submitted.where(base_asset_id: asset.id).pluck(:amount_exec, :created_at).sum do |exec, created|
+          sc.fetch('splits', []).select { |sp| sp['name'] == sym && sp['ratio'] }.reduce(exec.to_d) do |qty, sp|
+            at = Time.parse("#{sp['at']} UTC")
+            next qty unless at > created && at <= tick_at
+
+            p, q = sp['ratio'].split(':').map(&:to_d)
+            qty * p / q
+          end
         end
-        { 'symbol' => sym, 'asset_class' => 'us_equity', 'qty' => held.to_s('F') } if held.positive?
+        { 'symbol' => sym, 'asset_class' => 'us_equity', 'qty' => held.to_s('F'), 'qty_available' => held.to_s('F') } if held.positive?
       end
       sc['script']['alpaca']['GET /v2/positions'] = [ok(positions)]
     end
@@ -1863,9 +1903,26 @@ module Decisions
         'split_unresolved' => { 'at' => at1, 'transactions' => [held], 'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => nil }] },
         'basket_split_settled' => { 'at' => at1, 'members' => [['AAPL', 0.5], ['MSFT', 0.5]],
                                     'transactions' => [held, held.merge('external_id' => 'OCLOSED-M', 'symbol' => 'MSFT', 'price' => '400', 'amount_exec' => '0.15')],
-                                    'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '4:1' }] }
+                                    'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '4:1' }] },
+        # A14: a reverse split, settled and inside the quarantine.
+        'split_reverse_settled' => { 'at' => at1, 'transactions' => [held], 'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '1:4' }] },
+        'split_reverse_recent' => { 'at' => at1, 'transactions' => [held], 'splits' => [{ 'name' => 'AAPL', 'at' => one_day_before, 'ratio' => '1:4' }] },
+        # A split booked between two buys: the first is restated, the second is already on the new count.
+        'split_between_buys' => { 'at' => at1, 'transactions' => [held, held.merge('external_id' => 'OCLOSED-T', 'created_at' => '2026-08-30 14:00:01', 'price' => '46.9', 'amount_exec' => '1.28')],
+                                  'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '4:1' }] },
+        # Recent, but before the position was opened: it moves nothing, so nothing stands down.
+        'split_before_position' => { 'at' => at1, 'transactions' => [closed], 'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-31 00:00:00', 'ratio' => '4:1' }] },
+        # Dated ahead of the tick: not in effect yet.
+        'split_future' => { 'at' => at1, 'transactions' => [held], 'splits' => [{ 'name' => 'AAPL', 'at' => '2026-09-30 00:00:00', 'ratio' => '4:1' }] },
+        # One basket member's split stands the whole basket down: inside the quarantine, and unsized.
+        'basket_split_recent' => { 'at' => at1, 'members' => [['AAPL', 0.5], ['MSFT', 0.5]],
+                                   'transactions' => [held, held.merge('external_id' => 'OCLOSED-M', 'symbol' => 'MSFT', 'price' => '400', 'amount_exec' => '0.15')],
+                                   'splits' => [{ 'name' => 'AAPL', 'at' => one_day_before, 'ratio' => '4:1' }] },
+        'basket_split_unresolved' => { 'at' => at1, 'members' => [['AAPL', 0.5], ['MSFT', 0.5]],
+                                       'transactions' => [held, held.merge('external_id' => 'OCLOSED-M', 'symbol' => 'MSFT', 'price' => '400', 'amount_exec' => '0.15')],
+                                       'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => nil }] }
       }
-      raise "the stock grid has #{variants.size} variants, not 31" unless variants.size == 31
+      raise "the stock grid has #{variants.size} variants, not 38" unless variants.size == 38
 
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
@@ -2606,7 +2663,11 @@ module Decisions
     states = {
       'open' => {},
       'closed' => { 'http' => { 'GET /v2/clock' => [closed_clock(at)] } },
-      'foreign' => { 'rows' => rows + [bought.(9, 'AAPL', '5', '150', 'foreign' => true, 'external_id' => 'OFOREIGN-1')], 'aapl' => '7' }
+      'foreign' => { 'rows' => rows + [bought.(9, 'AAPL', '5', '150', 'foreign' => true, 'external_id' => 'OFOREIGN-1')], 'aapl' => '7' },
+      # A14: AAPL bought before a settled 2:1 split, and a sale for 600 (about 3.2 AAPL): the restated 4 covers it, the
+      # as-traded 2 would not and MSFT would sell the rest (the positions come from build_stock).
+      'split' => { 'settings' => { 'sell_quote_amount' => 600.0 }, 'rows' => [bought.(1, 'AAPL', '2', '187.5', 'created_at' => '2026-08-25 14:00:01'), bought.(2, 'MSFT', '0.1', '400', 'created_at' => '2026-08-25 14:00:02')],
+                   'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '2:1' }] }
     }
     states.flat_map do |state, st|
       modes.map do |mode, msettings|
@@ -2616,8 +2677,8 @@ module Decisions
                  'POST /v2/orders' => [sold.('OTX-1', 'AAPL'), sold.('OTX-2', 'MSFT')], 'GET /v2/account' => [stock_account('100000', '200000')],
                  'GET /v2/positions' => [ok([stock_pos.('AAPL', st.fetch('aapl', '2')), stock_pos.('MSFT', '0.1')])] }.merge(st.fetch('http', {}))
         { 'name' => "basket-sell-stock-#{state}-#{mode}", 'venue' => 'alpaca', 'asset' => 'stock', 'interval' => 'day', 'quote_amount' => 60.0,
-          'started_at' => STOCK_STARTED, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 100.0 }.merge(msettings),
-          'transient' => {}, 'transactions' => st.fetch('rows', rows), 'members' => [['AAPL', 0.5], ['MSFT', 0.5]], 'at' => at,
+          'started_at' => STOCK_STARTED, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 100.0 }.merge(msettings).merge(st.fetch('settings', {})),
+          'transient' => {}, 'transactions' => st.fetch('rows', rows), 'members' => [['AAPL', 0.5], ['MSFT', 0.5]], 'at' => at, 'splits' => st.fetch('splits', []),
           'script' => { 'alpaca' => http }, 'tick' => true }
       end
     end

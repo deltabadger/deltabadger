@@ -8,7 +8,7 @@
     "app/views/bots/composition/_metrics.html.erb": "a4ba28f2bc397d71c49686e50a99b73177c16648051d8ed3879d6469c8f436f7",
     "config/locales/bot.en.yml": "192d7277719074620529ab2d9c660e9cc3888f685b74325d6cad9b564997e86e",
     "script/rust/pages.rb": "9af7c36bf05408659c96270b26ea9a255245785cf4d37b4c449fbf56c1589b07",
-    "script/rust/page_figures.rb": "508c35ec7d026bc5ecab86a35db9588579e7ce51d367a44eeff2be621d368e48"
+    "script/rust/page_figures.rb": "a0de2214d4901b7568cd65dc1e9e73666e4b9e4fbb73ea12ada18db14710c747"
   },
   "cases": [
     {

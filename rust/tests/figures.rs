@@ -11,14 +11,16 @@ mod common;
 
 /// The scenarios of script/rust/figures.rb: 149 written by hand, one per branch of the code they name, 24 seeded
 /// histories that mix every kind of order with splits, and 8 of a pair bot's.
-const SCENARIOS: usize = 181;
+const SCENARIOS: usize = 183;
 
 /// The named divergences from Rails, each a defect there, asserted on their own (`the_named_divergences_hold`) and
 /// left out of the comparisons: D1, a closed row with no value reported is valued at the units it executed (Rails: at
 /// the units it asked for); D2, a fill with a zero or NULL price counts, priced at its value over its quantity (Rails
 /// values it at zero, or skips it). D-PAIR-FILL-VALUE additionally counts executions without a positive reported
 /// quote: its exact Rails/Rust cells are asserted separately, and its computed figures join the normalized comparison.
-const DIVERGENT: [&str; 3] = ["pair_row_requested_fallback", "pair_row_zero_price", "pair_row_null_price_reported"];
+/// D-SPLIT-NEVER-A-COIN (`crypto_security_split_nameonly`): Rails restates the coin by a security's split; asserted in
+/// `a_security_split_never_restates_the_coin`.
+const DIVERGENT: [&str; 4] = ["pair_row_requested_fallback", "pair_row_zero_price", "pair_row_null_price_reported", "crypto_security_split_nameonly"];
 
 fn rails(args: &[&str]) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
@@ -173,7 +175,7 @@ fn the_walk_over_the_orders_matches_rails_in_every_scenario() {
     // The grid means what it says only if the figures in it are figures: no scenario's walk ends in a raise.
     let walked = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
         .filter(|metrics| !metrics.contains("\"raised\"")).count();
-    assert_eq!(walked, 212, "bots walked on the Rails side");
+    assert_eq!(walked, 214, "bots walked on the Rails side");
 }
 
 #[test]
@@ -215,7 +217,7 @@ fn the_live_figures_match_rails_in_every_scenario() {
     let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
     let count = |needle: &str| lives.iter().filter(|live| live.contains(needle)).count();
     // Every way the pass can end is met: marked at the market, fallen back to the last fills, or raised to a retry.
-    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (174, 21, 4), "of {} bots", lives.len());
+    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (176, 21, 4), "of {} bots", lives.len());
 }
 
 /// Rails leaves a held asset it cannot price out of the value without a word. The figures stay Rails'; beside them
@@ -257,7 +259,7 @@ fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
     let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
     let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
     // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
-    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (196, 24, 55, 1));
+    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (198, 24, 55, 1));
 }
 
 /// The chart marked at market leaves out of every point a holding the bot has no ticker for today, though the
@@ -311,7 +313,7 @@ fn the_market_is_asked_for_exactly_what_rails_asks_it() {
         assert_eq!(scenario.normalized["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
     let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
-    assert_eq!(asked, 966, "requests on the Rails side");
+    assert_eq!(asked, 972, "requests on the Rails side");
 }
 
 /// The one scenario with a bot this library does not compute: a bot of a type no build knows, beside a basket.
@@ -345,6 +347,29 @@ fn a_pair_bots_caches_are_written_as_rails_writes_them() {
         }
     }
     assert_eq!(ways.into_iter().collect::<Vec<_>>(), vec![((false, false), 8), ((false, true), 5), ((true, false), 3), ((true, true), 29)]);
+}
+
+/// D-SPLIT-NEVER-A-COIN: a 4:1 split of the BTC security that recorded no asset. Rails' name fallback restates the coin
+/// (its BTC amount is four times its twin's, where the report recorded the security); this library's figures are the twin's.
+#[test]
+fn a_security_split_never_restates_the_coin() {
+    let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
+    let (nameonly, recorded) = (of("crypto_security_split_nameonly"), of("crypto_security_split"));
+    // Rails restated the coin: its walk marks the restatement that moved a position; the twin's has none.
+    let marked = |sc: &Scenario| sc.normalized["bots"].as_object().unwrap().values().any(|b| b["metrics"].as_str().is_some_and(|m| m.contains("\"restated_at\"")));
+    assert!(marked(nameonly) && !marked(recorded), "Rails no longer restates the coin: drop the divergence");
+    // The account's figures (totals, snapshot, history) are the twin's too.
+    let whole = nameonly.rust.as_ref().unwrap();
+    for (figure, value) in recorded.normalized.as_object().unwrap().iter().filter(|(k, _)| *k != "bots") {
+        assert_eq!(&whole[figure], value, "{figure}: the account reads the coin as if the report had named the security");
+    }
+    // Every figure Rails records, as the comparisons read them (the Rust side names more: what it leaves out).
+    let rust = &whole["bots"];
+    for (id, bot) in recorded.normalized["bots"].as_object().unwrap() {
+        for (figure, value) in bot.as_object().unwrap() {
+            assert_eq!(&rust[id][figure], value, "bot {id} {figure}: Rust reads the coin as if the report had named the security");
+        }
+    }
 }
 
 /// D1 and D2 (`DIVERGENT`): Rails' recorded number, and this library's.

@@ -9,7 +9,7 @@ module PageFigures
   module_function
 
   NAMES = %w[no_orders basket_buys row_readings smart_slices index_rotation liquidations tax_lots old_rows sold_out crypto_basket split
-             split_fresh split_unsized price_untraded].freeze
+             split_fresh split_unsized price_untraded split_reverse crypto_security_split crypto_security_split_nameonly].freeze
   # Pair bots (Bots::DcaSingleAsset, Bots::Signal) from figures.rb. Not here: a pair whose figures raise in Rails (no
   # fragment to render), the D1/D2 row vectors (library divergences, tests/figures.rs), KuCoin's stepped markets and a
   # tether quote (this grid holds no conversion: tests/figures.rs and figure_fx.rs cover them).

@@ -73,7 +73,7 @@ pub enum StartTime { Moved, Continued, TimeZone }
 pub enum Allocations { Unreadable, Empty, TooMany(usize), Negative, Unbalanced(String), Duplicate(i64) }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum History { Splits, ImportedOpen, NoAsset, SpecialRows, ForeignSells, IndexAssets, Restated }
+pub enum History { ImportedOpen, NoAsset, SpecialRows, ForeignSells, IndexAssets }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Work { UnknownStatus, Pending, Waiting, Abandoned, Rebalancing, Outstanding }
@@ -177,7 +177,7 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
 
 /// `bot_reasons`, each with its kind.
 pub fn bot_reasons_typed(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
-    bot_reasons_with(c, bot, &mut SplitRows::new())
+    bot_reasons_with(c, bot)
 }
 
 /// Admission checks the opposite direction before accepting an active flip rule. Runtime install checks
@@ -211,17 +211,13 @@ fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineErr
     Ok(vec![])
 }
 
-/// The split rows of one user on one venue (base_asset_id, base_currency), read once per check: a guarded write must stay
-/// short, and the ledger holds every activity of the account with no index on its entry type.
-type SplitRows = std::collections::HashMap<(i64, i64), Vec<(Option<i64>, String)>>;
-
-fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result<Vec<Reason>, EngineError> {
+fn bot_reasons_with(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     bot.validate_times()?;
     model::merged_history_cutoff(c, bot)?;
     let mut r = rails_work(c, bot)?;
     // Nothing else in such a history can be read (the shared row reader refuses it): name it and stop.
     if r.iter().any(|reason| reason.ends_with(UNKNOWN_STATUS)) { return Ok(r); }
-    if bot.bot_type == model::SIGNAL_TYPE { signal_reasons(c, bot, splits, &mut r)?; return Ok(r); }
+    if bot.bot_type == model::SIGNAL_TYPE { signal_reasons(c, bot, &mut r)?; return Ok(r); }
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(why(Kind::Feature(Feature::BotType(bot.bot_type.clone())), format!("type {} (only DCA baskets and index bots)", bot.bot_type))); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
@@ -256,7 +252,6 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if BOT_WORKING.contains(&bot.status) && bot.started_at_us()?.is_none() { r.push(why(Kind::Settings, "started_at missing (never ticks)")); }
     if bot.interval().is_none() { r.push(why(Kind::Settings, "interval")); }
     if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push(why(Kind::Settings, "quote_amount")); }
-    if bot.restatement_generation > 0 && model::all_crypto(c, bot)? { r.push(why(Kind::History(History::Restated), "restated prices")); }
     // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
     if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push(why(Kind::Owner, "user not found")); }
     if bot.quote_amount_limited() {
@@ -267,7 +262,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         if let Err(e) = bot.base_amount_limit() { r.push(why(Kind::Settings, e)); }
         if let Err(e) = bot.base_amount_limit_enabled_at_us() { r.push(why(Kind::Settings, e)); }
     }
-    history_reasons(c, bot, &members, splits, &mut r)?;
+    history_reasons(c, bot, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     // AUDIT #6: a readable halt and its abandoned rows can be served for owner resolution. The
     // pending state still bars both DCA and rebalancing. Every other eligibility check must pass,
@@ -348,7 +343,7 @@ pub fn signal_admission(exchange: Option<&str>) -> Option<&'static str> {
 /// or one with more decimals than the pages round to; history rows other than its own REGULAR orders (history_reasons).
 /// The wash-sale rule is no reason: a locked buy consumes its call (engine::signal). A basket's interval, amount and
 /// allocations are not asked of it.
-fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec<Reason>) -> Result<(), EngineError> {
+fn signal_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     if let Some(text) = signal_admission(exchange.as_deref()) { r.push(why(Kind::Exchange, text)); }
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
@@ -373,7 +368,7 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
     }
     // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
     if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push(why(Kind::Owner, "user not found")); }
-    history_reasons(c, bot, &[base], splits, r)?;
+    history_reasons(c, bot, r)?;
     // The pair's ticker on this venue, within the decimals the pages round to. Its asset: a plain cryptocurrency, or a stock (Alpaca's catalog,
     // whatever its instrument type: the pair's sizing and its market clock are the venue's, never a basket's split walk).
     let Some(t) = model::ticker_for(c, bot)? else { r.push(why(Kind::Asset(Some(base)), format!("no ticker for the asset {base} on this venue"))); return Ok(()) };
@@ -487,31 +482,11 @@ fn composition_reasons(bot: &Bot, r: &mut Vec<Reason>) -> Vec<i64> {
 }
 
 /// The normalized walk covers REGULAR buys/sells, merged rows and composition bots' REBALANCE/LIQUIDATION/REDEPLOY rows.
-/// Stock split matching and trust checks remain in engine::splits.
-fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<Reason>) -> Result<(), EngineError> {
+/// Splits are no reason: the walk applies them (engine::splits), and a split it cannot size or trust stands the tick
+/// down. D-SPLIT-NEVER-A-COIN keeps a security's split off a coin, so an all-crypto bot is read like any other.
+fn history_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     crate::figures::fill::validate_row_times(c,bot.id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
-    order_kind_reasons(c, bot, r)?;
-    if !model::all_crypto(c, bot)? { return Ok(()); }
-    // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
-    // the walk; the ported walk does not. Crypto never splits, so this refuses only what this build does not port. Broader than Rails'
-    // match (any member's asset id, symbol or venue spelling), so it can only refuse more.
-    let rows = match splits.entry((bot.user_id, bot.exchange_id)) {
-        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-        std::collections::hash_map::Entry::Vacant(e) => {
-            let mut s = c.prepare(
-                "SELECT base_asset_id, base_currency FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = 15 \
-                 AND (CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END) = 'split'")?;
-            let found = s.query_map(params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
-            e.insert(found)
-        }
-    };
-    let ids = serde_json::to_string(members).expect("ids serialise");
-    let mut s = c.prepare("SELECT symbol FROM assets WHERE id IN (SELECT value FROM json_each(?2)) \
-                           UNION SELECT base FROM tickers WHERE exchange_id = ?1 AND base_asset_id IN (SELECT value FROM json_each(?2))")?;
-    let names = s.query_map(params![bot.exchange_id, ids], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
-    let splits = rows.iter().filter(|(asset, currency)| asset.is_some_and(|a| members.contains(&a)) || names.contains(&Some(currency.clone()))).count();
-    if splits > 0 { r.push(why(Kind::History(History::Splits), format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)"))); }
-    Ok(())
+    order_kind_reasons(c, bot, r)
 }
 
 /// The kinds of order a bot's history holds that this build does not read: special rows outside what
@@ -641,7 +616,6 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> { install(c,
 /// cannot mask the same damage to another.
 fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<String>>) -> Result<Report, EngineError> {
     let mut report = Report::default();
-    let mut splits = SplitRows::new();
     let mut rule_rows=c.prepare(&format!("SELECT r.id,e.type,r.type FROM rules r LEFT JOIN exchanges e ON e.id=r.exchange_id WHERE r.status IN ({})",model::working_list()))?;
     for row in rule_rows.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?)))? {
         let (id,exchange,kind)=row?;
@@ -656,7 +630,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
     let mut s = c.prepare("SELECT id FROM bots ORDER BY id")?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     for id in ids {
-        let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons_with(c, &b, &mut splits).map(|r| (b, r))) {
+        let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons_with(c, &b).map(|r| (b, r))) {
             Ok(x) => x,
             Err(e) => {
                 if let Some(i) = items.as_deref_mut() { i.insert(format!("bot {id}: unreadable ({e:?})")); member_findings(c, id, i)?; }

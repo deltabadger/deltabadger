@@ -253,10 +253,21 @@ module Figures
     user, alpaca, assets = install(sc, template, asset_ids)
     venues = sc['bots'].filter_map { |spec| spec['venue'] }.uniq.to_h { |venue| [venue, crypto_venue(venue, assets)] }
     bots = sc.fetch('bots').map { |spec| bot_for(user, venues.fetch(spec['venue'], alpaca), assets, spec) }
+    # A14: Alpaca's BTC security beside BTC/USD, listed under the coin's name.
+    if sc['security']
+      stock = Asset.create!(external_id: 'BTC.US', symbol: 'BTC', name: 'BTC', category: 'Stock', instrument_type: 'stock')
+      ExchangeAsset.create!(exchange: alpaca, asset: stock, available: true)
+      Ticker.create!(exchange: alpaca, ticker: 'BTC', base: 'BTC', quote: 'USD', base_asset: stock, quote_asset: assets.fetch('USD'),
+                     base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+    end
     sc.fetch('splits', []).each_with_index do |split, i|
+      # The asset the report recorded: the named holding's by default, the security's, or none (an explicit nil).
+      recorded = if !split.key?('asset') then assets[split['sym']]&.id
+                 elsif split['asset'] == 'security' then stock.id
+                 end
       AccountTransaction.insert!({
         'user_id' => user.id, 'exchange_id' => alpaca.id, 'entry_type' => 'adjustment', 'base_currency' => split.fetch('sym'),
-        'base_asset_id' => assets[split['sym']]&.id, 'base_amount' => split.fetch('amount', '0'), 'tx_id' => "split-#{i}",
+        'base_asset_id' => recorded, 'base_amount' => split.fetch('amount', '0'), 'tx_id' => "split-#{i}",
         'raw_data' => { 'corporate_action' => 'split', 'split_ratio' => split['ratio'] }.compact,
         'transacted_at' => time(split.fetch('at')), 'created_at' => time(split.fetch('at')), 'updated_at' => time(split.fetch('at'))
       })
@@ -711,6 +722,12 @@ module Figures
                splits: [{ 'sym' => 'AAA', 'at' => SPLIT_AT + 7200, 'ratio' => nil }, # the add leg alone names no factor
                         { 'sym' => 'AAA', 'at' => SPLIT_AT, 'ratio' => '4:1' }, { 'sym' => 'AAA', 'at' => SPLIT_AT + 60, 'ratio' => '8:2' }]),
       scenario('split_unsized', NOW, basket(two, SPLIT_ORDERS), split_market, splits: [{ 'sym' => 'AAA', 'at' => SPLIT_AT, 'ratio' => nil }]),
+      # A14: a 4:1 split of the BTC security between two buys of the coin. Recorded the security's asset: the coin is not
+      # restated. Recorded none: Rails' name fallback restates the coin (D-SPLIT-NEVER-A-COIN: Rust does not).
+      scenario('crypto_security_split', NOW, basket(%w[BTC ETH], crypto_orders), crypto_market('USD'), security: true,
+               splits: [{ 'sym' => 'BTC', 'at' => T0 + (3 * D), 'ratio' => '4:1', 'asset' => 'security' }]),
+      scenario('crypto_security_split_nameonly', NOW, basket(%w[BTC ETH], crypto_orders), crypto_market('USD'), security: true,
+               splits: [{ 'sym' => 'BTC', 'at' => T0 + (3 * D), 'ratio' => '4:1', 'asset' => nil }]),
       scenario('split_conflict', NOW, basket(two, SPLIT_ORDERS), split_market,
                splits: [{ 'sym' => 'AAA', 'at' => SPLIT_AT, 'ratio' => '4:1' }, { 'sym' => 'AAA', 'at' => SPLIT_AT + 60, 'ratio' => '2:1' }]),
       scenario('split_unreadable', NOW, basket(two, SPLIT_ORDERS), split_market,

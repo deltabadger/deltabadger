@@ -177,9 +177,11 @@ fn an_archived_account_history_exhausts_one_budget_and_visibly_stands_down() {
     assert!(t.posted_orders().is_empty());
 }
 
-/// Bot::Restatable#grouped_split_rows on a name a venue lists twice (Alpaca's BTC security beside BTC/USD), as
-/// test/models/bot/restatable_test.rb pins it: a report's recorded asset decides; one with none falls back to its name
-/// only while the account holds one class under it, and otherwise restates nothing and leaves the split unresolved.
+/// Bot::Restatable#grouped_split_rows on a name a venue lists twice (Alpaca's BTC security beside BTC/USD): a report's
+/// recorded asset decides, as test/models/bot/restatable_test.rb pins it. D-SPLIT-NEVER-A-COIN: a report that recorded
+/// no asset never restates the coin, nor leaves it unresolved. Rails falls back to the name while the account holds one
+/// class under it (restating the coin) and otherwise holds the coin unresolved for good. The security itself is still
+/// restated by name.
 #[test]
 fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
     use deltabadger::figures::{at::At, budget, db::Order, fill::Raw, splits::{self as rails, Holding}};
@@ -188,8 +190,9 @@ fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
     for (coin_held, recorded, both_classes, factors, unresolved) in [
         (true, true, false, vec![], false),
         (false, true, false, vec!["2.0"], false),
-        (true, false, false, vec!["2.0"], false),
-        (true, false, true, vec![], true),
+        (true, false, false, vec![], false),
+        (true, false, true, vec![], false),
+        (false, false, false, vec!["2.0"], false),
     ] {
         let (_d, o, s) = common::install_alpaca();
         let c = &o.primary;
@@ -297,4 +300,60 @@ fn distinct_events_multiply_equal_ratios_and_require_each_factor() {
     let resolved = splits::splits(&o.primary, &bot, now).unwrap();
     assert!(resolved.events.is_empty(), "a known event cannot mask an unsized distinct event");
     assert!(resolved.unresolved);
+}
+
+/// The wash-sale verdict reads the walk's lots. D-SPLIT-NEVER-A-COIN: a 4:1 split of the BTC security, recorded by name
+/// only, leaves the coin's lots whole, so a sale below cost is still a loss (Rails' fallback would quarter the basis and
+/// read it as a gain, leaving the repurchase unlocked). Control: a stock's own split restates its lots, so a sale above
+/// the restated basis is no loss.
+#[test]
+fn the_wash_sale_verdict_reads_a_coins_lots_whole_and_a_stocks_lots_restated() {
+    use deltabadger::{engine::wash, ruby::BigDec};
+    let now: DateTime<Utc> = "2026-09-10T00:00:00Z".parse().unwrap();
+    let dec = |s: &str| BigDec::parse(s).unwrap();
+    let buy = |c: &Connection, s: &seed::Seeded, bot: i64, asset: i64, base: &str, amount: &str, price: &str, quote: &str| {
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
+                   amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, \
+                   error_messages, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 2, 0, 0, ?4, ?6, ?5, ?4, ?6, ?7, 'USD', ?8, ?9, 'week', 60, 'REGULAR', '[]', \
+                   '2026-09-02 14:00:00', '2026-09-02 14:00:00')",
+                  params![bot, s.exchange_id, format!("W-{base}"), amount, price, quote, base, asset, s.quote]).unwrap();
+    };
+    let split = |c: &Connection, s: &seed::Seeded, asset: Option<i64>, name: &str| {
+        c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_asset_id, base_amount, transacted_at, raw_data, created_at, updated_at) \
+                   VALUES (?1, ?2, 15, ?3, ?4, '0', '2026-09-05 00:00:00', ?5, ?6, ?6)",
+                  params![s.user_id, s.exchange_id, name, asset, r#"{"corporate_action":"split","split_ratio":"4:1"}"#, T]).unwrap();
+    };
+    let listed = |c: &Connection, s: &seed::Seeded, symbol: &str| -> i64 {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES (?1, ?2, ?2, 'Stock', 'stock', ?3, ?3)",
+                  params![format!("{symbol}.US"), symbol, T]).unwrap();
+        let asset = c.last_insert_rowid();
+        c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                   minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+                   VALUES (?1, ?2, ?2, 'USD', ?3, ?4, 9, 2, 2, '0.000000001', '1', 1, 1, ?5, ?6)", params![s.exchange_id, symbol, asset, s.quote, T, seed::SYNCED]).unwrap();
+        asset
+    };
+    for (coin, with_split) in [(true, false), (true, true), (false, false), (false, true)] {
+        let (_d, o, s) = common::install_alpaca();
+        let c = &o.primary;
+        c.execute("UPDATE users SET wash_sale_enabled = 1, wash_sale_jurisdiction = 'US' WHERE id = ?1", [s.user_id]).unwrap();
+        let security = listed(c, &s, if coin { "BTC" } else { "AAPL" });
+        let held = if coin { s.btc } else { security };
+        let bot = seed::insert_bot(c, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(held, 1.0)]));
+        if coin { buy(c, &s, bot, held, "BTC", "0.001", "64000", "64") } else { buy(c, &s, bot, held, "AAPL", "1", "100", "100") }
+        // The coin's case: the report recorded no asset (Rails' name fallback). The stock's: its own split, recorded.
+        if with_split { split(c, &s, (!coin).then_some(security), if coin { "BTC" } else { "AAPL" }); }
+        let b = model::load_bot(c, bot).unwrap();
+        let ticker = model::ticker_for_asset(c, &b, held).unwrap().unwrap();
+        let (amount, quote) = if coin { ("0.001", "60") } else { ("1", "30") };
+        let loss = wash::sell_at_loss(c, &b, &ticker, &dec(amount), &dec(quote), now).unwrap();
+        let held_now = basket::walk(c, &b, now).unwrap().amounts[&held].to_s_f();
+        let case = (coin, with_split);
+        if coin {
+            assert!(loss, "{case:?}: 0.001 BTC bought for 64 and sold for 60 is a loss, split row or not");
+            assert_eq!(held_now, "0.001", "{case:?}");
+        } else {
+            assert_eq!(loss, !with_split, "{case:?}: 1 AAPL bought for 100: for 30 a loss, unless the split made it 4 at 25 each");
+            assert_eq!(held_now, if with_split { "4.0" } else { "1.0" }, "{case:?}");
+        }
+    }
 }
