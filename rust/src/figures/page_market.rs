@@ -1277,13 +1277,17 @@ impl MarketData for Reader<'_> {
         // CandleSeriesCache's series for (ticker, since, timeframe): every venue but Alpaca has one history, so `restated` names
         // the same series. The key is the series, not a page: its pages move with now (`pages`), the
         // key does not.
-        let venue_series = |base: &str, path: &str, name: Option<(&'static str, &'static str)>| -> Fetch<HttpRequest> {
+        // `since` in whole seconds, as a venue's start parameter reads it (`to_i`); `up`: the first whole second at or after
+        // it, for a venue whose series is only filtered by it (Gemini's `c[0] >= start_at`: a candle a fraction before the
+        // start is left out).
+        let venue_series_at = |base: &str, path: &str, name: Option<(&'static str, &'static str)>, up: bool| -> Fetch<HttpRequest> {
             let Some((param, name)) = name else { return Err(Failure::Failed(UNAVAILABLE.into())) };
-            let since = since.0.div_euclid(1_000_000_000);
+            let since = since.0.div_euclid(1_000_000_000) + i64::from(up && since.0.rem_euclid(1_000_000_000) != 0);
             let mut query = vec![(param, name.to_string()), ("since", since.to_string()), ("symbol", ticker.ticker.clone())];
             query.sort();
             Ok(HttpRequest { method: "GET", base: base.into(), path: path.into(), body: None, not_after: None, query })
         };
+        let venue_series = |base: &str, path: &str, name: Option<(&'static str, &'static str)>| venue_series_at(base, path, name, false);
         let series = match crate::venue::registry::row(&venue.exchange_type).and_then(|row| Some((row, row.figures?))) {
             Some((row, Figures::Kucoin)) => Some(venue_series(row.base, KUCOIN_CANDLES, kucoin_type(timeframe).map(|name| ("type", name)))?),
             Some((row, Figures::Binance)) => Some(venue_series(row.base, BINANCE_KLINES, binance_interval(timeframe).map(|name| ("interval", name)))?),
@@ -1299,7 +1303,7 @@ impl MarketData for Reader<'_> {
             // Gemini's path names the pair and the resolution; Hyperliquid's series is POST /info (`is_hyperliquid_series`);
             // Coinbase's path names the product.
             Some((row, Figures::Gemini)) => { let resolution = gemini_resolution(timeframe);
-                Some(venue_series(row.base, &format!("/v2/candles/{}/{}", ticker.ticker, resolution.unwrap_or_default()), resolution.map(|name| ("interval", name)))?) }
+                Some(venue_series_at(row.base, &format!("/v2/candles/{}/{}", ticker.ticker, resolution.unwrap_or_default()), resolution.map(|name| ("interval", name)), true)?) }
             Some((row, Figures::Hyperliquid)) => Some(HttpRequest { method: "POST",
                 ..venue_series(row.base, hyperliquid::INFO, hyperliquid_interval(timeframe).map(|name| ("interval", name)))? }),
             Some((row, Figures::Coinbase)) => Some(venue_series(row.base, &format!("/api/v3/brokerage/market/products/{}/candles", ticker.ticker), coinbase_granularity(timeframe).map(|name| ("interval", name)))?),
@@ -2058,6 +2062,22 @@ mod r4_cache_tests {
         cache.fill(&wire, vec![far.clone()], now).await;
         assert_eq!(wire.asked.borrow().len(), MAX_CANDLE_PAGES);
         assert!(Reader::new(&cache, now).get(far).is_err());
+    }
+
+    /// Gemini's series is only filtered by its start (`c[0] >= start_at`), so a fractional start leaves out the candle a
+    /// fraction before it; Coinbase's start is a parameter, its whole seconds (`to_i`).
+    #[test]
+    fn a_fractional_start_is_rounded_up_only_where_rails_filters_by_it(){
+        let since = At(SINCE * 1_000_000_000 + 500_000_000);
+        let asked = |exchange_type: &str| {
+            let empty = Cache::default();
+            let reader = Reader::new(&empty, SINCE + 10 * H);
+            assert!(reader.candles(&Venue { exchange_id: 3, exchange_type: exchange_type.into() }, &ibkr_ticker("btcusd", 1), since, 60, false).is_err());
+            param(&reader.demands()[0], "since").to_string()
+        };
+        assert_eq!(asked(gemini::GEMINI), (SINCE + 1).to_string());
+        assert_eq!(asked(coinbase::COINBASE), SINCE.to_string());
+        assert_eq!(asked(hyperliquid::HYPERLIQUID), SINCE.to_string());
     }
 
     #[test]

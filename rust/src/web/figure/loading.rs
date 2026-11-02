@@ -368,6 +368,8 @@ impl Wire {
                 if !data{picked.sort();}
                 let suffix=if picked.is_empty(){String::new()}else{format!("?{}",picked.iter().map(|(k,v)|format!("{k}={v}")).collect::<Vec<_>>().join("&"))};
                 let key=format!("{} {host}{}{suffix}",r.method,r.path);
+                // A POST's body is part of its key, as in the figures' parity wire (Hyperliquid's reads are all POST /info).
+                let key=match &r.body { Some(body)=>format!("{key} {body}"), None=>key };
                 if let Source::Counted(_,log)=&self.source { log.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(key.clone()); }
                 let reply=script.get(&key).ok_or_else(||TransportError::Permanent("Unscripted market request".into()))?;
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
