@@ -371,9 +371,10 @@ pub fn write_tokenized(c: &Connection) -> R<()> {
     Ok(())
 }
 
-/// The registry's rows not yet marked.
+/// The registry's rows not yet marked. D-TOK-XSTOCKS (plan A15): also `%-xstocks`, the catalogue's SpaceX xStock
+/// (`spacex-xstocks`, listed on Kraken, Bybit and MEXC), which Rails' `%-xstock` misses, so its tax refusal never fired.
 fn untokenized(c: &Connection) -> R<Vec<i64>> {
-    let mut s = c.prepare("SELECT id FROM assets WHERE (external_id IN ('pax-gold', 'tether-gold') OR external_id LIKE '%-xstock' \
+    let mut s = c.prepare("SELECT id FROM assets WHERE (external_id IN ('pax-gold', 'tether-gold') OR external_id LIKE '%-xstock' OR external_id LIKE '%-xstocks' \
                            OR external_id LIKE '%-ondo-tokenized%' OR external_id LIKE '%-bstocks') \
                            AND (instrument_type IS NULL OR instrument_type != 'tokenized') ORDER BY id").map_err(sql)?;
     let ids = s.query_map([], |r| r.get(0)).map_err(sql)?.collect::<Result<Vec<_>, _>>().map_err(sql)?;
