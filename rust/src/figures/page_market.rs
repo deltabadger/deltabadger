@@ -28,7 +28,7 @@ const KUCOIN_CANDLES: &str = "/api/v1/market/candles";
 /// Clients::Binance#candlestick_data, for Binance and Binance.US alike.
 const BINANCE_KLINES: &str = "/api/v3/klines";
 use crate::venue::kraken::{OHLC as KRAKEN_OHLC, TICKER as KRAKEN_TICKER};
-use crate::venue::{bingx, bitget, bitrue, bitvavo, bybit, ibkr, mexc};
+use crate::venue::{bingx, bitget, bitrue, bitvavo, bybit, coinbase, gemini, hyperliquid, ibkr, mexc};
 
 /// A closed candle as the figures read it: its time (`bar_time`), the venue's own text of it (the next tail's `start`), and
 /// its open exactly as the venue sent it, a number or a string, read by `Dec::to_d` as the answer itself is.
@@ -121,10 +121,11 @@ pub const IBKR_KEY: &str = "SELECT k.id FROM api_keys k JOIN exchanges e ON e.id
 
 const ALPACA: &str = "https://data.alpaca.markets";
 /// A request's cache key: its path and query, behind its host for any venue but Alpaca's market data (whose keys predate
-/// other venues and stay as they were).
+/// other venues and stay as they were), and its body after them when it has one (Hyperliquid's reads are all POST /info).
 fn key(request: &HttpRequest) -> String {
     let query = format!("{}?{}", request.path, request.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"));
-    if request.base == ALPACA { query } else { format!("{} {query}", request.base) }
+    let key = if request.base == ALPACA { query } else { format!("{} {query}", request.base) };
+    match &request.body { Some(body) => format!("{key} {body}"), None => key }
 }
 fn request(path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
     HttpRequest { method: "GET", base: ALPACA.into(), path: path.into(), query, body: None, not_after: None }
@@ -132,24 +133,33 @@ fn request(path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
 
 pub const CANDLE_TTL: i64 = 30 * 86_400;
 /// A series' timeframe in seconds, from Alpaca's `timeframe`, KuCoin's `type` or the other venues' `interval` (MEXC's
-/// hour is `60m` and its week `1W`).
+/// hour is `60m` and its week `1W`, Gemini's hour `1hr`, Coinbase's granularities named).
 fn seconds(request: &HttpRequest) -> i64 {
     match request.query.iter().find(|(k,_)| *k == "timeframe" || *k == "type" || *k == "interval").map(|(_,v)| v.as_str()) {
-        Some("1Min" | "1min" | "1m" | "1") => 60, Some("5Min" | "5min" | "5m" | "5") => 300, Some("15Min" | "15min" | "15m" | "15") => 900, Some("30Min" | "30min" | "30m" | "30") => 1800,
-        Some("1Hour" | "1hour" | "1h" | "60" | "60m") => 3600, Some("4Hour" | "4hour" | "4h" | "240") => 14400, Some("1Week" | "1week" | "1w" | "1W") => 604800, Some("1Month") => 2592000, _ => 86400,
+        Some("1Min" | "1min" | "1m" | "1" | "ONE_MINUTE") => 60, Some("5Min" | "5min" | "5m" | "5" | "FIVE_MINUTE") => 300,
+        Some("15Min" | "15min" | "15m" | "15" | "FIFTEEN_MINUTE") => 900, Some("30Min" | "30min" | "30m" | "30" | "THIRTY_MINUTE") => 1800,
+        Some("1Hour" | "1hour" | "1h" | "60" | "60m" | "1hr" | "ONE_HOUR") => 3600, Some("4Hour" | "4hour" | "4h" | "240") => 14400, Some("1Week" | "1week" | "1w" | "1W") => 604800, Some("1Month") => 2592000, _ => 86400,
     }
 }
 /// Whether a demand is a candle series (kept as a head) rather than one answer: Alpaca's bars, or another venue's series
 /// (MEXC's klines are Binance's path at its own host; Bitvavo's path names its market). A venue series is never sent as it
 /// is: its key names the series (symbol, since, timeframe), and its pages are derived from it (`kucoin_pages`,
 /// `binance_pages`, `kraken_page`, `mexc_pages`, `bitrue_pages`, `bingx_page`, `bitvavo_pages`, `bitget_pages`,
-/// `bybit_pages`, `ibkr_page`), so the head is found again by the next fill whatever `now` is.
+/// `bybit_pages`, `ibkr_page`, `gemini_page`, `hyperliquid_page`, `coinbase_pages`), so the head is found again by the next
+/// fill whatever `now` is.
 fn is_series(request: &HttpRequest) -> bool {
-    request.path.ends_with("/bars") || is_bitvavo_series(request)
+    request.path.ends_with("/bars") || is_bitvavo_series(request) || is_gemini_series(request) || is_hyperliquid_series(request) || is_coinbase_series(request)
         || [KUCOIN_CANDLES, BINANCE_KLINES, KRAKEN_OHLC, bitrue::KLINE, bingx::KLINE, bitget::CANDLES_PATH, bybit::KLINE_PATH, ibkr::HISTORY_PATH].contains(&request.path.as_str())
 }
 /// Clients::Bitvavo#get_candles' path, `/v2/{market}/candles`, at Bitvavo's host.
 fn is_bitvavo_series(request: &HttpRequest) -> bool { request.base == bitvavo::URL && request.path.ends_with("/candles") }
+/// Clients::Gemini#get_candles' path, `/v2/candles/{symbol}/{resolution}`, at Gemini's host.
+fn is_gemini_series(request: &HttpRequest) -> bool { request.base == gemini::URL && request.path.starts_with("/v2/candles/") }
+/// A Hyperliquid candle series: POST /info with no body. Its pages carry the candleSnapshot body; the price read carries
+/// allMids'.
+fn is_hyperliquid_series(request: &HttpRequest) -> bool { request.base == hyperliquid::URL && request.path == hyperliquid::INFO && request.body.is_none() }
+/// Clients::Coinbase#get_public_product_candles' path, `/api/v3/brokerage/market/products/{id}/candles`, at Coinbase's host.
+fn is_coinbase_series(request: &HttpRequest) -> bool { request.base == coinbase::URL && request.path.ends_with("/candles") }
 fn param<'r>(request: &'r HttpRequest, name: &str) -> &'r str { request.query.iter().find(|(k,_)| *k == name).map_or("", |(_,v)| v.as_str()) }
 fn bar_time(bar: &Value) -> Option<i64> {
     bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t| t.timestamp())
@@ -158,13 +168,20 @@ fn bar_price(bar: &Value) -> Fetch<Dec> {
     let price = bar.get("o").filter(|p| !p.is_null()).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
     Ok(Dec::to_d(price)?)
 }
-/// A response's body; decoding it is CPU work (`decode`).
+/// A response's body; decoding it is CPU work (`decode`). A transport failure (not sent, or maybe sent) is raised, for a
+/// retry, where Rails raises it: Alpaca's market data (Client.network_failure) and IBKR's. Every other venue reads through
+/// a honeymaker client, whose `with_rescue` returns any Faraday error as a Failure: settled, as an error answer is.
 async fn send(wire: &impl Transport, request: &HttpRequest) -> Fetch<String> {
     match wire.send_limited(request, MAX_BYTES).await {
         Ok(reply) if (200..300).contains(&reply.status) => Ok(reply.body),
         Ok(_) | Err(TransportError::Permanent(_)) => Err(Failure::Failed(UNAVAILABLE.into())),
+        Err(_) if honeymaker(request) => Err(Failure::Failed(UNAVAILABLE.into())),
         Err(_) => Err(Failure::Raised(UNAVAILABLE.into())),
     }
+}
+/// Whether a request goes to a venue the figures read through its honeymaker client (any but Alpaca's and IBKR's).
+fn honeymaker(request: &HttpRequest) -> bool {
+    crate::venue::registry::ROWS.iter().any(|row| row.base == request.base && row.figures.is_some_and(|f| !matches!(f, Figures::Alpaca | Figures::Ibkr)))
 }
 fn decode(body: &str) -> Fetch<Value> { crate::venue::http::decode_json(body).map_err(|_| Failure::Failed(UNAVAILABLE.into())) }
 /// CPU work of a fill: decoding, the closed bars and their merge, and what they take. Off the runtime's thread, under the
@@ -286,6 +303,9 @@ async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>,
     if request.path == BINANCE_KLINES { return binance_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     if request.path == KRAKEN_OHLC { return kraken_page(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     if request.path == ibkr::HISTORY_PATH { return ibkr_page(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
+    if is_gemini_series(request) { return gemini_page(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
+    if is_hyperliquid_series(request) { return hyperliquid_page(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
+    if is_coinbase_series(request) { return coinbase_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     // Alpaca answers a long range oldest first, a page at a time, each naming the next (`next_page_token`), as
     // Clients::Alpaca reads them; the token joins the query in its sorted place. A tail starts at the last bar's own text.
     let mut request = request.clone();
@@ -675,6 +695,110 @@ fn bybit_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Opt
     Ok((out, newest, count))
 }
 /// `ibkr_conid`'s lookup: the conid by its primary key, held to its venue's ticker of the same code and asset.
+/// Exchanges::Gemini#get_candles: one read of the fixed recent window /v2/candles serves at the resolution, whatever the
+/// start (Gemini takes none): the closed candles from the start (the series' own, or the last stored candle's) on, sorted
+/// (Gemini sends the newest first). No paging.
+async fn gemini_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    let timeframe = seconds(series);
+    let start = series_start(series, tail)?;
+    let page = HttpRequest { method: "GET", base: series.base.clone(), path: series.path.clone(), body: None, not_after: None, query: vec![] };
+    let body = send(wire, &page).await?;
+    let bars = cpu(compute, move || gemini_rows(decode(&body)?, start, timeframe, now)).await?;
+    held.take(bars.iter().map(Bar::size).sum())?;
+    Ok(bars)
+}
+/// One Gemini answer: rows of `[time in ms, open, high, low, close, volume]`, numbers; an answer that is no array has none,
+/// as Rails reads it. The closed ones from `start` on, sorted.
+fn gemini_rows(body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
+    let unreadable = || Failure::Failed(UNAVAILABLE.into());
+    let Value::Array(rows) = body else { return Ok(vec![]) };
+    let mut out = vec![];
+    for row in rows {
+        let Value::Array(mut row) = row else { return Err(unreadable()) };
+        let at = row.first().and_then(integer).ok_or_else(unreadable)?.div_euclid(1000);
+        if at >= start && at.saturating_add(timeframe) <= now {
+            let open = row.get_mut(1).map_or(Value::Null, Value::take);
+            Dec::to_d(&open)?;
+            out.push(Bar { at, t: at.to_string().into(), o: open });
+        }
+    }
+    out.sort_by_key(|bar| bar.at);
+    Ok(out)
+}
+/// Exchanges::Hyperliquid#get_candles: one candleSnapshot (POST /info) of the coin from `startTime` (the start in ms) to
+/// `endTime` (now in ms), which Hyperliquid answers oldest first. The closed candles. No paging.
+async fn hyperliquid_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    let timeframe = seconds(series);
+    let start = series_start(series, tail)?;
+    let req = serde_json::json!({ "coin": param(series, "symbol"), "interval": param(series, "interval"), "startTime": start.saturating_mul(1000), "endTime": now.saturating_mul(1000) });
+    let page = HttpRequest { method: "POST", base: series.base.clone(), path: hyperliquid::INFO.into(), query: vec![], not_after: None,
+        body: Some(serde_json::json!({ "type": "candleSnapshot", "req": req })) };
+    let body = send(wire, &page).await?;
+    let bars = cpu(compute, move || hyperliquid_rows(decode(&body)?, timeframe, now)).await?;
+    held.take(bars.iter().map(Bar::size).sum())?;
+    Ok(bars)
+}
+/// One candleSnapshot answer: object candles `{t, o, h, l, c, v, ...}`, `t` in ms. An answer that is no array is a settled
+/// failure (D-A13-SHAPE: Rails' `map` over it raises). The closed ones.
+fn hyperliquid_rows(body: Value, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
+    let unreadable = || Failure::Failed(UNAVAILABLE.into());
+    let Value::Array(rows) = body else { return Err(unreadable()) };
+    let mut out = vec![];
+    for mut row in rows {
+        if !row.is_object() { return Err(unreadable()); }
+        let at = integer(&row["t"]).ok_or_else(unreadable)?.div_euclid(1000);
+        if at.saturating_add(timeframe) <= now {
+            let open = row.get_mut("o").map_or(Value::Null, Value::take);
+            Dec::to_d(&open)?;
+            out.push(Bar { at, t: at.to_string().into(), o: open });
+        }
+    }
+    Ok(out)
+}
+/// Exchanges::Coinbase#get_candles: windows of `start` .. `end` = min(start + 350 periods, now), in seconds, from the start;
+/// the walk ends at the window that reaches now. The next window starts a second after the page's latest candle, or at the
+/// window's end when the page has none: before any candle, as Rails; after one (D-A13-CB-EMPTY-WINDOW), where Rails asks
+/// the same window again for ever. Any failed window fails the series. Rails walks without a cap; past MAX_CANDLE_PAGES
+/// windows the series is a settled failure.
+async fn coinbase_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    let timeframe = seconds(series);
+    let mut start = series_start(series, tail)?;
+    let mut out = vec![];
+    for _ in 0..MAX_CANDLE_PAGES {
+        let end = start.saturating_add(timeframe.saturating_mul(350)).min(now);
+        let page = HttpRequest { method: "GET", base: series.base.clone(), path: series.path.clone(), body: None, not_after: None,
+            query: vec![("end", end.to_string()), ("granularity", param(series, "interval").to_string()), ("start", start.to_string())] };
+        let body = send(wire, &page).await?;
+        let (bars, latest) = cpu(compute, move || coinbase_rows(decode(&body)?, timeframe, now)).await?;
+        held.take(bars.iter().map(Bar::size).sum())?;
+        out.extend(bars);
+        if end == now { return Ok(out); }
+        start = latest.map_or(end, |at| at.saturating_add(1));
+    }
+    Err(Failure::Failed(UNAVAILABLE.into()))
+}
+/// One Coinbase window: `candles`' objects `{start, low, high, open, close, volume}`, `start` in seconds as text; no
+/// `candles` array is a settled failure (D-A13-SHAPE). The closed ones in time order, and the latest candle's time (closed
+/// or not), where the next window starts.
+// ponytail: sorted by time; Rails sorts by the raw `start` text, which differs only for times of different lengths.
+fn coinbase_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>)> {
+    let unreadable = || Failure::Failed(UNAVAILABLE.into());
+    let Some(Value::Array(rows)) = body.get_mut("candles").map(Value::take) else { return Err(unreadable()) };
+    let mut latest: Option<i64> = None;
+    let mut out = vec![];
+    for mut row in rows {
+        if !row.is_object() { return Err(unreadable()); }
+        let at = integer(&row["start"]).ok_or_else(unreadable)?;
+        latest = Some(latest.map_or(at, |l| l.max(at)));
+        if at.saturating_add(timeframe) <= now {
+            let open = row.get_mut("open").map_or(Value::Null, Value::take);
+            Dec::to_d(&open)?;
+            out.push(Bar { at, t: at.to_string().into(), o: open });
+        }
+    }
+    out.sort_by_key(|bar| bar.at);
+    Ok((out, latest))
+}
 const IBKR_CONID: &str = "SELECT k.conid FROM ibkr_conids k JOIN tickers t ON t.base_asset_id = k.asset_id WHERE k.conid = ?1 AND t.exchange_id = ?2 AND t.ticker = ?3 LIMIT 1";
 /// IBKR's snapshot as IbkrVenue::conid_price reads it (`ibkr_venue::snapshot`): a pre-flight answer is asked again once. One still
 /// without its price is a raised failure, never an answer kept: the next fill asks again.
@@ -895,6 +1019,17 @@ impl<'a> Reader<'a> {
         rusqlite::OptionalExtension::optional(c.query_row(IBKR_CONID, rusqlite::params![conid, venue.exchange_id, code], |r| r.get(0)))
             .map_err(|_| Failure::Failed(UNAVAILABLE.into()))
     }
+    /// The venue's listings that are available (`tickers.available`), as Exchanges::Hyperliquid#get_tickers_prices keeps its
+    /// mids to them; None with no connection (the unbound harness), which keeps every mid.
+    fn available_tickers(&self, venue: &Venue) -> Fetch<Option<std::collections::BTreeSet<String>>> {
+        let Some(c) = self.current else { return Ok(None) };
+        let read = || -> rusqlite::Result<std::collections::BTreeSet<String>> {
+            let mut statement = c.prepare_cached("SELECT ticker FROM tickers WHERE exchange_id = ?1 AND available = 1")?;
+            let rows = statement.query_map([venue.exchange_id], |r| r.get::<_, String>(0))?;
+            rows.collect()
+        };
+        read().map(Some).map_err(|_| Failure::Failed(UNAVAILABLE.into()))
+    }
     fn get(&self, request: HttpRequest) -> Fetch<Answer> {
         let fresh=|origin:&Option<crate::engine::model::CredentialVersion>|->Result<bool,Failure> {
             let Some(c)=self.current else { return Ok(true) }; // The unbound numerical harness reads no stored credentials.
@@ -984,6 +1119,25 @@ fn bybit_prices(body: &Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crat
     if body.get("retCode").and_then(Value::as_i64) != Some(0) { return Err(crate::venue::VenueError::Rejected(vec![])); }
     bybit::ticker_prices(body)
 }
+/// The engine's timeframe for the chart's (`chart::timeframe`): the natives every venue reads, a day at most.
+fn chart_timeframe(seconds: i64) -> Option<crate::engine::candles::Timeframe> {
+    use crate::engine::candles::Timeframe::*;
+    [Minute, FiveMinutes, FifteenMinutes, ThirtyMinutes, Hour, FourHours, Day].into_iter().find(|t| t.seconds() == seconds)
+}
+/// Exchanges::Gemini#get_candles' native resolution (`gemini::candle_resolution`); a timeframe Rails builds (4 hours) has no
+/// series here, as the chart never asks for one.
+fn gemini_resolution(timeframe: i64) -> Option<&'static str> {
+    let (resolution, built) = gemini::candle_resolution(chart_timeframe(timeframe)?);
+    built.is_none().then_some(resolution)
+}
+/// Exchanges::Hyperliquid#get_candles' interval (`hyperliquid::candle_interval`), all native up to a day.
+fn hyperliquid_interval(timeframe: i64) -> Option<&'static str> { chart_timeframe(timeframe).map(hyperliquid::candle_interval) }
+/// Exchanges::Coinbase#get_candles' granularity (`coinbase::candle_granularity`); 4 hours, which Rails builds from two-hourly,
+/// has no series here.
+fn coinbase_granularity(timeframe: i64) -> Option<&'static str> {
+    let (granularity, length) = coinbase::candle_granularity(chart_timeframe(timeframe)?);
+    (length == timeframe).then_some(granularity)
+}
 /// Exchanges::Kraken#get_candles' OHLC intervals in minutes, for the same timeframes (Rails reads 3 days, 1 week and 1
 /// month as daily candles rebuilt; the chart never asks for them).
 fn kraken_interval(timeframe: i64) -> Option<&'static str> {
@@ -1005,7 +1159,8 @@ impl MarketData for Reader<'_> {
         }
         // The venues whose get_tickers_prices reads the whole market, its symbols ignored, one read for every bot of the venue:
         // Binance's ticker/price (Binance.US's too, at its host), MEXC's (Binance's shape), Bitrue's ticker/24hr, BingX's
-        // market/ticker, Bitvavo's ticker/price, Bitget's market/tickers and Bybit's spot market/tickers.
+        // market/ticker, Bitvavo's ticker/price, Bitget's market/tickers, Bybit's spot market/tickers, Gemini's pricefeed and
+        // Coinbase's market/products.
         type Parse = fn(&Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crate::venue::VenueError>;
         let whole_market = crate::venue::registry::row(&venue.exchange_type).and_then(|row| Some((row.base, match row.figures? {
             Figures::Binance => (crate::venue::binance::TICKER_PRICE, crate::venue::binance::ticker_prices as Parse, None),
@@ -1015,6 +1170,8 @@ impl MarketData for Reader<'_> {
             Figures::Bitvavo => (bitvavo::TICKER_PRICE, bitvavo::ticker_prices as Parse, None),
             Figures::Bitget => (bitget::TICKERS_PATH, bitget::ticker_prices as Parse, None),
             Figures::Bybit => (bybit::TICKERS_PATH, bybit_prices as Parse, Some(("category", "spot"))),
+            Figures::Gemini => (gemini::PRICE_FEED, gemini::price_feed as Parse, None),
+            Figures::Coinbase => (coinbase::PRODUCTS, coinbase::ticker_prices as Parse, None),
             _ => return None,
         })));
         if let Some((base, (path, parse, query))) = whole_market {
@@ -1024,6 +1181,17 @@ impl MarketData for Reader<'_> {
                 Answer::Json(body) => parse(&body).map(|rows| rows.into_iter().map(|(symbol, price)| (symbol, Dec::venue_number(&Value::String(price.to_s_f())))).collect()).map_err(|_| Failure::Failed(UNAVAILABLE.into())),
                 Answer::Bars(_) => Err(Failure::Failed(UNAVAILABLE.into())),
             };
+        }
+        if let Some(row) = crate::venue::registry::row(&venue.exchange_type).filter(|row| row.figures == Some(Figures::Hyperliquid)) {
+            // Exchanges::Hyperliquid#get_tickers_prices: allMids (POST /info), one read for every bot of the venue, kept to the
+            // venue's available listings as they stand at this pass (D-A13-HL-AVAILABLE-NOW).
+            let request = HttpRequest { method: "POST", base: row.base.into(), path: hyperliquid::INFO.into(), query: vec![], not_after: None,
+                body: Some(serde_json::json!({ "type": "allMids" })) };
+            let Answer::Json(body) = self.get(request)? else { return Err(Failure::Failed(UNAVAILABLE.into())) };
+            let mids = hyperliquid::mids(&body).map_err(|_| Failure::Failed(UNAVAILABLE.into()))?;
+            let available = self.available_tickers(venue)?;
+            return Ok(mids.into_iter().filter(|(coin, _)| available.as_ref().is_none_or(|listed| listed.contains(coin)))
+                .map(|(coin, price)| (coin, Dec::venue_number(&Value::String(price.to_s_f())))).collect());
         }
         if let Some(row) = crate::venue::registry::row(&venue.exchange_type).filter(|row| row.figures == Some(Figures::Ibkr)) {
             // IBKR (F1, D-IBKR-FIGURES: Rails' get_tickers_prices answers `{}`): one snapshot per conid, every one asked for
@@ -1128,6 +1296,13 @@ impl MarketData for Reader<'_> {
             Some((row, Figures::Bitvavo)) => Some(venue_series(row.base, &format!("/v2/{}/candles", ticker.ticker), bitvavo_interval(timeframe).map(|name| ("interval", name)))?),
             Some((row, Figures::Bitget)) => Some(venue_series(row.base, bitget::CANDLES_PATH, bitget_granularity(timeframe).map(|name| ("interval", name)))?),
             Some((row, Figures::Bybit)) => Some(venue_series(row.base, bybit::KLINE_PATH, bybit_interval(timeframe).map(|name| ("interval", name)))?),
+            // Gemini's path names the pair and the resolution; Hyperliquid's series is POST /info (`is_hyperliquid_series`);
+            // Coinbase's path names the product.
+            Some((row, Figures::Gemini)) => { let resolution = gemini_resolution(timeframe);
+                Some(venue_series(row.base, &format!("/v2/candles/{}/{}", ticker.ticker, resolution.unwrap_or_default()), resolution.map(|name| ("interval", name)))?) }
+            Some((row, Figures::Hyperliquid)) => Some(HttpRequest { method: "POST",
+                ..venue_series(row.base, hyperliquid::INFO, hyperliquid_interval(timeframe).map(|name| ("interval", name)))? }),
+            Some((row, Figures::Coinbase)) => Some(venue_series(row.base, &format!("/api/v3/brokerage/market/products/{}/candles", ticker.ticker), coinbase_granularity(timeframe).map(|name| ("interval", name)))?),
             // IBKR's code is its conid (`tickers.ticker`), read only where `ibkr_conids` maps it to the ticker's asset.
             Some((row, Figures::Ibkr)) => match self.ibkr_conid(venue, &ticker.ticker)? {
                 Some(_) => Some(venue_series(row.base, ibkr::HISTORY_PATH, ibkr_bar(timeframe).map(|name| ("bar", name)))?),
@@ -1566,7 +1741,8 @@ mod r4_cache_tests {
     impl<F: Fn(&HttpRequest) -> HttpResponse> Transport for Pages<F> {
         fn producer(&self)->Option<CredentialVersion>{Some(self.producer.clone())}
         async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError>{
-            self.asked.borrow_mut().push(r.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"));
+            let query = r.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&");
+            self.asked.borrow_mut().push(match &r.body { Some(body) => format!("{query}{body}"), None => query });
             Ok((self.answer)(r))
         }
     }
@@ -1822,6 +1998,126 @@ mod r4_cache_tests {
     fn ibkr_venue() -> Venue { Venue { exchange_id: 7, exchange_type: ibkr::IBKR.into() } }
 
     #[tokio::test]
+    async fn gemini_hyperliquid_and_coinbase_series_are_read_as_rails_reads_them(){
+        let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
+        let now = SINCE + 2000 * H + 1800; // the hour from SINCE + 2000 h is open
+        let ok = |body: Value| HttpResponse { status: 200, body: body.to_string() };
+        // Gemini: one GET of the window (the latest 500 hours, newest first, numbers), whatever the start; the closed ones.
+        let price = RefCell::new(1.5);
+        let req = venue_series(gemini::URL, "/v2/candles/btcusd/1hr", "1hr");
+        let wire = Pages { answer: |_: &HttpRequest| { let at = now + 3 * H;
+            ok(Value::Array(hourly(at - 500 * H, at).collect::<Vec<_>>().into_iter().rev().map(|t| serde_json::json!([t * 1000, *price.borrow(), 1.0, 1.0, 1.0, 1.0])).collect())) },
+            asked: RefCell::default(), producer: producer.clone() };
+        let numbers = |cache: &Cache, key: &str| -> Vec<(i64, String)> { cache.heads.borrow()[key].bars.iter().map(|bar| (bar.at, bar.o.to_string())).collect() };
+        let mut cache = Cache::default();
+        cache.fill(&wire, vec![req.clone()], now).await;
+        let bars = numbers(&cache, &key(&req));
+        assert_eq!((wire.asked.borrow().clone(), bars.len(), bars[0].0, bars.last().unwrap().0), (vec![String::new()], 496, SINCE + 1504 * H, SINCE + 1999 * H), "the window from its oldest, the open hour left out");
+        // The head serves while the next candle is not yet closed; then the fill asks again.
+        assert!(Reader::new(&cache, now).get(req.clone()).is_ok());
+        assert!(Reader::new(&cache, SINCE + 2001 * H + 1).get(req.clone()).is_err());
+        // A tail whose overlap moved: the same GET again (tail), then once more for the whole series (rebuild).
+        *price.borrow_mut() = 3.0;
+        cache.fill(&wire, vec![req.clone()], now + 3 * H).await;
+        let bars = numbers(&cache, &key(&req));
+        assert_eq!((wire.asked.borrow().len(), bars.len(), bars[0].1.as_str()), (3, 499, "3.0"), "tail and rebuild, the stored candles replaced");
+
+        // Hyperliquid: one POST candleSnapshot from the start (ms) to now (ms); the closed ones.
+        let req = HttpRequest { method: "POST", ..venue_series(hyperliquid::URL, hyperliquid::INFO, "1h") };
+        let wire = Pages { answer: |r: &HttpRequest| { let from = r.body.as_ref().unwrap()["req"]["startTime"].as_i64().unwrap() / 1000;
+            ok(Value::Array(hourly(from, now).map(|t| serde_json::json!({ "t": t * 1000, "o": "2", "c": "2" })).collect())) },
+            asked: RefCell::default(), producer: producer.clone() };
+        let mut cache = Cache::default();
+        cache.fill(&wire, vec![req.clone()], now).await;
+        assert_eq!(*wire.asked.borrow(), [format!(r#"{{"type":"candleSnapshot","req":{{"coin":"BTCUSDT","interval":"1h","startTime":{},"endTime":{}}}}}"#, SINCE * 1000, now * 1000)]);
+        let bars = opens(&cache, &key(&req));
+        assert_eq!((bars.len(), bars[0].0, bars.last().unwrap().0), (2000, SINCE, SINCE + 1999 * H));
+        assert!(hyperliquid_rows(serde_json::json!({ "@1": [] }), H, now).is_err(), "D-A13-SHAPE: no array is a settled failure");
+
+        // Coinbase: windows of 350 hours from the start to now. No candles in [400 h, 800 h): the window that finds none after
+        // candles moves on from its end (D-A13-CB-EMPTY-WINDOW; Rails asks it again for ever).
+        let req = venue_series(coinbase::URL, "/api/v3/brokerage/market/products/BTCUSDT/candles", "ONE_HOUR");
+        let wire = Pages { answer: |r: &HttpRequest| { let (from, to): (i64, i64) = (param(r, "start").parse().unwrap(), param(r, "end").parse().unwrap());
+            let rows: Vec<Value> = hourly(from, to).filter(|t| !(SINCE + 400 * H..SINCE + 800 * H).contains(t)).collect::<Vec<_>>().into_iter().rev()
+                .map(|t| serde_json::json!({ "start": t.to_string(), "open": "4", "close": "4" })).collect();
+            ok(serde_json::json!({ "candles": rows })) },
+            asked: RefCell::default(), producer: producer.clone() };
+        let mut cache = Cache::default();
+        cache.fill(&wire, vec![req.clone()], now).await;
+        let window = |start: i64, end: i64| format!("end={end}&granularity=ONE_HOUR&start={start}");
+        let s = SINCE;
+        assert_eq!(*wire.asked.borrow(), [window(s, s + 350 * H), window(s + 350 * H + 1, s + 700 * H + 1), window(s + 399 * H + 1, s + 749 * H + 1),
+            window(s + 749 * H + 1, s + 1099 * H + 1), window(s + 1099 * H + 1, s + 1449 * H + 1), window(s + 1449 * H + 1, s + 1799 * H + 1), window(s + 1799 * H + 1, now)]);
+        let bars = opens(&cache, &key(&req));
+        assert_eq!((bars.len(), bars[0].0, bars.last().unwrap().0), (1600, SINCE, SINCE + 1999 * H));
+        assert!(coinbase_rows(serde_json::json!({ "error": "x" }), H, now).is_err(), "D-A13-SHAPE");
+        // An answer that never reaches now is a settled failure past MAX_CANDLE_PAGES windows.
+        let wire = Pages { answer: |_: &HttpRequest| ok(serde_json::json!({ "candles": [] })), asked: RefCell::default(), producer: producer.clone() };
+        let mut cache = Cache::default();
+        let far = HttpRequest { query: vec![("interval", "ONE_MINUTE".into()), ("since", "0".into()), ("symbol", "BTCUSDT".into())], ..req.clone() };
+        cache.fill(&wire, vec![far.clone()], now).await;
+        assert_eq!(wire.asked.borrow().len(), MAX_CANDLE_PAGES);
+        assert!(Reader::new(&cache, now).get(far).is_err());
+    }
+
+    #[test]
+    fn the_three_venues_name_the_chart_timeframes_as_rails_does(){
+        let chart = [60, 300, 900, 1800, 3600, 86_400];
+        assert_eq!(chart.map(gemini_resolution), [Some("1m"), Some("5m"), Some("15m"), Some("30m"), Some("1hr"), Some("1day")]);
+        assert_eq!(chart.map(hyperliquid_interval), [Some("1m"), Some("5m"), Some("15m"), Some("30m"), Some("1h"), Some("1d")]);
+        assert_eq!(chart.map(coinbase_granularity), [Some("ONE_MINUTE"), Some("FIVE_MINUTE"), Some("FIFTEEN_MINUTE"), Some("THIRTY_MINUTE"), Some("ONE_HOUR"), Some("ONE_DAY")]);
+        // What Rails builds (4 hours on Gemini and Coinbase; a week everywhere) has no series here.
+        assert_eq!((gemini_resolution(14_400), coinbase_granularity(14_400), hyperliquid_interval(604_800)), (None, None, None));
+        for (base, path, name) in [(gemini::URL, "/v2/candles/btcusd/1hr", "1hr"), (coinbase::URL, "/api/v3/brokerage/market/products/BTC-USD/candles", "ONE_HOUR"), (hyperliquid::URL, hyperliquid::INFO, "1h")] {
+            assert_eq!(seconds(&venue_series(base, path, name)), H, "{name}");
+        }
+        for (name, tf) in [("ONE_MINUTE", 60), ("FIVE_MINUTE", 300), ("FIFTEEN_MINUTE", 900), ("THIRTY_MINUTE", 1800)] { assert_eq!(seconds(&venue_series(coinbase::URL, "/x/candles", name)), tf); }
+        // A body is part of the key; a request without one keys as before.
+        let mids = HttpRequest { method: "POST", base: hyperliquid::URL.into(), path: hyperliquid::INFO.into(), query: vec![], body: Some(serde_json::json!({ "type": "allMids" })), not_after: None };
+        assert_eq!(key(&mids), r#"https://api.hyperliquid.xyz /info? {"type":"allMids"}"#);
+        assert_eq!(key(&HttpRequest { body: None, ..mids.clone() }), "https://api.hyperliquid.xyz /info?");
+        assert!(is_series(&HttpRequest { body: None, ..mids.clone() }) && !is_series(&mids));
+    }
+
+    /// A transport failure is a retry (raised) only where Rails raises it, Alpaca's market data; a honeymaker venue's is its
+    /// Failure (settled).
+    #[tokio::test]
+    async fn a_honeymaker_venue_s_transport_failure_is_settled(){
+        struct Refused;
+        impl Transport for Refused {
+            async fn send(&self, _: &HttpRequest) -> Result<HttpResponse, TransportError> { Err(TransportError::NotSent("refused".into())) }
+        }
+        let at = |base: &str| HttpRequest { method: "GET", base: base.into(), path: "/x".into(), query: vec![], body: None, not_after: None };
+        for base in [gemini::URL, hyperliquid::URL, coinbase::URL, crate::venue::kucoin::URL, bybit::URL] {
+            assert!(matches!(send(&Refused, &at(base)).await, Err(Failure::Failed(_))), "{base}");
+        }
+        assert!(matches!(send(&Refused, &at(ALPACA)).await, Err(Failure::Raised(_))));
+    }
+
+    /// D-A13-HL-AVAILABLE-NOW: the cached allMids answer is kept to the listings available at each pass, so a listing that
+    /// stops being available within the minute is unpriced at once, with no second read.
+    #[tokio::test]
+    async fn hyperliquid_mids_are_kept_to_the_listings_available_at_each_pass(){
+        let c = db();
+        c.execute_batch("CREATE TABLE tickers(ticker TEXT, exchange_id INTEGER, available INTEGER); INSERT INTO tickers VALUES('@142',3,1),('@151',3,1),('@9',4,1);").unwrap();
+        let producer = model::credential_version_by_id(&c,1).unwrap().unwrap();
+        let wire = Pages { answer: |_: &HttpRequest| HttpResponse { status: 200, body: serde_json::json!({ "@142": "91000.5", "@151": "2750.25", "@9": "3", "BTC": "91010" }).to_string() },
+            asked: RefCell::default(), producer };
+        let venue = Venue { exchange_id: 3, exchange_type: hyperliquid::HYPERLIQUID.into() };
+        let codes = vec!["@142".to_string(), "@151".to_string()];
+        let empty = Cache::default();
+        let reader = Reader::new(&empty, SINCE).with_current(&c);
+        assert!(reader.prices(&venue, &codes).is_err(), "the first pass asks");
+        let mut cache = Cache::default();
+        cache.fill(&wire, reader.demands(), SINCE).await;
+        let priced = |c: &rusqlite::Connection| Reader::new(&cache, SINCE + 1).with_current(c).prices(&venue, &codes).unwrap().into_iter().map(|(code, _)| code).collect::<Vec<_>>();
+        assert_eq!(priced(&c), ["@142", "@151"], "this venue's available listings only");
+        c.execute("UPDATE tickers SET available = 0 WHERE ticker = '@151'", []).unwrap();
+        assert_eq!(priced(&c), ["@142"]);
+        assert_eq!(*wire.asked.borrow(), [r#"{"type":"allMids"}"#]);
+    }
+
+    #[tokio::test]
     async fn ibkr_prices_are_one_snapshot_per_mapped_conid_and_never_zero(){
         let c = ibkr_db();
         let producer = model::credential_version_by_id(&c,1).unwrap().unwrap();
@@ -1951,7 +2247,7 @@ mod r4_cache_tests {
         assert!(!notes(&ibkr_venue(), user, &tickers));
         note_ibkr_answer(user, &request("265598"), r#"[{"conid":265598,"31":"190.5","6509":"RpB","source":"provisional"}]"#);
         assert!(notes(&ibkr_venue(), user, &tickers));
-        // A venue the figures do not read has no note, whatever.
-        assert!(!notes(&Venue { exchange_id: 7, exchange_type: crate::venue::gemini::GEMINI.into() }, user, &tickers));
+        // A venue the figures do not read (every registry venue is read: an exchange type none knows) has no note, whatever.
+        assert!(!notes(&Venue { exchange_id: 7, exchange_type: "Exchanges::Unknown".into() }, user, &tickers));
     }
 }
