@@ -141,13 +141,14 @@ fn rust_effects(c: &Connection, name: &str, key_before: Option<String>) {
 #[tokio::test(flavor="current_thread")]
 async fn tax_report_requests_and_downloads_match_rails() {
     compare(&["tax_invalid","tax_lower_case","tax_pending","tax_crypto","tax_stablecoin","tax_locale_de","tax_stale_refusal",
-        "tax_generating","tax_generating_refused","tax_broker","tax_de","tax_fr",
+        "tax_generating","tax_generating_refused","tax_broker","tax_de","tax_fr","tax_pl_2018",
         "download_expired","download_refused","download_ready","download_broker"]).await;
 }
 
-/// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a create this build cannot compute (a year it does not serve: France before 2019;
-/// the broker scope until A12-7) answers the refused flash and writes, queues and moves nothing. Rails accepts both.
-const TAX_GATED: [&str; 2] = ["tax_broker", "tax_fr"];
+/// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a create this build cannot compute (a year it does not serve: France before 2019,
+/// Poland before 2019) answers the refused flash and writes, queues and moves nothing. Rails accepts both. The broker scope is
+/// served since A12-7 (`tax_broker` is queued as Rails queues it; its run fails as Rails' does, for a country other than DE).
+const TAX_GATED: [&str; 2] = ["tax_pl_2018", "tax_fr"];
 /// D-TAX-RECONCILE under a running report: Rails' `Generating.accepted?` reads Solid Queue's discarded job as accepted
 /// (Active Job sets `successfully_enqueued` after the adapter returns; the destroyed row leaves no provider_job_id), so
 /// it deletes the user's refusal and shows progress for a run that never happens. Rust keeps the refusal and answers its

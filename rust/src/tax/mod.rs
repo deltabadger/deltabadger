@@ -55,6 +55,7 @@
 //! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
 //! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
 pub mod api;
+pub mod broker;
 mod bg;
 pub mod cnb;
 mod cz;
@@ -1053,16 +1054,24 @@ fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i6
 }
 
 /// Tax::CryptoScope#crypto? over the catalogue and the user's own classifications.
-struct CryptoScope { classified: HashSet<String>, memo: std::cell::RefCell<HashMap<String, bool>> }
+pub(crate) struct CryptoScope { classified: HashSet<String>, memo: std::cell::RefCell<HashMap<String, bool>> }
 
 impl CryptoScope {
-    fn new(c: &Connection, user_id: i64) -> Result<CryptoScope, FiguresError> {
+    /// The categories `crypto?` yields when the ticker resolves to more than one (sorted, distinct).
+    pub(crate) fn ambiguous(&self, c: &Connection, symbol: &str) -> Result<Option<Vec<String>>, FiguresError> {
+        if symbol.trim().is_empty() { return Ok(None); }
+        let mut s = c.prepare_cached("SELECT DISTINCT category FROM assets WHERE symbol = ?1 AND category IS NOT NULL ORDER BY category")?;
+        let categories: Vec<String> = s.query_map([symbol], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        Ok((categories.len() > 1).then_some(categories))
+    }
+
+    pub(crate) fn new(c: &Connection, user_id: i64) -> Result<CryptoScope, FiguresError> {
         let mut s = c.prepare("SELECT symbol FROM fund_classifications WHERE user_id = ?1")?;
         let classified = s.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
         Ok(CryptoScope { classified, memo: Default::default() })
     }
 
-    fn crypto(&self, c: &Connection, symbol: &str) -> Result<bool, FiguresError> {
+    pub(crate) fn crypto(&self, c: &Connection, symbol: &str) -> Result<bool, FiguresError> {
         if let Some(&known) = self.memo.borrow().get(symbol) { return Ok(known); }
         let mut s = c.prepare_cached("SELECT category, instrument_type FROM assets WHERE symbol = ?1")?;
         let assets: Vec<(Option<String>, Option<String>)> = s.query_map([symbol], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;

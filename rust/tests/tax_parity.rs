@@ -90,7 +90,7 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
     assert!(scenarios.len() >= 147);
     let write = std::env::var("TAX_DIVERGENCES_WRITE").is_ok();
     let mut failures = vec![];
-    for s in scenarios {
+    for s in scenarios.iter().filter(|s| s["scope"] != "broker") {
         let name = s["name"].as_str().unwrap();
         let country = s["country"].as_str().unwrap();
         let c = install(&s["tables"]);
@@ -177,10 +177,72 @@ fn the_ruby_being_mirrored_has_not_changed() {
     use sha2::{Digest, Sha256};
     let v = vectors();
     let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 20);
+    assert_eq!(pinned.len(), 25);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, sum) in pinned {
         let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
         assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the tax vectors were recorded");
     }
+}
+
+/// The text before the broker report's legal notes (D-TAX-BROKER-DISCLOSURES: every broker file differs there).
+fn before_disclosures(csv: &str) -> &str {
+    let header = deltabadger::web::i18n::text("de", "tax_report.broker.sections.disclosures", &[]);
+    csv.find(&format!("\n{header}\n")).map_or(csv, |at| &csv[..at])
+}
+
+/// The legal notes every broker file ends with, exactly (Ruby's CSV quotes a cell holding a comma or a quote).
+fn notes() -> String {
+    let t = |key: &str| deltabadger::web::i18n::text("de", key, &[]);
+    let cell = |v: String| if v.contains([',', '"']) { format!("\"{}\"", v.replace('"', "\"\"")) } else { v };
+    let mut out = format!("\n{}\n", t("tax_report.broker.sections.disclosures"));
+    for key in deltabadger::tax::broker::DISCLOSURES { out.push_str(&cell(t(key))); out.push('\n'); }
+    out
+}
+
+/// PLAN-A12 A12-7: the German broker report against Rails (`scope: broker` scenarios). "parity": Rails' bytes up to the legal
+/// notes, then this build's notes (D-TAX-BROKER-DISCLOSURES); "diverges: D-TAX-BROKER-…": the reviewed file; "failed": the
+/// run fails as Rails' ArgumentError does. "fetch": Rails' side of a fetch, whose Rust side is tax_job.rs's.
+#[test]
+fn the_broker_report_is_rails_own_or_the_named_divergence() {
+    let v = vectors();
+    let scenarios: Vec<&Value> = v["scenarios"].as_array().unwrap().iter().filter(|s| s["scope"] == "broker").collect();
+    assert!(scenarios.len() >= 30, "{}", scenarios.len());
+    let write = std::env::var("TAX_DIVERGENCES_WRITE").is_ok();
+    let mut failures = vec![];
+    for s in scenarios {
+        let name = s["name"].as_str().unwrap();
+        let expect = s["expect"].as_str().unwrap();
+        if expect == "fetch" { continue; }
+        let c = install(&s["tables"]);
+        let (user, year) = (s["user_id"].as_i64().unwrap(), s["year"].as_i64().unwrap());
+        let checked = deltabadger::tax::broker::check(&c, user, s["country"].as_str().unwrap(), year);
+        if expect == "failed" {
+            if s["rails"].get("failed").is_none() { failures.push(format!("{name}: Rails did not fail")); }
+            if checked.is_ok() { failures.push(format!("{name}: the run must fail")); }
+            continue;
+        }
+        if let Err(e) = checked { failures.push(format!("{name}: {e}")); continue; }
+        let csv = match deltabadger::tax::broker::report(&c, user, year as i32, &Default::default()) { Ok(csv) => csv, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
+        let rails = s["rails"]["csv"].as_str().unwrap_or("");
+        // D-TAX-BROKER-DISCLOSURES: this build's legal notes, every one, and none of the three Rails states that no longer hold.
+        if csv[before_disclosures(&csv).len()..] != notes() { failures.push(format!("{name}: not this build's legal notes")); }
+        match expect.strip_prefix("diverges: ") {
+            None => if before_disclosures(&csv) != before_disclosures(rails) {
+                failures.push(format!("{name}: not Rails' file\n--- rails\n{rails}\n--- rust\n{csv}"));
+            },
+            Some(id) => {
+                assert!(id.starts_with("D-TAX-BROKER-"), "{name}: {id}");
+                if before_disclosures(&csv) == before_disclosures(rails) { failures.push(format!("{name}: {id} names a divergence, but Rust wrote Rails' figures")); }
+                let path = divergence(name);
+                if write { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, &csv).unwrap(); }
+                match std::fs::read_to_string(&path) {
+                    Ok(want) if want == csv => {}
+                    Ok(want) => failures.push(format!("{name}: not the reviewed {id} file\n--- reviewed\n{want}\n--- rust\n{csv}")),
+                    Err(e) => failures.push(format!("{name}: {}: {e}", path.display())),
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}:\n{}", failures.len(), failures.join("\n\n"));
 }

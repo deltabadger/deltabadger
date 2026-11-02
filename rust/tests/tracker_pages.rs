@@ -71,7 +71,8 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
             assert_eq!(answer.header("location"),None);
             assert_eq!(snapshot(&connection),before,"deferred action {path} must not mutate rows");
         }
-        let path=format!("{prefix}/tracker/tax_report?country=DE&year=2024&report_scope=broker");
+        // D-TAX-NOT-PORTED-GATE: a crypto year this build does not serve (the broker scope is served since A12-7).
+        let path=format!("{prefix}/tracker/tax_report?country=PL&year=2018");
         let answer=browser.send(&app,"GET",&path,None,Csrf::None,&[("accept","text/vnd.turbo-stream.html")]).await;
         assert_eq!(answer.status,501);
         assert_eq!(answer.header("content-type"),Some("text/vnd.turbo-stream.html; charset=utf-8"));
