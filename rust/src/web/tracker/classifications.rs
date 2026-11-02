@@ -1,9 +1,8 @@
 //! FundClassification save validation and read-only broker classification proposals.
-use super::{Ctx,WebError,row::invalid};
+use super::{Ctx,WebError};
 use crate::web::i18n::{self,escape,Arg};
-use rusqlite::{Connection,OptionalExtension};
+use rusqlite::Connection;
 use serde_json::Value;
-use std::collections::{BTreeMap,BTreeSet};
 const KINDS:[&str;3]=["share","fund","other_security"];
 const CATEGORIES:[&str;5]=["equity_fund","mixed_fund","real_estate_fund","foreign_real_estate_fund","other_fund"];
 
@@ -22,33 +21,11 @@ impl Classification{
     fn kind(&self)->&str{self.kind.and_then(|k|KINDS.get(k).copied()).unwrap_or("")}
     fn category(&self)->&str{self.category.and_then(|k|CATEGORIES.get(k).copied()).unwrap_or("")}
 }
+/// BrokerReport#classification_rows for the newest supported year (its universe holds every earlier one's), from the report's
+/// own walk: D-TAX-BROKER-PANEL, every refusal but a missing close shows here.
 fn rows(c:&Connection,owner:i64,exchange:i64)->Result<Vec<Classification>,WebError>{
-    let mut statement=c.prepare("SELECT entry_type,base_currency,quote_currency,transacted_at FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND transacted_at<'2026-01-01 00:00:00' ORDER BY transacted_at")?;
-    let mut records=statement.query((owner,exchange))?;
-    let mut universe:BTreeMap<String,Vec<(i64,String)>>=BTreeMap::new();
-    while let Some(r)=records.next()?{
-        let kind:i64=r.get(0)?;let symbol:Option<String>=if matches!(kind,11|13){r.get(2)?}else{r.get(1)?};
-        if let Some(symbol)=symbol.filter(|s|!s.trim().is_empty() && !crate::tracker::fiat(s)) {universe.entry(symbol).or_default().push((kind,r.get(3)?));}
-    }
-    let mut out=vec![];
-    for (symbol,records) in universe{
-        let existing:Option<(i64,Option<i64>)>=c.query_row("SELECT kind,fund_category FROM fund_classifications WHERE user_id=?1 AND symbol=?2",(owner,&symbol),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
-        let mut assets=c.prepare("SELECT category,instrument_type FROM assets WHERE symbol=?1 ORDER BY id")?;
-        let assets:Vec<(Option<String>,Option<String>)>=assets.query_map([&symbol],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
-        let categories:BTreeSet<&str>=assets.iter().filter_map(|(c,_)|c.as_deref()).collect();
-        if existing.is_none() && !assets.iter().any(|(_,t)|t.as_deref().is_some_and(|t|matches!(t,"stock"|"etf"|"tokenized"))) && categories==BTreeSet::from(["Cryptocurrency"]){continue}
-        let asset=assets.iter().find(|(_,t)|t.as_deref().is_some_and(|t|matches!(t,"stock"|"etf"))).or(assets.first());
-        let (kind,category)=match existing {
-            Some((k,cat))=>(Some(usize::try_from(k).map_err(|_|invalid())?),cat.map(usize::try_from).transpose().map_err(|_|invalid())?),
-            None=>match asset.and_then(|(_,t)|t.as_deref()){Some("stock")=>(Some(0),None),Some("etf")=>(Some(1),Some(4)),_=>(None,None)},
-        };
-        if kind.is_some_and(|k|k>=KINDS.len()) || category.is_some_and(|k|k>=CATEGORIES.len()){return Err(invalid())}
-        let mut reasons=vec![];
-        if records.iter().any(|(kind,_)|*kind==16){reasons.push("unsupported_activity")}
-        if kind==Some(1) && records.iter().any(|(kind,at)|*kind==0 && at.as_str()<"2018-01-01 00:00:00"){reasons.push("pre_2018_fund_lot")}
-        out.push(Classification{symbol,kind,category,persisted:existing.is_some(),reasons});
-    }
-    Ok(out)
+    let rows=crate::tax::broker::classification_rows(c,owner,exchange,crate::tax::broker::LAST_YEAR).map_err(|e|WebError::Config(format!("{e:?}")))?;
+    Ok(rows.into_iter().map(|r|Classification{symbol:r.symbol,kind:r.kind,category:r.category,persisted:r.persisted,reasons:r.reasons}).collect())
 }
 fn select(ctx:&Ctx,row:&Classification,category:bool)->String{
     let options=if category{&CATEGORIES[..]}else{&KINDS[..]};let role=if category{"category"}else{"kind"};let indent=if category{"    "}else{"  "};
@@ -95,7 +72,7 @@ fn classifications(ctx:&Ctx,rows:&[Classification])->String{
     out.push_str("</div>\n");out
 }
 pub fn panel(c:&Connection,ctx:&Ctx,owner:i64,settings:&Value)->Result<(String,String),WebError>{
-    let exchange:Option<i64>=c.query_row("SELECT e.id FROM exchanges e WHERE e.type='Exchanges::Alpaca' AND (EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id=e.id) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id=e.id)) ORDER BY e.id LIMIT 1",[owner],|r|r.get(0)).optional()?;
+    let exchange=crate::tax::broker::broker_exchange(c,owner).map_err(|e|WebError::Config(format!("{e:?}")))?;
     let Some(exchange)=exchange else{return Ok((String::new(),String::new()))};
     let country=settings["country"].as_str().unwrap_or("DE");let broker=settings["report_scope"]=="broker" && country=="DE";
     let mut scope=format!("        <div class=\"flex gap-3 mb-3 {}\"\n             data-tracker-export-target=\"scopeRow\">\n",if settings["export_type"]=="transactions" || country!="DE"{"hidden"}else{""});

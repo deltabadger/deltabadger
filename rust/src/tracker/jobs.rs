@@ -365,34 +365,9 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
     }).await?;
     for close in &plan.fetches {
         let bars = match close { backfill::Close::Range(f) => { fetch(db, api, f.clone()).await?; continue } backfill::Close::Bars(b) => b };
-        let (Some((credentials, version)), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
-        let start = format!("{}T00:00:00Z", bars.from);
+        let (Some(key), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
-        let raw=venues.connect(credentials);
-        let handle=crate::venue::alpaca::Captured::new(&raw,version.clone());
-        // Every page, each naming the next, as Clients::Alpaca#get_bars reads them.
-        let mut all = vec![];
-        let mut token: Option<String> = None;
-        let read = loop {
-            let mut query = vec![("limit", "10000".to_string())];
-            if let Some(token) = token.take() { query.push(("page_token", token)); }
-            query.extend([("start", start.clone()), ("timeframe", "1Day".into())]);
-            let Ok(body) = handle.read(true, &format!("/v2/stocks/{}/bars", bars.symbol), query, 8 * 1024 * 1024).await.value else { break false };
-            let Ok(text) = body.text() else { break false };
-            let Ok(mut json) = serde_json::from_str::<serde_json::Value>(text) else { break false };
-            all.extend(json["bars"].as_array_mut().map(std::mem::take).into_iter().flatten());
-            match json["next_page_token"].as_str().filter(|t| !t.is_empty()) { Some(next) => token = Some(next.to_string()), None => break true }
-        };
-        if !read { continue; }
-        let Some(rows) = backfill::bar_rows(&serde_json::json!({ "bars": all }), bars, have) else { continue };
-        if rows.is_empty() { continue; }
-        let version = version.clone();
-        db.run(move |c, _| {
-            let tx = crate::engine::model::immediate(c).map_err(|_| "cannot begin bar cache write")?;
-            let fenced=crate::engine::model::check_credential_result(&tx, &Some(version)).map_err(|e| match e { crate::engine::EngineError::CredentialsChanged => crate::engine::model::CREDENTIALS_CHANGED.to_string(), _ => "cannot check bar cache credentials".into() })?;
-            prices::store_bars(&fenced, &rows).map_err(message)?;
-            tx.commit().map_err(|e| e.to_string())
-        }).await?;
+        prices::fetch_stock_bars(db, venues, key, &bars.symbol, (bars.from, bars.to), have).await?;
     }
     Ok(())
 }

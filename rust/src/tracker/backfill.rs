@@ -8,7 +8,7 @@ use super::walk::Term;
 use super::{fiat, stable};
 use crate::crypto::Cipher;
 use crate::figures::{dec::Dec, FiguresError};
-use chrono::{Datelike, Days, NaiveDate};
+use chrono::NaiveDate;
 use rusqlite::{Connection, OptionalExtension};
 use std::collections::{BTreeMap, HashMap};
 
@@ -196,8 +196,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         }
         // `stock_price_range`: fetch only when nothing is stored from the window's last weekday on, and only with a key
         // of the venue and a ticker of the symbol.
-        let last_weekday = (0..prices::span(i.from, last)).map(|n| last.checked_sub_days(Days::new(n as u64)).unwrap_or(last))
-            .find(|d| (1..=5).contains(&d.weekday().number_from_sunday().saturating_sub(1))).unwrap_or(last);
+        let last_weekday = prices::last_weekday(i.from, last);
         // What the venue lists under the symbol is checked before any stored close is used: a coin whose symbol the
         // catalogue also has as a stock would otherwise be valued at the stock's closes.
         let ticker = reference.listed_category_on(i.venue.id, &i.symbol);
@@ -218,19 +217,6 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         plan.fetches.push(Close::Bars(Bars { api_key_id, symbol: i.symbol.clone(), from: i.from, to: last }));
     }
     Ok(plan)
-}
-
-/// The closes a bar answer gives for the window, as `stock_price_range` stores them: the days not yet stored. None
-/// when a bar cannot be read, which Rails rescues into storing nothing.
-pub fn bar_rows(body: &serde_json::Value, bars: &Bars, have: &std::collections::HashSet<NaiveDate>) -> Option<Vec<prices::PriceRow>> {
-    let mut candles = vec![];
-    for bar in body["bars"].as_array().into_iter().flatten() {
-        let day = bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t| t.naive_utc().date())?;
-        candles.push((day, Dec::to_d(&bar["c"]).ok()?));
-    }
-    let mut seen = have.clone();
-    Some(candles.into_iter().filter(|(day, _)| *day >= bars.from && *day <= bars.to && seen.insert(*day))
-        .map(|(day, close)| (format!("stock:{}", bars.symbol), day, close.to_s_f())).collect())
 }
 
 /// price key → day → the price that day, the last observed carried at most CARRY_LIMIT days and never across a day

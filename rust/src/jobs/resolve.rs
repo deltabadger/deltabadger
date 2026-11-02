@@ -7,7 +7,7 @@ pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<D
     Box::new(move|name,scope|{
         if scope.is_none(){
             // AppPaths.tmp is the process's (the binary's env is the process env).
-            if name==crate::tax::job::JOB {return Ok(crate::tax::job::job(api.clone(),venues.ecb(),crate::tax::job::tmp_dir(&|k|std::env::var(k).ok())));}
+            if name==crate::tax::job::JOB {return Ok(crate::tax::job::job(api.clone(),venues.clone(),crate::tax::job::tmp_dir(&|k|std::env::var(k).ok())));}
             return super::reference::shared_jobs(api.clone()).into_iter().find(|job|job.spec().name==name).ok_or_else(||"unknown unscoped job".into());
         }
         let id=scope.and_then(|s|s.parse::<i64>().ok()).filter(|id|*id>0).ok_or("invalid job scope")?;

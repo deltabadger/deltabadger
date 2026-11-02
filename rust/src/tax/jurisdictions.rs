@@ -113,8 +113,9 @@ pub fn find(code: &str) -> Option<&'static Jurisdiction> { REGISTRY.iter().find(
 
 /// D-TAX-NOT-PORTED-GATE: the jurisdictions whose crypto report this build computes, and (`ported`) the years whose law was
 /// reviewed. A create this build cannot compute (web, REST, MCP) is refused up front as not ported, and nothing is ever
-/// queued for it: since A12-6 every jurisdiction is served, and the gate holds a year outside `ported`, the broker scope
-/// until A12-7 and an install on CoinGecko prices until A17 (an unknown country is a validation error first).
+/// queued for it. Since A12-6 every jurisdiction is served, and since A12-7 the broker report too (tax/broker.rs, on the web
+/// as Rails serves it): the gate holds only a crypto year outside `ported` and an install on CoinGecko prices until A17 (an
+/// unknown country is a validation error first).
 /// Austria by its own law (A12-2b: the moving average per wallet, § 27b from 1 March 2022, `fifo::Austria`); Poland by
 /// its own report (tax/pl.rs), from 2019; Bulgaria and the Czech Republic by their own law (A12-3: bg.rs, cz.rs).
 /// Italy and Ireland by their own law (A12-4: it.rs, ie.rs); Sweden and the United Kingdom (A12-5: se.rs, gb.rs); France, the
