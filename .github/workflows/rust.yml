@@ -477,6 +477,17 @@ jobs:
         run: docker build -f Dockerfile.rust -t deltabadger:ci .
       - name: Image size
         run: docker image ls deltabadger:ci
+      # The takeover tests start on volumes made by the last 2.x image and by Rails itself (rails_install).
+      - name: Pull the last 2.x image
+        run: docker pull ghcr.io/deltabadger/deltabadger:2.70.21
+      - name: Install native gem dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y libsqlite3-dev libvips-dev libsodium-dev libyaml-dev libcurl4-openssl-dev
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0.7'
+          bundler-cache: true
+      - name: Create Rails' development secret
+        run: mkdir -p tmp && { [ -s tmp/local_secret.txt ] || openssl rand -hex 64 > tmp/local_secret.txt; }
       - name: Install Rust 1.94.0
         run: |
           rustup toolchain install 1.94.0 --profile minimal
