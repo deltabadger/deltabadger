@@ -497,7 +497,11 @@ pub fn refusal(c: &Connection, bot_id: i64, provider_is_deltabadger: bool, asked
     // A rebalance in progress is drawn in any phase (3.0 plan A3): the page locks what it locks (the venue menu, the
     // composition, the Redeploy offer). A pending state stored in a shape the engine cannot read is still an error.
     crate::engine::rebalance::pending(&transient)?;
-    if class == "Bots::DcaIndex" && !provider_is_deltabadger { return Ok(Some("an index bot whose market data comes from CoinGecko")); }
+    // On the deltabadger provider as before; else the engine's own rule (eligibility::index_data): Top Coins on a CoinGecko key.
+    if class == "Bots::DcaIndex" && !provider_is_deltabadger
+        && !crate::engine::eligibility::index_data(c, &crate::web::wizard::index::followed(settings.as_object()))? {
+        return Ok(Some("an index bot whose market data comes from CoinGecko"));
+    }
     // Every ticker the pages may round by: the venue's, and those the bot's memberships name.
     let unbounded: bool = c.query_row(
         "SELECT EXISTS(SELECT 1 FROM tickers t WHERE (t.exchange_id = (SELECT exchange_id FROM bots WHERE id = ?1) OR t.id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id = ?1)) \

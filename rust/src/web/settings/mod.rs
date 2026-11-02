@@ -9,6 +9,7 @@ pub mod keys;
 pub mod key_check;
 pub mod validator;
 pub mod mail;
+pub mod market_data;
 pub mod preferences;
 pub mod sections;
 mod qr;
@@ -109,6 +110,8 @@ pub async fn write(
         (&Method::POST, ibkr::PATH) => return ibkr::create(app, ctx).await,
         (&Method::DELETE, ibkr::PATH) => return ibkr::destroy(app, ctx).await,
         (&Method::POST, "/settings/ibkr_connect/activate") => return ibkr::activate(app, ctx).await,
+        (&Method::PATCH, "/settings/update_market_data") | (&Method::DELETE, "/settings/disconnect_market_data")
+        | (&Method::POST, "/settings/resync_assets") => return market_data::write(app, ctx, &headers).await,
         _ => {}
     }
     if ctx.method == Method::PATCH && ctx.params.route_path == "/settings/update_wash_sale" {
