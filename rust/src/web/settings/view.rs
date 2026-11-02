@@ -100,8 +100,8 @@ pub(super) fn zones(ctx: &Ctx, selected: &str) -> (String, String) {
     )
 }
 /// settings/widgets/_registration.
-pub(super) fn registration(ctx: &Ctx, csrf: &str, registration_open: bool) -> Result<String, WebError> {
-    Ok(sections::registration(ctx, csrf, registration_open))
+pub(super) fn registration(ctx: &Ctx, csrf: &str, registration_open: bool, mail_set_up: bool) -> Result<String, WebError> {
+    Ok(sections::registration(ctx, csrf, registration_open, mail_set_up))
 }
 /// settings/widgets/_advanced_bots.
 pub(super) fn advanced(ctx: &Ctx, csrf: &str, advanced: bool) -> Result<String, WebError> {
@@ -271,7 +271,7 @@ pub async fn account(
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )?;
             let read = |key: &str| crate::web::auth::app_config(c, &inner.cipher, key);
-            let registration_open = read("registration_open")?.as_deref() == Some("true");
+            let registration_open = (read("registration_open")?.as_deref() == Some("true"), super::mail::set_up(&inner, c)?);
             let advanced: bool = c.query_row(
                 "SELECT advanced_bots_enabled FROM users WHERE id=?1",
                 [owner.id],
@@ -300,7 +300,7 @@ pub async fn account(
     // Rails re-renders the whole section on a failed save, and current_user.errors reaches every row: the
     // email and password rows open, and each field shows its own attribute's message.
     let errors = sections::Errors(&draft.messages);
-    let registration = registration(ctx, &csrf, registration_open)?;
+    let registration = registration(ctx, &csrf, registration_open.0, registration_open.1)?;
     let pane = sections::account(
         ctx,
         &sections::Account {

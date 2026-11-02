@@ -1,0 +1,40 @@
+<form data-turbo="false" data-controller="form--html5-validations form--label-animations form--password-strength" data-form--password-strength-success-class-value="form__validation--success" data-form--password-strength-length-pattern-value=".{8,}" data-form--password-strength-uppercase-pattern-value="(?=.*[A-Z])" data-form--password-strength-lowercase-pattern-value="(?=.*[a-z])" data-form--password-strength-digit-pattern-value="(?=.*\d)" data-form--password-strength-symbol-pattern-value="(?=.*[\W_])" action="{{ v.path("/signup") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+  {% include "svg/_40x30_logo.html" %}
+
+  <h1>{{ v.t("devise.registrations.new.title")|safe }}</h1>
+
+  <div class="form__row form__row--input">
+    <input class="form__input form__input--large{% if name_error.is_some() %} is-invalid{% endif %}" required="required" pattern="^\p{L}+(\s+\p{L}+)*$" type="text"{% if let Some(name) = name %} value="{{ name }}"{% endif %} name="user[name]" id="user_name" />
+{% if let Some(message) = name_error %}
+             <div class="form__info form__info--invalid">{{ message }}</div>
+{% endif %}
+    <label class="form__label" for="user_name">{{ v.t("helpers.label.user.name")|safe }}</label>
+  </div>
+
+  <div class="form__row form__row--input">
+    <input autocomplete="username" class="form__input form__input--large{% if email_error.is_some() %} is-invalid{% endif %}" required="required" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("devise.registrations.new.email_invalid")|safe }}" type="email" value="{{ email }}" name="user[email]" id="user_email" />
+{% if let Some(message) = email_error %}
+             <div class="form__info form__info--invalid">{{ message }}</div>
+{% endif %}
+    <label class="form__label" for="user_email">{{ v.t("helpers.label.user.email")|safe }}</label>
+  </div>
+
+  <div class="form__row db-has-unmask" data-controller="form--password-unmask">
+    <input autocomplete="new-password" class="form__input form__input--has-icon form__input--large{% if password_error.is_some() %} is-invalid{% endif %}" data-form--password-unmask-target="input" data-form--password-strength-target="input" data-action="input-&gt;form--password-strength#checkPasswordStrength" required="required" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}" type="password" name="user[password]" id="user_password" />
+{% if let Some(message) = password_error %}
+             <div class="form__info form__info--invalid">{{ message }}</div>
+{% endif %}
+    <label class="form__label" for="user_password">{{ v.t("helpers.label.user.password")|safe }}</label>
+
+{% include "devise/_unmask.html" %}
+</div>
+  <div data-form--password-strength-target="requirementsList" class="hidden">
+    <ul class="password-requirements">
+{% include "devise/_requirements.html" %}
+    </ul>
+  </div>
+  <input type="submit" name="commit" value="{{ v.t("devise.registrations.new.submit")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("devise.registrations.new.submit")|safe }}" />
+
+{% include "devise/_links.html" %}
+</form>

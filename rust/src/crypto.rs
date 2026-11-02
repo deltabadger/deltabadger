@@ -232,6 +232,50 @@ pub fn verify_password(plain: &str, stored_hash: &str) -> bool {
     bcrypt::verify(plain, stored_hash).unwrap_or(false)
 }
 
+/// Devise.friendly_token(20): 15 random bytes, URL-safe base64, with the look-alike letters replaced as Devise does.
+/// The raw token of a confirmation and of a password reset.
+pub fn friendly_token() -> String {
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    URL_SAFE_NO_PAD.encode(rand::random::<[u8; 15]>()).replace('l', "s").replace('I', "x").replace('O', "y").replace('0', "z")
+}
+
+/// Devise's TokenGenerator for `users.reset_password_token`, as this app builds it: the column holds
+/// HMAC-SHA256(key, raw) in hex, where key = PBKDF2-HMAC-SHA1(secret_key_base, "Devise reset_password_token", 65,536
+/// rounds, 64 bytes). SHA1, not the SHA256 of AR encryption: Devise's KeyGenerator is built before the app's
+/// `key_generator_hash_digest_class` applies (pinned by tests/fixtures/devise_token_vectors.json, recorded by Rails).
+/// So a link Rails mailed before the takeover opens here, and one this build mails opens in Rails.
+#[derive(Clone)]
+pub struct ResetTokens { key: [u8; 64] }
+
+impl ResetTokens {
+    /// 65,536 PBKDF2 rounds: at startup only (as `Cipher::new`), derived once per process and secret.
+    pub fn new(secret_key_base: &str) -> Self {
+        static DERIVED: std::sync::Mutex<Vec<(String, [u8; 64])>> = std::sync::Mutex::new(Vec::new());
+        let mut derived = DERIVED.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some((_, key)) = derived.iter().find(|(secret, _)| secret == secret_key_base) { return Self { key: *key } }
+        let mut key = [0u8; 64];
+        pbkdf2::pbkdf2_hmac::<sha1::Sha1>(secret_key_base.as_bytes(), b"Devise reset_password_token", 65_536, &mut key);
+        derived.push((secret_key_base.to_string(), key));
+        Self { key }
+    }
+
+    /// TokenGenerator#digest: `None` for a blank token (Devise digests it to `false`, which matches no row).
+    pub fn digest(&self, raw: &str) -> Option<String> {
+        use hmac::Mac;
+        if crate::ruby::blank(raw) { return None }
+        let mut mac = <hmac::Hmac<Sha256> as Mac>::new_from_slice(&self.key).expect("HMAC takes any key length");
+        mac.update(raw.as_bytes());
+        Some(hex::encode(mac.finalize().into_bytes()))
+    }
+
+    /// TokenGenerator#generate: a fresh raw token and its digest.
+    pub fn generate(&self) -> (String, String) {
+        let raw = friendly_token();
+        let digest = self.digest(&raw).expect("a friendly token is never blank");
+        (raw, digest)
+    }
+}
+
 /// ROTP::TOTP#at: RFC 6238, SHA1, 6 digits, 30-second step.
 pub fn totp_at(seed_base32: &str, unix_seconds: u64) -> Option<String> {
     use hmac::Mac;

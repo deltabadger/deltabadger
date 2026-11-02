@@ -124,7 +124,8 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
                 if !correct{draft.errors.push("current_password".into());}
                 if draft.errors.is_empty()&&!password.is_empty(){
                     let encrypted=hash_password(password).map_err(|_|WebError::Config("password hashing failed".into()))?;
-                    tx.execute("UPDATE users SET encrypted_password=?1,updated_at=?2 WHERE id=?3",(&encrypted,&now,user.id))?;
+                    // Devise clear_reset_password_token: a new password ends every reset link.
+                    tx.execute("UPDATE users SET encrypted_password=?1,reset_password_token=NULL,reset_password_sent_at=NULL,updated_at=?2 WHERE id=?3",(&encrypted,&now,user.id))?;
                     salt=Some(encrypted.get(..29).unwrap_or(&encrypted).to_string());
                 }
                 notice=Some("devise.passwords.updated");
@@ -140,10 +141,9 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
                     if taken{
                         tx.execute("UPDATE users SET unconfirmed_email=?1,confirmation_token=NULL,confirmation_sent_at=NULL,updated_at=?2 WHERE id=?3",(view.params.form("user[email]").unwrap_or(&email),&now,user.id))?;
                     }else{
-                        use base64::{engine::general_purpose::URL_SAFE_NO_PAD,Engine};
-                        let bytes:[u8;15]=rand::random();
-                        let token=URL_SAFE_NO_PAD.encode(bytes).replace('l',"s").replace('I',"x").replace('O',"y").replace('0',"z");
-                        tx.execute("UPDATE users SET unconfirmed_email=?1,confirmation_token=?2,confirmation_sent_at=?3,updated_at=?3 WHERE id=?4",(&email,&token,&now,user.id))?;
+                        let token=crate::crypto::friendly_token();
+                        // Devise clears the reset link before it postpones the change (recorded: a refused or taken address keeps it).
+                        tx.execute("UPDATE users SET unconfirmed_email=?1,confirmation_token=?2,confirmation_sent_at=?3,reset_password_token=NULL,reset_password_sent_at=NULL,updated_at=?3 WHERE id=?4",(&email,&token,&now,user.id))?;
                         mail=Some((email,token));
                     }
                 }
@@ -186,7 +186,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
     }).await?;
     let (draft, salt, notice, mail) = result;
     if let Some((email, token)) = mail {
-        super::mail::confirmation(&app, user.id, email, token, ctx.locale).await?;
+        super::mail::confirmation(&app, user.id, email, token, ctx.locale).await;
     }
     if let Some(salt) = salt {
         ctx.session.lock().user = Some((user.id, salt));

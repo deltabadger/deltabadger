@@ -1,0 +1,14 @@
+  <div class="devise__links">
+{% if links.login %}
+    <a class="button button--link" href="{{ v.path("/login") }}">{{ v.t("links.log_in")|safe }}</a>
+    <span class="db-middot">●</span>
+{% endif %}
+{% if links.signup %}
+    <a class="button button--link" href="{{ v.path("/signup") }}">{{ v.t("links.sign_up")|safe }}</a>
+    <span class="db-middot">●</span>
+{% endif %}
+    <a class="button button--link" href="{{ v.path("/confirmation/new") }}">{{ v.t("links.resend_link")|safe }}</a>
+    <span class="db-middot">●</span>
+
+  {% include "layouts/_language_dropdown.html" %}
+</div>

@@ -336,6 +336,14 @@ async fn rails_and_rust_answer_the_setup_grid_alike() {
             let page = html::normalize(&String::from_utf8_lossy(web::assets::find("/400.html").unwrap().body));
             if theirs["status"] != 400 || ours["status"] != 400 || ours["body"] != json!(page) { failures.push(format!("{name}: expected 400 with public/400.html, got {ours}")); }
         }
+        if name == "create_name_newline" {
+            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): Rails' `^…$` accepts "Evil\nOwner" and creates the admin; this build refuses
+            // the name with Rails' own name_invalid message and creates nothing.
+            let (Some(theirs), Some(ours)) = (rails.last(), played.responses.last()) else { panic!("{name}: no responses") };
+            let refused = ours["status"] == 422 && ours["body"].to_string().contains(&web::i18n::text("en", "devise.registrations.new.name_invalid", &[]));
+            if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected Rails 302 and this build's 422 name refusal with no user, got {ours}")); }
+            continue;
+        }
         if let Some(message) = first_difference(name, &rails, &played.responses) { failures.push(message); continue; }
         // The claim requests the launchpad received, and Setup::SeedAndSyncJob: enqueued in Rails, woken here.
         if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: Rails {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
@@ -509,6 +517,12 @@ fn validation_messages_match_rails_in_every_locale() {
         let full: Vec<&str> = errors.iter().map(|e| e.full.as_str()).collect();
         let password: Vec<&str> = errors.iter().filter(|e| e.attribute == "password").map(|e| e.message.as_str()).collect();
         let strings = |key: &str| case[key].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect::<Vec<_>>();
+        if text("name").contains(['\n', '\r']) {
+            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): Rails takes a name with a line break; this build adds name_invalid to its errors.
+            let invalid = web::i18n::text(text("locale"), "devise.registrations.new.name_invalid", &[]);
+            if !errors.iter().any(|e| e.attribute == "name" && e.message == invalid) { failures.push(format!("{case}\n  rust: {full:?}: expected the name refused")); }
+            continue;
+        }
         if full != strings("messages") || password != strings("password_messages") || full.is_empty() != case["valid"].as_bool().unwrap() {
             failures.push(format!("{case}\n  rust: {full:?} / {password:?}"));
         }

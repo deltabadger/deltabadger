@@ -115,7 +115,7 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
         answer["tracker_raw"] = json!(safe_body);
     }
     for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts",
-                "venue_requests", "may_mutate", "raw_rows", "session", "job_classes", "tax_files"] {
+                "venue_requests", "may_mutate", "raw_rows", "session", "job_classes", "tax_files", "mails", "account_rows"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
     if let Some(keys) = recorded.get("jobs").and_then(rails_sync_keys) { answer["sync_keys"] = keys; }
@@ -378,11 +378,49 @@ fn scenario(dir: &Path) -> Value {
 }
 
 /// Runs one scenario's steps against this crate; returns what Rails' rails.json holds.
-struct TestMail;
+/// The account mailer of a scenario: what each step sent (pages_accounts.rb's `mails`), as Rails' test deliveries.
+#[derive(Default)]
+struct TestMail(std::sync::Mutex<Vec<deltabadger::mail::Message>>);
 impl deltabadger::web::settings::mail::Mailer for TestMail{
     fn deliver(&self,message:deltabadger::mail::Message,_settings:Option<deltabadger::mail::smtp::Settings>,now:chrono::DateTime<chrono::Utc>)->deltabadger::web::settings::mail::Delivery{
-        Box::pin(async move{message.encode(now,"fixture@deltabadger").expect("real message encodes");Ok(())})
+        message.encode(now,"fixture@deltabadger").expect("real message encodes");
+        self.0.lock().unwrap().push(message);
+        Box::pin(async move{Ok(())})
     }
+}
+
+/// pages_accounts.rb's `account_rows`: the step's SQL (the same text Rails ran), the password hash read as the candidate it
+/// verifies.
+fn account_rows(dir: &Path, sql: &str) -> Value {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let mut statement = c.prepare(sql).unwrap();
+    let names: Vec<String> = statement.column_names().iter().map(|s| s.to_string()).collect();
+    let rows = statement.query_map([], |row| {
+        let mut object = serde_json::Map::new();
+        for (index, name) in names.iter().enumerate() {
+            let value = match row.get_ref(index)? {
+                rusqlite::types::ValueRef::Null => Value::Null,
+                rusqlite::types::ValueRef::Integer(n) => json!(n),
+                rusqlite::types::ValueRef::Text(t) => json!(String::from_utf8_lossy(t)),
+                other => panic!("account_rows: unexpected {other:?} in {name}"),
+            };
+            object.insert(name.clone(), value);
+        }
+        Ok(object)
+    }).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    Value::Array(rows.into_iter().map(|mut row| {
+        let hash = row["encrypted_password"].as_str().unwrap_or_default().to_string();
+        row["encrypted_password"] = json!(["Correct-horse-9", "Another-horse-7"].into_iter().find(|candidate| bcrypt::verify(candidate, &hash).unwrap_or(false)).unwrap_or("other"));
+        Value::Object(row)
+    }).collect())
+}
+
+/// The token of a reset or confirmation link in a mail.
+fn mailed_token(html: &str) -> Option<String> {
+    ["reset_password_token=", "confirmation_token="].iter().find_map(|key| {
+        let start = html.find(key)? + key.len();
+        Some(html[start..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').collect())
+    })
 }
 
 async fn run(dir: &Path) -> Value {
@@ -404,7 +442,11 @@ async fn run(dir: &Path) -> Value {
     mount_account_reads(&key_server).await;
     mount_ibkr(&key_server).await;
     mount_rule_reads(&key_server).await;
-    let app = web::app_in(dir, scenario["secret_key_base"].as_str().unwrap(), None, scenario["env"].as_object().unwrap_or(&serde_json::Map::new()), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
+    let mail = std::sync::Arc::new(TestMail::default());
+    let mut mailed: Option<String> = None;
+    // Rails recorded every scenario with mail delivered (the test adapter): here, mail can be sent (D-NO-MAIL-SAYS-SO answers
+    // otherwise, tests/accounts.rs). TestMail stands in for the server.
+    let app = web::app_in(dir, scenario["secret_key_base"].as_str().unwrap(), None, scenario["env"].as_object().unwrap_or(&serde_json::Map::new()), clock.clone()).with_settings_mailer(mail.clone()).unwrap().with_mail_set_up(true).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
         .with_venue_key_urls(&format!("{}/api.kraken.com", key_server.uri()), &format!("{}/api.binance.com", key_server.uri()), &format!("{}/api.kucoin.com", key_server.uri())).unwrap()
         .with_venue_key_url(deltabadger::venue::gemini::GEMINI, &format!("{}/api.gemini.com", key_server.uri())).unwrap()
         .with_venue_key_url(deltabadger::venue::ibkr::IBKR, &format!("{}/api.ibkr.com", key_server.uri())).unwrap();
@@ -426,7 +468,11 @@ async fn run(dir: &Path) -> Value {
             let token:String=form_urlencoded::byte_serialize(token.as_bytes()).collect();
             step["path"].as_str().unwrap().replace("__R2_TOKEN__",&token)
         }else{step["path"].as_str().unwrap().to_string()};
-        let mut form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());
+        // pages_accounts.rb: __MAILED_TOKEN__ is the token of the last link mailed.
+        let with_mailed = |text: &str| if text.contains("__MAILED_TOKEN__") { text.replace("__MAILED_TOKEN__", mailed.as_deref().expect("no mailed token to use")) } else { text.to_string() };
+        let request_path = with_mailed(&request_path);
+        let form_values: Option<Vec<(String, String)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.clone(), with_mailed(v.as_str().unwrap()))).collect());
+        let mut form: Option<Vec<(&str, &str)>> = form_values.as_ref().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect());
         let mut headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
         // pages.rb `if_none_match`: 'last' is the etag of this client's last response, 'last_strong' it without W/.
         let client = step["client"].as_str().unwrap_or("main").to_string();
@@ -510,6 +556,10 @@ async fn run(dir: &Path) -> Value {
             if let Some(keys) = rust_sync_keys(&wakes[woken..]) { response["sync_keys"] = keys; }
         }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
+        let delivered: Vec<deltabadger::mail::Message> = std::mem::take(&mut *mail.0.lock().unwrap());
+        for message in &delivered { if let Some(token) = mailed_token(&message.html) { mailed = Some(token); } }
+        if step["mails"] == true { response["mails"] = json!(delivered.iter().map(|m| json!({ "to": m.to, "subject": m.subject })).collect::<Vec<_>>()); }
+        if let Some(sql) = step["account_rows"].as_str() { response["account_rows"] = account_rows(dir, sql); }
         if step["tax_files"] == true { response["tax_files"] = tax_files(dir); }
         let requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
@@ -1573,7 +1623,7 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
         let (a, b) = (&without_rust_tables(a), &without_rust_tables(b));
         if a == b { continue; }
         if a.get("settings_rows") != b.get("settings_rows") { return Some(format!("{name} step {index}: settings rows differ\n  rails: {}\n  rust: {}",a["settings_rows"],b["settings_rows"])); }
-        for key in ["venue_requests", "raw_rows", "session", "job_classes", "tax_jobs", "tax_files"] {
+        for key in ["venue_requests", "raw_rows", "session", "job_classes", "tax_jobs", "tax_files", "mails", "account_rows"] {
             if a.get(key) != b.get(key) { return Some(format!("{name} step {index}: {key} differ\n  rails: {}\n  rust:  {}", a[key], b[key])); }
         }
         if a.get("broadcasts") != b.get("broadcasts") { return Some(format!("{name} step {index}: broadcasts differ\n  rails: {}\n  rust:  {}",a["broadcasts"],b["broadcasts"])); }
@@ -2207,10 +2257,10 @@ fn page_grid_selection_is_complete_and_disjoint() {
     {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 - 1 + 6 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2, "completed read-only baseline (3.0 A12-1's thirty-four api_tax_ scenarios on the tax report routes, in place of the download route's three gated and not_ported_ ones; 3.0 A11's thirty-five api_tracker_ scenarios on the tracker routes, less the list route's three gated and not_ported_ ones; 3.0 A8's thirty-one bot_csv_ export and import scenarios, with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear), and AUDIT #6's two rebalance resolution flows, and PLAN-wash-sale WS-4a's eleven rule-on pages in place of the one not_ported_ (eight bot_wash_ on baskets: the locks, the selling warning and its acknowledgement; two missing_wash_ 404s; one signal_page_wash_rule), less the dashboard's one not_ported_ list (D-DASHBOARD-REFUSED-TILE: a refused bot is listed plain, pinned in tests/serve.rs), and PLAN-wash-sale WS-4b's seven question pages in place of the one not_ported_ (six on baskets: the modal, its answers, a missing_ 404; one Sell confirmation that asks it; the signal rule write and the signal wizard save are served under their own names), and 3.0 plan A3's two bot pages while a rebalance sells or buys, and 3.0 plan A4's eight cancel_order_ answers (a cancel, a refusal in English and German, an invalid key, an imported row, a missing and a deleted bot, signed out; one missing_ row 404), and 3.0 plan A9 O1's eight orders answers (six api_orders_ on the refusals before the venue, and slice O2's two api_orders_cancel_ sent in place of their not_ported_; O4 retires the two not_ported_api_orders_ placements past them, which only an engine answers: tests/orders_api.rs), and 3.0 plan A10's thirty-nine bot creates (api_create_*, fixed_api_create_dca_hyperliquid, refused_api_create_signal_ibkr; not_ported_api_create_bot is served now)");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 - 1 + 6 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2 + 78, "completed read-only baseline (3.0 A16's seventy-eight signup_ and password_ scenarios: signup open, closed and signed in, the reset request, link, new password with and without two-factor, the mailed flow, and the link's end on a password or email change; 3.0 A12-1's thirty-four api_tax_ scenarios on the tax report routes, in place of the download route's three gated and not_ported_ ones; 3.0 A11's thirty-five api_tracker_ scenarios on the tracker routes, less the list route's three gated and not_ported_ ones; 3.0 A8's thirty-one bot_csv_ export and import scenarios, with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear), and AUDIT #6's two rebalance resolution flows, and PLAN-wash-sale WS-4a's eleven rule-on pages in place of the one not_ported_ (eight bot_wash_ on baskets: the locks, the selling warning and its acknowledgement; two missing_wash_ 404s; one signal_page_wash_rule), less the dashboard's one not_ported_ list (D-DASHBOARD-REFUSED-TILE: a refused bot is listed plain, pinned in tests/serve.rs), and PLAN-wash-sale WS-4b's seven question pages in place of the one not_ported_ (six on baskets: the modal, its answers, a missing_ 404; one Sell confirmation that asks it; the signal rule write and the signal wizard save are served under their own names), and 3.0 plan A3's two bot pages while a rebalance sells or buys, and 3.0 plan A4's eight cancel_order_ answers (a cancel, a refusal in English and German, an invalid key, an imported row, a missing and a deleted bot, signed out; one missing_ row 404), and 3.0 plan A9 O1's eight orders answers (six api_orders_ on the refusals before the venue, and slice O2's two api_orders_cancel_ sent in place of their not_ported_; O4 retires the two not_ported_api_orders_ placements past them, which only an engine answers: tests/orders_api.rs), and 3.0 plan A10's thirty-nine bot creates (api_create_*, fixed_api_create_dca_hyperliquid, refused_api_create_signal_ibkr; not_ported_api_create_bot is served now)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1 + 2 + 4, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on, and WS-4a's two settings saves of a selling basket that carry the selling warning, and WS-4b's four that ask the question: two saves, the start dialog and the start)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 + 2 - 1 + 6 + 4 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2, "a scenario was dropped or added without this count (A12-1's thirty-four api_tax_ less the three tax download gates, and O4's two retired not_ported_api_orders_ placements; including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line, plus AUDIT #6's two rebalance resolution flows)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 + 2 - 1 + 6 + 4 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2 + 78, "a scenario was dropped or added without this count (A12-1's thirty-four api_tax_ less the three tax download gates, and O4's two retired not_ported_api_orders_ placements; including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line, plus AUDIT #6's two rebalance resolution flows)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3 + 5, "Rails' pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, the empty bots page for a member (twice) and on the first visit, and the five Connect pages slice 6c-5's redeploy_ answers start from");
     }
@@ -2375,7 +2425,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)).and_then(|()|tax_api_difference(&name,&mut rails)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)).and_then(|()|tax_api_difference(&name,&mut rails)).and_then(|()|account_divergences(&name,&scenario,&mut rails,&mut rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
@@ -2387,6 +2437,121 @@ async fn replay_page_shard(shard: usize) {
     }
     eprintln!("page shard {}: replay {:?}", shard + 1, replay.elapsed());
     assert!(failures.is_empty(), "{} failures across {} scenarios in shard {}:\n{}", failures.len(), dirs.len(), shard + 1, failures.join("\n"));
+}
+
+/// A16's named divergences (PLAN-A16-signup-password.md), each on the steps it changes, each with a witness that Rails
+/// still behaves as described. What a divergence does not touch is compared whole, the rows and mails of every step included.
+fn account_divergences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+    if !name.starts_with("signup_") && !name.starts_with("password_") { return Ok(()) }
+    let steps = rails["responses"].as_array().map_or(0, Vec::len);
+    let token = regex::Regex::new(r#"(id="user_reset_password_token" name="user\[reset_password_token\]" type="hidden" value=")[A-Za-z0-9_-]{20}""#).unwrap();
+    for index in 0..steps {
+        let (theirs, ours) = (rails["responses"][index].clone(), rust["responses"][index].clone());
+        let location = |v: &Value| v["headers"]["location"].as_array().and_then(|l| l.first()).and_then(Value::as_str).or_else(|| v["headers"]["location"].as_str()).unwrap_or("").to_string();
+        let text = |v: &Value| v["body"].to_string();
+        // The step's locale prefix ("/de/signup" -> "/de").
+        let path = scenario["steps"][index]["path"].as_str().unwrap_or("");
+        let prefix = path.split('/').nth(1).filter(|segment| deltabadger::web::locale::known(segment).is_some()).map(|l| format!("/{l}")).unwrap_or_default();
+        let empty = json!(html::normalize(""));
+        // This build's redirect, exactly: 303 to `expected` (the step's locale kept), an empty body. Rails' other headers stay
+        // and are compared; the Location and the session cookie (the flash) are this build's.
+        let expect_redirect = |rails: &mut Value, expected: &str, divergence: &str| -> Result<(), String> {
+            let found = location(&ours);
+            if ours["status"] != 303 || (found != expected && found != format!("http://localhost:3000{expected}")) || ours["body"] != empty {
+                return Err(format!("{divergence} step {index}: expected 303 to {expected} with no body: {ours}"));
+            }
+            // The flash lives in the session: this build must write the session cookie, with the attributes Rails gives it.
+            let session = rails["responses"].as_array().into_iter().flatten().find_map(|r| r["headers"].get("set-cookie").cloned());
+            if session.is_none() || ours["headers"].get("set-cookie") != session.as_ref() {
+                return Err(format!("{divergence} step {index}: expected the session cookie {session:?} (the flash): {ours}"));
+            }
+            let answer = &mut rails["responses"][index];
+            answer["status"] = json!(303);
+            answer["body"] = empty.clone();
+            answer["headers"]["location"] = ours["headers"]["location"].clone();
+            answer["headers"]["set-cookie"] = session.unwrap_or_default();
+            Ok(())
+        };
+        // D-SIGNUP-NO-THANK-YOU: Rails sends a signup, new or taken, to /thank-you (302 for a taken address, 303 for a new
+        // one); this build answers both 303 to the login page, with the signed_up_but_unconfirmed notice.
+        // The flow scenarios follow a link each side mailed with its own random token.
+        if name.starts_with("password_flow_") {
+            for side in [&mut *rails, &mut *rust] {
+                if let Some(lines) = side["responses"][index]["body"].as_array_mut() {
+                    for line in lines.iter_mut() { if let Some(l) = line.as_str() { *line = json!(token.replace(l, "${1}[mailed]\"").to_string()); } }
+                }
+            }
+        }
+        if location(&theirs).contains("/thank-you") {
+            expect_redirect(rails, &format!("{prefix}/login"), "D-SIGNUP-NO-THANK-YOU")?;
+        }
+        // D-RESET-UPDATE-STALE-TOKEN: Rails re-renders the form with an error on a hidden field, which nobody sees.
+        if theirs["status"] == 422 && text(&theirs).contains("user[reset_password_token]") && ours["status"] == 303 {
+            if text(&theirs).contains("form__info--invalid") { return Err(format!("D-RESET-UPDATE-STALE-TOKEN step {index}: Rails now shows the error: {theirs}")) }
+            expect_redirect(rails, &format!("{prefix}/password/new"), "D-RESET-UPDATE-STALE-TOKEN")?;
+            continue;
+        }
+        // D-RESET-NOTICE-COPY: Rails' reset request shows the confirmation copy.
+        for locale in ["en", "de"] {
+            let (wrong, right) = (deltabadger::web::i18n::text(locale, "devise.confirmations.send_paranoid_instructions", &[]),
+                                  deltabadger::web::i18n::text(locale, "devise.passwords.send_paranoid_instructions", &[]));
+            if let Some(lines) = rails["responses"][index]["body"].as_array_mut() {
+                for line in lines.iter_mut() {
+                    if let Some(l) = line.as_str().filter(|l| l.contains(&wrong)) { *line = json!(l.replace(&wrong, &right)); }
+                }
+            }
+        }
+        // D-RESET-FORM-KEEPS-FIELDS: when Devise re-renders the form it drops the code field, the patterns, the email and the
+        // minimum length. Compared without them, and this build's form must have them all.
+        let devise_refusal = theirs["status"] == 422 && text(&theirs).contains("id=\\\"user_reset_password_token\\\"") && !text(&theirs).contains("data-form--password-strength-length-pattern-value");
+        if devise_refusal {
+            let two_factor = text(&rails["responses"][0]).contains("user_otp_code_token");
+            let full = text(&ours);
+            if !full.contains("data-form--password-strength-length-pattern-value") || !full.contains("value=\\\"owner@example.com\\\"") || two_factor != full.contains("user_otp_code_token") {
+                return Err(format!("D-RESET-FORM-KEEPS-FIELDS step {index}: this build's form lacks a field: {full}"));
+            }
+            for side in [&mut *rails, &mut *rust] { without_reset_form_extras(&mut side["responses"][index]["body"]); }
+        }
+    }
+    // ActionController::ParameterMissing: Rails' test environment shows its exception page; here 400 with public/400.html.
+    if name == "signup_no_user" {
+        let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/400.html").unwrap().body));
+        let last = steps - 1;
+        if rails["responses"][last]["status"] != 400 || rust["responses"][last]["status"] != 400 || rust["responses"][last]["body"] != json!(page) {
+            return Err(format!("expected 400 with public/400.html: {}", rust["responses"][last]));
+        }
+        // Rails' 400 here is its test environment's exception page; production answers the bare public page with these
+        // headers (as_parse_error), which this build's answer is then compared against whole.
+        rails["responses"][last]["body"] = json!(page);
+        rails["responses"][last]["headers"] = json!({
+            "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
+            "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
+        });
+    }
+    Ok(())
+}
+
+/// What Devise drops from the reset form it re-renders (D-RESET-FORM-KEEPS-FIELDS), taken out of a normalized body.
+fn without_reset_form_extras(body: &mut Value) {
+    let Some(lines) = body.as_array() else { return };
+    let mut lines: Vec<String> = lines.iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect();
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    // The subtree opened at `start`: up to its closing line at the same depth.
+    let subtree_end = |lines: &[String], start: usize| (start + 1..lines.len()).find(|&i| indent(&lines[i]) == indent(&lines[start]) && lines[i].trim_start().starts_with("</")).unwrap_or(start);
+    // The code field's row, and the minimum length's item.
+    for marker in ["id=\"user_otp_code_token\"", "data-form--password-strength-target=\"length\""] {
+        let Some(at) = lines.iter().position(|l| l.contains(marker)) else { continue };
+        let row = if marker.contains("otp") { (0..at).rev().find(|&i| indent(&lines[i]) < indent(&lines[at])).unwrap_or(at) } else { at };
+        let end = subtree_end(&lines, row);
+        lines.drain(row..=end);
+    }
+    let attributes = regex::Regex::new(r#" (pattern|data-form--password-strength-[a-z]+-pattern-value)="[^"]*""#).unwrap();
+    let email = regex::Regex::new(r#" value="[^"]*""#).unwrap();
+    let lines: Vec<Value> = lines.into_iter()
+        .filter(|l| !l.trim().trim_matches('"').trim().is_empty()) // the blank text the removals leave
+        .map(|l| { let l = attributes.replace_all(&l, "").to_string(); json!(if l.contains("id=\"user_email\"") { email.replace_all(&l, "").to_string() } else { l }) })
+        .collect();
+    *body = Value::Array(lines);
 }
 
 /// D-IMPORT-BUSY's fence (PLAN-A8-bot-csv): an import that writes rows bumps the bot's Rust-only history generation by one,
