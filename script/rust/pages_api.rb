@@ -754,14 +754,15 @@ module Pages
                                          '1_US_2022_crypto.csv.refused.json' => '{"reason":', '1_US_2021_crypto.csv.refused.json' => TAX_TOKENIZED,
                                          '1_US_2025_broker.csv' => TAX_REPORT, '2_US_2025_crypto.csv' => TAX_REPORT }),
         'api_tax_download_empty' => tax_case([tax_download('US', 2024)], { '1_US_2024_crypto.csv' => '' }),
-        # D-TAX-NOT-PORTED-GATE: a jurisdiction whose engine this build has not ported (FR until A12-6; validation answers first,
-        # as Rails), and one it has (DE since A12-2), accepted last: this build's request row would answer a later status.
+        # D-TAX-NOT-PORTED-GATE: a year this build does not serve (France before 2019, D-TAX-FR-YEARS; validation answers first,
+        # as Rails), and a served one (FR since A12-6), accepted last: this build's request row would answer a later status.
         'api_tax_d_not_ported' => tax_case([tax_status('DE', 2025), tax_create({ country: 'DE', year: 'abc' }), tax_create({ country: 'de', year: 2025, force: 'yes' }),
-                                            tax_create({ country: 'fr', year: 2025 }, expect: 202), tax_status('FR', 2025), tax_download('FR', 2025),
-                                            tax_create({ country: 'de', year: 2025 }, expect: 202)]),
-        # A wealth snapshot (NL) needs no market data: Rails accepts it on an install without a provider; the US report is refused first.
-        'api_tax_d_not_ported_wealth' => tax_case([tax_create(us, expect: 422), tax_create({ country: 'NL', year: 2025 }, expect: 202), tax_status('NL', 2025)], {}, {},
-                                                  'market_data' => 'none'),
+                                            tax_create({ country: 'fr', year: 2018 }, expect: 202), tax_status('FR', 2018), tax_download('FR', 2018),
+                                            tax_create({ country: 'fr', year: 2025 }, expect: 202)]),
+        # A wealth snapshot (NL) needs no market data: Rails accepts it on an install without a provider; the US report is refused
+        # first. NL 2020 is not served (D-TAX-NL-YEARS); NL 2025 is, accepted last.
+        'api_tax_d_not_ported_wealth' => tax_case([tax_create(us, expect: 422), tax_create({ country: 'NL', year: 2020 }, expect: 202), tax_status('NL', 2020),
+                                                   tax_create({ country: 'NL', year: 2025 }, expect: 202)], {}, {}, 'market_data' => 'none'),
         # The CoinGecko gate (PLAN-A12 r1 item 8, until A17): historical prices are fetched from Deltabadger market data only.
         'api_tax_d_coingecko' => tax_case([tax_create({ country: 'US', year: 'abc' }), tax_create(us, expect: 202), tax_status], {}, {}, 'market_data' => 'coingecko')
       )

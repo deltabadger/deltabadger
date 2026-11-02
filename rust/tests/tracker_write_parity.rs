@@ -145,8 +145,8 @@ async fn tax_report_requests_and_downloads_match_rails() {
         "download_expired","download_refused","download_ready","download_broker"]).await;
 }
 
-/// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a create this build cannot compute (a jurisdiction not yet ported, the broker
-/// scope until A12-7) answers the refused flash and writes, queues and moves nothing. Rails accepts both.
+/// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a create this build cannot compute (a year it does not serve: France before 2019;
+/// the broker scope until A12-7) answers the refused flash and writes, queues and moves nothing. Rails accepts both.
 const TAX_GATED: [&str; 2] = ["tax_broker", "tax_fr"];
 /// D-TAX-RECONCILE under a running report: Rails' `Generating.accepted?` reads Solid Queue's discarded job as accepted
 /// (Active Job sets `successfully_enqueued` after the adapter returns; the destroyed row leaves no provider_job_id), so

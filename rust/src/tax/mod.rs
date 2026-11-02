@@ -61,6 +61,11 @@ mod it;
 mod ie;
 mod se;
 mod gb;
+mod fr;
+mod nl;
+mod ch;
+pub mod estv;
+mod wealth;
 pub mod nbp;
 pub mod pl;
 

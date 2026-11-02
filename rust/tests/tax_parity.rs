@@ -22,6 +22,8 @@ fn install(tables: &Value) -> Connection {
     c.execute_batch(include_str!("../migrations/20261104000001_rust_tax_pl_carry.sql")).unwrap();
     // The ČNB fixings and their coverage (D-TAX-CZ-CNB).
     c.execute_batch(include_str!("../migrations/20261105000001_cnb_rates.sql")).unwrap();
+    // The ESTV Kursliste values (D-TAX-CH-ESTV).
+    c.execute_batch(include_str!("../migrations/20261106000001_estv_crypto_values.sql")).unwrap();
     for (table, rows) in tables.as_object().unwrap() {
         for row in rows.as_array().unwrap() {
             let row = row.as_object().unwrap();
@@ -41,13 +43,17 @@ fn install(tables: &Value) -> Connection {
     c
 }
 
-/// A scenario's NBP and ČNB rates and coverage, as given: coverage is never inferred from the rates.
+/// A scenario's NBP and ČNB rates and coverage and its ESTV values, as given: coverage is never inferred from the rates.
 fn nbp(c: &Connection, s: &Value) {
     for r in s["cnb"].as_array().into_iter().flatten() {
         c.execute("INSERT INTO cnb_rates (currency, date, rate) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_str(), r[1].as_str(), r[2].as_str()]).unwrap();
     }
     for r in s["cnb_coverage"].as_array().into_iter().flatten() {
         c.execute("INSERT INTO cnb_coverage (from_date, to_date) VALUES (?1, ?2)", rusqlite::params![r[0].as_str(), r[1].as_str()]).unwrap();
+    }
+    // [year, symbol, value or null]: what the Kursliste said (null: asked, not listed).
+    for r in s["estv"].as_array().into_iter().flatten() {
+        c.execute("INSERT INTO estv_crypto_values (year, symbol, value) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_i64(), r[1].as_str(), r[2].as_str()]).unwrap();
     }
     for r in s["nbp"].as_array().into_iter().flatten() {
         c.execute("INSERT INTO nbp_rates (currency, date, rate) VALUES (?1, ?2, ?3)", rusqlite::params![r[0].as_str(), r[1].as_str(), r[2].as_str()]).unwrap();
@@ -151,7 +157,7 @@ fn no_divergence_file_is_left_over() {
 fn jurisdictions_not_yet_ported_state_no_figure() {
     let c = install(&serde_json::json!({}));
     let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-    for country in ["FR", "NL", "CH", "XX"] {
+    for country in ["XX"] {
         assert!(matches!(crypto_report(&c, 1, country, 2026, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country}");
     }
     // Poland's regime starts in 2019.
@@ -159,7 +165,9 @@ fn jurisdictions_not_yet_ported_state_no_figure() {
     // D-TAX-GR-NO-TAX: Greece is served up to 2026 only, until enacted law is reviewed.
     assert!(matches!(crypto_report(&c, 1, "GR", 2027, false, today), Err(FiguresError::NotComputed(m)) if m.contains("jurisdiction GR")));
     // D-TAX-IT-YEARS: Italy 2023–2026; D-TAX-IE-YEARS: Ireland 2013–2026; D-TAX-SE-YEARS, D-TAX-GB-YEARS: 2020–2026.
-    for (country, year) in [("IT", 2022), ("IT", 2027), ("IE", 2012), ("IE", 2027), ("SE", 2019), ("SE", 2027), ("GB", 2019), ("GB", 2027)] {
+    for (country, year) in [("IT", 2022), ("IT", 2027), ("IE", 2012), ("IE", 2027), ("SE", 2019), ("SE", 2027), ("GB", 2019), ("GB", 2027),
+                          // D-TAX-FR-YEARS 2019–2026, D-TAX-NL-YEARS 2021–2026, D-TAX-CH-YEARS 2020–2026.
+                          ("FR", 2018), ("FR", 2027), ("NL", 2020), ("NL", 2027), ("CH", 2019), ("CH", 2027)] {
         assert!(matches!(crypto_report(&c, 1, country, year, false, today), Err(FiguresError::NotComputed(m)) if m.contains(&format!("jurisdiction {country}"))), "{country} {year}");
     }
 }
@@ -170,7 +178,7 @@ fn the_ruby_being_mirrored_has_not_changed() {
     use sha2::{Digest, Sha256};
     let v = vectors();
     let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 18);
+    assert_eq!(pinned.len(), 20);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, sum) in pinned {
         let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));

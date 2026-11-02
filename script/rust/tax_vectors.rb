@@ -45,7 +45,8 @@ module TaxVectors
     app/models/tax/asset_identity.rb app/models/tax/jurisdictions.rb app/models/api_key.rb app/models/concerns/csv_safe.rb
     app/models/tax/methods/return_of_capital.rb app/models/tax/ecb_fx_rates.rb app/services/bot_api/tax/list_jurisdictions.rb
     app/models/tax/methods/lifo.rb app/models/tax/methods/fifo4_week.rb app/models/tax/methods/weighted_average.rb
-    app/models/tax/methods/share_pooling.rb app/models/tax/methods/pooled_holdings.rb
+    app/models/tax/methods/share_pooling.rb app/models/tax/methods/pooled_holdings.rb app/models/tax/methods/pvct.rb
+    app/models/tax/methods/wealth_snapshot.rb
   ].freeze
 
   # The schema is loaded before travelling: a migration stamped after NOW would not load.
@@ -2939,7 +2940,9 @@ module TaxVectors
       { 'name' => scenario[:name], 'country' => country, 'year' => year, 'stablecoin_as_fiat' => stablecoin, 'now' => NOW.iso8601,
         'user_id' => ctx[:user].id, 'expect' => scenario[:expect], 'tables' => tables, 'rails' => rails,
         'nbp' => (nbp = pl_default_nbp(scenario))[0], 'nbp_coverage' => nbp[1], 'pl_carry' => scenario.fetch(:pl_carry, []),
-        'cnb' => (cnb = cz_default_cnb(scenario))[0], 'cnb_coverage' => cnb[1] }
+        'cnb' => (cnb = cz_default_cnb(scenario))[0], 'cnb_coverage' => cnb[1],
+        # D-TAX-CH-ESTV: [year, symbol, CHF per unit or nil (not listed)]; Rails has no Kursliste.
+        'estv' => scenario.fetch(:estv, []) }
     end
   end
 end

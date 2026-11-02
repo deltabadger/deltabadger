@@ -116,6 +116,8 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         unique_indexes: &[&["currency", "date"]] }),
     ("20261105000001", TableContract { name: "cnb_coverage", columns: &[("from_date", "TEXT", true), ("to_date", "TEXT", true)],
         unique_indexes: &[] }),
+    ("20261106000001", TableContract { name: "estv_crypto_values", columns: &[("year", "INTEGER", true), ("symbol", "TEXT", true), ("value", "TEXT", false)],
+        unique_indexes: &[&["year", "symbol"]] }),
 
 ];
 
