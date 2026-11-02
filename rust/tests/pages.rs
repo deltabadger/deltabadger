@@ -444,7 +444,9 @@ async fn run(dir: &Path) -> Value {
     mount_rule_reads(&key_server).await;
     let mail = std::sync::Arc::new(TestMail::default());
     let mut mailed: Option<String> = None;
-    let app = web::app_in(dir, scenario["secret_key_base"].as_str().unwrap(), None, scenario["env"].as_object().unwrap_or(&serde_json::Map::new()), clock.clone()).with_settings_mailer(mail.clone()).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
+    // Rails recorded every scenario with mail delivered (the test adapter): here, mail can be sent (D-NO-MAIL-SAYS-SO answers
+    // otherwise, tests/accounts.rs). TestMail stands in for the server.
+    let app = web::app_in(dir, scenario["secret_key_base"].as_str().unwrap(), None, scenario["env"].as_object().unwrap_or(&serde_json::Map::new()), clock.clone()).with_settings_mailer(mail.clone()).unwrap().with_mail_set_up(true).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
         .with_venue_key_urls(&format!("{}/api.kraken.com", key_server.uri()), &format!("{}/api.binance.com", key_server.uri()), &format!("{}/api.kucoin.com", key_server.uri())).unwrap()
         .with_venue_key_url(deltabadger::venue::gemini::GEMINI, &format!("{}/api.gemini.com", key_server.uri())).unwrap()
         .with_venue_key_url(deltabadger::venue::ibkr::IBKR, &format!("{}/api.ibkr.com", key_server.uri())).unwrap();

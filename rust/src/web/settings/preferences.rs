@@ -203,7 +203,7 @@ async fn registration(app: App, ctx: Ctx) -> Result<Response, WebError> {
         .db(move |c| {
             crate::app_config::set(c, &inner.cipher, "registration_open", if on { "true" } else { "false" }, inner.now())
                 .map_err(WebError::Config)?;
-            view::registration(&v, &csrf, on)
+            view::registration(&v, &csrf, on, super::mail::set_up(&inner, c)?)
         })
         .await?;
     widget_and_flash(&ctx, "registration_settings", &widget, Some("settings.registration.updated"))

@@ -380,6 +380,8 @@ pub struct Inner {
     /// For tests: called on the blocking thread before each bcrypt computation, so a test can count
     /// them and hold one.
     password_hook: Option<PasswordHook>,
+    /// Tests only: whether mail can be sent, in place of the SMTP configuration (settings::mail::set_up).
+    pub(crate) mail_set_up: Option<bool>,
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
@@ -430,7 +432,7 @@ impl App {
             settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
-            password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
+            password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
             db: Mutex::new(primary), queue_path: None,
             engine: std::sync::OnceLock::new(),
         })))
@@ -536,6 +538,14 @@ impl App {
     pub fn with_password_hook(self, hook: PasswordHook) -> Result<Self, WebError> {
         let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
         inner.password_hook = Some(hook);
+        Ok(Self(Arc::new(inner)))
+    }
+
+    /// Tests only, before sharing the App: mail can (or cannot) be sent, whatever SMTP says. The page grid replays Rails
+    /// recorded with mail delivered by the test adapter.
+    pub fn with_mail_set_up(self, set_up: bool) -> Result<Self, WebError> {
+        let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
+        inner.mail_set_up = Some(set_up);
         Ok(Self(Arc::new(inner)))
     }
 

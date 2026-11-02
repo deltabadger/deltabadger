@@ -187,14 +187,15 @@ pub fn advanced(ctx: &Ctx, csrf: &str, on: bool) -> String {
     format!("<turbo-frame class=\"sitem\" id=\"advanced_bots\">\n  {}</turbo-frame>", row(&ctx.t("settings.advanced_bots.title"), Some(&label), "", "", None, Some(&control)))
 }
 
-/// settings/widgets/_registration.
-pub fn registration(ctx: &Ctx, csrf: &str, open: bool) -> String {
+/// settings/widgets/_registration. D-NO-MAIL-SAYS-SO: open with no way to send mail, the row says new accounts cannot confirm.
+pub fn registration(ctx: &Ctx, csrf: &str, open: bool, mail_set_up: bool) -> String {
     let label = ctx.t("settings.index.registration_section");
     let control = format!(
         "\n    {}\n",
         switch(csrf, &ctx.path("/settings/update_registration"), "registration_settings", "registration_open", if open { "0" } else { "1" }, if open { "on" } else { "off" }, Some(&label), &[])
     );
-    format!("<turbo-frame class=\"sitem\" id=\"registration_settings\">\n  {}</turbo-frame>", row(&label, None, "", "", None, Some(&control)))
+    let hint = (open && !mail_set_up).then(|| ctx.t("settings.registration.mail_not_set_up"));
+    format!("<turbo-frame class=\"sitem\" id=\"registration_settings\">\n  {}</turbo-frame>", row(&label, hint.as_deref(), "", "", None, Some(&control)))
 }
 
 /// settings/widgets/_wash_sale: the shared question, Confirm, and what is locked right now.

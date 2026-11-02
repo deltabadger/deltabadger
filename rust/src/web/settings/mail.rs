@@ -108,17 +108,30 @@ fn reason(error: &WebError) -> String {
 
 type Prepared = Option<(Message, Option<smtp::Settings>)>;
 
+const NOT_SET_UP: &str = "no SMTP_ADDRESS, and no SMTP settings saved";
+
+fn saved_smtp(app: &App, c: &rusqlite::Connection) -> Result<std::collections::HashMap<&'static str, Option<String>>, WebError> {
+    let keys = ["smtp_provider", "smtp_username", "smtp_password", "smtp_host", "smtp_port"];
+    keys.into_iter().map(|key| Ok((key, auth::app_config(c, &app.cipher, key)?))).collect()
+}
+
+/// D-NO-MAIL-SAYS-SO: whether this install has any way to send mail (SMTP_ADDRESS, or SMTP saved in Settings). A property
+/// of the install, never of an account, so the pages that say "no mail can be sent" reveal nothing about who has one.
+/// A configuration that is there but invalid counts as set up: its failure is logged, as any delivery failure is.
+pub fn set_up(app: &App, c: &rusqlite::Connection) -> Result<bool, WebError> {
+    if let Some(set_up) = app.mail_set_up { return Ok(set_up) }
+    let saved = saved_smtp(app, c)?;
+    let read = |key: &str| saved.get(key).cloned().flatten();
+    Ok(!matches!(smtp::Settings::current(&app.settings_smtp, &read), Err(reason) if reason == NOT_SET_UP))
+}
+
 fn prepare(app: &App, c: &rusqlite::Connection, mail: AccountMail, locale: &'static str) -> Result<Prepared, WebError> {
     use rusqlite::OptionalExtension;
-    let keys = ["smtp_provider", "smtp_username", "smtp_password", "smtp_host", "smtp_port"];
-    let mut saved = std::collections::HashMap::new();
-    for key in keys {
-        saved.insert(key.to_string(), auth::app_config(c, &app.cipher, key)?);
-    }
+    let saved = saved_smtp(app, c)?;
     let read = |key: &str| saved.get(key).cloned().flatten();
     let settings = match smtp::Settings::current(&app.settings_smtp, &read) {
         Ok(s) => Some(s),
-        Err(reason) if reason == "no SMTP_ADDRESS, and no SMTP settings saved" => None,
+        Err(reason) if reason == NOT_SET_UP => None,
         Err(_) => return Err(WebError::Config("the SMTP configuration is invalid".into())),
     };
     let user = |condition: &str, value: &dyn rusqlite::ToSql| -> Result<Option<(String, String)>, WebError> {

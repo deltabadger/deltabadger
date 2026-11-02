@@ -70,6 +70,8 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     // The write lock is taken for every address, known or not: under a busy database both wait alike.
     let issued = app.db(move |c| {
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+        // D-NO-MAIL-SAYS-SO: no mail can leave this install, so no token is written (one mailed earlier keeps working).
+        if !mail::set_up(&inner, &tx)? { return Ok(Err(())) }
         let id = if email.is_empty() { None } else { tx.query_row("SELECT id FROM users WHERE email = ?1", [&email], |r| r.get::<_, i64>(0)).optional()? };
         let issued = match id {
             Some(id) => {
@@ -81,8 +83,12 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             None => None,
         };
         tx.commit()?;
-        Ok(issued)
+        Ok(Ok(issued))
     }).await?;
+    let Ok(issued) = issued else {
+        flash::set(&ctx.session, flash::ALERT, super::i18n::text(ctx.locale, "devise.passwords.mail_not_set_up", &[]));
+        return Ok(layout::redirect(StatusCode::SEE_OTHER, &ctx.path("/password/new")));
+    };
     if let Some((user_id, token)) = issued {
         mail::send(&app, AccountMail::ResetPassword { user_id, token }, ctx.locale).await;
     }

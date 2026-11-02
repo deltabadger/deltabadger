@@ -38,7 +38,7 @@ fn harness_with(behaviour: Behaviour, env: &[(&str, &str)], hook: Option<deltaba
     let clock = TestClock::at(AT);
     let extra: serde_json::Map<String, Value> = env.iter().map(|(k, v)| (k.to_string(), Value::String(v.to_string()))).collect();
     let mail = Arc::new(Mail { sent: Mutex::new(vec![]), behaviour });
-    let mut app = web_support::app_in(dir.path(), SECRET, None, &extra, clock.clone()).with_settings_mailer(mail.clone()).unwrap();
+    let mut app = web_support::app_in(dir.path(), SECRET, None, &extra, clock.clone()).with_settings_mailer(mail.clone()).unwrap().with_mail_set_up(true).unwrap();
     if let Some(hook) = hook { app = app.with_password_hook(hook).unwrap(); }
     let c = db(&dir);
     let hash = deltabadger::crypto::hash_password(PASSWORD).unwrap();
@@ -211,6 +211,8 @@ async fn the_answer_never_depends_on_mail() {
     }
 }
 
+/// D-NO-MAIL-SAYS-SO: with no way to send mail, a reset request says so, the same for any address, and writes no token
+/// (a link mailed while SMTP was set up keeps working).
 #[tokio::test(flavor = "current_thread")]
 async fn the_live_mailer_without_smtp_answers_alike() {
     let dir = common::rails_install();
@@ -226,7 +228,15 @@ async fn the_live_mailer_without_smtp_answers_alike() {
         seen.push(visible(&browser.post(&app, "/password", &[("user[email]", email)]).await));
     }
     assert_eq!(seen[0], seen[1]);
-    assert_eq!(seen[0].0, 303);
+    assert_eq!((seen[0].0, seen[0].1.as_deref()), (303, Some("/password/new")));
+    let token: Option<String> = c.query_row("SELECT reset_password_token FROM users WHERE email = 'owner@example.com'", [], |r| r.get(0)).unwrap();
+    assert_eq!(token, None, "no token is written when no link can be sent");
+    let mut browser = Browser::default();
+    browser.get(&app, "/password/new").await;
+    browser.post(&app, "/password", &[("user[email]", "owner@example.com")]).await;
+    let page = browser.get(&app, "/password/new").await;
+    assert!(page.body.contains("Email sending is not set up here, so no password reset link can be sent."), "{}", page.body);
+    assert!(!page.body.contains("you will receive"));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -377,4 +387,30 @@ async fn a_reset_request_waits_for_a_busy_database_alike_for_any_address() {
         seen.push(visible(&answer));
     }
     assert_eq!(seen[0], seen[1]);
+}
+
+/// D-NO-MAIL-SAYS-SO: with registration open and no way to send mail, the registration row says new accounts cannot
+/// confirm; with mail, or with registration closed, the row is Rails'.
+#[tokio::test(flavor = "current_thread")]
+async fn the_registration_row_says_when_no_confirmation_mail_can_arrive() {
+    const HINT: &str = "Email sending is not set up, so new accounts cannot confirm their email address.";
+    for (mail, open, shown) in [(false, true, true), (true, true, false), (false, false, false)] {
+        let h = harness_with(Behaviour::Deliver, &[], None);
+        let app = web_support::app(h.dir.path(), SECRET, h.clock.clone()).with_mail_set_up(mail).unwrap();
+        if !open { db(&h.dir).execute("DELETE FROM app_configs WHERE key = 'registration_open'", []).unwrap(); }
+        let mut browser = Browser::default();
+        browser.get(&app, "/login").await;
+        let signed_in = browser.post(&app, "/login", &[("user[email]", "owner@example.com"), ("user[password]", PASSWORD)]).await;
+        assert_eq!(signed_in.status, 303, "{}", signed_in.body);
+        let page = browser.get(&app, "/settings/account").await;
+        assert_eq!(page.status, 200);
+        assert_eq!(page.body.contains(HINT), shown, "mail {mail}, open {open}");
+        // Switching registration on redraws the row with the hint; off, without.
+        let stream = [("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")];
+        let off = browser.send(&app, "POST", "/settings/update_registration", Some(&[("_method", "patch"), ("registration_open", "0")]), Csrf::Header, &stream).await;
+        assert!(off.status == 200 && !off.body.contains(HINT), "{}", off.body);
+        let on = browser.send(&app, "POST", "/settings/update_registration", Some(&[("_method", "patch"), ("registration_open", "1")]), Csrf::Header, &stream).await;
+        assert_eq!(on.status, 200);
+        assert_eq!(on.body.contains(HINT), !mail, "mail {mail}: {}", on.body);
+    }
 }
