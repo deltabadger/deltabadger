@@ -673,7 +673,8 @@ fn write_baseline(c: &Connection) -> rusqlite::Result<()> {
 
 /// Debug builds only (PLAN-B1 r1.7): `DELTABADGER_TEST_ABORT=<step>` kills the process at that step, so tests/bootstrap.rs
 /// proves each crash by real process death. Steps: after-queue, after-wal, mid-baseline, mid-seed, before-commit,
-/// after-commit, mid-migrate, mid-backup, and after-claim (where the tests stop a restart). Release builds have none.
+/// after-commit, mid-migrate, mid-backup, after-queue-commit (handover: the claim committed, Rails' rows still queued), and
+/// after-claim (where the tests stop a restart). Release builds have none.
 #[cfg(debug_assertions)]
 pub fn abort_point(step: &str) {
     if std::env::var("DELTABADGER_TEST_ABORT").is_ok_and(|s| s == step) { std::process::abort() }

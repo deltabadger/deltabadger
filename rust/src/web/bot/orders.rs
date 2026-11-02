@@ -354,6 +354,9 @@ impl<'a> Rows<'a> {
             "orders_below_minimum" => event(&log.event, &[("count", Arg::Count(log.details.get("count").and_then(Value::as_i64).unwrap_or(0))), ("bases", Arg::Text(&detail("bases")))]),
             "wash_sale_locked" => event(&log.event, &[("base", Arg::Text(&detail("base"))), ("until", Arg::Text(&detail("until")))]),
             "order_abandoned" => event(&log.event, &[("order_id", Arg::Text(&detail("order_id")))]),
+            // PLAN-B2 C3, C4 (B2-6): a takeover's lines for Rails' queued work.
+            "upgrade_signal_unresolved" => event(&log.event, &[("call", Arg::Text(&detail("call")))]),
+            "upgrade_command_dropped" => event(&log.event, &[("action", Arg::Text(&detail("action")))]),
             "asset_split" => match detail("ratio") {
                 ratio if ratio.trim().is_empty() => event("asset_split_unknown_ratio", &[("base", Arg::Text(&detail("base")))]),
                 ratio => event("asset_split", &[("base", Arg::Text(&detail("base"))), ("ratio", Arg::Text(&ratio))]),

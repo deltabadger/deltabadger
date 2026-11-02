@@ -222,7 +222,15 @@ pub struct Job {
     pub acknowledged: bool,
 }
 pub fn jobs(c: &Connection, q: &Connection) -> Result<Vec<Job>, EngineError> {
-    let mut s=q.prepare("SELECT j.active_job_id,j.class_name,j.arguments,EXISTS(SELECT 1 FROM solid_queue_claimed_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_failed_executions e WHERE e.job_id=j.id) FROM solid_queue_jobs j WHERE j.class_name IN ('Rule::EvaluateAllJob','Rule::ExecuteJob') AND j.finished_at IS NULL AND (EXISTS(SELECT 1 FROM solid_queue_claimed_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_failed_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_ready_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_scheduled_executions e WHERE e.job_id=j.id) OR (j.class_name='Rule::ExecuteJob' AND EXISTS(SELECT 1 FROM solid_queue_blocked_executions e WHERE e.job_id=j.id))) ORDER BY j.id")?;
+    Ok(read_jobs(c, q)?.0)
+}
+/// The queue rows (solid_queue_jobs.id) of rule jobs this build cannot read: no active job id, or arguments that name no
+/// withdrawal rule. Each is a takeover hard stop by its row id, so a malformed row never hides the readable ones.
+pub fn unreadable_jobs(c: &Connection, q: &Connection) -> Result<Vec<i64>, EngineError> {
+    Ok(read_jobs(c, q)?.1)
+}
+fn read_jobs(c: &Connection, q: &Connection) -> Result<(Vec<Job>, Vec<i64>), EngineError> {
+    let mut s=q.prepare("SELECT j.active_job_id,j.class_name,j.arguments,EXISTS(SELECT 1 FROM solid_queue_claimed_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_failed_executions e WHERE e.job_id=j.id),j.id FROM solid_queue_jobs j WHERE j.class_name IN ('Rule::EvaluateAllJob','Rule::ExecuteJob') AND j.finished_at IS NULL AND (EXISTS(SELECT 1 FROM solid_queue_claimed_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_failed_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_ready_executions e WHERE e.job_id=j.id) OR EXISTS(SELECT 1 FROM solid_queue_scheduled_executions e WHERE e.job_id=j.id) OR (j.class_name='Rule::ExecuteJob' AND EXISTS(SELECT 1 FROM solid_queue_blocked_executions e WHERE e.job_id=j.id))) ORDER BY j.id")?;
     let rows = s
         .query_map([], |r| {
             Ok((
@@ -230,32 +238,24 @@ pub fn jobs(c: &Connection, q: &Connection) -> Result<Vec<Job>, EngineError> {
                 r.get::<_, String>(1)?,
                 r.get::<_, Option<String>>(2)?,
                 r.get::<_, bool>(3)?,
+                r.get::<_, i64>(4)?,
             ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
-    let mut jobs = vec![];
-    for (id, class, args, claimed) in rows {
-        let id =
-            id.ok_or_else(|| EngineError::Ineligible(vec![format!("{class}: no active job id")]))?;
+    let (mut jobs, mut unreadable) = (vec![], vec![]);
+    for (id, class, args, claimed, row) in rows {
+        let Some(id) = id else { unreadable.push(row); continue };
         let all = class == "Rule::EvaluateAllJob";
         let rule = if all {
             None
         } else {
-            let a: Value = serde_json::from_str(args.as_deref().unwrap_or("")).map_err(|_| {
-                EngineError::Ineligible(vec![format!("{class} {id}: unreadable arguments")])
-            })?;
-            let arg = &a["arguments"][0];
-            let gid = arg["_aj_globalid"]
-                .as_str()
-                .or_else(|| arg.as_str())
-                .unwrap_or("");
-            Some(
-                gid.strip_prefix("gid://deltabadger/Rules::Withdrawal/")
-                    .and_then(|s| s.parse::<i64>().ok())
-                    .ok_or_else(|| {
-                        EngineError::Ineligible(vec![format!("{class} {id}: unreadable rule")])
-                    })?,
-            )
+            let a: Option<Value> = serde_json::from_str(args.as_deref().unwrap_or("")).ok();
+            let gid = a.as_ref().map(|a| &a["arguments"][0]).and_then(|arg| arg["_aj_globalid"].as_str().or_else(|| arg.as_str())).unwrap_or("");
+            let Some(rule) = gid.strip_prefix("gid://deltabadger/Rules::Withdrawal/").and_then(|s| s.parse::<i64>().ok()) else {
+                unreadable.push(row);
+                continue;
+            };
+            Some(rule)
         };
         let acknowledged = table_exists(c, "rust_rails_job_acks")?
             && c.query_row(
@@ -271,7 +271,17 @@ pub fn jobs(c: &Connection, q: &Connection) -> Result<Vec<Job>, EngineError> {
             acknowledged,
         });
     }
-    Ok(jobs)
+    Ok((jobs, unreadable))
+}
+/// PLAN-B2 r4.7: a claimed or failed Rule::EvaluateAllJob only fanned out (its children are rule jobs of their own), so the
+/// takeover acknowledges it as `resolve-withdrawal --rails-job <id> --skip` does, in the claim transaction. Returns the jobs
+/// as acknowledged.
+pub fn acknowledge_fanouts(c: &Connection, jobs: &mut [Job], now: DateTime<Utc>) -> Result<(), EngineError> {
+    for job in jobs.iter_mut().filter(|j| j.all && j.claimed && !j.acknowledged) {
+        c.execute("INSERT OR IGNORE INTO rust_rails_job_acks(active_job_id,rule_id,resolution,at) VALUES(?1,0,'skip',?2)", params![job.id, format_time(now)])?;
+        job.acknowledged = true;
+    }
+    Ok(())
 }
 pub fn takeover_problems(c: &Connection, q: &Connection) -> Result<Vec<String>, EngineError> {
     let mut problems = open_attempts(c, None)?
@@ -282,8 +292,9 @@ pub fn takeover_problems(c: &Connection, q: &Connection) -> Result<Vec<String>, 
             )
         })
         .collect::<Vec<_>>();
+    // A claimed or failed fan-out is acknowledged at the claim (acknowledge_fanouts).
     for job in jobs(c, q)? {
-        if job.claimed && !job.acknowledged {
+        if job.claimed && !job.acknowledged && !job.all {
             problems.push(format!(
                 "{} {}{} was claimed or failed; resolve-withdrawal --rails-job {}",
                 if job.all {

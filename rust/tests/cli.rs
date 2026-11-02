@@ -1068,3 +1068,42 @@ fn a_start_that_cannot_back_up_stops_before_any_write() {
     assert!(backups(dir.path()).is_empty());
     std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
+
+/// PLAN-B2 B2-6 (item 11): a process killed after the claim committed and before Rails' rows left the queue. The stop and
+/// the line committed with the claim, the set names the rows, the rows are still queued; the next start deletes them and
+/// stops, writes and counts nothing twice.
+#[cfg(all(unix, debug_assertions))]
+#[test]
+fn a_crash_between_the_claim_and_the_queue_delete_acts_on_rails_jobs_once() {
+    let (dir, bot) = two_x_install(false);
+    let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
+    let gid = serde_json::json!({ "_aj_globalid": format!("gid://deltabadger/Bots::DcaMultiAsset/{bot}") });
+    let mut rows = vec![];
+    for (class, args, exec) in [("Bot::StopJob", serde_json::json!([gid, { "stop_message_key": "bot.settings.extra_amount_limit.amount_spent", "_aj_ruby2_keywords": ["stop_message_key"] }]), "scheduled"),
+                                ("Bot::ActionJob", serde_json::json!([gid]), "failed")] {
+        q.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, active_job_id, priority, created_at, updated_at) VALUES ('default', ?1, ?2, ?3, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                  rusqlite::params![class, serde_json::json!({ "job_class": class, "arguments": args }).to_string(), format!("job-{class}")]).unwrap();
+        let id = q.last_insert_rowid();
+        if exec == "failed" { q.execute("INSERT INTO solid_queue_failed_executions (job_id, error, created_at) VALUES (?1, 'pruned', '2026-09-30 11:00:00')", [id]).unwrap(); }
+        else { q.execute("INSERT INTO solid_queue_scheduled_executions (job_id, queue_name, priority, scheduled_at, created_at) VALUES (?1, 'default', 0, '2026-10-07 10:00:00', '2026-09-30 11:00:00')", [id]).unwrap(); }
+        rows.push(id);
+    }
+    drop(q);
+    let out = bare(dir.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "after-queue-commit").output().unwrap();
+    assert!(!out.status.success(), "aborted: {}", stderr(&out));
+    let state = || {
+        let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+        let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
+        let set: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = 'rust_rails_queue_done'", [], |r| r.get(0)).ok();
+        let lines: Vec<String> = { let mut s = c.prepare("SELECT event FROM bot_activity_logs WHERE bot_id = ?1 ORDER BY id").unwrap(); s.query_map([bot], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
+        let status: i64 = c.query_row("SELECT status FROM bots WHERE id = ?1", [bot], |r| r.get(0)).unwrap();
+        let queued: i64 = q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get(0)).unwrap();
+        (set, lines, status, queued)
+    };
+    let (set, lines, status, queued) = state();
+    assert_eq!(set.map(|s| serde_json::from_str::<Vec<i64>>(&s).unwrap()), Some(rows.clone()), "the set committed with the claim");
+    assert_eq!((lines.clone(), status, queued), (vec!["stopped".to_string(), "upgrade_order_unrecorded".to_string()], 2, 2), "stopped and the line, rows still queued");
+    assert!(run_to_claim(dir.path()).contains("took over (AfterCrash)"));
+    let (set, after, status, queued) = state();
+    assert_eq!((set, after, status, queued), (None, lines, 2, 0), "the rows go; nothing twice");
+}
