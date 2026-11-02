@@ -73,18 +73,18 @@ pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: DateTime<U
 /// The stop (with its marker) and its activity-log row are one transaction on every path: the caller's when it has one,
 /// else this call's own. A log row that cannot be written leaves the bot working and nothing owed, so a retry writes all three.
 pub fn stop_owing_mail(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    stop_if(c, bot_id, stop_message_key, mail, None, &format!("status IN ({})", model::working_list()), now)
+    stop_if(c, bot_id, Some(stop_message_key), mail, None, &format!("status IN ({})", model::working_list()), now)
 }
 
 /// `stop_owing_mail` for a bot a takeover sets aside (PLAN-B2 R3, r1.12): in the same statement `transient_data.<key>` =
 /// `aside` (its reasons, kept until the bot's next start), and the `stopped` line carries `reason` beside its key.
 pub fn stop_setting_aside(c: &Connection, bot_id: i64, stop_message_key: &str, mail: (&str, Value), aside: (&str, Value), reason: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    stop_if(c, bot_id, stop_message_key, Some(mail), Some((aside, reason)), &format!("status IN ({})", model::working_list()), now)
+    stop_if(c, bot_id, Some(stop_message_key), Some(mail), Some((aside, reason)), &format!("status IN ({})", model::working_list()), now)
 }
 
 /// The one stop write: status, stopped_at, stop_message_key and the optional mail marker where `condition` holds, then its
 /// `stopped` log, in one transaction. Returns whether it stopped the bot.
-fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, aside: Option<((&str, Value), &str)>,
+fn stop_if(c: &Connection, bot_id: i64, stop_message_key: Option<&str>, mail: Option<(&str, Value)>, aside: Option<((&str, Value), &str)>,
            condition: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
     if c.is_autocommit() {
         let tx = model::immediate_retry_busy(c)?;
@@ -115,7 +115,13 @@ fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&s
 /// does, so the marker (notice::LIMIT) is written where the stop is counted (polling::apply_committed).
 /// The base cap's (Bot::BaseAmountLimitable#handle_base_amount_limit_update) is the same stop with `amount_sold`.
 pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, cap: super::amount_limit::Cap, now: DateTime<Utc>) -> Result<(), EngineError> {
-    stop_if(c, bot_id, cap.stop_message_key(), None, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
+    stop_if(c, bot_id, Some(cap.stop_message_key()), None, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
+}
+
+/// A Bot::StopJob Rails left queued (PLAN-B2 r1.3): the same stop, now, with the key the job carries (none: Rails' `stop`
+/// without one). In the caller's transaction.
+pub fn stop_for_rails_job(c: &Connection, bot_id: i64, stop_message_key: Option<&str>, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    stop_if(c, bot_id, stop_message_key, None, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now)
 }
 
 /// The amount-limit stops a sweep counted (polling::apply_committed), one per qualifying fill callback, as Rails runs one

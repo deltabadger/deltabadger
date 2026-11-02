@@ -1,0 +1,23 @@
+Date,Actif,Montant,Produit,Coût total d'acquisition,Valeur globale du portefeuille,Plus/Moins-value,Devise,Frais,Plateforme,ID de transaction,Données incomplètes
+2025-06-01T10:00:00Z,ETH,1.1,3300.0,3500.0,4700.0,842.55,EUR,0.0,kraken,K-ETH-2025-06-01T10:00:00Z-ETH,false
+
+"Déclaration 2086 (article 150 VH bis du CGI), cessions de 2025"
+Cession,211 Date,212 Valeur globale du portefeuille,213 Prix de cession,214 Frais,218 Prix net,220 Prix total d'acquisition,221 Fractions de capital initial,223 Prix total d'acquisition net,Plus ou moins-value
+1,2025-06-01,4700.0,3300.0,0.0,3300.0,3500.0,0.0,3500.0,842.55
+224 Plus ou moins-value globale,842.55
+51 Total des prix de cession (nets de frais),3300.0
+Plus-value à reporter en case 3AN (déclaration 2042 C),842.55
+"Impôt sur le revenu, prélèvement forfaitaire 12,8 %",107.85
+"Prélèvements sociaux 18,6 %",156.71
+Total,264.56
+"L'impôt indiqué est le prélèvement forfaitaire ; tu peux opter pour le barème progressif (case 3CN), qui dépend de l'ensemble de tes revenus. La valeur du portefeuille et le total de 305 € doivent inclure tous les portefeuilles de ton foyer, y compris ceux qui ne sont pas synchronisés ici : ajoute-les, sinon les plus-values sont fausses. Les frais ne sont déduits que sur justificatifs. Un échange entre actifs avec soulte n'est pas détecté. Le staking, le prêt et le minage n'ajoutent rien au prix d'acquisition ; les airdrops y ajoutent leur valeur à la réception. Un actif payé en frais de réseau n'est pas traité comme une cession. Les comptes détenus à l'étranger se déclarent sur le formulaire 3916-bis."
+
+Revenus perçus (leur imposition dépend de leur nature et de la juridiction fiscale — ils ne sont pas inclus dans les plus-values indiquées ci-dessus)
+2025-03-01,récompenses de staking,ETH,0.1,250.0,EUR
+2025-04-15,airdrops,SOL,10.0,1500.0,EUR
+,Total des récompenses de staking,,,250.0,EUR
+,Total des airdrops,,,1500.0,EUR
+
+NOTE: Actifs reçus sans paiement:
+récompenses de staking ETH 0.1 2025-03-01,250.0,EUR
+"Les récompenses de staking, de prêt et de minage n'ajoutent rien au prix total d'acquisition (aucune somme n'a été payée) ; leur valeur est indiquée pour information. Aucun texte officiel ne tranche ce point ; si tu les retiens autrement, les plus-values changent."

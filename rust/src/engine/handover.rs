@@ -9,13 +9,95 @@ use crate::store::Opened;
 use crate::venue::VenueFactory;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize, pub imported_calls: usize,
+    /// Rails queue rows this takeover dropped with nothing left to finish (D-UPGRADE-RAILS-WORK-DROPPED); `log`: its start-log lines.
+    pub dropped_jobs: usize, pub log: Vec<String>,
     /// The bots and rules this start set aside (set_aside::apply), in the claim's own transaction.
     pub set_aside: Vec<super::set_aside::Aside>, pub rules_stopped: Vec<i64> }
 
-const RAILS_BOT_JOBS: [&str; 5] = ["Bot::ActionJob", "Bot::BroadcastAfterScheduledActionJob", "Bot::FetchAndUpdateOrderJob", "Bot::FetchAndUpdateOpenOrdersJob", "Bot::PriceLimitCheckJob"];
+/// What a takeover does with a Rails queue row of one class (PLAN-B2 r1.3, r2.5, r3.1-r3.3, r4.2-r4.7, r5 3-4, r6 fork A,
+/// r7.2). Rails never runs again on a taken-over install, so every class it can leave has exactly one of these.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RailsWork {
+    /// Deleted for every bot the engine owns, set-aside bots included; Rust's own tick, checks and rebalance decide again
+    /// (D-UPGRADE-RAILS-CHECKS-REDONE). A claimed or failed one is ordinary work Rails left ambiguous: one activity line on
+    /// its bot (D-UPGRADE-RAILS-AMBIGUITY-INHERITED). RebalanceJob's legs are behind Rails' own barrier (rebalancer.rb).
+    Redone,
+    /// Bot::StopJob: the pending amount-limit stop happens now, in the claim transaction, with its stop_message_key.
+    Stop,
+    /// Bot::SignalJob: a waiting call is imported; a claimed or failed one becomes the bot's unresolved marker
+    /// (D-UPGRADE-CLAIMED-SIGNAL); an unreadable waiting one is deleted and logged (D-UPGRADE-UNREAD-SIGNAL).
+    Signal,
+    /// Bot::ResyncIndexCompositionJob: the bot's resync marker.
+    Resync,
+    /// A liquidation or redeploy command: deleted with one activity line on its bot; a surviving `placing` marker becomes
+    /// the ambiguous halt (D-UPGRADE-COMMAND-DROPPED).
+    Command,
+    /// Bot::FetchAndCreateOrderJob, unfinished: a hard stop naming the bot and the order id (r6 fork A).
+    FetchOrder,
+    /// Rule::ExecuteJob and Rule::EvaluateAllJob (engine::rules): imported, refused, or (a claimed/failed fan-out)
+    /// acknowledged.
+    Rule,
+    /// Woken once for its scope through the `rust_rails_wakes` journal: the Rust job of that name (r3.3, r4.4).
+    Wake(&'static str),
+    /// Ibkr::GenerateConnectionKeysJob: the key row's empty material is filled.
+    IbkrKeys,
+    /// Nothing to finish without Rails (mail not sent yet, page refreshes, syncs the scheduler runs on its own, a tax
+    /// report the user asks for again): deleted and counted in the takeover's log line (D-UPGRADE-RAILS-WORK-DROPPED). So
+    /// is a class missing from this table, which only a newer 2.x could have enqueued.
+    Dropped,
+}
+
+/// Every job class 2.x can leave in its queue (r3.2, r4.5): each `class … < …` under app/jobs by its full name, each
+/// perform_later receiver, config/recurring.yml's classes and its `command:` runner, and the mailer's job. Pinned against
+/// the repository by tests/handover.rs `every_rails_job_class_has_an_outcome`.
+pub const RAILS_WORK: &[(&str, RailsWork)] = {
+    use RailsWork::*;
+    &[
+        ("Bot::ActionJob", Redone), ("Bot::BroadcastAfterScheduledActionJob", Redone), ("Bot::FetchAndUpdateOrderJob", Redone),
+        ("Bot::FetchAndUpdateOpenOrdersJob", Redone), ("Bot::PriceLimitCheckJob", Redone), ("Bot::PriceDropLimitCheckJob", Redone),
+        ("Bot::MovingAverageLimitCheckJob", Redone), ("Bot::IndicatorLimitCheckJob", Redone), ("Bot::RebalanceJob", Redone),
+        ("Bot::StopJob", Stop),
+        ("Bot::SignalJob", Signal),
+        ("Bot::ResyncIndexCompositionJob", Resync),
+        ("Bot::LiquidateExitedJob", Command), ("Bot::RedeployJob", Command), ("Bot::DeclineRedeployJob", Command),
+        ("Bot::ResolveLiquidationJob", Command), ("Bot::ResolveRedeployJob", Command),
+        ("Bot::FetchAndCreateOrderJob", FetchOrder),
+        ("Rule::ExecuteJob", Rule), ("Rule::EvaluateAllJob", Rule),
+        ("Tracker::LedgerJob", Wake(crate::tracker::jobs::TRACKER_LEDGER)), ("Tracker::LedgerJob::Retry", Wake(crate::tracker::jobs::TRACKER_LEDGER)),
+        ("PortfolioSnapshot::BackfillJob", Wake(crate::tracker::jobs::PORTFOLIO_BACKFILL)),
+        ("ApiKeyValidatorJob", Wake(crate::sync::jobs::API_KEY_VALIDATOR)),
+        ("Ibkr::GenerateConnectionKeysJob", IbkrKeys),
+        // Abstract bases: never enqueued themselves.
+        ("ApplicationJob", Dropped), ("BotJob", Dropped), ("Bot::LimitCheckJobBase", Dropped),
+        // Mail Rails had not sent yet.
+        ("ActionMailer::MailDeliveryJob", Dropped), ("ApplicationMailDeliveryJob", Dropped),
+        // Page refreshes and metrics caches: the web renders from the data.
+        ("Bot::BroadcastIndicatorLimitInfoUpdateJob", Dropped), ("Bot::BroadcastMetricsUpdateJob", Dropped),
+        ("Bot::BroadcastMovingAverageLimitInfoUpdateJob", Dropped), ("Bot::BroadcastPnlUpdateJob", Dropped),
+        ("Bot::BroadcastPriceDropLimitInfoUpdateJob", Dropped), ("Bot::BroadcastPriceLimitInfoUpdateJob", Dropped),
+        ("User::BroadcastGlobalPnlUpdateJob", Dropped), ("Bot::UpdateMetricsJob", Dropped), ("Bot::ExpireRestatedMetricsJob", Dropped),
+        ("Bot::WarmMetricsCachesJob", Dropped),
+        // Syncs and maintenance the scheduler runs on its own schedule, or that have no Rust counterpart to finish.
+        ("AccountBalance::SyncAllJob", Dropped), ("AccountBalance::SyncJob", Dropped), ("AccountTransaction::ResolveAssetsJob", Dropped),
+        ("AccountTransaction::SyncAllJob", Dropped), ("AccountTransaction::SyncJob", Dropped), ("AccountTransaction::SyncTrackerJob", Dropped),
+        ("AppUpdate::CheckJob", Dropped), ("Asset::FetchAllAssetsDataFromCoingeckoJob", Dropped), ("Asset::FetchDataFromCoingeckoJob", Dropped),
+        ("Asset::InferColorFromImageJob", Dropped), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
+        ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped), ("Bot::ConvertSingleAssetBotsJob", Dropped),
+        ("Bot::EvaluateRebalancersJob", Dropped), ("Bot::RepairOrphanedBotsJob", Dropped), ("Exchange::SyncAllTickersAndAssetsJob", Dropped),
+        ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", Dropped), ("Ibkr::CheckActivationJob", Dropped),
+        ("Index::SyncFromCoingeckoJob", Dropped), ("Setup::SeedAndSyncJob", Dropped), ("SolidQueue::RecurringJob", Dropped),
+        // r7.2: the report page shows nothing in progress; the user asks again.
+        ("Tax::GenerateReportJob", Dropped),
+    ]
+};
+
+/// A queue row's outcome by its class_name: a class not in RAILS_WORK is dropped.
+pub fn rails_work(class: &str) -> RailsWork {
+    RAILS_WORK.iter().find(|(name, _)| *name == class).map_or(RailsWork::Dropped, |(_, work)| *work)
+}
 
 fn first_gid(arguments: &str) -> Option<String> {
     let v: Value = serde_json::from_str(arguments).ok()?;
@@ -52,13 +134,31 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     super::provider::bind_cipher(&o.primary,cipher)?;
     let problems = super::rules::takeover_problems(&o.primary,&o.queue)?;
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    // Rails' webhook calls, read and judged before anything changes owner: a claimed or unreadable one refuses here.
-    refuse_composition_jobs(o)?;
-    let signal_jobs = signal_jobs(o)?;
-    let rule_jobs=super::rules::jobs(&o.primary,&o.queue)?;
+    // Rails' queue, read and judged before anything changes owner (PLAN-B2 r1.3, r3.1, r4.2-r4.7, r5, r6 fork A). A row a
+    // takeover already acted on (QUEUE_DONE_KEY) is only deleted again. What may hold an order nothing records is a hard
+    // stop here, before anything is written.
+    // Every bot's class, read before anything is written: a row without one fails the takeover here, never after the claim.
+    let mut s = o.primary.prepare("SELECT type FROM bots")?;
+    for class in s.query_map([], |r| r.get::<_, String>(0))? { class?; }
+    drop(s);
+    let done_before = queue_done(&o.primary)?;
+    let (signal_jobs, unread_signals) = signal_jobs(o, &done_before)?;
+    let mut work = queue_work(o, &done_before)?;
+    for (row, line) in unread_signals { work.done.push(row); work.log.push(line); }
+    for row in super::rules::unreadable_jobs(&o.primary, &o.queue)? {
+        work.hard.push(format!("A withdrawal rule's queued job can't be read: support must remove queue row {row}."));
+        work.details.push(format!("solid_queue_jobs {row}: Rule job without an active job id or a readable rule"));
+    }
+    if !work.hard.is_empty() {
+        return Err(EngineError::HardStop(super::set_aside::hard_stop(&super::set_aside::Hard { lines: work.hard, details: work.details })));
+    }
+    work.rails_ambiguous = rails_ambiguous(&o.primary)?;
+    let mut rule_jobs=super::rules::jobs(&o.primary,&o.queue)?;
     // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
+    // Bot::StopJob (r1.3): the amount-limit stop Rails had queued happens now, before the check, as Rails would have run it.
+    for (bot, key) in &work.stops { super::tick::stop_for_rails_job(&tx, *bot, key.as_deref(), now)?; }
     // PLAN-B2 R3 (D-UPGRADE-SET-ASIDE): before the claim, every working bot or rule this build refuses is stopped with its
     // reasons, and the check runs again on this transaction. What it still refuses is a hard stop: returning drops `tx`,
     // so nothing here is written. The bots the engine then runs are the second check's.
@@ -78,33 +178,21 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // from Rails' baseline, read once, here, in the commit that closes Rails' ownership window. A restart reseeds nothing.
     super::staleness::seed(&tx, now)?;
     let imported_calls = import_signal_jobs(&tx, &signal_jobs, now)?;
+    apply_queue_work(&tx, &work, matches!(claim, Claim::FromRails), now)?;
+    super::rules::acknowledge_fanouts(&tx, &mut rule_jobs, now)?;
     super::rules::import(&tx,&rule_jobs,now)?;
+    let mut done = done_before;
+    done.extend(work.done.iter().filter(|row| !done.contains(row)).copied().collect::<Vec<_>>());
+    write_queue_done(&tx, &done, now)?;
+    // Before the commit: once it lands, a crash would skip these rows for good, so the line must already be out. A failed
+    // commit repeats it next start, which is harmless.
+    for line in &work.log { super::log(line); }
     tx.commit()?;
-    let deleted_signal_jobs = finish_signal_import(o, now)? + super::rules::finish_cleanup(&o.primary,&o.queue,now)?;
+    // A crash here leaves the outcomes committed and Rails' rows queued: the next start deletes them and repeats nothing.
+    #[cfg(debug_assertions)]
+    crate::store::abort_point("after-queue-commit");
+    let deleted_signal_jobs = finish_signal_import(o, now)? + super::rules::finish_cleanup(&o.primary,&o.queue,now)? + finish_queue_work(o, now)?;
 
-    // GlobalID names the STI class: Bots::DcaMultiAsset or Bots::DcaIndex. A bot set aside is stopped, as Rails' stop
-    // leaves it, so its Rails jobs go too.
-    let mut gids: Vec<String> = vec![];
-    // Every bot carrying a set-aside, not only this start's: a crash between the claim's commit and the deletes below must
-    // not leave its jobs for good.
-    let mut s = o.primary.prepare(&format!("SELECT id FROM bots WHERE json_type(transient_data, '$.{}') IS NOT NULL", super::set_aside::KEY))?;
-    let aside: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
-    drop(s);
-    for id in report.eligible.iter().chain(aside.iter().filter(|id| !report.eligible.contains(id))) {
-        let ty: String = o.primary.query_row("SELECT type FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
-        gids.push(format!("gid://deltabadger/{ty}/{id}"));
-    }
-    for id in &report.eligible {
-        let mut s = o.primary.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)")?;
-        for t in s.query_map([id], |r| r.get::<_, i64>(0))? { gids.push(format!("gid://deltabadger/Transaction/{}", t?)); }
-    }
-    let placeholders = RAILS_BOT_JOBS.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-    let mut s = o.queue.prepare(&format!("SELECT id, arguments FROM solid_queue_jobs WHERE finished_at IS NULL AND class_name IN ({placeholders})"))?;
-    let jobs: Vec<(i64, Option<String>)> = s.query_map(rusqlite::params_from_iter(RAILS_BOT_JOBS), |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?
-        .collect::<Result<_, _>>()?;
-    let doomed: Vec<i64> = jobs.into_iter()
-        .filter(|(_, args)| args.as_deref().and_then(first_gid).is_some_and(|g| gids.contains(&g)))
-        .map(|(id, _)| id).collect();
     // Bot::ResyncIndexCompositionJob rows Rails has not finished (ready, scheduled, blocked or claimed; a failed one is over),
     // for every index bot neither deleted nor archived that has an exchange, whatever its status: each becomes the bot's
     // resync marker, committed before the rows go, so a crash between the two marks again on the next takeover. A claimed
@@ -125,7 +213,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let tx = model::immediate(&o.primary)?;
     for (_, bot) in &resyncs { super::index::mark_resync(&tx, *bot, now)?; }
     tx.commit()?;
-    for id in doomed.iter().chain(resyncs.iter().map(|(job, _)| job)) { o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [id])?; } // executions cascade
+    for (job, _) in &resyncs { o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [job])?; } // executions cascade
 
     let tx = model::immediate(&o.primary)?;
     let mut normalised = 0;
@@ -133,8 +221,256 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         normalised += model::unstick(&tx, *id, now)? as usize; // the last run (Rails' or ours) was cut short
     }
     tx.commit()?;
-    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len() + resyncs.len() + deleted_signal_jobs, normalised, imported_calls,
-                  set_aside: plan.bots, rules_stopped: plan.rules })
+    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: resyncs.len() + deleted_signal_jobs, dropped_jobs: work.dropped, normalised, imported_calls,
+                  set_aside: plan.bots, rules_stopped: plan.rules, log: work.log })
+}
+
+// ---- Rails' queue at a takeover (PLAN-B2 B2-6) ----------------------------------------------------------------------------
+
+/// app_configs key (the import-set pattern of SIGNAL_IMPORT_KEY): the queue rows (solid_queue_jobs.id) whose outcome a
+/// takeover committed with its claim and that may still be queued (the queue is its own database). A start skips them and
+/// deletes them again, then the ids whose rows are gone leave the set, so a crash between the commit and the delete never
+/// stops, marks or logs twice. Rails is gone, so nothing enqueues a row in between.
+pub const QUEUE_DONE_KEY: &str = "rust_rails_queue_done";
+
+fn queue_done(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    let Some(text) = crate::app_config::get_plain(c, QUEUE_DONE_KEY).map_err(EngineError::Data)? else { return Ok(vec![]) };
+    serde_json::from_str(&text).map_err(|e| EngineError::Data(format!("{QUEUE_DONE_KEY}: {e}")))
+}
+
+fn write_queue_done(c: &Connection, rows: &[i64], now: DateTime<Utc>) -> Result<(), EngineError> {
+    if rows.is_empty() { return crate::app_config::delete(c, QUEUE_DONE_KEY).map_err(EngineError::Data); }
+    crate::app_config::set_plain(c, QUEUE_DONE_KEY, &serde_json::to_string(rows).expect("ids serialise"), now).map_err(EngineError::Data)
+}
+
+/// After the claim committed: the rows in QUEUE_DONE_KEY leave the queue (their executions cascade), then the set keeps only
+/// the rows still there. Returns the rows deleted.
+fn finish_queue_work(o: &Opened, now: DateTime<Utc>) -> Result<usize, EngineError> {
+    let done = queue_done(&o.primary)?;
+    if done.is_empty() { return Ok(0); }
+    let mut deleted = 0;
+    let mut left = vec![];
+    for row in done {
+        deleted += o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [row])?;
+        let there: bool = o.queue.query_row("SELECT EXISTS (SELECT 1 FROM solid_queue_jobs WHERE id = ?1)", [row], |r| r.get(0))?;
+        if there { left.push(row); }
+    }
+    let tx = model::immediate(&o.primary)?;
+    write_queue_done(&tx, &left, now)?;
+    tx.commit()?;
+    Ok(deleted)
+}
+
+/// A queue row Rails had not finished, and where it stood: waiting (ready, scheduled, blocked or none), claimed by a
+/// process that died, or failed (Solid Queue fails a dead process's claims when it prunes it).
+struct QueueRow { id: i64, job: Option<String>, class: String, arguments: Option<String>, ambiguous: bool }
+
+fn queue_rows(q: &Connection) -> Result<Vec<QueueRow>, EngineError> {
+    let mut s = q.prepare("SELECT j.id, j.active_job_id, j.class_name, j.arguments, \
+                           EXISTS (SELECT 1 FROM solid_queue_claimed_executions e WHERE e.job_id = j.id) OR EXISTS (SELECT 1 FROM solid_queue_failed_executions e WHERE e.job_id = j.id) \
+                           FROM solid_queue_jobs j WHERE j.finished_at IS NULL ORDER BY j.id")?;
+    let rows = s.query_map([], |r| Ok(QueueRow { id: r.get(0)?, job: r.get(1)?, class: r.get(2)?, arguments: r.get(3)?, ambiguous: r.get(4)? }))?
+        .collect::<Result<_, _>>()?;
+    Ok(rows)
+}
+
+/// The job's `index`th argument as ActiveJob serialized it.
+fn argument(arguments: Option<&str>, index: usize) -> Option<Value> {
+    let v: Value = serde_json::from_str(arguments?).ok()?;
+    v.get("arguments")?.get(index).cloned()
+}
+
+/// The bot a job's first argument names (`gid://deltabadger/Bots::<class>/<id>`), when it is one.
+fn bot_of(arguments: Option<&str>, class: Option<&str>) -> Option<i64> {
+    let gid = arguments.and_then(first_gid)?;
+    let (ty, id) = gid.strip_prefix("gid://deltabadger/")?.rsplit_once('/')?;
+    if !ty.starts_with("Bots::") || class.is_some_and(|c| c != ty) { return None; }
+    id.parse().ok()
+}
+
+/// A bot row that is there and not deleted: Rails' GlobalID finds a deleted bot too, but nothing of it runs again.
+fn live_bot(c: &Connection, id: i64) -> Result<bool, EngineError> {
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND status <> ?2)", params![id, BotStatus::Deleted as i64], |r| r.get(0))?)
+}
+
+fn bot_row(c: &Connection, id: i64) -> Result<bool, EngineError> {
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1)", [id], |r| r.get(0))?)
+}
+
+/// A claimed or failed Bot::SignalJob on a signal bot with no marker of its own (r4.2, D-UPGRADE-CLAIMED-SIGNAL).
+/// `triggered_at`: the call's time, or why it can't be read (kept in the line's details).
+struct Unresolved { bot: i64, marker_id: String, side: Option<crate::venue::Side>, triggered_at: Result<DateTime<Utc>, String> }
+
+/// The DCA bots whose newest activity line is Rails' own placement_ambiguous, read before the takeover writes any line.
+fn rails_ambiguous(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    let mut s = c.prepare("SELECT b.id FROM bots b WHERE b.type <> ?1 AND b.status <> ?2 AND (SELECT l.event FROM bot_activity_logs l WHERE l.bot_id = b.id \
+                           ORDER BY l.created_at DESC, l.id DESC LIMIT 1) = 'placement_ambiguous' ORDER BY b.id")?;
+    let ids = s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| r.get::<_, i64>(0))?.collect::<Result<_, _>>()?;
+    Ok(ids)
+}
+
+/// What the claim transaction does with Rails' queue, and what it deletes after the commit.
+#[derive(Default)]
+struct QueueWork {
+    /// The rows acted on (journalled in QUEUE_DONE_KEY, deleted after the commit).
+    done: Vec<i64>,
+    /// Of those, the rows dropped (D-UPGRADE-RAILS-WORK-DROPPED).
+    dropped: usize,
+    stops: Vec<(i64, Option<String>)>,
+    signals: Vec<Unresolved>,
+    /// (bot, class, claimed or failed).
+    commands: Vec<(i64, String, bool)>,
+    /// Bots of a claimed or failed Bot::ActionJob (C12), and (rails_ambiguous) those Rails' last line left ambiguous.
+    unrecorded: Vec<i64>,
+    rails_ambiguous: Vec<i64>,
+    /// Start-log lines.
+    log: Vec<String>,
+    hard: Vec<String>,
+    details: Vec<String>,
+}
+
+/// Every unfinished row's outcome by its class (RAILS_WORK), except the waiting signal calls (signal_jobs), rule jobs
+/// (engine::rules), resyncs and the classes B2-6b finishes (wakes, IBKR keys), which stay queued here.
+fn queue_work(o: &Opened, skip: &[i64]) -> Result<QueueWork, EngineError> {
+    let c = &o.primary;
+    let mut w = QueueWork::default();
+    for row in queue_rows(&o.queue)?.into_iter().filter(|r| !skip.contains(&r.id)) {
+        let args = row.arguments.as_deref();
+        match rails_work(&row.class) {
+            RailsWork::Redone => {
+                w.done.push(row.id);
+                // D-UPGRADE-RAILS-AMBIGUITY-INHERITED: an ActionJob a dead process held may have sent an order Rails never
+                // recorded, as Rails' own ambiguity does (action_job.rb's KNOWN GAP); its bot carries one line (C12).
+                if row.class == "Bot::ActionJob" && row.ambiguous {
+                    if let Some(bot) = bot_of(args, None).filter(|b| !w.unrecorded.contains(b)) { if live_bot(c, bot)? { w.unrecorded.push(bot); } }
+                }
+            }
+            RailsWork::Stop => {
+                w.done.push(row.id);
+                let key = argument(args, 1).and_then(|k| k.get("stop_message_key").and_then(Value::as_str).map(str::to_string));
+                match bot_of(args, None) {
+                    Some(bot) => w.stops.push((bot, key)),
+                    None => w.log.push(format!("dropped Bot::StopJob (queue row {}): it names no bot this build can read", row.id)),
+                }
+            }
+            RailsWork::Signal if row.ambiguous => unresolved_signal(c, &row, &mut w)?,
+            RailsWork::Command => {
+                w.done.push(row.id);
+                match bot_of(args, None) {
+                    Some(bot) if live_bot(c, bot)? => w.commands.push((bot, row.class.clone(), row.ambiguous)),
+                    Some(_) => {}
+                    None => w.log.push(format!("dropped {} (queue row {}): it names no bot this build can read", row.class, row.id)),
+                }
+            }
+            RailsWork::FetchOrder => {
+                // r6 fork A: Rails placed this order and never recorded it; the job holds its id. Nothing here records it.
+                let order = argument(args, 1).map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string)).unwrap_or_default();
+                match bot_of(args, None) {
+                    // A soft-deleted bot's order is still on the exchange: only a bot whose row is gone has nothing to record it in.
+                    Some(bot) if !bot_row(c, bot)? => { w.done.push(row.id); w.dropped += 1; }
+                    Some(bot) => {
+                        w.hard.push(format!("{}: order {order} was placed on your exchange before the update but isn't recorded here yet.", super::set_aside::name(c, bot)?));
+                        w.details.push(format!("solid_queue_jobs {}: Bot::FetchAndCreateOrderJob bot {bot} order {order}", row.id));
+                    }
+                    None => {
+                        w.hard.push(format!("An order was placed on your exchange before the update but isn't recorded here yet, and its bot can't be read (queue row {}).", row.id));
+                        w.details.push(format!("solid_queue_jobs {}: Bot::FetchAndCreateOrderJob with arguments this build does not read", row.id));
+                    }
+                }
+            }
+            RailsWork::Dropped => { w.done.push(row.id); w.dropped += 1; }
+            RailsWork::Signal | RailsWork::Resync | RailsWork::Rule | RailsWork::Wake(_) | RailsWork::IbkrKeys => {}
+        }
+    }
+    Ok(w)
+}
+
+/// r1.2, r4.2, r5-4, r6 fork A: a claimed or failed Bot::SignalJob may have placed its order. It never takes the discard
+/// path: it becomes its bot's unresolved marker (written by apply_queue_work), unless the bot is gone (deleted: nothing of
+/// it runs again), already holds a marker or an unresolved intent of its own, or cannot be read: those two are hard stops.
+fn unresolved_signal(c: &Connection, row: &QueueRow, w: &mut QueueWork) -> Result<(), EngineError> {
+    let args = row.arguments.as_deref();
+    let hard = |w: &mut QueueWork, line: String, detail: &str| { w.hard.push(line); w.details.push(format!("solid_queue_jobs {}: Bot::SignalJob {detail}", row.id)); };
+    let unread = format!("A webhook call may have placed an order before the update, and the bot it belongs to can't be read (queue row {}).", row.id);
+    let Some(bot) = bot_of(args, Some(model::SIGNAL_TYPE)) else { hard(w, unread, "names no signal bot this build reads"); return Ok(()) };
+    if !live_bot(c, bot)? {
+        w.done.push(row.id);
+        w.log.push(format!("dropped a webhook call of deleted bot {bot} (queue row {})", row.id));
+        return Ok(());
+    }
+    let loaded = match model::load_bot(c, bot) { Ok(b) => b, Err(e) => { hard(w, unread, &format!("bot {bot}: {e:?}")); return Ok(()) } };
+    if super::signal::blocked(&loaded) {
+        hard(w, format!("{}: a webhook call may have placed an order before the update, and this bot already has another order whose result isn't confirmed.",
+                        super::set_aside::name(c, bot)?), &format!("bot {bot} already holds a marker or an unresolved intent"));
+        return Ok(());
+    }
+    let rule = argument(args, 1).and_then(|g| g.get("_aj_globalid").and_then(Value::as_str).and_then(|g| g.strip_prefix("gid://deltabadger/BotSignal/")).and_then(|n| n.parse::<i64>().ok()));
+    let side = match rule { Some(id) => model::signal(c, id)?.filter(|r| r.bot_id == bot).map(|r| r.side), None => None };
+    let triggered_at = match argument(args, 2).and_then(|t| t.get("value").and_then(Value::as_str).map(str::to_string)) {
+        Some(v) => crate::codec::parse_time(&v).map_err(|e| format!("{v}: {e:?}")),
+        None => Err("no triggered_at".to_string()),
+    };
+    let marker_id = format!("rails-job:{}", row.job.clone().unwrap_or_else(|| format!("queue-row-{}", row.id)));
+    w.done.push(row.id);
+    w.signals.push(Unresolved { bot, marker_id, side, triggered_at });
+    Ok(())
+}
+
+/// The claim transaction's part of the queue work, after the claim (the stops ran before the check).
+fn apply_queue_work(tx: &Connection, w: &QueueWork, from_rails: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
+    use super::amount::TxKind;
+    use model::Level;
+    let mut marked: Vec<i64> = vec![];
+    for u in &w.signals {
+        // One marker per bot, the first job's (Bots::Signal#mark_placement_unresolved!'s shape); `side` only when its rule is
+        // still there. The owner's one confirmation covers every call listed beside it.
+        if !marked.contains(&u.bot) {
+            let mut marker = json!({ "id": u.marker_id, "at": now.format("%Y-%m-%dT%H:%M:%SZ").to_string(), "error": "Deltabadger stopped while placing it" });
+            if let Some(side) = u.side { marker["side"] = json!(side.as_str()); }
+            model::merge_transient_compact(tx, u.bot, &[(super::signal::MARKER_KEY, marker)])?;
+            marked.push(u.bot);
+        }
+        let (when, unread) = match &u.triggered_at {
+            Ok(t) => (format!("at {}", t.format("%Y-%m-%d %H:%M:%S UTC")), None),
+            Err(e) => ("at a time that can't be read".to_string(), Some(e.clone())),
+        };
+        let call = match u.side { Some(side) => format!("{} {when}", side.as_str()), None => when };
+        model::log_activity(tx, u.bot, UPGRADE_SIGNAL_UNRESOLVED, Level::Warning, json!({ "call": call, "marker_id": u.marker_id, "triggered_at_error": unread }), now)?;
+    }
+    for (bot, class, ambiguous) in &w.commands {
+        // r4.3: Rails persisted the command's intent before it sent anything; a surviving `placing` marker becomes the
+        // ambiguous halt as the engine promotes one (composition::promote_orphan). Nothing moves money.
+        let kind = if class.contains("Liquidat") { TxKind::Liquidation } else { TxKind::Redeploy };
+        let marker = super::composition::name(kind).is_some_and(|name| model::load_bot(tx, *bot).is_ok_and(|b| b.transient.get(format!("{name}_pending")).is_some_and(Value::is_object)));
+        if *ambiguous && marker {
+            super::composition::promote_orphan(tx, *bot, kind, now)?;
+        } else {
+            // D-UPGRADE-COMMAND-DROPPED (C4).
+            model::log_activity(tx, *bot, UPGRADE_COMMAND_DROPPED, Level::Warning, json!({ "action": command_action(class), "job": class }), now)?;
+        }
+    }
+    // C12: a claimed or failed ActionJob, and, at the first takeover from Rails, a DCA bot whose last line is Rails' own
+    // placement_ambiguous (the order Rails' KNOWN GAP leaves unrecorded).
+    let mut bots = w.unrecorded.clone();
+    if from_rails { for id in &w.rails_ambiguous { if !bots.contains(id) { bots.push(*id); } } }
+    for bot in bots { model::log_activity(tx, bot, UPGRADE_ORDER_UNRECORDED, Level::Warning, json!({}), now)?; }
+    Ok(())
+}
+
+/// Activity events a takeover writes (their texts: web::i18n, `bot_activity.events.<event>`): C3, C4, C12.
+pub const UPGRADE_SIGNAL_UNRESOLVED: &str = "upgrade_signal_unresolved";
+pub const UPGRADE_COMMAND_DROPPED: &str = "upgrade_command_dropped";
+pub const UPGRADE_ORDER_UNRECORDED: &str = "upgrade_order_unrecorded";
+
+/// C4's %{action}: what the owner had asked for.
+fn command_action(class: &str) -> &'static str {
+    match class {
+        "Bot::LiquidateExitedJob" => "sell the assets this bot no longer holds",
+        "Bot::ResolveLiquidationJob" => "clear the unconfirmed sale",
+        "Bot::RedeployJob" => "redeploy",
+        "Bot::DeclineRedeployJob" => "decline the redeploy",
+        _ => "clear the unconfirmed redeploy",
+    }
 }
 
 pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
@@ -157,6 +493,12 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_rust_only_conditions(&o.primary)?;
     refuse_ibkr(&o.primary, clock.now())?;
     hand_back_calls(o, clock.now())?;
+    // Rails must never be handed a row a takeover already acted on (QUEUE_DONE_KEY): a crash before its delete is finished
+    // here, and a row that still won't go refuses.
+    finish_queue_work(o, clock.now())?;
+    if !queue_done(&o.primary)?.is_empty() {
+        return Err(EngineError::Ineligible(vec!["queued jobs the takeover already handled are still in the queue; start the engine once, then hand back".into()]));
+    }
     let problems=super::rules::handback_problems(&o.primary)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
     let mut unresolved = vec![];
@@ -284,23 +626,20 @@ pub fn signal_import_pending(c: &rusqlite::Connection) -> Result<bool, EngineErr
 /// would discard (`discard_on ActiveJob::DeserializationError`: its bot or its rule is gone).
 type SignalJob = (String, Option<(i64, model::SignalCall)>);
 
-/// Every Bot::SignalJob row Rails has not finished (ready, scheduled or blocked; a failed one is over), in queue order. A
-/// claimed one (a Rails process died mid-run, so its order's fate is unknown) or one this build cannot read refuses the
-/// takeover, naming the job and its bot.
-fn signal_jobs(o: &Opened) -> Result<Vec<SignalJob>, EngineError> {
-    let mut s = o.queue.prepare("SELECT j.active_job_id, j.arguments, EXISTS (SELECT 1 FROM solid_queue_claimed_executions c WHERE c.job_id = j.id) \
-                                 FROM solid_queue_jobs j WHERE j.class_name = 'Bot::SignalJob' AND j.finished_at IS NULL \
+/// Every waiting Bot::SignalJob row (ready, scheduled or blocked; a claimed or failed one is queue_work's), in queue order, and
+/// the waiting rows this build cannot read (no job id, arguments it does not read): (queue row, start-log line). Those are
+/// deleted, never placed (D-UPGRADE-UNREAD-SIGNAL; Rails' discard_on discards what it cannot deserialize).
+/// (queue row, start-log line) of a waiting call this build can't read.
+type UnreadSignal = (i64, String);
+
+fn signal_jobs(o: &Opened, skip: &[i64]) -> Result<(Vec<SignalJob>, Vec<UnreadSignal>), EngineError> {
+    let mut s = o.queue.prepare("SELECT j.active_job_id, j.arguments, j.id FROM solid_queue_jobs j WHERE j.class_name = 'Bot::SignalJob' AND j.finished_at IS NULL \
+                                 AND NOT EXISTS (SELECT 1 FROM solid_queue_claimed_executions c WHERE c.job_id = j.id) \
                                  AND NOT EXISTS (SELECT 1 FROM solid_queue_failed_executions f WHERE f.job_id = j.id) ORDER BY j.id")?;
-    let rows: Vec<(Option<String>, Option<String>, bool)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
-    let (mut jobs, mut problems) = (vec![], vec![]);
-    for (job, arguments, claimed) in rows {
-        let name = format!("Bot::SignalJob {}", job.as_deref().unwrap_or("(no job id)"));
-        let bot = arguments.as_deref().and_then(first_gid).unwrap_or_default();
-        if claimed {
-            problems.push(format!("{name} for {bot} was claimed by a Rails process that stopped while running it: whether it placed an order is unknown; \
-                                   check the venue, then delete the job from the queue"));
-            continue;
-        }
+    let rows: Vec<(Option<String>, Option<String>, i64)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+    let (mut jobs, mut unread) = (vec![], vec![]);
+    for (job, arguments, row) in rows.into_iter().filter(|(_, _, row)| !skip.contains(row)) {
+        let bot = arguments.as_deref().and_then(first_gid).unwrap_or_else(|| "no bot".into());
         match (job, arguments.as_deref().ok_or_else(|| "no arguments".to_string()).and_then(signal_call)) {
             (Some(job), Ok((bot_id, signal_id, triggered_at))) => {
                 let bot: bool = o.primary.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND type = ?2)", params![bot_id, model::SIGNAL_TYPE], |r| r.get(0))?;
@@ -308,12 +647,11 @@ fn signal_jobs(o: &Opened) -> Result<Vec<SignalJob>, EngineError> {
                 let call = (bot && rule).then(|| (bot_id, model::SignalCall { source: format!("rails:{job}"), signal_id, triggered_at }));
                 jobs.push((job, call));
             }
-            (None, _) => problems.push(format!("{name} for {bot}: no job id")),
-            (_, Err(e)) => problems.push(format!("{name} for {bot}: {e}")),
+            (None, _) => unread.push((row, format!("deleted a waiting webhook call this build can't read (queue row {row}, {bot}): no job id"))),
+            (_, Err(e)) => unread.push((row, format!("deleted a waiting webhook call this build can't read (queue row {row}, {bot}): {e}"))),
         }
     }
-    if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    Ok(jobs)
+    Ok((jobs, unread))
 }
 
 /// Bot::SignalJob's arguments as ActiveJob serialized them (`perform_later(bot, signal, triggered_at)`): the bot's and the
@@ -431,19 +769,6 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
 }
 
 
-// D-6C-10: a queued manual command belongs to Rails, including stopped and archived bots.
-fn refuse_composition_jobs(o: &Opened) -> Result<(),EngineError> {
-    let mut s=o.primary.prepare("SELECT id,type FROM bots ORDER BY id")?;
-    let bots=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
-    let mut reasons=vec![];
-    for (id,class) in bots {
-        let gid=format!("gid://deltabadger/{class}/{id}");
-        for job in ["Bot::LiquidateExitedJob","Bot::RedeployJob","Bot::DeclineRedeployJob","Bot::ResolveLiquidationJob","Bot::ResolveRedeployJob"] {
-            if active_job(&o.queue,job,&gid)? { reasons.push(format!("bot {id}: unfinished {job}; let Rails finish it before takeover")); }
-        }
-    }
-    if reasons.is_empty() { Ok(()) } else { Err(EngineError::Ineligible(reasons)) }
-}
 fn refuse_commands(c: &Connection) -> Result<(),EngineError> {
     let mut s=c.prepare("SELECT id,json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL FROM bots WHERE json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL OR json_type(transient_data,'$.rust_redeploy_request')='object' ORDER BY id")?;
     let reasons=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,bool>(1)?)))?.map(|r|r.map(|(id,selling)|format!("bot {id}: {} request pending; run the engine before handing back",if selling {"liquidation"} else {"redeploy"}))).collect::<Result<Vec<_>,_>>()?;

@@ -18,7 +18,7 @@ fn job(q: &rusqlite::Connection, class: &str, gid: &str) {
 fn count(c: &rusqlite::Connection, sql: &str) -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() }
 
 #[test]
-fn takeover_claims_the_install_removes_only_its_bots_rails_jobs_and_unsticks_executing() {
+fn takeover_claims_the_install_removes_its_bots_rails_jobs_drops_the_rest_and_unsticks_executing() {
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -30,9 +30,11 @@ fn takeover_claims_the_install_removes_only_its_bots_rails_jobs_and_unsticks_exe
     job(&o.queue, "AccountTransaction::SyncJob", "gid://deltabadger/ApiKey/1");
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert!(matches!(t.claim, Claim::FromRails));
-    assert_eq!((t.deleted_jobs, t.normalised), (1, 2));
-    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1, "only the bot's job goes");
-    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 1, "the bot job's execution cascades; the other job's stays");
+    // D-UPGRADE-RAILS-WORK-DROPPED: the sync has nothing left to finish (the scheduler runs its own), so it goes, counted.
+    assert_eq!((t.deleted_jobs, t.dropped_jobs, t.normalised), (2, 1, 2));
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "the bot's job and the dropped sync go");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "their executions cascade");
+    assert_eq!(deltabadger::app_config::get_plain(&o.primary, handover::QUEUE_DONE_KEY).unwrap(), None, "the set empties once the rows are gone");
     for id in [mine, crashed_after_waiting] {
         assert_eq!(model::load_bot(&o.primary, id).unwrap().status, deltabadger::enums::BotStatus::Scheduled, "a tick interrupted after executing or waiting resumes");
     }
@@ -627,18 +629,20 @@ fn imported(fixture: &serde_json::Value, name: &str) -> model::SignalCall {
                         triggered_at: job["triggered_at"].as_str().unwrap().parse().unwrap() }
 }
 
-/// §R1: every unfinished, unclaimed job becomes its bot's call, in queue order, with the triggered_at Rails deserializes; a
-/// job whose rule or bot is gone becomes none (discard_on); a finished or failed one stays Rails' record. The calls commit
-/// with the claim, then the rows go, then the import set empties.
+/// §R1: every waiting job becomes its bot's call, in queue order, with the triggered_at Rails deserializes; a job whose rule
+/// or bot is gone becomes none (discard_on); a finished one stays Rails' record. A failed one may have placed its order: it
+/// becomes the bot's marker (r3.1, D-UPGRADE-CLAIMED-SIGNAL). The calls commit with the claim, then the rows go, then the
+/// import set empties.
 #[test]
 fn rails_signal_jobs_become_the_engines_calls_and_leave_the_queue() {
     let all = ["ready", "blocked", "scheduled", "finished", "failed", "rule_removed", "bot_removed"];
     let (_dir, l, o, fixture, _) = signal_install(&all);
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    assert_eq!((t.imported_calls, t.deleted_jobs, t.eligible.clone()), (3, 5, vec![1]));
+    assert_eq!((t.imported_calls, t.deleted_jobs, t.eligible.clone()), (3, 6, vec![1]));
     assert_eq!(signal_calls_of(&o), ["ready", "blocked", "scheduled"].map(|n| imported(&fixture, n)).to_vec());
     assert_eq!(signal_calls_of(&o)[0].triggered_at, "2026-09-30T11:58:01.123456Z".parse::<DateTime<Utc>>().unwrap(), "the TimeWithZone, to the microsecond");
-    assert_eq!(job_ids(&o.queue), [job_id(&fixture, "finished"), job_id(&fixture, "failed")], "Rails' record of the finished and the failed job stays");
+    assert_eq!(job_ids(&o.queue), [job_id(&fixture, "finished")], "Rails' record of the finished job stays");
+    assert_eq!(marker_of(&o)["id"], format!("rails-job:{}", job_id(&fixture, "failed")), "the failed job is the bot's marker");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_ready_executions") + count(&o.queue, "SELECT count(*) FROM solid_queue_blocked_executions")
                + count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "executions cascade");
     assert_eq!(import_set(&o), None, "the set empties once the rows are gone");
@@ -689,20 +693,30 @@ fn a_call_that_ran_before_its_row_went_is_not_imported_again() {
     assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty() && import_set(&o).is_none());
 }
 
-/// §R1 step 0: a job a Rails process claimed and never finished refuses the takeover, naming the job and its bot, before
-/// the lease is claimed: nothing changes owner and nothing is written.
+/// r1.2, r4.2 (D-UPGRADE-CLAIMED-SIGNAL): a claimed and a failed job of one bot may each have placed an order. Neither is
+/// placed again: one marker (the first job's, with its rule's side) blocks the bot until the owner confirms, and each job
+/// leaves a line (C3). Nothing is a call.
 #[test]
-fn a_claimed_signal_job_refuses_the_takeover_naming_the_job_and_the_bot() {
+fn claimed_and_failed_signal_jobs_become_one_marker_and_a_line_each() {
     let (_dir, l, o, fixture, _) = signal_install(&["ready", "blocked"]);
-    let ready: i64 = o.queue.query_row("SELECT job_id FROM solid_queue_ready_executions", [], |r| r.get(0)).unwrap();
-    o.queue.execute("DELETE FROM solid_queue_ready_executions", []).unwrap();
-    o.queue.execute("INSERT INTO solid_queue_claimed_executions (job_id, process_id, created_at) VALUES (?1, 7, '2026-09-30 11:58:02')", [ready]).unwrap();
-    let Err(EngineError::Ineligible(lines)) = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()) else { panic!("refused") };
-    assert_eq!(lines.len(), 1, "{lines:?}");
-    assert!(lines[0].contains(&format!("Bot::SignalJob {}", job_id(&fixture, "ready"))) && lines[0].contains("gid://deltabadger/Bots::Signal/1"), "{lines:?}");
-    assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none(), "no claim");
-    assert!(signal_calls_of(&o).is_empty() && import_set(&o).is_none());
-    assert_eq!(job_ids(&o.queue).len(), 2, "Rails' jobs untouched");
+    fail_signal_job(&o.queue, &fixture, "ready", true);
+    fail_signal_job(&o.queue, &fixture, "blocked", false);
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((t.imported_calls, t.deleted_jobs), (0, 2));
+    assert!(signal_calls_of(&o).is_empty(), "never a call");
+    let marker = marker_of(&o);
+    assert_eq!((marker["id"].as_str().unwrap(), marker["side"].as_str()), (format!("rails-job:{}", job_id(&fixture, "ready")).as_str(), Some("buy")));
+    assert_eq!(bot_events(&o.primary, 1), [handover::UPGRADE_SIGNAL_UNRESOLVED, handover::UPGRADE_SIGNAL_UNRESOLVED]);
+    assert!(deltabadger::engine::signal::blocked(&model::load_bot(&o.primary, 1).unwrap()));
+    assert!(job_ids(&o.queue).is_empty());
+    // A start after a crash between the commit and the delete: the rows are back, the set names them. Nothing twice.
+    for name in ["ready", "blocked"] { queue_signal_job(&o.queue, &fixture, name); }
+    let rows: Vec<i64> = { let mut s = o.queue.prepare("SELECT id FROM solid_queue_jobs ORDER BY id").unwrap(); s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
+    deltabadger::app_config::set_plain(&o.primary, handover::QUEUE_DONE_KEY, &json!(rows).to_string(), now()).unwrap();
+    let again = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((again.imported_calls, again.deleted_jobs), (0, 2));
+    assert_eq!(bot_events(&o.primary, 1).len(), 2, "no line twice");
+    assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty());
 }
 
 /// §R10's takeover case: Rails' marker of an ambiguous send and one queued job. The imported call places nothing and
@@ -877,8 +891,9 @@ async fn an_hf_order_recorded_during_the_handback_is_caught_inside_the_ownership
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "the lease never moved");
 }
 
+/// r1.5, r4.3 (D-UPGRADE-COMMAND-DROPPED): a waiting command on any bot is deleted with one line (C4); nothing moves money.
 #[test]
-fn composition_jobs_on_any_bot_refuse_takeover_before_claim() {
+fn waiting_composition_jobs_on_any_bot_are_dropped_with_a_line() {
     for class in ["LiquidateExited", "Redeploy", "DeclineRedeploy", "ResolveLiquidation", "ResolveRedeploy"] {
         for status in [deltabadger::enums::BotStatus::Stopped, deltabadger::enums::BotStatus::Archived] {
             let dir=common::rails_install();
@@ -889,10 +904,11 @@ fn composition_jobs_on_any_bot_refuse_takeover_before_claim() {
             let id=seed::insert_bot(&o.primary,&s,&BotSpec{status:status as i64,..BotSpec::weekly(60.0,"2026-09-01 10:00:00")});
             let class=format!("Bot::{class}Job");
             job(&o.queue,&class,&format!("gid://deltabadger/Bots::DcaMultiAsset/{id}"));
-            let result=handover::take_over(&l,&o,&seed::cipher(),"test",now());
-            assert!(matches!(result,Err(EngineError::Ineligible(ref reasons)) if reasons.iter().any(|r|r.contains(&class))),"{class} {status:?}");
-            assert!(lease::read(&o.primary,&seed::cipher()).unwrap().is_none());
-            assert_eq!(count(&o.queue,"SELECT count(*) FROM solid_queue_jobs"),1);
+            let t=handover::take_over(&l,&o,&seed::cipher(),"test",now()).unwrap();
+            assert_eq!((t.deleted_jobs, t.dropped_jobs), (1, 0), "{class} {status:?}");
+            assert_eq!(bot_events(&o.primary, id), [handover::UPGRADE_COMMAND_DROPPED], "{class} {status:?}");
+            assert_eq!(count(&o.queue,"SELECT count(*) FROM solid_queue_jobs"),0);
+            assert_eq!(count(&o.primary,&format!("SELECT count(*) FROM transactions WHERE bot_id = {id}")),0, "nothing placed");
         }
     }
 }
@@ -973,4 +989,402 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF history is Rust-only".to_string()]), "{refused:?}");
     o.primary.execute("DELETE FROM kucoin_coverage", []).unwrap();
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
+}
+
+/// The Ruby files under `dir`, recursively.
+fn ruby_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() { ruby_files(&path, out) } else if path.extension().is_some_and(|e| e == "rb") { out.push(path) }
+    }
+}
+
+/// PLAN-B2 r3.2, r4.5: every job class 2.x can leave in its queue has an outcome in handover::RAILS_WORK, and the table
+/// names no class the repository lacks. A class added under app/jobs without an outcome fails here, not at a user's start.
+#[test]
+fn every_rails_job_class_has_an_outcome() {
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let mut found = std::collections::BTreeSet::new();
+    // Every `class … < …` under app/jobs, by its full name: the `module`/`class` headers it is indented under. Error
+    // classes (`< StandardError`) are not jobs.
+    let header = regex::Regex::new(r"^(\s*)(module|class) ([A-Z][A-Za-z0-9_:]*)(\s*<\s*([A-Za-z0-9_:]+))?").unwrap();
+    let mut files = vec![];
+    ruby_files(&repo.join("app/jobs"), &mut files);
+    for file in &files {
+        let mut open: Vec<(usize, String)> = vec![];
+        for line in std::fs::read_to_string(file).unwrap().lines() {
+            let Some(m) = header.captures(line) else { continue };
+            let indent = m[1].len();
+            open.retain(|(i, _)| *i < indent);
+            let name = open.iter().map(|(_, n)| n.as_str()).chain([&m[3]]).collect::<Vec<_>>().join("::");
+            if &m[2] == "class" && m.get(5).is_some_and(|s| s.as_str() != "StandardError") { found.insert(name); }
+            open.push((indent, m[3].to_string()));
+        }
+    }
+    assert!(found.contains("Tracker::LedgerJob::Retry") && found.contains("Bot::ActionJob"), "the class reader found {found:?}");
+    let classes = found.clone();
+    // Every constant `perform_later` receiver in app/ and lib/ (`X.perform_later`, `X.set(…).perform_later`). A relative
+    // name (Retry inside Tracker::LedgerJob) is the class under app/jobs it ends.
+    let receiver = regex::Regex::new(r"([A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*)(?:\.set\([^)]*\))?\.perform_later").unwrap();
+    let mut files = vec![];
+    ruby_files(&repo.join("app"), &mut files);
+    ruby_files(&repo.join("lib"), &mut files);
+    let mut receivers = 0;
+    for file in &files {
+        for m in receiver.captures_iter(&std::fs::read_to_string(file).unwrap()) {
+            let name = &m[1];
+            receivers += 1;
+            found.insert(classes.iter().find(|c| *c == name || c.ends_with(&format!("::{name}"))).cloned().unwrap_or_else(|| name.to_string()));
+        }
+    }
+    assert!(receivers > 40, "perform_later receivers read: {receivers}");
+    // config/recurring.yml: each `class:`, and SolidQueue::RecurringJob for a `command:` task. The mailer's job.
+    let recurring = std::fs::read_to_string(repo.join("config/recurring.yml")).unwrap();
+    for line in recurring.lines().map(str::trim) {
+        if let Some(class) = line.strip_prefix("class:") { found.insert(class.trim().trim_matches('"').to_string()); }
+        if line.starts_with("command:") { found.insert("SolidQueue::RecurringJob".into()); }
+    }
+    assert!(found.contains("SolidQueue::RecurringJob"), "recurring.yml has a command: task");
+    found.insert("ActionMailer::MailDeliveryJob".into());
+
+    let table: std::collections::BTreeSet<String> = handover::RAILS_WORK.iter().map(|(c, _)| c.to_string()).collect();
+    assert_eq!(table.len(), handover::RAILS_WORK.len(), "a class listed twice");
+    let missing: Vec<_> = found.difference(&table).collect();
+    assert!(missing.is_empty(), "Rails job classes without an outcome in handover::RAILS_WORK: {missing:?}");
+    let stale: Vec<_> = table.difference(&found).collect();
+    assert!(stale.is_empty(), "handover::RAILS_WORK names classes the repository no longer has: {stale:?}");
+    assert_eq!(handover::rails_work("Some::FutureJob"), handover::RailsWork::Dropped, "an unknown class is dropped, never a hard stop");
+}
+
+// ---- PLAN-B2 B2-6a: Rails' queued money work at a takeover ---------------------------------------------------------------
+
+/// A queue row of `class` with ActiveJob's serialized `arguments` (Q5), in execution state `exec` (ready, scheduled,
+/// blocked, claimed, failed). Returns its row id.
+fn queued(q: &rusqlite::Connection, class: &str, arguments: serde_json::Value, exec: &str) -> i64 {
+    q.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, active_job_id, priority, created_at, updated_at) VALUES ('default', ?1, ?2, ?3, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+              rusqlite::params![class, json!({ "job_class": class, "arguments": arguments }).to_string(), uuid::Uuid::new_v4().to_string()]).unwrap();
+    let id = q.last_insert_rowid();
+    set_exec(q, id, exec);
+    id
+}
+
+fn set_exec(q: &rusqlite::Connection, id: i64, exec: &str) {
+    for table in ["ready", "scheduled", "blocked", "claimed", "failed"] { q.execute(&format!("DELETE FROM solid_queue_{table}_executions WHERE job_id = ?1"), [id]).unwrap(); }
+    let sql = match exec {
+        "ready" => "INSERT INTO solid_queue_ready_executions (job_id, queue_name, priority, created_at) VALUES (?1, 'default', 0, '2026-09-30 11:00:00')",
+        "scheduled" => "INSERT INTO solid_queue_scheduled_executions (job_id, queue_name, priority, scheduled_at, created_at) VALUES (?1, 'default', 0, '2026-10-07 10:00:00', '2026-09-30 11:00:00')",
+        "blocked" => "INSERT INTO solid_queue_blocked_executions (job_id, queue_name, priority, concurrency_key, expires_at, created_at) VALUES (?1, 'default', 0, 'k', '2026-09-30 12:00:00', '2026-09-30 11:00:00')",
+        "claimed" => "INSERT INTO solid_queue_claimed_executions (job_id, process_id, created_at) VALUES (?1, 7, '2026-09-30 11:00:00')",
+        "failed" => "INSERT INTO solid_queue_failed_executions (job_id, error, created_at) VALUES (?1, 'pruned', '2026-09-30 11:00:00')",
+        other => panic!("{other}"),
+    };
+    q.execute(sql, [id]).unwrap();
+}
+
+/// The recording's job `name`, now claimed (a dead process held it) or failed (Solid Queue pruned that claim).
+fn fail_signal_job(q: &rusqlite::Connection, fixture: &serde_json::Value, name: &str, claimed: bool) {
+    let id: i64 = q.query_row("SELECT id FROM solid_queue_jobs WHERE active_job_id = ?1", [job_id(fixture, name)], |r| r.get(0)).unwrap();
+    set_exec(q, id, if claimed { "claimed" } else { "failed" });
+}
+
+fn marker_of(o: &store::Opened) -> serde_json::Value {
+    model::load_bot(&o.primary, 1).unwrap().transient.get(deltabadger::engine::signal::MARKER_KEY).cloned().unwrap_or(serde_json::Value::Null)
+}
+
+fn bot_events(c: &rusqlite::Connection, bot: i64) -> Vec<String> {
+    let mut s = c.prepare("SELECT event FROM bot_activity_logs WHERE bot_id = ?1 ORDER BY id").unwrap();
+    s.query_map([bot], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+
+/// The bot's status and stop_message_key, as stored.
+fn stopped_with(c: &rusqlite::Connection, bot: i64) -> (i64, Option<String>) {
+    c.query_row("SELECT status, stop_message_key FROM bots WHERE id = ?1", [bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+fn gid(bot: i64) -> serde_json::Value { json!({ "_aj_globalid": format!("gid://deltabadger/Bots::DcaMultiAsset/{bot}") }) }
+
+/// An install with one working Kraken DCA bot.
+fn dca_install() -> (tempfile::TempDir, deltabadger::lease::EngineLock, store::Opened, seed::Seeded, i64) {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    (dir, l, o, s, b)
+}
+
+fn hard_stop(r: Result<handover::Takeover, EngineError>) -> String {
+    match r { Err(EngineError::HardStop(m)) => m, Err(e) => panic!("not a hard stop: {e:?}"), Ok(_) => panic!("taken over") }
+}
+
+/// r3.2, r4.5: one queue holding a row of every class in handover::RAILS_WORK (FetchAndCreateOrderJob apart: a hard stop of
+/// its own) gets each row's outcome: money work handled, the rest dropped and counted, B2-6b's classes still queued.
+#[test]
+fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
+    use handover::RailsWork;
+    let (_dir, l, o, _s, b) = dca_install();
+    let mut rows = vec![];
+    for (class, work) in handover::RAILS_WORK {
+        if *work == RailsWork::FetchOrder { continue; }
+        let args = match *class {
+            "Bot::StopJob" => json!([gid(b), { "stop_message_key": "bot.settings.extra_amount_limit.amount_spent", "_aj_ruby2_keywords": ["stop_message_key"] }]),
+            "Rule::ExecuteJob" => json!([{ "_aj_globalid": "gid://deltabadger/Rules::Withdrawal/99" }]),
+            _ => json!([gid(b)]),
+        };
+        rows.push((*class, *work, queued(&o.queue, class, args, "ready")));
+    }
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let left: Vec<String> = { let mut s = o.queue.prepare("SELECT class_name FROM solid_queue_jobs ORDER BY id").unwrap(); s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
+    for (class, work, _) in &rows {
+        let kept = matches!(work, RailsWork::Wake(_) | RailsWork::IbkrKeys | RailsWork::Resync);
+        assert_eq!(left.iter().any(|c| c == class), kept, "{class} ({work:?}): kept only for B2-6b, or a resync of no index bot");
+    }
+    let dropped = rows.iter().filter(|(_, w, _)| *w == RailsWork::Dropped).count();
+    // The waiting signal job names a basket, not a signal bot: Rails' discard, through the import set.
+    assert_eq!(t.dropped_jobs, dropped);
+    assert_eq!(stopped_with(&o.primary, b), (2, Some("bot.settings.extra_amount_limit.amount_spent".into())), "Bot::StopJob ran");
+    assert_eq!(bot_events(&o.primary, b).iter().filter(|e| *e == handover::UPGRADE_COMMAND_DROPPED).count(), 5, "one line per command");
+    assert!(!bot_events(&o.primary, b).iter().any(|e| e == handover::UPGRADE_ORDER_UNRECORDED), "a waiting ActionJob is no ambiguity");
+}
+
+/// r3.1 (D-UPGRADE-RAILS-AMBIGUITY-INHERITED): Rails' own ambiguity (placement_ambiguous, the successor scheduled) is
+/// inherited as Rails leaves it: the successor goes, the bot gets one line (C12), and it trades again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_completed_ambiguous_action_job_is_inherited_with_a_line_and_trading_resumes() {
+    let (dir, l, o, _s, b) = dca_install();
+    model::log_activity(&o.primary, b, "placement_ambiguous", model::Level::Warning, json!({ "error": "timeout" }), now() - chrono::Duration::hours(1)).unwrap();
+    let done = queued(&o.queue, "Bot::ActionJob", json!([gid(b)]), "ready");
+    o.queue.execute("DELETE FROM solid_queue_ready_executions WHERE job_id = ?1", [done]).unwrap();
+    o.queue.execute("UPDATE solid_queue_jobs SET finished_at = '2026-09-30 11:00:00' WHERE id = ?1", [done]).unwrap();
+    queued(&o.queue, "Bot::ActionJob", json!([gid(b)]), "scheduled");
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((t.deleted_jobs, t.eligible.clone()), (1, vec![b]));
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE finished_at IS NULL"), 0, "the successor goes");
+    assert_eq!(bot_events(&o.primary, b), ["placement_ambiguous", handover::UPGRADE_ORDER_UNRECORDED]);
+    // A restart (lease rust) adds nothing.
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(bot_events(&o.primary, b).len(), 2);
+    let venue = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "100000", "0");
+    let mut e = deltabadger::engine::run::Engine::new(rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap(), FakeFactory(venue.clone()), seed::cipher(), l.clone());
+    deltabadger::engine::run::step(&mut e, &deltabadger::engine::FixedClock(now())).await.unwrap();
+    assert_eq!(venue.sent().len(), 1, "trading resumes");
+}
+
+/// r3.1: a claimed or failed ActionJob may have sent an order nothing records: deleted, one line (C12), once.
+#[test]
+fn a_claimed_or_failed_action_job_leaves_one_line_once() {
+    for exec in ["claimed", "failed"] {
+        let (_dir, l, o, _s, b) = dca_install();
+        let row = queued(&o.queue, "Bot::ActionJob", json!([gid(b)]), exec);
+        handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+        assert_eq!(bot_events(&o.primary, b), [handover::UPGRADE_ORDER_UNRECORDED], "{exec}");
+        // Crash between the commit and the delete: the row is back, the set names it.
+        o.queue.execute("INSERT INTO solid_queue_jobs (id, queue_name, class_name, arguments, priority, created_at, updated_at) VALUES (?1, 'default', 'Bot::ActionJob', ?2, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                        rusqlite::params![row, json!({ "arguments": [gid(b)] }).to_string()]).unwrap();
+        set_exec(&o.queue, row, exec);
+        deltabadger::app_config::set_plain(&o.primary, handover::QUEUE_DONE_KEY, &json!([row]).to_string(), now()).unwrap();
+        let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+        assert_eq!((t.deleted_jobs, bot_events(&o.primary, b).len()), (1, 1), "{exec}: deleted, no second line");
+        assert_eq!(deltabadger::app_config::get_plain(&o.primary, handover::QUEUE_DONE_KEY).unwrap(), None);
+    }
+}
+
+/// r5-3: a claimed or failed RebalanceJob is behind Rails' own barrier (rebalance_pending): the row goes, the barrier stays,
+/// so no leg is placed again until the pending swap is settled; and no C12 line.
+#[test]
+fn a_claimed_or_failed_rebalance_job_keeps_rails_barrier() {
+    for exec in ["claimed", "failed"] {
+        let (_dir, l, o, _s, b) = dca_install();
+        let pending = json!({ "id": 41, "sell_symbol": "BTC" });
+        o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending', json(?1)) WHERE id = ?2", rusqlite::params![pending.to_string(), b]).unwrap();
+        queued(&o.queue, "Bot::RebalanceJob", json!([gid(b)]), exec);
+        let _ = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now());
+        assert_eq!(model::load_bot(&o.primary, b).unwrap().transient["rebalance_pending"], pending, "{exec}: the barrier stays");
+        assert!(!bot_events(&o.primary, b).contains(&handover::UPGRADE_ORDER_UNRECORDED.to_string()), "{exec}");
+        assert_eq!(count(&o.primary, &format!("SELECT count(*) FROM transactions WHERE bot_id = {b}")), 0);
+    }
+}
+
+/// r1.3: Bot::StopJob's amount-limit stop happens in the claim transaction, with its key, once.
+#[test]
+fn a_queued_stop_job_stops_the_bot_with_its_key_in_the_claim() {
+    let (_dir, l, o, _s, b) = dca_install();
+    queued(&o.queue, "Bot::StopJob", json!([gid(b), { "stop_message_key": "bot.settings.extra_amount_limit.amount_spent", "_aj_ruby2_keywords": ["stop_message_key"] }]), "scheduled");
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(stopped_with(&o.primary, b), (2, Some("bot.settings.extra_amount_limit.amount_spent".into())));
+    assert!(t.eligible.is_empty() && t.set_aside.is_empty(), "stopped before the check: neither run nor set aside");
+    assert_eq!(bot_events(&o.primary, b), ["stopped"]);
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0);
+}
+
+/// r3.1 (failed-only: Solid Queue pruned the dead claim) → the marker.
+#[test]
+fn a_failed_only_signal_job_becomes_the_marker() {
+    let (_dir, l, o, fixture, _) = signal_install(&["scheduled"]);
+    fail_signal_job(&o.queue, &fixture, "scheduled", false);
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(marker_of(&o)["id"], format!("rails-job:{}", job_id(&fixture, "scheduled")));
+    assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty());
+}
+
+/// r6 fork A: a claimed or failed job on a bot that already holds a marker (Rails') or an unresolved intent (this
+/// engine's) is a hard stop naming the bot: the existing marker is never overwritten, and nothing is written.
+#[test]
+fn a_failed_signal_job_beside_a_marker_or_an_intent_is_a_hard_stop() {
+    for existing in [json!({ "signal_placement_unresolved": { "id": "rails-1", "at": "2026-09-30T11:00:00Z", "side": "buy", "error": "timeout" } }),
+                     json!({ "rust_placement": { "cl_ord_id": "cl-1" } })] {
+        let (_dir, l, o, fixture, _) = signal_install(&["ready"]);
+        o.primary.execute("UPDATE bots SET transient_data = ?1 WHERE id = 1", [existing.to_string()]).unwrap();
+        fail_signal_job(&o.queue, &fixture, "ready", false);
+        let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
+        assert!(message.contains("Bot 1") && message.contains("webhook call"), "{message}");
+        assert_eq!(model::load_bot(&o.primary, 1).unwrap().transient, existing, "kept as it was");
+        assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none() && bot_events(&o.primary, 1).is_empty());
+        assert_eq!(job_ids(&o.queue).len(), 1);
+    }
+}
+
+/// r4.2: a claimed job whose rule was deleted is still a marker (never the discard path), without a side.
+#[test]
+fn a_claimed_signal_job_whose_rule_is_gone_is_a_marker_without_side() {
+    let (_dir, l, o, fixture, _) = signal_install(&["rule_removed"]);
+    fail_signal_job(&o.queue, &fixture, "rule_removed", true);
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let marker = marker_of(&o);
+    assert_eq!(marker["id"], format!("rails-job:{}", job_id(&fixture, "rule_removed")));
+    assert!(marker.get("side").is_none(), "{marker}");
+    assert_eq!(bot_events(&o.primary, 1), [handover::UPGRADE_SIGNAL_UNRESOLVED]);
+}
+
+/// r5-4: a claimed job whose bot can't be read is a hard stop naming the queue row.
+#[test]
+fn a_claimed_signal_job_on_an_unreadable_bot_is_a_hard_stop_naming_the_row() {
+    let (_dir, l, o, _fixture, _) = signal_install(&[]);
+    o.primary.execute("UPDATE bots SET transient_data = '{not json' WHERE id = 1", []).unwrap();
+    let row = queued(&o.queue, "Bot::SignalJob", json!([{ "_aj_globalid": "gid://deltabadger/Bots::Signal/1" }, { "_aj_globalid": "gid://deltabadger/BotSignal/1" }]), "claimed");
+    let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
+    assert!(message.contains(&format!("queue row {row}")), "{message}");
+    assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none());
+}
+
+/// R6 (D-UPGRADE-UNREAD-SIGNAL): a waiting job this build can't read is deleted, never placed, with a start-log line.
+#[test]
+fn an_unreadable_waiting_signal_job_is_deleted_and_logged() {
+    let (_dir, l, o, _fixture, _) = signal_install(&[]);
+    let row = queued(&o.queue, "Bot::SignalJob", json!([{ "_aj_globalid": "gid://deltabadger/Bots::Signal/1" }, "not a rule"]), "ready");
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert!(t.log.iter().any(|line| line.contains(&format!("queue row {row}"))), "{:?}", t.log);
+    assert!(signal_calls_of(&o).is_empty() && marker_of(&o).is_null() && job_ids(&o.queue).is_empty());
+}
+
+/// r4.3: a claimed LiquidateExitedJob whose `placing` marker survived becomes the ambiguous halt (nothing resumes past it);
+/// without a marker (claimed before any leg) it is the C4 line. Nothing is placed either way.
+#[test]
+fn a_claimed_liquidation_halts_on_its_marker_or_leaves_a_line() {
+    for marker in [true, false] {
+        let (_dir, l, o, _s, b) = dca_install();
+        if marker {
+            o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.liquidation_pending', json('{\"id\":\"n1\",\"state\":\"placing\",\"symbol\":\"BTC\"}')) WHERE id = ?1", [b]).unwrap();
+        }
+        queued(&o.queue, "Bot::LiquidateExitedJob", json!([gid(b)]), "claimed");
+        let _ = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now());
+        let bot = model::load_bot(&o.primary, b).unwrap();
+        if marker {
+            assert_eq!(bot.transient["liquidation_pending"]["state"], "ambiguous");
+            assert_eq!(bot_events(&o.primary, b), ["liquidation_ambiguous"]);
+        } else {
+            assert_eq!(bot_events(&o.primary, b), [handover::UPGRADE_COMMAND_DROPPED]);
+        }
+        assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0);
+        assert_eq!(count(&o.primary, &format!("SELECT count(*) FROM transactions WHERE bot_id = {b}")), 0, "nothing placed");
+    }
+}
+
+/// r6 fork A: an unfinished FetchAndCreateOrderJob holds an order Rails placed and never recorded: a hard stop naming the
+/// bot and the order id, and nothing is written.
+#[test]
+fn a_fetch_and_create_order_job_is_a_hard_stop_naming_the_order() {
+    let (_dir, l, o, _s, b) = dca_install();
+    queued(&o.queue, "Bot::FetchAndCreateOrderJob", json!([gid(b), "OQCLML-BW3P3-BUCMWZ"]), "ready");
+    let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
+    assert!(message.contains(&format!("Bot {b}")) && message.contains("OQCLML-BW3P3-BUCMWZ"), "{message}");
+    assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none());
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1);
+    assert!(bot_events(&o.primary, b).is_empty());
+    assert_eq!(deltabadger::app_config::get_plain(&o.primary, handover::QUEUE_DONE_KEY).unwrap(), None);
+}
+
+/// r4.7: a failed fan-out is acknowledged and removed; its children are judged on their own; a rule job this build can't
+/// read is a hard stop naming its queue row.
+#[test]
+fn rule_jobs_a_failed_fanout_is_acknowledged_its_children_judged_and_an_unreadable_one_stops() {
+    let (_dir, l, o, _s, _b) = dca_install();
+    queued(&o.queue, "Rule::EvaluateAllJob", json!([]), "failed");
+    let child = queued(&o.queue, "Rule::ExecuteJob", json!([{ "_aj_globalid": "gid://deltabadger/Rules::Withdrawal/5" }]), "claimed");
+    let child_job: String = o.queue.query_row("SELECT active_job_id FROM solid_queue_jobs WHERE id = ?1", [child], |r| r.get(0)).unwrap();
+    let Err(EngineError::Ineligible(lines)) = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()) else { panic!("refused") };
+    assert_eq!(lines.len(), 1, "the child only: {lines:?}");
+    assert!(lines[0].contains(&format!("resolve-withdrawal --rails-job {child_job}")), "{lines:?}");
+    o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [child]).unwrap();
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_rails_job_acks WHERE resolution = 'skip'"), 1, "the fan-out is acknowledged");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "and removed");
+    let row = queued(&o.queue, "Rule::ExecuteJob", json!(["no rule here"]), "ready");
+    let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
+    assert!(message.contains(&format!("support must remove queue row {row}")), "{message}");
+}
+
+/// C3, C4, C12 as the activity feed prints them (web::i18n's Rust-only texts), in every locale (English for now).
+#[test]
+fn the_takeovers_lines_read_in_plain_words() {
+    use deltabadger::web::i18n::{text, Arg};
+    for locale in ["en", "de"] {
+        let c3 = text(locale, &format!("bot_activity.events.{}", handover::UPGRADE_SIGNAL_UNRESOLVED), &[("call", Arg::Text("buy at 2026-09-30 11:58:01 UTC"))]);
+        assert!(c3.starts_with("A webhook call (buy at 2026-09-30 11:58:01 UTC) may or may not have placed an order"), "{c3}");
+        let c4 = text(locale, &format!("bot_activity.events.{}", handover::UPGRADE_COMMAND_DROPPED), &[("action", Arg::Text("redeploy"))]);
+        assert_eq!(c4, "Your request to redeploy didn't run before the update. Request it again.");
+        let c12 = text(locale, &format!("bot_activity.events.{}", handover::UPGRADE_ORDER_UNRECORDED), &[]);
+        assert!(c12.ends_with("Check your exchange.") && !c12.contains("2."), "{c12}");
+    }
+}
+
+/// Codex B2-6a P1: a handback after a crash between the claim and the queue delete finishes the queue first, so Rails is
+/// never handed a row the takeover already acted on (a StopJob run twice, a dropped command run after all).
+#[tokio::test(flavor = "current_thread")]
+async fn a_handback_after_a_crash_before_the_queue_delete_hands_rails_none_of_those_rows() {
+    let (_dir, l, o, _s, b) = dca_install();
+    let row = queued(&o.queue, "Bot::RedeployJob", json!([gid(b)]), "ready");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    o.queue.execute("INSERT INTO solid_queue_jobs (id, queue_name, class_name, arguments, priority, created_at, updated_at) VALUES (?1, 'default', 'Bot::RedeployJob', ?2, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                    rusqlite::params![row, json!({ "arguments": [gid(b)] }).to_string()]).unwrap();
+    set_exec(&o.queue, row, "ready");
+    deltabadger::app_config::set_plain(&o.primary, handover::QUEUE_DONE_KEY, &json!([row]).to_string(), now()).unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RedeployJob'"), 0, "the dropped command never reaches Rails");
+    assert_eq!(deltabadger::app_config::get_plain(&o.primary, handover::QUEUE_DONE_KEY).unwrap(), None);
+}
+
+/// Codex B2-6a P1: a soft-deleted bot's exchange order is still on the exchange, and Rails' job would still record it: a
+/// hard stop, as for any bot. Only a bot whose row is gone has nothing to record into.
+#[test]
+fn a_fetch_and_create_order_job_of_a_deleted_bot_is_still_a_hard_stop() {
+    let (_dir, l, o, _s, b) = dca_install();
+    o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", rusqlite::params![deltabadger::enums::BotStatus::Deleted as i64, b]).unwrap();
+    queued(&o.queue, "Bot::FetchAndCreateOrderJob", json!([gid(b), "OQCLML-BW3P3-BUCMWZ"]), "scheduled");
+    let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
+    assert!(message.contains("OQCLML-BW3P3-BUCMWZ"), "{message}");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1);
+}
+
+/// Codex B2-6a P2: Rails' own ambiguity is read before the takeover writes its lines (a dropped command's here), so a
+/// takeover line never hides it.
+#[test]
+fn rails_last_ambiguity_still_gets_its_line_beside_a_dropped_command() {
+    let (_dir, l, o, _s, b) = dca_install();
+    model::log_activity(&o.primary, b, "placement_ambiguous", model::Level::Warning, json!({ "error": "timeout" }), now() - chrono::Duration::hours(1)).unwrap();
+    queued(&o.queue, "Bot::RedeployJob", json!([gid(b)]), "ready");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let lines = bot_events(&o.primary, b);
+    assert!(lines.contains(&handover::UPGRADE_COMMAND_DROPPED.to_string()) && lines.contains(&handover::UPGRADE_ORDER_UNRECORDED.to_string()), "{lines:?}");
 }

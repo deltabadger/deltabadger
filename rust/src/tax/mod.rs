@@ -47,6 +47,10 @@
 //!   warnings kept); D-TAX-GB-UNSUPPORTED-ACTION (a stock event within a matched pair refuses the report);
 //!   D-TAX-GB-DEPOSIT (an unlinked deposit joins the pool, matches nothing); D-TAX-GB-AIRDROP (no income line, listed,
 //!   its cost assumed; a fork by its venue label listed too); D-TAX-GB-SA108; D-TAX-SWAP-RECEIVED as BG and CZ.
+//! - France (fr.rs; the engine's `Options::pvct_from`): D-TAX-FR-FEE-RATIO, D-TAX-FR-PORTFOLIO-VALUE, D-TAX-FR-INCOMPLETE,
+//!   D-TAX-FR-305, D-TAX-FR-RATE, D-TAX-FR-2086, D-TAX-FR-YEARS; here D-TAX-FR-2019 (swaps taxable before 2019 at the value
+//!   given, l. 220 from the lots held then), D-TAX-FR-DEPOSIT-ZERO, D-TAX-FR-REWARDS (NOTE `fr_rewards`) and
+//!   D-TAX-FR-NETWORK-FEE (NOTE `fr_fees_not_ceded`).
 //!
 //! The report is read (`prepare`, on a connection) apart from its enrichment (`Report::compute`, with no connection held):
 //! the job fetches the prices the table lacks between the enrichment's steps, as the tracker's pass does.
@@ -62,6 +66,11 @@ mod it;
 mod ie;
 mod se;
 mod gb;
+mod fr;
+mod nl;
+mod ch;
+pub mod estv;
+mod wealth;
 pub mod nbp;
 pub mod pl;
 
@@ -111,6 +120,8 @@ pub struct Report {
     ahead: Vec<Stored>,
     /// D-TAX-GB-AIRDROP: the rows whose venue label names a fork.
     forks: HashSet<i64>,
+    /// D-TAX-CH-ESTV: Switzerland's Kursliste values; None elsewhere.
+    estv: Option<estv::Estv>,
 }
 
 /// The reads of `crypto_csv` up to the enrichment: the scope, the tokenized refusal, the banners.
@@ -171,7 +182,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let carry = if j.code == "PL" { pl::declared(c, user_id, year)? } else { Default::default() };
     let cnb = if j.code == "CZ" { Some(cnb::Cnb::load(c)?) } else { None };
     let forks = if gb { fork_rows(c, user_id)? } else { HashSet::new() };
-    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb, ahead, forks })))
+    let estv = if j.code == "CH" { Some(estv::Estv::load(c)?) } else { None };
+    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb, ahead, forks, estv })))
 }
 
 /// D-TAX-GB-AIRDROP (r3 item 3): the user's rows whose venue label names a fork: the row's own description (Binance's
@@ -231,7 +243,10 @@ struct AtNotes { speculation: Vec<(String, Dec)>, before_regime: Vec<(String, De
                  /// Ireland's NOTE blocks (D-TAX-IE-RING-FENCE, `ie_provisional`), as CSV lines at the file's end.
                  tail: String,
                  /// D-TAX-GB-AIRDROP: the year's airdrops with their value, and those whose label names a fork.
-                 gb_airdrops: Vec<(String, Dec)>, gb_forks: Vec<String> }
+                 gb_airdrops: Vec<(String, Dec)>, gb_forks: Vec<String>,
+                 /// France: the year's cessions (aligned with the disposals), the rewards held at €0 (D-TAX-FR-REWARDS) and the
+                 /// coins paid as fees (D-TAX-FR-NETWORK-FEE).
+                 fr: Vec<fr::Cession>, fr_rewards: Vec<(String, Dec)>, fr_fees: Vec<String> }
 
 /// `Report::txs`: the rows kept, whether each was folded away, and what the engine walks.
 type Walked = (Vec<Entry>, Vec<bool>, Vec<fifo::Tx>);
@@ -281,6 +296,8 @@ impl Report {
     /// `prefetch` and single-day fetches), and `on_progress(percent)` is told as PriceService#enrich tells it.
     pub fn compute(&self, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Outcome, FiguresError> {
         if self.j.code == "PL" { return self.pl_compute(fetcher, today); }
+        // NL and CH (wealth.rs): units at an instant, no enrichment of every row.
+        if self.is_wealth() { return self.wealth_report(fetcher, today, on_progress); }
         let (j, year) = (self.j, self.year);
         let currency = j.currency(year);
         let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);
@@ -296,6 +313,14 @@ impl Report {
         // and TDM 02-01-03 §4, the money's worth received).
         let received = matches!(j.code, "BG" | "CZ" | "IE" | "SE" | "GB");
         if received { value_groups(&mut enriched, |_, _| Some(true))?; }
+        // D-TAX-FR-2019 (BOFiP -30-20 § 130): before 1 January 2019 a swap was taxable, and the coin received cost the value
+        // of the coin given; the rows are in time order, so the rows before that instant are a prefix.
+        let fr = j.code == "FR";
+        let fr_from = if fr { local_midnight(&self.zone, fr::FIRST_YEAR) } else { None };
+        if let Some(from) = fr_from {
+            let cut = enriched.iter().position(|e| e.row.at.0 >= from.0).unwrap_or(enriched.len());
+            value_groups(&mut enriched[..cut], |_, _| Some(false))?;
+        }
         // D-TAX-IT-SWAPS: an exchange with an e-money token is a disposal at the value received.
         if j.code == "IT" {
             it::value_received(&mut enriched, &self.scoped, &mut ps, currency)?;
@@ -387,6 +412,19 @@ impl Report {
             .filter(|(e, _)| !(gb && e.row.group.is_some()))
             .map(|(e, _)| &e.row).collect();
         if !gb && !ahead.is_empty() { txs.extend(self.txs(&ahead)?.2); }
+        // D-TAX-FR-REWARDS (a reading): staking, lending, mining and other income add nothing to l. 220 (no legal tender paid),
+        // on the engine's copy; an airdrop keeps its value (a gratuitous acquisition, III-B al. 2). Listed with their values.
+        if fr {
+            let paid_nothing = |k: Kind| matches!(k, Kind::StakingReward | Kind::LendingInterest | Kind::Mining | Kind::OtherIncome);
+            for t in txs.iter_mut().filter(|t| paid_nothing(t.row.kind) && !fiat(&t.row.base)) {
+                (t.row.fiat_value, t.row.price_missing, t.row.value_missing) = (Dec::zero(), false, Some(false));
+            }
+            for r in enriched.iter().map(|e| &e.row).filter(|r| paid_nothing(r.kind) && !fiat(&r.base)) {
+                let name = INCOME.iter().find(|(k, _)| *k == r.kind).map_or("other_income", |(_, n)| n);
+                let label = text(j.locale, &format!("tax_report.income.types.{name}"), &[]);
+                notes.fr_rewards.push((format!("{label} {} {} {}", r.base, r.amount.to_s_f(), date(r.at)), r.fiat_value.clone()));
+            }
+        }
 
         let holding = self.holding_rule();
         // D-TAX-DE-WALLET: Germany keeps the order of use per wallet from the first row (BMF 6 March 2025, Rz. 61).
@@ -417,16 +455,20 @@ impl Report {
             // D-TAX-BG-AVERAGE, D-TAX-BG-DEPOSIT-ZERO; D-TAX-DK-PER-PART, D-TAX-DK-DEPOSIT-ZERO, Denmark's mining provenance
             // and year-start units.
             // D-TAX-SE-AVERAGE (genomsnittsmetoden), GB's s. 104 pool: one average per coin per person.
-            average_all: matches!(j.code, "BG" | "SE" | "GB"), row_per_lot: dk, deposit_cost_zero: j.code == "BG" || dk || it, tag_mining: dk,
+            // D-TAX-FR-DEPOSIT-ZERO (BOFiP -30-20 § 90): no proof of cost, cost nil.
+            average_all: matches!(j.code, "BG" | "SE" | "GB"), row_per_lot: dk, deposit_cost_zero: j.code == "BG" || dk || it || fr, tag_mining: dk,
             // D-TAX-IT-DEPOSIT-ZERO (art. 68 c. 9-bis); the year-start units for Italy's stablecoin NOTE too.
             snapshot_at: if dk || it { local_midnight(&self.zone, year) } else { None },
             // D-TAX-IT-FEES, D-TAX-IT-PRE2023-BASIS; LIFO as Rails.
-            lifo: it, fees_ignored_from: it_from, swaps_taxable_before: it_from,
+            // D-TAX-FR-2019: swaps taxable before 1 January 2019 (their value given, above).
+            lifo: it, fees_ignored_from: it_from, swaps_taxable_before: it_from.or(fr_from),
             ireland: ie.then_some(fifo::Ireland { from: &ie_from, until: &ie_until }),
             // D-TAX-LOST-POOLED, D-TAX-COIN-FEE (acquisitions), D-TAX-GB-SWAP-FEE, and the funding order of a swap's fees.
             lost_kept: pooled, own_fee_disposed: pooled, swap_fee_split: j.code == "GB", defer_group_fees: pooled,
             // D-TAX-GB-S104, D-TAX-GB-POOL, D-TAX-GB-SAME-DAY, D-TAX-GB-30DAY: the identification, on the taxpayer's calendar.
             uk: gb.then_some(fifo::Uk { day: &uk_day }),
+            // France's PVCT from 1 January 2019 (D-TAX-FR-2019: l. 220 opens at the lots held then).
+            pvct_from: fr_from,
         });
         engine.calculate(&txs)?;
         // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).
@@ -440,7 +482,42 @@ impl Report {
         symbols.sort();
         symbols.dedup();
         if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "unsupported_corporate_action".into(), symbols }); }
+        // France: every cession from 2019 in order (l. 221 and the contamination run across years), the year's kept.
+        let mut cessions: HashMap<usize, fr::Cession> = HashMap::new();
+        if fr {
+            let mut ps = PriceService::new(&self.reference, &self.fx, today, fetcher);
+            let mut inputs = vec![];
+            for p in &engine.pvct.points {
+                let Some(d) = engine.disposals.iter().find(|d| d.source == p.uid) else { continue };
+                let (value, unpriced) = fr::value(&mut ps, currency, p, d)?;
+                let own = txs.iter().find(|t| t.row.uid == p.uid).is_some_and(|t| t.row.value_missing.unwrap_or(t.row.price_missing) || t.row.fee_missing);
+                inputs.push(fr::Input { source: p.uid, proceeds: d.proceeds.clone(), fee: d.fee.clone(), gross: p.gross.clone(), value,
+                                        missing: p.uncertain || unpriced || own || d.uncovered.is_positive() });
+            }
+            cessions = fr::chain(inputs)?.into_iter().map(|c| (c.source, c)).collect();
+            for w in ps.warnings { if !warnings.contains(&w) { warnings.push(w); } }
+        }
         let mut results: Vec<fifo::Disposal> = engine.disposals.into_iter().filter(|d| self.in_year(d.at)).collect();
+        if fr {
+            notes.fr = results.iter().map(|d| cessions.remove(&d.source).ok_or_else(|| FiguresError::Data("a French cession without its point".into()))).collect::<Result<_, _>>()?;
+            let rows: Vec<(&fifo::Disposal, &fr::Cession)> = results.iter().zip(&notes.fr).collect();
+            notes.summary = fr::summary(j.locale, year, &rows, &|at| self.local(at))?;
+            // D-TAX-FR-NETWORK-FEE (a reading): the year's coins paid as a fee, none computed as a cession.
+            let own_rows: HashSet<usize> = standing_fees.iter().map(|r| r.uid).collect();
+            for r in enriched.iter().map(|e| &e.row).filter(|r| self.in_year(r.at)) {
+                let coin_fee = r.fee_currency.as_deref().filter(|c| !c.trim().is_empty() && !fiat(c)).zip(r.fee_amount.as_ref().filter(|a| a.is_positive()));
+                let listed = match r.kind {
+                    Kind::Fee => own_rows.contains(&r.uid).then(|| (r.base.clone(), r.amount.clone())),
+                    Kind::Withdrawal if r.linked => r.transfer_fee.clone().filter(Dec::is_positive).map(|f| (r.base.clone(), f)),
+                    _ => coin_fee.map(|(c, a)| (c.to_string(), a.clone())),
+                };
+                if let Some((coin, units)) = listed { notes.fr_fees.push(format!("{coin} {} {}", units.to_s_f(), date(r.at))); }
+                // A linked withdrawal's fee in another coin is paid beside its network fee (branch review).
+                if r.kind == Kind::Withdrawal && r.linked {
+                    if let Some((c, a)) = coin_fee.filter(|(c, _)| *c != r.base) { notes.fr_fees.push(format!("{c} {} {}", a.to_s_f(), date(r.at))); }
+                }
+            }
+        }
         // D-TAX-SE-K4: Sweden's rows too, so the K4 sums are the printed rows'.
         if matches!(j.code, "BG" | "CZ" | "SE") {
             // Each printed row reconciles in cents (proceeds − cost − fee = gain), and the summary adds the printed figures.
@@ -587,7 +664,10 @@ impl Report {
         let mut out = String::new();
         // Rails' weighted-average columns (SE): an average has no acquisition date or holding days.
         let average = j.method == "weighted_average";
-        let mut keys = if average { vec!["date", "asset", "amount", "proceeds", "cost_basis", "gain_loss", "currency", "fee", "exchange", "tx_id",
+        let pvct = j.method == "pvct";
+        let mut keys = if pvct { vec!["date", "asset", "amount", "proceeds", "total_acquisition_cost", "portfolio_value", "gain_loss", "currency", "fee", "exchange",
+                                      "tx_id", "data_incomplete"] }
+            else if average { vec!["date", "asset", "amount", "proceeds", "cost_basis", "gain_loss", "currency", "fee", "exchange", "tx_id",
                                          "cost_basis_complete", "data_incomplete"] }
             else { vec!["date", "acquisition_date", "asset", "amount", "proceeds", "cost_basis", "gain_loss", "currency", "holding_days", "fee",
                         "exchange", "tx_id", "cost_basis_complete", "data_incomplete"] };
@@ -610,6 +690,13 @@ impl Report {
         if results.is_empty() { line(&mut out, &[self.t("tax_report.no_taxable_transactions")]); }
         for (i, d) in results.iter().enumerate() {
             let held = d.long_held == Some(true);
+            // D-TAX-FR-2086: Rails' PVCT columns with l. 213, l. 223, V, the gain and l. 214.
+            if pvct {
+                let c = &at.fr[i];
+                line(&mut out, &[s(iso(d.at)), s(d.asset.clone()), n(&d.amount), cents(&c.proceeds)?, cents(&c.pta()?)?, cents(&c.value)?, cents(&c.gain)?, s(currency),
+                                 cents(&c.fee)?, s(d.exchange.clone()), d.tx_id.clone().map_or(Cell::Nil, s), Cell::Raw(c.incomplete.to_string())]);
+                continue;
+            }
             if average {
                 line(&mut out, &[s(iso(d.at)), s(d.asset.clone()), n(&d.amount), cents(&d.proceeds)?, cents(&d.cost_basis)?, cents(&d.gain_loss)?, s(currency),
                                  cents(&d.fee)?, s(d.exchange.clone()), d.tx_id.clone().map_or(Cell::Nil, s), Cell::Raw(d.complete.to_string()),
@@ -679,6 +766,7 @@ impl Report {
         // D-TAX-BG-DEPOSIT-ZERO, D-TAX-DK-DEPOSIT-ZERO: at cost 0, not at an assumed market value.
         let (heading, hint) = match j.code { "BG" => ("deposit_basis_zero", "deposit_basis_zero_hint_bg"),
             "DK" => ("deposit_basis_zero", "deposit_basis_zero_hint_dk"), "IT" => ("deposit_basis_zero", "deposit_basis_zero_hint_it"),
+            "FR" => ("deposit_basis_zero", "deposit_basis_zero_hint_fr"),
             // D-TAX-GB-DEPOSIT: assets brought in, not acquisitions: not matched.
             "GB" => ("deposit_basis_assumed", "deposit_basis_assumed_hint_gb"), _ => ("deposit_basis_assumed", "deposit_basis_assumed_hint") };
         self.block(&mut out, "WARNING", heading, hint, deposits.into_iter())?;
@@ -705,7 +793,10 @@ impl Report {
         self.block(&mut out, "NOTE", "wallet_allocation", "wallet_allocation_hint", placed.into_iter())?;
         // D-TAX-AT-FEES: in Austria a fee row of its own is a disposal.
         let hint = if j.code == "IT" { "coin_fees_hint_it" } else if j.swaps_taxable() || j.code == "AT" { "coin_fees_hint_disposal" } else { "coin_fees_hint_no_proceeds" };
-        self.block(&mut out, "NOTE", "coin_fees", hint, standing_fees.iter().map(|r| listed(r, &r.amount)))?;
+        // D-TAX-FR-NETWORK-FEE: France lists every coin paid as a fee in its own block.
+        if pvct { self.block(&mut out, "NOTE", "fr_fees_not_ceded", "fr_fees_not_ceded_hint", at.fr_fees.iter().cloned())?; }
+        else { self.block(&mut out, "NOTE", "coin_fees", hint, standing_fees.iter().map(|r| listed(r, &r.amount)))?; }
+        self.valued(&mut out, "NOTE", "fr_rewards", &at.fr_rewards, Some(currency))?;
         self.valued(&mut out, "NOTE", "speculation", &at.speculation, None)?;
         self.valued(&mut out, "NOTE", "income_before_regime", &at.before_regime, None)?;
         self.block(&mut out, "NOTE", "cz_mining", "cz_mining_hint", at.mined.iter().cloned())?;

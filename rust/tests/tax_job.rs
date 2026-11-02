@@ -178,9 +178,9 @@ fn the_not_ported_gate_refuses_before_anything_is_queued() {
     let i = install();
     let app = app(&i);
     let c = open(&i);
-    let res = deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "FR", "year": 2025})), "en").unwrap();
+    let res = deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "FR", "year": 2018})), "en").unwrap();
     assert_eq!((res.status, res.code), (deltabadger::web::bot_api::Domain::NotPorted, Some("not_ported")));
-    let text = deltabadger::tax::api::mcp(&c, &app, i.user, "generate_tax_report", &json!({"country": "FR", "year": 2025.0})).unwrap();
+    let text = deltabadger::tax::api::mcp(&c, &app, i.user, "generate_tax_report", &json!({"country": "FR", "year": 2018.0})).unwrap();
     assert_eq!(text["isError"], true, "{text}");
     // Validation still answers first, as Rails.
     assert_eq!(deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "ZZ", "year": 2025})), "en").unwrap().code, Some("unknown_country"));
@@ -194,8 +194,8 @@ fn the_not_ported_gate_refuses_before_anything_is_queued() {
 #[tokio::test]
 async fn a_failed_run_keeps_its_failed_outcome_and_tells_its_panel() {
     let i = install();
-    // A row this build cannot compute (nothing queues one; the run refuses it all the same).
-    queued(&open(&i), i.user, R1, "FR", "queued");
+    // A row this build cannot compute (nothing queues one; the run refuses it all the same): an unknown country.
+    queued(&open(&i), i.user, R1, "XX", "queued");
     let (db, sent) = job_db(&i);
     assert_eq!(run(&i, &db).await, Outcome::Done);
     assert_eq!(rows(&open(&i)), vec![(R1.into(), "failed".into())]);
@@ -203,6 +203,19 @@ async fn a_failed_run_keeps_its_failed_outcome_and_tells_its_panel() {
     assert_eq!(sent.len(), 1);
     assert!(sent[0].1.starts_with(&format!("<turbo-stream action=\"replace\" target=\"tax-report-{R1}\">")) && sent[0].1.contains("salert--danger"), "{sent:?}");
     assert_eq!(files(&tmp(&i)), Vec::<String>::new());
+}
+
+/// r3 item 3: a wealth report on an install with no market-data provider runs as Rails' does: the NL 2025 file values the
+/// holdings of 1 January 2026 with no stored price, so it is ready and counts the missing value.
+#[tokio::test]
+async fn a_wealth_report_without_market_data_is_ready_and_counts_what_is_missing() {
+    let i = install();
+    queued(&open(&i), i.user, R1, "NL", "queued");
+    let (db, _) = job_db(&i);
+    assert_eq!(run(&i, &db).await, Outcome::Done);
+    assert_eq!(rows(&open(&i)), vec![(R1.into(), "ready".into())]);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "NL", 2025, "crypto")).unwrap();
+    assert!(csv.contains("waarden ontbreken") && csv.contains("BTC/EUR 2026-01-01"), "{csv}");
 }
 
 #[tokio::test]
@@ -295,8 +308,8 @@ async fn the_web_request_answers_its_own_panel_and_restores_a_refusal_it_could_n
     assert!(accepted.body.contains(&format!("id=\"tax-report-{}\"", rows[0].0)) && accepted.body.contains("broadcast--on-connect"), "{}", accepted.body);
     assert!(!refusal.exists());
     assert!(open(&i).query_row("SELECT stablecoin_as_fiat FROM rust_tax_reports", [], |r| r.get::<_, bool>(0)).unwrap());
-    // The gate: a jurisdiction not ported is the refused flash, nothing queued.
-    let fr = browser.send(&app, "GET", "/tracker/tax_report?country=FR&year=2025", None, Csrf::None, &TURBO).await;
+    // The gate: a year this build does not serve (France before 2019) is the refused flash, nothing queued.
+    let fr = browser.send(&app, "GET", "/tracker/tax_report?country=FR&year=2018", None, Csrf::None, &TURBO).await;
     assert_eq!(fr.status, 501);
     assert_eq!(rows.len(), 1);
 
