@@ -357,6 +357,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(deltabadger::sync::binance_order_links::OrderLinks));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
+    // PLAN-B2 r3.3, r4.4: the runs a stopped 2.x left queued (handover::RAILS_WAKES_KEY), woken until each has run.
+    let rails_wakes = handover::due_rails_wakes(&own.primary, chrono::Utc::now()).map_err(|e| format!("{RAILS_WAKES}: {e:?}", RAILS_WAKES = handover::RAILS_WAKES_KEY))?;
     let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env, rates.clone())).collect();
     let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env, rates);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
@@ -369,6 +371,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     for key in unbound {
         scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
     }
+    for (job, scope) in &rails_wakes { scheduler.wakers().wake(job, Some(scope), None); }
     scheduler.wakers().attach_engine(engine.wake_handle());
     let scheduler = if let Some(web) = app {
         web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;
