@@ -49,8 +49,10 @@ impl Throttle {
 }
 
 /// The process's throttle for a key on a plan. ponytail: one map entry per key ever used in the process (a handful).
+type Throttles = Mutex<HashMap<(String, u8), Arc<Throttle>>>;
+
 pub fn throttle(key: &str, plan: Plan) -> Arc<Throttle> {
-    static ALL: OnceLock<Mutex<HashMap<(String, u8), Arc<Throttle>>>> = OnceLock::new();
+    static ALL: OnceLock<Throttles> = OnceLock::new();
     let mut all = ALL.get_or_init(Default::default).lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     all.entry((key.to_string(), plan as u8)).or_insert_with(|| Arc::new(Throttle::new(plan.per_minute()))).clone()
 }

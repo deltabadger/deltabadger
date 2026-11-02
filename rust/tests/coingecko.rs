@@ -204,7 +204,7 @@ async fn setup_sync_runs_assets_then_ranking_and_stops_on_a_rate_limit() {
         .reply("GET /api/v3/coins/markets", 200, json!([{ "id": "bitcoin", "market_cap": 1e12 }]));
     job(&t).run(cx(&db), vec![]).await;
     assert_eq!(t.requests().iter().filter(|r| r.path == "/api/v3/coins/markets").count(), 2, "assets, then the ranking");
-    assert_eq!(state::read(&reopen(&d), reference::INDICES, None).unwrap().last_success_at.is_some(), true);
+    assert!(state::read(&reopen(&d), reference::INDICES, None).unwrap().last_success_at.is_some());
     assert_eq!(deltabadger::app_config::get_plain(&reopen(&d), setup_sync::REQUEST).unwrap(), None, "served: cleared");
 
     // A newer request arriving during the run (the second save) survives it.
