@@ -2458,12 +2458,16 @@ fn account_divergences(name: &str, scenario: &Value, rails: &mut Value, rust: &m
             if ours["status"] != 303 || (found != expected && found != format!("http://localhost:3000{expected}")) || ours["body"] != empty {
                 return Err(format!("{divergence} step {index}: expected 303 to {expected} with no body: {ours}"));
             }
+            // The flash lives in the session: this build must write the session cookie, with the attributes Rails gives it.
+            let session = rails["responses"].as_array().into_iter().flatten().find_map(|r| r["headers"].get("set-cookie").cloned());
+            if session.is_none() || ours["headers"].get("set-cookie") != session.as_ref() {
+                return Err(format!("{divergence} step {index}: expected the session cookie {session:?} (the flash): {ours}"));
+            }
             let answer = &mut rails["responses"][index];
             answer["status"] = json!(303);
             answer["body"] = empty.clone();
-            for header in ["location", "set-cookie"] {
-                match ours["headers"].get(header) { Some(value) => answer["headers"][header] = value.clone(), None => { answer["headers"].as_object_mut().map(|h| h.remove(header)); } }
-            }
+            answer["headers"]["location"] = ours["headers"]["location"].clone();
+            answer["headers"]["set-cookie"] = session.unwrap_or_default();
             Ok(())
         };
         // D-SIGNUP-NO-THANK-YOU: Rails sends a signup, new or taken, to /thank-you (302 for a taken address, 303 for a new
@@ -2514,7 +2518,13 @@ fn account_divergences(name: &str, scenario: &Value, rails: &mut Value, rust: &m
         if rails["responses"][last]["status"] != 400 || rust["responses"][last]["status"] != 400 || rust["responses"][last]["body"] != json!(page) {
             return Err(format!("expected 400 with public/400.html: {}", rust["responses"][last]));
         }
-        for key in ["headers", "body"] { rails["responses"][last][key] = rust["responses"][last][key].clone(); }
+        // Rails' 400 here is its test environment's exception page; production answers the bare public page with these
+        // headers (as_parse_error), which this build's answer is then compared against whole.
+        rails["responses"][last]["body"] = json!(page);
+        rails["responses"][last]["headers"] = json!({
+            "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
+            "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
+        });
     }
     Ok(())
 }

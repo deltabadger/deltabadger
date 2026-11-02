@@ -114,7 +114,9 @@ async fn signup_taken_answers_as_a_new_account() {
     assert_eq!((new.status, new.header("location")), (303, Some("/login")));
     assert_eq!(visible(&new), visible(&taken));
     // The landing (D-SIGNUP-NO-THANK-YOU) is the same page, with the same notice.
-    assert_eq!(visible(&first.get(&h.app, "/login").await), visible(&second.get(&h.app, "/login").await));
+    let (landed_new, landed_taken) = (first.get(&h.app, "/login").await, second.get(&h.app, "/login").await);
+    assert!(landed_new.body.contains("A message with a confirmation link has been sent to your email address."), "the signed_up_but_unconfirmed notice");
+    assert_eq!(visible(&landed_new), visible(&landed_taken));
     assert_eq!(h.sent(), vec![("new@example.com".into(), "Confirm your email".into()), ("owner@example.com".into(), "Email already taken".into())]);
 }
 
@@ -200,6 +202,7 @@ async fn the_answer_never_depends_on_mail() {
     // D-ACCOUNT-MAIL-OFF-REQUEST: delivered, failing, stalled, no SMTP at all (the live mailer), malformed SMTP settings.
     let delivered = answers(Behaviour::Deliver, &[]).await;
     assert_eq!(delivered[0], delivered[2], "a reset for a known address answers as one for an unknown address");
+    assert!(delivered[1].2.contains("you will receive a password recovery link"), "D-RESET-NOTICE-COPY: the reset copy, not the confirmation copy");
     assert_eq!(delivered[1], delivered[3]);
     assert_eq!(delivered[5], delivered[6], "a resend for a known address answers as one for an unknown address");
     for (behaviour, env) in [(Behaviour::Fail, &[][..]), (Behaviour::Stall, &[][..]), (Behaviour::Deliver, &[("SMTP_ADDRESS", "smtp.example.com"), ("SMTP_PORT", "not-a-port")][..])] {
@@ -262,6 +265,7 @@ async fn the_mailed_link_resets_once_and_a_newer_link_supersedes_it() {
     // Replayed: back to the request page (D-RESET-UPDATE-STALE-TOKEN), nothing written.
     let again = h.reset(&mut browser, &second, "Third-horse-11", None).await;
     assert_eq!((again.status, again.header("location")), (303, Some("/password/new")));
+    assert!(browser.get(&h.app, "/password/new").await.body.contains("Your password reset link has expired. Please request a new link."));
     assert_eq!(h.user("owner@example.com"), row);
 }
 
