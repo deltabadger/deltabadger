@@ -213,7 +213,7 @@ async fn registration(app: App, ctx: Ctx) -> Result<Response, WebError> {
 /// its form instead; the platform's server needs nothing more. Anything else changes nothing.
 async fn email_notifications(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
-    let (widget, notice) = app
+    let (widget, notice, registration_row) = app
         .db(move |c| {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             let (cipher, now) = (&inner.cipher, inner.now());
@@ -260,9 +260,20 @@ async fn email_notifications(app: App, ctx: Ctx) -> Result<Response, WebError> {
                 _ => None,
             };
             let widget = view::email(&tx, &inner, &v, &csrf, show_form)?;
+            // D-NO-MAIL-SAYS-SO: an open registration's row says whether confirmation mail can arrive, so it is redrawn
+            // with the mail it depends on. Closed, the row cannot change, and the answer is Rails'.
+            let registration = match auth::app_config(&tx, cipher, "registration_open")?.as_deref() {
+                Some("true") => Some(view::registration(&v, &csrf, true, super::mail::set_up(&inner, &tx)?)?),
+                _ => None,
+            };
             tx.commit()?;
-            Ok((widget, notice))
+            Ok((widget, notice, registration))
         })
         .await?;
-    widget_and_flash(&ctx, "email_notifications", &widget, notice)
+    let Some(registration) = registration_row else { return widget_and_flash(&ctx, "email_notifications", &widget, notice) };
+    let now: Vec<(&str, String)> = notice.map(|key| (flash::NOTICE, ctx.t(key))).into_iter().collect();
+    let markup = flash::render(&flash::take(&ctx.session, &now))?;
+    Ok(stream(turbo::stream("replace", "email_notifications", widget.trim_end())
+        + &turbo::stream("replace", "registration_settings", registration.trim_end())
+        + &turbo::prepend_flash(markup.trim_end())))
 }

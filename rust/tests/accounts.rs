@@ -414,3 +414,28 @@ async fn the_registration_row_says_when_no_confirmation_mail_can_arrive() {
         assert_eq!(on.body.contains(HINT), !mail, "mail {mail}: {}", on.body);
     }
 }
+
+/// D-NO-MAIL-SAYS-SO: saving SMTP in Settings redraws an open registration's row, so the warning goes as mail is set up
+/// and comes back when it is switched off.
+#[tokio::test(flavor = "current_thread")]
+async fn saving_smtp_redraws_an_open_registrations_row() {
+    const HINT: &str = "Email sending is not set up, so new accounts cannot confirm their email address.";
+    let h = harness_with(Behaviour::Deliver, &[], None);
+    let app = web_support::app(h.dir.path(), SECRET, h.clock.clone()); // no SMTP_ADDRESS: Settings decides
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    browser.post(&app, "/login", &[("user[email]", "owner@example.com"), ("user[password]", PASSWORD)]).await;
+    assert!(browser.get(&app, "/settings/account").await.body.contains(HINT));
+    let stream = [("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")];
+    let save = |provider: &'static str| [("_method", "patch"), ("smtp_provider", provider), ("smtp_username", "placeholder-user"),
+                                          ("smtp_password", "placeholder-password"), ("smtp_host", "mail.example.com"), ("smtp_port", "2525")];
+    let on = browser.send(&app, "POST", "/settings/update_email_notifications", Some(&save("custom_smtp")), Csrf::Header, &stream).await;
+    assert_eq!(on.status, 200);
+    assert!(on.body.contains(r#"target="registration_settings""#) && !on.body.contains(HINT), "{}", on.body);
+    let off = browser.send(&app, "POST", "/settings/update_email_notifications", Some(&save("")), Csrf::Header, &stream).await;
+    assert!(off.body.contains(r#"target="registration_settings""#) && off.body.contains(HINT), "{}", off.body);
+    // Closed registration: Rails' answer, the email row alone.
+    db(&h.dir).execute("DELETE FROM app_configs WHERE key = 'registration_open'", []).unwrap();
+    let closed = browser.send(&app, "POST", "/settings/update_email_notifications", Some(&save("custom_smtp")), Csrf::Header, &stream).await;
+    assert!(!closed.body.contains("registration_settings"), "{}", closed.body);
+}
