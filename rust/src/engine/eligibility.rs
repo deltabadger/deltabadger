@@ -568,7 +568,8 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
             "SELECT category, instrument_type, external_id FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
         // No Rails bot path reads instrument_type (only tax does): a Cryptocurrency marked tokenized (PAXG, XAUT) trades as
         // any coin. A tokenized stock (the catalogue's category, or a tokenized instrument of another category) is refused until
-        // a recorded vector proves its venue (B2). D-TOK-KRAKEN: Rails cannot trade one on Kraken; refused rather than copied.
+        // a recorded vector proves its venue (B2). D-TOK-KRAKEN (A15): Rust sends Kraken's asset_class, but Kraken rebases an
+        // xStock's balance, which no reader here follows, and the listing keeps every Kraken xStock untradable.
         // D-INDEX-TOP-N: an old stablecoin member remains a holding when composition removes it.
         // It must not refuse takeover/resync; index selection never seats it for a new buy.
         let index_stablecoin = bot.bot_type == "Bots::DcaIndex"
@@ -583,7 +584,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         if tokenized && !stock {
             let venue = model::exchange_type(c, bot)?;
             if venue == "Exchanges::Kraken" {
-                r.push(why(Kind::Asset(Some(asset_id)), "Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here"));
+                r.push(why(Kind::Asset(Some(asset_id)), "Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here"));
             } else if !TOKENIZED_PROVEN.contains(&venue.as_str()) {
                 r.push(why(Kind::Asset(Some(asset_id)), format!("tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)", t.base_symbol, model::exchange_name(c, bot)?)));
             }
