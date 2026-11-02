@@ -15,7 +15,89 @@ pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs
     /// The bots and rules this start set aside (set_aside::apply), in the claim's own transaction.
     pub set_aside: Vec<super::set_aside::Aside>, pub rules_stopped: Vec<i64> }
 
-const RAILS_BOT_JOBS: [&str; 5] = ["Bot::ActionJob", "Bot::BroadcastAfterScheduledActionJob", "Bot::FetchAndUpdateOrderJob", "Bot::FetchAndUpdateOpenOrdersJob", "Bot::PriceLimitCheckJob"];
+/// What a takeover does with a Rails queue row of one class (PLAN-B2 r1.3, r2.5, r3.1-r3.3, r4.2-r4.7, r5 3-4, r6 fork A,
+/// r7.2). Rails never runs again on a taken-over install, so every class it can leave has exactly one of these.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RailsWork {
+    /// Deleted for every bot the engine owns, set-aside bots included; Rust's own tick, checks and rebalance decide again
+    /// (D-UPGRADE-RAILS-CHECKS-REDONE). A claimed or failed one is ordinary work Rails left ambiguous: one activity line on
+    /// its bot (D-UPGRADE-RAILS-AMBIGUITY-INHERITED). RebalanceJob's legs are behind Rails' own barrier (rebalancer.rb).
+    Redone,
+    /// Bot::StopJob: the pending amount-limit stop happens now, in the claim transaction, with its stop_message_key.
+    Stop,
+    /// Bot::SignalJob: a waiting call is imported; a claimed or failed one becomes the bot's unresolved marker
+    /// (D-UPGRADE-CLAIMED-SIGNAL); an unreadable waiting one is deleted and logged (D-UPGRADE-UNREAD-SIGNAL).
+    Signal,
+    /// Bot::ResyncIndexCompositionJob: the bot's resync marker.
+    Resync,
+    /// A liquidation or redeploy command: deleted with one activity line on its bot; a surviving `placing` marker becomes
+    /// the ambiguous halt (D-UPGRADE-COMMAND-DROPPED).
+    Command,
+    /// Bot::FetchAndCreateOrderJob, unfinished: a hard stop naming the bot and the order id (r6 fork A).
+    FetchOrder,
+    /// Rule::ExecuteJob and Rule::EvaluateAllJob (engine::rules): imported, refused, or (a claimed/failed fan-out)
+    /// acknowledged.
+    Rule,
+    /// Woken once for its scope through the `rust_rails_wakes` journal: the Rust job of that name (r3.3, r4.4).
+    Wake(&'static str),
+    /// Ibkr::GenerateConnectionKeysJob: the key row's empty material is filled.
+    IbkrKeys,
+    /// Nothing to finish without Rails (mail not sent yet, page refreshes, syncs the scheduler runs on its own, a tax
+    /// report the user asks for again): deleted and counted in the takeover's log line (D-UPGRADE-RAILS-WORK-DROPPED). So
+    /// is a class missing from this table, which only a newer 2.x could have enqueued.
+    Dropped,
+}
+
+/// Every job class 2.x can leave in its queue (r3.2, r4.5): each `class … < …` under app/jobs by its full name, each
+/// perform_later receiver, config/recurring.yml's classes and its `command:` runner, and the mailer's job. Pinned against
+/// the repository by tests/handover.rs `every_rails_job_class_has_an_outcome`.
+pub const RAILS_WORK: &[(&str, RailsWork)] = {
+    use RailsWork::*;
+    &[
+        ("Bot::ActionJob", Redone), ("Bot::BroadcastAfterScheduledActionJob", Redone), ("Bot::FetchAndUpdateOrderJob", Redone),
+        ("Bot::FetchAndUpdateOpenOrdersJob", Redone), ("Bot::PriceLimitCheckJob", Redone), ("Bot::PriceDropLimitCheckJob", Redone),
+        ("Bot::MovingAverageLimitCheckJob", Redone), ("Bot::IndicatorLimitCheckJob", Redone), ("Bot::RebalanceJob", Redone),
+        ("Bot::StopJob", Stop),
+        ("Bot::SignalJob", Signal),
+        ("Bot::ResyncIndexCompositionJob", Resync),
+        ("Bot::LiquidateExitedJob", Command), ("Bot::RedeployJob", Command), ("Bot::DeclineRedeployJob", Command),
+        ("Bot::ResolveLiquidationJob", Command), ("Bot::ResolveRedeployJob", Command),
+        ("Bot::FetchAndCreateOrderJob", FetchOrder),
+        ("Rule::ExecuteJob", Rule), ("Rule::EvaluateAllJob", Rule),
+        ("Tracker::LedgerJob", Wake(crate::tracker::jobs::TRACKER_LEDGER)), ("Tracker::LedgerJob::Retry", Wake(crate::tracker::jobs::TRACKER_LEDGER)),
+        ("PortfolioSnapshot::BackfillJob", Wake(crate::tracker::jobs::PORTFOLIO_BACKFILL)),
+        ("ApiKeyValidatorJob", Wake(crate::sync::jobs::API_KEY_VALIDATOR)),
+        ("Ibkr::GenerateConnectionKeysJob", IbkrKeys),
+        // Abstract bases: never enqueued themselves.
+        ("ApplicationJob", Dropped), ("BotJob", Dropped), ("Bot::LimitCheckJobBase", Dropped),
+        // Mail Rails had not sent yet.
+        ("ActionMailer::MailDeliveryJob", Dropped), ("ApplicationMailDeliveryJob", Dropped),
+        // Page refreshes and metrics caches: the web renders from the data.
+        ("Bot::BroadcastIndicatorLimitInfoUpdateJob", Dropped), ("Bot::BroadcastMetricsUpdateJob", Dropped),
+        ("Bot::BroadcastMovingAverageLimitInfoUpdateJob", Dropped), ("Bot::BroadcastPnlUpdateJob", Dropped),
+        ("Bot::BroadcastPriceDropLimitInfoUpdateJob", Dropped), ("Bot::BroadcastPriceLimitInfoUpdateJob", Dropped),
+        ("User::BroadcastGlobalPnlUpdateJob", Dropped), ("Bot::UpdateMetricsJob", Dropped), ("Bot::ExpireRestatedMetricsJob", Dropped),
+        ("Bot::WarmMetricsCachesJob", Dropped),
+        // Syncs and maintenance the scheduler runs on its own schedule, or that have no Rust counterpart to finish.
+        ("AccountBalance::SyncAllJob", Dropped), ("AccountBalance::SyncJob", Dropped), ("AccountTransaction::ResolveAssetsJob", Dropped),
+        ("AccountTransaction::SyncAllJob", Dropped), ("AccountTransaction::SyncJob", Dropped), ("AccountTransaction::SyncTrackerJob", Dropped),
+        ("AppUpdate::CheckJob", Dropped), ("Asset::FetchAllAssetsDataFromCoingeckoJob", Dropped), ("Asset::FetchDataFromCoingeckoJob", Dropped),
+        ("Asset::InferColorFromImageJob", Dropped), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
+        ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped), ("Bot::ConvertSingleAssetBotsJob", Dropped),
+        ("Bot::EvaluateRebalancersJob", Dropped), ("Bot::RepairOrphanedBotsJob", Dropped), ("Exchange::SyncAllTickersAndAssetsJob", Dropped),
+        ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", Dropped), ("Ibkr::CheckActivationJob", Dropped),
+        ("Index::SyncFromCoingeckoJob", Dropped), ("Setup::SeedAndSyncJob", Dropped), ("SolidQueue::RecurringJob", Dropped),
+        // r7.2: the report page shows nothing in progress; the user asks again.
+        ("Tax::GenerateReportJob", Dropped),
+    ]
+};
+
+/// A queue row's outcome by its class_name: a class not in RAILS_WORK is dropped.
+pub fn rails_work(class: &str) -> RailsWork {
+    RAILS_WORK.iter().find(|(name, _)| *name == class).map_or(RailsWork::Dropped, |(_, work)| *work)
+}
+
+const RAILS_BOT_JOBS: [&str; 5] =["Bot::ActionJob", "Bot::BroadcastAfterScheduledActionJob", "Bot::FetchAndUpdateOrderJob", "Bot::FetchAndUpdateOpenOrdersJob", "Bot::PriceLimitCheckJob"];
 
 fn first_gid(arguments: &str) -> Option<String> {
     let v: Value = serde_json::from_str(arguments).ok()?;

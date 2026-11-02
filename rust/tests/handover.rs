@@ -974,3 +974,68 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     o.primary.execute("DELETE FROM kucoin_coverage", []).unwrap();
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
 }
+
+/// The Ruby files under `dir`, recursively.
+fn ruby_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() { ruby_files(&path, out) } else if path.extension().is_some_and(|e| e == "rb") { out.push(path) }
+    }
+}
+
+/// PLAN-B2 r3.2, r4.5: every job class 2.x can leave in its queue has an outcome in handover::RAILS_WORK, and the table
+/// names no class the repository lacks. A class added under app/jobs without an outcome fails here, not at a user's start.
+#[test]
+fn every_rails_job_class_has_an_outcome() {
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let mut found = std::collections::BTreeSet::new();
+    // Every `class … < …` under app/jobs, by its full name: the `module`/`class` headers it is indented under. Error
+    // classes (`< StandardError`) are not jobs.
+    let header = regex::Regex::new(r"^(\s*)(module|class) ([A-Z][A-Za-z0-9_:]*)(\s*<\s*([A-Za-z0-9_:]+))?").unwrap();
+    let mut files = vec![];
+    ruby_files(&repo.join("app/jobs"), &mut files);
+    for file in &files {
+        let mut open: Vec<(usize, String)> = vec![];
+        for line in std::fs::read_to_string(file).unwrap().lines() {
+            let Some(m) = header.captures(line) else { continue };
+            let indent = m[1].len();
+            open.retain(|(i, _)| *i < indent);
+            let name = open.iter().map(|(_, n)| n.as_str()).chain([&m[3]]).collect::<Vec<_>>().join("::");
+            if &m[2] == "class" && m.get(5).is_some_and(|s| s.as_str() != "StandardError") { found.insert(name); }
+            open.push((indent, m[3].to_string()));
+        }
+    }
+    assert!(found.contains("Tracker::LedgerJob::Retry") && found.contains("Bot::ActionJob"), "the class reader found {found:?}");
+    let classes = found.clone();
+    // Every constant `perform_later` receiver in app/ and lib/ (`X.perform_later`, `X.set(…).perform_later`). A relative
+    // name (Retry inside Tracker::LedgerJob) is the class under app/jobs it ends.
+    let receiver = regex::Regex::new(r"([A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*)(?:\.set\([^)]*\))?\.perform_later").unwrap();
+    let mut files = vec![];
+    ruby_files(&repo.join("app"), &mut files);
+    ruby_files(&repo.join("lib"), &mut files);
+    let mut receivers = 0;
+    for file in &files {
+        for m in receiver.captures_iter(&std::fs::read_to_string(file).unwrap()) {
+            let name = &m[1];
+            receivers += 1;
+            found.insert(classes.iter().find(|c| *c == name || c.ends_with(&format!("::{name}"))).cloned().unwrap_or_else(|| name.to_string()));
+        }
+    }
+    assert!(receivers > 40, "perform_later receivers read: {receivers}");
+    // config/recurring.yml: each `class:`, and SolidQueue::RecurringJob for a `command:` task. The mailer's job.
+    let recurring = std::fs::read_to_string(repo.join("config/recurring.yml")).unwrap();
+    for line in recurring.lines().map(str::trim) {
+        if let Some(class) = line.strip_prefix("class:") { found.insert(class.trim().trim_matches('"').to_string()); }
+        if line.starts_with("command:") { found.insert("SolidQueue::RecurringJob".into()); }
+    }
+    assert!(found.contains("SolidQueue::RecurringJob"), "recurring.yml has a command: task");
+    found.insert("ActionMailer::MailDeliveryJob".into());
+
+    let table: std::collections::BTreeSet<String> = handover::RAILS_WORK.iter().map(|(c, _)| c.to_string()).collect();
+    assert_eq!(table.len(), handover::RAILS_WORK.len(), "a class listed twice");
+    let missing: Vec<_> = found.difference(&table).collect();
+    assert!(missing.is_empty(), "Rails job classes without an outcome in handover::RAILS_WORK: {missing:?}");
+    let stale: Vec<_> = table.difference(&found).collect();
+    assert!(stale.is_empty(), "handover::RAILS_WORK names classes the repository no longer has: {stale:?}");
+    assert_eq!(handover::rails_work("Some::FutureJob"), handover::RailsWork::Dropped, "an unknown class is dropped, never a hard stop");
+}
