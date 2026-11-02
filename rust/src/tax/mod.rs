@@ -364,6 +364,8 @@ impl Report {
         let walked = if gb && !ahead.is_empty() { together = enriched.iter().chain(&ahead).cloned().collect(); &together } else { &enriched };
         let (taxable, folded, mut txs) = self.txs(walked)?;
         let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && e.row.amount.is_positive() && e.row.uid < next)
+            // GB: a fee row of a swap is that swap's fee (D-TAX-GB-SWAP-FEE), not one matched to no trade.
+            .filter(|(e, _)| !(gb && e.row.group.is_some()))
             .map(|(e, _)| &e.row).collect();
         if !gb && !ahead.is_empty() { txs.extend(self.txs(&ahead)?.2); }
 
@@ -657,7 +659,8 @@ impl Report {
         self.block(&mut out, "WARNING", "unlinked_withdrawals", "unlinked_withdrawals_hint",
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Withdrawal && !r.linked && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
         // D-TAX-LOST-POOLED: in the UK no disposal; a negligible value claim is the user's.
-        self.block(&mut out, "WARNING", "lost", if j.code == "GB" { "lost_hint_gb" } else { "lost_hint" },
+        let (lost, lost_hint) = if j.code == "GB" { ("lost_gb", "lost_hint_gb") } else { ("lost", "lost_hint") };
+        self.block(&mut out, "WARNING", lost, lost_hint,
                    enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Lost && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
         // § 38v ZDP.
         self.valued(&mut out, "WARNING", "cz_notice_38v", &at.notice, None)?;

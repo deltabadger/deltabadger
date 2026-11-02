@@ -1,0 +1,23 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Matching Rule
+2026-04-10T08:00:00Z,,SOL,3.0,435.9,328.01,107.89,GBP,,0.0,alpaca,sell-SOL-2026-04-10T08:00:00Z,true,true,section104
+
+"Capital Gains Tax summary: cryptoassets, tax year 6 April 2026 to 5 April 2027"
+Number of disposals (box 13.1),1
+Disposal proceeds (box 13.2),435.9
+"Allowable costs, including purchase price (box 13.3)",328.01
+"Gains in the year, before losses (box 13.4)",107.89
+Losses in the year (box 13.5),0.0
+Net gains,107.89
+Annual exempt amount,3000.0
+Taxable gains (before losses brought forward),0.0
+Tax if all within the basic rate band,0.0
+Tax at the higher rate,0.0
+"A disposal is a token's disposals of one day, matched with that day's acquisitions, then with those of the next 30 days (earliest first), then the section 104 pool; the days are your local calendar days. Losses brought forward (box 45) and gains on other assets are not applied here; the annual exempt amount and losses are shared with them. Which rate applies depends on your income. File SA108 when your proceeds exceed £50,000, your gains exceed the annual exempt amount, or you have a loss to claim. Lost or stolen coins are no disposal: a negligible value claim on the whole pool is yours to make. Income is at its market value on receipt; airdrops are listed apart (an airdrop not given for a service may cost £0: s. 17(2)). A fee row booked apart from any trade is a disposal of its coins, not a cost of a trade. Fiat currency held abroad is a chargeable asset not computed here."
+
+WARNING: Cost basis assumed at market value for these unlinked deposits:
+BTC 0.1 2026-02-10
+"These deposits are treated as your own assets brought in, at their market value on the day as an assumed cost; they are not matched as acquisitions with earlier disposals. Sync or import the account they came from and link the transfer, so the real cost is used."
+
+NOTE: Values you stated by hand:
+SOL 3.0 2026-02-05,328.01
+"These figures are yours, not the exchange's. Check them against your own records before filing."
