@@ -16,9 +16,21 @@ const STATUS: &str = "setup_sync_status";
 /// What SeedAndSyncJob's deltabadger branch syncs, in its order (the stock sync it enqueues runs last).
 const SYNCS: [&str; 4] = [reference::TICKERS, reference::ASSETS, reference::INDICES, reference::STOCKS];
 
+/// D-CG-SETUP-DURABLE: a setup run asked for (a CoinGecko key saved, a resync, a taken-over SeedAndSyncJob), as a plain
+/// counter the job reads at start and clears at the end only if no newer request came meanwhile. Rails enqueues the job
+/// in the request, and loses it if the process dies first; `setup_sync_status` keeps exactly Rails' writes.
+pub const REQUEST: &str = "rust_job.setup_sync.request";
+
+/// Ask for a setup run, in the caller's transaction; the caller wakes NAME after commit.
+pub fn request(c: &rusqlite::Connection, now: chrono::DateTime<chrono::Utc>) -> Result<(), String> {
+    let n = app_config::get_plain(c, REQUEST)?.and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+    app_config::set_plain(c, REQUEST, &(n + 1).to_string(), now)
+}
+
 /// A committed claim survives process shutdown even if its in-memory wake did not. Only a persisted
 /// connection with unfinished work is recovered; completed or never-connected installs stay idle.
 pub fn unfinished(c: &rusqlite::Connection, cipher: &crate::crypto::Cipher) -> Result<bool, String> {
+    if app_config::get_plain(c, REQUEST)?.is_some() { return Ok(true); }
     let connected = app_config::get(c, cipher, "platform_connected_at")?.is_some_and(|at| !crate::ruby::blank(&at));
     Ok(connected && matches!(app_config::get(c, cipher, STATUS)?.as_deref(), Some("pending" | "in_progress")))
 }
