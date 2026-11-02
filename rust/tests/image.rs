@@ -243,20 +243,21 @@ fn snapshot(image: &str, volume: &Volume) -> String {
 /// data's own keys.
 struct TwoX { volume: Volume, env: Vec<String>, wrong: Vec<String>, cipher: Cipher }
 
-/// Formats 2-5 (§2): the install exactly as Rails prepares it (rails_install_unmigrated) in `dir`, its `.secrets`
-/// written there by 2.70.21's generate_secrets under `gen_env` and then `edit`ed, a Kraken key encrypted under the keys
-/// 2.x reads from that file with `env`, all copied into a named volume.
+/// Formats 2-5 (§2): the install exactly as Rails prepares it (rails_install_unmigrated), its `.secrets` written by
+/// 2.70.21's generate_secrets under `gen_env` and then `edit`ed, copied into a named volume; then 2.70.21's
+/// `rake runner` with the container env `env` stores an encrypted app_config, so Rails itself encrypts the one sample
+/// under its own reading of that file and env. Not a Rust-encrypted seed: a Rust key derivation shared by the fixture
+/// and the image would cancel out, and a sample Rust wrote would open under it. `cipher` (Rust's reading of the same
+/// file) only reads the lease 3.0 writes.
 fn two_x(image: &str, gen_env: &[&str], edit: impl FnOnce(&Path), env: &[&str], wrong: &[&str]) -> TwoX {
     let dir = common::rails_install_unmigrated();
     entrypoint_2x(dir.path(), gen_env, "generate_secrets");
     edit(dir.path());
     let (_, keys) = keys_2x(dir.path(), env);
-    let cipher = Cipher::new(&keys);
-    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    common::seed::seed_kraken(&c, &cipher);
-    drop(c);
     let volume = Volume::named();
     put(image, &volume, dir.path());
+    rails_encrypts_a_sample(&volume, env);
+    let cipher = Cipher::new(&keys);
     TwoX { volume, env: env.iter().map(|s| s.to_string()).collect(), wrong: wrong.iter().map(|s| s.to_string()).collect(), cipher }
 }
 
@@ -279,9 +280,22 @@ fn refused_with_c9(image: &str, volume: &Volume, env: &[String]) {
     assert_eq!(snapshot(image, volume), before, "a refused start changes no file");
 }
 
+/// 2.70.21's `rake runner` (its entrypoint loads `.secrets` first, env first) stores an app_config Rails encrypts.
+fn rails_encrypts_a_sample(volume: &Volume, env: &[&str]) {
+    let mount = volume.mount();
+    let mut args = vec!["run", "--rm", "--network", "none", "-v", &mount];
+    for e in env { args.extend(["-e", e]); }
+    args.extend([RAILS_2X, "rake", "runner", "print AppConfig.create!(key: 'coingecko_api_key', value: 'b3-2-sample').\
+        class.connection.select_value(\"SELECT value FROM app_configs WHERE key = 'coingecko_api_key'\")"]);
+    let stored = docker(&args);
+    assert!(stored.lines().last().is_some_and(|l| l.starts_with("{\"p\":")), "Rails stored it encrypted: {stored}");
+}
+
 /// The takeover itself: `serve` claims the install (`/health-check` 200, the "took over" line, never C9), saves its
-/// copy under backups/pre-3.0-<UTC>/ first, and the lease reads `rust` under the data's own keys. Stopped (0) after.
+/// copy under backups/pre-3.0-<UTC>/ first, leaves `.secrets` byte-equal, and the lease reads `rust` under the data's
+/// own keys. Stopped (0) after.
 fn takes_over(image: &str, two_x: &TwoX) {
+    let secrets = std::fs::read(take(image, &two_x.volume).path().join(".secrets")).unwrap();
     let app = Container::start(image, &two_x.volume, &e_args(&two_x.env), &[]);
     app.wait_for("/health-check", 200);
     let logs = app.logs();
@@ -289,6 +303,7 @@ fn takes_over(image: &str, two_x: &TwoX) {
     assert_eq!(app.stop(), "0", "{}", app.logs());
     drop(app);
     let copy = take(image, &two_x.volume);
+    assert_eq!(std::fs::read(copy.path().join(".secrets")).unwrap(), secrets, "a takeover never rewrites .secrets");
     let backups: Vec<_> = std::fs::read_dir(copy.path().join("backups")).expect("a backups folder").flatten()
         .map(|e| e.file_name().to_string_lossy().into_owned()).collect();
     assert!(backups.len() == 1 && backups[0].starts_with("pre-3.0-"), "{backups:?}");
@@ -305,13 +320,8 @@ fn format_1_a_volume_made_by_2x_migrate_is_taken_over() {
     let volume = Volume::named();
     let mount = volume.mount();
     docker(&["run", "--rm", "--network", "none", "-v", &mount, RAILS_2X, "migrate"]);
-    docker(&["run", "--rm", "--network", "none", "-v", &mount, RAILS_2X, "rake", "runner",
-             "AppConfig.create!(key: 'coingecko_api_key', value: 'b3-2-sample')"]);
-    let copy = take(&image, &volume);
-    let (_, keys) = keys_2x(copy.path(), &[]);
-    let stored: String = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap()
-        .query_row("SELECT value FROM app_configs WHERE key = 'coingecko_api_key'", [], |r| r.get(0)).unwrap();
-    assert!(stored.starts_with("{\"p\":"), "Rails stored it encrypted: {stored}");
+    rails_encrypts_a_sample(&volume, &[]);
+    let (_, keys) = keys_2x(take(&image, &volume).path(), &[]);
     let fixture = TwoX { volume, env: vec![], wrong: OTHER_PAIR.map(String::from).to_vec(), cipher: Cipher::new(&keys) };
     refused_with_c9(&image, &fixture.volume, &fixture.wrong);
     takes_over(&image, &fixture);
