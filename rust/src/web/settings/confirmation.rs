@@ -28,7 +28,7 @@ pub async fn show(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<R
         if let Some(email)=pending{
             let email=crate::ruby::strip(&email).to_lowercase();
             if let Some(error)=super::account::confirmation_validation(&tx,&email,id)?{return Ok((false,true,Some(error)));}
-            tx.execute("UPDATE users SET email=?1,unconfirmed_email=NULL,confirmed_at=?2,updated_at=?2 WHERE id=?3",(email,format_time(inner.now()),id))?;
+            tx.execute("UPDATE users SET email=?1,unconfirmed_email=NULL,confirmed_at=?2,reset_password_token=NULL,reset_password_sent_at=NULL,updated_at=?2 WHERE id=?3",(email,format_time(inner.now()),id))?;
         }else{
             tx.execute("UPDATE users SET confirmed_at=?1,updated_at=?1 WHERE id=?2",(format_time(inner.now()),id))?;
         }
@@ -56,13 +56,12 @@ pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result
         let pending=pending.filter(|v|!crate::ruby::blank(v));
         if confirmed.is_some()&&pending.is_none(){return Ok(None)}
         let token=match stored{Some(token)=>token,None=>{
-            use base64::{Engine,engine::general_purpose::URL_SAFE_NO_PAD};
-            let token=URL_SAFE_NO_PAD.encode(rand::random::<[u8;15]>()).replace('l',"s").replace('I',"x").replace('O',"y").replace('0',"z");
+            let token=crate::crypto::friendly_token();
             tx.execute("UPDATE users SET confirmation_token=?1,confirmation_sent_at=?2,updated_at=?2 WHERE id=?3",(&token,format_time(inner.now()),id))?;token
         }};
         tx.commit()?;Ok(Some((id,pending.unwrap_or(email),token)))
     }).await?;
-    if let Some((id,address,token))=delivery{super::mail::confirmation(&app,id,address,token,ctx.locale).await?;}
+    if let Some((id,address,token))=delivery{super::mail::confirmation(&app,id,address,token,ctx.locale).await;}
     flash::set(&ctx.session,flash::NOTICE,ctx.t("devise.confirmations.send_paranoid_instructions"));
     Ok(layout::redirect(StatusCode::SEE_OTHER,&ctx.path("/login")))
 }
