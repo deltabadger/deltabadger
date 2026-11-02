@@ -65,6 +65,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      # PLAN-B3 §6: a v2.* tag builds the Rails image exactly as before; every other tag builds the 3.0 image.
+      DOCKERFILE: ${{ startsWith(github.ref_name, 'v2.') && 'Dockerfile' || 'Dockerfile.rust' }}
 
     steps:
       - name: Checkout repository
@@ -91,15 +94,64 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: latest=false
+
+      # PLAN-B3 r1.8: a 3.0 image is smoked on its own platform before it is pushed (script/rust/image_smoke.sh,
+      # which rust.yml's image job also runs on every change to it). This build loads it into the runner's Docker.
+      - name: Build for the smoke test
+        id: smoke
+        if: env.DOCKERFILE == 'Dockerfile.rust'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE }}
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          tags: deltabadger:smoke
+          # Never pushed: no attestation, so the build stays one image manifest and its metadata names the config
+          # digest the check below compares, whichever image store the runner's Docker uses.
+          provenance: false
+          sbom: false
+
+      - name: Smoke test
+        if: env.DOCKERFILE == 'Dockerfile.rust'
+        run: bash script/rust/image_smoke.sh deltabadger:smoke
 
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ${{ env.DOCKERFILE }}
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      # The push is a second build on the same builder: every step a cache hit, so its image config (whose digest covers
+      # the labels, the command and every layer's diff_id) is the smoked one's. Checked rather than assumed: the
+      # platform image under the pushed digest must carry the smoked image's config digest, or the digest is not handed
+      # to the merge job and no tag ever points at it.
+      - name: The pushed image is the smoked one
+        if: env.DOCKERFILE == 'Dockerfile.rust'
+        env:
+          REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          # Not outputs.imageid: with the containerd image store buildx loads through the OCI importer and imageid is
+          # the manifest digest. The build's metadata names the config digest on either store.
+          SMOKED: ${{ fromJSON(steps.smoke.outputs.metadata)['containerimage.config.digest'] }}
+        run: |
+          set -euo pipefail
+          raw=$(docker buildx imagetools inspect --raw "$REF")
+          # An index (the image and its provenance attestation): take this platform's image manifest.
+          manifest=$(jq -r --arg arch "$ARCH" '.manifests // [] | map(select(.platform.architecture == $arch)) | .[0].digest // empty' <<< "$raw")
+          if [ -n "$manifest" ]; then raw=$(docker buildx imagetools inspect --raw "${REF%@*}@$manifest"); fi
+          pushed=$(jq -r '.config.digest' <<< "$raw")
+          echo "smoked $SMOKED, pushed $pushed"
+          if [ -z "$SMOKED" ] || [ "$pushed" != "$SMOKED" ]; then
+            echo "::error::the pushed image ($pushed) is not the smoked one ($SMOKED)"
+            exit 1
+          fi
 
       - name: Export digest
         run: |
@@ -123,6 +175,25 @@ jobs:
       packages: write
 
     steps:
+      # PLAN-B3 r1.3, with one named deviation: the rule is script/rust/latest_tag.sh rather than an inline expression,
+      # so that rust.yml's publish-tags job can run the same rule on six tags (an expression can't be called from a PR
+      # job, where github.ref_name is the PR's ref). :latest moves only for a stable tag of vars.LATEST_MAJOR; an
+      # unset or empty LATEST_MAJOR fails here rather than silently leaving a 2.x patch off :latest.
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: script/rust/latest_tag.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Whether this tag moves latest
+        id: latest
+        env:
+          TAG: ${{ github.ref_name }}
+          LATEST_MAJOR: ${{ vars.LATEST_MAJOR }}
+        run: |
+          latest=$(bash script/rust/latest_tag.sh "$TAG" "$LATEST_MAJOR")
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
@@ -145,15 +216,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Keep in step with rust.yml's publish-tags job, which proves these lines on six tags.
+          flavor: latest=false
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ steps.latest.outputs.latest }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
+          # The -t flags and the digests are split into words on purpose.
+          # shellcheck disable=SC2046
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
