@@ -177,9 +177,11 @@ fn an_archived_account_history_exhausts_one_budget_and_visibly_stands_down() {
     assert!(t.posted_orders().is_empty());
 }
 
-/// Bot::Restatable#grouped_split_rows on a name a venue lists twice (Alpaca's BTC security beside BTC/USD), as
-/// test/models/bot/restatable_test.rb pins it: a report's recorded asset decides; one with none falls back to its name
-/// only while the account holds one class under it, and otherwise restates nothing and leaves the split unresolved.
+/// Bot::Restatable#grouped_split_rows on a name a venue lists twice (Alpaca's BTC security beside BTC/USD): a report's
+/// recorded asset decides, as test/models/bot/restatable_test.rb pins it. D-SPLIT-NEVER-A-COIN: a report that recorded
+/// no asset never restates the coin, nor leaves it unresolved. Rails falls back to the name while the account holds one
+/// class under it (restating the coin) and otherwise holds the coin unresolved for good. The security itself is still
+/// restated by name.
 #[test]
 fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
     use deltabadger::figures::{at::At, budget, db::Order, fill::Raw, splits::{self as rails, Holding}};
@@ -188,8 +190,9 @@ fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
     for (coin_held, recorded, both_classes, factors, unresolved) in [
         (true, true, false, vec![], false),
         (false, true, false, vec!["2.0"], false),
-        (true, false, false, vec!["2.0"], false),
-        (true, false, true, vec![], true),
+        (true, false, false, vec![], false),
+        (true, false, true, vec![], false),
+        (false, false, false, vec!["2.0"], false),
     ] {
         let (_d, o, s) = common::install_alpaca();
         let c = &o.primary;
