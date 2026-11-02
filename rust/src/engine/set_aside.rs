@@ -225,9 +225,9 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
         Kind::Allocations(Allocations::Unreadable) | Kind::Settings | Kind::Owner => SETTINGS.into(),
         Kind::History(h) => {
             let what = match h {
-                History::Splits => "stock splits", History::ImportedOpen => "imported orders that never closed", History::NoAsset => "orders without an asset",
+                History::ImportedOpen => "imported orders that never closed", History::NoAsset => "orders without an asset",
                 History::SpecialRows => "rebalancing, liquidation or redeploy orders", History::ForeignSells => "orders on another exchange",
-                History::IndexAssets => "index assets", History::Restated => "prices restated by an earlier version",
+                History::IndexAssets => "index assets",
             };
             format!("Its order history has {what} that can't be accounted for yet. Keep the bot stopped and contact support.")
         }

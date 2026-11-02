@@ -154,18 +154,17 @@ fn bot_that_traded_aapl(c: &Connection, s: Ids) -> i64 {
     bot
 }
 
-/// What a write that moves a bot's counter passes before it commits. On main a bot whose counter is above 0 is one the
-/// engine does not run ("restated prices", until Plan 2d applies splits to a bot's holdings), so a split of a symbol a
-/// working bot traded is refused: the unit rolls back, the sync fails, the watermark stays, and the next sync meets
-/// the same row.
+/// What a write that moves a bot's counter passes before it commits: the engine's guard. On an install it refuses (here a
+/// working bot with no quote amount), a split of a symbol that bot traded is refused: the unit rolls back, the sync fails,
+/// the watermark stays, and the next sync meets the same row.
 #[tokio::test(flavor = "current_thread")]
-async fn the_engines_guard_refuses_a_split_of_a_working_bots_symbol_and_the_ledger_waits_at_that_row() {
+async fn the_engines_guard_refuses_a_split_on_an_install_it_refuses_and_the_ledger_waits_at_that_row() {
     let (_dir, db, s) = install();
-    let bot = db.run(move |c, _| Ok(bot_that_traded_aapl(c, s))).await.unwrap();
+    let bot = db.run(move |c, _| { let bot = bot_that_traded_aapl(c, s); refuse_quote_amount(c, bot); Ok(bot) }).await.unwrap();
     let pages = json!({ ACTIVITIES: [ok(json!([interest("before", "2026-09-10"), split("s-remove", "-10"), split("s-add", "100"), interest("after", "2026-09-16")]))] });
     let state = "SELECT (SELECT count(*) FROM account_transactions) || ' rows, generation ' || (SELECT coalesce(restatement_generation, 0) FROM bots) || ', ' || \
                  (SELECT count(*) FROM bot_activity_logs) || ' lines, watermark ' || (SELECT coalesce(last_synced_at, 'none') || ', error ' || coalesce(last_sync_error, 'none') FROM api_keys)";
-    let refused = format!("{GUARD_REFUSED}: bot {bot} (scheduled): restated prices");
+    let refused = format!("{GUARD_REFUSED}: bot {bot} (scheduled): quote_amount");
     for _ in 0..2 {
         let (_, v) = venue(pages.clone());
         assert_eq!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err(), SyncError(refused.clone()));
@@ -186,13 +185,35 @@ async fn the_engines_guard_refuses_a_split_of_a_working_bots_symbol_and_the_ledg
     assert_eq!(one::<String>(&db, state).await, "3 rows, generation 1, 1 lines, watermark 2026-09-16 00:00:00, error none");
 }
 
+/// A14: a split of a symbol a working bot traded no longer makes it one the engine does not run (its counter moved, its
+/// members all coins). The split and the counter are stored together, and the bot stays working.
+#[tokio::test(flavor = "current_thread")]
+async fn a_split_of_a_working_bots_symbol_is_stored_with_its_counter() {
+    let (_dir, db, s) = install();
+    let bot = db.run(move |c, _| Ok(bot_that_traded_aapl(c, s))).await.unwrap();
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("before", "2026-09-10"), split("s-remove", "-10"), split("s-add", "100"), interest("after", "2026-09-16")]))] }));
+    let out = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!(out.imported, 3);
+    assert_eq!(one::<String>(&db, "SELECT restatement_generation || ' ' || status FROM bots").await, "1 1", "counter moved, still scheduled");
+    let (eligible, reasons) = db.run(move |c, _| {
+        let b = deltabadger::engine::model::load_bot(c, bot).map_err(|e| format!("{e:?}"))?;
+        Ok((deltabadger::engine::model::all_crypto(c, &b).map_err(|e| format!("{e:?}"))?, deltabadger::engine::eligibility::bot_reasons(c, &b).map_err(|e| format!("{e:?}"))?))
+    }).await.unwrap();
+    assert!(eligible && reasons.is_empty(), "an all-crypto bot that traded AAPL: {reasons:?}");
+}
+
+/// A working bot the engine refuses whatever the sync writes: its quote amount is gone.
+fn refuse_quote_amount(c: &Connection, bot: i64) {
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount', 0) WHERE id = ?1", [bot]).unwrap();
+}
+
 /// The guard is the engine's say on what eligibility reads, and costs tens of milliseconds a call: a unit that writes
 /// neither a bot nor a split row does not ask it. Here the install is one the guard refuses outright (a working bot with
-/// restated prices), so any unit that asked would fail.
+/// no quote amount), so any unit that asked would fail.
 #[tokio::test(flavor = "current_thread")]
 async fn only_a_unit_that_writes_what_eligibility_reads_asks_the_engines_guard() {
     let (_dir, db, s) = install();
-    db.run(move |c, _| { bot_that_traded_aapl(c, s); c.execute("UPDATE bots SET restatement_generation = 1", []).map_err(|e| e.to_string()) }).await.unwrap();
+    db.run(move |c, _| { let bot = bot_that_traded_aapl(c, s); refuse_quote_amount(c, bot); Ok(()) }).await.unwrap();
     // Plain ledger units, a failure recorded on the key, the transfer links, the watermark.
     let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("i-1", "2026-09-01"), { "id": "w-1", "activity_type": "CSW", "net_amount": "-100", "date": "2026-09-02" },
                                                       { "id": "d-1", "activity_type": "CSD", "net_amount": "100", "date": "2026-09-03" }]))] }));
@@ -208,7 +229,7 @@ async fn only_a_unit_that_writes_what_eligibility_reads_asks_the_engines_guard()
         let leg = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": symbol, "qty": qty, "date": "2026-09-15" });
         let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([leg("s-remove", "-10"), leg("s-add", "100")]))] }));
         let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
-        assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("restated prices"), "{symbol}: {refused}");
+        assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("quote_amount"), "{symbol}: {refused}");
     }
     assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 3);
 }
@@ -216,7 +237,7 @@ async fn only_a_unit_that_writes_what_eligibility_reads_asks_the_engines_guard()
 #[tokio::test(flavor = "current_thread")]
 async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with() {
     let (_dir, db, s) = install();
-    // A stopped bot: the merged engine refuses a working bot whose prices were restated (the test above).
+    // A stopped bot: its status and intent are what this test freezes.
     let seeded = db.run(move |c, _| {
         let bot = bot_that_traded_aapl(c, s);
         c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [bot]).map_err(|e| e.to_string())?;
@@ -361,6 +382,7 @@ async fn expire_restated_is_one_guarded_unit_and_a_refusal_rolls_all_of_it_back(
     let (_dir, db, s) = install();
     let (working, stopped) = db.run(move |c, _| {
         let working = bot_that_traded_aapl(c, s);
+        refuse_quote_amount(c, working);
         let stopped = seed::insert_bot(c, &s.seeded(), &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
         c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [stopped]).map_err(|e| e.to_string())?;
         c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, base, quote, amount, amount_exec, bot_interval, \
@@ -370,7 +392,7 @@ async fn expire_restated_is_one_guarded_unit_and_a_refusal_rolls_all_of_it_back(
     }).await.unwrap();
     let generations = "SELECT group_concat(id || ':' || coalesce(restatement_generation, 0), ' ') FROM (SELECT * FROM bots ORDER BY id)";
     let SyncError(refused) = ledger::expire_restated(&db, s.user_id, s.exchange_id, "AAPL").await.unwrap_err();
-    assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("restated prices"), "{refused}");
+    assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("quote_amount"), "{refused}");
     assert_eq!(one::<String>(&db, generations).await, format!("{working}:0 {stopped}:0"), "the stopped bot's counter rolled back with the working bot's");
     db.run(move |c, _| c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [working]).map_err(|e| e.to_string())).await.unwrap();
     assert_eq!(ledger::expire_restated(&db, s.user_id, s.exchange_id, "AAPL").await.unwrap(), vec![working, stopped]);
@@ -1341,14 +1363,14 @@ fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds
     assert!(out.status.code() == Some(2) && stderr(&out).contains("ledger_sync:1 failed: venue diagnostic omitted"), "{}", stderr(&out));
 }
 
-/// On an install the engine refuses (here a working bot with restated prices), a ledger sync still writes what is not the
+/// On an install the engine refuses (here a working bot with no quote amount), a ledger sync still writes what is not the
 /// engine's business: the guard is asked only by a unit that moves a bot's counter. In process: a venue failure needs a
 /// venue, and the hand-run command's factory would reach Alpaca's real hosts.
 #[tokio::test(flavor = "current_thread")]
 async fn a_failed_sync_records_its_error_on_an_install_the_guard_would_refuse() {
     let (_dir, o, s) = common::install_alpaca();
-    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    o.primary.execute("UPDATE bots SET restatement_generation = 1", []).unwrap();
+    let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    refuse_quote_amount(&o.primary, bot);
     let db = Db::new(o.primary, seed::cipher());
     let (_, v) = venue(json!({ ACTIVITIES: [{ "status": 500, "body": { "message": "internal server error" } }] }));
     let failure = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
@@ -1356,19 +1378,18 @@ async fn a_failed_sync_records_its_error_on_an_install_the_guard_would_refuse() 
     assert_eq!(one::<String>(&db, "SELECT last_sync_error FROM api_keys").await, "internal server error", "written, on an install the guard would refuse");
 }
 
-/// Every split's unit passes the engine's guard, not only one that moves a bot's counter: eligibility reads the
-/// account's split rows (`eligibility::history_reasons`), so a split row alone can make a working crypto bot one this
-/// engine does not run, and its next pass would end the process. Here a split of "BTC" that no bot's order names.
+/// Every split's unit passes the engine's guard, not only one that moves a bot's counter: a split row is something
+/// eligibility's walk reads. A14 (D-SPLIT-NEVER-A-COIN): a split named like a working crypto bot's coin ("BTC", which no
+/// bot's order names) is the security's, refuses nothing, and is stored.
 #[tokio::test(flavor = "current_thread")]
-async fn a_split_that_moves_no_counter_still_passes_the_engines_guard() {
+async fn a_split_named_like_a_working_bots_coin_is_stored_and_refuses_nothing() {
     let (_dir, db, s) = install();
-    let bot = db.run(move |c, _| Ok(seed::insert_bot(c, &s.seeded(), &BotSpec::weekly(60.0, "2026-09-01 10:00:00")))).await.unwrap();
+    db.run(move |c, _| Ok(seed::insert_bot(c, &s.seeded(), &BotSpec::weekly(60.0, "2026-09-01 10:00:00")))).await.unwrap();
     let btc_split = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": "BTC", "qty": qty, "date": "2026-09-15" });
     let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("i1", "2026-09-10"), btc_split("b-remove", "-1"), btc_split("b-add", "2")]))] }));
-    let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
-    assert_eq!(refused, format!("{GUARD_REFUSED}: bot {bot} (scheduled): 1 split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)"));
-    assert_eq!(one::<String>(&db, "SELECT (SELECT group_concat(tx_id) FROM account_transactions) || ', watermark ' || coalesce(last_synced_at, 'none') FROM api_keys").await,
-               "i1, watermark none", "the unit before the split stays; the split is not stored, and the bot stays one the engine runs");
+    ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!(one::<String>(&db, "SELECT (SELECT count(*) FROM account_transactions) || ', status ' || (SELECT status FROM bots)").await, "2, status 1",
+               "the interest and the merged split are stored; the bot stays scheduled");
 }
 
 /// Wall time that follows tokio's clock, so a paused test runtime moves it (as in tests/jobs.rs).
