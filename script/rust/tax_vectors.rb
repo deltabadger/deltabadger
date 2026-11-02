@@ -137,7 +137,7 @@ module TaxVectors
     FxRate.insert_all(rows, unique_by: %i[currency date]) if rows.any?
   end
 
-  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).merge(DK_EXPECT).merge(GR_EXPECT).merge(IT_EXPECT).merge(IE_EXPECT).merge(SE_EXPECT).merge(GB_EXPECT).fetch(s[:name], s[:expect])) }
+  def scenarios = all_scenarios.map { |s| s.merge(expect: AT_EXPECT.merge(PL_EXPECT).merge(BG_EXPECT).merge(CZ_EXPECT).merge(DK_EXPECT).merge(GR_EXPECT).merge(IT_EXPECT).merge(IE_EXPECT).merge(SE_EXPECT).merge(GB_EXPECT).merge(FR_EXPECT).fetch(s[:name], s[:expect])) }
 
   def all_scenarios
     [
@@ -291,7 +291,7 @@ module TaxVectors
         kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z', exchange: kraken)
       } }
-    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios + gb_scenarios
+    ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios + gb_scenarios + fr_scenarios
   end
 
   # A12-2: US beyond Alpaca, and D-TAX-US-WALLET (lots per venue for tax years from 2025).
@@ -2000,6 +2000,174 @@ module TaxVectors
     ]
   end
 
+  # A12-6: France by its own law (PLAN-A12 "A12-6", r0-r3; every figure computed by hand there). Paris, EUR on Kraken; the
+  # coins move between venues by fee-less linked transfers with a price on the transfer day. Every scenario with a cession
+  # shows the 2086 summary (D-TAX-FR-2086); `figures` l.213 / 214 / 218 / 220 / 221 / 223 / V / PV.
+  FR_EXPECT = %w[fr_buy_sell_income_deposit_stated fr_missing_price fr_swap_chain fr_stablecoin_kept fr_stablecoin_as_fiat
+                 fr_ecb_gap fr_oversold fr_lost fr_unlinked_withdrawal fr_coin_fee]
+              .to_h { |name| [name, 'diverges: D-TAX-FR-2086'] }.merge('fr_prior_year_only' => 'parity').freeze
+  # The shared templates' extra EUR prices on their valuation days (r1 item 1, r2 item 7).
+  FR_EXTRA = {
+    'fr_buy_sell_income_deposit_stated' => [%w[ETH 2026-04-01 2900], %w[SOL 2026-04-01 180], %w[BTC 2026-04-10 92000], %w[ETH 2026-04-10 2950]],
+    'fr_missing_price' => [%w[BTC 2026-03-10 90000]], 'fr_swap_chain' => [%w[SOL 2026-03-01 155]],
+    'fr_stablecoin_kept' => [%w[BTC 2026-02-02 88000]], 'fr_stablecoin_as_fiat' => [%w[BTC 2026-02-02 88000]]
+  }.freeze
+  def fr_shared(scenarios)
+    scenarios.map do |s|
+      extra = FR_EXTRA[s[:name]]
+      extra ? s.merge(setup: ->(c) { extra.each { |coin, day, value| price(coin, day, value, 'EUR') }; s[:setup].(c) }) : s
+    end
+  end
+
+  def fr_scenarios
+    fr = ->(name, year: 2025, expect: 'diverges: D-TAX-FR-2086', &setup) { { name:, country: 'FR', year:, expect:, setup: ->(c) { user_zone(c, 'Paris'); setup.(c) } } }
+    eur = ->(coin, day, value) { price(coin, day, value, 'EUR') }
+    kr = ->(c) { venue(c, :kraken) }
+    bn = ->(c) { venue(c, :binance) }
+    # 0.1 ETH €200; 0.05 sold for €152.50 on 05-01 (V 305, l.223 200, +52.50); 0.05 for `second` with `fee` on 09-01.
+    at305 = lambda do |c, second, fee = nil|
+      eur.('ETH', '2025-05-01', '3050')
+      kraken(c, :buy, 'ETH', '0.1', '200', '2025-02-01T10:00:00Z')
+      kraken(c, :sell, 'ETH', '0.05', '152.50', '2025-05-01T10:00:00Z')
+      kraken(c, :sell, 'ETH', '0.05', second, '2025-09-01T10:00:00Z', fee:)
+    end
+    pre2019 = lambda do |c|
+      kraken(c, :buy, 'BTC', '1', '3000', '2017-03-01T10:00:00Z')
+      kraken(c, :buy, 'BTC', '1', '15000', '2017-12-15T10:00:00Z')
+      kraken(c, :sell, 'BTC', '1', '3500', '2018-06-01T10:00:00Z')
+      kraken(c, :sell, 'BTC', '1', '7000', '2019-06-01T10:00:00Z')
+    end
+    [
+      # D-TAX-FR-FEE-RATIO, D-TAX-FR-PORTFOLIO-VALUE: 9,000 / 18 / 8,982 / 18,000 / 0 / 18,000 / V 21,000 / +1,267.71;
+      # 15,000 / 30 / 14,970 / 23,000 / 7,714.29 / 15,285.71 / V 15,000 / −315.71 → 224 952.00, 51 23,952.00, 3AN 952.00,
+      # IR 121.86, PS 18.6% 177.07, total 298.93 (Rails 1,283.14 on the first).
+      fr.('fr_two_sales') do |c|
+        eur.('BTC', '2025-02-01', '95000')
+        eur.('BTC', '2025-03-01', '85000')
+        eur.('ETH', '2025-03-01', '2800')
+        eur.('ETH', '2025-05-01', '1700')
+        eur.('BTC', '2025-06-10', '120000')
+        eur.('ETH', '2025-06-10', '3000')
+        eur.('BTC', '2025-10-01', '100000')
+        eur.('BTC', '2025-11-20', '100000')
+        kraken(c, :buy, 'BTC', '0.2', '18000', '2025-01-10T10:00:00Z')
+        transfer(c, 'BTC', '0.2', '2025-02-01T10:00:00Z', from: kr.(c), to: bn.(c))
+        swap(c, 'BTC', '0.1', 'ETH', '3', '2025-03-01T10:00:00Z', ref: 'fr1')
+        transfer(c, 'ETH', '3', '2025-05-01T10:00:00Z', from: bn.(c), to: kr.(c))
+        kraken(c, :sell, 'ETH', '3', '9000', '2025-06-10T10:00:00Z', fee: '18')
+        kraken(c, :buy, 'BTC', '0.05', '5000', '2025-07-15T10:00:00Z')
+        transfer(c, 'BTC', '0.1', '2025-10-01T10:00:00Z', from: bn.(c), to: kr.(c))
+        kraken(c, :sell, 'BTC', '0.15', '15000', '2025-11-20T10:00:00Z', fee: '30')
+      end,
+      # A stablecoin is a digital asset: BTC → USDC deferred, USDC → EUR taxable at the euros received: V 9,100, +3,100.00;
+      # IR 396.80, PS 576.60, total 973.40 (Rails' V at the peg 9,090.91: +3,094.00).
+      fr.('fr_stablecoin_sale') do |c|
+        eur.('BTC', '2025-02-01', '80000')
+        eur.('BTC', '2025-03-01', '91000')
+        kraken(c, :buy, 'BTC', '0.1', '6000', '2025-01-10T10:00:00Z')
+        transfer(c, 'BTC', '0.1', '2025-02-01T10:00:00Z', from: kr.(c), to: bn.(c))
+        swap(c, 'BTC', '0.1', 'USDC', '10000', '2025-03-01T10:00:00Z', ref: 'fr2')
+        transfer(c, 'USDC', '10000', '2025-03-02T10:00:00Z', from: bn.(c), to: kr.(c))
+        kraken(c, :sell, 'USDC', '10000', '9100', '2025-03-05T10:00:00Z')
+      end,
+      # D-TAX-FR-305: 51 305.00, exempt.
+      fr.('fr_305_at') { |c| at305.(c, '152.50') },
+      # 51 305.01, taxed: +52.50 / +52.51 → 3AN 105.01, IR 13.44, PS 19.53, total 32.97.
+      fr.('fr_305_over') { |c| at305.(c, '152.51') },
+      # Net prices: 153.00 less 0.50 → 218 152.50, +52.50; 51 305.00, exempt.
+      fr.('fr_305_net_of_fees') { |c| at305.(c, '153.00', '0.50') },
+      # −1,000.00 → 3BN 1,000.00, no tax.
+      fr.('fr_loss_year') do |c|
+        kraken(c, :buy, 'ETH', '1', '3000', '2025-01-10T10:00:00Z')
+        kraken(c, :sell, 'ETH', '1', '2000', '2025-08-01T10:00:00Z')
+      end,
+      # D-TAX-FR-2019: l.220 starts from the lots held on 1 January 2019 (the €15,000 one): V 7,000, −8,000.00, 3BN 8,000.00.
+      fr.('fr_pre_2019', year: 2019) { |c| pre2019.(c) },
+      fr.('fr_2018_not_ported', year: 2018, expect: 'parity') { |c| pre2019.(c) },
+      # D-TAX-FR-2019 (§ 130): a swap before 2019 costs the received coin the value given (€800, not €850): l.220 800, V 700,
+      # −100.00.
+      fr.('fr_pre_2019_swap', year: 2019) do |c|
+        eur.('ETH', '2018-02-01', '900')
+        eur.('ETH', '2018-05-01', '800')
+        eur.('BTC', '2018-05-01', '8500')
+        eur.('BTC', '2018-06-01', '7500')
+        kraken(c, :buy, 'ETH', '1', '1000', '2018-01-10T10:00:00Z')
+        transfer(c, 'ETH', '1', '2018-02-01T10:00:00Z', from: kr.(c), to: bn.(c))
+        swap(c, 'ETH', '1', 'BTC', '0.1', '2018-05-01T10:00:00Z', ref: 'fr3')
+        transfer(c, 'BTC', '0.1', '2018-06-01T10:00:00Z', from: bn.(c), to: kr.(c))
+        kraken(c, :sell, 'BTC', '0.1', '700', '2019-03-01T10:00:00Z')
+      end,
+      # D-TAX-FR-REWARDS: staking adds €0, the airdrop its value: l.220 3,500, V 4,700, +842.55; IR 107.85, PS 156.71, total
+      # 264.56; income staking 250.00, airdrop 1,500.00; NOTE fr_rewards lists the staking.
+      fr.('fr_rewards', expect: 'diverges: D-TAX-FR-REWARDS') do |c|
+        eur.('ETH', '2025-03-01', '2500')
+        eur.('SOL', '2025-04-15', '150')
+        eur.('SOL', '2025-06-01', '140')
+        kraken(c, :buy, 'ETH', '1', '2000', '2025-01-10T10:00:00Z')
+        row(c, :staking_reward, 'ETH', '0.1', '2025-03-01T00:00:00Z', exchange: kr.(c))
+        row(c, :airdrop, 'SOL', '10', '2025-04-15T00:00:00Z', exchange: kr.(c))
+        kraken(c, :sell, 'ETH', '1.1', '3300', '2025-06-01T10:00:00Z')
+      end,
+      # D-TAX-FR-DEPOSIT-ZERO: l.220 2,000, V 6,000, +2,000.00; IR 256.00, PS 372.00, total 628.00.
+      fr.('fr_deposit_zero', expect: 'diverges: D-TAX-FR-DEPOSIT-ZERO') do |c|
+        eur.('ETH', '2025-02-01', '3000')
+        row(c, :deposit, 'ETH', '1', '2025-02-01T10:00:00Z', exchange: kr.(c))
+        kraken(c, :buy, 'ETH', '1', '2000', '2025-03-01T10:00:00Z')
+        kraken(c, :sell, 'ETH', '1', '3000', '2025-06-01T10:00:00Z')
+      end,
+      # D-TAX-FR-INCOMPLETE: no ETH price on 03-01 → V 80,000, fraction 26,000, +14,000.00 incomplete; 06-01 l.223 26,000,
+      # V 47,500, fraction 24,631.58, +20,368.42 incomplete.
+      fr.('fr_missing_portfolio_price', expect: 'diverges: D-TAX-FR-INCOMPLETE') do |c|
+        eur.('BTC', '2025-03-01', '80000')
+        eur.('BTC', '2025-06-01', '90000')
+        eur.('ETH', '2025-06-01', '2500')
+        kraken(c, :buy, 'BTC', '1', '50000', '2025-01-10T10:00:00Z')
+        kraken(c, :buy, 'ETH', '1', '2000', '2025-01-10T11:00:00Z')
+        kraken(c, :sell, 'BTC', '0.5', '40000', '2025-03-01T10:00:00Z')
+        kraken(c, :sell, 'BTC', '0.5', '45000', '2025-06-01T10:00:00Z')
+      end,
+      # Fractions carried across years: 2025 +500 (V 3,000, fraction 1,000); 2026 l.220 2,000, l.221 1,000, l.223 1,000,
+      # V 1,250, +250.00.
+      fr.('fr_cross_year', year: 2026) do |c|
+        kraken(c, :buy, 'ETH', '1', '2000', '2025-01-10T10:00:00Z')
+        kraken(c, :sell, 'ETH', '0.5', '1500', '2025-06-01T10:00:00Z')
+        kraken(c, :sell, 'ETH', '0.5', '1250', '2026-03-01T10:00:00Z')
+      end,
+      # D-TAX-FR-INCOMPLETE: an unpriced airdrop in 2025 adds 0 and contaminates: V 4,500, l.223 2,000, +1,666.67
+      # incomplete; IR 213.33, PS 310.00, total 523.33.
+      fr.('fr_cross_year_contaminated', year: 2026, expect: 'diverges: D-TAX-FR-INCOMPLETE') do |c|
+        eur.('SOL', '2026-03-01', '150')
+        kraken(c, :buy, 'ETH', '1', '2000', '2025-01-10T10:00:00Z')
+        row(c, :airdrop, 'SOL', '10', '2025-04-15T00:00:00Z', exchange: kr.(c))
+        kraken(c, :sell, 'ETH', '1', '3000', '2026-03-01T10:00:00Z')
+      end,
+      # D-TAX-FR-NETWORK-FEE: a 0.0005 network fee (1 sent, 0.9995 arrived) and a 0.0001 fee row, no cessions, both listed:
+      # V 60,000, l.220 50,000, +10,000.00; IR 1,280.00, PS 1,860.00, total 3,140.00.
+      fr.('fr_network_fee', expect: 'diverges: D-TAX-FR-NETWORK-FEE') do |c|
+        eur.('BTC', '2025-02-01', '55000')
+        eur.('BTC', '2025-03-01', '56000')
+        eur.('BTC', '2025-04-01', '57000')
+        kraken(c, :buy, 'BTC', '1', '50000', '2025-01-10T10:00:00Z')
+        transfer(c, 'BTC', '1', '2025-02-01T10:00:00Z', from: kr.(c), to: bn.(c), received: '0.9995')
+        row(c, :fee, 'BTC', '0.0001', '2025-03-01T10:00:00Z', exchange: bn.(c))
+        transfer(c, 'BTC', '0.9994', '2025-04-01T10:00:00Z', from: bn.(c), to: kr.(c))
+        kraken(c, :sell, 'BTC', '0.9994', '60000', '2025-05-01T10:00:00Z')
+      end,
+      # D-TAX-FR-NETWORK-FEE (r4 item 2): a 0.001 BTC fee attached to a linked deposit leaves the units, no cession, listed:
+      # V 0.999 × 60,060.06 = 60,000, l.220 50,000, +10,000.00; IR 1,280.00, PS 1,860.00, total 3,140.00.
+      fr.('fr_linked_deposit_fee', expect: 'diverges: D-TAX-FR-NETWORK-FEE') do |c|
+        eur.('BTC', '2025-02-01', '55000')
+        kraken(c, :buy, 'BTC', '1', '50000', '2025-01-10T10:00:00Z')
+        row(c, :deposit, 'BTC', '1', '2025-02-01T10:10:00Z', exchange: bn.(c), fee_currency: 'BTC', fee_amount: '0.001')
+        deposit = AccountTransaction.order(:id).last
+        row(c, :withdrawal, 'BTC', '1', '2025-02-01T10:00:00Z', exchange: kr.(c), linked_transaction_id: deposit.id)
+        row(c, :sell, 'BTC', '0.999', '2025-05-01T10:00:00Z', exchange: bn.(c), quote_currency: 'EUR', quote_amount: '60000')
+      end,
+      # D-TAX-FR-YEARS: 2019–2026 only.
+      fr.('fr_2027_not_ported', year: 2027, expect: 'parity') { |c| kraken(c, :buy, 'BTC', '1', '100', '2026-02-01T10:00:00Z'); kraken(c, :sell, 'BTC', '1', '200', '2027-03-01T10:00:00Z') }
+    ]
+  end
+
   # Poland's own vectors state their NBP rows (none by default), so the shared scenarios' default rates never reach them.
   def pl_case(name, year: 2026, expect: 'diverges: D-TAX-PL-COST-POOL', nbp: [], nbp_coverage: [], **opts, &setup)
     { name:, country: 'PL', year:, expect:, nbp:, nbp_coverage:, **opts, setup: lambda { |c|
@@ -2413,7 +2581,7 @@ module TaxVectors
     end
     each.('DE', 'Berlin') + each.('AT', 'Vienna') + each.('ES', 'Madrid') + each.('PT', 'Lisbon') + each.('PL', 'Warsaw') +
       each.('SK', 'Bratislava') + each.('BG', 'Sofia') + each.('CZ', 'Prague') + each.('GR', 'Athens') + each.('DK', 'Copenhagen') + each.('IT', 'Rome') +
-      each.('IE', 'Dublin') + each.('SE', 'Stockholm') + each.('GB', 'London') + holding_edges
+      each.('IE', 'Dublin') + each.('SE', 'Stockholm') + each.('GB', 'London') + fr_shared(each.('FR', 'Paris')) + holding_edges
   end
 
   def holding_edges

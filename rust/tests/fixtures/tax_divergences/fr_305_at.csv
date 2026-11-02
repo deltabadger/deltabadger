@@ -1,0 +1,13 @@
+Date,Actif,Montant,Produit,Coût total d'acquisition,Valeur globale du portefeuille,Plus/Moins-value,Devise,Frais,Plateforme,ID de transaction,Données incomplètes
+2025-05-01T10:00:00Z,ETH,0.05,152.5,200.0,305.0,52.5,EUR,0.0,kraken,K-ETH-2025-05-01T10:00:00Z-ETH,false
+2025-09-01T10:00:00Z,ETH,0.05,152.5,100.0,152.5,52.5,EUR,0.0,kraken,K-ETH-2025-09-01T10:00:00Z-ETH,false
+
+"Déclaration 2086 (article 150 VH bis du CGI), cessions de 2025"
+Cession,211 Date,212 Valeur globale du portefeuille,213 Prix de cession,214 Frais,218 Prix net,220 Prix total d'acquisition,221 Fractions de capital initial,223 Prix total d'acquisition net,Plus ou moins-value
+1,2025-05-01,305.0,152.5,0.0,152.5,200.0,0.0,200.0,52.5
+2,2025-09-01,152.5,152.5,0.0,152.5,200.0,100.0,100.0,52.5
+224 Plus ou moins-value globale,105.0
+51 Total des prix de cession (nets de frais),305.0
+Total des prix de cession inférieur ou égal à 305 € : cessions exonérées
+Plus-value à reporter en case 3AN (déclaration 2042 C),0.0
+"L'impôt indiqué est le prélèvement forfaitaire ; vous pouvez opter pour le barème progressif (case 3CN), qui dépend de l'ensemble de vos revenus. La valeur du portefeuille et le total de 305 € doivent inclure tous les portefeuilles de votre foyer, y compris ceux qui ne sont pas synchronisés ici : ajoutez-les, sinon les plus-values sont fausses. Les frais ne sont déduits que sur justificatifs. Un échange entre actifs avec soulte n'est pas détecté. Le staking, le prêt et le minage n'ajoutent rien au prix d'acquisition ; les airdrops y ajoutent leur valeur à la réception. Un actif payé en frais de réseau n'est pas traité comme une cession. Les comptes détenus à l'étranger se déclarent sur le formulaire 3916-bis."
