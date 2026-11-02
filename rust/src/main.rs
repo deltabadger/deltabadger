@@ -226,8 +226,9 @@ const BEHIND: &str = "Deltabadger didn't start: this data is from an older versi
                       again. Nothing was changed.";
 const RAILS_ALIVE: &str = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. \
                            Stop it, then start this again. Nothing was changed.";
-const TAKEOVER_INELIGIBLE: &str = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was changed. \
-                                   Contact support.";
+// Not "Nothing was changed": the Rust migrations and the backup ran before the takeover refused.
+const TAKEOVER_INELIGIBLE: &str = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was bought or \
+                                   sold. Contact support.";
 
 fn behind_detail(missing: usize) -> String {
     format!("this data is behind this build ({missing} migration(s) missing): run Deltabadger 2.70.21 until its background jobs have finished, stop it, then start this again")

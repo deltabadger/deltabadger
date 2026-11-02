@@ -651,8 +651,10 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
         // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
         (Table, "kucoin_coverage", Refuses("KuCoin HF history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
-        // API orders (D-ORDER-QUEUED): one placed through a bot is that bot's rust_placement (a wait); a standalone one is
-        // never sent again after a restart (api_orders::sweep_at_start), so nothing of it is pending.
+        // API orders (D-ORDER-QUEUED): one placed through a bot is that bot's rust_placement (a wait). A standalone one is
+        // never sent again after a restart (api_orders::sweep_at_start); once placed it is a venue order no bot follows,
+        // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
+        // its stored route (a KuCoin HF or UTA family) is this engine's; 2.x's cancel sends on its own route.
         (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
@@ -696,6 +698,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_amount_limit_stops_pending", Settled), (Bot, "rust_condition_check_dead", Settled), (Bot, "rust_condition_info", Settled),
         (Bot, "rust_condition_info_wanted", Settled), (Bot, "rust_defer_until", Settled), (Bot, "rust_continue_start", Settled),
         (Bot, "rust_index_resync", Adopted),
+        // D-HANDBACK-SPLIT-HOLD: 2.x does not compare a split against the venue's positions, so it would trade the bot.
+        (Bot, "rust_split_hold", Refuses("its holdings disagree with a stock split")),
         // A set-aside bot is stopped; 2.x shows its stop key untranslated (D-HANDBACK-RUST-TEXT).
         (Bot, "rust_set_aside", Ignored),
         // Mail 2.x never sends.
@@ -703,11 +707,12 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_limit_mail_pending", Ignored), (Bot, "rust_base_limit_mail_pending", Ignored), (Bot, "rust_funds_mail_pending", Ignored),
         (Bot, "rust_base_cap_stop_mailed", Ignored),
         // The tick's own holds and stamps; a halted rebalance's halt is Rails' own rebalance_pending.
-        (Bot, "rust_failure_origin", Ignored), (Bot, "rust_flip_refusal", Ignored), (Bot, "rust_split_hold", Ignored),
-        (Bot, "rust_history_generation", Ignored), (Bot, "rust_rebalance_halted", Ignored), (Bot, "rust_rebalance_resolution", Ignored),
+        (Bot, "rust_failure_origin", Ignored), (Bot, "rust_flip_refusal", Ignored),
+        (Bot, "rust_history_generation", Ignored), (Bot, "run_generation", Ignored), (Bot, "tick_generation", Ignored), (Bot, "rust_rebalance_halted", Ignored), (Bot, "rust_rebalance_resolution", Ignored),
         (Bot, "rust_rebalance_resolved_orders", Ignored),
         // ---- elsewhere ----
-        (Field, "rust_split_legs", Ignored),
+        // In account_transactions.raw_data of rows this engine wrote: 2.x reads neither field.
+        (Field, "rust_split_legs", Ignored), (Field, "amounts_inexact", Ignored), (Field, "source_rows", Ignored),
         // D-HANDBACK-RUST-TEXT: 2.x renders these as a missing translation (no raise); never rewritten or cleared.
         (Text, super::set_aside::STOP_KEY, Ignored), (Text, UPGRADE_SIGNAL_UNRESOLVED, Ignored), (Text, UPGRADE_COMMAND_DROPPED, Ignored),
         (Text, UPGRADE_ORDER_UNRECORDED, Ignored),
@@ -756,6 +761,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     for id in super::reversal::pending_settlements(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
     refuse_pending_rotations(&o.primary)?;
+    refuse_split_holds(&o.primary)?;
     refuse_commands(&o.primary)?;
     // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
     // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row
@@ -774,6 +780,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_rust_only_conditions(&tx)?;
     refuse_ibkr(&tx, now)?;
     refuse_pending_rotations(&tx)?;
+    refuse_split_holds(&tx)?;
     refuse_commands(&tx)?;
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
@@ -997,6 +1004,16 @@ fn refuse_pending_rotations(c: &Connection) -> Result<(), EngineError> {
     let ids = s.query_map([format!("$.{key}")], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     if ids.is_empty() { return Ok(()); }
     Err(EngineError::Ineligible(ids.into_iter().map(|id| format!("bot {id}: {key} is pending; run the engine to settle the base-cap rotation decision before handing back")).collect()))
+}
+
+/// D-HANDBACK-SPLIT-HOLD: a bot this engine holds because a stock split disagrees with the venue's positions (tick.rs,
+/// `rust_split_hold`); 2.x makes no such comparison and would trade it. The hold clears at the bot's next tick that agrees.
+fn refuse_split_holds(c: &Connection) -> Result<(), EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_type(transient_data, '$.rust_split_hold') IS NOT NULL AND status <> ?1 ORDER BY id")?;
+    let ids = s.query_map([BotStatus::Deleted as i64], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    if ids.is_empty() { return Ok(()); }
+    Err(EngineError::Ineligible(ids.into_iter().map(|id| format!("bot {id}: trading is held because its holdings disagree with a stock split; \
+        let this engine run the bot until the hold clears before handing back")).collect()))
 }
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {

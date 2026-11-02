@@ -1509,6 +1509,12 @@ fn a_wake_row_queued_after_an_earlier_takeover_is_owed_a_new_run() {
 /// `"rust_…"` literals in src/ that name no stored state: the index provider's SQL functions.
 const NOT_STATE: &[&str] = &["rust_index_env", "rust_index_decrypt"];
 
+/// The states that refuse or wait, written out here too: moving one to a handed-back outcome in HANDBACK_STATE must change
+/// this list as well.
+const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdrawal_intents", "rust_rule_evaluations", "rust_created_at",
+    "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
+    "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold"];
+
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
     ("ibkr_reservations", "tests/ibkr_placement.rs the_handback_is_refused_while_ibkr_holds_anything"),
@@ -1569,6 +1575,8 @@ fn every_rust_only_state_has_a_handback_outcome() {
     let events = regex::Regex::new(r#"pub const UPGRADE_[A-Z_]+: &str = "([a-z_]+)""#).unwrap();
     for m in events.captures_iter(&source) { found.insert(m[1].to_string()); }
     found.insert(deltabadger::engine::set_aside::STOP_KEY.to_string());
+    // The transient keys the engine declares its own, prefixed or not (parity's list, the mail markers).
+    found.extend(deltabadger::parity::RUST_KEYS.iter().chain(deltabadger::engine::notice::KEYS.iter()).map(|k| k.to_string()));
     let missing: Vec<_> = found.iter().filter(|f| !rows.iter().any(|r| names(r, f))).collect();
     assert!(missing.is_empty(), "Rust-only state without a handback outcome in handover::HANDBACK_STATE: {missing:?}");
     let stale: Vec<_> = rows.iter().filter(|r| !found.iter().any(|f| names(r, f)) && !source.contains(**r)).collect();
@@ -1606,6 +1614,7 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
         }
         "rust_base_cap_rotation_pending" => transient(name, "true"),
         "rust_redeploy_request" => transient(name, "{}"),
+        "rust_split_hold" => transient(name, r#"{"reason":"positions differ","at":"2026-09-30T12:00:00.000Z"}"#),
         "liquidation_selling_since.holdings" => transient("liquidation_selling_since", r#"{"holdings":{}}"#),
         other => panic!("{other}: no setup in the matrix run and not in PROVEN_ELSEWHERE"),
     }
@@ -1638,8 +1647,9 @@ async fn each_refusing_state_refuses_the_handback_and_writes_nothing() {
         assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "{name}");
         ran += 1;
     }
-    let refusing = handover::HANDBACK_STATE.iter().filter(|(_, _, o)| matches!(o, Handback::Refuses(_) | Handback::Waits)).count();
-    assert_eq!(ran + PROVEN_ELSEWHERE.len(), refusing, "every refusing or waiting state is run here or proven elsewhere");
+    let refusing: std::collections::BTreeSet<&str> = handover::HANDBACK_STATE.iter().filter(|(_, _, o)| matches!(o, Handback::Refuses(_) | Handback::Waits)).map(|(_, n, _)| *n).collect();
+    assert_eq!(refusing, REFUSING.iter().copied().collect(), "the refusing states changed");
+    assert_eq!(ran + PROVEN_ELSEWHERE.len(), refusing.len(), "every refusing or waiting state is run here or proven elsewhere");
 }
 
 /// PLAN-B2 r1.10, r7.1, D-HANDBACK-RUST-TEXT: a 2.x-born install holding every handed-back state is handed back; `check`
@@ -1671,7 +1681,9 @@ async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untra
                 o.primary.execute("INSERT OR IGNORE INTO app_configs (key, value, created_at, updated_at) VALUES (?1, '{}', '2026-09-30', '2026-09-30')", [&key]).unwrap();
                 keys.push(key);
             }
-            Held::Bot => if o.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{name}', json('{{}}')) WHERE id = ?1 AND json_type(transient_data, '$.{name}') IS NULL"), [bot]).unwrap() == 1 {
+            // A generation is a counter the engine reads as one.
+            Held::Bot => if o.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{name}', json(?2)) WHERE id = ?1 AND json_type(transient_data, '$.{name}') IS NULL"),
+                                              rusqlite::params![bot, if name.ends_with("generation") { "1" } else { "{}" }]).unwrap() == 1 {
                 keys.push(format!("bot:{name}"));
             },
             Held::Table | Held::Field | Held::Text => {}

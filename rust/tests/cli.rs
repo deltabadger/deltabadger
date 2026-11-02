@@ -629,7 +629,7 @@ fn a_takeover_refused_for_support_shows_plain_words_and_logs_the_lines() {
     drop(o);
     let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
     assert_eq!(r.status, Some(0), "{}", r.stderr);
-    let line = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was changed. Contact support.";
+    let line = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was bought or sold. Contact support.";
     let support = format!("rule {rule}: Rails attempt {attempt} is unconfirmed; resolve-withdrawal --rails {attempt}");
     assert!(r.stderr.contains(&support) && r.stderr.contains(&format!("deltabadger: {line}")), "{}", r.stderr);
     assert!(r.page.contains(&line.replace('\'', "&#39;")) && !r.page.contains("resolve-withdrawal"), "{}", r.page);
