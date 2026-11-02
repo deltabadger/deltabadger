@@ -41,7 +41,7 @@ impl Limiter {
     pub fn hit(&self, method: &Method, route_path: &str, address: &str, now: DateTime<Utc>) -> Option<i64> {
         let route_path=route_path.split('.').next().unwrap_or(route_path);
         let (rule, _, limit) = RULES.iter().filter(|_| method == Method::POST).copied()
-            .chain([("users/confirmation","/confirmation",5),("setup","/setup",5),("setup/platform_connection","/setup/platform_connection",5),("csp-report","/csp-report",30)].into_iter().filter(|_|method==Method::POST))
+            .chain([("users/confirmation","/confirmation",5),("users/registration","/signup",5),("setup","/setup",5),("setup/platform_connection","/setup/platform_connection",5),("csp-report","/csp-report",30)].into_iter().filter(|_|method==Method::POST))
             .chain([("users/password","/password",5)].into_iter().filter(|_|matches!(*method,Method::POST|Method::PATCH|Method::PUT)))
             .chain(OAUTH_RULES.iter().filter(|(_, limited, _, _)| method.as_str() == *limited).map(|&(rule, _, path, limit)| (rule, path, limit)))
             .find(|(_, path, _)| *path == route_path)?;

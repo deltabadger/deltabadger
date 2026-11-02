@@ -69,6 +69,11 @@ impl User {
         Self::read(c, "id", &id)
     }
 
+    /// The account a reset link's digest names (crypto::ResetTokens::digest).
+    pub fn find_by_reset_digest(c: &Connection, digest: &str) -> Result<Option<User>, WebError> {
+        Self::read(c, "reset_password_token", &digest)
+    }
+
     /// Devise's find_for_authentication: the email stripped and downcased, then matched exactly.
     pub fn find_by_email(c: &Connection, email: &str) -> Result<Option<User>, WebError> {
         Self::read(c, "email", &crate::ruby::strip(email).to_lowercase())
@@ -80,7 +85,7 @@ impl User {
     }
 
     /// Lockable#lock_expired?: strictly more than the unlock time ago.
-    fn lock_expired(&self, now: DateTime<Utc>) -> bool {
+    pub(super) fn lock_expired(&self, now: DateTime<Utc>) -> bool {
         self.locked_at.is_some_and(|at| (now - at).num_microseconds().is_none_or(|us| us > UNLOCK_IN_SECONDS * 1_000_000))
     }
 
@@ -90,28 +95,28 @@ impl User {
     }
 
     /// Lockable#unlock_access!
-    fn unlock(&mut self, c: &Connection, now: DateTime<Utc>) -> Result<(), WebError> {
+    pub(super) fn unlock(&mut self, c: &Connection, now: DateTime<Utc>) -> Result<(), WebError> {
         c.execute("UPDATE users SET locked_at = NULL, failed_attempts = 0, updated_at = ?1 WHERE id = ?2", (format_time(now), self.id))?;
         (self.locked_at, self.failed_attempts) = (None, 0);
         Ok(())
     }
 
     /// Lockable#increment_failed_attempts: an atomic counter update that does not move updated_at.
-    fn increment_failed_attempts(&mut self, c: &Connection) -> Result<(), WebError> {
+    pub(super) fn increment_failed_attempts(&mut self, c: &Connection) -> Result<(), WebError> {
         c.execute("UPDATE users SET failed_attempts = COALESCE(failed_attempts, 0) + 1 WHERE id = ?1", [self.id])?;
         self.failed_attempts = c.query_row("SELECT failed_attempts FROM users WHERE id = ?1", [self.id], |r| r.get(0))?;
         Ok(())
     }
 
     /// Lockable#lock_access!
-    fn lock(&mut self, c: &Connection, now: DateTime<Utc>) -> Result<(), WebError> {
+    pub(super) fn lock(&mut self, c: &Connection, now: DateTime<Utc>) -> Result<(), WebError> {
         c.execute("UPDATE users SET locked_at = ?1, updated_at = ?1 WHERE id = ?2", (format_time(now), self.id))?;
         self.locked_at = Some(now);
         Ok(())
     }
 
     /// Lockable#reset_failed_attempts!: a write only when there is something to reset.
-    fn reset_failed_attempts(&mut self, c: &Connection, now: DateTime<Utc>) -> Result<(), WebError> {
+    pub(super) fn reset_failed_attempts(&mut self, c: &Connection, now: DateTime<Utc>) -> Result<(), WebError> {
         if self.failed_attempts != 0 {
             c.execute("UPDATE users SET failed_attempts = 0, updated_at = ?1 WHERE id = ?2", (format_time(now), self.id))?;
             self.failed_attempts = 0;
@@ -224,7 +229,10 @@ pub fn inactive(ctx: &Ctx) -> Option<Response> {
 pub fn prepended_filters(ctx: &Ctx) -> Option<Response> {
     let signed_in = ctx.user().is_some();
     match (ctx.params.route_path.as_str(), &ctx.method) {
-        ("/login", &Method::GET | &Method::HEAD | &Method::POST) if signed_in => {
+        // Devise's require_no_authentication: the login page, signup (new, create), and every password-reset action.
+        ("/login" | "/signup", &Method::GET | &Method::HEAD | &Method::POST)
+        | ("/password/new" | "/password/edit", &Method::GET | &Method::HEAD)
+        | ("/password", &Method::POST | &Method::PATCH | &Method::PUT) if signed_in => {
             flash::set(&ctx.session, flash::ALERT, i18n::text(i18n::DEFAULT, "devise.failure.already_authenticated", &[]));
             let location = ctx.session.lock().return_to.take().unwrap_or_else(|| "/".to_string());
             Some(layout::early_redirect(StatusCode::FOUND, &location))

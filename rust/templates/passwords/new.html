@@ -1,0 +1,17 @@
+<form data-controller="form--html5-validations form--label-animations" action="{{ v.path("/password") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+  {% include "svg/_40x30_logo.html" %}
+
+  <h1>{{ v.t("devise.passwords.new.title")|safe }}</h1>
+
+  <div class="form__row">
+    <input autofocus="autofocus" autocomplete="email" class="form__input form__input--large" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("devise.registrations.new.email_invalid")|safe }}" type="email" value="" name="user[email]" id="user_email" />
+    <label class="form__label" for="user_email">{{ v.t("helpers.label.user.email")|safe }}</label>
+  </div>
+
+  <div class="form__row form__row--final-button">
+    <input type="submit" name="commit" value="{{ v.t("devise.passwords.new.submit")|safe }}" class="button button--large button--sky" data-disable-with="{{ v.t("devise.passwords.new.submit")|safe }}" />
+  </div>
+
+{% include "devise/_links.html" %}
+</form>

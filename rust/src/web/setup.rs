@@ -89,7 +89,7 @@ async fn filters(app: &App, ctx: &Ctx) -> Result<Option<Response>, WebError> {
 }
 
 /// String#upcase_first.
-fn upcase_first(text: &str) -> String {
+pub(super) fn upcase_first(text: &str) -> String {
     let mut chars = text.chars();
     chars.next().map(|first| first.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
@@ -307,6 +307,18 @@ fn attribute_name(locale: &str, attribute: &str) -> String {
     })
 }
 
+/// `errors[attribute]`'s message for an error of `kind` (Devise's validatable on a password change). A confirmation
+/// error names the password, as `validates_confirmation_of` passes `attribute: human_attribute_name(:password)`.
+pub(super) fn kind_message(locale: &str, attribute: &str, kind: &'static str, count: Option<i64>) -> String {
+    if kind == "confirmation" {
+        let name = attribute_name(locale, "password");
+        let keys = [format!("activerecord.errors.models.user.attributes.{attribute}.confirmation"), "activerecord.errors.messages.confirmation".into(),
+                    format!("errors.attributes.{attribute}.confirmation"), "errors.messages.confirmation".into()];
+        return i18n::text_chain(locale, &keys, &[("attribute", Arg::Text(&name))]).unwrap_or_else(|| format!("Translation missing: {locale}.errors.messages.confirmation"));
+    }
+    full_message(locale, attribute, &Message::Kind(kind, count)).0
+}
+
 /// The message and ActiveModel::Error#full_message: `errors.format` around the attribute's name and the message, the message
 /// looked up along ActiveModel's chain for a type.
 fn full_message(locale: &str, attribute: &str, message: &Message) -> (String, String) {
@@ -343,6 +355,8 @@ pub struct FieldError {
     pub message: String,
     /// `errors.full_messages`' entry for it.
     pub full: String,
+    /// The error's symbol (`:taken`, `:blank`, …) when it has one; None for a custom message.
+    pub kind: Option<&'static str>,
 }
 
 /// User#valid? for a new admin from the setup form, in Rails' order: Devise's validatable
@@ -375,8 +389,9 @@ pub fn validate(c: &Connection, locale: &str, name: Option<&str>, email: &str, p
     if name.is_none_or(blank) {
         errors.push(("name", Message::Kind("blank", None)));
     }
-    // Ruby's `=~` with `^…$`: a match on any line passes (a name with a line break is accepted, as in Rails).
-    if !name.is_some_and(|name| pattern(r"(?m)^\p{L}+(\s+\p{L}+)*$", name).unwrap_or(false)) {
+    // Ruby's `=~` with `^…$`: a match on any line passes, so Rails accepts "Ann\nanything". D-SIGNUP-NAME-ONE-LINE: a
+    // name with a line break is refused here, with the same message.
+    if !name.is_some_and(|name| !name.contains(['\n', '\r']) && pattern(r"(?m)^\p{L}+(\s+\p{L}+)*$", name).unwrap_or(false)) {
         errors.push(("name", Message::Text(i18n::text(locale, "devise.registrations.new.name_invalid", &[]))));
     }
     if !pattern(r"(?m)^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", email)? {
@@ -392,12 +407,13 @@ pub fn validate(c: &Connection, locale: &str, name: Option<&str>, email: &str, p
     }
     Ok(errors.into_iter().map(|(attribute, message)| {
         let (text, full) = full_message(locale, attribute, &message);
-        FieldError { attribute, message: text, full }
+        let kind = match message { Message::Kind(kind, _) => Some(kind), Message::Text(_) => None };
+        FieldError { attribute, message: text, full, kind }
     }).collect())
 }
 
 /// User::Email.google_email_username: the part before `@` and any `+tag`, downcased, for a Gmail address only.
-fn google_username(email: &str) -> Option<String> {
+pub(super) fn google_username(email: &str) -> Option<String> {
     if !(email.ends_with("@gmail.com") || email.ends_with("@googlemail.com")) {
         return None;
     }
