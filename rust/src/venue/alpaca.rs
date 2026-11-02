@@ -736,24 +736,48 @@ pub fn preflight_after(c: &Connection, cipher: &Cipher, mut ids: Vec<i64>, mut p
         .map_err(|e| vec![format!("{e:?}")])?;
     let owing = s.query_map([], |r| r.get::<_, i64>(0)).and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| vec![format!("{e:?}")])?;
     for id in owing { if !ids.contains(&id) { ids.push(id); } }
-    for id in &ids {
-        match bot_problem(c, cipher, *id) {
-            Ok(None) => {}
-            Ok(Some(p)) => problems.push(format!("bot {id}: {p}")),
-            Err(e) => problems.push(format!("bot {id}: {e:?} (is SECRET_KEY_BASE this instance's own?)")),
-        }
-    }
+    for (id, why) in untradable(c, cipher, &ids) { problems.push(format!("bot {id}: {}", why.text())); }
     if problems.is_empty() { Ok(ids) } else { Err(problems) }
 }
 
-fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String>, EngineError> {
+/// Why `preflight` cannot trade a bot (PLAN-B2 r1.4): its exchange has no Rust code, it has no key, or its key (or its row)
+/// does not read with this secret.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Untradable {
+    /// The exchange's type.
+    NotConnected(String),
+    /// The exchange's name.
+    Missing(&'static str),
+    /// The read error.
+    Unreadable(String),
+}
+
+impl Untradable {
+    /// `preflight`'s words, after "bot {id}: ".
+    pub fn text(&self) -> String {
+        match self {
+            Self::NotConnected(exchange) => format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Alpaca, Bybit, Bitrue, Coinbase and BingX)"),
+            Self::Missing(name) => format!("no {name} API key"),
+            Self::Unreadable(e) => format!("{e} (is SECRET_KEY_BASE this instance's own?)"),
+        }
+    }
+}
+
+/// The bots of `ids` `preflight` refuses, by id, in order.
+pub fn untradable(c: &Connection, cipher: &Cipher, ids: &[i64]) -> Vec<(i64, Untradable)> {
+    ids.iter().filter_map(|id| match bot_problem(c, cipher, *id) {
+        Ok(None) => None,
+        Ok(Some(why)) => Some((*id, why)),
+        Err(e) => Some((*id, Untradable::Unreadable(format!("{e:?}")))),
+    }).collect()
+}
+
+fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<Untradable>, EngineError> {
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
-    let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Alpaca, Bybit, Bitrue, Coinbase and BingX)")));
-    };
+    let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else { return Ok(Some(Untradable::NotConnected(exchange))) };
     Ok(match model::credentials_for(c, cipher, &bot)? {
-        None => Some(format!("no {} API key", rules.name)),
+        None => Some(Untradable::Missing(rules.name)),
         Some(_) => None,
     })
 }

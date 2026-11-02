@@ -13,7 +13,78 @@ use serde_json::Value;
 
 /// `unreadable`: bots whose rows this build cannot read. Takeover refuses them; the running engine skips them. `notes`: what
 /// `check` and the takeover report without refusing (a reference source with no stamp, staleness::Verdict::Unknown).
-pub struct Report { pub eligible: Vec<i64>, pub problems: Vec<String>, pub unreadable: Vec<(i64, String)>, pub notes: Vec<String> }
+/// The same findings by id, typed (PLAN-B2 R3, r1.4), each beside the `problems` line it is part of: `refused`, the working
+/// bots and their reasons; `held`, the bots that are not working but carry work (their work, then their reasons);
+/// `rules`, the working withdrawal rules on an exchange without withdrawals.
+#[derive(Default)]
+pub struct Report {
+    pub eligible: Vec<i64>, pub problems: Vec<String>, pub unreadable: Vec<(i64, String)>, pub notes: Vec<String>,
+    pub refused: Vec<(i64, Vec<Reason>)>, pub held: Vec<(i64, Vec<Reason>)>, pub rules: Vec<i64>,
+}
+
+/// One reason a bot is refused: the operator's words (`text`, what `check`, the logs and the guard print) and what kind of
+/// problem it is, with the values a sentence for the owner needs (`kind`). Reads as its text wherever a string is expected.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Reason { pub text: String, pub kind: Kind }
+
+/// What the owner has to do about a reason, by group (b2-5 reason inventory, A and C-K; B is preflight's `Untradable`).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Kind {
+    /// The bot's exchange is not one this build trades.
+    Exchange,
+    /// Something the bot uses that this build does not run on it.
+    Feature(Feature),
+    /// Its condition (`condition`, the switch's setting key) would turn it to selling (`to_selling`) or buying, and the bot is
+    /// refused that way for `inner`.
+    Flip { condition: String, to_selling: bool, inner: Box<Reason> },
+    StartTime(StartTime),
+    /// An asset this bot does not trade on its exchange: a member's or the signal pair's base by id; None for the quote.
+    Asset(Option<i64>),
+    Allocations(Allocations),
+    /// A setting stored in a shape no form saves.
+    Settings,
+    History(History),
+    /// An index bot without the market data it needs.
+    IndexData,
+    /// The bot's owner row is missing.
+    Owner,
+    /// Work Rails left in flight: never set aside (row 26), it keeps refusing a stopped bot.
+    Work(Work),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Feature {
+    /// A switch, by its setting key.
+    Setting(String),
+    /// A condition's action, by the switch's key and the action.
+    Action { setting: String, action: String },
+    /// A condition that needs candles on an exchange that has none here, by the switch's key.
+    ConditionCandles(String),
+    IbkrLimit,
+    IndexSelling,
+    /// A bot class this build does not run.
+    BotType(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StartTime { Moved, Continued, TimeZone }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Allocations { Unreadable, Empty, TooMany(usize), Negative, Unbalanced(String), Duplicate(i64) }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum History { Splits, ImportedOpen, NoAsset, SpecialRows, ForeignSells, IndexAssets, Restated }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Work { UnknownStatus, Pending, Waiting, Abandoned, Rebalancing, Outstanding }
+
+fn why(kind: Kind, text: impl Into<String>) -> Reason { Reason { text: text.into(), kind } }
+
+impl std::ops::Deref for Reason { type Target = str; fn deref(&self) -> &str { &self.text } }
+impl std::borrow::Borrow<str> for Reason { fn borrow(&self) -> &str { &self.text } }
+impl std::fmt::Display for Reason { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(&self.text) } }
+
+fn texts(reasons: Vec<Reason>) -> Vec<String> { reasons.into_iter().map(|r| r.text).collect() }
 
 const SUPPORTED_FLAGS: [&str; 3] = ["limit_ordered", "smart_intervaled", "quote_amount_limited"];
 /// Bots::DcaMultiAsset::MAX_ASSETS.
@@ -52,12 +123,12 @@ fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v 
 /// Bot::EvaluateRebalancersJob's candidates. Each rule covers the statuses Rails handles it for. The pending keys stay on
 /// every status: Rails' automatic legs skip deleted/archived bots, but its halt resolutions (Bots::*ResolutionsController,
 /// Bot::Resolve*Job) take any bot, and an archived bot's page offers them.
-fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     let mut r = vec![];
     // Transaction.statuses is submitted, failed, skipped. Any other status proves neither a fill nor a rejection: the order
     // may still be working at the venue, whatever this bot's own status.
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
-    if unknown > 0 { r.push(format!("{unknown} {UNKNOWN_STATUS}")); }
+    if unknown > 0 { r.push(why(Kind::Work(Work::UnknownStatus), format!("{unknown} {UNKNOWN_STATUS}"))); }
     // Slice 6b, plan CB T4: threshold rebalancing runs here for a basket or index bot on every venue (rebalance.rs, run::run_rebalances). Its
     // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous
     // (idle until the owner resolves it through Resume, including halts inherited from Rails).
@@ -69,29 +140,30 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
             match super::rebalance::pending(&bot.transient) {
                 Ok(Some(p)) if [super::rebalance::PHASE_SELLING, super::rebalance::PHASE_BUYING].contains(&p.phase.as_str()) => continue,
                 Ok(None) => continue,
-                Ok(Some(p)) => { r.push(format!("rebalance_pending in phase {:?}", p.phase)); continue; }
-                Err(e) => { r.push(format!("{e:?}")); continue; }
+                Ok(Some(p)) => { r.push(why(Kind::Work(Work::Pending), format!("rebalance_pending in phase {:?}", p.phase))); continue; }
+                Err(e) => { r.push(why(Kind::Work(Work::Pending), format!("{e:?}"))); continue; }
             }
         }
-        r.push(key.to_string());
+        r.push(why(Kind::Work(Work::Pending), key));
     }
     // Bot::EvaluateRebalancersJob#candidates: REBALANCEABLE_TYPES, `.where.not(status: %i[deleted archived])`. A stopped bot still rebalances.
     let rebalanceable = matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") && !matches!(bot.status, BotStatus::Deleted | BotStatus::Archived);
     if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) {
-        if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(format!("{e:?}")); }
+        // Work, not a setting: a stopped basket or index bot still rebalances, so this keeps refusing it after a stop.
+        if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(why(Kind::Work(Work::Rebalancing), format!("{e:?}"))); }
     }
     let non_regular: i64 = c.query_row(
         "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'LIQUIDATION', 'REDEPLOY') AND NOT (?2 AND transaction_type = 'REBALANCE') \
          AND status = 0 AND external_status IN (0, 1)",
         params![bot.id, rebalances], |r| r.get(0))?;
-    if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
+    if non_regular > 0 { r.push(why(Kind::Work(Work::Waiting), format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)"))); }
     // An abandoned REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades on: the flight cash may already be
     // the asset, and Rails cannot account for it. Only an otherwise supported ambiguous halt is admitted idle for
     // resolution below; D-A6-ATTESTED records the rows the owner explicitly resolves. An abandoned REDEPLOY
     // is admitted since 6c-4: its spend counts what it asked for, and the engine halts on it.
     let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REBALANCE' AND external_status = 4 AND id NOT IN (SELECT value FROM json_each(COALESCE(json_extract((SELECT transient_data FROM bots WHERE id=?1),'$.rust_rebalance_resolved_orders'),'[]')))",
                              [bot.id], |r| r.get(0))?;
-    if n > 0 { r.push(format!("{n} {ABANDONED_REBALANCE}")); }
+    if n > 0 { r.push(why(Kind::Work(Work::Abandoned), format!("{n} {ABANDONED_REBALANCE}"))); }
     Ok(r)
 }
 
@@ -100,13 +172,18 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
 fn rebalances_here(bot: &Bot) -> bool { matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") }
 
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    bot_reasons_typed(c, bot).map(texts)
+}
+
+/// `bot_reasons`, each with its kind.
+pub fn bot_reasons_typed(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     bot_reasons_with(c, bot, &mut SplitRows::new())
 }
 
 /// Admission checks the opposite direction before accepting an active flip rule. Runtime install checks
 /// only require the current direction: the tick refuses an ineligible target without stopping the engine.
 /// Deleted and archived bots cannot fire rules; check_install still checks their outstanding work.
-fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     if matches!(bot.status, BotStatus::Deleted | BotStatus::Archived) { return Ok(vec![]); }
     for (kind, _) in conditions::TRIGGERS {
         let prefix = kind.prefix(bot.selling());
@@ -125,7 +202,10 @@ fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineErr
                 }
             }
             target.settings["direction"] = Value::String(if bot.selling() { "buying" } else { "selling" }.into());
-            return bot_reasons(c, &target);
+            // Each of the target's reasons keeps its own text; the kind says which switch turns the bot, and which way.
+            return Ok(bot_reasons_typed(c, &target)?.into_iter().map(|inner| {
+                why(Kind::Flip { condition: format!("{prefix}ed"), to_selling: !bot.selling(), inner: Box::new(inner.clone()) }, inner.text)
+            }).collect());
         }
     }
     Ok(vec![])
@@ -135,7 +215,7 @@ fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineErr
 /// short, and the ledger holds every activity of the account with no index on its entry type.
 type SplitRows = std::collections::HashMap<(i64, i64), Vec<(Option<i64>, String)>>;
 
-fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result<Vec<String>, EngineError> {
+fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result<Vec<Reason>, EngineError> {
     bot.validate_times()?;
     model::merged_history_cutoff(c, bot)?;
     let mut r = rails_work(c, bot)?;
@@ -143,16 +223,16 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if r.iter().any(|reason| reason.ends_with(UNKNOWN_STATUS)) { return Ok(r); }
     if bot.bot_type == model::SIGNAL_TYPE { signal_reasons(c, bot, splits, &mut r)?; return Ok(r); }
     let index = bot.bot_type == "Bots::DcaIndex";
-    if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
+    if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(why(Kind::Feature(Feature::BotType(bot.bot_type.clone())), format!("type {} (only DCA baskets and index bots)", bot.bot_type))); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
-    if let Some(why) = admission(exchange.as_deref(), index, selling) { r.push(why.into()); }
+    if let Some(text) = admission(exchange.as_deref(), index, selling) { r.push(why(admission_kind(exchange.as_deref()), text)); }
     match bot.settings.get("direction") {
         None | Some(Value::Null) => {}, Some(v) if v == "buying" => {},
         Some(v) if v == "selling" => sell_reasons(c, bot, alpaca, &mut r)?,
-        Some(d) => r.push(format!("direction {d}")),
+        Some(d) => r.push(why(Kind::Settings, format!("direction {d}"))),
     }
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
@@ -160,32 +240,32 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
             if !flag || !set(v) || SUPPORTED_FLAGS.contains(&k.as_str()) { continue; }
             match Rule::of_flag(k) {
                 Some((rule, selling)) => r.extend(rule_reason(c, bot, k, v, rule, selling)),
-                None => r.push(k.clone()),
+                None => r.push(why(Kind::Feature(Feature::Setting(k.clone())), k.clone())),
             }
         }
     }
     if bot.settings.get("start_time_enabled").is_some_and(set) && BOT_WORKING.contains(&bot.status) { r.extend(start_time_reason(c, bot)?); }
     if bot.settings.get("smart_intervaled").is_some_and(set) && !bot.smart_quote_amount().is_some_and(|a| a > 0.0) {
-        r.push("smart interval amount missing, not a JSON number, or not positive".into());
+        r.push(why(Kind::Settings, "smart interval amount missing, not a JSON number, or not positive"));
     }
-    if bot.limit_ordered() && bot.limit_distance().is_none() { r.push("limit_order_pcnt_distance is not a number".into()); }
+    if bot.limit_ordered() && bot.limit_distance().is_none() { r.push(why(Kind::Settings, "limit_order_pcnt_distance is not a number")); }
     // D-IBKR-NOLIMIT: IBKR prices step by per-contract bands Rust has not recorded yet; its orders are market orders.
     if exchange.as_deref() == Some(crate::venue::ibkr::IBKR) && bot.settings.as_object().is_some_and(|o| o.iter().any(|(k, v)| k.ends_with("limit_ordered") && set(v))) {
-        r.push(IBKR_NO_LIMIT.into());
+        r.push(why(Kind::Feature(Feature::IbkrLimit), IBKR_NO_LIMIT));
     }
-    if BOT_WORKING.contains(&bot.status) && bot.started_at_us()?.is_none() { r.push("started_at missing (never ticks)".into()); }
-    if bot.interval().is_none() { r.push("interval".into()); }
-    if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push("quote_amount".into()); }
-    if bot.restatement_generation > 0 && model::all_crypto(c, bot)? { r.push("restated prices".into()); }
+    if BOT_WORKING.contains(&bot.status) && bot.started_at_us()?.is_none() { r.push(why(Kind::Settings, "started_at missing (never ticks)")); }
+    if bot.interval().is_none() { r.push(why(Kind::Settings, "interval")); }
+    if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push(why(Kind::Settings, "quote_amount")); }
+    if bot.restatement_generation > 0 && model::all_crypto(c, bot)? { r.push(why(Kind::History(History::Restated), "restated prices")); }
     // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
-    if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push("user not found".into()); }
+    if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push(why(Kind::Owner, "user not found")); }
     if bot.quote_amount_limited() {
-        if let Err(e) = bot.quote_amount_limit() { r.push(e); }
-        if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
+        if let Err(e) = bot.quote_amount_limit() { r.push(why(Kind::Settings, e)); }
+        if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(why(Kind::Settings, e)); }
     }
     if bot.base_amount_limited() {
-        if let Err(e) = bot.base_amount_limit() { r.push(e); }
-        if let Err(e) = bot.base_amount_limit_enabled_at_us() { r.push(e); }
+        if let Err(e) = bot.base_amount_limit() { r.push(why(Kind::Settings, e)); }
+        if let Err(e) = bot.base_amount_limit_enabled_at_us() { r.push(why(Kind::Settings, e)); }
     }
     history_reasons(c, bot, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
@@ -215,23 +295,23 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
 /// inapplicable is inert (an index bot's sell side and flips, a signal bot's flips); unsupported actions are refused by name.
 /// Implemented rules run with values Rails compares. A trigger switch set to
 /// anything but `true` (which Rails reads as off) is refused, as every flag outside the slice. The cap's own checks follow.
-fn rule_reason(c: &Connection, bot: &Bot, key: &str, value: &Value, rule: Rule, selling: bool) -> Option<String> {
+fn rule_reason(c: &Connection, bot: &Bot, key: &str, value: &Value, rule: Rule, selling: bool) -> Option<Reason> {
     let support = bot.support(rule, selling);
     if support == Support::Inapplicable { return None; }
-    if rule == Rule::Cap { return (support == Support::NotImplemented).then(|| key.to_string()); }
-    if value != &Value::Bool(true) { return Some(key.to_string()); }
+    if rule == Rule::Cap { return (support == Support::NotImplemented).then(|| why(Kind::Feature(Feature::Setting(key.into())), key)); }
+    if value != &Value::Bool(true) { return Some(why(Kind::Settings, key)); }
     let action = conditions::action(&bot.settings, key.strip_suffix("ed").unwrap_or(key));
     match support {
-        Support::NotImplemented if action != "pause" => Some(format!("{key} with the {action} action (unsupported action)")),
-        Support::NotImplemented => Some(key.to_string()),
+        Support::NotImplemented if action != "pause" => Some(why(Kind::Feature(Feature::Action { setting: key.into(), action: action.clone() }), format!("{key} with the {action} action (unsupported action)"))),
+        Support::NotImplemented => Some(why(Kind::Feature(Feature::Setting(key.into())), key)),
         _ => {
             if rule != Rule::Price {
                 let exchange = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get::<_, String>(0)).ok();
                 if !exchange.as_deref().and_then(crate::venue::registry::row).is_some_and(|r| r.condition_candles) {
-                    return Some(format!("{key}: condition candles are not supported on this exchange"));
+                    return Some(why(Kind::Feature(Feature::ConditionCandles(key.into())), format!("{key}: condition candles are not supported on this exchange")));
                 }
             }
-            bot.condition_rule(rule, selling).err()
+            bot.condition_rule(rule, selling).err().map(|e| why(Kind::Settings, e))
         },
     }
 }
@@ -245,6 +325,11 @@ pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&
     // The text names the venues whose registry rows trade; a venue's slice extends it with its row.
     if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { return Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX") }
     if selling && index { Some("an index bot that sells") } else { None }
+}
+
+/// Which of `admission`'s refusals it is, for a bot it refuses: the exchange, or an index bot that sells.
+fn admission_kind(exchange: Option<&str>) -> Kind {
+    if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { Kind::Exchange } else { Kind::Feature(Feature::IndexSelling) }
 }
 
 /// Why an IBKR bot with a limit order is refused (D-IBKR-NOLIMIT).
@@ -263,17 +348,17 @@ pub fn signal_admission(exchange: Option<&str>) -> Option<&'static str> {
 /// or one with more decimals than the pages round to; history rows other than its own REGULAR orders (history_reasons).
 /// The wash-sale rule is no reason: a locked buy consumes its call (engine::signal). A basket's interval, amount and
 /// allocations are not asked of it.
-fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
+fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    if let Some(why) = signal_admission(exchange.as_deref()) { r.push(why.into()); }
+    if let Some(text) = signal_admission(exchange.as_deref()) { r.push(why(Kind::Exchange, text)); }
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let id = |key: &str| bot.settings.get(key).and_then(Value::as_i64);
     let (Some(base), Some(_)) = (id("base_asset_id"), id("quote_asset_id")) else {
-        r.push("settings: base_asset_id or quote_asset_id missing or not an id".into());
+        r.push(why(Kind::Settings, "settings: base_asset_id or quote_asset_id missing or not an id"));
         return Ok(());
     };
-    if let Err(e) = model::signals(c, bot.id) { r.push(format!("a signal rule this build does not read ({e:?})")); }
-    if let Err(e) = bot.signal_calls() { r.push(format!("{e:?}")); }
+    if let Err(e) = model::signals(c, bot.id) { r.push(why(Kind::Settings, format!("a signal rule this build does not read ({e:?})"))); }
+    if let Err(e) = bot.signal_calls() { r.push(why(Kind::Settings, format!("{e:?}"))); }
     // The same rule set as every kind: what this build does not run on a signal bot is refused by name.
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
@@ -283,22 +368,22 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
     }
     // D-SIG-CAP: the cap a signal bot runs reads as a basket's does.
     if bot.quote_amount_limited() {
-        if let Err(e) = bot.quote_amount_limit() { r.push(e); }
-        if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
+        if let Err(e) = bot.quote_amount_limit() { r.push(why(Kind::Settings, e)); }
+        if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(why(Kind::Settings, e)); }
     }
     // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
-    if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push("user not found".into()); }
+    if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push(why(Kind::Owner, "user not found")); }
     history_reasons(c, bot, &[base], splits, r)?;
     // The pair's ticker on this venue, within the decimals the pages round to. Its asset: a plain cryptocurrency, or a stock (Alpaca's catalog,
     // whatever its instrument type: the pair's sizing and its market clock are the venue's, never a basket's split walk).
-    let Some(t) = model::ticker_for(c, bot)? else { r.push(format!("no ticker for the asset {base} on this venue")); return Ok(()) };
+    let Some(t) = model::ticker_for(c, bot)? else { r.push(why(Kind::Asset(Some(base)), format!("no ticker for the asset {base} on this venue"))); return Ok(()) };
     let max = crate::web::bot::MAX_DECIMALS;
-    if [t.base_decimals, t.quote_decimals, t.price_decimals].iter().any(|d| !(0..=max).contains(d)) { r.push(format!("a ticker with more than {max} decimals")); }
+    if [t.base_decimals, t.quote_decimals, t.price_decimals].iter().any(|d| !(0..=max).contains(d)) { r.push(why(Kind::Asset(Some(base)), format!("a ticker with more than {max} decimals"))); }
     let (category, instrument): (Option<String>, Option<String>) = c.query_row("SELECT category, instrument_type FROM assets WHERE id = ?1", [base], |r| Ok((r.get(0)?, r.get(1)?)))?;
     let crypto = category.as_deref() == Some("Cryptocurrency") && instrument.is_none();
     let stock = alpaca && category.as_deref() == Some("Stock");
     if !crypto && !stock {
-        r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks on Alpaca)", category.unwrap_or_default(), instrument.unwrap_or_default()));
+        r.push(why(Kind::Asset(Some(base)), format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks on Alpaca)", category.unwrap_or_default(), instrument.unwrap_or_default())));
     }
     Ok(())
 }
@@ -307,22 +392,22 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
 /// (6b, the ranked DCA-out of get_sell_orders_data), sized from the sell sentence and scheduled on the sell cadence. Refused
 /// (beyond `admission`): rows on another venue outside Alpaca (there live_free_balance caps a sale at this venue's own
 /// units), and a sell cadence no schedule here can hold.
-fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
+fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let foreign: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND exchange_id != ?2", params![bot.id, bot.exchange_id], |r| r.get(0))?;
-    if foreign > 0 && !alpaca { r.push(format!("selling with {foreign} order(s) placed on another venue")); }
+    if foreign > 0 && !alpaca { r.push(why(Kind::History(History::ForeignSells), format!("selling with {foreign} order(s) placed on another venue"))); }
     if let Some(v) = bot.settings.get("sell_interval").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !s.trim().is_empty())) {
-        if v.as_str().and_then(super::schedule::Interval::parse).is_none() { r.push(format!("sell_interval {v}")); }
+        if v.as_str().and_then(super::schedule::Interval::parse).is_none() { r.push(why(Kind::Settings, format!("sell_interval {v}"))); }
     }
     for key in ["sell_amount", "sell_quote_amount", "smart_interval_base_amount"] {
         if let Some(v) = bot.settings.get(key).filter(|v| !v.is_null()) {
-            if !(v.is_number() || v.as_str().is_some_and(|s| s.trim().is_empty() || crate::ruby::BigDec::parse(s.trim()).is_ok())) { r.push(format!("{key} is not a number")); }
-            if super::schedule::to_d(v).is_some_and(|d| d < crate::ruby::BigDec::zero()) { r.push(format!("{key} is negative")); }
+            if !(v.is_number() || v.as_str().is_some_and(|s| s.trim().is_empty() || crate::ruby::BigDec::parse(s.trim()).is_ok())) { r.push(why(Kind::Settings, format!("{key} is not a number"))); }
+            if super::schedule::to_d(v).is_some_and(|d| d < crate::ruby::BigDec::zero()) { r.push(why(Kind::Settings, format!("{key} is negative"))); }
         }
     }
     // The span between two sells, as the web bounds a working bot's (MIN_SPAN_SECONDS, MAX_SPAN_SECONDS).
     let seconds = bot.effective().map(|e| e.seconds());
     if !seconds.is_some_and(|s| (crate::web::bot::MIN_SPAN_SECONDS..=crate::web::bot::MAX_SPAN_SECONDS).contains(&s)) {
-        r.push("a sell cadence under a second or over a thousand years".into());
+        r.push(why(Kind::Settings, "a sell cadence under a second or over a thousand years"));
     }
     Ok(())
 }
@@ -332,7 +417,7 @@ fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) ->
 /// time, and no continue waiting. Rails' continue (start_fresh: false) ignores the starting time but still anchors the grid
 /// on start_at: it can buy at once and count every interval up to a start_at that was moved later; a start_at edited on a
 /// running bot moves the grid the same way. Read by truthiness, like the flags: anything Rails might treat as on.
-fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, EngineError> {
+fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<Reason>, EngineError> {
     // An unreadable start_at refuses the bot as unreadable, here at its point of use, never at load. A blank one is absent,
     // as Rails' `presence` reads it.
     let start_at = match bot.settings.get("start_at").and_then(Value::as_str).filter(|s| !s.trim().is_empty()) {
@@ -347,20 +432,20 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
     // the grid it continues on is started_at's.
     if start_at.is_none() { return Ok(None); }
     if bot.transient.get("rust_continue_start").is_some() {
-        return Ok(Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into()));
+        return Ok(Some(why(Kind::StartTime(StartTime::Continued), "start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)")));
     }
     let Some(at) = start_at.filter(|at| Some(*at) == started) else {
-        return Ok(Some("start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into()));
+        return Ok(Some(why(Kind::StartTime(StartTime::Moved), "start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)")));
     };
     // Every day or every week at a time: the stored instant must read as that wall time in the owner's zone. Rails' fixed-day
     // step across a daylight-saving change can store it an hour off, earlier or later, with both anchors still equal.
     let mode = bot.settings.get("start_time_mode").and_then(Value::as_str);
     // Every mode, date included, needs a zone this build reads as Rails does.
     let name: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0))?;
-    let Some(zone) = crate::web::timezone::strict(&name) else { return Ok(Some(format!("start_time_enabled in an unknown time zone {name:?}"))) };
+    let Some(zone) = crate::web::timezone::strict(&name) else { return Ok(Some(why(Kind::StartTime(StartTime::TimeZone), format!("start_time_enabled in an unknown time zone {name:?}")))) };
     if mode == Some("date") { return Ok(None); }
     if !mode.is_some_and(|m| crate::web::bot::start::MODES.contains(&m)) {
-        return Ok(Some(format!("start_time_enabled with start_time_mode {mode:?}")));
+        return Ok(Some(why(Kind::Settings, format!("start_time_enabled with start_time_mode {mode:?}"))));
     }
     let local = DateTime::from_timestamp_micros(at).ok_or_else(|| EngineError::Data(format!("start_at {at} is out of range")))?.with_timezone(&zone);
     let chosen = crate::web::bot::start::parse_hhmm(bot.settings.get("start_time_of_day").and_then(Value::as_str));
@@ -370,37 +455,40 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
         // not proven, so a row left at either one is refused, as the web start refuses it.
         return Ok(match crate::web::timezone::resolve_local(zone, local.naive_local()) {
             Ok((_, only)) if only == local => None,
-            Ok(_) => Some(format!("start_time_enabled with a start_at that is not the one instant of {} in {name}", local.format("%H:%M"))),
-            Err(reason) => Some(format!("start_time_enabled: {reason}")),
+            Ok(_) => Some(why(Kind::StartTime(StartTime::Moved), format!("start_time_enabled with a start_at that is not the one instant of {} in {name}", local.format("%H:%M")))),
+            Err(reason) => Some(why(Kind::StartTime(StartTime::Moved), format!("start_time_enabled: {reason}"))),
         });
     }
-    Ok(Some(format!("start_time_enabled with a start_at at {} in {name}, not the chosen time {:?} (a daylight-saving change moved it)",
-                    local.format("%H:%M:%S"), bot.settings.get("start_time_of_day"))))
+    Ok(Some(why(Kind::StartTime(StartTime::Moved), format!("start_time_enabled with a start_at at {} in {name}, not the chosen time {:?} (a daylight-saving change moved it)",
+                    local.format("%H:%M:%S"), bot.settings.get("start_time_of_day")))))
 }
 
 /// settings.allocations: what Rails would start, within what this build ports (manual or market-cap weights, 1..MAX_ASSETS members on
 /// every venue). Returns the member asset ids in settings order.
-fn composition_reasons(bot: &Bot, r: &mut Vec<String>) -> Vec<i64> {
+fn composition_reasons(bot: &Bot, r: &mut Vec<Reason>) -> Vec<i64> {
     let Some(a) = bot.allocations() else {
-        r.push("allocations: an asset id or a weight this build does not read".into());
+        r.push(why(Kind::Allocations(Allocations::Unreadable), "allocations: an asset id or a weight this build does not read"));
         return vec![];
     };
-    if a.is_empty() { r.push("allocations: none".into()); }
-    if a.len() > MAX_ASSETS { r.push(format!("allocations: {} assets (at most {MAX_ASSETS})", a.len())); }
+    if a.is_empty() { r.push(why(Kind::Allocations(Allocations::Empty), "allocations: none")); }
+    if a.len() > MAX_ASSETS { r.push(why(Kind::Allocations(Allocations::TooMany(a.len())), format!("allocations: {} assets (at most {MAX_ASSETS})", a.len()))); }
     // Bots::DcaMultiAsset::Allocatable#allocations_balanced?.
-    if a.iter().any(|(_, w)| *w < 0.0) { r.push("allocations: a negative weight".into()); }
-    if !allocations_balanced(bot) { r.push(format!("{UNBALANCED} {}, not 1", crate::ruby::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>()))); }
+    if a.iter().any(|(_, w)| *w < 0.0) { r.push(why(Kind::Allocations(Allocations::Negative), "allocations: a negative weight")); }
+    if !allocations_balanced(bot) {
+        let sum = crate::ruby::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>());
+        r.push(why(Kind::Allocations(Allocations::Unbalanced(sum.to_string())), format!("{UNBALANCED} {sum}, not 1")));
+    }
     // Keys that name one id ("7", "07") would make the basket carry one asset as two members.
     let ids: Vec<i64> = a.into_iter().map(|(id, _)| id).collect();
     for (i, id) in ids.iter().enumerate() {
-        if ids[..i].contains(id) && !ids[i + 1..].contains(id) { r.push(format!("allocations: asset {id} listed more than once")); }
+        if ids[..i].contains(id) && !ids[i + 1..].contains(id) { r.push(why(Kind::Allocations(Allocations::Duplicate(*id)), format!("allocations: asset {id} listed more than once"))); }
     }
     ids
 }
 
 /// The normalized walk covers REGULAR buys/sells, merged rows and composition bots' REBALANCE/LIQUIDATION/REDEPLOY rows.
 /// Stock split matching and trust checks remain in engine::splits.
-fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
+fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     crate::figures::fill::validate_row_times(c,bot.id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
     order_kind_reasons(c, bot, r)?;
     if !model::all_crypto(c, bot)? { return Ok(()); }
@@ -422,7 +510,7 @@ fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut Spli
                            UNION SELECT base FROM tickers WHERE exchange_id = ?1 AND base_asset_id IN (SELECT value FROM json_each(?2))")?;
     let names = s.query_map(params![bot.exchange_id, ids], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
     let splits = rows.iter().filter(|(asset, currency)| asset.is_some_and(|a| members.contains(&a)) || names.contains(&Some(currency.clone()))).count();
-    if splits > 0 { r.push(format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)")); }
+    if splits > 0 { r.push(why(Kind::History(History::Splits), format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)"))); }
     Ok(())
 }
 
@@ -432,7 +520,7 @@ fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut Spli
 /// D-IMP-OPEN: before 92e1c5871 the importer mapped the CSV status, so it could write open or unknown rows; Rails never
 /// polls them (fetch_and_update_open_orders_job.rb:11) nor cancels them (transaction.rb:211-221), and leaves them waiting
 /// forever: failed cancels at each flip, phantom reservations, caps counting them open. That is not ported: refused by name.
-fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
+fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let (imported, no_asset): (i64, i64) = c.query_row(
         "SELECT coalesce(sum(external_id LIKE 'imported_%' AND (external_status IS NULL OR external_status NOT IN (2, 3, 4))), 0), \
                 coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
@@ -440,16 +528,16 @@ fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<
     // Sell rows are no refusal on any venue: off Alpaca the same normalized walk reads them (tests/eligibility.rs proves it
     // on Kraken and Binance), and bot_reasons_with runs it for such a history before accepting it.
     special_row_reasons(c, bot, r)?;
-    if imported > 0 { r.push(format!("{imported} legacy imported row(s) left open (Rails never polls or settles them)")); }
-    if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
+    if imported > 0 { r.push(why(Kind::History(History::ImportedOpen), format!("{imported} legacy imported row(s) left open (Rails never polls or settles them)"))); }
+    if no_asset > 0 { r.push(why(Kind::History(History::NoAsset), format!("{no_asset} order(s) recorded without base_asset_id"))); }
     Ok(())
 }
 
 /// Rebalance, liquidation and redeploy history is read on every composition bot (6b, 6c-2, 6c-4); the walk books them.
-fn special_row_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
+fn special_row_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     if bot.bot_type == "Bots::DcaMultiAsset" || bot.bot_type == "Bots::DcaIndex" { return special_reasons(c, bot, r); }
     let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR'", [bot.id], |r| r.get(0))?;
-    if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
+    if other > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history"))); }
     Ok(())
 }
 
@@ -459,12 +547,12 @@ fn special_row_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result
 pub fn unread_special_rows(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let mut r = vec![];
     special_row_reasons(c, bot, &mut r)?;
-    Ok(r)
+    Ok(texts(r))
 }
 
 /// What of an index bot's special history the walk does not read as Rails writes it. Waiting, pending and abandoned rows
 /// are rails_work's; a rejected row that executed nothing is ignored, as Rails' `submitted` scope ignores it.
-fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
+fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let (kinds, sides, statuses): (i64, i64, i64) = c.query_row(
         "SELECT coalesce(sum(transaction_type NOT IN ('LIQUIDATION', 'REBALANCE', 'REDEPLOY')), 0), \
                 coalesce(sum((transaction_type = 'LIQUIDATION' AND side IS NOT 1) OR (transaction_type = 'REDEPLOY' AND side IS NOT 0) \
@@ -472,11 +560,11 @@ fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(),
                 coalesce(sum(external_status IS NULL OR external_status NOT IN (0, 1, 2, 3, 4)), 0) \
          FROM transactions WHERE bot_id = ?1 AND status = 0 AND transaction_type <> 'REGULAR'",
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-    if kinds > 0 { r.push(format!("{kinds} row(s) of an unsupported transaction type")); }
-    if sides > 0 { r.push(format!("{sides} special row(s) with a side Rails never writes (LIQUIDATION buy, REDEPLOY sell or none)")); }
-    if statuses > 0 { r.push(format!("{statuses} special row(s) with an unknown external status")); }
+    if kinds > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{kinds} row(s) of an unsupported transaction type"))); }
+    if sides > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{sides} special row(s) with a side Rails never writes (LIQUIDATION buy, REDEPLOY sell or none)"))); }
+    if statuses > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{statuses} special row(s) with an unknown external status"))); }
     let executed = crate::figures::fill::rejected_special_executions(c, bot.id).map_err(|e| EngineError::Data(format!("{e:?}")))?;
-    if executed > 0 { r.push(format!("{executed} rejected LIQUIDATION/REDEPLOY/REBALANCE order(s) reporting an execution")); }
+    if executed > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{executed} rejected LIQUIDATION/REDEPLOY/REBALANCE order(s) reporting an execution"))); }
     Ok(())
 }
 
@@ -485,7 +573,7 @@ fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(),
 pub const TOKENIZED_PROVEN: [&str; 1] = ["Exchanges::Hyperliquid"];
 
 /// Every member's pair on this venue, and the composition rows Rails' tick reads (bot_index_assets).
-pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
+pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let mut quote_checked = false;
     for &asset_id in members {
         let Some(t) = model::ticker_for_asset(c, bot, asset_id)? else {
@@ -493,11 +581,11 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
             // members from this venue's tickers alone and marks every other row out of the index (index_allocatable.rb:69-102,
             // allocatable.rb:118-128), so a row without a ticker here, one a venue switch left, is a holding only. A basket's
             // members are its own settings and must trade here.
-            if bot.bot_type != "Bots::DcaIndex" { r.push(format!("no ticker for the asset {asset_id} on this venue")); }
+            if bot.bot_type != "Bots::DcaIndex" { r.push(why(Kind::Asset(Some(asset_id)), format!("no ticker for the asset {asset_id} on this venue"))); }
             continue;
         };
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
-        if let Err(e) = t.scales() { r.push(e); }
+        if let Err(e) = t.scales() { r.push(why(Kind::Asset(Some(asset_id)), e)); }
         // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer). Stocks and ETFs are category Stock,
         // typed by instrument_type (MarketData::CATEGORY_BY_TYPE, market_data.rb:377, :447), and trade on Alpaca only. A legacy
         // `alpaca_<uuid>` asset is never refreshed by the listings sync (market_data.rb:563-566), so nothing vouches for it.
@@ -520,17 +608,17 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         if tokenized && !stock {
             let venue = model::exchange_type(c, bot)?;
             if venue == "Exchanges::Kraken" {
-                r.push("Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here".into());
+                r.push(why(Kind::Asset(Some(asset_id)), "Kraken tokenized pair: Rails' AddOrder sends no asset_class (exchanges/kraken.rb:130-133); not traded here"));
             } else if !TOKENIZED_PROVEN.contains(&venue.as_str()) {
-                r.push(format!("tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)", t.base_symbol, model::exchange_name(c, bot)?));
+                r.push(why(Kind::Asset(Some(asset_id)), format!("tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)", t.base_symbol, model::exchange_name(c, bot)?)));
             }
         } else if !crypto && !stock {
-            r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks and ETFs on Alpaca)",
-                           category.unwrap_or_default(), instrument.unwrap_or_default()));
+            r.push(why(Kind::Asset(Some(asset_id)), format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks and ETFs on Alpaca)",
+                           category.unwrap_or_default(), instrument.unwrap_or_default())));
         }
         // Both Alpaca catalogs import only USD-quoted crypto (MarketData.sync_alpaca_crypto_listings_from_deltabadger!,
         // Exchange::SyncAlpacaAssetsJob), and Exchanges::Alpaca#get_balances resolves the quote from USD only. One quote per bot.
-        if alpaca && !quote_checked && t.quote_symbol != "USD" { r.push(format!("quote {} (Alpaca: only USD)", t.quote_symbol)); }
+        if alpaca && !quote_checked && t.quote_symbol != "USD" { r.push(why(Kind::Asset(None), format!("quote {} (Alpaca: only USD)", t.quote_symbol))); }
         quote_checked = true;
     }
     // Rails keeps a row per member (in_index) and per former member (exited: in_index false or NULL, outside the `in_index`
@@ -541,7 +629,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1")?;
     let current = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     let foreign = current.iter().filter(|a| !members.contains(a)).count();
-    if bot.bot_type != "Bots::DcaIndex" && foreign > 0 { r.push(format!("index assets present ({foreign})")); }
+    if bot.bot_type != "Bots::DcaIndex" && foreign > 0 { r.push(why(Kind::History(History::IndexAssets), format!("index assets present ({foreign})"))); }
     Ok(())
 }
 
@@ -552,13 +640,14 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> { install(c,
 /// refuses, each member's own findings ("bot {id} asset {asset}: …", member_findings), so that one member already refused
 /// cannot mask the same damage to another.
 fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<String>>) -> Result<Report, EngineError> {
-    let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![], notes: vec![] };
+    let mut report = Report::default();
     let mut splits = SplitRows::new();
     let mut rule_rows=c.prepare(&format!("SELECT r.id,e.type,r.type FROM rules r LEFT JOIN exchanges e ON e.id=r.exchange_id WHERE r.status IN ({})",model::working_list()))?;
     for row in rule_rows.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?)))? {
         let (id,exchange,kind)=row?;
         if kind!="Rules::Withdrawal" || !exchange.as_deref().and_then(crate::venue::registry::row).is_some_and(|v|v.withdraws) {
             report.problems.push(format!("rule {id}: withdrawals are not enabled for {}",exchange.as_deref().unwrap_or("this exchange")));
+            report.rules.push(id);
         }
     }
 
@@ -583,6 +672,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         if working {
             report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), reasons.join(", ")));
             if let Some(i) = items.as_deref_mut() { i.extend(reasons.iter().map(|r| format!("bot {id}: {r}"))); member_findings(c, id, i)?; }
+            report.refused.push((id, reasons));
             continue;
         }
         // The same UNBALANCED exception as rebalance_reasons, used to admit rebalances, liquidations and redeploys:
@@ -597,11 +687,13 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         // bot_reasons admitted this halt with only the stopped-basket allocation exception left.
         if composition_only { work.retain(|reason| !halt_reason(reason)); }
         // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.
-        if super::rebalance::candidate(&bot) && rebalances && !composition_only { work.push("rebalancing".into()); }
-        if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
+        if super::rebalance::candidate(&bot) && rebalances && !composition_only { work.push(why(Kind::Work(Work::Rebalancing), "rebalancing")); }
+        if outstanding > 0 { work.push(why(Kind::Work(Work::Outstanding), format!("{outstanding} outstanding order(s)"))); }
         if !work.is_empty() {
             report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));
             if let Some(i) = items.as_deref_mut() { i.extend(report.problems.last().cloned()); member_findings(c, id, i)?; }
+            work.extend(reasons);
+            report.held.push((id, work));
         }
     }
     Ok(report)
@@ -620,6 +712,7 @@ pub fn check_install_at(c: &Connection, now: DateTime<Utc>) -> Result<Report, En
         let reasons = flip_rule_reasons(c, &bot)?;
         if !reasons.is_empty() {
             report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), reasons.join(", ")));
+            report.refused.push((id, reasons));
             continue;
         }
         match verdict(c, &bot, now)? {
@@ -703,7 +796,7 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
     for id in candidates {
         let bot = model::load_bot(tx, id).map_err(failed)?;
         let reasons = flip_rule_reasons(tx, &bot).map_err(failed)?;
-        if !reasons.is_empty() { return Err(Refusal::Ineligible(reasons)); }
+        if !reasons.is_empty() { return Err(Refusal::Ineligible(texts(reasons))); }
     }
     reconciling(tx).map_err(failed)??;
     crate::venue::alpaca::preflight_after(tx, cipher, eligible, vec![]).map(|_| ()).map_err(Refusal::Untradable)
@@ -787,14 +880,14 @@ fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
 /// ranking (D-INDEX-TOP-N), USD on Alpaca, a Top coins or category index, a readable count and
 /// flattening. A missing `indices` row is the tick's own Failure ("Index not found"), never an install refusal. Returns the
 /// assets of every bot_index_assets row, in or out of the index, for member_reasons.
-fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
+fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Reason>) -> Result<Vec<i64>, EngineError> {
     let direct_top = bot.index_external_id() == "top-coins" && super::provider::coingecko_key(c)?.is_some();
-    if super::provider::config(c)?.is_none() && !direct_top { r.push("index requires a configured deltabadger market-data provider".into()); }
+    if super::provider::config(c)?.is_none() && !direct_top { r.push(why(Kind::IndexData, "index requires a configured deltabadger market-data provider")); }
     // member_reasons checks the quote only through a member's ticker, so a bot with no members yet is checked here.
-    if alpaca && model::quote_symbol(c, bot)? != "USD" { r.push(format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?)); }
-    if !matches!(bot.index_type(), Some("top" | "category")) { r.push(format!("index_type {:?} (only Top coins or a category index)", bot.index_type())); }
-    if !bot.num_coins().is_some_and(|n| (1..=1000).contains(&n)) { r.push("num_coins is not a positive integer".into()); }
-    if !bot.allocation_flattening().is_some_and(|f| (0.0..=1.0).contains(&f)) { r.push("allocation_flattening is not a number in 0..1".into()); }
+    if alpaca && model::quote_symbol(c, bot)? != "USD" { r.push(why(Kind::Asset(None), format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?))); }
+    if !matches!(bot.index_type(), Some("top" | "category")) { r.push(why(Kind::Settings, format!("index_type {:?} (only Top coins or a category index)", bot.index_type()))); }
+    if !bot.num_coins().is_some_and(|n| (1..=1000).contains(&n)) { r.push(why(Kind::Settings, "num_coins is not a positive integer")); }
+    if !bot.allocation_flattening().is_some_and(|f| (0.0..=1.0).contains(&f)) { r.push(why(Kind::Settings, "allocation_flattening is not a number in 0..1")); }
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id")?;
     let ids = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     Ok(ids)
