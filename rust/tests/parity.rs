@@ -930,6 +930,9 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
         match expect { Some(e) => if sold != e { failures.push(format!("{name}: sold {sold:?}")); }, None => failures.push(format!("{name}: no expectation pinned")) }
         assert_eq!(skipped, usize::from(name.contains("-all_under_floor-")), "{name}: the first member's attempt only, once: {rails_out}");
         if name.contains("-foreign_crypto-") { assert_eq!(rails_out["sent"][0]["qty"], "0.010000000", "{name}: the local 0.01, not the merged 1.01"); }
+        // A14: more AAPL than the as-traded 2, within the restated 4: the sale is sized on the split holding.
+        if name == "basket-sell-stock-split-market" { assert_eq!(rails_out["sent"][0]["qty"], "3.201195112", "{name}"); }
+        if name == "basket-sell-stock-split-limit" { assert_eq!(rails_out["sent"][0]["qty"], "3.193697769", "{name}"); }
     }
     assert!(failures.is_empty(), "pinned expectations:\n{}", failures.join("\n"));
 }
@@ -1066,11 +1069,19 @@ const COIN_SPLITS: [&str; 3] = ["security_split_bothclasses", "security_split_na
 fn coin_never_split(rails_out: &serde_json::Value, rust_out: &serde_json::Value, twin: &Path) -> Result<bool, String> {
     let twin: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(twin.join("rails.json")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     if twin["sent"].as_array().is_none_or(Vec::is_empty) { return Err(format!("the twin sent nothing: {twin}")); }
-    // The twin is an install of its own: its seeded rows were written at other instants (a row the tick writes carries
-    // the scenario's clock on both sides).
+    // The twin is an install of its own: the rows it was seeded with were written at other instants. Only those stamps
+    // are set aside (a seeded row's stamps before the tick, and its creation after it); every stamp the tick writes is
+    // compared.
     fn seeded(v: &serde_json::Value) -> serde_json::Value {
         match v {
-            serde_json::Value::Object(m) => m.iter().filter(|(k, _)| !["created_at", "updated_at"].contains(&k.as_str())).map(|(k, v)| (k.clone(), seeded(v))).collect(),
+            serde_json::Value::Object(m) if m.get("before").is_some_and(|b| !b.is_null()) => {
+                let mut row = m.clone();
+                for (side, keys) in [("before", &["created_at", "updated_at"][..]), ("after", &["created_at"][..])] {
+                    if let Some(o) = row.get_mut(side).and_then(serde_json::Value::as_object_mut) { for k in keys { o.remove(*k); } }
+                }
+                row.into_iter().map(|(k, v)| (k, seeded(&v))).collect()
+            }
+            serde_json::Value::Object(m) => m.iter().map(|(k, v)| (k.clone(), seeded(v))).collect(),
             serde_json::Value::Array(a) => a.iter().map(seeded).collect(),
             other => other.clone(),
         }

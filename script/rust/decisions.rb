@@ -2664,8 +2664,9 @@ module Decisions
       'open' => {},
       'closed' => { 'http' => { 'GET /v2/clock' => [closed_clock(at)] } },
       'foreign' => { 'rows' => rows + [bought.(9, 'AAPL', '5', '150', 'foreign' => true, 'external_id' => 'OFOREIGN-1')], 'aapl' => '7' },
-      # A14: AAPL bought before a settled 2:1 split; the sale is sized on the restated 4 (the positions come from build_stock).
-      'split' => { 'rows' => [bought.(1, 'AAPL', '2', '187.5', 'created_at' => '2026-08-25 14:00:01'), bought.(2, 'MSFT', '0.1', '400', 'created_at' => '2026-08-25 14:00:02')],
+      # A14: AAPL bought before a settled 2:1 split, and a sale for 600 (about 3.2 AAPL): the restated 4 covers it, the
+      # as-traded 2 would not and MSFT would sell the rest (the positions come from build_stock).
+      'split' => { 'settings' => { 'sell_quote_amount' => 600.0 }, 'rows' => [bought.(1, 'AAPL', '2', '187.5', 'created_at' => '2026-08-25 14:00:01'), bought.(2, 'MSFT', '0.1', '400', 'created_at' => '2026-08-25 14:00:02')],
                    'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '2:1' }] }
     }
     states.flat_map do |state, st|
@@ -2676,7 +2677,7 @@ module Decisions
                  'POST /v2/orders' => [sold.('OTX-1', 'AAPL'), sold.('OTX-2', 'MSFT')], 'GET /v2/account' => [stock_account('100000', '200000')],
                  'GET /v2/positions' => [ok([stock_pos.('AAPL', st.fetch('aapl', '2')), stock_pos.('MSFT', '0.1')])] }.merge(st.fetch('http', {}))
         { 'name' => "basket-sell-stock-#{state}-#{mode}", 'venue' => 'alpaca', 'asset' => 'stock', 'interval' => 'day', 'quote_amount' => 60.0,
-          'started_at' => STOCK_STARTED, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 100.0 }.merge(msettings),
+          'started_at' => STOCK_STARTED, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 100.0 }.merge(msettings).merge(st.fetch('settings', {})),
           'transient' => {}, 'transactions' => st.fetch('rows', rows), 'members' => [['AAPL', 0.5], ['MSFT', 0.5]], 'at' => at, 'splits' => st.fetch('splits', []),
           'script' => { 'alpaca' => http }, 'tick' => true }
       end

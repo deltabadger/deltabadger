@@ -355,9 +355,16 @@ fn a_pair_bots_caches_are_written_as_rails_writes_them() {
 fn a_security_split_never_restates_the_coin() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     let (nameonly, recorded) = (of("crypto_security_split_nameonly"), of("crypto_security_split"));
-    assert_ne!(nameonly.normalized["bots"], recorded.normalized["bots"], "Rails no longer restates the coin: drop the divergence");
+    // Rails restated the coin: its walk marks the restatement that moved a position; the twin's has none.
+    let marked = |sc: &Scenario| sc.normalized["bots"].as_object().unwrap().values().any(|b| b["metrics"].as_str().is_some_and(|m| m.contains("\"restated_at\"")));
+    assert!(marked(nameonly) && !marked(recorded), "Rails no longer restates the coin: drop the divergence");
+    // The account's figures (totals, snapshot, history) are the twin's too.
+    let whole = nameonly.rust.as_ref().unwrap();
+    for (figure, value) in recorded.normalized.as_object().unwrap().iter().filter(|(k, _)| *k != "bots") {
+        assert_eq!(&whole[figure], value, "{figure}: the account reads the coin as if the report had named the security");
+    }
     // Every figure Rails records, as the comparisons read them (the Rust side names more: what it leaves out).
-    let rust = &nameonly.rust.as_ref().unwrap()["bots"];
+    let rust = &whole["bots"];
     for (id, bot) in recorded.normalized["bots"].as_object().unwrap() {
         for (figure, value) in bot.as_object().unwrap() {
             assert_eq!(&rust[id][figure], value, "bot {id} {figure}: Rust reads the coin as if the report had named the security");
