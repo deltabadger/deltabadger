@@ -34,7 +34,9 @@ module McpReads
     ])
     calls = [McpParity.tool('get_exchange_balances', exchange_name: 'Alpaca'), McpParity.tool('list_open_orders'),
              *[1,2,3].map { |id| McpParity.tool('get_bot_details', bot_id: id) }, McpParity.tool('get_portfolio_summary')]
-    index['script']['POST api.kraken.com/0/private/BalanceEx'] = Figures.ok('error' => ['EAPI:Invalid key'])
+    # A POST's body is part of its line (ScriptedMarket.lines): Kraken's is the nonce, the frozen clock in microseconds.
+    kraken_nonce = (Time.iso8601(McpParity::AT).to_r * 1_000_000).to_i
+    index['script']["POST api.kraken.com/0/private/BalanceEx nonce=#{kraken_nonce}"] = Figures.ok('error' => ['EAPI:Invalid key'])
     index['script']['GET api.kraken.com/0/public/Ticker'] = Figures.ok('error' => ['EAPI:Unavailable'])
     result = { 'm3_owner' => [index, McpParity.ready + calls] }
     result['m3_not_granted'] = [index, McpParity.ready + NAMES.map { |name| McpParity.tool(name).merge('sql' => ["UPDATE connected_clients SET mcp_tools='[]'"]) }]
