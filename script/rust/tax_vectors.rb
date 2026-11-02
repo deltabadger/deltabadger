@@ -2153,6 +2153,16 @@ module TaxVectors
         transfer(c, 'BTC', '0.9994', '2025-04-01T10:00:00Z', from: bn.(c), to: kr.(c))
         kraken(c, :sell, 'BTC', '0.9994', '60000', '2025-05-01T10:00:00Z')
       end,
+      # D-TAX-FR-NETWORK-FEE (r4 item 2): a 0.001 BTC fee attached to a linked deposit leaves the units, no cession, listed:
+      # V 0.999 × 60,060.06 = 60,000, l.220 50,000, +10,000.00; IR 1,280.00, PS 1,860.00, total 3,140.00.
+      fr.('fr_linked_deposit_fee', expect: 'diverges: D-TAX-FR-NETWORK-FEE') do |c|
+        eur.('BTC', '2025-02-01', '55000')
+        kraken(c, :buy, 'BTC', '1', '50000', '2025-01-10T10:00:00Z')
+        row(c, :deposit, 'BTC', '1', '2025-02-01T10:10:00Z', exchange: bn.(c), fee_currency: 'BTC', fee_amount: '0.001')
+        deposit = AccountTransaction.order(:id).last
+        row(c, :withdrawal, 'BTC', '1', '2025-02-01T10:00:00Z', exchange: kr.(c), linked_transaction_id: deposit.id)
+        row(c, :sell, 'BTC', '0.999', '2025-05-01T10:00:00Z', exchange: bn.(c), quote_currency: 'EUR', quote_amount: '60000')
+      end,
       # D-TAX-FR-YEARS: 2019–2026 only.
       fr.('fr_2027_not_ported', year: 2027, expect: 'parity') { |c| kraken(c, :buy, 'BTC', '1', '100', '2026-02-01T10:00:00Z'); kraken(c, :sell, 'BTC', '1', '200', '2027-03-01T10:00:00Z') }
     ]

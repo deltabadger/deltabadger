@@ -48,15 +48,19 @@ pub(super) fn chain(inputs: Vec<Input>) -> Result<Vec<Cession>, FiguresError> {
     Ok(out)
 }
 
+/// r4 item 1: two coins held under one ticker (TON on two venues): prices are stored by ticker, so neither is priced from it.
+fn ambiguous(held: &[(String, String, String, Dec)], id: &str, symbol: &str) -> bool { held.iter().any(|(i, s, ..)| s == symbol && i != id) }
+
 /// D-TAX-FR-PORTFOLIO-VALUE: V before the cession `d`, and whether a coin of it had no price. Each other coin held at the
-/// day's price of its symbol on its venue, only where that symbol that day resolves to the coin held (else unpriced and
-/// warned); the coin sold at C / units sold × max(units held, units sold).
+/// day's price of its symbol on its venue, only where that symbol that day resolves to the coin held and no other coin held
+/// shares the ticker (else unpriced and warned); the coin sold at C / units sold × max(units held, units sold).
 pub(super) fn value(ps: &mut PriceService, currency: &str, p: &Point, d: &Disposal) -> Result<(Dec, bool), FiguresError> {
     let day = d.at.utc().date_naive();
     let (mut v, mut missing, mut sold) = (Dec::zero(), false, Dec::zero());
     for (id, symbol, venue, units) in &p.held {
         if *id == d.asset_id { sold = units.clone(); continue; }
-        let same = coin_id(ps.r, symbol, ps.r.venue(venue), Some(day)).unwrap_or_else(|| format!("symbol:{symbol}")) == *id;
+        let same = !ambiguous(&p.held, id, symbol)
+            && coin_id(ps.r, symbol, ps.r.venue(venue), Some(day)).unwrap_or_else(|| format!("symbol:{symbol}")) == *id;
         let price = if same { ps.price_at(symbol, currency, d.at, Some(venue))? } else { ps.warnings.push(format!("{symbol}/{currency} {day}")); Dec::zero() };
         if price.is_zero() { missing = true; }
         v = (&v + &(units * &price)?)?;
@@ -108,6 +112,7 @@ pub(super) fn summary(locale: &str, year: i32, rows: &[(&Disposal, &Cession)], l
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     fn input(source: usize, c: &str, f: &str, gross: &str, v: &str, missing: bool) -> Input {
         Input { source, proceeds: d(c), fee: d(f), gross: d(gross), value: d(v), missing }
@@ -123,6 +128,26 @@ mod tests {
         // l. 223 after the first: 1000 − 333.333… = 666.666…; × 100 / 200 = 333.333…
         assert_eq!((out[1].pta().unwrap().round(2).unwrap().to_s_f(), out[1].gain.round(2).unwrap().to_s_f(), out[1].incomplete), ("666.67".into(), "-234.33".into(), true));
         assert_eq!((out[2].fractions.round(2).unwrap().to_s_f(), out[2].gain.round(2).unwrap().to_s_f(), out[2].incomplete), ("666.67".into(), "-233.33".into(), true));
+    }
+
+    /// r4 item 1: two identities under one ticker at a cession are priced for neither: both 0 in V, warned, a missing value.
+    #[test]
+    fn an_ambiguous_ticker_is_priced_for_neither() {
+        use crate::tracker::{fx::FxTable, prices::{Reference, Unfetched}};
+        let held = vec![("bitcoin".to_string(), "BTC".to_string(), "kraken".to_string(), d("1")),
+                        ("the-open-network".into(), "TON".into(), "kraken".into(), d("10")), ("symbol:TON".into(), "TON".into(), "binance".into(), d("10"))];
+        assert!(ambiguous(&held, "the-open-network", "TON") && ambiguous(&held, "symbol:TON", "TON") && !ambiguous(&held, "bitcoin", "BTC"));
+        let (r, fx, mut f) = (Reference::default(), FxTable::default(), Unfetched);
+        let mut ps = PriceService::new(&r, &fx, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), &mut f);
+        let at = At::from_utc(chrono::Utc.with_ymd_and_hms(2025, 6, 1, 10, 0, 0).unwrap()).unwrap();
+        let p = Point { uid: 7, held, gross: d("1000"), uncertain: false };
+        let sale = Disposal { at, acquired: None, asset: "BTC".into(), amount: d("0.5"), proceeds: d("40000"), cost_basis: Dec::zero(), fee: Dec::zero(),
+                              gain_loss: Dec::zero(), holding_days: 0, complete: true, incomplete: false, tx_id: None, exchange: "kraken".into(), long_held: None,
+                              uncovered: Dec::zero(), averaged: false, mined: false, source: 7, recent: false, restricted: Dec::zero(), released: Dec::zero(),
+                              unusable: Dec::zero(), effective: at, rule: None, asset_id: "bitcoin".into() };
+        let (v, missing) = value(&mut ps, "EUR", &p, &sale).unwrap();
+        assert_eq!((v.to_s_f(), missing), ("80000.0".to_string(), true));
+        assert_eq!(ps.warnings, ["TON/EUR 2025-06-01", "TON/EUR 2025-06-01"]);
     }
 
     /// `fr_two_sales`: the fee comes off the first term only (+1,267.71, not Rails' +1,283.14), then −315.71.
