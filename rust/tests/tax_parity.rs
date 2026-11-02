@@ -100,6 +100,15 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
         }
         let got = match got { Ok(g) => g, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
         let expect = s["expect"].as_str().unwrap();
+        // "refuses: D-TAX-… <reason> <symbols…>": Rust refuses where Rails writes a file.
+        if let Some(rest) = expect.strip_prefix("refuses: ") {
+            let mut words = rest.split(' ');
+            let (id, reason) = (words.next().unwrap(), words.next().unwrap().to_string());
+            assert!(id.starts_with("D-TAX-"), "{name}: {id}");
+            let want = Outcome::Refused { reason, symbols: words.map(String::from).collect() };
+            if got != want { failures.push(format!("{name}: {id}: {got:?}")); }
+            continue;
+        }
         match expect.strip_prefix("diverges: ") {
             None => if got != rails(s) { failures.push(format!("{name}: not Rails' file\n--- rails\n{:?}\n--- rust\n{got:?}", rails(s))) },
             Some(id) => {
