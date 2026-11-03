@@ -287,14 +287,14 @@ fn keys_2x(dir: &Path, env: &[&str]) -> (String, EncryptionKeys) {
 /// Copies `dir` into the named volume `volume` (root, ownership as in `dir`; the entrypoint gives it to 1000 on start).
 fn put(image: &str, volume: &Volume, dir: &Path) {
     let src = format!("{}:/src", dir.display());
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "cp", "-v", &volume.mount(), "-v", &src, image, "-a", "/src/.", "/app/storage/"]);
+    docker(&["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "cp", "-v", &volume.mount(), "-v", &src, image, "-a", "/src/.", "/app/storage/"]);
 }
 
 /// A copy of the volume on this host, owned by this user (for SQLite reads and the backup folder).
 fn take(image: &str, volume: &Volume) -> tempfile::TempDir {
     let out = tempfile::tempdir().unwrap();
     let dst = format!("{}:/out", out.path().display());
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), "-v", &dst, image, "-c",
+    docker(&["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), "-v", &dst, image, "-c",
              &format!("cp -a /app/storage/. /out/ && chown -R {} /out", uid_gid())]);
     out
 }
@@ -302,7 +302,7 @@ fn take(image: &str, volume: &Volume) -> tempfile::TempDir {
 /// Every folder and every file's sha256 on the volume, `.secrets` included. As tests/cli.rs files_of: the engine lock,
 /// SQLite's -shm and an empty -wal are incidental (taking the lock creates the first; opening a file the others).
 fn snapshot(image: &str, volume: &Volume) -> String {
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
+    docker(&["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
              "cd /app/storage && find . -type d | sort && find . -type f ! -name .engine.lock ! -name '*-shm' ! \\( -name '*-wal' -empty \\) \
               -exec sha256sum {} + | sort -k2"])
 }
