@@ -345,12 +345,14 @@ fn index_constituent_reclassification_is_guarded_even_without_allocations() {
 #[tokio::test(flavor="current_thread")]
 async fn switching_or_removing_the_provider_invalidates_index_admission_and_freshness() {
     use deltabadger::{app_config,engine::staleness};
-    for change in ["coingecko","removed","token_removed","url_changed"] {
+    for change in ["coingecko","removed","token_removed","url_changed","platform_destroyed"] {
         let (_d,o,_s,id,_)=universe(3,0.0,false);
         match change {
             "coingecko"=>app_config::set(&o.primary,&seed::cipher(),"market_data_provider","coingecko",at(T0)).unwrap(),
             "removed"=>{o.primary.execute("DELETE FROM app_configs WHERE key='market_data_provider'",[]).unwrap();},
             "token_removed"=>{o.primary.execute("DELETE FROM app_configs WHERE key='market_data_token'",[]).unwrap();},
+            // A18: the admin's platform disconnect on Connect.
+            "platform_destroyed"=>deltabadger::web::settings::platform::forget(&o.primary,&seed::cipher()).unwrap(),
             _=>app_config::set(&o.primary,&seed::cipher(),"market_data_url","https://changed.invalid",at(T0)).unwrap(),
         }
         let bot=model::load_bot(&o.primary,id).unwrap();
@@ -802,6 +804,33 @@ async fn a_top_coins_bot_on_a_coingecko_key_ticks_once_the_ranking_is_the_provid
     let out = tick::tick(c, &second, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
     assert_eq!(in_index(&o, id).iter().map(|(s, _)| s.as_str()).collect::<Vec<_>>(), ["BTC", "ETH"]);
+}
+
+/// A18: a platform disconnect on an install claimed, then switched to its CoinGecko key. The provider and key stay, so a
+/// Top Coins bot stays admitted; the claim's rows leave the freshness fingerprint, so it buys nothing until the next ranking.
+#[tokio::test(flavor = "current_thread")]
+async fn a_platform_disconnect_keeps_a_coingecko_top_coins_bot_admitted_and_waits_for_the_next_ranking() {
+    use deltabadger::{app_config, engine::provider};
+    let (_d, o, _s, id) = bundled_stablecoin_index().await;
+    let c = &o.primary;
+    app_config::set(c, &seed::cipher(), "market_data_provider", "coingecko", at(T0)).unwrap();
+    app_config::set(c, &seed::cipher(), "coingecko_api_key", "CG-test-key", at(T0)).unwrap();
+    app_config::set(c, &seed::cipher(), "platform_connected_at", "2026-01-01T00:00:00Z", at(T0)).unwrap();
+    let venue = || deltabadger::venue::fake::FakeVenue::new()
+        .ticker("USDSEUR", "10", "10", "10").ticker("USDEEUR", "10", "10", "10").ticker("USD1EUR", "10", "10", "10")
+        .ticker("BTCEUR", "10", "10", "10").ticker("ETHEUR", "10", "10", "10");
+    provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    deltabadger::web::settings::platform::forget(c, &seed::cipher()).unwrap();
+    assert_eq!(app_config::get(c, &seed::cipher(), "market_data_provider").unwrap().as_deref(), Some("coingecko"), "the provider stays");
+    let bot = model::load_bot(c, id).unwrap();
+    assert!(eligibility::bot_reasons(c, &bot).unwrap().is_empty(), "Top Coins on the kept key is still admitted");
+    let first = venue();
+    tick::tick(c, &first, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(first.sent().is_empty(), "the ranking was attested under the claim's rows: nothing bought");
+    provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    let second = venue();
+    let out = tick::tick(c, &second, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
 }
 
 /// D-ASSET-TAXONOMY grid: Rails' generated rows retain their routing category;

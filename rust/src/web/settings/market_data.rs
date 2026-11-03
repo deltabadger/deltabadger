@@ -155,7 +155,7 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
                 }
                 _ => None,
             };
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, show_form)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, show_form, None)?;
             tx.commit()?;
             if requested { wake(&inner); }
             Ok(Some((widget, notice)))
@@ -178,7 +178,7 @@ async fn disconnect(app: App, ctx: Ctx) -> Result<Response, WebError> {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             config(crate::app_config::delete(&tx, "market_data_provider"))?;
             config(crate::app_config::set(&tx, &inner.cipher, "coingecko_api_key", "", inner.now()))?;
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, false)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None)?;
             tx.commit()?;
             Ok(widget)
         })
@@ -207,7 +207,7 @@ async fn resync(app: App, ctx: Ctx) -> Result<Response, WebError> {
 }
 
 /// The widget replaced in its frame, and the flash prepended.
-fn widget_and_flash(ctx: &Ctx, widget: &str, notice: Option<&str>) -> Result<Response, WebError> {
+pub(super) fn widget_and_flash(ctx: &Ctx, widget: &str, notice: Option<&str>) -> Result<Response, WebError> {
     let now: Vec<(&str, String)> = notice.map(|key| (flash::NOTICE, ctx.t(key))).into_iter().collect();
     let markup = flash::render(&flash::take(&ctx.session, &now))?;
     Ok(stream(turbo::stream("replace", "market_data_settings", widget.trim_end()) + &turbo::prepend_flash(markup.trim_end())))

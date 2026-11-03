@@ -197,8 +197,9 @@ async fn form(app: &App, ctx: &Ctx, form: Form<'_>) -> Result<Response, WebError
 }
 
 /// Platform::RedeemClaim: the claim, then in one transaction the market-data configuration, the proxies, the
-/// connection time and a pending sync, then Setup::SeedAndSyncJob. `Ok(Err(sentence))` is a failed claim.
-async fn redeem(app: &App, code: serde_json::Value, now: chrono::DateTime<chrono::Utc>) -> Result<Result<(Option<String>, Option<String>), String>, WebError> {
+/// connection time and a pending sync, then Setup::SeedAndSyncJob. `Ok(Err(sentence))` is a failed claim. `setup`: setup's
+/// claim, refused at commit once an admin exists; the admin's own claim in settings is not.
+pub(crate) async fn redeem(app: &App, code: serde_json::Value, now: chrono::DateTime<chrono::Utc>, setup: bool) -> Result<Result<(Option<String>, Option<String>), String>, WebError> {
     let claim = match launchpad::claim(&app.config.launchpad_url, code).await {
         Ok(claim) => claim,
         Err(launchpad::Failure::Message(sentence)) => return Ok(Err(sentence)),
@@ -209,7 +210,7 @@ async fn redeem(app: &App, code: serde_json::Value, now: chrono::DateTime<chrono
     let written = app.db(move |c| {
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
         // The upstream request may have overlapped admin creation. Setup must still be open at commit.
-        if admin_exists(&tx)? { return Ok(false); }
+        if setup && admin_exists(&tx)? { return Ok(false); }
         let mut writes = vec![("market_data_url".to_string(), claim.market_url), ("market_data_token".to_string(), claim.market_token),
                               ("market_data_provider".to_string(), "deltabadger".to_string())];
         writes.extend(claim.proxies);
@@ -257,7 +258,7 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
     let mut flash_now = Vec::new();
     if let Some(code) = app.config.claim_token.as_deref() {
         if !read_platform(&app).await?.connected {
-            match redeem(&app, serde_json::Value::String(code.to_string()), ctx.now).await? {
+            match redeem(&app, serde_json::Value::String(code.to_string()), ctx.now, true).await? {
                 Ok(identity) => {
                     ctx.session.lock().platform_identity = Some(identity.clone());
                     (name, email) = (identity.0.or(name), identity.1.or(email));
@@ -495,7 +496,7 @@ pub async fn connect_platform(State(app): State<App>, Extension(ctx): Extension<
     if let Some(answer) = filters(&app, &ctx).await? {
         return Ok(answer);
     }
-    let outcome = redeem(&app, parameter(&ctx.params, "claim_code"), ctx.now).await?;
+    let outcome = redeem(&app, parameter(&ctx.params, "claim_code"), ctx.now, true).await?;
     let platform = Platform { connected: outcome.is_ok(), proxies: if outcome.is_ok() { read_platform(&app).await?.proxies } else { false } };
     let frame = |claim_error: Option<String>| FrameView { v: &ctx, claim_action: claim_action(&ctx), claim_error, platform: &platform }.render();
     let (status, body) = match outcome {
