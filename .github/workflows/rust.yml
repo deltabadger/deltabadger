@@ -497,12 +497,13 @@ jobs:
           done
           echo "running $n test files on $os"
           df -k . | tail -1
-          ( while :; do df -k . | tail -1 | awk '{print "free KB", $4}'; sleep 15; done ) > df.log &
+          dflog=$(mktemp)
+          ( while :; do df -k . | tail -1 | awk '{print "free KB", $4}'; sleep 15; done ) > "$dflog" &
           sampler=$!
           status=0
           cargo nextest run --locked --no-fail-fast --lib --bins "${args[@]}" || status=$?
           kill "$sampler" || true
-          echo "least free KB during build and run: $(awk '{print $3}' df.log | sort -n | head -1)"
+          echo "least free KB during build and run: $(awk '{print $3}' "$dflog" | sort -n | head -1)"
           exit "$status"
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
