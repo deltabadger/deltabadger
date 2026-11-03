@@ -16,10 +16,11 @@ on:
       - 'docker/**'
       - 'docker-entrypoint.sh'
       - '.dockerignore'
-      # The compose files the image tests run (tests/image.rs).
+      # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
       - 'docker-compose.yml'
       - 'docker-compose.build.yml'
-      - 'deltabadger/docker-compose.yml'
+      - 'deltabadger/**'
+      - 'umbrel-app-store.yml'
       # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
       # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
       - '.github/workflows/docker-publish.yml'
@@ -210,10 +211,11 @@ on:
       - 'docker/**'
       - 'docker-entrypoint.sh'
       - '.dockerignore'
-      # The compose files the image tests run (tests/image.rs).
+      # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
       - 'docker-compose.yml'
       - 'docker-compose.build.yml'
-      - 'deltabadger/docker-compose.yml'
+      - 'deltabadger/**'
+      - 'umbrel-app-store.yml'
       # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
       # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
       - '.github/workflows/docker-publish.yml'
@@ -473,7 +475,7 @@ jobs:
           --test ruby --test schedule --test venue_fake --test entrypoint
           --test http --test http_proxy_env --test venue_rules --test alpaca_live --test kraken
           --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test tracker_holdings_contract --test tracker_cache_contract --test tracker_deadline --test tracker_first_sync_contract --test histories_sources --test index_histories_contract --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
-          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time --test setup --test signal_sizing
+          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time --test setup --test signal_sizing --test umbrel
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
   image:
