@@ -157,7 +157,8 @@ impl Shutdown {
         let mut rx = self.subscribe();
         let _ = rx.wait_for(|stopped| *stopped).await;
     }
-    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers).
+    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers); and,
+    /// on every OS, once the desktop's stdin latch is set (crate::stop), at once if it already is.
     /// The handlers are registered before this returns, so a signal that arrives afterwards is never lost. Call inside
     /// the runtime.
     #[cfg(unix)]
@@ -167,7 +168,7 @@ impl Shutdown {
         let mut int = signal(SignalKind::interrupt()).expect("a SIGINT handler");
         let me = self.clone();
         tokio::spawn(async move {
-            tokio::select! { _ = term.recv() => {}, _ = int.recv() => {} }
+            tokio::select! { _ = term.recv() => {}, _ = int.recv() => {}, _ = crate::stop::latched() => {} }
             me.request();
         });
     }
@@ -177,7 +178,7 @@ impl Shutdown {
         let mut ctrl_c = tokio::signal::windows::ctrl_c().expect("a Ctrl-C handler");
         let me = self.clone();
         tokio::spawn(async move {
-            ctrl_c.recv().await;
+            tokio::select! { _ = ctrl_c.recv() => {}, _ = crate::stop::latched() => {} }
             me.request();
         });
     }

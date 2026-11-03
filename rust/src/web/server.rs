@@ -40,11 +40,19 @@ impl Default for Limits {
     }
 }
 
-/// Binds 0.0.0.0:`port`. Nothing is served until `serve_on`: connections wait in the backlog meanwhile, while
+static BINDING: std::sync::OnceLock<std::net::IpAddr> = std::sync::OnceLock::new();
+
+/// `serve`'s `BINDING`, set once at start: the address the app, the refusal page and the starting page listen on. The
+/// desktop sets 127.0.0.1, as 2.x passed `-b 127.0.0.1` to Rails (PLAN-B6 §1.3); unset, 0.0.0.0 (Docker, Umbrel).
+pub fn set_binding(ip: std::net::IpAddr) { let _ = BINDING.set(ip); }
+
+pub fn binding() -> std::net::IpAddr { BINDING.get().copied().unwrap_or(std::net::Ipv4Addr::UNSPECIFIED.into()) }
+
+/// Binds `port` at `binding()`. Nothing is served until `serve_on`: connections wait in the backlog meanwhile, while
 /// `deltabadger serve` takes the install over. An install with no admin user yet is served too: every page then
 /// sends the browser to /setup, which creates it (web::setup).
 pub async fn bind(_app: &App, port: u16) -> Result<TcpListener, WebError> {
-    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await
+    let listener = TcpListener::bind(SocketAddr::from((binding(), port))).await
         .map_err(|e| WebError::Config(format!("cannot listen on port {port}: {e}")))?;
     Ok(listener)
 }

@@ -846,7 +846,7 @@ fn routes(app: App) -> Router {
         // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
-        .route("/ui-ready", only(get(refused::ui_ready)))
+        .route("/ui-ready", only(get(|| refused::ui_ready("app"))))
         .route("/csp-report", only(post(csp_report)))
         .route("/cable", only(get(cable::connect)))
         .with_state(app)

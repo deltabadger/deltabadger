@@ -14,6 +14,7 @@ pub mod market_data;
 pub mod mail;
 pub mod parity;
 pub mod ruby;
+pub mod stop;
 pub mod store;
 pub mod supervisor;
 pub mod sync;
