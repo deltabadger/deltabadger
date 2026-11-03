@@ -377,7 +377,7 @@ async fn an_unknown_mode_on_a_working_bot_runs() {
 
 /// Rows the old gate refused now run as stored, whatever the zone, the stored instant or the time of day say: a start Rails'
 /// fixed-day step stored an hour off (Rails' own instant, never moved), a repeated wall time in Dublin, an unknown zone (no
-/// app path writes one; a started bot reads no zone), an unreadable start_at (Rails reads it as absent: started_at).
+/// app path writes one; a started bot reads no zone). An unreadable start_at stays refused as unreadable data.
 #[test]
 fn every_formerly_refused_row_is_eligible() {
     let v = &vectors()["schedule"][6]; // Warsaw, every day at 09:30
@@ -394,6 +394,15 @@ fn every_formerly_refused_row_is_eligible() {
         o.primary.execute(edit, [id]).unwrap();
         let r = eligibility::check_install(&o.primary).unwrap();
         assert!(r.eligible.contains(&id), "{zone} {edit}: {:?} {:?}", r.problems, r.unreadable);
+    }
+    // An unreadable start_at is unreadable data, as every stored timestamp is (codec::validate_bot_times): refused as such,
+    // never guessed. Rails parses it to nil and runs from started_at; no app path stores one (Rails writes nil for a bad value).
+    for bad in ["garbage", ""] {
+        let (_d, o, s) = common::install();
+        let id = insert(&o.primary, &s, v);
+        o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.start_at', ?2) WHERE id = ?1", rusqlite::params![id, bad]).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(!r.eligible.contains(&id) && !r.unreadable.is_empty(), "{bad:?}: {:?}", r.unreadable);
     }
     // No anchor at all is still refused, as before.
     let (_d, o, s) = common::install();
@@ -418,5 +427,32 @@ fn turning_the_rule_off_is_the_flag_alone_whatever_start_at_holds() {
         assert_eq!(settings["start_time_enabled"], json!(false), "{start_at}");
         let mut expected = before_settings; expected["start_time_enabled"] = json!(false);
         assert_eq!((settings, transient, changed), (expected, before_transient, before_changed), "{start_at}: the flag alone");
+    }
+}
+
+/// Section 9's guarantee, sequentially over three intervals for a start_at moved on a running bot: each checkpoint's order
+/// follows from the fills before it, one per interval, as for the unmoved bot. The first order fills 15 of 60 and is
+/// cancelled; every later one fills. Daily: 60, 105, 60. Monthly (Rails' carry divides by the average month): 60, 45, 120.
+#[tokio::test(flavor = "current_thread")]
+async fn a_moved_start_at_settles_over_three_intervals_as_the_unmoved_bot() {
+    for (name, times, expected) in [
+        ("moved day 93600 open", ["2026-09-10T07:30:00.250Z", "2026-09-11T07:30:00.250Z", "2026-09-12T07:30:00.250Z"], ["60", "105", "60"]),
+        ("moved month 93600 open", ["2026-09-10T07:30:00.250Z", "2026-10-10T07:30:00.250Z", "2026-11-10T07:30:00.250Z"], ["60", "45", "120"]),
+    ] {
+        let e = edge(name);
+        let mut v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0");
+        for _ in 0..6 { v = v.balance_body("ZEUR", "100000", "0"); }
+        let (_d, mut en, id) = edge_engine(&e, "before first run", None, v.clone());
+        let mut got = vec![];
+        for (i, at) in times.iter().enumerate() {
+            let at = t(at);
+            // Nothing in the hour before the checkpoint, one order at it.
+            got.extend(replay(&mut en, &v, &[at - chrono::Duration::hours(1), at]).await.into_iter().filter(|q| *q > BigDec::zero()));
+            let last = "(SELECT max(id) FROM transactions WHERE bot_id = ?1)";
+            let fill = if i == 0 { format!("UPDATE transactions SET external_status = 3, quote_amount_exec = '15', amount_exec = '0.0003' WHERE id = {last}") }
+                       else { format!("UPDATE transactions SET external_status = 2, quote_amount_exec = quote_amount, amount_exec = '0.001' WHERE id = {last}") };
+            en.primary.execute(&fill, [id]).unwrap();
+        }
+        assert_eq!(got, amounts(&expected), "{name}");
     }
 }
