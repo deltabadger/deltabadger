@@ -22,7 +22,7 @@ Each withdrawal takes N % of the balance not tied up in open orders and sends it
 Press **Add** on the Rules page:
 
 1. **Pick asset** — a crypto asset.
-2. **Pick exchange** — only exchanges that support withdrawals are listed: Binance, Binance.US, Kraken, Gemini and MEXC.
+2. **Pick exchange** — only exchanges that support withdrawals are listed: Binance, Kraken, Gemini and MEXC.
 3. **Connect exchange** — a withdrawal key, separate from any trading key. Skipped when you already have one for that exchange.
 4. **Address** — chosen from the exchange's own address book; you cannot type one in.
 5. **Settings** — the sentence above, then **Create Rule**.
@@ -53,18 +53,18 @@ A withdrawal key is a separate API key from the one a bot trades with. Create it
 
 | Exchange | Enable |
 |---|---|
-| Binance, Binance.US | Enable Reading, Enable Withdrawals, IP restriction |
+| Binance | Enable Reading, Enable Withdrawals, IP restriction |
 | Kraken | Funds: Query, Withdraw; IP restriction |
 | Gemini | Account Balance, Fund Management; key scope Primary |
 | MEXC | View Order Details, Withdraw; Link IP Address |
 
-The **Connect exchange** step of the rule wizard shows the exact clicks for each exchange under **How to get API keys from …**, including the IP to whitelist (see [API keys](21-supported-exchanges.md#api-keys)). Paste the key and secret and press **Connect**. Binance and Binance.US reject a key whose permissions differ from the table above — trading still on, IP restriction off, or anything extra. On Kraken and Gemini a missing permission shows up as "Failed to validate API key permissions" rather than a rejection.
+The **Connect exchange** step of the rule wizard shows the exact clicks for each exchange under **How to get API keys from …**, including the IP to whitelist (see [API keys](21-supported-exchanges.md#api-keys)). Paste the key and secret and press **Connect**. Binance rejects a key whose permissions differ from the table above — trading still on, IP restriction off, or anything extra. On Kraken and Gemini a missing permission shows up as "Failed to validate API key permissions" rather than a rejection.
 
 Withdrawal keys appear under **Settings → Connect → API keys** in the **Withdrawal keys** list. Click the exchange name to see the required permissions again; the X removes the key. Removing it does not stop the rule — the rule fails at its next check.
 
 ### Addresses
 
-Deltabadger reads the destination from the exchange's address book (Binance, Binance.US, MEXC), pre-registered withdrawal addresses (Kraken, verified ones only) or approved addresses (Gemini, active ones only). Add the address on the exchange before creating the rule; where the exchange has a waiting period for new addresses, wait it out. The in-app guide also recommends switching on the exchange's withdrawal whitelist, so a compromised key cannot send funds anywhere else.
+Deltabadger reads the destination from the exchange's address book (Binance, MEXC), pre-registered withdrawal addresses (Kraken, verified ones only) or approved addresses (Gemini, active ones only). Add the address on the exchange before creating the rule; where the exchange has a waiting period for new addresses, wait it out. The in-app guide also recommends switching on the exchange's withdrawal whitelist, so a compromised key cannot send funds anywhere else.
 
 The **Address** step picks the first listed address for you. On the **Settings** step, and on the rule tile once the rule has been switched on and off again, the address is a dropdown of everything the exchange lists for that asset. Anything the exchange does not list is refused: the wizard returns you to the Address step, and the tile says "That address is not on the exchange's withdrawal allowlist".
 
