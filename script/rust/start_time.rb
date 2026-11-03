@@ -277,6 +277,36 @@ module StartTimeVectors
         end
       end
     end
+    # 1b. The same continue after a second settings edit while stopped: Rails captures the carry read on the moved grid
+    #     (capped at one amount) and stores it; that stored carry is what a takeover finds.
+    list << edge('continue after inside second edit', **WARSAW) do |t0, out, step|
+      run(t0 + Rational(1, 4), out, keep: true)
+      stop(t0 + 7200, out)
+      move_start_at(t0 + 7300, (t0 + 3 * day + 3600).utc.iso8601, out, 'form')
+      move_start_at(t0 + 7400, (t0 + 3 * day + 7200).utc.iso8601, out, 'form')
+      due = continue(t0 + 5 * 3600, out)
+      run(due == t0 + 5 * 3600 ? due : due + Rational(1, 4), out)
+      later = travel_to(due + 1, with_usec: true) { Bot.find(@id).next_interval_checkpoint_at } + 1
+      out << snap('second', later)
+    end
+    # 1c. A date start that never ran, continued before and after its date: the :start validation reads start_at on a
+    #     continue too (must_be_future), so after the date Rails refuses (`refused` holds the errors).
+    [-1800, 5 * 3600].each do |at|
+      date = { zone: 'Warsaw', click: '2026-09-10T05:00:00.250000Z', settings: { 'start_time_mode' => 'date', 'start_at' => '2026-09-10T07:30:00Z' } }
+      list << edge("date never ran continue #{at}", **date) do |t0, out, step|
+        stop(t0 - 3600, out)
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        bot = Bot.find(@id)
+        ok = travel_to(t0 + at, with_usec: true) { bot.start(start_fresh: false) }
+        unless ok
+          out << snap('continue refused', t0 + at, 'refused' => bot.errors.details.transform_values { |v| v.map { |e| e[:error].to_s } })
+          next
+        end
+        due = job_due
+        out << snap('continue', t0 + at, 'job' => due)
+        run(due.nil? ? t0 + at : Time.iso8601(due) + Rational(1, 4), out)
+      end
+    end
     # 2. A continue of a delayed start that never ran: before and after its start, start_at equal or moved a day later.
     { 'before' => -1800, 'after' => 5 * 3600 }.each do |when_, at|
       [0, day].each do |shift|

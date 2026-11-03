@@ -4673,6 +4673,434 @@
       ]
     },
     {
+      "name": "continue after inside second edit",
+      "zone": "Warsaw",
+      "click": "2026-09-10T05:00:00.250000Z",
+      "settings": {
+        "start_time_mode": "hour",
+        "start_time_of_day": "09:30"
+      },
+      "interval": "day",
+      "steps": [
+        {
+          "step": "fresh start",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 05:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T05:00:00.250000Z",
+          "job": "2026-09-10T07:30:00.000000Z"
+        },
+        {
+          "step": "run",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T07:30:00.250000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 05:00:00.250000"
+          },
+          "next": "2026-09-11T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:30:00.250000Z",
+          "bought": "60.0",
+          "open": false
+        },
+        {
+          "step": "stop",
+          "row": {
+            "status": 2,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T07:30:00.250000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 05:00:00.250000"
+          },
+          "next": "2026-09-11T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T09:30:00.000000Z"
+        },
+        {
+          "step": "start_at form",
+          "row": {
+            "status": 2,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-13T08:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T07:30:00.250000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 09:31:40"
+          },
+          "next": "2026-09-13T08:30:00.000000Z",
+          "last": "2026-09-12T08:30:00.000000Z",
+          "pending": "120.0",
+          "now": "2026-09-10T09:31:40.000000Z"
+        },
+        {
+          "step": "start_at form",
+          "row": {
+            "status": 2,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-13T09:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 60.0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T07:30:00.250000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 09:33:20"
+          },
+          "next": "2026-09-13T09:30:00.000000Z",
+          "last": "2026-09-12T09:30:00.000000Z",
+          "pending": "180.0",
+          "now": "2026-09-10T09:33:20.000000Z"
+        },
+        {
+          "step": "continue",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-13T09:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 60.0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T07:30:00.250000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 09:33:20"
+          },
+          "next": "2026-09-13T09:30:00.000000Z",
+          "last": "2026-09-12T09:30:00.000000Z",
+          "pending": "180.0",
+          "now": "2026-09-10T12:30:00.000000Z",
+          "job": null
+        },
+        {
+          "step": "run",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-13T09:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 60.0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T12:30:00.000000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 09:33:20"
+          },
+          "next": "2026-09-13T09:30:00.000000Z",
+          "last": "2026-09-12T09:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T12:30:00.000000Z",
+          "bought": "180.0",
+          "open": false
+        },
+        {
+          "step": "disabled",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": false,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-13T09:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T12:30:00.000000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 12:30:00.250000"
+          },
+          "next": "2026-09-11T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T12:30:00.250000Z"
+        },
+        {
+          "step": "second",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": false,
+              "start_time_mode": "hour",
+              "start_time_of_day": "09:30",
+              "start_at": "2026-09-13T09:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T12:30:00.000000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 12:30:00.250000"
+          },
+          "next": "2026-09-12T07:30:00.000000Z",
+          "last": "2026-09-11T07:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-11T07:30:01.000000Z"
+        }
+      ]
+    },
+    {
+      "name": "date never ran continue -1800",
+      "zone": "Warsaw",
+      "click": "2026-09-10T05:00:00.250000Z",
+      "settings": {
+        "start_time_mode": "date",
+        "start_at": "2026-09-10T07:30:00Z"
+      },
+      "interval": "day",
+      "steps": [
+        {
+          "step": "fresh start",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T05:00:00.250000Z",
+          "job": "2026-09-10T07:30:00.000000Z"
+        },
+        {
+          "step": "stop",
+          "row": {
+            "status": 2,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T06:30:00.000000Z"
+        },
+        {
+          "step": "continue",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:00:00.000000Z",
+          "job": null
+        },
+        {
+          "step": "run",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T07:00:00.000000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:00:00.000000Z",
+          "bought": "0.0",
+          "open": false
+        },
+        {
+          "step": "disabled",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": false,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null,
+              "last_action_job_at": "2026-09-10T07:00:00.000000Z"
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:00:00.250000Z"
+        }
+      ]
+    },
+    {
+      "name": "date never ran continue 18000",
+      "zone": "Warsaw",
+      "click": "2026-09-10T05:00:00.250000Z",
+      "settings": {
+        "start_time_mode": "date",
+        "start_at": "2026-09-10T07:30:00Z"
+      },
+      "interval": "day",
+      "steps": [
+        {
+          "step": "fresh start",
+          "row": {
+            "status": 1,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T05:00:00.250000Z",
+          "job": "2026-09-10T07:30:00.000000Z"
+        },
+        {
+          "step": "stop",
+          "row": {
+            "status": 2,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T06:30:00.000000Z"
+        },
+        {
+          "step": "continue refused",
+          "row": {
+            "status": 2,
+            "settings": {
+              "start_time_enabled": true,
+              "start_time_mode": "date",
+              "start_at": "2026-09-10T07:30:00Z"
+            },
+            "transient_data": {
+              "missed_quote_amount": null,
+              "missed_quote_amount_was_set": null
+            },
+            "started_at": "2026-09-10 07:30:00",
+            "settings_changed_at": "2026-09-10 04:00:00.250000"
+          },
+          "next": "2026-09-11T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-10T12:30:00.000000Z",
+          "refused": {
+            "start_at": [
+              "must_be_future"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "never ran continue before shift 0",
       "zone": "Warsaw",
       "click": "2026-09-10T05:00:00.250000Z",
