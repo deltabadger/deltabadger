@@ -581,7 +581,7 @@ fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
     c.execute("DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations)", []).unwrap();
     drop(c);
     let before = files_of(dir.path());
-    let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
+    let r = refused(dir.path(), cli(dir.path(), &["serve"]).env_remove("DELTABADGER_PLATFORM"));
     assert_eq!(r.status, Some(0), "stopped as asked: {}", r.stderr);
     // C1: the user's words on the page and first on stderr; the operator's detail (the release to run) on stderr only.
     assert!(r.stderr.contains(&format!("deltabadger: {BEHIND}\ndeltabadger: this data is behind this build (1 migration(s) missing): run Deltabadger 2.70.21's `migrate` on it once (or start 2.70.21 until it has finished starting), then start this again")), "{}", r.stderr);
@@ -595,11 +595,24 @@ fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
         let out = finished(&mut cli(dir.path(), &[cmd]));
         assert_eq!(out.status.code(), Some(1), "{cmd}: {}", stderr(&out));
     }
+    // C1-U (PLAN-B5 r2.2): DELTABADGER_PLATFORM read as Rails reads it (stripped, any case); another platform keeps C1.
+    for (platform, line) in [("umbrel", BEHIND_UMBREL), (" Umbrel ", BEHIND_UMBREL), ("docker", BEHIND)] {
+        let r = refused(dir.path(), cli(dir.path(), &["serve"]).env("DELTABADGER_PLATFORM", platform));
+        assert_eq!(r.status, Some(0), "{platform:?}: {}", r.stderr);
+        assert!(r.stderr.contains(&format!("deltabadger: {line}\ndeltabadger: this data is behind this build (1 migration(s) missing)")), "{platform:?}: {}", r.stderr);
+        assert!(r.page.contains(&line.replace('\'', "&#39;")), "{platform:?}: {}", r.page);
+        assert_eq!(files_of(dir.path()), before, "{platform:?}: a refused serve writes nothing");
+    }
 }
 
 /// C1 as the page and stderr show it.
 const BEHIND: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Go back to your previous Deltabadger, \
-                      update it to its latest version and start it. Once it has finished starting, stop it and start this again. Nothing was changed.";
+                      update it to its latest version and start it. Once it has finished starting, stop it and start this again. On Umbrel, \
+                      update Deltabadger in the Umbrel App Store instead. Nothing was changed.";
+/// C1-U: C1 on Umbrel.
+const BEHIND_UMBREL: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Update Deltabadger in the Umbrel \
+                             App Store: the update brings your data up to date first. If the update button isn't available, restart your \
+                             Umbrel first. Nothing was changed.";
 
 /// A heartbeat in the future (a clock ahead of this one) is refused at once: the user's words on the page, the heartbeat's
 /// age on stderr only.

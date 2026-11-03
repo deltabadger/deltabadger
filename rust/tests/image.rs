@@ -478,6 +478,18 @@ fn format_5_an_old_crlf_file_with_legacy_keys_is_taken_over() {
     takes_over(&image, &fixture);
 }
 
+/// C1 (main.rs BEHIND): the user's line on a Behind install, naming Umbrel's way too (PLAN-B5 r6 Q9' A).
+const C1: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Go back to your previous Deltabadger, \
+                  update it to its latest version and start it. Once it has finished starting, stop it and start this again. On Umbrel, \
+                  update Deltabadger in the Umbrel App Store instead. Nothing was changed.";
+/// C1-U (main.rs BEHIND_UMBREL): C1 where DELTABADGER_PLATFORM is umbrel (PLAN-B5 r2.2).
+const C1_UMBREL: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Update Deltabadger in the Umbrel \
+                         App Store: the update brings your data up to date first. If the update button isn't available, restart your \
+                         Umbrel first. Nothing was changed.";
+
+/// A line as the refusal page writes it (HTML-escaped apostrophes).
+fn on_page(line: &str) -> String { line.replace('\'', "&#39;") }
+
 /// Behind (B2's C1): the newest Rails migrations missing. The refusal page with C1, `/health-check` 503, `/ui-ready`
 /// 200, the operator's detail on stderr, SIGTERM → 0, and the volume exactly as it was: no backups folder, `.secrets`
 /// and every data file byte-equal.
@@ -495,9 +507,9 @@ fn a_behind_2x_volume_is_refused_untouched() {
     app.wait_for("/health-check", 503);
     let (status, page) = app.get("/").unwrap();
     assert_eq!(status, 503);
-    assert!(page.contains("this data is from an older version of Deltabadger"), "{page}");
+    assert!(page.contains(&on_page(C1)), "{page}");
     assert_eq!(app.status("/ui-ready"), Some(200));
-    assert!(app.stderr().contains(&behind_detail(3)), "{}", app.logs());
+    assert!(app.stderr().contains(&format!("deltabadger: {C1}\ndeltabadger: {}", behind_detail(3))), "{}", app.logs());
     assert_eq!(app.stop(), "0", "{}", app.logs());
     drop(app);
     let after = snapshot(&image, &volume);
@@ -587,6 +599,16 @@ impl Project {
         let port = docker_out(&["port", &id, "3000/tcp"]).stdout;
         let port = String::from_utf8_lossy(&port).lines().next().and_then(|l| l.rsplit(':').next()).and_then(|p| p.parse().ok()).unwrap_or(0);
         Container { id, port }
+    }
+
+    /// This project's files and env with one more override on top, as a project of its own (its own name and containers).
+    fn and(&self, yaml: &str) -> Project {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("override.yml");
+        std::fs::write(&path, yaml).unwrap();
+        let mut files = self.files.clone();
+        files.push(path.display().to_string());
+        Project { name: unique("dbimage"), files, _overrides: dir, env: self.env.clone() }
     }
 
     fn logs(&self) -> String {
@@ -922,8 +944,11 @@ const RAILS_2_34: &str = "ghcr.io/deltabadger/deltabadger:2.34.0";
 const RAILS_2_60: &str = "ghcr.io/deltabadger/deltabadger:2.60.0";
 const UMBREL_SEED: &str = "b3-6-umbrel-seed";
 const UMBREL_SECRET: &str = "SECRET_KEY_BASE=b3-6-umbrel-seed-secret-key-base";
-/// The guard's own line when it runs migrate.
-const GUARD_RUNS: &str = "update(s) behind; bringing it up to date with 2.70.21 first";
+/// The guard's own line when it runs migrate (G1, PLAN-B5 §7).
+const GUARD_RUNS: &str = "Deltabadger: your data is from an older version, so it's being updated first.";
+/// The guard's line when that migrate fails (F1, PLAN-B5 §7).
+const GUARD_FAILED: &str = "Deltabadger couldn't finish updating your data. Nothing was bought or sold. Restart the app to try again; if it \
+                            keeps failing, contact support.";
 
 /// B5's lines for Umbrel's 2.x compose (UMBREL_2X): the one-shot `upgrade` service, and `web` started
 /// only once it exits 0. GUARD goes in where its name is, verbatim, as a YAML block; it has no "$", so compose
@@ -959,17 +984,22 @@ fn b5_lines() -> String {
 /// data/storage (`storage`); every service on `network_mode: none`; app_proxy dropped; `web` and `jobs` on the 3.0 image.
 struct Umbrel { project: Project, storage: Volume, _data: Volume }
 
-fn umbrel(image: &str) -> Umbrel {
+fn umbrel(image: &str) -> Umbrel { umbrel_with(image, true) }
+
+/// `umbrel`, or (`step` false) the 2.x compose alone, as an installed app has it when `:latest` becomes 3.0 (PLAN-B5 r1.1).
+fn umbrel_with(image: &str, step: bool) -> Umbrel {
     let data = Volume::bind(image);
     std::fs::create_dir_all(data.path().join("data/storage")).unwrap();
     std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
     let storage = Volume::At(format!("{}/data/storage:/app/storage", data.path().display()));
     let local = std::env::var("DELTABADGER_GUARD_IMAGE").ok().filter(|v| !v.is_empty()).map(|i| format!("    image: {i}\n")).unwrap_or_default();
-    let offline = format!("services:\n  app_proxy: !reset null\n  upgrade:\n{local}    network_mode: none\n  web:\n    image: {image}\n    network_mode: none\n  \
+    let upgrade = if step { format!("  upgrade:\n{local}    network_mode: none\n") } else { String::new() };
+    let offline = format!("services:\n  app_proxy: !reset null\n{upgrade}  web:\n    image: {image}\n    network_mode: none\n  \
                            jobs:\n    image: {image}\n    network_mode: none\n");
     let app_data_dir = data.path().display().to_string();
     let file = format!("{}/../{UMBREL_2X}", env!("CARGO_MANIFEST_DIR"));
-    let project = Project::layered(&file, &[&b5_lines(), &offline],
+    let lines = if step { b5_lines() } else { "services: {}\n".into() };
+    let project = Project::layered(&file, &[&lines, &offline],
                                    &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", UMBREL_SEED), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
     Umbrel { project, storage, _data: data }
 }
@@ -1200,6 +1230,93 @@ fn umbrels_step_leaves_every_install_that_is_not_behind_alone() {
     step_leaves_alone(&image, &u, "handed back");
 }
 
+/// C1-U (PLAN-B5 r2.2, r6 Q9' A): Umbrel's 2.x compose as installed (no step; its `web` sets DELTABADGER_PLATFORM:
+/// umbrel) with `web` on 3.0, on a Behind 2.60.0 install. `web` refuses with 503 in Umbrel's words (not generic C1), the
+/// operator's detail on stderr, and every file stays byte-equal.
+#[test]
+fn umbrels_web_without_the_step_refuses_a_behind_install_in_umbrels_words() {
+    let Some(image) = image() else { return };
+    let u = umbrel_with(&image, false);
+    u.rails(RAILS_2_60, &["migrate"]);
+    let missing = missing_2x(&image, &u.storage).len();
+    let before = snapshot(&image, &u.storage);
+    u.project.ok(&["up", "-d", "web"]);
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 503);
+    let page = web.exec(&["curl", "-s", "http://localhost:3000/"]);
+    assert!(page.contains(&on_page(C1_UMBREL)) && !page.contains("Go back to your previous"), "{page}");
+    assert!(web.stderr().contains(&format!("deltabadger: {C1_UMBREL}\ndeltabadger: {}", behind_detail(missing))), "{}", web.logs());
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+    assert_eq!(snapshot(&image, &u.storage), before, "a refused start changes no file");
+}
+
+/// An image `FROM` the guard image with 2.70.21's last migration replaced by one that raises (b3-6-pr mutation 4).
+/// Removed on drop.
+struct FailingGuard { tag: String, last: String }
+
+impl FailingGuard {
+    fn build() -> Self {
+        let base = std::env::var("DELTABADGER_GUARD_IMAGE").ok().filter(|v| !v.is_empty()).unwrap_or_else(|| GUARD_IMAGE.into());
+        let files = docker(&["run", "--rm", "--network", "none", "--entrypoint", "ls", &base, "/app/db/migrate"]);
+        let file = files.lines().max().expect("2.70.21 has migrations").to_string();
+        let original = docker(&["run", "--rm", "--network", "none", "--entrypoint", "cat", &base, &format!("/app/db/migrate/{file}")]);
+        let class = original.lines().find(|l| l.starts_with("class ")).expect("a migration class").to_string();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(&file), format!("{class}\n  def up\n    raise \"B5-3: this migration fails on purpose\"\n  end\nend\n")).unwrap();
+        std::fs::write(dir.path().join("Dockerfile"), format!("FROM {base}\nCOPY {file} /app/db/migrate/{file}\n")).unwrap();
+        let tag = format!("{}:failing", unique("dbguard"));
+        docker(&["build", "-q", "-t", &tag, &dir.path().display().to_string()]);
+        FailingGuard { tag, last: file.split('_').next().unwrap().to_string() }
+    }
+}
+
+impl Drop for FailingGuard {
+    fn drop(&mut self) { let _ = Command::new("docker").args(["rmi", "-f", &self.tag]).output(); }
+}
+
+/// What 3.0 would have written on the install: its tables (`rust_*`), its lease row, its backups.
+fn traces_of_3_0(image: &str, storage: &Volume) -> (Vec<String>, Option<String>, bool) {
+    let copy = take(image, storage);
+    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
+    let tables = c.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'rust\\_%' ESCAPE '\\'").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let lease = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deltabadger::lease::KEY], |r| r.get(0)).ok();
+    (tables, lease, copy.path().join("backups").exists())
+}
+
+/// F1 (PLAN-B5 §3.2, §7; b3-6-pr mutation 4 as a test): Umbrel's step with a migrate that fails, on a 2.60.0 install.
+/// `up -d web` fails naming `upgrade`; `web` is created and never started; the step's log has G1 and the F1 line; 3.0
+/// wrote nothing (no `rust_*` table, no lease row, no backup); the install keeps the failed migration missing. Then the
+/// real guard image: the step completes and `web` takes over, 200.
+#[test]
+fn a_failing_step_keeps_web_stopped_says_so_and_the_next_start_completes_it() {
+    let Some(image) = image() else { return };
+    let failing = FailingGuard::build();
+    let u = umbrel(&image);
+    u.rails(RAILS_2_60, &["migrate"]);
+    assert!(!missing_2x(&image, &u.storage).is_empty(), "the fixture is Behind");
+    let untouched = traces_of_3_0(&image, &u.storage);
+    assert_eq!((untouched.0.as_slice(), untouched.2), (&[][..], false), "a 2.60.0 install has nothing of 3.0's");
+
+    let broken = u.project.and(&format!("services:\n  upgrade:\n    image: {}\n", failing.tag));
+    let web_name = format!("{}-web-1", broken.name);
+    let out = exits(broken.command(&["up", "-d", "web"]), &web_name);
+    let up = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(!out.status.success() && up.contains("\"upgrade\" didn't complete successfully"), "{up}");
+    assert_eq!(docker(&["inspect", "-f", "{{.State.Status}} {{.State.StartedAt}}", &web_name]), "created 0001-01-01T00:00:00Z", "web never started");
+    let said = broken.ok(&["logs", "--no-color", "--no-log-prefix", "upgrade"]);
+    assert!(said.contains(GUARD_RUNS) && said.contains(GUARD_FAILED) && !said.contains("Migrations completed!"), "{said}");
+    assert_eq!(traces_of_3_0(&image, &u.storage), untouched, "3.0 never ran: no rust_* table, no lease, no backup");
+    assert_eq!(missing_2x(&image, &u.storage), std::slice::from_ref(&failing.last), "the failed migration stays to do");
+    drop(broken);
+
+    let web = u.web_takes_over();
+    let said = u.project.ok(&["logs", "--no-color", "--no-log-prefix", "upgrade"]);
+    assert!(said.contains(GUARD_RUNS) && said.contains("Migrations completed!") && !said.contains(GUARD_FAILED), "{said}");
+    assert_eq!(missing_2x(&image, &u.storage), Vec::<String>::new());
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+}
+
 /// (e) r1.1, the own-server manual command (B10), on the own-server compose copied into a folder of its own with
 /// SECRET_KEY_BASE in `.env.docker` beside it, offline. A 2.60.0 install: 3.0 refuses it (503, C1 and r4.1's line on
 /// stderr, nothing changed); then B10's steps exactly: `docker compose stop`, the compose file's image set to
@@ -1225,7 +1342,7 @@ fn the_own_server_manual_command_upgrades_a_behind_install() {
     let app = project.container("deltabadger");
     app.wait_for("/health-check", 503);
     let said = app.stderr();
-    assert!(said.contains("this data is from an older version of Deltabadger") && said.contains(&behind_detail(missing)), "{}", app.logs());
+    assert!(said.contains(&format!("deltabadger: {C1}\ndeltabadger: {}", behind_detail(missing))), "{}", app.logs());
     project.ok(&["stop"]);
     assert_eq!(snapshot(&image, &volume), before, "the refused start changes no file");
 

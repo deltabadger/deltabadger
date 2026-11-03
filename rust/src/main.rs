@@ -13,7 +13,8 @@
 //! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
 //! and FORCE_SSL. Without data-api, run and serve import db/seed_data/catalogue.json.gz at start and the public catalogue
-//! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off).
+//! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off). DELTABADGER_PLATFORM=umbrel
+//! words the refusal of an older install for Umbrel.
 //!
 //! Files: on an empty STORAGE_DIR, `run` and `serve` create the install under the engine lock (store::bootstrap: the
 //! primary, seeded and owned by Rust from its first commit, and an empty queue; never cache or cable). Every other
@@ -40,18 +41,18 @@ fn main() {
             refuse_url_overrides(&env);
             let paths = paths(&env);
             let _lock = take_lock(&paths);
-            let report = store::check(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let report = store::check(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             for version in &report.pending_rust { println!("pending Rust migration {version}: run or serve applies it"); }
             // What `run` and `serve` will start from (PLAN-B2 r1.9, r2.2): the files copied into memory, the secret checked
             // as they check it, then this build's pending migrations applied to the copy. The files are only read.
-            let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             let cipher = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).map(|secret| {
                 let cipher = Cipher::new(&EncryptionKeys::resolve(&env, &secret).unwrap_or_else(|_| fail("index encryption configuration unreadable")));
                 if !deltabadger::crypto::reads_install(&copy.primary, &cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
                 cipher
             });
             if cipher.is_none() { println!("{SECRET_NOT_CHECKED}"); }
-            store::migrate_copy(&copy).unwrap_or_else(|e| refuse_store(e, &paths));
+            store::migrate_copy(&copy).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             let c = copy.primary;
             if let Some(cipher) = &cipher {
                 deltabadger::engine::provider::bind(&c,cipher,&env).unwrap_or_else(|_|fail("index configuration reader unavailable"));
@@ -97,9 +98,9 @@ fn main() {
             let secret=env("SECRET_KEY_BASE").unwrap_or_else(||fail("SECRET_KEY_BASE is required"));
             let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
             let cipher=Cipher::new(&keys);
-            check_readable(&paths,&cipher);
-            store::migrate(&paths,&lock).unwrap_or_else(|e|refuse_store(e, &paths));
-            let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths));
+            check_readable(&paths,&cipher,&env);
+            store::migrate(&paths,&lock).unwrap_or_else(|e|refuse_store(e, &paths, &env));
+            let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths, &env));
             if let Target::RailsList(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::seed_rails_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
@@ -123,7 +124,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             deltabadger::engine::placement::resolve_by_operator(&o.primary, bot_id, resolution, chrono::Utc::now())
                 .unwrap_or_else(|e| fail(&format!("{e:?}")));
             println!("resolved");
@@ -141,7 +142,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             match deltabadger::engine::reconcile::by_operator(&o.primary, tx_id, &text, chrono::Utc::now()) {
                 Ok(deltabadger::engine::reconcile::Operator::Reconciled) => println!("reconciled"),
                 Ok(deltabadger::engine::reconcile::Operator::AlreadyReconciled) => println!("already reconciled"),
@@ -220,10 +221,21 @@ fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
     }
 }
 
-/// C1, the user's words (no version); the operator's detail names the release that brings the data up to date.
+/// C1, the user's words (no version); the operator's detail names the release that brings the data up to date. It names
+/// Umbrel's way too, for Umbrel composes older than the platform marker (PLAN-B5 r5.1, Q9').
 const BEHIND: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Go back to your previous \
                       Deltabadger, update it to its latest version and start it. Once it has finished starting, stop it and start this \
-                      again. Nothing was changed.";
+                      again. On Umbrel, update Deltabadger in the Umbrel App Store instead. Nothing was changed.";
+/// C1-U, C1 on Umbrel (PLAN-B5 r2.2): the App Store's update runs the upgrade step; a failed restart on umbrelOS 1.7.4
+/// leaves the update button off until the Umbrel restarts.
+const BEHIND_UMBREL: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Update Deltabadger in the \
+                             Umbrel App Store: the update brings your data up to date first. If the update button isn't available, \
+                             restart your Umbrel first. Nothing was changed.";
+
+/// C1 for this platform: DELTABADGER_PLATFORM read as Rails' Installation.platform_from_env reads it (stripped, any case).
+fn behind(env: &dyn Fn(&str) -> Option<String>) -> &'static str {
+    if env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("umbrel")) { BEHIND_UMBREL } else { BEHIND }
+}
 const RAILS_ALIVE: &str = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. \
                            Stop it, then start this again. Nothing was changed.";
 // Not "Nothing was changed": the Rust migrations and the backup ran before the takeover refused.
@@ -235,18 +247,18 @@ fn behind_detail(missing: usize) -> String {
 }
 
 /// `fail` for a store refusal: Behind in the user's words with the operator's detail, the rest in `explain`'s.
-fn refuse_store(e: StoreError, paths: &Paths) -> ! {
+fn refuse_store(e: StoreError, paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -> ! {
     match e {
-        StoreError::Behind { missing } => fail_with(BEHIND, &behind_detail(missing.len())),
-        e => fail(&explain(e, paths)),
+        StoreError::Behind { missing } => fail_with(behind(env), &behind_detail(missing.len())),
+        e => fail(&explain(e, paths, env)),
     }
 }
 
 /// A store refusal in the operator's words. `paths` tells a missing queue (its install's data is there: the check reads
 /// the primary first) from a missing install.
-fn explain(e: StoreError, paths: &Paths) -> String {
+fn explain(e: StoreError, paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -> String {
     match e {
-        StoreError::Behind { missing } => format!("{BEHIND}\n{}", behind_detail(missing.len())),
+        StoreError::Behind { missing } => format!("{}\n{}", behind(env), behind_detail(missing.len())),
         StoreError::Missing { path } if path == paths.queue => format!("the job queue {} is missing, but this install's data is at {}. Put the queue file back, or set QUEUE_DATABASE_PATH to where it is, then start again.", path.display(), paths.primary.display()),
         StoreError::Missing { path } => format!("there's no Deltabadger data at {} yet. Start \"deltabadger serve\" to set up a new install.", path.display()),
         StoreError::QueueInTheWay { path } => {
@@ -276,18 +288,18 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     let cipher = Cipher::new(&keys);
     let paths = paths(env);
     let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
-    let created = start && store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths));
+    let created = start && store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths, env));
     if created {
         log(&format!("set up a new install at {}", paths.primary.display()));
         #[cfg(debug_assertions)]
         store::abort_point("after-commit");
     }
-    check_readable(&paths, &cipher);
+    check_readable(&paths, &cipher, env);
     if start && !created && !owned_by_rust(&paths, &cipher) { back_up(&paths) }
     if start {
-        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths)) { log(&format!("applied Rust migration {version}")); }
+        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths, env)) { log(&format!("applied Rust migration {version}")); }
     }
-    let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+    let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
     // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
     if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
@@ -332,8 +344,8 @@ const SECRET_NOT_CHECKED: &str = "note: SECRET_KEY_BASE isn't set, so this didn'
 /// Behind or foreign install is refused in its own words, before anything else is read), then whether this secret reads
 /// the install (crypto::reads_install). Nothing is written before either refusal: `identity::initialize` would clear
 /// every known account identity under a wrong secret.
-fn check_readable(paths: &Paths, cipher: &Cipher) {
-    store::check(paths).unwrap_or_else(|e| refuse_store(e, paths));
+fn check_readable(paths: &Paths, cipher: &Cipher, env: &dyn Fn(&str) -> Option<String>) {
+    store::check(paths).unwrap_or_else(|e| refuse_store(e, paths, env));
     let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
     if !deltabadger::crypto::reads_install(&c, cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
 }
@@ -342,7 +354,7 @@ fn check_readable(paths: &Paths, cipher: &Cipher) {
 /// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
 fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
     let install = paths(env);
-    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install)).primary;
+    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install, env)).primary;
     deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
 }
 
@@ -359,7 +371,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     -> Result<supervisor::Service<'a>, String> {
     let secret = env("SECRET_KEY_BASE").unwrap_or_default();
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
-    let own = store::open(paths).map_err(|e| explain(e, paths))?;
+    let own = store::open(paths).map_err(|e| explain(e, paths, env))?;
     let cipher = Cipher::new(&keys);
     // Utilities::Currency's Rails.cache entries: one fiat-rate cache for the whole engine process, shared by every run.
     let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
@@ -492,7 +504,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
     // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.
     let install = paths(env);
-    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install)).primary;
+    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install, env)).primary;
     let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).and_then(|app| app.with_queue_path(install.queue))
         .unwrap_or_else(|e| fail(&web_problem(e)));
     let mail = mail_sender(env, &cipher);
