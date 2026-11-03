@@ -162,7 +162,7 @@ fn explain(e: StoreError) -> String {
     match e {
         StoreError::Missing { path } => format!("{} does not exist yet: start the Rails app once to set up this install", path.display()),
         StoreError::Unrecognised { path } => format!("{} is not a Deltabadger database; refusing to touch it", path.display()),
-        StoreError::Behind { missing } => format!("this data is behind this build ({} migration(s) missing): run the matching Rails app until its background jobs have finished, stop it, then start this again", missing.len()),
+        StoreError::Behind { missing } => format!("this data is behind this build ({} migration(s) missing): run Deltabadger 2.70.21's `migrate` on it once (or start 2.70.21 until it has finished starting), then start this again", missing.len()),
         StoreError::Unsupported { unknown } => format!("this data has migrations this build does not know ({}); use a newer build", unknown.join(", ")),
         StoreError::Diverged { .. } => "this data's migration history differs from this build's; refusing".into(),
         StoreError::Incompatible { problems } => format!("this data's structure differs from what this build expects:\n{}", problems.join("\n")),

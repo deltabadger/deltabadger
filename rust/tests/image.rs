@@ -254,6 +254,11 @@ const C9: &str = "can&#39;t read this install with this SECRET_KEY_BASE";
 const OTHER_PAIR: [&str; 2] = ["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=b3-2-other-key", "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=b3-2-other-salt"];
 const OTHER_SECRET: &str = "SECRET_KEY_BASE=b3-2-other-secret";
 
+/// r4.1's operator line for Behind (main.rs behind_detail), approved in r5 Q5.
+fn behind_detail(missing: usize) -> String {
+    format!("this data is behind this build ({missing} migration(s) missing): run Deltabadger 2.70.21's `migrate` on it once (or start 2.70.21 until it has finished starting), then start this again")
+}
+
 fn uid_gid() -> String { format!("{}:{}", id("-u"), id("-g")) }
 
 /// Runs `script` in the 2.70.21 image under bash with its docker-entrypoint.sh sourced (not run), on `dir` at /s with
@@ -492,7 +497,7 @@ fn a_behind_2x_volume_is_refused_untouched() {
     assert_eq!(status, 503);
     assert!(page.contains("this data is from an older version of Deltabadger"), "{page}");
     assert_eq!(app.status("/ui-ready"), Some(200));
-    assert!(app.stderr().contains("this data is behind this build (3 migration(s) missing)"), "{}", app.logs());
+    assert!(app.stderr().contains(&behind_detail(3)), "{}", app.logs());
     assert_eq!(app.stop(), "0", "{}", app.logs());
     drop(app);
     let after = snapshot(&image, &volume);
@@ -522,22 +527,30 @@ const LOCKED: &str = "deltabadger: another Deltabadger engine is running on this
 
 /// A compose project: the repository's compose `file` as it is, plus an override written here, under a project name no
 /// other test uses, with `env` as the compose's own environment. `down -v` on drop, after a failure too.
-struct Project { name: String, file: String, overrides: tempfile::TempDir, env: Vec<(String, String)> }
+struct Project { name: String, files: Vec<String>, _overrides: tempfile::TempDir, env: Vec<(String, String)> }
 
 impl Project {
     fn new(file: &str, override_yaml: &str, env: &[(&str, &str)]) -> Self {
-        let name = unique("dbimage");
-        let overrides = tempfile::tempdir().unwrap();
-        std::fs::write(overrides.path().join("override.yml"), override_yaml).unwrap();
-        let file = format!("{}/../{file}", env!("CARGO_MANIFEST_DIR"));
-        Project { name, file, overrides, env: env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() }
+        Self::layered(&format!("{}/../{file}", env!("CARGO_MANIFEST_DIR")), &[override_yaml], env)
+    }
+
+    /// The compose file at `file`, then each of `overrides` in order (a later one wins).
+    fn layered(file: &str, overrides: &[&str], env: &[(&str, &str)]) -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let mut files = vec![file.to_string()];
+        for (i, yaml) in overrides.iter().enumerate() {
+            let path = dir.path().join(format!("override{i}.yml"));
+            std::fs::write(&path, yaml).unwrap();
+            files.push(path.display().to_string());
+        }
+        Project { name: unique("dbimage"), files, _overrides: dir, env: env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() }
     }
 
     fn command(&self, args: &[&str]) -> Command {
-        let over = self.overrides.path().join("override.yml");
         let mut command = Command::new("docker");
-        command.args(["compose", "-p", &self.name, "-f", &self.file, "-f", over.to_str().unwrap()]).args(args)
-            .envs(self.env.iter().map(|(k, v)| (k, v)));
+        command.args(["compose", "-p", &self.name]);
+        for file in &self.files { command.args(["-f", file]); }
+        command.args(args).envs(self.env.iter().map(|(k, v)| (k, v)));
         command
     }
 
@@ -778,4 +791,333 @@ fn handback_through_the_compose_gives_the_volume_back_to_2x() {
     docker(&["stop", &rails.id]);
     drop(rails);
     assert_eq!(lease(&image, &fixture.volume, &fixture.cipher), None, "2.70.21 adopted the handback and deleted the row");
+}
+
+// ---- B3-6: the Behind guard (PLAN-B3 §4 A+, §8 slice 6, r1.1, r1.6, r2.2, r3.2, r4.1) ----
+
+/// The image of Umbrel's `upgrade` step as B5's compose names it: 2.70.21 pinned by its index digest. A daemon that can't
+/// pull by digest (a Mac whose ghcr pulls are denied) runs the same content through DELTABADGER_GUARD_IMAGE (the tag).
+const GUARD_IMAGE: &str = "ghcr.io/deltabadger/deltabadger:2.70.21@sha256:7c8f73518134ba6414551b3978f49bd91dacc3ff75d0e1c6aea92401b449de81";
+const GUARD: &str = include_str!("../../docker/behind-guard.rb");
+const RAILS_2_34: &str = "ghcr.io/deltabadger/deltabadger:2.34.0";
+const RAILS_2_60: &str = "ghcr.io/deltabadger/deltabadger:2.60.0";
+const UMBREL_SEED: &str = "b3-6-umbrel-seed";
+const UMBREL_SECRET: &str = "SECRET_KEY_BASE=b3-6-umbrel-seed-secret-key-base";
+/// The guard's own line when it runs migrate.
+const GUARD_RUNS: &str = "update(s) behind; bringing it up to date with 2.70.21 first";
+
+/// B5's lines for Umbrel's compose (deltabadger/docker-compose.yml): the one-shot `upgrade` service, and `web` started
+/// only once it exits 0. GUARD goes in where its name is, verbatim, as a YAML block; it has no "$", so compose
+/// interpolates nothing in it.
+const B5_LINES: &str = "services:
+  upgrade:
+    image: GUARD_IMAGE
+    restart: \"no\"
+    command:
+      - bundle
+      - exec
+      - ruby
+      - -e
+      - |
+GUARD
+    environment:
+      SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
+    volumes:
+      - ${APP_DATA_DIR}/data/storage:/app/storage
+  web:
+    depends_on:
+      upgrade:
+        condition: service_completed_successfully
+";
+
+fn b5_lines() -> String {
+    assert!(!GUARD.contains('$'), "docker/behind-guard.rb must have no $: compose would interpolate it");
+    let guard: String = GUARD.lines().map(|l| format!("        {l}\n")).collect();
+    B5_LINES.replace("GUARD_IMAGE", GUARD_IMAGE).replace("GUARD\n", &guard)
+}
+
+/// Umbrel's compose with B5's lines, offline: APP_DATA_DIR is a bind (as Umbrel mounts it) with the install in
+/// data/storage (`storage`); every service on `network_mode: none`; app_proxy dropped; `web` and `jobs` on the 3.0 image.
+struct Umbrel { project: Project, storage: Volume, _data: Volume }
+
+fn umbrel(image: &str) -> Umbrel {
+    let data = Volume::bind(image);
+    std::fs::create_dir_all(data.path().join("data/storage")).unwrap();
+    std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
+    let storage = Volume::At(format!("{}/data/storage:/app/storage", data.path().display()));
+    let local = std::env::var("DELTABADGER_GUARD_IMAGE").ok().filter(|v| !v.is_empty()).map(|i| format!("    image: {i}\n")).unwrap_or_default();
+    let offline = format!("services:\n  app_proxy: !reset null\n  upgrade:\n{local}    network_mode: none\n  web:\n    image: {image}\n    network_mode: none\n  \
+                           jobs:\n    image: {image}\n    network_mode: none\n");
+    let app_data_dir = data.path().display().to_string();
+    let file = format!("{}/../deltabadger/docker-compose.yml", env!("CARGO_MANIFEST_DIR"));
+    let project = Project::layered(&file, &[&b5_lines(), &offline],
+                                   &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", UMBREL_SEED), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
+    Umbrel { project, storage, _data: data }
+}
+
+impl Umbrel {
+    /// Umbrel starting the step alone (a fresh container each time): its exit code and its whole output.
+    fn guard(&self) -> (Option<i32>, String) {
+        self.project.ok(&["rm", "-fs", "upgrade"]);
+        let code = self.project.compose(&["up", "--exit-code-from", "upgrade", "upgrade"]).status.code();
+        (code, self.project.ok(&["logs", "--no-color", "--no-log-prefix", "upgrade"]))
+    }
+
+    /// `up -d web` (the step first, then `web` once it exited 0): `web`, serving 200.
+    fn web_serves(&self) -> Container {
+        self.project.ok(&["up", "-d", "web"]);
+        let web = self.project.container("web");
+        web.wait_for("/health-check", 200);
+        web
+    }
+
+    /// `web_serves` after taking the install over.
+    fn web_takes_over(&self) -> Container {
+        let web = self.web_serves();
+        assert!(web.logs().contains("took over ("), "{}", web.logs());
+        web
+    }
+
+    /// A Rails image's command on the install, with Umbrel's secret, offline: its stdout.
+    fn rails(&self, rails: &str, command: &[&str]) -> String {
+        let mount = self.storage.mount();
+        let mut args = vec!["run", "--rm", "--network", "none", "-v", &mount, "-e", UMBREL_SECRET, rails];
+        args.extend(command);
+        docker(&args)
+    }
+}
+
+/// 2.70.21's migration versions (its db/migrate) not in the install's schema_migrations.
+fn missing_2x(image: &str, storage: &Volume) -> Vec<String> {
+    let all = docker(&["run", "--rm", "--network", "none", "--entrypoint", "ls", RAILS_2X, "/app/db/migrate"]);
+    let copy = take(image, storage);
+    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
+    let recorded: Vec<String> = c.prepare("SELECT version FROM schema_migrations").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    all.lines().filter_map(|f| f.split('_').next()).filter(|v| !recorded.iter().any(|r| r == v)).map(String::from).collect()
+}
+
+/// r2.2's data, through 2.34.0's own models: a user, a Kraken API key, account_transactions on Kraken and Binance (one
+/// of them QUICK), a working DCA bot with two orders. Then the queue is emptied, so every job after the step was
+/// enqueued by a 2.70.21 migration, not by a seed callback.
+const SEED_2_34: &str = r#"
+user = User.create!(email: "b3-6@example.test", password: "B3-6-fixture-pass!", name: "Fixture", confirmed_at: Time.current, setup_completed: true)
+kraken, binance = Exchange.find_by!(type: "Exchanges::Kraken"), Exchange.find_by!(type: "Exchanges::Binance")
+key = ApiKey.create!(user: user, exchange: kraken, key: "b3-6-key", secret: "b3-6-secret", key_type: :trading, status: :correct)
+row = ->(exchange, tx, base, amount, quote, quote_amount, at) {
+  AccountTransaction.create!(user: user, exchange: exchange, api_key: exchange == kraken ? key : nil, tx_id: tx, entry_type: :buy,
+                             base_currency: base, base_amount: amount, quote_currency: quote, quote_amount: quote_amount, transacted_at: at) }
+row.(kraken, "b3-6-kraken-1", "BTC", 0.01, "EUR", 300, Time.utc(2025, 1, 10))
+row.(binance, "b3-6-binance-1", "QUICK", 100, "USDT", 50, Time.utc(2023, 5, 1))
+bot = Bots::DcaSingleAsset.new(user: user, exchange: kraken, label: "B3-6 DCA", status: :scheduled, started_at: Time.utc(2025, 1, 1),
+                               settings: { "base_asset_id" => Asset.find_by!(external_id: "bitcoin").id,
+                                           "quote_asset_id" => Asset.find_by!(external_id: "EUR.FOREX").id, "quote_amount" => 10.0, "interval" => "day" })
+bot.set_missed_quote_amount
+bot.save!
+2.times { |i| bot.transactions.create!(exchange: kraken, status: :submitted, side: :buy, order_type: :market_order, base: "BTC", quote: "EUR",
+                                       external_id: "b3-6-order-#{i}", price: 30000, amount: 0.0003, amount_exec: 0.0003,
+                                       quote_amount: 10, quote_amount_exec: 10, created_at: Time.utc(2025, 1, 1 + i)) }
+queue = SolidQueue::Record.connection
+%w[ready scheduled claimed blocked failed recurring].each { |kind| queue.execute("DELETE FROM solid_queue_#{kind}_executions") }
+queue.execute("DELETE FROM solid_queue_jobs")
+print "seeded user #{user.id}, queue #{queue.select_value('SELECT COUNT(*) FROM solid_queue_jobs')}"
+"#;
+
+/// r2.2's fixture on Umbrel's storage: 2.34.0's `migrate` on the empty folder (with Umbrel's secret in the env, so
+/// `.secrets` holds the pair only), then SEED_2_34 through 2.34.0's `rails runner`. The user's id.
+fn behind_2_34(u: &Umbrel) -> i64 {
+    u.rails(RAILS_2_34, &["migrate"]);
+    let said = u.rails(RAILS_2_34, &["rake", "runner", SEED_2_34]);
+    let line = said.lines().last().unwrap_or_default();
+    assert!(line.ends_with(", queue 0"), "{said}");
+    line.trim_start_matches("seeded user ").split(',').next().unwrap().parse().unwrap()
+}
+
+/// The step on a Behind install: it says so, runs 2.70.21's migrate (exit 0) and leaves no 2.70.21 migration missing.
+fn step_upgrades(image: &str, u: &Umbrel) {
+    assert!(!missing_2x(image, &u.storage).is_empty(), "the fixture is Behind");
+    let (code, said) = u.guard();
+    assert_eq!(code, Some(0), "{said}");
+    assert!(said.contains(GUARD_RUNS) && said.contains("Migrations completed!"), "{said}");
+    assert_eq!(missing_2x(image, &u.storage), Vec::<String>::new(), "{said}");
+}
+
+/// (a) r2.2: a 2.34.0 install with data, upgraded by Umbrel's step and taken over by 3.0. The step's migrate enqueues
+/// one Tracker::LedgerJob, one PortfolioSnapshot::BackfillJob and one AccountTransaction::ResolveAssetsJob for the user
+/// (Rails' `limits_concurrency … on_conflict: :discard` drops the later LedgerJobs and BackfillJobs, the QUICK refetch's
+/// among them, while one is waiting). 3.0's start line counts them; the two wakes are journalled in rust_rails_wakes and
+/// run (each job's state shows a run after the wake's time; offline, a run may end in an error); the ResolveAssetsJob is
+/// dropped (D-B3-BEHIND-ASSETS-UNRESOLVED): the old ledger rows keep base_asset_id NULL and are listed under their symbol.
+#[test]
+fn umbrels_step_upgrades_a_2_34_install_and_3_0_takes_its_jobs_over() {
+    let Some(image) = image() else { return };
+    let u = umbrel(&image);
+    let user = behind_2_34(&u);
+    step_upgrades(&image, &u);
+
+    let copy = take(&image, &u.storage);
+    let queue = rusqlite::Connection::open(copy.path().join("production_queue.sqlite3")).unwrap();
+    let jobs: Vec<(String, String)> = queue.prepare("SELECT class_name, arguments FROM solid_queue_jobs ORDER BY class_name").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    let classes: Vec<&str> = jobs.iter().map(|(class, _)| class.as_str()).collect();
+    assert_eq!(classes, ["AccountTransaction::ResolveAssetsJob", "PortfolioSnapshot::BackfillJob", "Tracker::LedgerJob"], "{jobs:?}");
+    for (class, arguments) in &jobs {
+        let arguments: serde_json::Value = serde_json::from_str(arguments).unwrap();
+        assert_eq!(arguments["arguments"], serde_json::json!([user]), "{class}: {arguments}");
+    }
+    drop((queue, copy));
+
+    let web = u.web_takes_over();
+    let took = web.logs().lines().find(|l| l.contains("took over (")).unwrap_or_default().to_string();
+    eprintln!("{took}");
+    assert!(took.contains("bot(s), 3 queued job(s) removed, 1 of them with nothing left to do"), "{}", web.logs());
+    // The two wakes run at this start: each job's state for the user shows a run (ended well or not) after the wake.
+    let start = Instant::now();
+    let wakes = loop {
+        let ran = wakes_ran(&image, &u.storage, user);
+        if ran.as_ref().is_some_and(|w| w.len() == 2 && w.iter().all(|(_, ran)| *ran)) || start.elapsed() > Duration::from_secs(90) { break ran; }
+        std::thread::sleep(Duration::from_secs(2));
+    };
+    assert_eq!(wakes, Some(vec![("portfolio_backfill".to_string(), true), ("tracker_ledger".to_string(), true)]), "{}", web.logs());
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+
+    let copy = take(&image, &u.storage);
+    let queue = rusqlite::Connection::open(copy.path().join("production_queue.sqlite3")).unwrap();
+    let left: i64 = queue.query_row("SELECT COUNT(*) FROM solid_queue_jobs WHERE class_name IN ('AccountTransaction::ResolveAssetsJob', \
+        'PortfolioSnapshot::BackfillJob', 'Tracker::LedgerJob')", [], |r| r.get(0)).unwrap();
+    assert_eq!(left, 0, "3.0 took the three rows: two as wakes, ResolveAssetsJob dropped");
+    let primary = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
+    let rows: Vec<(String, Option<i64>)> = primary.prepare("SELECT base_currency, base_asset_id FROM account_transactions ORDER BY id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    // Listed under their symbols: the tracker reads a row without base_asset_id by its symbol, as Rails does; its list is
+    // proven on such rows in-process (tests/tracker_api.rs seeds every row without one). Not here: an App needs the web
+    // assets, which this job's test build doesn't have.
+    assert_eq!(rows, [("BTC".to_string(), None), ("QUICK".to_string(), None)], "D-B3-BEHIND-ASSETS-UNRESOLVED");
+}
+
+/// The journal's wakes for `user`, sorted by job, each with whether its job state shows a run (last_run_at or
+/// last_error_at) at or after the wake's time. None while the copy can't be read (it is taken from a running engine).
+fn wakes_ran(image: &str, storage: &Volume, user: i64) -> Option<Vec<(String, bool)>> {
+    let copy = take(image, storage);
+    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).ok()?;
+    let value = |key: &str| c.query_row("SELECT value FROM app_configs WHERE key = ?1", [key], |r| r.get::<_, String>(0)).ok();
+    let wakes: Vec<serde_json::Value> = serde_json::from_str(&value("rust_rails_wakes")?).ok()?;
+    let mut out: Vec<(String, bool)> = wakes.iter().map(|w| {
+        assert_eq!(w["scope"], user.to_string(), "{w}");
+        let job = w["job"].as_str().unwrap().to_string();
+        let at = w["at"].as_str().unwrap();
+        let state: serde_json::Value = value(&format!("rust_job.{job}:{user}")).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+        let ran = ["last_run_at", "last_error_at"].iter().any(|k| state[*k].as_str().is_some_and(|t| t >= at));
+        (job, ran)
+    }).collect();
+    out.sort();
+    Some(out)
+}
+
+/// (b) The late tail: a 2.60.0 install, upgraded by the step and taken over.
+#[test]
+fn umbrels_step_upgrades_a_2_60_install() {
+    let Some(image) = image() else { return };
+    let u = umbrel(&image);
+    u.rails(RAILS_2_60, &["migrate"]);
+    step_upgrades(&image, &u);
+    let web = u.web_takes_over();
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+}
+
+/// (c) r3.2: a partly upgraded install, as a failed 2.x update leaves it (the 2.34.0 fixture taken by 2.70.21 up to
+/// 20260828094446, just before the first migration that disables its transaction): the step sees it Behind, completes
+/// it, and 3.0 takes it over. `db:migrate:primary`, not r3.2's `db:migrate`: with several databases Rails' `db:migrate
+/// VERSION=` runs that one migration alone. An upgrade killed inside a non-transactional migration is
+/// R-B3-BEHIND-NONTX, not proved here.
+#[test]
+fn umbrels_step_completes_a_partly_upgraded_install() {
+    let Some(image) = image() else { return };
+    let u = umbrel(&image);
+    behind_2_34(&u);
+    u.rails(RAILS_2X, &["rake", "db:migrate:primary", "VERSION=20260828094446"]);
+    let missing = missing_2x(&image, &u.storage);
+    assert!(!missing.is_empty() && !missing.iter().any(|v| v.as_str() <= "20260828094446"), "partly upgraded: {missing:?}");
+    step_upgrades(&image, &u);
+    let web = u.web_takes_over();
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+}
+
+/// The step on an install it must leave alone: exit 0, no output at all (so no Rails boot and no migrate), every file
+/// byte-equal (`snapshot`: no new row anywhere).
+fn step_leaves_alone(image: &str, u: &Umbrel, what: &str) {
+    let before = snapshot(image, &u.storage);
+    let (code, said) = u.guard();
+    assert_eq!((code, said.as_str()), (Some(0), ""), "{what}");
+    assert_eq!(snapshot(image, &u.storage), before, "{what}: the step changes no file");
+}
+
+/// (d) The step is a no-op on every install that isn't Behind: an empty folder (no install is created: no primary,
+/// no `.secrets`), a 3.0-created install, a 2.70.21 install at the frozen schema, the same install taken over by 3.0,
+/// and handed back to 2.x (B3-4's handback). A Rails boot would refuse the taken-over one and adopt the handed-back one.
+#[test]
+fn umbrels_step_leaves_every_install_that_is_not_behind_alone() {
+    let Some(image) = image() else { return };
+    let u = umbrel(&image);
+    step_leaves_alone(&image, &u, "empty");
+    assert_eq!(snapshot(&image, &u.storage), ".", "an empty folder stays empty");
+    let web = u.web_serves();
+    assert!(web.logs().contains("set up a new install"), "{}", web.logs());
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+    step_leaves_alone(&image, &u, "3.0-created");
+
+    let u = umbrel(&image);
+    u.rails(RAILS_2X, &["migrate"]);
+    step_leaves_alone(&image, &u, "2.70.21, at the frozen schema");
+    let web = u.web_takes_over();
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+    step_leaves_alone(&image, &u, "taken over");
+    let name = unique("dbhandback");
+    let out = exits(u.project.command(&["run", "--rm", "-T", "--no-deps", "--name", &name, "web", "handback"]), &name);
+    assert_eq!(out.status.code(), Some(0), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stdout).contains(C8));
+    step_leaves_alone(&image, &u, "handed back");
+}
+
+/// (e) r1.1, the own-server manual command (B10), on the own-server compose copied into a folder of its own with
+/// SECRET_KEY_BASE in `.env.docker` beside it, offline. A 2.60.0 install: 3.0 refuses it (C1 on the page, r4.1's line
+/// on stderr, nothing changed); then B10's steps exactly: `docker compose stop`, the compose file's image set to
+/// 2.70.21, `docker compose run --rm deltabadger migrate`, the image set back, `docker compose up -d` → taken over, 200.
+#[test]
+fn the_own_server_manual_command_upgrades_a_behind_install() {
+    let Some(image) = image() else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let compose = dir.path().join("docker-compose.yml");
+    let shipped = std::fs::read_to_string(format!("{}/../docker-compose.yml", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let with_image = |to: &str| std::fs::write(&compose, shipped.replace("image: ghcr.io/deltabadger/deltabadger:latest", &format!("image: {to}"))).unwrap();
+    std::fs::write(dir.path().join(".env.docker"), "SECRET_KEY_BASE=b3-6-own-server-secret\n").unwrap();
+    let volume = Volume::named();
+    let Volume::Named(name) = &volume else { unreachable!() };
+    docker(&["run", "--rm", "--network", "none", "-v", &volume.mount(), "-e", "SECRET_KEY_BASE=b3-6-own-server-secret", RAILS_2_60, "migrate"]);
+    let missing = missing_2x(&image, &volume).len();
+    let project = Project::layered(&compose.display().to_string(),
+        &[&format!("services:\n  deltabadger:\n    network_mode: none\n    ports: !reset []\nvolumes:\n  storage:\n    name: {name}\n    external: true\n")], &[]);
+
+    with_image(&image);
+    let before = snapshot(&image, &volume);
+    project.ok(&["up", "-d"]);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 503);
+    assert!(app.stderr().contains(&behind_detail(missing)), "{}", app.logs());
+    project.ok(&["stop"]);
+    assert_eq!(snapshot(&image, &volume), before, "the refused start changes no file");
+
+    with_image(RAILS_2X);
+    let run = unique("dbmigrate");
+    let out = exits(project.command(&["run", "--rm", "-T", "--name", &run, "deltabadger", "migrate"]), &run);
+    assert_eq!(out.status.code(), Some(0), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert_eq!(missing_2x(&image, &volume), Vec::<String>::new());
+
+    with_image(&image);
+    project.ok(&["up", "-d"]);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("took over ("), "{}", app.logs());
+    project.ok(&["stop"]);
+    drop(project);
+    drop(volume);
 }

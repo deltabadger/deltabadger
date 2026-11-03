@@ -492,9 +492,11 @@ jobs:
       # The command tests run Umbrel's and the own-server compose files through the Compose v2 the runners ship.
       - name: Docker Compose
         run: docker compose version
-      # The takeover tests start on volumes made by the last 2.x image and by Rails itself (rails_install).
-      - name: Pull the last 2.x image
-        run: docker pull ghcr.io/deltabadger/deltabadger:2.70.21
+      # The takeover tests start on volumes made by the last 2.x image and by Rails itself (rails_install); the Behind
+      # guard's tests on volumes made by 2.34.0 and 2.60.0, and run the guard on 2.70.21 pinned by digest (this pull
+      # records that digest, so the compose finds it).
+      - name: Pull the 2.x images
+        run: for tag in 2.70.21 2.60.0 2.34.0; do docker pull "ghcr.io/deltabadger/deltabadger:$tag"; done
       # docker-publish.yml's gate before each 3.0 push (PLAN-B3 r1.8), on the same platforms: run here so a change to
       # it, or to the image, is proved before a tag depends on it.
       - name: Publish smoke test
