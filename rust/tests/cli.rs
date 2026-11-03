@@ -584,7 +584,7 @@ fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
     let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
     assert_eq!(r.status, Some(0), "stopped as asked: {}", r.stderr);
     // C1: the user's words on the page and first on stderr; the operator's detail (the release to run) on stderr only.
-    assert!(r.stderr.contains(&format!("deltabadger: {BEHIND}\ndeltabadger: this data is behind this build (1 migration(s) missing): run Deltabadger 2.70.21 until")), "{}", r.stderr);
+    assert!(r.stderr.contains(&format!("deltabadger: {BEHIND}\ndeltabadger: this data is behind this build (1 migration(s) missing): run Deltabadger 2.70.21's `migrate` on it once (or start 2.70.21 until it has finished starting), then start this again")), "{}", r.stderr);
     for answer in [&r.page, &r.health, &r.up] { assert!(answer.starts_with("HTTP/1.1 503"), "{answer}"); }
     assert!(r.page.contains(&BEHIND.replace('\'', "&#39;")) && r.page.contains("<h1"), "{}", r.page);
     assert!(!r.page.contains("2.70.21") && !r.page.contains("migration"), "no version or internal term on the page: {}", r.page);
