@@ -23,6 +23,7 @@ pub mod mexc;
 pub mod bitrue;
 pub mod bingx;
 pub mod registry;
+pub mod catalogue;
 pub mod withdrawal;
 pub mod sign;
 pub mod signers;

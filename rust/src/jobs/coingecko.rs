@@ -158,6 +158,13 @@ impl<T: Transport> CoinGecko<T> {
                  ("sparkline", "false"), ("tickers", "false")].map(|(k, v)| (k, v.to_string()));
         self.get(&format!("/coins/{id}"), &q).await
     }
+
+    /// Clients::Coingecko#exchange_tickers_by_id (:251-272) as Coingecko#get_exchange_tickers_by_id asks it: one page of a
+    /// venue's tickers by base asset (coin_ids nil is compacted away; the two false flags are sent).
+    pub async fn exchange_tickers(&self, id: &str, page: usize) -> Result<Value, ApiError> {
+        let q = [("depth", "false".to_string()), ("include_exchange_logo", "false".into()), ("order", "base_asset".into()), ("page", page.to_string())];
+        self.get(&format!("/exchanges/{id}/tickers"), &q).await
+    }
 }
 
 pub type Fut<'a> = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, ApiError>> + 'a>>;
@@ -166,6 +173,7 @@ pub type Fut<'a> = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Val
 pub trait Api {
     fn markets<'a>(&'a self, ids: Option<&'a [String]>, category: Option<&'a str>, per_page: usize, page: usize) -> Fut<'a>;
     fn coin<'a>(&'a self, id: &'a str) -> Fut<'a>;
+    fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> Fut<'a>;
 }
 
 impl<T: Transport> Api for CoinGecko<T> {
@@ -173,6 +181,38 @@ impl<T: Transport> Api for CoinGecko<T> {
         Box::pin(CoinGecko::markets(self, ids, category, per_page, page))
     }
     fn coin<'a>(&'a self, id: &'a str) -> Fut<'a> { Box::pin(CoinGecko::coin(self, id)) }
+    fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> Fut<'a> { Box::pin(CoinGecko::exchange_tickers(self, id, page)) }
+}
+
+/// Why a venue's crawl found nothing.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CrawlError {
+    /// A 429 (the plan ping's or a page's): D-CG-429-NO-MORE-CRAWLS, the run asks no further venue.
+    RateLimited(String),
+    /// Any other failure: this venue's discovery is discarded, the next venue still crawls.
+    Failed(String),
+}
+
+/// Coingecko#get_exchange_tickers_by_id (coingecko.rb:38-54): pages of 100 by base asset until a short page, at most 50;
+/// any page's failure, or a 50th full page (Rails raises "Too many attempts"), discards every page read. Paced by the key's
+/// throttle (D-CG-THROTTLE), not `sleep 3`. A blank key fails before any request.
+pub async fn crawl(api: &dyn Api, key: &str, id: &str) -> Result<Vec<Value>, CrawlError> {
+    if key.trim().is_empty() { return Err(CrawlError::Failed("CoinGecko API key not configured".into())); }
+    let mut all = vec![];
+    for page in 1..=50 {
+        let body = match api.exchange_tickers(id, page).await {
+            Ok(b) => b,
+            Err(e) if e.rate_limited() => return Err(CrawlError::RateLimited(e.message())),
+            Err(e) => return Err(CrawlError::Failed(e.message())),
+        };
+        let Some(tickers) = body.get("tickers").and_then(Value::as_array) else {
+            return Err(CrawlError::Failed(format!("CoinGecko exchanges/{id}/tickers page {page}: no tickers list")));
+        };
+        let short = tickers.len() < 100;
+        all.extend(tickers.iter().cloned());
+        if short { return Ok(all); }
+    }
+    Err(CrawlError::Failed(format!("Too many attempts to get {id} tickers by id from CoinGecko. Adjust the number of pages in the loop if needed.")))
 }
 
 /// A client for a key: `live` in production; a test hands scripted ones.

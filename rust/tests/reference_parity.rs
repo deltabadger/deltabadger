@@ -29,6 +29,28 @@ fn copy_dir(from: &Path, to: &Path) {
     for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
 }
 
+/// Named divergences (PLAN-A17 A17-2): (scenario, divergence, requests Rails makes and Rust does not, assets Rails mints,
+/// tickers Rails writes). Rust's rows and requests are Rails' without those (and without the exchange assets of those
+/// assets); the scenarios order them last, so every other row matches id for id.
+type Divergent = (&'static str, &'static str, &'static [&'static str], &'static [&'static str], &'static [&'static str]);
+const DIVERGENT: &[Divergent] = &[
+    // Rails binds SYM to its first id and ONE to shared-id (first wins); Rust leaves SYM, ONE and TWO unresolved.
+    ("cg-tickers-ambiguous", "D-CG-SYMBOL-AMBIGUOUS", &[], &["sym-one", "shared-id"], &["SYMUSD", "ONEUSD"]),
+    // Kraken's crawl answers 429: Rails crawls Coinbase next and creates its new pair; Rust asks no further crawl.
+    ("cg-tickers-429", "D-CG-429-NO-MORE-CRAWLS", &["/exchanges/gdax/tickers"], &["ethereum"], &["ETH-USD"]),
+];
+
+fn without(rails: &Value, (_, _, requests, assets, tickers): &Divergent) -> Value {
+    let mut out = rails.clone();
+    out["requests"] = Value::Array(rails["requests"].as_array().unwrap().iter().filter(|r| !requests.iter().any(|x| r.as_str().unwrap().contains(x))).cloned().collect());
+    let changes = |t: &str| rails["changes"][t].as_array().unwrap().clone();
+    let dropped: Vec<Value> = changes("assets").iter().filter(|c| assets.iter().any(|a| c["after"]["external_id"] == *a)).map(|c| c["id"].clone()).collect();
+    out["changes"]["assets"] = Value::Array(changes("assets").into_iter().filter(|c| !dropped.contains(&c["id"])).collect());
+    out["changes"]["exchange_assets"] = Value::Array(changes("exchange_assets").into_iter().filter(|c| !dropped.contains(&c["after"]["asset_id"])).collect());
+    out["changes"]["tickers"] = Value::Array(changes("tickers").into_iter().filter(|c| !tickers.iter().any(|t| c["after"]["ticker"] == *t)).collect());
+    out
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -36,7 +58,7 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 52, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 65, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -45,7 +67,19 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::reference(&rust_root.path().join(&name)).await.unwrap();
-        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // The venue catalogues are really read and applied, not failed alike on both sides.
+        if name == "cg-tickers-import" {
+            let venues = rails_out["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("api.kraken.com/") || r.as_str().unwrap().contains("api.coinbase.com/")).count();
+            if venues != 2 || rails_out["changes"]["tickers"].as_array().unwrap().len() < 4 { failures.push(format!("{name}: the catalogues were not applied: {rails_out}")); }
+        }
+        let expected = match DIVERGENT.iter().find(|d| d.0 == name) {
+            Some(d) => {
+                if rails_out == rust_out { failures.push(format!("{name}: Rails and Rust agree; the named divergence {} is gone", d.1)); }
+                without(&rails_out, d)
+            }
+            None => rails_out,
+        };
+        if expected != rust_out { failures.push(format!("{name}\n  rails: {expected}\n  rust:  {rust_out}")); }
     }
     // Listed divergence: a JSON column's text. ActiveSupport escapes <, > and & (as \u003c and so on) and serde does not;
     // both snapshots compare the parsed JSON, which is equal.

@@ -7,7 +7,7 @@
 //! claim has just written it); each records its outcome under its own name, as the scheduler would.
 use super::data_api::{self, Config, DataApi};
 use super::schedule::Jitter;
-use super::{reference, state, Cx, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
+use super::{reference, state, Cx, Job, JobFuture, Outcome, Retry, Spec, Wake};
 use crate::app_config;
 use crate::venue::http::Transport;
 
@@ -40,26 +40,34 @@ pub struct SeedAndSync<T: Transport> {
     env: Vec<(&'static str, String)>,
     api: Box<dyn Fn(Config) -> DataApi<T>>,
     cg: super::coingecko::Clients,
+    catalogues: super::synchronizer::Catalogues,
 }
 
 impl<T: Transport> SeedAndSync<T> {
     pub fn new(env: &dyn Fn(&str) -> Option<String>, api: impl Fn(Config) -> DataApi<T> + 'static) -> Self {
         let env = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN", "COINGECKO_API_KEY"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
-        Self { env, api: Box::new(api), cg: super::coingecko::live_clients() }
+        Self { env, api: Box::new(api), cg: super::coingecko::live_clients(), catalogues: super::synchronizer::live_catalogues() }
     }
     /// The CoinGecko clients a test hands.
     pub fn with_coingecko(mut self, cg: super::coingecko::Clients) -> Self { self.cg = cg; self }
+    /// The venue catalogues a test hands.
+    pub fn with_catalogues(mut self, catalogues: super::synchronizer::Catalogues) -> Self { self.catalogues = catalogues; self }
 }
 
-/// What the CoinGecko branch runs, in order (PLAN-A17 item 8): the assets refresh (Rails' sync_assets_from_coingecko!),
-/// then the indices job (D-CG-SETUP-RANKING: the stored ranking a Top Coins bot composes from). Venue tickers join in A17-2.
-const COINGECKO_SYNCS: [&str; 2] = [reference::ASSETS, reference::INDICES];
+/// What the CoinGecko branch runs, in order (PLAN-A17 item 8, A17-2 item 6): every venue's tickers (sync_exchanges_from_coingecko:
+/// force, no claim, no backfill wake), the assets refresh (Rails' sync_assets_from_coingecko!), then the indices job
+/// (D-CG-SETUP-RANKING: the stored ranking a Top Coins bot composes from). Rails' 65 s sleeps are the throttle's job.
+const COINGECKO_SYNCS: [&str; 3] = [reference::TICKERS, reference::ASSETS, reference::INDICES];
+
+/// Setup runs its steps itself, so its deadline covers them all: the CoinGecko tickers' 60 minutes plus the assets and the
+/// indices (the data-api branch's four steps fit too).
+pub const SETUP_DEADLINE: std::time::Duration = std::time::Duration::from_secs(90 * 60);
 
 enum Branch { DataApi(Config), CoinGecko, Neither }
 
 impl<T: Transport + 'static> Job for SeedAndSync<T> {
     fn spec(&self) -> Spec {
-        Spec { name: NAME, scope: None, schedule: None, jitter: Jitter::NONE, retry: Retry::None, deadline: DEADLINE * (SYNCS.len() as u32 + 1) }
+        Spec { name: NAME, scope: None, schedule: None, jitter: Jitter::NONE, retry: Retry::None, deadline: SETUP_DEADLINE }
     }
 
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
@@ -85,7 +93,11 @@ impl<T: Transport + 'static> Job for SeedAndSync<T> {
                 Ok(Branch::CoinGecko) => {
                     for name in COINGECKO_SYNCS {
                         let sub = Cx { db: cx.db.clone(), clock: cx.clock, wakers: cx.wakers.clone() };
-                        let outcome = reference::run_once_with(name, None::<DataApi<T>>, &self.cg, sub).await;
+                        let outcome = if name == reference::TICKERS {
+                            super::synchronizer::run(&self.cg, &self.catalogues, &sub, true).await
+                        } else {
+                            reference::run_once_with(name, None::<DataApi<T>>, &self.cg, sub).await
+                        };
                         let limited = matches!(outcome, Outcome::RateLimited(_));
                         record(&cx, name, outcome).await;
                         // A closed quota: the later steps are not asked; their schedules catch up, and the request stays.

@@ -1148,11 +1148,13 @@ fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
         assert_eq!(left.iter().any(|c| c == class), kept, "{class} ({work:?}): only a resync of no index bot stays");
     }
     let dropped = rows.iter().filter(|(_, w, _)| matches!(w, RailsWork::Dropped | RailsWork::IbkrKeys)).count();
-    // PLAN-A17 item 12: the CoinGecko asset jobs and the setup sync are owed a run too, unscoped ("") or for their asset.
-    use deltabadger::jobs::{reference::{ASSETS, ASSET_DATA}, setup_sync};
+    // PLAN-A17 item 12: the CoinGecko asset jobs and the setup sync are owed a run too, unscoped ("") or for their asset; A17-2:
+    // a venue's ticker sync is owed one whole TICKERS run.
+    use deltabadger::jobs::{reference::{ASSETS, ASSET_DATA, TICKERS}, setup_sync};
     assert_eq!(wake_journal(&o), [(TRACKER_LEDGER.to_string(), s.user_id.to_string()), (PORTFOLIO_BACKFILL.to_string(), s.user_id.to_string()),
                                   (API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string()), (ASSETS.to_string(), String::new()),
-                                  (ASSET_DATA.to_string(), asset.to_string()), (setup_sync::NAME.to_string(), String::new())]);
+                                  (ASSET_DATA.to_string(), asset.to_string()), (TICKERS.to_string(), String::new()),
+                                  (setup_sync::NAME.to_string(), String::new())]);
     assert!(deltabadger::app_config::get_plain(&o.primary, setup_sync::REQUEST).unwrap().is_some(), "a taken SeedAndSyncJob is a setup request");
     // The waiting signal job names a basket, not a signal bot: Rails' discard, through the import set.
     assert_eq!(t.dropped_jobs, dropped);

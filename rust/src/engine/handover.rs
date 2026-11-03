@@ -43,7 +43,8 @@ pub enum RailsWork {
     /// Journalled for its scope (the job's first argument: a user id, or an api key id for API_KEY_VALIDATOR) in
     /// RAILS_WAKES_KEY, and woken at every start until the Rust job of that name has run (r3.3, r4.4, r4.5).
     Wake(&'static str),
-    /// An argumentless job (Asset::FetchAllAssetsDataFromCoingeckoJob, Setup::SeedAndSyncJob): journalled unscoped (scope
+    /// An argumentless job (Asset::FetchAllAssetsDataFromCoingeckoJob, Setup::SeedAndSyncJob; Exchange::SyncTickersAndAssetsJob,
+    /// whose one whole TICKERS run serves any venue's row): journalled unscoped (scope
     /// "") in RAILS_WAKES_KEY and woken at every start until the job's unscoped record shows a run (PLAN-A17 item 12).
     WakeUnscoped(&'static str),
     /// Ibkr::GenerateConnectionKeysJob: the key row's empty material is filled in the claim transaction, as the job does
@@ -93,7 +94,7 @@ pub const RAILS_WORK: &[(&str, RailsWork)] = {
         ("Asset::InferColorFromImageJob", Dropped), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
         ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped), ("Bot::ConvertSingleAssetBotsJob", Dropped),
         ("Bot::EvaluateRebalancersJob", Dropped), ("Bot::RepairOrphanedBotsJob", Dropped), ("Exchange::SyncAllTickersAndAssetsJob", Dropped),
-        ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", Dropped), ("Ibkr::CheckActivationJob", Dropped),
+        ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", WakeUnscoped(crate::jobs::reference::TICKERS)), ("Ibkr::CheckActivationJob", Dropped),
         ("Index::SyncFromCoingeckoJob", Dropped), ("Setup::SeedAndSyncJob", WakeUnscoped(crate::jobs::setup_sync::NAME)), ("SolidQueue::RecurringJob", Dropped),
         // r7.2: the report page shows nothing in progress; the user asks again.
         ("Tax::GenerateReportJob", Dropped),

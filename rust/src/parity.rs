@@ -956,7 +956,7 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
         (reference::asset_data(&cg, id, cx).await, false)
     } else {
         let retries = reference::specs().iter().find(|s| s.name == job).is_some_and(|s| s.retry != jobs::Retry::None);
-        (reference::run_once_with(job, api, &cg, cx).await, retries)
+        (reference::run_once_full(job, api, &cg, &hosted_catalogues(&transport), cx).await, retries)
     };
     let requests: Vec<String> = transport.requests().iter().map(|r| {
         let key = request_key(r);
@@ -965,6 +965,24 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     // A retry is recorded only where the job has one (a Retry::None job's rate limit is not retried, as Rails' is not).
     Ok(json!({ "requests": requests, "retry": retries && matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),
                "changes": diff_tables(&before, &reference_snapshot(&o.primary, &cipher)?, &REFERENCE_TABLES) }))
+}
+
+/// PLAN-A17 A17-2: each venue's catalogue read by venue::catalogue over the scenario's script, its requests keyed and logged
+/// as "METHOD host/path?query" (Rails' recorder logs them so), so two venues sharing a path never share an answer.
+fn hosted_catalogues(transport: &ScriptedTransport) -> crate::jobs::synchronizer::Catalogues {
+    struct Hosted(ScriptedTransport);
+    impl crate::venue::http::Transport for Hosted {
+        async fn send(&self, r: &crate::venue::http::HttpRequest) -> Result<crate::venue::http::HttpResponse, crate::venue::http::TransportError> {
+            let host = r.base.split("://").nth(1).unwrap_or(&r.base);
+            let hosted = crate::venue::http::HttpRequest { base: String::new(), path: format!("{host}{}", r.path), ..r.clone() };
+            self.0.send(&hosted).await
+        }
+    }
+    let transport = transport.clone();
+    std::rc::Rc::new(move |ty: &str, _proxy: Option<String>| {
+        let (ty, t) = (ty.to_string(), Hosted(transport.clone()));
+        Box::pin(async move { crate::venue::catalogue::read(&ty, &t).await })
+    })
 }
 
 /// Plan 2d: each stock pair's recorded latest quote and trade (tickers.json `{"AAPL": {"quote": …, "trade": …}}`, the bodies

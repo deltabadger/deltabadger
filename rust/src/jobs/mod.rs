@@ -21,6 +21,7 @@ pub mod reference;
 pub mod resolve;
 pub mod schedule;
 pub mod setup_sync;
+pub mod synchronizer;
 pub mod state;
 
 use crate::crypto::Cipher;
