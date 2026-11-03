@@ -652,8 +652,8 @@ module Pages
     # create may write the owner's pending_report (users) and, on this build, its request row (rust_tax_reports; Rails: the
     # queue). Report and refusal files are placed at grid build time (`tax_fixtures`, by file name); a report already being
     # generated is the `tax_generating` step hook (Rails: an unfinished Solid Queue job under the concurrency key).
-    # The grid's Rails runs ActiveJob's test adapter, so an accepted create holds no slot there: no scenario reads the status
-    # of, or creates again over, a report it accepted (this build's request row would answer `generating`).
+    # The grid's Rails runs ActiveJob's test adapter, so an accepted create holds no slot there: a step that reads the status
+    # of a report it accepted first runs the `tax_queued` hook (the Solid Queue job production holds).
     # `api_tax_d_*` hold D-TAX-NOT-PORTED-GATE: tests/pages.rs tax_api_difference turns Rails' 202 into the 501 this build owes.
     TAX_REPORT = 'Date,Type,Asset,Amount,Proceeds (USD)' + "\n" + '2025-03-01,sell,BTC,0.5,"30,000.00"' + "\n" + '2025-04-02,sell,ETH,1,Café' + "\n"
     TAX_TOKENIZED = '{"reason":"tokenized_unsupported","symbols":["TSLAX","NVDAX"]}'
@@ -764,7 +764,8 @@ module Pages
         'api_tax_d_not_ported_wealth' => tax_case([tax_create(us, expect: 422), tax_create({ country: 'NL', year: 2020 }, expect: 202), tax_status('NL', 2020),
                                                    tax_create({ country: 'NL', year: 2025 }, expect: 202)], {}, {}, 'market_data' => 'none'),
         # A CoinGecko install is served as Rails serves it (PLAN-A17 A17-3 lifted the gate).
-        'api_tax_coingecko' => tax_case([tax_create({ country: 'US', year: 'abc' }), tax_create(us, expect: 202)], {}, {}, 'market_data' => 'coingecko')
+        'api_tax_coingecko' => tax_case([tax_create({ country: 'US', year: 'abc' }), tax_create(us, expect: 202), tax_status.merge('before' => 'tax_queued')], {}, {},
+                                        'market_data' => 'coingecko')
       )
       grid
     end

@@ -487,7 +487,7 @@ module McpControl
   # scenario's install state, applied by `grid` (tax_install): report and refusal files by name under <scenario>/tmp/tax_reports
   # ('tax_fixtures'), a report already generating ('tax_generating': an unfinished Solid Queue job under the job's concurrency
   # key; tests/mcp_control.rs holds the same as this build's request row) and the market data provider ('tax_market_data').
-  # ActiveJob's test adapter holds no slot for an accepted create: no scenario asks again after one (see pages_api.rb).
+  # ActiveJob's test adapter holds no slot for an accepted create: a step that reads one after it says 'tax_queued' (mcp.rb).
   TAX_NAMES = McpParity::TAX_NAMES
 
   def tax_ready(extra = [], install = {})
@@ -566,7 +566,7 @@ module McpControl
     s['tax_d_not_ported'] = tax_ready + [generate.(at.('DE', 2008)), generate.(at.('fr', 2018)), status.(at.('FR', 2018)), generate.(at.('fr', 2025))]
     s['tax_d_not_ported_wealth'] = tax_ready([], 'tax_market_data' => 'none') + [generate.(), generate.(at.('NL', 2020)), status.(at.('NL', 2020)),
                                                                                   generate.(at.('NL', 2025))]
-    s['tax_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.()]
+    s['tax_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.(), status.().merge('tax_queued' => true)]
   end
 
   def grid(root)

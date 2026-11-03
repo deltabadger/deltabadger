@@ -1384,7 +1384,10 @@ module Pages
     'tax_generating' => lambda {
       SolidQueue::Job.create!(queue_name: 'low_priority', class_name: 'Tax::GenerateReportJob', arguments: {},
                               concurrency_key: Tax::GenerateReportJob.new(User.first.id, 'XX', 0).concurrency_key)
-    }
+    },
+    # The report the previous step's accepted create queued, as Solid Queue holds it in production (the grid's ActiveJob
+    # test adapter holds none): Rails' status then reads `generating`. This build's create already wrote its request row.
+    'tax_queued' => -> { BEFORE.fetch('tax_generating').call }
   }.freeze
   WARM_PRICE_INFO = lambda do |met|
     Rails.cache = ActiveSupport::Cache::MemoryStore.new unless Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)

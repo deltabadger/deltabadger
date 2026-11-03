@@ -321,6 +321,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let inputs = metered(db, &mut allowance, move |c, _| load_inputs(c, user_id)).await?;
     let (terms, inputs) = pass(db, api, inputs, now, &mut allowance, |i, ps| walk::terms(&i.rows, &i.deposits, ps)).await?;
     let version = std::sync::Arc::new(version);
+    // D-CG-429-STOPS-PRICES: a run a 429 stopped leaves its gaps pending: the price generation is not stamped, so the next
+    // scheduled run or wake (`backfill::wanted`) sweeps again and asks for them.
+    let limited = api.is_some_and(Feed::rate_limited);
     metered(db, &mut allowance, move |c, cipher| {
         written_for(c, &inputs.origin, &|| now, |fenced, _| {
             // The rows swept, the window and the price plan are the rows the write sees: one version, read before the
@@ -333,7 +336,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             // A rewrite never leaves an account with history before the window's end with none.
             let had: bool = fenced.query_row("SELECT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id = ?1 AND date <= ?2)", rusqlite::params![user_id, last.to_string()], |r| r.get(0))?;
             if had && swept.whole.is_empty() { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
-            backfill::store(fenced, cipher, user_id, &swept, last, &version, now)
+            backfill::store(fenced, cipher, user_id, &swept, last, &version, now)?;
+            if limited { crate::app_config::delete(fenced, &backfill::price_key(user_id)).map_err(FiguresError::Data)?; }
+            Ok(())
         })?;
         Ok(true)
     }).await

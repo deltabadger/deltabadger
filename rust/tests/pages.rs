@@ -371,6 +371,8 @@ fn before(dir: &Path, what: &str) {
         // PLAN-A12 (A12-1 contract): a tax report already queued for the first user, as this build holds the request.
         "tax_generating" => c.execute("INSERT INTO rust_tax_reports(request, user_id, scope, country, year, stablecoin_as_fiat, locale, state, created_at) \
                                       VALUES ('00000000000000000000000000000001', (SELECT min(id) FROM users), 'crypto', 'US', 2025, 0, 'en', 'queued', '2026-09-10 12:00:00')", []).unwrap(),
+        // The report the previous create queued: this build's create already wrote its request row (Rails: the Solid Queue job).
+        "tax_queued" => 0,
         // Bot 1's price status line within its 20 s, as the engine's info pass stores it (Rails: bot.price_limit_info_from_cache).
         "warm_price_info" | "warm_price_info_met" => {
             let info = json!({ "price_limit": { "buying": { "base": "BTC", "quote": "USD", "price": "64310.75", "condition_met": what == "warm_price_info_met",

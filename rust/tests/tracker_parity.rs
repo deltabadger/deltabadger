@@ -169,6 +169,12 @@ fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Val
     assert_eq!(paths("cg_endpoint_429", false), ["coins/bitcoin 2026-09-10..2026-09-11", "coins/bitcoin 2026-09-03..2026-10-01"], "one request per run");
     assert!(paths("cg_endpoint_429", true).iter().any(|p| p.starts_with("coins/ethereum")));
     assert!(stored("cg_endpoint_429", false, "ETH").is_empty() && !stored("cg_endpoint_429", true, "ETH").is_empty());
+    // The backfill's gaps stay pending in Rust (the price generation unstamped, so the next run sweeps again); Rails stamps it.
+    let generation = |name: &str, rails: bool| -> Value {
+        let (a, b) = &outputs[name];
+        (if rails { a } else { b })["tables"].as_object().unwrap().iter().find(|(k, _)| k.starts_with("snapshot_price_generation_")).map(|(_, v)| v.clone()).unwrap()
+    };
+    for name in ["cg_endpoint_429", "cg_ping_429"] { assert!(generation(name, false).is_null() && !generation(name, true).is_null(), "{name}"); }
     // The ping's 429: Rails read it as a demo key and stored bitcoin's days; Rust asked nothing past each run's ping.
     assert_eq!(paths("cg_ping_429", false), ["ping ..", "ping .."]);
     assert!(stored("cg_ping_429", false, "BTC").is_empty() && !stored("cg_ping_429", true, "BTC").is_empty());

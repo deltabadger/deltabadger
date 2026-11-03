@@ -126,3 +126,37 @@ async fn a_balance_sync_on_a_coingecko_install_asks_simple_price() {
     let price: f64 = fx.c().query_row("SELECT usd_price FROM account_balances WHERE asset_id = ?1", [fx.s.btc], |r| r.get(0)).unwrap();
     assert_eq!(price, 61000.0);
 }
+
+/// D-CG-429-STOPS-PRICES on the backfill: a run a 429 stopped publishes what it has (days partial) and leaves the gaps
+/// pending (the price generation unstamped), so the next run asks again and fills them; nothing else moves.
+#[tokio::test(flavor = "current_thread")]
+async fn a_backfill_stopped_by_a_429_fills_its_gaps_at_the_next_run() {
+    let fx = alpaca();
+    let backfill = |t: &ScriptedTransport| deltabadger::tracker::jobs::resolve::<Venues, ScriptedTransport>(deltabadger::tracker::jobs::PORTFOLIO_BACKFILL, fx.owner(), &Venues,
+        Rc::new(Some(coingecko(t, Some(Plan::Demo)))), Arc::new(at)).unwrap();
+    let clock = FixedClock(at());
+    let cx = || Cx { db: fx.db(), clock: &clock, wakers: Wakers::default() };
+    let days = |fx: &Fx| -> Vec<(String, bool, Option<f64>)> {
+        let c = fx.c();
+        let mut s = c.prepare("SELECT date, partial, CAST(invested_usd AS REAL) FROM portfolio_snapshots WHERE user_id = ?1 ORDER BY date").unwrap();
+        s.query_map([fx.owner()], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().collect::<Result<_, _>>().unwrap()
+    };
+    let limited = ScriptedTransport::from_script(&json!({ RANGE: [{ "status": 429, "body": {} }] }));
+    assert!(matches!(backfill(&limited).run(cx(), vec![]).await, Outcome::RateLimited(_)));
+    assert_eq!(limited.requests().len(), 1);
+    let first = days(&fx);
+    assert!(first.iter().any(|d| d.1), "days without a price are partial: {first:?}");
+    let priced = ScriptedTransport::from_script(&json!({ RANGE: [days_answer()] }));
+    assert_eq!(backfill(&priced).run(cx(), vec![]).await, Outcome::Done, "the gaps are still wanted");
+    assert_eq!(priced.requests().len(), 1);
+    let second = days(&fx);
+    assert!(second.iter().all(|d| !d.1), "every day priced: {second:?}");
+    // Only the prices moved: the same days, the same money in.
+    let shape = |v: &[(String, bool, Option<f64>)]| v.iter().map(|d| (d.0.clone(), d.2)).collect::<Vec<_>>();
+    assert_eq!(shape(&first), shape(&second));
+    let idle = ScriptedTransport::from_script(&json!({}));
+    assert_eq!(backfill(&idle).run(cx(), vec![]).await, Outcome::NothingNew);
+    assert!(idle.requests().is_empty());
+}
+
+fn days_answer() -> Value { days(60000.0) }

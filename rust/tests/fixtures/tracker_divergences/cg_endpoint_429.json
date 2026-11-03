@@ -780,7 +780,7 @@
     "wash_sale_locks": [],
     "historical_prices": [],
     "snapshot_history_version_1": "1_5_2026-09-01T09:00:00.000000Z",
-    "snapshot_price_generation_1": "0"
+    "snapshot_price_generation_1": null
   },
   "requests": {
     "market": [
