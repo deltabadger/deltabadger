@@ -902,11 +902,10 @@ impl Bot {
         }
     }
 
-    /// Bot::Startable#repeat_anchor_at: the stored start time while the starting-time rule is on, else `started_at`.
-    pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> {
-        let stored=crate::codec::optional_time(self.settings.get("start_at")).map_err(|e|data(format!("{e:?}")))?;
-        Ok(if self.start_time_enabled() { stored.or(self.started_at) } else { self.started_at })
-    }
+    /// Bot::Startable#repeat_anchor_at under D-START-ANCHOR-STARTED: `started_at`, whatever start_at holds. Rails reads a
+    /// start_at that differs while the rule is on; the engine never does, and the page and the carry a settings edit
+    /// captures must agree with the engine.
+    pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> { Ok(self.started_at) }
 
     /// `next_interval_checkpoint_at` and `last_interval_checkpoint_at`. Without an anchor Rails counts from now.
     pub fn checkpoints(&self, now: DateTime<Utc>) -> Result<Option<Checkpoints>, WebError> {

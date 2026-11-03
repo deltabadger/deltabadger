@@ -877,6 +877,10 @@ fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> 
     placement::remove_wait(&tx, Some(id))?;
     let decision = if bot.started_at_us()?.is_none() || bot.effective().is_none() {
         "never ticks" // step_bot skips it as before
+    } else if bot.started_at_us()?.is_some_and(|start| start > now.timestamp_micros()) {
+        // D-START-CONTINUE-WAITS: a delayed start not reached yet keeps its time; the next checkpoint is started_at.
+        placement::defer_to_next_checkpoint(&tx, &bot, now)?;
+        "waits for its start"
     } else if request.get("was_stopped").and_then(serde_json::Value::as_bool) == Some(false)
         || amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
         placement::run_now(&tx, &bot, now)?;
@@ -1004,6 +1008,11 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     };
     let due = if bot.rust_placement().is_some() {
         e.reconcile_at.get(&id).is_none_or(|t| t.value <= now_us)
+    } else if anchor > now_us {
+        // D-START-CONTINUE-WAITS: no new order attempt before a started_at still ahead (a delayed start not yet reached),
+        // whatever the status or wait says: a continue, or a Rails row left retrying, would otherwise run now and again at
+        // the start (for a seller, two sales). Only the placement intent above is reconciled.
+        false
     } else if e.closed_until.get(&id).is_some_and(|(t, _)| t.value > now_us) || deferred.is_some() {
         false
     } else if defer.flatten().is_some_and(|t| t < now_us) {

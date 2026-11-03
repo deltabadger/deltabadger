@@ -4,7 +4,7 @@
 //! refused it runs again on the same transaction: what is still refused (work in flight, a row or key this build can't
 //! read) is a hard stop, and the caller rolls the transaction back, so nothing is written.
 //! D-UPGRADE-SET-ASIDE: Rails would have kept trading such a bot; 3.0 stops it and says why.
-use super::eligibility::{self, Allocations, Feature, History, Kind, Reason, Report, StartTime, Work};
+use super::eligibility::{self, Allocations, Feature, History, Kind, Reason, Report, Work};
 use super::EngineError;
 use crate::crypto::Cipher;
 use crate::enums::{RuleStatus, BOT_WORKING};
@@ -209,9 +209,6 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
             format!("When {} is met it would start {way}, and it couldn't run that way. Check its {way} settings, or change what the condition does, {again}",
                     feature(condition).unwrap_or_else(|| "one of its conditions".into()))
         }
-        Kind::StartTime(StartTime::Moved) => "Its starting time no longer matches when it started (a clock change can do this). Set the starting time again, then start the bot.".into(),
-        Kind::StartTime(StartTime::Continued) => "It was continued with a starting time set. Start it fresh, or turn the starting time off, then start the bot.".into(),
-        Kind::StartTime(StartTime::TimeZone) => "Your time zone isn't one Deltabadger recognizes. Choose your time zone again in Settings, then start the bot.".into(),
         Kind::Asset(Some(asset)) => format!("{} can't be traded by this bot on {}. Remove it from the bot or choose another exchange, {again}", symbol(c, *asset)?, exchange_name(c, bot_id)?),
         Kind::Asset(None) => format!("This bot's quote currency can't be used on {}. Choose another one, {again}", exchange_name(c, bot_id)?),
         Kind::Allocations(Allocations::Unbalanced(sum)) => match sum.parse::<f64>() {

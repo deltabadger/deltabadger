@@ -25,18 +25,16 @@ async fn create(app: &App, user: i64, p: Map<String, Value>) -> Res {
     app.db(move |c| bot_api::create(c, &a, user, Kind::Dca, &p)).await.unwrap()
 }
 
-/// D-API-CREATE-START-AT-AMBIGUOUS: a wall time the account's zone repeats (Tallinn, 2026-10-25 03:30) is refused as the web's
-/// start-time form refuses it, in Rails' own words for a start time it cannot read, and nothing is written. Rails takes the
-/// earlier of the two.
+/// A wall time the account's zone repeats (Tallinn, 2026-10-25 03:30) is its earlier occurrence, as Rails takes it
+/// (D-START-REPEAT-EARLIER; A22 retired A10's refusal): created and scheduled at 00:30Z.
 #[tokio::test(flavor = "current_thread")]
-async fn a_repeated_wall_time_is_refused_and_writes_nothing() {
+async fn a_repeated_wall_time_is_its_earlier_occurrence() {
     let (d, o, s) = common::install_alpaca();
     o.primary.execute("UPDATE users SET time_zone = 'Tallinn'", []).unwrap();
-    let before = bots(&o.primary);
     let app = web::app(d.path(), "engine-test-secret", TestClock::at(T0));
     let res = create(&app, s.user_id, dca(json!({"start_at": "2026-10-25T03:30"}))).await;
-    assert_eq!((res.status, res.code, res.message.as_str()), (Domain::ValidationFailed, Some("bot_invalid"), "Failed to create bot: Start at must be set"));
-    assert_eq!(bots(&o.primary), before, "nothing written");
+    assert_eq!(res.status, Domain::Created, "{}", res.message);
+    assert_eq!(res.data["started_at"], "2026-10-25T00:30:00Z");
     // The hour after the change is one wall time: created and scheduled, as Rails does.
     let res = create(&app, s.user_id, dca(json!({"start_at": "2026-10-25T05:30"}))).await;
     assert_eq!(res.status, Domain::Created, "{}", res.message);

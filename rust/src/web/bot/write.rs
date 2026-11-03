@@ -78,10 +78,6 @@ const REMOVE_TRANSIENT: &str = "UPDATE bots
 SET transient_data = json_remove(transient_data, ?1)
 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3;";
 
-/// Bot::Startable steps a passed start time forward in fixed UTC days; across a DST change that lands an hour BEFORE the
-/// chosen local time, and the engine does not buy early (start::StartAt). Rails starts these.
-const EARLY_START: &str = "this starting time crosses a daylight-saving change, where Rails would run the first order an hour before the chosen time";
-
 fn error(message: &str) -> WebError { super::data(message.into()) }
 fn one(rows: usize) -> Result<(), WebError> {
     if rows == 1 { Ok(()) } else { Err(error("settings writer lost its owned bot")) }
@@ -517,12 +513,7 @@ pub fn lifecycle_in<T>(
             } else if fresh {
                 let zone:String=tx.query_row("SELECT time_zone FROM users WHERE id=?1",[owner],|r|r.get(0))?;
                 // Lifecycle#start: `computed_start_at&.future?`.
-                let start=draft.initial_start_at(ctx.now,&zone)?.filter(|s|s.at>ctx.now);
-                if start.is_some_and(|s|s.early) {
-                    writer_refused = true;
-                    view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(EARLY_START))])});
-                }
-                delayed=start.map(|s|s.at);
+                delayed=draft.initial_start_at(ctx.now,&zone)?.filter(|at|*at>ctx.now);
             }
         }
     }

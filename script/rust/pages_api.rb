@@ -199,10 +199,9 @@ module Pages
         'api_create_not_granted' => api_case.([create(CREATE_DCA), create(CREATE_INDEX), create(CREATE_SIGNAL)], 'grant' => TOOLS - %w[create_bot create_index_bot create_signal_bot]),
         'api_create_null_grant' => api_case.([create(CREATE_SIGNAL)], 'grant' => nil)
       }
-      # start_at as Rails' schedule_start_at reads it: in the account's zone (Tallinn) unless it names its own offset. A wall time
-      # the zone repeats (2026-10-25T03:30) is D-API-CREATE-START-AT-AMBIGUOUS, tested in rust/tests/api_create.rs: Rails takes
-      # the earlier one; this build refuses it as the web's start-time form does.
-      { 'z' => "#{later.(3)}Z", 'offset' => "#{later.(3)}+02:00", 'naive' => later.(3), 'date' => later.(3)[0, 10],
+      # start_at as Rails' schedule_start_at reads it: in the account's zone (Tallinn) unless it names its own offset; a wall time
+      # the zone repeats is its earlier occurrence (D-START-REPEAT-EARLIER, Rails' pick).
+      { 'repeated' => '2026-10-25T03:30', 'z' => "#{later.(3)}Z", 'offset' => "#{later.(3)}+02:00", 'naive' => later.(3), 'date' => later.(3)[0, 10],
         'dst_gap' => '2027-03-28T03:30', 'offset_compact' => "#{later.(3)}+0200", 'offset_no_seconds' => "#{later.(3)[0, 16]}+02:00",
         'z_no_seconds' => "#{later.(3)[0, 16]}Z" }.each do |name, at|
         grid["api_create_start_at_#{name}"] = api_case.([create(dca.(start_at: at)), create(index.(start_at: at))])

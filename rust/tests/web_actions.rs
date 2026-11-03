@@ -486,8 +486,6 @@ mod action_draft {
                 }
                 continue;
             }
-            // A wall time that repeats in the owner's zone is refused (timezone::resolve_local), never stored as Rails' pick.
-            if parse.as_ref().is_err_and(|e| format!("{e:?}").contains("occurs twice")) { continue; }
             parse.map_err(|e| format!("{name}: {e:?}"))?;
             compare!(json!(draft.parsed), *field(case, "parsed"), "{name}: parse chain");
             let context = if field(case, "context") == "start" { ValidationContext::Start } else { ValidationContext::Update };
@@ -818,7 +816,9 @@ mod action_write {
         // + SmartIntervalable + QuoteAmountLimitable, at the microsecond request clock.
         let cases = [
             ("plain", json!({}), json!({}), "2026-09-10 12:00:00", None, "5.0"),
-            ("future", json!({"start_time_enabled":true,"start_at":"2026-09-11T12:00:00Z"}), json!({}), "2026-09-10 12:00:00", None, "0.0"),
+            // D-START-ANCHOR-STARTED: Rails reads 0.0 here off the start_at a stopped bot's form moved ahead; Rust counts from
+            // started_at, as the engine schedules it: the plain answer.
+            ("future", json!({"start_time_enabled":true,"start_at":"2026-09-11T12:00:00Z"}), json!({}), "2026-09-10 12:00:00", None, "5.0"),
             ("month", json!({"interval":"month"}), json!({}), "2026-01-31 12:00:00.123456", None, "35.0"),
             ("microseconds", json!({"interval":"hour"}), json!({}), "2026-09-10 11:00:30.123455", None, "10.0"),
             ("changed", json!({"interval":"hour"}), json!({"missed_quote_amount":"3.75"}), "2026-09-10 10:00:00", Some("2026-09-10 11:30:00"), "8.75"),
@@ -1275,15 +1275,22 @@ mod action_write {
         Ok(())
     }
 
-    /// A continue never honours a starting time in Rails (it may buy at once): the write guard refuses it.
+    /// A continue with the starting time on goes through, as in Rails (it ignores the starting time): the bot keeps its
+    /// started_at and its rule, and the engine decides the run on started_at's grid (D-START-ANCHOR-STARTED), never before a
+    /// start still ahead (D-START-CONTINUE-WAITS). start_at moved off started_at too.
     #[test]
-    fn action_lifecycle_continue_with_a_starting_time_is_refused() -> Result {
-        let f=Fixture::new()?;
-        // As a delayed start leaves it (start_at = started_at), stopped before its first run.
-        f.c.execute("UPDATE bots SET status=2,settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','13:45','$.start_at','2026-09-10T12:00:00Z'),transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-01T00:00:00.000Z') WHERE id=?1",[f.id])?;
-        let before=f.snapshot()?;
-        assert!(matches!(f.lifecycle(write::Action::Start,Some(json!(false)))?,Outcome::GuardRefused(_)));
-        assert_eq!(f.snapshot()?,before);
+    fn action_lifecycle_continue_with_a_starting_time_goes_through() -> Result {
+        for start_at in ["2026-09-10T12:00:00Z","2026-09-13T08:30:00Z"] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE bots SET status=2,settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','13:45','$.start_at',?2),transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-01T00:00:00.000Z') WHERE id=?1",(f.id,start_at))?;
+            let started:Option<String>=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert!(matches!(f.lifecycle(write::Action::Start,Some(json!(false)))?,Outcome::Committed(_)),"{start_at}");
+            let after:Option<String>=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            let stored=f.stored()?;
+            assert_eq!(after,started,"{start_at}: a continue keeps started_at");
+            assert_eq!((stored["settings"]["start_time_enabled"].clone(),stored["settings"]["start_at"].clone()),(json!(true),json!(start_at)),"{start_at}");
+            assert!(stored["transient"].get("rust_continue_start").is_some(),"{start_at}: the engine decides it");
+        }
         Ok(())
     }
 
@@ -1304,26 +1311,41 @@ mod action_write {
         Ok(())
     }
 
-    /// Rails steps a passed time forward in fixed UTC days: across the autumn change, a day that starts an hour early.
+    /// D-START-WALL-STEP: a passed time steps to the chosen wall time on the next day, across a clock change too (Rails'
+    /// fixed UTC day lands an hour early in autumn, late in spring). The start commits with started_at = start_at = it.
     #[test]
-    fn action_lifecycle_start_an_hour_early_is_refused() -> Result {
-        let f=Fixture::new()?;
-        f.c.execute("UPDATE users SET time_zone='Warsaw'",[])?;
-        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','09:30') WHERE id=?1",[f.id])?;
-        // Saturday 2026-10-24, 10:00 in Warsaw: 09:30 has passed, and a fixed day later is 08:30 after the change.
-        let clock=harness::TestClock::at("2026-10-24T08:00:00Z");
-        let mut ctx=f.ctx.clone(); ctx.app=harness::app(f._dir.path(),"engine-test-secret",clock.clone());
-        let before=f.snapshot()?;
-        let result=write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,view| {
-            Ok(Prepared {response:json!(view.errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()),broadcasts:vec![], after_scheduling: None })
-        }).map_err(|e|format!("{e:?}"))?;
-        let Outcome::GuardRefused(errors)=result else { return Err("an hour-early start must be refused".into()) };
-        assert!(errors.to_string().contains("daylight-saving"),"{errors}");
-        assert_eq!(f.snapshot()?,before);
-        // The spring change makes it an hour late (10:30 local): not the chosen time either, refused without a write.
-        clock.set(harness::at("2026-03-28T09:00:00Z"));
-        assert!(matches!(write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_| Ok(Prepared {response:(),broadcasts:vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?,Outcome::GuardRefused(_)));
-        assert_eq!(f.snapshot()?,before);
+    fn action_lifecycle_start_across_a_clock_change_runs_at_the_chosen_time() -> Result {
+        for (now,expected) in [("2026-10-24T08:00:00Z","2026-10-25T08:30:00Z"),("2026-03-28T09:00:00Z","2026-03-29T07:30:00Z")] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE users SET time_zone='Warsaw'",[])?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','09:30') WHERE id=?1",[f.id])?;
+            let clock=harness::TestClock::at(now);
+            let mut ctx=f.ctx.clone(); ctx.app=harness::app(f._dir.path(),"engine-test-secret",clock.clone());
+            let result=write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_| Ok(Prepared {response:(),broadcasts:vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?;
+            assert!(matches!(result,Outcome::Committed(_)),"{now}");
+            let stored=f.stored()?;
+            assert_eq!(stored["settings"]["start_at"],json!(expected),"{now}");
+            let started:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(started.replace(' ',"T")+"Z",expected,"{now}");
+        }
+        Ok(())
+    }
+
+    /// D-START-REPEAT-EARLIER through the date field (the web form; REST/MCP create and update read a naive start_at with the
+    /// same parser): a repeated wall time is stored at its earlier occurrence, one in a 30-minute gap an hour later; the start
+    /// then runs at the stored instant.
+    #[test]
+    fn action_date_field_resolves_repeated_and_missing_wall_times() -> Result {
+        for (zone,field,stored) in [("Dublin","2026-10-25T01:30","2026-10-25T00:30:00Z"),("Australia/Lord_Howe","2026-10-04T02:15","2026-10-03T16:15:00Z"),
+                                     ("Warsaw","2026-10-25T02:30","2026-10-25T00:30:00Z")] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE users SET time_zone=?1",[zone])?;
+            assert!(matches!(f.write(json!({"start_time_enabled":"1","start_time_mode":"date","start_at":field}))?,Outcome::Committed(_)),"{zone}");
+            assert_eq!(f.stored()?["settings"]["start_at"],json!(stored),"{zone}");
+            assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)),"{zone}");
+            let started:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(started.replace(' ',"T")+"Z",stored,"{zone}: the start runs at it");
+        }
         Ok(())
     }
 
@@ -1392,12 +1414,19 @@ mod action_write {
             let mut draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("draft missing")?;
             draft.candidate.settings.extend(case["settings"].as_object().ok_or("settings missing")?.clone());
             let now=case["now"].as_str().ok_or("now missing")?.parse()?;
-            let actual=match draft.initial_start_at(now,case["zone"].as_str().ok_or("zone missing")?) {
-                // A wall time that repeats in the owner's zone is refused, never resolved to Rails' pick.
-                Err(e) if format!("{e:?}").contains("occurs twice") => continue,
-                other => other.map_err(|e|format!("{e:?}"))?,
-            };
-            assert_eq!(actual.map(|t|t.at.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)),case["expected"].as_str().map(str::to_owned),"{case}");
+            let zone=case["zone"].as_str().ok_or("zone missing")?;
+            let actual=draft.initial_start_at(now,zone).map_err(|e|format!("{e:?}"))?;
+            let expected=case["expected"].as_str().map(|t|t.parse::<chrono::DateTime<chrono::Utc>>()).transpose()?;
+            // D-START-WALL-STEP: where Rails' instant is off the chosen wall time, Rust's is on it.
+            let tz=deltabadger::web::timezone::strict(zone).ok_or("zone")?;
+            let chosen=draft.candidate.settings.get("start_time_of_day").and_then(Value::as_str).map(|t|format!("{t:0>5}"));
+            match (actual,expected) {
+                (Some(a),Some(e)) if a!=e => {
+                    assert_ne!(Some(e.with_timezone(&tz).format("%H:%M").to_string()),chosen,"{case}");
+                    assert_eq!(Some(a.with_timezone(&tz).format("%H:%M").to_string()),chosen,"{case}");
+                }
+                (a,e) => assert_eq!(a,e,"{case}"),
+            }
         }
         Ok(())
     }

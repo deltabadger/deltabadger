@@ -138,7 +138,6 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("base_amount_limit \"x\" is not a number", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_denomination", json!("base"))
             .with("sell_amount", json!(0.001)).with("base_amount_limited", json!(true)).with("base_amount_limit", json!("x"))))),
         // A starting time runs only as a fresh start leaves it (start_at = started_at); this one's start_at is elsewhere.
-        ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true)).with("start_at", json!("2020-01-01T00:00:00Z"))))),
         ("rebalance_threshold [1] is not a number", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true)).with("rebalance_threshold", json!([1]))))),
         ("direction \"sideways\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("sideways"))))),
         ("sell_interval \"fortnight\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_interval", json!("fortnight"))))),
@@ -160,6 +159,12 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("base_decimals -1", Box::new(|c, s| { c.execute("UPDATE tickers SET base_decimals = -1", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("quote_decimals 41", Box::new(|c, s| { c.execute("UPDATE tickers SET quote_decimals = 41", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
     ];
+    // A22 (D-START-ANCHOR-STARTED): a starting time with a start_at that is not started_at is no longer a reason.
+    {
+        let (_d, o, s) = install();
+        let id = seed::insert_bot(&o.primary, &s, &plain().with("start_time_enabled", json!(true)).with("start_at", json!("2020-01-01T00:00:00Z")));
+        assert!(eligibility::check_install(&o.primary).unwrap().eligible.contains(&id));
+    }
     for (reason, make) in cases {
         let (_d, o, s) = install();
         let id = make(&o.primary, &s);

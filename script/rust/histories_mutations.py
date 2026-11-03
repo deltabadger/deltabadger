@@ -105,7 +105,7 @@ def test(name, path, old, new, expression):
             primitive.write_text(json.dumps(hashes,indent=2)+"\n")
         disk(name)
         with (logs / f'{name}.log').open('w') as output:
-            result = run_mutant(name, ['cargo','nextest','run','-j','5','--test','histories','--test','eligibility','--test','histories_r1','--test','amount','--test','histories_sources','--test','web_actions','--lib','-E',expression],
+            result = run_mutant(name, ['cargo','nextest','run','-j','5','--test','histories','--test','eligibility','--test','histories_r1','--test','amount','--test','histories_sources','--test','web_actions','--test','start_time','--test','start_time_engine','--lib','-E',expression],
                                     output, started)
         text=(logs/f'{name}.log').read_text()
         # Compilation errors are not a killed mutant. Require a real failing test.
@@ -194,6 +194,12 @@ new = [
     ('r8_submitted_bound', 'rust/src/web/bot/action_params.rs', 'numeric_with_bound(value, false, true)', 'numeric_with_bound(value, false, false)', 'test(r8_submitted)'),
     ('upstream_start_key', 'rust/src/web/bot/draft.rs', 'if key != Some(crate::enums::ApiKeyStatus::Correct as i64)', 'if false && key != Some(crate::enums::ApiKeyStatus::Correct as i64)', 'test(action_draft_rails_vectors)'),
     ('r8_mcp_paper_gate', 'rust/src/web/mcp/tools.rs', 'else if LIVE_AUTOMATION_TOOLS.contains(&name) && paper_trading(c,who.user_id)?', 'else if false && LIVE_AUTOMATION_TOOLS.contains(&name) && paper_trading(c,who.user_id)?', 'test(r8_merged_mcp)'),
+    # A22: the start-time edges (D-START-ANCHOR-STARTED, D-START-CONTINUE-WAITS, D-START-WALL-STEP, D-START-REPEAT-EARLIER).
+    ('a22_continue_waits', 'rust/src/engine/run.rs', '    } else if anchor > now_us {', '    } else if false && anchor > now_us {', 'test(a_seller_continued_or_retrying_before_its_start_sells_once_at_it) | test(a_continue_before_the_start_waits_for_it)'),
+    ('a22_flag_only', 'rust/src/engine/amount.rs', '    if !crate::web::bot::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }\n    c.execute(', '    if !crate::web::bot::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }\n    if bot.settings.get("start_at").and_then(Value::as_str).is_some_and(|s| s != "2026-09-10T07:30:00Z") { return Err(EngineError::Data("moved".into())); }\n    c.execute(', 'test(turning_the_rule_off_is_the_flag_alone_whatever_start_at_holds)'),
+    ('a22_web_anchor', 'rust/src/web/bot/mod.rs', 'pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> { Ok(self.started_at) }', 'pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> { let stored=crate::codec::optional_time(self.settings.get("start_at")).map_err(|e|data(format!("{e:?}")))?; Ok(if self.start_time_enabled() { stored.or(self.started_at) } else { self.started_at }) }', 'test(action_write_carry_decorator_oracle)'),
+    ('a22_repeat_earlier', 'rust/src/web/bot/start.rs', 'LocalResult::Single(at) | LocalResult::Ambiguous(at, _) =>', 'LocalResult::Single(at) | LocalResult::Ambiguous(_, at) =>', 'test(a_repeated_time_is_its_earlier_occurrence_and_a_missing_one_moves_an_hour) | test(initial_start_at_matches_rails_or_the_chosen_wall_time)'),
+    ('a22_wall_step', 'rust/src/web/bot/start.rs', 'if candidate > now { Ok(candidate) } else { on(first + step) }', 'if candidate > now { Ok(candidate) } else { Ok(candidate + Duration::days(step)) }', 'test(a_passed_start_steps_to_the_chosen_wall_time) | test(initial_start_at_matches_rails_or_the_chosen_wall_time)'),
 ]
 for args in new: test(*args)
 
