@@ -330,6 +330,21 @@ module StartTimeVectors
         end
       end
     end
+    # 2b. A selling bot that never ran, continued before its start: Rails runs it at once (a sale is sized from the sell
+    #     amount, not the carry), turns the rule off, and runs again at the start. Base and quote denominations, a frozen
+    #     buy carry of 30 written after the start. The run here only stamps the job and turns the rule off (`sold`: none
+    #     recorded); what matters is when Rails runs, and the frozen carry it keeps.
+    [{ 'sell_denomination' => 'base', 'sell_amount' => 0.001 }, { 'sell_denomination' => 'quote', 'sell_quote_amount' => 30.0 }].each do |sell|
+      list << edge("selling never ran continue before #{sell['sell_denomination']}", **WARSAW,
+                   settings: WARSAW[:settings].merge('direction' => 'selling', 'sell_interval' => 'day').merge(sell)) do |t0, out, step|
+        ActiveRecord::Base.connection.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.missed_quote_amount', '30.0') WHERE id = #{@id}")
+        stop(t0 - 3600, out)
+        due = continue(t0 - 1800, out)
+        run(due == t0 - 1800 ? due : due + Rational(1, 4), out, quote: '0')
+        later = travel_to(t0 - 1799, with_usec: true) { Bot.find(@id).next_interval_checkpoint_at }
+        out << snap('next after the run', t0 - 1799, 'next_run' => iso(later))
+      end
+    end
     # 3. start_at edited on a running bot (the settings form takes it while the bot waits), later or earlier, then the first
     #    run at the queued time: its order filled, or open when the rule turns off and later cancelled part-filled (15 of 60).
     #    Daily and monthly.
