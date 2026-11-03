@@ -20,9 +20,9 @@ The client receives a token that lasts an hour and renews it on its own. You do 
 
 ## Connected clients
 
-**Connected clients**, at the bottom of the page, is a card per client you have authorized, with the date it connected. Each card is a small grid: a row per group, a switch under **MCP** and one under **REST API**. A surface the client never asked for shows **–** instead of a switch.
+**Connected clients**, at the bottom of the page, is a card per client you have authorized, with the date it connected. Each card has a switch per group for MCP; the same card on **Settings → REST API** has the client's REST switches. A surface the client never asked for shows **–** instead of a switch.
 
-A switch is on when the client holds everything you currently have enabled in that group, and half-set when it holds only part of it. Switch it on to grant the whole group (only the tools you currently have on), or off to take the group away. A tool switched off in the matrix above is off for every client at once, but stays in the client's grant until you remove it here.
+A switch is on when the client holds everything you currently have enabled in that group, and half-set when it holds only part of it. Switch it on to grant the whole group (only the tools you currently have on), or off to take the group away. A tool switched off in **Tool permissions** is off for every client at once, but stays in the client's grant until you remove it here.
 
 A client you have never changed here follows **Tool permissions**. The first change you make on its card fixes its grant: from then on a tool you switch on later reaches it only when you switch the group on here too.
 
@@ -32,7 +32,7 @@ A tool that is switched off, or not granted to the client, is left out of the cl
 
 ## Tools and permissions
 
-**Tool permissions** is one table for both surfaces: a row per tool, grouped as **Read**, **Control**, **Trade** and **Tax & Reporting**, with a switch column for **MCP** and one for **REST API**. Click a switch to flip that tool on that surface; click the switch on a group row to flip the whole group. The two columns are independent — switching **List bots** on for MCP does not switch it on for REST.
+**Tool permissions** on **Settings → MCP Server** has a row per tool, grouped as **Read**, **Control**, **Trade** and **Tax & Reporting**, each with a switch. Click a switch to flip that tool; click the switch on a group row to flip the whole group. REST has its own list on **Settings → REST API**, and the two are independent — switching **List bots** on for MCP does not switch it on for REST.
 
 On MCP, **Read** and **Tax & Reporting** start on, **Control** and **Trade** start off. Every REST switch starts off. Switching a tool off takes effect immediately for every client, even mid-conversation.
 
@@ -40,7 +40,7 @@ On MCP, **Read** and **Tax & Reporting** start on, **Control** and **Trade** sta
 
 A tool is usable only when both of these are true:
 
-1. It is switched on in the **MCP** column of **Tool permissions**.
+1. It is switched on in **Tool permissions** on **Settings → MCP Server**.
 2. The client holds it. A newly connected client holds everything switched on in **Tool permissions**, and keeps following it until you change that client's card under **Connected clients**. After that, the client holds what its card says. A client only sees the tools that pass both checks.
 
 ### Read
@@ -80,7 +80,7 @@ A tool is usable only when both of these are true:
 | **Mark transfer** | Mark a withdrawal and a deposit as one transfer between your own accounts, so it is not a disposal, or undo that. Give either side; the match is found within 14 days |
 | **State a price** | State the price of one account transaction the venue did not value — a deposit, a gift, an airdrop. Tiles, chart and tax reports use it |
 
-Withdrawal rule tools follow the [same validation as REST and the web](23-rest-api.md). `create_rule` and `update_rule_settings` accept `max_interval` (positive integer days, or `null` to clear it), `address`, `network`, `address_tag` and `address_name` (Kraken's listed key). Include `address` when changing the destination. No venue currently enables withdrawal execution: `start_rule` refuses with the service's reason, and paper trading also refuses starts. An unconfirmed withdrawal blocks create, update, start and delete; stopping an active rule preserves that withdrawal. `list_rules` shows its `state`, `reason`, `since` and `candidates` after the masked destination.
+Withdrawal rule tools follow the [same validation as REST and the web](23-rest-api.md). `create_rule` and `update_rule_settings` accept `max_interval` (positive integer days, or `null` to clear it), `address`, `network`, `address_tag` and `address_name` (Kraken's listed key). Include `address` when changing the destination. Withdrawal rules run on Kraken, Binance, Gemini and MEXC, so `start_rule` starts real withdrawals there; paper trading refuses starts. An unconfirmed withdrawal blocks create, update, start and delete; stopping an active rule preserves that withdrawal. `list_rules` shows its `state`, `reason`, `since` and `candidates` after the masked destination.
 
 ### Trade
 
@@ -107,7 +107,7 @@ The **MCP** widget has a switch, **Enable paper trading for trade tools**, that 
 | Tool | What it does |
 |---|---|
 | **Tax jurisdictions** | View supported countries with their calculation method and currency |
-| **Generate tax report** | Start background tax report generation for a country and year; can treat stablecoins as fiat, and can replace a report that already exists |
+| **Generate tax report** | Start background tax report generation for a country and year; can replace a report that already exists. The stablecoins-as-fiat choice is accepted and changes nothing yet |
 | **Tax report status** | Check if a tax report is ready |
 | **Download tax report** | Retrieve the generated tax report as CSV |
 | **Export transactions CSV** | Export account transactions as CSV, with optional exchange and date filters |

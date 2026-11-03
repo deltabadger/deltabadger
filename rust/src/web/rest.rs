@@ -689,11 +689,12 @@ mod tests {
         let body = &source[source.find("fn route(").unwrap()..];
         let body = &body[..body.find("\n}\n").unwrap()];
         // An arm is one line: one slice pattern, an optional `if` guard, then `=>`. Every arm has its `=>`, so each line
-        // holding one must be such an arm or `_ =>`; anything else fails: an arm over two lines, an or-pattern (`[..] | [..]`,
-        // a leading `|`), a binding.
+        // holding one must be such an arm or `_ =>`; anything else fails: an arm over two lines, two on one line, an
+        // or-pattern (`[..] | [..]`, a leading `|`), a binding.
         for line in body.lines().filter(|l| l.contains("=>")) {
             let t = line.trim_start();
-            assert!(t.starts_with('[') || t.starts_with("_ =>"), "an arm route_patterns cannot read: {line}");
+            // One arm per line: a second `=>` on it is a second arm (or a match inside the arm) it would not read.
+            assert!((t.starts_with('[') || t.starts_with("_ =>")) && line.matches("=>").count() == 1, "an arm route_patterns cannot read: {line}");
         }
         let arms: Vec<(usize, &str)> = body.lines().filter_map(|line| {
             let inside = line.trim_start().strip_prefix('[')?;
@@ -748,6 +749,13 @@ mod tests {
     #[should_panic(expected = "an arm route_patterns cannot read")]
     fn route_patterns_refuses_a_leading_bar_arm() {
         route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b),\n        | [\"new_bots\"] if get => (a, b),\n    }\n}\n");
+    }
+
+    /// Nor a second arm on one line.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_two_arms_on_one_line() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b), [\"new_bots\"] if get => (a, b),\n    }\n}\n");
     }
 
     /// Nor an or-pattern inside an element.

@@ -20,9 +20,9 @@ Browser sessions are not accepted on `/api/v1`; only the bearer header counts.
 
 ## Permissions
 
-Every endpoint is gated by a switch in the **REST API** column of **Tool permissions**, on the same page, grouped as **Read**, **Control**, **Trade** and **Tax & Reporting**. Click a switch to flip one tool, or the switch on a group row to flip the group. All REST switches start off, so a fresh token can do nothing until you switch on what your script needs. A call to a switched-off endpoint returns `403` with error code `tool_disabled`.
+Every endpoint is gated by a switch in **Tool permissions**, on the same page, grouped as **Read**, **Control**, **Trade** and **Tax & Reporting**. Click a switch to flip one tool, or the switch on a group row to flip the group. All REST switches start off, so a fresh token can do nothing until you switch on what your script needs. A call to a switched-off endpoint returns `403` with error code `tool_disabled`.
 
-The REST column is independent of the MCP column (see [Tools and permissions](22-mcp-server.md#tools-and-permissions)): switching **List bots** on for REST does not switch it on for MCP, and the other way round. There is no Paper Trading over REST — its trade endpoints place real orders.
+These switches are independent of the MCP ones on **Settings → MCP Server** (see [Tools and permissions](22-mcp-server.md#tools-and-permissions)): switching **List bots** on for REST does not switch it on for MCP, and the other way round. There is no Paper Trading over REST — its trade endpoints place real orders.
 
 ## Endpoints
 
