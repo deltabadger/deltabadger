@@ -17,6 +17,7 @@
 pub mod coingecko;
 pub mod data_api;
 pub mod import;
+pub mod market;
 pub mod reference;
 pub mod resolve;
 pub mod schedule;

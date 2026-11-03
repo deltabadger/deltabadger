@@ -86,6 +86,8 @@ pub struct CoinGecko<T: Transport> {
     plan: tokio::sync::OnceCell<Plan>,
     /// Set for tests; else the process's throttle for the key and plan.
     throttle: Option<Arc<Throttle>>,
+    /// D-CG-429-STOPS-PRICES: a 429 met by this client's historical requests (jobs::market::Feed); the client is the run's.
+    limited: std::sync::atomic::AtomicBool,
 }
 
 impl CoinGecko<LiveTransport> {
@@ -93,9 +95,14 @@ impl CoinGecko<LiveTransport> {
 }
 
 impl<T: Transport> CoinGecko<T> {
-    pub fn new(key: &str, transport: T) -> Self { Self { key: key.into(), transport, plan: Default::default(), throttle: None } }
+    pub fn new(key: &str, transport: T) -> Self { Self { key: key.into(), transport, plan: Default::default(), throttle: None, limited: Default::default() } }
     pub fn with_throttle(mut self, t: Arc<Throttle>) -> Self { self.throttle = Some(t); self }
     pub fn transport(&self) -> &T { &self.transport }
+    /// Whether a key is set (Coingecko's `@api_key.blank?` guard is the caller's).
+    pub fn has_key(&self) -> bool { !self.key.trim().is_empty() }
+    /// D-CG-429-STOPS-PRICES: whether this client's price requests met a 429.
+    pub fn limited(&self) -> bool { self.limited.load(std::sync::atomic::Ordering::Relaxed) }
+    pub fn limit(&self) { self.limited.store(true, std::sync::atomic::Ordering::Relaxed) }
 
     async fn slot(&self, limit: usize) {
         match &self.throttle { Some(t) => t.acquire(limit).await, None => throttle(&self.key).acquire(limit).await }
@@ -165,6 +172,27 @@ impl<T: Transport> CoinGecko<T> {
         let q = [("depth", "false".to_string()), ("include_exchange_logo", "false".into()), ("order", "base_asset".into()), ("page", page.to_string())];
         self.get(&format!("/exchanges/{id}/tickers"), &q).await
     }
+}
+
+impl<T: Transport> CoinGecko<T> {
+    /// Clients::Coingecko#coin_historical_chart_data_within_time_range_by_id (:210-231): `interval=daily`,
+    /// `precision=full`, `from`/`to` as Unix seconds; the params sorted as Faraday sends them.
+    pub async fn market_chart_range(&self, id: &str, vs_currency: &str, from: i64, to: i64) -> Result<Value, ApiError> {
+        let q = [("from", from.to_string()), ("interval", "daily".into()), ("precision", "full".into()), ("to", to.to_string()), ("vs_currency", vs_currency.into())];
+        self.get(&format!("/coins/{id}/market_chart/range"), &q).await
+    }
+
+    /// Clients::Coingecko#coin_price_by_ids (:150-174) with its defaults: the ids and currencies comma-joined, the four
+    /// include flags false, `precision=full`. The answer as CoinGecko gives it (`{id: {cur: p}}`).
+    pub async fn simple_price(&self, ids: &[String], vs_currencies: &str) -> Result<Value, ApiError> {
+        let q = [("ids", ids.join(",")), ("include_24hr_change", "false".into()), ("include_24hr_vol", "false".into()),
+                 ("include_last_updated_at", "false".into()), ("include_market_cap", "false".into()), ("precision", "full".into()),
+                 ("vs_currencies", vs_currencies.into())];
+        self.get("/simple/price", &q).await
+    }
+
+    /// Clients::Coingecko#exchange_rates (:277-284): the answer's `rates`.
+    pub async fn exchange_rates(&self) -> Result<Value, ApiError> { Ok(self.get("/exchange_rates", &[]).await?["rates"].clone()) }
 }
 
 pub type Fut<'a> = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, ApiError>> + 'a>>;

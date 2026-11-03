@@ -97,6 +97,8 @@ impl<T: Transport> DataApi<T> {
     pub fn new(config: Config, normal: T, bulk: T) -> Self { Self { config, normal, bulk, rates: Default::default() } }
     /// The rate cache this client reads and writes: the engine's one cache, which every run's client shares.
     pub fn with_rates(mut self, rates: std::sync::Arc<RateCache>) -> Self { self.rates = rates; self }
+    /// The same client over transports `wrap` makes of its own (jobs::market::Live).
+    pub fn map<U: Transport>(self, wrap: impl Fn(T) -> U) -> DataApi<U> { DataApi { config: self.config, normal: wrap(self.normal), bulk: wrap(self.bulk), rates: self.rates } }
 
     /// MarketDataSettings.deltabadger_public_url (market_data_settings.rb:60-70): logo paths are served to browsers, so the
     /// docker alias `data-api` becomes the public host.
