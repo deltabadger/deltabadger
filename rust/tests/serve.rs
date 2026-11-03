@@ -688,6 +688,36 @@ async fn a_form_is_accepted_behind_a_tls_terminating_proxy_when_app_root_url_spe
     }
 }
 
+/// D-B5-ORIGIN-HOST: with APP_ROOT_URL set, a login is accepted from its origin and from the request's own (Rails'
+/// `request.base_url`), as from a browser that opened an Umbrel app at the device's address; any other is refused.
+#[tokio::test(flavor = "current_thread")]
+async fn a_form_is_accepted_from_app_root_urls_origin_or_the_requests_own() {
+    let (_dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let env = |name: &str| match name {
+        "SECRET_KEY_BASE" => Some(web::SECRET.to_string()),
+        "APP_ROOT_URL" => Some("http://umbrel.local:3737".to_string()),
+        _ => None,
+    };
+    let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, opened.primary, TestClock::at(NOW)).unwrap();
+    let form: [(&str, &str); 2] = [("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")];
+    let submit = |origin: &'static str| {
+        let app = app.clone();
+        async move {
+            let mut browser = Browser::default();
+            browser.get(&app, "/login").await;
+            browser.send(&app, "POST", "/login", Some(&form), web::Csrf::Form, &[("origin", origin)]).await.status
+        }
+    };
+    // The request's Host is localhost:3000 (web::HOST).
+    assert_eq!(submit("http://umbrel.local:3737").await, 303, "APP_ROOT_URL's origin");
+    assert_eq!(submit("http://localhost:3000").await, 303, "the request's own");
+    for foreign in ["http://evil.example", "https://localhost:3000", "http://localhost:3001"] {
+        assert_eq!(submit(foreign).await, 302, "{foreign}");
+    }
+}
+
 /// The same proxy in front of an install that has no APP_ROOT_URL. The origin is then the request's
 /// own, read as Rails reads it: the scheme and the host the proxy says it was asked for.
 #[tokio::test(flavor = "current_thread")]
