@@ -2044,3 +2044,91 @@ async fn split_grouping_does_not_repair_legacy_aggregates() {
     assert_eq!(before,one::<String>(&db,"SELECT raw_data FROM account_transactions WHERE entry_type=15").await);
     assert_eq!(one::<i64>(&db,"SELECT count(*) FROM account_transactions WHERE entry_type=15").await,1);
 }
+
+// ---- PLAN-A17 A17-3: the balance sync's market source on CoinGecko, and Rails' fallback (Rust-only halves; the Rails
+// half is sync.rb's `cg-*` scenarios in sync_parity.rs) ----
+
+mod coingecko_prices {
+    use super::*;
+    use deltabadger::jobs::coingecko::{CoinGecko, Throttle};
+    use deltabadger::jobs::data_api::{ApiError, Config, DataApi, RateCache};
+    use deltabadger::jobs::market::Feed;
+    use deltabadger::market_data::{Provider, Settings};
+
+    const CG_PRICES: &str = "GET /api/v3/simple/price";
+    const CG_RATES: &str = "GET /api/v3/exchange_rates";
+    const HOSTED_PRICES: &str = "GET /api/v1/prices";
+
+    fn settings(provider: Provider, key: Option<&str>) -> Settings { Settings { provider, configured: true, fallback_key: key.map(str::to_string) } }
+    fn hosted() -> Provider { Provider::DataApi(Config { url: "http://data-api:3000".into(), token: "t".into() }) }
+    /// The source `settings` name over two scripted hosts (CoinGecko's ping answers 401: a demo key).
+    fn source(s: &Settings, data: &ScriptedTransport, cg: &ScriptedTransport, rates: Arc<RateCache>) -> balances::MarketPrices<ScriptedTransport> {
+        cg.reply("GET /api/v3/ping", 401, json!({}));
+        let client = |key: &str| CoinGecko::new(key, cg.clone()).with_throttle(Arc::new(Throttle::new(10_000)));
+        let feed = Feed::from_settings(s, |c| DataApi::new(c, data.clone(), data.clone()), client);
+        balances::MarketPrices::new(s, feed, client, rates)
+    }
+    fn asked(t: &ScriptedTransport, path: &str) -> usize { t.requests().iter().filter(|r| format!("{} {}", r.method, r.path) == path).count() }
+    fn ids() -> Vec<String> { vec!["bitcoin".into(), "ethereum".into(), "bitcoin".into()] }
+
+    /// The fallback is asked once on a data-api Failure, and only then: not after a transient failure, not after a partial
+    /// answer, not without a key; with no provider it is asked directly; the coingecko provider asks one batched request.
+    #[tokio::test(flavor = "current_thread")]
+    async fn the_fallback_asks_coingecko_only_on_a_failure() {
+        let case = |s: Settings, hosted_reply: Option<Value>| async move {
+            let data = ScriptedTransport::from_script(&json!({ HOSTED_PRICES: hosted_reply.into_iter().collect::<Vec<_>>() }));
+            let cg = ScriptedTransport::default();
+            cg.reply(CG_PRICES, 200, json!({ "bitcoin": { "usd": 60000.5 }, "ethereum": { "usd": 2500.25 } }));
+            let out = PriceSource::prices(&source(&s, &data, &cg, Arc::default()), &ids(), "usd").await;
+            (out, asked(&data, HOSTED_PRICES), asked(&cg, CG_PRICES), cg.requests())
+        };
+        let failure = json!({ "status": 500, "body": { "error": "boom" } });
+        let (out, hosted_n, cg_n, cg_requests) = case(settings(hosted(), Some("CG-k")), Some(failure.clone())).await;
+        assert_eq!((out.unwrap().len(), hosted_n, cg_n), (2, 1, 1), "a Failure is asked once of CoinGecko");
+        let q = &cg_requests.iter().find(|r| r.path == "/api/v3/simple/price").unwrap().query;
+        assert_eq!(q, &vec![("ids", "bitcoin,ethereum".to_string()), ("include_24hr_change", "false".into()), ("include_24hr_vol", "false".into()),
+                            ("include_last_updated_at", "false".into()), ("include_market_cap", "false".into()), ("precision", "full".into()), ("vs_currencies", "usd".into())]);
+        let (out, _, cg_n, _) = case(settings(hosted(), None), Some(failure)).await;
+        assert_eq!((out.unwrap_err().message(), cg_n), ("{\"error\":\"boom\"}".to_string(), 0), "no key: no fallback");
+        let (out, _, cg_n, _) = case(settings(hosted(), Some("CG-k")), Some(json!({ "network": "post_send", "message": "timeout" }))).await;
+        assert!(matches!(out, Err(ApiError::Transient(_))) && cg_n == 0, "a transient failure is not a Failure: {out:?}");
+        let (out, _, cg_n, _) = case(settings(hosted(), Some("CG-k")), Some(json!({ "status": 200, "body": { "data": { "bitcoin": { "usd": 1.5 } } } }))).await;
+        assert_eq!((out.unwrap().len(), cg_n), (1, 0), "a partial answer is an answer");
+        let (out, _, cg_n, _) = case(settings(Provider::None, Some("CG-k")), None).await;
+        assert_eq!((out.unwrap().len(), cg_n), (2, 1), "no provider: CoinGecko directly");
+        let (out, _, cg_n, _) = case(settings(Provider::None, None), None).await;
+        assert_eq!((out.unwrap_err().message(), cg_n), (balances::NO_PROVIDER.to_string(), 0));
+        let (out, _, cg_n, _) = case(settings(Provider::CoinGecko { key: Some("CG-k".into()) }, Some("CG-k")), None).await;
+        assert_eq!((out.unwrap().len(), cg_n), (2, 1), "the provider: one batched request");
+        let (out, _, _, cg_requests) = case(settings(Provider::CoinGecko { key: None }, None), None).await;
+        assert!(out.is_err() && cg_requests.is_empty(), "a blank key asks nothing");
+    }
+
+    /// The exchange rates have no fallback; CoinGecko's answer is held 60 s (one answer for every cash currency of every
+    /// sync in that minute); a failure is not held.
+    #[tokio::test(flavor = "current_thread")]
+    async fn coingecko_rates_are_held_a_minute_and_never_fall_back() {
+        let t0: chrono::DateTime<chrono::Utc> = NOW.parse().unwrap();
+        let rates = json!({ "rates": { "usd": { "value": 60000.5 }, "eur": { "value": 55000.25 } } });
+        let (data, cg) = (ScriptedTransport::default(), ScriptedTransport::default());
+        data.reply("GET /api/v1/exchange_rates", 500, json!({}));
+        let out = source(&settings(hosted(), Some("CG-k")), &data, &cg, Arc::default()).exchange_rates(t0).await;
+        assert!(out.is_err() && cg.requests().is_empty(), "no fallback on the exchange rates");
+
+        let cache: Arc<RateCache> = Arc::default();
+        let (data, cg) = (ScriptedTransport::default(), ScriptedTransport::default());
+        cg.reply(CG_RATES, 500, json!({})).reply(CG_RATES, 200, rates.clone());
+        let s = source(&settings(Provider::CoinGecko { key: Some("CG-k".into()) }, Some("CG-k")), &data, &cg, cache.clone());
+        assert!(s.exchange_rates(t0).await.is_err());
+        assert_eq!(s.exchange_rates(t0).await.unwrap(), rates["rates"], "a failure is not held: asked again");
+        let later = |secs| t0 + chrono::TimeDelta::seconds(secs);
+        assert_eq!(s.exchange_rates(later(59)).await.unwrap(), rates["rates"]);
+        assert_eq!(asked(&cg, CG_RATES), 2, "held for the minute");
+        // A later run's source shares the engine's cache.
+        let next = source(&settings(Provider::CoinGecko { key: Some("CG-k".into()) }, Some("CG-k")), &data, &cg, cache);
+        next.exchange_rates(later(59)).await.unwrap();
+        assert_eq!(asked(&cg, CG_RATES), 2);
+        next.exchange_rates(later(60)).await.unwrap();
+        assert_eq!(asked(&cg, CG_RATES), 3, "asked again once the minute is over");
+    }
+}

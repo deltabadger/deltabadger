@@ -39,21 +39,21 @@ fn demo(t: &ScriptedTransport) -> &ScriptedTransport { t.reply("GET /api/v3/ping
 fn cx(db: &Db) -> Cx<'static> { Cx { db: db.clone(), clock: Box::leak(Box::new(FixedClock(at(NOW)))), wakers: Wakers::default() } }
 fn symbol(c: &Connection, ext: &str) -> String { c.query_row("SELECT symbol FROM assets WHERE external_id = ?1", [ext], |r| r.get(0)).unwrap() }
 
-/// The three readers (web, jobs, engine) give one answer for every row/env combination.
+/// The three readers (web, jobs, engine) give one answer for every row/env combination, the fallback key included.
 #[test]
 fn the_three_readers_of_market_data_settings_agree() {
     use deltabadger::market_data::{decide, Env, Provider, Rows};
     let values = [None, Some(""), Some("deltabadger"), Some("coingecko")];
     let texts = [None, Some(""), Some("v")];
     let mut cases = 0;
-    for provider in values { for url in texts { for key in texts { for env_url in [None, Some("http://data-api:3000")] {
+    for provider in values { for url in texts { for key in texts { for env_url in [None, Some("http://data-api:3000")] { for env_key in [None, Some("CG-env")] {
         let (dir, c) = install();
         c.execute("DELETE FROM app_configs WHERE key IN ('market_data_provider','coingecko_api_key')", []).unwrap();
         let k = seed::cipher();
         for (name, v) in [("market_data_provider", provider), ("market_data_url", url), ("market_data_token", url), ("coingecko_api_key", key)] {
             if let Some(v) = v { deltabadger::app_config::set(&c, &k, name, v, at(NOW)).unwrap(); }
         }
-        let env_map: Vec<(&str, String)> = env_url.map(|u| vec![("MARKET_DATA_URL", u.to_string())]).unwrap_or_default();
+        let env_map: Vec<(&str, String)> = env_url.map(|u| ("MARKET_DATA_URL", u.to_string())).into_iter().chain(env_key.map(|k| ("COINGECKO_API_KEY", k.to_string()))).collect();
         let env = |n: &str| env_map.iter().find(|(k, _)| *k == n).map(|(_, v)| v.clone());
         let rows = Rows { provider: provider.map(String::from), url: url.map(String::from), token: url.map(String::from), coingecko_key: key.map(String::from) };
         let expected = decide(&rows, &Env::read(&env));
@@ -61,11 +61,11 @@ fn the_three_readers_of_market_data_settings_agree() {
         let jobs = deltabadger::jobs::data_api::config(&env, &c, &k).unwrap();
         assert_eq!(jobs, match &expected.provider { Provider::DataApi(cfg) => Some(cfg.clone()), _ => None });
         deltabadger::engine::provider::bind(&c, &k, &env).unwrap();
-        assert_eq!(deltabadger::engine::provider::settings(&c).unwrap(), expected, "{provider:?} {url:?} {key:?} {env_url:?}");
+        assert_eq!(deltabadger::engine::provider::settings(&c).unwrap(), expected, "{provider:?} {url:?} {key:?} {env_url:?} {env_key:?}");
         drop(dir);
         cases += 1;
-    }}}}
-    assert_eq!(cases, 72);
+    }}}}}
+    assert_eq!(cases, 144);
 }
 
 /// The budget (PLAN-A17): the seed's 2,629 crypto assets are one plan ping and ⌈2,629/250⌉ = 11 `coins/markets` pages.

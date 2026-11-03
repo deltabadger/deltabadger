@@ -644,3 +644,83 @@ async fn a_sell_only_pair_that_received_nothing_shows_a_zero_not_markup() {
     assert!(metrics.contains("Received") && metrics.contains("<span class=\"is-zero\">0.00</span> <small>USDT</small>"), "{metrics}");
     assert!(!metrics.contains("&lt;span"), "{metrics}");
 }
+
+// ---- PLAN-A17 A17-3: conversions on a CoinGecko install ----
+
+const CG: &str = "GET api.coingecko.com/api/v3";
+fn cg_price(coin: &str, currency: &str) -> String {
+    format!("{CG}/simple/price?ids={coin}&include_24hr_change=false&include_24hr_vol=false&include_last_updated_at=false&include_market_cap=false&precision=full&vs_currencies={currency}")
+}
+/// CoinGecko's answers (the key a demo one: the pro ping answers 401); `rates` the exchange_rates reply.
+fn cg_script(rates: Value) -> Value {
+    let table = json!({"rates": {"btc": {"value": 1}, "usd": {"value": 64000.0}, "eur": {"value": 55000.0}, "gbp": {"value": 48000.0},
+                                 "pln": {"value": 236000.0}, "chf": {"value": 52000.0}, "jpy": {"value": 9600000.0}}});
+    let rates = if rates.is_null() { json!({"body": table}) } else { rates };
+    json!({ "GET pro-api.coingecko.com/api/v3/ping": {"status": 401, "body": {}}, format!("{CG}/exchange_rates"): rates,
+            cg_price("tether", "usd"): {"body": {"tether": {"usd": 0.9993}}} })
+}
+/// The install on the coingecko provider with a key; the log of what it asked.
+fn on_coingecko(rates: Value) -> (Install, Arc<std::sync::Mutex<Vec<String>>>) {
+    let log = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let install = install_with("USD", Source::Counted(cg_script(rates), log.clone()));
+    rusqlite::Connection::open(&install.file).unwrap().execute_batch("DELETE FROM app_configs WHERE key LIKE 'market_data_%';
+        INSERT INTO app_configs(key,value,created_at,updated_at) VALUES ('market_data_provider','coingecko','2026-01-01','2026-01-01'),('coingecko_api_key','CG-test-key','2026-01-01','2026-01-01');").unwrap();
+    (install, log)
+}
+impl Install {
+    async fn fill(&self, pairs: &[(&str, &str)]) {
+        let (identity, source) = self.app.db(deltabadger::web::tracker::fx::provider).await.unwrap();
+        assert!(source.is_some(), "a CoinGecko key is a provider to ask");
+        deltabadger::web::tracker::fx::fill(&self.app, &identity, source, pairs.iter().map(|(f, t)| (f.to_string(), t.to_string())).collect()).await.unwrap();
+    }
+    fn held(&self, from: &str, to: &str) -> deltabadger::figures::page_market::Held {
+        let now = deltabadger::engine::Clock::now(&*self.clock).timestamp();
+        self.app.fx_cache.store.get(&self.identity(), from, to, now).unwrap_or_else(|| panic!("{from}->{to} not held"))
+    }
+}
+fn count(log: &Arc<std::sync::Mutex<Vec<String>>>, key: &str) -> usize { log.lock().unwrap().iter().filter(|k| k.as_str() == key).count() }
+
+/// One CoinGecko `exchange_rates` answer serves every fiat pair for 60 s (Coingecko#get_exchange_rates): three pairs in
+/// one fill ask it once, a cold pair 30 s later is served by the same answer, one 61 s later asks again. A coin's price
+/// is `simple/price` with Rails' params. Each pair is held as on data-api (12 h fiat and stablecoins).
+#[tokio::test]
+async fn coingecko_fiat_pairs_share_one_exchange_rates_answer_for_a_minute() {
+    let (install, log) = on_coingecko(Value::Null);
+    let rates = format!("{CG}/exchange_rates");
+    install.fill(&[("USD", "EUR"), ("USD", "GBP"), ("USD", "PLN"), ("USDT", "USD")]).await;
+    assert_eq!((count(&log, &rates), count(&log, &cg_price("tether", "usd"))), (1, 1), "{:?}", log.lock().unwrap());
+    let now = common::web::at(AT).timestamp();
+    let held = install.held("USD", "EUR");
+    assert_eq!((held.value, held.until), (Ok(HeldRate::Float(55000.0 / 64000.0)), now + 12 * 3600));
+    assert_eq!(install.held("USDT", "USD").value, Ok(HeldRate::Decimal("0.9993".into())));
+    install.set("2026-03-18T12:04:00Z");
+    install.fill(&[("USD", "CHF")]).await;
+    assert_eq!(count(&log, &rates), 1, "the minute's answer serves a cold pair");
+    assert_eq!(install.held("USD", "CHF").value, Ok(HeldRate::Float(52000.0 / 64000.0)));
+    install.set("2026-03-18T12:04:31Z");
+    install.fill(&[("USD", "JPY")]).await;
+    assert_eq!(count(&log, &rates), 2, "asked again after 60 s");
+    assert_eq!(count(&log, "GET pro-api.coingecko.com/api/v3/ping"), 2, "each fill's client asks the plan once");
+}
+
+/// D-CG-FX-FAILURE-HOLD: a failed pair (a 500, or a 429) is held five minutes, not asked again on every read as Rails
+/// asks; a failure is not held at CoinGecko's own level, so a cold pair asks again.
+#[tokio::test]
+async fn a_failed_coingecko_pair_is_held_five_minutes_and_a_cold_one_asks_again() {
+    for status in [500, 429] {
+        let (install, log) = on_coingecko(json!({"status": status, "body": {}}));
+        let rates = format!("{CG}/exchange_rates");
+        install.fill(&[("USD", "EUR")]).await;
+        let held = install.held("USD", "EUR");
+        assert!(held.value.is_err(), "{status}");
+        assert_eq!(held.until, common::web::at(AT).timestamp() + deltabadger::web::tracker::fx::FAILURE_TTL, "{status}");
+        install.set("2026-03-18T12:08:29Z");
+        install.fill(&[("USD", "EUR")]).await;
+        assert_eq!(count(&log, &rates), 1, "{status}: the failed pair is held");
+        install.fill(&[("USD", "GBP")]).await;
+        assert_eq!(count(&log, &rates), 2, "{status}: a failure is not CoinGecko's held answer");
+        install.set("2026-03-18T12:08:30Z");
+        install.fill(&[("USD", "EUR")]).await;
+        assert_eq!(count(&log, &rates), 3, "{status}: asked again after five minutes");
+    }
+}

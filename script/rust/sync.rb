@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :coinbase, :bingx, :kraken, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :coinbase, :bingx, :kraken, :market, :coingecko, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -63,6 +63,7 @@ module ScriptedSync
              elsif host == 'open-api.bingx.com' then bingx
              elsif host == 'api.kraken.com' then kraken
              elsif host == 'data-api' then market
+             elsif host == 'api.coingecko.com' then coingecko
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     raise Harness::Unscripted, "unscripted HTTP call #{key} to #{host}" if script.nil?
@@ -787,6 +788,25 @@ module SyncParity
       'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
   end
 
+  # ---- CoinGecko as the market source (PLAN-A17 A17-3): the provider, or the fallback of MarketData.get_prices ----
+  CG_KEY = 'CG-demo-key'.freeze
+  CG_PRICES = 'GET /api/v3/simple/price'.freeze
+  CG_RATES = 'GET /api/v3/exchange_rates'.freeze
+
+  # The install's market-data rows, as the settings page saves them (plaintext: Rails reads unencrypted data).
+  def market_rows(rows)
+    rows.each do |key, value|
+      ActiveRecord::Base.connection.exec_insert('INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)', 'app_config',
+                                                [key, value, Time.current, Time.current])
+    end
+  end
+
+  # A Binance balance sync whose prices come from data-api (`market`) and/or CoinGecko (`coingecko`).
+  def cg_balances(at, account:, market: {}, coingecko: {})
+    { 'kind' => 'balances', 'at' => at, 'binance' => { BINANCE_ACCOUNT => [account] },
+      'market' => market.compact.transform_values { |r| [r] }, 'coingecko' => coingecko.compact.transform_values { |r| [r] } }
+  end
+
   def balances(at, account:, positions: ok([]), snapshots: nil, prices: nil)
     alpaca = { ACCOUNT => [account], POSITIONS => [positions], SNAPSHOTS => snapshots && [snapshots] }.compact
     { 'kind' => 'balances', 'at' => at, 'alpaca' => alpaca, 'market' => { PRICES => prices && [prices] }.compact }
@@ -811,8 +831,8 @@ module SyncParity
       FileUtils.mkdir_p(dir)
       ctx = build(dir, sc)
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate('parity_scratch' => true, 'user_id' => ctx[:user].id, 'api_key_id' => ctx[:key].id,
-                                      'credentials' => ctx[:credentials] || KEY, 'steps' => sc[:steps]))
+                 JSON.pretty_generate({ 'parity_scratch' => true, 'user_id' => ctx[:user].id, 'api_key_id' => ctx[:key].id,
+                                      'credentials' => ctx[:credentials] || KEY, 'steps' => sc[:steps], 'market_env' => sc[:market_env] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"
@@ -833,11 +853,19 @@ module SyncParity
     Exchanges::Kraken.prepend(Module.new { def sleep(*) = nil }) # get_ledger's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     Exchanges::Gemini.prepend(Module.new { def sleep(*) = nil }) # each_ledger_row's 5 s transfers pacing (TRANSFERS_REQUEST_INTERVAL)
     PortfolioSnapshot.singleton_class.prepend(Module.new { def record!(*) = nil })
+    # The CoinGecko client asks the paid API whether a key is a paid one before its first call (as figures.rb:1691). The
+    # scenarios' key is a free one; the Rust half scripts that ping and leaves it out of its requests.
+    Clients::Coingecko.instance_variable_set(:@detect_plan, { CG_KEY => :demo })
+    hosted_env = ENV.to_h.slice('MARKET_DATA_URL', 'MARKET_DATA_TOKEN', 'COINGECKO_API_KEY')
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
       sc = JSON.parse(File.read(path))
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
+      # A scenario's own market-data environment (`market_env`, a nil removes the variable), over the hosted one.
+      hosted_env.merge(sc.fetch('market_env', {})).each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+      MarketData.instance_variable_set(:@client, nil)
+      MarketData.instance_variable_set(:@coingecko, nil)
       before = snapshot
       reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase, Exchanges::Bingx, Exchanges::Kraken, Exchanges::Ibkr].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
@@ -857,6 +885,7 @@ module SyncParity
         ScriptedSync.bingx = step.fetch('bingx', {}).transform_values(&:dup)
         ScriptedSync.kraken = step.fetch('kraken', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
+        ScriptedSync.coingecko = step.fetch('coingecko', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true
         raised = false
@@ -883,6 +912,7 @@ module SyncParity
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(report, max_nesting: false))
       ActiveRecord::Base.connection_pool.disconnect!
     end
+    hosted_env.each { |k, v| ENV[k] = v }
   end
 end
 

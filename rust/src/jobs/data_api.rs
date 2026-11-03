@@ -161,7 +161,7 @@ impl<T: Transport> DataApi<T> {
     /// (clients/market_data.rb:81-88): `GET api/v1/prices?coin_ids=<ids, comma-joined>&vs_currencies=<currency>`, the
     /// normal 30 s read. The ids are uniq'd in order first, and no id is no request (`Result::Success.new({})`). A price is
     /// `dig('data', id, currency)` read with `to_f`; an id data-api does not price (absent, or nil) is absent from the map.
-    /// A failed request is with_rescue's outcome: Rails then falls back to CoinGecko, which is not ported.
+    /// A failed request is with_rescue's outcome: Rails then falls back to CoinGecko (sync::balances::MarketPrices).
     pub async fn prices(&self, external_ids: &[String], currency: &str) -> Result<BTreeMap<String, f64>, ApiError> {
         let mut ids: Vec<&str> = vec![];
         for id in external_ids { if !ids.contains(&id.as_str()) { ids.push(id); } }
@@ -209,9 +209,9 @@ fn plain_decimal(s: &str) -> Option<f64> {
 pub trait PriceSource {
     /// Prices in `currency` by external id; ids data-api does not price are absent. Err: the request failed.
     fn prices<'a>(&'a self, external_ids: &'a [String], currency: &'a str) -> PriceFuture<'a>;
-    /// MarketData.get_exchange_rates on the deltabadger provider: the answer's `data` (currency → its BTC-based
-    /// `value`). Err: the request failed, or (by default) there is no provider to ask.
-    fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> {
+    /// MarketData.get_exchange_rates: the provider's table (currency → its BTC-based `value`), asked at `now` (a holder of
+    /// CoinGecko's 60 s answer reads it). Err: the request failed, or (by default) there is no provider to ask.
+    fn exchange_rates<'a>(&'a self, _now: chrono::DateTime<chrono::Utc>) -> RatesFuture<'a> {
         Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider configured".into() }) })
     }
     /// Where Utilities::Currency.exchange_rate keeps the rates it computed; none: every sync asks again.
@@ -220,19 +220,34 @@ pub trait PriceSource {
 
 /// Utilities::Currency.exchange_rate's Rails.cache entries for fiat into USD: a successful rate is held
 /// STABLE_CACHE_DURATION (12 hours, both currencies fiat) and read instead of asking again; a failure is never held.
-/// In-process: it starts empty when the engine starts (Rails' cache store outlives a restart).
+/// Beside them, Coingecko#get_exchange_rates' own entry (`coingecko_exchange_rates`, coingecko.rb:126-135): one successful
+/// CoinGecko answer serves every rate for 60 s. In-process: it starts empty when the engine starts (Rails' cache store
+/// outlives a restart).
 #[derive(Default)]
-pub struct RateCache(std::sync::Mutex<std::collections::HashMap<String, (crate::ruby::BigDec, chrono::DateTime<chrono::Utc>)>>);
+pub struct RateCache {
+    rates: std::sync::Mutex<std::collections::HashMap<String, (crate::ruby::BigDec, chrono::DateTime<chrono::Utc>)>>,
+    coingecko: std::sync::Mutex<Option<(Value, chrono::DateTime<chrono::Utc>)>>,
+}
 
 impl RateCache {
     pub const DURATION: chrono::TimeDelta = chrono::TimeDelta::hours(12);
+    /// Coingecko's `expires_in: 60.seconds` (get_exchange_rates and get_price).
+    pub const COINGECKO: chrono::TimeDelta = chrono::TimeDelta::seconds(60);
     /// The rate for `from` written less than DURATION before `now` (ActiveSupport::Cache::Entry#expired? at `now`).
     pub fn get(&self, from: &str, now: chrono::DateTime<chrono::Utc>) -> Option<crate::ruby::BigDec> {
-        let held = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let held = self.rates.lock().unwrap_or_else(|e| e.into_inner());
         held.get(from).filter(|(_, at)| now < *at + Self::DURATION).map(|(rate, _)| rate.clone())
     }
     pub fn put(&self, from: &str, rate: crate::ruby::BigDec, now: chrono::DateTime<chrono::Utc>) {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).insert(from.to_string(), (rate, now));
+        self.rates.lock().unwrap_or_else(|e| e.into_inner()).insert(from.to_string(), (rate, now));
+    }
+    /// CoinGecko's exchange rates answered less than 60 s before `now`.
+    pub fn coingecko_rates(&self, now: chrono::DateTime<chrono::Utc>) -> Option<Value> {
+        self.coingecko.lock().unwrap_or_else(|e| e.into_inner()).as_ref().filter(|(_, at)| now < *at + Self::COINGECKO).map(|(v, _)| v.clone())
+    }
+    /// A successful CoinGecko exchange-rates answer (a failure is never held).
+    pub fn put_coingecko_rates(&self, rates: Value, now: chrono::DateTime<chrono::Utc>) {
+        *self.coingecko.lock().unwrap_or_else(|e| e.into_inner()) = Some((rates, now));
     }
 }
 
@@ -245,7 +260,7 @@ impl<T: Transport> PriceSource for DataApi<T> {
     fn prices<'a>(&'a self, external_ids: &'a [String], currency: &'a str) -> PriceFuture<'a> {
         Box::pin(DataApi::prices(self, external_ids, currency))
     }
-    fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> { Box::pin(DataApi::exchange_rates(self)) }
+    fn exchange_rates<'a>(&'a self, _now: chrono::DateTime<chrono::Utc>) -> RatesFuture<'a> { Box::pin(DataApi::exchange_rates(self)) }
     fn rate_cache(&self) -> Option<&RateCache> { Some(&self.rates) }
 }
 
@@ -270,9 +285,9 @@ impl<T: Transport> PriceSource for Option<DataApi<T>> {
             None => Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider available for prices".into() }) }),
         }
     }
-    fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> {
+    fn exchange_rates<'a>(&'a self, now: chrono::DateTime<chrono::Utc>) -> RatesFuture<'a> {
         match self {
-            Some(api) => PriceSource::exchange_rates(api),
+            Some(api) => PriceSource::exchange_rates(api, now),
             None => Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider configured".into() }) }),
         }
     }

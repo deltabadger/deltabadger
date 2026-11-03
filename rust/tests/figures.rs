@@ -646,3 +646,54 @@ fn gemini_hyperliquid_and_coinbase_series_are_kept_across_steps_and_asked_for_as
     assert!(bot("hyperliquid_stock")["chart"]["prices"].as_str().unwrap().contains("\"AAA\":["));
     assert!(bot("hyperliquid_unavailable")["live"].as_str().unwrap().contains("\"prices_stale\":true"));
 }
+
+/// PLAN-A17 A17-3: figures.rb's CoinGecko accounts (`account_coingecko`, `account_string_price_coingecko`) through the web's
+/// conversions (web::tracker::fx over jobs::market::Feed, as the bots page and the tracker get them), not only this
+/// library's scripted market: the display rate equals Rails' Denomination, from one `exchange_rates` answer, and every
+/// CoinGecko request is one Rails made (the pro plan ping aside: Rails' harness pre-seeds the plan).
+#[test]
+fn coingecko_accounts_convert_through_the_web_as_rails_does() {
+    let _ = grid(); // computed on its own runtime, before this test's
+    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(coingecko_accounts_convert());
+}
+async fn coingecko_accounts_convert() {
+    let recorded = common::run_template("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |_| unreachable!("built by grid()"));
+    for name in ["account_coingecko", "account_string_price_coingecko"] {
+        let rails = &grid().scenarios.iter().find(|s| s.name == name).unwrap().rails;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("production.sqlite3");
+        std::fs::copy(recorded.join("rust").join(name).join("production.sqlite3"), &file).unwrap();
+        let sc: Value = serde_json::from_str(&std::fs::read_to_string(recorded.join("rust").join(name).join("scenario.json")).unwrap()).unwrap();
+        // figures.rb keys a price by its ids and currency; the wire keys a request by its whole sorted query.
+        let mut script = serde_json::Map::new();
+        for (key, reply) in sc["script"].as_object().unwrap() {
+            let key = match key.strip_prefix("GET api.coingecko.com/api/v3/simple/price?") {
+                Some(query) => {
+                    let mut pairs: Vec<&str> = query.split('&').chain(["include_24hr_change=false", "include_24hr_vol=false", "include_last_updated_at=false", "include_market_cap=false", "precision=full"]).collect();
+                    pairs.sort_unstable();
+                    format!("GET api.coingecko.com/api/v3/simple/price?{}", pairs.join("&"))
+                }
+                None => key.clone(),
+            };
+            script.insert(key, reply.clone());
+        }
+        script.insert("GET pro-api.coingecko.com/api/v3/ping".into(), serde_json::json!({"status": 401, "body": {}}));
+        // Rails stored the rows under its own secret: the copy holds them as plaintext, which both read.
+        rusqlite::Connection::open(&file).unwrap().execute_batch("UPDATE app_configs SET value='coingecko' WHERE key='market_data_provider';
+            UPDATE app_configs SET value='CG-demo-key' WHERE key='coingecko_api_key';").unwrap();
+        let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let env = common::web::env(common::web::SECRET);
+        let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap()
+            .with_figure_source(deltabadger::web::figure::loading::Source::Counted(Value::Object(script), log.clone())).unwrap();
+        let user = sc["user_id"].as_i64().unwrap();
+        let prepared = deltabadger::web::tracker::fx::prepare(&app, user).await.unwrap();
+        let now = app.now().timestamp();
+        let denomination = app.db(move |c| prepared.denomination(c, user, now)).await.unwrap().unwrap_or_else(|| panic!("{name}: no rate"));
+        let expected: Value = serde_json::from_str(rails["denomination"].as_str().unwrap()).unwrap();
+        assert_eq!((denomination.currency.as_str(), denomination.rate.to_s_f()), (expected["currency"].as_str().unwrap(), expected["rate"].as_str().unwrap().to_string()), "{name}");
+        let asked = log.lock().unwrap().clone();
+        assert_eq!(asked.iter().filter(|k| k.ends_with("/exchange_rates")).count(), 1, "{name}: {asked:?}");
+        let theirs: Vec<&str> = rails["requests"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+        for request in asked.iter().filter(|k| !k.contains("/ping")) { assert!(theirs.contains(&request.as_str()), "{name}: Rails never asked {request}: {theirs:?}"); }
+    }
+}
