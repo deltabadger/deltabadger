@@ -413,3 +413,31 @@ fn no_tracker_filter_refusal_is_left() {
         }
     }
 }
+
+/// The export modal's default days are the export's own (Codex branch r1): for a Tokyo user whose first and last rows sit
+/// across UTC midnight, the days the modal offers export every row.
+#[tokio::test(flavor = "current_thread")]
+async fn the_export_modal_offers_the_days_the_export_reads() {
+    let (_dir, app, owner, file) = warm_install(true).await;
+    rows_at(&file, owner, &[]);
+    {
+        let c = Connection::open(&file).unwrap();
+        let exchange: i64 = c.query_row("SELECT exchange_id FROM account_transactions WHERE user_id=?1 LIMIT 1", [owner], |r| r.get(0)).unwrap();
+        c.execute("DELETE FROM account_transactions WHERE user_id=?1", [owner]).unwrap();
+        c.execute("UPDATE users SET time_zone='Tokyo' WHERE id=?1", [owner]).unwrap();
+        // The modal offers its form once market data is configured (no request reaches the provider here).
+        for (k, v) in [("market_data_provider", "coingecko"), ("coingecko_api_key", "synthetic-a19-key")] {
+            deltabadger::app_config::set(&c, &app.cipher, k, v, AT.parse().unwrap()).unwrap();
+        }
+        for at in ["2026-09-01 15:30:00", "2026-09-03 23:00:00"] {
+            c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,tx_id,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,0,'BTC','0.000001','USD','0.06',?3,?3,'{}','{}',?3,?3)",
+                      rusqlite::params![owner, exchange, at]).unwrap();
+        }
+    }
+    let (status, modal) = get(&app, owner, "/tracker/export_modal").await;
+    assert_eq!(status, 200, "{}", &modal[..modal.len().min(300)]);
+    let value = |name: &str| { let at = modal.find(&format!("name=\"{name}\"")).unwrap(); let v = at + modal[at..].find("value=\"").unwrap() + 7; modal[v..v + 10].to_string() };
+    assert_eq!((value("from"), value("to")), ("2026-09-02".to_string(), "2026-09-04".to_string()), "Tokyo's days");
+    let (_, csv) = get(&app, owner, &format!("/tracker/export?from={}&to={}", value("from"), value("to"))).await;
+    assert_eq!(csv.lines().count(), 3, "both rows exported: {csv}");
+}
