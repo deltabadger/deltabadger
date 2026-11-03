@@ -12,8 +12,7 @@ A CSV of the year's taxable disposals — proceeds, cost basis, gain or loss, ho
 1. Open the Tracker and press **Tax Report**. The **Generate Report** modal opens.
 2. Choose **Tax Report**. (**All** is the plain transactions export — see [Import and export](18-import-and-export.md).)
 3. Pick **Country** and **Year**. The list offers the current year and the five before it; last year is preselected.
-4. For Austria and Slovakia a checkbox appears: **Treat stablecoins as fiat (ask your accountant)**. In both countries a coin-to-coin swap is not a taxable event; with the box ticked a stablecoin (USDT, USDC, DAI and the like) counts as cash, so selling into one is a disposal.
-5. Press **Generate**.
+4. Press **Generate**.
 
 The report runs in the background. A bar shows **Generating tax report...** with a percentage, and the CSV downloads on its own when done — or the next time you open the Tracker. Each report downloads once; after that you are asked to generate a new one. The file is `deltabadger-tax-report-<country>-<year>.csv`. Your last choices are remembered.
 
@@ -35,7 +34,7 @@ After the disposals:
 | Country | Method | Currency | What the report adds |
 |---|---|---|---|
 | Germany | FIFO | EUR | A tax-exempt column after a holding period over one year |
-| Austria | FIFO | EUR | Coin-to-coin swaps not taxed, basis carries over; an old-stock column for coins bought before 1 March 2021 and held over a year; stablecoin checkbox |
+| Austria | FIFO | EUR | Coin-to-coin swaps not taxed, basis carries over; an old-stock column for coins bought before 1 March 2021 and held over a year; a stablecoin is a coin like any other |
 | France | PVCT | EUR | Total acquisition cost and portfolio value per disposal; coin-to-coin swaps not taxed |
 | Italy | LIFO | EUR | A tax-rate column (26% before 2026, 33% from 2026); an exempt column for years up to 2024 when the year's gains stay under 2,000 |
 | Spain | FIFO | EUR | — |
@@ -51,6 +50,6 @@ After the disposals:
 | Ireland | FIFO with the four-week rule | EUR | **Matching Rule**, **Period**; summary with the 1,270 annual exemption, CGT at 33% and the two payment dates |
 | Denmark | FIFO | DKK | Per-asset summary; a loss is marked denied when the asset was bought again between acquisition and sale |
 | Czech Republic | FIFO | CZK | A tax-exempt column with its reason — time test (held over three years) or value test (total proceeds for the year up to 100,000 — then every disposal is exempt); summary |
-| Slovakia | FIFO | EUR | Term and tax-rate columns (19% short-term, 7% long-term); coin-to-coin swaps not taxed; stablecoin checkbox |
+| Slovakia | FIFO | EUR | A coin-to-coin swap is a sale; no holding period |
 
 > **Over the API:** reports can be generated, polled and downloaded from a script or an AI client — see [REST API](23-rest-api.md#tax-reports) and [MCP server](22-mcp-server.md#tax--reporting).
