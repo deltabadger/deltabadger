@@ -1,6 +1,8 @@
 name: Rust engine
 
 on:
+  # By hand only: the only run with the macos-arm64 leg (the platform job's matrix).
+  workflow_dispatch:
   # The image job only: base images and package repositories change under an unchanged repository.
   schedule:
     - cron: '17 3 * * *'
@@ -413,15 +415,13 @@ jobs:
     if: github.event_name != 'schedule'
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { name: linux-x86_64, os: ubuntu-24.04 }
-          - { name: linux-arm64, os: ubuntu-24.04-arm }
-          # No macOS job until 3.0: development runs on Apple Silicon, and Intel Macs are not supported. Restore
-          # macos-arm64 before the 3.0 desktop release.
-          - { name: windows-x86_64, os: windows-2025 }
+        # macos-arm64 (Apple Silicon; Intel Macs are not supported) runs only when the workflow is started by hand
+        # (`gh workflow run rust.yml --ref <branch>`): development runs on a Mac, and the leg queued up to an hour per PR.
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"}]') }}
     defaults:
       run:
         working-directory: rust
@@ -450,6 +450,12 @@ jobs:
         with:
           workspaces: rust
           key: ${{ matrix.name }}
+          # Pull requests restore main's cache and save none of their own (the cache budget is 10 GB).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: cargo-nextest@0.9.146
 
       # A release build embeds the web UI's JavaScript and CSS, which are built, not committed
       # (rust/build.rs stops without them). The script runs `bun install --frozen-lockfile`, the
@@ -465,17 +471,41 @@ jobs:
 
       - run: cargo clippy --all-targets --locked -- -D warnings
 
-      # Rails-free tests. Rule: test files that build a Rails install (via common::install,
-      # common::rails_install, bin/rails or script/rust/prepare_install.rb) are excluded;
-      # add new Rails-free test files here.
+      # Every test file except those rust/tests/platform_excluded.txt names for this OS, with the reason they can't run
+      # here (Rails, Ruby, Docker). Only the selected targets are built: nextest builds every target it is given
+      # before it filters. macOS's bash is 3.2 (no ${v,,}, no mapfile).
       - name: Test
-        run: >
-          cargo test --locked --lib --bins
-          --test codec --test crypto --test enums
-          --test ruby --test schedule --test venue_fake --test entrypoint
-          --test http --test http_proxy_env --test venue_rules --test alpaca_live --test kraken
-          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test tracker_holdings_contract --test tracker_cache_contract --test tracker_deadline --test tracker_first_sync_contract --test histories_sources --test index_histories_contract --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
-          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time --test setup --test signal_sizing --test umbrel
+        shell: bash
+        env:
+          # About 65 test binaries, each linking the whole crate: no debuginfo, as in the full suite.
+          CARGO_PROFILE_DEV_DEBUG: 'false'
+          CARGO_PROFILE_DEV_STRIP: debuginfo
+        run: |
+          set -euo pipefail
+          os=$(printf '%s' "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')   # linux | macos | windows
+          list=tests/platform_excluded.txt
+          ex=$(sed -E 's/#.*//; s/[[:space:]]+$//' "$list" | awk -v os="$os" 'NF { if (index($0, ":")) { split($0, p, ":"); if (p[1] == os) print p[2] } else print }')
+          while read -r e; do
+            [ -z "$e" ] || [ -f "tests/$e.rs" ] || { echo "::error::$list names $e, which is not a test file"; exit 1; }
+          done < <(sed -E 's/#.*//; s/[[:space:]]+$//; s/^[a-z]+://' "$list")
+          args=(); n=0
+          for f in tests/*.rs; do
+            t=$(basename "$f" .rs)
+            # grep without -q reads all its input: printf can't take SIGPIPE and fail the match under pipefail.
+            printf '%s\n' "$ex" | grep -xF "$t" >/dev/null && continue
+            args+=(--test "$t"); n=$((n + 1))
+          done
+          echo "running $n test files on $os"
+          # macOS's default soft limit on open files is 256.
+          if [ "$os" = macos ]; then echo "ulimit -n was $(ulimit -n)"; ulimit -n 4096; fi
+          df -k . | tail -1
+          ( while :; do df -k . | tail -1 | awk '{print "free KB", $4}'; sleep 15; done ) > df.log &
+          sampler=$!
+          status=0
+          cargo nextest run --locked --no-fail-fast --lib --bins "${args[@]}" || status=$?
+          kill "$sampler" || true
+          echo "least free KB during build and run: $(awk '{print $3}' df.log | sort -n | head -1)"
+          exit "$status"
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
   image:
@@ -527,6 +557,7 @@ jobs:
         with:
           workspaces: rust
           key: image-${{ matrix.arch }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Test the image
         working-directory: rust
         env:
@@ -670,6 +701,7 @@ jobs:
         with:
           workspaces: rust
           key: full-suite
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
           tool: cargo-nextest@0.9.146
