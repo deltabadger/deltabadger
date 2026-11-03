@@ -89,9 +89,9 @@ pub const RAILS_WORK: &[(&str, RailsWork)] = {
         // Syncs and maintenance the scheduler runs on its own schedule, or that have no Rust counterpart to finish.
         ("AccountBalance::SyncAllJob", Dropped), ("AccountBalance::SyncJob", Dropped), ("AccountTransaction::ResolveAssetsJob", Dropped),
         ("AccountTransaction::SyncAllJob", Dropped), ("AccountTransaction::SyncJob", Dropped), ("AccountTransaction::SyncTrackerJob", Dropped),
-        ("AppUpdate::CheckJob", Dropped), ("Asset::FetchAllAssetsDataFromCoingeckoJob", WakeUnscoped(crate::jobs::reference::ASSETS)),
+        ("AppUpdate::CheckJob", WakeUnscoped(crate::jobs::app_update::NAME)), ("Asset::FetchAllAssetsDataFromCoingeckoJob", WakeUnscoped(crate::jobs::reference::ASSETS)),
         ("Asset::FetchDataFromCoingeckoJob", Wake(crate::jobs::reference::ASSET_DATA)),
-        ("Asset::InferColorFromImageJob", Dropped), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
+        ("Asset::InferColorFromImageJob", Wake(crate::jobs::asset_color::NAME)), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
         ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped), ("Bot::ConvertSingleAssetBotsJob", Dropped),
         ("Bot::EvaluateRebalancersJob", Dropped), ("Bot::RepairOrphanedBotsJob", Dropped), ("Exchange::SyncAllTickersAndAssetsJob", Dropped),
         ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", WakeUnscoped(crate::jobs::reference::TICKERS)), ("Ibkr::CheckActivationJob", Dropped),
@@ -400,8 +400,9 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                 // integer (ActiveJob serializes an Integer as itself); a row naming nothing there is Rails' RecordNotFound.
                 w.done.push(row.id);
                 let (table, noun) = wake_scope(job);
-                // Asset::FetchDataFromCoingeckoJob is enqueued with the Asset itself (sync_alpaca_assets_job.rb:166): a GlobalID.
-                let id = if job == crate::jobs::reference::ASSET_DATA { asset_of(args) } else { first_id(args) };
+                // Asset::FetchDataFromCoingeckoJob and Asset::InferColorFromImageJob are enqueued with the Asset itself
+                // (sync_alpaca_assets_job.rb:166, market_data.rb:86): a GlobalID.
+                let id = if job == crate::jobs::reference::ASSET_DATA || job == crate::jobs::asset_color::NAME { asset_of(args) } else { first_id(args) };
                 match id {
                     Some(id) if exists(c, table, id)? => { if !w.wakes.contains(&(job, Some(id))) { w.wakes.push((job, Some(id))); } }
                     _ => {
@@ -519,7 +520,7 @@ struct RailsWake { job: String, scope: String, at: String }
 /// The table a wake job's scope is a row of, and its name in a log line.
 fn wake_scope(job: &str) -> (&'static str, &'static str) {
     if job == crate::sync::jobs::API_KEY_VALIDATOR { ("api_keys", "API key") }
-    else if job == crate::jobs::reference::ASSET_DATA { ("assets", "asset") }
+    else if job == crate::jobs::reference::ASSET_DATA || job == crate::jobs::asset_color::NAME { ("assets", "asset") }
     else { ("users", "user") }
 }
 
@@ -696,6 +697,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "engine_lease", Adopted),
         (AppConfig, "rust_created_at", Refuses("this install was created new, so there is no earlier app to hand it back to.")),
         (AppConfig, "rust_taken_over_at", Ignored), (AppConfig, "rust_handed_back_at", Ignored),
+        // The latest release the update check stored (jobs::app_update): 2.x keeps its own in Rails.cache.
+        (AppConfig, "rust_app_update", Ignored),
         (AppConfig, "rust_binance_a12_v1:", Refuses("Binance A12 identity data permanently requires Rust ownership")),
         (AppConfig, "rust_binance_repair_gaps.", Ignored), (AppConfig, "rust_account_identity_key_v1", Ignored),
         (AppConfig, "rust_coinbase_size_in_quote_repaired_at", Ignored),

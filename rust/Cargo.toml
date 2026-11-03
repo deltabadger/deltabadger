@@ -56,6 +56,8 @@ uuid = { version = "1", features = ["v4"] }
 qrcode = { version = "0.14", default-features = false }
 
 html-escape = "0.2"
+# Asset colours from logos (jobs::asset_color, F25): the four formats Utilities::Image sniffs, pure Rust, decoded under limits.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 # Hyperliquid's L1 signing (venue::signers::hyperliquid): secp256k1 with recovery, and keccak256.
 k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 sha3 = { version = "0.10", default-features = false }

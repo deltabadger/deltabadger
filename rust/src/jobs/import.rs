@@ -356,25 +356,42 @@ pub fn coingecko_columns(external_id: &str, d: &Value) -> R<Option<Vec<Sql>>> {
 
 /// Publishes CoinGecko asset refreshes `(asset id, coingecko_columns)` in units of CHUNK. `update!` writes, and moves
 /// updated_at, only on a row whose cast values changed: the UPDATE's guard compares each column with `IS` (the decimal
-/// columns compare numerically under their NUMERIC affinity).
-pub async fn refresh_assets(db: &Db, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>) -> R<()> {
+/// columns compare numerically under their NUMERIC affinity). Once each unit commits, `images_changed` is told the
+/// assets whose image_url that unit changed (market_data.rb:86 enqueues Asset::InferColorFromImageJob for each), on the
+/// blocking pool right after the commit: neither a later unit's failure nor a run dropped at its deadline (its committed
+/// unit outlives it) loses them.
+pub async fn refresh_assets<W: Fn(Vec<i64>) + Clone + Send + 'static>(db: &Db, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>, images_changed: W) -> R<()> {
     let t = format_time(now);
-    publish(db, "coingecko assets", chunks(&rows), move |c, rows: Vec<(i64, Vec<Sql>)>| refresh_unit(c, rows, &t)).await
+    for unit in chunks(&rows) {
+        let (t, wake) = (t.clone(), images_changed.clone());
+        db.run(move |c, cipher| {
+            let changed = in_transaction(c, cipher, "coingecko assets", |c| refresh_unit(c, unit, &t).map(|(touched, images)| (images, touched)))?;
+            if !changed.is_empty() { wake(changed); }
+            Ok(())
+        }).await?;
+    }
+    Ok(())
 }
 
-/// The same as one synchronous write unit in the caller's transaction.
-pub fn write_refresh(c: &Connection, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>) -> R<Touched> { refresh_unit(c, rows, &format_time(now)) }
-
-fn refresh_unit(c: &Connection, rows: Vec<(i64, Vec<Sql>)>, t: &str) -> R<Touched> {
-    let mut ids = vec![];
+/// One unit: the touched assets, and those of them whose image_url changed.
+fn refresh_unit(c: &Connection, rows: Vec<(i64, Vec<Sql>)>, t: &str) -> R<(Touched, Vec<i64>)> {
+    let (mut ids, mut images) = (vec![], vec![]);
     for (id, cols) in rows {
+        let image = cols.get(3).cloned().unwrap_or(Sql::Null);
+        let was: Option<Option<String>> = c.prepare_cached("SELECT image_url FROM assets WHERE id = ?1").map_err(sql)?
+            .query_row([id], |r| r.get(0)).optional().map_err(sql)?;
         let changed = c.prepare_cached("UPDATE assets SET symbol = ?2, name = ?3, url = ?4, image_url = ?5, market_cap_rank = ?6, market_cap = ?7, \
                    circulating_supply = ?8, updated_at = ?9 WHERE id = ?1 AND NOT (symbol IS ?2 AND name IS ?3 AND url IS ?4 AND image_url IS ?5 \
                    AND market_cap_rank IS ?6 AND market_cap IS ?7 AND circulating_supply IS ?8)").map_err(sql)?
             .execute(params_from_iter([Sql::Integer(id)].into_iter().chain(cols).chain([Sql::Text(t.into())]))).map_err(sql)?;
-        if changed > 0 { ids.push(id); }
+        if changed > 0 {
+            ids.push(id);
+            // `image_url_was != asset.image_url`
+            let now = match image { Sql::Text(s) => Some(s), _ => None };
+            if was.is_some_and(|w| w != now) { images.push(id); }
+        }
     }
-    Ok(Touched::Assets(ids))
+    Ok((Touched::Assets(ids), images))
 }
 
 /// The instrument-type groups in chunks of CHUNK external ids.

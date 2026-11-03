@@ -380,6 +380,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let mut registered = jobs::reference::shared_jobs(api.clone());
     // Setup::SeedAndSyncJob, which a platform claim on /setup wakes: it reads the data-api configuration the claim wrote.
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
+    // AppUpdate::CheckJob: the latest release for the Settings row; nothing is asked on the desktop or once opted out.
+    registered.push(jobs::app_update::job(env));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     registered.push(deltabadger::tax::job::job(api.clone(), LiveFactory::new(), deltabadger::tax::job::tmp_dir(env)));

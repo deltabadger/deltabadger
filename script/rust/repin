@@ -36,6 +36,8 @@ RECORDED = {
     FIX + 'figures_vectors.json': ('test', [runner('record_figures_vectors.rb', '{out}')], None),
     FIX + 'float_digits.json': ('test', [runner('record_float_digits.rb', '{out}')], None),
     FIX + 'fiat_currencies.json': ('test', [runner('record_fiat_currencies.rb', '{out}')], None),
+    FIX + 'app_update_vectors.json': ('test', [runner('record_app_update.rb', '{out}')], None),
+    FIX + 'asset_colors.json': ('test', [runner('record_asset_colors.rb', '{out}')], None),
     FIX + 'histories.json': ('test', [runner('record_histories.rb', '{out}')], None),
     FIX + 'histories_r1.json': ('test', [runner('record_histories_r1.rb', '{out}')], None),
     FIX + 'histories_imported.json': ('test', [runner('record_histories_imported.rb', '{out}')], None),
