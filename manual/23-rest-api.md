@@ -52,7 +52,7 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 |---|---|---|---|
 | GET | `/exchanges` | List exchanges | Your connected trading exchanges |
 | GET | `/exchanges/:id/balances` | Exchange balances | Live exchange call; `502` if the exchange fails. Alpaca and Interactive Brokers only; other exchanges answer `501` |
-| GET | `/orders` | List open orders | Optional `?exchange_name=`; your bots' open orders on every exchange, and orders placed outside Deltabadger read live from Alpaca only |
+| GET | `/orders` | List open orders | Optional `?exchange_name=`; your bots' open orders on every exchange, and orders placed outside your bots read live from Alpaca only. `unavailable` names every other exchange you hold a correct trading key on (and the one you filter by) as not read live |
 | POST | `/orders` | Market buy / Market sell / Limit buy / Limit sell | `type` picks the toggle; needs `Idempotency-Key` (see below) |
 | DELETE | `/orders/:id` | Cancel order | A numeric id is first looked up among your bots' open orders (from `GET /orders`); any other id is the exchange's own order id, with `exchange_name` |
 

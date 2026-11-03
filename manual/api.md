@@ -275,7 +275,7 @@ token).
 | POST | `/tracker/sync` | `sync_tracker` | 202; body-less. `501 not_ported` while you hold an Interactive Brokers key: its history is not synced yet |
 | GET | `/portfolio` | `get_portfolio_summary` | Returns `empty: true` for users with no bots. `501 not_ported` while a bot on an exchange other than Alpaca needs a live price |
 | GET | `/indices` | `list_indices` | Optional `?exchange_name=` |
-| GET | `/orders` | `list_open_orders` | Optional `?exchange_name=`. Lists your bots' open orders on every exchange; orders placed outside Deltabadger are read live from Alpaca only. `unavailable` names an Alpaca account that could not be asked |
+| GET | `/orders` | `list_open_orders` | Optional `?exchange_name=`. Lists your bots' open orders on every exchange; orders placed outside your bots are read live from Alpaca only. `unavailable` names an Alpaca account that could not be asked, and, as `not read live on this build`, every other exchange you hold a correct trading key on (and the one `exchange_name` names): only your bots' orders there are listed |
 | POST | `/orders` | `market_buy`, `market_sell`, `limit_buy`, `limit_sell` | `type` picks the tool; **Requires `Idempotency-Key`** (see section 5). Interactive Brokers answers `501 not_ported`, and the key stays free |
 | DELETE | `/orders/:id` | `cancel_order` | A numeric id is first looked up among the open orders Deltabadger tracks (from `GET /orders`). Any other id is taken as the exchange's own order id, and `exchange_name` is then required. Interactive Brokers answers `501 not_ported` |
 | GET | `/rules` | `list_rules` | Withdrawal rules; destinations are masked; includes `max_interval` and `unresolved_withdrawal` |

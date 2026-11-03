@@ -2513,7 +2513,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)).and_then(|()|tax_api_difference(&name,&mut rails)).and_then(|()|account_divergences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|market_data_divergences(&name,&mut rails,&mut rust)).and_then(|()|a18_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20_divergences(&name,&mut rails,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)).and_then(|()|tax_api_difference(&name,&mut rails)).and_then(|()|account_divergences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|market_data_divergences(&name,&mut rails,&mut rust)).and_then(|()|a18_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20c_divergences(&name,&mut rails,&rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
@@ -2692,6 +2692,61 @@ fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
         let end = (start + 1..lines.len()).find(|&i| lines[i].as_str().is_some_and(|l| l.trim() == "</turbo-stream>" && l.len() - l.trim_start().len() == indent))
             .ok_or("the registration row's stream does not end")?;
         lines.drain(start..=end);
+    }
+    Ok(())
+}
+
+/// D-OPEN-ORDERS-UNREAD-NAMED (3.0 A20c): Rails' ListOpen drops an exchange whose open orders it cannot list
+/// (`list_open.rb:64-65`); this build names it in `unavailable`. On an `api_` step the two answers may differ only by
+/// rows of that reason after Rails' own; Rails' body then takes them, and its weak tag (Rack::ETag over the body) follows.
+/// A body-less step (HEAD) that carried a rewritten tag takes the new tag too. The names each step adds are pinned
+/// (UNREAD_STEPS: scenario, step, exchanges in order): a step not listed may not differ, and a listed one must, so a
+/// wrong exchange, a missing one, or a Rails fix shows here.
+fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    const UNREAD: &str = "not read live on this build";
+    // The owner holds correct trading keys on Kraken and Binance beside Alpaca (api_case's venues); the second user
+    // (`second-token`) holds none, so their steps name nothing. A filter names its own exchange alone; a blank one is none.
+    const BOTH: &[&str] = &["Kraken", "Binance"];
+    const UNREAD_STEPS: &[(&str, usize, &[&str])] = &[
+        ("api_balances_live", 1, BOTH), ("api_balances_venue_down", 1, BOTH),
+        ("api_orders_formats", 0, BOTH), ("api_orders_formats", 1, BOTH), ("api_orders_formats", 2, BOTH), ("api_orders_formats", 4, BOTH),
+        ("api_orders_no_key", 0, BOTH), ("api_orders_not_granted", 1, BOTH), ("api_orders_null_grant", 0, BOTH), ("api_orders_null_grant", 1, BOTH),
+        ("api_orders_rows", 0, BOTH), ("api_orders_rows", 2, &["Kraken"]), ("api_orders_rows", 4, BOTH),
+        ("api_orders_tokens", 4, BOTH), ("api_orders_tokens", 5, BOTH), ("api_orders_tokens", 7, BOTH), ("api_orders_tokens", 11, BOTH),
+        ("api_orders_tokens", 12, BOTH), ("api_orders_tokens", 13, BOTH),
+    ];
+    if !name.starts_with("api_") { return Ok(()); }
+    let (mut seen, mut unpinned) = (vec![], vec![]);
+    let mut retagged = std::collections::BTreeMap::new();
+    for (step, (theirs, ours)) in rails["responses"].as_array_mut().into_iter().flatten().zip(rust["responses"].as_array().into_iter().flatten()).enumerate() {
+        let (Some(t), Some(o)) = (theirs["body"].as_str(), ours["body"].as_str()) else { continue };
+        if t == o { continue; }
+        let (Ok(t_json), Ok(o_json)) = (serde_json::from_str::<Value>(t), serde_json::from_str::<Value>(o)) else { continue };
+        let (Some(t_rows), Some(o_rows)) = (t_json["data"]["unavailable"].as_array(), o_json["data"]["unavailable"].as_array()) else { continue };
+        let added = o_rows.get(t_rows.len()..).unwrap_or_default();
+        let mut expected = t_json.clone();
+        expected["data"]["unavailable"] = json!(o_rows);
+        if o_rows.len() <= t_rows.len() || o_rows[..t_rows.len()] != t_rows[..] || expected != o_json
+            || !added.iter().all(|r| r["error"] == UNREAD && r["exchange"].is_string() && r.as_object().is_some_and(|m| m.len() == 2)) {
+            continue; // Any other difference is compared, and fails, as it is.
+        }
+        let names = added.iter().map(|r| r["exchange"].as_str().unwrap_or_default()).collect::<Vec<_>>();
+        if !UNREAD_STEPS.contains(&(name, step, &names[..])) { unpinned.push(format!("({name:?}, {step}, &{names:?})")); continue; }
+        seen.push(step);
+        theirs["body"] = json!(o);
+        if let Some(old) = theirs["headers"]["etag"].as_str().map(str::to_string) {
+            let new = format!("W/\"{}\"", &hex::encode(Sha256::digest(o.as_bytes()))[..32]);
+            theirs["headers"]["etag"] = json!(new);
+            retagged.insert(old, new);
+        }
+    }
+    for theirs in rails["responses"].as_array_mut().into_iter().flatten().filter(|r| r["body"].as_str().is_none_or(str::is_empty)) {
+        if let Some(new) = theirs["headers"]["etag"].as_str().and_then(|t| retagged.get(t)) { theirs["headers"]["etag"] = json!(new); }
+    }
+    if !unpinned.is_empty() { return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: steps that name exchanges not pinned: {}", unpinned.join(", "))); }
+    if let Some((_, step, _)) = UNREAD_STEPS.iter().find(|(n, step, _)| *n == name && !seen.contains(step)) {
+        return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: {name} step {step} no longer differs (Rails names it now, or this build does not)"));
     }
     Ok(())
 }
