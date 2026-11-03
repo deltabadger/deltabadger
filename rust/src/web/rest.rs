@@ -688,10 +688,15 @@ mod tests {
     fn route_patterns(source: &str) -> Vec<Vec<String>> {
         let body = &source[source.find("fn route(").unwrap()..];
         let body = &body[..body.find("\n}\n").unwrap()];
-        // An arm is one line: its slice pattern, its guard and its `=>`. Any other line that opens a slice pattern fails.
+        // An arm is one line: one slice pattern, an optional `if` guard, then `=>`. Any other line that opens a slice
+        // pattern fails: one over two lines, or an or-pattern (`[..] | [..]`).
         let arms: Vec<(usize, &str)> = body.lines().filter_map(|line| {
             let inside = line.trim_start().strip_prefix('[')?;
-            let close = inside.find(']').filter(|_| line.contains("=>")).unwrap_or_else(|| panic!("an arm route_patterns cannot read: {line}"));
+            let unread = format!("an arm route_patterns cannot read: {line}");
+            let close = inside.find(']').expect(&unread);
+            let (between, _) = inside[close + 1..].split_once("=>").expect(&unread);
+            let between = between.trim();
+            assert!((between.is_empty() || between.starts_with("if ")) && !between.contains(['|', '[']), "{unread}");
             Some((line.len() - line.trim_start().len(), &inside[..close]))
         }).collect();
         let top = arms.iter().map(|(indent, _)| *indent).min().unwrap();
@@ -723,6 +728,13 @@ mod tests {
     #[should_panic(expected = "an arm route_patterns cannot read")]
     fn route_patterns_refuses_an_arm_over_two_lines() {
         route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b),\n        [\"orders\",\n         id] if delete => (c, d),\n    }\n}\n");
+    }
+
+    /// Nor an or-pattern, whose second alternative it would drop.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_an_or_pattern() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] | [\"new_bots\"] if get => (a, b),\n    }\n}\n");
     }
 
     /// The manual's REST table against the router, both ways, and its tools against the MCP catalogue. Undocumented on
