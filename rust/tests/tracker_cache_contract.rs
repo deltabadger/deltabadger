@@ -33,6 +33,9 @@ fn cache_lifecycle_matches_rails_with_documented_eviction_miss(){
 fn cache_ci_covers_sources_and_portable_binaries(){
     let workflow=include_str!("../../.github/workflows/rust.yml");
     for path in fixture()["sources"].as_object().unwrap().keys(){assert_eq!(workflow.matches(&format!("- '{path}'")).count(),2,"both workflow events must cover {path}");}
-    for binary in ["tracker_cache_contract","tracker_deadline"]{assert!(workflow.contains(&format!("--test {binary}")),"portable {binary} missing from CI");}
-    assert!(!workflow.contains("--test tracker_cache_producer"));
+    for binary in ["tracker_cache_contract","tracker_deadline"]{assert!(!platform_excluded(binary),"portable {binary} kept off the platform job");}
+    assert!(platform_excluded("tracker_cache_producer"));
 }
+/// Whether rust/tests/platform_excluded.txt keeps `name` off a platform leg (the platform job runs every other file).
+fn platform_excluded(name:&str)->bool{include_str!("platform_excluded.txt").lines().map(|l|l.split('#').next().unwrap().trim()).any(|l|l.rsplit(':').next()==Some(name))}
+
