@@ -950,7 +950,10 @@ const UMBREL_B5_0: &str = "rust/tests/fixtures/umbrel/2.70.21-1-docker-compose.y
 /// app.ts patchComposeFile): every service gets `container_name: <project>_<service>_1` unless it has one (umbreld's
 /// project is the app id, `deltabadger`; a test's own name keeps tests apart), and each volume string has its first
 /// `/data/storage/downloads` made `/home/Downloads`, then its first `/data/storage` made `/home` (JavaScript's
-/// `String.replace` with a string replaces the first match). So the install lives in `${APP_DATA_DIR}/home`.
+/// `String.replace` with a string replaces the first match). 2.0.1 rewrites the source only (the part before the first
+/// `:`, `mapServiceVolumeSource`); 1.7.4 rewrites the whole string. The two must agree on every volume a file carries,
+/// which is asserted here, so one patch stands for both. So the install lives in `${APP_DATA_DIR}/home`.
+/// A `container_name` that is empty or null counts as missing, as umbreld's falsy check does.
 fn umbreld_patch(text: &str, project: &str) -> yaml_rust2::Yaml {
     use yaml_rust2::Yaml;
     let mut doc = yaml_rust2::YamlLoader::load_from_str(text).unwrap().remove(0);
@@ -959,10 +962,15 @@ fn umbreld_patch(text: &str, project: &str) -> yaml_rust2::Yaml {
     for (name, service) in services.iter_mut() {
         let Yaml::Hash(service) = service else { panic!("{name:?}") };
         let container = Yaml::String(format!("{project}_{}_1", name.as_str().unwrap()));
-        service.entry(Yaml::String("container_name".into())).or_insert(container);
+        let key = Yaml::String("container_name".into());
+        if !matches!(service.get(&key), Some(Yaml::String(n)) if !n.is_empty()) { service.insert(key, container); }
+        let legacy = |s: &str| s.replacen("/data/storage/downloads", "/home/Downloads", 1).replacen("/data/storage", "/home", 1);
         if let Some(Yaml::Array(volumes)) = service.get_mut(&Yaml::String("volumes".into())) {
             for volume in volumes.iter_mut() {
-                if let Yaml::String(v) = volume { *v = v.replacen("/data/storage/downloads", "/home/Downloads", 1).replacen("/data/storage", "/home", 1); }
+                let Yaml::String(v) = volume else { panic!("{name:?}: a long-form volume; umbreld_patch maps strings only") };
+                let source_only = match v.split_once(':') { Some((source, rest)) => format!("{}:{rest}", legacy(source)), None => v.clone() };
+                assert_eq!(legacy(v), source_only, "{name:?}: umbrelOS 1.7 and 2.0 would mount {v} differently");
+                *v = source_only;
             }
         }
     }
@@ -1684,10 +1692,7 @@ fn umbrels_latest_3_0_takes_a_2_70_21_install_over_and_b5_0_after_it_changes_not
     let rails = format!("{}{}", String::from_utf8_lossy(&rails.stdout), String::from_utf8_lossy(&rails.stderr));
     assert!(rails.contains("still owns this data"), "{rails}");
     b5_0.ok(&["stop"]);
-    let after = snapshot(&image, &u.storage);
-    let changed: Vec<&str> = after.lines().filter(|l| !before.lines().any(|b| b == *l)).collect();
-    eprintln!("written by B5-0's 2.70.21: {changed:?}");
-    assert_eq!(changed, Vec::<&str>::new(), "only Rails' boot files");
+    assert_eq!(snapshot(&image, &u.storage), before, "B5-0's 2.70.21 refuses the install and changes nothing");
 
     up_ok(&u.update(&b5_0, &u.project));
     let web = u.project.container("web");
