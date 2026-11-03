@@ -23,6 +23,9 @@ module StartTimeVectors
                   'Eastern Time (US & Canada)' => %w[2026-03-08T07:00:00Z 2026-11-01T06:00:00Z] }.freeze
   HOURS = [-168, -145, -26, -23, -3, -1, 0, 1, 22, 24].freeze
   LORD_HOWE = %w[2026-04-04T15:00:00Z 2026-10-03T15:30:00Z].freeze
+  # Negative DST in tzdata's main format (Dublin's winter, Casablanca's Ramadan): which occurrence of a repeated time
+  # this Rails picks, clocks on both sides of the change and between the two occurrences.
+  NEGATIVE = { 'Dublin' => %w[2026-03-29T01:00:00Z 2026-10-25T01:00:00Z], 'Casablanca' => %w[2026-02-15T02:00:00Z 2026-03-22T02:00:00Z] }.freeze
 
   def iso(time) = time&.utc&.iso8601(6)
 
@@ -61,6 +64,13 @@ module StartTimeVectors
     LORD_HOWE.each do |edge|
       [-25, -1, 0, 1, 23].map { |h| iso(Time.iso8601(edge) + h.hours + 7.minutes) }.each do |now|
         %w[hour sunday saturday].each { |mode| %w[01:30 01:45 02:00 02:15 02:30 09:30].each { |time| cases << ['Australia/Lord_Howe', now, mode, time] } }
+      end
+    end
+    NEGATIVE.each do |zone, edges|
+      edges.each do |edge|
+        [-26 * 60, -60, -15, 15, 45, 75, 23 * 60].map { |m| iso(Time.iso8601(edge) + m.minutes) }.each do |now|
+          %w[hour sunday saturday].each { |mode| %w[00:30 01:30 02:30 09:30].each { |time| cases << [zone, now, mode, time] } }
+        end
       end
     end
     cases.map do |zone, now, mode, value|
