@@ -943,9 +943,27 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let job_primary = store::open(&paths)?.primary;
     crate::engine::provider::bind(&job_primary, &cipher, &env)?;
     let db = jobs::Db::new(job_primary, cipher.clone());
-    let outcome = reference::run_once(job, api, jobs::Cx { db, clock: &FixedClock(at), wakers: jobs::Wakers::default() }).await;
-    let requests: Vec<String> = transport.requests().iter().map(request_key).collect();
-    Ok(json!({ "requests": requests, "retry": matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),
+    // PLAN-A17: CoinGecko answers from the same script; its requests are named with their host, as Rails logs them.
+    let cg_transport = transport.clone();
+    let cg: crate::jobs::coingecko::Clients = std::rc::Rc::new(move |key: &str| {
+        Box::new(crate::jobs::coingecko::CoinGecko::new(key, cg_transport.clone()).with_throttle(std::sync::Arc::new(crate::jobs::coingecko::Throttle::new(250))))
+            as Box<dyn crate::jobs::coingecko::Api>
+    });
+    let cx = jobs::Cx { db, clock: &FixedClock(at), wakers: jobs::Wakers::default() };
+    let (outcome, retries) = if job == reference::ASSET_DATA {
+        let ext = scenario["asset"].as_str().ok_or_else(|| EngineError::Data("scenario.asset".into()))?;
+        let id: i64 = o.primary.query_row("SELECT id FROM assets WHERE external_id = ?1", [ext], |r| r.get(0))?;
+        (reference::asset_data(&cg, id, cx).await, false)
+    } else {
+        let retries = reference::specs().iter().find(|s| s.name == job).is_some_and(|s| s.retry != jobs::Retry::None);
+        (reference::run_once_with(job, api, &cg, cx).await, retries)
+    };
+    let requests: Vec<String> = transport.requests().iter().map(|r| {
+        let key = request_key(r);
+        match r.base.strip_prefix("https://").filter(|h| h.contains("coingecko.com")) { Some(host) => key.replacen(' ', &format!(" {host}"), 1), None => key }
+    }).collect();
+    // A retry is recorded only where the job has one (a Retry::None job's rate limit is not retried, as Rails' is not).
+    Ok(json!({ "requests": requests, "retry": retries && matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),
                "changes": diff_tables(&before, &reference_snapshot(&o.primary, &cipher)?, &REFERENCE_TABLES) }))
 }
 
@@ -978,6 +996,8 @@ fn add_stock_bodies(c: &Connection, bot: &crate::engine::model::Bot, script: &mu
 pub async fn resync_marked(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), EngineError> {
     // As `serve` opens the engine's connection: the install's market-data provider readable.
     crate::engine::provider::bind(c, cipher, &|_| None)?;
+    // A Rails fixture's stored ranking is its provider's complete answer: the refresh fence holds, as on the order grid.
+    if let Some(hash) = crate::engine::provider::fingerprint(c)? { crate::engine::provider::record(c, &hash, now)?; }
     let (prices, mut state) = (PriceCache::default(), crate::engine::run::Resyncs::default());
     for (id, marker) in crate::engine::index::resync_marked(c)? {
         let venue = crate::venue::fake::FakeVenue::new().on_price(|| panic!("a page-grid resync probed a newcomer's price"));

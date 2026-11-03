@@ -5,7 +5,7 @@ use crate::{app_config, crypto::Cipher, jobs::data_api::Config};
 use chrono::{DateTime,Utc};
 use rusqlite::{Connection, OptionalExtension, functions::FunctionFlags};
 use sha2::{Digest,Sha256};
-const KEY: &str = "rust_job.index_provider";
+pub const KEY: &str = "rust_job.index_provider";
 const MESSAGE: &str = "index needs a configured provider and a complete index refresh for its current configuration";
 
 /// Register the existing cipher, not new key derivation, on this connection. Functions are
@@ -40,20 +40,20 @@ fn value(c:&Connection,key:&str)->Result<Option<Option<String>>,EngineError> {
         Ok(decrypted.unwrap_or_else(|_|raw.filter(|v|!v.trim_start().starts_with('{'))))
     }).transpose()
 }
+/// The install's market-data settings (market_data::decide), read on this connection inside the caller's transaction.
+pub fn settings(c:&Connection)->Result<crate::market_data::Settings,EngineError> {
+    let row=|k:&str| value(c,k).map(|v| v.map(Option::unwrap_or_default));
+    let rows=crate::market_data::Rows{provider:row("market_data_provider")?,url:row("market_data_url")?,token:row("market_data_token")?,coingecko_key:row("coingecko_api_key")?};
+    let env=crate::market_data::Env{url:env(c,"MARKET_DATA_URL"),token:env(c,"MARKET_DATA_TOKEN"),coingecko_key:env(c,"COINGECKO_API_KEY")};
+    Ok(crate::market_data::decide(&rows,&env))
+}
 pub fn config(c:&Connection)->Result<Option<Config>,EngineError> {
-    let env_url=env(c,"MARKET_DATA_URL").filter(|s|!s.trim().is_empty());
-    if env_url.is_none() && value(c,"market_data_provider")?.flatten().as_deref()!=Some("deltabadger") {return Ok(None);}
-    let url=value(c,"market_data_url")?.unwrap_or_else(||env(c,"MARKET_DATA_URL")).unwrap_or_default();
-    let token=value(c,"market_data_token")?.unwrap_or_else(||env(c,"MARKET_DATA_TOKEN")).unwrap_or_default();
-    if url.trim().is_empty() || token.trim().is_empty() {return Ok(None);}
-    Ok(Some(Config{url,token}))
+    Ok(settings(c)?.data_api_complete().cloned())
 }
 /// Direct CoinGecko is supported for the Top Coins ranking. Never fall back from a configured
 /// data-api to a different provider, including when its credentials are blank.
 pub fn coingecko_key(c: &Connection) -> Result<Option<String>, EngineError> {
-    if env(c, "MARKET_DATA_URL").is_some_and(|v| !v.trim().is_empty())
-        || value(c, "market_data_provider")?.flatten().as_deref() != Some("coingecko") { return Ok(None); }
-    Ok(value(c, "coingecko_api_key")?.unwrap_or_else(||env(c,"COINGECKO_API_KEY")).filter(|v| !v.trim().is_empty()))
+    Ok(settings(c)?.coingecko_key().map(str::to_string))
 }
 
 /// Hash effective credentials and raw configuration rows/timestamps. Removing a row or changing

@@ -543,6 +543,12 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
         return Ok(false);
     }
     if bot.rust_placement().is_some() { return Ok(false); }
+    // D-CG-RESYNC-FENCED: after a provider or credential change, members wait for a complete refresh under the new
+    // configuration; the marker stays, and that refresh's mark_resync_all wakes it again.
+    if let Some(stale) = super::provider::stale(c, &bot)? {
+        if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync waits: {}", stale.message)); }
+        return Ok(false);
+    }
     if let Some(at) = state.retry_at(id) { if at > now_us { *wake = (*wake).min(at); return Ok(false); } }
     let (venue, version) = venue(&bot)?;
     let claimed = placement::composition_snapshot(c, &bot)?;

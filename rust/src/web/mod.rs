@@ -186,6 +186,8 @@ pub struct Config {
     pub own_origin: Option<String>,
     /// MarketDataSettings.deltabadger_available?: a hosted install, where stock trading is always on.
     pub market_data_url: bool,
+    /// MARKET_DATA_URL, MARKET_DATA_TOKEN and COINGECKO_API_KEY as the process started with them (market_data::decide).
+    pub market_data_env: crate::market_data::Env,
     /// production.rb's `config.hosts`: the hosts a request may name, from ALLOWED_HOSTS. Empty when
     /// that is not set, and then every host is served, as in Rails (`config.hosts.clear`).
     pub allowed_hosts: Vec<String>,
@@ -256,6 +258,7 @@ impl Config {
             behind_proxy: env_boolean(env("BEHIND_PROXY")).unwrap_or(force_ssl),
             own_origin,
             market_data_url: present("MARKET_DATA_URL").is_some(),
+            market_data_env: crate::market_data::Env::read(env),
             allowed_hosts: allowed_hosts(env("ALLOWED_HOSTS").as_deref()),
             setup_token: env("SETUP_TOKEN"),
             claim_token: present("CLAIM_TOKEN"),
@@ -723,6 +726,8 @@ fn routes(app: App) -> Router {
         .route("/tracker/download_tax_report", only(get(tracker::report::download_tax_report)))
         .route("/tracker/export", only(get(tracker::export)))
         .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))
+        .route("/tracker/connect_market_data", only(get(tracker::modal::connect_market_data)))
+        .route("/tracker/setup_coingecko", only(post(tracker::modal::setup_coingecko)))
         .route("/tracker/transactions/{id}/price", only(patch(tracker::transaction::update_price)))
         .route("/tracker/transactions/{id}/toggle_transfer", only(patch(tracker::transaction::toggle_transfer)))
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
@@ -767,8 +772,8 @@ fn routes(app: App) -> Router {
         .route("/bots/signals/confirm_settings/add_signal", only(post(wizard::signals::add_signal)))
         .route("/bots/signals/confirm_settings/remove_signal", only(delete(wizard::signals::remove_signal)))
         .route("/bots/signals/confirm_settings/update_signal", only(patch(wizard::signals::update_signal)))
-        // The CoinGecko key itself (this build has no CoinGecko provider) and the legacy settings step are not served.
-        .route("/bots/dca_indexes/setup_coingecko", any(layout::not_ported))
+        // The CoinGecko step's key (A17-1).
+        .route("/bots/dca_indexes/setup_coingecko", only(post(wizard::index::setup_create)))
         .route("/bots/reorder", only(patch(bots::reorder)))
         .route("/bots/merge/new", only(get(bot::actions::merge_new)))
         .route("/bots/merge", only(post(bot::actions::merge_create)))

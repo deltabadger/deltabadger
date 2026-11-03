@@ -239,7 +239,7 @@ fn follow_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option
     let Some(draft) = draft::Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Switched::Missing) };
     let source = draft.original.clone();
     if let Some(reason) = source.unrendered() { return Ok(Switched::Unported(reason)); }
-    if let Some(reason) = wizard::index::refusal(&tx, &ctx.app, None, &source.exchange.class)? { return Ok(Switched::Refused(write_refused(ctx.locale, reason))); }
+    if let Some(reason) = wizard::index::refusal(&tx, &ctx.app, &index.external_id, &source.exchange.class)? { return Ok(Switched::Refused(write_refused(ctx.locale, reason))); }
     let switched = switch(&tx, ctx, owner, id, &draft, source, (&from, TO, super::Kind::Index, STORED_DCA_INDEX), |c, settings| {
         // Index#bot_settings, then the size: `num_coins = bounded_universe_size || 10`, `hold_all = size.present?`.
         let top = index.external_id == "top-coins";

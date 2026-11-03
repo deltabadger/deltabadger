@@ -10,6 +10,7 @@ pub mod jobs;
 pub mod enums;
 pub mod figures;
 pub mod lease;
+pub mod market_data;
 pub mod mail;
 pub mod parity;
 pub mod ruby;

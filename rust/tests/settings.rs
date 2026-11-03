@@ -199,6 +199,7 @@ impl Harness {
         .with_figure_source(deltabadger::web::figure::loading::Source::Disabled)
         .unwrap()
         .with_settings_mailer(mail.clone()).unwrap()
+        .with_venue_key_url(deltabadger::web::settings::market_data::COINGECKO, &hosts.paper).unwrap()
         .with_settings_key_boundary(hosts, logs.clone())
         .unwrap();
         let app=if let Some(hook)=hook{app.with_password_hook(hook).unwrap()}else{app};
@@ -2203,6 +2204,31 @@ async fn configured_connections_show_provider_state_without_stock_rows_or_echoed
     assert!(market.contains("id=\"switch-settings-update_market_data\" checked"),"the market data switch is on");assert!(market.contains("/settings/disconnect_market_data"));
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+/// D-CG-SETUP-DURABLE: a CoinGecko key saved on Connect and a resync each ask for the setup run in the save's transaction and
+/// wake it after the commit; a key check that fails (D-CG-KEY-CHECK-NO-500: whatever the failure) is the invalid-key alert, nothing written.
+#[tokio::test(flavor="current_thread")]
+async fn a_market_data_save_asks_for_the_setup_run_and_a_failed_key_check_writes_nothing(){
+    use wiremock::{matchers,Mock,ResponseTemplate};
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    let requested=|h:&Harness|deltabadger::app_config::get_plain(&h.c,deltabadger::jobs::setup_sync::REQUEST).unwrap();
+    let woken=|h:&Harness|h.app.job_wakers().unwrap().pending().iter().filter(|(name,_)|name==deltabadger::jobs::setup_sync::NAME).count();
+    // CoinGecko answers nothing useful (no route on the server): invalid, not a 500.
+    let before=h.snapshot();
+    let refused=h.submit("PATCH","/settings/update_market_data",&[("market_data_provider","coingecko"),("coingecko_api_key","CG-test-key")],Csrf::Header).await;
+    assert_eq!(refused.status,422);assert!(refused.body.contains("Invalid CoinGecko API key"));
+    assert_eq!(h.snapshot(),before);assert_eq!((requested(&h),woken(&h)),(None,0));
+    Mock::given(matchers::path("/pro-api.coingecko.com/api/v3/ping")).respond_with(ResponseTemplate::new(401)).mount(&server).await;
+    Mock::given(matchers::path("/api.coingecko.com/api/v3/coins/markets")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let saved=h.submit("PATCH","/settings/update_market_data",&[("market_data_provider","coingecko"),("coingecko_api_key","CG-test-key")],Csrf::Header).await;
+    assert_eq!(saved.status,200);
+    assert_eq!(deltabadger::app_config::get(&h.c,&h.app.cipher,"coingecko_api_key").unwrap().as_deref(),Some("CG-test-key"));
+    assert_eq!((requested(&h).as_deref(),woken(&h)),(Some("1"),1));
+    let resync=h.submit("POST","/settings/resync_assets",&[],Csrf::Header).await;
+    assert_eq!(resync.status,200);assert!(resync.body.contains("flash-syncing"));
+    assert_eq!(deltabadger::app_config::get(&h.c,&h.app.cipher,"setup_sync_status").unwrap().as_deref(),Some("in_progress"));
+    assert_eq!((requested(&h).as_deref(),woken(&h)),(Some("2"),2));
 }
 
 /// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. Rails gates stocks

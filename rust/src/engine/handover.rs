@@ -43,6 +43,9 @@ pub enum RailsWork {
     /// Journalled for its scope (the job's first argument: a user id, or an api key id for API_KEY_VALIDATOR) in
     /// RAILS_WAKES_KEY, and woken at every start until the Rust job of that name has run (r3.3, r4.4, r4.5).
     Wake(&'static str),
+    /// An argumentless job (Asset::FetchAllAssetsDataFromCoingeckoJob, Setup::SeedAndSyncJob): journalled unscoped (scope
+    /// "") in RAILS_WAKES_KEY and woken at every start until the job's unscoped record shows a run (PLAN-A17 item 12).
+    WakeUnscoped(&'static str),
     /// Ibkr::GenerateConnectionKeysJob: the key row's empty material is filled in the claim transaction, as the job does
     /// (two RSA-2048 keys and ffdhe2048, D-IBKR-DHGROUP); material already there is never replaced.
     IbkrKeys,
@@ -85,12 +88,13 @@ pub const RAILS_WORK: &[(&str, RailsWork)] = {
         // Syncs and maintenance the scheduler runs on its own schedule, or that have no Rust counterpart to finish.
         ("AccountBalance::SyncAllJob", Dropped), ("AccountBalance::SyncJob", Dropped), ("AccountTransaction::ResolveAssetsJob", Dropped),
         ("AccountTransaction::SyncAllJob", Dropped), ("AccountTransaction::SyncJob", Dropped), ("AccountTransaction::SyncTrackerJob", Dropped),
-        ("AppUpdate::CheckJob", Dropped), ("Asset::FetchAllAssetsDataFromCoingeckoJob", Dropped), ("Asset::FetchDataFromCoingeckoJob", Dropped),
+        ("AppUpdate::CheckJob", Dropped), ("Asset::FetchAllAssetsDataFromCoingeckoJob", WakeUnscoped(crate::jobs::reference::ASSETS)),
+        ("Asset::FetchDataFromCoingeckoJob", Wake(crate::jobs::reference::ASSET_DATA)),
         ("Asset::InferColorFromImageJob", Dropped), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
         ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped), ("Bot::ConvertSingleAssetBotsJob", Dropped),
         ("Bot::EvaluateRebalancersJob", Dropped), ("Bot::RepairOrphanedBotsJob", Dropped), ("Exchange::SyncAllTickersAndAssetsJob", Dropped),
         ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", Dropped), ("Ibkr::CheckActivationJob", Dropped),
-        ("Index::SyncFromCoingeckoJob", Dropped), ("Setup::SeedAndSyncJob", Dropped), ("SolidQueue::RecurringJob", Dropped),
+        ("Index::SyncFromCoingeckoJob", Dropped), ("Setup::SeedAndSyncJob", WakeUnscoped(crate::jobs::setup_sync::NAME)), ("SolidQueue::RecurringJob", Dropped),
         // r7.2: the report page shows nothing in progress; the user asks again.
         ("Tax::GenerateReportJob", Dropped),
     ]
@@ -333,7 +337,7 @@ struct QueueWork {
     unrecorded: Vec<i64>,
     rails_ambiguous: Vec<i64>,
     /// (job, scope) of the wake rows, one per pair (RAILS_WAKES_KEY); the IBKR keys whose material is filled.
-    wakes: Vec<(&'static str, i64)>,
+    wakes: Vec<(&'static str, Option<i64>)>,
     ibkr: Vec<i64>,
     /// Start-log lines.
     log: Vec<String>,
@@ -395,13 +399,19 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                 // integer (ActiveJob serializes an Integer as itself); a row naming nothing there is Rails' RecordNotFound.
                 w.done.push(row.id);
                 let (table, noun) = wake_scope(job);
-                match first_id(args) {
-                    Some(id) if exists(c, table, id)? => { if !w.wakes.contains(&(job, id)) { w.wakes.push((job, id)); } }
+                // Asset::FetchDataFromCoingeckoJob is enqueued with the Asset itself (sync_alpaca_assets_job.rb:166): a GlobalID.
+                let id = if job == crate::jobs::reference::ASSET_DATA { asset_of(args) } else { first_id(args) };
+                match id {
+                    Some(id) if exists(c, table, id)? => { if !w.wakes.contains(&(job, Some(id))) { w.wakes.push((job, Some(id))); } }
                     _ => {
                         w.dropped += 1;
                         w.log.push(format!("dropped {} (queue row {}): it names no {noun} this install has", row.class, row.id));
                     }
                 }
+            }
+            RailsWork::WakeUnscoped(job) => {
+                w.done.push(row.id);
+                if !w.wakes.contains(&(job, None)) { w.wakes.push((job, None)); }
             }
             RailsWork::IbkrKeys => {
                 // Ibkr::GenerateConnectionKeysJob#perform: nothing for a key that is gone or already has its material.
@@ -507,7 +517,15 @@ struct RailsWake { job: String, scope: String, at: String }
 
 /// The table a wake job's scope is a row of, and its name in a log line.
 fn wake_scope(job: &str) -> (&'static str, &'static str) {
-    if job == crate::sync::jobs::API_KEY_VALIDATOR { ("api_keys", "API key") } else { ("users", "user") }
+    if job == crate::sync::jobs::API_KEY_VALIDATOR { ("api_keys", "API key") }
+    else if job == crate::jobs::reference::ASSET_DATA { ("assets", "asset") }
+    else { ("users", "user") }
+}
+
+/// The asset a job's first argument names (`gid://deltabadger/Asset/<id>`), when it is one.
+fn asset_of(arguments: Option<&str>) -> Option<i64> {
+    let gid = arguments.and_then(first_gid)?;
+    gid.strip_prefix("gid://deltabadger/Asset/")?.parse().ok().filter(|id| *id > 0)
 }
 
 /// The job's first argument as a positive integer id.
@@ -544,12 +562,14 @@ fn write_rails_wakes(c: &Connection, wakes: &[RailsWake], now: DateTime<Utc>) ->
 
 /// In the claim transaction: each (job, scope) is journalled at `now`. The time is in the job
 /// state's own precision (jobs::state), so a run recorded after it never reads as earlier.
-fn import_wakes(tx: &Connection, wakes: &[(&'static str, i64)], now: DateTime<Utc>) -> Result<(), EngineError> {
+fn import_wakes(tx: &Connection, wakes: &[(&'static str, Option<i64>)], now: DateTime<Utc>) -> Result<(), EngineError> {
     if wakes.is_empty() { return Ok(()); }
     let mut all = rails_wakes(tx)?;
     let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     for (job, id) in wakes {
-        let scope = id.to_string();
+        let scope = id.map_or_else(String::new, |id| id.to_string());
+        // A taken-over SeedAndSyncJob is a setup request too (D-CG-SETUP-DURABLE), so it survives as one.
+        if *job == crate::jobs::setup_sync::NAME { crate::jobs::setup_sync::request(tx, now).map_err(EngineError::Data)?; }
         // A row taken now is new work even beside an entry still journalled (Rails queued it after a handback): its time is
         // this takeover's. A crash replay never gets here twice for one row (QUEUE_DONE_KEY skips it).
         match all.iter_mut().find(|w| w.job == *job && w.scope == scope) {
@@ -563,7 +583,7 @@ fn import_wakes(tx: &Connection, wakes: &[(&'static str, i64)], now: DateTime<Ut
 /// At every start, before the scheduler runs: the journal's (job, scope) pairs to wake once. An entry whose job has run
 /// for its scope since the entry was made leaves the journal; so does one whose user or key is gone since (with a
 /// start-log line: Rails' job would fail on it). No other precondition is checked: the job's own run decides (r4.4).
-pub fn due_rails_wakes(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(String, String)>, EngineError> {
+pub fn due_rails_wakes(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(String, Option<String>)>, EngineError> {
     let tx = model::immediate(c)?;
     let all = rails_wakes(&tx)?;
     if all.is_empty() { return Ok(vec![]); }
@@ -571,8 +591,11 @@ pub fn due_rails_wakes(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(String
     let mut due = vec![];
     for w in all {
         let at = crate::codec::parse_time(&w.at).map_err(|e| EngineError::Data(format!("{RAILS_WAKES_KEY}: {}: {e:?}", w.at)))?;
-        let ran = crate::jobs::state::read(&tx, &w.job, Some(&w.scope)).map_err(EngineError::Data)?.last_run_at;
+        // "" is an unscoped entry (RailsWork::WakeUnscoped); every entry before A17 has a numeric scope.
+        let scope = (!w.scope.is_empty()).then_some(w.scope.as_str());
+        let ran = crate::jobs::state::read(&tx, &w.job, scope).map_err(EngineError::Data)?.last_run_at;
         if ran.is_some_and(|t| t >= at) { continue; }
+        if scope.is_none() { due.push(w); continue; }
         let (table, noun) = wake_scope(&w.job);
         let id: i64 = w.scope.parse().map_err(|e| EngineError::Data(format!("{RAILS_WAKES_KEY}: scope {}: {e}", w.scope)))?;
         if !exists(&tx, table, id)? {
@@ -583,7 +606,7 @@ pub fn due_rails_wakes(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(String
     }
     if due.len() != before { write_rails_wakes(&tx, &due, now)?; }
     tx.commit()?;
-    Ok(due.into_iter().map(|w| (w.job, w.scope)).collect())
+    Ok(due.into_iter().map(|w| { let scope = (!w.scope.is_empty()).then_some(w.scope); (w.job, scope) }).collect())
 }
 
 /// Activity events a takeover writes (their texts: web::i18n, `bot_activity.events.<event>`): C3, C4, C12.

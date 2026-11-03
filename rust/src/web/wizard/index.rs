@@ -51,12 +51,25 @@ fn settings_of(config: Option<&Value>) -> Map<String, Value> {
 /// MarketData.configured?
 fn configured(c: &Connection, app: &App) -> Result<bool, WebError> { Ok(crate::web::bots::market_data(c, app)?.1) }
 
-/// Why this engine would not run an index bot built from the session on a venue of `class`, if it would not: a venue the
-/// engine admits index bots on (eligibility::admission), on a data-api install.
-pub fn refusal(c: &Connection, app: &App, _config: Option<&Value>, class: &str) -> Result<Option<&'static str>, WebError> {
+/// Why this engine would not run an index bot following `external_id` on a venue of `class`, if it would not: a venue the
+/// engine admits index bots on (eligibility::admission), on the deltabadger provider or with the ranking the engine reads
+/// (eligibility::index_data: Top Coins on a CoinGecko key).
+pub fn refusal(c: &Connection, app: &App, external_id: &str, class: &str) -> Result<Option<&'static str>, WebError> {
     if let Some(why) = eligibility::admission(Some(class), true, false) { return Ok(Some(why)) }
-    if !crate::web::bots::market_data(c, app)?.0 { return Ok(Some("an index bot whose market data comes from CoinGecko")) }
+    if !crate::web::bots::market_data(c, app)?.0 && !eligibility::index_data(c, external_id)? { return Ok(Some("an index bot whose market data comes from CoinGecko")) }
     Ok(None)
+}
+
+/// The index the session's bot follows, as the engine names it (Bot#index_external_id): a category's id, else Top Coins.
+pub fn external_id(config: Option<&Value>) -> String { followed(Some(&settings_of(config))) }
+
+/// The same from a bot's settings.
+pub fn followed(settings: Option<&Map<String, Value>>) -> String {
+    let Some(settings) = settings else { return "top-coins".to_string() };
+    match (settings.get("index_type").and_then(Value::as_str), settings.get("index_category_id").and_then(Value::as_str)) {
+        (Some("category"), Some(id)) if !id.trim().is_empty() => id.to_string(),
+        _ => "top-coins".to_string(),
+    }
 }
 
 /// `session[:bot_config] ||= {}`.
@@ -98,6 +111,19 @@ pub async fn setup_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
         let how = i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", i18n::Arg::Text("CoinGecko"))]);
         Ok(Setup { v: ctx, progress: progress(ctx, "coingecko")?, admin: user.admin, title, how, action: ctx.path(SETUP), csrf }.render()?)
     }).await
+}
+
+/// POST .../setup_coingecko (SetupCoingeckosController#create): admin only; a key CoinGecko refuses is answered with the alert,
+/// else it is saved, the setup runs, and the wizard (begun) goes on to the index step.
+pub async fn setup_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    use crate::web::settings::market_data as md;
+    let Some(user) = ctx.user() else { return Ok(auth::unauthenticated(&ctx)) };
+    if !user.admin { return Ok(md::head(StatusCode::FORBIDDEN)) }
+    let key = ctx.params.form("api_key").unwrap_or_default().to_string();
+    if crate::ruby::blank(&key) || !md::key_valid(&app, &key).await { return md::invalid_key(&ctx) }
+    md::save_key(&app, key).await?;
+    begin(&ctx);
+    Ok(redirect(&ctx, PICK_NEW))
 }
 
 pub(crate) struct Pill { pub(crate) id: i64, pub(crate) symbol: String, pub(crate) color: String }
@@ -414,7 +440,7 @@ fn quote_gate(c: &Connection, app: &App, user: i64, config: Option<&Value>, chec
     if !configured(c, app)? { return Ok(QuoteGate::To(SETUP_NEW)) }
     if check_key && !step_complete(c, user, config, Step::Api)? { return Ok(QuoteGate::To(KEY_NEW)) }
     let class = super::keys::venue(c, exchange_id(config))?.map(|venue| venue.class).unwrap_or_default();
-    Ok(if refusal(c, app, config, &class)?.is_some() { QuoteGate::Refused } else { QuoteGate::Open })
+    Ok(if refusal(c, app, &external_id(config), &class)?.is_some() { QuoteGate::Refused } else { QuoteGate::Open })
 }
 
 /// GET .../pick_spendable_asset/new.

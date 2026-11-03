@@ -1124,6 +1124,7 @@ fn hard_stop(r: Result<handover::Takeover, EngineError>) -> String {
 fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
     use handover::RailsWork;
     let (_dir, l, o, s, b) = dca_install();
+    let asset: i64 = o.primary.query_row("SELECT min(id) FROM assets", [], |r| r.get(0)).unwrap();
     let mut rows = vec![];
     for (class, work) in handover::RAILS_WORK {
         if *work == RailsWork::FetchOrder { continue; }
@@ -1132,6 +1133,9 @@ fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
             "Rule::ExecuteJob" => json!([{ "_aj_globalid": "gid://deltabadger/Rules::Withdrawal/99" }]),
             "ApiKeyValidatorJob" => json!([s.api_key_id]),
             "Ibkr::GenerateConnectionKeysJob" => json!([999]), // no such key: Rails' job returns
+            // Enqueued with the Asset itself (sync_alpaca_assets_job.rb:166), as ActiveJob serialises a record.
+            "Asset::FetchDataFromCoingeckoJob" => json!([{ "_aj_globalid": format!("gid://deltabadger/Asset/{asset}") }]),
+            _ if matches!(work, RailsWork::WakeUnscoped(_)) => json!([{ "jitter": true, "_aj_ruby2_keywords": ["jitter"] }]),
             _ if matches!(work, RailsWork::Wake(_)) => json!([s.user_id]),
             _ => json!([gid(b)]),
         };
@@ -1144,8 +1148,12 @@ fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
         assert_eq!(left.iter().any(|c| c == class), kept, "{class} ({work:?}): only a resync of no index bot stays");
     }
     let dropped = rows.iter().filter(|(_, w, _)| matches!(w, RailsWork::Dropped | RailsWork::IbkrKeys)).count();
+    // PLAN-A17 item 12: the CoinGecko asset jobs and the setup sync are owed a run too, unscoped ("") or for their asset.
+    use deltabadger::jobs::{reference::{ASSETS, ASSET_DATA}, setup_sync};
     assert_eq!(wake_journal(&o), [(TRACKER_LEDGER.to_string(), s.user_id.to_string()), (PORTFOLIO_BACKFILL.to_string(), s.user_id.to_string()),
-                                  (API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string())]);
+                                  (API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string()), (ASSETS.to_string(), String::new()),
+                                  (ASSET_DATA.to_string(), asset.to_string()), (setup_sync::NAME.to_string(), String::new())]);
+    assert!(deltabadger::app_config::get_plain(&o.primary, setup_sync::REQUEST).unwrap().is_some(), "a taken SeedAndSyncJob is a setup request");
     // The waiting signal job names a basket, not a signal bot: Rails' discard, through the import set.
     assert_eq!(t.dropped_jobs, dropped);
     assert_eq!(stopped_with(&o.primary, b), (2, Some("bot.settings.extra_amount_limit.amount_spent".into())), "Bot::StopJob ran");
@@ -1427,19 +1435,20 @@ fn rails_wake_rows_become_one_journal_entry_each_woken_until_their_job_runs() {
     let all = vec![(TRACKER_LEDGER.to_string(), user.to_string()), (PORTFOLIO_BACKFILL.to_string(), user.to_string()), (API_KEY_VALIDATOR.to_string(), key.to_string())];
     assert_eq!(wake_journal(&o), all);
     // A restart before any run (or between a wake and its run) wakes every entry again.
-    for _ in 0..2 { assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all); }
+    let due = |v: &[(String, String)]| v.iter().map(|(j, s)| (j.clone(), Some(s.clone()))).collect::<Vec<_>>();
+    for _ in 0..2 { assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), due(&all)); }
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert_eq!(wake_journal(&o), all, "a restart imports nothing again");
     // A run before the takeover doesn't count, and a failed one leaves its entry; a run since it does.
     deltabadger::jobs::state::record_run(&o.primary, TRACKER_LEDGER, Some(&user.to_string()), now() - chrono::Duration::hours(1)).unwrap();
     deltabadger::jobs::state::record_error(&o.primary, PORTFOLIO_BACKFILL, Some(&user.to_string()), now() + chrono::Duration::hours(1), "no prices").unwrap();
-    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all);
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), due(&all));
     deltabadger::jobs::state::record_success(&o.primary, TRACKER_LEDGER, Some(&user.to_string()), now()).unwrap();
-    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all[1..]);
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), due(&all[1..]));
     assert_eq!(wake_journal(&o), all[1..]);
     // The key is gone (Rails' job would fail on it): dropped.
     o.primary.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
-    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), all[1..2]);
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), due(&all[1..2]));
 }
 
 /// r4.4: a pending ApiKeyValidatorJob for a Kraken key is run by the scheduler as the binary builds it (the resolver
@@ -1456,11 +1465,11 @@ async fn a_pending_validator_job_for_a_kraken_key_validates_it() {
         ["query-funds", "query-open-trades", "query-closed-trades", "modify-trades", "close-trades", "query-ledger"]}}))).expect(1).mount(&server).await;
     let db = || rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let wakes = handover::due_rails_wakes(&db(), chrono::Utc::now()).unwrap();
-    assert_eq!(wakes, [(API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string())]);
+    assert_eq!(wakes, [(API_KEY_VALIDATOR.to_string(), Some(s.api_key_id.to_string()))]);
     let api = std::rc::Rc::new(None::<deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>);
     let scheduler = deltabadger::jobs::Scheduler::new(db(), seed::cipher(), vec![], None)
         .with_resolver(deltabadger::jobs::resolve::all(Egress(server.uri()), api, deltabadger::tracker::jobs::system_wall()));
-    for (job, scope) in &wakes { scheduler.wakers().wake(job, Some(scope), None); }
+    for (job, scope) in &wakes { scheduler.wakers().wake(job, scope.as_deref(), None); }
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let key = s.api_key_id;
     let (ended, ()) = tokio::join!(scheduler.run(stopped, &deltabadger::engine::SystemClock), async {
@@ -1501,7 +1510,7 @@ fn a_wake_row_queued_after_an_earlier_takeover_is_owed_a_new_run() {
     queued(&o.queue, "Tracker::LedgerJob", json!([s.user_id]), "ready");
     let later = now() + chrono::Duration::hours(1);
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", later).unwrap();
-    assert_eq!(handover::due_rails_wakes(&o.primary, later).unwrap(), [(TRACKER_LEDGER.to_string(), scope)]);
+    assert_eq!(handover::due_rails_wakes(&o.primary, later).unwrap(), [(TRACKER_LEDGER.to_string(), Some(scope))]);
 }
 
 // ---- PLAN-B2 B2-7: the handback matrix (r1.10, r7.1) and Rust-only texts on 2.x (D-HANDBACK-RUST-TEXT) -------------------
@@ -1738,4 +1747,24 @@ async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untra
     let o = store::open(&p).unwrap();
     assert!(matches!(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap().claim, Claim::FromRails));
     assert_eq!(carry(&o.primary), carried, "r7.1: carried costs intact after the reclaim");
+}
+
+/// PLAN-A17 item 12: an unscoped entry is woken unscoped until the job's unscoped record shows a run after it; an asset
+/// entry naming a deleted asset is dropped; a journal written before A17 (numeric scopes only) reads as before.
+#[test]
+fn unscoped_and_asset_wakes_replay_until_their_job_runs() {
+    use deltabadger::jobs::reference::{ASSETS, ASSET_DATA};
+    let (_dir, l, o, _s, _b) = dca_install();
+    let asset: i64 = o.primary.query_row("SELECT min(id) FROM assets", [], |r| r.get(0)).unwrap();
+    queued(&o.queue, "Asset::FetchAllAssetsDataFromCoingeckoJob", json!([]), "ready");
+    queued(&o.queue, "Asset::FetchDataFromCoingeckoJob", json!([{ "_aj_globalid": format!("gid://deltabadger/Asset/{asset}") }]), "ready");
+    queued(&o.queue, "Asset::FetchDataFromCoingeckoJob", json!([{ "_aj_globalid": "gid://deltabadger/Bots::DcaMultiAsset/1" }]), "ready");
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(t.dropped_jobs, 1, "a FetchData row naming no asset is dropped: {:?}", t.log);
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), [(ASSETS.to_string(), None), (ASSET_DATA.to_string(), Some(asset.to_string()))]);
+    deltabadger::jobs::state::record_run(&o.primary, ASSETS, None, now() + chrono::Duration::minutes(1)).unwrap();
+    assert_eq!(handover::due_rails_wakes(&o.primary, now()).unwrap(), [(ASSET_DATA.to_string(), Some(asset.to_string()))]);
+    o.primary.execute_batch("PRAGMA foreign_keys = OFF").unwrap();
+    o.primary.execute("DELETE FROM assets WHERE id = ?1", [asset]).unwrap();
+    assert!(handover::due_rails_wakes(&o.primary, now()).unwrap().is_empty(), "the asset is gone");
 }

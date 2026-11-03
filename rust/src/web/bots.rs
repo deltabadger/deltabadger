@@ -1,5 +1,5 @@
 //! `home#index` and `bots#index`: the dashboard of the user's bots.
-use super::auth::{self, app_config};
+use super::auth;
 use super::bot::{self, status, Bot, Kind};
 use super::layout::{self, Ctx, Page};
 use super::shell::{self, Shell};
@@ -142,13 +142,15 @@ pub fn json(value: &Value) -> String {
     value.to_string().replace('<', "\\u003c").replace('>', "\\u003e").replace('&', "\\u0026")
 }
 
+/// MarketDataSettings, read once (market_data::decide).
+pub fn market_settings(c: &Connection, app: &App) -> Result<crate::market_data::Settings, WebError> {
+    crate::market_data::read(c, &app.cipher, &app.config.market_data_env).map_err(|e| WebError::Engine(crate::engine::EngineError::Data(e)))
+}
+
 /// MarketDataSettings.current_provider == 'deltabadger', and MarketDataSettings.configured?
 pub fn market_data(c: &Connection, app: &App) -> Result<(bool, bool), WebError> {
-    let setting = |key: &str| app_config(c, &app.cipher, key).map(|value| value.filter(|v| !v.trim().is_empty()));
-    let provider = setting("market_data_provider")?;
-    let deltabadger = app.config.market_data_url || provider.as_deref() == Some("deltabadger");
-    let configured = if app.config.market_data_url { true } else if deltabadger { setting("market_data_url")?.is_some() && setting("market_data_token")?.is_some() } else { provider.is_some() };
-    Ok((deltabadger, configured))
+    let s = market_settings(c, app)?;
+    Ok((s.deltabadger(), s.configured))
 }
 
 /// `Bot::Merge.mergeable?` and `Bot::Split.splittable?` for a bot `bot::refusal` has let through: neither while a

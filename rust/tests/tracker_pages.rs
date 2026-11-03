@@ -47,7 +47,7 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
         assert!(answer.body.contains("<form")&&answer.body.contains("api_key[key]"));
         assert_eq!(snapshot(&connection),before,"credential form must be a pure view");
         // The tax report routes are served (PLAN-A12 A12-1): tests/tax_job.rs and the d5_tax_ grid.
-        for (method,path) in [("GET","/tracker"),("GET","/tracker?all=1&show_cash=1"),("GET","/tracker/import/new"),("POST","/tracker/import"),("GET","/tracker/setup_coingecko"),("GET","/tracker/connect_market_data")] {
+        for (method,path) in [("GET","/tracker"),("GET","/tracker?all=1&show_cash=1"),("GET","/tracker/import/new"),("POST","/tracker/import"),("GET","/tracker/setup_coingecko")] {
             let path=format!("{prefix}{path}");
             let answer=browser.send(&app,method,&path,Some(&[]),Csrf::Header,&[("origin","http://localhost:3000"),("accept","text/html"),("turbo-frame","modal")]).await;
             if path==format!("{prefix}/tracker") || path==format!("{prefix}/tracker?all=1&show_cash=1") {
@@ -83,13 +83,15 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
     for path in ["/tracker/save_export_settings","/tracker/fund_classifications"] {
         assert_eq!(browser.send(&app,"PATCH",path,Some(&[]),Csrf::Header,&[("origin","http://localhost:3000")]).await.status,200);
     }
-    // Setup is a deferred page; opening the modal cannot start setup or persist proposals.
+    // Without market data the modal is the CoinGecko step (A17-1); opening it cannot start setup or persist proposals.
     deltabadger::app_config::set(&connection,&app.cipher,"market_data_provider","",app.now()).unwrap();
     let before=snapshot(&connection);
-    let answer=browser.send(&app,"GET","/tracker/export_modal",None,Csrf::None,&[("turbo-frame","modal")]).await;
-    assert_eq!(answer.status,501);
-    assert!(answer.body.contains("Not available in the Rust build yet"));
-    assert_eq!(snapshot(&connection),before);
+    for path in ["/tracker/export_modal","/tracker/connect_market_data"] {
+        let answer=browser.send(&app,"GET",path,None,Csrf::None,&[("turbo-frame","modal")]).await;
+        assert_eq!(answer.status,200,"{path}");
+        assert!(answer.body.contains("action=\"/tracker/setup_coingecko\""),"{path}");
+        assert_eq!(snapshot(&connection),before,"{path}");
+    }
 }
 
 #[tokio::test(flavor = "current_thread")]

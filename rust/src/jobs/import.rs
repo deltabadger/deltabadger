@@ -332,6 +332,51 @@ fn upsert_assets(c: &Connection, rows: Vec<Vec<Sql>>, t: &str) -> R<Touched> {
     Ok(Touched::Assets(ids))
 }
 
+/// Asset#sync_data_with_coingecko's `update!` columns (asset.rb:157-165) from one CoinGecko coin (a `coins/markets` row
+/// or a `coins/{id}` answer), cast as the attributes cast them: symbol (upcased), name, url, image_url, market_cap_rank,
+/// market_cap, circulating_supply. None when `dig_or_raise` would raise (symbol or name nil, or a symbol that is not a
+/// String, whose `upcase` raises): D-CG-ASSET-ROW-SKIPS skips that coin; Rails aborts the job there.
+pub fn coingecko_columns(external_id: &str, d: &Value) -> R<Option<Vec<Sql>>> {
+    let (Value::String(symbol), name) = (&d["symbol"], &d["name"]) else { return Ok(None) };
+    if name.is_null() { return Ok(None); }
+    let slug = if truthy(&d["web_slug"]) { string(&d["web_slug"]).unwrap_or_default() } else { external_id.to_string() };
+    // Utilities::Hash.safe_dig: a step into anything without #dig (a String) is nil.
+    let dig = |a: &str, b: Option<&str>, c: Option<&str>| -> Value {
+        let mut v = &d[a];
+        for k in [b, c].into_iter().flatten() { if !v.is_object() { return Value::Null; } v = &v[k]; }
+        v.clone()
+    };
+    let or = |first: Value, then: &Value| if truthy(&first) { first } else { then.clone() };
+    let image = or(dig("image", Some("large"), None), &d["image"]);
+    let cap = or(dig("market_data", Some("market_cap"), Some("usd")), &d["market_cap"]);
+    let supply_v = or(dig("market_data", Some("circulating_supply"), None), &d["circulating_supply"]);
+    Ok(Some(vec![Sql::Text(symbol.to_uppercase()), text(string(name)), Sql::Text(format!("https://www.coingecko.com/coins/{slug}")),
+                 text(string(&image)), int(integer(&d["market_cap_rank"])), int(integer(&cap)), text(supply(&supply_v)?)]))
+}
+
+/// Publishes CoinGecko asset refreshes `(asset id, coingecko_columns)` in units of CHUNK. `update!` writes, and moves
+/// updated_at, only on a row whose cast values changed: the UPDATE's guard compares each column with `IS` (the decimal
+/// columns compare numerically under their NUMERIC affinity).
+pub async fn refresh_assets(db: &Db, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>) -> R<()> {
+    let t = format_time(now);
+    publish(db, "coingecko assets", chunks(&rows), move |c, rows: Vec<(i64, Vec<Sql>)>| refresh_unit(c, rows, &t)).await
+}
+
+/// The same as one synchronous write unit in the caller's transaction.
+pub fn write_refresh(c: &Connection, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>) -> R<Touched> { refresh_unit(c, rows, &format_time(now)) }
+
+fn refresh_unit(c: &Connection, rows: Vec<(i64, Vec<Sql>)>, t: &str) -> R<Touched> {
+    let mut ids = vec![];
+    for (id, cols) in rows {
+        let changed = c.prepare_cached("UPDATE assets SET symbol = ?2, name = ?3, url = ?4, image_url = ?5, market_cap_rank = ?6, market_cap = ?7, \
+                   circulating_supply = ?8, updated_at = ?9 WHERE id = ?1 AND NOT (symbol IS ?2 AND name IS ?3 AND url IS ?4 AND image_url IS ?5 \
+                   AND market_cap_rank IS ?6 AND market_cap IS ?7 AND circulating_supply IS ?8)").map_err(sql)?
+            .execute(params_from_iter([Sql::Integer(id)].into_iter().chain(cols).chain([Sql::Text(t.into())]))).map_err(sql)?;
+        if changed > 0 { ids.push(id); }
+    }
+    Ok(Touched::Assets(ids))
+}
+
 /// The instrument-type groups in chunks of CHUNK external ids.
 fn type_units(types: Vec<(Option<String>, Vec<String>)>) -> Vec<(Option<String>, Vec<String>)> {
     types.into_iter().flat_map(|(ty, ids)| chunks(&ids).into_iter().map(move |part| (ty.clone(), part))).collect()

@@ -73,7 +73,39 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
 pub async fn export_modal(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
     let Some(owner)=ctx.user().map(|u|u.id)else{return Ok(auth::unauthenticated(&ctx))};
     app.db(move|c|{
-        if !crate::web::bots::market_data(c,&ctx.app)?.1{return Ok(super::layout::refused(&ctx,"tracker market-data setup"))}
+        // `render :setup_coingecko, layout: false` until market data is configured.
+        if !crate::web::bots::market_data(c,&ctx.app)?.1{return setup_page(&ctx)}
         Ok(([(header::CONTENT_TYPE,"text/html; charset=utf-8")],render(c,&ctx,owner)?).into_response())
     }).await
+}
+
+/// tracker/setup_coingecko: the key form for an admin, for anyone else who to ask.
+#[derive(Template)]
+#[template(path="tracker/setup_coingecko.html")]
+struct Setup<'a>{ctx:&'a Ctx,admin:bool,title:String,how:String,csrf:String}
+
+fn setup_page(ctx:&Ctx)->Result<Response,WebError>{
+    use crate::web::i18n::{t,Arg};
+    let admin=ctx.user().is_some_and(|u|u.admin);
+    let page=Setup{ctx,admin,title:t(ctx.locale,"bot.setup.connect_to",&[("name",Arg::Text("CoinGecko"))]),
+        how:t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",Arg::Text("CoinGecko"))]),csrf:ctx.csrf_token()}.render()?;
+    Ok(([(header::CONTENT_TYPE,"text/html; charset=utf-8")],page).into_response())
+}
+
+/// GET /tracker/connect_market_data (TrackerController#connect_market_data).
+pub async fn connect_market_data(Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
+    if ctx.user().is_none(){return Ok(auth::unauthenticated(&ctx))}
+    setup_page(&ctx)
+}
+
+/// POST /tracker/setup_coingecko (TrackerController#setup_coingecko): admin only; a key CoinGecko refuses is answered with the
+/// alert, else it is saved, the setup runs, and the browser goes to the tracker.
+pub async fn setup_coingecko(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
+    use crate::web::settings::market_data as md;
+    let Some(user)=ctx.user()else{return Ok(auth::unauthenticated(&ctx))};
+    if !user.admin{return Ok(md::head(axum::http::StatusCode::FORBIDDEN))}
+    let key=ctx.params.form("api_key").unwrap_or_default().to_string();
+    if crate::ruby::blank(&key)||!md::key_valid(&app,&key).await{return md::invalid_key(&ctx)}
+    md::save_key(&app,key).await?;
+    Ok(([(header::CONTENT_TYPE,crate::web::turbo::CONTENT_TYPE)],crate::web::turbo::redirect(&ctx.path("/tracker"))).into_response())
 }

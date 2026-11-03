@@ -362,6 +362,8 @@ async fn without_the_deltabadger_provider_every_data_api_job_fails_and_prune_sti
         let (_d, c) = db();
         let out = run(spec.name, None, c, "2026-10-02T10:30:00Z").await;
         if spec.name == reference::PRUNE { assert_eq!(out, Outcome::Done); }
+        // PLAN-A17: with no provider at all the asset refresh returns, as Rails' `return unless MarketData.configured?`.
+        else if spec.name == reference::ASSETS { assert_eq!(out, Outcome::NothingNew); }
         else { assert!(matches!(&out, Outcome::Failed(m) if m.contains("not deltabadger")), "{}: {out:?}", spec.name); }
     }
 }
@@ -1020,6 +1022,10 @@ async fn direct_index_fetch_errors_use_the_data_api_retry_classification() {
         assert!(matches!(out,Outcome::Transient(_)), "{status:?}: {out:?}");
         assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"previous\"]");
     }
+    // PLAN-A17 item 11: a 429 (the plan ping's or the ranking's) stays a rate limit; the same Retry retries it.
+    let out = reference::coingecko_indices(&ErrorFeed(Some(429)), &Cx { db:db.clone(), clock:&FixedClock(now), wakers:Default::default() }).await;
+    assert!(matches!(out,Outcome::RateLimited(_)), "{out:?}");
+    assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"previous\"]");
 }
 
 #[tokio::test(flavor = "current_thread")]

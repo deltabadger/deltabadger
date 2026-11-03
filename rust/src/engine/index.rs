@@ -247,7 +247,8 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         let source_now: Option<(Option<String>, Option<String>, Option<String>)> = tx.query_row(
             "SELECT source, top_coins, weights FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category],
             |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
-        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now != source_before || super::provider::fingerprint(tx)? != provider_before;
+        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now != source_before || super::provider::fingerprint(tx)? != provider_before
+            || super::provider::stale(tx, &current)?.is_some();
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
         if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
         let mut reasons = super::eligibility::bot_reasons_typed(tx, &current)?;

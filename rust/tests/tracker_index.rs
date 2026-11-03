@@ -43,9 +43,7 @@ async fn index_requires_authentication_and_deferred_links_refuse_without_writes(
         let answer=browser.get(&app,path).await;
         assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"PLAN-A12 A12-1 serves {path} to signed-in users");
     }
-    for path in ["/tracker/connect_market_data"] {
-        let answer=browser.get(&app,path).await;assert_eq!(answer.status,501,"{path}");
-        assert!(answer.body.contains(path));
-    }
+    let answer=browser.get(&app,"/tracker/connect_market_data").await;
+    assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"A17-1 serves the CoinGecko step to signed-in users");
     assert_eq!(snapshot(&opened.primary),before);
 }

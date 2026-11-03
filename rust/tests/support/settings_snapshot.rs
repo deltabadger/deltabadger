@@ -86,6 +86,8 @@ pub fn rows(dir: &Path, cipher: &Cipher) -> Value {
             // The install's account-identity key (identity::KEY_CONFIG) is Rust's own random secret, kept in app_configs: like
             // Rust's own tables (store::REGISTRY), it has no Rails counterpart to compare. An IBKR binding creates it.
             if table == "app_configs" && row.get("key").and_then(Value::as_str) == Some(deltabadger::identity::KEY_CONFIG) { continue; }
+            // D-CG-SETUP-DURABLE: the setup run a save asks for, Rust's own row (Rails enqueues Setup::SeedAndSyncJob).
+            if table == "app_configs" && row.get("key").and_then(Value::as_str) == Some(deltabadger::jobs::setup_sync::REQUEST) { continue; }
             rows.push(Value::Object(row));
         }
         out.insert(table.into(), Value::Array(rows));

@@ -851,13 +851,19 @@ fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
     }).collect())))
 }
 
+/// Whether this build has the ranking an index bot following `external_id` reads: a complete data-api configuration, or the
+/// direct CoinGecko Top Coins ranking on a CoinGecko key (D-INDEX-TOP-N). The engine's index rule (index_reasons), and the
+/// web's for its wizard, bot page and index switch.
+pub fn index_data(c: &Connection, external_id: &str) -> Result<bool, EngineError> {
+    Ok(super::provider::config(c)?.is_some() || (external_id == "top-coins" && super::provider::coingecko_key(c)?.is_some()))
+}
+
 /// Bots::DcaIndex within what this build ports: data-api indices, or the daily direct CoinGecko Top Coins
 /// ranking (D-INDEX-TOP-N), USD on Alpaca, a Top coins or category index, a readable count and
 /// flattening. A missing `indices` row is the tick's own Failure ("Index not found"), never an install refusal. Returns the
 /// assets of every bot_index_assets row, in or out of the index, for member_reasons.
 fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Reason>) -> Result<Vec<i64>, EngineError> {
-    let direct_top = bot.index_external_id() == "top-coins" && super::provider::coingecko_key(c)?.is_some();
-    if super::provider::config(c)?.is_none() && !direct_top { r.push(why(Kind::IndexData, "index requires a configured deltabadger market-data provider")); }
+    if !index_data(c, bot.index_external_id())? { r.push(why(Kind::IndexData, "index requires a configured deltabadger market-data provider")); }
     // member_reasons checks the quote only through a member's ticker, so a bot with no members yet is checked here.
     if alpaca && model::quote_symbol(c, bot)? != "USD" { r.push(why(Kind::Asset(None), format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?))); }
     if !matches!(bot.index_type(), Some("top" | "category")) { r.push(why(Kind::Settings, format!("index_type {:?} (only Top coins or a category index)", bot.index_type()))); }
