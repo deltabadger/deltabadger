@@ -421,7 +421,7 @@ jobs:
       matrix:
         # macos-arm64 (Apple Silicon; Intel Macs are not supported) runs only when the workflow is started by hand
         # (`gh workflow run rust.yml --ref <branch>`): development runs on a Mac, and the leg queued up to an hour per PR.
-        include: ${{ fromJSON((github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"}]') }}
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"}]') }}
     defaults:
       run:
         working-directory: rust
@@ -504,39 +504,6 @@ jobs:
           kill "$sampler" || true
           echo "least free KB during build and run: $(awk '{print $3}' df.log | sort -n | head -1)"
           exit "$status"
-
-  # B9 PROOF (temporary, removed before merge): the excluded set, on a runner without the Rails bundle.
-  b9-proof:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 150
-    env:
-      CARGO_PROFILE_DEV_DEBUG: 'false'
-      CARGO_PROFILE_DEV_STRIP: debuginfo
-      NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1'
-    steps:
-      - name: Free disk space
-        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Ruby on this runner
-        run: command -v ruby bundle || true; ruby -v || true
-      - name: Install Rust 1.94.0
-        run: rustup toolchain install 1.94.0 --profile minimal && rustup default 1.94.0
-      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
-        with:
-          tool: cargo-nextest@0.9.146
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-      - run: bash script/rust/build_assets.sh
-      - name: Run the excluded set
-        working-directory: rust
-        run: |
-          args=(); for e in $(sed -E 's/#.*//; s/[[:space:]]+$//; s/^[a-z]+://' tests/platform_excluded.txt); do args+=(--test "$e"); done
-          cargo nextest run --locked --no-fail-fast --message-format libtest-json "${args[@]}" > ../b9-proof.jsonl || true
-          wc -l ../b9-proof.jsonl
-      - uses: actions/upload-artifact@v4
-        with:
-          name: b9-proof
-          path: b9-proof.jsonl
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
   image:
