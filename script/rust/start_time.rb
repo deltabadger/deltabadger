@@ -338,6 +338,19 @@ module StartTimeVectors
         end
       end
     end
+    # 3b. The unmoved monthly twin: the first run and the next month's carry with start_at = started_at.
+    [false, true].each do |open|
+      list << edge("unmoved month #{open ? 'open' : 'filled'}", **WARSAW, interval: 'month') do |t0, out, step|
+        run(t0 + Rational(1, 4), out, open:)
+        if open
+          Transaction.where(bot_id: @id).update_all(external_status: 3, quote_amount_exec: '15')
+          out << snap('cancelled 15 of 60', t0 + 2)
+        end
+        second = travel_to(t0 + 1, with_usec: true) { Bot.find(@id).next_interval_checkpoint_at }
+        out << snap('second', second + 1)
+        out << snap('third', travel_to(second + 2, with_usec: true) { Bot.find(@id).next_interval_checkpoint_at } + 1)
+      end
+    end
     # 4. A first run that left the rule on (an ambiguous or suppressed tick) with start_at moved: where Rails schedules next.
     list << edge('moved kept on', **WARSAW) do |t0, out, step|
       move_start_at(Time.iso8601(WARSAW[:click]) + 3600, (t0 + 26 * 3600).utc.iso8601, out, 'form')
