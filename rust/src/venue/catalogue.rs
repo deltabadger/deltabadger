@@ -395,7 +395,11 @@ fn exponent_places(s: &str) -> Option<i64> {
     let digits = mantissa.strip_prefix(['-', '+']).unwrap_or(mantissa);
     let (int, frac) = digits.split_once('.').unwrap_or((digits, ""));
     if int.is_empty() && frac.is_empty() || !int.chars().chain(frac.chars()).all(|c| c.is_ascii_digit()) { return None; }
-    Some((frac.trim_end_matches('0').len() as i64 - exp).max(0))
+    // The value is all its digits x 10^-(frac.len() - exp); each trailing zero of those digits takes one place off.
+    let all = format!("{int}{frac}");
+    let significant = all.trim_end_matches('0');
+    if significant.trim_start_matches('0').is_empty() { return Some(0); }
+    Some((frac.len() as i64 - exp - (all.len() - significant.len()) as i64).max(0))
 }
 
 // --- Ruby's readings of a venue value ----------------------------------------------------------------------------------
@@ -451,17 +455,54 @@ fn to_i(v: &Value) -> Result<i64, String> {
         other => Err(format!("undefined method 'to_i' for {}", ruby::raw(other))),
     }
 }
-/// `v.to_d`: nil and a blank string are 0. A string that is not a decimal fails the venue (`ruby::json_to_d`), where
-/// String#to_d would read its leading digits, or 0.
+/// `v.to_d`: nil is 0, a number as Integer#to_d and Float#to_d read it, a string as String#to_d (`loose`). A string Ruby
+/// reads as Infinity or NaN cannot enter arithmetic here and fails the venue.
 fn to_d(v: &Value) -> Result<BigDec, String> {
     match v {
         Value::Null => Ok(BigDec::zero()),
-        Value::String(s) if ruby::blank(s) => Ok(BigDec::zero()),
+        Value::String(s) => loose(s)?.ok_or_else(|| format!("{} is not a finite decimal", ruby::raw(v))),
         _ => ruby::json_to_d(v).map(|d| d.unwrap_or_else(BigDec::zero)).map_err(|e| format!("{e:?}")),
     }
 }
-/// `v.to_d` as `as_json` writes it: BigDecimal#to_s, plain.
-fn d(v: &Value) -> Result<Value, String> { to_d(v).map(|x| dec(&x)) }
+
+/// String#to_d (BigDecimal.interpret_loosely): leading whitespace, a sign, digits (single underscores between them), an
+/// optional fraction and an optional exponent, read up to the first character that does not fit; nothing readable is 0.
+/// None: Ruby reads the text as Infinity or NaN.
+fn loose(s: &str) -> Result<Option<BigDec>, String> {
+    let t = s.trim_start_matches([' ', '\t', '\n', '\x0b', '\x0c', '\r']);
+    let (sign, rest) = match t.as_bytes().first() { Some(b'-') => ("-", &t[1..]), Some(b'+') => ("", &t[1..]), _ => ("", t) };
+    if rest.starts_with("Infinity") || t.starts_with("NaN") { return Ok(None); }
+    // Digits with single underscores between them, and the bytes they took.
+    let run = |r: &str| -> (String, usize) {
+        let b = r.as_bytes();
+        let (mut out, mut i) = (String::new(), 0);
+        while i < b.len() {
+            if b[i].is_ascii_digit() { out.push(b[i] as char); i += 1; }
+            else if b[i] == b'_' && i > 0 && b[i - 1].is_ascii_digit() && b.get(i + 1).is_some_and(u8::is_ascii_digit) { i += 1; }
+            else { break; }
+        }
+        (out, i)
+    };
+    let (int, mut i) = run(rest);
+    let mut frac = String::new();
+    if rest[i..].starts_with('.') { let (f, n) = run(&rest[i + 1..]); frac = f; i += 1 + n; }
+    if int.is_empty() && frac.is_empty() { return Ok(Some(BigDec::zero())); }
+    let mut exp = String::new();
+    if rest[i..].starts_with(['e', 'E']) {
+        let e = &rest[i + 1..];
+        let (esign, e) = match e.as_bytes().first() { Some(b'-') => ("-", &e[1..]), Some(b'+') => ("", &e[1..]), _ => ("", e) };
+        let (digits, _) = run(e);
+        if !digits.is_empty() { exp = format!("e{esign}{digits}"); }
+    }
+    let text = format!("{sign}{}.{}{exp}", if int.is_empty() { "0" } else { &int }, if frac.is_empty() { "0" } else { &frac });
+    BigDec::parse(&text).map(Some).map_err(|e| format!("{e:?}"))
+}
+
+/// `v.to_d` as `as_json` writes it: BigDecimal#to_s, plain; a non-finite BigDecimal as nil.
+fn d(v: &Value) -> Result<Value, String> {
+    if let Value::String(s) = v { if loose(s)?.is_none() { return Ok(Value::Null); } }
+    to_d(v).map(|x| dec(&x))
+}
 fn dec(x: &BigDec) -> Value { Value::String(x.to_s_f()) }
 
 #[cfg(test)]
@@ -479,5 +520,23 @@ mod tests {
             assert_eq!(decimals(&v), n, "{v}");
         }
         assert_eq!(decimals(&json!("none")), 0, "an 'e' that is no exponent is Rails' count");
+        // One value, every spelling: its true places.
+        for v in [json!("1e-6"), json!("10e-7"), json!("0.1e-5"), json!("1.0e-06"), json!(1e-06), json!("100e-8"), json!("0.000001")] {
+            assert_eq!(decimals(&v), 6, "{v}");
+        }
+        for v in [json!("0e-5"), json!("0.0e-3"), json!("00e2"), json!(0.0), json!(0)] { assert_eq!(decimals(&v), 0, "{v}"); }
+        assert_eq!(decimals(&json!("1.5e1")), 0);
+        assert_eq!(decimals(&json!("1.25e1")), 1);
+    }
+
+    #[test]
+    fn sizes_read_as_string_to_d() {
+        for (s, want) in [("12abc", json!("12.0")), ("garbage", json!("0.0")), (" 1_000.5x", json!("1000.5")), ("-3.5e2z", json!("-350.0")),
+                          (".5", json!("0.5")), ("5.", json!("5.0")), ("1__0", json!("1.0")), ("1e", json!("1.0")), ("1.2.3", json!("1.2")),
+                          ("1,5", json!("1.0")), ("+7", json!("7.0")), ("0x1A", json!("0.0")), ("1e-3x", json!("0.001")), ("  ", json!("0.0")),
+                          ("Infinity", Value::Null), ("-Infinity", Value::Null), ("NaN", Value::Null)] {
+            assert_eq!(d(&json!(s)).unwrap(), want, "{s:?}");
+        }
+        assert!(to_d(&json!("NaN")).is_err(), "no NaN in arithmetic");
     }
 }

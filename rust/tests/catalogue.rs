@@ -37,7 +37,7 @@ const DIVERGENCES: [(&str, usize, &str, i64, i64); 9] = [
 async fn every_recorded_catalogue_reads_as_rails() {
     let vectors: Value = serde_json::from_str(include_str!("fixtures/catalogue_vectors.json")).unwrap();
     let scenarios = vectors["scenarios"].as_array().unwrap();
-    assert_eq!(scenarios.len(), 29);
+    assert_eq!(scenarios.len(), 31);
     for sc in scenarios {
         let name = sc["name"].as_str().unwrap();
         let t = Timed { inner: ScriptedTransport::from_script(&sc["script"]), start: Instant::now(), at: RefCell::new(vec![]) };
@@ -70,6 +70,25 @@ async fn every_recorded_catalogue_reads_as_rails() {
             assert_eq!(at.as_secs_f64(), want["at"].as_f64().unwrap(), "{name}: {} sent after Rails' waits", r.path);
         }
         assert_eq!(t.start.elapsed().as_secs_f64(), sc["slept"].as_f64().unwrap(), "{name}: time slept");
+    }
+}
+
+/// The vectors are Rails' answers only while the Rails sources and the honeymaker gem they came from are unchanged.
+#[test]
+fn the_vectors_are_recorded_from_the_current_rails_sources() {
+    use sha2::Digest;
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/catalogue_vectors.json")).unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let sources = vectors["sources"].as_object().unwrap();
+    assert!(sources.contains_key("app/models/utilities/number.rb") && sources.contains_key("app/models/exchanges/gemini.rb"));
+    for (file, recorded) in sources {
+        let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
+        assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
+    }
+    let lock = std::fs::read_to_string(root.join("Gemfile.lock")).unwrap();
+    for (gem, version) in vectors["gems"].as_object().unwrap() {
+        let pinned = format!("    {gem} ({})\n", version.as_str().unwrap());
+        assert!(lock.contains(&pinned), "Gemfile.lock no longer has {gem} {version}: re-record with script/rust/repin");
     }
 }
 

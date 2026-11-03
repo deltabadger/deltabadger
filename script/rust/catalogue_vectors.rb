@@ -1,13 +1,16 @@
 # The Rails half of the venue-catalogue parity (rust/tests/catalogue.rs, PLAN-A17 A17-2): each crypto venue's real
 # `get_tickers_info(force: true)` against scripted venue answers, served beneath honeymaker's Faraday adapter, so
 # honeymaker's middleware (json, raise_error) and Client#with_rescue run as in production. No real connection is made.
-#   bin/rails runner script/rust/catalogue_vectors.rb
-# Run with every *_DATABASE_URL pointing at scratch files (as rust/tests/common rails() does) and APP_ROOT_URL set.
-# Writes rust/tests/fixtures/catalogue_vectors.json: per scenario the script ("METHOD /path?query" => replies, the key
+#   bin/rails runner script/rust/catalogue_vectors.rb [rust/tests/fixtures/catalogue_vectors.json]
+# Run with every *_DATABASE_URL pointing at scratch files (as rust/tests/common rails() does) and APP_ROOT_URL set;
+# script/rust/repin re-runs it when a pinned source or the honeymaker version moves.
+# Writes the fixture: `sources` (sha256 of the Rails files the rows come from), `gems` (honeymaker's version, checked
+# against Gemfile.lock), `honeymaker_files` (sha256 of the honeymaker files this process loaded, for the record), and per scenario the script ("METHOD /path?query" => replies, the key
 # rust/src/venue/http.rs's ScriptedTransport answers by), the requests Rails made (method, host, path, query, body, and
 # `at`: the seconds Rails had slept before sending it) and Rails' result (rows, or the failure's errors and sentence).
 require 'json'
 require 'tmpdir'
+require 'digest'
 require_relative 'schema_template'
 
 module Harness
@@ -315,8 +318,47 @@ module Catalogue
       } },
       { 'name' => 'mexc_error', 'venue' => 'Exchanges::Mexc', 'script' => {
         'GET /api/v3/exchangeInfo' => [error(503, 'Service Unavailable')]
+      } },
+      # String#to_d reads a malformed size by its leading number, else 0; Infinity and NaN are not finite (as_json nil).
+      { 'name' => 'kucoin_malformed_sizes', 'venue' => 'Exchanges::Kucoin', 'script' => {
+        'GET /api/v2/symbols' => [ok({ 'code' => '200000', 'data' => [
+          { 'symbol' => 'BTC-USDT', 'baseCurrency' => 'BTC', 'quoteCurrency' => 'USDT', 'baseMinSize' => '12abc',
+            'quoteMinSize' => 'garbage', 'baseMaxSize' => ' 1_000.5x', 'quoteMaxSize' => '-3.5e2z', 'baseIncrement' => '0.00000001',
+            'quoteIncrement' => '0.000001', 'priceIncrement' => '0.1', 'enableTrading' => true },
+          { 'symbol' => 'ETH-USDT', 'baseCurrency' => 'ETH', 'quoteCurrency' => 'USDT', 'baseMinSize' => '.5',
+            'quoteMinSize' => '5.', 'baseMaxSize' => '1__0', 'quoteMaxSize' => '1e', 'baseIncrement' => '0.0001',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true },
+          { 'symbol' => 'SOL-USDT', 'baseCurrency' => 'SOL', 'quoteCurrency' => 'USDT', 'baseMinSize' => '1.2.3',
+            'quoteMinSize' => '1,5', 'baseMaxSize' => 'Infinity', 'quoteMaxSize' => 'NaN', 'baseIncrement' => '0.01',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.001', 'enableTrading' => true },
+          { 'symbol' => 'XRP-USDT', 'baseCurrency' => 'XRP', 'quoteCurrency' => 'USDT', 'baseMinSize' => '+7',
+            'quoteMinSize' => '0x1A', 'baseMaxSize' => '1e-3x', 'quoteMaxSize' => '  ', 'baseIncrement' => '0.1',
+            'quoteIncrement' => '0.0001', 'priceIncrement' => '0.0001', 'enableTrading' => true }
+        ] })]
+      } },
+      # A malformed USDT minimum, converted at a price.
+      { 'name' => 'bitget_malformed_minimum', 'venue' => 'Exchanges::Bitget', 'script' => {
+        'GET /api/v2/spot/public/symbols' => [ok({ 'code' => '00000', 'data' => [
+          { 'symbol' => 'BTCEUR', 'baseCoin' => 'BTC', 'quoteCoin' => 'EUR', 'minTradeAmount' => '0.0001abc', 'pricePrecision' => '2',
+            'quantityPrecision' => '6', 'quotePrecision' => '2', 'status' => 'online', 'minTradeUSDT' => '2usd', 'maxTradeAmount' => 'x' }
+        ] })],
+        'GET /api/v2/spot/market/tickers' => [ok({ 'code' => '00000', 'data' => [{ 'symbol' => 'USDTEUR', 'lastPr' => '0.92 EUR' }] })]
       } }
     ]
+  end
+
+  SOURCES = (%w[binance binance_us bingx bitget bitrue bitvavo bybit coinbase gemini hyperliquid kraken kucoin mexc]
+               .map { |v| "app/models/exchanges/#{v}.rb" } +
+             %w[app/models/exchange.rb app/models/utilities/number.rb app/models/utilities/hash.rb app/services/result.rb
+                script/rust/catalogue_vectors.rb]).freeze
+
+  def pins = SOURCES.to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }
+
+  # Every honeymaker Ruby file this process loaded (its clients, Client, Result), by path inside the gem.
+  def honeymaker_files
+    root = Gem.loaded_specs.fetch('honeymaker').full_gem_path
+    $LOADED_FEATURES.select { |f| f.start_with?(root) && f.end_with?('.rb') }.sort
+                    .to_h { |f| [f.delete_prefix("#{root}/"), Digest::SHA256.file(f).hexdigest] }
   end
 
   def coinbase_product(id, extra = {})
@@ -350,8 +392,9 @@ module Catalogue
       exchange.destroy!
       sc.merge('requests' => ScriptedVenue.requests, 'slept' => ScriptedVenue.slept, 'rails' => outcome)
     end
-    path = Rails.root.join('rust/tests/fixtures/catalogue_vectors.json')
-    File.write(path, "#{JSON.pretty_generate({ 'honeymaker' => Honeymaker::VERSION, 'scenarios' => out })}\n")
+    path = Rails.root.join(ARGV[0] || 'rust/tests/fixtures/catalogue_vectors.json')
+    File.write(path, "#{JSON.pretty_generate({ 'sources' => pins, 'gems' => { 'honeymaker' => Honeymaker::VERSION },
+                                               'honeymaker_files' => honeymaker_files, 'scenarios' => out })}\n")
     puts "recorded #{out.size} scenarios in #{path}"
   ensure
     ActiveRecord::Base.connection_pool.disconnect!
