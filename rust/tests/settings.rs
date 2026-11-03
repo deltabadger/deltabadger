@@ -4150,7 +4150,7 @@ async fn a_test_email_to_a_server_that_never_answers_is_an_alert_after_the_greet
     let waited = started.elapsed();
     assert_eq!(answer.status, 200, "{}", answer.body);
     let alert = deltabadger::web::i18n::t("en", "settings.email_notifications.test_email_failed",
-                                          &[("error", deltabadger::web::i18n::Arg::Text("delivery failed (greeting: no answer in time)"))]);
+                                          &[("error", deltabadger::web::i18n::Arg::Text("greeting: no answer in time"))]);
     assert!(answer.body.contains(&alert), "{}", answer.body);
     assert!(!answer.body.contains("smtp-user") && !answer.body.contains("smtp-secret"), "no credential reaches the page");
     assert!(waited >= std::time::Duration::from_secs(5) && waited < std::time::Duration::from_secs(15), "bounded by the greeting's read timeout: {waited:?}");
