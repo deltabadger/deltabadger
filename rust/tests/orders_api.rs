@@ -701,3 +701,91 @@ async fn limit_order_sizes_as_place_limit_order() {
     let hl = limit_order(&ticker, &HYPERLIQUID, buy, &d("100"), true, &d("64006.123")).unwrap();
     assert_eq!((hl.price.to_s_f(), hl.quote_type), ("64006.0".into(), false));
 }
+
+/// 3.0 A20c, D-OPEN-ORDERS-UNREAD-NAMED: an exchange whose open orders this build does not read live is named in
+/// `unavailable`, never dropped (Rails' ListOpen skips it: `list_open.rb:64-65`). The balances 501 names the venues
+/// whose balances are read; the portfolio's 501 keeps its own text (tests/mcp_reads.rs m3_other_venue_figures).
+#[tokio::test(flavor = "current_thread")]
+async fn open_orders_name_every_exchange_not_read_live_on_both_surfaces() {
+    use deltabadger::web::figure::loading::Source;
+    const UNREAD: &str = "not read live on this build";
+    let line = |name: &str| format!("! {name}: {UNREAD} — only your bots' orders there are listed");
+    let (d, _, _) = install();
+    let c = Connection::open(d.path().join("production.sqlite3")).unwrap();
+    let user: i64 = c.query_row("SELECT id FROM users LIMIT 1", [], |r| r.get(0)).unwrap();
+    let on = json!({"tool_permissions": {"list_open_orders": true, "get_exchange_balances": true}}).to_string();
+    c.execute("UPDATE users SET mcp_settings=?1,rest_settings=?1", [on]).unwrap();
+    c.execute("INSERT INTO exchanges (type,name,maker_fee,taker_fee,created_at,updated_at) VALUES ('Exchanges::Kraken','Kraken','0.25','0.4',?1,?1)", [T]).unwrap();
+    let kraken = c.last_insert_rowid();
+    c.execute("INSERT INTO api_keys (user_id,exchange_id,key,secret,status,key_type,created_at,updated_at) VALUES (?1,?2,'k','s',1,0,?3,?3)", (user, kraken, T)).unwrap();
+    let app_with = |alpaca: Value| {
+        let script = json!({"GET paper-api.alpaca.markets/v2/orders?limit=50&status=open": alpaca.clone(), "GET api.alpaca.markets/v2/orders?limit=50&status=open": alpaca});
+        let log = std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+        (web::app(d.path(), "engine-test-secret", TestClock::at(NOW)).with_figure_source(Source::Counted(script, log.clone())).unwrap(), log)
+    };
+    let mcp = |app: App| async move {
+        let (_, session, _) = send(&app, "POST", "/mcp", "orders-mcp", Some(json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "orders", "version": "1"}}})), &[]).await;
+        let session = session.unwrap();
+        let headers = [("mcp-session-id", session.as_str()), ("mcp-protocol-version", "2025-11-25")];
+        send(&app, "POST", "/mcp", "orders-mcp", Some(json!({"jsonrpc": "2.0", "method": "notifications/initialized"})), &headers).await;
+        move |name: &'static str, arguments: Value| { let (app, session) = (app.clone(), session.clone()); async move {
+            let headers = [("mcp-session-id", session.as_str()), ("mcp-protocol-version", "2025-11-25")];
+            let (_, _, body) = send(&app, "POST", "/mcp", "orders-mcp", Some(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": name, "arguments": arguments}})), &headers).await;
+            body["result"]["content"][0]["text"].as_str().unwrap().to_string()
+        }}
+    };
+    let rest = |app: App, query: &'static str| async move { send(&app, "GET", &format!("/api/v1/orders{query}"), "orders-api", None, &[]).await };
+    let unread = |names: &[&str]| json!(names.iter().map(|n| json!({"exchange": n, "error": UNREAD})).collect::<Vec<_>>());
+
+    // An Alpaca key, an Interactive Brokers key and a Kraken key: Alpaca is read, the other two are named in key order.
+    let (app, log) = app_with(json!({"status": 200, "body": []}));
+    let (status, _, body) = rest(app.clone(), "").await;
+    assert_eq!((status, &body["data"]["unavailable"]), (200, &unread(&["Interactive Brokers", "Kraken"])), "{body}");
+    let call = mcp(app.clone()).await;
+    assert_eq!(call("list_open_orders", json!({})).await, ["No open orders found on the exchanges that answered.".to_string(), line("Interactive Brokers"), line("Kraken")].join("\n"));
+    let asked = log.lock().unwrap().clone();
+    assert!(!asked.is_empty() && asked.iter().all(|k| k.contains("alpaca.markets/v2/orders")), "only Alpaca is asked: {asked:?}");
+
+    // The filter names the exchange it asks about, with or without a key, and asks no venue.
+    log.lock().unwrap().clear();
+    for sql in ["", "DELETE FROM api_keys WHERE exchange_id=(SELECT id FROM exchanges WHERE type='Exchanges::Kraken')"] {
+        if !sql.is_empty() { c.execute(sql, []).unwrap(); }
+        let (status, _, body) = rest(app.clone(), "?exchange_name=kraken").await;
+        assert_eq!((status, &body["data"]["unavailable"]), (200, &unread(&["Kraken"])), "{sql}: {body}");
+        assert_eq!(call("list_open_orders", json!({"exchange_name": "Kraken"})).await, ["No open orders found on the exchanges that answered.".to_string(), line("Kraken")].join("\n"), "{sql}");
+    }
+    assert!(log.lock().unwrap().is_empty(), "a filter on an unread exchange asks no venue");
+
+    // A key that is not a correct trading key (pending, or a correct read-only one) is not asked and not named, as an
+    // Alpaca one; the filter still names the exchange.
+    c.execute("INSERT INTO api_keys (user_id,exchange_id,key,secret,status,key_type,created_at,updated_at) VALUES (?1,?2,'k','s',0,0,?3,?3)", (user, kraken, T)).unwrap();
+    for sql in ["", "UPDATE api_keys SET status=1,key_type=2 WHERE exchange_id=(SELECT id FROM exchanges WHERE type='Exchanges::Kraken')"] {
+        if !sql.is_empty() { c.execute(sql, []).unwrap(); }
+        let (_, _, body) = rest(app.clone(), "").await;
+        assert_eq!(body["data"]["unavailable"], unread(&["Interactive Brokers"]), "{sql}: {body}");
+        let (_, _, body) = rest(app.clone(), "?exchange_name=Kraken").await;
+        assert_eq!(body["data"]["unavailable"], unread(&["Kraken"]), "{sql}: {body}");
+    }
+    c.execute("UPDATE api_keys SET status=1,key_type=0 WHERE exchange_id=?1", [kraken]).unwrap();
+
+    // A failed Alpaca read keeps its own row and line, first; the unread exchanges follow.
+    let (app, _) = app_with(json!({"status": 401, "body": {"message": "unauthorized"}}));
+    let (_, _, body) = rest(app.clone(), "").await;
+    let rows = body["data"]["unavailable"].as_array().unwrap();
+    assert_eq!(rows.len(), 3, "{body}");
+    assert_eq!(rows[0]["exchange"], "Alpaca");
+    assert_ne!(rows[0]["error"], UNREAD);
+    assert_eq!(json!(rows[1..]), unread(&["Interactive Brokers", "Kraken"]));
+    let text = mcp(app.clone()).await("list_open_orders", json!({})).await;
+    let lines = text.lines().collect::<Vec<_>>();
+    assert!(lines[1].starts_with("! Alpaca: could not be checked (") && lines[1].ends_with(") — open orders there are not listed"), "{text}");
+    assert_eq!(lines[2..], [line("Interactive Brokers"), line("Kraken")]);
+
+    // Balances on Kraken: the 501 names what is read.
+    let balances = "this build reads balances from Alpaca and Interactive Brokers only";
+    let (status, _, body) = send(&app, "GET", &format!("/api/v1/exchanges/{kraken}/balances"), "orders-api", None, &[]).await;
+    assert_eq!((status, body["error"]["code"].as_str(), body["error"]["message"].as_str()), (501, Some("not_ported"), Some(balances)), "{body}");
+    assert_eq!(mcp(app.clone()).await("get_exchange_balances", json!({"exchange_name": "Kraken"})).await, balances);
+    // The portfolio's own 501 is untouched: its text stays "this build reads Alpaca only" (m3_other_venue_figures).
+}

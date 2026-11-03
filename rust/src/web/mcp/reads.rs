@@ -7,6 +7,11 @@ use serde_json::{json,Value};
 use std::collections::HashSet;
 pub const NAMES:[&str;4]=["get_exchange_balances","list_open_orders","get_bot_details","get_portfolio_summary"];
 const ONLY:&str="this build reads Alpaca only";
+/// The balances this build reads: Alpaca's and Interactive Brokers' (the 501 for any other venue).
+const BALANCES_ONLY:&str="this build reads balances from Alpaca and Interactive Brokers only";
+/// D-OPEN-ORDERS-UNREAD-NAMED: an exchange whose open orders this build does not read live is named in `unavailable`
+/// with this reason. Rails drops it silently (`list_open.rb:64-65`, only Alpaca has `list_open_orders`).
+const UNREAD:&str="not read live on this build";
 fn error()->WebError{WebError::Config("MCP read unavailable".into())}
 /// A read's success: the service's data and the tool's text.
 fn ok(data:Value,text:impl Into<String>)->Read{Read{res:Res::success(data),text:text.into(),is_error:false}}
@@ -34,7 +39,8 @@ pub enum Fetch {
     Balances{user:i64,exchange:i64,name:String,credentials:Material},
     /// IBKR's balances: the account its key is bound to (D-IBKR-ACCOUNT), read through the key's session.
     IbkrBalances{user:i64,exchange:i64,name:String,credentials:Material,account:String},
-    Orders{user:i64,local:Vec<String>,rows:Vec<Value>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Material>)>},
+    /// `unread`: the exchanges asked about whose open orders this build does not read live (D-OPEN-ORDERS-UNREAD-NAMED).
+    Orders{user:i64,local:Vec<String>,rows:Vec<Value>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Material>)>,unread:Vec<String>},
     /// `producer`: what the account's figures are made under (an Alpaca key or none, `loading::read_info`).
     Summary{user:i64,credentials:Option<Material>,producer:crate::figures::page_market::Producer,now:At},
 }
@@ -49,7 +55,7 @@ impl Fetch {
     }
 }
 type RawOrders = Vec<Box<serde_json::value::RawValue>>;
-pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>), Summary(i64,Cache,At,bool) }
+pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>,Vec<String>), Summary(i64,Cache,At,bool) }
 /// What a read asks for, as each surface names it: MCP by the tool's arguments, REST by its route's parameters.
 pub enum Ask { Details(i64), Balances{name:String,id:Option<String>}, Orders(Option<String>), Summary }
 impl Ask {
@@ -112,7 +118,7 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 let Some(account)=bound else {return Ok(Planned::Done(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: the IBKR connection has not named its account yet"))))};
                 return Ok(Planned::Fetch(Fetch::IbkrBalances{user,exchange,name,credentials,account}));
             }
-            if kind!="Exchanges::Alpaca" {return Ok(Planned::Done(unported(ONLY,true)))} // Rails reads the venue; a failed read is a tool error.
+            if kind!="Exchanges::Alpaca" {return Ok(Planned::Done(unported(BALANCES_ONLY,true)))} // Rails reads the venue; a failed read is a tool error.
             Ok(Planned::Fetch(Fetch::Balances{user,exchange,name,credentials}))
         },
         Ask::Orders(filter)=>{
@@ -123,10 +129,11 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
             let exchanges=if let Some(ex)=filter {vec![ex]}else{
                 c.prepare("SELECT DISTINCT e.id,e.name,e.type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 ORDER BY k.id")?.query_map([user],|r|Ok((r.get(0)?,r.get(1)?,r.get::<_,String>(2)?)))?.collect::<Result<Vec<_>,_>>()?
             };
-            // Only Exchanges::Alpaca lists open orders (`respond_to?(:list_open_orders)`).
-            let mut venues=vec![];
-            for (id,name,kind) in exchanges {if kind=="Exchanges::Alpaca" {venues.push((id,name,credentials(c,app,user,id)?));}}
-            Ok(Planned::Fetch(Fetch::Orders{user,local,rows,ids,venues}))
+            // Only Exchanges::Alpaca's open orders are read live; every other exchange asked about is named as unread
+            // (D-OPEN-ORDERS-UNREAD-NAMED), where Rails skips it (`respond_to?(:list_open_orders)`).
+            let (mut venues,mut unread)=(vec![],vec![]);
+            for (id,name,kind) in exchanges {if kind=="Exchanges::Alpaca" {venues.push((id,name,credentials(c,app,user,id)?));}else{unread.push(name);}}
+            Ok(Planned::Fetch(Fetch::Orders{user,local,rows,ids,venues,unread}))
         },
         Ask::Summary=>{
             let n:i64=c.query_row("SELECT count(*) FROM bots WHERE user_id=?1 AND status!=3",[user],|r|r.get(0))?;
@@ -188,7 +195,7 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
                 Err(why)=>failed_with(&why),
             }
         },
-        Fetch::Orders{user,local,rows,ids,venues}=>{
+        Fetch::Orders{user,local,rows,ids,venues,unread}=>{
             let mut out=vec![];
             for (id,name,credentials) in venues {
                 let Some(credentials)=credentials else{out.push((id,name,Err("no usable trading key".into())));continue};
@@ -199,7 +206,7 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
                 };
                 match result {Ok(v)=>out.push((id,name,Ok(v))),Err((_,true))=>return Fetched::Done(raised()),Err((why,false))=>out.push((id,name,Err(sync::scrub(&why,&credentials))))}
             }
-            Fetched::Orders(user,local,rows,ids,out)
+            Fetched::Orders(user,local,rows,ids,out,unread)
         },
         Fetch::Summary{user,credentials,producer,now}=>{
             let mut cache=Cache::default();
@@ -259,7 +266,7 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
             let held=match sync::balances::ibkr_balances(&text,&names,catalog.asset_ids()) {Ok(held)=>held,Err(_)=>Err("unreadable IBKR balances".into())};
             balance_rows(c,&name,held)
         },
-        Fetched::Orders(_user,mut local,mut rows,ids,venues)=>{
+        Fetched::Orders(_user,mut local,mut rows,ids,venues,unread)=>{
             let mut unavailable=vec![];let mut missing=vec![];
             for (exchange,name,result) in venues{
                 match result{
@@ -285,6 +292,9 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
                                          "pair":pair,"amount":amount,"price":parsed.price.map_or(json!(0),|p|json!(p.to_s_f()))}));
                     }}
                 }
+            }
+            for name in unread{
+                unavailable.push(format!("! {name}: {UNREAD} — only your bots' orders there are listed"));missing.push(json!({"exchange":name,"error":UNREAD}));
             }
             let text=if local.is_empty()&&unavailable.is_empty(){"No open orders found.".into()}else{
                 let header=if local.is_empty(){"No open orders found on the exchanges that answered.".into()}else{format!("Open orders ({}):",local.len())};
