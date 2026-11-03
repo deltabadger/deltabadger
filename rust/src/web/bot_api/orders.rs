@@ -279,7 +279,7 @@ const REFUSALS: &[(&str, Domain)] = &[
 
 /// BotOrder#venue_busy.
 fn venue_busy(exchange: &str) -> Res { failure(Domain::Conflict, "venue_busy", format!("{exchange} is busy with another order from your bots. Nothing was placed; try again.")) }
-fn ambiguous(errors: &str, exchange: &str) -> Res {
+pub(crate) fn ambiguous(errors: &str, exchange: &str) -> Res {
     failure(Domain::UpstreamFailed, "placement_ambiguous", format!("The order may or may not have been placed: {errors}. Check {exchange} before sending it again."))
 }
 

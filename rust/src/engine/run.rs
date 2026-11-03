@@ -70,8 +70,8 @@ pub struct Engine<F: VenueFactory> {
     owed_buys: std::collections::HashSet<(i64, i64)>,
     /// The composition resyncs' retry waits and once-only logs.
     resyncs: Resyncs,
-    /// When this engine was built, while the last process's API order requests are still unswept: none is taken until they are.
-    sweep_pending: Option<DateTime<Utc>>,
+    /// The last process's API order requests are still unswept: none is taken until they are (api_orders::sweep_orders).
+    sweep_pending: bool,
 }
 
 /// What `resync_bot` keeps between passes, in memory (a restart grants a fresh retry budget, which Rails' timing allows).
@@ -88,19 +88,22 @@ impl Resyncs {
 }
 
 impl<F: VenueFactory> Engine<F> {
-    /// Built before the web is attached (`App::attach_engine`), so an API order request still in the database belongs to a
-    /// process that died: it is settled here (api_orders::sweep_at_start), never taken.
+    /// Built before the web serves (`supervisor::serve`), so an API order request or an in-progress Idempotency-Key still in
+    /// the database belongs to a process that died: it is settled here (api_orders::sweep_at_start), never taken.
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         let built = Utc::now();
         let sweep_pending = match super::api_orders::sweep_at_start(&primary, built) {
-            Ok(()) => None,
-            Err(err) => { super::log(&format!("[engine] the API order requests of the last process were not swept: {err:?}; retried before any is taken")); Some(built) }
+            Ok(()) => false,
+            Err(err) => { super::log(&format!("[engine] the API order requests and Idempotency-Keys of the last process were not swept: {err:?}; \
+                                               the requests are retried before any is taken, the keys at the next start")); true }
         };
         Self { sweep_pending, primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
                events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, owed_buys: Default::default(), resyncs: Resyncs::default() }
     }
+    /// Tests only: the start sweep failed, so the next pass retries it (api_orders::sweep_orders).
+    #[doc(hidden)] pub fn inject_sweep_pending(&mut self) { self.sweep_pending = true; }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
     /// A receiver of every event this engine sends from now on. Taken before `run::run` consumes the engine.
@@ -1248,9 +1251,9 @@ pub const RULES_SCHEDULE: crate::jobs::schedule::Schedule = crate::jobs::schedul
 /// ambiguous, its intent left to recovery) and is logged.
 pub async fn run_api_orders<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
     use super::api_orders::{self, Outcome};
-    if let Some(built) = e.sweep_pending {
-        api_orders::sweep_at_start(&e.primary, built)?;
-        e.sweep_pending = None;
+    if e.sweep_pending {
+        api_orders::sweep_orders(&e.primary)?;
+        e.sweep_pending = false;
     }
     let until = tokio::time::Instant::now() + api_orders::DRAIN;
     for id in api_orders::queued(&e.primary)? {

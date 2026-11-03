@@ -143,11 +143,16 @@ const RETAINED: &str = "(bot_id IS NULL AND state = 'done' AND json_extract(outc
 const ORPHANS: &str = "DELETE FROM rust_api_order_standalone WHERE order_id NOT IN (SELECT id FROM rust_api_orders)";
 
 /// The web read the answer. A placed standalone order stays (RETAINED).
+/// A20d: a key's link goes with its order row, first and in one unit, because order ids are reused.
 pub fn forget(c: &Connection, id: i64) -> Result<(), EngineError> {
-    if c.execute(&format!("DELETE FROM rust_api_orders WHERE id = ?1 AND state IN ('done', 'withdrawn') AND NOT {RETAINED}"), [id])? == 1 {
-        c.execute("DELETE FROM rust_api_order_standalone WHERE order_id = ?1", [id])?;
-    }
-    Ok(())
+    atomically(c, || {
+        c.execute(&format!("DELETE FROM rust_idempotency_orders WHERE order_id = ?1 AND order_id IN \
+                            (SELECT id FROM rust_api_orders WHERE id = ?1 AND state IN ('done', 'withdrawn') AND NOT {RETAINED})"), [id])?;
+        if c.execute(&format!("DELETE FROM rust_api_orders WHERE id = ?1 AND state IN ('done', 'withdrawn') AND NOT {RETAINED}"), [id])? == 1 {
+            c.execute("DELETE FROM rust_api_order_standalone WHERE order_id = ?1", [id])?;
+        }
+        Ok(())
+    })
 }
 
 /// The retained standalone order a user placed on `exchange_id` with the venue's id `external_id` (the latest): the
@@ -230,32 +235,48 @@ pub fn finish(c: &Connection, id: i64, outcome: &Outcome) -> Result<(), EngineEr
     Ok(())
 }
 
-/// At engine start, for the requests written before `built` (when this engine was built, before the web was attached):
-/// the process that waited for these died with the last one. A queued request is withdrawn, a taken one (nothing sent)
-/// answered `busy`, a sending one (its intent is recovery's) `unknown`; answered rows older than an hour go.
+/// At engine start (Engine::new, before the web serves): the process that waited for every request still here died with
+/// the last one, whatever its time says (a clock stepped back across the restart must not leave one to be sent). A
+/// queued request is withdrawn, a taken one (nothing sent) answered `busy`, a sending one (its intent is recovery's)
+/// `unknown`; then every Idempotency-Key that process left in progress is settled (A20d, D-IDEMPOTENCY-DEAD-CLAIM,
+/// web::rest_idempotency::sweep_dead_claims); then answered rows older than an hour before `built` go, with their links.
 pub fn sweep_at_start(c: &Connection, built: DateTime<Utc>) -> Result<(), EngineError> {
-    let before = format_time(built);
-    let busy = serde_json::to_string(&Outcome::Busy).map_err(|e| EngineError::Data(e.to_string()))?;
-    let unknown = serde_json::to_string(&Outcome::Unknown).map_err(|e| EngineError::Data(e.to_string()))?;
     model::locked(c, |tx| {
-        tx.execute("UPDATE rust_api_orders SET state = 'withdrawn' WHERE state = 'queued' AND created_at < ?1", [&before])?;
-        tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'taken' AND created_at < ?2", [&busy, &before])?;
-        let mut s = tx.prepare("SELECT id, bot_id, cl_ord_id FROM rust_api_orders WHERE state = 'sending' AND created_at < ?1")?;
-        for row in s.query_map([&before], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<String>>(2)?)))? {
-            let (id, bot, cl_ord_id) = row?;
-            match bot {
-                Some(bot) => super::log(&format!("[engine] api order {id} (bot {bot}, cl_ord_id {cl_ord_id:?}) was mid-flight at a restart; its intent's recovery settles it")),
-                // §2.5: no intent recovers it, and it is never sent again; the venue's history shows what happened.
-                None => super::log(&format!("[engine] standalone api order {id} (cl_ord_id {cl_ord_id:?}) was mid-flight at a restart; never sent again, its outcome is unknown")),
-            }
-        }
-        drop(s);
-        tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'sending' AND created_at < ?2", [&unknown, &before])?;
+        settle(tx)?;
+        crate::web::rest_idempotency::sweep_dead_claims(tx, built).map_err(|e| EngineError::Data(format!("idempotency keys: {e:?}")))?;
         let before = built.checked_sub_signed(Duration::hours(KEEP_HOURS)).ok_or_else(super::schedule::time_range_error)?;
-        tx.execute(&format!("DELETE FROM rust_api_orders WHERE state IN ('done', 'withdrawn') AND created_at < ?1 AND NOT {RETAINED}"), [format_time(before)])?;
+        let old = format!("SELECT id FROM rust_api_orders WHERE state IN ('done', 'withdrawn') AND created_at < ?1 AND NOT {RETAINED}");
+        tx.execute(&format!("DELETE FROM rust_idempotency_orders WHERE order_id IN ({old})"), [format_time(before)])?;
+        tx.execute(&format!("DELETE FROM rust_api_orders WHERE id IN ({old})"), [format_time(before)])?;
         tx.execute(ORPHANS, [])?;
         Ok(())
     })
+}
+
+/// `sweep_at_start` failed: retried before any request is taken, while the web serves. Every request still queued, taken
+/// or sending is settled as at the start: none is this engine's yet (it took none), and a live request withdrawn here is
+/// answered `venue_busy` (nothing placed), as one no pass took in time. Never a key (a live request's is in progress),
+/// and nothing deleted (a live request may be about to read its withdrawn row).
+pub fn sweep_orders(c: &Connection) -> Result<(), EngineError> { model::locked(c, settle) }
+
+/// The order part of both sweeps.
+fn settle(tx: &Connection) -> Result<(), EngineError> {
+    let busy = serde_json::to_string(&Outcome::Busy).map_err(|e| EngineError::Data(e.to_string()))?;
+    let unknown = serde_json::to_string(&Outcome::Unknown).map_err(|e| EngineError::Data(e.to_string()))?;
+    tx.execute("UPDATE rust_api_orders SET state = 'withdrawn' WHERE state = 'queued'", [])?;
+    tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'taken'", [&busy])?;
+    let mut s = tx.prepare("SELECT id, bot_id, cl_ord_id FROM rust_api_orders WHERE state = 'sending'")?;
+    for row in s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<String>>(2)?)))? {
+        let (id, bot, cl_ord_id) = row?;
+        match bot {
+            Some(bot) => super::log(&format!("[engine] api order {id} (bot {bot}, cl_ord_id {cl_ord_id:?}) was mid-flight at a restart; its intent's recovery settles it")),
+            // §2.5: no intent recovers it, and it is never sent again; the venue's history shows what happened.
+            None => super::log(&format!("[engine] standalone api order {id} (cl_ord_id {cl_ord_id:?}) was mid-flight at a restart; never sent again, its outcome is unknown")),
+        }
+    }
+    drop(s);
+    tx.execute("UPDATE rust_api_orders SET state = 'done', outcome = ?1 WHERE state = 'sending'", [&unknown])?;
+    Ok(())
 }
 
 /// PLAN-A9 O4 §2.3: one taken standalone request, in the engine, nothing sent until its claim. `venue`: the account's

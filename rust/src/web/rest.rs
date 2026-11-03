@@ -199,13 +199,21 @@ async fn create_order(app: App, job: OrderJob) -> Answer {
     let app2 = app.clone();
     let OrderJob { user, key, payload, kind, args, bot_id, unported } = job;
     let first = app.db(move |c| {
-        let id = match super::rest_idempotency::claim(c, &app2, user, key.as_deref(), payload)? {
+        let id = match super::rest_idempotency::claim(c, &app2, user, key.as_deref(), payload, true)? {
             super::rest_idempotency::Claim::Answer(answer) => return Ok(Err(answer)),
             super::rest_idempotency::Claim::Claimed(id) => id,
         };
         // REST is never a dry run.
         let caller = orders::Caller { user, dry_run: false, mcp: false };
-        Ok(match orders::place(c, &app2, caller, kind, &args, bot_id.as_ref())? {
+        // A20d: the order row and the key's link to it commit together, or neither does.
+        let placed = {
+            let tx = crate::engine::model::immediate(c)?;
+            let placed = orders::place(&tx, &app2, caller, kind, &args, bot_id.as_ref())?;
+            if let Placed::Queued(queued) = &placed { super::rest_idempotency::link(&tx, id, queued.id)?; }
+            tx.commit()?;
+            placed
+        };
+        Ok(match placed {
             Placed::Done(res) if res.status == Domain::NotPorted => {
                 super::rest_idempotency::release(c, id)?;
                 Err(failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &unported))

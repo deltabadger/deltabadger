@@ -681,6 +681,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
         // its stored route (a KuCoin HF or UTA family) is this engine's; 2.x's cancel sends on its own route.
         (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
+        // A20d: an order key's link to its order, read only by the start sweep. A key handed back in_progress is 2.x's 409.
+        (Table, "rust_idempotency_orders", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),

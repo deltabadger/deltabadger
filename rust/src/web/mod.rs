@@ -31,7 +31,7 @@ pub mod oauth;
 pub mod rate_limit;
 pub mod refused;
 pub mod rest;
-mod rest_idempotency;
+pub(crate) mod rest_idempotency;
 pub mod ring;
 pub mod rules;
 pub mod server;
