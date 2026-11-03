@@ -685,13 +685,14 @@ mod tests {
     /// One path per slice pattern of route()'s match, read from its source: a literal as written, a binding as an id, and
     /// an arm ending in `rest @ ..` joined to each nested arm under it. An arm in another shape fails here, so a new kind
     /// of pattern is never skipped unseen.
-    fn route_patterns() -> Vec<Vec<String>> {
-        let source = include_str!("rest.rs");
+    fn route_patterns(source: &str) -> Vec<Vec<String>> {
         let body = &source[source.find("fn route(").unwrap()..];
         let body = &body[..body.find("\n}\n").unwrap()];
+        // An arm is one line: its slice pattern, its guard and its `=>`. Any other line that opens a slice pattern fails.
         let arms: Vec<(usize, &str)> = body.lines().filter_map(|line| {
             let inside = line.trim_start().strip_prefix('[')?;
-            line.contains("=>").then(|| (line.len() - line.trim_start().len(), &inside[..inside.find(']').unwrap_or_else(|| panic!("an arm route_patterns cannot read: {line}"))]))
+            let close = inside.find(']').filter(|_| line.contains("=>")).unwrap_or_else(|| panic!("an arm route_patterns cannot read: {line}"));
+            Some((line.len() - line.trim_start().len(), &inside[..close]))
         }).collect();
         let top = arms.iter().map(|(indent, _)| *indent).min().unwrap();
         let (mut paths, mut prefix) = (vec![], None::<Vec<String>>);
@@ -717,6 +718,13 @@ mod tests {
         paths
     }
 
+    /// route_patterns refuses an arm it would otherwise drop: a pattern written over two lines.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_an_arm_over_two_lines() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b),\n        [\"orders\",\n         id] if delete => (c, d),\n    }\n}\n");
+    }
+
     /// The manual's REST table against the router, both ways, and its tools against the MCP catalogue. Undocumented on
     /// purpose: PUT wherever PATCH is served, HEAD wherever GET is, and a `.<format>` suffix on any path (Rails' routing
     /// draws them; a client never needs them).
@@ -733,7 +741,7 @@ mod tests {
             m == method && segments.len() == path.len() && segments.iter().zip(path).all(|(s, p)| s.starts_with(':') || s == p) && *tools == gate_tools(gate)
         });
         let mut undocumented = vec![];
-        for path in route_patterns() {
+        for path in route_patterns(include_str!("rest.rs")) {
             let joined = format!("/api/v1/{}", path.join("/"));
             for method in [Method::GET, Method::POST, Method::PATCH, Method::PUT, Method::DELETE] {
                 let Some(found) = route(&method, &joined) else { continue };
@@ -763,6 +771,8 @@ mod tests {
             include_str!("bot/mcp_input.rs"), include_str!("bot/liquidation.rs"), include_str!("bot/redeploy.rs"), include_str!("bot/split.rs"),
             include_str!("mcp/reads.rs"), include_str!("tracker/api.rs"), include_str!("rules/service.rs"), include_str!("../tax/api.rs"),
         ];
+        // The code a build runs: each file above its tests (this file's own examples below are no codes).
+        let sources = sources.map(|s| s.split("\n#[cfg(test)]").next().unwrap_or(s));
         let code = r#""([a-z][a-z_]*)""#;
         let patterns = [
             // A service's failure: Res::failure and its wrappers, the rules' refuse, rest's failure.

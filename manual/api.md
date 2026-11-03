@@ -276,7 +276,7 @@ token).
 | GET | `/portfolio` | `get_portfolio_summary` | Returns `empty: true` for users with no bots. `501 not_ported` while a bot on an exchange other than Alpaca needs a live price |
 | GET | `/indices` | `list_indices` | Optional `?exchange_name=` |
 | GET | `/orders` | `list_open_orders` | Optional `?exchange_name=`. Lists your bots' open orders on every exchange; orders placed outside Deltabadger are read live from Alpaca only. `unavailable` names an Alpaca account that could not be asked |
-| POST | `/orders` | `market_buy`, `market_sell`, `limit_buy`, `limit_sell` | `type` picks the tool; **Requires `Idempotency-Key`** (see section 5). Interactive Brokers answers `501 not_ported`, and the key is not used up |
+| POST | `/orders` | `market_buy`, `market_sell`, `limit_buy`, `limit_sell` | `type` picks the tool; **Requires `Idempotency-Key`** (see section 5). Interactive Brokers answers `501 not_ported`, and the key stays free |
 | DELETE | `/orders/:id` | `cancel_order` | A numeric id is first looked up among the open orders Deltabadger tracks (from `GET /orders`). Any other id is taken as the exchange's own order id, and `exchange_name` is then required. Interactive Brokers answers `501 not_ported` |
 | GET | `/rules` | `list_rules` | Withdrawal rules; destinations are masked; includes `max_interval` and `unresolved_withdrawal` |
 | POST | `/rules` | `create_rule` | 201, stored as `created`; requires a listed destination and a valid withdrawal key |
@@ -388,8 +388,10 @@ exchange's order identifier (when available) is in `data.upstream`.
 - **Replay** — same key + same request body fingerprint → returns the
   stored response byte-for-byte; the exchange is **not** called again.
   Failed responses (e.g. `502 order_failed`) are stored and replayed too:
-  an exchange-rejected order is a definitive outcome. A `501 not_ported`
-  answer is not stored: the key stays free.
+  an exchange-rejected order is a definitive outcome. On `POST /orders` a
+  `501 not_ported` answer is not stored: the key stays free. On
+  `/bots/:id/liquidations` and `/bots/:id/redeploy` it is stored and replayed
+  like any other answer.
 - **Conflicts:**
   - Same key, request **in progress** (concurrent retry) → `409 idempotency_in_progress`. We do not block-and-wait; retry shortly.
   - Same key, request **completed**, **different body** → `409 idempotency_key_reused`. To retry with a different payload, mint a new key.
@@ -513,9 +515,11 @@ The MCP server at `/mcp` speaks JSON-RPC over HTTP POST, protocol version
   `start_rule` are refused with a `[DRY RUN]` message, since the bot or rule
   would go on to move real money. Every other tool runs as usual. REST is
   never a dry run.
-- **Arguments.** The tools take the REST fields, with two differences:
-  `liquidate_exited_asset` takes one `symbol` (a string) per call, and
-  `set_transaction_price` clears a stated price only with `""`.
+- **Arguments.** Each tool's input schema in `tools/list` is the reference,
+  and it can be narrower than the REST fields. Lists are strings:
+  `create_bot`'s `assets` and `update_bot_settings`' `allocations` take the
+  `"BTC:60,ETH:40"` form only, and `liquidate_exited_asset` takes one `symbol`
+  per call. `set_transaction_price` clears a stated price only with `""`.
 - **Health check.** `GET /mcp/up` answers `{"status":"up","timestamp":"…"}`
   with `Accept: application/json`, and a plain page otherwise. It needs an
   `Authorization: Bearer …` header, but does not check the token.
