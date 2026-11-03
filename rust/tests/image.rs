@@ -856,10 +856,11 @@ fn umbrel(image: &str) -> Umbrel {
 }
 
 impl Umbrel {
-    /// Umbrel starting the step alone (a fresh container each time): its exit code and its whole output.
+    /// Umbrel starting the step alone (a fresh container each time), bounded as `exits`: its exit code and its whole output.
     fn guard(&self) -> (Option<i32>, String) {
         self.project.ok(&["rm", "-fs", "upgrade"]);
-        let code = self.project.compose(&["up", "--exit-code-from", "upgrade", "upgrade"]).status.code();
+        let container = format!("{}-upgrade-1", self.project.name);
+        let code = exits(self.project.command(&["up", "--exit-code-from", "upgrade", "upgrade"]), &container).status.code();
         (code, self.project.ok(&["logs", "--no-color", "--no-log-prefix", "upgrade"]))
     }
 
@@ -973,7 +974,9 @@ fn umbrels_step_upgrades_a_2_34_install_and_3_0_takes_its_jobs_over() {
     // The two wakes run at this start: each job's state for the user shows a run (ended well or not) after the wake.
     let start = Instant::now();
     let wakes = loop {
+        docker(&["pause", &web.id]); // a consistent copy: no write lands between the database and its WAL
         let ran = wakes_ran(&image, &u.storage, user);
+        docker(&["unpause", &web.id]);
         if ran.as_ref().is_some_and(|w| w.len() == 2 && w.iter().all(|(_, ran)| *ran)) || start.elapsed() > Duration::from_secs(90) { break ran; }
         std::thread::sleep(Duration::from_secs(2));
     };
@@ -995,7 +998,7 @@ fn umbrels_step_upgrades_a_2_34_install_and_3_0_takes_its_jobs_over() {
 }
 
 /// The journal's wakes for `user`, sorted by job, each with whether its job state shows a run (last_run_at or
-/// last_error_at) at or after the wake's time. None while the copy can't be read (it is taken from a running engine).
+/// last_error_at) at or after the wake's time. None until the journal is there.
 fn wakes_ran(image: &str, storage: &Volume, user: i64) -> Option<Vec<(String, bool)>> {
     let copy = take(image, storage);
     let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).ok()?;
@@ -1079,8 +1082,8 @@ fn umbrels_step_leaves_every_install_that_is_not_behind_alone() {
 }
 
 /// (e) r1.1, the own-server manual command (B10), on the own-server compose copied into a folder of its own with
-/// SECRET_KEY_BASE in `.env.docker` beside it, offline. A 2.60.0 install: 3.0 refuses it (C1 on the page, r4.1's line
-/// on stderr, nothing changed); then B10's steps exactly: `docker compose stop`, the compose file's image set to
+/// SECRET_KEY_BASE in `.env.docker` beside it, offline. A 2.60.0 install: 3.0 refuses it (503, C1 and r4.1's line on
+/// stderr, nothing changed); then B10's steps exactly: `docker compose stop`, the compose file's image set to
 /// 2.70.21, `docker compose run --rm deltabadger migrate`, the image set back, `docker compose up -d` → taken over, 200.
 #[test]
 fn the_own_server_manual_command_upgrades_a_behind_install() {
@@ -1102,7 +1105,8 @@ fn the_own_server_manual_command_upgrades_a_behind_install() {
     project.ok(&["up", "-d"]);
     let app = project.container("deltabadger");
     app.wait_for("/health-check", 503);
-    assert!(app.stderr().contains(&behind_detail(missing)), "{}", app.logs());
+    let said = app.stderr();
+    assert!(said.contains("this data is from an older version of Deltabadger") && said.contains(&behind_detail(missing)), "{}", app.logs());
     project.ok(&["stop"]);
     assert_eq!(snapshot(&image, &volume), before, "the refused start changes no file");
 
