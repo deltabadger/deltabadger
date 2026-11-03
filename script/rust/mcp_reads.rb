@@ -67,6 +67,11 @@ module McpReads
     result['m3_other_venue'] = [index, McpParity.ready + [
       McpParity.tool('get_exchange_balances', exchange_name: 'Kraken').merge('sql' => ["UPDATE exchanges SET name='Kraken',type='Exchanges::Kraken' WHERE id=1"]),
       McpParity.tool('list_open_orders', exchange_name: 'Kraken')]]
+    # 3.0 A20c: an Alpaca key beside a correct key on an exchange whose open orders are not read live, unfiltered and
+    # filtered (D-OPEN-ORDERS-UNREAD-NAMED: Rails drops that exchange; tests/mcp_reads.rs). REST: the page grid's api_orders_.
+    kraken = ["INSERT INTO exchanges(type,name,maker_fee,taker_fee,created_at,updated_at) VALUES('Exchanges::Kraken','Kraken','0.25','0.4','2026-09-01 00:00:00','2026-09-01 00:00:00')",
+              "INSERT INTO api_keys(user_id,exchange_id,key_type,status,created_at,updated_at) SELECT 1,id,0,1,'2026-09-01 00:00:00','2026-09-01 00:00:00' FROM exchanges WHERE type='Exchanges::Kraken'"]
+    result['m3_unread_venue'] = [index, McpParity.ready + [McpParity.tool('list_open_orders').merge('sql' => kraken), McpParity.tool('list_open_orders', exchange_name: 'Kraken')]]
     failed = index.deep_dup
     %w[account positions orders?limit=50&status=open].each { |p| failed['script']["GET paper-api.alpaca.markets/v2/#{p}"] = { 'status' => 401, 'body' => { 'message' => 'unauthorized' } } }
     result['m3_venue_failure'] = [failed, McpParity.ready + calls.first(2)]
