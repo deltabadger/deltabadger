@@ -2,7 +2,7 @@ manifestVersion: 1
 id: deltabadger
 name: Deltabadger
 category: finance
-version: "2.70.21"
+version: "2.70.21-1"
 tagline: DCA bot for crypto
 icon: https://raw.githubusercontent.com/deltabadger/deltabadger/refs/heads/main/deltabadger/icon.svg
 description: >-
@@ -26,7 +26,7 @@ gallery:
 path: ""
 defaultPassword: ""
 releaseNotes: >-
-  Initial Umbrel release with full DCA automation capabilities.
+  Deltabadger now changes only when you update it here. Nothing else changes.
 submitter: Deltabadger
 submission: https://github.com/deltabadger/deltabadger
 compose: "docker-compose.yml"
