@@ -13,6 +13,8 @@ rescue SQLite3::Exception => e
 end
 missing = Dir.children("db/migrate").filter_map { |file| file[/\A\d+/] } - recorded
 exit 0 if missing.empty?
-puts "Deltabadger: this data is #{missing.size} update(s) behind; bringing it up to date with 2.70.21 first"
+puts "Deltabadger: your data is from an older version, so it's being updated first. This can take a few minutes."
 STDOUT.flush
-exec "docker-entrypoint.sh", "migrate"
+exit 0 if system("docker-entrypoint.sh", "migrate")
+warn "Deltabadger couldn't finish updating your data. Nothing was bought or sold. Restart the app to try again; if it keeps failing, contact support."
+exit 1
