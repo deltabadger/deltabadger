@@ -865,8 +865,8 @@ module Pages
     grid['settings_email_test_sent_de'] = settings_case(test.(200, 'mails' => true), user: owner('locale' => 'de')).merge('app_configs' => custom)
     grid['settings_email_test_sent_env'] = settings_case(test.(200, 'mails' => true)).merge('env' => { 'SMTP_ADDRESS' => 'smtp.example.com' })
     # D-TEST-EMAIL-ERROR-SAFE: Rails shows the server's reply, which here names the SMTP account.
-    grid['settings_email_test_failed'] = settings_case(test.(200, 'mails' => true)).merge('app_configs' => custom,
-                                                                                         'smtp_failure' => '535 5.7.8 Authentication failed for smtp-user@example.com')
+    grid['settings_email_test_failed'] = settings_case(test.(200, 'mails' => true, 'smtp_failure' => '535 5.7.8 Authentication failed for smtp-user@example.com'))
+                                         .merge('app_configs' => custom)
     grid['settings_email_test_nonadmin'] = settings_case(test.(403), user: member).merge('app_configs' => custom)
     grid['settings_email_disconnect'] = settings_case(disconnect.()).merge('app_configs' => custom)
     grid['settings_email_disconnect_env'] = settings_case(disconnect.()).merge('app_configs' => { 'smtp_provider' => 'env_smtp' })
