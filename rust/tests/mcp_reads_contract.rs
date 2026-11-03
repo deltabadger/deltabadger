@@ -35,9 +35,12 @@ fn required_arguments_and_unknown_fields_match_the_recorded_schemas(){
 }
 
 #[test]
-fn the_ci_command_includes_this_rails_free_binary(){
-    assert!(include_str!("../../.github/workflows/rust.yml").contains("--test mcp_reads_contract"));
+fn the_platform_job_runs_this_rails_free_binary(){
+    assert!(!platform_excluded("mcp_reads_contract"));
 }
+/// Whether rust/tests/platform_excluded.txt keeps `name` off a platform leg (the platform job runs every other file).
+fn platform_excluded(name:&str)->bool{include_str!("platform_excluded.txt").lines().map(|l|l.split('#').next().unwrap().trim()).any(|l|l.rsplit(':').next()==Some(name))}
+
 
 #[test]
 fn every_row_cap_accepts_the_boundary_and_refuses_the_next_row(){

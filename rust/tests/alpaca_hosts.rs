@@ -101,7 +101,7 @@ fn only_the_alpaca_venue_names_the_live_host() {
             }
         }
     }
-    let naming: Vec<_> = naming.iter().map(|p| p.strip_prefix(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap().display().to_string()).collect();
+    let naming: Vec<_> = naming.iter().map(|p| p.strip_prefix(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap().display().to_string().replace('\\', "/")).collect();
     assert_eq!(naming, ["src/venue/alpaca.rs"], "the live host must be named only by venue/alpaca.rs");
 }
 
