@@ -1,0 +1,3024 @@
+{
+  "honeymaker": "0.12.5",
+  "scenarios": [
+    {
+      "name": "binance_normal",
+      "venue": "Exchanges::Binance",
+      "script": {
+        "GET /api/v3/exchangeInfo?permissions=[\"SPOT\"]": [
+          {
+            "status": 200,
+            "body": {
+              "timezone": "UTC",
+              "serverTime": 1761000000000,
+              "rateLimits": [],
+              "symbols": [
+                {
+                  "symbol": "BTCUSDT",
+                  "status": "TRADING",
+                  "baseAsset": "BTC",
+                  "baseAssetPrecision": 8,
+                  "quoteAsset": "USDT",
+                  "quotePrecision": 8,
+                  "quoteAssetPrecision": 8,
+                  "orderTypes": [
+                    "LIMIT",
+                    "MARKET"
+                  ],
+                  "isSpotTradingAllowed": true,
+                  "filters": [
+                    {
+                      "filterType": "PRICE_FILTER",
+                      "minPrice": "0.01000000",
+                      "maxPrice": "1000000.00000000",
+                      "tickSize": "0.01000000"
+                    },
+                    {
+                      "filterType": "LOT_SIZE",
+                      "minQty": "0.00001000",
+                      "maxQty": "9000.00000000",
+                      "stepSize": "0.00001000"
+                    },
+                    {
+                      "filterType": "NOTIONAL",
+                      "minNotional": "5.00000000",
+                      "maxNotional": "9000000.00000000"
+                    }
+                  ],
+                  "permissions": [],
+                  "permissionSets": [
+                    [
+                      "SPOT"
+                    ]
+                  ]
+                },
+                {
+                  "symbol": "ETHBTC",
+                  "status": "BREAK",
+                  "baseAsset": "ETH",
+                  "baseAssetPrecision": 8,
+                  "quoteAsset": "BTC",
+                  "quotePrecision": 8,
+                  "quoteAssetPrecision": 8,
+                  "orderTypes": [
+                    "LIMIT",
+                    "MARKET"
+                  ],
+                  "isSpotTradingAllowed": true,
+                  "filters": [
+                    {
+                      "filterType": "PRICE_FILTER",
+                      "minPrice": "0.01000000",
+                      "maxPrice": "1000000.00000000",
+                      "tickSize": "0.00001000"
+                    },
+                    {
+                      "filterType": "LOT_SIZE",
+                      "minQty": "0.00010000",
+                      "maxQty": "9000.00000000",
+                      "stepSize": "0.00010000"
+                    },
+                    {
+                      "filterType": "MIN_NOTIONAL",
+                      "minNotional": "5.00000000"
+                    }
+                  ],
+                  "permissions": [],
+                  "permissionSets": [
+                    [
+                      "SPOT"
+                    ]
+                  ]
+                },
+                {
+                  "symbol": "PEPEUSDT",
+                  "status": "TRADING",
+                  "baseAsset": "PEPE",
+                  "baseAssetPrecision": 8,
+                  "quoteAsset": "USDT",
+                  "quotePrecision": 8,
+                  "quoteAssetPrecision": 8,
+                  "orderTypes": [
+                    "LIMIT",
+                    "MARKET"
+                  ],
+                  "isSpotTradingAllowed": true,
+                  "filters": [
+                    {
+                      "filterType": "PRICE_FILTER",
+                      "minPrice": "0.01000000",
+                      "maxPrice": "1000000.00000000",
+                      "tickSize": "0.00000001"
+                    },
+                    {
+                      "filterType": "LOT_SIZE",
+                      "minQty": "1.00000000",
+                      "maxQty": "9000.00000000",
+                      "stepSize": "1.00000000"
+                    },
+                    {
+                      "filterType": "NOTIONAL",
+                      "minNotional": "5.00000000",
+                      "maxNotional": "9000000.00000000"
+                    }
+                  ],
+                  "permissions": [],
+                  "permissionSets": [
+                    [
+                      "SPOT"
+                    ]
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.binance.com",
+          "path": "/api/v3/exchangeInfo",
+          "query": [
+            [
+              "permissions",
+              "[\"SPOT\"]"
+            ]
+          ],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTCUSDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": "0.00001",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": "9000.0",
+            "maximum_quote_size": "9000000.0",
+            "base_decimals": 5,
+            "quote_decimals": 8,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETHBTC",
+            "base": "ETH",
+            "quote": "BTC",
+            "minimum_base_size": "0.0001",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": "9000.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 4,
+            "quote_decimals": 8,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "PEPEUSDT",
+            "base": "PEPE",
+            "quote": "USDT",
+            "minimum_base_size": "1.0",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": "9000.0",
+            "maximum_quote_size": "9000000.0",
+            "base_decimals": 0,
+            "quote_decimals": 8,
+            "price_decimals": 8,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "binance_us_normal",
+      "venue": "Exchanges::BinanceUs",
+      "script": {
+        "GET /api/v3/exchangeInfo?permissions=[\"SPOT\"]": [
+          {
+            "status": 200,
+            "body": {
+              "timezone": "UTC",
+              "serverTime": 1761000000000,
+              "rateLimits": [],
+              "symbols": [
+                {
+                  "symbol": "BTCUSD",
+                  "status": "TRADING",
+                  "baseAsset": "BTC",
+                  "baseAssetPrecision": 8,
+                  "quoteAsset": "USD",
+                  "quotePrecision": 8,
+                  "quoteAssetPrecision": 8,
+                  "orderTypes": [
+                    "LIMIT",
+                    "MARKET"
+                  ],
+                  "isSpotTradingAllowed": true,
+                  "filters": [
+                    {
+                      "filterType": "PRICE_FILTER",
+                      "minPrice": "0.01000000",
+                      "maxPrice": "1000000.00000000",
+                      "tickSize": "0.01000000"
+                    },
+                    {
+                      "filterType": "LOT_SIZE",
+                      "minQty": "0.00001000",
+                      "maxQty": "9000.00000000",
+                      "stepSize": "0.00001000"
+                    },
+                    {
+                      "filterType": "NOTIONAL",
+                      "minNotional": "5.00000000",
+                      "maxNotional": "9000000.00000000"
+                    }
+                  ],
+                  "permissions": [],
+                  "permissionSets": [
+                    [
+                      "SPOT"
+                    ]
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.binance.us",
+          "path": "/api/v3/exchangeInfo",
+          "query": [
+            [
+              "permissions",
+              "[\"SPOT\"]"
+            ]
+          ],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTCUSD",
+            "base": "BTC",
+            "quote": "USD",
+            "minimum_base_size": "0.00001",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": "9000.0",
+            "maximum_quote_size": "9000000.0",
+            "base_decimals": 5,
+            "quote_decimals": 8,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "binance_error",
+      "venue": "Exchanges::Binance",
+      "script": {
+        "GET /api/v3/exchangeInfo?permissions=[\"SPOT\"]": [
+          {
+            "status": 400,
+            "body": {
+              "code": -1121,
+              "msg": "Invalid symbol."
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.binance.com",
+          "path": "/api/v3/exchangeInfo",
+          "query": [
+            [
+              "permissions",
+              "[\"SPOT\"]"
+            ]
+          ],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "Invalid symbol."
+        ],
+        "message": "Invalid symbol."
+      }
+    },
+    {
+      "name": "bingx_normal",
+      "venue": "Exchanges::Bingx",
+      "script": {
+        "GET /openApi/spot/v1/common/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": 0,
+              "msg": "",
+              "debugMsg": "",
+              "data": {
+                "symbols": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "minQty": 0.0001,
+                    "maxQty": 100,
+                    "minNotional": 0.5,
+                    "maxNotional": 20000,
+                    "status": 1,
+                    "tickSize": 0.01,
+                    "stepSize": 1e-05,
+                    "apiStateSell": true,
+                    "apiStateBuy": true,
+                    "timeOnline": 0
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "minNotional": 0.5,
+                    "maxNotional": 20000,
+                    "status": 0,
+                    "tickSize": 0.01,
+                    "stepSize": 0.0001
+                  },
+                  {
+                    "symbol": "NODASH",
+                    "minNotional": 1,
+                    "maxNotional": 1,
+                    "status": 1,
+                    "tickSize": 0.1,
+                    "stepSize": 1
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://open-api.bingx.com",
+          "path": "/openApi/spot/v1/common/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTC-USDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": 0,
+            "minimum_quote_size": "0.5",
+            "maximum_base_size": null,
+            "maximum_quote_size": "20000.0",
+            "base_decimals": 5,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETH-USDT",
+            "base": "ETH",
+            "quote": "USDT",
+            "minimum_base_size": 0,
+            "minimum_quote_size": "0.5",
+            "maximum_base_size": null,
+            "maximum_quote_size": "20000.0",
+            "base_decimals": 4,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "bingx_exponent_steps",
+      "venue": "Exchanges::Bingx",
+      "script": {
+        "GET /openApi/spot/v1/common/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": 0,
+              "msg": "",
+              "data": {
+                "symbols": [
+                  {
+                    "symbol": "SHIB-USDT",
+                    "minNotional": 0.5,
+                    "maxNotional": 20000,
+                    "status": 1,
+                    "tickSize": 1e-08,
+                    "stepSize": 1e-06
+                  },
+                  {
+                    "symbol": "PEPE-USDT",
+                    "minNotional": 0.5,
+                    "maxNotional": 20000,
+                    "status": 1,
+                    "tickSize": 1.5e-11,
+                    "stepSize": 1e-05
+                  },
+                  {
+                    "symbol": "DOGE-USDT",
+                    "minNotional": 0.5,
+                    "maxNotional": 20000,
+                    "status": 1,
+                    "tickSize": "1e-7",
+                    "stepSize": 0.0001
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://open-api.bingx.com",
+          "path": "/openApi/spot/v1/common/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "SHIB-USDT",
+            "base": "SHIB",
+            "quote": "USDT",
+            "minimum_base_size": 0,
+            "minimum_quote_size": "0.5",
+            "maximum_base_size": null,
+            "maximum_quote_size": "20000.0",
+            "base_decimals": 5,
+            "quote_decimals": 5,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "PEPE-USDT",
+            "base": "PEPE",
+            "quote": "USDT",
+            "minimum_base_size": 0,
+            "minimum_quote_size": "0.5",
+            "maximum_base_size": null,
+            "maximum_quote_size": "20000.0",
+            "base_decimals": 5,
+            "quote_decimals": 5,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "DOGE-USDT",
+            "base": "DOGE",
+            "quote": "USDT",
+            "minimum_base_size": 0,
+            "minimum_quote_size": "0.5",
+            "maximum_base_size": null,
+            "maximum_quote_size": "20000.0",
+            "base_decimals": 4,
+            "quote_decimals": 0,
+            "price_decimals": 0,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "bingx_code_error",
+      "venue": "Exchanges::Bingx",
+      "script": {
+        "GET /openApi/spot/v1/common/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": 100410,
+              "msg": "rate limited",
+              "data": {}
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://open-api.bingx.com",
+          "path": "/openApi/spot/v1/common/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "rate limited"
+        ],
+        "message": "rate limited"
+      }
+    },
+    {
+      "name": "bitget_normal",
+      "venue": "Exchanges::Bitget",
+      "script": {
+        "GET /api/v2/spot/public/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1,
+              "data": [
+                {
+                  "symbol": "BTCUSDT",
+                  "baseCoin": "BTC",
+                  "quoteCoin": "USDT",
+                  "minTradeAmount": "0",
+                  "maxTradeAmount": "900000000",
+                  "takerFeeRate": "0.001",
+                  "makerFeeRate": "0.001",
+                  "pricePrecision": "2",
+                  "quantityPrecision": "6",
+                  "quotePrecision": "8",
+                  "status": "online",
+                  "minTradeUSDT": "1"
+                },
+                {
+                  "symbol": "ETHBTC",
+                  "baseCoin": "ETH",
+                  "quoteCoin": "BTC",
+                  "minTradeAmount": "0.0001",
+                  "maxTradeAmount": "10000",
+                  "pricePrecision": "6",
+                  "quantityPrecision": "4",
+                  "quotePrecision": "8",
+                  "status": "online",
+                  "minTradeUSDT": "1"
+                },
+                {
+                  "symbol": "BTCEUR",
+                  "baseCoin": "BTC",
+                  "quoteCoin": "EUR",
+                  "minTradeAmount": "0",
+                  "pricePrecision": "2",
+                  "quantityPrecision": "6",
+                  "quotePrecision": "2",
+                  "status": "halt",
+                  "minTradeUSDT": "5"
+                },
+                {
+                  "symbol": "FOOBAR",
+                  "baseCoin": "FOO",
+                  "quoteCoin": "BAR",
+                  "minTradeAmount": "1",
+                  "pricePrecision": 4,
+                  "quantityPrecision": 2,
+                  "quotePrecision": 4,
+                  "status": "gray",
+                  "minTradeUSDT": "1"
+                },
+                {
+                  "symbol": "XUSDT",
+                  "baseCoin": "X",
+                  "quoteCoin": "USDT",
+                  "minTradeAmount": "1",
+                  "pricePrecision": "4",
+                  "quantityPrecision": "2",
+                  "quotePrecision": "4",
+                  "status": "online"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/market/tickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "data": [
+                {
+                  "symbol": "BTCUSDT",
+                  "lastPr": "60000",
+                  "bidPr": "59999"
+                },
+                {
+                  "symbol": "USDTEUR",
+                  "lastPr": "0.92"
+                },
+                {
+                  "symbol": "BTCUSDT",
+                  "lastPr": "61000"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.bitget.com",
+          "path": "/api/v2/spot/public/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.bitget.com",
+          "path": "/api/v2/spot/market/tickers",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTCUSDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": "0.0",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "900000000.0",
+            "maximum_quote_size": null,
+            "base_decimals": 6,
+            "quote_decimals": 8,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETHBTC",
+            "base": "ETH",
+            "quote": "BTC",
+            "minimum_base_size": "0.0001",
+            "minimum_quote_size": "0.000016393442622950819672131147540984",
+            "maximum_base_size": "10000.0",
+            "maximum_quote_size": null,
+            "base_decimals": 4,
+            "quote_decimals": 8,
+            "price_decimals": 6,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "BTCEUR",
+            "base": "BTC",
+            "quote": "EUR",
+            "minimum_base_size": "0.0",
+            "minimum_quote_size": "4.6",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 6,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "FOOBAR",
+            "base": "FOO",
+            "quote": "BAR",
+            "minimum_base_size": "1.0",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 2,
+            "quote_decimals": 4,
+            "price_decimals": 4,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "XUSDT",
+            "base": "X",
+            "quote": "USDT",
+            "minimum_base_size": "1.0",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 2,
+            "quote_decimals": 4,
+            "price_decimals": 4,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "bitget_price_failure",
+      "venue": "Exchanges::Bitget",
+      "script": {
+        "GET /api/v2/spot/public/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "data": [
+                {
+                  "symbol": "ETHBTC",
+                  "baseCoin": "ETH",
+                  "quoteCoin": "BTC",
+                  "minTradeAmount": "0.0001",
+                  "pricePrecision": "6",
+                  "quantityPrecision": "4",
+                  "quotePrecision": "8",
+                  "status": "online",
+                  "minTradeUSDT": "1"
+                },
+                {
+                  "symbol": "BTCUSDT",
+                  "baseCoin": "BTC",
+                  "quoteCoin": "USDT",
+                  "minTradeAmount": "0",
+                  "pricePrecision": "2",
+                  "quantityPrecision": "6",
+                  "quotePrecision": "8",
+                  "status": "online",
+                  "minTradeUSDT": "1"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/market/tickers": [
+          {
+            "status": 500,
+            "body": {
+              "code": "40015",
+              "msg": "system error"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.bitget.com",
+          "path": "/api/v2/spot/public/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.bitget.com",
+          "path": "/api/v2/spot/market/tickers",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "ETHBTC",
+            "base": "ETH",
+            "quote": "BTC",
+            "minimum_base_size": "0.0001",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 4,
+            "quote_decimals": 8,
+            "price_decimals": 6,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "BTCUSDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": "0.0",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 6,
+            "quote_decimals": 8,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "bitrue_normal",
+      "venue": "Exchanges::Bitrue",
+      "script": {
+        "GET /api/v1/exchangeInfo": [
+          {
+            "status": 200,
+            "body": {
+              "timezone": "CTT",
+              "symbols": [
+                {
+                  "symbol": "BTCUSDT",
+                  "status": "TRADING",
+                  "baseAsset": "btc",
+                  "baseAssetPrecision": 5,
+                  "quoteAsset": "usdt",
+                  "quotePrecision": 2,
+                  "filters": [
+                    {
+                      "filterType": "PRICE_FILTER",
+                      "minPrice": "0.01",
+                      "maxPrice": "1000000",
+                      "tickSize": "0.01"
+                    },
+                    {
+                      "filterType": "LOT_SIZE",
+                      "minQty": "0.00001",
+                      "minVal": "5",
+                      "maxQty": "1000",
+                      "stepSize": "0.00001"
+                    }
+                  ]
+                },
+                {
+                  "symbol": "XRPUSDT",
+                  "status": "HALT",
+                  "baseAsset": "xrp",
+                  "baseAssetPrecision": 1,
+                  "quoteAsset": "usdt",
+                  "quotePrecision": 5
+                },
+                {
+                  "symbol": "ETHUSDT",
+                  "status": "TRADING",
+                  "baseAsset": "eth",
+                  "baseAssetPrecision": 4,
+                  "quoteAsset": "usdt",
+                  "quotePrecision": 2,
+                  "filters": [
+                    {
+                      "filterType": "PRICE_FILTER",
+                      "tickSize": "0.10"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://openapi.bitrue.com",
+          "path": "/api/v1/exchangeInfo",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTCUSDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": "0.00001",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": "1000.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 5,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "XRPUSDT",
+            "base": "XRP",
+            "quote": "USDT",
+            "minimum_base_size": "0.0",
+            "minimum_quote_size": "0.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 1,
+            "quote_decimals": 5,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "ETHUSDT",
+            "base": "ETH",
+            "quote": "USDT",
+            "minimum_base_size": "0.0",
+            "minimum_quote_size": "0.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 4,
+            "quote_decimals": 2,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "bitvavo_normal",
+      "venue": "Exchanges::Bitvavo",
+      "script": {
+        "GET /v2/markets": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "market": "BTC-EUR",
+                "status": "trading",
+                "base": "BTC",
+                "quote": "EUR",
+                "pricePrecision": 5,
+                "tickSize": "1",
+                "minOrderInBaseAsset": "0.000061",
+                "minOrderInQuoteAsset": "5",
+                "maxOrderInBaseAsset": "1000000000",
+                "maxOrderInQuoteAsset": "1000000000",
+                "quantityDecimals": 8,
+                "notionalDecimals": 2,
+                "orderTypes": [
+                  "market",
+                  "limit"
+                ]
+              },
+              {
+                "market": "ETH-EUR",
+                "status": "halted",
+                "tickSize": "0.01",
+                "minOrderInBaseAsset": "0.001",
+                "minOrderInQuoteAsset": "5",
+                "quantityDecimals": 6,
+                "notionalDecimals": 2
+              },
+              {
+                "market": "SHIB-EUR",
+                "status": "auction",
+                "tickSize": "0.000000001",
+                "minOrderInBaseAsset": "100000",
+                "minOrderInQuoteAsset": "5"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.bitvavo.com",
+          "path": "/v2/markets",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTC-EUR",
+            "base": "BTC",
+            "quote": "EUR",
+            "minimum_base_size": "0.000061",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 0,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETH-EUR",
+            "base": "ETH",
+            "quote": "EUR",
+            "minimum_base_size": "0.001",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 6,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "SHIB-EUR",
+            "base": "SHIB",
+            "quote": "EUR",
+            "minimum_base_size": "100000.0",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 8,
+            "price_decimals": 9,
+            "available": true,
+            "trading_enabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "bybit_normal",
+      "venue": "Exchanges::Bybit",
+      "script": {
+        "GET /v5/market/instruments-info?category=spot": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "category": "spot",
+                "list": [
+                  {
+                    "symbol": "BTCUSDT",
+                    "baseCoin": "BTC",
+                    "quoteCoin": "USDT",
+                    "innovation": "0",
+                    "status": "Trading",
+                    "marginTrading": "both",
+                    "lotSizeFilter": {
+                      "basePrecision": "0.000001",
+                      "quotePrecision": "0.00000001",
+                      "minOrderQty": "0.000048",
+                      "maxOrderQty": "71.73956243",
+                      "minOrderAmt": "1",
+                      "maxOrderAmt": "2000000"
+                    },
+                    "priceFilter": {
+                      "tickSize": "0.01"
+                    }
+                  },
+                  {
+                    "symbol": "NEWUSDT",
+                    "baseCoin": "NEW",
+                    "quoteCoin": "USDT",
+                    "status": "PreLaunch",
+                    "lotSizeFilter": {
+                      "basePrecision": "0.01",
+                      "quotePrecision": "0.000001",
+                      "minOrderQty": "1",
+                      "maxOrderQty": "1000000",
+                      "minOrderAmt": "5",
+                      "maxOrderAmt": "100000"
+                    },
+                    "priceFilter": {
+                      "tickSize": "0.0001"
+                    }
+                  }
+                ]
+              },
+              "retExtInfo": {},
+              "time": 1
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.bybit.com",
+          "path": "/v5/market/instruments-info",
+          "query": [
+            [
+              "category",
+              "spot"
+            ]
+          ],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTCUSDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": "0.000048",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "71.73956243",
+            "maximum_quote_size": "2000000.0",
+            "base_decimals": 6,
+            "quote_decimals": 8,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "NEWUSDT",
+            "base": "NEW",
+            "quote": "USDT",
+            "minimum_base_size": "1.0",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": "1000000.0",
+            "maximum_quote_size": "100000.0",
+            "base_decimals": 2,
+            "quote_decimals": 6,
+            "price_decimals": 4,
+            "available": true,
+            "trading_enabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "bybit_error",
+      "venue": "Exchanges::Bybit",
+      "script": {
+        "GET /v5/market/instruments-info?category=spot": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 10001,
+              "retMsg": "params error",
+              "result": {}
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.bybit.com",
+          "path": "/v5/market/instruments-info",
+          "query": [
+            [
+              "category",
+              "spot"
+            ]
+          ],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "params error"
+        ],
+        "message": "params error"
+      }
+    },
+    {
+      "name": "coinbase_flags_and_blacklist",
+      "venue": "Exchanges::Coinbase",
+      "script": {
+        "GET /api/v3/brokerage/market/products": [
+          {
+            "status": 200,
+            "body": {
+              "num_products": 8,
+              "products": [
+                {
+                  "product_id": "BTC-USD",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "BTC",
+                  "quote_name": "USD",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "BTC",
+                  "quote_currency_id": "USD"
+                },
+                {
+                  "product_id": "ETH-USD",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "ETH",
+                  "quote_name": "USD",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "ETH",
+                  "quote_currency_id": "USD",
+                  "trading_disabled": true
+                },
+                {
+                  "product_id": "SOL-USD",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "SOL",
+                  "quote_name": "USD",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "SOL",
+                  "quote_currency_id": "USD",
+                  "limit_only": true
+                },
+                {
+                  "product_id": "ADA-USD",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "ADA",
+                  "quote_name": "USD",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "ADA",
+                  "quote_currency_id": "USD",
+                  "status": "delisted"
+                },
+                {
+                  "product_id": "RNDR-USD",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "RNDR",
+                  "quote_name": "USD",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "RNDR",
+                  "quote_currency_id": "USD",
+                  "status": "online"
+                },
+                {
+                  "product_id": "XRP-USD",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "XRP",
+                  "quote_name": "USD",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "XRP",
+                  "quote_currency_id": "USD",
+                  "cancel_only": true,
+                  "status": "online"
+                },
+                {
+                  "product_id": "DOGE-USD",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "DOGE",
+                  "quote_name": "USD",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "DOGE",
+                  "quote_currency_id": "USD",
+                  "is_disabled": true
+                },
+                {
+                  "product_id": "USDC-EUR",
+                  "price": "1.5",
+                  "base_increment": "0.00000001",
+                  "quote_increment": "0.01",
+                  "quote_min_size": "1",
+                  "quote_max_size": "150000000",
+                  "base_min_size": "0.00000001",
+                  "base_max_size": "3400",
+                  "base_name": "USDC",
+                  "quote_name": "EUR",
+                  "price_increment": "0.01",
+                  "product_type": "SPOT",
+                  "base_currency_id": "USDC",
+                  "quote_currency_id": "EUR",
+                  "status": "online",
+                  "trading_disabled": false
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.coinbase.com",
+          "path": "/api/v3/brokerage/market/products",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTC-USD",
+            "base": "BTC",
+            "quote": "USD",
+            "minimum_base_size": "0.00000001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "3400.0",
+            "maximum_quote_size": "150000000.0",
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETH-USD",
+            "base": "ETH",
+            "quote": "USD",
+            "minimum_base_size": "0.00000001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "3400.0",
+            "maximum_quote_size": "150000000.0",
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "SOL-USD",
+            "base": "SOL",
+            "quote": "USD",
+            "minimum_base_size": "0.00000001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "3400.0",
+            "maximum_quote_size": "150000000.0",
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "ADA-USD",
+            "base": "ADA",
+            "quote": "USD",
+            "minimum_base_size": "0.00000001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "3400.0",
+            "maximum_quote_size": "150000000.0",
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "XRP-USD",
+            "base": "XRP",
+            "quote": "USD",
+            "minimum_base_size": "0.00000001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "3400.0",
+            "maximum_quote_size": "150000000.0",
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "DOGE-USD",
+            "base": "DOGE",
+            "quote": "USD",
+            "minimum_base_size": "0.00000001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "3400.0",
+            "maximum_quote_size": "150000000.0",
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "USDC-EUR",
+            "base": "USDC",
+            "quote": "EUR",
+            "minimum_base_size": "0.00000001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "3400.0",
+            "maximum_quote_size": "150000000.0",
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "coinbase_failure",
+      "venue": "Exchanges::Coinbase",
+      "script": {
+        "GET /api/v3/brokerage/market/products": [
+          {
+            "status": 503,
+            "body": "upstream unavailable"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.coinbase.com",
+          "path": "/api/v3/brokerage/market/products",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "Failed to get Coinbase products"
+        ],
+        "message": "Failed to get Coinbase products"
+      }
+    },
+    {
+      "name": "gemini_normal",
+      "venue": "Exchanges::Gemini",
+      "script": {
+        "GET /v1/symbols": [
+          {
+            "status": 200,
+            "body": [
+              "btcusd",
+              "ethbtc",
+              "btcgusdperp",
+              "solusd"
+            ]
+          }
+        ],
+        "GET /v1/symbols/details/btcusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCUSD",
+              "base_currency": "BTC",
+              "quote_currency": "USD",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ],
+        "GET /v1/symbols/details/ethbtc": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "ETHBTC",
+              "base_currency": "ETH",
+              "quote_currency": "BTC",
+              "tick_size": 1e-06,
+              "quote_increment": 1e-05,
+              "min_order_size": "0.001",
+              "status": "closed",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "BTC"
+            }
+          }
+        ],
+        "GET /v1/symbols/details/btcgusdperp": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCGUSDPERP",
+              "base_currency": "BTC",
+              "quote_currency": "GUSD",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "swap",
+              "contract_type": "vanilla",
+              "contract_price_currency": "GUSD"
+            }
+          }
+        ],
+        "GET /v1/symbols/details/solusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "SOLUSD",
+              "base_currency": "sol",
+              "quote_currency": "usd",
+              "min_order_size": "0.01",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "usd"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 1
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/ethbtc",
+          "query": [],
+          "body": null,
+          "at": 2
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcgusdperp",
+          "query": [],
+          "body": null,
+          "at": 3
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/solusd",
+          "query": [],
+          "body": null,
+          "at": 4
+        }
+      ],
+      "slept": 4,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "btcusd",
+            "base": "BTC",
+            "quote": "USD",
+            "minimum_base_size": "0.00001",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ethbtc",
+            "base": "ETH",
+            "quote": "BTC",
+            "minimum_base_size": "0.001",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 6,
+            "quote_decimals": 5,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "solusd",
+            "base": "SOL",
+            "quote": "USD",
+            "minimum_base_size": "0.01",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "gemini_retry_success",
+      "venue": "Exchanges::Gemini",
+      "script": {
+        "GET /v1/symbols": [
+          {
+            "status": 503,
+            "body": {
+              "result": "error",
+              "reason": "System",
+              "message": "busy"
+            }
+          },
+          {
+            "status": 200,
+            "body": [
+              "btcusd"
+            ]
+          }
+        ],
+        "GET /v1/symbols/details/btcusd": [
+          {
+            "status": 429,
+            "body": {
+              "result": "error",
+              "reason": "RateLimited",
+              "message": "slow down"
+            }
+          },
+          {
+            "status": 502,
+            "body": "bad gateway"
+          },
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCUSD",
+              "base_currency": "BTC",
+              "quote_currency": "USD",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 2
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 3
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 5
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 9
+        }
+      ],
+      "slept": 9,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "btcusd",
+            "base": "BTC",
+            "quote": "USD",
+            "minimum_base_size": "0.00001",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "gemini_detail_failure",
+      "venue": "Exchanges::Gemini",
+      "script": {
+        "GET /v1/symbols": [
+          {
+            "status": 200,
+            "body": [
+              "btcusd",
+              "ethusd"
+            ]
+          }
+        ],
+        "GET /v1/symbols/details/btcusd": [
+          {
+            "status": 503,
+            "body": {
+              "result": "error",
+              "reason": "Maintenance",
+              "message": "down"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 1
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 3
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 7
+        }
+      ],
+      "slept": 7,
+      "rails": {
+        "errors": [
+          "Gemini btcusd: {\"result\":\"error\",\"reason\":\"Maintenance\",\"message\":\"down\"}"
+        ],
+        "message": "Gemini btcusd: {\"result\":\"error\",\"reason\":\"Maintenance\",\"message\":\"down\"}"
+      }
+    },
+    {
+      "name": "gemini_detail_refused",
+      "venue": "Exchanges::Gemini",
+      "script": {
+        "GET /v1/symbols": [
+          {
+            "status": 200,
+            "body": [
+              "btcusd",
+              "ethusd"
+            ]
+          }
+        ],
+        "GET /v1/symbols/details/btcusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCUSD",
+              "base_currency": "BTC",
+              "quote_currency": "USD",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ],
+        "GET /v1/symbols/details/ethusd": [
+          {
+            "status": 400,
+            "body": {
+              "result": "error",
+              "reason": "InvalidSymbol",
+              "message": "no such symbol"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 1
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/ethusd",
+          "query": [],
+          "body": null,
+          "at": 2
+        }
+      ],
+      "slept": 2,
+      "rails": {
+        "errors": [
+          "Gemini ethusd: {\"result\":\"error\",\"reason\":\"InvalidSymbol\",\"message\":\"no such symbol\"}"
+        ],
+        "message": "Gemini ethusd: {\"result\":\"error\",\"reason\":\"InvalidSymbol\",\"message\":\"no such symbol\"}"
+      }
+    },
+    {
+      "name": "gemini_missing_product_type",
+      "venue": "Exchanges::Gemini",
+      "script": {
+        "GET /v1/symbols": [
+          {
+            "status": 200,
+            "body": [
+              "btcusd",
+              "ethusd"
+            ]
+          }
+        ],
+        "GET /v1/symbols/details/btcusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCUSD",
+              "base_currency": "BTC",
+              "quote_currency": "USD",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 1
+        }
+      ],
+      "slept": 1,
+      "rails": {
+        "errors": [
+          "Gemini btcusd: no product_type in its details"
+        ],
+        "message": "Gemini btcusd: no product_type in its details"
+      }
+    },
+    {
+      "name": "gemini_duplicate_pair",
+      "venue": "Exchanges::Gemini",
+      "script": {
+        "GET /v1/symbols": [
+          {
+            "status": 200,
+            "body": [
+              "btcusd",
+              "ethusd",
+              "btcusd2"
+            ]
+          }
+        ],
+        "GET /v1/symbols/details/btcusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCUSD",
+              "base_currency": "BTC",
+              "quote_currency": "USD",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ],
+        "GET /v1/symbols/details/ethusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "ETHUSD",
+              "base_currency": "ETH",
+              "quote_currency": "USD",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ],
+        "GET /v1/symbols/details/btcusd2": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCUSD2",
+              "base_currency": "btc",
+              "quote_currency": "usd",
+              "tick_size": 1e-08,
+              "quote_increment": 0.01,
+              "min_order_size": "0.00001",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "usd"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd",
+          "query": [],
+          "body": null,
+          "at": 1
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/ethusd",
+          "query": [],
+          "body": null,
+          "at": 2
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/btcusd2",
+          "query": [],
+          "body": null,
+          "at": 3
+        }
+      ],
+      "slept": 3,
+      "rails": {
+        "errors": [
+          "Gemini BTC/USD is listed as both btcusd and btcusd2"
+        ],
+        "message": "Gemini BTC/USD is listed as both btcusd and btcusd2"
+      }
+    },
+    {
+      "name": "gemini_exponent_ticks",
+      "venue": "Exchanges::Gemini",
+      "script": {
+        "GET /v1/symbols": [
+          {
+            "status": 200,
+            "body": [
+              "shibusd",
+              "pepeusd"
+            ]
+          }
+        ],
+        "GET /v1/symbols/details/shibusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "SHIBUSD",
+              "base_currency": "SHIB",
+              "quote_currency": "USD",
+              "tick_size": 1,
+              "quote_increment": 1e-09,
+              "min_order_size": "1000",
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ],
+        "GET /v1/symbols/details/pepeusd": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "PEPEUSD",
+              "base_currency": "PEPE",
+              "quote_currency": "USD",
+              "tick_size": "1e-8",
+              "quote_increment": 1.5e-12,
+              "min_order_size": 100000,
+              "status": "open",
+              "wrap_enabled": false,
+              "product_type": "spot",
+              "contract_type": "vanilla",
+              "contract_price_currency": "USD"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/shibusd",
+          "query": [],
+          "body": null,
+          "at": 1
+        },
+        {
+          "method": "GET",
+          "host": "https://api.gemini.com",
+          "path": "/v1/symbols/details/pepeusd",
+          "query": [],
+          "body": null,
+          "at": 2
+        }
+      ],
+      "slept": 2,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "shibusd",
+            "base": "SHIB",
+            "quote": "USD",
+            "minimum_base_size": "1000.0",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 0,
+            "quote_decimals": 9,
+            "price_decimals": 9,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "pepeusd",
+            "base": "PEPE",
+            "quote": "USD",
+            "minimum_base_size": "100000.0",
+            "minimum_quote_size": 0,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 13,
+            "price_decimals": 13,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "hyperliquid_tokens_by_index",
+      "venue": "Exchanges::Hyperliquid",
+      "script": {
+        "POST /info": [
+          {
+            "status": 200,
+            "body": {
+              "tokens": [
+                {
+                  "name": "PURR",
+                  "szDecimals": 0,
+                  "weiDecimals": 5,
+                  "index": 1,
+                  "tokenId": "0xc1fb",
+                  "isCanonical": true
+                },
+                {
+                  "name": "HYPE",
+                  "szDecimals": 2,
+                  "weiDecimals": 8,
+                  "index": 150,
+                  "tokenId": "0x0d01",
+                  "isCanonical": false
+                },
+                {
+                  "name": "USDC",
+                  "szDecimals": 8,
+                  "weiDecimals": 8,
+                  "index": 0,
+                  "tokenId": "0x6d1e",
+                  "isCanonical": true
+                },
+                {
+                  "name": "NOSZ",
+                  "weiDecimals": 8,
+                  "index": 7
+                }
+              ],
+              "universe": [
+                {
+                  "tokens": [
+                    1,
+                    0
+                  ],
+                  "name": "PURR/USDC",
+                  "index": 0,
+                  "isCanonical": true
+                },
+                {
+                  "tokens": [
+                    150,
+                    0
+                  ],
+                  "name": "@107",
+                  "index": 107,
+                  "isCanonical": false
+                },
+                {
+                  "tokens": [
+                    999,
+                    0
+                  ],
+                  "name": "@108",
+                  "index": 108,
+                  "isCanonical": false
+                },
+                {
+                  "tokens": [
+                    7,
+                    0
+                  ],
+                  "name": "@109",
+                  "index": 109,
+                  "isCanonical": false
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "https://api.hyperliquid.xyz",
+          "path": "/info",
+          "query": [],
+          "body": {
+            "type": "spotMeta"
+          },
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "PURR/USDC",
+            "base": "PURR",
+            "quote": "USDC",
+            "minimum_base_size": 0,
+            "minimum_quote_size": 10,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 0,
+            "quote_decimals": 2,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "@107",
+            "base": "HYPE",
+            "quote": "USDC",
+            "minimum_base_size": 0,
+            "minimum_quote_size": 10,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "@109",
+            "base": "NOSZ",
+            "quote": "USDC",
+            "minimum_base_size": 0,
+            "minimum_quote_size": 10,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 0,
+            "quote_decimals": 2,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "hyperliquid_failure",
+      "venue": "Exchanges::Hyperliquid",
+      "script": {
+        "POST /info": [
+          {
+            "status": 500,
+            "body": "null"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "https://api.hyperliquid.xyz",
+          "path": "/info",
+          "query": [],
+          "body": {
+            "type": "spotMeta"
+          },
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "null"
+        ],
+        "message": "null"
+      }
+    },
+    {
+      "name": "kraken_pairs",
+      "venue": "Exchanges::Kraken",
+      "script": {
+        "GET /0/public/AssetPairs?aclass_base=all": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "XXBTZUSD": {
+                  "altname": "XBTUSD",
+                  "wsname": "XBT/USD",
+                  "aclass_base": "currency",
+                  "base": "XXBT",
+                  "aclass_quote": "currency",
+                  "quote": "ZUSD",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "costmin": "0.5",
+                  "tick_size": "0.1",
+                  "status": "online"
+                },
+                "XETHXXBT": {
+                  "altname": "ETHXBT",
+                  "wsname": "ETH/XBT",
+                  "aclass_base": "currency",
+                  "base": "XETH",
+                  "aclass_quote": "currency",
+                  "quote": "XXBT",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 5,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "costmin": "0.00002",
+                  "tick_size": "0.1",
+                  "status": "online"
+                },
+                "DOTUSDG": {
+                  "altname": "DOTUSDG",
+                  "wsname": "DOT/USDG",
+                  "aclass_base": "currency",
+                  "base": "DOT",
+                  "aclass_quote": "currency",
+                  "quote": "USDG",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "costmin": "1",
+                  "tick_size": "0.1",
+                  "status": "reduce_only"
+                },
+                "ADAXAUT": {
+                  "altname": "ADAXAUT",
+                  "wsname": "ADA/XAUT",
+                  "aclass_base": "currency",
+                  "base": "ADA",
+                  "aclass_quote": "currency",
+                  "quote": "XAUT",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "tick_size": "0.1"
+                },
+                "XBTETH.SPV": {
+                  "altname": "AAPLxUSD",
+                  "wsname": "AAPLx/USD",
+                  "aclass_base": "tokenized_asset",
+                  "base": "AAPLx",
+                  "aclass_quote": "currency",
+                  "quote": "ZUSD",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.01",
+                  "costmin": "1",
+                  "tick_size": "0.1",
+                  "status": "online"
+                },
+                "AAPLxUSD": {
+                  "altname": "AAPLxUSD",
+                  "wsname": "AAPLx/USD",
+                  "aclass_base": "tokenized_asset",
+                  "base": "AAPLx",
+                  "aclass_quote": "currency",
+                  "quote": "ZUSD",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.02",
+                  "costmin": "0.5",
+                  "tick_size": "0.1",
+                  "status": "online"
+                },
+                "BLANKWS": {
+                  "altname": "BLANK",
+                  "wsname": " ",
+                  "aclass_base": "currency",
+                  "base": "BL",
+                  "aclass_quote": "currency",
+                  "quote": "ZUSD",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "costmin": "0.5",
+                  "tick_size": "0.1",
+                  "status": "online"
+                },
+                "NOWS": {
+                  "altname": "NOWS",
+                  "wsname": null,
+                  "aclass_base": "currency",
+                  "base": "NO",
+                  "aclass_quote": "currency",
+                  "quote": "ZUSD",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "costmin": "0.5",
+                  "tick_size": "0.1",
+                  "status": "online"
+                },
+                "EURQEUR": {
+                  "altname": "EURQEUR",
+                  "wsname": "EURQ/EUR",
+                  "aclass_base": "currency",
+                  "base": "EURQ",
+                  "aclass_quote": "currency",
+                  "quote": "ZEUR",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "costmin": "0.45",
+                  "tick_size": "0.1",
+                  "status": "online"
+                },
+                "ETHJPY": {
+                  "altname": "ETHJPY",
+                  "wsname": "ETH/JPY",
+                  "aclass_base": "currency",
+                  "base": "XETH",
+                  "aclass_quote": "currency",
+                  "quote": "ZJPY",
+                  "lot": "unit",
+                  "cost_decimals": 5,
+                  "pair_decimals": 1,
+                  "lot_decimals": 8,
+                  "lot_multiplier": 1,
+                  "ordermin": "0.00005",
+                  "costmin": "50",
+                  "tick_size": "0.1",
+                  "status": "online"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.kraken.com",
+          "path": "/0/public/AssetPairs",
+          "query": [
+            [
+              "aclass_base",
+              "all"
+            ]
+          ],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "XBTUSD",
+            "base": "XBT",
+            "quote": "USD",
+            "minimum_base_size": "0.00005",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 5,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETHXBT",
+            "base": "ETH",
+            "quote": "XBT",
+            "minimum_base_size": "0.00005",
+            "minimum_quote_size": "0.00005",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 5,
+            "price_decimals": 5,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "DOTUSDG",
+            "base": "DOT",
+            "quote": "USDG",
+            "minimum_base_size": "0.00005",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 5,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "ADAXAUT",
+            "base": "ADA",
+            "quote": "XAUT",
+            "minimum_base_size": "0.00005",
+            "minimum_quote_size": "0.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 5,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "AAPLxUSD",
+            "base": "AAPLx",
+            "quote": "USD",
+            "minimum_base_size": "0.01",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 5,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "EURQEUR",
+            "base": "EURQ",
+            "quote": "EUR",
+            "minimum_base_size": "0.00005",
+            "minimum_quote_size": "0.5",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 5,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETHJPY",
+            "base": "ETH",
+            "quote": "JPY",
+            "minimum_base_size": "0.00005",
+            "minimum_quote_size": "500.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 8,
+            "quote_decimals": 5,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "kraken_error",
+      "venue": "Exchanges::Kraken",
+      "script": {
+        "GET /0/public/AssetPairs?aclass_base=all": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EService:Unavailable",
+                "EGeneral:Temporary lockout"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.kraken.com",
+          "path": "/0/public/AssetPairs",
+          "query": [
+            [
+              "aclass_base",
+              "all"
+            ]
+          ],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "EService:Unavailable",
+          "EGeneral:Temporary lockout"
+        ],
+        "message": "EService:Unavailable and EGeneral:Temporary lockout"
+      }
+    },
+    {
+      "name": "kucoin_normal",
+      "venue": "Exchanges::Kucoin",
+      "script": {
+        "GET /api/v2/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": [
+                {
+                  "symbol": "BTC-USDT",
+                  "name": "BTC-USDT",
+                  "baseCurrency": "BTC",
+                  "quoteCurrency": "USDT",
+                  "feeCurrency": "USDT",
+                  "market": "USDS",
+                  "baseMinSize": "0.00001",
+                  "quoteMinSize": "0.1",
+                  "baseMaxSize": "10000000000",
+                  "quoteMaxSize": "99999999",
+                  "baseIncrement": "0.00000001",
+                  "quoteIncrement": "0.000001",
+                  "priceIncrement": "0.1",
+                  "priceLimitRate": "0.1",
+                  "minFunds": "0.1",
+                  "isMarginEnabled": true,
+                  "enableTrading": true
+                },
+                {
+                  "symbol": "ETH-BTC",
+                  "baseCurrency": "ETH",
+                  "quoteCurrency": "BTC",
+                  "baseMinSize": "0.0001",
+                  "quoteMinSize": "0.000001",
+                  "baseMaxSize": "10000000000",
+                  "quoteMaxSize": "99999999",
+                  "baseIncrement": "0.0000001",
+                  "quoteIncrement": "0.00000001",
+                  "priceIncrement": "0.000001",
+                  "enableTrading": false
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.kucoin.com",
+          "path": "/api/v2/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTC-USDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": "0.00001",
+            "minimum_quote_size": "0.1",
+            "maximum_base_size": "10000000000.0",
+            "maximum_quote_size": "99999999.0",
+            "base_decimals": 8,
+            "quote_decimals": 6,
+            "price_decimals": 1,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETH-BTC",
+            "base": "ETH",
+            "quote": "BTC",
+            "minimum_base_size": "0.0001",
+            "minimum_quote_size": "0.000001",
+            "maximum_base_size": "10000000000.0",
+            "maximum_quote_size": "99999999.0",
+            "base_decimals": 7,
+            "quote_decimals": 8,
+            "price_decimals": 6,
+            "available": true,
+            "trading_enabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "kucoin_no_data",
+      "venue": "Exchanges::Kucoin",
+      "script": {
+        "GET /api/v2/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": "400100",
+              "msg": "busy"
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.kucoin.com",
+          "path": "/api/v2/symbols",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "Failed to get KuCoin symbols"
+        ],
+        "message": "Failed to get KuCoin symbols"
+      }
+    },
+    {
+      "name": "mexc_normal",
+      "venue": "Exchanges::Mexc",
+      "script": {
+        "GET /api/v3/exchangeInfo": [
+          {
+            "status": 200,
+            "body": {
+              "timezone": "CST",
+              "serverTime": 1,
+              "symbols": [
+                {
+                  "symbol": "BTCUSDT",
+                  "status": "1",
+                  "baseAsset": "BTC",
+                  "baseAssetPrecision": 6,
+                  "quoteAsset": "USDT",
+                  "quotePrecision": 2,
+                  "quoteAssetPrecision": 2,
+                  "baseCommissionPrecision": 6,
+                  "quoteCommissionPrecision": 2,
+                  "orderTypes": [
+                    "LIMIT",
+                    "MARKET"
+                  ],
+                  "isSpotTradingAllowed": true,
+                  "isMarginTradingAllowed": false,
+                  "quoteAmountPrecision": "1",
+                  "baseSizePrecision": "0.000001",
+                  "permissions": [
+                    "SPOT"
+                  ],
+                  "filters": [],
+                  "maxQuoteAmount": "2000000",
+                  "makerCommission": "0",
+                  "takerCommission": "0.0005",
+                  "quoteAmountPrecisionMarket": "5",
+                  "maxQuoteAmountMarket": "100000",
+                  "fullName": "Bitcoin",
+                  "tradeSideType": 1
+                },
+                {
+                  "symbol": "XYZUSDT",
+                  "status": "1",
+                  "baseAsset": "XYZ",
+                  "baseAssetPrecision": 2,
+                  "quoteAsset": "USDT",
+                  "quotePrecision": 6,
+                  "quoteAssetPrecision": 6,
+                  "isSpotTradingAllowed": false,
+                  "quoteAmountPrecision": "1",
+                  "baseSizePrecision": "0",
+                  "filters": [],
+                  "maxQuoteAmount": ""
+                },
+                {
+                  "symbol": "ETHUSDC",
+                  "status": "2",
+                  "baseAsset": "ETH",
+                  "baseAssetPrecision": 4,
+                  "quoteAsset": "USDC",
+                  "quotePrecision": 2,
+                  "quoteAssetPrecision": 2,
+                  "filters": [
+                    {
+                      "filterType": "LOT_SIZE",
+                      "minQty": "0.0001",
+                      "maxQty": "9000",
+                      "stepSize": "0.0001"
+                    },
+                    {
+                      "filterType": "MIN_NOTIONAL",
+                      "minNotional": "1"
+                    },
+                    {
+                      "filterType": "PRICE_FILTER",
+                      "tickSize": "0.01"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.mexc.com",
+          "path": "/api/v3/exchangeInfo",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "BTCUSDT",
+            "base": "BTC",
+            "quote": "USDT",
+            "minimum_base_size": "0.000001",
+            "minimum_quote_size": "5.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "2000000.0",
+            "base_decimals": 6,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "XYZUSDT",
+            "base": "XYZ",
+            "quote": "USDT",
+            "minimum_base_size": "0.0",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 2,
+            "quote_decimals": 6,
+            "price_decimals": 6,
+            "available": true,
+            "trading_enabled": false
+          },
+          {
+            "ticker": "ETHUSDC",
+            "base": "ETH",
+            "quote": "USDC",
+            "minimum_base_size": "0.0001",
+            "minimum_quote_size": "1.0",
+            "maximum_base_size": "9000.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 4,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "mexc_error",
+      "venue": "Exchanges::Mexc",
+      "script": {
+        "GET /api/v3/exchangeInfo": [
+          {
+            "status": 503,
+            "body": "Service Unavailable"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.mexc.com",
+          "path": "/api/v3/exchangeInfo",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "errors": [
+          "Service Unavailable"
+        ],
+        "message": "Service Unavailable"
+      }
+    }
+  ]
+}
