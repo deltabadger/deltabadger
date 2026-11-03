@@ -92,6 +92,24 @@ pub fn parse_explicit_offset(text: &str) -> Option<String> {
         .map(|at| at.with_timezone(&chrono::Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
 }
 
+/// A day's bound in `zone` as Date#beginning_of_day / #end_of_day resolve it (TimeZone#period_for_local(t, dst = true) {
+/// periods.last }): a repeated wall time is the occurrence in DST when exactly one is, else the later one (Magadan
+/// 2014-10-26 00:00 is +10:00); a missing one moves forward an hour at a time (Santiago 2026-09-06 00:00 is 01:00).
+pub fn wall(zone: Tz, naive: chrono::NaiveDateTime) -> Option<DateTime<Utc>> {
+    use chrono::{LocalResult, TimeZone};
+    use chrono_tz::OffsetComponents;
+    let dst = |t: &DateTime<Tz>| !t.offset().dst_offset().is_zero();
+    let mut at = naive;
+    for _ in 0..48 {
+        match zone.from_local_datetime(&at) {
+            LocalResult::Single(t) => return Some(t.with_timezone(&Utc)),
+            LocalResult::Ambiguous(first, second) => return Some(if dst(&first) && !dst(&second) { first } else { second }.with_timezone(&Utc)),
+            LocalResult::None => at = at.checked_add_signed(chrono::Duration::hours(1))?,
+        }
+    }
+    None
+}
+
 #[test]
 fn explicit_offsets_in_every_form() {
     assert_eq!(parse_explicit_offset("2026-11-05T09:30:00+0200").as_deref(), Some("2026-11-05T07:30:00Z"));
@@ -118,6 +136,24 @@ mod advance_tests {
             let at = DateTime::parse_from_rfc3339(from).unwrap().with_timezone(&Utc);
             let want = DateTime::parse_from_rfc3339(to).unwrap().with_timezone(&Utc);
             assert_eq!(advance_days(at, strict(zone).unwrap(), days), Some(want), "{zone} {from} {days}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod wall_tests {
+    /// Recorded with activesupport 8.1.4 (`Time.zone = zone; Date.parse(day).beginning_of_day` and `.end_of_day`).
+    #[test]
+    fn day_bounds_resolve_as_activesupport() {
+        for (zone, day, from, to) in [("Magadan", "2014-10-26", "2014-10-25T14:00:00Z", "2014-10-26T13:59:59.999999Z"),
+                                      ("Santiago", "2026-09-06", "2026-09-06T04:00:00Z", "2026-09-07T02:59:59.999999Z"),
+                                      ("Santiago", "2026-04-05", "2026-04-05T04:00:00Z", "2026-04-06T03:59:59.999999Z"),
+                                      ("Warsaw", "2026-10-25", "2026-10-24T22:00:00Z", "2026-10-25T22:59:59.999999Z")] {
+            let zone = super::strict(zone).unwrap();
+            let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
+            let at = |t: &str| chrono::DateTime::parse_from_rfc3339(t).unwrap().with_timezone(&chrono::Utc);
+            assert_eq!(super::wall(zone, day.and_hms_micro_opt(0, 0, 0, 0).unwrap()), Some(at(from)), "{zone} {day}");
+            assert_eq!(super::wall(zone, day.and_hms_micro_opt(23, 59, 59, 999_999).unwrap()), Some(at(to)), "{zone} {day}");
         }
     }
 }

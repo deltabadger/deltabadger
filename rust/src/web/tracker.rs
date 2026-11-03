@@ -20,6 +20,7 @@ pub mod import;
 pub mod gap;
 pub mod api;
 pub mod report;
+pub mod window;
 
 struct Prepared {
     response: Response,
@@ -200,12 +201,9 @@ pub async fn export(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
 /// AccountTransaction.csv_headers: the export's columns, and the columns the Deltabadger import reads back.
 pub const CSV_HEADERS: [&str; 12] = ["date","type","base_currency","base_amount","quote_currency","quote_amount","fee_currency","fee_amount","exchange","tx_id","group_id","description"];
 
-/// `filtered_transactions` (exchange, then the UTC days `from`..`to`) through `AccountTransaction.to_csv`.
+/// `filtered_transactions` (exchange, then the window `from`..`to`, `window::read`) through `AccountTransaction.to_csv`.
 fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     use rusqlite::types::Value as Sql;
-    if ctx.params.query.iter().any(|(k, _)| k.starts_with("exchange_id[") || k.starts_with("from[") || k.starts_with("to[")) {
-        return Ok(layout::refused(ctx, "tracker structured filters"));
-    }
     let present = |key: &str| ctx.params.query(key).filter(|v| !crate::ruby::blank(v));
     // Rails' own query, so that rows at the same instant come out in the same order.
     let mut sql = format!("SELECT {CSV_COLUMNS} FROM account_transactions WHERE user_id=?1");
@@ -216,13 +214,10 @@ fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, W
         binds.push(Sql::Integer(id));
         sql.push_str(&format!(" AND exchange_id=?{}", binds.len()));
     }
-    // beginning_of_day and end_of_day in UTC, quoted as Rails quotes a time for SQLite.
-    for (key, op, clock) in [("from", ">=", "00:00:00"), ("to", "<=", "23:59:59.999999")] {
-        let Some(raw) = present(key) else { continue };
-        let Some(day) = first_sync::iso_day(raw)? else { return Ok(layout::refused(ctx, "tracker date syntax")) };
-        binds.push(Sql::Text(format!("{day} {clock}")));
-        sql.push_str(&format!(" AND transacted_at{op}?{}", binds.len()));
-    }
+    if let Some(answer) = window::structured_exchange(c, ctx)? { return Ok(answer); }
+    // The page's window, read the same way (PLAN-A19: the user's days, ISO only, 400 otherwise).
+    let Ok(window) = window::read(ctx, window::zone(ctx)) else { return Ok(layout::bad_request()) };
+    window.push(&mut sql, &mut binds);
     sql.push_str(" ORDER BY transacted_at ASC");
     let out = csv_rows(c, &sql, binds)?;
     let name = format!("deltabadger-transactions-{}.csv", ctx.now.date_naive());

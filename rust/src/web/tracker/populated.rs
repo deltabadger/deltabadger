@@ -366,13 +366,16 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash:
     let retired = |v: &Venue| crate::web::bot::retired_type(&v.kind);
     let broken = exchanges.iter().any(|v| !valid.contains(&v.id) && !retired(v));
     let mut chips = vec![];
+    // `tracker_path(…, from: params[:from], to: params[:to])`: a switch keeps the window (nil left out, blank kept).
+    let window = [("from", ctx.params.query("from")), ("to", ctx.params.query("to"))];
     if exchanges.len() > 1 || broken {
-        chips.push(Chip { value: "all".into(), label: escape(&i18n::text(ctx.locale, "tracker.filters.all", &[])), active: scope.is_none(), href: escape(&with_query(ctx, "/tracker", &[])), broken: false });
+        chips.push(Chip { value: "all".into(), label: escape(&i18n::text(ctx.locale, "tracker.filters.all", &[])), active: scope.is_none(), href: escape(&with_query(ctx, "/tracker", &window)), broken: false });
         for v in &exchanges {
+            let id = v.id.to_string();
             let ok = valid.contains(&v.id) || retired(v);
             chips.push(Chip {
                 value: v.id.to_string(), label: escape(&v.name), active: ok && scope == Some(v.id),
-                href: escape(&if ok { with_query(ctx, "/tracker", &[("exchange_id", Some(&v.id.to_string()))]) } else { with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))]) }),
+                href: escape(&if ok { with_query(ctx, "/tracker", &[("exchange_id", Some(&id)), window[0], window[1]]) } else { with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))]) }),
                 broken: !ok,
             });
         }

@@ -35,17 +35,11 @@ pub(super) fn iso_day(raw:&str)->Result<Option<chrono::NaiveDate>,WebError>{
     chrono::NaiveDate::parse_from_str(raw,"%Y-%m-%d").map(Some).map_err(|_|super::row::invalid())
 }
 
-/// HTML date controls submit ISO days. Other Date.parse grammars remain an explicit later slice.
-fn dates(ctx:&Ctx)->Result<Option<(String,String)>,WebError>{
-    let mut dates=Vec::new();
-    for key in ["from","to"] {
-        let raw=ctx.params.query(key).unwrap_or("");
-        if raw.trim().is_empty(){dates.push(if key=="to"{ctx.app.now().date_naive().to_string()}else{String::new()});continue;}
-        if iso_day(raw)?.is_none(){return Ok(None);}
-        dates.push(raw.to_string());
-    }
-    let mut dates=dates.into_iter();
-    Ok(dates.next().zip(dates.next()))
+/// The date controls' values (`window::defaults`), once the window reads (`window::read`, PLAN-A19).
+fn dates(ctx:&Ctx)->Option<(String,String)>{
+    let zone=super::window::zone(ctx);
+    super::window::read(ctx,zone).ok()?;
+    Some(super::window::defaults(ctx,zone,None))
 }
 
 pub fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
@@ -53,7 +47,7 @@ pub fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
 }
 pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::holdings::Presentation>)->Result<Response,WebError>{
     let Some(user)=ctx.user()else{return Ok(auth::unauthenticated(ctx))};
-    let Some((from,to))=dates(ctx)? else{return Ok(layout::refused(ctx,"tracker date syntax"))};
+    let Some((from,to))=dates(ctx) else{return Ok(layout::bad_request())};
     let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
     let shape:serde_json::Value=match settings.as_deref(){Some(raw)=>serde_json::from_str(raw).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
     if !shape.is_null() && !shape.is_object(){return Err(super::row::invalid());}
