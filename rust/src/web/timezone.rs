@@ -1,7 +1,7 @@
 //! `users.time_zone` holds an ActiveSupport zone name ("Warsaw", "Eastern Time (US & Canada)"), not
 //! an IANA id. time_zones.json is ActiveSupport::TimeZone::MAPPING, written by
 //! script/rust/record_vectors.rb and pinned by test/contracts/rust_time_zones_test.rb.
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use std::collections::HashMap;
 use std::sync::OnceLock;
