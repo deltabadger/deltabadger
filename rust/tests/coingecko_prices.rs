@@ -93,3 +93,36 @@ async fn a_provider_switch_takes_effect_at_the_next_run() {
     assert_eq!((data_api.requests().len(), cg.requests().len()), (1, 1));
     assert_eq!(cg.requests()[0].path, "/api/v3/coins/bitcoin/market_chart/range");
 }
+
+/// Alpaca answering a balance sync: $400 and 0.02 bitcoin.
+#[derive(Clone)]
+struct Holding;
+impl deltabadger::sync::jobs::Connect for Holding {
+    type T = ScriptedTransport;
+    fn connect(&self, _: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<ScriptedTransport> {
+        let positions = json!([{ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.02", "qty_available": "0.02" }]);
+        deltabadger::venue::alpaca::AlpacaVenue::new(ScriptedTransport::from_script(&json!({ "GET /v2/account": [ok(json!({ "cash": "400" }))], "GET /v2/positions": [ok(positions)] })),
+                                                     deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")))
+    }
+}
+
+/// The scheduler's balance sync on a CoinGecko install (jobs::resolve::configured): its coin prices come from one
+/// `simple/price`, not from the last stored price.
+#[tokio::test(flavor = "current_thread")]
+async fn a_balance_sync_on_a_coingecko_install_asks_simple_price() {
+    let fx = alpaca();
+    let cipher = common::seed::cipher();
+    for (key, value) in [("market_data_provider", "coingecko"), ("coingecko_api_key", "CG-test-key")] { deltabadger::app_config::set(&fx.c(), &cipher, key, value, at()).unwrap(); }
+    let t = ScriptedTransport::from_script(&json!({ "GET /api/v3/simple/price": [ok(json!({ "bitcoin": { "usd": 61000 } }))] }));
+    let g = t.clone();
+    let feeds: resolve::Feeds<ScriptedTransport> = Rc::new(move |settings, _| Feed::from_settings(settings,
+        |config| DataApi::new(config, g.clone(), g.clone()), |key| CoinGecko::new(key, g.clone()).with_throttle(Arc::new(Throttle::new(usize::MAX))).with_plan(Plan::Demo)));
+    let resolve = resolve::all(Holding, Rc::new(None::<DataApi<ScriptedTransport>>), deltabadger::tracker::jobs::system_wall());
+    let job = resolve::configured_feeds(resolve(deltabadger::sync::jobs::BALANCE_SYNC, Some(&fx.s.api_key_id.to_string())).unwrap(), &|_| None,
+                                        Arc::new(RateCache::default()), Holding, feeds);
+    let clock = FixedClock(at());
+    assert_eq!(job.run(Cx { db: fx.db(), clock: &clock, wakers: Wakers::default() }, vec![]).await, Outcome::Done);
+    assert_eq!(t.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), ["/api/v3/simple/price"]);
+    let price: f64 = fx.c().query_row("SELECT usd_price FROM account_balances WHERE asset_id = ?1", [fx.s.btc], |r| r.get(0)).unwrap();
+    assert_eq!(price, 61000.0);
+}

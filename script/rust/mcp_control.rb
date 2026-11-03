@@ -566,7 +566,7 @@ module McpControl
     s['tax_d_not_ported'] = tax_ready + [generate.(at.('DE', 2008)), generate.(at.('fr', 2018)), status.(at.('FR', 2018)), generate.(at.('fr', 2025))]
     s['tax_d_not_ported_wealth'] = tax_ready([], 'tax_market_data' => 'none') + [generate.(), generate.(at.('NL', 2020)), status.(at.('NL', 2020)),
                                                                                   generate.(at.('NL', 2025))]
-    s['tax_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.(), status.()]
+    s['tax_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.()]
   end
 
   def grid(root)

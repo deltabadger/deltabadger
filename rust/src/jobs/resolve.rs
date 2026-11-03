@@ -4,10 +4,12 @@ use crate::{sync::jobs::{self,Connect},venue::http::Transport,tracker};
 use std::rc::Rc;
 use std::sync::Arc;
 pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,wall:tracker::jobs::Wall)->Resolver{
-    all_with(venues,api,Rc::new(None),wall)
+    let prices:Rc<dyn crate::jobs::data_api::PriceSource>=api.clone();
+    all_with(venues,api,Rc::new(None),prices,wall)
 }
 /// `all`, the tracker and tax jobs asking `feed` (jobs::market): the reference and balance jobs keep `api`.
-pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,feed:Rc<Option<Feed<T>>>,wall:tracker::jobs::Wall)->Resolver{
+/// `prices`: the balance sync's (sync::balances::MarketPrices on the scheduler: the run's feed and Rails' CoinGecko fallback).
+pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,feed:Rc<Option<Feed<T>>>,prices:Rc<dyn crate::jobs::data_api::PriceSource>,wall:tracker::jobs::Wall)->Resolver{
     Box::new(move|name,scope|{
         if scope.is_none(){
             // AppPaths.tmp is the process's (the binary's env is the process env).
@@ -18,7 +20,7 @@ pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Opt
         let job:Box<dyn Job>=match name{
             jobs::API_KEY_VALIDATOR=>Box::new(jobs::Validator{venues:venues.clone(),key_id:id}),
             jobs::LEDGER_SYNC=>Box::new(jobs::LedgerSync::new(venues.clone(),id)),
-            jobs::BALANCE_SYNC=>Box::new(jobs::BalanceSync::new(venues.clone(),api.clone(),id)),
+            jobs::BALANCE_SYNC=>Box::new(jobs::BalanceSync::new(venues.clone(),prices.clone(),id)),
             super::reference::ASSET_DATA=>Box::new(super::reference::AssetData{cg:super::coingecko::live_clients(),asset:id}),
             _=>tracker::jobs::resolve(name,id,&venues,feed.clone(),wall.clone()).ok_or("unknown scoped job")?,
         };
@@ -88,8 +90,14 @@ impl<C: Connect + Clone + 'static, T: Transport + 'static> Job for Configured<C,
             // One snapshot of the configuration per run: a switch takes effect at the next run (PLAN-A17 A17-3 item 1).
             let api = Rc::new((self.feeds)(&settings, self.rates.clone()).and_then(Feed::into_data_api));
             let feed = Rc::new((self.feeds)(&settings, self.rates.clone()));
+            // The balance sync's prices: the run's feed, and a CoinGecko client for Rails' fallback made by the same factory.
+            let fallback = |key: &str| {
+                let only = crate::market_data::Settings { provider: crate::market_data::Provider::CoinGecko { key: Some(key.into()) }, ..settings.clone() };
+                match (self.feeds)(&only, self.rates.clone()) { Some(Feed::CoinGecko(cg)) => cg, _ => unreachable!("a CoinGecko provider makes a CoinGecko feed") }
+            };
+            let prices = Rc::new(crate::sync::balances::MarketPrices::new(&settings, (self.feeds)(&settings, self.rates.clone()), fallback, self.rates.clone()));
             let spec = self.spec();
-            let resolve = all_with(self.venues.clone(), api, feed, tracker::jobs::system_wall());
+            let resolve = all_with(self.venues.clone(), api, feed, prices, tracker::jobs::system_wall());
             match resolve(spec.name, spec.scope.as_deref()) {
                 Ok(job) => job.run_attributed(cx, wakes).await,
                 Err(e) => crate::engine::model::Produced::new(super::Outcome::Failed(e), None),
