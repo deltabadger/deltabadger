@@ -579,7 +579,8 @@ impl Project {
 }
 
 impl Drop for Project {
-    fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--remove-orphans", "-t", "5"]); }
+    // `--rmi local`: the image a `build:` service made (named after the project) goes too.
+    fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--rmi", "local", "--remove-orphans", "-t", "5"]); }
 }
 
 /// Umbrel's compose (deltabadger/docker-compose.yml) as 2.x users have it, on a 2.x Umbrel install (format 2: the
@@ -720,13 +721,14 @@ fn rails_commands_are_refused_and_change_nothing() {
 /// C8 (main.rs hand_back), handback's success line.
 const C8: &str = "scheduled. You can start Deltabadger 2.70.21 now.";
 
-/// docker-compose.build.yml builds the Rails Dockerfile until B3-7, so only its config is read here; its grace period is
-/// the 60 s docker-compose.yml's container shows (the_own_server_compose_takes_a_2x_volume_over).
+/// The build-from-source compose's config: it builds Dockerfile.rust (B3-7) and gives its service 60 s to stop (Q2).
+/// Read before anything builds, so a revert to `build: .` (the Rails Dockerfile) fails here first.
 #[test]
-fn the_build_compose_gives_its_service_60_s_to_stop() {
+fn the_build_compose_builds_dockerfile_rust_and_gives_its_service_60_s_to_stop() {
     let Some(_) = image() else { return };
-    let file = format!("{}/../docker-compose.build.yml", env!("CARGO_MANIFEST_DIR"));
+    let file = format!("{}/../{BUILD_COMPOSE}", env!("CARGO_MANIFEST_DIR"));
     let config = docker(&["compose", "-f", &file, "config"]);
+    assert!(config.contains("dockerfile: Dockerfile.rust"), "{config}");
     assert!(config.contains("stop_grace_period: 1m0s"), "{config}");
 }
 
@@ -791,6 +793,106 @@ fn handback_through_the_compose_gives_the_volume_back_to_2x() {
     docker(&["stop", &rails.id]);
     drop(rails);
     assert_eq!(lease(&image, &fixture.volume, &fixture.cipher), None, "2.70.21 adopted the handback and deleted the row");
+}
+
+// ---- B3-7: building from source (PLAN-B3 r1.5) ----
+
+const BUILD_COMPOSE: &str = "docker-compose.build.yml";
+
+/// The test's only change to the build compose: offline (`network_mode: none`, nothing published) and `storage` is
+/// `volume`. The build itself still uses the builder's network.
+fn offline_on(volume: &Volume) -> String {
+    let Volume::Named(name) = volume else { panic!("a named volume") };
+    format!("services:\n  deltabadger:\n    network_mode: none\n    ports: !reset []\nvolumes:\n  storage:\n    name: {name}\n    external: true\n")
+}
+
+/// `docker compose up -d --build`, as a build-from-source user runs it. Prints how long the build and start took.
+fn build_up(project: &Project) {
+    let start = Instant::now();
+    project.ok(&["up", "-d", "--build"]);
+    eprintln!("docker compose up -d --build: {:?}", start.elapsed());
+}
+
+/// `docker compose stop`: the command and the service both exit 0.
+fn stopped(project: &Project, app: &Container) {
+    project.ok(&["stop"]);
+    assert_eq!(docker(&["inspect", "-f", "{{.State.ExitCode}}", &app.id]), "0", "{}", app.logs());
+}
+
+/// docker-compose.build.yml as it is, on an empty volume: it builds this checkout's Rust program, which sets up a new
+/// install (`.secrets` 600, owned by 1000) and serves 200.
+#[test]
+fn the_build_compose_builds_3_0_and_sets_up_an_empty_volume() {
+    let Some(_) = image() else { return };
+    let volume = Volume::named();
+    let project = Project::new(BUILD_COMPOSE, &offline_on(&volume), &[]);
+    build_up(&project);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("set up a new install"), "{}", app.logs());
+    assert_eq!(app.exec(&["stat", "-c", "%u %a", "/app/storage/.secrets"]), "1000 600");
+    let said = app.exec(&["deltabadger", "--version"]);
+    assert_eq!(said.lines().next(), Some(format!("deltabadger {}", env!("CARGO_PKG_VERSION")).as_str()), "the Rust program of this checkout: {said}");
+    stopped(&project, &app);
+}
+
+/// docker-compose.build.yml as it is, on a real 2.x volume (format 1): taken over as by the published image.
+#[test]
+fn the_build_compose_takes_a_2x_volume_over() {
+    let Some(image) = image() else { return };
+    let fixture = made_by_2x_migrate(&image);
+    let secrets = std::fs::read(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    let project = Project::new(BUILD_COMPOSE, &offline_on(&fixture.volume), &[]);
+    build_up(&project);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("took over ("), "{}", app.logs());
+    stopped(&project, &app);
+    left_taken_over(&image, &fixture.volume, &fixture.cipher, &secrets);
+}
+
+/// A Behind (2.60.0) install of a build-from-source user, whose SECRET_KEY_BASE is in `.env.docker` beside a copy of
+/// docker-compose.build.yml (built from this checkout). 3.0 refuses it: 503, C1 and r4.1's line on stderr, every file
+/// byte-equal. B10's command (`compose run` can't swap the image of a service that builds its own) with the same env
+/// file, `docker run --rm --env-file .env.docker -v <volume>:/app/storage …:2.70.21 migrate`, then `up -d` → taken over.
+#[test]
+fn a_behind_install_of_the_build_compose_is_upgraded_by_the_manual_command() {
+    let Some(image) = image() else { return };
+    let root = format!("{}/..", env!("CARGO_MANIFEST_DIR"));
+    let dir = tempfile::tempdir().unwrap();
+    let compose = dir.path().join(BUILD_COMPOSE);
+    std::fs::copy(format!("{root}/{BUILD_COMPOSE}"), &compose).unwrap();
+    std::fs::write(dir.path().join(".env.docker"), "SECRET_KEY_BASE=b3-7-build-secret\n").unwrap();
+    let volume = Volume::named();
+    let Volume::Named(name) = &volume else { unreachable!() };
+    docker(&["run", "--rm", "--network", "none", "-v", &volume.mount(), "-e", "SECRET_KEY_BASE=b3-7-build-secret", RAILS_2_60, "migrate"]);
+    let missing = missing_2x(&image, &volume).len();
+    let project = Project::layered(&compose.display().to_string(),
+        &[&format!("services:\n  deltabadger:\n    build:\n      context: {root}\n"), &offline_on(&volume)], &[]);
+
+    let before = snapshot(&image, &volume);
+    build_up(&project);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 503);
+    let said = app.stderr();
+    assert!(said.contains("this data is from an older version of Deltabadger") && said.contains(&behind_detail(missing)), "{}", app.logs());
+    stopped(&project, &app);
+    assert_eq!(snapshot(&image, &volume), before, "the refused start changes no file");
+
+    // B10's line, run where the user's compose file and .env.docker are (offline here: --network none).
+    let run = unique("dbmigrate");
+    let mut command = Command::new("docker");
+    command.current_dir(dir.path()).args(["run", "--rm", "--name", &run, "--network", "none", "--env-file", ".env.docker", "-v",
+                                          &format!("{name}:/app/storage"), RAILS_2X, "migrate"]);
+    let out = exits(command, &run);
+    assert_eq!(out.status.code(), Some(0), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert_eq!(missing_2x(&image, &volume), Vec::<String>::new());
+
+    project.ok(&["up", "-d"]);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("took over ("), "{}", app.logs());
+    stopped(&project, &app);
 }
 
 // ---- B3-6: the Behind guard (PLAN-B3 §4 A+, §8 slice 6, r1.1, r1.6, r2.2, r3.2, r4.1) ----

@@ -18,6 +18,7 @@ on:
       - '.dockerignore'
       # The compose files the image tests run (tests/image.rs).
       - 'docker-compose.yml'
+      - 'docker-compose.build.yml'
       - 'deltabadger/docker-compose.yml'
       # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
       # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
@@ -211,6 +212,7 @@ on:
       - '.dockerignore'
       # The compose files the image tests run (tests/image.rs).
       - 'docker-compose.yml'
+      - 'docker-compose.build.yml'
       - 'deltabadger/docker-compose.yml'
       # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
       # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
