@@ -133,7 +133,7 @@ pub fn stopped(aside: &Aside) -> String {
 /// C6: the hard stop, one line per bot. The details go to stderr first, beside the refusal, for support; the page shows
 /// only C6.
 pub fn hard_stop(hard: &Hard) -> String {
-    for line in &hard.details { eprintln!("deltabadger: [check] {line}"); }
+    for line in &hard.details { crate::eline!("deltabadger: [check] {line}"); }
     let lines = &hard.lines;
     format!("Deltabadger didn't start: it can't safely stop these bots for you, because they have orders or data it can't account for yet:\n{}\nNothing was bought or sold. Contact support.",
             lines.join("\n"))

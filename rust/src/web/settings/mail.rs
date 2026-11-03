@@ -93,7 +93,7 @@ pub async fn send(app: &App, mail: AccountMail, locale: &'static str) {
 }
 
 fn log(kind: &str, what: &str) {
-    eprintln!("deltabadger: account mail {kind} {what}");
+    crate::eline!("deltabadger: account mail {kind} {what}");
 }
 
 /// A reason fit for the log: this module's own messages, otherwise only the error's kind.

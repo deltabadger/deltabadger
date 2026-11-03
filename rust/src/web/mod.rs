@@ -98,7 +98,7 @@ impl IntoResponse for WebError {
             response.extensions_mut().insert(headers::BelowControllers);
             return response;
         }
-        eprintln!("deltabadger: request failed: {self:?}");
+        crate::eline!("deltabadger: request failed: {self:?}");
         (StatusCode::INTERNAL_SERVER_ERROR, [(header::CONTENT_TYPE, "text/html; charset=utf-8")], error_page()).into_response()
     }
 }
@@ -939,7 +939,7 @@ struct Entry {
 pub fn blocked_host(headers: &HeaderMap, hosts: &[String]) -> Response {
     // The hosts are the request's own text: shortened, and escaped, before they are printed.
     let named: Vec<String> = hosts.iter().map(|host| host.chars().take(100).flat_map(char::escape_default).collect()).collect();
-    eprintln!("deltabadger: blocked hosts: {}", named.join(", "));
+    crate::eline!("deltabadger: blocked hosts: {}", named.join(", "));
     let xhr = header_text(headers, "x-requested-with").is_some_and(|with| with.to_ascii_lowercase().contains("xmlhttprequest"));
     (StatusCode::FORBIDDEN, [(header::CONTENT_TYPE, if xhr { "text/plain; charset=UTF-8" } else { "text/html; charset=UTF-8" })], "").into_response()
 }
@@ -1003,6 +1003,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     }
     let full_path = normalize_path(parts.uri.path());
     if matches!(parts.method, Method::GET | Method::HEAD) {
+        if full_path == "/service-worker.js" && entry.app.update_platform == crate::jobs::app_update::Platform::Desktop {
+            return assets::retiring_worker(parts.method == Method::HEAD);
+        }
         if let Some(file) = assets::find(&full_path) {
             return assets::respond(file, parts.method == Method::HEAD);
         }

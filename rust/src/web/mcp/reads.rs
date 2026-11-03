@@ -277,7 +277,7 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
                         let (id,pair,class)=crate::venue::alpaca::order_identity(raw.get());
                         let id=id.as_deref().unwrap_or("");if ids.contains(id){continue}
                         let Some(ticker)=crate::engine::model::alpaca_order_ticker(c,exchange,pair.as_deref(),class.as_deref()).map_err(|_|error())? else {
-                            eprintln!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
+                            crate::eline!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
                             continue;
                         };
                         let raw=crate::venue::http::decode_json(raw.get()).map_err(|_|error())?;

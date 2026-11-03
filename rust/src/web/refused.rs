@@ -44,7 +44,13 @@ fn routes(page: String, state: &'static str) -> Router {
         }
     };
     let unhealthy = || async { (StatusCode::SERVICE_UNAVAILABLE, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], r#"{"health":"refused"}"#).into_response() };
-    Router::new()
+    let router = Router::new();
+    // On the desktop, the worker that removes the old one (assets::RETIRING_WORKER), here too: a refused start is when
+    // a cached app page must not be shown (PLAN-B6 r4.1).
+    let router = if RETIRE_WORKER.get().is_some() {
+        router.route("/service-worker.js", get(|| async { super::assets::retiring_worker(false) }))
+    } else { router };
+    router
         .route("/ui-ready", get(move || ui_ready(state)))
         .route("/health-check", get(unhealthy))
         .route("/up", get(unhealthy))
@@ -52,6 +58,11 @@ fn routes(page: String, state: &'static str) -> Router {
 }
 
 static READY_TOKEN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+static RETIRE_WORKER: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+
+/// `serve` under DELTABADGER_PLATFORM=desktop: the refusal and starting pages answer /service-worker.js with the
+/// retiring worker, as the app does.
+pub fn retire_worker() { let _ = RETIRE_WORKER.set(()); }
 
 /// `serve`'s `DELTABADGER_READY_TOKEN`, set once at start. The desktop app mints one per start and trusts a `/ui-ready`
 /// only if it carries it, so another program on the port is never taken for its engine (PLAN-B6 r1.4).
@@ -73,7 +84,7 @@ pub fn serve(port: u16, reason: &str) -> i32 {
     rt.block_on(async {
         let listener = match tokio::net::TcpListener::bind(SocketAddr::from((super::server::binding(), port))).await {
             Ok(l) => l,
-            Err(e) => { eprintln!("deltabadger: cannot show the refusal page on port {port}: {e}"); return 1; }
+            Err(e) => { crate::eline!("deltabadger: cannot show the refusal page on port {port}: {e}"); return 1; }
         };
         let stop = stop_signal(); // registered before the line below, so a stop sent after it is never missed
         crate::engine::log(&format!("refused: showing why on port {port} until stopped"));
@@ -82,7 +93,7 @@ pub fn serve(port: u16, reason: &str) -> i32 {
         let notify = signalled.clone();
         let served = axum::serve(listener, router(reason)).with_graceful_shutdown(async move { stop.await; notify.notify_one(); });
         tokio::select! {
-            result = served => match result { Ok(()) => 0, Err(e) => { eprintln!("deltabadger: the refusal page stopped: {e}"); 1 } },
+            result = served => match result { Ok(()) => 0, Err(e) => { crate::eline!("deltabadger: the refusal page stopped: {e}"); 1 } },
             _ = async { signalled.notified().await; tokio::time::sleep(std::time::Duration::from_secs(5)).await } => 0,
         }
     })
