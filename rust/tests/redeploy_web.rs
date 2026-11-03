@@ -327,6 +327,21 @@ async fn rest_answers_accept_required_and_replays_its_idempotency_key() {
     assert_eq!(crossed.0,409,"{}",crossed.2);
 }
 
+/// A20d, D-IDEMPOTENCY-DEAD-CLAIM: as for a liquidation, a redeploy key its process died holding is placement_ambiguous.
+#[tokio::test(flavor="current_thread")]
+async fn a_redeploy_key_its_process_died_holding_answers_placement_ambiguous_and_never_writes_again() {
+    let (_d,o,s,id,app,_)=install(); let c=&o.primary; credentials(c,s.user_id);
+    let path=format!("/api/v1/bots/{id}/redeploy");
+    assert_eq!(wire(&app,&path,"redeploy-api",json!({"accept":true}),None,Some("dead")).await.0,202);
+    c.execute("UPDATE idempotency_keys SET state='in_progress',response_status=NULL,response_body=NULL WHERE key='dead'",[]).unwrap();
+    model::merge_transient_compact(c,id,&[(redeploy::REQUEST_KEY,Value::Null)]).unwrap();
+    deltabadger::engine::api_orders::sweep_at_start(c,NOW.parse().unwrap()).unwrap(); // what Engine::new does
+    let (status,_,body)=wire(&app,&path,"redeploy-api",json!({"accept":true}),None,Some("dead")).await;
+    assert_eq!((status,serde_json::from_str::<Value>(&body).unwrap()["error"]["code"].clone()),(502,json!("placement_ambiguous")));
+    assert!(request(c,id).is_null(),"no second Yes queued");
+    assert_eq!(wire(&app,&path,"redeploy-api",json!({"accept":false}),None,Some("dead")).await.0,409);
+}
+
 #[tokio::test(flavor="current_thread")]
 async fn mcp_dry_run_says_so_and_queues_nothing() {
     let (_d,o,s,id,app,_)=install(); let c=&o.primary; credentials(c,s.user_id);

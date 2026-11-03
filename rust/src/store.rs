@@ -118,7 +118,8 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         unique_indexes: &[] }),
     ("20261106000001", TableContract { name: "estv_crypto_values", columns: &[("year", "INTEGER", true), ("symbol", "TEXT", true), ("value", "TEXT", false)],
         unique_indexes: &[&["year", "symbol"]] }),
-
+    ("20261107000001", TableContract { name: "rust_idempotency_orders", columns: &[("key_id", "INTEGER", false), ("order_id", "INTEGER", false)],
+        unique_indexes: &[] }),
 ];
 
 /// What this build migrates.

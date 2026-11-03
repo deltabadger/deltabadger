@@ -702,6 +702,269 @@ async fn limit_order_sizes_as_place_limit_order() {
     assert_eq!((hl.price.to_s_f(), hl.quote_type), ("64006.0".into(), false));
 }
 
+// ---- A20d, D-IDEMPOTENCY-DEAD-CLAIM: a key whose request died with the process is settled at the next start. ----
+// The dead process is real at its await points: its web runs on its own runtime, which stops being polled once the test
+// has seen the boundary's committed state and is then dropped; its engine is driven to the boundary. Each test asserts
+// the persisted key, link and order state before the next process (a new connection, Engine::new, a new App) starts.
+
+const CUT_KRAKEN: &str = "The order may or may not have been placed: the request was cut off by a restart. Check Kraken before sending it again.";
+const CUT_ANY: &str = "The order may or may not have been placed: the request was cut off by a restart. Check the exchange before sending it again.";
+
+fn paused() -> tokio::runtime::Runtime { tokio::runtime::Builder::new_current_thread().enable_all().start_paused(true).build().unwrap() }
+
+/// The next process on the same install and the same scripted venue: Engine::new runs the start sweep.
+fn restart(k: Kraken) -> Kraken {
+    let Kraken { d, app, e, venue, bot, user } = k;
+    drop(app); drop(e);
+    let p = deltabadger::store::Paths::from_env(&|_| None, d.path());
+    let lock = deltabadger::lease::lock(&p, "2026-09-01T00:00:00Z".parse().unwrap()).unwrap();
+    let o = deltabadger::store::open(&p).unwrap();
+    let e = Engine::new(o.primary, FakeFactory(venue.clone()), common::seed::cipher(), lock);
+    let app = web::app(d.path(), "orders-test-secret", TestClock::at(K0));
+    app.attach_engine(e.wake_handle());
+    Kraken { d, app, e, venue, bot, user }
+}
+
+/// The key's state and, through its link, its order's state and outcome kind ("-" without a link, "null" for a link
+/// with no order yet, "gone" for a link to no row).
+fn dead(k: &Kraken, key: &str) -> Option<(String, String)> {
+    k.c().query_row("SELECT k.state, CASE WHEN l.key_id IS NULL THEN '-' WHEN l.order_id IS NULL THEN 'null' WHEN o.id IS NULL THEN 'gone' \
+                     ELSE o.state || ' ' || coalesce(json_extract(o.outcome, '$.kind'), '') END \
+                     FROM idempotency_keys k LEFT JOIN rust_idempotency_orders l ON l.key_id = k.id LEFT JOIN rust_api_orders o ON o.id = l.order_id WHERE k.key = ?1",
+                    [key], |r| Ok((r.get(0)?, r.get(1)?))).optional().unwrap()
+}
+use rusqlite::OptionalExtension;
+
+/// A request the dead process's web queued and then stopped waiting for: its runtime is parked, never polled again.
+fn queue_and_freeze(k: &Kraken, body: Value, key: &str) -> tokio::runtime::Runtime {
+    let rt = paused();
+    rt.block_on(async { let _request = post(&k.app, body, key); queued(k, 1).await; });
+    rt
+}
+
+/// The same request resent to the live process; the engine runs one pass while it waits.
+fn resend(main: &tokio::runtime::Runtime, k: &mut Kraken, body: impl FnOnce(&Kraken) -> Value, key: &str) -> (u16, Value) {
+    let body = body(k);
+    main.block_on(async {
+        let request = post(&k.app, body, key);
+        for _ in 0..200 {
+            if request.is_finished() { break }
+            if k.count("SELECT count(*) FROM rust_api_orders WHERE state='queued'") > 0 { run::step(&mut k.e, &kt(0)).await.unwrap(); }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+        request.await.unwrap()
+    })
+}
+
+#[test]
+fn a_dead_queued_request_frees_its_key_and_the_resend_places_one_order() {
+    let main = paused();
+    let k = main.block_on(async { kraken(priced()) });
+    let web = queue_and_freeze(&k, buy(&k, json!("100")), "dead");
+    drop(web);
+    assert_eq!(dead(&k, "dead"), Some(("in_progress".into(), "queued ".into())));
+    let mut k = restart(k);
+    assert_eq!(dead(&k, "dead"), None, "freed: nothing was placed");
+    assert_eq!(k.count("SELECT count(*) FROM rust_api_orders WHERE state='queued'"), 0, "the dead request is withdrawn, never taken");
+    let (status, body) = resend(&main, &mut k, |k| buy(k, json!("100")), "dead");
+    assert_eq!((status, body["data"]["order_id"].clone()), (201, json!("OFAKE-1")));
+    assert_eq!(k.venue.sent().len(), 1, "one order in all");
+}
+
+#[test]
+fn a_dead_taken_request_frees_its_key_and_the_resend_places_one_order() {
+    let main = paused();
+    let k = main.block_on(async { kraken(priced()) });
+    let web = queue_and_freeze(&k, buy(&k, json!("100")), "taken");
+    let id: i64 = k.count("SELECT id FROM rust_api_orders");
+    deltabadger::engine::api_orders::take(k.c(), id, kt(0).0).unwrap(); // the dead engine took it and sent nothing
+    drop(web);
+    assert_eq!(dead(&k, "taken"), Some(("in_progress".into(), "taken ".into())));
+    let mut k = restart(k);
+    assert_eq!(dead(&k, "taken"), None);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "taken").0, 201);
+    assert_eq!(k.venue.sent().len(), 1);
+}
+
+#[test]
+fn a_request_cut_off_mid_send_answers_placement_ambiguous_on_every_retry_and_restart_and_is_never_sent_again() {
+    let main = paused();
+    let gate = std::rc::Rc::new(tokio::sync::Notify::new());
+    let mut k = main.block_on(async { kraken(priced().hold_add(gate.clone())) });
+    let web = queue_and_freeze(&k, buy(&k, json!("100")), "cut");
+    // The engine sends; the process dies before the venue answers.
+    main.block_on(async {
+        let clock = kt(0);
+        let step = run::step(&mut k.e, &clock);
+        tokio::pin!(step);
+        loop {
+            tokio::select! { _ = &mut step => panic!("the held send finished"), _ = tokio::time::sleep(std::time::Duration::from_millis(1)) => {} }
+            if k.venue.sent().len() == 1 { break }
+        }
+    });
+    drop(web);
+    assert_eq!(dead(&k, "cut"), Some(("in_progress".into(), "sending ".into())));
+    let mut k = restart(k);
+    assert_eq!(dead(&k, "cut"), Some(("completed".into(), "-".into())), "stored; its order answered unknown");
+    let cut = refusal(502, "placement_ambiguous", CUT_KRAKEN);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "cut"), cut);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "cut"), cut);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("50")), "cut"), refusal(409, "idempotency_key_reused", "This Idempotency-Key was used with a different request payload."));
+    let mut k = restart(k);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "cut"), cut);
+    main.block_on(async { let _ = tokio::time::timeout(std::time::Duration::from_secs(5), run::step(&mut k.e, &kt(1))).await; });
+    assert_eq!(k.venue.sent().len(), 1, "never sent again");
+}
+
+#[test]
+fn a_placed_order_whose_answer_nobody_read_answers_placement_ambiguous() {
+    let main = paused();
+    let mut k = main.block_on(async { kraken(priced()) });
+    let web = queue_and_freeze(&k, buy(&k, json!("100")), "placed");
+    main.block_on(run::step(&mut k.e, &kt(0))).unwrap();
+    drop(web);
+    assert_eq!(dead(&k, "placed"), Some(("in_progress".into(), "done submitted".into())));
+    let mut k = restart(k);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "placed"), refusal(502, "placement_ambiguous", CUT_KRAKEN));
+    assert_eq!(k.venue.sent().len(), 1);
+}
+
+#[test]
+fn a_rejected_order_whose_answer_nobody_read_frees_its_key() {
+    let main = paused();
+    let mut k = main.block_on(async { kraken(priced().next_add(AddOutcome::Reject(vec!["EOrder:Insufficient funds".into()]))) });
+    let web = queue_and_freeze(&k, buy(&k, json!("100")), "rejected");
+    main.block_on(run::step(&mut k.e, &kt(0))).unwrap();
+    drop(web);
+    assert_eq!(dead(&k, "rejected"), Some(("in_progress".into(), "done failed".into())));
+    let mut k = restart(k);
+    assert_eq!(dead(&k, "rejected"), None);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "rejected").0, 201);
+    assert_eq!(k.venue.sent().len(), 2, "the rejected one and the resend");
+}
+
+#[test]
+fn an_answer_read_and_forgotten_before_the_key_completed_is_ambiguous_even_when_its_order_id_is_reused() {
+    use deltabadger::engine::api_orders;
+    let main = paused();
+    let mut k = main.block_on(async { kraken(priced()) });
+    let web = queue_and_freeze(&k, buy(&k, json!("100")), "forgotten");
+    main.block_on(run::step(&mut k.e, &kt(0))).unwrap();
+    let id: i64 = k.count("SELECT id FROM rust_api_orders");
+    api_orders::forget(k.c(), id).unwrap(); // the web read the answer; the process died before completing the key
+    let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
+    let (amount, empty) = (deltabadger::ruby::BigDec::parse("100").unwrap(), serde_json::Map::new());
+    let other = api_orders::insert(k.c(), &api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty }, kt(1).0).unwrap();
+    assert_eq!(other, id, "the id is reused");
+    drop(web);
+    assert_eq!(dead(&k, "forgotten"), Some(("in_progress".into(), "-".into())), "the link went with the row");
+    let mut k = restart(k);
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "forgotten"), refusal(502, "placement_ambiguous", CUT_ANY));
+    assert_eq!(k.count(&format!("SELECT count(*) FROM rust_api_orders WHERE id={other} AND state!='withdrawn'")), 0, "withdrawn (and swept), never taken");
+    assert_eq!(k.venue.sent().len(), 1);
+}
+
+#[test]
+fn a_standalone_order_cut_off_mid_send_answers_placement_ambiguous_and_is_never_sent_again() {
+    let main = paused();
+    let gate = std::rc::Rc::new(tokio::sync::Notify::new());
+    let mut k = main.block_on(async { kraken(priced().hold_add(gate.clone())) });
+    let body = standalone("market_buy", json!({"amount": "100"}));
+    let web = queue_and_freeze(&k, body.clone(), "alone");
+    main.block_on(async {
+        let clock = kt(0);
+        let step = run::step(&mut k.e, &clock);
+        tokio::pin!(step);
+        loop {
+            tokio::select! { _ = &mut step => panic!("the held send finished"), _ = tokio::time::sleep(std::time::Duration::from_millis(1)) => {} }
+            if k.venue.sent().len() == 1 { break }
+        }
+    });
+    drop(web);
+    assert_eq!(dead(&k, "alone"), Some(("in_progress".into(), "sending ".into())));
+    let mut k = restart(k);
+    assert_eq!(resend(&main, &mut k, |_| body, "alone"), refusal(502, "placement_ambiguous", CUT_KRAKEN));
+    assert_eq!(k.venue.sent().len(), 1);
+}
+
+#[test]
+fn a_link_that_cannot_be_written_rolls_the_order_back_and_the_dead_key_is_freed() {
+    let main = paused();
+    let k = main.block_on(async { kraken(priced()) });
+    k.c().execute_batch("CREATE TRIGGER no_link BEFORE UPDATE ON rust_idempotency_orders BEGIN SELECT RAISE(ABORT, 'no link'); END;").unwrap();
+    let (status, _) = main.block_on(order(&k.app, buy(&k, json!("100")), "unlinked"));
+    assert_eq!(status, 500);
+    assert_eq!(k.count("SELECT count(*) FROM rust_api_orders"), 0, "no order row without its link");
+    assert_eq!(dead(&k, "unlinked"), Some(("in_progress".into(), "null".into())));
+    k.c().execute_batch("DROP TRIGGER no_link").unwrap();
+    let k = restart(k);
+    assert_eq!(dead(&k, "unlinked"), None);
+    assert!(k.venue.sent().is_empty());
+}
+
+#[test]
+fn a_dead_request_dated_after_the_restart_is_still_withdrawn_and_its_key_freed() {
+    // A clock stepped back across the restart: the dead process wrote its rows "after" the next one was built.
+    let main = paused();
+    let k = main.block_on(async { kraken(priced()) });
+    let rt = paused();
+    k.c().execute("UPDATE oauth_access_tokens SET created_at='2098-12-31 23:00:00'", []).unwrap(); // the token, valid then
+    let future = web::app(k.d.path(), "orders-test-secret", TestClock::at("2099-01-01T00:00:00Z"));
+    future.attach_engine(k.e.wake_handle());
+    rt.block_on(async { let _request = post(&future, buy(&k, json!("100")), "later"); queued(&k, 1).await; });
+    drop(rt); drop(future);
+    assert_eq!(dead(&k, "later"), Some(("in_progress".into(), "queued ".into())));
+    let mut k = restart(k);
+    assert_eq!(dead(&k, "later"), None);
+    assert_eq!(k.count("SELECT count(*) FROM rust_api_orders WHERE state='withdrawn'"), 1);
+    main.block_on(run::step(&mut k.e, &kt(0))).unwrap();
+    assert!(k.venue.sent().is_empty(), "never sent");
+    k.c().execute("UPDATE oauth_access_tokens SET created_at=?1", [T]).unwrap();
+    assert_eq!(resend(&main, &mut k, |k| buy(k, json!("100")), "later").0, 201, "the freed key places the resend");
+    assert_eq!(k.venue.sent().len(), 1);
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_retried_sweep_settles_every_dead_order_row_and_never_touches_a_key() {
+    use deltabadger::engine::api_orders;
+    let mut k = kraken(priced());
+    // A live request waiting: its key is in progress.
+    let live = post(&k.app, buy(&k, json!("100")), "live");
+    queued(&k, 1).await;
+    // Dead rows the failed first sweep left, dated after `built` (a clock stepped back).
+    let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
+    let (amount, empty) = (deltabadger::ruby::BigDec::parse("100").unwrap(), serde_json::Map::new());
+    let late = "2099-01-01T00:00:00Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+    let new = api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
+    let (queued_dead, taken_dead) = (api_orders::insert(k.c(), &new, late).unwrap(), api_orders::insert(k.c(), &new, late).unwrap());
+    api_orders::take(k.c(), taken_dead, late).unwrap();
+    k.e.inject_sweep_pending();
+    assert_eq!(order(&k.app, buy(&k, json!("100")), "live").await, refusal(409, "idempotency_in_progress", "A request with this Idempotency-Key is already in progress."));
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    let state = |id: i64| k.c().query_row("SELECT state || ' ' || coalesce(json_extract(outcome, '$.kind'), '') FROM rust_api_orders WHERE id=?1", [id], |r| r.get::<_, String>(0)).optional().unwrap();
+    assert_eq!((state(queued_dead), state(taken_dead)), (Some("withdrawn ".into()), Some("done busy".into())));
+    assert!(k.venue.sent().is_empty(), "nothing sent");
+    // The live request was queued before the retry ran: withdrawn, answered busy, its key completed with that answer.
+    assert_eq!(live.await.unwrap(), refusal(409, "venue_busy", "Kraken is busy with another order from your bots. Nothing was placed; try again."));
+    assert_eq!(keys(&k.d), vec![("live".to_string(), "completed".to_string())]);
+}
+
+#[test]
+fn a_key_and_its_link_are_settled_together_or_not_at_all() {
+    // The answer's write fails after the link's delete would have run: both roll back, so the next start still knows
+    // nothing was placed under the key and frees it.
+    let main = paused();
+    let k = main.block_on(async { kraken(priced()) });
+    k.c().execute_batch("CREATE TRIGGER no_answer BEFORE UPDATE ON idempotency_keys BEGIN SELECT RAISE(ABORT, 'no answer'); END;").unwrap();
+    let (status, _) = main.block_on(order(&k.app, buy(&k, json!("not a number")), "refused"));
+    assert_eq!(status, 500);
+    assert_eq!(dead(&k, "refused"), Some(("in_progress".into(), "null".into())), "the link stays with the unsettled key");
+    k.c().execute_batch("DROP TRIGGER no_answer").unwrap();
+    let k = restart(k);
+    assert_eq!(dead(&k, "refused"), None);
+    assert!(k.venue.sent().is_empty());
+}
+
 /// 3.0 A20c, D-OPEN-ORDERS-UNREAD-NAMED: an exchange whose open orders this build does not read live is named in
 /// `unavailable`, never dropped (Rails' ListOpen skips it: `list_open.rb:64-65`). The balances 501 names the venues
 /// whose balances are read; the portfolio's 501 keeps its own text (tests/mcp_reads.rs m3_other_venue_figures).

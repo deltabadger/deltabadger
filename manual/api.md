@@ -395,6 +395,7 @@ exchange's order identifier (when available) is in `data.upstream`.
 - **Conflicts:**
   - Same key, request **in progress** (concurrent retry) → `409 idempotency_in_progress`. We do not block-and-wait; retry shortly.
   - Same key, request **completed**, **different body** → `409 idempotency_key_reused`. To retry with a different payload, mint a new key.
+  - Same key, request **cut off by a restart** (the app stopped before answering) → answered at the next start. If it provably placed nothing, the key is free again: resend the same request. Otherwise the key answers `502 placement_ambiguous` from then on: check the exchange before sending the order again with a new key.
 - **Kept** — keys do not expire. A key is never reused for a different
   request, so mint a new one for each new order.
 - Keys are scoped per-user — the same key from a different user does not
