@@ -224,7 +224,8 @@ pub fn record_grid(script: &str, out: &Path) {
 
 /// Everything a Rails recording can depend on, as bytes to hash: every file of the app, its config, schema,
 /// gems' lockfile, the recorders (script/rust), the schema they build the primary from (rust/schema), the built assets
-/// (app/assets/builds) and the version manifest (src-tauri/Cargo.toml, read by config/initializers/version.rb); the Ruby
+/// (app/assets/builds), the manual (SettingsController#download_api_docs sends manual/api.md) and the version manifest
+/// (src-tauri/Cargo.toml, read by config/initializers/version.rb); the Ruby
 /// that runs it;
 /// the machine's zone; and the value of every environment variable those sources read (`ENV['X']`, `ENV.fetch('X'`,
 /// any quoted all-caps literal, `PROXY_*`; PAGES among them). The test databases are scratch files and so not an input.
@@ -239,7 +240,7 @@ pub fn rails_inputs() -> Vec<u8> {
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let mut files = vec![];
-    for top in ["app", "bin", "config", "db", "lib", "public", "vendor", "script/rust", "rust/schema", "Gemfile", "Gemfile.lock", ".ruby-version",
+    for top in ["app", "bin", "config", "db", "lib", "manual", "public", "vendor", "script/rust", "rust/schema", "Gemfile", "Gemfile.lock", ".ruby-version",
                 ".tool-versions", "config.ru", "Rakefile", "src-tauri/Cargo.toml", ".env", ".env.test", ".env.test.local"] {
         let path = Path::new(top);
         if root.join(path).is_dir() { walk(root, path, &mut files) } else if let Ok(bytes) = std::fs::read(root.join(path)) { files.push((path.into(), bytes)) }
