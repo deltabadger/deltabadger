@@ -32,9 +32,9 @@ fn document(title: &str, heading: &str, body: &str, head: &str) -> String {
 }
 
 /// The page's routes: `/ui-ready` 200, `/health-check` and `/up` 503, anything else the page with 503.
-pub fn router(reason: &str) -> Router { routes(page(reason)) }
+pub fn router(reason: &str) -> Router { routes(page(reason), "refused") }
 
-fn routes(page: String) -> Router {
+fn routes(page: String, state: &'static str) -> Router {
     let body = std::sync::Arc::new(page);
     let refused = move || {
         let body = body.clone();
@@ -45,23 +45,33 @@ fn routes(page: String) -> Router {
     };
     let unhealthy = || async { (StatusCode::SERVICE_UNAVAILABLE, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], r#"{"health":"refused"}"#).into_response() };
     Router::new()
-        .route("/ui-ready", get(ui_ready))
+        .route("/ui-ready", get(move || ui_ready(state)))
         .route("/health-check", get(unhealthy))
         .route("/up", get(unhealthy))
         .fallback(refused)
 }
 
-/// `/ui-ready`: 200 whenever something is served to the user, the app or this page (PLAN-B2 r2.8).
-pub async fn ui_ready() -> Response {
-    (StatusCode::OK, [(header::CONTENT_TYPE, "text/plain; charset=utf-8")], "ready").into_response()
+static READY_TOKEN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// `serve`'s `DELTABADGER_READY_TOKEN`, set once at start. The desktop app mints one per start and trusts a `/ui-ready`
+/// only if it carries it, so another program on the port is never taken for its engine (PLAN-B6 r1.4).
+pub fn set_ready_token(token: Option<String>) {
+    if let Some(t) = token.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()) { let _ = READY_TOKEN.set(t); }
 }
 
-/// Serves the page on 0.0.0.0:`port` until SIGTERM/SIGINT. 0 = stopped as asked; 1 = the port could not be taken
+/// `/ui-ready`: 200 whenever something is served to the user, the app or this page (PLAN-B2 r2.8). With a ready token,
+/// `ready <token> <state>`, `state` being `app`, `refused` or `starting`; without, `ready`.
+pub async fn ui_ready(state: &'static str) -> Response {
+    let body = match READY_TOKEN.get() { Some(t) => format!("ready {t} {state}"), None => "ready".into() };
+    (StatusCode::OK, [(header::CONTENT_TYPE, "text/plain; charset=utf-8"), (header::CACHE_CONTROL, "no-store")], body).into_response()
+}
+
+/// Serves the page on `port` at the bind address (server::binding) until SIGTERM/SIGINT. 0 = stopped as asked; 1 = the port could not be taken
 /// (the refusal stands; nothing else to show it on).
 pub fn serve(port: u16, reason: &str) -> i32 {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     rt.block_on(async {
-        let listener = match tokio::net::TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await {
+        let listener = match tokio::net::TcpListener::bind(SocketAddr::from((super::server::binding(), port))).await {
             Ok(l) => l,
             Err(e) => { eprintln!("deltabadger: cannot show the refusal page on port {port}: {e}"); return 1; }
         };
@@ -78,24 +88,25 @@ pub fn serve(port: u16, reason: &str) -> i32 {
     })
 }
 
-/// `starting_page` on 0.0.0.0:`port` for as long as the future is polled: `serve` waiting out a Rails heartbeat (PLAN-B2
+/// `starting_page` on `port` at the bind address (server::binding) for as long as the future is polled: `serve` waiting out a Rails heartbeat (PLAN-B2
 /// r2.8), with the refusal page's routes. Dropping it closes the listener; the runtime's end closes the connections still
 /// open. Returns only when the port cannot be taken.
 pub async fn show_starting(port: u16, wait: u64) -> std::io::Error {
-    let listener = match tokio::net::TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await { Ok(l) => l, Err(e) => return e };
-    match axum::serve(listener, routes(starting_page(wait))).await { Ok(()) => std::io::Error::other("the page stopped"), Err(e) => e }
+    let listener = match tokio::net::TcpListener::bind(SocketAddr::from((super::server::binding(), port))).await { Ok(l) => l, Err(e) => return e };
+    match axum::serve(listener, routes(starting_page(wait), "starting")).await { Ok(()) => std::io::Error::other("the page stopped"), Err(e) => e }
 }
 
-/// SIGTERM or SIGINT, with the handlers registered now, not on the first poll.
+/// SIGTERM or SIGINT (Ctrl-C off Unix), with the handlers registered now, not on the first poll; or the desktop's stdin
+/// latch (crate::stop).
 #[cfg(unix)]
 pub fn stop_signal() -> impl std::future::Future<Output = ()> {
     use tokio::signal::unix::{signal, SignalKind};
     let (mut term, mut int) = (signal(SignalKind::terminate()).expect("a SIGTERM handler"), signal(SignalKind::interrupt()).expect("a SIGINT handler"));
-    async move { tokio::select! { _ = term.recv() => {}, _ = int.recv() => {} } }
+    async move { tokio::select! { _ = term.recv() => {}, _ = int.recv() => {}, _ = crate::stop::latched() => {} } }
 }
 
 #[cfg(not(unix))]
 pub fn stop_signal() -> impl std::future::Future<Output = ()> {
     let mut ctrl_c = tokio::signal::windows::ctrl_c().expect("a Ctrl-C handler");
-    async move { ctrl_c.recv().await; }
+    async move { tokio::select! { _ = ctrl_c.recv() => {}, _ = crate::stop::latched() => {} } }
 }

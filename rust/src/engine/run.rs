@@ -150,6 +150,11 @@ impl Shutdown {
         self.wake.notify_one(); // a permit is stored if the loop is not asleep yet
     }
     pub fn is_requested(&self) -> bool { self.flag.load(Ordering::SeqCst) }
+    /// The desktop's stdin latch (crate::stop) requests the stop synchronously, from the thread that saw stdin's end.
+    fn on_stdin_latch(&self) {
+        let me = self.clone();
+        crate::stop::on_request(move || me.request());
+    }
     /// `true` once a stop is requested: for a service that selects on a `watch` (a scheduler).
     pub fn subscribe(&self) -> tokio::sync::watch::Receiver<bool> { self.stopped.subscribe() }
     /// Resolves once a stop is requested, at once if it already was. It never takes the engine's wake permit.
@@ -157,11 +162,13 @@ impl Shutdown {
         let mut rx = self.subscribe();
         let _ = rx.wait_for(|stopped| *stopped).await;
     }
-    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers).
+    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers); and,
+    /// on every OS, once the desktop's stdin latch is set (crate::stop), at once if it already is.
     /// The handlers are registered before this returns, so a signal that arrives afterwards is never lost. Call inside
     /// the runtime.
     #[cfg(unix)]
     pub fn on_signals(&self) {
+        self.on_stdin_latch();
         use tokio::signal::unix::{signal, SignalKind};
         let mut term = signal(SignalKind::terminate()).expect("a SIGTERM handler");
         let mut int = signal(SignalKind::interrupt()).expect("a SIGINT handler");
@@ -173,6 +180,7 @@ impl Shutdown {
     }
     #[cfg(not(unix))]
     pub fn on_signals(&self) {
+        self.on_stdin_latch();
         // The same as `tokio::signal::ctrl_c()`, but this registers the console handler now, not on first poll.
         let mut ctrl_c = tokio::signal::windows::ctrl_c().expect("a Ctrl-C handler");
         let me = self.clone();
@@ -1333,4 +1341,36 @@ async fn standalone_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::a
     let cx = TickContext { credential_version: producer, prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
                            stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
     api_orders::place_standalone(&e.primary, &venue, request, clock, &cx).await
+}
+
+#[cfg(test)]
+mod stop_tests {
+    fn shutdown() -> super::Shutdown {
+        super::Shutdown { flag: Default::default(), wake: Default::default(), stopped: std::sync::Arc::new(tokio::sync::watch::channel(false).0) }
+    }
+
+    /// A latch already set when the handlers go in: the stop is requested before `on_signals` returns, with no task
+    /// polled in between, so the loop's first `stopping()` sees it (Codex B6-0a r1 P1).
+    #[test]
+    fn a_stdin_latch_set_before_the_handlers_is_the_engines_stop_before_any_yield() {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            crate::stop::request();
+            let stop = shutdown();
+            stop.on_signals();
+            assert!(stop.is_requested());
+        });
+    }
+
+    /// One set later, on the stdin thread: the flag is set on that thread, before the runtime polls anything.
+    #[test]
+    fn a_stdin_latch_set_later_is_the_engines_stop_on_the_thread_that_set_it() {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            let stop = shutdown();
+            stop.on_signals();
+            std::thread::spawn(crate::stop::request).join().unwrap();
+            assert!(stop.is_requested());
+        });
+    }
 }

@@ -935,7 +935,10 @@ pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backu
     };
     // ponytail: Windows can't open a folder to fsync it (std has no FILE_FLAG_BACKUP_SEMANTICS); there the files are
     // synced and the folders are left to NTFS's own journal. Add a Windows-specific folder flush if B7 needs one.
-    let sync = |p: &Path| if cfg!(not(unix)) && p.is_dir() { Ok(()) } else { std::fs::File::open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e)) };
+    // Windows' FlushFileBuffers needs a handle with write access (D-BACKUP-WINDOWS-SYNC): opened without truncating,
+    // nothing written. Unix fsyncs a read-only handle.
+    let sync = |p: &Path| if cfg!(not(unix)) && p.is_dir() { Ok(()) } else {
+        std::fs::OpenOptions::new().read(true).write(cfg!(windows)).open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e)) };
     let partial = dir.join(format!("{name}.partial"));
     std::fs::create_dir(&partial).map_err(|e| io(&partial, e))?;
     let made = (|| -> Result<Backup, BackupError> {

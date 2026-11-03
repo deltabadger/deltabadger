@@ -14,7 +14,9 @@
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
 //! and FORCE_SSL. Without data-api, run and serve import db/seed_data/catalogue.json.gz at start and the public catalogue
 //! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off). DELTABADGER_PLATFORM=umbrel
-//! words the refusal of an older install for Umbrel.
+//! words the refusal of an older install for Umbrel. The desktop app sets three more for serve (PLAN-B6): BINDING (the
+//! listen address, default 0.0.0.0), DELTABADGER_READY_TOKEN (`/ui-ready` answers `ready <token> app|refused|starting`)
+//! and DELTABADGER_STOP_ON_STDIN_EOF=1 (stdin's end stops serve as SIGTERM does, deltabadger::stop).
 //!
 //! Files: on an empty STORAGE_DIR, `run` and `serve` create the install under the engine lock (store::bootstrap: the
 //! primary, seeded and owned by Rust from its first commit, and an empty queue; never cache or cable). Every other
@@ -210,6 +212,29 @@ fn take_lock_waiting(paths: &Paths) -> EngineLock {
     taken.unwrap_or_else(|e| lock_refused(paths, e))
 }
 
+/// A stop the desktop's stdin latch took (deltabadger::stop) between two start phases: the phase that ran is complete, the
+/// next one is not begun (PLAN-B6 r3.6). Before the claim, so nothing is taken over.
+fn stop_if_requested() {
+    if deltabadger::stop::requested() { log("stopped on request"); std::process::exit(0) }
+}
+
+/// Tests (debug builds): with DELTABADGER_TEST_PAUSE=`point`, start holds here until the file DELTABADGER_TEST_RELEASE
+/// names exists, after logging "paused at `point`" (PLAN-B6 r2.5).
+fn pause(point: &str) {
+    if let Some(release) = pause_release(point) { while !release.exists() { std::thread::sleep(std::time::Duration::from_millis(20)) } }
+}
+
+/// `pause` inside the runtime, which keeps running its tasks (the engine's stop handlers) meanwhile.
+async fn pause_async(point: &str) {
+    if let Some(release) = pause_release(point) { while !release.exists() { tokio::time::sleep(std::time::Duration::from_millis(20)).await } }
+}
+
+fn pause_release(point: &str) -> Option<std::path::PathBuf> {
+    if !cfg!(debug_assertions) || std::env::var("DELTABADGER_TEST_PAUSE").ok().as_deref() != Some(point) { return None }
+    log(&format!("paused at {point}"));
+    Some(std::env::var("DELTABADGER_TEST_RELEASE").expect("DELTABADGER_TEST_RELEASE: the file that ends the pause").into())
+}
+
 fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
     match e {
         // Not on the refusal page: the engine that holds the lock is the one serving this install.
@@ -295,9 +320,12 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
         store::abort_point("after-commit");
     }
     check_readable(&paths, &cipher, env);
+    if start { pause("before-backup"); stop_if_requested(); }
     if start && !created && !owned_by_rust(&paths, &cipher) { back_up(&paths) }
     if start {
+        pause("after-backup");
         for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths, env)) { log(&format!("applied Rust migration {version}")); }
+        pause("after-migrate");
     }
     let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
     // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
@@ -480,6 +508,12 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
         None => 3000,
     };
+    // BINDING, the name `rails server` reads for its bind address (PLAN-B6 §1.3): the desktop sets 127.0.0.1.
+    if let Some(ip) = env("BINDING").filter(|b| !b.trim().is_empty()) {
+        deltabadger::web::server::set_binding(ip.trim().parse().unwrap_or_else(|_| fail("BINDING must be an IP address, such as 127.0.0.1")));
+    }
+    deltabadger::web::refused::set_ready_token(env("DELTABADGER_READY_TOKEN"));
+    deltabadger::stop::watch_stdin(env);
     REFUSAL_PORT.set(port).expect("serve runs once");
     // The refusal page needs no assets, so a build without them says so in the browser too.
     if !deltabadger::web::assets::BUILT {
@@ -514,6 +548,8 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     // The port cannot be taken: there is nowhere to show the refusal page either.
     let listener = rt.block_on(deltabadger::web::server::bind(&app, port))
         .unwrap_or_else(|e| { eprintln!("deltabadger: {}", web_problem(e)); std::process::exit(EXIT_REFUSED) });
+    pause("before-claim");
+    stop_if_requested();
     if let Err((code, message)) = claim_install(&lock, &o, &cipher) {
         if code != EXIT_REFUSED { return code; }
         // Nothing was claimed: the port goes to the refusal page, and the lock goes with this process's other handles.
@@ -524,6 +560,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         let factory = LiveFactory::for_install(&o.primary, &cipher);
         let mut engine = Engine::new(o.primary, factory, cipher, lock);
         engine.stop_handle().on_signals();
+        pause_async("after-handlers").await;
         let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock, Some(&app)) {
             Ok(s) => s,
             Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
