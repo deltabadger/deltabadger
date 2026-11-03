@@ -3,7 +3,8 @@
 //! the app may be gone while the engine drains, so nobody else can bound the file, and a closed pipe would make
 //! `println!` panic mid-drain. The file is renamed to `<path>.1` (replacing the older one) once it passes 10 MB, and the
 //! first line of every file it opens is `--- start <DELTABADGER_READY_TOKEN> ---`, so the app finds this start's lines
-//! across both files. Write errors are ignored: a full disk drops lines, never the engine's work. Without the variable,
+//! across both files. Write errors are ignored: a full disk drops lines, never the engine's work. A file that can't be
+//! opened, or can't be renamed when it is full, takes no more lines. Without the variable,
 //! lines go to stdout and stderr exactly as before (Docker, Umbrel: `docker logs`).
 use std::io::Write;
 use std::path::PathBuf;
@@ -27,11 +28,9 @@ impl Log {
     }
 
     fn put(&mut self, text: &str) {
-        match self.file.as_mut() {
-            Some(f) => if f.write_all(text.as_bytes()).is_ok() { self.len += text.len() as u64 },
-            // The file could not be opened at all: stderr, still without panicking on a closed pipe.
-            None => { let _ = std::io::stderr().write_all(text.as_bytes()); }
-        }
+        // Without a file (it could not be opened, or could not be rotated) lines are dropped. Never stderr instead, whose
+        // reader may be gone or stalled: a blocked write would hold the engine.
+        if let Some(f) = self.file.as_mut() { if f.write_all(text.as_bytes()).is_ok() { self.len += text.len() as u64 } }
     }
 
     fn write(&mut self, text: &str) {
@@ -40,8 +39,8 @@ impl Log {
             self.file = None; // closed before the rename (Windows renames no open file)
             let mut old = self.path.clone().into_os_string();
             old.push(".1");
-            let _ = std::fs::rename(&self.path, old);
-            self.open();
+            // A file that can't be renamed is left as it is, at its size: no line is written past it.
+            if std::fs::rename(&self.path, old).is_ok() { self.open(); }
         }
     }
 }

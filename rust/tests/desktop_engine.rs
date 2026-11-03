@@ -673,3 +673,68 @@ fn check_keeps_todays_words_on_the_desktop() {
     assert_eq!(out.status.code(), Some(1));
     assert_eq!(String::from_utf8_lossy(&out.stderr), "deltabadger: can't read this install with this SECRET_KEY_BASE. Use the secret this install was created with.\n");
 }
+
+/// Codex r1: a full log file that can't be renamed (a folder named `<log>.1` is in the way) takes no more lines; the run
+/// and its stop go on.
+#[cfg(debug_assertions)]
+#[test]
+fn a_full_log_that_cannot_be_rotated_stops_growing() {
+    let data = Data::new();
+    let older = data.log_dir().join("deltabadger.log.1");
+    std::fs::create_dir(&older).unwrap();
+    std::fs::write(older.join("kept"), "").unwrap();
+    let port = free_port();
+    let mut c = desktop(&data, port);
+    c.env("DELTABADGER_TEST_LOG_ROTATE_BYTES", "200");
+    let mut e = start(&mut c, port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    e.close_stdin();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    let log = data.log();
+    let longest = log.lines().map(str::len).max().unwrap() + 1;
+    assert!(log.len() <= 200 + longest, "{} bytes: {log}", log.len());
+    assert_eq!(log.matches("--- start").count(), 1, "{log}");
+    assert!(older.join("kept").exists());
+    assert_eq!(e.rest(), Vec::<String>::new());
+}
+
+/// Codex r1: a log file that can't be opened drops every line; nothing goes to stdout or stderr instead.
+#[test]
+fn a_log_file_that_cannot_be_opened_drops_lines_and_writes_nothing_else() {
+    let data = Data::new();
+    let port = free_port();
+    let mut c = desktop(&data, port);
+    c.env("DELTABADGER_LOG_FILE", data.path().join("no-such-folder").join("deltabadger.log"));
+    let mut e = start(&mut c, port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    e.close_stdin();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    assert_eq!(e.rest(), Vec::<String>::new());
+    assert!(!data.path().join("no-such-folder").exists());
+}
+
+/// Codex r1 (r4.1): the refusal page answers /service-worker.js with the retiring worker on the desktop, so a reopen into
+/// a refusal removes the old worker; elsewhere it stays the refusal page.
+#[test]
+fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
+    for desktop_platform in [true, false] {
+        let data = Data::new();
+        data.sql("CREATE TABLE notes (x)");
+        let port = free_port();
+        let mut c = desktop(&data, port);
+        if !desktop_platform { c.env_remove("DELTABADGER_PLATFORM"); }
+        let mut e = start(&mut c, port);
+        assert_eq!(e.ready(), format!("ready {TOKEN} refused"));
+        let answer = get(port, "/service-worker.js").unwrap();
+        let head = answer.split_once("\r\n\r\n").unwrap().0.to_ascii_lowercase();
+        if desktop_platform {
+            assert!(head.starts_with("http/1.1 200") && head.contains("\r\ncache-control: no-store\r\n"), "{head}");
+            assert_eq!(body(&answer), deltabadger::web::assets::RETIRING_WORKER);
+        } else {
+            assert!(head.starts_with("http/1.1 503"), "{head}");
+            assert_eq!(body(&answer), body(&get(port, "/").unwrap()), "the refusal page, as before");
+        }
+        e.close_stdin();
+        assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    }
+}

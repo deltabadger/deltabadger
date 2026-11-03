@@ -519,6 +519,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     deltabadger::logger::init(env);
     if let Some(d) = Desktop::from_env(env) { let _ = DESKTOP.set(d); }
+    if env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("desktop")) { deltabadger::web::refused::retire_worker(); }
     let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
         Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
         None => 3000,
