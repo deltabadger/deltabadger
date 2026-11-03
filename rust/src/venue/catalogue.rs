@@ -476,7 +476,8 @@ fn ruby_d(v: &Value) -> Result<Option<(BigDec, bool)>, String> {
     }
 }
 
-/// `v.to_d` where the value enters a computation or a count.
+/// `v.to_d` where the value enters a computation or a count. Inputs outside the recorded set (catalogue_vectors.json's
+/// malformed-size scenarios) are read by the rule documented at `loose`.
 ///
 /// **D-CG-NONFINITE-REFUSED**: a value Ruby reads as Infinity or NaN that reaches a computation fails that venue's
 /// catalogue. Rails would carry it on: Bitget's `minTradeUSDT` or a ticker's `lastPr` into the quote minimum, MEXC's
@@ -488,15 +489,19 @@ fn finite(v: &Value) -> Result<(BigDec, bool), String> {
     ruby_d(v)?.ok_or_else(|| format!("{} reads as Infinity or NaN (D-CG-NONFINITE-REFUSED)", ruby::raw(v)))
 }
 
-/// String#to_d (BigDecimal 4.1.3's interpret_loosely): leading whitespace, a sign, digits (single underscores between
-/// them), an optional fraction and an optional exponent (e, E, d or D), read up to the first character that does not fit;
-/// nothing readable is 0 (-0 after a minus). Infinity and NaN only as the whole text (bar whitespace around it); NaN
-/// unsigned. None: Ruby reads the text as Infinity or NaN.
+/// String#to_d (BigDecimal 4.1.3's VpAlloc, not strict), over the text up to its first NUL (a C string ends there):
+/// leading whitespace; Infinity, +Infinity, -Infinity or NaN when that is all the rest bar whitespace (None); then one
+/// optional '#', a sign, digits (an underscore between two digits skipped), an optional fraction and an optional exponent
+/// (e, E, d or D), read up to the first character that does not fit; nothing readable is 0, -0 after a minus. An
+/// underscore before the first integer digit makes the whole value +0 (VpAlloc's invalid_value), whatever the sign.
 fn loose(s: &str) -> Result<Option<(BigDec, bool)>, String> {
     const SPACE: [char; 6] = [' ', '\t', '\n', '\x0b', '\x0c', '\r'];
+    let s = s.split('\0').next().unwrap_or_default();
     let t = s.trim_start_matches(SPACE);
+    if ["Infinity", "+Infinity", "-Infinity", "NaN"].contains(&t.trim_end_matches(SPACE)) { return Ok(None); }
+    let t = t.strip_prefix('#').unwrap_or(t);
     let (minus, rest) = match t.as_bytes().first() { Some(b'-') => (true, &t[1..]), Some(b'+') => (false, &t[1..]), _ => (false, t) };
-    if rest.trim_end_matches(SPACE) == "Infinity" || t.trim_end_matches(SPACE) == "NaN" { return Ok(None); }
+    if rest.starts_with('_') { return Ok(Some((BigDec::zero(), false))); }
     // Digits with single underscores between them, and the bytes they took.
     let run = |r: &str| -> (String, usize) {
         let b = r.as_bytes();
@@ -561,7 +566,11 @@ mod tests {
 ", Value::Null),
                           ("NaN ", Value::Null), ("Infinityx", json!("0.0")), ("NaNx", json!("0.0")), ("Infinity x", json!("0.0")),
                           ("-NaN", json!("-0.0")), ("+NaN", json!("0.0")), ("1d-3", json!("0.001")), ("1.5D+2x", json!("150.0")),
-                          ("1e-3d", json!("0.001")), ("-x", json!("-0.0")), ("-0.000", json!("-0.0")), ("+x", json!("0.0"))] {
+                          ("1e-3d", json!("0.001")), ("-x", json!("-0.0")), ("-0.000", json!("-0.0")), ("+x", json!("0.0")),
+                          ("Infinity\u{0}x", Value::Null), ("NaN\u{0}x", Value::Null), ("1\u{0}2", json!("1.0")), ("-\u{0}1", json!("-0.0")),
+                          ("-_1", json!("0.0")), ("+_1", json!("0.0")), ("_1", json!("0.0")), ("-0_1", json!("-1.0")), ("1._5", json!("1.0")),
+                          ("-._5", json!("-0.0")), ("#12", json!("12.0")), ("#-3", json!("-3.0")), ("-#1", json!("-0.0")), ("#Infinity", json!("0.0")),
+                          ("1e5_0", json!(format!("1{}.0", "0".repeat(50))))] {
             assert_eq!(d(&json!(s)).unwrap(), want, "{s:?}");
         }
         assert!(to_d(&json!("NaN")).is_err(), "no NaN in arithmetic");

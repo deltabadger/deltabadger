@@ -17,7 +17,7 @@
     "app/models/utilities/number.rb": "848579e5f3800c47ab494dfa9b3d8035f2a64488fdf06f637c96c3ea92bf8676",
     "app/models/utilities/hash.rb": "c976d9a7c387bf813da7404a029df8f7afe8dae29567edee5d48ebc7f431cf11",
     "app/services/result.rb": "20b3839fb88adc0f24d247b4816fcdb26036d1b5bed6ee36adde8140f816cd21",
-    "script/rust/catalogue_vectors.rb": "c6d1dc15bae5176a1f6a87b87b16489dbbda1c6c7071cf7387b315e5fe7769df"
+    "script/rust/catalogue_vectors.rb": "2db98b820bd0cbbfdbddd16c520f8922e9867c754440c431af6b6ff251f2179c"
   },
   "gems": {
     "honeymaker": "0.12.5"
@@ -3178,6 +3178,45 @@
                   "quoteIncrement": "0.01",
                   "priceIncrement": "0.01",
                   "enableTrading": true
+                },
+                {
+                  "symbol": "NUL-USDT",
+                  "baseCurrency": "NUL",
+                  "quoteCurrency": "USDT",
+                  "baseMinSize": "1\u00002",
+                  "quoteMinSize": "-\u00001",
+                  "baseMaxSize": "Infinity\u0000x",
+                  "quoteMaxSize": "NaN\u0000x",
+                  "baseIncrement": "0.01",
+                  "quoteIncrement": "0.01",
+                  "priceIncrement": "0.01",
+                  "enableTrading": true
+                },
+                {
+                  "symbol": "UND-USDT",
+                  "baseCurrency": "UND",
+                  "quoteCurrency": "USDT",
+                  "baseMinSize": "-_1",
+                  "quoteMinSize": "+_1",
+                  "baseMaxSize": "-0_1",
+                  "quoteMaxSize": "1._5",
+                  "baseIncrement": "0.01",
+                  "quoteIncrement": "0.01",
+                  "priceIncrement": "0.01",
+                  "enableTrading": true
+                },
+                {
+                  "symbol": "HSH-USDT",
+                  "baseCurrency": "HSH",
+                  "quoteCurrency": "USDT",
+                  "baseMinSize": "#12",
+                  "quoteMinSize": "#-3",
+                  "baseMaxSize": "-#1",
+                  "quoteMaxSize": "1e5_0",
+                  "baseIncrement": "0.01",
+                  "quoteIncrement": "0.01",
+                  "priceIncrement": "0.01",
+                  "enableTrading": true
                 }
               ]
             }
@@ -3289,6 +3328,48 @@
             "minimum_quote_size": "-0.0",
             "maximum_base_size": "0.0",
             "maximum_quote_size": "0.001",
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "NUL-USDT",
+            "base": "NUL",
+            "quote": "USDT",
+            "minimum_base_size": "1.0",
+            "minimum_quote_size": "-0.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "UND-USDT",
+            "base": "UND",
+            "quote": "USDT",
+            "minimum_base_size": "0.0",
+            "minimum_quote_size": "0.0",
+            "maximum_base_size": "-1.0",
+            "maximum_quote_size": "1.0",
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "HSH-USDT",
+            "base": "HSH",
+            "quote": "USDT",
+            "minimum_base_size": "12.0",
+            "minimum_quote_size": "-3.0",
+            "maximum_base_size": "-0.0",
+            "maximum_quote_size": "100000000000000000000000000000000000000000000000000.0",
             "base_decimals": 2,
             "quote_decimals": 2,
             "price_decimals": 2,

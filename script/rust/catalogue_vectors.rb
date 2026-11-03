@@ -342,6 +342,15 @@ module Catalogue
             'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true },
           { 'symbol' => 'LTC-USDT', 'baseCurrency' => 'LTC', 'quoteCurrency' => 'USDT', 'baseMinSize' => '-x',
             'quoteMinSize' => '-0.000', 'baseMaxSize' => 'Infinity x', 'quoteMaxSize' => '1e-3d', 'baseIncrement' => '0.01',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true },
+          { 'symbol' => 'NUL-USDT', 'baseCurrency' => 'NUL', 'quoteCurrency' => 'USDT', 'baseMinSize' => "1\u00002",
+            'quoteMinSize' => "-\u00001", 'baseMaxSize' => "Infinity\u0000x", 'quoteMaxSize' => "NaN\u0000x", 'baseIncrement' => '0.01',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true },
+          { 'symbol' => 'UND-USDT', 'baseCurrency' => 'UND', 'quoteCurrency' => 'USDT', 'baseMinSize' => '-_1',
+            'quoteMinSize' => '+_1', 'baseMaxSize' => '-0_1', 'quoteMaxSize' => '1._5', 'baseIncrement' => '0.01',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true },
+          { 'symbol' => 'HSH-USDT', 'baseCurrency' => 'HSH', 'quoteCurrency' => 'USDT', 'baseMinSize' => '#12',
+            'quoteMinSize' => '#-3', 'baseMaxSize' => '-#1', 'quoteMaxSize' => '1e5_0', 'baseIncrement' => '0.01',
             'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true }
         ] })]
       } },
