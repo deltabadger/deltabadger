@@ -2699,17 +2699,27 @@ fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
 /// D-OPEN-ORDERS-UNREAD-NAMED (3.0 A20c): Rails' ListOpen drops an exchange whose open orders it cannot list
 /// (`list_open.rb:64-65`); this build names it in `unavailable`. On an `api_` step the two answers may differ only by
 /// rows of that reason after Rails' own; Rails' body then takes them, and its weak tag (Rack::ETag over the body) follows.
-/// A body-less step (HEAD) that carried a rewritten tag takes the new tag too. The scenarios whose keys or filter name
-/// such an exchange must still differ, so a Rails fix shows here.
+/// A body-less step (HEAD) that carried a rewritten tag takes the new tag too. The names each step adds are pinned
+/// (UNREAD_STEPS: scenario, step, exchanges in order): a step not listed may not differ, and a listed one must, so a
+/// wrong exchange, a missing one, or a Rails fix shows here.
 fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), String> {
     use sha2::{Digest, Sha256};
     const UNREAD: &str = "not read live on this build";
-    const WITNESSES: [&str; 8] = ["api_balances_live", "api_balances_venue_down", "api_orders_formats", "api_orders_no_key", "api_orders_not_granted",
-                                  "api_orders_null_grant", "api_orders_rows", "api_orders_tokens"];
+    // The owner holds correct trading keys on Kraken and Binance beside Alpaca (api_case's venues); the second user
+    // (`second-token`) holds none, so their steps name nothing. A filter names its own exchange alone; a blank one is none.
+    const BOTH: &[&str] = &["Kraken", "Binance"];
+    const UNREAD_STEPS: &[(&str, usize, &[&str])] = &[
+        ("api_balances_live", 1, BOTH), ("api_balances_venue_down", 1, BOTH),
+        ("api_orders_formats", 0, BOTH), ("api_orders_formats", 1, BOTH), ("api_orders_formats", 2, BOTH), ("api_orders_formats", 4, BOTH),
+        ("api_orders_no_key", 0, BOTH), ("api_orders_not_granted", 1, BOTH), ("api_orders_null_grant", 0, BOTH), ("api_orders_null_grant", 1, BOTH),
+        ("api_orders_rows", 0, BOTH), ("api_orders_rows", 2, &["Kraken"]), ("api_orders_rows", 4, BOTH),
+        ("api_orders_tokens", 4, BOTH), ("api_orders_tokens", 5, BOTH), ("api_orders_tokens", 7, BOTH), ("api_orders_tokens", 11, BOTH),
+        ("api_orders_tokens", 12, BOTH), ("api_orders_tokens", 13, BOTH),
+    ];
     if !name.starts_with("api_") { return Ok(()); }
-    let mut named = 0;
+    let (mut seen, mut unpinned) = (vec![], vec![]);
     let mut retagged = std::collections::BTreeMap::new();
-    for (theirs, ours) in rails["responses"].as_array_mut().into_iter().flatten().zip(rust["responses"].as_array().into_iter().flatten()) {
+    for (step, (theirs, ours)) in rails["responses"].as_array_mut().into_iter().flatten().zip(rust["responses"].as_array().into_iter().flatten()).enumerate() {
         let (Some(t), Some(o)) = (theirs["body"].as_str(), ours["body"].as_str()) else { continue };
         if t == o { continue; }
         let (Ok(t_json), Ok(o_json)) = (serde_json::from_str::<Value>(t), serde_json::from_str::<Value>(o)) else { continue };
@@ -2721,7 +2731,9 @@ fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), S
             || !added.iter().all(|r| r["error"] == UNREAD && r["exchange"].is_string() && r.as_object().is_some_and(|m| m.len() == 2)) {
             continue; // Any other difference is compared, and fails, as it is.
         }
-        named += 1;
+        let names = added.iter().map(|r| r["exchange"].as_str().unwrap_or_default()).collect::<Vec<_>>();
+        if !UNREAD_STEPS.contains(&(name, step, &names[..])) { unpinned.push(format!("({name:?}, {step}, &{names:?})")); continue; }
+        seen.push(step);
         theirs["body"] = json!(o);
         if let Some(old) = theirs["headers"]["etag"].as_str().map(str::to_string) {
             let new = format!("W/\"{}\"", &hex::encode(Sha256::digest(o.as_bytes()))[..32]);
@@ -2732,7 +2744,10 @@ fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), S
     for theirs in rails["responses"].as_array_mut().into_iter().flatten().filter(|r| r["body"].as_str().is_none_or(str::is_empty)) {
         if let Some(new) = theirs["headers"]["etag"].as_str().and_then(|t| retagged.get(t)) { theirs["headers"]["etag"] = json!(new); }
     }
-    if WITNESSES.contains(&name) && named == 0 { return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: Rails' {name} now names every exchange it does not read")); }
+    if !unpinned.is_empty() { return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: steps that name exchanges not pinned: {}", unpinned.join(", "))); }
+    if let Some((_, step, _)) = UNREAD_STEPS.iter().find(|(n, step, _)| *n == name && !seen.contains(step)) {
+        return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: {name} step {step} no longer differs (Rails names it now, or this build does not)"));
+    }
     Ok(())
 }
 
