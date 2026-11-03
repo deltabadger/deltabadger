@@ -201,6 +201,8 @@ module Pages
       WebMock.stub_request(:post, claim).with(body: { 'code' => 'dbc_bad' }).to_return(status: 401, headers: json, body: '{"error":"invalid"}')
       WebMock.stub_request(:get, 'https://api.alpaca.markets/v2/account')
              .to_return(status: 200, body: '{"status":"ACTIVE","cash":"0"}', headers: json)
+      # A20: the open-orders refresh's read of a waiting order (pages.rb broadcasts_fetch_open_orders_waiting), refused.
+      WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/orders/refresh-1').to_return(status: 503, body: '{"message":"unavailable"}', headers: json)
     end
 
     # The plan Clients::Coingecko detected and the client MarketData holds are memoised for the process: each scenario starts
@@ -516,6 +518,7 @@ module Pages
     tracker_connect_scenarios(grid)
     market_data_scenarios(grid)
     stocks_platform_scenarios(grid)
+    email_and_docs_scenarios(grid)
     ibkr_connect_scenarios(grid)
     venue_key_scenarios(grid)
     preference_scenarios(grid)
@@ -845,6 +848,36 @@ module Pages
     grid['settings_platform_destroy_hosted'] = settings_case(snap, unclaim.()).merge('app_configs' => platform, 'env' => { 'MARKET_DATA_URL' => 'http://env-data-api.invalid', 'MARKET_DATA_TOKEN' => 'env-token' })
     grid['settings_platform_create_nonadmin'] = settings_case(claim.('dbc_ok', 403), user: member)
     grid['settings_platform_destroy_nonadmin'] = settings_case(unclaim.(403), user: member).merge('app_configs' => platform)
+  end
+
+  # 3.0 A20: SettingsController#send_test_email and #disconnect_email (admin only), and #download_api_docs (anyone signed in).
+  def self.email_and_docs_scenarios(grid)
+    test = ->(status = 200, opts = {}) { settings_write('send_test_email', {}, status, opts) }
+    disconnect = ->(status = 200) { settings_write('disconnect_email', { '_method' => 'delete' }, status) }
+    custom = { 'smtp_provider' => 'custom_smtp', 'smtp_host' => 'smtp.example.com', 'smtp_port' => '587',
+               'smtp_username' => 'smtp-user@example.com', 'smtp_password' => 'smtp-secret' }
+    member = owner('admin' => false)
+    grid['settings_email_test_not_configured'] = settings_case(test.())
+    # Saved without credentials is not configured either (SmtpSettings.custom_settings).
+    grid['settings_email_test_no_credentials'] = settings_case(test.()).merge('app_configs' => custom.except('smtp_password'))
+    grid['settings_email_test_sent'] = settings_case(test.(200, 'mails' => true)).merge('app_configs' => custom)
+    # The mail is written in the user's language, whatever the request's.
+    grid['settings_email_test_sent_de'] = settings_case(test.(200, 'mails' => true), user: owner('locale' => 'de')).merge('app_configs' => custom)
+    grid['settings_email_test_sent_env'] = settings_case(test.(200, 'mails' => true)).merge('env' => { 'SMTP_ADDRESS' => 'smtp.example.com' })
+    # D-TEST-EMAIL-ERROR-SAFE: Rails shows the server's reply, which here names the SMTP account.
+    grid['settings_email_test_failed'] = settings_case(test.(200, 'mails' => true)).merge('app_configs' => custom,
+                                                                                         'smtp_failure' => '535 5.7.8 Authentication failed for smtp-user@example.com')
+    grid['settings_email_test_nonadmin'] = settings_case(test.(403), user: member).merge('app_configs' => custom)
+    grid['settings_email_disconnect'] = settings_case(disconnect.()).merge('app_configs' => custom)
+    grid['settings_email_disconnect_env'] = settings_case(disconnect.()).merge('app_configs' => { 'smtp_provider' => 'env_smtp' })
+    grid['settings_email_disconnect_nothing'] = settings_case(disconnect.())
+    # D-NO-MAIL-SAYS-SO: with registration open, Rails redraws only the mail widget.
+    grid['settings_email_disconnect_registration_open'] = settings_case(disconnect.()).merge('app_configs' => custom.merge('registration_open' => 'true'))
+    grid['settings_email_disconnect_nonadmin'] = settings_case(disconnect.(403), user: member).merge('app_configs' => custom)
+    docs = get('/settings/download_api_docs').merge('headers_extra' => %w[content-disposition])
+    grid['settings_api_docs'] = settings_case(docs, get('/de/settings/download_api_docs').merge('headers_extra' => %w[content-disposition]))
+    grid['settings_api_docs_member'] = settings_case(docs, user: member)
+    grid['settings_api_docs_signed_out'] = { 'user' => owner, 'steps' => [docs] }
   end
 
   # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).

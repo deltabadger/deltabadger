@@ -50,6 +50,7 @@ pub async fn show(
         "/settings/api" => api::show(app, ctx, "rest").await,
         ibkr::PATH => ibkr::show(app, ctx).await,
         "/settings/ibkr_connect/download" => ibkr::download(app, ctx).await,
+        "/settings/download_api_docs" => api::download(ctx).await,
         p if p.starts_with("/settings/api_key_permissions/") => keys::modal(app, ctx).await,
         _ => Ok(layout::not_ported_for(&ctx)),
     }
@@ -111,6 +112,8 @@ pub async fn write(
         (&Method::POST, ibkr::PATH) => return ibkr::create(app, ctx).await,
         (&Method::DELETE, ibkr::PATH) => return ibkr::destroy(app, ctx).await,
         (&Method::POST, "/settings/ibkr_connect/activate") => return ibkr::activate(app, ctx).await,
+        (&Method::POST, "/settings/send_test_email") => return mail::send_test(app, ctx).await,
+        (&Method::DELETE, "/settings/disconnect_email") => return preferences::disconnect_email(app, ctx).await,
         (&Method::PATCH, "/settings/update_market_data") | (&Method::DELETE, "/settings/disconnect_market_data")
         | (&Method::POST, "/settings/resync_assets") => return market_data::write(app, ctx, &headers).await,
         (&Method::POST | &Method::DELETE, platform::PATH) | (&Method::PATCH, "/settings/update_stocks") | (&Method::DELETE, "/settings/disconnect_stocks") => {

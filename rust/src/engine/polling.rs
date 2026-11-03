@@ -24,6 +24,16 @@ pub enum PollFailure { CredentialsChanged, RateLimited(String), Transient(String
     /// D-KUCOIN-HF-RETENTION: (transaction, why) the bot's first unresolved HF obligation (reconcile::barrier).
     AwaitingReconciliation(i64, String) }
 
+impl PollFailure {
+    /// The failure's kind, fit for a log: a venue's answer text (which can name the account) is left out.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::CredentialsChanged => "credentials changed", Self::RateLimited(_) => "rate limited", Self::Transient(_) => "transient venue failure",
+            Self::General(_) => "venue or order failure", Self::OwnerChanged(_) => "owner changed", Self::AwaitingReconciliation(..) => "awaiting reconciliation",
+        }
+    }
+}
+
 fn poll_error(e: EngineError) -> PollFailure {
     match e { EngineError::CredentialsChanged => PollFailure::CredentialsChanged, EngineError::OwnerChanged(owner) => PollFailure::OwnerChanged(owner), other => PollFailure::General(format!("{other:?}")) }
 }
@@ -508,4 +518,37 @@ async fn refresh_row<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i6
     } else {
         poll_rows(c, venue, &bot, rows, now, if execution_only { PollMode::Terminal } else { PollMode::FollowUp }).await.map(|_| ())
     }
+}
+
+/// D-OPEN-ORDERS-WAKE: the orders table's refresh requests (BroadcastsController#fetch_open_orders), Rust-only, in
+/// transient_data as an integer version. The web bumps it and wakes the engine; the engine sweeps the bot (`sweep`, as
+/// Bot::FetchAndUpdateOpenOrdersJob) and removes only the version it served.
+pub const REFRESH_KEY: &str = "rust_open_orders_wanted";
+
+/// Leaves a refresh request on the user's bot (deleted ones too: `current_user.bots` finds them). One statement, so the
+/// version is bumped atomically. False: no such bot of this user.
+pub fn want_refresh(c: &Connection, bot_id: i64, user: i64) -> Result<bool, EngineError> {
+    let k = REFRESH_KEY;
+    Ok(c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{k}', coalesce(json_extract(transient_data, '$.{k}'), 0) + 1) \
+                           WHERE id = ?1 AND user_id = ?2 AND json_type(transient_data) = 'object'"), params![bot_id, user])? == 1)
+}
+
+/// The bots with a waiting refresh, with the version each holds (one that is not an integer is skipped and logged).
+pub fn refresh_claims(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
+    let k = REFRESH_KEY;
+    let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '$.{k}') FROM bots WHERE json_valid(transient_data) \
+                                    AND json_type(transient_data, '$.{k}') IS NOT NULL ORDER BY id"))?;
+    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, rusqlite::types::Value>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows.into_iter().filter_map(|(id, v)| match v {
+        rusqlite::types::Value::Integer(version) => Some((id, version)),
+        _ => { super::log(&format!("[engine] bot {id}: unreadable open-orders refresh request; skipped")); None }
+    }).collect())
+}
+
+/// Removes the refresh request only if it is still `version`: one made meanwhile is served by the next pass.
+pub fn ack_refresh(c: &Connection, bot_id: i64, version: i64) -> Result<(), EngineError> {
+    let k = REFRESH_KEY;
+    c.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{k}') WHERE id = ?1 AND json_extract(transient_data, '$.{k}') IS ?2"),
+              params![bot_id, version])?;
+    Ok(())
 }

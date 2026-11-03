@@ -348,8 +348,7 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     let before: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
     for (method, path) in [("delete", format!("/bots/{first}")), ("post", "/bots/dca_multi_assets".to_string()),
                            ("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
-                           ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split")),
-                           ("post", "/en/broadcasts/fetch_open_orders".to_string())] {
+                           ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split"))] {
         let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{} {path}", method.to_uppercase())), "{method} {path}: {} {}", answer.status, answer.body);
         let refused = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::None, &[]).await;
@@ -360,6 +359,13 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
         assert_ne!(browser.send(&app, "POST", &path, Some(&[]), web::Csrf::Header, &[]).await.status, 501, "{path} is served");
         assert_eq!(browser.send(&app, "POST", &path, Some(&[]), web::Csrf::None, &[]).await.status, 302, "{path} without a token is turned back");
     }
+    // 3.0 plan A20 serves the orders table's refresh (D-OPEN-ORDERS-WAKE): the request only leaves the engine a request.
+    let path = "/en/broadcasts/fetch_open_orders";
+    let refresh = browser.send(&app, "POST", path, Some(&[("bot_id", first.to_string().as_str())]), web::Csrf::Header, &[]).await;
+    assert_eq!(refresh.status, 200, "{path}: {}", refresh.body);
+    assert_eq!(browser.send(&app, "POST", path, Some(&[("bot_id", "999")]), web::Csrf::Header, &[]).await.status, 404);
+    assert_eq!(browser.send(&app, "POST", path, Some(&[("bot_id", first.to_string().as_str())]), web::Csrf::None, &[]).await.status, 302, "{path} without a token is turned back");
+    opened.primary.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}')", deltabadger::engine::polling::REFRESH_KEY), []).unwrap();
     // 3.0 plan A4 serves the order cancel (Bots::CancelOrdersController): a row the bot does not have is a 404, nothing moves.
     let path = format!("/bots/{first}/transactions/1");
     assert_eq!(browser.send(&app, "POST", &path, Some(&[("_method", "delete")]), web::Csrf::Header, &[]).await.status, 404);

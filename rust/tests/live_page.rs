@@ -282,3 +282,110 @@ async fn a_reversal_redraws_settings_and_queues_the_metrics_panel() {
     assert!(messages[0].1.contains("sell_price_limit"));
     assert!(app.figure_service.panels_pending() > 0, "the metrics redraw uses the existing figure worker");
 }
+
+fn transient(r: &Rig, key: &str) -> Value {
+    let raw: String = r.c().query_row("SELECT transient_data FROM bots WHERE id = ?1", [r.id], |row| row.get(0)).unwrap();
+    serde_json::from_str::<Value>(&raw).unwrap()[key].clone()
+}
+
+/// D-OPEN-ORDERS-WAKE (3.0 A20): the orders table's refresh request reaches no venue; the engine's next pass sweeps the bot
+/// (stopped: Rails' job runs whatever the status), announces the row it wrote, and serves the request.
+#[tokio::test(flavor = "current_thread")]
+async fn an_open_orders_refresh_is_swept_by_the_engine_and_never_by_the_request() {
+    use deltabadger::engine::polling;
+    let r = Rig::new(&BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }.transient("last_action_job_at", json!(STAMPED)));
+    let t = script(json!({ "GET /v2/orders/OTX-R": [filled("OTX-R")] }));
+    let mut e = r.engine(&t, "2026-09-01T10:00:06Z");
+    let mut rx = e.subscribe_to(EngineEvent::is_live);
+    // The first pass (and its start-up polls) runs before the order exists: only the refresh can read it.
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:06Z"))).await.unwrap();
+    heard(&mut rx);
+    let order = r.order("OTX-R", 1);
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:20Z"))).await.unwrap();
+    assert!(t.requests().is_empty() && heard(&mut rx).is_empty(), "without a request nothing reads the stopped bot's order");
+    assert!(polling::want_refresh(&r.c(), r.id, r.s.user_id).unwrap());
+    assert!(!polling::want_refresh(&r.c(), r.id, r.s.user_id + 1).unwrap(), "another user's bot is not found");
+    assert!(!polling::want_refresh(&r.c(), r.id + 100, r.s.user_id).unwrap(), "nor a bot that does not exist");
+    assert_eq!(transient(&r, polling::REFRESH_KEY), json!(1));
+    assert!(t.requests().is_empty(), "the request itself reads no venue");
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:36Z"))).await.unwrap();
+    assert_eq!(t.requests().len(), 1, "the engine's sweep read the order");
+    let ext: i64 = r.c().query_row("SELECT external_status FROM transactions WHERE id = ?1", [order], |r| r.get(0)).unwrap();
+    assert_eq!(ext, 2, "the sweep filled it");
+    assert_eq!(heard(&mut rx), [EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order }], "the page hears the row the sweep wrote");
+    assert_eq!(transient(&r, polling::REFRESH_KEY), Value::Null, "served");
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:01:06Z"))).await.unwrap();
+    assert_eq!(t.requests().len(), 1, "a served request is not swept again");
+}
+
+/// A request made while the engine served an older one survives the older one's acknowledgement.
+#[test]
+fn a_refresh_request_made_meanwhile_survives_the_older_ones_acknowledgement() {
+    use deltabadger::engine::polling;
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let c = r.c();
+    assert!(polling::want_refresh(&c, r.id, r.s.user_id).unwrap());
+    assert_eq!(polling::refresh_claims(&c).unwrap(), [(r.id, 1)]);
+    assert!(polling::want_refresh(&c, r.id, r.s.user_id).unwrap());
+    polling::ack_refresh(&c, r.id, 1).unwrap();
+    assert_eq!(transient(&r, polling::REFRESH_KEY), json!(2));
+    polling::ack_refresh(&c, r.id, 2).unwrap();
+    assert_eq!(transient(&r, polling::REFRESH_KEY), Value::Null);
+}
+
+/// success_or_kill: a refresh whose read fails is logged and served; the bot is neither failed nor stopped by it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_failed_refresh_is_served_and_leaves_the_bot_as_it_was() {
+    use deltabadger::engine::polling;
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_action_job_at", json!(STAMPED)));
+    let t = script(json!({ "GET /v2/orders/OTX-F": [{ "status": 503, "body": { "message": "unavailable" } }] }));
+    let mut e = r.engine(&t, "2026-09-01T10:00:06Z");
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:06Z"))).await.unwrap();
+    let order = r.order("OTX-F", 1);
+    let status_before: i64 = r.c().query_row("SELECT status FROM bots WHERE id = ?1", [r.id], |r| r.get(0)).unwrap();
+    assert!(polling::want_refresh(&r.c(), r.id, r.s.user_id).unwrap());
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:36Z"))).await.unwrap();
+    assert_eq!(t.requests().len(), 1);
+    let (status, ext): (i64, i64) = r.c().query_row("SELECT b.status, t.external_status FROM bots b JOIN transactions t ON t.bot_id = b.id WHERE t.id = ?1", [order], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((status, ext), (status_before, 1), "nothing written, the bot as it was");
+    let failures: i64 = r.c().query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND level = 'error'", [r.id], |r| r.get(0)).unwrap_or(0);
+    assert_eq!(failures, 0, "no failure is recorded against the bot");
+    assert_eq!(transient(&r, polling::REFRESH_KEY), Value::Null, "served all the same");
+}
+
+/// A refresh that commits a fill and then raises (an order whose status is unknown, after one that filled): the fill stays,
+/// is announced, and its amount-limit stop runs (Rails' StopJob from the fill callback); the request is served.
+#[tokio::test(flavor = "current_thread")]
+async fn a_refresh_that_fills_then_raises_keeps_the_fill_and_its_amount_limit_stop() {
+    use deltabadger::engine::{model, polling};
+    use deltabadger::enums::BotStatus;
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("quote_amount_limited", json!(true)).with("quote_amount_limit", json!(60.0))
+        .transient("quote_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z")).transient("last_action_job_at", json!(STAMPED)));
+    let mystery = ok(json!({ "id": "OTX-B", "status": "mystery", "symbol": "BTC/USD", "type": "market", "side": "buy", "notional": "60", "qty": null,
+                             "filled_qty": "0", "filled_avg_price": null, "limit_price": null }));
+    let t = script(json!({ "GET /v2/orders/OTX-A": [filled("OTX-A")], "GET /v2/orders/OTX-B": [mystery] }));
+    let mut e = r.engine(&t, "2026-09-01T10:00:06Z");
+    let mut rx = e.subscribe_to(EngineEvent::is_live);
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:06Z"))).await.unwrap();
+    heard(&mut rx);
+    let (a, b) = (r.order("OTX-A", 1), r.order("OTX-B", 1));
+    assert!(polling::want_refresh(&r.c(), r.id, r.s.user_id).unwrap());
+    run::step(&mut e, &FixedClock(at("2026-09-01T10:00:36Z"))).await.unwrap();
+    let ext = |id: i64| r.c().query_row("SELECT external_status FROM transactions WHERE id = ?1", [id], |r| r.get::<_, i64>(0)).unwrap();
+    assert_eq!((ext(a), ext(b)), (2, 1), "the first fill is committed before the second raises");
+    assert_eq!(model::load_bot(&r.c(), r.id).unwrap().status, BotStatus::Stopped, "the fill reached the limit: the bot stops");
+    let events = heard(&mut rx);
+    assert!(events.contains(&EngineEvent::OrderWritten { bot_id: r.id, transaction_id: a }) && events.contains(&EngineEvent::StatusChanged { bot_id: r.id }), "{events:?}");
+    assert_eq!(transient(&r, polling::REFRESH_KEY), Value::Null, "served");
+}
+
+/// A refresh's failure is logged by its kind: a venue's answer (which can name the account) never reaches the log line.
+#[test]
+fn a_refresh_failure_is_logged_without_the_venues_text() {
+    use deltabadger::engine::{polling::PollFailure, EngineError};
+    for failure in [PollFailure::General("Account alice@example.com is disabled".into()), PollFailure::Transient("alice@example.com".into()),
+                    PollFailure::RateLimited("alice".into())] {
+        assert!(!failure.kind().contains("alice"), "{}", failure.kind());
+    }
+    assert!(!EngineError::Data("alice@example.com".into()).kind().contains("alice"));
+}
