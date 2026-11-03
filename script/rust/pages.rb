@@ -1405,7 +1405,7 @@ module Pages
       File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate(
                                                     { 'page_parity_scratch' => true, 'at' => AT,
                                                       'secret_key_base' => Rails.application.secret_key_base, 'steps' => scenario['steps'],
-                                                      'expect_users' => scenario.fetch('expect_users', {}), 'jobs' => jobs }.merge(scenario.slice('env', 'smtp_failure'))
+                                                      'expect_users' => scenario.fetch('expect_users', {}), 'jobs' => jobs }.merge(scenario.slice('env'))
                                                   ))
     end
     FileUtils.rm_rf(template)
@@ -1513,8 +1513,8 @@ module Pages
     end
   end
   NETWORK = [] # rubocop:disable Style/MutableConstant
-  # 3.0 A20: 'smtp_failure', the reply a scenario's SMTP server refuses mail with, raised by the test delivery method as
-  # Net::SMTP raises it. Set for the scenario's steps only.
+  # 3.0 A20: a step's 'smtp_failure', the reply its SMTP server refuses mail with, raised by the test delivery method as
+  # Net::SMTP raises it. Set for that step only.
   SMTP_FAILURE = [] # rubocop:disable Style/MutableConstant
   Mail::TestMailer.prepend(Module.new do
     def deliver!(mail)
@@ -1578,7 +1578,6 @@ module Pages
       # 'env': the process environment the scenario's container runs with (MARKET_DATA_URL for a hosted one), for its steps only.
       saved_env = scenario.fetch('env', {}).to_h { |name, _| [name, ENV.fetch(name, nil)] }
       ENV.update(scenario.fetch('env', {}))
-      SMTP_FAILURE.replace([scenario['smtp_failure']].compact)
       ENV.store('APP_TMP_DIR', File.join(dir, 'tmp')) # AppPaths.tmp (the tax reports), as rust/tests/common/web.rs app_in sets it
       NETWORK.clear
       original_adapter = ActiveJob::Base.queue_adapter
@@ -1590,6 +1589,7 @@ module Pages
       mailed_token = nil
       travel_to(now, with_usec: true) { enqueue_jobs(scenario.fetch('jobs', {})) } # the queue database is one for the whole grid
       responses = scenario['steps'].each_with_index.map do |step, index|
+        SMTP_FAILURE.replace([step['smtp_failure']].compact)
         client = clients[step['client'] || 'main']
         rows_before = other_before = request_exception = nil
         broadcasts = []

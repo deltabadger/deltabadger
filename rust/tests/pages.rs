@@ -396,7 +396,7 @@ fn scenario(dir: &Path) -> Value {
 /// Runs one scenario's steps against this crate; returns what Rails' rails.json holds.
 /// The account mailer of a scenario: what each step sent (pages_accounts.rb's `mails`), as Rails' test deliveries.
 #[derive(Default)]
-/// The scenario's mail server: every message delivered, or (A20's `smtp_failure`, the reply pages.rb raises in Rails) refused as
+/// The scenario's mail server: every message delivered, or (a step's A20 `smtp_failure`, the reply pages.rb raises in Rails) refused as
 /// the live mailer reports a refusal: the stage and the reply's codes (smtp::Failure's Display), nothing delivered.
 struct TestMail(std::sync::Mutex<Vec<deltabadger::mail::Message>>, std::sync::Mutex<Option<String>>);
 impl deltabadger::web::settings::mail::Mailer for TestMail{
@@ -467,7 +467,6 @@ async fn run(dir: &Path) -> Value {
     mount_coingecko(&key_server).await;
     mount_launchpad(&key_server).await;
     let mail = std::sync::Arc::new(TestMail::default());
-    *mail.1.lock().unwrap() = scenario["smtp_failure"].as_str().map(str::to_string);
     let mut mailed: Option<String> = None;
     // Rails recorded every scenario with mail delivered (the test adapter): here, mail can be sent (D-NO-MAIL-SAYS-SO answers
     // otherwise, tests/accounts.rs). TestMail stands in for the server.
@@ -486,6 +485,7 @@ async fn run(dir: &Path) -> Value {
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
         now += chrono::Duration::seconds(step["advance"].as_i64().unwrap_or(0));
         clock.set(now);
+        *mail.1.lock().unwrap() = step["smtp_failure"].as_str().map(str::to_string);
         if let Some(what) = step["before"].as_str() { before(dir, what); }
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let request_path=if step["confirmation_token_from_user"]==true{
@@ -2675,7 +2675,7 @@ fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
         let reply = "535 5.7.8 Authentication failed for smtp-user@example.com";
         let mut seen = false;
         for line in theirs["body"].as_array_mut().into_iter().flatten() {
-            if let Some(text) = line.as_str().filter(|l| l.contains(reply)) { seen = true; *line = json!(text.replace(reply, "delivery failed (auth: 535 5.7.8)")); }
+            if let Some(text) = line.as_str().filter(|l| l.contains(reply)) { seen = true; *line = json!(text.replace(reply, "auth: 535 5.7.8")); }
         }
         if !seen { return Err(format!("D-TEST-EMAIL-ERROR-SAFE: Rails' alert no longer carries the server's reply: {theirs}")); }
     }

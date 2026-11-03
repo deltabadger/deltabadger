@@ -201,7 +201,8 @@ pub async fn send_test(app: App, ctx: crate::web::layout::Ctx) -> Result<axum::r
         TestMail::Refused(reason) => failed(&reason),
         TestMail::Ready(ready) => { let (message, settings, email) = *ready; match app.settings_mailer.deliver(message, Some(settings), app.now()).await {
             Ok(()) => (flash::NOTICE, i18n::t(ctx.locale, "settings.email_notifications.test_email_sent", &[("email", i18n::Arg::Text(&email))])),
-            Err(error) => failed(&reason(&error)),
+            // The alert already says the mail failed: the stage and codes alone (`delivery failed (auth: 535 5.7.8)` → `auth: 535 5.7.8`).
+            Err(error) => { let why = reason(&error); failed(why.strip_prefix("delivery failed (").and_then(|w| w.strip_suffix(')')).unwrap_or(&why)) }
         } }
     };
     let markup = flash::render(&flash::take(&ctx.session, &[now]))?;
