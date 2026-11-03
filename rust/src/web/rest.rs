@@ -688,8 +688,13 @@ mod tests {
     fn route_patterns(source: &str) -> Vec<Vec<String>> {
         let body = &source[source.find("fn route(").unwrap()..];
         let body = &body[..body.find("\n}\n").unwrap()];
-        // An arm is one line: one slice pattern, an optional `if` guard, then `=>`. Any other line that opens a slice
-        // pattern fails: one over two lines, or an or-pattern (`[..] | [..]`).
+        // An arm is one line: one slice pattern, an optional `if` guard, then `=>`. Every arm has its `=>`, so each line
+        // holding one must be such an arm or `_ =>`; anything else fails: an arm over two lines, an or-pattern (`[..] | [..]`,
+        // a leading `|`), a binding.
+        for line in body.lines().filter(|l| l.contains("=>")) {
+            let t = line.trim_start();
+            assert!(t.starts_with('[') || t.starts_with("_ =>"), "an arm route_patterns cannot read: {line}");
+        }
         let arms: Vec<(usize, &str)> = body.lines().filter_map(|line| {
             let inside = line.trim_start().strip_prefix('[')?;
             let unread = format!("an arm route_patterns cannot read: {line}");
@@ -736,6 +741,13 @@ mod tests {
     #[should_panic(expected = "an arm route_patterns cannot read")]
     fn route_patterns_refuses_an_or_pattern() {
         route_patterns("fn route() {\n    match x {\n        [\"bots\"] | [\"new_bots\"] if get => (a, b),\n    }\n}\n");
+    }
+
+    /// Nor an arm opened by `|`.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_a_leading_bar_arm() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b),\n        | [\"new_bots\"] if get => (a, b),\n    }\n}\n");
     }
 
     /// Nor an or-pattern inside an element.
