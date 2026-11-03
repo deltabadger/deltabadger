@@ -948,3 +948,19 @@ async fn the_retried_sweep_settles_every_dead_order_row_and_never_touches_a_key(
     assert_eq!(live.await.unwrap(), refusal(409, "venue_busy", "Kraken is busy with another order from your bots. Nothing was placed; try again."));
     assert_eq!(keys(&k.d), vec![("live".to_string(), "completed".to_string())]);
 }
+
+#[test]
+fn a_key_and_its_link_are_settled_together_or_not_at_all() {
+    // The answer's write fails after the link's delete would have run: both roll back, so the next start still knows
+    // nothing was placed under the key and frees it.
+    let main = paused();
+    let k = main.block_on(async { kraken(priced()) });
+    k.c().execute_batch("CREATE TRIGGER no_answer BEFORE UPDATE ON idempotency_keys BEGIN SELECT RAISE(ABORT, 'no answer'); END;").unwrap();
+    let (status, _) = main.block_on(order(&k.app, buy(&k, json!("not a number")), "refused"));
+    assert_eq!(status, 500);
+    assert_eq!(dead(&k, "refused"), Some(("in_progress".into(), "null".into())), "the link stays with the unsettled key");
+    k.c().execute_batch("DROP TRIGGER no_answer").unwrap();
+    let k = restart(k);
+    assert_eq!(dead(&k, "refused"), None);
+    assert!(k.venue.sent().is_empty());
+}

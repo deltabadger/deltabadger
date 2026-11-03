@@ -63,11 +63,22 @@ pub(super) fn complete(c:&Connection,app:&App,id:i64,answer:Answer)->Result<Answ
     Ok(Answer::Json(status,body))
 }
 
-/// The answer on the key (state completed), its link gone first.
+/// The answer on the key (state completed) and its link gone, together.
 fn store(c:&Connection,id:i64,status:StatusCode,body:&str,now:&str)->Result<(),WebError> {
-    c.execute("DELETE FROM rust_idempotency_orders WHERE key_id=?1",[id])?;
-    c.execute("UPDATE idempotency_keys SET state='completed',response_status=?1,response_body=?2,updated_at=?3 WHERE id=?4",(i64::from(status.as_u16()),body,now,id))?;
-    Ok(())
+    together(c,||{
+        c.execute("DELETE FROM rust_idempotency_orders WHERE key_id=?1",[id])?;
+        c.execute("UPDATE idempotency_keys SET state='completed',response_status=?1,response_body=?2,updated_at=?3 WHERE id=?4",(i64::from(status.as_u16()),body,now,id))?;
+        Ok(())
+    })
+}
+
+/// `f` as one unit, inside the caller's transaction or on its own: a key and its link are never settled apart.
+fn together(c:&Connection,f:impl FnOnce()->Result<(),WebError>)->Result<(),WebError> {
+    c.execute_batch("SAVEPOINT idempotency_key")?;
+    match f() {
+        Ok(())=>{c.execute_batch("RELEASE idempotency_key")?;Ok(())}
+        Err(e)=>{let _=c.execute_batch("ROLLBACK TO idempotency_key; RELEASE idempotency_key");Err(e)}
+    }
 }
 
 /// The order a POST /orders claim queued, in the order's own transaction: exactly the claim's empty link is filled.
@@ -103,8 +114,7 @@ pub(crate) fn sweep_dead_claims(tx:&Connection,built:chrono::DateTime<chrono::Ut
             _=>false,
         };
         if placed_nothing {
-            tx.execute("DELETE FROM rust_idempotency_orders WHERE key_id=?1",[id])?;
-            tx.execute("DELETE FROM idempotency_keys WHERE id=?1",[id])?;
+            release(tx,id)?;
             continue;
         }
         let exchange=exchange.filter(|e|order.is_some() && !e.is_empty()).unwrap_or_else(||"the exchange".into());
@@ -118,9 +128,11 @@ pub(crate) fn sweep_dead_claims(tx:&Connection,built:chrono::DateTime<chrono::Ut
 /// A claimed key given back unused: this build did nothing for the request (its `not_ported`), so the key is free for
 /// the same request once a build serves it.
 pub(super) fn release(c:&Connection,id:i64)->Result<(),WebError> {
-    c.execute("DELETE FROM rust_idempotency_orders WHERE key_id=?1",[id])?;
-    c.execute("DELETE FROM idempotency_keys WHERE id=?1 AND state='in_progress'",[id])?;
-    Ok(())
+    together(c,||{
+        c.execute("DELETE FROM rust_idempotency_orders WHERE key_id=?1",[id])?;
+        c.execute("DELETE FROM idempotency_keys WHERE id=?1 AND state='in_progress'",[id])?;
+        Ok(())
+    })
 }
 
 /// BotsController's fingerprint payload (its override): the query, the body over it, `_action` and the path's bot id.
