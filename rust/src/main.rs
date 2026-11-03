@@ -231,7 +231,7 @@ const TAKEOVER_INELIGIBLE: &str = "Deltabadger didn't start: some of your data h
                                    sold. Contact support.";
 
 fn behind_detail(missing: usize) -> String {
-    format!("this data is behind this build ({missing} migration(s) missing): run Deltabadger 2.70.21 until its background jobs have finished, stop it, then start this again")
+    format!("this data is behind this build ({missing} migration(s) missing): run Deltabadger 2.70.21's `migrate` on it once (or start 2.70.21 until it has finished starting), then start this again")
 }
 
 /// `fail` for a store refusal: Behind in the user's words with the operator's detail, the rest in `explain`'s.
