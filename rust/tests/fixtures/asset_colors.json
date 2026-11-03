@@ -1,0 +1,925 @@
+{
+  "sources": {
+    "app/models/utilities/image.rb": "2971baad29a08fd14f3d07984eb138f6f3759bb0d7e02c6d9e62239777f91ee9",
+    "app/models/asset.rb": "cf19d01807d40340626cb55125bbb91c8cc90117f75123afea862e822223e71b",
+    "app/jobs/asset/infer_color_from_image_job.rb": "b48414a6430ffa45b7d2084d274c9127a187d86df636d90fdb75cabbde47375f",
+    "app/models/market_data_settings.rb": "bfce12f2ccc37d11ef7ef9261850fc86d47cf5554877750059b42e81e62f66fa"
+  },
+  "imagemagick": "Version: ImageMagick 7.1.2-12 Q16-HDRI aarch64 23490 https://imagemagick.org",
+  "overrides": {
+    "ripple": "#6366F1",
+    "altlayer": "#6f51b1",
+    "nervos-network": "#3cc68a",
+    "lisk": "#3e6ded",
+    "bittensor": "#00C48C",
+    "algorand": "#00bea5",
+    "arweave": "#ff6700",
+    "stellar": "#04b5e5",
+    "fetch-ai": "#4B0082",
+    "quant": "#bd2426",
+    "worldcoin-wld": "#1A1A1A",
+    "forefront": "#6366F1",
+    "ai-rig-complex": "#001f3f",
+    "jito": "#085639",
+    "convex-finance": "#1682fe",
+    "big-time": "#FFD700",
+    "axelar": "#ff6414",
+    "syndicate": "#5865F2",
+    "zksync": "#1a24b2",
+    "immutable-x": "#ecc968",
+    "falcon-finance": "#0EA5E9",
+    "usdtb": "#1E3A5F",
+    "apenft": "#151432",
+    "pippin": "#5B8DEF",
+    "falcon-finance-ff": "#0EA5E9",
+    "aioz-network": "#35D687",
+    "aleo": "#c4ffc2",
+    "creditcoin-2": "#1EEEB0",
+    "moonbirds": "#39438A",
+    "centrifuge-2": "#FFC012",
+    "ergo": "#E74C3C",
+    "wojak-4": "#90FF4A",
+    "boundless": "#537263",
+    "avici": "#FFA727",
+    "covalent": "#FF4C8B",
+    "future-ai": "#3380F6",
+    "onomy-protocol": "#353340",
+    "litr": "#7EB4D4",
+    "infiblue-world": "#3A80A7",
+    "smell": "#E86CA0",
+    "qitmeer-network": "#58E7A3",
+    "sakura-united-platform": "#C22A2A",
+    "crystal-palace-fan-token": "#1B458F",
+    "neblio": "#50479E",
+    "calamari-network": "#6705BA",
+    "lumishare": "#D4AF37",
+    "safe-road-club": "#44A1B0",
+    "pmg-coin": "#E84460",
+    "donablock": "#4CAF82",
+    "soldex": "#9C1CD8",
+    "secretum": "#B8C4E6",
+    "leeds-united-fan-token": "#1D428A",
+    "futurecoin": "#7B2D8E",
+    "snkrz-fit": "#FF6B2B",
+    "xpmarket": "#1A1F71",
+    "privateai": "#6C3FC5",
+    "yachtingverse-old": "#1565C0",
+    "marvellex-classic": "#D4A017",
+    "blend-3": "#4A90D9",
+    "dragon-3": "#C62828",
+    "nomoex-token": "#2962FF",
+    "qlindo": "#2E7D32",
+    "zynecoin": "#F5A623",
+    "virtual-x": "#00BFA5",
+    "evrynet": "#3D5AFE",
+    "wodo-gaming": "#7C4DFF",
+    "apollo-name-service": "#FF7043",
+    "consciousdao": "#00ACC1",
+    "storepay": "#5C6BC0",
+    "mongol-nft": "#E53935",
+    "selo": "#4A6CF7",
+    "fimarkcoin-com": "#1E88E5",
+    "crt-ai-network": "#6C5CE7",
+    "sedra-coin": "#00B4D8",
+    "dank-doge": "#E8A317",
+    "arkefi": "#C9A84C",
+    "yolo": "#FF4136",
+    "waltonchain": "#8247E5",
+    "eon-marketplace": "#5B6EE1",
+    "wattton": "#4CAF50",
+    "lightning-bitcoin": "#F7931A",
+    "inofi": "#7B61FF",
+    "conun": "#2196F3",
+    "sportsology-game": "#E53935",
+    "artube": "#FF6B6B",
+    "talki": "#3B82F6",
+    "bionergy": "#2ECC71",
+    "decred": "#2970FF",
+    "pancakeswap-token": "#D1884F",
+    "virtual-protocol": "#2A9D8F",
+    "janus-henderson-anemoy-aaa-clo-fund": "#E87722",
+    "kite-2": "#B5A88A",
+    "a7a5": "#CC2222",
+    "river": "#1E90FF"
+  },
+  "logos": [
+    {
+      "file": "aave.png",
+      "coder": "png",
+      "colors": [
+        "#9391F7",
+        "#9390F6",
+        "#FDFDFF"
+      ],
+      "pick": "#9391F7",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/aave.png"
+      ]
+    },
+    {
+      "file": "animated.gif",
+      "coder": "gif",
+      "colors": [
+        "#E84142",
+        "#0847F7",
+        "#0AC18E"
+      ],
+      "pick": "#0847F7",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/animated.gif"
+      ]
+    },
+    {
+      "file": "avalanche-2.png",
+      "coder": "png",
+      "colors": [
+        "#E84142",
+        "#E84142",
+        "#FFFCFC"
+      ],
+      "pick": "#E84142",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/avalanche-2.png"
+      ]
+    },
+    {
+      "file": "binancecoin.png",
+      "coder": "png",
+      "colors": [
+        "#F0B90B",
+        "#F0B80B",
+        "#FEFDF6",
+        "#F3C945"
+      ],
+      "pick": "#F0B90B",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/binancecoin.png"
+      ]
+    },
+    {
+      "file": "bitcoin-small.gif",
+      "coder": "gif",
+      "colors": [
+        "#F7931B",
+        "#000000",
+        "#FEF8EF",
+        "#F9B25B"
+      ],
+      "pick": "#F7931B",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/bitcoin-small.gif"
+      ]
+    },
+    {
+      "file": "bitcoin.png",
+      "coder": "png",
+      "colors": [
+        "#F7931A",
+        "#F7931A",
+        "#FFFDFA"
+      ],
+      "pick": "#F7931A",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/bitcoin.png"
+      ]
+    },
+    {
+      "file": "bittensor.jpeg",
+      "coder": "jpg",
+      "colors": [
+        "#FFFFFF",
+        "#09090B"
+      ],
+      "pick": "#FFFFFF",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/bittensor.jpeg"
+      ]
+    },
+    {
+      "file": "chainlink.png",
+      "coder": "png",
+      "colors": [
+        "#0847F7",
+        "#FEFEFF"
+      ],
+      "pick": "#0847F7",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/chainlink.png"
+      ]
+    },
+    {
+      "file": "dai.png",
+      "coder": "png",
+      "colors": [
+        "#FAB529",
+        "#FBC34B",
+        "#FABA34",
+        "#FFFCF8"
+      ],
+      "pick": "#FBC34B",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/dai.png"
+      ]
+    },
+    {
+      "file": "ethena-usde.png",
+      "coder": "png",
+      "colors": [
+        "#242424",
+        "#888888",
+        "#EEEEEE",
+        "#5F5F5F"
+      ],
+      "pick": "#242424",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/ethena-usde.png"
+      ]
+    },
+    {
+      "file": "ethereum.png",
+      "coder": "png",
+      "colors": [
+        "#6F769B",
+        "#636990",
+        "#8A92B2",
+        "#4B507B"
+      ],
+      "pick": "#4B507B",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/ethereum.png"
+      ]
+    },
+    {
+      "file": "evil.msl",
+      "coder": null,
+      "colors": null,
+      "pick": null,
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/evil.msl"
+      ]
+    },
+    {
+      "file": "evil.svg",
+      "coder": null,
+      "colors": null,
+      "pick": null,
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/evil.svg"
+      ]
+    },
+    {
+      "file": "halves.png",
+      "coder": "png",
+      "colors": [
+        "#1A93F7",
+        "#F7931A"
+      ],
+      "pick": "#1A93F7",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/halves.png"
+      ]
+    },
+    {
+      "file": "hedera-hashgraph.png",
+      "coder": "png",
+      "colors": [
+        "#000000",
+        "#000000",
+        "#F6F6F6",
+        "#1C1C1C"
+      ],
+      "pick": "#000000",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/hedera-hashgraph.png"
+      ]
+    },
+    {
+      "file": "hyperliquid.jpg",
+      "coder": "jpg",
+      "colors": [
+        "#061E1A",
+        "#97FBE4",
+        "#205B4F"
+      ],
+      "pick": "#97FBE4",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/hyperliquid.jpg"
+      ]
+    },
+    {
+      "file": "litecoin.png",
+      "coder": "png",
+      "colors": [
+        "#838383",
+        "#838383"
+      ],
+      "pick": "#838383",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/litecoin.png"
+      ]
+    },
+    {
+      "file": "monero.png",
+      "coder": "png",
+      "colors": [
+        "#B96941",
+        "#F26822",
+        "#4E4E4E",
+        "#FDFBFA"
+      ],
+      "pick": "#F26822",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/monero.png"
+      ]
+    },
+    {
+      "file": "okb.png",
+      "coder": "png",
+      "colors": [
+        "#000000",
+        "#FCFCFC"
+      ],
+      "pick": "#000000",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/okb.png"
+      ]
+    },
+    {
+      "file": "pepe.jpeg",
+      "coder": "jpg",
+      "colors": [
+        "#4E9544",
+        "#4A953D",
+        "#0A1705",
+        "#435732",
+        "#AC6051"
+      ],
+      "pick": "#4A953D",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/pepe.jpeg"
+      ]
+    },
+    {
+      "file": "polkadot.jpg",
+      "coder": "jpg",
+      "colors": [
+        "#000000",
+        "#FAFAFA"
+      ],
+      "pick": "#000000",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/polkadot.jpg"
+      ]
+    },
+    {
+      "file": "ripple.png",
+      "coder": "png",
+      "colors": [
+        "#FEFFFF",
+        "#242A30",
+        "#9FA1A4"
+      ],
+      "pick": "#FEFFFF",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/ripple.png"
+      ]
+    },
+    {
+      "file": "solana.png",
+      "coder": "png",
+      "colors": [
+        "#4AABCC",
+        "#3CBFC3",
+        "#6F73E4",
+        "#8D4DF7",
+        "#5F8CDA"
+      ],
+      "pick": "#8D4DF7",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/solana.png"
+      ]
+    },
+    {
+      "file": "stellar.jpg",
+      "coder": "jpg",
+      "colors": [
+        "#FFFFFF",
+        "#252223",
+        "#FEFEFE"
+      ],
+      "pick": "#FFFFFF",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/stellar.jpg"
+      ]
+    },
+    {
+      "file": "sui.png",
+      "coder": "png",
+      "colors": [
+        "#4DA2FF",
+        "#4DA2FF"
+      ],
+      "pick": "#4DA2FF",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/sui.png"
+      ]
+    },
+    {
+      "file": "tether.png",
+      "coder": "png",
+      "colors": [
+        "#009393",
+        "#019393",
+        "#ECF7F7",
+        "#6EC2C2"
+      ],
+      "pick": "#009393",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/tether.png"
+      ]
+    },
+    {
+      "file": "the-open-network.jpeg",
+      "coder": "jpg",
+      "colors": [
+        "#0297EA",
+        "#F7FBFB",
+        "#091115",
+        "#4AA2CE"
+      ],
+      "pick": "#0297EA",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/the-open-network.jpeg"
+      ]
+    },
+    {
+      "file": "tie.png",
+      "coder": "png",
+      "colors": [
+        "#888888",
+        "#33FF00",
+        "#FF3300"
+      ],
+      "pick": "#33FF00",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/tie.png"
+      ]
+    },
+    {
+      "file": "transparent.png",
+      "coder": "png",
+      "colors": [
+        "#000000"
+      ],
+      "pick": "#000000",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/transparent.png"
+      ]
+    },
+    {
+      "file": "tron.png",
+      "coder": "png",
+      "colors": [
+        "#C53027",
+        "#C53027",
+        "#C53027"
+      ],
+      "pick": "#C53027",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/tron.png"
+      ]
+    },
+    {
+      "file": "uniswap.png",
+      "coder": "png",
+      "colors": [
+        "#F50DB3",
+        "#F50DB4",
+        "#F50DB3"
+      ],
+      "pick": "#F50DB3",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/uniswap.png"
+      ]
+    },
+    {
+      "file": "usds.webp",
+      "coder": "webp",
+      "colors": [
+        "#FFA252",
+        "#FFA24E",
+        "#FFE7D4",
+        "#FFC043",
+        "#FF9953"
+      ],
+      "pick": "#FFA252",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/usds.webp"
+      ]
+    },
+    {
+      "file": "zcash.png",
+      "coder": "png",
+      "colors": [
+        "#060808",
+        "#E5AA40",
+        "#050708",
+        "#9D722F",
+        "#3F3119"
+      ],
+      "pick": "#E5AA40",
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/zcash.png"
+      ]
+    }
+  ],
+  "allowed": [
+    {
+      "market_data_url": null,
+      "url": "https://coin-images.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": null,
+      "url": "https://assets.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": null,
+      "url": "https://COIN-IMAGES.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": null,
+      "url": "http://coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "https://evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "https://coin-images.coingecko.com.evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "https://evil.com@coin-images.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": null,
+      "url": "https://coin-images.coingecko.com@evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "https://127.0.0.1/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "ftp://coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "not a url",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "https://data.deltabadger.com/logos/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": null,
+      "url": "https://coin-images.coingecko.com:8443/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://coin-images.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://assets.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://COIN-IMAGES.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "http://coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://coin-images.coingecko.com.evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://evil.com@coin-images.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://coin-images.coingecko.com@evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://127.0.0.1/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "ftp://coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "not a url",
+      "allowed": false
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://data.deltabadger.com/logos/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "http://data-api:3000",
+      "url": "https://coin-images.coingecko.com:8443/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://coin-images.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://assets.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://COIN-IMAGES.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "http://coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://coin-images.coingecko.com.evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://evil.com@coin-images.coingecko.com/x.png",
+      "allowed": true
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://coin-images.coingecko.com@evil.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://127.0.0.1/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "ftp://coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "coin-images.coingecko.com/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "not a url",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://data.deltabadger.com/logos/x.png",
+      "allowed": false
+    },
+    {
+      "market_data_url": "https://data.example.com",
+      "url": "https://coin-images.coingecko.com:8443/x.png",
+      "allowed": true
+    }
+  ],
+  "vivid": [
+    {
+      "colors": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "pick": "#000000"
+    },
+    {
+      "colors": [
+        "#FFFFFF",
+        "#000000"
+      ],
+      "pick": "#FFFFFF"
+    },
+    {
+      "colors": [
+        "#808080",
+        "#F7931A"
+      ],
+      "pick": "#F7931A"
+    },
+    {
+      "colors": [
+        "#F7931A"
+      ],
+      "pick": "#F7931A"
+    },
+    {
+      "colors": [
+        "#336699",
+        "#339966"
+      ],
+      "pick": "#336699"
+    },
+    {
+      "colors": [
+        "#E5E5E5",
+        "#1A1A1A"
+      ],
+      "pick": "#E5E5E5"
+    },
+    {
+      "colors": [
+        "#FF0000",
+        "#00FF00"
+      ],
+      "pick": "#FF0000"
+    },
+    {
+      "colors": [],
+      "pick": null
+    }
+  ],
+  "guards": [
+    {
+      "case": "coingecko_new",
+      "external_id": "g-new",
+      "color_before": null,
+      "provider": "coingecko",
+      "image_url": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+      "color_after": "#F7931A",
+      "requests": 1
+    },
+    {
+      "case": "coingecko_recolour",
+      "external_id": "g-old",
+      "color_before": "#123456",
+      "provider": "coingecko",
+      "image_url": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+      "color_after": "#F7931A",
+      "requests": 1
+    },
+    {
+      "case": "deltabadger_colour_kept",
+      "external_id": "g-db",
+      "color_before": "#123456",
+      "provider": "deltabadger",
+      "image_url": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+      "color_after": "#123456",
+      "requests": 0
+    },
+    {
+      "case": "deltabadger_no_colour",
+      "external_id": "g-db2",
+      "color_before": null,
+      "provider": "deltabadger",
+      "image_url": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+      "color_after": "#F7931A",
+      "requests": 1
+    },
+    {
+      "case": "override",
+      "external_id": "ripple",
+      "color_before": null,
+      "provider": "coingecko",
+      "image_url": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+      "color_after": "#6366F1",
+      "requests": 0
+    },
+    {
+      "case": "override_deltabadger_colour",
+      "external_id": "altlayer",
+      "color_before": "#123456",
+      "provider": "deltabadger",
+      "image_url": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+      "color_after": "#123456",
+      "requests": 0
+    },
+    {
+      "case": "blank_image",
+      "external_id": "g-blank",
+      "color_before": "#123456",
+      "provider": "coingecko",
+      "image_url": null,
+      "color_after": "#123456",
+      "requests": 0
+    },
+    {
+      "case": "disallowed_host",
+      "external_id": "g-host",
+      "color_before": "#123456",
+      "provider": "coingecko",
+      "image_url": "https://evil.com/x.png",
+      "color_after": "#123456",
+      "requests": 0
+    }
+  ],
+  "statuses": [
+    {
+      "status": 302,
+      "colors": [
+        "#F7931A",
+        "#F7931A",
+        "#FFFDFA"
+      ],
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/status.png"
+      ]
+    },
+    {
+      "status": 404,
+      "colors": null,
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/status.png"
+      ]
+    },
+    {
+      "status": 500,
+      "colors": null,
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/status.png"
+      ]
+    },
+    {
+      "status": 204,
+      "colors": null,
+      "requests": [
+        "https://coin-images.coingecko.com:443/coins/images/1/large/status.png"
+      ]
+    }
+  ]
+}

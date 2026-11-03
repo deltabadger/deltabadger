@@ -519,6 +519,7 @@ module Pages
     market_data_scenarios(grid)
     stocks_platform_scenarios(grid)
     email_and_docs_scenarios(grid)
+    app_update_scenarios(grid)
     ibkr_connect_scenarios(grid)
     venue_key_scenarios(grid)
     preference_scenarios(grid)
@@ -878,6 +879,27 @@ module Pages
     grid['settings_api_docs'] = settings_case(docs, get('/de/settings/download_api_docs').merge('headers_extra' => %w[content-disposition]))
     grid['settings_api_docs_member'] = settings_case(docs, user: member)
     grid['settings_api_docs_signed_out'] = { 'user' => owner, 'steps' => [docs] }
+  end
+
+  # A21: Settings → Account's update row (settings/widgets/_app_update) per launcher marker and cache state. 'hosted' is what a
+  # hosted container is not told (launchpad sets only DELTABADGER_UPDATE_CHECK=false), so it reads as an unknown platform.
+  def self.app_update_scenarios(grid)
+    platforms = { 'docker' => 'docker', 'umbrel' => 'umbrel', 'desktop' => 'desktop', 'none' => nil, 'hosted' => 'hosted' }
+    states = { 'available' => ['app_update_available', {}], 'current' => ['app_update_current', {}], 'empty' => [nil, {}],
+               'opted_out' => [nil, { 'DELTABADGER_UPDATE_CHECK' => 'false' }],
+               'opted_out_cached' => ['app_update_available', { 'DELTABADGER_UPDATE_CHECK' => 'false' }] }
+    platforms.each do |platform, marker|
+      states.each do |state, (before, env)|
+        page = get('/settings/account')
+        page = page.merge('before' => before) if before
+        env = env.merge('DELTABADGER_PLATFORM' => marker) if marker
+        grid["settings_app_update_#{platform}_#{state}"] = settings_case(page).merge('env' => env)
+      end
+    end
+    grid['settings_app_update_docker_available_de'] = settings_case(get('/de/settings/account').merge('before' => 'app_update_available'))
+                                                      .merge('env' => { 'DELTABADGER_PLATFORM' => 'docker' })
+    grid['settings_app_update_member'] = settings_case(get('/settings/account').merge('before' => 'app_update_available'), user: owner('admin' => false))
+                                         .merge('env' => { 'DELTABADGER_PLATFORM' => 'docker' })
   end
 
   # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).

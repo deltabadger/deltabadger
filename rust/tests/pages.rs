@@ -377,6 +377,14 @@ fn before(dir: &Path, what: &str) {
                                                            "expires_us": chrono::DateTime::parse_from_rfc3339(scenario(dir)["at"].as_str().unwrap()).unwrap().timestamp_micros() + 20_000_000 } } });
             c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_condition_info', json(?1)) WHERE id = 1", [info.to_string()]).unwrap()
         }
+        // A21: the release AppUpdate::CheckJob last stored, as this build stores it (jobs::app_update::KEY), fetched now.
+        "app_update_available" | "app_update_current" => {
+            let version = if what == "app_update_available" { "99.0.0" } else { "0.0.1" };
+            let at = chrono::DateTime::parse_from_rfc3339(scenario(dir)["at"].as_str().unwrap()).unwrap().with_timezone(&chrono::Utc);
+            let release = deltabadger::jobs::app_update::Release { version: version.into(), url: format!("{}/tag/v{version}", deltabadger::jobs::app_update::RELEASES_URL) };
+            deltabadger::jobs::app_update::store(&c, &release, at).unwrap();
+            1
+        }
         other => panic!("unknown step.before {other}"),
     };
 }

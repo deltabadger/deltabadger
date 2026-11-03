@@ -1429,6 +1429,9 @@ module Pages
     # Bot 1's price status line within its 20 s, as Bot#broadcast_price_limit_info_update caches it (a real cache, this scenario only).
     'warm_price_info' => -> { WARM_PRICE_INFO.(false) },
     'warm_price_info_met' => -> { WARM_PRICE_INFO.(true) },
+    # A21: the latest release AppUpdate::CheckJob last stored (Rails.cache, this scenario only): newer than any build, or older.
+    'app_update_available' => -> { APP_UPDATE.('99.0.0') },
+    'app_update_current' => -> { APP_UPDATE.('0.0.1') },
     # PLAN-A12: a tax report already queued or running for the first user (Tax::Generating.for?: an unfinished job under the
     # job's concurrency key). Made after enqueue_jobs, which clears the queue at each scenario's start.
     'tax_generating' => lambda {
@@ -1436,6 +1439,10 @@ module Pages
                               concurrency_key: Tax::GenerateReportJob.new(User.first.id, 'XX', 0).concurrency_key)
     }
   }.freeze
+  APP_UPDATE = lambda do |version|
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new unless Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)
+    Rails.cache.write(AppUpdate::CACHE_KEY, { version:, url: "#{Clients::Github::RELEASES_URL}/tag/v#{version}" }, expires_in: AppUpdate::CACHE_TTL)
+  end
   WARM_PRICE_INFO = lambda do |met|
     Rails.cache = ActiveSupport::Cache::MemoryStore.new unless Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)
     Rails.cache.write('bot_1_price_limit_info_buying', { base: 'BTC', quote: 'USD', price: BigDecimal('64310.75'), condition_met: met }, expires_in: 20.seconds)
