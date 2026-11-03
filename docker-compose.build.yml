@@ -5,7 +5,9 @@
 
 services:
   deltabadger:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.rust
     command: standalone
     ports:
       - "${APP_PORT:-3737}:3000"
