@@ -705,7 +705,8 @@ mod tests {
             let mut segments = vec![];
             let mut open = false;
             for element in inside.split(',').map(str::trim).filter(|e| !e.is_empty()) {
-                if let Some(literal) = element.strip_prefix('"').and_then(|e| e.strip_suffix('"')) { segments.push(literal.to_string()); }
+                let literal = element.strip_prefix('"').and_then(|e| e.strip_suffix('"')).filter(|l| !l.is_empty() && l.bytes().all(|b| b.is_ascii_lowercase() || b == b'_'));
+                if let Some(literal) = literal { segments.push(literal.to_string()); }
                 else if element.ends_with("@ ..") { open = true; }
                 else if element.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') { segments.push("7".to_string()); }
                 else { panic!("an element route_patterns cannot read: {element}"); }
@@ -737,6 +738,13 @@ mod tests {
         route_patterns("fn route() {\n    match x {\n        [\"bots\"] | [\"new_bots\"] if get => (a, b),\n    }\n}\n");
     }
 
+    /// Nor an or-pattern inside an element.
+    #[test]
+    #[should_panic(expected = "an element route_patterns cannot read")]
+    fn route_patterns_refuses_an_or_pattern_in_an_element() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\" | \"new_bots\"] if get => (a, b),\n    }\n}\n");
+    }
+
     /// The manual's REST table against the router, both ways, and its tools against the MCP catalogue. Undocumented on
     /// purpose: PUT wherever PATCH is served, HEAD wherever GET is, and a `.<format>` suffix on any path (Rails' routing
     /// draws them; a client never needs them).
@@ -755,6 +763,8 @@ mod tests {
         let mut undocumented = vec![];
         for path in route_patterns(include_str!("rest.rs")) {
             let joined = format!("/api/v1/{}", path.join("/"));
+            // A path read from an arm that no method routes was misread.
+            assert!([Method::GET, Method::POST, Method::PATCH, Method::DELETE].iter().any(|m| route(m, &joined).is_some()), "route()'s arm for /{} routes nothing", path.join("/"));
             for method in [Method::GET, Method::POST, Method::PATCH, Method::PUT, Method::DELETE] {
                 let Some(found) = route(&method, &joined) else { continue };
                 // PUT is PATCH's alias.
