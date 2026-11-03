@@ -17,7 +17,7 @@
     "app/models/utilities/number.rb": "848579e5f3800c47ab494dfa9b3d8035f2a64488fdf06f637c96c3ea92bf8676",
     "app/models/utilities/hash.rb": "c976d9a7c387bf813da7404a029df8f7afe8dae29567edee5d48ebc7f431cf11",
     "app/services/result.rb": "20b3839fb88adc0f24d247b4816fcdb26036d1b5bed6ee36adde8140f816cd21",
-    "script/rust/catalogue_vectors.rb": "63a606eee02fb3dcc3a38f47032b5b64ff21bce65a1a9ecc66e4dff65714f43d"
+    "script/rust/catalogue_vectors.rb": "c6d1dc15bae5176a1f6a87b87b16489dbbda1c6c7071cf7387b315e5fe7769df"
   },
   "gems": {
     "honeymaker": "0.12.5"
@@ -3139,6 +3139,45 @@
                   "quoteIncrement": "0.0001",
                   "priceIncrement": "0.0001",
                   "enableTrading": true
+                },
+                {
+                  "symbol": "ADA-USDT",
+                  "baseCurrency": "ADA",
+                  "quoteCurrency": "USDT",
+                  "baseMinSize": "1d-3",
+                  "quoteMinSize": "1.5D+2x",
+                  "baseMaxSize": "Infinityx",
+                  "quoteMaxSize": "NaNx",
+                  "baseIncrement": "0.01",
+                  "quoteIncrement": "0.01",
+                  "priceIncrement": "0.01",
+                  "enableTrading": true
+                },
+                {
+                  "symbol": "DOT-USDT",
+                  "baseCurrency": "DOT",
+                  "quoteCurrency": "USDT",
+                  "baseMinSize": "-NaN",
+                  "quoteMinSize": "+NaN",
+                  "baseMaxSize": " Infinity\n",
+                  "quoteMaxSize": "NaN ",
+                  "baseIncrement": "0.01",
+                  "quoteIncrement": "0.01",
+                  "priceIncrement": "0.01",
+                  "enableTrading": true
+                },
+                {
+                  "symbol": "LTC-USDT",
+                  "baseCurrency": "LTC",
+                  "quoteCurrency": "USDT",
+                  "baseMinSize": "-x",
+                  "quoteMinSize": "-0.000",
+                  "baseMaxSize": "Infinity x",
+                  "quoteMaxSize": "1e-3d",
+                  "baseIncrement": "0.01",
+                  "quoteIncrement": "0.01",
+                  "priceIncrement": "0.01",
+                  "enableTrading": true
                 }
               ]
             }
@@ -3213,6 +3252,117 @@
             "price_decimals": 4,
             "available": true,
             "trading_enabled": true
+          },
+          {
+            "ticker": "ADA-USDT",
+            "base": "ADA",
+            "quote": "USDT",
+            "minimum_base_size": "0.001",
+            "minimum_quote_size": "150.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "DOT-USDT",
+            "base": "DOT",
+            "quote": "USDT",
+            "minimum_base_size": "-0.0",
+            "minimum_quote_size": "0.0",
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "LTC-USDT",
+            "base": "LTC",
+            "quote": "USDT",
+            "minimum_base_size": "-0.0",
+            "minimum_quote_size": "-0.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "0.001",
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "mexc_negative_zero",
+      "venue": "Exchanges::Mexc",
+      "script": {
+        "GET /api/v3/exchangeInfo": [
+          {
+            "status": 200,
+            "body": "{\"timezone\":\"CST\",\"symbols\":[{\"symbol\":\"AUSDT\",\"status\":\"1\",\"baseAsset\":\"A\",\"baseAssetPrecision\":2,\"quoteAsset\":\"USDT\",\"quotePrecision\":2,\"quoteAssetPrecision\":2,\"quoteAmountPrecision\":\"-0\",\"quoteAmountPrecisionMarket\":\"0\",\"baseSizePrecision\":\"-0.0\",\"maxQuoteAmount\":\"-garbage\",\"filters\":[]},{\"symbol\":\"BUSDT\",\"status\":\"1\",\"baseAsset\":\"B\",\"baseAssetPrecision\":2,\"quoteAsset\":\"USDT\",\"quotePrecision\":2,\"quoteAssetPrecision\":2,\"quoteAmountPrecision\":\"0\",\"quoteAmountPrecisionMarket\":\"-0\",\"baseSizePrecision\":-0.0,\"filters\":[]},{\"symbol\":\"CUSDT\",\"status\":\"1\",\"baseAsset\":\"C\",\"baseAssetPrecision\":2,\"quoteAsset\":\"USDT\",\"quotePrecision\":2,\"quoteAssetPrecision\":2,\"quoteAmountPrecision\":-0.0,\"quoteAmountPrecisionMarket\":0,\"baseSizePrecision\":\"1\",\"filters\":[]}]}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "https://api.mexc.com",
+          "path": "/api/v3/exchangeInfo",
+          "query": [],
+          "body": null,
+          "at": 0
+        }
+      ],
+      "slept": 0,
+      "rails": {
+        "rows": [
+          {
+            "ticker": "AUSDT",
+            "base": "A",
+            "quote": "USDT",
+            "minimum_base_size": "-0.0",
+            "minimum_quote_size": "-0.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "-0.0",
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "BUSDT",
+            "base": "B",
+            "quote": "USDT",
+            "minimum_base_size": "-0.0",
+            "minimum_quote_size": "0.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "CUSDT",
+            "base": "C",
+            "quote": "USDT",
+            "minimum_base_size": "1.0",
+            "minimum_quote_size": "-0.0",
+            "maximum_base_size": "0.0",
+            "maximum_quote_size": "0.0",
+            "base_decimals": 2,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
           }
         ]
       }
@@ -3238,6 +3388,18 @@
                   "status": "online",
                   "minTradeUSDT": "2usd",
                   "maxTradeAmount": "x"
+                },
+                {
+                  "symbol": "ETHEUR",
+                  "baseCoin": "ETH",
+                  "quoteCoin": "EUR",
+                  "minTradeAmount": "-0",
+                  "pricePrecision": "2",
+                  "quantityPrecision": "4",
+                  "quotePrecision": "2",
+                  "status": "online",
+                  "minTradeUSDT": "-0",
+                  "maxTradeAmount": "-NaN"
                 }
               ]
             }
@@ -3288,6 +3450,20 @@
             "maximum_base_size": "0.0",
             "maximum_quote_size": null,
             "base_decimals": 6,
+            "quote_decimals": 2,
+            "price_decimals": 2,
+            "available": true,
+            "trading_enabled": true
+          },
+          {
+            "ticker": "ETHEUR",
+            "base": "ETH",
+            "quote": "EUR",
+            "minimum_base_size": "-0.0",
+            "minimum_quote_size": "-0.0",
+            "maximum_base_size": "-0.0",
+            "maximum_quote_size": null,
+            "base_decimals": 4,
             "quote_decimals": 2,
             "price_decimals": 2,
             "available": true,

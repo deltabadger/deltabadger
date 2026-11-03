@@ -333,14 +333,40 @@ module Catalogue
             'quoteIncrement' => '0.01', 'priceIncrement' => '0.001', 'enableTrading' => true },
           { 'symbol' => 'XRP-USDT', 'baseCurrency' => 'XRP', 'quoteCurrency' => 'USDT', 'baseMinSize' => '+7',
             'quoteMinSize' => '0x1A', 'baseMaxSize' => '1e-3x', 'quoteMaxSize' => '  ', 'baseIncrement' => '0.1',
-            'quoteIncrement' => '0.0001', 'priceIncrement' => '0.0001', 'enableTrading' => true }
+            'quoteIncrement' => '0.0001', 'priceIncrement' => '0.0001', 'enableTrading' => true },
+          { 'symbol' => 'ADA-USDT', 'baseCurrency' => 'ADA', 'quoteCurrency' => 'USDT', 'baseMinSize' => '1d-3',
+            'quoteMinSize' => '1.5D+2x', 'baseMaxSize' => 'Infinityx', 'quoteMaxSize' => 'NaNx', 'baseIncrement' => '0.01',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true },
+          { 'symbol' => 'DOT-USDT', 'baseCurrency' => 'DOT', 'quoteCurrency' => 'USDT', 'baseMinSize' => '-NaN',
+            'quoteMinSize' => '+NaN', 'baseMaxSize' => " Infinity\n", 'quoteMaxSize' => 'NaN ', 'baseIncrement' => '0.01',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true },
+          { 'symbol' => 'LTC-USDT', 'baseCurrency' => 'LTC', 'quoteCurrency' => 'USDT', 'baseMinSize' => '-x',
+            'quoteMinSize' => '-0.000', 'baseMaxSize' => 'Infinity x', 'quoteMaxSize' => '1e-3d', 'baseIncrement' => '0.01',
+            'quoteIncrement' => '0.01', 'priceIncrement' => '0.01', 'enableTrading' => true }
         ] })]
+      } },
+      # Negative zeros: BigDecimal keeps the sign of 0, and `[a, b].max` keeps the first of two equal values.
+      { 'name' => 'mexc_negative_zero', 'venue' => 'Exchanges::Mexc', 'script' => {
+        # A JSON -0.0 travels as raw text: Ruby's JSON.generate writes the Float -0.0 as 0.0.
+        'GET /api/v3/exchangeInfo' => [ok(JSON.generate({ 'timezone' => 'CST', 'symbols' => [
+          { 'symbol' => 'AUSDT', 'status' => '1', 'baseAsset' => 'A', 'baseAssetPrecision' => 2, 'quoteAsset' => 'USDT', 'quotePrecision' => 2,
+            'quoteAssetPrecision' => 2, 'quoteAmountPrecision' => '-0', 'quoteAmountPrecisionMarket' => '0', 'baseSizePrecision' => '-0.0',
+            'maxQuoteAmount' => '-garbage', 'filters' => [] },
+          { 'symbol' => 'BUSDT', 'status' => '1', 'baseAsset' => 'B', 'baseAssetPrecision' => 2, 'quoteAsset' => 'USDT', 'quotePrecision' => 2,
+            'quoteAssetPrecision' => 2, 'quoteAmountPrecision' => '0', 'quoteAmountPrecisionMarket' => '-0', 'baseSizePrecision' => 'MINUS_ZERO',
+            'filters' => [] },
+          { 'symbol' => 'CUSDT', 'status' => '1', 'baseAsset' => 'C', 'baseAssetPrecision' => 2, 'quoteAsset' => 'USDT', 'quotePrecision' => 2,
+            'quoteAssetPrecision' => 2, 'quoteAmountPrecision' => 'MINUS_ZERO', 'quoteAmountPrecisionMarket' => 0,
+            'baseSizePrecision' => '1', 'filters' => [] }
+        ] }).gsub('"MINUS_ZERO"', '-0.0'))]
       } },
       # A malformed USDT minimum, converted at a price.
       { 'name' => 'bitget_malformed_minimum', 'venue' => 'Exchanges::Bitget', 'script' => {
         'GET /api/v2/spot/public/symbols' => [ok({ 'code' => '00000', 'data' => [
           { 'symbol' => 'BTCEUR', 'baseCoin' => 'BTC', 'quoteCoin' => 'EUR', 'minTradeAmount' => '0.0001abc', 'pricePrecision' => '2',
-            'quantityPrecision' => '6', 'quotePrecision' => '2', 'status' => 'online', 'minTradeUSDT' => '2usd', 'maxTradeAmount' => 'x' }
+            'quantityPrecision' => '6', 'quotePrecision' => '2', 'status' => 'online', 'minTradeUSDT' => '2usd', 'maxTradeAmount' => 'x' },
+          { 'symbol' => 'ETHEUR', 'baseCoin' => 'ETH', 'quoteCoin' => 'EUR', 'minTradeAmount' => '-0', 'pricePrecision' => '2',
+            'quantityPrecision' => '4', 'quotePrecision' => '2', 'status' => 'online', 'minTradeUSDT' => '-0', 'maxTradeAmount' => '-NaN' }
         ] })],
         'GET /api/v2/spot/market/tickers' => [ok({ 'code' => '00000', 'data' => [{ 'symbol' => 'USDTEUR', 'lastPr' => '0.92 EUR' }] })]
       } }

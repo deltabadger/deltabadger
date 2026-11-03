@@ -172,13 +172,13 @@ pub fn parse_bitget(name: &str, symbols: &Value, tickers: Option<&Value>) -> Res
     }
     list(&symbols["data"])?.iter().map(|p| {
         let quote = dig(p, &["quoteCoin"])?;
-        let usdt_minimum = match &p["minTradeUSDT"] { Value::Null => None, v => Some(to_d(v)?) }; // None: Integer 0
+        let usdt_minimum = match &p["minTradeUSDT"] { Value::Null => None, v => Some(finite(v)?) }; // None: Integer 0
         // Exchanges::Bitget#quote_minimum.
         let q = to_s(quote);
         let minimum_quote = match usdt_minimum {
             None => json!(0),
-            Some(u) if q == "USDT" || u.is_zero() => dec(&u),
-            Some(u) => {
+            Some((u, minus)) if q == "USDT" || u.is_zero() => signed(&u, minus),
+            Some((u, _)) => {
                 let price = |k: String| prices.get(&k).cloned().unwrap_or_else(BigDec::zero);
                 let (direct, inverse) = (price(format!("{q}USDT")), price(format!("USDT{q}")));
                 if direct.is_positive() { dec(&u.div(&direct).expect("a positive divisor")) }
@@ -262,6 +262,7 @@ fn gemini_row(name: &str, symbol: &str, detail: &Value) -> Result<Option<Value>,
         _ => return Err(format!("{name} {symbol}: no product_type in its details")),
     }
     // `x&.to_d || '0.01'.to_d`, counted on BigDecimal#to_s, which ActiveSupport writes in plain notation.
+    // A step Ruby reads as Infinity or NaN fails the venue (D-CG-NONFINITE-REFUSED; Rails counts 0 places).
     let step = |k: &str| -> Result<i64, String> {
         let v = if detail[k].is_null() { BigDec::parse("0.01").expect("a decimal") } else { to_d(&detail[k])? };
         Ok(decimals_text(&v.to_s_f()))
@@ -343,7 +344,12 @@ pub fn parse_mexc(info: &Value) -> Result<Vec<Value>, String> {
         // MEXC sends no LOT_SIZE or NOTIONAL filter: baseSizePrecision is the minimum quantity, the larger of
         // quoteAmountPrecision and quoteAmountPrecisionMarket the minimum amount, maxQuoteAmount the cap.
         let minimum_quote = match field(notional, "minNotional") {
-            Value::Null => dec(&to_d(&p["quoteAmountPrecision"])?.max(to_d(&p["quoteAmountPrecisionMarket"])?)),
+            // `[a, b].max`: the first on a tie (-0.0 against 0.0 too).
+            Value::Null => {
+                let (a, b) = (finite(&p["quoteAmountPrecision"])?, finite(&p["quoteAmountPrecisionMarket"])?);
+                let (x, minus) = if b.0 > a.0 { b } else { a };
+                signed(&x, minus)
+            }
             v => d(&v)?,
         };
         Ok(row([dig(p, &["symbol"])?.clone(), dig(p, &["baseAsset"])?.clone(), dig(p, &["quoteAsset"])?.clone(),
@@ -455,23 +461,42 @@ fn to_i(v: &Value) -> Result<i64, String> {
         other => Err(format!("undefined method 'to_i' for {}", ruby::raw(other))),
     }
 }
-/// `v.to_d`: nil is 0, a number as Integer#to_d and Float#to_d read it, a string as String#to_d (`loose`). A string Ruby
-/// reads as Infinity or NaN cannot enter arithmetic here and fails the venue.
-fn to_d(v: &Value) -> Result<BigDec, String> {
+/// Ruby's `v.to_d`: the value, and whether it is a negative zero (BigDecimal keeps the sign of 0: "-0".to_d is -0.0,
+/// written "-0.0"). nil is 0, a number as Integer#to_d and Float#to_d read it, a string as String#to_d (`loose`).
+/// None: Ruby reads it as Infinity or NaN.
+fn ruby_d(v: &Value) -> Result<Option<(BigDec, bool)>, String> {
     match v {
-        Value::Null => Ok(BigDec::zero()),
-        Value::String(s) => loose(s)?.ok_or_else(|| format!("{} is not a finite decimal", ruby::raw(v))),
-        _ => ruby::json_to_d(v).map(|d| d.unwrap_or_else(BigDec::zero)).map_err(|e| format!("{e:?}")),
+        Value::Null => Ok(Some((BigDec::zero(), false))),
+        Value::String(s) => loose(s),
+        Value::Number(n) => {
+            let minus = n.as_f64().is_some_and(|f| f == 0.0 && f.is_sign_negative()) && !(n.is_i64() || n.is_u64());
+            ruby::json_to_d(v).map(|d| Some((d.unwrap_or_else(BigDec::zero), minus))).map_err(|e| format!("{e:?}"))
+        }
+        other => Err(format!("undefined method 'to_d' for {}", ruby::raw(other))),
     }
 }
 
-/// String#to_d (BigDecimal.interpret_loosely): leading whitespace, a sign, digits (single underscores between them), an
-/// optional fraction and an optional exponent, read up to the first character that does not fit; nothing readable is 0.
-/// None: Ruby reads the text as Infinity or NaN.
-fn loose(s: &str) -> Result<Option<BigDec>, String> {
-    let t = s.trim_start_matches([' ', '\t', '\n', '\x0b', '\x0c', '\r']);
-    let (sign, rest) = match t.as_bytes().first() { Some(b'-') => ("-", &t[1..]), Some(b'+') => ("", &t[1..]), _ => ("", t) };
-    if rest.starts_with("Infinity") || t.starts_with("NaN") { return Ok(None); }
+/// `v.to_d` where the value enters a computation or a count.
+///
+/// **D-CG-NONFINITE-REFUSED**: a value Ruby reads as Infinity or NaN that reaches a computation fails that venue's
+/// catalogue. Rails would carry it on: Bitget's `minTradeUSDT` or a ticker's `lastPr` into the quote minimum, MEXC's
+/// `quoteAmountPrecision(Market)` into its `max`, and Gemini's `tick_size` / `quote_increment` into
+/// `Utilities::Number.decimals("Infinity")`, which is 0 places (orders rounded to whole units). A size that is only
+/// written (`d`) is nil, as Rails' `as_json` writes it.
+fn to_d(v: &Value) -> Result<BigDec, String> { finite(v).map(|(x, _)| x) }
+fn finite(v: &Value) -> Result<(BigDec, bool), String> {
+    ruby_d(v)?.ok_or_else(|| format!("{} reads as Infinity or NaN (D-CG-NONFINITE-REFUSED)", ruby::raw(v)))
+}
+
+/// String#to_d (BigDecimal 4.1.3's interpret_loosely): leading whitespace, a sign, digits (single underscores between
+/// them), an optional fraction and an optional exponent (e, E, d or D), read up to the first character that does not fit;
+/// nothing readable is 0 (-0 after a minus). Infinity and NaN only as the whole text (bar whitespace around it); NaN
+/// unsigned. None: Ruby reads the text as Infinity or NaN.
+fn loose(s: &str) -> Result<Option<(BigDec, bool)>, String> {
+    const SPACE: [char; 6] = [' ', '\t', '\n', '\x0b', '\x0c', '\r'];
+    let t = s.trim_start_matches(SPACE);
+    let (minus, rest) = match t.as_bytes().first() { Some(b'-') => (true, &t[1..]), Some(b'+') => (false, &t[1..]), _ => (false, t) };
+    if rest.trim_end_matches(SPACE) == "Infinity" || t.trim_end_matches(SPACE) == "NaN" { return Ok(None); }
     // Digits with single underscores between them, and the bytes they took.
     let run = |r: &str| -> (String, usize) {
         let b = r.as_bytes();
@@ -486,23 +511,21 @@ fn loose(s: &str) -> Result<Option<BigDec>, String> {
     let (int, mut i) = run(rest);
     let mut frac = String::new();
     if rest[i..].starts_with('.') { let (f, n) = run(&rest[i + 1..]); frac = f; i += 1 + n; }
-    if int.is_empty() && frac.is_empty() { return Ok(Some(BigDec::zero())); }
+    if int.is_empty() && frac.is_empty() { return Ok(Some((BigDec::zero(), minus))); }
     let mut exp = String::new();
-    if rest[i..].starts_with(['e', 'E']) {
+    if rest[i..].starts_with(['e', 'E', 'd', 'D']) {
         let e = &rest[i + 1..];
         let (esign, e) = match e.as_bytes().first() { Some(b'-') => ("-", &e[1..]), Some(b'+') => ("", &e[1..]), _ => ("", e) };
         let (digits, _) = run(e);
         if !digits.is_empty() { exp = format!("e{esign}{digits}"); }
     }
-    let text = format!("{sign}{}.{}{exp}", if int.is_empty() { "0" } else { &int }, if frac.is_empty() { "0" } else { &frac });
-    BigDec::parse(&text).map(Some).map_err(|e| format!("{e:?}"))
+    let text = format!("{}{}.{}{exp}", if minus { "-" } else { "" }, if int.is_empty() { "0" } else { &int }, if frac.is_empty() { "0" } else { &frac });
+    BigDec::parse(&text).map(|x| Some((x, minus))).map_err(|e| format!("{e:?}"))
 }
 
-/// `v.to_d` as `as_json` writes it: BigDecimal#to_s, plain; a non-finite BigDecimal as nil.
-fn d(v: &Value) -> Result<Value, String> {
-    if let Value::String(s) = v { if loose(s)?.is_none() { return Ok(Value::Null); } }
-    to_d(v).map(|x| dec(&x))
-}
+/// `v.to_d` as `as_json` writes it: BigDecimal#to_s, plain ("-0.0" for a negative zero); a non-finite one as nil.
+fn d(v: &Value) -> Result<Value, String> { Ok(ruby_d(v)?.map_or(Value::Null, |(x, minus)| signed(&x, minus))) }
+fn signed(x: &BigDec, minus: bool) -> Value { if minus && x.is_zero() { json!("-0.0") } else { dec(x) } }
 fn dec(x: &BigDec) -> Value { Value::String(x.to_s_f()) }
 
 #[cfg(test)]
@@ -534,9 +557,28 @@ mod tests {
         for (s, want) in [("12abc", json!("12.0")), ("garbage", json!("0.0")), (" 1_000.5x", json!("1000.5")), ("-3.5e2z", json!("-350.0")),
                           (".5", json!("0.5")), ("5.", json!("5.0")), ("1__0", json!("1.0")), ("1e", json!("1.0")), ("1.2.3", json!("1.2")),
                           ("1,5", json!("1.0")), ("+7", json!("7.0")), ("0x1A", json!("0.0")), ("1e-3x", json!("0.001")), ("  ", json!("0.0")),
-                          ("Infinity", Value::Null), ("-Infinity", Value::Null), ("NaN", Value::Null)] {
+                          ("Infinity", Value::Null), ("-Infinity", Value::Null), ("NaN", Value::Null), (" Infinity
+", Value::Null),
+                          ("NaN ", Value::Null), ("Infinityx", json!("0.0")), ("NaNx", json!("0.0")), ("Infinity x", json!("0.0")),
+                          ("-NaN", json!("-0.0")), ("+NaN", json!("0.0")), ("1d-3", json!("0.001")), ("1.5D+2x", json!("150.0")),
+                          ("1e-3d", json!("0.001")), ("-x", json!("-0.0")), ("-0.000", json!("-0.0")), ("+x", json!("0.0"))] {
             assert_eq!(d(&json!(s)).unwrap(), want, "{s:?}");
         }
         assert!(to_d(&json!("NaN")).is_err(), "no NaN in arithmetic");
+        assert_eq!(d(&json!(-0.0)).unwrap(), json!("-0.0"), "Float#to_d keeps the sign of 0");
+    }
+
+    /// D-CG-NONFINITE-REFUSED: Rails reads tick_size "Infinity" as BigDecimal Infinity, whose decimals are 0, and lists the
+    /// pair with base_decimals 0. Rust fails Gemini's catalogue instead.
+    #[test]
+    fn a_gemini_step_rails_reads_as_infinity_fails_the_venue() {
+        let detail = json!({ "symbol": "BTCUSD", "base_currency": "BTC", "quote_currency": "USD", "tick_size": "Infinity",
+                             "quote_increment": 0.01, "min_order_size": "0.00001", "status": "open", "product_type": "spot" });
+        let err = parse_gemini("Gemini", &[("btcusd".into(), detail.clone())]).unwrap_err();
+        assert!(err.contains("D-CG-NONFINITE-REFUSED"), "{err}");
+        let mut nan = detail;
+        nan["tick_size"] = json!(1e-8);
+        nan["quote_increment"] = json!("NaN");
+        assert!(parse_gemini("Gemini", &[("btcusd".into(), nan)]).is_err());
     }
 }

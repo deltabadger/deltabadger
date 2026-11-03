@@ -37,7 +37,7 @@ const DIVERGENCES: [(&str, usize, &str, i64, i64); 9] = [
 async fn every_recorded_catalogue_reads_as_rails() {
     let vectors: Value = serde_json::from_str(include_str!("fixtures/catalogue_vectors.json")).unwrap();
     let scenarios = vectors["scenarios"].as_array().unwrap();
-    assert_eq!(scenarios.len(), 31);
+    assert_eq!(scenarios.len(), 32);
     for sc in scenarios {
         let name = sc["name"].as_str().unwrap();
         let t = Timed { inner: ScriptedTransport::from_script(&sc["script"]), start: Instant::now(), at: RefCell::new(vec![]) };
