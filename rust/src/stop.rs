@@ -52,3 +52,20 @@ pub fn watch_stdin(env: &dyn Fn(&str) -> Option<String>) {
         request();
     });
 }
+
+/// Tests (debug builds): with DELTABADGER_TEST_PAUSE=`point`, the caller holds there until the file DELTABADGER_TEST_RELEASE
+/// names exists, after logging "paused at `point`" (PLAN-B6 r2.5, PLAN-B7 r4.7). Release builds never pause.
+pub fn pause(point: &str) {
+    if let Some(release) = pause_release(point) { while !release.exists() { std::thread::sleep(std::time::Duration::from_millis(20)) } }
+}
+
+/// `pause` inside the runtime, which keeps running its other tasks (the stop handlers) meanwhile.
+pub async fn pause_async(point: &str) {
+    if let Some(release) = pause_release(point) { while !release.exists() { tokio::time::sleep(std::time::Duration::from_millis(20)).await } }
+}
+
+fn pause_release(point: &str) -> Option<std::path::PathBuf> {
+    if !cfg!(debug_assertions) || std::env::var("DELTABADGER_TEST_PAUSE").ok().as_deref() != Some(point) { return None }
+    crate::engine::log(&format!("paused at {point}"));
+    Some(std::env::var("DELTABADGER_TEST_RELEASE").expect("DELTABADGER_TEST_RELEASE: the file that ends the pause").into())
+}

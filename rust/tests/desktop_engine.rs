@@ -738,3 +738,318 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
     }
 }
+
+// ---- B7-0: the copy before a desktop update migrates, the installed app's update lock, two more barriers ----
+
+/// The two newest Rust migrations and how to make each pending again on a made install (its table gone, its row
+/// with it), as on an install from the build before it. The newest migration must be here, or these tests would stop
+/// testing "an update brings a migration" the day one is added.
+const UNDO: [(&str, &str); 2] = [("20261106000001", "DROP TABLE estv_crypto_values"), ("20261107000001", "DROP TABLE rust_idempotency_orders")];
+
+#[test]
+fn the_undo_table_covers_the_newest_migration() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    let newest = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).max().unwrap();
+    assert!(newest.starts_with(UNDO[1].0), "add the newest migration ({newest}) to UNDO, with how to undo it");
+}
+
+/// `data` as the build before the newest `n` migrations left it.
+fn pending(data: &Data, n: usize) {
+    for (version, undo) in &UNDO[UNDO.len() - n..] {
+        data.sql(&format!("{undo}; DELETE FROM rust_schema_migrations WHERE version = '{version}'"));
+    }
+}
+
+fn recorded(db: &Path, version: &str) -> bool {
+    rusqlite::Connection::open(db.join("production.sqlite3")).unwrap()
+        .query_row("SELECT count(*) FROM rust_schema_migrations WHERE version = ?1", [version], |r| r.get::<_, i64>(0)).unwrap() == 1
+}
+
+fn copies(db: &Path, prefix: &str) -> Vec<PathBuf> {
+    backups(db).into_iter().filter(|b| b.file_name().unwrap().to_string_lossy().starts_with(prefix)).collect()
+}
+
+/// Starts `c`, waits for the app, stops it by stdin's end.
+fn serve_once(mut c: Command, port: u16) {
+    let mut e = start(&mut c, port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    e.close_stdin();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+}
+
+/// PLAN-B7 §4, r2.5: a desktop install Rust already owns, with a migration this build brings, is copied once before
+/// the migration; the copy holds the data as it was before it; a start with nothing to migrate copies nothing.
+#[test]
+fn a_desktop_update_that_migrates_copies_the_data_first_and_only_then() {
+    let data = made();
+    assert!(backups(&data.db()).is_empty(), "a new install has nothing to copy");
+    pending(&data, 1);
+    let port = free_port();
+    serve_once(desktop(&data, port), port);
+    let made = copies(&data.db(), deltabadger::store::UPDATE_COPY);
+    assert_eq!(made.len(), 1, "{:?}", backups(&data.db()));
+    assert!(copies(&data.db(), deltabadger::store::TAKEOVER_COPY).is_empty());
+    assert!(!partial(&made[0]) && made[0].join("digest").exists());
+    assert!(!recorded(&made[0], UNDO[1].0), "the copy is from before the migration");
+    assert!(recorded(&data.db(), UNDO[1].0), "then migrated");
+    assert!(data.log().contains("Saved a copy of your data to"), "{}", data.log());
+    serve_once(desktop(&data, port), port);
+    assert_eq!(backups(&data.db()), made, "nothing to migrate: no copy");
+}
+
+/// Off the desktop (Docker, Umbrel, hosted) an update migrates as before: no copy (PLAN-B7 Q4).
+#[test]
+fn off_the_desktop_an_update_makes_no_copy() {
+    let data = made();
+    pending(&data, 1);
+    let port = free_port();
+    serve_once(command(&data.db(), port), port);
+    assert!(recorded(&data.db(), UNDO[1].0));
+    assert!(backups(&data.db()).is_empty(), "{:?}", backups(&data.db()));
+}
+
+/// A takeover from Rails takes its own copy, and only that one, though it migrates too.
+#[test]
+fn a_takeover_on_the_desktop_takes_only_its_own_copy() {
+    let dir = rails_owned_install();
+    let port = free_port();
+    let mut c = command(dir.path(), port);
+    c.env("DELTABADGER_PLATFORM", "desktop");
+    serve_once(c, port);
+    assert_eq!(copies(dir.path(), deltabadger::store::TAKEOVER_COPY).len(), 1, "{:?}", backups(dir.path()));
+    assert!(copies(dir.path(), deltabadger::store::UPDATE_COPY).is_empty(), "{:?}", backups(dir.path()));
+}
+
+/// An update whose second migration fails on every start: the copy from before the first attempt stays, whatever the
+/// retries add; a retry on unchanged data adds nothing (PLAN-B7 r2.5).
+#[cfg(debug_assertions)]
+#[test]
+fn a_failing_update_keeps_the_copy_from_before_its_first_attempt() {
+    let data = made();
+    pending(&data, 2);
+    let port = free_port();
+    for _ in 0..3 {
+        let mut c = desktop(&data, port);
+        c.env("DELTABADGER_TEST_FAIL_MIGRATION", UNDO[1].0);
+        let (page, _) = refused(c, port);
+        assert!(page.contains("updating your data failed"), "{page}");
+        assert!(page.contains("A copy of your data from before the update is in"), "{page}");
+    }
+    let made = copies(&data.db(), deltabadger::store::UPDATE_COPY);
+    assert_eq!(made.len(), 2, "attempt 1 copied, attempt 2 copied what attempt 1 changed, attempt 3 changed nothing: {made:?}");
+    assert!(!recorded(&made[0], UNDO[0].0) && !recorded(&made[0], UNDO[1].0), "the first copy holds the data before the update");
+    assert!(recorded(&made[1], UNDO[0].0) && !recorded(&made[1], UNDO[1].0));
+}
+
+/// A copy that can't be made stops the start before anything is migrated (C5b, as before a takeover).
+#[test]
+fn an_update_whose_copy_fails_is_refused_before_it_migrates() {
+    let data = made();
+    pending(&data, 1);
+    std::fs::write(data.db().join("backups"), "").unwrap(); // a file where the copies' folder goes
+    let port = free_port();
+    let (page, _) = refused(desktop(&data, port), port);
+    assert!(page.contains("save a copy of your data to"), "{page}");
+    assert!(!recorded(&data.db(), UNDO[1].0), "not migrated");
+}
+
+/// A crash in the middle of the copy: the next start makes it complete, with no `.partial` left.
+#[cfg(debug_assertions)]
+#[test]
+fn an_update_copy_cut_short_is_made_again_at_the_next_start() {
+    let data = made();
+    pending(&data, 1);
+    let port = free_port();
+    let mut c = desktop(&data, port);
+    c.env("DELTABADGER_TEST_ABORT", "mid-backup");
+    let mut e = start(&mut c, port);
+    assert_ne!(e.exit_code(Duration::from_secs(60)), Some(0), "aborted");
+    assert!(!recorded(&data.db(), UNDO[1].0));
+    serve_once(desktop(&data, port), port);
+    let all = backups(&data.db());
+    assert!(all.len() == 1 && !partial(&all[0]) && all[0].join("digest").exists(), "{all:?}");
+}
+
+/// PLAN-B7 r4.7: a stop that arrives in a tick that has begun waits for that tick; the engine then stops on request.
+#[cfg(debug_assertions)]
+#[test]
+fn a_stop_during_a_tick_waits_for_the_tick() {
+    let data = made();
+    let release = data.path().join("release");
+    let port = free_port();
+    // Without the log file: the barrier's line is on stdout.
+    let mut c = command(&data.db(), port);
+    c.env("DELTABADGER_TEST_PAUSE", "in-tick").env("DELTABADGER_TEST_RELEASE", &release);
+    let mut e = start(&mut c, port);
+    e.line("paused at in-tick");
+    e.close_stdin();
+    std::thread::sleep(Duration::from_secs(2));
+    assert!(e.child.try_wait().unwrap().is_none(), "the tick in hand is not cut short");
+    std::fs::write(&release, "").unwrap();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    e.line("stopped on request");
+}
+
+/// PLAN-B7 r4.7: after the engine has stopped, the port is free while the services still drain.
+#[cfg(debug_assertions)]
+#[test]
+fn the_port_is_free_while_the_services_drain() {
+    let data = made();
+    let release = data.path().join("release");
+    let port = free_port();
+    // Without the log file: the barrier's line is on stdout.
+    let mut c = command(&data.db(), port);
+    c.env("DELTABADGER_TEST_PAUSE", "after-listener-drop").env("DELTABADGER_TEST_RELEASE", &release);
+    let mut e = start(&mut c, port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    e.close_stdin();
+    e.line("paused at after-listener-drop");
+    assert!(get(port, "/ui-ready").is_none(), "nothing answers on the port");
+    assert!(e.child.try_wait().unwrap().is_none(), "still draining");
+    std::fs::write(&release, "").unwrap();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+}
+
+/// The engine copied into an installed app's layout (PLAN-B7 r4.1): macOS `<x>.app/Contents/MacOS/`, Windows a folder
+/// with `Deltabadger.exe`, Linux an AppImage's mount (`APPDIR`, with `APPIMAGE` naming the file).
+struct App { dir: tempfile::TempDir, exe: PathBuf, identity: PathBuf, env: Vec<(&'static str, PathBuf)> }
+impl App {
+    fn new() -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let (exe, identity, env) = if cfg!(target_os = "macos") {
+            let app = root.join("Deltabadger.app");
+            (app.join("Contents/MacOS/deltabadger-engine"), app, vec![])
+        } else if cfg!(windows) {
+            let app = root.join("Deltabadger");
+            std::fs::create_dir_all(&app).unwrap();
+            std::fs::write(app.join("Deltabadger.exe"), "").unwrap();
+            (app.join("deltabadger-engine.exe"), app, vec![])
+        } else {
+            let mount = root.join("mount");
+            let image = root.join("Deltabadger.AppImage");
+            std::fs::write(&image, "").unwrap();
+            (mount.join("usr/bin/deltabadger-engine"), image.clone(), vec![("APPDIR", mount), ("APPIMAGE", image)])
+        };
+        std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+        // A link where the file system allows one (the debug engine is large), else a copy.
+        std::fs::hard_link(env!("CARGO_BIN_EXE_deltabadger"), &exe).or_else(|_| std::fs::copy(env!("CARGO_BIN_EXE_deltabadger"), &exe).map(|_| ())).unwrap();
+        let locks = root.join("locks");
+        let mut env = env;
+        env.push(("DELTABADGER_TEST_BUNDLE_LOCK_DIR", locks));
+        App { dir, exe, identity, env }
+    }
+    fn locks(&self) -> PathBuf { self.dir.path().canonicalize().unwrap().join("locks") }
+    fn lock_file(&self) -> PathBuf {
+        let env: Vec<(String, String)> = self.env.iter().map(|(k, v)| (k.to_string(), v.display().to_string())).collect();
+        deltabadger::bundle::lock_file(&self.identity, &|k| env.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())).unwrap()
+    }
+    /// `serve` on `data` as the desktop app starts it, from this app.
+    fn serve(&self, data: &Data, port: u16) -> Command {
+        let c = desktop(data, port);
+        let program = c.get_program().to_owned();
+        assert_eq!(Path::new(&program), Path::new(env!("CARGO_BIN_EXE_deltabadger")));
+        let mut from_app = Command::new(&self.exe);
+        from_app.args(c.get_args());
+        for (k, v) in c.get_envs() { match v { Some(v) => { from_app.env(k, v); } None => { from_app.env_remove(k); } } }
+        for (k, v) in &self.env { from_app.env(k, v); }
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::creation_flags(&mut from_app, 0x0800_0000);
+        from_app
+    }
+}
+
+fn exclusive(lock: &Path) -> std::io::Result<std::fs::File> {
+    let f = deltabadger::bundle::open(lock)?;
+    f.try_lock().map_err(|e| match e { std::fs::TryLockError::Error(e) => e, std::fs::TryLockError::WouldBlock => std::io::Error::other("held") })?;
+    Ok(f)
+}
+
+/// PLAN-B7 r3.2: an engine of an installed app holds the app's lock while it runs, so an update can't take it.
+#[test]
+fn an_engine_of_an_installed_app_holds_its_update_lock_while_it_runs() {
+    let app = App::new();
+    let data = Data::new();
+    let port = free_port();
+    let mut e = start(&mut app.serve(&data, port), port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    assert!(exclusive(&app.lock_file()).is_err(), "the update can't take the lock while the engine runs");
+    e.close_stdin();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    assert!(exclusive(&app.lock_file()).is_ok(), "free once it stopped");
+}
+
+/// PLAN-B7 r3.2: while an update holds the lock, an engine of that app doesn't start; it says why and exits.
+#[test]
+fn an_engine_does_not_start_while_its_app_is_being_updated() {
+    let app = App::new();
+    let _update = exclusive(&app.lock_file()).unwrap();
+    let data = Data::new();
+    let port = free_port();
+    let mut e = start(&mut app.serve(&data, port), port);
+    assert_eq!(e.exit_code(Duration::from_secs(10)), Some(1));
+    assert!(e.rest().iter().any(|l| l.contains(deltabadger::bundle::BEING_UPDATED)));
+    assert!(!data.primary().exists(), "nothing was created");
+}
+
+/// Outside an installed app (Docker, a .deb, a build tree) there is no update lock.
+#[test]
+fn an_engine_outside_an_installed_app_takes_no_update_lock() {
+    let app = App::new(); // only for its lock folder
+    let data = Data::new();
+    let port = free_port();
+    let mut c = desktop(&data, port);
+    c.env("DELTABADGER_TEST_BUNDLE_LOCK_DIR", app.locks());
+    serve_once(c, port);
+    assert!(!app.locks().exists(), "no lock folder made");
+}
+
+/// PLAN-B7 r3.3: on Windows the installer's mark keeps every engine of the app from starting during the copy.
+#[cfg(windows)]
+#[test]
+fn an_engine_does_not_start_while_the_installer_copies_its_app() {
+    let app = App::new();
+    std::fs::write(app.identity.join(".updating"), "").unwrap();
+    let data = Data::new();
+    let port = free_port();
+    let mut e = start(&mut app.serve(&data, port), port);
+    assert_eq!(e.exit_code(Duration::from_secs(10)), Some(1));
+    assert!(e.rest().iter().any(|l| l.contains(deltabadger::bundle::BEING_UPDATED)));
+}
+
+/// PLAN-B7 r5.3: whoever creates the lock folder and file makes them usable by every account, whatever its umask.
+#[cfg(unix)]
+#[test]
+fn the_update_lock_is_made_for_every_account_whatever_the_umask() {
+    use std::os::unix::fs::PermissionsExt;
+    let app = App::new();
+    let data = Data::new();
+    let port = free_port();
+    let c = app.serve(&data, port);
+    let mut sh = Command::new("sh");
+    sh.arg("-c").arg("umask 077; exec \"$0\" \"$@\"").arg(c.get_program()).args(c.get_args());
+    for (k, v) in c.get_envs() { match v { Some(v) => { sh.env(k, v); } None => { sh.env_remove(k); } } }
+    serve_once(sh, port);
+    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o7777;
+    assert_eq!(mode(&app.locks()), 0o1777);
+    assert_eq!(mode(&app.lock_file()), 0o666);
+}
+
+/// PLAN-B7 r5.3: a lock file the engine can't open (left unusable) never stops it: it runs without the lock and says so.
+#[cfg(unix)]
+#[test]
+fn an_unusable_update_lock_never_stops_the_engine() {
+    use std::os::unix::fs::PermissionsExt;
+    let app = App::new();
+    std::fs::create_dir_all(app.locks()).unwrap();
+    std::fs::write(app.lock_file(), "").unwrap();
+    std::fs::set_permissions(app.lock_file(), std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::File::open(app.lock_file()).is_ok() { return } // root reads anything: nothing to test
+    let data = Data::new();
+    let port = free_port();
+    let mut e = start(&mut app.serve(&data, port), port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    e.close_stdin();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    assert!(e.rest().iter().chain(std::iter::once(&data.log())).any(|l| l.contains("running without it")), "said so");
+}
