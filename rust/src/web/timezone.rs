@@ -25,28 +25,6 @@ pub fn strict(name: &str) -> Option<Tz> {
     zone(name).or_else(|| name.parse::<Tz>().ok())
 }
 
-pub const REPEATED_TIME: &str = "the starting time occurs twice that day in the owner's time zone (a daylight-saving change), and which occurrence Rails picks is not proven";
-pub const MISSING_TIME: &str = "the starting time does not exist that day in the owner's time zone, across a change this build does not match";
-
-/// TimeZone#local for a wall time: one instant as it is; a wall time in a one-hour spring gap moves forward an hour, Rails'
-/// answer as the start-time vectors pin it. A repeated wall time, or one in any other gap, is refused, never guessed.
-pub fn resolve_local(zone: Tz, naive: NaiveDateTime) -> Result<(NaiveDateTime, DateTime<Tz>), &'static str> {
-    use chrono::{Duration, LocalResult, TimeZone};
-    match zone.from_local_datetime(&naive) {
-        LocalResult::Single(at) => Ok((naive, at)),
-        LocalResult::Ambiguous(..) => Err(REPEATED_TIME),
-        LocalResult::None => {
-            // A one-hour gap: the wall times an hour either side are one real hour apart.
-            let hour = Duration::hours(1);
-            let single = |wall: Option<NaiveDateTime>| wall.and_then(|wall| zone.from_local_datetime(&wall).single().map(|at| (wall, at)));
-            match (single(naive.checked_sub_signed(hour)), single(naive.checked_add_signed(hour))) {
-                (Some((_, before)), Some((wall, at))) if at.signed_duration_since(before) == hour => Ok((wall, at)),
-                _ => Err(MISSING_TIME),
-            }
-        }
-    }
-}
-
 /// `t + n.days` on a TimeWithZone (ActiveSupport 8.1, `advance(days:)`): the wall time moves by whole days, then a wall time
 /// that occurs twice takes the occurrence with the source's offset (else its DST flag), and one that does not occur moves forward an hour at a
 /// time until it does. `None` past chrono's range (or a zone that skipped two days, which none does).

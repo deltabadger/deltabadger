@@ -164,7 +164,8 @@ pub fn parse_form_time(value: &Value, name: &str, now: DateTime<Utc>) -> Result<
         });
     let Some(naive) = naive else { return Ok(Value::Null) };
     if !(1..=9999).contains(&naive.year()) { return Err(WebError::Engine(crate::engine::EngineError::Data("start date exceeds its bound".into()))); }
-    // A repeated wall time, or one in a gap other than one hour, is refused rather than guessed (timezone::resolve_local).
-    let (_, at) = crate::web::timezone::resolve_local(zone, naive).map_err(|e| WebError::Engine(crate::engine::EngineError::Data(e.into())))?;
-    Ok(json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)))
+    // The starting time's own resolver (start::local): a repeated wall time is its earlier occurrence, a missing one moves
+    // forward an hour at a time.
+    let at = crate::web::bot::start::local(zone, naive).ok_or_else(|| WebError::Engine(crate::engine::EngineError::Data("start date exceeds its bound".into())))?;
+    Ok(json!(at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)))
 }

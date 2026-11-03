@@ -413,23 +413,17 @@ pub fn write_unsized_failure(c: &Connection, bot: &Bot, ticker: &Ticker, side: S
 }
 
 /// Bot::Startable#disable_starting_time!, which Bot::ActionJob runs after a clean run of a bot whose starting time is on
-/// (action_job.rb:139). With settings.start_at equal to started_at (the only start-time state the engine runs, see
-/// eligibility::start_time_reason) the schedule does not move, so Rails writes only the flag and updated_at
-/// (update_columns): no carry capture, the carry window (settings_changed_at) stays where it was, and an order of the first
-/// run still open counts later at what it fills. Rails' other branch (a start_at edited away from started_at captures the
-/// carry as a settings change) is refused here rather than ported. No-op when the rule is off.
+/// (action_job.rb:139). The flag and updated_at only (update_columns): no carry capture, the carry window
+/// (settings_changed_at) stays where it was, and an order of the first run still open counts later at what it fills.
+/// D-START-ANCHOR-STARTED: a started bot is anchored on started_at whatever start_at holds, so the schedule never moved and
+/// there is nothing to capture; Rails' other branch (a start_at that is not started_at: set_missed_quote_amount + save!,
+/// which closes the window over the first order) is not ported. No-op when the rule is off.
 pub fn disable_starting_time(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     super::model::locked(c, |c| disable_locked(c, &super::model::load_bot(c, bot_id)?, now))
 }
 
 fn disable_locked(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
     if !crate::web::bot::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }
-    let start_at = bot.settings.get("start_at").and_then(Value::as_str).filter(|s| !s.trim().is_empty());
-    // An unreadable start_at refuses here, at its point of use; loading the bot never fails on it.
-    let start_at_us = match start_at { Some(text) => Some(crate::codec::parse_time(text).map_err(data)?.timestamp_micros()), None => None };
-    if start_at_us.is_some() && start_at_us != bot.started_at_us()? {
-        return Err(EngineError::Data(format!("start_at {start_at:?} is not the bot's started_at")));
-    }
     c.execute("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false')), updated_at = ?2 WHERE id = ?1",
               params![bot.id, format_time(now)])?;
     Ok(())
