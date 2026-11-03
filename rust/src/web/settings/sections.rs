@@ -229,13 +229,14 @@ pub struct Account<'a> {
     pub two_fa: String,
     pub advanced: String,
     pub wash: String,
-    pub admin: Option<(&'a str, &'a str)>,
+    /// Registration, email notifications and the update row (settings/widgets/_app_update), for an admin.
+    pub admin: Option<(&'a str, &'a str, &'a str)>,
 }
 
 pub fn account(ctx: &Ctx, a: &Account) -> String {
     let instance = a
         .admin
-        .map(|(registration, email)| format!("\n  <h3 class=\"settings__heading\">{}</h3>\n  {registration}\n  {email}\n  \n", ctx.t("settings.sections.instance")))
+        .map(|(registration, email, update)| format!("\n  <h3 class=\"settings__heading\">{}</h3>\n  {registration}\n  {email}\n  \n{update}", ctx.t("settings.sections.instance")))
         .unwrap_or_default();
     format!(
         "  <h3 class=\"settings__heading settings__heading--first\">{}</h3>\n{}\n{}\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n{}\n{instance}",
@@ -251,6 +252,44 @@ pub fn account(ctx: &Ctx, a: &Account) -> String {
         ctx.t("links.bots"),
         a.advanced,
         a.wash
+    )
+}
+
+/// settings/widgets/_app_update: nothing is claimed without an answer. The desktop always gets its button (its own updater
+/// answers); elsewhere a stored release newer than `current` is "available", an older or equal one "up to date", and no
+/// answer (none yet, expired, or never asked) renders nothing. Whether the check is switched off is not read here: an
+/// answer still stored shows until it expires, as Rails' cache entry does.
+pub fn app_update(ctx: &Ctx, platform: crate::jobs::app_update::Platform, latest: Option<&crate::jobs::app_update::Release>, current: &str) -> String {
+    use crate::jobs::app_update::{self as update, Platform};
+    let desktop = platform == Platform::Desktop;
+    let available = !desktop && latest.is_some_and(|l| update::available(current, &l.version));
+    let (hint, control) = match latest {
+        _ if desktop => (
+            format!("<span data-desktop-update-status=\"true\">{}</span>", ctx.t("settings.app_update.desktop")),
+            format!(
+                "\n        <button name=\"button\" type=\"button\" class=\"rbutton rbutton--secondary\" data-desktop-update=\"true\" data-desktop-update-checking=\"{}\" data-desktop-update-up-to-date=\"{}\" data-desktop-update-failed=\"{}\">{}</button>\n",
+                ctx.t("settings.app_update.checking"), ctx.t("settings.app_update.up_to_date"), ctx.t("settings.app_update.check_failed"), ctx.t("settings.app_update.check_now")
+            ),
+        ),
+        Some(l) if available => (
+            crate::web::i18n::t(ctx.locale, "settings.app_update.available", &[("version", crate::web::i18n::Arg::Text(&l.version))]),
+            format!("\n        <a target=\"_blank\" rel=\"noopener\" class=\"rbutton rbutton--secondary\" href=\"{}\">{}</a>\n", escape(&l.url), ctx.t("settings.app_update.release_notes")),
+        ),
+        Some(_) => (ctx.t("settings.app_update.up_to_date"), String::new()),
+        None => return String::new(),
+    };
+    let more = match platform {
+        _ if !available => String::new(),
+        Platform::Umbrel => format!("      <div class=\"srow__more\">\n          <p>{}</p>\n      </div>\n", ctx.t("settings.app_update.umbrel")),
+        Platform::Docker => format!(
+            "      <div class=\"srow__more\">\n          <p>{}</p>\n          <span class=\"tag tag--copy\" data-controller=\"clipboard\" data-clipboard-text-value=\"{cmd}\" data-action=\"click->clipboard#copy\" title=\"{}\">{COPY}{cmd}</span>\n      </div>\n",
+            ctx.t("settings.app_update.docker"), ctx.t("button.copy"), cmd = escape(update::COMPOSE_COMMAND)
+        ),
+        _ => format!("      <div class=\"srow__more\">\n          <p><a target=\"_blank\" rel=\"noopener\" href=\"{}/07-updating.md\">{}</a></p>\n      </div>\n", update::MANUAL_URL, ctx.t("settings.app_update.manual")),
+    };
+    format!(
+        "  <div id=\"app_update\" class=\"sitem\">\n    {}\n{more}  </div>\n",
+        row(&ctx.t("settings.app_update.title"), Some(&hint), "", "", None, Some(&control))
     )
 }
 
