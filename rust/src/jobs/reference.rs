@@ -4,6 +4,7 @@
 use super::coingecko::{self, Clients};
 use super::data_api::{self, ApiError, DataApi, MAX_REFERENCE_BODY};
 use super::import::{self, present, truthy};
+use super::synchronizer::{self, Catalogues};
 use super::schedule::{Jitter, Schedule};
 use super::{Cx, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
 use crate::app_config;
@@ -64,11 +65,19 @@ fn spec(kind: Kind) -> Spec {
 /// Every job's spec, in registration order.
 pub fn specs() -> Vec<Spec> { KINDS.iter().map(|k| spec(*k)).collect() }
 
-struct Reference<T: Transport> { kind: Kind, api: Rc<Option<DataApi<T>>>, cg: Clients }
+struct Reference<T: Transport> { kind: Kind, api: Rc<Option<DataApi<T>>>, cg: Clients, catalogues: Catalogues }
+
+/// The venue tickers on the coingecko provider (PLAN-A17 A17-2 item 5): 13 venues' worst crawls at 30 a minute (22 minutes)
+/// plus Gemini's paced detail reads. Each venue commits on its own, so a cancelled run keeps the venues it finished.
+pub const COINGECKO_TICKERS_DEADLINE: std::time::Duration = std::time::Duration::from_secs(60 * 60);
 
 impl<T: Transport + 'static> Job for Reference<T> {
-    fn spec(&self) -> Spec { spec(self.kind) }
-    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(run(self.kind, Option::as_ref(&self.api), &self.cg, cx)) }
+    fn spec(&self) -> Spec {
+        let mut s = spec(self.kind);
+        if self.kind == Kind::Tickers && self.api.is_none() { s.deadline = COINGECKO_TICKERS_DEADLINE; }
+        s
+    }
+    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(run(self.kind, Option::as_ref(&self.api), &self.cg, &self.catalogues, cx)) }
 }
 
 /// The six jobs, sharing one client. `api` None: the install is not on the deltabadger provider (CoinGecko's live
@@ -81,21 +90,31 @@ pub fn shared_jobs<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>) -> Vec<B
 
 /// The same with the CoinGecko clients a test hands.
 pub fn shared_jobs_with<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>, cg: Clients) -> Vec<Box<dyn Job>> {
-    KINDS.iter().map(|k| Box::new(Reference { kind: *k, api: api.clone(), cg: cg.clone() }) as Box<dyn Job>).collect()
+    shared_jobs_full(api, cg, synchronizer::live_catalogues())
+}
+
+/// The same with the venue catalogues a test hands too.
+pub fn shared_jobs_full<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>, cg: Clients, catalogues: Catalogues) -> Vec<Box<dyn Job>> {
+    KINDS.iter().map(|k| Box::new(Reference { kind: *k, api: api.clone(), cg: cg.clone(), catalogues: catalogues.clone() }) as Box<dyn Job>).collect()
 }
 
 /// One run of the job named `name`, as the scheduler runs it (the parity harness).
 pub async fn run_once<T: Transport>(name: &str, api: Option<DataApi<T>>, cx: Cx<'_>) -> Outcome { run_once_with(name, api, &coingecko::live_clients(), cx).await }
 
 pub async fn run_once_with<T: Transport>(name: &str, api: Option<DataApi<T>>, cg: &Clients, cx: Cx<'_>) -> Outcome {
+    run_once_full(name, api, cg, &synchronizer::live_catalogues(), cx).await
+}
+
+pub async fn run_once_full<T: Transport>(name: &str, api: Option<DataApi<T>>, cg: &Clients, catalogues: &Catalogues, cx: Cx<'_>) -> Outcome {
     match KINDS.iter().find(|k| spec(**k).name == name) {
-        Some(k) => run(*k, api.as_ref(), cg, cx).await,
+        Some(k) => run(*k, api.as_ref(), cg, catalogues, cx).await,
         None => Outcome::Failed(format!("no job named {name}")),
     }
 }
 
-async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cg: &Clients, cx: Cx<'_>) -> Outcome {
+async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cg: &Clients, catalogues: &Catalogues, cx: Cx<'_>) -> Outcome {
     if kind == Kind::Prune { return prune(&cx).await; }
+    if kind == Kind::Tickers && api.is_none() { return synchronizer::run(cg, catalogues, &cx, false).await; }
     if kind == Kind::Indices && api.is_none() { return coingecko_indices(&Ranking(cg.clone()), &cx).await; }
     if kind == Kind::Assets && api.is_none() { return coingecko_assets(cg, &cx).await; }
     let Some(api) = api else { return Outcome::Failed(NOT_PORTED.into()) };

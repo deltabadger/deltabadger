@@ -363,7 +363,8 @@ async fn without_the_deltabadger_provider_every_data_api_job_fails_and_prune_sti
         let out = run(spec.name, None, c, "2026-10-02T10:30:00Z").await;
         if spec.name == reference::PRUNE { assert_eq!(out, Outcome::Done); }
         // PLAN-A17: with no provider at all the asset refresh returns, as Rails' `return unless MarketData.configured?`.
-        else if spec.name == reference::ASSETS { assert_eq!(out, Outcome::NothingNew); }
+        // A17-2: so do the venue tickers (SyncAllTickersAndAssetsJob's own guard).
+        else if spec.name == reference::ASSETS || spec.name == reference::TICKERS { assert_eq!(out, Outcome::NothingNew); }
         else { assert!(matches!(&out, Outcome::Failed(m) if m.contains("not deltabadger")), "{}: {out:?}", spec.name); }
     }
 }

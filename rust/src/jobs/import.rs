@@ -191,7 +191,7 @@ pub fn string(v: &Value) -> Option<String> {
 }
 
 /// ActiveModel::Type::Integer#cast: an Integer as is, a Float truncated, a blank String nil, else its leading digits.
-fn integer(v: &Value) -> Option<i64> {
+pub(crate) fn integer(v: &Value) -> Option<i64> {
     match v {
         Value::Number(n) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.is_finite()).map(|f| f.trunc() as i64)),
         Value::String(s) if s.trim().is_empty() => None,
@@ -239,7 +239,7 @@ fn numeric_prefix(s: &str) -> String {
 
 /// ActiveModel::Type::Decimal#cast with no precision: a Float by to_d (its shortest digits, 16 significant), an Integer exactly, a String by String#to_d
 /// (its leading numeric prefix; garbage reads as 0).
-fn decimal(v: &Value) -> R<Option<String>> {
+pub(crate) fn decimal(v: &Value) -> R<Option<String>> {
     Ok(match v {
         Value::Null => None,
         Value::Number(n) if n.is_i64() || n.is_u64() => Some(n.to_string()),

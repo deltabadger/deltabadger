@@ -216,6 +216,7 @@ async fn setup_sync_runs_assets_then_ranking_and_stops_on_a_rate_limit() {
             self.1.markets(ids, category, per_page, page)
         }
         fn coin<'a>(&'a self, id: &'a str) -> coingecko::Fut<'a> { self.1.coin(id) }
+        fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> coingecko::Fut<'a> { self.1.exchange_tickers(id, page) }
     }
     let t = ScriptedTransport::default();
     demo(&t).reply("GET /api/v3/coins/markets", 200, json!([coin("bitcoin")]))
