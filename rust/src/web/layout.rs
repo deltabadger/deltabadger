@@ -94,7 +94,8 @@ impl Ctx {
     }
 
     pub fn csrf_verified(&self, headers: &HeaderMap) -> bool {
-        csrf::verified(self.session.lock().csrf.as_deref(), headers, self.params.authenticity_token(), self.app.config.origin(headers).as_deref())
+        let [own, request] = self.app.config.form_origins(headers);
+        csrf::verified(self.session.lock().csrf.as_deref(), headers, self.params.authenticity_token(), &[own.as_deref(), request.as_deref()])
     }
 
     /// The entries of the language dropdown. Which one is left out follows `params[:locale]`, not
