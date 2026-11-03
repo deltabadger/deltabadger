@@ -4,7 +4,7 @@ The REST API lets your own scripts read and control Deltabadger — the same bot
 
 ## Token and base URL
 
-Open **Settings → MCP & REST API**. The **REST API** widget shows the base URL — your instance address followed by `/api/v1`, built from `APP_ROOT_URL` (see [Configuration](29-configuration.md)) — and your personal API token. Both copy on click. The token is created for you and does not expire.
+Open **Settings → REST API**. The **REST API** widget shows the base URL — your instance address followed by `/api/v1`, built from `APP_ROOT_URL` (see [Configuration](29-configuration.md)) — which copies on click. Your personal API token is created for you and does not expire, but the page shows it only as `[redacted]`: press **Regenerate** to get one you can copy. It is shown once, so store it right away.
 
 Send it on every request:
 
@@ -14,7 +14,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3737/api/v1/bots
 
 Browser sessions are not accepted on `/api/v1`; only the bearer header counts.
 
-**Regenerate** revokes the current token immediately and shows a new one. The confirmation warns that scripts using the old token stop working until you update them. Do this whenever you suspect the token has leaked.
+**Regenerate** revokes the current token immediately and shows a new one, once. The confirmation warns that scripts using the old token stop working until you update them. Do this whenever you suspect the token has leaked.
 
 **Download API docs** saves the full reference (`deltabadger-api.md`), including the OAuth flow, request and response examples and every error code. The same file is [in this manual](api.md).
 
@@ -51,10 +51,10 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 | Method | Path | Toggle | Notes |
 |---|---|---|---|
 | GET | `/exchanges` | List exchanges | Your connected trading exchanges |
-| GET | `/exchanges/:id/balances` | Exchange balances | Live exchange call; `502` if the exchange fails |
-| GET | `/orders` | List open orders | Optional `?exchange_name=`; open orders from the app and live from exchanges |
+| GET | `/exchanges/:id/balances` | Exchange balances | Live exchange call; `502` if the exchange fails. Alpaca and Interactive Brokers only; other exchanges answer `501` |
+| GET | `/orders` | List open orders | Optional `?exchange_name=`; your bots' open orders on every exchange, and orders placed outside Deltabadger read live from Alpaca only |
 | POST | `/orders` | Market buy / Market sell / Limit buy / Limit sell | `type` picks the toggle; needs `Idempotency-Key` (see below) |
-| DELETE | `/orders/:id` | Cancel order | Numeric id = a bot's order (from `GET /orders`); an order placed through this API is cancelled by its exchange order id, with `exchange_name` |
+| DELETE | `/orders/:id` | Cancel order | A numeric id is first looked up among your bots' open orders (from `GET /orders`); any other id is the exchange's own order id, with `exchange_name` |
 
 ### Transactions and Tracker
 
@@ -76,20 +76,20 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 | POST | `/rules` | Create rule | Stored as `created`; requires a listed destination and a valid withdrawal key |
 | PATCH | `/rules/:id` | Update rules | `withdrawal_percentage`, `max_fee_percentage`, `min_amount`, `threshold_type`, `max_interval`, and destination fields; rule must be created or stopped |
 | DELETE | `/rules/:id` | Delete rule | Rule must be created or stopped, with no unconfirmed withdrawal |
-| POST | `/rules/:id/start` | Start rule | `409` if already active; currently refused with `422 withdrawal_disabled` on supported venues |
+| POST | `/rules/:id/start` | Start rule | `409` if already active |
 | POST | `/rules/:id/stop` | Stop rule | `409` if not active |
 
 Withdrawal rules use the same validation on REST, MCP and the web. Create takes `exchange_name`, `asset` and `address`, with optional `network`, `address_tag`, `address_name` (Kraken's listed key), `withdrawal_percentage`, `threshold_type`, `max_fee_percentage`, `min_amount` and `max_interval`. Updates accept those settings and destination fields; include `address` when changing a destination. `max_interval` is a positive integer (days), or `null` to remove the deadline. Destinations are checked against the exchange's current list on every create or update. An explicitly selected threshold is preserved; the default is `fee_percentage`.
 
-No venue currently enables withdrawal execution. Starting a supported rule returns `422 withdrawal_disabled` once the withdrawal-key checks pass; unsupported venues return `withdrawal_unsupported`. A rule with an unconfirmed withdrawal returns `409 withdrawal_unconfirmed` on create, update, start or delete. Stop is still allowed for an active rule and preserves the unconfirmed withdrawal. List returns `unresolved_withdrawal: null` or an object with `state`, `reason`, `since` and `candidates`.
+Withdrawal rules run on Kraken, Binance, Gemini and MEXC; other exchanges answer `422 withdrawal_unsupported`. A rule with an unconfirmed withdrawal returns `409 withdrawal_unconfirmed` on create, update, start or delete. Stop is still allowed for an active rule and preserves the unconfirmed withdrawal. List returns `unresolved_withdrawal: null` or an object with `state`, `reason`, `since` and `candidates`.
 
 ### Tax reports
 
 | Method | Path | Toggle | Notes |
 |---|---|---|---|
 | GET | `/tax/jurisdictions` | Tax jurisdictions | Supported countries, method and currency |
-| POST | `/tax/reports` | Generate tax report | `country`, `year`, optional `stablecoin_as_fiat` and `force`; answers `202`, then poll the status |
-| GET | `/tax/reports/:country/:year` | Tax report status | `{ ready, state }` — `ready`, `generating` or `none`; one report runs at a time per account |
+| POST | `/tax/reports` | Generate tax report | `country`, `year`, optional `force`, and for Poland optional `pl_carried_costs` (PLN); `stablecoin_as_fiat` is accepted and changes nothing; answers `202`, then poll the status |
+| GET | `/tax/reports/:country/:year` | Tax report status | `{ country, year, ready, state }` — `ready`, `generating`, `refused` (with `reason` and `symbols`) or `none`; one report runs at a time per account |
 | GET | `/tax/reports/:country/:year/download` | Download tax report | Returns CSV; `404` until generated |
 
 This is the [crypto tax report](19-crypto-tax-report.md) only; the [broker tax report](20-broker-tax-report.md) is not available over the API.

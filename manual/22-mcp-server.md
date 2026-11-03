@@ -4,7 +4,7 @@ Deltabadger runs an MCP server, so Claude and other AI clients that speak MCP ca
 
 ## The MCP URL
 
-Open **Settings → MCP & REST API**. The **MCP** widget shows your server URL under "Use this URL to connect Claude (and other AI models)". Click it to copy.
+Open **Settings → MCP Server**. The **MCP** widget shows your server URL under "Use this URL to connect Claude (and other AI models)". Click it to copy.
 
 The URL is your instance address followed by `/mcp`, built from `APP_ROOT_URL` (see [Configuration](29-configuration.md)). Set that variable to an address the client can reach — `localhost` only works for a client on the same machine.
 
@@ -28,7 +28,7 @@ A client you have never changed here follows **Tool permissions**. The first cha
 
 **Revoke** disconnects a client and stops its tokens immediately. It has to authorize again to connect.
 
-If Claude reports that a tool is disabled or not available to this client, see [Tools and permissions](#tools-and-permissions).
+A tool that is switched off, or not granted to the client, is left out of the client's tool list; if Claude says a tool is not found, see [Tools and permissions](#tools-and-permissions).
 
 ## Tools and permissions
 
@@ -53,7 +53,7 @@ A tool is usable only when both of these are true:
 | **Exchange balances** | Fetch live balances from one exchange |
 | **Portfolio summary** | View global P/L and a per-bot breakdown |
 | **List transactions** | View recent trades, optionally for one bot (up to 100) |
-| **List open orders** | View currently open (unfilled) orders across exchanges; an exchange that cannot be asked is reported, not skipped |
+| **List open orders** | View your bots' open (unfilled) orders on every exchange; orders placed outside Deltabadger are read live from Alpaca only, and an Alpaca account that cannot be asked is reported, not skipped |
 | **List rules** | View your [withdrawal rules](16-withdrawal-rules.md) with status, exchange, asset, destination and thresholds; destinations are masked; includes maximum interval and any unconfirmed withdrawal |
 | **List indices** | View the indices an [index bot](13-direct-indexing.md) can track and the exchanges each is available on |
 
