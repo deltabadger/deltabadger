@@ -914,22 +914,24 @@ fn the_port_is_free_while_the_services_drain() {
 /// with `Deltabadger.exe`, Linux an AppImage's mount (`APPDIR`, with `APPIMAGE` naming the file).
 struct App { dir: tempfile::TempDir, exe: PathBuf, identity: PathBuf, env: Vec<(&'static str, PathBuf)> }
 impl App {
-    fn new() -> Self {
+    fn new() -> Self { Self::with_engine("deltabadger-engine") }
+    /// The same layout with the engine file named `name`.
+    fn with_engine(name: &str) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().canonicalize().unwrap();
         let (exe, identity, env) = if cfg!(target_os = "macos") {
             let app = root.join("Deltabadger.app");
-            (app.join("Contents/MacOS/deltabadger-engine"), app, vec![])
+            (app.join("Contents/MacOS").join(name), app, vec![])
         } else if cfg!(windows) {
             let app = root.join("Deltabadger");
             std::fs::create_dir_all(&app).unwrap();
             std::fs::write(app.join("Deltabadger.exe"), "").unwrap();
-            (app.join("deltabadger-engine.exe"), app, vec![])
+            (app.join(format!("{name}.exe")), app, vec![])
         } else {
             let mount = root.join("mount");
             let image = root.join("Deltabadger.AppImage");
             std::fs::write(&image, "").unwrap();
-            (mount.join("usr/bin/deltabadger-engine"), image.clone(), vec![("APPDIR", mount), ("APPIMAGE", image)])
+            (mount.join("usr/bin").join(name), image.clone(), vec![("APPDIR", mount), ("APPIMAGE", image)])
         };
         std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
         // A link where the file system allows one (the debug engine is large), else a copy.
@@ -1052,4 +1054,61 @@ fn an_unusable_update_lock_never_stops_the_engine() {
     e.close_stdin();
     assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
     assert!(e.rest().iter().chain(std::iter::once(&data.log())).any(|l| l.contains("running without it")), "said so");
+}
+
+/// Codex B7-0 P2-1: only the app's engine takes the app's lock. On Windows the engine built on its own is
+/// `deltabadger.exe`, the app's launcher name on a case-insensitive file system; it is not the app's engine.
+#[test]
+fn an_engine_not_named_as_the_apps_engine_takes_no_update_lock() {
+    let app = App::with_engine("deltabadger");
+    let _update = exclusive(&app.lock_file()).unwrap(); // would stop the app's own engine
+    let data = Data::new();
+    let port = free_port();
+    serve_once(app.serve(&data, port), port);
+}
+
+/// Codex B7-0 P2-2: a lock file or folder that is a symlink is never followed; the engine runs without the lock.
+#[cfg(unix)]
+#[test]
+fn a_symlinked_update_lock_is_not_followed() {
+    for folder in [false, true] {
+        let app = App::new();
+        let elsewhere = app.dir.path().join("elsewhere");
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        if folder {
+            std::os::unix::fs::symlink(&elsewhere, app.locks()).unwrap();
+        } else {
+            std::fs::create_dir_all(app.locks()).unwrap();
+            std::fs::write(elsewhere.join("target"), "").unwrap();
+            std::os::unix::fs::symlink(elsewhere.join("target"), app.lock_file()).unwrap();
+        }
+        let data = Data::new();
+        let port = free_port();
+        let mut e = start(&mut app.serve(&data, port), port);
+        assert_eq!(e.ready(), format!("ready {TOKEN} app"), "folder: {folder}");
+        e.close_stdin();
+        assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+        assert!(e.rest().iter().any(|l| l.contains("running without it")), "folder: {folder}");
+        assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), usize::from(!folder), "nothing made through the link (folder: {folder})");
+    }
+}
+
+/// Codex B7-0 P2-3: an engine that waited while its app was replaced doesn't run the old app's code beside the new one.
+#[cfg(unix)]
+#[test]
+fn an_engine_that_waited_out_a_replacement_of_its_app_stops() {
+    let app = App::new();
+    let update = exclusive(&app.lock_file()).unwrap();
+    let data = Data::new();
+    let port = free_port();
+    let mut e = start(&mut app.serve(&data, port), port);
+    std::thread::sleep(Duration::from_millis(500)); // the engine is waiting for its share
+    // The update's one step: the installed app's path now names another file or folder.
+    let old = app.identity.with_extension("old");
+    std::fs::rename(&app.identity, &old).unwrap();
+    if cfg!(target_os = "macos") { std::fs::create_dir(&app.identity).unwrap() } else { std::fs::write(&app.identity, "").unwrap() }
+    drop(update);
+    assert_eq!(e.exit_code(Duration::from_secs(10)), Some(1));
+    assert!(e.rest().iter().any(|l| l.contains(deltabadger::bundle::BEING_UPDATED)));
+    assert!(!data.primary().exists(), "nothing was created");
 }

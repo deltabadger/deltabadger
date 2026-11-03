@@ -13,6 +13,9 @@ pub const BEING_UPDATED: &str = "this copy of Deltabadger is being updated; open
 /// The installed app `exe` belongs to: on macOS the `.app` whose `Contents/MacOS` holds it; in an AppImage the AppImage
 /// file (`APPIMAGE`), when `exe` runs from its mount (`APPDIR`); on Windows the folder that also holds `Deltabadger.exe`.
 pub fn identity(exe: &Path, env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf> {
+    // Only the app's engine, by its sidecar name (PLAN-B6 §2): on Windows the engine built on its own is
+    // `deltabadger.exe`, which a case-insensitive file system would take for the app's `Deltabadger.exe`.
+    if !exe.file_stem().is_some_and(|n| n.eq_ignore_ascii_case("deltabadger-engine")) { return None }
     let dir = exe.parent()?;
     if cfg!(target_os = "macos") {
         let contents = dir.parent()?;
@@ -45,7 +48,9 @@ pub fn lock_file(identity: &Path, env: &dyn Fn(&str) -> Option<String>) -> Optio
 }
 
 /// Opens the lock file, creating it and its folder for every account if they don't exist. Only their creator sets their
-/// mode (nobody can chmod another account's file); a symlink or anything but a regular file is refused.
+/// mode (nobody can chmod another account's file). Symlinks are refused without being followed — the folder (checked
+/// before use) and the file (`O_NOFOLLOW`, then the open descriptor itself must be a regular file) — so no account can
+/// point another's engine at a different file than the updater locks.
 pub fn open(path: &Path) -> std::io::Result<File> {
     use std::io::{Error, ErrorKind};
     let dir = path.parent().ok_or_else(|| Error::new(ErrorKind::InvalidInput, "no folder"))?;
@@ -57,12 +62,14 @@ pub fn open(path: &Path) -> std::io::Result<File> {
             Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
             Err(e) => return Err(e),
         }
-        if std::fs::symlink_metadata(path).is_ok_and(|m| !m.file_type().is_file()) { return Err(Error::other("not a regular file")) }
-        match std::fs::OpenOptions::new().read(true).write(true).create_new(true).mode(0o666).open(path) {
-            Ok(f) => { f.set_permissions(std::fs::Permissions::from_mode(0o666))?; Ok(f) }
-            Err(e) if e.kind() == ErrorKind::AlreadyExists => std::fs::OpenOptions::new().read(true).write(true).open(path),
-            Err(e) => Err(e),
-        }
+        if !std::fs::symlink_metadata(dir)?.file_type().is_dir() { return Err(Error::other("the lock folder is not a folder")) }
+        let opened = match std::fs::OpenOptions::new().read(true).write(true).create_new(true).mode(0o666).custom_flags(libc::O_NOFOLLOW).open(path) {
+            Ok(f) => { f.set_permissions(std::fs::Permissions::from_mode(0o666))?; f }
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => std::fs::OpenOptions::new().read(true).write(true).custom_flags(libc::O_NOFOLLOW).open(path)?,
+            Err(e) => return Err(e),
+        };
+        if !opened.metadata()?.is_file() { return Err(Error::other("the lock is not a regular file")) }
+        Ok(opened)
     }
     #[cfg(not(unix))]
     {
@@ -71,6 +78,16 @@ pub fn open(path: &Path) -> std::io::Result<File> {
     }
 }
 
+/// The installed app's file or folder as it is now: replacing the app (the macOS swap, the AppImage rename) gives the
+/// path another one (PLAN-B7 r3.1).
+#[cfg(unix)]
+fn generation(app: &Path) -> Option<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::symlink_metadata(app).ok().map(|m| (m.dev(), m.ino()))
+}
+#[cfg(not(unix))]
+fn generation(_: &Path) -> Option<(u64, u64)> { None }
+
 /// `main`'s first act. Inside an installed app: refuses while the app is being replaced (Windows: the installer's
 /// `.updating` mark, PLAN-B7 r3.3; everywhere: the lock held exclusively), else returns the held shared lock. A lock file
 /// that can't be used is logged and the engine runs without it: a broken lock never stops bots; the updater refuses to
@@ -78,6 +95,8 @@ pub fn open(path: &Path) -> std::io::Result<File> {
 pub fn enter(env: &dyn Fn(&str) -> Option<String>) -> Result<Option<File>, &'static str> {
     let Some(app) = std::env::current_exe().and_then(|e| e.canonicalize()).ok().and_then(|exe| identity(&exe, env)) else { return Ok(None) };
     if cfg!(windows) && app.join(".updating").exists() { return Err(BEING_UPDATED) }
+    // Before any wait: the app this process was started from.
+    let started_from = generation(&app);
     let Some(path) = lock_file(&app, env) else { return Ok(None) };
     let file = match open(&path) {
         Ok(f) => f,
@@ -86,6 +105,8 @@ pub fn enter(env: &dyn Fn(&str) -> Option<String>) -> Result<Option<File>, &'sta
     let deadline = Instant::now() + Duration::from_secs(2);
     loop {
         match file.try_lock_shared() {
+            // An engine that waited out an update would run the replaced app's code beside the new app: it stops too.
+            Ok(()) if generation(&app) != started_from => return Err(BEING_UPDATED),
             Ok(()) => return Ok(Some(file)),
             Err(std::fs::TryLockError::WouldBlock) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(100)),
             Err(std::fs::TryLockError::WouldBlock) => return Err(BEING_UPDATED),
