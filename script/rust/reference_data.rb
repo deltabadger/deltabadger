@@ -24,6 +24,9 @@ module ScriptedDataApi
   # picks pro or demo), and answered by the host-less key, as rust/src/venue/http.rs's ScriptedTransport answers them.
   COINGECKO_KEY = 'CG-parity-key'.freeze
   COINGECKO_HOSTS = { 'pro-api.coingecko.com' => 'x-cg-pro-api-key', 'api.coingecko.com' => 'x-cg-demo-api-key' }.freeze
+  # PLAN-A17 A17-2: the venues' public catalogues, scripted by "METHOD host/path?query" (each venue's host apart, so two
+  # venues sharing a path never share an answer). Unsigned: no key is configured.
+  VENUE_HOSTS = %w[api.kraken.com api.coinbase.com].freeze
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "data-api" port 3000')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) }
@@ -39,17 +42,21 @@ module ScriptedDataApi
   module Adapter
     def call(env)
       host = env.url.host
-      raise Harness::Unscripted, "unscripted HTTP call #{env.url}" unless ScriptedDataApi.http && (host == 'data-api' || ScriptedDataApi::COINGECKO_HOSTS.key?(host))
+      known = host == 'data-api' || ScriptedDataApi::COINGECKO_HOSTS.key?(host) || ScriptedDataApi::VENUE_HOSTS.include?(host)
+      raise Harness::Unscripted, "unscripted HTTP call #{env.url}" unless ScriptedDataApi.http && known
       if host == 'data-api'
         raise Harness::Unscripted, 'no bearer token' unless env.request_headers['Authorization'] == "Bearer #{ScriptedDataApi::TOKEN}"
-      else
+      elsif ScriptedDataApi::COINGECKO_HOSTS.key?(host)
         header = ScriptedDataApi::COINGECKO_HOSTS.fetch(host)
         raise Harness::Unscripted, "no #{header}" unless env.request_headers[header] == ScriptedDataApi::COINGECKO_KEY
       end
 
       key = ScriptedDataApi.key(env)
-      ScriptedDataApi.requests << (host == 'data-api' ? key : key.sub(' ', " #{host}"))
-      queue = ScriptedDataApi.http[key] || ScriptedDataApi.http[key.split('?').first] or raise Harness::Unscripted, "unscripted data-api call #{key}"
+      hosted = host == 'data-api' ? key : key.sub(' ', " #{host}")
+      ScriptedDataApi.requests << hosted
+      queue = [hosted, hosted.split('?').first, key, key.split('?').first].lazy.filter_map { |k| ScriptedDataApi.http[k] }.first
+      raise Harness::Unscripted, "unscripted data-api call #{hosted}" unless queue
+
       reply = queue.size > 1 ? queue.shift : queue.first
       raise ScriptedDataApi::NETWORK.fetch(reply['network']).call if reply['network']
 
@@ -248,12 +255,155 @@ module Reference
     add.('coingecko-asset-one-failed', one, demo.merge(coin_key => [error(404, { 'error' => 'coin not found' })]), env: off, asset: 'ethereum', raises: true, &seed)
   end
 
+  # PLAN-A17 A17-2: the venue tickers on a CoinGecko install, Rails' real Exchange::Synchronizer over scripted venue
+  # catalogues (Kraken's AssetPairs, Coinbase's public products, shaped as the venues document them) and scripted
+  # CoinGecko crawl pages. Rows (tickers, exchange_assets, assets) and requests are compared.
+  KRAKEN_PAIRS = 'GET api.kraken.com/0/public/AssetPairs?aclass_base=all'.freeze
+  COINBASE_PRODUCTS = 'GET api.coinbase.com/api/v3/brokerage/market/products'.freeze
+
+  def kraken_pair(base, quote, extra = {})
+    ["X#{base}Z#{quote}", { 'altname' => "#{base}#{quote}", 'wsname' => "#{base}/#{quote}", 'aclass_base' => 'currency', 'base' => base,
+                            'quote' => quote, 'lot_decimals' => 8, 'cost_decimals' => 5, 'pair_decimals' => 1, 'ordermin' => '0.0001',
+                            'costmin' => '0.45', 'status' => 'online' }.merge(extra)]
+  end
+
+  def kraken(*pairs) = { KRAKEN_PAIRS => [ok('error' => [], 'result' => pairs.to_h)] }
+
+  def coinbase_product(base, quote, extra = {})
+    { 'product_id' => "#{base}-#{quote}", 'base_increment' => '0.00000001', 'quote_increment' => '0.01', 'price_increment' => '0.001',
+      'base_min_size' => '0.00000001', 'quote_min_size' => '1', 'base_max_size' => '3400', 'quote_max_size' => '150000000', 'status' => 'online',
+      'trading_disabled' => false }.merge(extra)
+  end
+
+  def coinbase(*products) = { COINBASE_PRODUCTS => [ok('products' => products)] }
+  def crawl_key(id, page) = "GET /api/v3/exchanges/#{id}/tickers?depth=false&include_exchange_logo=false&order=base_asset&page=#{page}"
+  def cg_ticker(base, coin, target, target_coin = nil) = { 'base' => base, 'target' => target, 'coin_id' => coin, 'target_coin_id' => target_coin }
+
+  def crawl(id, *pages)
+    pages.each_with_index.to_h { |page, i| [crawl_key(id, i + 1), [page.is_a?(Array) ? ok('tickers' => page) : page]] }
+  end
+
+  # A ticker with the exchange assets Rails' validation needs to update it.
+  def listed_ticker(exchange, base, quote, name, base_sym, quote_sym)
+    [base, quote].each { |a| ExchangeAsset.find_or_create_by!(exchange:, asset: a) }
+    ticker(exchange, base, quote, name, base_sym, quote_sym)
+  end
+
+  def cg_venues(bitmart: false)
+    coingecko_install
+    @kraken = venue('Exchanges::Kraken')
+    @coinbase = venue('Exchanges::Coinbase')
+    venue('Exchanges::Bitmart') if bitmart # retired: Rails fails it without a request (D-CG-RETIRED-NOT-ASKED)
+    venue('Exchanges::Alpaca') # a stock venue: never asked
+    @btc = asset('bitcoin', 'BTC', 'Cryptocurrency')
+    @usd = asset('USD.FOREX', 'USD', 'Currency')
+  end
+
+  def coingecko_ticker_scenarios(add) # rubocop:disable Metrics/MethodLength,Metrics/AbcSize
+    job = 'sync_all_tickers_and_assets_job'
+    off = {}
+    demo = { 'GET /api/v3/ping' => [error(401, { 'error' => 'invalid key' })] }
+    full = (1..100).map { |i| cg_ticker(format('F%03d', i), format('filler-%03d', i), 'USD') }
+
+    # New pairs resolved (a fiat quote minted from the crawl), existing ones updated in place, an unresolved one waiting, the
+    # retired venue not asked.
+    add.('cg-tickers-import', job, demo
+      .merge(kraken(kraken_pair('XBT', 'USD', 'ordermin' => '0.00005'), kraken_pair('ETH', 'EUR', 'lot_decimals' => 6),
+                    kraken_pair('SOL', 'USD', 'status' => 'limit_only'), kraken_pair('DOT', 'USD')))
+      .merge(crawl('kraken', [cg_ticker('ETH', 'ethereum', 'EUR'), cg_ticker('SOL', 'solana', 'USD'), cg_ticker('BTC', 'bitcoin', 'USD')]))
+      .merge(coinbase(coinbase_product('BTC', 'USD', 'quote_min_size' => '2'), coinbase_product('ETH', 'USD', 'limit_only' => true)))
+      .merge(crawl('gdax', [cg_ticker('ETH', 'ethereum', 'USD')])), env: off) do
+      cg_venues(bitmart: true)
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+      listed_ticker(@coinbase, @btc, @usd, 'BTC-USD', 'BTC', 'USD')
+    end
+    # Coinbase RNDR -> RENDER: the blacklist drops RNDR before the collision; the ticker takes the new spelling in place.
+    rndr = [cg_ticker('RNDR', 'render-token', 'USD'), cg_ticker('RENDER', 'render-token', 'USD')]
+    add.('cg-tickers-rename', job, demo.merge(kraken).merge(coinbase(coinbase_product('RNDR', 'USD'), coinbase_product('RENDER', 'USD'),
+                                                                     coinbase_product('BTC', 'USD'))).merge(crawl('gdax', rndr)), env: off) do
+      cg_venues
+      listed_ticker(@coinbase, asset('render-token', 'RENDER', 'Cryptocurrency'), @usd, 'RNDR-USD', 'RNDR', 'USD')
+      listed_ticker(@coinbase, @btc, @usd, 'BTC-USD', 'BTC', 'USD')
+    end
+    # The rename is the only overlap: the guard keeps the sweep off.
+    add.('cg-tickers-rename-only', job, demo.merge(kraken).merge(coinbase(coinbase_product('RENDER', 'USD'))).merge(crawl('gdax', rndr)), env: off) do
+      cg_venues
+      listed_ticker(@coinbase, asset('render-token', 'RENDER', 'Cryptocurrency'), @usd, 'RNDR-USD', 'RNDR', 'USD')
+      listed_ticker(@coinbase, @btc, @usd, 'BTC-USD', 'BTC', 'USD').update_columns(available: false)
+    end
+    # Both spellings live: the new one is refused by the (exchange, base asset, quote asset) uniqueness; the old one stays.
+    add.('cg-tickers-both-spellings', job, demo.merge(kraken(kraken_pair('FOO', 'USD'), kraken_pair('FOO2', 'USD')))
+      .merge(crawl('kraken', [cg_ticker('FOO2', 'foo-coin', 'USD')])).merge(coinbase), env: off) do
+      cg_venues
+      listed_ticker(@kraken, asset('foo-coin', 'FOO', 'Cryptocurrency'), @usd, 'FOOUSD', 'FOO', 'USD')
+    end
+    # The sweep guard both ways: Kraken's empty catalogue sweeps nothing; Coinbase's confirms one and sweeps the other with
+    # its exchange asset; a catalogue with no overlap (its one pair unresolved) sweeps nothing either.
+    add.('cg-tickers-sweep', job, demo.merge(kraken).merge(coinbase(coinbase_product('BTC', 'USD'))), env: off) do
+      cg_venues
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+      listed_ticker(@coinbase, @btc, @usd, 'BTC-USD', 'BTC', 'USD')
+      listed_ticker(@coinbase, asset('ethereum', 'ETH', 'Cryptocurrency'), @usd, 'ETH-USD', 'ETH', 'USD')
+    end
+    add.('cg-tickers-sweep-no-overlap', job, demo.merge(kraken(kraken_pair('NEW', 'USD')))
+      .merge(crawl('kraken', [cg_ticker('OTHER', 'other-coin', 'USD')])).merge(coinbase), env: off) do
+      cg_venues
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+    end
+    # A catalogue failure fails that venue only.
+    add.('cg-tickers-catalogue-fails', job, demo.merge(KRAKEN_PAIRS => [error(503, { 'error' => ['EService:Unavailable'] })])
+      .merge(coinbase(coinbase_product('BTC', 'USD'), coinbase_product('ETH', 'USD'))).merge(crawl('gdax', [cg_ticker('ETH', 'ethereum', 'USD')])), env: off) do
+      cg_venues
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+      listed_ticker(@coinbase, @btc, @usd, 'BTC-USD', 'BTC', 'USD')
+    end
+    # A crawl failing on page 2 after a full page 1, and 50 full pages: discovery discarded, the catalogue applied.
+    pairs = kraken(kraken_pair('XBT', 'USD', 'pair_decimals' => 2), kraken_pair('ETH', 'USD'))
+    add.('cg-tickers-crawl-page-2-fails', job, demo.merge(pairs).merge(crawl('kraken', full, error(500, { 'error' => 'boom' })))
+      .merge(coinbase), env: off) do
+      cg_venues
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+    end
+    add.('cg-tickers-crawl-50-pages', job, demo.merge(pairs).merge(crawl('kraken', *Array.new(50, full))).merge(coinbase), env: off) do
+      cg_venues
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+    end
+    # The scheduled job with a blank key fails each venue before its catalogue (sync_tickers_from_coingecko!).
+    add.('cg-tickers-blank-key', job, {}, env: off) do
+      cg_venues
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+      AppConfig.coingecko_api_key = ''
+    end
+    # Kraken: DOGE becomes XDG in XDG's place (CoinGecko's own XDG overwritten) and COPM is blacklisted, both before the
+    # collision check, so OMI keeps ecomi and nothing is ambiguous.
+    add.('cg-tickers-kraken-xdg', job, demo.merge(kraken(kraken_pair('XDG', 'USD'), kraken_pair('OMI', 'USD'), kraken_pair('COPM', 'USD')))
+      .merge(crawl('kraken', [cg_ticker('XDG', 'xdg-other', 'USD'), cg_ticker('DOGE', 'dogecoin', 'USD'), cg_ticker('COPM', 'ecomi', 'USD'),
+                              cg_ticker('OMI', 'ecomi', 'USD')])).merge(coinbase), env: off) { cg_venues }
+    # D-CG-SYMBOL-AMBIGUOUS: SYM has two ids and shared-id two symbols. Rails binds SYM to the first id and ONE to shared-id
+    # (first wins); Rust leaves SYM, ONE and TWO unresolved and mints neither coin. The ambiguous rows come last in Rails'
+    # order, so every other row matches id for id.
+    add.('cg-tickers-ambiguous', job, demo.merge(kraken(kraken_pair('AAA', 'USD'), kraken_pair('SYM', 'USD'), kraken_pair('ONE', 'USD'), kraken_pair('TWO', 'USD')))
+      .merge(crawl('kraken', [cg_ticker('AAA', 'good-a', 'USD'), cg_ticker('SYM', 'sym-one', 'USD'), cg_ticker('SYM', 'sym-two', 'USD'),
+                              cg_ticker('ONE', 'shared-id', 'USD'), cg_ticker('TWO', 'shared-id', 'USD')])).merge(coinbase), env: off) { cg_venues }
+    # D-CG-429-NO-MORE-CRAWLS: Kraken's crawl answers 429; Rails crawls Coinbase next, Rust does not (its catalogue still
+    # applies). Coinbase's discovery rows come last, so the rest matches id for id.
+    add.('cg-tickers-429', job, demo.merge(kraken(kraken_pair('XBT', 'USD', 'lot_decimals' => 7), kraken_pair('NEW', 'USD')))
+      .merge(crawl('kraken', error(429, { 'status' => { 'error_code' => 429 } })))
+      .merge(coinbase(coinbase_product('BTC', 'USD', 'quote_min_size' => '3'), coinbase_product('ETH', 'USD')))
+      .merge(crawl('gdax', [cg_ticker('ETH', 'ethereum', 'USD')])), env: off) do
+      cg_venues
+      listed_ticker(@kraken, @btc, @usd, 'XBTUSD', 'XBT', 'USD')
+      listed_ticker(@coinbase, @btc, @usd, 'BTC-USD', 'BTC', 'USD')
+    end
+  end
+
   def scenarios # rubocop:disable Metrics/MethodLength,Metrics/AbcSize
     list = []
     add = lambda do |name, job, http, env: ON, raises: false, asset: nil, &setup|
       list << { 'name' => name, 'job' => job, 'http' => http, 'env' => env, 'raises' => raises, 'asset' => asset, 'setup' => setup }
     end
     coingecko_scenarios(add)
+    coingecko_ticker_scenarios(add)
 
     # Asset::FetchAllAssetsDataFromCoingeckoJob
     job = 'fetch_all_assets_data_from_coingecko_job'
@@ -482,7 +632,21 @@ module Reference
     travel_to(Time.iso8601('2026-09-01T00:00:00Z')) { scenario['setup']&.call }
   end
 
+  # The scripted adapters (data-api, CoinGecko, the venues' public catalogues); Coingecko#get_exchange_tickers_by_id's
+  # `sleep 3` between pages and the client's rate limit skipped (timing only: the Rust crawl is paced by its throttle).
+  def install_harness
+    return if @harness
+
+    @harness = true
+    Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedDataApi::Adapter)
+    Faraday::Adapter.lookup_middleware(:net_http).prepend(ScriptedDataApi::Adapter) # Clients::Coingecko's plan ping
+    Coingecko.prepend(Module.new { private def sleep(*) = 0 })
+    # The per-plan rate limit waits on Time.now, which travel_to freezes: a 31st request of a run would wait forever.
+    FaradayRateLimitMiddleware.prepend(Module.new { def call(env) = @app.call(env) })
+  end
+
   def grid(root)
+    install_harness
     list = scenarios
     list.each do |sc|
       dir = File.join(root, sc['name'])
@@ -516,8 +680,7 @@ module Reference
 
   def record(root)
     ActiveJob::Base.queue_adapter = :test # a retry is recorded, never run
-    Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedDataApi::Adapter)
-    Faraday::Adapter.lookup_middleware(:net_http).prepend(ScriptedDataApi::Adapter) # Clients::Coingecko's plan ping
+    install_harness
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
       sc = JSON.parse(File.read(path))
@@ -529,6 +692,8 @@ module Reference
       # Clients::Coingecko and MarketData memoise the plan and the client per key for the process: each scenario pings anew.
       Clients::Coingecko.instance_variable_set(:@detect_plan, nil)
       MarketData.instance_variable_set(:@coingecko, nil)
+      # Each scenario's own cache: no venue catalogue, crawl claim or backfill claim carried over (null: every claim taken).
+      Rails.cache = ActiveSupport::Cache::NullStore.new
       before = snapshot
       raised = begin
         travel_to(Time.iso8601(sc['at']), with_usec: true) { perform(sc['job'], sc['asset']) }
