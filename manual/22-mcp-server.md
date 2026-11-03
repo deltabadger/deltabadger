@@ -53,7 +53,7 @@ A tool is usable only when both of these are true:
 | **Exchange balances** | Fetch live balances from one exchange |
 | **Portfolio summary** | View global P/L and a per-bot breakdown |
 | **List transactions** | View recent trades, optionally for one bot (up to 100) |
-| **List open orders** | View your bots' open (unfilled) orders on every exchange; orders placed outside Deltabadger are read live from Alpaca only, and an Alpaca account that cannot be asked is reported, not skipped |
+| **List open orders** | View your bots' open (unfilled) orders on every exchange; orders placed outside your bots are read live from Alpaca only. An Alpaca account that cannot be asked is reported, not skipped, and so is every other exchange you hold a correct trading key on (and the one you ask about): it is named as not read live |
 | **List rules** | View your [withdrawal rules](16-withdrawal-rules.md) with status, exchange, asset, destination and thresholds; destinations are masked; includes maximum interval and any unconfirmed withdrawal |
 | **List indices** | View the indices an [index bot](13-direct-indexing.md) can track and the exchanges each is available on |
 
