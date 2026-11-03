@@ -85,6 +85,8 @@ pub async fn serve<'a, F: VenueFactory>(mut engine: Engine<F>, web: Option<(App,
         (_, Ok(never)) => match never {},
     };
     drop(web_run); // nothing serves once the engine has returned
+    // Tests: the port is free while the services still drain (PLAN-B7 r4.7).
+    crate::stop::pause_async("after-listener-drop").await;
     stop.request(); // an engine that failed on its own: the services stop too
     while !services.is_empty() {
         let (name, r) = next_end(&mut services).await;

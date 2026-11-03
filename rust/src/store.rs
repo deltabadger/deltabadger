@@ -870,11 +870,16 @@ pub fn changed() -> bool { CHANGED.load(std::sync::atomic::Ordering::SeqCst) }
 /// Records a committed startup write (`changed`).
 pub fn mark_changed() { CHANGED.store(true, std::sync::atomic::Ordering::SeqCst) }
 
-/// Whether `backup` has left a complete copy in `backups_dir`.
+/// The copy before a takeover from Rails (`backup`).
+pub const TAKEOVER_COPY: &str = "pre-3.0-";
+/// The copy before a desktop update migrates the data (PLAN-B7 §4).
+pub const UPDATE_COPY: &str = "before-update-";
+
+/// Whether `backup_as` has left a complete copy of either kind in `backups_dir`.
 pub fn has_backup(paths: &Paths) -> bool {
     std::fs::read_dir(backups_dir(paths)).is_ok_and(|d| d.flatten().any(|e| {
         let name = e.file_name().to_string_lossy().into_owned();
-        name.starts_with("pre-3.0-") && !name.ends_with(".partial")
+        [TAKEOVER_COPY, UPDATE_COPY].iter().any(|p| name.starts_with(p)) && !name.ends_with(".partial")
     }))
 }
 
@@ -926,6 +931,12 @@ impl BackupError {
 /// to `pre-3.0-<UTC>/`. Copies are never replaced or deleted. A `.partial` left by a crash is deleted first; one this call
 /// made is deleted on its error. Cache and cable are not copied. The error says what the user can do about it (BackupError).
 pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backup, BackupError> {
+    backup_as(paths, TAKEOVER_COPY, now)
+}
+
+/// `backup` under `prefix` (`TAKEOVER_COPY` or `UPDATE_COPY`): the same copy, named `<prefix><UTC>`, compared only with
+/// the newest copy of its own kind. Neither kind is ever deleted (PLAN-B7 r2.5).
+pub fn backup_as(paths: &Paths, prefix: &str, now: chrono::DateTime<chrono::Utc>) -> Result<Backup, BackupError> {
     use sha2::Digest;
     const STAMP: &str = "%Y%m%dT%H%M%S%.6fZ";
     let dir = backups_dir(paths);
@@ -941,15 +952,15 @@ pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backu
     let mut complete = Vec::new();
     for entry in std::fs::read_dir(&dir).map_err(|e| io(&dir, e))? {
         let name = entry.map_err(|e| io(&dir, e))?.file_name().to_string_lossy().into_owned();
-        if !name.starts_with("pre-3.0-") { continue }
+        if !name.starts_with(prefix) { continue }
         if name.ends_with(".partial") { std::fs::remove_dir_all(dir.join(&name)).map_err(|e| io(&dir.join(&name), e))?; } else { complete.push(name) }
     }
     let newest = complete.into_iter().max();
     // Microseconds, after a lock that serialises starts: no two starts share a name. A clock set back still names the copy
     // after the newest one (1 µs later), so "newest" stays the last one made and names keep one length.
-    let after_newest = newest.as_deref().and_then(|n| n.strip_prefix("pre-3.0-"))
+    let after_newest = newest.as_deref().and_then(|n| n.strip_prefix(prefix))
         .and_then(|t| chrono::NaiveDateTime::parse_from_str(t, STAMP).ok()).map(|t| t.and_utc() + chrono::Duration::microseconds(1));
-    let name = format!("pre-3.0-{}", after_newest.map_or(now, |t| t.max(now)).format(STAMP));
+    let name = format!("{prefix}{}", after_newest.map_or(now, |t| t.max(now)).format(STAMP));
     let digest_of = |folder: &Path| -> Result<String, BackupError> {
         names.iter().map(|n| {
             let file = folder.join(n);
