@@ -337,7 +337,12 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             let had: bool = fenced.query_row("SELECT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id = ?1 AND date <= ?2)", rusqlite::params![user_id, last.to_string()], |r| r.get(0))?;
             if had && swept.whole.is_empty() { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
             backfill::store(fenced, cipher, user_id, &swept, last, &version, now)?;
-            if limited { crate::app_config::delete(fenced, &backfill::price_key(user_id)).map_err(FiguresError::Data)?; }
+            if limited {
+                crate::app_config::delete(fenced, &backfill::price_key(user_id)).map_err(FiguresError::Data)?;
+                crate::app_config::set_plain(fenced, &backfill::rate_limited_key(user_id), "1", now).map_err(FiguresError::Data)?;
+            } else {
+                crate::app_config::delete(fenced, &backfill::rate_limited_key(user_id)).map_err(FiguresError::Data)?;
+            }
             Ok(())
         })?;
         Ok(true)

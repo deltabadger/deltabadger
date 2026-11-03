@@ -160,3 +160,29 @@ async fn a_backfill_stopped_by_a_429_fills_its_gaps_at_the_next_run() {
 }
 
 fn days_answer() -> Value { days(60000.0) }
+
+/// The same when no day reads partial: every September price stored but the 30th's, which the 29th's carries over. The
+/// 429 run's gap is still asked at the next run (an explicit pending mark, not the days), and then nothing more.
+#[tokio::test(flavor = "current_thread")]
+async fn a_429_gap_a_carried_price_hides_is_still_fetched_at_the_next_run() {
+    let fx = alpaca();
+    fx.exec(&(2..=29).map(|d| format!("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('BTC', 'USD', '2026-09-{d:02}', '60000');")).collect::<String>());
+    let backfill = |t: &ScriptedTransport| deltabadger::tracker::jobs::resolve::<Venues, ScriptedTransport>(deltabadger::tracker::jobs::PORTFOLIO_BACKFILL, fx.owner(), &Venues,
+        Rc::new(Some(coingecko(t, Some(Plan::Demo)))), Arc::new(at)).unwrap();
+    let clock = FixedClock(at());
+    let cx = || Cx { db: fx.db(), clock: &clock, wakers: Wakers::default() };
+    let partial: i64 = 0;
+    let limited = ScriptedTransport::from_script(&json!({ RANGE: [{ "status": 429, "body": {} }] }));
+    assert!(matches!(backfill(&limited).run(cx(), vec![]).await, Outcome::RateLimited(_)));
+    assert_eq!(limited.requests().len(), 1);
+    let partial_days: i64 = fx.c().query_row("SELECT count(*) FROM portfolio_snapshots WHERE partial", [], |r| r.get(0)).unwrap();
+    assert_eq!(partial_days, partial, "the 30th carries the 29th's price: no day reads partial");
+    let priced = ScriptedTransport::from_script(&json!({ RANGE: [days_answer()] }));
+    assert_eq!(backfill(&priced).run(cx(), vec![]).await, Outcome::Done, "the gap is still wanted");
+    assert_eq!(priced.requests().len(), 1);
+    let sept30: i64 = fx.c().query_row("SELECT count(*) FROM historical_prices WHERE asset = 'BTC' AND date = '2026-09-30'", [], |r| r.get(0)).unwrap();
+    assert_eq!(sept30, 1);
+    let idle = ScriptedTransport::from_script(&json!({}));
+    assert_eq!(backfill(&idle).run(cx(), vec![]).await, Outcome::NothingNew);
+    assert!(idle.requests().is_empty());
+}
