@@ -150,10 +150,12 @@ fn production_source_names_the_live_alpaca_host_only_in_the_venue() {
     assert_eq!(naming, vec![src.join("venue/alpaca.rs")]);
 }
 
+/// Every message captured; or, switched to `live`, delivered by the live mailer (A20's SMTP timeout).
 #[derive(Default)]
-struct CapturedMail(Mutex<Vec<deltabadger::mail::Message>>);
+struct CapturedMail(Mutex<Vec<deltabadger::mail::Message>>, std::sync::atomic::AtomicBool);
 impl deltabadger::web::settings::mail::Mailer for CapturedMail {
-    fn deliver(&self,message:deltabadger::mail::Message,_settings:Option<deltabadger::mail::smtp::Settings>,now:chrono::DateTime<chrono::Utc>)->deltabadger::web::settings::mail::Delivery {
+    fn deliver(&self,message:deltabadger::mail::Message,settings:Option<deltabadger::mail::smtp::Settings>,now:chrono::DateTime<chrono::Utc>)->deltabadger::web::settings::mail::Delivery {
+        if self.1.load(std::sync::atomic::Ordering::SeqCst) { return deltabadger::web::settings::mail::live().deliver(message, settings, now) }
         message.encode(now,"fixture@deltabadger").unwrap();
         self.0.lock().unwrap().push(message);
         Box::pin(async {Ok(())})
@@ -415,6 +417,8 @@ async fn every_settings_write_rejects_missing_csrf_and_preserves_all_rows() {
         ("DELETE","/settings/platform_connection",vec![]),
         ("PATCH","/settings/update_stocks",vec![("alpaca_api_key","k"),("alpaca_api_secret","s")]),
         ("DELETE","/settings/disconnect_stocks",vec![]),
+        ("POST","/settings/send_test_email",vec![]),
+        ("DELETE","/settings/disconnect_email",vec![]),
     ]);
 
     for (method, path, form) in writes {
@@ -4126,4 +4130,30 @@ fn no_code_reads_the_install_alpaca_credential(){
     }
     let mut readers=vec![];walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),&mut readers);
     assert_eq!(readers.iter().map(|p|p.rsplit("/src/").next().unwrap().to_string()).collect::<Vec<_>>(),["web/locale.rs"]);
+}
+
+/// A20 (F22): the test email is sent inside the request, bounded by the SMTP client's own timeouts. A server that accepts and
+/// never greets is an alert naming the stage once the greeting's 5 s read timeout passes; nothing is written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_test_email_to_a_server_that_never_answers_is_an_alert_after_the_greeting_timeout() {
+    let silent = common::smtp::start(common::smtp::Behaviour { silent: true, ..Default::default() }).await;
+    let server = MockServer::start().await;
+    let mut h = Harness::new(server.uri()).await;
+    for (key, value) in [("smtp_provider", "custom_smtp"), ("smtp_host", "127.0.0.1"), ("smtp_port", &silent.port.to_string()),
+                         ("smtp_username", "smtp-user@example.com"), ("smtp_password", "smtp-secret")] {
+        deltabadger::app_config::set(&h.c, &h.app.cipher, key, value, h.app.now()).unwrap();
+    }
+    h.mail.1.store(true, std::sync::atomic::Ordering::SeqCst);
+    let before = h.snapshot();
+    let started = std::time::Instant::now();
+    let answer = h.browser.send(&h.app, "POST", "/settings/send_test_email", Some(&[]), Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    let waited = started.elapsed();
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    let alert = deltabadger::web::i18n::t("en", "settings.email_notifications.test_email_failed",
+                                          &[("error", deltabadger::web::i18n::Arg::Text("delivery failed (greeting: no answer in time)"))]);
+    assert!(answer.body.contains(&alert), "{}", answer.body);
+    assert!(!answer.body.contains("smtp-user") && !answer.body.contains("smtp-secret"), "no credential reaches the page");
+    assert!(waited >= std::time::Duration::from_secs(5) && waited < std::time::Duration::from_secs(15), "bounded by the greeting's read timeout: {waited:?}");
+    assert_eq!(h.snapshot(), before, "nothing is written");
+    assert_eq!(silent.sessions().len(), 1, "one connection, never greeted");
 }

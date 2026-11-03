@@ -7,7 +7,7 @@
     "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
     "app/views/bots/composition/_metrics.html.erb": "a4ba28f2bc397d71c49686e50a99b73177c16648051d8ed3879d6469c8f436f7",
     "config/locales/bot.en.yml": "192d7277719074620529ab2d9c660e9cc3888f685b74325d6cad9b564997e86e",
-    "script/rust/pages.rb": "64657398df907c6314090cd136f5b16c53d59240899755ef1d8a5dbedde94204",
+    "script/rust/pages.rb": "0b03086c895e0db7673a9e91a06c684d4fdb99fa698d7f96a4788f2634606037",
     "script/rust/page_figures.rb": "a0de2214d4901b7568cd65dc1e9e73666e4b9e4fbb73ea12ada18db14710c747"
   },
   "cases": [
