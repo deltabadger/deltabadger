@@ -147,6 +147,46 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
     assert_eq!(field("to_cash_linked_deposit_fee_fx", "4", "cash_basis", false), r#"[["EUR","101.0"]]"#, "C's euros carry the basis the deposit's fee left");
 }
 
+/// PLAN-A17 A17-3's named divergences on a CoinGecko install, read from both sides' output.
+fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Value)>) {
+    let paths = |name: &str, rails: bool| -> Vec<String> {
+        let (a, b) = &outputs[name];
+        (if rails { a } else { b })["requests"]["market"].as_array().unwrap().iter().map(|r| {
+            let q: std::collections::BTreeMap<String, String> = r[1].as_array().unwrap().iter().map(|kv| (kv[0].as_str().unwrap().into(), kv[1].as_str().unwrap().into())).collect();
+            let day = |k: &str| q.get(k).and_then(|t| t.parse::<i64>().ok()).and_then(|t| chrono::DateTime::from_timestamp(t, 0)).map(|t| t.date_naive().to_string()).unwrap_or_default();
+            format!("{} {}..{}", r[0].as_str().unwrap().trim_start_matches("GET /api/v3/").trim_end_matches("/market_chart/range"), day("from"), day("to"))
+        }).collect()
+    };
+    let stored = |name: &str, rails: bool, asset: &str| -> Vec<String> {
+        let (a, b) = &outputs[name];
+        let mut days: Vec<String> = (if rails { a } else { b })["tables"]["historical_prices"].as_array().unwrap().iter()
+            .filter(|r| r["asset"] == asset).map(|r| r["date"].as_str().unwrap().to_string()).collect();
+        days.sort();
+        days
+    };
+    // D-CG-429-STOPS-PRICES, the endpoint's 429: Rust asked bitcoin once and nothing more in either run; Rails asked ethereum
+    // after it, and bitcoin's windows again, and stored ethereum's days.
+    assert_eq!(paths("cg_endpoint_429", false), ["coins/bitcoin 2026-09-10..2026-09-11", "coins/bitcoin 2026-09-03..2026-10-01"], "one request per run");
+    assert!(paths("cg_endpoint_429", true).iter().any(|p| p.starts_with("coins/ethereum")));
+    assert!(stored("cg_endpoint_429", false, "ETH").is_empty() && !stored("cg_endpoint_429", true, "ETH").is_empty());
+    // The ping's 429: Rails read it as a demo key and stored bitcoin's days; Rust asked nothing past each run's ping.
+    assert_eq!(paths("cg_ping_429", false), ["ping ..", "ping .."]);
+    assert!(stored("cg_ping_429", false, "BTC").is_empty() && !stored("cg_ping_429", true, "BTC").is_empty());
+    // D-CG-HISTORY-WINDOW: Rails asked the backfill's whole span, refused, storing none of it; Rust asked from 2 October
+    // 2025 (the first UTC midnight after the run's clock less 365 days) and stored the window's days, the cutoff's first.
+    assert!(paths("cg_window_crossing", true).contains(&"coins/bitcoin 2025-09-15..2026-10-01".to_string()));
+    assert!(paths("cg_window_crossing", false).contains(&"coins/bitcoin 2025-10-02..2026-10-01".to_string()));
+    let (rust, rails) = (stored("cg_window_crossing", false, "BTC"), stored("cg_window_crossing", true, "BTC"));
+    assert_eq!((rust.first().map(String::as_str), rust.len(), rails.len()), (Some("2025-10-02"), 364, 1), "{rails:?}");
+    // The older days already stored are kept and read on both sides; Rust adds the window's.
+    let (rust, rails) = (stored("cg_window_older_stored", false, "BTC"), stored("cg_window_older_stored", true, "BTC"));
+    assert_eq!((rust.first().map(String::as_str), rails.first().map(String::as_str)), (Some("2025-09-15"), Some("2025-09-15")));
+    assert!(rust.contains(&"2025-10-02".to_string()) && !rails.contains(&"2025-10-02".to_string()));
+    // Wholly before the cutoff: the walk's ETH lookups are not asked by Rust; Rails asked each and was refused.
+    assert!(!paths("cg_window_wholly_before", false).iter().any(|p| p.starts_with("coins/ethereum 2025-06") || p.starts_with("coins/ethereum 2025-04")));
+    assert!(paths("cg_window_wholly_before", true).iter().any(|p| p == "coins/ethereum 2025-06-10..2025-06-11"));
+}
+
 /// R: legacy fixture balances have no credential provenance. Retain every historical
 /// amount; R4 refuses today's snapshots and associated wash-lock publication until a producer sync succeeds.
 const UNKNOWN_ORIGIN: &[&str] = &["other_venue_balance", "a_failed_sync_and_stale_prices", "stale_prices_alone", "cash_beyond_the_history_and_an_unpriced_holding", "a_failed_price_fetched_again", "bought_since_the_sync", "buys_priced", "coin_fee_stated_price", "coin_fee_then_withdrawal", "departed_and_cash_short", "dividends_fees_withdrawal", "linked_dollars", "old_loss_outside_the_horizon", "return_of_capital", "sale_gain_with_a_losing_lot", "sell_at_loss_wash_off", "sell_at_loss_wash_on", "sold_before_any_buy", "split_priced_by_a_second_fetch"];
@@ -174,7 +214,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 67 + 23 + 12, "the tracker grid");
+    assert_eq!(dirs.len(), 67 + 23 + 12 + 9, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -188,11 +228,20 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
         let initial=rusqlite::Connection::open(rust_root.path().join(&name).join("production.sqlite3")).unwrap();
         let before_locks=deltabadger::tracker::parity::tables(&initial,&cipher,scenario["user_id"].as_i64().unwrap()).unwrap()["wash_sale_locks"].clone();
         drop(initial);
-        let rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
-        let rails_out = read(&d.join("rails.json"));
+        let mut rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
+        let mut rails_out = read(&d.join("rails.json"));
+        // A transport failure ends both runs with it: Rails raises Client::TransientNetworkError wrapping Faraday's error, Rust
+        // states the transport's message. The text is each side's own; that both ended on it is compared.
+        if scenario["transport_failure"] == true {
+            for key in ["ledger_error", "backfill_error"] {
+                let (rails_e, rust_e) = (rails_out[key].as_str().unwrap_or_default().to_string(), rust_out[key].as_str().unwrap_or_default().to_string());
+                assert!(!rust_e.is_empty() && rails_e == format!("Client::TransientNetworkError: Faraday::ConnectionFailed: {rust_e}"), "{name} {key}: {rails_e} / {rust_e}");
+                (rails_out[key], rust_out[key]) = (json!("transport failure"), json!("transport failure"));
+            }
+        }
         // A reviewed divergence (D-TRACKER-…): Rust's output is the file checked by hand, and Rails' is not.
         if let Some(id) = scenario["expect"].as_str().and_then(|e| e.strip_prefix("diverges: ")) {
-            assert!(id.split(" + ").all(|d| d.starts_with("D-TRACKER-")), "{name}: {id}");
+            assert!(id.split(" + ").all(|d| d.starts_with("D-TRACKER-") || d.starts_with("D-CG-")), "{name}: {id}");
             let path = reviewed(&name);
             let text = serde_json::to_string_pretty(&rust_out).unwrap() + "\n";
             if std::env::var("TRACKER_DIVERGENCES_WRITE").is_ok() { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, &text).unwrap(); }
@@ -220,6 +269,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
         assert!(reviewed_names.iter().any(|n| format!("{n}.json") == f), "{f} has no diverging scenario");
     }
     reviewed_figures(&outputs);
+    coingecko_divergences(&outputs);
     let mut expected=UNKNOWN_ORIGIN.iter().map(|name|name.to_string()).collect::<Vec<_>>();
     expected.sort();
     assert_eq!(divergences,expected,"all reviewed legacy-origin and original divergences are exercised");
