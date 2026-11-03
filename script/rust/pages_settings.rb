@@ -834,6 +834,9 @@ module Pages
     # Rows that only look like proxies are none (AppConfig.platform_proxies_configured? is a start_with?).
     grid['settings_platform_create_no_proxies'] = settings_case(claim.('dbc_no_proxies')).merge('app_configs' => { 'PROXY_binance' => 'kept', 'proxyx' => 'kept' })
     grid['settings_platform_create_invalid'] = settings_case(claim.('dbc_bad', 422))
+    # params[:claim_code]: a query value wins over the body's; a query alone is read too.
+    grid['settings_platform_create_query_wins'] = settings_case(write.('platform_connection?claim_code=dbc_no_proxies', { 'claim_code' => 'dbc_bad' }))
+    grid['settings_platform_create_query_only'] = settings_case(write.('platform_connection?claim_code=dbc_no_proxies', {}))
     grid['settings_platform_create_reclaim'] = settings_case(claim.('dbc_no_proxies')).merge('app_configs' => platform.merge('market_data_url' => 'http://old-data-api.invalid', 'market_data_token' => 'old-token'))
     grid['settings_platform_destroy'] = settings_case(unclaim.()).merge('app_configs' => platform.merge('PROXY_binance' => 'kept', 'proxyx' => 'kept'))
     grid['settings_platform_destroy_off'] = settings_case(unclaim.()).merge('app_configs' => platform.except('market_data_provider'))
