@@ -24,6 +24,16 @@ pub enum PollFailure { CredentialsChanged, RateLimited(String), Transient(String
     /// D-KUCOIN-HF-RETENTION: (transaction, why) the bot's first unresolved HF obligation (reconcile::barrier).
     AwaitingReconciliation(i64, String) }
 
+impl PollFailure {
+    /// The failure's kind, fit for a log: a venue's answer text (which can name the account) is left out.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::CredentialsChanged => "credentials changed", Self::RateLimited(_) => "rate limited", Self::Transient(_) => "transient venue failure",
+            Self::General(_) => "venue or order failure", Self::OwnerChanged(_) => "owner changed", Self::AwaitingReconciliation(..) => "awaiting reconciliation",
+        }
+    }
+}
+
 fn poll_error(e: EngineError) -> PollFailure {
     match e { EngineError::CredentialsChanged => PollFailure::CredentialsChanged, EngineError::OwnerChanged(owner) => PollFailure::OwnerChanged(owner), other => PollFailure::General(format!("{other:?}")) }
 }

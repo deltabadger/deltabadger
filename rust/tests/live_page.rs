@@ -378,3 +378,14 @@ async fn a_refresh_that_fills_then_raises_keeps_the_fill_and_its_amount_limit_st
     assert!(events.contains(&EngineEvent::OrderWritten { bot_id: r.id, transaction_id: a }) && events.contains(&EngineEvent::StatusChanged { bot_id: r.id }), "{events:?}");
     assert_eq!(transient(&r, polling::REFRESH_KEY), Value::Null, "served");
 }
+
+/// A refresh's failure is logged by its kind: a venue's answer (which can name the account) never reaches the log line.
+#[test]
+fn a_refresh_failure_is_logged_without_the_venues_text() {
+    use deltabadger::engine::{polling::PollFailure, EngineError};
+    for failure in [PollFailure::General("Account alice@example.com is disabled".into()), PollFailure::Transient("alice@example.com".into()),
+                    PollFailure::RateLimited("alice".into())] {
+        assert!(!failure.kind().contains("alice"), "{}", failure.kind());
+    }
+    assert!(!EngineError::Data("alice@example.com".into()).kind().contains("alice"));
+}

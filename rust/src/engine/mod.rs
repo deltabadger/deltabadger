@@ -52,6 +52,17 @@ pub enum EngineError {
     Lease(crate::lease::LeaseError),
     Store(crate::store::StoreError),
 }
+impl EngineError {
+    /// What went wrong, in words fit for a log: the kind alone, never a venue's or a row's text.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::RunFenced => "run fenced", Self::CredentialsChanged => "credentials changed", Self::Arithmetic(_) => "arithmetic error",
+            Self::Sqlite(_) => "database error", Self::Data(_) => "unreadable data", Self::Ineligible(_) => "ineligible",
+            Self::HardStop(_) => "hard stop", Self::Unresolved(_) => "unresolved orders", Self::SignalCallsWaiting(_) => "signal calls waiting",
+            Self::OwnerChanged(_) => "owner changed", Self::Stopped => "stopped", Self::Lease(_) => "lease error", Self::Store(_) => "store error",
+        }
+    }
+}
 impl From<rusqlite::Error> for EngineError { fn from(e: rusqlite::Error) -> Self { Self::Sqlite(e) } }
 impl From<crate::lease::LeaseError> for EngineError { fn from(e: crate::lease::LeaseError) -> Self { Self::Lease(e) } }
 impl From<crate::store::StoreError> for EngineError { fn from(e: crate::store::StoreError) -> Self { Self::Store(e) } }
