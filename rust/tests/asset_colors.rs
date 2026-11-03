@@ -378,9 +378,60 @@ async fn colour_wakes_follow_each_committed_chunk() {
     let last = rows.last().unwrap().0;
     c.execute_batch(&format!("CREATE TRIGGER boom BEFORE UPDATE ON assets WHEN NEW.id = {last} BEGIN SELECT RAISE(ABORT, 'boom'); END")).unwrap();
     let db = Db::new(c, seed::cipher());
-    let woken = std::cell::RefCell::new(vec![]);
-    let result = import::refresh_assets(&db, rows, at(NOW), |ids| woken.borrow_mut().extend(ids)).await;
+    let woken = Arc::new(std::sync::Mutex::new(vec![]));
+    let w = woken.clone();
+    let result = import::refresh_assets(&db, rows, at(NOW), move |ids| w.lock().unwrap().extend(ids)).await;
     assert!(result.is_err());
-    assert_eq!(woken.borrow().len(), deltabadger::jobs::CHUNK, "the first unit's wakes, none from the failed one");
-    assert!(!woken.borrow().contains(&last));
+    assert_eq!(woken.lock().unwrap().len(), deltabadger::jobs::CHUNK, "the first unit's wakes, none from the failed one");
+    assert!(!woken.lock().unwrap().contains(&last));
+}
+
+/// A run dropped at its deadline while a unit is on the blocking pool: the unit commits after, and its wakes still go out.
+#[tokio::test(flavor = "current_thread")]
+async fn a_dropped_run_still_wakes_its_committed_unit() {
+    let (d, c) = install("coingecko");
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('c', 'c', 'c', 'Cryptocurrency', '2026-01-01', '2026-01-01')", []).unwrap();
+    let id = c.last_insert_rowid();
+    let cols = import::coingecko_columns("c", &json!({ "symbol": "c", "name": "n", "image": "https://img/c.png" })).unwrap().unwrap();
+    let db = Db::new(c, seed::cipher());
+    let woken = Arc::new(std::sync::Mutex::new(vec![]));
+    let w = woken.clone();
+    let dropped = tokio::time::timeout(Duration::ZERO, import::refresh_assets(&db, vec![(id, cols)], at(NOW), move |ids| w.lock().unwrap().extend(ids))).await;
+    assert!(dropped.is_err(), "the run was dropped before its unit ended");
+    db.settled().await;
+    assert_eq!(*woken.lock().unwrap(), [id]);
+    let image: Option<String> = reopen(&d).query_row("SELECT image_url FROM assets WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(image.as_deref(), Some("https://img/c.png"), "the unit committed");
+}
+
+/// A RIFF/WEBP file of `chunks` (fourcc, payload).
+fn webp(chunks: &[(&[u8; 4], Vec<u8>)]) -> Vec<u8> {
+    let mut body = b"WEBP".to_vec();
+    for (tag, payload) in chunks {
+        body.extend_from_slice(*tag);
+        body.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        body.extend_from_slice(payload);
+        if payload.len() % 2 == 1 { body.push(0); }
+    }
+    [b"RIFF".to_vec(), (body.len() as u32).to_le_bytes().to_vec(), body].concat()
+}
+
+/// A small VP8X canvas over a VP8 bitstream declaring 16383×16383: refused before any decoder sizes a buffer from it. An
+/// animated WebP is refused too (D-COLOR-IMAGE-LIMITS); the committed real WebP passes.
+#[test]
+fn webp_bitstream_bomb_and_animation_are_refused() {
+    let canvas = |flags: u8| { let mut p = vec![flags, 0, 0, 0]; p.extend_from_slice(&[15, 0, 0, 15, 0, 0]); p };
+    let mut vp8 = vec![0x10, 0x02, 0x00, 0x9d, 0x01, 0x2a];
+    vp8.extend_from_slice(&0x3fffu16.to_le_bytes());
+    vp8.extend_from_slice(&0x3fffu16.to_le_bytes());
+    vp8.extend_from_slice(&[0; 32]);
+    let bomb = webp(&[(b"VP8X", canvas(0)), (b"VP8 ", vp8)]);
+    assert_eq!(asset_color::sniff(&bomb), Some(image::ImageFormat::WebP));
+    assert!(!asset_color::webp_within_limits(&bomb));
+    let started = Instant::now();
+    assert_eq!(asset_color::dominant_colors(&bomb, image::ImageFormat::WebP), None);
+    assert!(started.elapsed() < Duration::from_millis(100));
+    let animated = webp(&[(b"VP8X", canvas(0x02)), (b"ANIM", vec![0; 6]), (b"ANMF", vec![0; 16])]);
+    assert_eq!(asset_color::dominant_colors(&animated, image::ImageFormat::WebP), None);
+    assert!(asset_color::webp_within_limits(&logo("usds.webp")));
 }

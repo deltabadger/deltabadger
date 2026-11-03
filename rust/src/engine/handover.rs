@@ -697,6 +697,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "engine_lease", Adopted),
         (AppConfig, "rust_created_at", Refuses("this install was created new, so there is no earlier app to hand it back to.")),
         (AppConfig, "rust_taken_over_at", Ignored), (AppConfig, "rust_handed_back_at", Ignored),
+        // The latest release the update check stored (jobs::app_update): 2.x keeps its own in Rails.cache.
+        (AppConfig, "rust_app_update", Ignored),
         (AppConfig, "rust_binance_a12_v1:", Refuses("Binance A12 identity data permanently requires Rust ownership")),
         (AppConfig, "rust_binance_repair_gaps.", Ignored), (AppConfig, "rust_account_identity_key_v1", Ignored),
         (AppConfig, "rust_coinbase_size_in_quote_repaired_at", Ignored),

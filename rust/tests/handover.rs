@@ -1134,7 +1134,7 @@ fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
             "ApiKeyValidatorJob" => json!([s.api_key_id]),
             "Ibkr::GenerateConnectionKeysJob" => json!([999]), // no such key: Rails' job returns
             // Enqueued with the Asset itself (sync_alpaca_assets_job.rb:166), as ActiveJob serialises a record.
-            "Asset::FetchDataFromCoingeckoJob" => json!([{ "_aj_globalid": format!("gid://deltabadger/Asset/{asset}") }]),
+            "Asset::FetchDataFromCoingeckoJob" | "Asset::InferColorFromImageJob" => json!([{ "_aj_globalid": format!("gid://deltabadger/Asset/{asset}") }]),
             _ if matches!(work, RailsWork::WakeUnscoped(_)) => json!([{ "jitter": true, "_aj_ruby2_keywords": ["jitter"] }]),
             _ if matches!(work, RailsWork::Wake(_)) => json!([s.user_id]),
             _ => json!([gid(b)]),
@@ -1150,10 +1150,12 @@ fn a_queue_with_every_rails_job_class_gets_each_rows_outcome() {
     let dropped = rows.iter().filter(|(_, w, _)| matches!(w, RailsWork::Dropped | RailsWork::IbkrKeys)).count();
     // PLAN-A17 item 12: the CoinGecko asset jobs and the setup sync are owed a run too, unscoped ("") or for their asset; A17-2:
     // a venue's ticker sync is owed one whole TICKERS run.
-    use deltabadger::jobs::{reference::{ASSETS, ASSET_DATA, TICKERS}, setup_sync};
+    // A21: the update check once, unscoped; an asset's colour inference for that asset.
+    use deltabadger::jobs::{app_update, asset_color, reference::{ASSETS, ASSET_DATA, TICKERS}, setup_sync};
     assert_eq!(wake_journal(&o), [(TRACKER_LEDGER.to_string(), s.user_id.to_string()), (PORTFOLIO_BACKFILL.to_string(), s.user_id.to_string()),
-                                  (API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string()), (ASSETS.to_string(), String::new()),
-                                  (ASSET_DATA.to_string(), asset.to_string()), (TICKERS.to_string(), String::new()),
+                                  (API_KEY_VALIDATOR.to_string(), s.api_key_id.to_string()), (app_update::NAME.to_string(), String::new()),
+                                  (ASSETS.to_string(), String::new()), (ASSET_DATA.to_string(), asset.to_string()),
+                                  (asset_color::NAME.to_string(), asset.to_string()), (TICKERS.to_string(), String::new()),
                                   (setup_sync::NAME.to_string(), String::new())]);
     assert!(deltabadger::app_config::get_plain(&o.primary, setup_sync::REQUEST).unwrap().is_some(), "a taken SeedAndSyncJob is a setup request");
     // The waiting signal job names a basket, not a signal bot: Rails' discard, through the import set.

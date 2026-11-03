@@ -442,7 +442,8 @@ async fn refresh(cx: &Cx<'_>, assets: &[(i64, String)], coin: impl Fn(&str) -> O
     let now = cx.clock.now();
     if bulk { if let Err(m) = incomplete(cx, ASSETS, now).await { return Outcome::Failed(m); } }
     // Asset::InferColorFromImageJob for each asset whose image_url changed, woken once its unit is committed.
-    let wake = |ids: Vec<i64>| for id in ids { cx.wakers.wake(super::asset_color::NAME, Some(&id.to_string()), None); };
+    let wakers = cx.wakers.clone();
+    let wake = move |ids: Vec<i64>| for id in ids { wakers.wake(super::asset_color::NAME, Some(&id.to_string()), None); };
     done(import::refresh_assets(&cx.db, rows, now, wake).await)
 }
 

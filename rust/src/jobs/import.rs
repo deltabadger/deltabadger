@@ -356,15 +356,19 @@ pub fn coingecko_columns(external_id: &str, d: &Value) -> R<Option<Vec<Sql>>> {
 
 /// Publishes CoinGecko asset refreshes `(asset id, coingecko_columns)` in units of CHUNK. `update!` writes, and moves
 /// updated_at, only on a row whose cast values changed: the UPDATE's guard compares each column with `IS` (the decimal
-/// columns compare numerically under their NUMERIC affinity). After each unit commits, `images_changed` is told the
-/// assets whose image_url that unit changed (market_data.rb:86 enqueues Asset::InferColorFromImageJob for each), so a
-/// later unit's failure never loses an earlier unit's.
-pub async fn refresh_assets(db: &Db, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>, images_changed: impl Fn(Vec<i64>)) -> R<()> {
+/// columns compare numerically under their NUMERIC affinity). Once each unit commits, `images_changed` is told the
+/// assets whose image_url that unit changed (market_data.rb:86 enqueues Asset::InferColorFromImageJob for each), on the
+/// blocking pool right after the commit: neither a later unit's failure nor a run dropped at its deadline (its committed
+/// unit outlives it) loses them.
+pub async fn refresh_assets<W: Fn(Vec<i64>) + Clone + Send + 'static>(db: &Db, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>, images_changed: W) -> R<()> {
     let t = format_time(now);
     for unit in chunks(&rows) {
-        let t = t.clone();
-        let changed = db.run(move |c, cipher| in_transaction(c, cipher, "coingecko assets", |c| refresh_unit(c, unit, &t).map(|(touched, images)| (images, touched)))).await?;
-        if !changed.is_empty() { images_changed(changed); }
+        let (t, wake) = (t.clone(), images_changed.clone());
+        db.run(move |c, cipher| {
+            let changed = in_transaction(c, cipher, "coingecko assets", |c| refresh_unit(c, unit, &t).map(|(touched, images)| (images, touched)))?;
+            if !changed.is_empty() { wake(changed); }
+            Ok(())
+        }).await?;
     }
     Ok(())
 }

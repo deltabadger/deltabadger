@@ -30,7 +30,9 @@ fn pins_are_current() {
 }
 
 /// The answers record_app_update.rb scripts, in its order: `(case, status, content type, body)`, or None for its timeout.
-fn answers() -> Vec<(&'static str, Option<(u16, &'static str, String)>)> {
+/// `(status, content type, body)`.
+type Answer = (u16, &'static str, String);
+fn answers() -> Vec<(&'static str, Option<Answer>)> {
     let json = "application/json; charset=utf-8";
     vec![
         ("success", Some((200, json, json!({ "tag_name": "v3.0.1", "html_url": "https://evil.invalid/" }).to_string()))),
@@ -50,7 +52,8 @@ fn answers() -> Vec<(&'static str, Option<(u16, &'static str, String)>)> {
 }
 
 /// One scripted answer per run, counting the requests.
-struct Scripted { next: RefCell<Option<Result<(u16, String, Vec<u8>), String>>>, calls: RefCell<usize> }
+type Fetched = Result<(u16, String, Vec<u8>), String>;
+struct Scripted { next: RefCell<Option<Fetched>>, calls: RefCell<usize> }
 impl Fetch for Scripted {
     fn latest<'a>(&'a self) -> FetchFuture<'a> {
         *self.calls.borrow_mut() += 1;

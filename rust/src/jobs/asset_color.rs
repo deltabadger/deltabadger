@@ -137,8 +137,38 @@ fn limits() -> Limits {
     l
 }
 
+/// A WebP's own chunks, read before any decoder: every VP8/VP8L bitstream within MAX_SIDE (the decoder sizes its buffers
+/// from the bitstream, which VP8X's canvas does not bound), and no animation (refused, D-COLOR-IMAGE-LIMITS).
+pub fn webp_within_limits(bytes: &[u8]) -> bool {
+    let le16 = |b: &[u8]| u32::from(u16::from_le_bytes([b[0], b[1]]));
+    let le24 = |b: &[u8]| u32::from(b[0]) | u32::from(b[1]) << 8 | u32::from(b[2]) << 16;
+    let (mut at, mut images) = (12usize, 0);
+    while at + 8 <= bytes.len() {
+        let (tag, size) = (&bytes[at..at + 4], u32::from_le_bytes([bytes[at + 4], bytes[at + 5], bytes[at + 6], bytes[at + 7]]) as usize);
+        let Some(payload) = bytes.get(at + 8..(at + 8).saturating_add(size)) else { return false };
+        let (w, h) = match tag {
+            b"VP8X" if payload.len() >= 10 => {
+                if payload[0] & 0x02 != 0 { return false; }
+                (le24(&payload[4..7]) + 1, le24(&payload[7..10]) + 1)
+            }
+            b"VP8 " if payload.len() >= 10 && payload[3..6] == [0x9d, 0x01, 0x2a] => { images += 1; (le16(&payload[6..8]) & 0x3fff, le16(&payload[8..10]) & 0x3fff) }
+            b"VP8L" if payload.len() >= 5 && payload[0] == 0x2f => {
+                images += 1;
+                let bits = u32::from_le_bytes([payload[1], payload[2], payload[3], payload[4]]);
+                ((bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1)
+            }
+            b"VP8X" | b"VP8 " | b"VP8L" | b"ANIM" | b"ANMF" => return false,
+            _ => (0, 0),
+        };
+        if w > MAX_SIDE || h > MAX_SIDE { return false; }
+        at = at + 8 + size + (size & 1);
+    }
+    images == 1
+}
+
 /// The frames to quantize: one for a still image, each GIF frame (as ImageMagick reads them) up to the pixel budget.
 fn frames(bytes: &[u8], format: ImageFormat) -> Option<Vec<RgbaImage>> {
+    if format == ImageFormat::WebP && !webp_within_limits(bytes) { return None; }
     if format == ImageFormat::Gif {
         let mut decoder = image::codecs::gif::GifDecoder::new(Cursor::new(bytes)).ok()?;
         decoder.set_limits(limits()).ok()?;
