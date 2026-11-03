@@ -335,7 +335,7 @@ mod csrf_tokens {
     fn either_the_form_token_or_the_header_token_is_enough() {
         let token = csrf::new_token();
         let masked = csrf::masked(&token);
-        let ours = Some("http://localhost:3000");
+        let ours = &[Some("http://localhost:3000")];
         let with_header = |value: &str| header_map(&[("x-csrf-token", value)]);
         assert!(csrf::verified(Some(&token), &HeaderMap::new(), Some(&masked), ours));
         assert!(csrf::verified(Some(&token), &with_header(&masked), None, ours));
@@ -350,7 +350,7 @@ mod csrf_tokens {
     fn an_origin_header_must_name_this_deployments_origin_exactly() {
         let token = csrf::new_token();
         let masked = csrf::masked(&token);
-        let check = |origin: &str, expected: Option<&str>| csrf::verified(Some(&token), &header_map(&[("origin", origin)]), Some(&masked), expected);
+        let check = |origin: &str, expected: Option<&str>| csrf::verified(Some(&token), &header_map(&[("origin", origin)]), Some(&masked), &[expected]);
         assert!(check("http://localhost:3000", Some("http://localhost:3000")));
         for foreign in ["https://localhost:3000", "http://localhost:3001", "http://localhost", "http://evil.example", "null", "", "localhost:3000"] {
             assert!(!check(foreign, Some("http://localhost:3000")), "{foreign:?} is another origin: scheme, host and port all count");
@@ -358,7 +358,31 @@ mod csrf_tokens {
         assert!(!check("http://localhost:3000", None), "with no origin of our own to compare, a stated origin cannot match");
         let mut not_text = HeaderMap::new();
         not_text.insert("origin", axum::http::HeaderValue::from_bytes(b"http://localhost:3000\xff").unwrap());
-        assert!(!csrf::verified(Some(&token), &not_text, Some(&masked), Some("http://localhost:3000")), "a malformed header is a mismatch, not an absent header");
+        assert!(!csrf::verified(Some(&token), &not_text, Some(&masked), &[Some("http://localhost:3000")]), "a malformed header is a mismatch, not an absent header");
+    }
+
+    /// D-B5-ORIGIN-HOST: with APP_ROOT_URL set, a form is accepted from its origin and from the request's own (Rails'
+    /// `request.base_url`, all Rails compares with), as Umbrel's proxy forwards the Host the browser used.
+    #[test]
+    fn a_form_may_come_from_app_root_urls_origin_or_the_requests_own() {
+        let env = |name: &str| match name { "SECRET_KEY_BASE" => Some("s".into()), "APP_ROOT_URL" => Some("http://umbrel.local:3737".into()), _ => None };
+        let config = Config::from_env(&env).unwrap();
+        let token = csrf::new_token();
+        let masked = csrf::masked(&token);
+        let posts = |host: &str, origin: &str, forwarded: &[(&'static str, &str)]| {
+            let mut headers = header_map(&[("host", host), ("origin", origin)]);
+            for (name, value) in forwarded { headers.insert(*name, value.parse().unwrap()); }
+            let [own, request] = config.form_origins(&headers);
+            csrf::verified(Some(&token), &headers, Some(&masked), &[own.as_deref(), request.as_deref()])
+        };
+        assert!(posts("umbrel.local:3737", "http://umbrel.local:3737", &[]));
+        assert!(posts("192.168.1.10:3737", "http://192.168.1.10:3737", &[]), "the address the browser used");
+        assert!(posts("192.168.1.10:3737", "http://umbrel.local:3737", &[]), "APP_ROOT_URL's origin, whatever the Host");
+        assert!(posts("10.0.0.7:3000", "https://bot.example", &[("x-forwarded-host", "bot.example"), ("x-forwarded-proto", "https")]), "what a proxy forwarded, as base_url");
+        for (host, origin) in [("192.168.1.10:3737", "http://evil.example"), ("192.168.1.10:3737", "https://192.168.1.10:3737"),
+                               ("192.168.1.10:3737", "http://192.168.1.10:3738"), ("192.168.1.10:3737", "http://192.168.1.10")] {
+            assert!(!posts(host, origin, &[]), "{origin} to {host} is neither origin");
+        }
     }
 
     #[test]
@@ -386,7 +410,7 @@ mod csrf_tokens {
         // What that buys: a deployment configured with the default port spelled out accepts its own pages.
         let configured = config(&[("APP_ROOT_URL", "https://Bot.Example.com:443/")]);
         let from_the_browser = header_map(&[("host", "10.0.0.7:3000"), ("origin", "https://bot.example.com")]);
-        assert!(csrf::same_origin(&from_the_browser, configured.origin(&from_the_browser).as_deref()));
+        assert!(csrf::same_origin(&from_the_browser, &[configured.origin(&from_the_browser).as_deref()]));
     }
 
     /// Without APP_ROOT_URL the deployment's origin is the request's own, and that is Rails'

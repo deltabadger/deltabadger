@@ -184,19 +184,22 @@ async fn a_reconnecting_client_is_welcomed_and_confirmed_again() {
     }
 }
 
-/// With APP_ROOT_URL the deployment has named its origin, and that is the only one a page may
-/// connect from, as for a form (Rails also accepts the origin of the request's own Host there).
+/// With APP_ROOT_URL a page may connect from its origin, and from the one the request came to (Action Cable's
+/// allow_same_origin_as_host, on by default; D-B5-ORIGIN-HOST): an Umbrel page opened at the device's address.
 #[tokio::test(flavor = "current_thread")]
-async fn with_app_root_url_only_its_origin_may_connect() {
+async fn with_app_root_url_its_origin_or_the_requests_own_may_connect() {
     let (_dir, _app, address) = served().await;
     assert!(open(address, "http://localhost:3000").await.is_ok(), "APP_ROOT_URL's origin");
     assert_eq!(open(address, "http://evil.example").await.err(), Some(404));
-    assert_eq!(open(address, &format!("http://{address}")).await.err(), Some(404), "the host the request came to is not the deployment's origin");
+    assert!(open(address, &format!("http://{address}")).await.is_ok(), "the host the request came to");
     assert_eq!(open(address, "https://localhost:3000").await.err(), Some(404), "the scheme is part of an origin");
     assert_eq!(open(address, "http://localhost:3000.evil.example").await.err(), Some(404));
     assert_eq!(open(address, "http://localhost:30001").await.err(), Some(404));
     let cookie = OWNER_COOKIE.get().map(String::as_str);
-    assert_eq!(open_with(address, &format!("https://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.err(), Some(404), "nor does a forwarded scheme make it one");
+    assert!(open_with(address, &format!("https://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.is_ok(), "the request's own, by the scheme a proxy forwarded");
+    assert_eq!(open(address, &format!("https://{address}")).await.err(), Some(404), "the request came over http");
+    assert_eq!(open_with(address, &format!("http://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.err(), Some(404));
+    assert_eq!(open_with(address, "http://bot.example", cookie, &[("x-forwarded-host", "bot.example")]).await.err(), Some(404), "a forwarded host is not consulted");
     let no_origin = {
         let mut request = format!("ws://{address}/cable").into_client_request().unwrap();
         request.headers_mut().insert("cookie", format!("_deltabadger_rust_session={}", cookie.unwrap()).parse().unwrap());

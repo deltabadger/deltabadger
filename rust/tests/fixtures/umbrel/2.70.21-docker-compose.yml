@@ -1,0 +1,73 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: deltabadger_web_1
+      APP_PORT: 3000
+      PROXY_AUTH_ADD: "false"
+
+  web:
+    image: ghcr.io/deltabadger/deltabadger:latest
+    restart: on-failure
+    command: web
+    environment:
+      RAILS_ENV: production
+      NODE_ENV: production
+      RAILS_LOG_TO_STDOUT: "true"
+      DELTABADGER_PLATFORM: umbrel
+      RAILS_SERVE_STATIC_FILES: "true"
+      AUTO_MIGRATE: "true"
+      DATABASE_PATH: /app/storage/production.sqlite3
+      QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
+      CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
+      CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
+      # Setting ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY and
+      # ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT here holds stored data independent of
+      # this value. Both services share one database, so both blocks need the same values
+      # or neither can read what the other wrote.
+      SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
+      HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3737
+      APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3737
+      RAILS_MAX_THREADS: "5"
+    volumes:
+      - ${APP_DATA_DIR}/data/storage:/app/storage
+      - ${APP_DATA_DIR}/data/logs:/app/log
+
+  jobs:
+    image: ghcr.io/deltabadger/deltabadger:latest
+    restart: on-failure
+    command: jobs
+    environment:
+      RAILS_ENV: production
+      NODE_ENV: production
+      RAILS_LOG_TO_STDOUT: "true"
+      DELTABADGER_PLATFORM: umbrel
+      DATABASE_PATH: /app/storage/production.sqlite3
+      QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
+      CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
+      CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
+      # Setting ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY and
+      # ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT here holds stored data independent of
+      # this value. Both services share one database, so both blocks need the same values
+      # or neither can read what the other wrote.
+      SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
+      HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3737
+      APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3737
+    volumes:
+      - ${APP_DATA_DIR}/data/storage:/app/storage
+      - ${APP_DATA_DIR}/data/logs:/app/log
+    depends_on:
+      web:
+        condition: service_healthy
+    # The image's HEALTHCHECK curls /up, which only the `web` command serves. This service runs
+    # Solid Queue with no web server, so the inherited probe can never pass and the container
+    # reports unhealthy while working normally. Match a worker procline instead: it also catches
+    # "supervisor alive, workers dead", which probing PID 1 would miss. The bracketed [w] keeps
+    # grep from matching its own cmdline, which would make the check pass in any container.
+    healthcheck:
+      test: ["CMD-SHELL", "grep -qa 'solid-queue.*[w]orker' /proc/[0-9]*/cmdline"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3

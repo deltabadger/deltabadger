@@ -519,6 +519,23 @@ fn launchpads_shape_takes_a_2x_volume_over() {
 // ---- B3-3: the commands and both compose files (PLAN-B3 §1.3, §3, §8 slice 3) ----
 
 /// J1, M1, R1 (docker/entrypoint.sh, PLAN-B3 §3 as approved).
+/// The Umbrel compose of 2.60.0 and 2.70.21 (deltabadger/docker-compose.yml at those tags), frozen: an installed app
+/// keeps the compose of its last Update (PLAN-B5 r5.1), so a 2.x install runs under its own version's file, never under
+/// the one the repository ships. 2.34.0's (no DELTABADGER_PLATFORM, `jobs` waits for no health) is frozen beside it.
+const UMBREL_2X: &str = "rust/tests/fixtures/umbrel/2.70.21-docker-compose.yml";
+
+/// The frozen composes are the tagged files, byte for byte (`git show v<version>:deltabadger/docker-compose.yml`).
+/// Needs no Docker.
+#[test]
+fn the_frozen_umbrel_composes_are_the_tagged_files() {
+    use sha2::{Digest, Sha256};
+    for (version, sha256) in [("2.34.0", "be91d372d29aa2e75244377aeb691b0796980fd87a76b14c9976f64a0c886caa"),
+                              ("2.70.21", "2c91f1245d1cbd20198b40d753702d9c53ee1383ad1ee0731520fb4a9097e09e")] {
+        let file = format!("{}/tests/fixtures/umbrel/{version}-docker-compose.yml", env!("CARGO_MANIFEST_DIR"));
+        assert_eq!(hex::encode(Sha256::digest(std::fs::read(&file).unwrap())), sha256, "{file} is v{version}'s deltabadger/docker-compose.yml");
+    }
+}
+
 const J1: &str = "This service no longer does anything: Deltabadger now runs its background work in its main service. You can remove this one.";
 const M1: &str = "Nothing to do: Deltabadger updates its data itself when it starts.";
 const R1: &str = "This command isn't available in this version of Deltabadger.";
@@ -583,7 +600,7 @@ impl Drop for Project {
     fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--rmi", "local", "--remove-orphans", "-t", "5"]); }
 }
 
-/// Umbrel's compose (deltabadger/docker-compose.yml) as 2.x users have it, on a 2.x Umbrel install (format 2: the
+/// Umbrel's compose as 2.x users have it (UMBREL_2X, frozen), on a 2.x Umbrel install (format 2: the
 /// secret is `${APP_SEED}-secret-key-base` in the env, the pair in `.secrets`). The override only swaps both images for
 /// the 3.0 one, drops `app_proxy` (Umbrel's own) and publishes `web`'s 3000 for the test. One engine trades: `web`
 /// takes the install over; `jobs` waits for `web` to be healthy, logs J1 and runs no `deltabadger`; a second engine
@@ -608,7 +625,7 @@ fn umbrels_two_service_compose_runs_one_engine() {
 
     let override_yaml = format!("services:\n  app_proxy: !reset null\n  web:\n    image: {image}\n    ports: [\"127.0.0.1::3000\"]\n  jobs:\n    image: {image}\n");
     let app_data_dir = data.path().display().to_string();
-    let project = Project::new("deltabadger/docker-compose.yml", &override_yaml,
+    let project = Project::new(UMBREL_2X, &override_yaml,
                                &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", seed), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
 
     project.ok(&["up", "-d", "web"]);
@@ -908,7 +925,7 @@ const UMBREL_SECRET: &str = "SECRET_KEY_BASE=b3-6-umbrel-seed-secret-key-base";
 /// The guard's own line when it runs migrate.
 const GUARD_RUNS: &str = "update(s) behind; bringing it up to date with 2.70.21 first";
 
-/// B5's lines for Umbrel's compose (deltabadger/docker-compose.yml): the one-shot `upgrade` service, and `web` started
+/// B5's lines for Umbrel's 2.x compose (UMBREL_2X): the one-shot `upgrade` service, and `web` started
 /// only once it exits 0. GUARD goes in where its name is, verbatim, as a YAML block; it has no "$", so compose
 /// interpolates nothing in it.
 const B5_LINES: &str = "services:
@@ -951,7 +968,7 @@ fn umbrel(image: &str) -> Umbrel {
     let offline = format!("services:\n  app_proxy: !reset null\n  upgrade:\n{local}    network_mode: none\n  web:\n    image: {image}\n    network_mode: none\n  \
                            jobs:\n    image: {image}\n    network_mode: none\n");
     let app_data_dir = data.path().display().to_string();
-    let file = format!("{}/../deltabadger/docker-compose.yml", env!("CARGO_MANIFEST_DIR"));
+    let file = format!("{}/../{UMBREL_2X}", env!("CARGO_MANIFEST_DIR"));
     let project = Project::layered(&file, &[&b5_lines(), &offline],
                                    &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", UMBREL_SEED), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
     Umbrel { project, storage, _data: data }
@@ -1226,4 +1243,50 @@ fn the_own_server_manual_command_upgrades_a_behind_install() {
     project.ok(&["stop"]);
     drop(project);
     drop(volume);
+}
+
+/// The first-run setup form of a new install, posted the way a browser that opened Umbrel's app at `host` posts it:
+/// GET /setup for the session cookie and the form's token, then the POST, both with `Host: host` (app_proxy forwards
+/// the browser's own Host, PLAN-B5 §0 F9) and the POST with `Origin: http://host`. Asked from inside `web` (offline).
+/// The POST's status and its Location.
+fn setup_posted_from(web: &Container, host: &str) -> (u16, String) {
+    let script = r#"curl -s -c /tmp/jar -H "Host: $1" http://localhost:3000/setup | grep -o 'name="authenticity_token" value="[^"]*"' | head -1 | cut -d'"' -f4 > /tmp/token
+        curl -s -o /dev/null -D /tmp/head -w '%{http_code}\n' -b /tmp/jar -H "Host: $1" -H "Origin: http://$1" --data-urlencode "authenticity_token=$(cat /tmp/token)" \
+             --data-urlencode 'user[name]=Origin' --data-urlencode 'user[email]=origin@example.com' --data-urlencode 'user[password]=Origin-password-1234' \
+             http://localhost:3000/setup
+        grep -i '^location:' /tmp/head | cut -d' ' -f2 | tr -d '\r'"#;
+    let said = web.exec(&["sh", "-c", script, "sh", host]);
+    let (status, location) = said.split_once('\n').unwrap_or((&said, ""));
+    (status.parse().unwrap_or_else(|_| panic!("{said}")), location.to_string())
+}
+
+/// `web` on the 2.x Umbrel compose (UMBREL_2X) with `web_image`, on a new install (an empty APP_DATA_DIR, Umbrel's
+/// APP_SEED and DEVICE_DOMAIN_NAME, so APP_ROOT_URL is http://umbrel.local:3737), offline: `setup_posted_from(host)`.
+fn umbrel_setup_from(image: &str, web_image: &str, host: &str) -> (u16, String) {
+    let data = Volume::bind(image);
+    std::fs::create_dir_all(data.path().join("data/storage")).unwrap();
+    std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
+    let offline = format!("services:\n  app_proxy: !reset null\n  web:\n    image: {web_image}\n    network_mode: none\n");
+    let app_data_dir = data.path().display().to_string();
+    let project = Project::new(UMBREL_2X, &offline, &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", UMBREL_SEED), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
+    project.ok(&["up", "-d", "web"]);
+    let web = project.container("web");
+    web.wait_for("/setup", 200);
+    setup_posted_from(&web, host)
+}
+
+/// R-B5-ORIGIN (PLAN-B5 §1.4): Umbrel users open the app at the name APP_ROOT_URL carries (umbrel.local:3737) or at the
+/// device's address (192.168.1.10:3737 here) or another name. 2.70.21 (the oracle) accepts a form from either: Rails
+/// compares `Origin` with the request's own base URL. 3.0 accepts both too (D-B5-ORIGIN-HOST): APP_ROOT_URL's origin or
+/// the request's own. Accepted = the admin is created and the browser sent on to /bots.
+#[test]
+fn umbrels_web_accepts_a_form_from_the_address_the_browser_used() {
+    let Some(image) = image() else { return };
+    for web in [RAILS_2X, image.as_str()] {
+        for host in ["umbrel.local:3737", "192.168.1.10:3737"] {
+            let (status, location) = umbrel_setup_from(&image, web, host);
+            eprintln!("{web} from {host}: {status} {location}");
+            assert!(status == 302 && location.ends_with("/bots"), "{web} from {host}: {status} {location}");
+        }
+    }
 }

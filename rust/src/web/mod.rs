@@ -330,6 +330,15 @@ impl Config {
     pub fn origin(&self, headers: &HeaderMap) -> Option<String> {
         self.own_origin.clone().or_else(|| self.request_origin(headers))
     }
+
+    /// The origins a form may be posted from: APP_ROOT_URL's, and the request's own (Rails' `request.base_url`, all
+    /// Rails compares with). D-B5-ORIGIN-HOST: APP_ROOT_URL's alone refused a browser that reached the app by another
+    /// name than the configured one (Umbrel's proxy keeps the browser's Host, and users open the app at the device's
+    /// address as well as at umbrel.local), where 2.x accepted it. A page on another site can set neither its Origin
+    /// nor the Host it is sent to, so the request's own origin is no weaker than the configured one.
+    pub fn form_origins(&self, headers: &HeaderMap) -> [Option<String>; 2] {
+        [self.own_origin.clone(), self.request_origin(headers)]
+    }
 }
 
 /// Keys for this crate's own cookie and signatures: HMAC-SHA256(secret_key_base, label). The labels
