@@ -536,13 +536,14 @@ fn launchpads_shape_takes_a_2x_volume_over() {
 /// the one the repository ships. 2.34.0's (no DELTABADGER_PLATFORM, `jobs` waits for no health) is frozen beside it.
 const UMBREL_2X: &str = "rust/tests/fixtures/umbrel/2.70.21-docker-compose.yml";
 
-/// The frozen composes are the tagged files, byte for byte (`git show v<version>:deltabadger/docker-compose.yml`).
-/// Needs no Docker.
+/// The frozen composes are the released files, byte for byte (`git show v<version>:deltabadger/docker-compose.yml`;
+/// 2.70.21-1, B5-0's, was released by merge 70368fb0a, untagged). Needs no Docker.
 #[test]
 fn the_frozen_umbrel_composes_are_the_tagged_files() {
     use sha2::{Digest, Sha256};
     for (version, sha256) in [("2.34.0", "be91d372d29aa2e75244377aeb691b0796980fd87a76b14c9976f64a0c886caa"),
-                              ("2.70.21", "2c91f1245d1cbd20198b40d753702d9c53ee1383ad1ee0731520fb4a9097e09e")] {
+                              ("2.70.21", "2c91f1245d1cbd20198b40d753702d9c53ee1383ad1ee0731520fb4a9097e09e"),
+                              ("2.70.21-1", "e56f28b18128c245350de6276bc74f336bffbb06f7260b1a059c9b1e8036ef54")] {
         let file = format!("{}/tests/fixtures/umbrel/{version}-docker-compose.yml", env!("CARGO_MANIFEST_DIR"));
         assert_eq!(hex::encode(Sha256::digest(std::fs::read(&file).unwrap())), sha256, "{file} is v{version}'s deltabadger/docker-compose.yml");
     }
@@ -599,16 +600,6 @@ impl Project {
         let port = docker_out(&["port", &id, "3000/tcp"]).stdout;
         let port = String::from_utf8_lossy(&port).lines().next().and_then(|l| l.rsplit(':').next()).and_then(|p| p.parse().ok()).unwrap_or(0);
         Container { id, port }
-    }
-
-    /// This project's files and env with one more override on top, as a project of its own (its own name and containers).
-    fn and(&self, yaml: &str) -> Project {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("override.yml");
-        std::fs::write(&path, yaml).unwrap();
-        let mut files = self.files.clone();
-        files.push(path.display().to_string());
-        Project { name: unique("dbimage"), files, _overrides: dir, env: self.env.clone() }
     }
 
     fn logs(&self) -> String {
@@ -934,12 +925,10 @@ fn a_behind_install_of_the_build_compose_is_upgraded_by_the_manual_command() {
     stopped(&project, &app);
 }
 
-// ---- B3-6: the Behind guard (PLAN-B3 §4 A+, §8 slice 6, r1.1, r1.6, r2.2, r3.2, r4.1) ----
+// ---- B3-6 and B5-2: the Behind guard and the shipped Umbrel app (PLAN-B3 §4 A+; PLAN-B5 §1, §3, §4, §9 item 2) ----
 
-/// The image of Umbrel's `upgrade` step as B5's compose names it: 2.70.21 pinned by its index digest. A daemon that can't
-/// pull by digest (a Mac whose ghcr pulls are denied) runs the same content through DELTABADGER_GUARD_IMAGE (the tag).
+/// The image of Umbrel's `upgrade` step as deltabadger/docker-compose.yml names it: 2.70.21 pinned by its index digest.
 const GUARD_IMAGE: &str = "ghcr.io/deltabadger/deltabadger:2.70.21@sha256:7c8f73518134ba6414551b3978f49bd91dacc3ff75d0e1c6aea92401b449de81";
-const GUARD: &str = include_str!("../../docker/behind-guard.rb");
 const RAILS_2_34: &str = "ghcr.io/deltabadger/deltabadger:2.34.0";
 const RAILS_2_60: &str = "ghcr.io/deltabadger/deltabadger:2.60.0";
 const UMBREL_SEED: &str = "b3-6-umbrel-seed";
@@ -950,66 +939,134 @@ const GUARD_RUNS: &str = "Deltabadger: your data is from an older version, so it
 const GUARD_FAILED: &str = "Deltabadger couldn't finish updating your data. Nothing was bought or sold. Restart the app to try again; if it \
                             keeps failing, contact support.";
 
-/// B5's lines for Umbrel's 2.x compose (UMBREL_2X): the one-shot `upgrade` service, and `web` started
-/// only once it exits 0. GUARD goes in where its name is, verbatim, as a YAML block; it has no "$", so compose
-/// interpolates nothing in it.
-const B5_LINES: &str = "services:
-  upgrade:
-    image: GUARD_IMAGE
-    restart: \"no\"
-    command:
-      - bundle
-      - exec
-      - ruby
-      - -e
-      - |
-GUARD
-    environment:
-      SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
-    volumes:
-      - ${APP_DATA_DIR}/data/storage:/app/storage
-  web:
-    depends_on:
-      upgrade:
-        condition: service_completed_successfully
-";
+/// The Umbrel app this repository ships (its store's deltabadger/), and the composes installed apps still run: an
+/// installed app keeps the compose of its last Update (PLAN-B5 F4, r5.1). 2.34.0's (UMBREL_2_34), 2.60.0's and 2.70.21's
+/// (UMBREL_2X), and B5-0's `2.70.21-1` (UMBREL_B5_0: the 2.70.21 compose with both images pinned by digest, r2.1).
+const UMBREL: &str = "deltabadger/docker-compose.yml";
+const UMBREL_2_34: &str = "rust/tests/fixtures/umbrel/2.34.0-docker-compose.yml";
+const UMBREL_B5_0: &str = "rust/tests/fixtures/umbrel/2.70.21-1-docker-compose.yml";
 
-fn b5_lines() -> String {
-    assert!(!GUARD.contains('$'), "docker/behind-guard.rb must have no $: compose would interpolate it");
-    let guard: String = GUARD.lines().map(|l| format!("        {l}\n")).collect();
-    B5_LINES.replace("GUARD_IMAGE", GUARD_IMAGE).replace("GUARD\n", &guard)
+/// umbreld's patch of an app's compose, applied on every install, update and start (PLAN-B5 F5, r1.3, r2.3; umbreld
+/// app.ts patchComposeFile): every service gets `container_name: <project>_<service>_1` unless it has one (umbreld's
+/// project is the app id, `deltabadger`; a test's own name keeps tests apart), and each volume string has its first
+/// `/data/storage/downloads` made `/home/Downloads`, then its first `/data/storage` made `/home` (JavaScript's
+/// `String.replace` with a string replaces the first match). So the install lives in `${APP_DATA_DIR}/home`.
+fn umbreld_patch(text: &str, project: &str) -> yaml_rust2::Yaml {
+    use yaml_rust2::Yaml;
+    let mut doc = yaml_rust2::YamlLoader::load_from_str(text).unwrap().remove(0);
+    let Yaml::Hash(root) = &mut doc else { panic!("a compose file") };
+    let Some(Yaml::Hash(services)) = root.get_mut(&Yaml::String("services".into())) else { panic!("services") };
+    for (name, service) in services.iter_mut() {
+        let Yaml::Hash(service) = service else { panic!("{name:?}") };
+        let container = Yaml::String(format!("{project}_{}_1", name.as_str().unwrap()));
+        service.entry(Yaml::String("container_name".into())).or_insert(container);
+        if let Some(Yaml::Array(volumes)) = service.get_mut(&Yaml::String("volumes".into())) {
+            for volume in volumes.iter_mut() {
+                if let Yaml::String(v) = volume { *v = v.replacen("/data/storage/downloads", "/home/Downloads", 1).replacen("/data/storage", "/home", 1); }
+            }
+        }
+    }
+    doc
 }
 
-/// Umbrel's compose with B5's lines, offline: APP_DATA_DIR is a bind (as Umbrel mounts it) with the install in
-/// data/storage (`storage`); every service on `network_mode: none`; app_proxy dropped; `web` and `jobs` on the 3.0 image.
-struct Umbrel { project: Project, storage: Volume, _data: Volume }
-
-fn umbrel(image: &str) -> Umbrel { umbrel_with(image, true) }
-
-/// `umbrel`, or (`step` false) the 2.x compose alone, as an installed app has it when `:latest` becomes 3.0 (PLAN-B5 r1.1).
-fn umbrel_with(image: &str, step: bool) -> Umbrel {
-    let data = Volume::bind(image);
-    std::fs::create_dir_all(data.path().join("data/storage")).unwrap();
-    std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
-    let storage = Volume::At(format!("{}/data/storage:/app/storage", data.path().display()));
-    let local = std::env::var("DELTABADGER_GUARD_IMAGE").ok().filter(|v| !v.is_empty()).map(|i| format!("    image: {i}\n")).unwrap_or_default();
-    let upgrade = if step { format!("  upgrade:\n{local}    network_mode: none\n") } else { String::new() };
-    let offline = format!("services:\n  app_proxy: !reset null\n{upgrade}  web:\n    image: {image}\n    network_mode: none\n  \
-                           jobs:\n    image: {image}\n    network_mode: none\n");
-    let app_data_dir = data.path().display().to_string();
-    let file = format!("{}/../{UMBREL_2X}", env!("CARGO_MANIFEST_DIR"));
-    let lines = if step { b5_lines() } else { "services: {}\n".into() };
-    let project = Project::layered(&file, &[&lines, &offline],
-                                   &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", UMBREL_SEED), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
-    Umbrel { project, storage, _data: data }
+/// The image a pinned reference runs as here: the pin itself, or, on a daemon that can't pull by digest (a Mac whose
+/// ghcr pulls are denied), the same image by tag: DELTABADGER_GUARD_IMAGE for 2.70.21's pin, DELTABADGER_UMBREL_WEB_IMAGE
+/// for `web`'s 3.0 pin. CI sets neither and pulls the pins.
+fn local(pin: &str) -> Option<String> {
+    let var = if pin == GUARD_IMAGE { "DELTABADGER_GUARD_IMAGE" } else { "DELTABADGER_UMBREL_WEB_IMAGE" };
+    std::env::var(var).ok().filter(|v| !v.trim().is_empty())
 }
+
+/// Umbrel's app `file` as umbreld runs it for project `name` (umbreld_patch), offline: `app_proxy` dropped (Umbrel's own),
+/// every other service on `network_mode: none`, `images` (service, image) in place of the file's, and a pinned image
+/// the daemon can't pull by digest on its `local` tag. `extra` overrides go on top (umbrelOS 2.0's user settings, r3.1).
+fn umbrel_app(name: &str, file: &str, images: &[(&str, &str)], extra: &[&str], env: &[(String, String)]) -> Project {
+    let text = std::fs::read_to_string(format!("{}/../{file}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let doc = umbreld_patch(&text, name);
+    let mut offline = String::from("services:\n  app_proxy: !reset null\n");
+    for (service, def) in doc["services"].as_hash().unwrap() {
+        let service = service.as_str().unwrap();
+        if service == "app_proxy" { continue }
+        let pinned = def["image"].as_str().filter(|i| i.contains("@sha256:")).and_then(local);
+        let image = images.iter().find(|(s, _)| *s == service).map(|(_, i)| i.to_string()).or(pinned);
+        offline += &format!("  {service}:\n    network_mode: none\n");
+        if let Some(image) = image { offline += &format!("    image: {image}\n"); }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut patched = String::new();
+    yaml_rust2::YamlEmitter::new(&mut patched).dump(&doc).unwrap();
+    let mut files = vec![];
+    for (i, yaml) in [patched.as_str(), &offline].into_iter().chain(extra.iter().copied()).enumerate() {
+        let path = dir.path().join(format!("{i}.yml"));
+        std::fs::write(&path, yaml).unwrap();
+        files.push(path.display().to_string());
+    }
+    Project { name: name.into(), files, _overrides: dir, env: env.to_vec() }
+}
+
+/// An Umbrel app's data, `APP_DATA_DIR` (a bind, as Umbrel mounts it) with the install in `home` (`storage`), and
+/// `project`: the shipped app on it (UMBREL), offline, `web` on the image given or on its pin. Umbrel's variables:
+/// APP_SEED, DEVICE_DOMAIN_NAME. Other composes of the same app (`app`) share the project name, as an installed app's
+/// files do across its updates.
+struct Umbrel { project: Project, storage: Volume, _data: Volume, env: Vec<(String, String)> }
+
+fn umbrel(image: &str) -> Umbrel { Umbrel::new(Some(image)) }
 
 impl Umbrel {
+    fn new(web: Option<&str>) -> Self {
+        let data = Volume::bind(RAILS_2X);
+        std::fs::create_dir_all(data.path().join("home")).unwrap();
+        std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
+        let storage = Volume::At(format!("{}/home:/app/storage", data.path().display()));
+        let env: Vec<(String, String)> = [("APP_DATA_DIR", data.path().display().to_string()), ("APP_SEED", UMBREL_SEED.into()),
+                                          ("DEVICE_DOMAIN_NAME", "umbrel.local".into())].into_iter().map(|(k, v)| (k.into(), v)).collect();
+        let images: Vec<(&str, &str)> = web.map(|w| ("web", w)).into_iter().collect();
+        let project = umbrel_app(&unique("dbumbrel"), UMBREL, &images, &[], &env);
+        Umbrel { project, storage, _data: data, env }
+    }
+
+    /// Another compose of this app (`file`, `images`, `extra` as `umbrel_app`), under the same project name.
+    fn app(&self, file: &str, images: &[(&str, &str)], extra: &[&str]) -> Project { umbrel_app(&self.project.name, file, images, extra, &self.env) }
+
+    /// The container umbreld names `<app>_<service>_1`.
+    fn named(&self, service: &str) -> String { format!("{}_{service}_1", self.project.name) }
+
+    /// Umbrel's update (PLAN-B5 F1): `rm --force --stop` with the installed compose `from`, then `up --detach --build`
+    /// with `to` (pulling what is missing). A start or restart is the same with `from` = `to`. `up`'s output.
+    fn update(&self, from: &Project, to: &Project) -> Output {
+        from.ok(&["rm", "--force", "--stop"]);
+        to.compose(&["up", "--detach", "--build"])
+    }
+
+    /// A 2.x install as Umbrel ran it: `file` (that version's compose) with `rails` on `web` and `jobs`, started as
+    /// Umbrel starts it and left running once `web` answers `/up`. 2.34.0's published image can't serve: its Puma
+    /// config calls `solid_queue_mode`, which the image's Puma (8.0.2) lacks, so `web` restarts after each start's
+    /// migrate. Its install is made by that same image's `migrate` through the same compose (`run --rm web migrate`), and
+    /// the app is then left as such a device runs it: `jobs` up, `web` restarting.
+    fn install_2x(&self, file: &str, rails: &str) -> Project {
+        let old = self.app(file, &[("web", rails), ("jobs", rails)], &[]);
+        if rails == RAILS_2_34 { old.ok(&["run", "--rm", "--no-deps", "web", "migrate"]); }
+        old.ok(&["up", "--detach", "--build"]);
+        if rails != RAILS_2_34 {
+            let web = old.container("web");
+            web.wait_for("/up", 200);
+            std::mem::forget(web); // the app keeps running: Umbrel's update removes it
+        }
+        old
+    }
+
+    /// The step's container (the last one Umbrel ran): its exit code and its whole output.
+    fn step(&self) -> (String, String) {
+        let name = self.named("upgrade");
+        let out = docker_out(&["logs", &name]);
+        (docker(&["inspect", "-f", "{{.State.Status}} {{.State.ExitCode}}", &name]),
+         format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)))
+    }
+
     /// Umbrel starting the step alone (a fresh container each time), bounded as `exits`: its exit code and its whole output.
     fn guard(&self) -> (Option<i32>, String) {
         self.project.ok(&["rm", "-fs", "upgrade"]);
-        let container = format!("{}-upgrade-1", self.project.name);
-        let code = exits(self.project.command(&["up", "--exit-code-from", "upgrade", "upgrade"]), &container).status.code();
+        let code = exits(self.project.command(&["up", "--exit-code-from", "upgrade", "upgrade"]), &self.named("upgrade")).status.code();
         (code, self.project.ok(&["logs", "--no-color", "--no-log-prefix", "upgrade"]))
     }
 
@@ -1029,9 +1086,12 @@ impl Umbrel {
     }
 
     /// A Rails image's command on the install, with Umbrel's secret, offline: its stdout.
-    fn rails(&self, rails: &str, command: &[&str]) -> String {
+    fn rails(&self, rails: &str, command: &[&str]) -> String { self.rails_with(UMBREL_SECRET, rails, command) }
+
+    /// `rails` with `secret` (`SECRET_KEY_BASE=…`) in place of Umbrel's.
+    fn rails_with(&self, secret: &str, rails: &str, command: &[&str]) -> String {
         let mount = self.storage.mount();
-        let mut args = vec!["run", "--rm", "--network", "none", "-v", &mount, "-e", UMBREL_SECRET, rails];
+        let mut args = vec!["run", "--rm", "--network", "none", "-v", &mount, "-e", secret, rails];
         args.extend(command);
         docker(&args)
     }
@@ -1230,18 +1290,19 @@ fn umbrels_step_leaves_every_install_that_is_not_behind_alone() {
     step_leaves_alone(&image, &u, "handed back");
 }
 
-/// C1-U (PLAN-B5 r2.2, r6 Q9' A): Umbrel's 2.x compose as installed (no step; its `web` sets DELTABADGER_PLATFORM:
-/// umbrel) with `web` on 3.0, on a Behind 2.60.0 install. `web` refuses with 503 in Umbrel's words (not generic C1), the
+/// C1-U (PLAN-B5 r2.2, r6 Q9' A): Umbrel's 2.x compose as installed (UMBREL_2X: no step; its `web` sets
+/// DELTABADGER_PLATFORM: umbrel) with `web` on 3.0, on a Behind 2.60.0 install. `web` refuses with 503 in Umbrel's words (not generic C1), the
 /// operator's detail on stderr, and every file stays byte-equal.
 #[test]
 fn umbrels_web_without_the_step_refuses_a_behind_install_in_umbrels_words() {
     let Some(image) = image() else { return };
-    let u = umbrel_with(&image, false);
+    let u = umbrel(&image);
+    let old = u.app(UMBREL_2X, &[("web", &image)], &[]);
     u.rails(RAILS_2_60, &["migrate"]);
     let missing = missing_2x(&image, &u.storage).len();
     let before = snapshot(&image, &u.storage);
-    u.project.ok(&["up", "-d", "web"]);
-    let web = u.project.container("web");
+    old.ok(&["up", "-d", "web"]);
+    let web = old.container("web");
     web.wait_for("/health-check", 503);
     let page = web.exec(&["curl", "-s", "http://localhost:3000/"]);
     assert!(page.contains(&on_page(C1_UMBREL)) && !page.contains("Go back to your previous"), "{page}");
@@ -1298,8 +1359,8 @@ fn a_failing_step_keeps_web_stopped_says_so_and_the_next_start_completes_it() {
     let untouched = traces_of_3_0(&image, &u.storage);
     assert_eq!((untouched.0.as_slice(), untouched.2), (&[][..], false), "a 2.60.0 install has nothing of 3.0's");
 
-    let broken = u.project.and(&format!("services:\n  upgrade:\n    image: {}\n", failing.tag));
-    let web_name = format!("{}-web-1", broken.name);
+    let broken = u.app(UMBREL, &[("web", &image), ("upgrade", &failing.tag)], &[]);
+    let web_name = u.named("web");
     let out = exits(broken.command(&["up", "-d", "web"]), &web_name);
     let up = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
     assert!(!out.status.success() && up.contains("\"upgrade\" didn't complete successfully"), "{up}");
@@ -1406,4 +1467,419 @@ fn umbrels_web_accepts_a_form_from_the_address_the_browser_used() {
             assert!(status == 302 && location.ends_with("/bots"), "{web} from {host}: {status} {location}");
         }
     }
+}
+
+// ---- B5-2: the shipped Umbrel app, through Umbrel's own steps (PLAN-B5 §9 item 2, r1.1, r1.2, r2.1, r2.2, r3.1,
+// r4.1, r5.1, r5.2). Every proof runs deltabadger/docker-compose.yml and the frozen 2.x composes through umbreld's
+// patch (`umbrel_app`), offline; a 2.x install is made by its own 2.x image through its own version's compose. ----
+
+/// `up`'s output, which must have succeeded.
+fn up_ok(out: &Output) { assert!(out.status.success(), "up: {}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)) }
+
+/// The step ran and left the install alone: exited 0 and said nothing.
+fn step_silent(u: &Umbrel) { assert_eq!(u.step(), ("exited 0".to_string(), String::new())) }
+
+/// The step ran and brought the install up to date: G1, 2.70.21's migrate, exit 0, nothing missing.
+fn step_migrated(image: &str, u: &Umbrel) {
+    let (state, said) = u.step();
+    assert_eq!(state, "exited 0", "{said}");
+    assert!(said.contains(GUARD_RUNS) && said.contains("Migrations completed!") && !said.contains(GUARD_FAILED), "{said}");
+    assert_eq!(missing_2x(image, &u.storage), Vec::<String>::new(), "{said}");
+}
+
+/// No `jobs` container of this app exists (Umbrel's update removed it with the old compose; nothing re-creates it).
+fn no_jobs(u: &Umbrel) { assert_eq!(docker(&["ps", "-a", "-q", "--filter", &format!("name=^{}$", u.named("jobs"))]), "", "jobs is gone") }
+
+/// The host folder `container` mounts at /app/storage.
+fn storage_source(container: &str) -> String {
+    docker(&["inspect", "-f", "{{range .Mounts}}{{if eq .Destination \"/app/storage\"}}{{.Source}}{{end}}{{end}}", container])
+}
+
+/// The install's backups/ entries.
+fn backups(image: &str, storage: &Volume) -> Vec<String> {
+    std::fs::read_dir(take(image, storage).path().join("backups")).map(|d| d.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect()).unwrap_or_default()
+}
+
+/// The install's `.secrets` and the keys 2.x encrypted it under (Umbrel's secret in the env, as both composes set it).
+fn umbrel_keys(image: &str, u: &Umbrel) -> (Vec<u8>, Cipher) {
+    let copy = take(image, &u.storage);
+    (std::fs::read(copy.path().join(".secrets")).unwrap(), Cipher::new(&keys_2x(copy.path(), &[UMBREL_SECRET]).1))
+}
+
+/// Waits up to 30 s for `container`'s log to hold `line`.
+fn logs_soon(container: &Container, line: &str) {
+    let start = Instant::now();
+    while !container.logs().contains(line) && start.elapsed() < Duration::from_secs(30) { std::thread::sleep(Duration::from_millis(500)); }
+    assert!(container.logs().contains(line), "{line}\n{}", container.logs());
+}
+
+/// Umbrel's stop of the running app (`rm --force --stop` with `project`, no `-t`): `web`'s exit code and whole log, read
+/// while the stop removes the container, and how long the stop took.
+fn umbrel_stops(project: &Project, web: &Container) -> (String, String, Duration) {
+    let wait = Command::new("docker").args(["wait", &web.id]).stdout(Stdio::piped()).spawn().unwrap();
+    let logs = Command::new("docker").args(["logs", "-f", &web.id]).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    std::thread::sleep(Duration::from_secs(1));
+    let start = Instant::now();
+    project.ok(&["rm", "--force", "--stop"]);
+    let took = start.elapsed();
+    let code = String::from_utf8(wait.wait_with_output().unwrap().stdout).unwrap().trim().to_string();
+    let logs = logs.wait_with_output().unwrap();
+    (code, format!("{}{}", String::from_utf8_lossy(&logs.stdout), String::from_utf8_lossy(&logs.stderr)), took)
+}
+
+/// Fresh (§9 item 2, §4): the shipped app on an empty APP_DATA_DIR as Umbrel installs it (`up --detach --build`), with
+/// `web` on its pin and then on this PR's build. The step exits 0 saying nothing; `web` sets up a new install and
+/// serves; one engine runs (in `web`) and there is no `jobs`; `upgrade` and `web` mount the same host folder,
+/// `${APP_DATA_DIR}/home`. Umbrel's stop gives `web` its 60 s (StopTimeout) and `web` stops on request with 0.
+#[test]
+fn umbrels_fresh_install_runs_one_engine_and_stops_on_request() {
+    let Some(image) = image() else { return };
+    for web_image in [None, Some(image.as_str())] {
+        let u = Umbrel::new(web_image);
+        up_ok(&u.project.compose(&["up", "--detach", "--build"]));
+        let web = u.project.container("web");
+        web.wait_for("/health-check", 200);
+        assert_eq!(web.status("/setup"), Some(200), "{web_image:?}");
+        assert!(web.logs().contains("set up a new install"), "{}", web.logs());
+        step_silent(&u);
+        no_jobs(&u);
+        let engines: usize = u.project.ok(&["ps", "-q"]).lines()
+            .map(|id| docker(&["top", id, "-o", "pid,comm"]).lines().filter(|l| l.split_whitespace().nth(1) == Some("deltabadger")).count()).sum();
+        assert_eq!(engines, 1, "one deltabadger process across the app's containers");
+        let home = storage_source(&u.named("web"));
+        assert!(home.ends_with("/home"), "{home}");
+        assert_eq!(storage_source(&u.named("upgrade")), home);
+        assert_eq!(docker(&["inspect", "-f", "{{.Config.StopTimeout}}", &web.id]), "60", "stop_grace_period");
+
+        let (code, logs, took) = umbrel_stops(&u.project, &web);
+        eprintln!("{web_image:?}: Umbrel's stop of a serving web took {took:?}");
+        assert!(code == "0" && logs.contains("stopped on request"), "{code}\n{logs}");
+    }
+}
+
+/// A 2.70.21 install's Umbrel update (§9 item 2, r1.3), `web` on the shipped pin. The install is made by 2.70.21 through
+/// its own compose (UMBREL_2X) and running when the user clicks Update. The update removes `jobs` (the stop runs the old
+/// file), the step says nothing, 3.0 takes the install over once with one backup, and old `web`, old `jobs`, `upgrade`
+/// and new `web` mount the same host folder. Then, on the install 3.0 owns: Umbrel's restart (the step silent again, no
+/// second backup, no takeover from Rails); a power loss (`docker kill` of every container, then the boot's
+/// `up --detach --build`: the step runs again, silent, and 3.0 continues AfterCrash); and a later 3.x update (the same
+/// file, `web` on this PR's build): no new backup, 200, `.secrets` byte-equal and the lease `rust`.
+#[test]
+fn umbrels_update_takes_a_2_70_21_install_over_and_later_starts_keep_it() {
+    let Some(image) = image() else { return };
+    let u = Umbrel::new(None);
+    let old = u.install_2x(UMBREL_2X, RAILS_2X);
+    let home = storage_source(&u.named("web"));
+    assert!(home.ends_with("/home"), "{home}");
+    assert_eq!(storage_source(&u.named("jobs")), home);
+    let (secrets, cipher) = umbrel_keys(&image, &u);
+
+    up_ok(&u.update(&old, &u.project));
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 200);
+    no_jobs(&u);
+    step_silent(&u);
+    assert!(web.logs().matches("took over (").count() == 1 && web.logs().contains("took over (FromRails)"), "{}", web.logs());
+    for service in ["upgrade", "web"] { assert_eq!(storage_source(&u.named(service)), home, "{service}"); }
+    assert_eq!(backups(&image, &u.storage).len(), 1);
+
+    // Umbrel's restart of the app.
+    up_ok(&u.update(&u.project, &u.project));
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 200);
+    step_silent(&u);
+    assert!(!web.logs().contains("took over (FromRails)"), "{}", web.logs());
+    assert_eq!(backups(&image, &u.storage).len(), 1, "no second backup");
+
+    // A power loss, then the boot's start.
+    let started = docker(&["inspect", "-f", "{{.State.StartedAt}}", &u.named("upgrade")]);
+    for id in u.project.ok(&["ps", "-q"]).lines() { docker(&["kill", id]); }
+    up_ok(&u.project.compose(&["up", "--detach", "--build"]));
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 200);
+    assert_ne!(docker(&["inspect", "-f", "{{.State.StartedAt}}", &u.named("upgrade")]), started, "the step ran again");
+    step_silent(&u);
+    assert!(web.logs().contains("took over (AfterCrash)"), "{}", web.logs());
+    assert_eq!(backups(&image, &u.storage).len(), 1, "no second backup");
+
+    // A later 3.x update: the same app with `web` on another image.
+    let next = u.app(UMBREL, &[("web", &image)], &[]);
+    up_ok(&u.update(&u.project, &next));
+    let web = next.container("web");
+    web.wait_for("/health-check", 200);
+    assert_eq!(docker(&["inspect", "-f", "{{.Config.Image}}", &web.id]), image);
+    step_silent(&u);
+    assert!(!web.logs().contains("took over (FromRails)"), "{}", web.logs());
+    next.ok(&["stop"]);
+    assert_eq!(docker(&["inspect", "-f", "{{.State.ExitCode}}", &web.id]), "0", "{}", web.logs());
+    left_taken_over(&image, &u.storage, &cipher, &secrets);
+}
+
+/// A Behind install's Umbrel update (§9 item 2), `web` on the shipped pin and then on this PR's build: made by `rails`
+/// through `file`, its own version's compose (with SEED_2_34's data when `seed`), running when the user clicks Update.
+/// The step brings the data up to date, `jobs` is gone, and 3.0 takes it over: one backup, lease `rust`, `.secrets`
+/// byte-equal.
+fn behind_update(image: &str, file: &str, rails: &str, seed: bool) {
+    for web_image in [None, Some(image)] {
+        let u = Umbrel::new(web_image);
+        let old = u.install_2x(file, rails);
+        if seed {
+            old.ok(&["stop"]);
+            let said = u.rails(rails, &["rake", "runner", SEED_2_34]);
+            assert!(said.ends_with(", queue 0"), "{said}");
+            up_ok(&old.compose(&["up", "--detach", "--build"]));
+        }
+        assert!(!missing_2x(image, &u.storage).is_empty(), "the fixture is Behind");
+        let (secrets, cipher) = umbrel_keys(image, &u);
+        up_ok(&u.update(&old, &u.project));
+        let web = u.project.container("web");
+        web.wait_for("/health-check", 200);
+        step_migrated(image, &u);
+        no_jobs(&u);
+        assert!(web.logs().contains("took over (FromRails)"), "{}", web.logs());
+        u.project.ok(&["stop"]);
+        left_taken_over(image, &u.storage, &cipher, &secrets);
+    }
+}
+
+#[test]
+fn umbrels_update_upgrades_a_behind_2_34_install() {
+    let Some(image) = image() else { return };
+    behind_update(&image, UMBREL_2_34, RAILS_2_34, true);
+}
+
+#[test]
+fn umbrels_update_upgrades_a_behind_2_60_install() {
+    let Some(image) = image() else { return };
+    behind_update(&image, UMBREL_2X, RAILS_2_60, false);
+}
+
+/// r1.1 (a) and r2.1: `:latest` = 3.0 reaching a 2.70.21 install under its 2.x compose (UMBREL_2X with both images on
+/// this PR's build: what a re-pull of a moved `:latest` gives) takes it over, `jobs` idles (J1). Then the wrong order
+/// r2.1 rules out, as a store still offering B5-0 would give it: an Umbrel update to B5-0's compose (2.70.21 pinned)
+/// fails, its `web` refusing the install 3.0 owns, and nothing is written but Rails' boot files. The update to the
+/// shipped app then recovers it: the step says nothing, 3.0 serves, no new backup, lease `rust`.
+#[test]
+fn umbrels_latest_3_0_takes_a_2_70_21_install_over_and_b5_0_after_it_changes_nothing() {
+    let Some(image) = image() else { return };
+    let u = umbrel(&image);
+    let old = u.install_2x(UMBREL_2X, RAILS_2X);
+    let (secrets, cipher) = umbrel_keys(&image, &u);
+    let latest = u.app(UMBREL_2X, &[("web", &image), ("jobs", &image)], &[]);
+    up_ok(&u.update(&old, &latest));
+    let web = latest.container("web");
+    web.wait_for("/health-check", 200);
+    assert!(web.logs().contains("took over (FromRails)"), "{}", web.logs());
+    let jobs = latest.container("jobs");
+    logs_soon(&jobs, J1);
+    latest.ok(&["stop"]);
+    let before = snapshot(&image, &u.storage);
+
+    let b5_0 = u.app(UMBREL_B5_0, &[], &[]);
+    let out = u.update(&latest, &b5_0);
+    let said = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    eprintln!("B5-0's up on a 3.0-owned install: {said}");
+    assert!(!out.status.success(), "{said}");
+    let rails = docker_out(&["logs", &u.named("web")]);
+    let rails = format!("{}{}", String::from_utf8_lossy(&rails.stdout), String::from_utf8_lossy(&rails.stderr));
+    assert!(rails.contains("still owns this data"), "{rails}");
+    b5_0.ok(&["stop"]);
+    let after = snapshot(&image, &u.storage);
+    let changed: Vec<&str> = after.lines().filter(|l| !before.lines().any(|b| b == *l)).collect();
+    eprintln!("written by B5-0's 2.70.21: {changed:?}");
+    assert_eq!(changed, Vec::<&str>::new(), "only Rails' boot files");
+
+    up_ok(&u.update(&b5_0, &u.project));
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 200);
+    step_silent(&u);
+    assert!(!web.logs().contains("took over (FromRails)"), "{}", web.logs());
+    u.project.ok(&["stop"]);
+    left_taken_over(&image, &u.storage, &cipher, &secrets);
+}
+
+/// r1.1 (b), r2.2, r5.1: `:latest` = 3.0 reaching a Behind install under its own 2.x compose (both images on this PR's
+/// build). 3.0 refuses it untouched with 503: under 2.70.21's compose (DELTABADGER_PLATFORM set, `jobs` waits for
+/// `web`'s health) `up` fails on that health and the page is C1-U; under 2.34.0's (no marker, `jobs` waits for nothing)
+/// `up` succeeds, the page is generic C1 and `jobs` idles (J1). Either way every file stays byte-equal, and the Umbrel
+/// update to the shipped app then runs the step and 3.0 takes the install over.
+fn latest_refuses_a_behind_install_until_the_update(image: &str, file: &str, rails: &str) {
+    let marker = file == UMBREL_2X;
+    let u = umbrel(image);
+    let old = u.install_2x(file, rails);
+    old.ok(&["stop"]);
+    let before = snapshot(image, &u.storage);
+    let latest = u.app(file, &[("web", image), ("jobs", image)], &[]);
+    let out = u.update(&old, &latest);
+    let said = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    eprintln!("{file}: up on a Behind install: {said}");
+    assert_eq!(out.status.success(), !marker, "{said}");
+    if marker { assert!(said.contains("is unhealthy"), "{said}"); }
+    let web = latest.container("web");
+    web.wait_for("/health-check", 503);
+    let page = web.exec(&["curl", "-s", "http://localhost:3000/"]);
+    assert!(page.contains(&on_page(if marker { C1_UMBREL } else { C1 })), "{page}");
+    let jobs = (!marker).then(|| latest.container("jobs"));
+    if let Some(jobs) = &jobs { logs_soon(jobs, J1); }
+    latest.ok(&["stop"]);
+    assert_eq!(snapshot(image, &u.storage), before, "a refused start changes no file");
+
+    up_ok(&u.update(&latest, &u.project));
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 200);
+    step_migrated(image, &u);
+    no_jobs(&u);
+    assert!(web.logs().contains("took over (FromRails)"), "{}", web.logs());
+}
+
+#[test]
+fn umbrels_latest_3_0_refuses_a_2_60_install_in_umbrels_words_until_the_update() {
+    let Some(image) = image() else { return };
+    latest_refuses_a_behind_install_until_the_update(&image, UMBREL_2X, RAILS_2_60);
+}
+
+#[test]
+fn umbrels_latest_3_0_refuses_a_2_34_install_under_its_own_compose_until_the_update() {
+    let Some(image) = image() else { return };
+    latest_refuses_a_behind_install_until_the_update(&image, UMBREL_2_34, RAILS_2_34);
+}
+
+/// r1.2: an Umbrel update whose pull fails (`upgrade`'s image unresolvable: a registry that isn't there), on a 2.60.0
+/// install. `up` fails, the old containers are already gone (the stop ran first) and every file is byte-equal. The next
+/// start (`up` with the compose the update installed, its images resolvable) runs the step and 3.0 takes the install over.
+#[test]
+fn umbrels_update_whose_pull_fails_leaves_the_install_and_the_next_start_completes_it() {
+    let Some(image) = image() else { return };
+    let u = umbrel(&image);
+    let old = u.install_2x(UMBREL_2X, RAILS_2_60);
+    old.ok(&["stop"]);
+    let before = snapshot(&image, &u.storage);
+    let unresolvable = format!("127.0.0.1:9/deltabadger/deltabadger:2.70.21@sha256:{}", "0".repeat(64));
+    let failing = u.app(UMBREL, &[("web", &image), ("upgrade", &unresolvable)], &[]);
+    let out = u.update(&old, &failing);
+    assert!(!out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(failing.ok(&["ps", "-a", "-q"]), "", "no container of the app is left");
+    assert_eq!(snapshot(&image, &u.storage), before, "a failed pull changes no file");
+
+    up_ok(&u.project.compose(&["up", "--detach", "--build"]));
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 200);
+    step_migrated(&image, &u);
+    assert!(web.logs().contains("took over (FromRails)"), "{}", web.logs());
+}
+
+/// r3.1 (R-B5-OVERRIDES): an umbrelOS 2.0 user-settings file binding another host folder, holding a 2.60.0 install, at
+/// `web`'s /app/storage. The step reads the app's own `home` (empty): exit 0, silent, nothing created. `web` reads the
+/// other folder and refuses it as Behind in Umbrel's words (C1-U, 503); that folder stays byte-equal.
+#[test]
+fn umbrels_step_leaves_a_storage_override_on_web_to_web() {
+    let Some(image) = image() else { return };
+    let other = umbrel(&image);
+    other.install_2x(UMBREL_2X, RAILS_2_60).ok(&["stop"]);
+    let before = snapshot(&image, &other.storage);
+    let u = umbrel(&image);
+    let Volume::At(mount) = &other.storage else { unreachable!() };
+    let settings = u.app(UMBREL, &[("web", &image)], &[&format!("services:\n  web:\n    volumes:\n      - {mount}\n")]);
+    up_ok(&settings.compose(&["up", "--detach", "--build"]));
+    let web = settings.container("web");
+    web.wait_for("/health-check", 503);
+    step_silent(&u);
+    assert_eq!(storage_source(&u.named("web")), mount.trim_end_matches(":/app/storage"));
+    let page = web.exec(&["curl", "-s", "http://localhost:3000/"]);
+    assert!(page.contains(&on_page(C1_UMBREL)), "{page}");
+    settings.ok(&["stop"]);
+    assert_eq!(snapshot(&image, &other.storage), before, "the overriding folder is untouched");
+    assert_eq!(snapshot(&image, &u.storage), ".", "the app's own folder stays empty");
+}
+
+/// Every value in `api_keys`, `app_configs` and `users` that is stored encrypted (`{"p":…`), by table, row and column.
+fn encrypted_values(image: &str, storage: &Volume) -> Vec<(String, i64, String, String)> {
+    let copy = take(image, storage);
+    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
+    let mut out = vec![];
+    for table in ["api_keys", "app_configs", "users"] {
+        let mut statement = c.prepare(&format!("SELECT rowid, * FROM {table}")).unwrap();
+        let columns: Vec<String> = statement.column_names().iter().map(|s| s.to_string()).collect();
+        let mut rows = statement.query([]).unwrap();
+        while let Some(row) = rows.next().unwrap() {
+            let id: i64 = row.get(0).unwrap();
+            for (i, column) in columns.iter().enumerate().skip(1) {
+                if let Ok(Some(value)) = row.get::<_, Option<String>>(i) {
+                    if value.starts_with("{\"p\":") { out.push((table.to_string(), id, column.clone(), value)); }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// r4.1: a derived-key 2.34.0 install (its `.secrets` without the pair; the keys derive from SECRET_KEY_BASE S1, which
+/// umbrelOS 2.0's user settings give `web` alone) with SEED_2_34's ApiKey and an encrypted AppConfig. The step runs
+/// 2.70.21's migrate under the shipped `${APP_SEED}-secret-key-base` (not S1): every encrypted value of api_keys,
+/// app_configs and users and `.secrets` stay byte-equal. The next start runs the step again (now silent) first. `web` (S1) then takes the install over with no C9 and the
+/// ApiKey reads under S1's keys.
+#[test]
+fn umbrels_step_under_another_secret_changes_no_encrypted_value() {
+    let Some(image) = image() else { return };
+    let own = "SECRET_KEY_BASE=b5-2-own-secret-of-at-least-thirty-two-characters";
+    let u = umbrel(&image);
+    u.rails_with(own, RAILS_2_34, &["migrate"]);
+    docker(&["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "rm", "-v", &u.storage.mount(), RAILS_2_34, "/app/storage/.secrets"]);
+    let seed = format!("AppConfig.create!(key: 'coingecko_api_key', value: 'b5-2-sample')\n{SEED_2_34}");
+    let said = u.rails_with(own, RAILS_2_34, &["rake", "runner", &seed]);
+    assert!(said.ends_with(", queue 0"), "{said}");
+    let copy = take(&image, &u.storage);
+    let secrets = std::fs::read(copy.path().join(".secrets")).unwrap();
+    let file = String::from_utf8_lossy(&secrets);
+    assert!(!file.contains("ACTIVE_RECORD_ENCRYPTION") && !file.contains("SECRET_KEY_BASE="), "derived keys: {file}");
+    let cipher = Cipher::new(&keys_2x(copy.path(), &[own]).1);
+    let encrypted = encrypted_values(&image, &u.storage);
+    let tables: Vec<&str> = encrypted.iter().map(|(t, ..)| t.as_str()).collect();
+    assert!(tables.contains(&"api_keys") && tables.contains(&"app_configs"), "{encrypted:?}");
+
+    step_upgrades(&image, &u);
+    assert_eq!(encrypted_values(&image, &u.storage), encrypted, "the step changed no encrypted value");
+    assert_eq!(std::fs::read(take(&image, &u.storage).path().join(".secrets")).unwrap(), secrets, "nor .secrets");
+
+    let settings = u.app(UMBREL, &[("web", &image)], &[&format!("services:\n  web:\n    environment:\n      SECRET_KEY_BASE: {}\n", own.trim_start_matches("SECRET_KEY_BASE="))]);
+    up_ok(&u.update(&u.project, &settings));
+    let web = settings.container("web");
+    web.wait_for("/health-check", 200);
+    step_silent(&u);
+    assert!(web.logs().contains("took over (FromRails)") && !web.logs().contains("can't read this install"), "{}", web.logs());
+    settings.ok(&["stop"]);
+    left_taken_over(&image, &u.storage, &cipher, &secrets);
+    let copy = take(&image, &u.storage);
+    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
+    let key: String = c.query_row("SELECT key FROM api_keys", [], |r| r.get(0)).unwrap();
+    assert_eq!(cipher.decrypt(&key).unwrap(), "b3-6-key");
+}
+
+/// r5.2 (R-B5-OVERRIDES): an umbrelOS 2.0 user-settings file setting only `web`'s QUEUE_DATABASE_PATH, on a Behind 2.34.0
+/// install with SEED_2_34's data. The step migrates and its migrations enqueue their three jobs in the default queue
+/// (the step can't see `web`'s settings); 3.0 imports only its own queue, so it takes the install over with none of
+/// them, and they stay where the step put them. Nothing fails; the tracker waits for its next sync (PLAN-B5 r5.2).
+#[test]
+fn umbrels_step_with_a_queue_override_on_web_leaves_its_jobs_in_the_default_queue() {
+    let Some(image) = image() else { return };
+    let u = umbrel(&image);
+    behind_2_34(&u);
+    // The install ran 2.x with the same setting, so its queue file is there (empty: SEED_2_34 left nothing queued).
+    docker(&["run", "--rm", "--network", "none", "-v", &u.storage.mount(), "-e", UMBREL_SECRET, "-e", "QUEUE_DATABASE_PATH=/app/storage/custom_queue.sqlite3",
+             RAILS_2_34, "migrate"]);
+    assert!(take(&image, &u.storage).path().join("custom_queue.sqlite3").exists());
+    let settings = u.app(UMBREL, &[("web", &image)], &["services:\n  web:\n    environment:\n      QUEUE_DATABASE_PATH: /app/storage/custom_queue.sqlite3\n"]);
+    up_ok(&settings.compose(&["up", "--detach", "--build"]));
+    let web = settings.container("web");
+    web.wait_for("/health-check", 200);
+    step_migrated(&image, &u);
+    let took = web.logs().lines().find(|l| l.contains("took over (")).unwrap_or_default().to_string();
+    eprintln!("{took}");
+    assert!(took.contains("took over (FromRails)") && took.contains(" 0 queued job(s) removed"), "{}", web.logs());
+    settings.ok(&["stop"]);
+    let copy = take(&image, &u.storage);
+    let queue = rusqlite::Connection::open(copy.path().join("production_queue.sqlite3")).unwrap();
+    let classes: Vec<String> = queue.prepare("SELECT class_name FROM solid_queue_jobs ORDER BY class_name").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(classes, ["AccountTransaction::ResolveAssetsJob", "PortfolioSnapshot::BackfillJob", "Tracker::LedgerJob"]);
 }
