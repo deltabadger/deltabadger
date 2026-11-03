@@ -67,13 +67,14 @@ fn cg_requests(t: &ScriptedTransport) -> Vec<String> { t.requests().iter().map(d
 /// Scripted catalogues by venue type, and the venues asked, in order.
 type Answers = Rc<RefCell<HashMap<String, Result<Vec<Value>, String>>>>;
 #[derive(Clone, Default)]
-struct Cats { rows: Answers, asked: Rc<RefCell<Vec<String>>> }
+struct Cats { rows: Answers, asked: Rc<RefCell<Vec<String>>>, proxies: Rc<RefCell<Vec<Option<String>>>> }
 impl Cats {
     fn set(&self, ty: &str, rows: Result<Vec<Value>, String>) -> &Self { self.rows.borrow_mut().insert(ty.into(), rows); self }
     fn seam(&self) -> Catalogues {
         let me = self.clone();
-        Rc::new(move |ty: &str| {
+        Rc::new(move |ty: &str, proxy: Option<String>| {
             me.asked.borrow_mut().push(ty.into());
+            me.proxies.borrow_mut().push(proxy);
             let answer = me.rows.borrow().get(ty).cloned();
             Box::pin(async move { match answer { Some(a) => a, None => std::future::pending().await } })
         })
@@ -272,9 +273,14 @@ async fn an_interrupted_import_recovers_as_rails_does() {
     c.execute_batch("CREATE TRIGGER crash BEFORE UPDATE ON tickers BEGIN SELECT RAISE(ABORT, 'interrupted'); END").unwrap();
     let t = ScriptedTransport::default();
     demo(&t).reply(&crawl_key("kraken", 1), 200, crawl.clone());
-    assert!(matches!(tickers(c, &t, &cats, NOW).await, Outcome::Failed(m) if m.contains("interrupted")));
+    let db = Db::new(c, seed::cipher());
+    let run_cx = cx(&db, NOW);
+    let wakers = run_cx.wakers.clone();
+    let out = reference::run_once_full::<ScriptedTransport>(reference::TICKERS, None, &clients(&t), &cats.seam(), run_cx).await;
+    assert!(matches!(&out, Outcome::Failed(m) if m.contains("interrupted")), "{out:?}");
     let c = reopen(&d);
     assert_eq!(count(&c, "SELECT count(*) FROM assets WHERE external_id = 'coin-n'"), 1, "the assets unit committed");
+    assert_eq!(wakers.pending(), [(reference::ASSETS.to_string(), None)], "the backfill is woken once the coins commit, the ticker failure after them notwithstanding");
     assert!(state::read(&c, reference::TICKERS, None).unwrap().incomplete_since.is_some(), "the record is left incomplete");
     c.execute_batch("DROP TRIGGER crash").unwrap();
 
@@ -352,4 +358,58 @@ fn claims_expire_after_a_day() {
     assert!(synchronizer::claim(&c, synchronizer::BACKFILL_CLAIM, now).unwrap());
     assert!(!synchronizer::claim(&reopen(&d), synchronizer::BACKFILL_CLAIM, now + Duration::hours(23)).unwrap(), "survives a reopen");
     assert!(synchronizer::claim(&reopen(&d), synchronizer::BACKFILL_CLAIM, now + Duration::hours(24)).unwrap());
+}
+
+/// D-CG-ROW-REFUSED: existing AUSD (A/USD) and BUSD (B/USD); the catalogue names A/USD "BUSD", which the (exchange, ticker)
+/// unique index refuses. Rails raises RecordNotUnique out of the venue's sync there: the row confirms nothing and the sweep
+/// never runs. Rust skips the row, applies the rows after it, and does not sweep the venue that run either.
+#[tokio::test(flavor = "current_thread")]
+async fn a_refused_row_confirms_nothing_and_suppresses_the_sweep() {
+    let (d, c, ids) = install(&[KRAKEN]);
+    let (a, b, u, g) = (asset(&c, "coin-a"), asset(&c, "coin-b"), asset(&c, "coin-usd"), asset(&c, "coin-gone"));
+    ticker(&c, ids[0], a, u, "AUSD", "A", "USD");
+    ticker(&c, ids[0], b, u, "BUSD", "B", "USD");
+    ticker(&c, ids[0], g, u, "GUSD", "G", "USD"); // not in the catalogue: a sweep would take it
+    let mut b_row = row("BUSD", "B", "USD");
+    b_row["price_decimals"] = json!(7);
+    let cats = Cats::default();
+    cats.set(KRAKEN, Ok(vec![row("BUSD", "A", "USD"), b_row]));
+    let t = ScriptedTransport::default();
+    assert_eq!(tickers(c, &t, &cats, NOW).await, Outcome::Done);
+    let c = reopen(&d);
+    assert_eq!(count(&c, "SELECT count(*) FROM tickers WHERE ticker IN ('AUSD', 'BUSD', 'GUSD') AND available = 1"), 3, "nothing swept");
+    assert_eq!(count(&c, "SELECT price_decimals FROM tickers WHERE ticker = 'AUSD'"), 2, "the refused row wrote nothing");
+    assert_eq!(count(&c, "SELECT price_decimals FROM tickers WHERE ticker = 'BUSD'"), 7, "the rows after it apply");
+    assert_eq!(count(&c, &format!("SELECT count(*) FROM exchange_assets WHERE exchange_id = {} AND available = 0", ids[0])), 0);
+}
+
+/// The catalogue goes through the venue's exchange proxy as its client would: AppConfig `proxy_<name>` over ENV `PROXY_<NAME>`.
+#[tokio::test(flavor = "current_thread")]
+async fn the_catalogue_takes_the_venues_proxy() {
+    let (d, c, _) = install(&[KRAKEN, COINBASE]);
+    deltabadger::app_config::set(&c, &seed::cipher(), "proxy_kraken", "http://stored-proxy:8080", at(NOW)).unwrap();
+    let env = |k: &str| (k == "PROXY_KRAKEN" || k == "PROXY_COINBASE").then(|| "http://env-proxy:1".to_string());
+    assert_eq!(synchronizer::catalogue_proxy(&c, &seed::cipher(), KRAKEN, &env).unwrap().as_deref(), Some("http://stored-proxy:8080"), "AppConfig wins");
+    assert_eq!(synchronizer::catalogue_proxy(&c, &seed::cipher(), COINBASE, &env).unwrap().as_deref(), Some("http://env-proxy:1"), "else the env");
+    assert_eq!(synchronizer::catalogue_proxy(&c, &seed::cipher(), COINBASE, &|_| None).unwrap(), None);
+    assert!(synchronizer::PublicTransport::new(Some("not a url")).is_err(), "an unusable proxy sends nothing");
+    let cats = Cats::default();
+    cats.set(KRAKEN, Ok(vec![])).set(COINBASE, Ok(vec![]));
+    tickers(c, &ScriptedTransport::default(), &cats, NOW).await;
+    assert_eq!(cats.proxies.borrow()[0].as_deref(), Some("http://stored-proxy:8080"), "the run hands the catalogue its venue's proxy");
+    drop(d);
+}
+
+/// Fiat.currencies, recorded from Rails (script/rust/record_fiat_currencies.rb), pinned to fiat.rb and the synchronizer.
+#[test]
+fn the_fiat_currencies_are_rails() {
+    use sha2::{Digest, Sha256};
+    let v: Value = serde_json::from_str(include_str!("fixtures/fiat_currencies.json")).unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path, hash) in v["sources"].as_object().unwrap() {
+        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "re-record {path}: script/rust/repin");
+    }
+    let rust: Vec<Value> = synchronizer::FIAT.iter()
+        .map(|(id, sym, name, color)| json!({ "external_id": id, "symbol": sym, "name": name, "category": "Currency", "color": color })).collect();
+    assert_eq!(Value::Array(rust), v["currencies"]);
 }

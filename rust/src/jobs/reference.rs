@@ -52,7 +52,7 @@ fn spec(kind: Kind) -> Spec {
         // :33-35; PullFailed, 15 minutes, 4 attempts (sync_from_coingecko_job.rb:15-17).
         Kind::Indices => Spec { name: INDICES, schedule: daily(10, 30), jitter: Jitter::NONE, retry: Retry::Fixed { wait_secs: 900, attempts: 4 }, deadline: DEADLINE, scope: None },
         // :13-15; `rand(60)` s on the deltabadger provider (sync_all_tickers_and_assets_job.rb:9, :14).
-        Kind::Tickers => Spec { name: TICKERS, schedule: Some(Schedule::EveryHours { every: 4, minute: 15 }), jitter: Jitter { min_secs: 0, max_secs: 59 }, retry: Retry::None, deadline: DEADLINE, scope: None },
+        Kind::Tickers => Spec { name: TICKERS, schedule: Some(Schedule::EveryHours { every: 4, minute: 15 }), jitter: Jitter { min_secs: 0, max_secs: 59 }, retry: Retry::None, deadline: COINGECKO_TICKERS_DEADLINE, scope: None },
         // :20-23; 1 s–5 min (fetch_all_assets_data_from_coingecko_job.rb:17, :39).
         Kind::Assets => Spec { name: ASSETS, schedule: daily(0, 20), jitter: Jitter { min_secs: 1, max_secs: 300 }, retry: Retry::None, deadline: DEADLINE, scope: None },
         // :89-91.
@@ -67,16 +67,13 @@ pub fn specs() -> Vec<Spec> { KINDS.iter().map(|k| spec(*k)).collect() }
 
 struct Reference<T: Transport> { kind: Kind, api: Rc<Option<DataApi<T>>>, cg: Clients, catalogues: Catalogues }
 
-/// The venue tickers on the coingecko provider (PLAN-A17 A17-2 item 5): 13 venues' worst crawls at 30 a minute (22 minutes)
-/// plus Gemini's paced detail reads. Each venue commits on its own, so a cancelled run keeps the venues it finished.
+/// The venue tickers' deadline on either provider (PLAN-A17 A17-2 item 5): on coingecko, 13 venues' worst crawls at 30 a
+/// minute (22 minutes) plus Gemini's paced detail reads; the data-api path fits inside it. Each venue commits on its own,
+/// so a cancelled run keeps the venues it finished.
 pub const COINGECKO_TICKERS_DEADLINE: std::time::Duration = std::time::Duration::from_secs(60 * 60);
 
 impl<T: Transport + 'static> Job for Reference<T> {
-    fn spec(&self) -> Spec {
-        let mut s = spec(self.kind);
-        if self.kind == Kind::Tickers && self.api.is_none() { s.deadline = COINGECKO_TICKERS_DEADLINE; }
-        s
-    }
+    fn spec(&self) -> Spec { spec(self.kind) }
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(run(self.kind, Option::as_ref(&self.api), &self.cg, &self.catalogues, cx)) }
 }
 

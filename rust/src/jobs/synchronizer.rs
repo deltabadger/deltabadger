@@ -17,8 +17,9 @@
 //! - D-CG-RETIRED-NOT-ASKED: a retired venue (Exchange::RETIRED_TYPES) is not synced; Rails queues it and logs its
 //!   retired_failure every 4 hours.
 //! - D-CG-ROW-REFUSED: a catalogue row the database refuses (a ticker name another of the venue's tickers holds, a
-//!   required column missing) is skipped and logged, as Rails' validation refusals are; Rails raises RecordNotUnique or
-//!   NotNullViolation out of the venue's sync there, ending it without its sweep.
+//!   required column missing) is skipped and logged, and the rows after it still apply; Rails raises RecordNotUnique or
+//!   NotNullViolation out of the venue's sync there. Like Rails, the refused row confirms nothing and the venue is not
+//!   swept that run.
 use super::coingecko::{self, Clients, CrawlError};
 use super::import::{self, decimal, integer, string, Touched};
 use super::{reference, state, Cx, Outcome, CHUNK};
@@ -259,9 +260,11 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
     let reported: HashSet<(String, String)> = rows.iter().map(|r| (string(&r["base"]).unwrap_or_default(), string(&r["quote"]).unwrap_or_default())).collect();
     let mut confirmed: Vec<String> = vec![];
     let (mut unresolved, mut refused) = (vec![], vec![]);
+    // A row the database refuses: Rails' sync raises out of the venue there and never reaches the sweep (D-CG-ROW-REFUSED).
+    let mut aborted = false;
     for row in rows {
         let (base, quote) = (string(&row["base"]).unwrap_or_default(), string(&row["quote"]).unwrap_or_default());
-        let cols = match columns(row) { Ok(c) => c, Err(m) => { refused.push(m); continue } };
+        let cols = match columns(row) { Ok(c) => c, Err(m) => { refused.push(m); aborted = true; continue } };
         // A ticker name another ticker of the venue holds: the unique index refuses it (D-CG-ROW-REFUSED).
         let name_taken = |held: &[Held], id: Option<i64>| text_col(&cols, "ticker").is_some_and(|t| held.iter().any(|h| h.ticker == t && Some(h.id) != id));
         if let Some(i) = held.iter().position(|h| h.base == base && h.quote == quote) {
@@ -274,7 +277,7 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
             }
             if name_taken(&held, Some(id)) || null_violation(&cols, false).is_some() {
                 refused.push(format!("{base}/{quote}"));
-                confirmed.push(held[i].ticker.clone());
+                aborted = true;
                 continue;
             }
             apply(&mut held[i], &cols);
@@ -300,14 +303,18 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
             let id = held[i].id;
             if name_taken(&held, Some(id)) || null_violation(&cols, false).is_some() {
                 refused.push(format!("{base}/{quote}"));
+                aborted = true;
             } else {
                 apply(&mut held[i], &cols);
                 confirmed.push(held[i].ticker.clone());
                 writes.push(Write::Update { id, cols });
             }
-        } else if renamed.is_some() || name_taken(&held, None) || null_violation(&cols, true).is_some() {
-            // Both spellings live (the uniqueness validation), or a refused row.
+        } else if renamed.is_some() {
+            // Both spellings live: the (exchange, base asset, quote asset) validation refuses it, and the sync goes on.
             refused.push(format!("{base}/{quote}"));
+        } else if name_taken(&held, None) || null_violation(&cols, true).is_some() {
+            refused.push(format!("{base}/{quote}"));
+            aborted = true;
         } else {
             next_ticker += 1;
             let mut h = Held { id: next_ticker, base: String::new(), quote: String::new(), ticker: String::new(), pair: (base_asset, quote_asset), available: true };
@@ -322,10 +329,11 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
     if !unresolved.is_empty() { crate::engine::log(&format!("[Sync] {venue}: {} pairs unresolved, deferred to the next market-data pull", sample(&unresolved))); }
     if !refused.is_empty() { crate::engine::log(&format!("[Sync] {venue}: skipped {} refused rows", sample(&refused))); }
 
-    // The sweep, only when the catalogue confirmed some tickers and not every current one went missing.
+    // The sweep, only when the catalogue confirmed some tickers and not every current one went missing, and no row was
+    // refused by the database.
     let confirmed: HashSet<String> = confirmed.into_iter().collect();
     let stale: HashSet<&String> = current.iter().filter(|t| !confirmed.contains(*t)).collect();
-    if !confirmed.is_empty() && stale.len() < current.len() {
+    if !aborted && !confirmed.is_empty() && stale.len() < current.len() {
         for h in held.iter_mut().filter(|h| h.available && stale.contains(&h.ticker)) { h.available = false; plan.sweep_tickers.push(h.id); }
         let used: HashSet<i64> = held.iter().filter(|h| h.available).flat_map(|h| [h.pair.0, h.pair.1]).collect();
         let mut gone: Vec<(i64, i64)> = listed.iter().filter_map(|(asset, (id, available))| (*available && !used.contains(asset)).then_some((*id, *asset))).collect();
@@ -335,11 +343,17 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
     Ok(plan)
 }
 
-/// Publishes a venue's plan: assets, then the rows (a row's writes never split), then the sweep, each in units of CHUNK.
+/// Publishes a venue's plan: assets (`publish_assets`), then the rows (a row's writes never split), then the sweep, each in
+/// units of CHUNK.
 pub async fn publish(db: &super::Db, exchange_id: i64, plan: Plan, now: DateTime<Utc>) -> R<()> {
-    let t = format_time(now);
-    let t1 = t.clone();
-    import::publish(db, "venue assets", import::chunks(&plan.assets), move |c, assets: Vec<NewAsset>| {
+    let plan = publish_assets(db, plan, now).await?;
+    publish_rows(db, exchange_id, plan, now).await
+}
+
+/// The plan's new assets, committed first (create_missing_assets! runs before the loop); the plan without them.
+pub async fn publish_assets(db: &super::Db, mut plan: Plan, now: DateTime<Utc>) -> R<Plan> {
+    let t1 = format_time(now);
+    import::publish(db, "venue assets", import::chunks(&std::mem::take(&mut plan.assets)), move |c, assets: Vec<NewAsset>| {
         for (id, ext, fiat) in &assets {
             match fiat {
                 Some((symbol, name, color)) => c.prepare_cached("INSERT INTO assets (id, external_id, symbol, name, category, color, created_at, updated_at) \
@@ -351,6 +365,12 @@ pub async fn publish(db: &super::Db, exchange_id: i64, plan: Plan, now: DateTime
         }
         Ok(Touched::None)
     }).await?;
+    Ok(plan)
+}
+
+/// The rows, then the sweep.
+pub async fn publish_rows(db: &super::Db, exchange_id: i64, plan: Plan, now: DateTime<Utc>) -> R<()> {
+    let t = format_time(now);
     let mut units: Vec<Vec<Write>> = vec![];
     for row in plan.rows {
         if units.last().is_none_or(|u| u.len() + row.len() > CHUNK) { units.push(vec![]); }
@@ -403,30 +423,40 @@ pub async fn publish(db: &super::Db, exchange_id: i64, plan: Plan, now: DateTime
 
 /// A venue's catalogue (Exchange#get_tickers_info(force: true)): Rails' rows, or why it failed.
 pub type CatalogueFuture = Pin<Box<dyn Future<Output = R<Vec<Value>>>>>;
-/// The catalogues a run reads, by venue type: live in production; a test hands scripted ones.
-pub type Catalogues = Rc<dyn Fn(&str) -> CatalogueFuture>;
+/// The catalogues a run reads, by venue type and the venue's exchange proxy: live in production; a test hands scripted ones.
+pub type Catalogues = Rc<dyn Fn(&str, Option<String>) -> CatalogueFuture>;
 
-/// The live catalogues: each venue's public endpoints over an unsigned transport (venue::catalogue).
+/// The live catalogues: each venue's public endpoints over an unsigned transport (venue::catalogue), through its proxy.
 pub fn live_catalogues() -> Catalogues {
-    Rc::new(|ty: &str| {
+    Rc::new(|ty: &str, proxy: Option<String>| {
         let ty = ty.to_string();
-        Box::pin(async move { live_catalogue(&ty, &PublicTransport).await })
+        Box::pin(async move { crate::venue::catalogue::read(&ty, &PublicTransport::new(proxy.as_deref())?).await })
     })
 }
 
-async fn live_catalogue(ty: &str, t: &PublicTransport) -> R<Vec<Value>> { crate::venue::catalogue::read(ty, t).await }
+/// ExchangeProxy.for(name_id), as the venue's own client takes it: AppConfig `proxy_<name>`, else ENV `PROXY_<NAME>`.
+pub fn catalogue_proxy(c: &Connection, cipher: &crate::crypto::Cipher, venue_type: &str, env: &dyn Fn(&str) -> Option<String>) -> R<Option<String>> {
+    let name = reference::name_id(venue_type);
+    let stored = crate::app_config::get(c, cipher, &format!("proxy_{name}"))?;
+    Ok(http::proxy_for(&name, stored, env))
+}
 
-/// Public venue endpoints: no key, nothing signed; JSON bodies; bounded answers.
-#[derive(Default)]
-pub struct PublicTransport;
+/// Public venue endpoints: no key, nothing signed; JSON bodies; bounded answers; through the venue's proxy when it has one
+/// (an unusable proxy URL sends nothing).
+pub struct PublicTransport { client: reqwest::Client }
+
+impl PublicTransport {
+    pub fn new(proxy: Option<&str>) -> R<Self> {
+        Ok(Self { client: match proxy { Some(p) => http::client_via(p)?, None => http::client() } })
+    }
+}
 
 impl Transport for PublicTransport {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> { self.send_limited(r, super::data_api::MAX_REFERENCE_BODY).await }
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         let mut url = reqwest::Url::parse(&format!("{}{}", r.base, r.path)).map_err(|e| TransportError::Permanent(e.to_string()))?;
         if !r.query.is_empty() { url.query_pairs_mut().extend_pairs(&r.query); }
-        let client = http::client();
-        let mut b = if r.method == "POST" { client.post(url) } else { client.get(url) };
+        let mut b = if r.method == "POST" { self.client.post(url) } else { self.client.get(url) };
         if let Some(body) = &r.body { b = b.header("Content-Type", "application/json").body(body.to_string()); }
         let resp = b.header("Accept", "application/json").send().await.map_err(http::classify)?;
         http::read_limited(resp, limit.min(super::data_api::MAX_REFERENCE_BODY)).await
@@ -466,7 +496,9 @@ pub async fn run(cg: &Clients, catalogues: &Catalogues, cx: &Cx<'_>, setup: bool
     let (mut limited, mut failed, mut written, mut marked) = (None::<String>, vec![], false, false);
     for (id, ty) in venues {
         let name = reference::name_id(&ty);
-        let rows = match catalogues(&ty).await { Ok(r) => r, Err(m) => { failed.push(format!("{name}: {m}")); continue } };
+        let t = ty.clone();
+        let proxy = match cx.db.run(move |c, cipher| catalogue_proxy(c, cipher, &t, &|k| std::env::var(k).ok())).await { Ok(p) => p, Err(m) => { failed.push(format!("{name}: {m}")); continue } };
+        let rows = match catalogues(&ty, proxy).await { Ok(r) => r, Err(m) => { failed.push(format!("{name}: {m}")); continue } };
         let Some(cg_id) = coingecko_id(&ty) else { failed.push(format!("{name}: no CoinGecko id")); continue };
         let now = cx.clock.now();
         let rows = std::sync::Arc::new(rows);
@@ -500,9 +532,9 @@ pub async fn run(cg: &Clients, catalogues: &Catalogues, cx: &Cx<'_>, setup: bool
             if let Err(m) = cx.db.run(move |c, _| state::mark_incomplete(c, reference::TICKERS, None, now)).await { return Outcome::Failed(m); }
             marked = true;
         }
-        if let Err(m) = publish(&cx.db, id, plan, now).await { failed.push(format!("{name}: {m}")); continue; }
-        written = true;
-        // The bulk asset backfill, at most once a day however many venues minted coins (synchronizer.rb:156-162).
+        let plan = match publish_assets(&cx.db, plan, now).await { Ok(p) => p, Err(m) => { failed.push(format!("{name}: {m}")); continue } };
+        // The bulk asset backfill, at most once a day however many venues minted coins (synchronizer.rb:156-162): claimed
+        // and woken as soon as the coins are committed, so a ticker unit failing after them never strands them unfilled.
         if crypto && !setup {
             match cx.db.run(move |c, _| claim(c, BACKFILL_CLAIM, now)).await {
                 Ok(true) => cx.wakers.wake(reference::ASSETS, None, None),
@@ -510,6 +542,8 @@ pub async fn run(cg: &Clients, catalogues: &Catalogues, cx: &Cx<'_>, setup: bool
                 Err(m) => crate::engine::log(&format!("[Sync] the asset backfill claim failed: {m}")),
             }
         }
+        if let Err(m) = publish_rows(&cx.db, id, plan, now).await { failed.push(format!("{name}: {m}")); continue; }
+        written = true;
     }
     match (limited, failed.is_empty()) {
         (Some(m), _) => Outcome::RateLimited(std::iter::once(m).chain(failed).collect::<Vec<_>>().join("; ")),

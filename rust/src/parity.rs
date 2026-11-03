@@ -979,7 +979,7 @@ fn hosted_catalogues(transport: &ScriptedTransport) -> crate::jobs::synchronizer
         }
     }
     let transport = transport.clone();
-    std::rc::Rc::new(move |ty: &str| {
+    std::rc::Rc::new(move |ty: &str, _proxy: Option<String>| {
         let (ty, t) = (ty.to_string(), Hosted(transport.clone()));
         Box::pin(async move { crate::venue::catalogue::read(&ty, &t).await })
     })
