@@ -100,6 +100,13 @@ module PopulatedFixture
       200.times { |i| row(user, alpaca, :buy, 'AAPL', '0.001', (Time.utc(2026, 9, 7, 10) + (i * 60)).iso8601, quote: '0.2') }
       # The round trip's own rows record their asset: the positions row draws it.
       AccountTransaction.where(base_currency: 'MSFT').update_all(base_asset_id: msft.id)
+    when 'santiago', 'magadan'
+      # A19 zones: one row inside the UTC day but outside the user's local day (the band only Rails' UTC cut takes), one
+      # inside both, none in the reverse band. Tiny amounts: no note, no history-gap line.
+      day = kind == 'santiago' ? '2026-09-06' : '2014-10-26'
+      outside, inside = kind == 'santiago' ? %w[02:00 12:00] : %w[20:00 05:00]
+      row(user, binance, :buy, 'BTC', '0.000001', "#{day}T#{outside}:00Z", quote: '0.06')
+      row(user, binance, :buy, 'BTC', '0.000001', "#{day}T#{inside}:00Z", quote: '0.06')
     when 'lone'
       AccountTransaction.where(exchange: binance).delete_all
       AccountBalance.where(exchange: binance).delete_all
@@ -112,15 +119,28 @@ module PopulatedFixture
 end
 
 before = Pages::BEFORE.dup
-%w[base many notes stale unpriced failed dead lone cold history long rows].each do |kind|
+%w[base many notes stale unpriced failed dead lone cold history long rows santiago magadan].each do |kind|
   before["populated_#{kind}"] = -> { PopulatedFixture.build(kind) }
 end
-%w[EUR GBP].each do |currency|
+{ 'EUR' => 0.8, 'GBP' => 0.5, 'CHF' => 0.9, 'PLN' => 4.0 }.each do |currency, rate|
   before["populated_currency_#{currency}"] = lambda do
     PopulatedFixture.build('base')
     User.first.update!(display_currency: currency)
-    Rails.cache.write("exchange_rate_USD_to_#{currency}", Result::Success.new(currency == 'EUR' ? 0.8 : 0.5), expires_in: 12.hours)
+    Rails.cache.write("exchange_rate_USD_to_#{currency}", Result::Success.new(rate), expires_in: 12.hours)
   end
+end
+# A19: a display currency with no rate held (EUR is populated_fx_unavailable), and a swept history with none.
+%w[GBP CHF PLN].each do |currency|
+  before["populated_fx_unavailable_#{currency}"] = lambda do
+    PopulatedFixture.build('base')
+    User.first.update!(display_currency: currency)
+    Rails.cache.write(Denomination.backoff_key(currency), true, expires_in: 5.minutes)
+  end
+end
+before['populated_fx_unavailable_history'] = lambda do
+  PopulatedFixture.build('history')
+  User.first.update!(display_currency: 'EUR')
+  Rails.cache.write(Denomination.backoff_key('EUR'), true, expires_in: 5.minutes)
 end
 before['populated_history_eur'] = lambda do
   PopulatedFixture.build('history')
@@ -184,8 +204,32 @@ module D5PopulatedGrid
     %w[many stale unpriced failed dead lone cold].each { |kind| add.call(kind, '/tracker', kind) }
     add.call('cold_hidden', '/tracker', 'cold', 'hide_balances' => true)
     add.call('cold_scope', '/tracker?exchange_id=2', 'cold')
-    %w[EUR GBP].each { |currency| add.call("currency_#{currency}", '/tracker', "currency_#{currency}") }
+    %w[EUR GBP CHF PLN].each { |currency| add.call("currency_#{currency}", '/tracker', "currency_#{currency}") }
     add.call('fx_unavailable', '/tracker', 'fx_unavailable')
+    %w[GBP CHF PLN history].each { |kind| add.call("fx_unavailable_#{kind}", '/tracker', "fx_unavailable_#{kind}") }
+    # A19 windows. `rows` holds 210 rows: ten on 09-01..09-06 and 200 AAPL buys on 09-07 (the unfiltered table).
+    { 'from' => 'from=2026-09-06', 'to' => 'to=2026-09-06', 'both' => 'from=2026-09-02&to=2026-09-04',
+      'day' => 'from=2026-09-06&to=2026-09-06', 'inverted' => 'from=2026-09-05&to=2026-09-02',
+      'before_first' => 'from=2026-01-01&to=2026-08-31', 'scope' => 'exchange_id=2&from=2026-09-02&to=2026-09-06',
+      'limited' => 'from=2026-09-01', 'all' => 'all=1&from=2026-09-06' }.each do |name, query|
+      add.call("window_#{name}", "/tracker?#{query}", 'rows')
+    end
+    add.call('window_cold', '/tracker?from=2026-09-02&to=2026-09-03', 'cold')
+    add.call('window_santiago', '/tracker?from=2026-09-06&to=2026-09-06', 'santiago', 'time_zone' => 'Santiago')
+    add.call('window_magadan', '/tracker?from=2014-10-26&to=2014-10-26', 'magadan', 'time_zone' => 'Magadan')
+    # A19 bad input. Rails parses the first three (Rust refuses: D-TRACKER-FILTER-ISO-ONLY) and raises on the rest
+    # (D-TRACKER-FILTER-BAD-INPUT).
+    { 'nov' => 'from=Nov%203', 'compact' => 'from=20260903', 'slashes' => 'from=11%2F09%2F2026' }.each do |name, query|
+      add.call("bad_#{name}", "/tracker?#{query}", 'base')
+    end
+    { 'garbage' => 'from=garbage', 'impossible' => 'from=2026-02-30', 'month' => 'to=2026-11', 'from_array' => 'from[]=2026-09-01',
+      'to_hash' => 'to[a]=x', 'exchange_array' => 'exchange_id[]=1' }.each do |name, query|
+      add.call("bad_#{name}", "/tracker?#{query}", 'base')
+      cases["populated_bad_#{name}"]['steps'].last.merge!('expect' => 500, 'rails_exception_status' => 500)
+    end
+    # Exchange.find(a Parameters) is RecordNotFound: a 404, served as Rails serves it.
+    add.call('bad_exchange_hash', '/tracker?exchange_id[a]=1', 'base')
+    cases['populated_bad_exchange_hash']['steps'].last.merge!('expect' => 404, 'rails_exception_status' => 404)
     %w[none refused ready].each { |state| add.call("report_#{state}", '/tracker', "report_#{state}") }
     add.call('owner', '/tracker', 'owner')
     cases
@@ -201,7 +245,8 @@ if command == 'record'
     result = JSON.parse(File.read(path))
     answer = result.fetch('responses').last
     raise "network attempt in #{path}" unless result.fetch('network').empty?
-    raise "status #{answer['status']} in #{path}" unless answer.fetch('status') == 200
+    expect = JSON.parse(File.read(File.join(File.dirname(path), 'scenario.json'))).fetch('steps').last.fetch('expect', 200)
+    raise "status #{answer['status']} in #{path}" unless answer.fetch('status') == expect
   end
   sources = %w[
     app/controllers/tracker_controller.rb app/models/tracker/figures.rb app/models/api_key.rb app/models/exchange.rb

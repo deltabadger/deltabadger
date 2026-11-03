@@ -27,6 +27,19 @@ fn rails_regions(body: &str) -> [String; 5] {
      cut("<div class=\"widget tracker-holdings", "    <div class=\"tracker-record\""), cut("<div id=\"sync-warnings\" data-turbo-permanent>", "\n    <input data-turbo-permanent id=\"hamburger\"")]
 }
 
+/// The display currencies asked for with no rate held (Rails draws them in dollars; Rust withholds the money).
+const NO_RATE: [(&str, &str); 5] = [("populated_fx_unavailable", "€"), ("populated_fx_unavailable_GBP", "£"), ("populated_fx_unavailable_CHF", "Fr."),
+                                     ("populated_fx_unavailable_PLN", "zł"), ("populated_fx_unavailable_history", "€")];
+fn no_rate(name: &str) -> bool { NO_RATE.iter().any(|(n, _)| *n == name) }
+
+/// D-TRACKER-FILTER-USER-DAYS: the rows Rails' UTC day takes that the user's local day does not, by their instant (the
+/// fixture placed them so; none sits in the reverse band).
+const OUTSIDE_LOCAL_DAY: [(&str, &str); 2] = [("populated_window_santiago", "2026-09-06 02:00:00"), ("populated_window_magadan", "2014-10-26 20:00:00")];
+
+/// D-TRACKER-FILTER-ISO-ONLY: windows Rails parses and serves (200); Rust answers 400. Every other `populated_bad_` case
+/// is a Rails exception: 500 (D-TRACKER-FILTER-BAD-INPUT, Rust 400) or `exchange_id[a]`'s RecordNotFound (404, parity).
+const RAILS_PARSES: [&str; 3] = ["populated_bad_nov", "populated_bad_compact", "populated_bad_slashes"];
+
 /// Rails' regions with SPEC's never-a-number rule applied (RULING-D5B2B §4), each a listed money divergence: where
 /// Rust withholds an amount the cell states why, and the holdings card is its reason. Balances that are stale, unpriced
 /// or not produced by the current key withhold what they decide (money in, value, unrealised, total); a display currency
@@ -36,7 +49,7 @@ fn withheld(name: &str, tiles: String, holdings: String) -> (String, String) {
         "populated_dead" => ("Tracker figures unavailable: balances not yet synced with the current key", false),
         "populated_stale" => ("Tracker figures unavailable: stale prices", false),
         "populated_unpriced" => ("Tracker figures unavailable: unpriced holdings", false),
-        "populated_fx_unavailable" => ("Currency conversion unavailable", true),
+        n if no_rate(n) => ("Currency conversion unavailable", true),
         _ => return (tiles, holdings),
     };
     let marker = "    <div class=\"data-grid__item\"";
@@ -66,7 +79,7 @@ fn withheld_page(name: &str, body: &str) -> String {
         let end = head + out[head..].find("</svg>\n").unwrap();
         out.replace_range(head..end, "    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n");
     }
-    if name == "populated_fx_unavailable" {
+    if no_rate(name) {
         while let Some(start) = out.find("<tr id=\"account_transaction_") {
             let id: String = out[start + 28..].chars().take_while(char::is_ascii_digit).collect();
             let end = start + out[start..].find("</tr>\n").unwrap() + 6;
@@ -114,7 +127,7 @@ async fn populated_regions_match_rails() {
     let selected = std::env::var("D5_POPULATED_CASES").unwrap_or_default();
     let mut names = std::fs::read_dir(&root).unwrap().map(|e| e.unwrap()).filter(|e| e.file_type().unwrap().is_dir()).map(|e| e.file_name().into_string().unwrap()).collect::<Vec<_>>();
     names.sort();
-    assert_eq!(names.len(), 76, "the populated grid");
+    assert_eq!(names.len(), 104, "the populated grid");
     let mut failures = vec![];
     for name in names {
         if !selected.is_empty() && !selected.split(',').any(|s| s == name) { continue; }
@@ -141,7 +154,7 @@ async fn populated_regions_match_rails() {
         // The pass writes today's snapshot as Rails' job does; the recorded page read none (Rails' fixture computed the
         // ledger alone), so the history the page draws is put back as it was.
         c.execute_batch("CREATE TEMP TABLE kept_whole AS SELECT * FROM portfolio_snapshots; CREATE TEMP TABLE kept_venues AS SELECT * FROM portfolio_venue_snapshots;").unwrap();
-        if !matches!(name.as_str(), "populated_cold" | "populated_cold_hidden" | "populated_cold_scope" | "populated_dead") {
+        if !matches!(name.as_str(), "populated_cold" | "populated_cold_hidden" | "populated_cold_scope" | "populated_window_cold" | "populated_dead") {
             let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, scenario["secret_key_base"].as_str().unwrap()).unwrap()));
             deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ScriptedTransport>>, None, owner, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap_or_else(|e| panic!("{name}: ledger pass: {e}"));
             history_gap_absent(&c, &name, owner, at);
@@ -150,7 +163,7 @@ async fn populated_regions_match_rails() {
         let env = { let secret = scenario["secret_key_base"].as_str().unwrap().to_string(); let tmp = tmp.display().to_string(); move |n: &str| match n { "SECRET_KEY_BASE" => Some(secret.clone()), "APP_TMP_DIR" => Some(tmp.clone()), _ => None } };
         let opened = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
         let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, opened.primary, TestClock::at(scenario["at"].as_str().unwrap())).unwrap();
-        let rates = if name == "populated_fx_unavailable" { json!({}) } else { json!({"usd":{"value":100.0},"eur":{"value":80.0},"gbp":{"value":50.0}}) };
+        let rates = if no_rate(&name) { json!({}) } else { json!({"usd":{"value":100.0},"eur":{"value":80.0},"gbp":{"value":50.0},"chf":{"value":90.0},"pln":{"value":400.0}}) };
         let app = app.with_figure_source(deltabadger::web::figure::loading::Source::Script(json!({"GET 127.0.0.1:1/api/v1/exchange_rates":{"body":{"data":rates}}}))).unwrap();
         let raw: String = c.query_row("SELECT display_currency FROM users WHERE id=?1", [owner], |r| r.get(0)).unwrap();
         let wanted = deltabadger::figures::totals::normalized_currency(&raw);
@@ -165,9 +178,31 @@ async fn populated_regions_match_rails() {
         let mut browser = common::web::Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
         let headers = step["headers"].as_object().unwrap().iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect::<Vec<_>>();
         let answer = browser.send(&app, "GET", step["path"].as_str().unwrap(), None, common::web::Csrf::None, &headers).await;
+        if name.starts_with("populated_bad_") {
+            // What Rails did is the recording's (its status, and its exception when it raised); Rust's answer is listed.
+            let rails_status = expected["status"].as_i64().unwrap();
+            let (want_rails, want_rust, page) = if RAILS_PARSES.contains(&name.as_str()) { (200, 400, include_str!("../../public/400.html")) }
+                else if name == "populated_bad_exchange_hash" { (404, 404, include_str!("../../public/404.html")) }
+                else { (500, 400, include_str!("../../public/400.html")) };
+            assert_eq!((rails_status, expected.get("exception").is_some()), (want_rails, want_rails != 200), "{name}: what Rails did");
+            assert_eq!((answer.status, answer.body.as_str()), (want_rust, page), "{name}");
+            continue;
+        }
         assert_eq!(answer.status, 200, "{name}: {}", &answer.body[..answer.body.len().min(300)]);
+        if let Some((_, unit)) = NO_RATE.iter().find(|(n, _)| *n == name) {
+            assert!(!answer.body.contains(&format!("<small>{unit}</small>")), "{name}: a figure under {unit} with no rate");
+        }
+        let mut rails_body = expected["body"].as_str().unwrap().to_string();
+        if let Some((_, at)) = OUTSIDE_LOCAL_DAY.iter().find(|(n, _)| *n == name) {
+            let id: i64 = c.query_row("SELECT id FROM account_transactions WHERE transacted_at=?1", [at], |r| r.get(0)).unwrap();
+            let start = rails_body.find(&format!("<tr id=\"account_transaction_{id}\"")).unwrap_or_else(|| panic!("{name}: Rails shows the row"));
+            let start = rails_body[..start].rfind('\n').unwrap() + 1;
+            // The row's partial and the blank line its loop writes after it.
+            let end = start + rails_body[start..].find("</tr>\n\n").unwrap() + 7;
+            rails_body.replace_range(start..end, "");
+        }
         let ours = grid::masked(&answer.body, Some(&app), Some(&token));
-        let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, expected["body"].as_str().unwrap())).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
+        let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, &rails_body)).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
         if ours != theirs {
             std::fs::write(Path::new(&root).join(format!("{name}.rust.html")), &ours).unwrap();
             std::fs::write(Path::new(&root).join(format!("{name}.rails.html")), &theirs).unwrap();
@@ -290,4 +325,119 @@ async fn a_warm_ledger_before_the_first_balance_sync_withholds_the_money() {
     let r = regions_of(&app, owner, |_| {}).await;
     assert!(r.holdings.contains(&deltabadger::web::i18n::t("en", "tracker.portfolio.never_synced", &[])), "{}", r.holdings);
     assert_eq!(r.tiles.matches("<span class=\"no-value\" title=\"Tracker figures unavailable: balances not yet synced with the current key\">").count(), 4, "{}", r.tiles);
+}
+
+/// A signed-in GET through the router.
+async fn get(app: &deltabadger::web::App, owner: i64, path: &str) -> (u16, String) {
+    let hash: String = app.db(move |c| Ok(c.query_row("SELECT encrypted_password FROM users WHERE id=?1", [owner], |r| r.get(0))?)).await.unwrap();
+    let data = session::SessionData { user: Some((owner, hash.chars().take(29).collect())), csrf: Some(deltabadger::web::csrf::new_token()), ..Default::default() };
+    let mut browser = common::web::Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
+    let answer = browser.send(app, "GET", path, None, common::web::Csrf::None, &[]).await;
+    (answer.status, answer.body)
+}
+
+/// Rows at the given instants (`tx_id` = the instant), on the install's venue.
+fn rows_at(file: &Path, owner: i64, instants: &[&str]) {
+    let c = Connection::open(file).unwrap();
+    c.execute("UPDATE users SET confirmed_at=created_at, setup_completed=1 WHERE id=?1", [owner]).unwrap();
+    let exchange: i64 = c.query_row("SELECT exchange_id FROM account_transactions WHERE user_id=?1 LIMIT 1", [owner], |r| r.get(0)).unwrap();
+    for at in instants {
+        c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,tx_id,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,0,'BTC','0.000001','USD','0.06',?3,?3,'{}','{}',?3,?3)",
+                  rusqlite::params![owner, exchange, at]).unwrap();
+    }
+}
+
+/// The page's rows (by `tx_id`) and the export's, for one window.
+async fn both(app: &deltabadger::web::App, owner: i64, file: &Path, query: &str) -> (Vec<String>, Vec<String>) {
+    let (status, page) = get(app, owner, &format!("/tracker?all=1&{query}")).await;
+    assert_eq!(status, 200, "{query}: {}", &page[..page.len().min(300)]);
+    let c = Connection::open(file).unwrap();
+    let mut shown: Vec<String> = page.match_indices("<tr id=\"account_transaction_").map(|(i, _)| {
+        let id: i64 = page[i + 28..].chars().take_while(char::is_ascii_digit).collect::<String>().parse().unwrap();
+        c.query_row("SELECT COALESCE(tx_id, transacted_at) FROM account_transactions WHERE id=?1", [id], |r| r.get(0)).unwrap()
+    }).collect();
+    let (status, csv) = get(app, owner, &format!("/tracker/export?{query}")).await;
+    assert_eq!(status, 200, "{query}: export");
+    let mut exported: Vec<String> = csv.lines().skip(1).map(|line| {
+        let cells: Vec<&str> = line.split(',').collect();
+        let at = chrono::DateTime::parse_from_rfc3339(cells[0]).unwrap().with_timezone(&chrono::Utc);
+        if cells[9].is_empty() { deltabadger::codec::format_time(at) } else { cells[9].to_string() }
+    }).collect();
+    shown.sort(); exported.sort();
+    (shown, exported)
+}
+
+/// PLAN-A19: the export and the page read one window, row for row, in the user's days (D-TRACKER-FILTER-USER-DAYS), and
+/// a bound left out is no bound: a row dated after today is in a window with no `to`.
+#[tokio::test(flavor = "current_thread")]
+async fn the_export_and_the_page_cut_the_same_window() {
+    let (_dir, app, owner, file) = warm_install(true).await;
+    rows_at(&file, owner, &["2026-09-05 03:59:59", "2026-09-05 04:00:00", "2026-09-06 03:59:59.999999", "2026-09-06 04:00:00", "2026-12-01 00:00:00"]);
+    for zone in ["UTC", "Santiago"] {
+        Connection::open(&file).unwrap().execute("UPDATE users SET time_zone=?1 WHERE id=?2", rusqlite::params![zone, owner]).unwrap();
+        for query in ["from=2026-09-05&to=2026-09-05", "from=2026-09-05", "to=2026-09-05", "from=2026-09-02&to=2026-09-01"] {
+            let (shown, exported) = both(&app, owner, &file, query).await;
+            assert_eq!(shown, exported, "{zone} {query}");
+        }
+    }
+    // Santiago's 2026-09-05 is 04:00Z to 03:59:59.999999Z the next day (−04:00 before the spring-forward of the 6th).
+    let (shown, _) = both(&app, owner, &file, "from=2026-09-05&to=2026-09-05").await;
+    assert_eq!(shown, ["2026-09-05 04:00:00", "2026-09-06 03:59:59.999999"], "the user's day, both ends kept");
+    let (shown, _) = both(&app, owner, &file, "from=2026-09-05").await;
+    assert!(shown.contains(&"2026-12-01 00:00:00".to_string()), "no `to`, no bound: {shown:?}");
+}
+
+/// D-TRACKER-FILTER-USER-DAYS at a repeated and a missing midnight, as ActiveSupport resolves them (`timezone::wall`):
+/// Magadan's 2014-10-26 starts at 14:00Z (the second 00:00, +10:00); Santiago's 2026-09-06 starts at 04:00Z (00:00 does not
+/// exist; 01:00 −03:00). A row on the UTC day but before the local one is out; one after the UTC day's end but on the
+/// local day is in.
+#[tokio::test(flavor = "current_thread")]
+async fn a_window_reads_the_users_day_across_a_clock_change() {
+    let (_dir, app, owner, file) = warm_install(true).await;
+    rows_at(&file, owner, &["2014-10-25 13:59:59.999999", "2014-10-25 14:00:00", "2014-10-26 13:59:59.999999", "2014-10-26 14:00:00",
+                           "2026-09-06 03:59:59.999999", "2026-09-06 04:00:00", "2026-09-07 01:00:00", "2026-09-07 02:59:59.999999", "2026-09-07 03:00:00"]);
+    let set = |zone: &str| Connection::open(&file).unwrap().execute("UPDATE users SET time_zone=?1 WHERE id=?2", rusqlite::params![zone, owner]).unwrap();
+    set("Magadan");
+    assert_eq!(both(&app, owner, &file, "from=2014-10-26&to=2014-10-26").await.0, ["2014-10-25 14:00:00", "2014-10-26 13:59:59.999999"]);
+    set("Santiago");
+    assert_eq!(both(&app, owner, &file, "from=2026-09-06&to=2026-09-06").await.0, ["2026-09-06 04:00:00", "2026-09-07 01:00:00", "2026-09-07 02:59:59.999999"]);
+}
+
+/// The refusals A19 lifted are gone from the tracker's handlers: nothing on these paths answers a 501.
+#[test]
+fn no_tracker_filter_refusal_is_left() {
+    for (path, text) in [("index.rs", include_str!("../src/web/tracker/index.rs")), ("first_sync.rs", include_str!("../src/web/tracker/first_sync.rs")),
+                         ("tracker.rs", include_str!("../src/web/tracker.rs")), ("record.rs", include_str!("../src/web/tracker/record.rs"))] {
+        for reason in ["tracker date and structured filters", "tracker date filters", "tracker display currency", "tracker structured filters", "tracker date syntax"] {
+            assert!(!text.contains(reason), "{path} still refuses: {reason}");
+        }
+    }
+}
+
+/// The export modal's default days are the export's own (Codex branch r1): for a Tokyo user whose first and last rows sit
+/// across UTC midnight, the days the modal offers export every row.
+#[tokio::test(flavor = "current_thread")]
+async fn the_export_modal_offers_the_days_the_export_reads() {
+    let (_dir, app, owner, file) = warm_install(true).await;
+    rows_at(&file, owner, &[]);
+    {
+        let c = Connection::open(&file).unwrap();
+        let exchange: i64 = c.query_row("SELECT exchange_id FROM account_transactions WHERE user_id=?1 LIMIT 1", [owner], |r| r.get(0)).unwrap();
+        c.execute("DELETE FROM account_transactions WHERE user_id=?1", [owner]).unwrap();
+        c.execute("UPDATE users SET time_zone='Tokyo' WHERE id=?1", [owner]).unwrap();
+        // The modal offers its form once market data is configured (no request reaches the provider here).
+        for (k, v) in [("market_data_provider", "coingecko"), ("coingecko_api_key", "synthetic-a19-key")] {
+            deltabadger::app_config::set(&c, &app.cipher, k, v, AT.parse().unwrap()).unwrap();
+        }
+        for at in ["2026-09-01 15:30:00", "2026-09-03 23:00:00"] {
+            c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,tx_id,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,0,'BTC','0.000001','USD','0.06',?3,?3,'{}','{}',?3,?3)",
+                      rusqlite::params![owner, exchange, at]).unwrap();
+        }
+    }
+    let (status, modal) = get(&app, owner, "/tracker/export_modal").await;
+    assert_eq!(status, 200, "{}", &modal[..modal.len().min(300)]);
+    let value = |name: &str| { let at = modal.find(&format!("name=\"{name}\"")).unwrap(); let v = at + modal[at..].find("value=\"").unwrap() + 7; modal[v..v + 10].to_string() };
+    assert_eq!((value("from"), value("to")), ("2026-09-02".to_string(), "2026-09-04".to_string()), "Tokyo's days");
+    let (_, csv) = get(&app, owner, &format!("/tracker/export?from={}&to={}", value("from"), value("to"))).await;
+    assert_eq!(csv.lines().count(), 3, "both rows exported: {csv}");
 }

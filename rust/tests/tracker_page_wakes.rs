@@ -57,7 +57,9 @@ async fn a_served_page_wakes_what_is_wanted_and_a_refused_page_wakes_nothing() {
 
     // Nothing swept, no ledger cached.
     assert_eq!(wakes(&app, &mut b, "/tracker").await, (200, both.clone()));
-    for refused in ["/tracker?from=2026-09-01", "/tracker?exchange_id[]=1", "/tracker?exchange_id=999999"] {
+    // A window narrows the table only (PLAN-A19): the page is served and wants what the unwindowed one wants.
+    assert_eq!(wakes(&app, &mut b, "/tracker?from=2026-09-01").await, (200, both.clone()));
+    for refused in ["/tracker?from=2026-02-30", "/tracker?exchange_id[]=1", "/tracker?exchange_id=999999"] {
         let (status, asked) = wakes(&app, &mut b, refused).await;
         assert_ne!(status, 200, "{refused}");
         assert!(asked.is_empty(), "{refused} woke {asked:?}");

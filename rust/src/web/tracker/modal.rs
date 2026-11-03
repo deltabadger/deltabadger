@@ -64,9 +64,12 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
         years.push_str(&format!("              <option value=\"{y}\" data-scopes=\"{scopes}\" {}>{y}</option>\n",if selected==i64::from(y){"selected"}else{""}));
     }
     let (earliest,latest):(Option<String>,Option<String>)=c.query_row("SELECT min(transacted_at),max(transacted_at) FROM account_transactions WHERE user_id=?1",[owner],|r|Ok((r.get(0)?,r.get(1)?)))?;
-    let day=|value:Option<String>|->Result<Option<String>,WebError>{value.map(|s|crate::codec::parse_time(&s).map(|t|t.date_naive().to_string()).map_err(|_|invalid())).transpose()};
+    // The export reads these days in the user's zone (D-TRACKER-FILTER-USER-DAYS), so its defaults are written in it too:
+    // a UTC day would leave out the rows the zone moves across midnight.
+    let zone=super::window::zone(ctx);
+    let day=|value:Option<String>|->Result<Option<String>,WebError>{value.map(|s|crate::codec::parse_time(&s).map(|t|t.with_timezone(&zone).date_naive().to_string()).map_err(|_|invalid())).transpose()};
     let from=if settings["export_from"].is_null() || settings["export_from"]==false{day(earliest)?.unwrap_or(String::new())}else{text(&settings["export_from"])};
-    let to=if settings["export_to"].is_null() || settings["export_to"]==false{day(latest)?.unwrap_or(ctx.now.date_naive().to_string())}else{text(&settings["export_to"])};
+    let to=if settings["export_to"].is_null() || settings["export_to"]==false{day(latest)?.unwrap_or(ctx.now.with_timezone(&zone).date_naive().to_string())}else{text(&settings["export_to"])};
     let (scope,panel)=super::classifications::panel(c,ctx,owner,&settings)?;
     Ok(Modal{ctx,pl,countries,years,type_switch,export_type:if transactions{"transactions"}else{"tax_report"},checked_stable:checked(!settings["stablecoin_as_fiat"].is_null() && settings["stablecoin_as_fiat"]!=false),hide_tax:hidden(transactions),hide_transactions:hidden(!transactions),from,to,label:ctx.t(if transactions{"tracker.export_modal.download_label"}else{"tracker.export_modal.generate"}),scope,panel}.render()?)
 }

@@ -76,7 +76,10 @@ module TrackerExport
      ['nothing_in_window', '/tracker/export?from=2027-01-01', nil],
      ['locale_prefix', '/de/tracker/export?from=2026-01-07', nil],
      ['missing_venue', '/tracker/export?exchange_id=999999', nil],
-     ['impossible_date', '/tracker/export?from=2026-02-30', nil]]
+     ['impossible_date', '/tracker/export?from=2026-02-30', nil],
+     # A19: a structured day (Rails raises) and a day Date.parse reads that is no ISO day (Rails serves the window).
+     ['structured_from', '/tracker/export?from[]=2026-01-05', nil],
+     ['non_iso', '/tracker/export?from=Jan%205%202026', nil]]
   end
 
   def request(session, user, path, settings)

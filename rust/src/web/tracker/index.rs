@@ -1,4 +1,4 @@
-//! Early index views only. Populated pages and date-filtered views stay explicitly deferred.
+//! TrackerController#index: the early views, the first-sync and cold pages, and the populated page.
 use super::{auth,layout,Ctx,App,WebError};
 use crate::web::{shell::{self,Shell},i18n::{self,Arg}};
 use axum::{extract::{Extension,State},http::StatusCode,response::Response};
@@ -13,19 +13,18 @@ fn needs_market_data(c:&Connection,owner:i64)->Result<bool,WebError>{
     Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id NOT IN (SELECT id FROM exchanges WHERE type IN ('Exchanges::Alpaca','Exchanges::Ibkr'))) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id NOT IN (SELECT id FROM exchanges WHERE type IN ('Exchanges::Alpaca','Exchanges::Ibkr')))",[owner],|r|r.get(0))?)
 }
 
-fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:Option<&super::fx::Prepared>)->Result<Response,WebError>{
+fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Response,WebError>{
     let missing=!crate::web::bots::market_data(c,&ctx.app)?.1 && needs_market_data(c,owner)?;
     if !missing {
-        // Only scope IDs used by this slice are interpreted. Date parsing and populated filters
-        // arrive with the populated index. A refusal never claims that those pages are empty.
+        // Rails' order: the venue (`Exchange.find`, 404) before any date is read.
         if let Some(raw)=ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()) {
             let Some(id)=crate::web::bot::id_from_path(raw) else{return Ok(layout::missing())};
             let exists:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get(0))?;
             if !exists{return Ok(layout::missing());}
         }
-        if ctx.params.query.iter().any(|(k,_)| k.starts_with("exchange_id[") || k.starts_with("from[") || k.starts_with("to[")) {
-            return Ok(layout::refused(ctx,"tracker date and structured filters"));
-        }
+        if let Some(answer)=super::window::structured_exchange(c,ctx)? {return Ok(answer);}
+        // `filtered_transactions` reads the window on every page past the market-data check (PLAN-A19).
+        if super::window::read(ctx,super::window::zone(ctx)).is_err() {return Ok(layout::bad_request());}
         let populated:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)",[owner],|r|r.get(0))?;
         let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
         let settings:serde_json::Value=match settings {Some(text)=>serde_json::from_str(&text).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
@@ -35,17 +34,9 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:Option<&super::fx::Prepared>)->Res
             // read by the full page only.
             if !pending && super::first_sync::supported(c,owner)? {return super::first_sync::render(c,ctx,owner);}
             if !pending && super::holdings::supported(c,owner)? {
-                if let Some(fx)=fx {let cold=super::holdings::prepare(c,ctx,owner,fx)?;return super::first_sync::render_with(c,ctx,owner,Some(cold));}
+                let cold=super::holdings::prepare(c,ctx,owner,fx)?;return super::first_sync::render_with(c,ctx,owner,Some(cold));
             }
-            // Date filters are the next slice: a window is never served as the whole record.
-            if ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty())) {
-                return Ok(layout::refused(ctx,"tracker date filters"));
-            }
-            let Some(fx)=fx else{return Ok(layout::refused(ctx,"tracker display currency"))};
             return super::populated::page(c,ctx,owner,fx);
-        }
-        if ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty())) {
-            return Ok(layout::refused(ctx,"tracker date and structured filters"));
         }
     }
     let Some(user)=ctx.user() else{return Ok(auth::unauthenticated(ctx))};
@@ -87,7 +78,7 @@ pub async fn index(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<
     // The display currency's rate as held: a page never fetches it (`fx::held`). Only a page served asks for jobs.
     let (page,wanted)=app.db(move|c|super::read::only(c,|c|{
         let fx=super::fx::held(&ctx.app,c,owner)?;
-        let page=render(c,&ctx,owner,Some(&fx))?;
+        let page=render(c,&ctx,owner,&fx)?;
         let wanted=if page.status()==StatusCode::OK {wakes(c,&ctx,owner)?} else {vec![]};
         Ok((page,wanted))
     })).await?;
