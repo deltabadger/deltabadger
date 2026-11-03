@@ -186,6 +186,7 @@ struct NotPorted<'a> {
     frame: &'a str,
     method: &'a str,
     path: &'a str,
+    note: Option<&'a str>,
 }
 
 #[derive(Template)]
@@ -193,6 +194,8 @@ struct NotPorted<'a> {
 struct NotPortedMessage<'a> {
     method: &'a str,
     path: &'a str,
+    /// One line for the owner under the request (PLAN-A23 Q4: why a legacy bot stays as it is).
+    note: Option<&'a str>,
 }
 
 /// A rendered view on its way into a layout.
@@ -228,15 +231,17 @@ pub fn devise(ctx: &Ctx, csrf: &str, page: Page) -> Result<Response, WebError> {
 /// request that also accepts a Turbo Stream (the redirect a nested frame's form submission follows: Turbo renders a stream
 /// before it looks at the status, and loads a failed submission into the frame that holds the form) gets the message as a
 /// stream that updates that frame instead.
-pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>, stream: bool) -> Response {
+pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>, stream: bool) -> Response { noted(method, path, frame, stream, None) }
+
+fn noted(method: &Method, path: &str, frame: Option<&str>, stream: bool, note: Option<&str>) -> Response {
     let safe=locale::without_secret_query(path);
     if let (Some(frame), true) = (frame, stream) {
-        return match (NotPortedMessage { method: method.as_str(), path: &safe }).render() {
+        return match (NotPortedMessage { method: method.as_str(), path: &safe, note }).render() {
             Ok(inner) => (StatusCode::NOT_IMPLEMENTED, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], turbo::stream("update", frame, &inner)).into_response(),
             Err(error) => WebError::from(error).into_response(),
         };
     }
-    let page = NotPorted { frame: frame.unwrap_or("not-ported"), method: method.as_str(), path:&safe };
+    let page = NotPorted { frame: frame.unwrap_or("not-ported"), method: method.as_str(), path:&safe, note };
     match page.render() {
         Ok(body) => html(StatusCode::NOT_IMPLEMENTED, body),
         Err(error) => WebError::from(error).into_response(),
@@ -269,6 +274,12 @@ pub fn missing() -> Response {
 pub fn refused(ctx: &Ctx, reason: &str) -> Response {
     crate::eline!("deltabadger: {} {} is not served: {reason}", ctx.method, super::hook::mask_hook_path(&locale::without_secret_query(&ctx.params.fullpath)));
     not_ported_for(ctx)
+}
+
+/// `refused` with one line for the owner on the page (PLAN-A23 Q4).
+pub fn refused_noted(ctx: &Ctx, reason: &str, note: &str) -> Response {
+    crate::eline!("deltabadger: {} {} is not served: {reason}", ctx.method, super::hook::mask_hook_path(&locale::without_secret_query(&ctx.params.fullpath)));
+    noted(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref(), ctx.stream, Some(note))
 }
 
 /// The answer to a failed read of a bot: the 501 page when it failed on a stored number this build

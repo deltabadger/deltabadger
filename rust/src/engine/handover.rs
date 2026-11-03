@@ -92,7 +92,9 @@ pub const RAILS_WORK: &[(&str, RailsWork)] = {
         ("AppUpdate::CheckJob", WakeUnscoped(crate::jobs::app_update::NAME)), ("Asset::FetchAllAssetsDataFromCoingeckoJob", WakeUnscoped(crate::jobs::reference::ASSETS)),
         ("Asset::FetchDataFromCoingeckoJob", Wake(crate::jobs::reference::ASSET_DATA)),
         ("Asset::InferColorFromImageJob", Wake(crate::jobs::asset_color::NAME)), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
-        ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped), ("Bot::ConvertSingleAssetBotsJob", Dropped),
+        ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped),
+        // PLAN-A23: its work is every start's own pass now (set_aside::apply → single_asset::convert_all).
+        ("Bot::ConvertSingleAssetBotsJob", Dropped),
         ("Bot::EvaluateRebalancersJob", Dropped), ("Bot::RepairOrphanedBotsJob", Dropped), ("Exchange::SyncAllTickersAndAssetsJob", Dropped),
         ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", WakeUnscoped(crate::jobs::reference::TICKERS)), ("Ibkr::CheckActivationJob", Dropped),
         ("Index::SyncFromCoingeckoJob", Dropped), ("Setup::SeedAndSyncJob", WakeUnscoped(crate::jobs::setup_sync::NAME)), ("SolidQueue::RecurringJob", Dropped),
@@ -179,6 +181,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         Err(hard) => return Err(EngineError::HardStop(super::set_aside::hard_stop(&hard))),
     };
     let report = plan.report;
+    let converted = plan.converted.iter().map(|id| super::set_aside::converted(&tx, *id)).collect::<Result<Vec<_>, _>>()?;
     // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
     super::reconcile::mark_adopted(&tx, cipher, now)?;
     let claim = lease::claim(lock, &tx, cipher, version, now)?;
@@ -200,7 +203,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     write_queue_done(&tx, &done, now)?;
     // Before the commit: once it lands, a crash would skip these rows for good, so the line must already be out. A failed
     // commit repeats it next start, which is harmless.
-    for line in &work.log { super::log(line); }
+    for line in work.log.iter().chain(&converted) { super::log(line); }
     tx.commit()?;
     // A crash here leaves the outcomes committed and Rails' rows queued: the next start deletes them and repeats nothing.
     #[cfg(debug_assertions)]
