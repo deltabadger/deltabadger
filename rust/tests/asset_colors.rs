@@ -394,10 +394,13 @@ async fn a_dropped_run_still_wakes_its_committed_unit() {
     let id = c.last_insert_rowid();
     let cols = import::coingecko_columns("c", &json!({ "symbol": "c", "name": "n", "image": "https://img/c.png" })).unwrap().unwrap();
     let db = Db::new(c, seed::cipher());
-    let woken = Arc::new(std::sync::Mutex::new(vec![]));
-    let w = woken.clone();
-    let dropped = tokio::time::timeout(Duration::ZERO, import::refresh_assets(&db, vec![(id, cols)], at(NOW), move |ids| w.lock().unwrap().extend(ids))).await;
+    let (woken, held) = (Arc::new(std::sync::Mutex::new(vec![])), Arc::new(std::sync::Barrier::new(2)));
+    let (w, h) = (woken.clone(), held.clone());
+    // The unit's wake waits on the barrier, so the run is still awaiting it when the timeout drops the run.
+    let wake = move |ids: Vec<i64>| { w.lock().unwrap().extend(ids); h.wait(); };
+    let dropped = tokio::time::timeout(Duration::from_millis(50), import::refresh_assets(&db, vec![(id, cols)], at(NOW), wake)).await;
     assert!(dropped.is_err(), "the run was dropped before its unit ended");
+    tokio::task::spawn_blocking(move || held.wait()).await.unwrap();
     db.settled().await;
     assert_eq!(*woken.lock().unwrap(), [id]);
     let image: Option<String> = reopen(&d).query_row("SELECT image_url FROM assets WHERE id = ?1", [id], |r| r.get(0)).unwrap();
