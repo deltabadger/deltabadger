@@ -97,6 +97,8 @@ impl CoinGecko<LiveTransport> {
 impl<T: Transport> CoinGecko<T> {
     pub fn new(key: &str, transport: T) -> Self { Self { key: key.into(), transport, plan: Default::default(), throttle: None, limited: Default::default() } }
     pub fn with_throttle(mut self, t: Arc<Throttle>) -> Self { self.throttle = Some(t); self }
+    /// The plan already known (parity harnesses: Rails' pre-seeded `@detect_plan`), so no ping is asked.
+    pub fn with_plan(self, plan: Plan) -> Self { let _ = self.plan.set(plan); self }
     pub fn transport(&self) -> &T { &self.transport }
     /// Whether a key is set (Coingecko's `@api_key.blank?` guard is the caller's).
     pub fn has_key(&self) -> bool { !self.key.trim().is_empty() }

@@ -11,7 +11,8 @@ use super::fx::FxTable;
 use super::rows::Stored;
 use super::{fiat, stable};
 use crate::figures::{at::At, dec::Dec, FiguresError};
-use crate::jobs::data_api::{ApiError, DataApi};
+use crate::jobs::data_api::ApiError;
+use crate::jobs::market::Feed;
 use crate::venue::http::Transport;
 use chrono::{Days, NaiveDate};
 use rusqlite::{Connection, OptionalExtension};
@@ -554,16 +555,26 @@ pub fn covered(fetch: &Fetch, have: &HashSet<NaiveDate>) -> bool {
     (0..span(fetch.from, fetch.to)).all(|i| have.contains(&plus(fetch.from, i as u64)))
 }
 
-/// Tax::PriceService#fetch_price_range's request: nothing when the table covers every day; else data-api's
-/// `GET /api/v1/historical_prices` from the first day's midnight to the midnight after the last (UTC), and the days in
-/// range it priced that the table lacks, a zero or null left out. A failed answer stores nothing; a transport failure
-/// a retry could fix is an error (Rails raises it out of the job).
-pub async fn fetch_range<T: Transport>(api: &DataApi<T>, fetch: &Fetch, have: &HashSet<NaiveDate>) -> Result<Vec<PriceRow>, String> {
+/// Tax::PriceService#fetch_price_range's request: nothing when the table covers every day; else the provider's daily
+/// range (MarketData.get_historical_price_range) from the first day's midnight to the midnight after the last (UTC), and
+/// the days in range it priced that the table lacks, a zero or null left out. A failed answer stores nothing; a transport
+/// failure a retry could fix is an error (Rails raises it out of the job).
+///
+/// D-CG-HISTORY-WINDOW: on a demo CoinGecko key the span is asked from the window's first day at the run's clock `now`
+/// (`Feed::history_starts`); a span wholly before it, or whose days inside it are all stored, asks nothing. Rails asks the
+/// whole span, which CoinGecko refuses, storing nothing.
+pub async fn fetch_range<T: Transport>(feed: &Feed<T>, fetch: &Fetch, have: &HashSet<NaiveDate>, now: chrono::DateTime<chrono::Utc>) -> Result<Vec<PriceRow>, String> {
     if covered(fetch, have) { return Ok(vec![]); }
-    let midnight = |d: NaiveDate| d.and_hms_opt(0, 0, 0).map_or(0, |t| t.and_utc().timestamp());
-    let (from, to) = (midnight(fetch.from).to_string(), midnight(plus(fetch.to, 1)).to_string());
-    let currency = fetch.currency.to_lowercase();
-    let body = match api.get("/api/v1/historical_prices", &[("coin_id", &fetch.coin), ("currency", &currency), ("from", &from), ("to", &to)], false).await {
+    let from = match feed.history_starts(now).await {
+        Ok(Some(start)) if fetch.to < start => return Ok(vec![]),
+        Ok(start) => start.map_or(fetch.from, |start| fetch.from.max(start)),
+        Err(ApiError::Transient(m)) => return Err(m),
+        Err(_) => return Ok(vec![]),
+    };
+    let asked = Fetch { from, ..fetch.clone() };
+    if covered(&asked, have) { return Ok(vec![]); }
+    let midnight = |d: NaiveDate| d.and_hms_opt(0, 0, 0).map_or(chrono::DateTime::UNIX_EPOCH, |t| t.and_utc());
+    let body = match feed.historical_range(&fetch.coin, &fetch.currency.to_lowercase(), midnight(asked.from), midnight(plus(fetch.to, 1))).await {
         Ok(body) => body,
         Err(ApiError::Transient(m)) => return Err(m),
         Err(ApiError::Failed { .. } | ApiError::Refused(_)) => return Ok(vec![]),
@@ -576,7 +587,7 @@ pub async fn fetch_range<T: Transport>(api: &DataApi<T>, fetch: &Fetch, have: &H
         let Ok(price) = crate::figures::budget::within(|| Dec::to_d(price)) else { continue };
         if price.is_zero() { continue; }
         let Some(day) = chrono::DateTime::from_timestamp_millis(ms.floor() as i64).map(|t| t.date_naive()) else { continue };
-        if day < fetch.from || day > fetch.to || !seen.insert(day) { continue; }
+        if day < asked.from || day > fetch.to || !seen.insert(day) { continue; }
         rows.push((fetch.symbol.clone(), day, price.to_s_f()));
     }
     Ok(rows)
@@ -696,7 +707,7 @@ pub fn stored_closes(c: &Connection, asset: &str, from: NaiveDate, to: NaiveDate
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jobs::data_api::Config;
+    use crate::jobs::data_api::{Config, DataApi};
     use crate::venue::http::ScriptedTransport;
 
     fn day(s: &str) -> NaiveDate { NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap() }
@@ -818,16 +829,44 @@ mod tests {
     async fn a_range_is_asked_once_and_only_new_priced_days_are_kept() {
         let t = ScriptedTransport::from_script(&serde_json::json!({ "GET /api/v1/historical_prices": [{ "status": 200, "body": { "prices": [
             [1788134400000u64, 60100.5], [1788220800000u64, 0], [1788307200000u64, null], [1788393600000u64, 60300], [1788480000000u64, 60400], [1788566400000u64, 1] ] } }] }));
-        let api = DataApi::new(Config { url: "http://data-api:3000".into(), token: "t".into() }, t.clone(), t.clone());
+        let api = Feed::DataApi(DataApi::new(Config { url: "http://data-api:3000".into(), token: "t".into() }, t.clone(), t.clone()));
         let fetch = Fetch::usd("bitcoin".into(), "BTC".into(), day("2026-08-31"), day("2026-09-03"));
         let have: HashSet<NaiveDate> = [day("2026-09-03")].into();
-        let rows = fetch_range(&api, &fetch, &have).await.unwrap();
+        let now = "2030-01-01T00:00:00Z".parse().unwrap();
+        let rows = fetch_range(&api, &fetch, &have, now).await.unwrap();
         assert_eq!(rows, [("BTC".to_string(), day("2026-08-31"), "60100.5".to_string())]);
         let q: Vec<(String, String)> = t.requests()[0].query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
         assert_eq!(q, [("coin_id", "bitcoin"), ("currency", "usd"), ("from", "1788134400"), ("to", "1788480000")].map(|(k, v)| (k.to_string(), v.to_string())));
         let all: HashSet<NaiveDate> = ["2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03"].map(day).into();
-        assert!(fetch_range(&api, &fetch, &all).await.unwrap().is_empty());
+        assert!(fetch_range(&api, &fetch, &all, now).await.unwrap().is_empty());
         assert_eq!(t.requests().len(), 1, "a covered range asks nothing");
+    }
+
+    /// D-CG-HISTORY-WINDOW: a demo key's span is asked from the window's first day (2025-11-04 at 2026-11-03 12:00 UTC);
+    /// a span wholly before it, or whose window days are all stored, asks nothing; a pro key is not clipped.
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn a_demo_span_is_clipped_to_the_window() {
+        use crate::jobs::coingecko::{CoinGecko, Throttle};
+        let now: chrono::DateTime<chrono::Utc> = "2026-11-03T12:00:00Z".parse().unwrap();
+        let feed = |ping: u16| {
+            let t = ScriptedTransport::default();
+            t.reply("GET /api/v3/ping", ping, serde_json::json!({}))
+             .reply("GET /api/v3/coins/bitcoin/market_chart/range", 200, serde_json::json!({ "prices": [[1762128000000u64, 1], [1762214400000u64, 2], [1762300800000u64, 3]] }));
+            (Feed::CoinGecko(CoinGecko::new("k", t.clone()).with_throttle(std::sync::Arc::new(Throttle::new(250)))), t)
+        };
+        let crossing = Fetch::usd("bitcoin".into(), "BTC".into(), day("2025-11-01"), day("2025-11-05"));
+        let (demo, t) = feed(401);
+        let rows = fetch_range(&demo, &crossing, &HashSet::new(), now).await.unwrap();
+        assert_eq!(rows.iter().map(|r| r.1.to_string()).collect::<Vec<_>>(), ["2025-11-04", "2025-11-05"], "the cutoff day is kept, earlier days are not");
+        assert_eq!(t.requests()[1].query[0], ("from", "1762214400".to_string()), "asked from the cutoff's midnight");
+        let before = Fetch::usd("bitcoin".into(), "BTC".into(), day("2025-10-01"), day("2025-11-03"));
+        assert!(fetch_range(&demo, &before, &HashSet::new(), now).await.unwrap().is_empty());
+        let stored: HashSet<NaiveDate> = [day("2025-11-04"), day("2025-11-05")].into();
+        assert!(fetch_range(&demo, &crossing, &stored, now).await.unwrap().is_empty());
+        assert_eq!(t.requests().len(), 2, "one ping, one range; nothing for the span before the window or the stored window days");
+        let (pro, t) = feed(200);
+        assert_eq!(fetch_range(&pro, &crossing, &HashSet::new(), now).await.unwrap().len(), 3);
+        assert_eq!(t.requests()[1].query[0], ("from", "1761955200".to_string()), "a pro key asks the whole span");
     }
 
     /// Scripted fetches, recorded.

@@ -18,7 +18,7 @@ use super::walk::{self, Walked};
 use crate::crypto::Cipher;
 use crate::engine::Clock;
 use crate::figures::{budget, dec::Dec, FiguresError};
-use crate::jobs::data_api::DataApi;
+use crate::jobs::market::Feed;
 use crate::jobs::schedule::{Jitter, Schedule};
 use crate::jobs::{Cx, Db, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
 use crate::sync::jobs::Connect;
@@ -149,11 +149,11 @@ impl Fetcher for Channel {
     }
 }
 
-/// One fetch of a pass: the request, and what came back stored in its own write unit. With no data-api configured
-/// the install's provider is CoinGecko, which this build does not fetch from.
-async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&DataApi<T>>, f: &Fetch, have: &HashSet<NaiveDate>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
-    let Some(api) = api else { return Err(message(super::refused("historical prices from CoinGecko"))) };
-    let rows = prices::fetch_range(api, f, have).await?;
+/// One fetch of a pass: the request, and what came back stored in its own write unit. With no provider nothing is asked
+/// and nothing stored (MarketData's "No market data provider configured" failure).
+async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&Feed<T>>, f: &Fetch, have: &HashSet<NaiveDate>, now: DateTime<Utc>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
+    let Some(api) = api else { return Ok((vec![], 0)) };
+    let rows = prices::fetch_range(api, f, have, now).await?;
     if rows.is_empty() { return Ok((vec![], 0)); }
     let mut parsed = vec![];
     for (_, day, price) in &rows { parsed.push((*day, Dec::strict(price).map_err(|e| format!("{e:?}"))?)); }
@@ -170,9 +170,10 @@ async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&DataApi<T>>, f: &Fe
 
 /// One pass over `inputs`: `work` runs on a blocking thread with a price service over them, in a budget scope of what
 /// the run has left; each fetch it asks for is made here, between the walk's steps, and stored before the walk goes on.
-pub async fn pass<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi<T>>, inputs: Inputs, today: NaiveDate, allowance: &mut Allowance,
+pub async fn pass<T: Transport, R: Send + 'static>(db: &Db, api: Option<&Feed<T>>, inputs: Inputs, now: DateTime<Utc>, allowance: &mut Allowance,
     work: impl FnOnce(&Inputs, &mut PriceService) -> Result<R, FiguresError> + Send + 'static) -> Result<(R, Inputs), String> {
-    let (out, inputs) = fetching(db, api, allowance, move |fetcher| {
+    let today = now.date_naive();
+    let (out, inputs) = fetching(db, api, now, allowance, move |fetcher| {
         let out = { let mut ps = PriceService::new(&inputs.reference, &inputs.fx, today, fetcher); work(&inputs, &mut ps) };
         (out, inputs)
     }).await?;
@@ -181,8 +182,8 @@ pub async fn pass<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi
 
 /// `work` on a blocking thread holding no connection, in a budget scope of what the run has left, with a fetcher whose
 /// every request is made here, on the job's runtime thread, and stored in a write unit of its own before `work` goes on
-/// (the tracker's pass, the tax report's enrichment).
-pub async fn fetching<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi<T>>, allowance: &mut Allowance,
+/// (the tracker's pass, the tax report's enrichment). `now`: the run's clock reading (D-CG-HISTORY-WINDOW).
+pub async fn fetching<T: Transport, R: Send + 'static>(db: &Db, api: Option<&Feed<T>>, now: DateTime<Utc>, allowance: &mut Allowance,
     work: impl FnOnce(&mut dyn Fetcher) -> R + Send + 'static) -> Result<R, String> {
     let limits = budget::Limits { steps: allowance.steps, held: WALK.held };
     let (requests, mut asked) = tokio::sync::mpsc::channel::<Request>(1);
@@ -193,7 +194,7 @@ pub async fn fetching<T: Transport, R: Send + 'static>(db: &Db, api: Option<&Dat
         (out, used)
     });
     while let Some((f, have, reply)) = asked.recv().await {
-        let answer = match fetch_and_store(db, api, &f, &have).await {
+        let answer = match fetch_and_store(db, api, &f, &have, now).await {
             Ok((rows, stored)) => { allowance.stored += stored; Ok(rows) }
             Err(e) => Err(e),
         };
@@ -206,7 +207,7 @@ pub async fn fetching<T: Transport, R: Send + 'static>(db: &Db, api: Option<&Dat
 
 /// `Tracker::Ledger.compute!`: passes of `Ledger.scopes`, each loading the ECB rates (a PriceService is built per walk)
 /// and its inputs afresh, until the ledger's version (rows and price generation) held still over one, at most three.
-pub async fn compute<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, allowance: &mut Allowance)
+pub async fn compute<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, allowance: &mut Allowance)
     -> Result<(Walked, Inputs, DateTime<Utc>), String> {
     let mut last = None;
     for _ in 0..COMPUTE_PASSES {
@@ -215,7 +216,7 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Optio
         fx::ensure_loaded(db, ecb, today).await;
         let inputs = metered(db, allowance, move |c, _| load_inputs(c, user_id)).await?;
         let now = crate::figures::at::At::from_utc(began).ok_or("an instant out of range")?;
-        let (walked, inputs) = pass(db, api, inputs, today, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await?;
+        let (walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await?;
         let (history, generation) = db.run(move |c, _| Ok((backfill::history_version(c, user_id).map_err(message)?, backfill::generation(c).map_err(message)?))).await?;
         let still = history == inputs.history && generation == inputs.generation;
         last = Some((walked, inputs, began));
@@ -227,7 +228,7 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Optio
 /// Tracker::LedgerJob#perform: the passes, then today's snapshot rows and the wash-sale locks in one write unit dated
 /// when it is written, and the ledger cache published beside them when its version still holds. Nothing is written
 /// when the rows or the balances moved after the last pass read them. Returns the walk and whether the cache published.
-pub async fn ledger_run<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<Walked, String> {
+pub async fn ledger_run<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<Walked, String> {
     // Today's snapshot refused (R4/R5) is the run's error, whatever became of the page cache beside it.
     match ledger_run_published(db, api, ecb, user_id, clock, wall, allowance).await? {
         (walked, _, true) => Ok(walked),
@@ -246,7 +247,7 @@ pub enum Published {
 }
 
 /// The walk, what became of the page cache, and whether today's snapshot was written.
-async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<(Walked, Published, bool), String> {
+async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<(Walked, Published, bool), String> {
     let (walked, inputs, began) = compute(db, api, ecb, user_id, clock, allowance).await?;
     let today = began.date_naive();
     let walked = std::sync::Arc::new(walked);
@@ -284,7 +285,7 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, e
 
 /// PortfolioSnapshot::BackfillJob#perform. Returns whether a history was written (none before the first transaction's
 /// day has ended). Every venue's history is swept; nothing is written when the rows moved after its walk read them.
-pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock) -> Result<bool, String> {
+pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&Feed<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock) -> Result<bool, String> {
     let now = clock.now();
     let today = now.date_naive();
     let last = today.pred_opt().unwrap_or(today);
@@ -310,7 +311,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let Some((version, first, plan)) = begun else { return Ok(false) };
     // The price service `fetch_missing` builds.
     if !plan.instruments.is_empty() { fx::ensure_loaded(db, ecb, today).await; }
-    fetch_closes(db, venues, api, &plan).await?;
+    fetch_closes(db, venues, api, &plan, now).await?;
     // `load_prices`' table, built before the money-in walk.
     let plan = std::sync::Arc::new(plan);
     let p = plan.clone();
@@ -318,7 +319,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     // `Tracker::Ledger.money_in`: one walk, its terms alone.
     fx::ensure_loaded(db, ecb, today).await;
     let inputs = metered(db, &mut allowance, move |c, _| load_inputs(c, user_id)).await?;
-    let (terms, inputs) = pass(db, api, inputs, today, &mut allowance, |i, ps| walk::terms(&i.rows, &i.deposits, ps)).await?;
+    let (terms, inputs) = pass(db, api, inputs, now, &mut allowance, |i, ps| walk::terms(&i.rows, &i.deposits, ps)).await?;
     let version = std::sync::Arc::new(version);
     metered(db, &mut allowance, move |c, cipher| {
         written_for(c, &inputs.origin, &|| now, |fenced, _| {
@@ -340,15 +341,15 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
 
 /// Fetches one range unless the table covers it, and stores what came back (`fetch_price_range` for the backfill's
 /// instruments).
-async fn fetch<T: Transport>(db: &Db, api: Option<&DataApi<T>>, f: Fetch) -> Result<usize, String> {
+async fn fetch<T: Transport>(db: &Db, api: Option<&Feed<T>>, f: Fetch, now: DateTime<Utc>) -> Result<usize, String> {
     let (asset, currency, from, to) = (f.symbol.clone(), f.currency.clone(), f.from, f.to);
     let have = db.run(move |c, _| prices::stored_days(c, &asset, &currency, from, to).map_err(message)).await?;
     if prices::covered(&f, &have) { return Ok(0); }
-    fetch_and_store(db, api, &f, &have).await.map(|(_, stored)| stored)
+    fetch_and_store(db, api, &f, &have, now).await.map(|(_, stored)| stored)
 }
 
 /// `fetch_missing` for every instrument: each coin's ranges from data-api, each stock's closes from the broker.
-async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&DataApi<T>>, plan: &Plan) -> Result<(), String> {
+async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&Feed<T>>, plan: &Plan, now: DateTime<Utc>) -> Result<(), String> {
     // Every bar request's key and stored closes, read once before the requests.
     let bars: Vec<backfill::Bars> = plan.fetches.iter().filter_map(|f| match f { backfill::Close::Bars(b) => Some(b.clone()), _ => None }).collect();
     let wanted = bars.clone();
@@ -364,7 +365,7 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
         Ok((keys, stored))
     }).await?;
     for close in &plan.fetches {
-        let bars = match close { backfill::Close::Range(f) => { fetch(db, api, f.clone()).await?; continue } backfill::Close::Bars(b) => b };
+        let bars = match close { backfill::Close::Range(f) => { fetch(db, api, f.clone(), now).await?; continue } backfill::Close::Bars(b) => b };
         let (Some(key), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
         prices::fetch_stock_bars(db, venues, key, &bars.symbol, (bars.from, bars.to), have).await?;
@@ -373,7 +374,7 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
 }
 
 /// `tracker_ledger`, scoped by the user.
-pub struct LedgerWalk<T: Transport> { api: Rc<Option<DataApi<T>>>, ecb: Option<fx::Source>, user_id: i64, wall: Wall }
+pub struct LedgerWalk<T: Transport> { api: Rc<Option<Feed<T>>>, ecb: Option<fx::Source>, user_id: i64, wall: Wall }
 
 impl<T: Transport> Job for LedgerWalk<T> {
     fn spec(&self) -> Spec {
@@ -389,13 +390,20 @@ impl<T: Transport> Job for LedgerWalk<T> {
                     // After today's refresh, never before it: the history-gap step, its own budget and row (tracker::gaps).
                     // A second refresh only when it wrote a gap to show; its failure is a log line, and a deadline here loses only that.
                     if published && super::gaps::derive_logged(&cx.db, self.user_id, self.wall.clone()).await { cx.db.notifications.ledger_done(self.user_id); }
-                    Outcome::Done
+                    limited(&self.api).unwrap_or(Outcome::Done)
                 }
                 Err(e) => Outcome::Failed(e),
             }
         })
     }
 }
+
+/// D-CG-429-STOPS-PRICES: a run whose price requests met a 429 kept what it wrote and records RateLimited; the gaps are
+/// asked at the next scheduled run or wake (Retry::None).
+pub fn limited<T: Transport>(api: &Option<Feed<T>>) -> Option<Outcome> {
+    api.as_ref().filter(|f| f.rate_limited()).map(|_| Outcome::RateLimited(RATE_LIMITED.into()))
+}
+pub const RATE_LIMITED: &str = "CoinGecko answered 429: no more prices asked this run; the missing ones are asked at the next run";
 
 /// Why a run's page cache did not publish: the ledger or the prices moved under it.
 pub const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during calculation";
@@ -404,7 +412,7 @@ pub const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed durin
 /// page states the calculation failed). A run that fails, or whose cache moved, wakes the next only if it stored a price
 /// itself (passes moved by its own price writes finish then); one that stored nothing made no progress, and a writer
 /// that moves the inputs wakes this job itself.
-async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:Option<&fx::Source>,owner:i64,wall:Wall)->Result<bool,String> {
+async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&Feed<T>>,ecb:Option<&fx::Source>,owner:i64,wall:Wall)->Result<bool,String> {
     let mut allowance=Allowance::run();
     let out=match ledger_run_published(&cx.db,api,ecb,owner,cx.clock,wall.clone(),&mut allowance).await {
         Ok((_,Published::Moved,_))=>Err(CACHE_MOVING.to_string()),
@@ -440,7 +448,7 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:O
 }
 
 /// `portfolio_backfill`, scoped by the user.
-pub struct Backfill<C: Connect, T: Transport> { venues: C, api: Rc<Option<DataApi<T>>>, user_id: i64 }
+pub struct Backfill<C: Connect, T: Transport> { venues: C, api: Rc<Option<Feed<T>>>, user_id: i64 }
 
 impl<C: Connect, T: Transport> Job for Backfill<C, T> {
     fn spec(&self) -> Spec {
@@ -458,8 +466,8 @@ impl<C: Connect, T: Transport> Job for Backfill<C, T> {
             let ecb = self.venues.ecb();
             match backfill_run(&cx.db, &self.venues, (*self.api).as_ref(), ecb.as_ref(), self.user_id, cx.clock).await {
                 // The prices that just arrived are the ones the ledger was missing: it walks again.
-                Ok(true) => { cx.wakers.wake(TRACKER_LEDGER, Some(&self.user_id.to_string()), None); Outcome::Done }
-                Ok(false) => Outcome::Done,
+                Ok(true) => { cx.wakers.wake(TRACKER_LEDGER, Some(&self.user_id.to_string()), None); limited(&self.api).unwrap_or(Outcome::Done) }
+                Ok(false) => limited(&self.api).unwrap_or(Outcome::Done),
                 Err(e) => Outcome::Failed(e),
             }
         })
@@ -467,7 +475,7 @@ impl<C: Connect, T: Transport> Job for Backfill<C, T> {
 }
 
 /// Construct a consumer for a user discovered after startup (including historical-only users).
-pub fn resolve<C: Connect + Clone + 'static,T: Transport + 'static>(name:&str,user_id:i64,venues:&C,api:Rc<Option<DataApi<T>>>,wall:Wall)->Option<Box<dyn Job>>{
+pub fn resolve<C: Connect + Clone + 'static,T: Transport + 'static>(name:&str,user_id:i64,venues:&C,api:Rc<Option<Feed<T>>>,wall:Wall)->Option<Box<dyn Job>>{
     match name{
         TRACKER_LEDGER=>Some(Box::new(LedgerWalk{api,ecb:venues.ecb(),user_id,wall})),
         PORTFOLIO_BACKFILL=>Some(Box::new(Backfill{venues:venues.clone(),api,user_id})),
@@ -477,7 +485,7 @@ pub fn resolve<C: Connect + Clone + 'static,T: Transport + 'static>(name:&str,us
 
 /// The tracker's jobs, per user with a reading key of a venue this build syncs (Alpaca, Binance, Binance.US), every walk
 /// before every backfill; today's rows dated by `wall` (`system_wall()` in the binary).
-pub fn register<C: Connect + Clone + 'static, T: Transport + 'static>(c: &Connection, venues: &C, api: Rc<Option<DataApi<T>>>, wall: Wall) -> Result<Vec<Box<dyn Job>>, String> {
+pub fn register<C: Connect + Clone + 'static, T: Transport + 'static>(c: &Connection, venues: &C, api: Rc<Option<Feed<T>>>, wall: Wall) -> Result<Vec<Box<dyn Job>>, String> {
     let (mut users, mut seen): (Vec<i64>, std::collections::HashSet<i64>) = (vec![], std::collections::HashSet::new());
     let mut s = c.prepare("SELECT id, user_id FROM api_keys").map_err(|e| e.to_string())?;
     let owners: HashMap<i64, i64> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
@@ -511,7 +519,7 @@ mod tests {
     use super::*;
     use crate::crypto::EncryptionKeys;
     use crate::engine::FixedClock;
-    use crate::jobs::data_api::Config;
+    use crate::jobs::data_api::{Config, DataApi};
     use crate::venue::http::ScriptedTransport;
     use serde_json::{json, Value};
 
@@ -521,9 +529,9 @@ mod tests {
     fn prices(days: &[(NaiveDate, f64)]) -> Value {
         json!({ "status": 200, "body": { "prices": days.iter().map(|(d, p)| json!([d.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis(), p])).collect::<Vec<_>>() } })
     }
-    fn data_api(answers: Vec<Value>) -> (DataApi<ScriptedTransport>, ScriptedTransport) {
+    fn data_api(answers: Vec<Value>) -> (Feed<ScriptedTransport>, ScriptedTransport) {
         let t = ScriptedTransport::from_script(&json!({ "GET /api/v1/historical_prices": answers }));
-        (DataApi::new(Config { url: "http://data-api:3000".into(), token: "t".into() }, t.clone(), t.clone()), t)
+        (Feed::DataApi(DataApi::new(Config { url: "http://data-api:3000".into(), token: "t".into() }, t.clone(), t.clone())), t)
     }
 
     /// An Alpaca install listing AAPL and BTC, with `rows`: (entry type, symbol, amount, its price in USD, time).
@@ -560,7 +568,7 @@ mod tests {
         let mut allowance = Allowance::run();
         let inputs = metered(&db, &mut allowance, |c, _| load_inputs(c, 1)).await.unwrap();
         let now = crate::figures::at::At::from_utc(at("2026-10-01T03:00:00Z")).unwrap();
-        let (walked, _) = pass(&db, Some(&api), inputs, day("2026-10-01"), &mut allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await.unwrap();
+        let (walked, _) = pass(&db, Some(&api), inputs, at("2026-10-01T03:00:00Z"), &mut allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await.unwrap();
         assert!(walked.whole.loss_sales.is_empty(), "the global opening had no price");
         // An opening's lookup takes its warning back, and the located walk is fully priced: the figures are complete.
         assert!(!walked.whole.incomplete);
@@ -591,15 +599,15 @@ mod tests {
         assert_eq!(t.requests().len(), 2, "one pass: nothing stored, nothing moved");
     }
 
-    /// With no data-api configured the provider is CoinGecko, which this build does not fetch from: a walk that needs a
-    /// price it lacks is refused with the reason, and one that needs none walks.
+    /// With no provider nothing is asked (MarketData's "No market data provider configured" failure): a walk that
+    /// needs a price it lacks states its figures incomplete, and one that needs none walks.
     #[tokio::test(flavor = "current_thread")]
-    async fn an_unported_price_provider_refuses_the_walk_that_needs_it() {
+    async fn no_provider_asks_nothing_and_the_walk_goes_on() {
         let clock = FixedClock(at("2026-10-01T03:00:00Z"));
-        let out = compute(&install(&SOLD_FIRST), None::<&DataApi<ScriptedTransport>>, None, 1, &clock, &mut Allowance::run()).await.map(|_| ());
-        assert_eq!(out, Err("the tracker walk is not ported for historical prices from CoinGecko".to_string()));
+        let (walked, _, _) = compute(&install(&SOLD_FIRST), None::<&Feed<ScriptedTransport>>, None, 1, &clock, &mut Allowance::run()).await.unwrap();
+        assert!(walked.whole.incomplete);
         let bought = [(4, "USD", "1000", None, "2026-09-01 14:00:00"), (0, "AAPL", "2", Some("400"), "2026-09-02 14:30:00")];
-        assert!(compute(&install(&bought), None::<&DataApi<ScriptedTransport>>, None, 1, &clock, &mut Allowance::run()).await.is_ok());
+        assert!(compute(&install(&bought), None::<&Feed<ScriptedTransport>>, None, 1, &clock, &mut Allowance::run()).await.is_ok());
     }
 
     /// The day a row is recorded on is the wall clock's once the write lock is held: a pass that begins at 23:59:59.99
@@ -613,7 +621,7 @@ mod tests {
         db.run(|c, _| c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 20000)
             INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, manual_values, updated_at)
             SELECT 1, 1, 0, 'AAPL', 0.001, 'USD', 0.2, '2026-09-03 14:30:00', '{}', '{}', '2026-09-03 14:30:00' FROM n").map_err(|e| e.to_string())).await.unwrap();
-        let (_, _, began) = compute(&db, None::<&DataApi<ScriptedTransport>>, None, 1, &FixedClock(late), &mut Allowance::run()).await.unwrap();
+        let (_, _, began) = compute(&db, None::<&Feed<ScriptedTransport>>, None, 1, &FixedClock(late), &mut Allowance::run()).await.unwrap();
         let dated = db.run(move |c, _| written(c, &wall, |_, now| Ok((began.date_naive(), now.date_naive()))).map_err(message)).await;
         assert_eq!(dated, Ok((day("2026-09-30"), day("2026-10-01"))), "the pass began before midnight; its work crossed it");
     }

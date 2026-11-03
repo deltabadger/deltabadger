@@ -80,7 +80,7 @@ async fn producer_changed_inputs_run_again_on_the_writers_wake(){
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }
 /// 120 coin fees on 120 days, each day's price arriving only with its own fetch.
-fn priced_one_day_at_a_time(c:&rusqlite::Connection,owner:i64,venue:i64)->(Rc<Option<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>>,ScriptedTransport){
+fn priced_one_day_at_a_time(c:&rusqlite::Connection,owner:i64,venue:i64)->(Rc<Option<deltabadger::jobs::market::Feed<ScriptedTransport>>>,ScriptedTransport){
     common::seed::fresh_stock_jobs(c,clock().0);
     let days:Vec<chrono::NaiveDate>=(0..120).map(|i|"2026-05-01".parse::<chrono::NaiveDate>().unwrap()+chrono::Days::new(i)).collect();
     let row="INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,?3,'BTC',?4,?5,?6,?7,'{}','{}','2026-09-01 00:00:00','2026-09-01 00:00:00')";
@@ -90,9 +90,9 @@ fn priced_one_day_at_a_time(c:&rusqlite::Connection,owner:i64,venue:i64)->(Rc<Op
     let mut answers=vec![price(&[])]; // the first run's prefetch
     answers.extend(days.iter().map(|d|price(&[*d])));
     let t=ScriptedTransport::from_script(&json!({"GET /api/v1/historical_prices":answers}));
-    (Rc::new(Some(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone()))),t)
+    (Rc::new(Some(deltabadger::jobs::market::Feed::DataApi(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone())))),t)
 }
-fn job_with(owner:i64,api:Rc<Option<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>>)->Box<dyn Job>{let now=clock().0;tracker::jobs::resolve::<Venues,ScriptedTransport>(tracker::jobs::TRACKER_LEDGER,owner,&Venues,api,Arc::new(move||now)).unwrap()}
+fn job_with(owner:i64,api:Rc<Option<deltabadger::jobs::market::Feed<ScriptedTransport>>>)->Box<dyn Job>{let now=clock().0;tracker::jobs::resolve::<Venues,ScriptedTransport>(tracker::jobs::TRACKER_LEDGER,owner,&Venues,api,Arc::new(move||now)).unwrap()}
 struct StopWhenDone { inner:Box<dyn Job>,stop:tokio::sync::watch::Sender<bool>,runs:Arc<std::sync::atomic::AtomicUsize> }
 impl Job for StopWhenDone {
     fn spec(&self)->jobs::Spec{self.inner.spec()}
@@ -143,7 +143,7 @@ async fn a_run_moved_only_by_its_own_price_writes_wakes_the_next_and_the_cache_w
     for d in ["2026-05-01","2026-05-04"] {o.primary.execute(row,rusqlite::params![s.user_id,s.exchange_id,10,"0.0001",None::<&str>,None::<&str>,format!("{d} 12:00:00")]).unwrap();}
     let price=|ds:&[&str]|json!({"status":200,"body":{"prices":ds.iter().map(|d|json!([day(d).and_hms_opt(0,0,0).unwrap().and_utc().timestamp_millis(),60000.0])).collect::<Vec<_>>()}});
     let t=ScriptedTransport::from_script(&json!({"GET /api/v1/historical_prices":[price(&["2026-05-01","2026-05-04"]),price(&["2026-05-02"]),price(&["2026-05-03"])]}));
-    let api=Rc::new(Some(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone())));
+    let api=Rc::new(Some(deltabadger::jobs::market::Feed::DataApi(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone()))));
     let (stop,rx)=tokio::sync::watch::channel(false);let runs=Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let scheduler=jobs::Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(StopWhenDone{inner:job_with(s.user_id,api),stop,runs:runs.clone()})],None);
     let wakers=scheduler.wakers();
@@ -265,7 +265,7 @@ async fn a_pass_whose_key_was_deleted_before_its_write_states_no_failure(){
     for d in ["2026-05-01","2026-05-04"] {o.primary.execute(rows,rusqlite::params![s.user_id,s.exchange_id,10,"0.0001",None::<&str>,None::<&str>,format!("{d} 12:00:00")]).unwrap();}
     let price=|ds:&[&str]|json!({"status":200,"body":{"prices":ds.iter().map(|d|json!([day(d).and_hms_opt(0,0,0).unwrap().and_utc().timestamp_millis(),60000.0])).collect::<Vec<_>>()}});
     let t=ScriptedTransport::from_script(&json!({"GET /api/v1/historical_prices":[price(&["2026-05-01","2026-05-04"]),price(&["2026-05-02"]),price(&["2026-05-03"])]}));
-    let api=Rc::new(Some(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone())));
+    let api=Rc::new(Some(deltabadger::jobs::market::Feed::DataApi(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone()))));
     // Three passes each moved by their own price; the third pass's fetch is where the key goes.
     o.primary.execute(&format!("CREATE TRIGGER delete_key AFTER INSERT ON historical_prices WHEN NEW.date='2026-05-03' BEGIN UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id={gone}; DELETE FROM api_keys WHERE id={gone}; END;"),[]).unwrap();
     let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;let wakers=jobs::Wakers::default();

@@ -763,8 +763,8 @@ module Pages
         # first. NL 2020 is not served (D-TAX-NL-YEARS); NL 2025 is, accepted last.
         'api_tax_d_not_ported_wealth' => tax_case([tax_create(us, expect: 422), tax_create({ country: 'NL', year: 2020 }, expect: 202), tax_status('NL', 2020),
                                                    tax_create({ country: 'NL', year: 2025 }, expect: 202)], {}, {}, 'market_data' => 'none'),
-        # The CoinGecko gate (PLAN-A12 r1 item 8, until A17): historical prices are fetched from Deltabadger market data only.
-        'api_tax_d_coingecko' => tax_case([tax_create({ country: 'US', year: 'abc' }), tax_create(us, expect: 202), tax_status], {}, {}, 'market_data' => 'coingecko')
+        # A CoinGecko install is served as Rails serves it (PLAN-A17 A17-3 lifted the gate).
+        'api_tax_coingecko' => tax_case([tax_create({ country: 'US', year: 'abc' }), tax_create(us, expect: 202), tax_status], {}, {}, 'market_data' => 'coingecko')
       )
       grid
     end

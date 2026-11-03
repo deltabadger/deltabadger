@@ -1727,7 +1727,7 @@ async fn q_tracker_bar_result_must_not_cache_after_credential_replacement() {
     let file=h._dir.path().join("production.sqlite3");
     let factory=RotatingFactory{file:file.clone(),cipher:h.app.cipher.clone(),key:h.seed.api_key_id,url:server.uri()};
     let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(file).unwrap(),h.app.cipher.clone());
-    let result=backfill_run(&db,&factory,None::<&deltabadger::jobs::data_api::DataApi<ReqwestTransport>>,None,h.seed.user_id,&FixedClock(h.app.now())).await;
+    let result=backfill_run(&db,&factory,None::<&deltabadger::jobs::market::Feed<ReqwestTransport>>,None,h.seed.user_id,&FixedClock(h.app.now())).await;
     server.verify().await;
     assert_eq!(h.c.query_row("SELECT count(*) FROM historical_prices WHERE asset='stock:AAA'",[],|r|r.get::<_,i64>(0)).unwrap(),0,"Q stale credential-derived bars must not enter the price cache");
     assert!(result.is_err());
@@ -1910,7 +1910,7 @@ async fn a_first_reading_key_wakes_its_real_tracker_in_the_running_scheduler() {
     let factory=LocalAlpaca(server.uri());
     h.c.execute("UPDATE api_keys SET status=2 WHERE user_id=?1",[h.seed.user_id]).unwrap();
     let mut registered=sync_jobs::register(&h.c,&factory,std::rc::Rc::new(deltabadger::sync::balances::NoPrices)).unwrap();
-    registered.extend(deltabadger::tracker::jobs::register(&h.c,&factory,std::rc::Rc::new(None::<deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),std::sync::Arc::new({let now=h.app.now();move||now})).unwrap());
+    registered.extend(deltabadger::tracker::jobs::register(&h.c,&factory,std::rc::Rc::new(None::<deltabadger::jobs::market::Feed<deltabadger::venue::http::ReqwestTransport>>),std::sync::Arc::new({let now=h.app.now();move||now})).unwrap());
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
     h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
@@ -3813,7 +3813,7 @@ fn d5b_scheduler(h:&Harness,url:&str)->deltabadger::jobs::Scheduler{
     use deltabadger::jobs;
     let api=std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>);
     let mut registered=deltabadger::sync::jobs::register(&h.c,&LocalAlpaca(url.into()),std::rc::Rc::new(deltabadger::sync::balances::NoPrices)).unwrap();
-    registered.extend(deltabadger::tracker::jobs::register(&h.c,&LocalAlpaca(url.into()),api.clone(),deltabadger::tracker::jobs::system_wall()).unwrap());
+    registered.extend(deltabadger::tracker::jobs::register(&h.c,&LocalAlpaca(url.into()),std::rc::Rc::new(None::<jobs::market::Feed<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()).unwrap());
     jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None)
         .with_resolver(jobs::resolve::all(LocalAlpaca(url.into()),api,deltabadger::tracker::jobs::system_wall()))
 }

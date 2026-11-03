@@ -27,10 +27,34 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 # No broadcast reaches anyone, and the job's half-second wait for one is skipped.
 Turbo::StreamsChannel.singleton_class.prepend(Module.new { def broadcast_replace_to(*) = nil })
 Tax::GenerateReportJob.prepend(Module.new { def sleep(*) = nil })
-# A price the table lacks is a price nobody has: the provider answers with a failure, as an unreachable one does.
+# A price the table lacks is a price nobody has: the provider answers with a failure, as an unreachable one does. A
+# CoinGecko scenario (PLAN-A17 A17-3) asks the real provider instead, its api.coingecko.com scripted at the Faraday adapter.
 MarketData.singleton_class.prepend(Module.new do
-  def get_historical_price_range(**) = Result::Failure.new('unavailable')
+  def get_historical_price_range(**) = ScriptedCoingecko.script ? super : Result::Failure.new('unavailable')
 end)
+
+# CoinGecko's answers beneath Clients::Coingecko, per "GET /path?query" (sorted, as the Rust harness's request_key names
+# it) or per path, taken in call order, the last repeating; every request logged. Any other host is the real adapter's.
+module ScriptedCoingecko
+  mattr_accessor :script, :requests
+
+  module Adapter
+    def call(env)
+      return super unless ScriptedCoingecko.script && env.url.host.to_s.end_with?('coingecko.com')
+
+      key = "#{env.method.to_s.upcase} #{env.url.path}"
+      query = URI.decode_www_form(env.url.query.to_s).sort
+      ScriptedCoingecko.requests << [key, query]
+      full = "#{key}?#{query.map { |k, v| "#{k}=#{v}" }.join('&')}"
+      queue = ScriptedCoingecko.script[full] || ScriptedCoingecko.script[key] or raise Harness::Unscripted, "unscripted CoinGecko call #{full}"
+      reply = queue.size > 1 ? queue.shift : queue.first
+      env.response = Faraday::Response.new
+      save_response(env, reply.fetch('status', 200), JSON.generate(reply['body']), { 'Content-Type' => 'application/json' })
+      @app.call(env)
+    end
+  end
+end
+[:net_http_persistent, :net_http].each { |name| Faraday::Adapter.lookup_middleware(name).prepend(ScriptedCoingecko::Adapter) }
 
 module TaxVectors
   extend ActiveSupport::Testing::TimeHelpers
@@ -49,6 +73,7 @@ module TaxVectors
     app/models/tax/methods/wealth_snapshot.rb
     app/models/tax/broker_report.rb app/models/tax/broker_report_csv.rb app/models/tax/lot_ledger.rb app/models/tax/vorabpauschale.rb
     app/models/fund_classification.rb
+    app/models/market_data.rb app/models/coingecko.rb app/models/clients/coingecko.rb
   ].freeze
 
   # The schema is loaded before travelling: a migration stamped after NOW would not load.
@@ -294,7 +319,43 @@ module TaxVectors
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z', exchange: kraken)
       } }
     ] + us_more + fifo_jurisdictions + rails_cases + at_scenarios + pl_scenarios + bg_scenarios + cz_scenarios + dk_scenarios + gr_scenarios + it_scenarios + ie_scenarios + se_scenarios + gb_scenarios + fr_scenarios + nl_scenarios + ch_scenarios +
-      broker_scenarios
+      broker_scenarios + coingecko_scenarios
+  end
+
+  # PLAN-A17 A17-3: a CoinGecko install's report, its prices asked of the real Tax::PriceService and MarketData (demo plan
+  # seeded, as figures.rb seeds it). Recorded with the requests; rust/tests/tax_parity.rs replays each through its feed.
+  CG_KEY = 'CG-parity-demo-key'.freeze
+  def cg_range(coin) = "GET /api/v3/coins/#{coin}/market_chart/range"
+  # CoinGecko's daily answer for every day of `from..to`, `price` + the day's index.
+  def cg_days(from, to, price) = { 'status' => 200, 'body' => { 'prices' => (Date.parse(from)..Date.parse(to)).each_with_index.map { |d, i| [d.to_time(:utc).to_i * 1000, price + i] } } }
+
+  def coingecko_scenarios
+    deposit_sale = lambda do |coin, sold|
+      lambda do |c|
+        row(c, :deposit, coin, '0.1', '2026-02-10T08:00:00Z')
+        sell(c, coin, '0.1', sold, '2026-03-10T08:00:00Z')
+      end
+    end
+    limited = { 'status' => 429, 'body' => { 'status' => { 'error_code' => 429, 'error_message' => "You've exceeded the Rate Limit." } } }
+    [
+      { name: 'cg_fetched_price', expect: 'parity', coingecko: { cg_range('bitcoin') => [cg_days('2026-01-01', '2026-04-30', 80_000)] },
+        setup: deposit_sale.('BTC', '9000') },
+      # A euro report asks the coin in EUR and BTC beside it (Tax::PriceService#prefetch's BTC route).
+      { name: 'cg_non_usd_btc_route', country: 'DE', expect: 'parity',
+        coingecko: { cg_range('ethereum') => [cg_days('2026-01-01', '2026-04-30', 2_500)], cg_range('bitcoin') => [cg_days('2026-01-01', '2026-04-30', 70_000)] },
+        setup: deposit_sale.('ETH', '300') },
+      { name: 'cg_missing_data', expect: 'parity', coingecko: { cg_range('bitcoin') => [{ 'status' => 200, 'body' => { 'prices' => [] } }] },
+        setup: deposit_sale.('BTC', '9000') },
+      # D-CG-429-STOPS-PRICES: Rails asks ETH after BTC's 429 (and every BTC day again); Rust asks nothing more, so ETH is
+      # missing and warned. Asserted in tax_parity.rs.
+      { name: 'cg_429_then_later_coin', expect: 'diverges: D-CG-429-STOPS-PRICES',
+        coingecko: { cg_range('bitcoin') => [limited], cg_range('ethereum') => [cg_days('2026-01-01', '2026-04-30', 2_500)] },
+        setup: lambda { |c|
+          deposit_sale.('BTC', '9000').call(c)
+          row(c, :deposit, 'ETH', '1', '2026-04-10T08:00:00Z')
+          sell(c, 'ETH', '1', '2600', '2026-05-10T08:00:00Z')
+        } }
+    ]
   end
 
   # A12-2: US beyond Alpaca, and D-TAX-US-WALLET (lots per venue for tax years from 2025).
@@ -3513,8 +3574,16 @@ module TaxVectors
     stablecoin = scenario.fetch(:stablecoin, false)
     scope = scenario.fetch(:scope, 'crypto')
     schema(file)
+    ScriptedCoingecko.script = scenario[:coingecko]&.transform_values(&:dup)
+    ScriptedCoingecko.requests = []
+    MarketData.instance_variable_set(:@coingecko, nil)
+    Clients::Coingecko.instance_variable_set(:@detect_plan, { CG_KEY => :demo })
     travel_to(NOW) do
       ctx = build
+      if scenario[:coingecko]
+        AppConfig.market_data_provider = 'coingecko'
+        AppConfig.coingecko_api_key = CG_KEY
+      end
       scenario[:setup]&.call(ctx)
       cz_prices if country == 'CZ'
       se_prices if country == 'SE'
@@ -3548,6 +3617,7 @@ module TaxVectors
         'cnb' => (cnb = cz_default_cnb(scenario))[0], 'cnb_coverage' => cnb[1],
         # D-TAX-CH-ESTV: [year, symbol, CHF per unit or nil (not listed)]; Rails has no Kursliste.
         'estv' => scenario.fetch(:estv, []) }
+        .merge(scenario[:coingecko] ? { 'coingecko' => { 'key' => CG_KEY, 'plan' => 'demo', 'script' => scenario[:coingecko], 'requests' => ScriptedCoingecko.requests.dup } } : {})
         .merge(scope == 'broker' ? { 'scope' => 'broker', 'bars' => scenario[:bars]&.transform_values { |v| v == :fail ? 'fail' : v },
                                      'bars_log' => BARS_LOG.dup, 'tables_before' => before }.compact : {})
     end

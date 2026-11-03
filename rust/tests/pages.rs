@@ -2747,13 +2747,12 @@ fn tracker_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
-/// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6) and the CoinGecko gate (r1 item 8): a create this build cannot compute yet is
+/// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a create this build cannot compute yet is
 /// refused up front as 501 `not_ported`, nothing written or queued. Every create Rails accepted (202) in an `api_tax_d_`
 /// scenario becomes that answer, after checking Rails accepted it and enqueued its job; its pending_report write is taken
 /// back (each scenario's accepted creates are its only user writes). Everything else stays compared.
 fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
-    let coingecko = name.starts_with("api_tax_d_coingecko");
-    if !coingecko && !name.starts_with("api_tax_d_not_ported") { return Ok(()) }
+    if !name.starts_with("api_tax_d_not_ported") { return Ok(()) }
     let responses = rails["responses"].as_array_mut().ok_or("no responses")?;
     let mut users_before: Option<Value> = None;
     let mut served_last = false;
@@ -2766,14 +2765,13 @@ fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
         let data: Value = serde_json::from_str(step["body"].as_str().unwrap_or_default()).map_err(|e| format!("step {i}: {e}"))?;
         if step["job_classes"] != json!(["Tax::GenerateReportJob"]) || data["data"]["state"] != "generating" { return Err(format!("step {i}: Rails no longer accepts the report: {step}")) }
         // A jurisdiction this build computes is served, compared whole, from the owner a gated create left unchanged.
-        if !coingecko && deltabadger::tax::jurisdictions::ported(data["data"]["country"].as_str().unwrap_or_default(), data["data"]["year"].as_i64().unwrap_or(0)) {
+        if deltabadger::tax::jurisdictions::ported(data["data"]["country"].as_str().unwrap_or_default(), data["data"]["year"].as_i64().unwrap_or(0)) {
             if let Some(users) = &users_before { step["rows_before"]["users"] = users.clone(); }
             served_last = true;
             continue;
         }
         served_last = false;
-        let message = if coingecko { deltabadger::tax::api::COINGECKO.to_string() }
-                      else { deltabadger::tax::api::not_ported_message(data["data"]["name"].as_str().ok_or("no jurisdiction name")?) };
+        let message = deltabadger::tax::api::not_ported_message(data["data"]["name"].as_str().ok_or("no jurisdiction name")?);
         step["status"] = json!(501);
         step["body"] = json!(json!({"data": null, "error": {"code": "not_ported", "message": message}}).to_string());
         step["job_classes"] = json!([]);
