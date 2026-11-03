@@ -88,6 +88,9 @@ fn cold_holdings_sources_and_ci_are_pinned(){
 #[test]
 fn cold_holdings_ci_includes_standalone_contract(){
     let workflow=include_str!("../../.github/workflows/rust.yml");
-    assert!(workflow.contains("--test tracker_holdings_contract"));
+    assert!(!platform_excluded("tracker_holdings_contract"));
     for path in ["script/rust/pages_tracker_holdings.rb","app/helpers/application_helper.rb","app/views/assets/_logo.html.erb"]{assert_eq!(workflow.matches(&format!("- '{path}'")).count(),2,"both CI events cover {path}");}
 }
+
+/// Whether rust/tests/platform_excluded.txt keeps `name` off a platform leg (the platform job runs every other file).
+fn platform_excluded(name:&str)->bool{include_str!("platform_excluded.txt").lines().map(|l|l.split('#').next().unwrap().trim()).any(|l|l.rsplit(':').next()==Some(name))}

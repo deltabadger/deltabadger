@@ -496,8 +496,6 @@ jobs:
             args+=(--test "$t"); n=$((n + 1))
           done
           echo "running $n test files on $os"
-          # macOS's default soft limit on open files is 256.
-          if [ "$os" = macos ]; then echo "ulimit -n was $(ulimit -n)"; ulimit -n 4096; fi
           df -k . | tail -1
           ( while :; do df -k . | tail -1 | awk '{print "free KB", $4}'; sleep 15; done ) > df.log &
           sampler=$!

@@ -141,6 +141,7 @@ tracker_export
 tracker_first_sync
 tracker_fx
 tracker_fx_parity
+tracker_gaps
 tracker_holdings
 tracker_index
 tracker_index_currency
@@ -148,6 +149,7 @@ tracker_page_wakes
 tracker_pages
 tracker_parity
 tracker_populated
+tracker_scope_frames
 tracker_sync
 tracker_transactions
 tracker_write_parity
