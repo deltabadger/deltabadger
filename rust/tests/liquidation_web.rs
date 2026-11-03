@@ -239,6 +239,25 @@ async fn rest_requires_and_replays_the_idempotency_key_after_engine_completion()
     assert_eq!(progress.0,409);assert!(progress.2.contains("idempotency_in_progress"));
 }
 
+/// A20d, D-IDEMPOTENCY-DEAD-CLAIM: the write committed and the process died before the key completed. The next start
+/// stores placement_ambiguous on the key; the retry runs no second write, and another body is still a reuse.
+#[tokio::test(flavor="current_thread")]
+async fn a_liquidation_key_its_process_died_holding_answers_placement_ambiguous_and_never_writes_again() {
+    let (_d,c,s,id,app,_)=install();credentials(&c,s.user_id);
+    let path=format!("/api/v1/bots/{id}/liquidations");
+    let body=json!({"symbol":"BTC"});
+    assert_eq!(wire_with_key(&app,&path,"liquidation-api",body.clone(),None,Some("dead")).await.0,202);
+    c.execute("UPDATE idempotency_keys SET state='in_progress',response_status=NULL,response_body=NULL WHERE key='dead'",[]).unwrap();
+    model::merge_transient_compact(&c,id,&[("liquidation_selling_since",Value::Null)]).unwrap();
+    deltabadger::engine::api_orders::sweep_at_start(&c,NOW.parse().unwrap()).unwrap(); // what Engine::new does
+    let retry=wire_with_key(&app,&path,"liquidation-api",body.clone(),None,Some("dead")).await;
+    assert_eq!((retry.0,serde_json::from_str::<Value>(&retry.2).unwrap()),(502,json!({"data":null,"error":{"code":"placement_ambiguous",
+        "message":"The order may or may not have been placed: the request was cut off by a restart. Check the exchange before sending it again."}})));
+    assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null(),"no second sale queued");
+    let changed=wire_with_key(&app,&path,"liquidation-api",json!({"symbol":"ETH"}),None,Some("dead")).await;
+    assert_eq!(changed.0,409);assert!(changed.2.contains("idempotency_key_reused"));
+}
+
 #[test]
 fn api_ambiguous_symbol_names_the_keys_and_asset_identity_cannot_drift() {
     let (_d,c,s,id,app,_)=install();
