@@ -414,9 +414,7 @@ pub fn live_catalogues() -> Catalogues {
     })
 }
 
-// ponytail: until venue::catalogue lands on this branch, a live run reads no catalogue (every venue reports the failure);
-// the seam is the only call site to switch.
-async fn live_catalogue(ty: &str, _t: &PublicTransport) -> R<Vec<Value>> { Err(format!("{ty}: the venue catalogue is not built yet")) }
+async fn live_catalogue(ty: &str, t: &PublicTransport) -> R<Vec<Value>> { crate::venue::catalogue::read(ty, t).await }
 
 /// Public venue endpoints: no key, nothing signed; JSON bodies; bounded answers.
 #[derive(Default)]

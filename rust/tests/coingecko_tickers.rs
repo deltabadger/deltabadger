@@ -65,8 +65,9 @@ fn demo(t: &ScriptedTransport) -> &ScriptedTransport { t.reply("GET /api/v3/ping
 fn cg_requests(t: &ScriptedTransport) -> Vec<String> { t.requests().iter().map(deltabadger::venue::http::request_key).filter(|k| !k.ends_with("/ping")).collect() }
 
 /// Scripted catalogues by venue type, and the venues asked, in order.
+type Answers = Rc<RefCell<HashMap<String, Result<Vec<Value>, String>>>>;
 #[derive(Clone, Default)]
-struct Cats { rows: Rc<RefCell<HashMap<String, Result<Vec<Value>, String>>>>, asked: Rc<RefCell<Vec<String>>> }
+struct Cats { rows: Answers, asked: Rc<RefCell<Vec<String>>> }
 impl Cats {
     fn set(&self, ty: &str, rows: Result<Vec<Value>, String>) -> &Self { self.rows.borrow_mut().insert(ty.into(), rows); self }
     fn seam(&self) -> Catalogues {
@@ -246,7 +247,7 @@ async fn a_binance_scale_venue_publishes_in_bounded_units() {
     let pages: Vec<Value> = crawl.chunks(100).map(|p| json!({ "tickers": p })).collect();
     demo(&t);
     for (i, p) in pages.iter().enumerate() { t.reply(&crawl_key("binance", i + 1), 200, p.clone()); }
-    if crawl.len() % 100 == 0 { t.reply(&crawl_key("binance", pages.len() + 1), 200, json!({ "tickers": [] })); }
+    assert!(!crawl.len().is_multiple_of(100), "the last page is short");
     let cats = Cats::default();
     cats.set("Exchanges::Binance", Ok(rows));
     assert_eq!(tickers(c, &t, &cats, NOW).await, Outcome::Done);
