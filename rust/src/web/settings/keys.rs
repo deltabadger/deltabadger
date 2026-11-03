@@ -18,7 +18,7 @@ pub trait Logger: Send + Sync {
 struct Stderr;
 impl Logger for Stderr {
     fn warn(&self, line: &str) {
-        eprintln!("{line}");
+        crate::eline!("{line}");
     }
 }
 pub fn logger() -> Arc<dyn Logger> {

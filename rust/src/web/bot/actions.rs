@@ -316,7 +316,7 @@ pub async fn split_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
         }
         Ok(Performed::Refused(refusal)) => Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text: refusal.reason }])?.trim_end()), true)),
         Ok(Performed::Unported(reason)) => {
-            eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, ctx.params.fullpath);
+            crate::eline!("deltabadger: {} {} is not served: {reason}", ctx.method, ctx.params.fullpath);
             let text = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]);
             Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text }])?.trim_end()), true))
         }

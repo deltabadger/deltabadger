@@ -24,8 +24,8 @@ impl Clock for SteppingClock {
     fn now(&self) -> DateTime<Utc> { let t = self.now.get(); self.now.set(t + self.step); t }
 }
 
-/// One line to stdout, UTC-timestamped: `docker logs` is the engine's console.
-pub fn log(line: &str) { println!("{} {line}", Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ")); }
+/// One line to stdout, UTC-timestamped: `docker logs` is the engine's console. Under DELTABADGER_LOG_FILE, to that file (crate::logger).
+pub fn log(line: &str) { crate::logger::out(&format!("{} {line}", Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ"))); }
 
 #[derive(Debug)]
 pub enum EngineError {

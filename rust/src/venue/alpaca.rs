@@ -336,7 +336,7 @@ impl<T: Transport> AlpacaVenue<T> {
                 .map_err(|_| VenueError::Rejected(vec![unreadable(DecodeError::NotJson, &request, &response)]))?;
             let (_, pair, class) = order_identity(raw.get());
             if !identify(id, pair.as_deref(), class.as_deref())? {
-                eprintln!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
+                crate::eline!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
                 skipped.push(id.clone());
                 continue;
             }
@@ -376,7 +376,7 @@ impl<T: Transport> AlpacaVenue<T> {
         let account = self.get(self.request("GET", false, "/v2/account".into(), vec![], None)).await?;
         let positions = self.raw_positions().await?;
         for _position in positions {
-            eprintln!("Alpaca position excluded from cash funding: only the account cash/buying power funds USD orders");
+            crate::eline!("Alpaca position excluded from cash funding: only the account cash/buying power funds USD orders");
         }
         // ponytail: eligibility admits only USD-quoted Alpaca bots; another quote would be a position lookup ("BTCUSD").
         if asset_symbol != "USD" { return Ok(BigDec::zero()); }

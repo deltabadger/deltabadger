@@ -600,6 +600,11 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
             let ran = tx.execute_batch(m.sql);
             tx.commit_hook(None::<fn() -> bool>);
             ran.map_err(|e| e.to_string())?;
+            // Tests (debug builds): this migration's body fails inside its own transaction (PLAN-B6 r3.5).
+            #[cfg(debug_assertions)]
+            if std::env::var("DELTABADGER_TEST_FAIL_MIGRATION").is_ok_and(|v| v == m.version) {
+                return Err("failed on purpose (DELTABADGER_TEST_FAIL_MIGRATION)".into());
+            }
             if tx.is_autocommit() {
                 return Err("the file ended its transaction (COMMIT or END); it was rolled back".into());
             }
@@ -608,6 +613,7 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
             tx.commit().map_err(|e| e.to_string())
         };
         run().map_err(|error| StoreError::Migration { version: m.version.into(), name: m.name.into(), error })?;
+        mark_changed();
         applied.push(m.version.to_string());
         #[cfg(debug_assertions)]
         if applied.len() == 1 { abort_point("mid-migrate"); }
@@ -734,6 +740,7 @@ pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Ciphe
     if create_queue {
         let q = Connection::open_with_flags(&paths.queue, create).map_err(|e| at(&paths.queue, &e))?;
         create_queue_schema(&q).map_err(|e| at(&paths.queue, &e))?;
+        mark_changed();
     }
     #[cfg(debug_assertions)]
     abort_point("after-queue");
@@ -750,6 +757,7 @@ pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Ciphe
     #[cfg(debug_assertions)]
     abort_point("before-commit");
     tx.commit().map_err(|e| fail(&e))?;
+    mark_changed();
     Ok(true)
 }
 
@@ -851,6 +859,23 @@ pub fn copy_in_memory(paths: &Paths) -> Result<Opened, StoreError> {
         Ok(to)
     };
     Ok(Opened { primary: copy(&paths.primary)?, queue: copy(&paths.queue)? })
+}
+
+static CHANGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Whether this process has changed the install yet (PLAN-B6 r2.4, r3.7): a bootstrap's queue or commit, a backup made, a
+/// Rust migration applied, or `identity::initialize` committing a reset. A start refused before any of them changed nothing.
+pub fn changed() -> bool { CHANGED.load(std::sync::atomic::Ordering::SeqCst) }
+
+/// Records a committed startup write (`changed`).
+pub fn mark_changed() { CHANGED.store(true, std::sync::atomic::Ordering::SeqCst) }
+
+/// Whether `backup` has left a complete copy in `backups_dir`.
+pub fn has_backup(paths: &Paths) -> bool {
+    std::fs::read_dir(backups_dir(paths)).is_ok_and(|d| d.flatten().any(|e| {
+        let name = e.file_name().to_string_lossy().into_owned();
+        name.starts_with("pre-3.0-") && !name.ends_with(".partial")
+    }))
 }
 
 /// Where `backup` keeps its copies: `backups/` next to the primary.
@@ -966,6 +991,7 @@ pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backu
         abort_point("mid-backup");
         let done = dir.join(&name);
         std::fs::rename(&partial, &done).map_err(|e| io(&done, e))?;
+        mark_changed();
         sync(&dir)?;
         sync(dir.parent().unwrap_or(Path::new(".")))?;
         Ok(Backup::Made(done))

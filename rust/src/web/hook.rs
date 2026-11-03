@@ -126,11 +126,11 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
         Ok(Outcome::Ignored(reason)) => Answer::Json(StatusCode::OK, format!(r#"{{"status":"ignored","reason":"{reason}"}}"#)),
         Ok(Outcome::Accepted) => Answer::Json(StatusCode::ACCEPTED, r#"{"status":"accepted"}"#.into()),
         Ok(Outcome::Refused(reason)) => {
-            eprintln!("deltabadger: a signal call was not kept: {reason}");
+            crate::eline!("deltabadger: a signal call was not kept: {reason}");
             Answer::Head(StatusCode::SERVICE_UNAVAILABLE)
         }
         Err(error) => {
-            eprintln!("deltabadger: a signal call failed: {error:?}");
+            crate::eline!("deltabadger: a signal call failed: {error:?}");
             Answer::Head(StatusCode::SERVICE_UNAVAILABLE)
         }
     };

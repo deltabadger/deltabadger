@@ -117,7 +117,7 @@ fn apply_body(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &Ord
     } else if model::exchange_type(c, &bot)? == "Exchanges::Alpaca" {
         let ticker = model::alpaca_order_ticker(c, bot.exchange_id, s.pair.as_deref(), s.asset_class.as_deref())?;
         if ticker.is_none() {
-            eprintln!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
+            crate::eline!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
             return Ok(None);
         }
         ticker

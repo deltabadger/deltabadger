@@ -73,7 +73,7 @@ pub fn serve(port: u16, reason: &str) -> i32 {
     rt.block_on(async {
         let listener = match tokio::net::TcpListener::bind(SocketAddr::from((super::server::binding(), port))).await {
             Ok(l) => l,
-            Err(e) => { eprintln!("deltabadger: cannot show the refusal page on port {port}: {e}"); return 1; }
+            Err(e) => { crate::eline!("deltabadger: cannot show the refusal page on port {port}: {e}"); return 1; }
         };
         let stop = stop_signal(); // registered before the line below, so a stop sent after it is never missed
         crate::engine::log(&format!("refused: showing why on port {port} until stopped"));
@@ -82,7 +82,7 @@ pub fn serve(port: u16, reason: &str) -> i32 {
         let notify = signalled.clone();
         let served = axum::serve(listener, router(reason)).with_graceful_shutdown(async move { stop.await; notify.notify_one(); });
         tokio::select! {
-            result = served => match result { Ok(()) => 0, Err(e) => { eprintln!("deltabadger: the refusal page stopped: {e}"); 1 } },
+            result = served => match result { Ok(()) => 0, Err(e) => { crate::eline!("deltabadger: the refusal page stopped: {e}"); 1 } },
             _ = async { signalled.notified().await; tokio::time::sleep(std::time::Duration::from_secs(5)).await } => 0,
         }
     })

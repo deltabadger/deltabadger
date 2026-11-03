@@ -45,3 +45,30 @@ pub fn respond(file: &'static Embedded, head: bool) -> Response<Body> {
     headers.insert(header::CONTENT_LENGTH, HeaderValue::from(file.body.len()));
     response
 }
+
+/// The desktop's /service-worker.js (PLAN-B6 r4.1, D-DESKTOP-SW-CACHE): public/service-worker.js caches `/` and answers
+/// from that cache first, so a WebView could show an old app page while this start is refused. This worker replaces it
+/// at the next update check, deletes every cache, unregisters itself, and reloads each page it took over, uncontrolled.
+/// It has no fetch handler: every request goes to the network. Browsers on Docker, Umbrel and hosted keep public/'s.
+pub const RETIRING_WORKER: &str = "\
+self.addEventListener('install', function () { self.skipWaiting(); });
+self.addEventListener('activate', function (event) {
+  event.waitUntil(
+    caches.keys()
+      .then(function (keys) { return Promise.all(keys.map(function (key) { return caches.delete(key); })); })
+      .then(function () { return self.registration.unregister(); })
+      .then(function () { return self.clients.matchAll(); })
+      .then(function (clients) { clients.forEach(function (client) { client.navigate(client.url); }); })
+  );
+});
+";
+
+/// `RETIRING_WORKER`, never cached, so the WebView's next update check always sees it.
+pub fn retiring_worker(head: bool) -> Response<Body> {
+    let mut response = Response::new(if head { Body::empty() } else { Body::from(RETIRING_WORKER) });
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/javascript; charset=utf-8"));
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert(header::CONTENT_LENGTH, HeaderValue::from(RETIRING_WORKER.len()));
+    response
+}
