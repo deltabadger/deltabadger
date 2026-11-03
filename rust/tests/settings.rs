@@ -4125,5 +4125,5 @@ fn no_code_reads_the_install_alpaca_credential(){
             }}
     }
     let mut readers=vec![];walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),&mut readers);
-    assert_eq!(readers.iter().map(|p|p.rsplit("/src/").next().unwrap().to_string()).collect::<Vec<_>>(),["web/locale.rs"]);
+    assert_eq!(readers.iter().map(|p|p.replace('\\',"/").rsplit("/src/").next().unwrap().to_string()).collect::<Vec<_>>(),["web/locale.rs"]);
 }
