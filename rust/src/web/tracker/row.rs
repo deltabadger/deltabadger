@@ -97,9 +97,13 @@ fn logo(c:&Connection,row:&Row)->Result<String,WebError>{
     let (image,color,symbol,category):(Option<String>,Option<String>,String,Option<String>)=c.query_row("SELECT image_url,color,symbol,category FROM assets WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
     asset_logo(image,color,symbol,category)
 }
+/// Fiat.flag: a currency's flag image (Fiat::FLAGS), by symbol in any case.
+pub(crate) fn fiat_flag(symbol:&str)->Option<String>{
+    [("USD","us"),("EUR","eu"),("GBP","gb"),("JPY","jp"),("CHF","ch"),("CAD","ca"),("AUD","au"),("PLN","pl"),("ARS","ar"),("BRL","br"),("TRY","tr"),("MXN","mx"),("ZAR","za"),("UAH","ua"),("CZK","cz"),("RUB","ru"),("IDR","id")].iter().find(|(s,_)|*s==symbol.to_uppercase()).map(|(_,flag)|crate::web::assets::path(&format!("flags/{flag}.svg")).to_string())
+}
 pub(crate) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String,category:Option<String>)->Result<String,WebError>{
     let flag=if category.as_deref().is_none_or(|c|c.is_empty() || matches!(c,"Currency"|"Fiat")) {
-        [("USD","us"),("EUR","eu"),("GBP","gb"),("JPY","jp"),("CHF","ch"),("CAD","ca"),("AUD","au"),("PLN","pl"),("ARS","ar"),("BRL","br"),("TRY","tr"),("MXN","mx"),("ZAR","za"),("UAH","ua"),("CZK","cz"),("RUB","ru"),("IDR","id")].iter().find(|(s,_)|*s==symbol.to_uppercase()).map(|(_,flag)|crate::web::assets::path(&format!("flags/{flag}.svg")).to_string())
+        fiat_flag(&symbol)
     }else{None};
     Ok(match flag.or(image).filter(|s|!s.trim().is_empty()) {Some(src)=>format!("  <img class=\"asset-logo\" src=\"{}\" alt=\"\" loading=\"lazy\">\n",escape(&src)),None=>format!("  <span class=\"asset-logo\" style=\"background: {}\"></span>\n",escape(&crate::web::colors::pill_color(color.as_deref()).ok_or_else(invalid)?))})
 }

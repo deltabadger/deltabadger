@@ -42,6 +42,7 @@ pub mod password;
 pub mod registration;
 pub mod shell;
 pub mod timezone;
+pub mod tooltip;
 pub mod tracker;
 pub mod string_column;
 pub mod turbo;
@@ -822,6 +823,8 @@ fn routes(app: App) -> Router {
         .route("/broadcasts/moving_average_limit_info_update", only(post(broadcasts::moving_average_limit_info_update)))
         .route("/broadcasts/indicator_limit_info_update", only(post(broadcasts::indicator_limit_info_update)))
         .route("/broadcasts/tax_report_state", only(post(tracker::report::tax_report_state)))
+        .route("/broadcasts/fetch_open_orders", only(post(broadcasts::fetch_open_orders)))
+        .route("/asset_tooltip", only(get(tooltip::show)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))

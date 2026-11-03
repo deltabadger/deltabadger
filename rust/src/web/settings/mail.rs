@@ -42,7 +42,8 @@ impl Mailer for Live {
                 .map_err(|_| WebError::Config("the message cannot be encoded".into()))?;
             smtp::deliver(&settings, &from.address, &to.address, &wire)
                 .await
-                .map_err(|failure| WebError::Config(format!("delivery failed ({failure:?})")))
+                // Display, not Debug: the stage and the reply's codes, never the server's text (D-TEST-EMAIL-ERROR-SAFE).
+                .map_err(|failure| WebError::Config(format!("delivery failed ({failure})")))
         })
     }
 }
@@ -161,4 +162,48 @@ fn prepare(app: &App, c: &rusqlite::Connection, mail: AccountMail, locale: &'sta
 /// The confirmation mail of a resend or of an email change (settings::confirmation, settings::account).
 pub async fn confirmation(app: &App, user_id: i64, address: String, token: String, locale: &'static str) {
     send(app, AccountMail::Confirmation { user_id, address, token }, locale).await;
+}
+
+/// What a test email needs, or why there is none.
+enum TestMail { NotConfigured, Refused(String), Ready(Box<(Message, smtp::Settings, String)>) }
+
+/// SettingsController#send_test_email (admin only): TestMailer.test_email(current_user).deliver_now, inside the request.
+/// The wait is the SMTP client's own bound: 5 s to connect, 5 s for each reply, 30 s for the whole delivery; a server that
+/// does not answer in time is an alert naming the stage ("greeting: no answer in time").
+/// D-TEST-EMAIL-ERROR-SAFE: Rails' alert carries `e.message`, the server's reply text, which can name the SMTP account. This
+/// alert carries smtp::Failure's stage and codes only, never server text or a credential.
+pub async fn send_test(app: App, ctx: crate::web::layout::Ctx) -> Result<axum::response::Response, WebError> {
+    use crate::web::{flash, i18n, turbo};
+    use axum::{http::{header, StatusCode}, response::IntoResponse};
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    if !user.admin { return Ok((StatusCode::FORBIDDEN, [(header::CONTENT_TYPE, "text/html")]).into_response()) }
+    // ApplicationMailer#set_locale(user): the user's language, whatever the request's.
+    let locale = crate::web::locale::switch(None, user.locale.as_deref());
+    let inner = app.clone();
+    let prepared = app.db(move |c| {
+        let saved = saved_smtp(&inner, c)?;
+        let read = |key: &str| saved.get(key).cloned().flatten();
+        let settings = match smtp::Settings::current(&inner.settings_smtp, &read) {
+            Ok(settings) => settings,
+            Err(reason) if reason == NOT_SET_UP => return Ok(TestMail::NotConfigured),
+            // SmtpSettings.configured? is true for what this build refuses to send with: Rails' delivery fails there.
+            Err(reason) => return Ok(TestMail::Refused(reason)),
+        };
+        let name: String = c.query_row("SELECT COALESCE(name,'') FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
+        let urls = render::Urls { root: inner.config.own_origin.clone().unwrap_or_else(|| "http://localhost:3000".into()) + "/" };
+        let message = render::test_email(&smtp::notifications_sender(&inner.settings_smtp, &read), &urls,
+                                         &render::Recipient { email: user.email.clone(), name, locale });
+        Ok(TestMail::Ready(Box::new((message, settings, user.email))))
+    }).await?;
+    let failed = |error: &str| (flash::ALERT, i18n::t(ctx.locale, "settings.email_notifications.test_email_failed", &[("error", i18n::Arg::Text(error))]));
+    let now = match prepared {
+        TestMail::NotConfigured => (flash::ALERT, ctx.t("settings.email_notifications.not_configured")),
+        TestMail::Refused(reason) => failed(&reason),
+        TestMail::Ready(ready) => { let (message, settings, email) = *ready; match app.settings_mailer.deliver(message, Some(settings), app.now()).await {
+            Ok(()) => (flash::NOTICE, i18n::t(ctx.locale, "settings.email_notifications.test_email_sent", &[("email", i18n::Arg::Text(&email))])),
+            Err(error) => failed(&reason(&error)),
+        } }
+    };
+    let markup = flash::render(&flash::take(&ctx.session, &[now]))?;
+    Ok(([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], turbo::prepend_flash(markup.trim_end())).into_response())
 }

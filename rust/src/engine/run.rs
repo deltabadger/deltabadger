@@ -330,6 +330,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     run_signals(e, clock, &mut wake).await?;
     super::withdrawal::phase(&e.primary, &e.cipher, &e.factory, clock).await?;
     run_condition_infos(e, &report.unreadable, clock, &mut wake).await?;
+    run_open_orders(e, &report.unreadable, clock, &mut wake).await?;
     run_resyncs(e, clock, &mut wake).await?;
     for id in report.eligible {
         if e.stopping() { break; }
@@ -726,6 +727,41 @@ async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(
                 }
             }
         }
+    }
+    Ok(())
+}
+
+/// D-OPEN-ORDERS-WAKE: the orders tables' refresh requests (BroadcastsController#fetch_open_orders), for any bot whatever its
+/// status: Bot::FetchAndUpdateOpenOrdersJob as `success_or_kill` runs it. The sweep is a tick's (`polling::sweep`); a failure
+/// of it is logged and the request served, never a failed or stopped bot by itself. A fill it committed still owes its
+/// amount-limit stop (`end_of_run`), whatever came after. Credentials or rows that changed under it: served again next pass.
+async fn run_open_orders<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    for (id, version) in polling::refresh_claims(&e.primary)? {
+        if e.stopping() { break; }
+        if unreadable.iter().any(|(u, _)| *u == id) { continue; }
+        let waiting = waiting_rows(&e.primary, id)?;
+        let status_of = |c: &Connection| c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get::<_, i64>(0)).optional();
+        let status_before = status_of(&e.primary)?;
+        let swept = async {
+            let bot = model::load_bot(&e.primary, id)?;
+            let (venue, _) = e.venue_for(&bot)?;
+            Ok(polling::sweep(&e.primary, &venue, &bot, clock.now()).await.err())
+        }.await;
+        let outcome = tick::end_of_run(&e.primary, id, clock.now(), swept);
+        for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only
+        e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+        if status_of(&e.primary)? != status_before { e.events.send(EngineEvent::StatusChanged { bot_id: id }); }
+        match outcome {
+            Ok(None) => {}
+            Ok(Some(polling::PollFailure::CredentialsChanged | polling::PollFailure::OwnerChanged(_))) => {
+                *wake = (*wake).min(clock.now().timestamp_micros());
+                continue;
+            }
+            Ok(Some(failure)) => super::log(&format!("[engine] bot {id}: open-orders refresh failed: {failure:?}")),
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            Err(err) => super::log(&format!("[engine] bot {id}: open-orders refresh failed: {err:?}")),
+        }
+        polling::ack_refresh(&e.primary, id, version)?;
     }
     Ok(())
 }
