@@ -57,6 +57,9 @@ fn command(dir: &Path, port: u16) -> Command {
         .env("DELTABADGER_STOP_ON_STDIN_EOF", "1")
         .env_remove("DATABASE_URL").env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT")
         .env_remove("DELTABADGER_TEST_PAUSE");
+    // As the desktop app starts it: no console window, so no Ctrl-C reaches it either (PLAN-B6 r1.7).
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0800_0000);
     c
 }
 
@@ -109,7 +112,18 @@ fn rails_owned_install() -> tempfile::TempDir {
     assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(c.execute("DELETE FROM app_configs WHERE key = ?1", [deltabadger::lease::KEY]).unwrap(), 1);
+    // One Rust migration pending again, as on an install from before it: its table gone and its row with it.
+    c.execute_batch("DROP TABLE rust_idempotency_orders").unwrap();
+    assert_eq!(c.execute("DELETE FROM rust_schema_migrations WHERE version = ?1", [PENDING]).unwrap(), 1);
     dir
+}
+
+/// The migration `rails_owned_install` leaves pending.
+const PENDING: &str = "20261107000001";
+
+fn migrated(dir: &Path) -> bool {
+    rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+        .query_row("SELECT count(*) FROM rust_schema_migrations WHERE version = ?1", [PENDING], |r| r.get::<_, i64>(0)).unwrap() == 1
 }
 
 fn lease(dir: &Path) -> Option<String> {
@@ -241,10 +255,12 @@ fn stdin_closed_at_each_start_barrier_stops_before_the_claim() {
         let made = backups(dir.path());
         assert_eq!(made.len(), usize::from(copied), "{barrier}: {made:?}");
         assert!(made.iter().all(|b| !partial(b) && b.join("digest").exists()), "{barrier}: a complete copy: {made:?}");
+        assert_eq!(migrated(dir.path()), copied, "{barrier}: the migrations run with the copy, both or neither");
         std::fs::remove_file(&release).unwrap();
         let mut next = start(&mut command(dir.path(), port), port);
         next.line("took over");
         next.line("running, with the web UI");
+        assert!(migrated(dir.path()), "{barrier}");
         next.close_stdin();
         assert_eq!(next.exit_code(Duration::from_secs(10)), Some(0), "{barrier}: the next start");
     }
