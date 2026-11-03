@@ -699,6 +699,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_binance_a12_v1:", Refuses("Binance A12 identity data permanently requires Rust ownership")),
         (AppConfig, "rust_binance_repair_gaps.", Ignored), (AppConfig, "rust_account_identity_key_v1", Ignored),
         (AppConfig, "rust_coinbase_size_in_quote_repaired_at", Ignored),
+        // D-CG-429-STOPS-PRICES' pending backfill retry: 2.x backfills on its own schedule and never reads it.
+        (AppConfig, "rust_snapshot_prices_pending_", Ignored),
         // KuCoin (reconcile.rs): an HF or UTA order record refuses; a Classic one is Rails' own route. An obligation or an
         // unproven route sits on Rails' own transaction row, which adopt_handback! polls while it is open.
         (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF orders are Rust-only")),
