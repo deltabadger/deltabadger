@@ -1138,6 +1138,9 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
         let page = body(&page);
         if platform == "desktop" {
             assert!(page.contains(&format!("<meta name=\"desktop-launch\" content=\"{TOKEN}\">")), "{page}");
+            // D-DESKTOP-DEVISE-MODULE: as a classic script the bundle's top-level functions collide with the webview's
+            // own globals (`isTauri`) and nothing runs on the setup and login pages; a module keeps them its own.
+            assert!(page.contains("data-turbo-track=\"reload\" type=\"module\"></script>"), "{page}");
             let start = page.find("<div id=\"desktop_update\"").expect("the banner");
             let banner = &page[start..start + page[start..].find("</div>\n</div>").unwrap()];
             assert!(banner.contains("class=\"salert salert--download hidden\""), "hidden until the app says otherwise");
@@ -1159,6 +1162,7 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
             assert!(!bytes.windows(3).any(|w| w[0].is_ascii_digit() && w[1] == b'.' && w[2].is_ascii_digit()), "a version: {banner}");
         } else {
             assert!(!page.contains("desktop-launch") && !page.contains("desktop_update"), "{platform}");
+            assert!(page.contains("data-turbo-track=\"reload\" defer=\"defer\"></script>"), "{platform}: today's script tag");
         }
         e.close_stdin();
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));

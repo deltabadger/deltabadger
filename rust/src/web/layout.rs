@@ -60,7 +60,8 @@ impl Ctx {
         i18n::t(self.locale, key, &[])
     }
 
-    fn desktop(&self) -> bool { self.app.update_platform == crate::jobs::app_update::Platform::Desktop }
+    /// The desktop app's pages (DELTABADGER_PLATFORM=desktop).
+    pub fn desktop(&self) -> bool { self.app.update_platform == crate::jobs::app_update::Platform::Desktop }
 
     /// The desktop app's launch token (PLAN-B7 r3.4): the app answers only a page that carries the token of the engine
     /// it started. Nothing elsewhere.

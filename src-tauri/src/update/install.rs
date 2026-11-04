@@ -499,6 +499,21 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_probe_refuses_a_folder_the_app_cannot_swap_in() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp("probe");
+        let app = dir.join("Deltabadger.app");
+        std::fs::create_dir(&app).unwrap();
+        swap_probe(&app).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+        assert!(swap_probe(&app).is_err(), "a read-only folder");
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "the probe leaves nothing");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[cfg(unix)]
     #[test]
     fn an_unhealthy_lock_is_never_trusted() {
