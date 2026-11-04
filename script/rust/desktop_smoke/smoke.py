@@ -874,6 +874,12 @@ def main():
     # On macOS the app's processes are found by the test .app's own path; elsewhere by process name, which an installed
     # Deltabadger shares, so those kinds run only on a CI runner, where nothing else is (cleanup kills what it finds).
     check(MAC or os.environ.get("CI") == "true", f"--kind {ARGS.kind} runs on a CI runner only (CI=true)")
+    if MAC:
+        # The released identifier ignores DELTABADGER_DESKTOP_DATA_DIR and would open the real data: never launched.
+        import plistlib
+        with open(ARGS.app / "Contents" / "Info.plist", "rb") as f:
+            got = plistlib.load(f).get("CFBundleIdentifier")
+        check(got == TEST_ID, f"{ARGS.app} is {got}, not the test build {TEST_ID}")
     ARGS.work.mkdir(parents=True, exist_ok=True)
     check(not app_pids() and not engine_pids(), f"the app is already running: {app_pids()} {engine_pids()}")
     if LINUX:
