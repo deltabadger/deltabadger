@@ -1041,7 +1041,11 @@ fn property_install() -> (tempfile::TempDir, App, Clients, Tokens) {
 }
 
 async fn send_with(app: &App, method: &str, path: &str, headers: &[(&str, &str)], body: &str) -> Sent {
-    let mut request = Request::builder().method(method).uri(path).header(header::HOST, web::HOST).header(header::CONTENT_TYPE, FORM);
+    send_with_type(app, method, path, FORM, headers, body).await
+}
+
+async fn send_with_type(app: &App, method: &str, path: &str, content_type: &str, headers: &[(&str, &str)], body: &str) -> Sent {
+    let mut request = Request::builder().method(method).uri(path).header(header::HOST, web::HOST).header(header::CONTENT_TYPE, content_type);
     for (name, value) in headers { request = request.header(*name, *value); }
     let mut request = request.body(Body::from(body.to_string())).unwrap();
     request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
@@ -1154,16 +1158,22 @@ async fn no_oauth_refusal_repeats_the_query() {
     assert_eq!(count(dir.path(), "oauth_access_tokens"), 0);
 }
 
-/// D-OAUTH-NO-GET-BODY-TOKEN: a GET's body is never read, so a token in it is not a token (RFC 6750 2.2), and a
-/// header token sent with one is read as the header's.
+/// D-OAUTH-UNREAD-BODY-REFUSED: a body this crate does not read as Rails does (a GET's, here) is refused whole on
+/// token info and introspection, before any token is used: Rails would read a token from it.
 #[tokio::test(flavor = "current_thread")]
-async fn token_info_reads_no_get_body() {
+async fn token_info_refuses_a_get_body() {
     let (dir, app) = seeded();
-    rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap()
-        .execute_batch("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, scopes, expires_in, created_at) VALUES (1, 1, 'live', 'mcp', 3600, '2026-09-10 12:00:00')").unwrap();
-    assert_eq!(send_with(&app, "GET", "/oauth/token/info", &[], "access_token=live").await.status, 401);
-    assert_eq!(send_with(&app, "GET", "/oauth/token/info", &[("authorization", "Bearer live")], "access_token=live").await.status, 200);
-    assert_eq!(send_with(&app, "GET", "/oauth/token/info?access_token=live", &[], "").await.status, 200);
+    seed_tokens(dir.path(), &[("first".into(), String::new()), ("second".into(), "first".into())]);
+    let before = token_rows(dir.path());
+    for headers in [vec![("content-length", "18")], vec![("content-length", "18"), ("authorization", "Bearer second")]] {
+        assert_eq!(send_with(&app, "GET", "/oauth/token/info", &headers, "access_token=first").await.status, 400, "{headers:?}");
+    }
+    // JSON of whitespace alone is Rails' parse error, not an empty body.
+    assert_eq!(send_with_type(&app, "POST", "/oauth/introspect?token=first", "application/json", &[("content-length", "1"), ("authorization", "Bearer second")], " ").await.status, 400);
+    // `a=x&a[]` is two shapes of one name: Rack's 400.
+    assert_eq!(send_with(&app, "GET", "/oauth/token/info?access_token=x&access_token%5B%5D", &[("authorization", "Bearer second")], "").await.status, 400);
+    assert_eq!(token_rows(dir.path()), before, "nothing was used");
+    assert_eq!(send_with(&app, "GET", "/oauth/token/info", &[("authorization", "Bearer second")], "").await.status, 200);
 }
 
 /// A use is judged at the moment the request holds the write lock, on the rows as they stand then: a bearer revoked

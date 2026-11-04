@@ -1015,6 +1015,8 @@ pub struct Shaped {
 impl Shaped {
     /// `None` when Rack refuses the query or the form (a name used as two shapes): Rails' 400, before anything is read.
     pub fn of(params: &Params) -> Option<Self> {
+        // Shapes are checked as Rack checks them, on the fields as sent: `a=x&a[]` is two shapes of `a`, refused.
+        super::bot::action_params::form(&params.query).ok()?;
         // From the raw query, where a name without `=` is Rack's nil. After deep_munge `a[]` alone is an empty
         // list, there and blank, and `a[b][]` alone is `{b: []}`, a hash: `a[]` is read as `a=` and `a[b][]` as
         // `a[b]=`, which are the same to every question asked here (is it there, is it blank, is it a text).
@@ -1161,8 +1163,8 @@ const FORMATTED: [&str; 3] = ["/oauth/introspect", "/oauth/token/info", "/oauth/
 /// The two routes that read every parameter as Rack does, so that a query or form Rack cannot read (a `%` without
 /// two hex digits, bytes that are not UTF-8) is refused whole, as in Rails (`web::hook::Unparseable`). A multipart
 /// body, whose fields Rails would read and this crate does not, is refused the same way: a token in it would be a
-/// way of sending one that nothing here counted; so is a body sent with no content type, which Rack reads as a
-/// form on a POST and this crate does not read.
+/// way of sending one that nothing here counted; so is every other body this crate does not read as Rails does
+/// (the entry's `body_read_alike`).
 pub const RACK_READ: [&str; 2] = ["/oauth/introspect", "/oauth/token/info"];
 
 /// `path` without a format suffix, where its route has one (`FORMATTED`); otherwise `path` as it is.

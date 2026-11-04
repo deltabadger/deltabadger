@@ -1040,6 +1040,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&oauth::unformatted(&full_path))))
         && json_type;
     let mut json = None;
+    // A JSON body of whitespace alone: no parameters here, a parse error to Rails.
+    let mut blank_json = false;
     let mut upload = None;
     // What Rack read as the form, for the override: None when it read none, or could not parse it.
     let mut rack_form = true;
@@ -1080,7 +1082,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
             },
             Ok(bytes) if json_post => match serde_json::from_slice::<serde_json::Value>(&bytes) {
                 Ok(value) => { json = value.is_object().then_some(value); (Vec::new(), Body::empty()) }
-                Err(_) if bytes.iter().all(u8::is_ascii_whitespace) => (Vec::new(), Body::empty()),
+                Err(_) if bytes.iter().all(u8::is_ascii_whitespace) => { blank_json = !bytes.is_empty(); (Vec::new(), Body::empty()) }
                 Err(_) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
             },
             Ok(bytes) if form_urlencoded::parse(&bytes).nth(FORM_FIELDS).is_some() => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
@@ -1097,11 +1099,13 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     if original_method == Method::POST {
         if let Some(method) = method_override(rack_form.then_some(form.as_slice()), override_header.as_deref()) { parts.method = method; }
     }
-    let multipart = content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("multipart/form-data"));
-    // A body with no content type: Rack reads a POST's as a form; nothing here reads it.
-    let untyped_body = content_type.trim().is_empty() && original_method == Method::POST
-        && (header_text(&parts.headers, "content-length").is_some_and(|length| length.trim() != "0") || parts.headers.contains_key(header::TRANSFER_ENCODING));
-    let rack_refused = oauth::RACK_READ.contains(&route_path.as_str()) && (multipart || untyped_body || !(rack_form && hook::rack_form_ok(raw_query.as_bytes())));
+    // On the routes that count how a token was sent, a body is read only where Rails and this crate read it alike:
+    // a POST's form, or a POST's JSON object. Any other body (a GET's, a multipart one, one with no content type,
+    // which Rack reads as a form; JSON of whitespace alone) could hold a token nothing here counted: refused whole.
+    let sent_body = header_text(&parts.headers, "content-length").is_some_and(|length| length.trim() != "0") || parts.headers.contains_key(header::TRANSFER_ENCODING);
+    let body_read_alike = original_method == Method::POST && (form_post || json_post) && !blank_json;
+    let rack_refused = oauth::RACK_READ.contains(&route_path.as_str())
+        && ((sent_body && !body_read_alike) || !(rack_form && hook::rack_form_ok(raw_query.as_bytes())));
     if unparseable || rack_refused { parts.extensions.insert(hook::Unparseable); }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);
