@@ -279,17 +279,18 @@ def the_one(what, found):
     return found[0]
 
 
-def stop_hard_and_drain(data, start, what):
-    """The app killed (taskkill /F, kill -9): the engine, its stdin closed, drains and exits 0 on its own; lock free."""
+def stop_hard_and_drain(data, start, what, refused=False):
+    """The app killed (taskkill /F, kill -9): the engine, its stdin closed, drains and exits 0 on its own; lock free.
+    A refusal page stops without a log line (web/refused.rs `serve` returns 0), so there the exit status is the proof."""
     watch = ExitWatch(start.pid)
     for pid in app_pids():
         kill(pid)
     until("the app gone", 15, lambda: not app_pids())
     code = watch.wait(60)
-    check(code in (0, None), f"{what}: engine exit {code}")
-    check(logged(data, "stopped on request"), f"{what}: no 'stopped on request' since this start")
+    check(code == 0 if refused else code in (0, None), f"{what}: engine exit {code}")
+    check(refused or logged(data, "stopped on request"), f"{what}: no 'stopped on request' since this start")
     check(lock_state(data) == "free", f"{what}: lock {lock_state(data)}")
-    say(f"{what}: app killed; the engine stopped on request, exit {code}, lock free")
+    say(f"{what}: app killed; the engine stopped{'' if refused else ' on request'}, exit {code}, lock free")
 
 
 def mac_quit(data, start, what):
@@ -662,7 +663,7 @@ def refusal(data, what, want, **extra):
         text = window_text(win, f"{what}: the refusal page", want)
         say(f"{what}: the window shows: {text}")
         check("refused: showing why on port" in "\n".join(since_start(data)), f"{what}: no refusal line in the log")
-        stop_hard_and_drain(data, start, what)
+        stop_hard_and_drain(data, start, what, refused=True)
     finally:
         win.close()
     if before is None:
