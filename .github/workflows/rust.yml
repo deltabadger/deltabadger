@@ -27,6 +27,8 @@ on:
       # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
       - '.github/workflows/release.yml'
       - 'script/release/**'
+      - 'script/release.sh'
+      - 'script/release_test.sh'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -223,6 +225,8 @@ on:
       # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
       - '.github/workflows/release.yml'
       - 'script/release/**'
+      - 'script/release.sh'
+      - 'script/release_test.sh'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -574,6 +578,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
       - run: bash script/release/validate_test.sh
+      # script/release.sh (PLAN-B8 B8-3): versions, refusals that write nothing, the signed tag and its trailer, promote, umbrel.
+      - run: bash script/release_test.sh
 
   # release.yml's "pushed is smoked" check, on the runners the publish uses (their Docker image stores differ:
   # v3.0.0-beta.1's ubuntu-latest amd64 leg ran the containerd store, where buildx reports no config digest for a
