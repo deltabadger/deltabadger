@@ -269,7 +269,8 @@ jobs:
           - { name: linux-x86_64, os: ubuntu-24.04, bundles: 'appimage,deb' }
     env:
       DRY: ${{ needs.meta.outputs.dry }}
-      SIGN: ${{ needs.meta.outputs.dry == 'true' || needs.meta.outputs.updater_ready == 'true' }}
+      # Not SIGN: linuxdeploy's AppImage plugin reads $SIGN as "GPG-sign the AppImage" and fails without a GPG key.
+      UPDATER_SIGN: ${{ needs.meta.outputs.dry == 'true' || needs.meta.outputs.updater_ready == 'true' }}
       APPLE_READY: ${{ needs.meta.outputs.dry != 'true' && needs.meta.outputs.apple_ready == 'true' }}
     steps:
       - name: Dropped on purpose
@@ -335,7 +336,7 @@ jobs:
             TAURI_SIGNING_PRIVATE_KEY=$(cat "$RUNNER_TEMP/testkey/test.key")
             export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD=
             jq -n --arg k "$(cat "$RUNNER_TEMP/testkey/test.key.pub")" '{plugins: {updater: {pubkey: $k}}}' > "$conf"
-          elif [ "$SIGN" = true ]; then
+          elif [ "$UPDATER_SIGN" = true ]; then
             echo '{}' > "$conf"
           else
             unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
@@ -356,7 +357,7 @@ jobs:
             local found=( $1 )
             [ ${#found[@]} = 1 ] && [ -f "${found[0]}" ] || { echo "::error::expected one $1, found: ${found[*]}"; exit 1; }
             cp "${found[0]}" "$RUNNER_TEMP/assets/$2"
-            if [ "$3" = yes ] && [ "$SIGN" = true ]; then
+            if [ "$3" = yes ] && [ "$UPDATER_SIGN" = true ]; then
               [ -s "${found[0]}.sig" ] || { echo "::error::no updater signature for ${found[0]}"; exit 1; }
               cp "${found[0]}.sig" "$RUNNER_TEMP/assets/$2.sig"
             fi
@@ -364,7 +365,7 @@ jobs:
           case "${{ matrix.name }}" in
             macos-aarch64)
               one "$b/dmg/*.dmg" Deltabadger_darwin-aarch64.dmg no
-              [ "$SIGN" = true ] && one "$b/macos/*.app.tar.gz" Deltabadger_darwin-aarch64.app.tar.gz yes ;;
+              [ "$UPDATER_SIGN" = true ] && one "$b/macos/*.app.tar.gz" Deltabadger_darwin-aarch64.app.tar.gz yes ;;
             windows-x86_64) one "$b/nsis/*-setup.exe" Deltabadger_windows-x86_64-setup.exe yes ;;
             linux-x86_64)
               one "$b/appimage/*.AppImage" Deltabadger_linux-x86_64.AppImage yes
