@@ -18,6 +18,19 @@ fn main() {
     rust_migrations(&root, &out, &rails_versions);
     locales(&root, &out);
     assets(&root, &out);
+    release_version(&root);
+}
+
+/// The release's version (D-ENGINE-VERSION): src-tauri/Cargo.toml's `version`, the one file a release bumps, as
+/// `DELTABADGER_VERSION`. rust/Cargo.toml's own `0.1.0` is the crate's, never shown or recorded.
+fn release_version(root: &Path) {
+    let file = root.join("src-tauri/Cargo.toml");
+    println!("cargo:rerun-if-changed={}", file.display());
+    let text = fs::read_to_string(&file).expect("read src-tauri/Cargo.toml");
+    let version = text.lines()
+        .find_map(|line| line.strip_prefix("version = \"")?.strip_suffix('"'))
+        .expect("src-tauri/Cargo.toml has no `version = \"...\"` line");
+    println!("cargo:rustc-env=DELTABADGER_VERSION={version}");
 }
 
 /// The Rails migration versions every 2.x install records in `schema_migrations`, frozen in rust/schema/rails_versions.txt

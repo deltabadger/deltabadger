@@ -304,7 +304,7 @@ pub async fn account(
     // email and password rows open, and each field shows its own attribute's message.
     let errors = sections::Errors(&draft.messages);
     let registration = registration(ctx, &csrf, registration_open.0, registration_open.1)?;
-    let update = sections::app_update(ctx, app.update_platform, update.as_ref(), super::dialog::version());
+    let update = sections::app_update(ctx, app.update_platform, update.as_ref(), crate::VERSION);
     // D-DESKTOP-NO-ACCOUNT-PAGES: the desktop's one account has no email, password, 2FA, registration or mail rows; its
     // Security heading holds "Sign in a browser" (D-DESKTOP-BROWSER-CODE).
     let desktop = ctx.desktop();

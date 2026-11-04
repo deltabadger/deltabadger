@@ -871,7 +871,7 @@ fn the_build_compose_builds_3_0_and_sets_up_an_empty_volume() {
     assert!(app.logs().contains("set up a new install"), "{}", app.logs());
     assert_eq!(app.exec(&["stat", "-c", "%u %a", "/app/storage/.secrets"]), "1000 600");
     let said = app.exec(&["deltabadger", "--version"]);
-    assert_eq!(said.lines().next(), Some(format!("deltabadger {}", env!("CARGO_PKG_VERSION")).as_str()), "the Rust program of this checkout: {said}");
+    assert_eq!(said.lines().next(), Some(format!("deltabadger {}", deltabadger::VERSION).as_str()), "the Rust program of this checkout: {said}");
     stopped(&project, &app);
 }
 

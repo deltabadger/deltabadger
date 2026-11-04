@@ -176,7 +176,7 @@ fn main() {
         }
         _ => println!(
             "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | reconcile-order <transaction_id> --evidence <file> | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
-            env!("CARGO_PKG_VERSION")
+            deltabadger::VERSION
         ),
     }
 }
@@ -319,7 +319,7 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     let cipher = Cipher::new(&keys);
     let paths = paths(env);
     let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
-    let created = start && store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths, env));
+    let created = start && store::bootstrap(&paths, &lock, &cipher, env, deltabadger::VERSION, chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths, env));
     if created {
         log(&format!("set up a new install at {}", paths.primary.display()));
         #[cfg(debug_assertions)]
@@ -466,7 +466,7 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
     let refused = |code: i32, message: String| { deltabadger::eline!("deltabadger: {message}"); Err((code, message)) };
     // preflight's refusals (venue, key) are the takeover's own now: a working bot without a key is set aside, one that
     // still owes orders is a hard stop (set_aside::apply).
-    let t = match handover::take_over(lock, o, cipher, env!("CARGO_PKG_VERSION"), chrono::Utc::now()) {
+    let t = match handover::take_over(lock, o, cipher, deltabadger::VERSION, chrono::Utc::now()) {
         Ok(t) => t,
         Err(EngineError::HardStop(message)) => return refused(EXIT_REFUSED, message),
         // The lines are support's (e.g. a Rails withdrawal to resolve with resolve-withdrawal): stderr only.
