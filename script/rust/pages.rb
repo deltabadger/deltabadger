@@ -118,6 +118,12 @@ module Pages
       'root_signed_out' => { 'steps' => [get('/'), get('/de'), get('/en'), get('/?locale=de')] },
       'root_signed_in' => { 'user' => user('locale' => 'pl'), 'steps' => [get('/login'), login, get('/'), get('/en'), get('/de')] },
       'bots_requires_sign_in' => { 'steps' => [get('/bots'), get('/login')] },
+      # A25: the two answers Rust keeps from Rails' /jobs (config/routes.rb:34-36, `authenticate :user, ->(u) { u.admin? }`
+      # around Mission Control): a signed-out visitor is sent to sign in, a signed-in non-admin finds no route. The admin's
+      # page is Rust's own (D-JOBS-RUST-VIEW), pinned by rust/tests/admin_jobs.rs.
+      'jobs_requires_sign_in' => { 'steps' => [get('/jobs'), get('/login')] },
+      'missing_jobs_not_admin' => { 'user' => user('admin' => false), 'extra_users' => [user('email' => 'admin@example.com')],
+                                    'steps' => signed_in(get('/jobs').merge('expect' => 404)) },
       'bots_requires_sign_in_de' => { 'steps' => [get('/de/bots'), get('/de/login'), login(path: '/de/login')] },
       'bots_requires_sign_in_param' => { 'steps' => [get('/bots?locale=de'), get('/login'), get('/en/bots'), get('/en/login')] },
       'locked_while_signed_in' => { 'steps' => [get('/login'), login, get('/')] +

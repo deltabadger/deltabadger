@@ -427,3 +427,60 @@ async fn a_transaction_a_job_leaves_open_is_rolled_back_when_its_unit_ends() {
     let rows: i64 = second_connection(&d).query_row("SELECT COUNT(*) FROM app_configs WHERE key = 'left_open'", [], |r| r.get(0)).unwrap();
     assert_eq!(rows, 0, "the half-done write is gone");
 }
+
+// ---- A25: the listing the admin jobs page reads (Wakers::listing) ------------------------------------------------------
+
+/// Published at the start, before any run; `running` is the slot in hand only, and is clear again after a success, a
+/// failure, a deadline and a stop.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_listing_is_published_at_start_and_running_clears_after_every_end() {
+    let (_d, c) = db();
+    let (idle, _, _) = fake("idle", None, Retry::None, vec![]);
+    let (daily, _, hook) = fake("daily", Some(Schedule::Daily { hour: 10, minute: 15 }), Retry::None, vec![Outcome::Failed("boom".into())]);
+    let s = Scheduler::new(c, seed::cipher(), vec![Box::new(idle), Box::new(daily)], None);
+    let wakers = s.wakers();
+    assert!(wakers.listing().is_empty(), "nothing before the scheduler starts");
+    let seen = Rc::new(RefCell::new(vec![]));
+    let (w, during) = (wakers.clone(), seen.clone());
+    *hook.borrow_mut() = Some(Box::new(move || *during.borrow_mut() = w.listing()));
+    drive(s, &clock("2026-10-02T12:00:00Z"), std::time::Duration::from_secs(5), async {}).await;
+    let during = seen.borrow().clone();
+    assert_eq!(during.iter().map(|l| (l.name, l.running)).collect::<Vec<_>>(), [("idle", false), ("daily", true)]);
+    assert!(during.iter().all(|l| l.manual));
+    let after = wakers.listing();
+    assert_eq!(after.iter().map(|l| (l.name, l.running, l.schedule.is_some())).collect::<Vec<_>>(), [("idle", false, false), ("daily", false, true)]);
+    assert_eq!(after[1].scheduled, Some(at("2026-10-03T10:15:00Z")), "the failed run's next fire");
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn running_clears_after_a_deadline_and_after_a_stop_mid_run() {
+    for deadline in [std::time::Duration::from_secs(2), DEADLINE] {
+        let (_d, c) = db();
+        let (mut job, runs, _) = fake("hang", Some(Schedule::Daily { hour: 10, minute: 15 }), Retry::None, vec![]);
+        job.hang = true;
+        job.spec.deadline = deadline;
+        let s = Scheduler::new(c, seed::cipher(), vec![Box::new(job)], None);
+        let wakers = s.wakers();
+        // 5 s: past the short deadline, and a stop mid-run for the long one.
+        drive(s, &clock("2026-10-02T12:00:00Z"), std::time::Duration::from_secs(5), async {}).await;
+        assert!(!runs.borrow().is_empty());
+        assert_eq!(wakers.listing().iter().map(|l| l.running).collect::<Vec<_>>(), [false], "{deadline:?}");
+    }
+}
+
+/// A scope resolved from a wake is listed once the runner admits it.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_late_resolved_scope_is_listed() {
+    let (_d, c) = db();
+    let s = Scheduler::new(c, seed::cipher(), vec![], None).with_resolver(Box::new(|name, scope| {
+        let (job, _, _) = fake("scoped", None, Retry::None, vec![]);
+        let mut job = job;
+        job.spec.scope = scope.map(String::from);
+        assert_eq!(name, "scoped");
+        Ok(Box::new(job) as Box<dyn Job>)
+    }));
+    let wakers = s.wakers();
+    wakers.wake("scoped", Some("12"), None);
+    drive(s, &clock("2026-10-02T12:00:00Z"), std::time::Duration::from_secs(1), async {}).await;
+    assert_eq!(wakers.listing().iter().map(|l| (l.name, l.scope.clone())).collect::<Vec<_>>(), [("scoped", Some("12".to_string()))]);
+}

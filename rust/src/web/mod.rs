@@ -4,6 +4,7 @@
 //!
 //! A request passes through `entry` (static files, form parsing, method override, locale prefix),
 //! then the routes, wrapped by `pipeline` (session, rate limits, who is signed in, CSRF, response headers).
+pub mod admin_jobs;
 pub mod assets;
 pub mod auth;
 pub mod bearer;
@@ -843,6 +844,9 @@ fn routes(app: App) -> Router {
         .route("/broadcasts/tax_report_state", only(post(tracker::report::tax_report_state)))
         .route("/broadcasts/fetch_open_orders", only(post(broadcasts::fetch_open_orders)))
         .route("/asset_tooltip", only(get(tooltip::show)))
+        // A25 (D-JOBS-RUST-VIEW): the admin's jobs page; nothing under it (D-JOBS-SUBPATHS-ABSENT).
+        .route("/jobs", only(get(admin_jobs::show).post(admin_jobs::run)))
+        .route("/jobs/{*rest}", any(admin_jobs::absent))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))

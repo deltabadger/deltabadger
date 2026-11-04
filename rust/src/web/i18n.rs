@@ -300,6 +300,10 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.rules.tile.withdrawal_unconfirmed", "Withdrawal status unconfirmed — not retried, to avoid sending it twice. Check %{exchange}."),
     // PLAN-B7 §5.3 as decided in r6 Q6 (B7-1): Rust-only, the desktop app's update banner and Settings row. No version in
     // any line. U7/U8 (the engine is stopping) are the launcher's own status page, src-tauri/ui/index.html.
+    // A25 (D-JOBS-SETTINGS-LINK): Rust-only, the Instance section's link to the admin jobs page.
+    ("en.settings.jobs.title", "Jobs"),
+    ("en.settings.jobs.hint", "What the scheduler and the engine are doing, with Run now for each job."),
+    ("en.settings.jobs.open", "Open"),
     ("en.desktop_update.about", "Deltabadger checks for updates when it starts and every 12 hours, and downloads them in the background."),
     ("en.desktop_update.about_check_only", "Deltabadger checks for updates when it starts and every 12 hours."),
     ("en.desktop_update.downloading", "Downloading an update…"),

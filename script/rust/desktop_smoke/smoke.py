@@ -375,11 +375,13 @@ class Window:
         return self.call("POST", f"/session/{self.sid}/execute/sync", {"script": script, "args": list(args)})
 
     def poll(self, what, seconds, script, *args):
-        """`script`'s result once truthy; a navigation in between (no context) is a retry."""
+        """`script`'s result once truthy; a navigation in between is a retry: no context (a WebDriver error), or, on
+        WebKitWebDriver, the request's connection closed when the page it ran in went away (B6-3a's sign-in page submits
+        itself as the window opens). A driver that is really gone fails every retry and the poll times out naming `what`."""
         def probe():
             try:
                 return self.js(script, *args)
-            except Fail:
+            except (Fail, OSError):
                 return None
         return until(what, seconds, probe, every=0.5)
 
