@@ -38,3 +38,19 @@ tokio = { version = "1", features = ["process", "time", "sync"] }
 reqwest = { version = "0.12", features = ["blocking"] }
 port_check = "0.2"
 getrandom = "0.3"
+# The bundle lock's name (PLAN-B7 r4.1: the same hash rust/src/bundle.rs names it by).
+sha2 = "0.10"
+# Which of two releases is newer, as the updater plugin compares them.
+semver = "1"
+
+# B7's own install step (PLAN-B7 r3.1): the macOS package is a .app.tar.gz; renamex_np and the lock's modes need libc.
+# All three are in Cargo.lock already (the updater plugin's).
+[target.'cfg(target_os = "macos")'.dependencies]
+tar = "0.4"
+flate2 = "1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

@@ -11,6 +11,7 @@
 <meta name="csrf-token" content="{{ csrf }}" />
     <meta name="csp-nonce" content="{{ v.nonce }}" />
     <meta name="turbo-prefetch" content="false">
+    {{ v.desktop_launch_meta()|safe }}
 
     <title>{{ v.t("meta.title")|safe }}</title>
     {% include "layouts/_favicon.html" %}
@@ -36,6 +37,7 @@
 </div>{% endif %}
       </div>
       {{ flash_extra|safe }}
+      {{ v.desktop_update_banner()|safe }}
     </div>
 
     {{ navbar|safe }}
