@@ -2384,6 +2384,8 @@ async fn replay_page_shard(shard: usize) {
         }
         for scope in ["", "de", "crypto", "crypto_de"].into_iter().filter(|scope| scope.is_empty() || dir.join(scope).is_dir()) {
         let dir = &dir.join(scope);
+        // Shown with the captured output when the shard fails or times out: the last name is the scenario it stopped in.
+        eprintln!("page shard {}: {name}/{scope}", shard + 1);
         let scenario = scenario(dir);
         let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages) = (0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
