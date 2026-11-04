@@ -255,7 +255,7 @@ pub struct Account<'a> {
 pub fn account(ctx: &Ctx, a: &Account) -> String {
     let instance = a
         .admin
-        .map(|(registration, email, update)| format!("\n  <h3 class=\"settings__heading\">{}</h3>\n  {registration}\n  {email}\n  \n{update}", ctx.t("settings.sections.instance")))
+        .map(|(registration, email, update)| format!("\n  <h3 class=\"settings__heading\">{}</h3>\n  {registration}\n  {email}\n  \n{update}{}", ctx.t("settings.sections.instance"), jobs(ctx)))
         .unwrap_or_default();
     format!(
         "  <h3 class=\"settings__heading settings__heading--first\">{}</h3>\n{}\n{}\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n{}\n{instance}",
@@ -272,6 +272,13 @@ pub fn account(ctx: &Ctx, a: &Account) -> String {
         a.advanced,
         a.wash
     )
+}
+
+/// A25 (D-JOBS-SETTINGS-LINK): the admin's way to /jobs, last in the Instance section, on every platform (the desktop
+/// window has no address bar). Rails has no link to its dashboard. Never locale-prefixed: `/de/jobs` is not the page.
+pub fn jobs(ctx: &Ctx) -> String {
+    let open = format!("\n        <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"_top\" href=\"/jobs\">{}</a>\n", ctx.t("settings.jobs.open"));
+    format!("  <div id=\"jobs\" class=\"sitem\">\n    {}\n  </div>\n", row(&ctx.t("settings.jobs.title"), Some(&ctx.t("settings.jobs.hint")), "", "", None, Some(&open)))
 }
 
 /// settings/widgets/_app_update: nothing is claimed without an answer. The desktop always gets its button (its own updater
