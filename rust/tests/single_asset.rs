@@ -713,3 +713,156 @@ mod surfaces {
         assert_eq!(after["rest"]["data"]["type"], "Bots::DcaMultiAsset");
     }
 }
+
+// ---- review r1: working kept bots, conditions through the tick ----
+
+/// A scenario's bot made working, as a started bot Rails left scheduled: no fixture's kept bot is.
+fn working(mut sc: Value) -> Value {
+    for b in sc["before"]["bots"].as_array_mut().unwrap() {
+        b["status"] = json!(1);
+        b["started_at"] = json!("2026-09-09 12:00:00");
+    }
+    sc
+}
+fn state(c: &Connection) -> (Value, Value, i64) {
+    (rows(c, "bots"), rows(c, "bot_index_assets"), c.query_row("SELECT count(*) FROM bot_activity_logs", [], |r| r.get(0)).unwrap())
+}
+
+/// A working kept single (an unpriced sale in its history) and a working clobbered basket whose repair is skipped (no
+/// ticker for its pair): the takeover stops each with its sentence (C2's key, its mail, its activity line); a restart sets
+/// nothing more aside and converts nothing.
+#[test]
+fn a_working_kept_bot_is_set_aside_with_its_sentence() {
+    for (name, skip) in [("an unpriced sell", Skip::History("a sale whose proceeds weren't reported")), ("clobbered basket, repair skipped: missing ticker", Skip::Market)] {
+        let (dir, o) = install(&working(scenario(name)));
+        let c = &o.primary;
+        let t = take_over(dir.path(), &o).unwrap_or_else(|e| panic!("{name}: {e:?}"));
+        let sentence = set_aside::legacy_sentence(c, 1, &skip).unwrap();
+        assert_eq!(t.set_aside.iter().map(|a| (a.id, a.reasons.clone())).collect::<Vec<_>>(), vec![(1, vec![sentence.clone()])], "{name}");
+        let bot = model::load_bot(c, 1).unwrap();
+        assert!(single_asset::legacy(&bot), "{name}: kept as it was");
+        assert_eq!(bot.status, deltabadger::enums::BotStatus::Stopped, "{name}");
+        let key: String = c.query_row("SELECT stop_message_key FROM bots WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(key, set_aside::STOP_KEY, "{name}");
+        assert_eq!(set_aside::reasons(bot.transient.get(set_aside::KEY)), Some(vec![sentence.clone()]), "{name}");
+        let pending = deltabadger::engine::notice::pending_in(1, bot.transient.as_object().unwrap());
+        assert!(matches!(pending.as_slice(), [deltabadger::engine::notice::Pending { notice: deltabadger::engine::notice::Notice::SetAside { reasons }, .. }] if *reasons == sentence), "{name}: its mail");
+        let (details, n): (String, i64) = c.query_row("SELECT details, count(*) FROM bot_activity_logs WHERE bot_id = 1 AND event = 'stopped'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(n, 1, "{name}");
+        assert_eq!(serde_json::from_str::<Value>(&details).unwrap()["reason"], json!(sentence), "{name}: its activity line");
+        let again = take_over(dir.path(), &o).unwrap();
+        assert!(again.set_aside.is_empty(), "{name}");
+        assert!(convert(c).is_empty(), "{name}");
+        assert!(single_asset::legacy(&model::load_bot(c, 1).unwrap()), "{name}");
+    }
+}
+
+/// A working kept single with an open order: the takeover can't stop it safely, so it is the hard stop and writes nothing.
+#[test]
+fn a_working_kept_bot_with_an_open_order_is_the_hard_stop() {
+    let (dir, o) = install(&working(scenario("an unpriced sell")));
+    let c = &o.primary;
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, base, quote, base_asset_id, quote_asset_id, \
+               bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
+               VALUES (1, 1, 'OOPEN', 0, 1, 0, 0, '0.001', '100', 'BTC', 'EUR', 1, 2, 'day', 100, 'REGULAR', '[]', '2026-09-10 11:00:00', '2026-09-10 11:00:00')", []).unwrap();
+    let before = state(c);
+    let Err(EngineError::HardStop(m)) = take_over(dir.path(), &o) else { panic!("not a hard stop") };
+    assert!(m.contains("It has open orders."), "{m}");
+    assert_eq!(state(c), before, "nothing written");
+}
+
+/// D-SINGLE-CONDITION-CONVERTS through the engine's own tick: each recorded condition on another market, and the price
+/// condition on its own (the fake venue at Rails' stubbed price), on the converted bot made working. Rails' recorded
+/// reading decides: a met rule carries its met stamp after the tick (conditions::evaluate_rule writes it; a latched one keeps
+/// it); an unmet one has none and holds the order; an unlatched flip doesn't fire and the bot keeps its direction. A subject
+/// outside the bot's tickers is never priced. (The candle rules on the bot's own market read Rails' stubbed SMA/RSI, which
+/// the fake venue has no candles for: those are ordinary basket conditions, Rails-parity-tested in tests/conditions.rs.)
+#[tokio::test(flavor = "current_thread")]
+async fn a_condition_reads_through_the_tick_as_rails_recorded_it() {
+    assert_eq!(fixture()["conditions_price"], "100");
+    let mut n = 0;
+    for sc in scenarios() {
+        let name = sc["name"].as_str().unwrap();
+        let foreign = sc["rails_skips"].to_string().contains("condition watches another ticker");
+        if !foreign && !name.starts_with("price_limit on its own") && !name.starts_with("sell_price_limit on its own") { continue; }
+        let settings: Value = serde_json::from_str(sc["before"]["bots"][0]["settings"].as_str().unwrap()).unwrap();
+        let selling = settings["direction"] == "selling";
+        let recorded = sc["probes"]["1"]["after"]["conditions"].as_object().unwrap().clone();
+        assert_eq!(recorded.len(), 1, "{name}");
+        let (prefix, met) = recorded.iter().next().map(|(k, v)| (k.clone(), v == true)).unwrap();
+        let venue = kraken();
+        let (_d, t, mut e) = engine(&working(sc.clone()), venue.clone());
+        assert_eq!(t.eligible, vec![1], "{name}: {:?}", t.set_aside);
+        run::step(&mut e, &at(now())).await.unwrap();
+        let after = model::load_bot(&e.primary, 1).unwrap();
+        let stamped = after.transient.get(format!("{prefix}_condition_met_at")).is_some_and(|v| !v.is_null());
+        assert_eq!(stamped, met, "{name}: {prefix} reads as Rails recorded it");
+        assert_eq!(after.selling(), selling, "{name}: no flip fired");
+        if !met {
+            let flip = settings[format!("{prefix}_action")].as_str().is_some_and(|a| a.starts_with("start_"));
+            if !flip { assert!(venue.sent().is_empty(), "{name}: held"); }
+            if foreign && !flip { assert_eq!(venue.calls("/0/public/Ticker"), 0, "{name}: no price read for a subject the bot doesn't trade"); }
+        }
+        n += 1;
+    }
+    assert_eq!(n, 12);
+}
+
+// ---- review r1: charts ----
+
+/// Rails' recorder's market (chart_stubs): its daily candles whatever window is asked, and get_tickers_prices' live prices.
+struct Stubbed { candles: Vec<(At, deltabadger::figures::dec::Dec)>, live: Vec<(String, deltabadger::figures::dec::Dec)> }
+impl deltabadger::figures::market::MarketData for Stubbed {
+    fn prices(&self, _: &deltabadger::figures::market::Venue, symbols: &[String]) -> deltabadger::figures::market::Fetch<Vec<(String, deltabadger::figures::market::Member<deltabadger::figures::dec::Dec>)>> {
+        Ok(self.live.iter().filter(|(s, _)| symbols.contains(s)).map(|(s, p)| (s.clone(), Ok(p.clone()))).collect())
+    }
+    fn candles(&self, _: &deltabadger::figures::market::Venue, _: &db::Ticker, _: At, _: i64, _: bool) -> deltabadger::figures::market::Fetch<Vec<(At, deltabadger::figures::dec::Dec)>> {
+        Ok(self.candles.clone())
+    }
+    fn exchange_rates(&self) -> deltabadger::figures::market::Fetch<Vec<(String, deltabadger::figures::market::Member<deltabadger::figures::num::Num>)>> { unreachable!() }
+    fn coin_price(&self, _: &str, _: &str) -> deltabadger::figures::market::Fetch<deltabadger::figures::market::Quoted> { unreachable!() }
+}
+fn stubbed() -> Stubbed {
+    let s = &fixture()["chart_stubs"];
+    let d = |v: &Value| deltabadger::figures::dec::Dec::strict(v.as_str().unwrap()).unwrap();
+    Stubbed { candles: s["candles"].as_array().unwrap().iter().map(|c| (At::from_utc(time(&c[0])).unwrap(), d(&c[1]))).collect(),
+              live: s["live"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), d(v))).collect() }
+}
+
+/// metrics_with_current_prices_and_candles(force: true)[:chart], as Rust computes it on the bot's class now.
+fn chart(c: &Connection, id: i64) -> Value {
+    let (at, market) = (At::from_utc(now()).unwrap(), stubbed());
+    let j = if model::load_bot(c, id).unwrap().bot_type == single_asset::SINGLE {
+        let walked = pair::metrics(c, id, at).unwrap();
+        let (live, _) = pair::live(c, &walked, &market, at).unwrap();
+        pair::marked_at(&live, &market, at).unwrap().0.to_json(3)
+    } else {
+        let s = db::Subject::load(c, id).unwrap();
+        let live = deltabadger::figures::live::live(c, &s, &walk::metrics(c, &s, at).unwrap(), &market, at).unwrap();
+        deltabadger::figures::chart::marked_at(c, &s, &live, &market, at).unwrap().0.to_json(3)
+    };
+    serde_json::from_str::<Value>(&j.write()).unwrap()["chart"].clone()
+}
+
+/// PLAN-A23 §5, §8 5: the chart each side draws equals Rails' own: before (the pair's) and after (the basket's), with Rails'
+/// market replayed, the inconsistent fill included. (A basket on an unavailable ticker charts only its fill marks, where
+/// the pair charted the series: Rails' own design, each side compared to its own.)
+#[test]
+fn charts_follow_rails_before_and_after() {
+    let (mut compared, mut off) = (0, vec![]);
+    for sc in scenarios() {
+        let name = sc["name"].as_str().unwrap();
+        let (before, after) = (&sc["probes"]["1"]["before"]["chart"], &sc["probes"]["1"]["after"]["chart"]);
+        // The same exclusions as figures_follow_rails_before_and_after, for the same reasons.
+        if before.is_null() || name == "missing exchange" || name == "clobbered basket, repair skipped: unpriced sell" { continue; }
+        let (_d, o) = install(&sc);
+        let c = &o.primary;
+        if &chart(c, 1) != before { off.push(format!("{name}: before\n  rust  {}\n  rails {before}", chart(c, 1))); }
+        convert(c);
+        if !after.is_null() && &chart(c, 1) != after { off.push(format!("{name}: after\n  rust  {}\n  rails {after}", chart(c, 1))); }
+        compared += 1;
+    }
+    assert!(off.is_empty(), "{}", off.join("\n"));
+    assert!(compared >= 50, "{compared}");
+    assert!(scenarios().iter().any(|s| s["name"] == "a buy whose price differs from its executed value" && !s["probes"]["1"]["after"]["chart"].is_null()));
+}
