@@ -444,6 +444,7 @@ pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices
 
 struct ScopeFactory<C: Connect> { venues:C, prices:Rc<dyn PriceSource> }
 impl<C: Connect + Clone + 'static> Job for ScopeFactory<C> {
+    fn manual(&self)->bool { false }
     fn spec(&self)->Spec { Spec{name:"credential_scope_factory",scope:None,schedule:None,jitter:Jitter::NONE,retry:Retry::None,deadline:DEADLINE} }
     fn spawn(&self,name:&str,scope:Option<&str>)->Option<Box<dyn Job>> {
         let id=scope?.parse::<i64>().ok().filter(|id|*id>0)?;
