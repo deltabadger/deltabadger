@@ -58,9 +58,13 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
     for row in s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64, since, until],
                            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?)))? {
         let (id, bot, at, details) = row?;
+        let at_error = parse_time(&at).err().map(|e| format!("{at:?}: {e:?}"));
         let details: Value = match details.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
         if details.get("source").is_some() || details.get("cl_ord_id").is_some() || details.get("resolution").is_some() { continue; }
-        found.push((bot, AMBIGUOUS_LINE, id, at.clone(), at, None));
+        match at_error {
+            None => found.push((bot, AMBIGUOUS_LINE, id, at.clone(), at, None)),
+            Some(e) => found.push((bot, AMBIGUOUS_LINE, id, until.clone(), until.clone(), Some(json!({ "time_error": e })))),
+        }
     }
     drop(s);
     // (c) failed REGULAR rows with no external id whose saved error is an ambiguous placement (D-RAILS-UNRECORDED-FAILED-ROWS).
@@ -77,8 +81,10 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
         // Unreadable saved errors are of unknown provenance: collected (r3.3).
         let errors: Vec<String> = match errors.as_deref().map(serde_json::from_str::<Vec<String>>) { Some(Ok(e)) => e, _ => vec![] };
         if !ambiguous_failure(venue.as_deref().unwrap_or(""), &errors) { continue; }
-        let scope = json!({ "exchange_id": exchange, "base_asset_id": base, "quote_asset_id": quote, "side": side });
-        found.push((bot, FAILED_ROW, id, at.clone(), at, Some(scope)));
+        match parse_time(&at) {
+            Ok(_) => found.push((bot, FAILED_ROW, id, at.clone(), at, Some(json!({ "exchange_id": exchange, "base_asset_id": base, "quote_asset_id": quote, "side": side })))),
+            Err(e) => found.push((bot, FAILED_ROW, id, until.clone(), until.clone(), Some(json!({ "time_error": format!("{at:?}: {e:?}") })))),
+        }
     }
     // (b) a claimed or failed Bot::ActionJob (C12's queue case): when it was claimed and when it can have ended.
     let mut s = queue.prepare("SELECT j.id, j.arguments, j.scheduled_at, j.created_at, c.created_at, p.last_heartbeat_at, f.created_at FROM solid_queue_jobs j \
@@ -164,7 +170,21 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> 
     let mut written = 0;
     for id in open {
         let tx = model::immediate(c)?;
-        let Some(o) = load(&tx, id)? else { continue };
+        let o = match load(&tx, id) {
+            Ok(Some(o)) => o,
+            Ok(None) => continue,
+            // A row whose stored times can't be read is answered as such, so it never stops the obligations after it.
+            Err(EngineError::Data(e)) => {
+                let bot: i64 = tx.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [id], |r| r.get(0))?;
+                let line = Line { event: UNCHECKED, outcome: "time", details: json!({ "when": "at a time that can't be read", "venue": "exchange", "reason": "time", "error": e }) };
+                model::log_activity(&tx, bot, line.event, Level::Warning, line.details, now)?;
+                tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])?;
+                tx.commit()?;
+                written += 1;
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
         let Some(line) = judge(&tx, &o, now)? else { continue };
         model::log_activity(&tx, o.bot, line.event, Level::Warning, line.details, now)?;
         tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])?;
@@ -285,12 +305,11 @@ fn current_scope(c: &Connection, o: &Obligation, exchange: i64) -> Result<Option
     if bases.is_empty() || exchange == 0 { return Ok(None); }
     let side = if bot.selling() { Side::Sell } else { Side::Buy };
     // The exchange then: Rails can move a bot to another exchange without touching any of the marks above. The bot's own
-    // nearest order before the span names it; with none before, an order after it on today's exchange does (every later
-    // order is checked below); with none at all it is unknown.
+    // nearest order before the span names it; with none before it is unknown.
     let before: Option<i64> = c.query_row("SELECT exchange_id FROM transactions WHERE bot_id = ?1 AND created_at <= ?2 ORDER BY created_at DESC, id DESC LIMIT 1",
                                           params![o.bot, after], |r| r.get(0)).optional()?;
-    let later: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND created_at > ?2)", params![o.bot, after], |r| r.get(0))?;
-    match before { Some(e) if e != exchange => return Ok(None), None if !later => return Ok(None), _ => {} }
+    // Only an order before the span names it: one after may follow a move (Codex r3).
+    if before != Some(exchange) { return Ok(None); }
     let mut s = c.prepare("SELECT exchange_id, base_asset_id, quote_asset_id, side FROM transactions WHERE bot_id = ?1 AND created_at > ?2")?;
     for row in s.query_map(params![o.bot, after], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?, r.get::<_, Option<i64>>(3)?)))? {
         let (e, b, q, sd) = row?;

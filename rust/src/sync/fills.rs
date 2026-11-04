@@ -40,6 +40,7 @@ pub fn supported(venue: &str) -> bool { SUPPORTED.contains(&venue) }
 /// How the order key is made once the ticker is known.
 enum Key { Raw(String), Ticker(String), Base(String) }
 /// How the market symbol finds its ticker.
+#[derive(Clone, Copy)]
 enum Match { Exact, Lower, Alpaca }
 struct Parsed { symbol: String, matching: Match, fill_id: String, key: Key, side: Side, base_qty: BigDec, quote_qty: BigDec, at: DateTime<Utc> }
 
@@ -75,9 +76,22 @@ pub fn read(c: &Connection, venue: &str, row: &LedgerRow) -> Result<Read, String
     let [(ticker_id, base_asset_id, quote_asset_id, ticker, base)] = &rows[..] else {
         return Ok(Read::Unreadable(if rows.is_empty() { "unmapped symbol" } else { "symbol names several tickers" }.into()));
     };
+    // A listing the catalogue replaced keeps its row under "__stale_<id>_<ticker>" (jobs::import::tombstone), so an old
+    // fill's symbol may name the replaced pair, not today's: which one can't be told (Codex A28 branch r3).
+    if reused(c, row.exchange_id, &p.symbol, p.matching)? { return Ok(Read::Unreadable("symbol reused by a later listing".into())); }
     let order_key = match p.key { Key::Raw(id) => id, Key::Ticker(id) => format!("{ticker}-{id}"), Key::Base(id) => format!("{base}-{id}") };
     Ok(Read::Fill(Fill { fill_id: p.fill_id, order_key, ticker_id: *ticker_id, base_asset_id: *base_asset_id, quote_asset_id: *quote_asset_id,
                          side: p.side, base_qty: p.base_qty, quote_qty: p.quote_qty, at: p.at }))
+}
+
+/// Does a tombstoned ticker of the exchange carry this symbol?
+fn reused(c: &Connection, exchange_id: i64, symbol: &str, matching: Match) -> Result<bool, String> {
+    let mut s = c.prepare_cached("SELECT ticker FROM tickers WHERE exchange_id = ?1 AND substr(ticker, 1, 8) = '__stale_'").map_err(|e| e.to_string())?;
+    let names = s.query_map([exchange_id], |r| r.get::<_, String>(0)).and_then(|r| r.collect::<Result<Vec<_>, _>>()).map_err(|e| e.to_string())?;
+    Ok(names.iter().filter_map(|n| n.strip_prefix("__stale_").and_then(|rest| rest.split_once('_')).map(|(_, old)| old)).any(|old| match matching {
+        Match::Lower => old.eq_ignore_ascii_case(symbol),
+        Match::Exact | Match::Alpaca => old == symbol,
+    }))
 }
 
 type Out = Result<Option<Parsed>, String>;

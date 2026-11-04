@@ -541,3 +541,50 @@ fn a_span_across_midnight_names_both_dates() {
     ru::report(&c, now()).unwrap();
     assert_eq!(lines(&c, b)[0].1["when"], "between 2026-09-28 23:58 UTC and 2026-09-29 00:01 UTC");
 }
+
+// ---- Codex branch r3 ---------------------------------------------------------------------------------------------------
+
+#[test]
+fn an_order_after_the_span_does_not_name_the_exchange_then() {
+    let c = primary();
+    let s = binance(&c);
+    let b = seed::insert_bot(&c, &s, &BotSpec::weekly(20.0, "2026-09-01 10:00:00"));
+    ambiguous_line(&c, b, AT);
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, base_asset_id, quote_asset_id, transaction_type, \
+               error_messages, created_at, updated_at) VALUES (?1, ?2, 'LATER', 0, 2, 0, ?3, ?4, 'REGULAR', '[]', '2026-09-30 09:00:00', '2026-09-30 09:00:00')",
+              params![b, s.exchange_id, s.btc, s.quote]).unwrap();
+    ru::collect(&c, &queue(), None, now()).unwrap();
+    synced(&c, s.api_key_id, now());
+    ru::report(&c, now()).unwrap();
+    assert_eq!(lines(&c, b)[0].1["reason"], "settings_changed");
+}
+
+#[test]
+fn a_fill_on_a_symbol_a_later_listing_took_over_is_unreadable() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    ambiguous_line(&c, b, AT);
+    fill(&c, &s, 11, 5, true, "0.0004", "20", "2026-09-29T14:03:05Z");
+    // The coin that listed as BTCEUR before: another asset, its row tombstoned (jobs::import::tombstone).
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('old-coin', 'BTC', 'Old coin', 'Cryptocurrency', ?1, ?1)", [AT]).unwrap();
+    let old = c.last_insert_rowid();
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+               minimum_base_size, minimum_quote_size, available, created_at, updated_at) \
+               VALUES (?1, '__stale_99_BTCEUR', '__stale_99_BTC', 'EUR', ?2, ?3, 8, 2, 2, 0, 0, 0, ?4, ?4)", params![s.exchange_id, old, s.quote, AT]).unwrap();
+    assert_eq!(reported(&c, &s, b).1["reason"], "unreadable");
+}
+
+#[test]
+fn a_source_time_that_cant_be_read_gets_its_line_and_the_others_still_get_theirs() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    ambiguous_line(&c, b, "2026-09-29 25:00:00");
+    ambiguous_line(&c, b, AT);
+    assert_eq!(ru::collect(&c, &queue(), None, now()).unwrap(), 2);
+    synced(&c, s.api_key_id, now());
+    assert_eq!(ru::report(&c, now()).unwrap(), 2);
+    let l = lines(&c, b);
+    assert_eq!((l[0].1["reason"].as_str(), l[1].0.as_str()), (Some("time"), ru::NONE_SEEN));
+}
