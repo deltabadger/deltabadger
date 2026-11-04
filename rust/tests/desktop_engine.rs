@@ -1146,6 +1146,7 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
             assert!(banner.contains("class=\"salert salert--download hidden\""), "hidden until the app says otherwise");
             for line in [
                 "data-text-ready=\"An update is ready.\"",
+                "data-text-ready-more=\"Deltabadger finishes its current work before it restarts. You can also update later: choose Quit in Deltabadger&#39;s menu, and it installs the update before it closes.\"",
                 "data-text-restart=\"Restart to update\"",
                 "data-text-downloading-percent=\"Downloading an update… %{percent}%\"",
                 "data-text-critical-ready=\"An important update is ready. Please restart soon to install it.\"",

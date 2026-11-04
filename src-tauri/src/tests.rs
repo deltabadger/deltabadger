@@ -881,6 +881,10 @@ fn the_status_page_names_the_update_stop_without_a_version() {
         "\"updating-long\": function",
         "Deltabadger is finishing its current work before updating and restarting.",
         "The update is waiting for Deltabadger to finish closing. Leave this window open. If Deltabadger is also running in a terminal or another account on this computer, quit it there.",
+        // U12 (r6 Q6), and U8 joining it.
+        "\"quitting-update\": function () { return [QUITTING_UPDATE, \"\"]; }",
+        "\"quitting-update-long\": function () { return [QUITTING_UPDATE, UPDATE_WAITING]; }",
+        "Deltabadger is finishing its current work, then it installs the update and closes.",
     ] {
         assert!(page.contains(line), "{line}");
     }
@@ -941,4 +945,19 @@ fn a_stopping_engine_that_stops_answering_never_replaces_the_window() {
         })
     });
     assert!(!view.states().iter().any(|s| s == "not-responding"), "{:?}", view.events());
+}
+
+#[test]
+fn the_macos_menu_keeps_todays_items_with_quit_as_the_launchers_own() {
+    use crate::{Entry::*, APP_MENU, QUIT_ITEM};
+    assert_eq!(QUIT_ITEM, ("app-quit", "Quit Deltabadger", "CmdOrCtrl+Q"), "Cmd-Q reaches user_quit as a menu event");
+    assert_ne!(QUIT_ITEM.0, "quit", "not the tray item's id: one event, one handler");
+    let titles: Vec<&str> = APP_MENU.iter().map(|(t, _)| *t).collect();
+    assert_eq!(titles, ["", "File", "Edit", "View", "Window", "Help"]);
+    let entries = |title: &str| APP_MENU.iter().find(|(t, _)| *t == title).unwrap().1.to_vec();
+    assert_eq!(entries(""), [About, Separator, Services, Separator, Hide, HideOthers, ShowAll, Separator, Quit]);
+    // The engine's forms need every edit shortcut (Cmd-Z, Shift-Cmd-Z, Cmd-X/C/V/A).
+    assert_eq!(entries("Edit"), [Undo, Redo, Separator, Cut, Copy, Paste, SelectAll]);
+    assert_eq!(entries("Window"), [Minimize, Maximize, Separator, CloseWindow]);
+    assert_eq!(APP_MENU.iter().flat_map(|(_, e)| e.iter()).filter(|e| **e == Quit).count(), 1, "one Quit");
 }

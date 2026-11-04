@@ -19,7 +19,7 @@ pub mod supervisor;
 pub mod update;
 
 use supervisor::{stop_engine, Engine, Launch, Page, View};
-use update::{Agent, Snapshot};
+use update::{Agent, Intent, Snapshot, UserQuit};
 
 /// The released app's identifier: the only one that runs on the 2.x data dir (PLAN-B6 r2.2). Test builds use
 /// `com.deltabadger.app.test`, `tauri dev` `com.deltabadger.app.dev`.
@@ -158,6 +158,121 @@ fn quit(app: &tauri::AppHandle) {
     stop_engine(&app.state::<Arc<Engine>>());
 }
 
+/// The user's own Quit: the tray's item and, on macOS, the app menu's (Cmd-Q) (PLAN-B7 r3.7). With an update ready it
+/// installs it and then closes the app (r2.1); during a replacement step it lets it finish, which then closes the app;
+/// otherwise B6's quit.
+fn user_quit(app: &tauri::AppHandle) {
+    let (agent, host) = match app.try_state::<Updates>() {
+        Some(updates) => (Some(updates.agent.clone()), updates.host.clone()),
+        None => (None, None),
+    };
+    match (agent, host) {
+        (Some(agent), Some(host)) => match agent.user_quit() {
+            UserQuit::Install(package) => {
+                log_line(app, "desktop: update: quit with an update ready; installing it before closing");
+                show_window(app);
+                spawn_install(host, package, Intent::Quit);
+            }
+            UserQuit::AfterReplacement => log_line(app, "desktop: quit during the update's replacement step; closing after it"),
+            UserQuit::Quit => {
+                quit(app);
+                app.exit(0);
+            }
+        },
+        _ => {
+            quit(app);
+            app.exit(0);
+        }
+    }
+}
+
+/// The macOS app menu (PLAN-B7 r2.1): the items Tauri's default menu has, plus Show All, with Quit as the launcher's own
+/// item. Cmd-Q then reaches `user_quit` as a menu event; the predefined Quit sends `terminate:`, which arrives as an Exit
+/// that can't be held.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Entry {
+    About,
+    Services,
+    Hide,
+    HideOthers,
+    ShowAll,
+    Quit,
+    Undo,
+    Redo,
+    Cut,
+    Copy,
+    Paste,
+    SelectAll,
+    Fullscreen,
+    Minimize,
+    Maximize,
+    CloseWindow,
+    Separator,
+}
+
+/// The Quit item: id, title, accelerator.
+pub const QUIT_ITEM: (&str, &str, &str) = ("app-quit", "Quit Deltabadger", "CmdOrCtrl+Q");
+
+/// Submenus by title ("" = the app's name), in order.
+pub const APP_MENU: &[(&str, &[Entry])] = {
+    use Entry::*;
+    &[
+        ("", &[About, Separator, Services, Separator, Hide, HideOthers, ShowAll, Separator, Quit]),
+        ("File", &[CloseWindow]),
+        ("Edit", &[Undo, Redo, Separator, Cut, Copy, Paste, SelectAll]),
+        ("View", &[Fullscreen]),
+        ("Window", &[Minimize, Maximize, Separator, CloseWindow]),
+        ("Help", &[]),
+    ]
+};
+
+#[cfg(target_os = "macos")]
+fn app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{AboutMetadata, IsMenuItem, Menu, MenuItem, PredefinedMenuItem as P, Submenu, HELP_SUBMENU_ID, WINDOW_SUBMENU_ID};
+    let (info, config) = (app.package_info(), app.config());
+    let about = AboutMetadata {
+        name: Some(info.name.clone()),
+        version: Some(info.version.to_string()),
+        copyright: config.bundle.copyright.clone(),
+        authors: config.bundle.publisher.clone().map(|p| vec![p]),
+        ..Default::default()
+    };
+    let menu = Menu::new(app)?;
+    for (title, entries) in APP_MENU {
+        let mut items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = Vec::new();
+        for entry in *entries {
+            items.push(match entry {
+                Entry::About => Box::new(P::about(app, None, Some(about.clone()))?),
+                Entry::Services => Box::new(P::services(app, None)?),
+                Entry::Hide => Box::new(P::hide(app, None)?),
+                Entry::HideOthers => Box::new(P::hide_others(app, None)?),
+                Entry::ShowAll => Box::new(P::show_all(app, None)?),
+                Entry::Quit => Box::new(MenuItem::with_id(app, QUIT_ITEM.0, QUIT_ITEM.1, true, Some(QUIT_ITEM.2))?),
+                Entry::Undo => Box::new(P::undo(app, None)?),
+                Entry::Redo => Box::new(P::redo(app, None)?),
+                Entry::Cut => Box::new(P::cut(app, None)?),
+                Entry::Copy => Box::new(P::copy(app, None)?),
+                Entry::Paste => Box::new(P::paste(app, None)?),
+                Entry::SelectAll => Box::new(P::select_all(app, None)?),
+                Entry::Fullscreen => Box::new(P::fullscreen(app, None)?),
+                Entry::Minimize => Box::new(P::minimize(app, None)?),
+                Entry::Maximize => Box::new(P::maximize(app, None)?),
+                Entry::CloseWindow => Box::new(P::close_window(app, None)?),
+                Entry::Separator => Box::new(P::separator(app)?),
+            });
+        }
+        let items: Vec<&dyn IsMenuItem<tauri::Wry>> = items.iter().map(|item| item.as_ref()).collect();
+        let title = if title.is_empty() { info.name.as_str() } else { title };
+        let id = match title {
+            "Window" => WINDOW_SUBMENU_ID,
+            "Help" => HELP_SUBMENU_ID,
+            other => other,
+        };
+        menu.append(&Submenu::with_id_and_items(app, id, title, true, &items)?)?;
+    }
+    Ok(menu)
+}
+
 fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     // Show in Dock when window is shown
     #[cfg(target_os = "macos")]
@@ -286,10 +401,15 @@ struct AppHost {
     /// The supervisor thread of the engine started last: a respawn waits for it to end first, or two supervisors would
     /// follow one engine.
     supervisor: Mutex<Option<std::thread::JoinHandle<()>>>,
+    /// The previous run's failed Quit install (r3.6), deleted once a page has been given the state.
+    failed_mark: Mutex<Option<PathBuf>>,
 }
 
 impl update::Host for AppHost {
-    fn show(&self, page: &str) { self.view.status(page) }
+    fn show(&self, page: &str) {
+        self.log(&format!("desktop: update: showing {page}"));
+        self.view.status(page)
+    }
 
     fn stop_and_wait(&self, cancelled: &dyn Fn() -> bool) -> bool { supervisor::stop_and_wait(&self.engine, cancelled) }
 
@@ -302,12 +422,13 @@ impl update::Host for AppHost {
         Ok(update::install::try_exclusive(file)?.map(|f| Box::new(f) as Box<dyn std::any::Any>))
     }
 
-    fn install(&self, package: &update::Package) -> Result<(), update::install::Failure> {
+    fn install(&self, package: &update::Package, relaunch: bool) -> Result<(), update::install::Failure> {
         let bytes = &package.bytes[..];
         let exe = std::env::current_exe().and_then(|e| e.canonicalize())?;
         let app = update::install::installed_app(&exe, &|k| std::env::var(k).ok())
             .ok_or_else(|| update::install::Failure { reason: "not an installed app".into(), space: false })?;
         let log = |line: &str| self.log(line);
+        let _ = relaunch;
         #[cfg(target_os = "macos")]
         return update::install::install_macos(&app, bytes, self.fault.as_deref(), &log);
         #[cfg(target_os = "linux")]
@@ -315,7 +436,7 @@ impl update::Host for AppHost {
         #[cfg(windows)]
         {
             let _ = (app, log);
-            return update::install::launch_windows_installer(bytes, &self.launch.data, &package.version, true, self.fault.as_deref());
+            return update::install::launch_windows_installer(bytes, &self.launch.data, &package.version, relaunch, self.fault.as_deref());
         }
     }
 
@@ -325,9 +446,22 @@ impl update::Host for AppHost {
         *supervisor = supervisor::restart(self.launch.clone(), self.engine.clone(), view, supervisor.take(), &|| self.agent.quitting());
     }
 
-    fn relaunch(&self) {
+    fn exit(&self, relaunch: bool) {
         // Windows: the installer relaunches the app itself (/R).
-        if cfg!(windows) { self.app.exit(0) } else { self.app.request_restart() }
+        if relaunch && !cfg!(windows) { self.app.request_restart() } else { self.app.exit(0) }
+    }
+
+    fn clear_failed_mark(&self) {
+        if let Some(mark) = self.failed_mark.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            let _ = std::fs::remove_file(mark);
+        }
+    }
+
+    fn mark_failed(&self, kind: update::Kind) {
+        match update::write_failed_mark(&self.launch.log_dir(), kind, std::time::SystemTime::now()) {
+            Ok(()) => self.log("desktop: update: the failure is shown at the next start"),
+            Err(error) => self.log(&format!("desktop: update: could not write {}: {error}", update::FAILED_MARK)),
+        }
     }
 
     fn log(&self, line: &str) { log_line(&self.app, line) }
@@ -344,19 +478,30 @@ async fn run_check(app: &tauri::AppHandle, button: bool) -> Snapshot {
     update::check(app, &agent, &config, button, &log).await
 }
 
+fn spawn_install(host: Arc<AppHost>, package: update::Package, intent: Intent) {
+    std::thread::spawn(move || host.agent.run_install(&*host, &package, &update::Timing::APP, intent));
+}
+
 fn start_install(app: &tauri::AppHandle) -> Result<Snapshot, String> {
     let (agent, _, host) = updates(app);
     let host = host.ok_or("the app can't install here")?;
     let package = agent.begin_install()?;
     log_line(app, "desktop: update: install asked for");
-    std::thread::spawn(move || host.agent.run_install(&*host, &package, &update::Timing::APP));
+    spawn_install(host, package, Intent::Click);
     Ok(agent.snapshot())
 }
 
 #[tauri::command]
 fn update_state(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<Snapshot, String> {
     guard(&app, &webview, &token)?;
-    Ok(updates(&app).0.snapshot())
+    let (agent, _, host) = updates(&app);
+    let snapshot = agent.snapshot();
+    // The previous run's failed Quit install is shown once (r3.6): the mark goes once a page has the state.
+    if let Some(mark) = host.and_then(|h| h.failed_mark.lock().unwrap_or_else(|e| e.into_inner()).take()) {
+        let _ = std::fs::remove_file(&mark);
+        log_line(&app, "desktop: update: the previous quit's failed install was shown");
+    }
+    Ok(snapshot)
 }
 
 /// The Settings button: a check now; the state after it.
@@ -436,6 +581,13 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update, test_report]);
     #[cfg(not(debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update]);
+    // Windows and Linux keep no app menu: the tray's Quit is their Quit.
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(app_menu).on_menu_event(|app, event| {
+        if event.id() == QUIT_ITEM.0 {
+            user_quit(app);
+        }
+    });
     builder
         .manage(Arc::new(Engine::default()))
         .setup(|app| {
@@ -511,10 +663,7 @@ pub fn run() {
                 .tooltip("Deltabadger")
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "show" => show_window(app),
-                    "quit" => {
-                        quit(app);
-                        app.exit(0);
-                    }
+                    "quit" => user_quit(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -544,7 +693,13 @@ pub fn run() {
                     let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
                     let supervisor = Mutex::new(Some(std::thread::spawn(move || supervisor::supervise(&l, &e, &*v))));
                     let fault = config.fault.clone();
-                    Some(Arc::new(AppHost { app: app.handle().clone(), engine, launch, view, agent: agent.clone(), fault, supervisor }))
+                    let failed_mark = update::read_failed_mark(&launch.log_dir()).map(|kind| {
+                        log_line(app.handle(), "desktop: update: the previous quit's install failed");
+                        agent.failed_before(kind);
+                        launch.log_dir().join(update::FAILED_MARK)
+                    });
+                    let failed_mark = Mutex::new(failed_mark);
+                    Some(Arc::new(AppHost { app: app.handle().clone(), engine, launch, view, agent: agent.clone(), fault, supervisor, failed_mark }))
                 }
                 Err(error) => {
                     view.status(&Page::NotStarted(error).fragment(Path::new("")));
@@ -586,9 +741,16 @@ pub fn run() {
         .build(context)
         .expect("error while building tauri application")
         .run(|app, event| match event {
-            // Every quit, whichever way it came (PLAN-B6 r1.1): close the engine's stdin and let the app go. Cmd-Q, Dock
-            // Quit, AppleScript and logout arrive as Exit, which cannot be held; the engine drains on its own.
-            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => quit(app),
+            // Every other quit (PLAN-B6 r1.1): close the engine's stdin and let the app go. Dock Quit, AppleScript and logout
+            // arrive as Exit, which cannot be held; the engine drains on its own. An update's replacement step already under
+            // way is let finish first (one swap, then the failure mark if any), never an install that hasn't begun it.
+            tauri::RunEvent::ExitRequested { .. } => quit(app),
+            tauri::RunEvent::Exit => {
+                quit(app);
+                if let Some(updates) = app.try_state::<Updates>() {
+                    updates.agent.wait_for_replacement(std::time::Duration::from_secs(60));
+                }
+            }
             // A Dock click or a Finder open while the window is hidden (r1.12).
             #[cfg(target_os = "macos")]
             tauri::RunEvent::Reopen { .. } => show_window(app),

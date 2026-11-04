@@ -34,6 +34,8 @@
     var STARTING = "Starting Deltabadger…";
     var FINISHING = "Deltabadger is finishing its previous run. This usually takes a few seconds.";
     var UPDATING = "Deltabadger is finishing its current work before updating and restarting.";
+    var QUITTING_UPDATE = "Deltabadger is finishing its current work, then it installs the update and closes.";
+    var UPDATE_WAITING = "The update is waiting for Deltabadger to finish closing. Leave this window open. If Deltabadger is also running in a terminal or another account on this computer, quit it there.";
     function support(log) {
       return "Quit Deltabadger and open it again. If this keeps happening, contact support and send them the files in " + log + ".";
     }
@@ -52,9 +54,10 @@
       "not-started": function (p) { return ["Deltabadger didn't start.", support(p.log || "")]; },
       // PLAN-B7 U7, U8 (r6 Q6): the engine is stopping for an update the user asked for.
       "updating": function () { return [UPDATING, ""]; },
-      "updating-long": function () {
-        return [UPDATING, "The update is waiting for Deltabadger to finish closing. Leave this window open. If Deltabadger is also running in a terminal or another account on this computer, quit it there."];
-      },
+      "updating-long": function () { return [UPDATING, UPDATE_WAITING]; },
+      // U12 (r6 Q6): the user chose Quit with an update ready; U8 joins it after 60 s.
+      "quitting-update": function () { return [QUITTING_UPDATE, ""]; },
+      "quitting-update-long": function () { return [QUITTING_UPDATE, UPDATE_WAITING]; },
       "not-responding": function () {
         return ["Deltabadger isn't responding.", "It may be stopping after a problem. Wait a moment. If this doesn't change, quit Deltabadger and open it again."];
       }
