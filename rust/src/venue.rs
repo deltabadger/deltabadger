@@ -256,6 +256,7 @@ impl<V:Venue> Venue for &V {
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{(*self).withdrawal_fee(d,amount).await}
     async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{(*self).withdraw(r).await}
     async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{(*self).withdrawal_lookup(r).await}
+    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>)->Result<Created,HistoryError>{(*self).orders_created(s,from,to).await}
 }
 impl<V:Venue> Venue for Handle<V> {
     async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{self.venue.prepare().await}
@@ -292,6 +293,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{self.venue.withdrawal_fee(d,amount).await}
     async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{self.venue.withdraw(r).await}
     async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{self.venue.withdrawal_lookup(r).await}
+    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>)->Result<Created,HistoryError>{self.venue.orders_created(s,from,to).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
@@ -457,7 +459,40 @@ pub trait Venue {
     }
     /// The fee for sending `amount` to `destination` (§6): None when it is unknown.
     async fn withdrawal_fee(&self, _destination: &withdrawal::Destination, _amount: &BigDec) -> Result<Option<BigDec>, VenueError> { Err(withdrawal::not_connected()) }
+    /// A28-3 (PLAN-A28-3 r1.2, r2.2): the orders on `symbols` created from `from` to `to`, all states, read strictly for the
+    /// report of orders Rails may have sent unrecorded. Never booked.
+    async fn orders_created(&self, _symbols: &[String], _from: DateTime<Utc>, _to: DateTime<Utc>) -> Result<Created, HistoryError> {
+        Err(HistoryError::Refused("order history is not connected for this venue".into()))
+    }
 }
+
+/// A28-3: one order an order-history read lists (`Venue::orders_created`), each field read strictly; `external_id` in the
+/// form the venue's `add_order` writes `transactions.external_id`. The facts A28-2 books from.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CreatedOrder { pub external_id: String, pub symbol: String, pub created_at: DateTime<Utc>, pub side: Side, pub kind: CreatedKind,
+                          pub size: CreatedSize, pub state: CreatedState, pub filled_base: BigDec, pub filled_quote: Option<BigDec> }
+#[derive(Clone, Debug, PartialEq)]
+pub enum CreatedKind { Market, Limit { price: BigDec } }
+/// The size the order was placed with, in its own denomination.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CreatedSize { Base(BigDec), Quote(BigDec) }
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CreatedState { Open, PartlyFilledOpen, Filled, Cancelled, PartlyFilledCancelled }
+impl CreatedState {
+    /// A state by whether the order is still open, filled whole, or ended, and whether anything filled.
+    pub(crate) fn of(open: bool, filled: bool) -> Self {
+        match (open, filled) { (true, false) => Self::Open, (true, true) => Self::PartlyFilledOpen, (false, false) => Self::Cancelled, (false, true) => Self::PartlyFilledCancelled }
+    }
+    pub fn open(self) -> bool { matches!(self, Self::Open | Self::PartlyFilledOpen) }
+}
+/// Every row that read strictly. `complete` is false when a row couldn't be read, a page cap was reached, or a request
+/// after the first validated row failed (r2.2); a failure before any validated row is the read's `HistoryError`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Created { pub orders: Vec<CreatedOrder>, pub complete: bool }
+/// Why an order-history read gave nothing (r1.3): the key or its permission was refused (never asked again with that key),
+/// or anything else (throttle, server error, transport, an unreadable answer), which a later pass may get past.
+#[derive(Clone, Debug, PartialEq)]
+pub enum HistoryError { Refused(String), Retry(String) }
 
 pub trait VenueFactory {
     type V: Venue;
