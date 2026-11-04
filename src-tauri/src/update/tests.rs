@@ -185,8 +185,8 @@ impl Host for Stub {
         }
         Ok(Some(Box::new(())))
     }
-    fn install(&self, _: &Package) -> Result<(), install::Failure> {
-        self.event("install");
+    fn install(&self, _: &Package, relaunch: bool) -> Result<(), install::Failure> {
+        self.event(if relaunch { "install /R" } else { "install" });
         assert_eq!(self.agent.snapshot().state, State::Installing);
         if self.quit_at == "installing" {
             assert!(!self.agent.quit(), "a quit can't stop the replacement once it began");
@@ -194,7 +194,8 @@ impl Host for Stub {
         self.install.lock().unwrap().take().map_or(Ok(()), Err)
     }
     fn respawn(&self) { self.event("respawn") }
-    fn relaunch(&self) { self.event("relaunch") }
+    fn exit(&self, relaunch: bool) { self.event(if relaunch { "relaunch" } else { "exit" }) }
+    fn mark_failed(&self, kind: Kind) { self.event(&format!("mark {kind:?}")) }
     fn log(&self, _: &str) {}
 }
 
@@ -202,7 +203,18 @@ const FAST: Timing = Timing { poll: Duration::from_millis(1), lock_retry: Durati
 
 fn install_with(stub: &Stub) {
     let package = stub.agent.begin_install().unwrap();
-    stub.agent.run_install(stub, &package, &FAST);
+    stub.agent.run_install(stub, &package, &FAST, Intent::Click);
+}
+
+/// The user's own Quit with the app as `user_quit` dispatches it: the Quit install, or B6's quit.
+fn quit_with(stub: &Stub) -> bool {
+    match stub.agent.user_quit() {
+        UserQuit::Install(package) => {
+            stub.agent.run_install(stub, &package, &FAST, Intent::Quit);
+            true
+        }
+        _ => false,
+    }
 }
 
 #[test]
@@ -213,7 +225,7 @@ fn the_click_stops_the_engine_takes_the_lock_installs_and_relaunches() {
     let stub = Stub::new(&agent, "");
     stub.busy_locks.store(2, Ordering::SeqCst);
     install_with(&stub);
-    assert_eq!(stub.events(), ["show updating", "stop", "lock", "lock", "lock", "install", "relaunch"]);
+    assert_eq!(stub.events(), ["show updating", "stop", "lock", "lock", "lock", "install /R", "relaunch"]);
     assert_eq!(agent.snapshot().state, State::Installing);
     assert!(agent.begin_install().is_err(), "one install");
 }
@@ -226,7 +238,7 @@ fn a_long_stop_adds_u8() {
     stub.busy_locks.store(1, Ordering::SeqCst);
     let package = agent.begin_install().unwrap();
     assert_eq!(agent.snapshot().state, State::Stopping { long: false });
-    agent.run_install(&stub, &package, &Timing { long_after: Duration::ZERO, ..FAST });
+    agent.run_install(&stub, &package, &Timing { long_after: Duration::ZERO, ..FAST }, Intent::Click);
     assert!(stub.events().contains(&"show updating-long".to_string()));
 }
 
@@ -263,7 +275,7 @@ fn a_failed_install_respawns_the_engine_and_can_be_retried() {
     let stub = Stub::new(&agent, "");
     *stub.install.lock().unwrap() = Some(install::Failure { reason: "test".into(), space: false });
     install_with(&stub);
-    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install", "respawn"]);
+    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install /R", "respawn"]);
     assert_eq!(agent.snapshot().state, State::Failed { kind: Kind::Install });
     assert!(agent.retry_installs());
     let stub = Stub::new(&agent, "");
@@ -278,7 +290,7 @@ fn a_quit_during_a_failed_replacement_still_means_no_respawn() {
     let stub = Stub::new(&agent, "installing");
     *stub.install.lock().unwrap() = Some(install::Failure { reason: "test".into(), space: false });
     install_with(&stub);
-    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install"], "no respawn after the quit");
+    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install /R", "mark Install", "exit"], "no respawn after the quit; the app ends as asked");
     assert!(agent.quitting());
 }
 
@@ -323,4 +335,164 @@ fn a_download_finishing_during_an_install_leaves_the_state_alone() {
     let _ = agent.begin_install().unwrap();
     agent.downloaded(package("2.1.0", false));
     assert_eq!(agent.snapshot().state, State::Stopping { long: false });
+}
+
+#[test]
+fn the_users_quit_installs_a_ready_update_and_closes_without_a_relaunch() {
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let stub = Stub::new(&agent, "");
+    stub.busy_locks.store(1, Ordering::SeqCst);
+    assert!(quit_with(&stub));
+    assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "lock", "install", "exit"]);
+}
+
+#[test]
+fn the_users_quit_with_nothing_to_install_is_b6s_quit() {
+    // Idle, checking, downloading, a download failure, last run's failure (no package), manual: nothing in memory to install.
+    let states: [fn(&Agent); 6] = [
+        |_| {},
+        |a| assert!(a.begin_check(true)),
+        |a| {
+            assert!(a.begin_check(false));
+            a.found("2.0.0", false);
+            a.downloading(false, Some(30));
+        },
+        |a| {
+            assert!(a.begin_check(false));
+            a.found("2.0.0", false);
+            a.download_failed(Kind::Download, true);
+        },
+        |a| a.failed_before(Kind::Install),
+        |a| {
+            assert!(a.begin_check(false));
+            a.manual();
+        },
+    ];
+    for (i, set_up) in states.iter().enumerate() {
+        let (agent, _) = agent();
+        set_up(&agent);
+        assert!(matches!(agent.user_quit(), UserQuit::Quit), "state {i}");
+        assert!(agent.quitting(), "state {i}");
+    }
+}
+
+#[test]
+fn the_users_quit_after_an_install_failure_installs_the_package_in_memory() {
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let stub = Stub::new(&agent, "");
+    *stub.install.lock().unwrap() = Some(install::Failure { reason: "test".into(), space: false });
+    install_with(&stub);
+    assert_eq!(agent.snapshot().state, State::Failed { kind: Kind::Install });
+    let stub = Stub::new(&agent, "");
+    assert!(quit_with(&stub));
+    assert_eq!(stub.events().last().unwrap(), "exit");
+}
+
+#[test]
+fn a_quit_wins_at_every_step_of_a_quit_installs_stopping() {
+    for (step, events) in [
+        ("child", vec!["show quitting-update", "stop"]),
+        ("lock", vec!["show quitting-update", "stop", "lock"]),
+        ("locked", vec!["show quitting-update", "stop", "lock"]),
+    ] {
+        let (agent, _) = agent();
+        ready(&agent, "2.0.0");
+        let stub = Stub::new(&agent, step);
+        stub.busy_locks.store(if step == "lock" { 1 } else { 0 }, Ordering::SeqCst);
+        assert!(quit_with(&stub));
+        assert_eq!(stub.events(), events, "{step}: nothing installed; the quit that won ends the app");
+        assert!(agent.quitting());
+    }
+    // A second user Quit during Stopping is B6's quit (it wins); during the replacement step it waits for it.
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let UserQuit::Install(_) = agent.user_quit() else { panic!("the first Quit installs") };
+    assert!(matches!(agent.user_quit(), UserQuit::Quit));
+    let (agent, _) = self::agent();
+    ready(&agent, "2.0.0");
+    let stub = Stub::new(&agent, "installing");
+    assert!(quit_with(&stub));
+    assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "install", "exit"], "the replacement completes, then the app ends");
+}
+
+#[test]
+fn a_quit_during_a_clicks_replacement_closes_instead_of_relaunching() {
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let stub = Stub::new(&agent, "installing");
+    install_with(&stub);
+    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install /R", "exit"]);
+    let (agent, _) = self::agent();
+    ready(&agent, "2.0.0");
+    let _ = agent.begin_install().unwrap();
+    agent.phase.store(INSTALLING, Ordering::SeqCst);
+    assert!(matches!(agent.user_quit(), UserQuit::AfterReplacement), "the user's Quit lets the replacement finish");
+}
+
+#[test]
+fn a_failed_quit_install_ends_the_quit_and_marks_it() {
+    for (space, mark) in [(false, "mark Install"), (true, "mark Space")] {
+        let (agent, _) = agent();
+        ready(&agent, "2.0.0");
+        let stub = Stub::new(&agent, "");
+        *stub.install.lock().unwrap() = Some(install::Failure { reason: "test".into(), space });
+        assert!(quit_with(&stub));
+        assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "install", mark, "exit"], "no respawn");
+    }
+    // An unhealthy lock during a Quit: no install, no respawn, the app closes.
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let mut stub = Stub::new(&agent, "");
+    stub.lock_error = true;
+    assert!(quit_with(&stub));
+    assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "exit"]);
+}
+
+#[test]
+fn a_quit_installs_long_stop_adds_u8_to_u12() {
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let stub = Stub::new(&agent, "");
+    stub.busy_locks.store(1, Ordering::SeqCst);
+    let UserQuit::Install(package) = agent.user_quit() else { panic!() };
+    agent.run_install(&stub, &package, &Timing { long_after: Duration::ZERO, ..FAST }, Intent::Quit);
+    assert!(stub.events().contains(&"show quitting-update-long".to_string()));
+}
+
+#[test]
+fn the_failure_mark_is_one_line_and_starts_the_next_run_in_u5d_until_acted_on() {
+    let dir = std::env::temp_dir().join(format!("b7-mark-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(read_failed_mark(&dir), None);
+    let at = std::time::UNIX_EPOCH + Duration::from_secs(1_800_000_000);
+    write_failed_mark(&dir, Kind::Install, at).unwrap();
+    assert_eq!(std::fs::read_to_string(dir.join(FAILED_MARK)).unwrap(), "2027-01-15T08:00:00Z install\n");
+    assert_eq!(read_failed_mark(&dir), Some(Kind::Install));
+    write_failed_mark(&dir, Kind::Space, at).unwrap();
+    assert_eq!(read_failed_mark(&dir), Some(Kind::Space));
+    std::fs::write(dir.join(FAILED_MARK), "garbage").unwrap();
+    assert_eq!(read_failed_mark(&dir), Some(Kind::Install), "unreadable = an install failure");
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    // The next run: U5d, no package; the start check neither clears it nor shows a download over it.
+    let (agent, _) = agent();
+    agent.failed_before(Kind::Install);
+    assert_eq!(agent.snapshot().state, State::Failed { kind: Kind::Install });
+    assert!(!agent.retry_installs(), "no package: Try again checks and downloads again");
+    assert!(agent.begin_check(false));
+    agent.up_to_date();
+    assert_eq!(agent.snapshot().state, State::Failed { kind: Kind::Install });
+    assert!(agent.begin_check(false));
+    assert_eq!(agent.found("2.0.0", false), Next::Download { visible: false });
+    agent.downloaded(package("2.0.0", false));
+    assert_eq!(agent.snapshot().state, State::Failed { kind: Kind::Install }, "still shown");
+    assert!(agent.retry_installs(), "Try again now installs the package downloaded meanwhile");
+    // The button: a check whose result replaces it.
+    let (agent, _) = self::agent();
+    agent.failed_before(Kind::Install);
+    assert!(agent.begin_check(true));
+    agent.up_to_date();
+    assert_eq!(agent.snapshot().state, State::Idle);
 }
