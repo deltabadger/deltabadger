@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Whether a release tag moves :latest (PLAN-B3 r1.3): `true` only for a stable tag (no '-') whose major is
-# LATEST_MAJOR, the repository variable (2 until the 3.0 release, then 3). docker-publish.yml's merge job and
-# rust.yml's publish-tags proof both call it, so the rule that publishes is the rule that is tested.
+# LATEST_MAJOR, the repository variable (2 until the 3.0 release, then 3). script/release/validate.sh's `tags` calls it
+# for release.yml, and script/release/validate_test.sh proves it, so the rule that publishes is the rule that is tested.
 # Usage: latest_tag.sh <tag> <latest_major>   e.g. latest_tag.sh v2.70.22 2 → true
 set -euo pipefail
 tag=${1:?usage: latest_tag.sh <tag> <latest_major>}

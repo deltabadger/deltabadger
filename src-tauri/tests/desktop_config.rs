@@ -41,30 +41,20 @@ fn the_bundle_carries_the_engine_and_the_catalogue_and_nothing_of_rails() {
     assert!(read("script/rust/desktop_engine.sh").contains("MACOSX_DEPLOYMENT_TARGET=11.3"));
 }
 
-// A build must never start without a real updater key and the secrets that sign with it — an
-// unsigned or unverifiable artifact is worse than no artifact. The gate skips rather than fails,
-// because the same tag also builds the Docker image and an unconfigured desktop pipeline must not
-// redden an ordinary release, so what needs pinning is that the build cannot run without it.
+// PLAN-B8 r1.10: an updater signature only from the real key (never the placeholder), Apple signing only with its
+// secrets, and a release carries desktop assets only when both are configured. Otherwise the apps build unsigned, as
+// workflow artifacts, and script/release/validate.sh refuses a stable tag (validate_test.sh proves that).
 #[test]
-fn desktop_releases_cannot_build_without_a_verified_updater_key_and_signing_secrets() {
-    let workflow = read(".github/workflows/desktop-release.yml");
-    // The preflight job: its lines up to the next job (a line of two spaces and a name).
-    let preflight: String = workflow
-        .lines()
-        .skip_while(|l| *l != "  preflight:")
-        .skip(1)
-        .take_while(|l| !(l.starts_with("  ") && l[2..].starts_with(|c: char| c.is_ascii_lowercase())))
-        .collect::<Vec<_>>()
-        .join("\n");
-    assert!(!preflight.is_empty(), "desktop release workflow is missing the preflight job");
-    assert!(preflight.contains("REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY"));
-    assert!(preflight.contains("tauri signer generate"));
-    // Signing is mandatory (createUpdaterArtifacts is v1Compatible) and Tauri reads these with
-    // var_os, so an unset secret is an empty string and takes the import path rather than skipping.
+fn releases_attach_desktop_apps_only_when_updater_and_apple_signing_are_configured() {
+    let workflow = read(".github/workflows/release.yml");
+    assert!(workflow.contains("[ \"$pubkey\" != REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY ] && updater_ready=true"));
     for secret in ["TAURI_SIGNING_PRIVATE_KEY", "APPLE_CERTIFICATE", "APPLE_ID", "APPLE_TEAM_ID"] {
-        assert!(preflight.contains(secret), "preflight does not require {secret}");
+        assert!(workflow.contains(&format!("${secret}\" ]")), "readiness does not require {secret}");
     }
-    assert!(workflow.contains("\n  build:\n    needs: preflight\n    if: needs.preflight.outputs.ready == 'true'\n"));
+    assert!(workflow.contains("echo '{\"bundle\":{\"createUpdaterArtifacts\":false}}' > \"$conf\""));
+    assert!(workflow.contains("SIGNED: ${{ needs.meta.outputs.dry == 'true' || (needs.meta.outputs.updater_ready == 'true' && needs.meta.outputs.apple_ready == 'true') }}"));
+    assert!(workflow.contains("if: env.DRY != 'true' && env.SIGNED == 'true'\n        run: gh release upload"));
+    assert!(read("script/release/validate.sh").contains("a stable release needs B13"));
 }
 
 // The macOS-only calls broke the other platforms once already, in two places at once.

@@ -1,17 +1,20 @@
 name: Announce Release
 
-# Fires on the release being published by a person. A release published by a workflow using
-# GITHUB_TOKEN does NOT trigger this — GitHub does not cascade token-generated events — so if
-# desktop-release.yml is ever configured and starts publishing releases itself, this stops firing
-# silently and has to be called from there instead.
+# Called by release.yml once it publishes a stable release (a release published with GITHUB_TOKEN fires no
+# `release: published`), and still fired by a release a person publishes by hand.
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag: { type: string, required: true }
+      url: { type: string, required: true }
+      body: { type: string, required: false, default: '' }
 
 jobs:
   announce:
     # Prereleases stay quiet — the channels are for users, not for release candidates.
-    if: github.event.release.prerelease == false
+    if: inputs.tag != '' || github.event.release.prerelease == false
     runs-on: ubuntu-latest
     permissions: {}
 
@@ -24,9 +27,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           DISCORD_WEBHOOK_GENERAL: ${{ secrets.DISCORD_WEBHOOK_GENERAL }}
-          TAG: ${{ github.event.release.tag_name }}
-          URL: ${{ github.event.release.html_url }}
-          BODY: ${{ github.event.release.body }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          URL: ${{ inputs.url || github.event.release.html_url }}
+          BODY: ${{ inputs.tag && inputs.body || github.event.release.body }}
         run: |
           set -euo pipefail
 
