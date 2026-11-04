@@ -1,8 +1,9 @@
 //! The update agent (PLAN-B7 §1–§5 as amended through r6): one `UpdateState` for the whole app, checks at start, every
 //! 12 hours and on the Settings button, one download at a time, the package kept in memory only (r2.1: nothing staged on
-//! disk, nothing installed at start). An install happens on the user's click only: the engine is stopped and its exit
-//! waited for (never a kill), then the app's bundle lock is taken exclusively, then B7's own replacement step runs
-//! (install.rs). Quitting wins at any point before the replacement (r1.2, r5.2).
+//! disk, nothing installed at start). An install happens on the user's click, or on the user's own Quit (tray item, macOS
+//! menu item; r2.1, r6 Q1): the engine is stopped and its exit waited for (never a kill), then the app's bundle lock is
+//! taken exclusively, then B7's own replacement step runs (install.rs). The click relaunches after it; the Quit closes
+//! the app. Quitting wins at any point before the replacement (r1.2, r5.2).
 //!
 //! The plugin is used for `check` and `download` only; `download` verifies the signature (r4.6). Its `install()` is never
 //! called (r3.1, Q9).
@@ -49,6 +50,23 @@ pub struct Snapshot {
     pub state: State,
 }
 
+/// Why an install runs (r2.1): the click relaunches into the new version; the user's own Quit closes the app after it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Intent {
+    Click,
+    Quit,
+}
+
+/// What the user's own Quit does (r2.1, r3.7).
+pub enum UserQuit {
+    /// An update is ready: install it, then close.
+    Install(Package),
+    /// The replacement step has begun: it closes the app itself once it is done.
+    AfterReplacement,
+    /// B6's quit.
+    Quit,
+}
+
 /// A downloaded, verified package. Memory only (r2.1).
 #[derive(Clone)]
 pub struct Package {
@@ -77,6 +95,8 @@ pub struct Agent {
     /// A quit came in, whatever the phase was: even one that came too late to stop the replacement step means no
     /// respawn after it.
     quit: AtomicBool,
+    /// The replacement step and what follows it (the failure mark, the exit) are under way: an app exit waits for them.
+    replacing: AtomicBool,
     emit: Box<dyn Fn(&Snapshot) + Send + Sync>,
 }
 
@@ -95,6 +115,7 @@ impl Agent {
             inner: Mutex::new(Inner { seq: 0, state: State::Idle, busy: false, package: None }),
             phase: AtomicU8::new(OPEN),
             quit: AtomicBool::new(false),
+            replacing: AtomicBool::new(false),
             emit: Box::new(emit),
         }
     }
@@ -126,6 +147,31 @@ impl Agent {
         self.phase.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |p| (p != INSTALLING).then_some(QUITTING)).is_ok()
     }
 
+    /// The user's own Quit (tray item, macOS menu item): with an update ready (or an install failure with its package in
+    /// memory) it becomes the Quit install; during the replacement step it waits for it; otherwise B6's quit.
+    pub fn user_quit(&self) -> UserQuit {
+        if let Ok(package) = self.begin_install() {
+            return UserQuit::Install(package);
+        }
+        if self.quit() { UserQuit::Quit } else { UserQuit::AfterReplacement }
+    }
+
+    /// An exit the app can't hold off for long (macOS Exit: Dock Quit, logout): waits up to `limit` for a replacement
+    /// step that has begun, so the swap and the failure mark are done before the process ends.
+    pub fn wait_for_replacement(&self, limit: Duration) {
+        let until = Instant::now() + limit;
+        while self.replacing.load(Ordering::SeqCst) && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    /// A Quit install failed in the previous run (r3.6, `<data>/log/update-failed`): this run starts showing it (U5d),
+    /// with no package, so "Try again" checks and downloads again.
+    pub fn failed_before(&self, kind: Kind) {
+        let mut inner = self.lock();
+        self.set(&mut inner, State::Failed { kind });
+    }
+
     /// A check begins. False: one is running already, or an install is under way. A check by the button shows
     /// "Checking…", unless an update is ready (it stays ready while a newer one is looked for).
     pub fn begin_check(&self, button: bool) -> bool {
@@ -148,6 +194,7 @@ impl Agent {
             return;
         }
         let state = match &inner.package {
+            None if holds_failure(&inner.state) => return,
             None => State::Idle,
             Some(package) if inner.state == State::Checking => State::Ready { critical: package.critical },
             Some(_) => return,
@@ -182,7 +229,7 @@ impl Agent {
                 }
                 Next::Done
             }
-            None => Next::Download { visible: !matches!(inner.state, State::Ready { .. }) },
+            None => Next::Download { visible: !matches!(inner.state, State::Ready { .. }) && !holds_failure(&inner.state) },
         }
     }
 
@@ -207,7 +254,7 @@ impl Agent {
         inner.busy = false;
         let critical = package.critical;
         inner.package = Some(package);
-        if self.open() {
+        if self.open() && !holds_failure(&inner.state) {
             self.set(&mut inner, State::Ready { critical });
         }
     }
@@ -248,27 +295,38 @@ impl Agent {
         self.set(&mut inner, state);
     }
 
-    /// Back to normal after an install that didn't happen; false when a quit won meanwhile.
+    /// Back to normal after an install that didn't happen; false when a quit won meanwhile. The quit flag is read after
+    /// the phase moved: a quit that saw the old phase (and so left ending the app to the install) has set the flag by
+    /// then, and one that comes later sees OPEN and ends the app itself; either way exactly one side ends it.
     fn reopen(&self, from: u8, state: State) -> bool {
         let mut inner = self.lock();
-        if self.quitting() || self.phase.compare_exchange(from, OPEN, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        if self.phase.compare_exchange(from, OPEN, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            return false;
+        }
+        if self.quitting() {
+            self.phase.store(QUITTING, Ordering::SeqCst);
             return false;
         }
         self.set(&mut inner, state);
         true
     }
 
-    /// The install after the click, on its own thread (r5.2): Stopping (own engine's exit, then the bundle lock), then
-    /// Installing (the format check and the one commit step), then a relaunch. Holds no lock while it waits.
-    pub fn run_install(&self, host: &dyn Host, package: &Package, timing: &Timing) {
-        host.show("updating");
+    /// The install, on its own thread (r5.2): Stopping (own engine's exit, then the bundle lock), then Installing (the
+    /// format check and the one commit step), then a relaunch (click) or the app's exit (Quit). Holds no lock while it
+    /// waits. A quit that won during Stopping ends the app itself; this returns without installing.
+    pub fn run_install(&self, host: &dyn Host, package: &Package, timing: &Timing, intent: Intent) {
+        let (page, long_page) = match intent {
+            Intent::Click => ("updating", "updating-long"),
+            Intent::Quit => ("quitting-update", "quitting-update-long"),
+        };
+        host.show(page);
         let started = Instant::now();
         let long = std::cell::Cell::new(false);
         let tick = || {
             if !long.get() && started.elapsed() >= timing.long_after {
                 long.set(true);
                 self.set_state(State::Stopping { long: true });
-                host.show("updating-long");
+                host.show(long_page);
             }
             self.quitting()
         };
@@ -286,8 +344,10 @@ impl Agent {
                 Ok(None) => {}
                 Err(error) => {
                     host.log(&format!("desktop: update: the app's update lock can't be used ({error}); not installing"));
-                    if self.reopen(STOPPING, State::Manual) {
-                        host.respawn();
+                    match intent {
+                        Intent::Click if self.reopen(STOPPING, State::Manual) => host.respawn(),
+                        Intent::Click => {}
+                        Intent::Quit => host.exit(false),
                     }
                     return;
                 }
@@ -300,41 +360,62 @@ impl Agent {
                 std::thread::sleep(timing.poll);
             }
         };
+        // Set before the phase moves, so an app exit that can no longer stop the step always waits for it.
+        self.replacing.store(true, Ordering::SeqCst);
         if self.phase.compare_exchange(STOPPING, INSTALLING, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            self.replacing.store(false, Ordering::SeqCst);
             return host.log("desktop: update: quit before installing; nothing installed");
         }
         self.set_state(State::Installing);
-        match host.install(package) {
+        // A quit that came in by now means no relaunch either. ponytail: on Windows a quit after the installer's launch
+        // can't take back its /R (B7-2 holds ExitRequested there).
+        let relaunch = intent == Intent::Click && !self.quitting();
+        match host.install(package, relaunch) {
             Ok(()) => {
-                host.log("desktop: update: installed; restarting");
+                let relaunch = relaunch && !self.quitting();
+                host.clear_failed_mark();
+                host.log(if relaunch { "desktop: update: installed; restarting" } else { "desktop: update: installed; closing" });
                 // ponytail: the lock is held until the process exits (the relaunched app's engine waits up to 2 s for it).
                 std::mem::forget(lock);
-                host.relaunch();
+                host.exit(relaunch);
             }
             Err(failure) => {
                 host.log(&format!("desktop: update: not installed: {}", failure.reason));
                 drop(lock);
-                if self.reopen(INSTALLING, State::Failed { kind: if failure.space { Kind::Space } else { Kind::Install } }) {
+                let kind = if failure.space { Kind::Space } else { Kind::Install };
+                // A click respawns the engine (r2.2); a Quit, or a quit during the step, ends the app as asked and says so at
+                // the next start (r3.6).
+                if intent == Intent::Quit || !self.reopen(INSTALLING, State::Failed { kind }) {
+                    host.mark_failed(kind);
+                    host.exit(false);
+                } else {
                     host.respawn();
                 }
             }
         }
+        self.replacing.store(false, Ordering::SeqCst);
     }
 }
 
 /// What the install needs from the app (lib.rs), and from the tests.
 pub trait Host {
-    /// The status page with this state (ui/index.html: `updating`, `updating-long`).
+    /// The status page with this state (ui/index.html: `updating`, `updating-long`, `quitting-update`,
+    /// `quitting-update-long`).
     fn show(&self, page: &str);
     /// supervisor::stop_and_wait.
     fn stop_and_wait(&self, cancelled: &dyn Fn() -> bool) -> bool;
     /// The app's bundle lock, taken exclusively: Ok(None) while an engine of this app runs.
     fn bundle_lock(&self) -> Result<Option<Box<dyn std::any::Any>>, String>;
-    /// The replacement step; Ok once committed.
-    fn install(&self, package: &Package) -> Result<(), install::Failure>;
+    /// The replacement step; Ok once committed. `relaunch`: the Windows installer starts the app again after it (`/R`).
+    fn install(&self, package: &Package, relaunch: bool) -> Result<(), install::Failure>;
     /// The engine started again through B6's start path, unless a quit came in.
     fn respawn(&self);
-    fn relaunch(&self);
+    /// The app ends; `relaunch`: into the version just installed.
+    fn exit(&self, relaunch: bool);
+    /// `<data>/log/update-failed` (r3.6): the next start shows U5d once.
+    fn mark_failed(&self, kind: Kind);
+    /// An install succeeded: the previous run's mark, if not shown yet, is out of date.
+    fn clear_failed_mark(&self);
     fn log(&self, line: &str);
 }
 
@@ -387,6 +468,30 @@ pub fn can_install_here(env: &dyn Fn(&str) -> Option<String>) -> Result<std::pat
     let dir = install::lock_dir(env).ok_or("no folder for the update lock")?;
     install::open_lock(&dir.join(install::lock_name(&app)))?;
     Ok(app)
+}
+
+/// An install failure stays shown until the user acts on it: a check finding nothing or a quiet download doesn't replace it.
+fn holds_failure(state: &State) -> bool { matches!(state, State::Failed { kind: Kind::Install | Kind::Space }) }
+
+/// The mark a failed Quit install leaves for the next start (r3.6), in `<data>/log/`.
+pub const FAILED_MARK: &str = "update-failed";
+
+/// One line, the UTC time and the kind, fsynced (no version).
+pub fn write_failed_mark(log_dir: &std::path::Path, kind: Kind, now: std::time::SystemTime) -> std::io::Result<()> {
+    use std::io::Write;
+    std::fs::create_dir_all(log_dir)?;
+    let at = chrono::DateTime::<chrono::Utc>::from(now).to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let kind = if kind == Kind::Space { "space" } else { "install" };
+    let mut file = std::fs::File::create(log_dir.join(FAILED_MARK))?;
+    file.write_all(format!("{at} {kind}\n").as_bytes())?;
+    file.sync_all()
+}
+
+/// The previous run's mark, if any: its kind (anything unreadable is an install failure). lib.rs deletes it once the page
+/// has been given the state.
+pub fn read_failed_mark(log_dir: &std::path::Path) -> Option<Kind> {
+    let text = std::fs::read_to_string(log_dir.join(FAILED_MARK)).ok()?;
+    Some(if text.split_whitespace().nth(1) == Some("space") { Kind::Space } else { Kind::Install })
 }
 
 /// A .deb is told about updates, never downloads them (§2.4): the same value the plugin picks its install branch by.

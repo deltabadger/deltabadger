@@ -276,7 +276,7 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.desktop_update.downloading", "Downloading an update…"),
     ("en.desktop_update.downloading_percent", "Downloading an update… %{percent}%"),
     ("en.desktop_update.ready", "An update is ready."),
-    ("en.desktop_update.ready_more", "Deltabadger finishes its current work before it restarts."),
+    ("en.desktop_update.ready_more", "Deltabadger finishes its current work before it restarts. You can also update later: choose Quit in Deltabadger's menu, and it installs the update before it closes."),
     ("en.desktop_update.critical_ready", "An important update is ready. Please restart soon to install it."),
     ("en.desktop_update.critical_downloading", "An important update is downloading…"),
     ("en.desktop_update.critical_downloading_percent", "An important update is downloading… %{percent}%"),
