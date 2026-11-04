@@ -365,6 +365,18 @@ pub fn expired(ctx: &Ctx) -> Option<Response> {
     blank.then(|| stream(StatusCode::OK, super::turbo::redirect(&ctx.path("/"))))
 }
 
+/// 3.0 A26 (D-LEGACY-STALE-CREATE): the old create forms (`POST /bots/dca_multi_assets`, `POST /bots/dca_indexes`,
+/// `/bots/dca_indexes/confirm_settings(/new)`), which Rust's wizards replaced with a create at their last step. Nothing
+/// is read from the form or the session: no bot is made, and the wizard's state is dropped. The browser goes to the
+/// wizard's start, as a Turbo Stream when it asked for one (how Rails' create left the modal). A 2.x tab never gets
+/// here: it carries Rails' cookie and token, which the pipeline turns back first.
+pub async fn stale(Extension(ctx): Extension<Ctx>) -> Response {
+    ctx.session.lock().bot_config = None;
+    let start = ctx.path("/bots/new");
+    if ctx.stream { return stream(StatusCode::OK, super::turbo::redirect(&start)) }
+    layout::redirect(if ctx.method == axum::http::Method::GET { StatusCode::FOUND } else { StatusCode::SEE_OTHER }, &start)
+}
+
 pub fn stream(status: StatusCode, body: String) -> Response {
     use axum::response::IntoResponse;
     (status, [(axum::http::header::CONTENT_TYPE, super::turbo::CONTENT_TYPE)], body).into_response()
