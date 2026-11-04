@@ -76,6 +76,7 @@ RECORDED = {
     FIX + 'settings_r9_vectors.json': ('test', [runner('settings_r9_vectors.rb', '{out}')], None),
     FIX + 'setup_vectors.json': ('test', [runner('setup.rb', '{scratch}', '{out}')], None),
     FIX + 'start_time_vectors.json': ('test', [runner('start_time.rb', '{out}')], None),
+    FIX + 'rails_unrecorded_vectors.json': ('test', [runner('rails_unrecorded.rb', '{out}')], None),
     # The owner's bcrypt salt and the key's ciphertexts are drawn fresh each run.
     FIX + 'single_asset_vectors.json': ('test', [runner('single_asset.rb', '{out}')],
                                         r'scenarios/\d+/before/(api_keys/\d+/(key|secret)|users/\d+/(encrypted_password|otp_secret_key))'),
