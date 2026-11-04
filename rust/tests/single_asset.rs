@@ -15,6 +15,20 @@ fn now() -> DateTime<Utc> { fixture()["now"].as_str().unwrap().parse().unwrap() 
 fn scenarios() -> Vec<Value> { fixture()["scenarios"].as_array().unwrap().clone() }
 fn scenario(name: &str) -> Value { scenarios().into_iter().find(|s| s["name"] == name).unwrap_or_else(|| panic!("no scenario {name}")) }
 
+/// The Rails sources the vectors were recorded from, unchanged since.
+#[test]
+fn ported_sources_are_unchanged() {
+    use sha2::{Digest, Sha256};
+    let f = fixture();
+    let pinned = f["ported_sources"].as_object().unwrap();
+    assert_eq!(pinned.len(), 8);
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path, sum) in pinned {
+        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
+        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded");
+    }
+}
+
 const TABLES: [&str; 9] = ["users", "exchanges", "assets", "exchange_assets", "tickers", "api_keys", "bots", "transactions", "bot_index_assets"];
 
 /// A fresh install holding the scenario's `before` rows verbatim; the API keys re-encrypted with the test secret.
@@ -360,7 +374,7 @@ async fn an_untradeable_working_bot_converts_and_its_tick_fails_visibly() {
 /// `sell_amount` in base whether its sentence was blank (base, as the single bot sold) or quote.
 #[tokio::test(flavor = "current_thread")]
 async fn converted_orders_are_sized_as_rails_sizes_them() {
-    for name in ["working bot with a future ActionJob", "selling, sell_denomination absent", "selling, sell_denomination empty string", "selling, sell_denomination quote"] {
+    for name in ["working bot with a future ActionJob", "smart interval bot", "selling, sell_denomination absent", "selling, sell_denomination empty string", "selling, sell_denomination quote"] {
         let sc = scenario(name);
         let probe = &sc["probes"]["1"]["after"];
         let venue = kraken();
@@ -382,8 +396,9 @@ async fn converted_orders_are_sized_as_rails_sizes_them() {
             assert!(!sent[0].quote_volume, "{name}: sold in base");
             assert_eq!(volume, deltabadger::ruby::BigDec::parse(sell).unwrap(), "{name}");
         } else {
-            let base = if sent[0].quote_volume { volume } else { &volume * &deltabadger::ruby::BigDec::parse("100.0").unwrap() };
-            assert_eq!(base, dec(&probe["pending_quote_amount"]), "{name}");
+            let quote = if sent[0].quote_volume { volume } else { &volume * &deltabadger::ruby::BigDec::parse("100.0").unwrap() };
+            // What Rails' converted bot owes now (its smart-interval cadence included).
+            assert_eq!(quote, dec(&probe["pending_quote_amount"]), "{name}");
         }
     }
 }

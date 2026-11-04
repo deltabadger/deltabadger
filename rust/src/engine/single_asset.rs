@@ -69,7 +69,7 @@ pub fn convert_all(tx: &Connection, now: DateTime<Utc>) -> Result<Vec<i64>, Engi
         let mut s = tx.prepare(&format!("SELECT id FROM bots WHERE {filter} ORDER BY id"))?;
         let ids = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
         for id in ids {
-            let Ok(bot) = model::load_bot(tx, id) else { continue };
+            let Some(bot) = readable(model::load_bot(tx, id))? else { continue };
             if bot.validate_times().is_err() { continue; }
             if let Ok(plan) = preflight(tx, &bot, from == MULTI)? {
                 if convert(tx, &bot, from, plan, now)? { converted.push(id); }
@@ -77,6 +77,17 @@ pub fn convert_all(tx: &Connection, now: DateTime<Utc>) -> Result<Vec<i64>, Engi
         }
     }
     Ok(converted)
+}
+
+/// A row whose stored data this build can't read is None (it stays as it is, and the start's check names it unreadable); any
+/// other database failure fails the start.
+fn readable(loaded: Result<Bot, EngineError>) -> Result<Option<Bot>, EngineError> {
+    use rusqlite::Error::{FromSqlConversionFailure, InvalidColumnType};
+    match loaded {
+        Ok(bot) => Ok(Some(bot)),
+        Err(EngineError::Data(_) | EngineError::Sqlite(InvalidColumnType(..) | FromSqlConversionFailure(..))) => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 /// Bot::SingleToComposition.preflight, less what no longer holds a row back after the claim (executing, a job in flight, an
@@ -157,7 +168,9 @@ fn convert(tx: &Connection, bot: &Bot, from: &str, plan: Conversion, now: DateTi
     let mut set: Vec<(&str, Sql)> = vec![];
     let integer = |v: &Sql| match v { Sql::Integer(i) => Some(*i), Sql::Real(f) => Some(f.trunc() as i64), Sql::Text(s) => Some(crate::ruby::to_i(s)), _ => None };
     if integer(&ticker) != Some(plan.ticker) { set.push(("ticker_id", Sql::Integer(plan.ticker))); }
-    let one = match &target { Sql::Integer(i) => *i == 1, Sql::Real(f) => *f == 1.0, Sql::Text(s) => s.trim().parse::<f64>() == Ok(1.0), _ => false };
+    // decimal(10,6): ActiveRecord casts to six places before it compares (0.9999999 reads 1.0).
+    let six = |f: f64| (f * 1e6).round() == 1e6;
+    let one = match &target { Sql::Integer(i) => *i == 1, Sql::Real(f) => six(*f), Sql::Text(s) => s.trim().parse::<f64>().is_ok_and(six), _ => false };
     if !one { set.push(("target_allocation", Sql::Text("1.0".into()))); }
     // ActiveModel::Type::Boolean: nil and "" are nil, FALSE_VALUES are false, anything else true.
     let truthy = match &in_index { Sql::Null => false, Sql::Integer(i) => *i != 0, Sql::Real(f) => *f != 0.0,
@@ -179,7 +192,7 @@ fn convert(tx: &Connection, bot: &Bot, from: &str, plan: Conversion, now: DateTi
 pub fn kept_sentence(c: &Connection, user: i64, id: i64) -> Result<Option<String>, EngineError> {
     let owned: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id = ?1 AND user_id = ?2 AND status != 3)", [id, user], |r| r.get(0))?;
     if !owned { return Ok(None); }
-    let Ok(bot) = model::load_bot(c, id) else { return Ok(None) };
+    let Some(bot) = readable(model::load_bot(c, id))? else { return Ok(None) };
     if !legacy(&bot) { return Ok(None); }
     Ok(Some(super::set_aside::legacy_sentence(c, id, &skip(c, &bot)?)?))
 }
