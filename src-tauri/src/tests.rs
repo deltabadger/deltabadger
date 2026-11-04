@@ -240,6 +240,13 @@ fn only_the_released_identifier_runs_on_the_production_data_dir() {
 }
 
 #[test]
+fn a_debug_build_never_runs_under_the_released_identifier() {
+    assert_eq!(run_identifier(RELEASE_IDENTIFIER, true), "com.deltabadger.app.dev");
+    assert_eq!(run_identifier(RELEASE_IDENTIFIER, false), RELEASE_IDENTIFIER);
+    assert_eq!(run_identifier("com.deltabadger.app.test", true), "com.deltabadger.app.test");
+}
+
+#[test]
 fn a_test_build_never_touches_the_production_dir() {
     // Sentinels where the released app keeps its data; the test identifier's run leaves them as they were.
     let root = temporary_directory("sentinels");

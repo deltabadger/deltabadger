@@ -70,6 +70,12 @@ fn desktop_app_data_dir(default: PathBuf) -> Result<PathBuf, String> {
     Ok(default)
 }
 
+/// The identifier a build runs under (PLAN-B6 r1.12): a debug build never runs as the released app, however it was
+/// started (`tauri dev` without bin/tauri-dev included), so it never meets an installed app's single instance.
+pub fn run_identifier(configured: &str, debug: bool) -> String {
+    if debug && configured == RELEASE_IDENTIFIER { format!("{RELEASE_IDENTIFIER}.dev") } else { configured.to_string() }
+}
+
 /// The data dir (PLAN-B6 §1.2, r2.2, r4.3): `DELTABADGER_DESKTOP_DATA_DIR` for any build but the released app's
 /// identifier; else a debug build's `<repo>/storage/desktop-dev/`; else the 2.x desktop's dir for the released app,
 /// and the identifier's own app data dir for every other one. With the lines the log gets about the choice.
@@ -300,6 +306,10 @@ fn launch(app: &tauri::App) -> Result<Launch, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let mut context = tauri::generate_context!();
+    // Before the single-instance plugin reads it.
+    let identifier = run_identifier(&context.config().identifier, cfg!(debug_assertions));
+    context.config_mut().identifier = identifier;
     // First: a second launch hands over to the running app and exits before it touches anything (r1.12).
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -432,7 +442,7 @@ pub fn run() {
                 log::info!("Window hidden, app running in tray");
             }
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application")
         .run(|app, event| match event {
             // Every quit, whichever way it came (PLAN-B6 r1.1): close the engine's stdin and let the app go. Cmd-Q, Dock
