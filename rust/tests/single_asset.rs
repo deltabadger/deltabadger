@@ -551,3 +551,165 @@ async fn a_condition_on_another_market_reads_as_rails_reads_it() {
     }
     assert_eq!(n, 10);
 }
+
+// ---- §8 5: the figures each surface serves, before and after ----
+
+mod surfaces {
+    use super::*;
+    use axum::{body::{to_bytes, Body}, http::Request};
+    use deltabadger::web::{figure, App};
+    use tower::ServiceExt;
+
+    const TOOLS: [&str; 2] = ["get_bot_details", "get_portfolio_summary"];
+
+    async fn send(app: &App, method: &str, path: &str, token: &str, body: Option<Value>, session: Option<&str>) -> (u16, Option<String>, String) {
+        let mut request = Request::builder().method(method).uri(path).header("host", "localhost:3000").header("authorization", format!("Bearer {token}"))
+            .header("accept", "application/json, text/event-stream");
+        if body.is_some() { request = request.header("content-type", "application/json"); }
+        if let Some(session) = session { request = request.header("mcp-session-id", session).header("mcp-protocol-version", "2025-11-25"); }
+        let response = deltabadger::web::router(app.clone()).oneshot(request.body(Body::from(body.map(|b| b.to_string()).unwrap_or_default())).unwrap()).await.unwrap();
+        let status = response.status().as_u16();
+        let session = response.headers().get("mcp-session-id").map(|v| v.to_str().unwrap().to_string());
+        (status, session, String::from_utf8(to_bytes(response.into_body(), 64_000_000).await.unwrap().to_vec()).unwrap())
+    }
+
+    async fn mcp(app: &App, name: &str, args: Value) -> Value {
+        let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"a23","version":"1"}}});
+        let (_, session, _) = send(app, "POST", "/mcp", "a23-mcp", Some(init), None).await;
+        let session = session.unwrap();
+        assert_eq!(send(app, "POST", "/mcp", "a23-mcp", Some(json!({"jsonrpc":"2.0","method":"notifications/initialized"})), Some(&session)).await.0, 202);
+        let (_, _, body) = send(app, "POST", "/mcp", "a23-mcp", Some(json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":name,"arguments":args}})), Some(&session)).await;
+        serde_json::from_str::<Value>(&body).unwrap()["result"].clone()
+    }
+
+    async fn rest(app: &App, path: &str) -> Value {
+        let (status, _, body) = send(app, "GET", path, "a23-api", None, None).await;
+        assert_eq!(status, 200, "{path}: {body}");
+        serde_json::from_str(&body).unwrap()
+    }
+
+    fn grant(c: &Connection) {
+        c.execute("INSERT INTO oauth_applications(name,uid,redirect_uri,confidential,scopes,created_at,updated_at) VALUES ('a23','a23','http://localhost/cb',0,'mcp api','2026-09-01 12:00:00','2026-09-01 12:00:00')", []).unwrap();
+        let application = c.last_insert_rowid();
+        for (token, scope) in [("a23-mcp", "mcp"), ("a23-api", "api")] {
+            c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,created_at,expires_in) VALUES (?1,1,?2,?3,'2026-09-10 11:00:00',86400)", (application, token, scope)).unwrap();
+        }
+        c.execute("INSERT INTO connected_clients(user_id,oauth_application_id,mcp_tools,rest_tools,created_at,updated_at) VALUES (1,?1,NULL,NULL,'2026-09-01 12:00:00','2026-09-01 12:00:00')", [application]).unwrap();
+        let on: serde_json::Map<String, Value> = TOOLS.iter().map(|t| (t.to_string(), json!(true))).collect();
+        c.execute("UPDATE users SET mcp_settings=?1,rest_settings=?1", [json!({"tool_permissions": on}).to_string()]).unwrap();
+    }
+
+    /// Kraken's public market at 120 EUR a bitcoin: its ticker and one hourly candle.
+    struct Kraken;
+    impl deltabadger::venue::http::Transport for Kraken {
+        async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+            let pair = json!({ "a": ["120.0", "1", "1.000"], "b": ["120.0", "1", "1.000"], "c": ["120.0", "0.1"], "v": ["1", "1"], "p": ["120.0", "120.0"], "t": [1, 1], "l": ["120.0", "120.0"], "h": ["120.0", "120.0"], "o": "120.0" });
+            let body = match r.path.as_str() {
+                "/0/public/Ticker" => json!({ "error": [], "result": { "XXBTZEUR": pair, "XBTEUR": pair } }),
+                "/0/public/OHLC" => {
+                    let t = now().timestamp() / 3600 * 3600 - 3600;
+                    json!({ "error": [], "result": { "XXBTZEUR": [[t, "120.0", "120.0", "120.0", "120.0", "120.0", "1", 1]], "last": t } })
+                }
+                other => panic!("unscripted {other}"),
+            };
+            Ok(deltabadger::venue::http::HttpResponse { status: 200, body: body.to_string() })
+        }
+    }
+
+    /// What each surface serves for bot 1.
+    async fn served(app: &App, c: &Connection) -> Value {
+        use deltabadger::figures::page_market::{Cache, Reader};
+        let at = At::from_utc(now()).unwrap();
+        let mut cache = Cache::default();
+        for _ in 0..4 {
+            let reader = Reader::new(&cache, now().timestamp());
+            let _ = figure::account(c, 1, &reader, at, "en", "", "");
+            let demands = reader.demands();
+            if demands.is_empty() { break; }
+            cache.fill(&Kraken, demands, now().timestamp()).await;
+        }
+        let page = figure::account(c, 1, &Reader::new(&cache, now().timestamp()), at, "en", "", "").unwrap();
+        json!({
+            "figure": page,
+            "mcp": mcp(app, "get_bot_details", json!({"bot_id": 1})).await,
+            "rest": rest(app, "/api/v1/bots/1").await,
+        })
+    }
+
+    /// The numbers in an HTML fragment, in order, tags removed.
+    fn numbers(html: &str) -> Vec<f64> {
+        let text = regex::Regex::new("<[^>]*>").unwrap().replace_all(html, " ");
+        regex::Regex::new(r"[+-]?\d+(?:\.\d+)?").unwrap().find_iter(&text).map(|m| m.as_str().parse().unwrap()).collect()
+    }
+    /// The first number after `label` (case-insensitive) in the page's metrics panel.
+    fn labelled(html: &str, label: &str) -> f64 {
+        let at = html.to_lowercase().find(&label.to_lowercase()).unwrap_or_else(|| panic!("no {label}"));
+        numbers(&html[at + label.len()..])[0]
+    }
+    /// The asset table's BTC row: (amount, average price, value, P/L %).
+    fn row(html: &str) -> (f64, f64, f64, f64) {
+        let row = html.split("<tr data-symbol=\"BTC\">").nth(1).unwrap().split("</tr>").next().unwrap();
+        let n = numbers(row);
+        (n[0], n[1], n[2], n[3])
+    }
+
+    /// §8 5: one converted bot with consistent fills (a buy of 1 BTC for 100, a sale of 0.5 for 55; the market at 120). The
+    /// money each surface serves is the same before (Bots::DcaSingleAsset) and after (the basket): the web figures' tile,
+    /// invested, portfolio value, and the BTC row's amount and average price; the five money fields of the MCP and REST bot
+    /// reads (one code path: mcp::reads Details; walk figures at the last fill).
+    /// Different by design, as in Rails after its own conversion: the basket's BTC row is the holding alone (value 0.5 × 120 =
+    /// 60, P/L on its 50 cost) with the realised gain on its own line (+5), where the pair's row carries the whole bot (115,
+    /// +15%); the reads' type and composition fields (type, allocations, allocation_assets, holdings, exited_holdings,
+    /// redeploy_offer, the MCP text's Allocations/Members/Holdings lines). The tracker serves no per-bot figures: its REST
+    /// reads are account transactions, which never read a bot's class, and the portfolio summary answers 501 off Alpaca.
+    #[tokio::test(flavor = "current_thread")]
+    async fn each_surface_serves_the_same_money_before_and_after() {
+        let sc = scenario("stopped bot");
+        let (dir, o) = install(&sc);
+        let c = &o.primary;
+        grant(c);
+        let app = common::web::app(dir.path(), "engine-test-secret", common::web::TestClock::starting(now()))
+            .with_figure_source(deltabadger::web::figure::loading::Source::Script(json!({}))).unwrap();
+        let before = served(&app, c).await;
+        assert_eq!(convert(c), vec![1]);
+        let after = served(&app, c).await;
+
+        // The web figures.
+        let tile = |s: &Value| numbers(s["figure"]["bots"]["1"]["tile"].as_str().unwrap())[0];
+        let panel = |s: &Value| s["figure"]["bots"]["1"]["metrics"].as_str().unwrap().to_string();
+        let (b, a) = (panel(&before), panel(&after));
+        assert_eq!((tile(&before), tile(&after)), (15.0, 15.0), "the tile's P/L");
+        assert_eq!((labelled(&b, "Total invested"), labelled(&a, "Total invested")), (100.0, 100.0));
+        assert_eq!((labelled(&b, "Portfolio Value"), labelled(&a, "Portfolio Value")), (115.0, 115.0));
+        let (rb, ra) = (row(&b), row(&a));
+        assert_eq!((rb.0, rb.1), (ra.0, ra.1), "the row's amount and average price");
+        assert_eq!((rb.2, rb.3), (115.0, 15.0), "the pair's row: the whole bot");
+        // The basket's row, as Rails' recorded basket walk after its conversion holds it.
+        let rails = &sc["probes"]["1"]["after"]["metrics"];
+        let held = &rails["asset_breakdown"]["BTC"];
+        let num = |v: &Value| v.as_str().map_or_else(|| v.as_f64().unwrap(), |s| s.parse().unwrap());
+        assert_eq!((num(&held["amount"]), num(&held["quote_invested"]), num(&rails["realised_pnl"])), (0.5, 50.0, 5.0));
+        assert_eq!(ra.0, num(&held["amount"]));
+        assert_eq!(ra.1, num(&held["quote_invested"]) / num(&held["amount"]), "average price = invested / amount");
+        assert_eq!(ra.2, num(&held["amount"]) * 120.0, "the holding at the market");
+        assert_eq!(ra.3, 20.0, "P/L on the holding's cost: 60 / 50 - 1");
+        assert_eq!(labelled(&a, "Realised P/L"), num(&rails["realised_pnl"]));
+        assert!(!b.contains("Realised P/L"));
+
+        // The MCP and REST bot reads.
+        for surface in ["rest", "mcp"] {
+            let metrics = |s: &Value| if surface == "rest" { s["rest"]["data"]["metrics"].clone() } else {
+                let text = s["mcp"]["content"][0]["text"].as_str().unwrap().to_string();
+                let line = |l: &str| numbers(text.lines().find(|x| x.starts_with(l)).unwrap_or_else(|| panic!("{l}")))[0];
+                json!({ "invested": line("Total invested"), "value": line("Current value"), "pnl": line("P/L"), "average_buy_price": line("Average buy price"), "total_base_amount": line("Total acquired") })
+            };
+            let (mb, ma) = (metrics(&before), metrics(&after));
+            for key in ["invested", "value", "pnl", "average_buy_price", "total_base_amount"] {
+                assert!(!mb[key].is_null(), "{surface} {key}");
+                assert_eq!(num(&mb[key]), num(&ma[key]), "{surface} {key}");
+            }
+        }
+        assert_eq!(before["rest"]["data"]["type"], "Bots::DcaSingleAsset");
+        assert_eq!(after["rest"]["data"]["type"], "Bots::DcaMultiAsset");
+    }
+}
