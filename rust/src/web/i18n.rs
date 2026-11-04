@@ -268,6 +268,15 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.bot_activity.events.rails_order_listed_one", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has an order from that time that no bot recorded: %{orders}. If it was this bot's, the bot may have traded more than planned. This may not be every order from that time. Check your %{venue} order history."),
     // A28-2 (PLAN-A28-2): the owner's booking of an order Rails sent unrecorded, and its watch.
     ("en.bot_activity.events.rails_order_recovered", "Added an order from before the update to this bot's history: %{order}."),
+    // A28-2a: the line's buttons, their confirmations and the POST's flash (web::bot::rails_orders).
+    ("en.bot.rails_orders.book", "This was this bot's order"),
+    ("en.bot.rails_orders.book_confirm", "Add this order to this bot: %{order}. This bot now owes %{before} %{quote} toward its next order. With this order added, it owes %{after} %{quote}."),
+    ("en.bot.rails_orders.book_confirm_unaffected", "Add this order to this bot: %{order}. It goes into the bot's history only; its next order isn't affected."),
+    ("en.bot.rails_orders.none", "None of these was this bot's"),
+    ("en.bot.rails_orders.none_confirm", "None of these orders was this bot's? The bot keeps trading as it does now."),
+    ("en.bot.rails_orders.checking", "Checking with %{venue}…"),
+    ("en.bot.rails_orders.requested", "Checking this order with %{venue}. It's added to the bot's history in a moment if it checks out."),
+    ("en.bot.rails_orders.dismissed", "Noted: none of these orders was this bot's."),
     ("en.bot_activity.events.rails_order_not_mine", "You said none of the orders from before the update was this bot's. The bot keeps trading as it does now."),
     ("en.bot_activity.events.rails_order_unsettled", "An order added to this bot's history (placed %{placed}) still has no result from %{venue}. Until it does, it counts in the bot's plan at its full size. Check it on %{venue}."),
     ("en.bot_activity.events.rails_order_settled_lower", "%{venue} reports less filled for the order added to this bot's history (placed %{placed}) than when you added it. Deltabadger keeps counting it as you added it until %{venue}'s answer matches. Check it on %{venue}."),
