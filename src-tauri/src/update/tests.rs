@@ -196,6 +196,7 @@ impl Host for Stub {
     fn respawn(&self) { self.event("respawn") }
     fn exit(&self, relaunch: bool) { self.event(if relaunch { "relaunch" } else { "exit" }) }
     fn mark_failed(&self, kind: Kind) { self.event(&format!("mark {kind:?}")) }
+    fn clear_failed_mark(&self) { self.event("clear mark") }
     fn log(&self, _: &str) {}
 }
 
@@ -225,7 +226,7 @@ fn the_click_stops_the_engine_takes_the_lock_installs_and_relaunches() {
     let stub = Stub::new(&agent, "");
     stub.busy_locks.store(2, Ordering::SeqCst);
     install_with(&stub);
-    assert_eq!(stub.events(), ["show updating", "stop", "lock", "lock", "lock", "install /R", "relaunch"]);
+    assert_eq!(stub.events(), ["show updating", "stop", "lock", "lock", "lock", "install /R", "clear mark", "relaunch"]);
     assert_eq!(agent.snapshot().state, State::Installing);
     assert!(agent.begin_install().is_err(), "one install");
 }
@@ -344,7 +345,7 @@ fn the_users_quit_installs_a_ready_update_and_closes_without_a_relaunch() {
     let stub = Stub::new(&agent, "");
     stub.busy_locks.store(1, Ordering::SeqCst);
     assert!(quit_with(&stub));
-    assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "lock", "install", "exit"]);
+    assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "lock", "install", "clear mark", "exit"]);
 }
 
 #[test]
@@ -414,7 +415,7 @@ fn a_quit_wins_at_every_step_of_a_quit_installs_stopping() {
     ready(&agent, "2.0.0");
     let stub = Stub::new(&agent, "installing");
     assert!(quit_with(&stub));
-    assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "install", "exit"], "the replacement completes, then the app ends");
+    assert_eq!(stub.events(), ["show quitting-update", "stop", "lock", "install", "clear mark", "exit"], "the replacement completes, then the app ends");
 }
 
 #[test]
@@ -423,7 +424,7 @@ fn a_quit_during_a_clicks_replacement_closes_instead_of_relaunching() {
     ready(&agent, "2.0.0");
     let stub = Stub::new(&agent, "installing");
     install_with(&stub);
-    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install /R", "exit"]);
+    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install /R", "clear mark", "exit"]);
     let (agent, _) = self::agent();
     ready(&agent, "2.0.0");
     let _ = agent.begin_install().unwrap();
@@ -495,4 +496,59 @@ fn the_failure_mark_is_one_line_and_starts_the_next_run_in_u5d_until_acted_on() 
     assert!(agent.begin_check(true));
     agent.up_to_date();
     assert_eq!(agent.snapshot().state, State::Idle);
+}
+
+#[test]
+fn a_quit_racing_a_failed_replacements_recovery_still_ends_the_app() {
+    // The quit sees INSTALLING (and leaves ending the app to the install) just before the install moves back to OPEN.
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let _ = agent.begin_install().unwrap();
+    agent.phase.store(INSTALLING, Ordering::SeqCst);
+    assert!(matches!(agent.user_quit(), UserQuit::AfterReplacement));
+    assert!(!agent.reopen(INSTALLING, State::Failed { kind: Kind::Install }), "the install ends the app (mark + exit)");
+    assert!(!agent.begin_check(true), "no longer open");
+    // A quit after the recovery moved to OPEN wins there and ends the app itself (a user Quit would install again: the
+    // package is still in memory).
+    let (agent, _) = self::agent();
+    ready(&agent, "2.0.0");
+    let _ = agent.begin_install().unwrap();
+    agent.phase.store(INSTALLING, Ordering::SeqCst);
+    assert!(agent.reopen(INSTALLING, State::Failed { kind: Kind::Install }));
+    assert!(agent.quit(), "B6's quit, which exits");
+}
+
+#[test]
+fn an_exit_during_the_replacement_waits_for_it() {
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let stub = Stub::new(&agent, "");
+    let package = agent.begin_install().unwrap();
+    let (a, p) = (agent.clone(), package.clone());
+    // The replacement step takes 300 ms; an exit that arrives during it returns only after it.
+    struct Slow(Stub);
+    impl Host for Slow {
+        fn show(&self, page: &str) { self.0.show(page) }
+        fn stop_and_wait(&self, c: &dyn Fn() -> bool) -> bool { self.0.stop_and_wait(c) }
+        fn bundle_lock(&self) -> Result<Option<Box<dyn std::any::Any>>, String> { self.0.bundle_lock() }
+        fn install(&self, p: &Package, r: bool) -> Result<(), install::Failure> {
+            std::thread::sleep(Duration::from_millis(300));
+            self.0.install(p, r)
+        }
+        fn respawn(&self) { self.0.respawn() }
+        fn exit(&self, r: bool) { self.0.exit(r) }
+        fn mark_failed(&self, k: Kind) { self.0.mark_failed(k) }
+        fn clear_failed_mark(&self) { self.0.clear_failed_mark() }
+        fn log(&self, l: &str) { self.0.log(l) }
+    }
+    let slow = Arc::new(Slow(stub));
+    let s2 = slow.clone();
+    let worker = std::thread::spawn(move || a.run_install(&*s2, &p, &FAST, Intent::Quit));
+    while agent.snapshot().state != State::Installing {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(!agent.quit());
+    agent.wait_for_replacement(Duration::from_secs(10));
+    assert_eq!(slow.0.events().last().unwrap(), "exit", "the step and its exit were done before the wait returned");
+    worker.join().unwrap();
 }

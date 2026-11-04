@@ -295,10 +295,16 @@ impl Agent {
         self.set(&mut inner, state);
     }
 
-    /// Back to normal after an install that didn't happen; false when a quit won meanwhile.
+    /// Back to normal after an install that didn't happen; false when a quit won meanwhile. The quit flag is read after
+    /// the phase moved: a quit that saw the old phase (and so left ending the app to the install) has set the flag by
+    /// then, and one that comes later sees OPEN and ends the app itself; either way exactly one side ends it.
     fn reopen(&self, from: u8, state: State) -> bool {
         let mut inner = self.lock();
-        if self.quitting() || self.phase.compare_exchange(from, OPEN, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        if self.phase.compare_exchange(from, OPEN, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            return false;
+        }
+        if self.quitting() {
+            self.phase.store(QUITTING, Ordering::SeqCst);
             return false;
         }
         self.set(&mut inner, state);
@@ -354,15 +360,20 @@ impl Agent {
                 std::thread::sleep(timing.poll);
             }
         };
+        // Set before the phase moves, so an app exit that can no longer stop the step always waits for it.
+        self.replacing.store(true, Ordering::SeqCst);
         if self.phase.compare_exchange(STOPPING, INSTALLING, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            self.replacing.store(false, Ordering::SeqCst);
             return host.log("desktop: update: quit before installing; nothing installed");
         }
-        self.replacing.store(true, Ordering::SeqCst);
         self.set_state(State::Installing);
-        match host.install(package, intent == Intent::Click) {
+        // A quit that came in by now means no relaunch either. ponytail: on Windows a quit after the installer's launch
+        // can't take back its /R (B7-2 holds ExitRequested there).
+        let relaunch = intent == Intent::Click && !self.quitting();
+        match host.install(package, relaunch) {
             Ok(()) => {
-                // A quit that came in during the replacement step means no relaunch either.
-                let relaunch = intent == Intent::Click && !self.quitting();
+                let relaunch = relaunch && !self.quitting();
+                host.clear_failed_mark();
                 host.log(if relaunch { "desktop: update: installed; restarting" } else { "desktop: update: installed; closing" });
                 // ponytail: the lock is held until the process exits (the relaunched app's engine waits up to 2 s for it).
                 std::mem::forget(lock);
@@ -403,6 +414,8 @@ pub trait Host {
     fn exit(&self, relaunch: bool);
     /// `<data>/log/update-failed` (r3.6): the next start shows U5d once.
     fn mark_failed(&self, kind: Kind);
+    /// An install succeeded: the previous run's mark, if not shown yet, is out of date.
+    fn clear_failed_mark(&self);
     fn log(&self, line: &str);
 }
 

@@ -451,6 +451,12 @@ impl update::Host for AppHost {
         if relaunch && !cfg!(windows) { self.app.request_restart() } else { self.app.exit(0) }
     }
 
+    fn clear_failed_mark(&self) {
+        if let Some(mark) = self.failed_mark.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            let _ = std::fs::remove_file(mark);
+        }
+    }
+
     fn mark_failed(&self, kind: update::Kind) {
         match update::write_failed_mark(&self.launch.log_dir(), kind, std::time::SystemTime::now()) {
             Ok(()) => self.log("desktop: update: the failure is shown at the next start"),
