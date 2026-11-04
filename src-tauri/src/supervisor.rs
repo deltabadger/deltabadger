@@ -189,6 +189,26 @@ pub fn stop_and_wait(engine: &Engine, cancelled: &dyn Fn() -> bool) -> bool {
     }
 }
 
+/// The engine started again after an update stopped it and didn't install (PLAN-B7 r2.2), through the same `supervise`:
+/// first the previous supervisor is waited for (its engine has exited and the stop is still latched, so it returns within
+/// one poll; resumed earlier, it would take the new engine for its own and follow it on the old port), then the latch is
+/// cleared unless `quitting`, then a new supervisor starts. Returns its thread, or None when a quit came in.
+pub fn restart(
+    launch: std::sync::Arc<Launch>,
+    engine: std::sync::Arc<Engine>,
+    view: std::sync::Arc<dyn View>,
+    previous: Option<thread::JoinHandle<()>>,
+    quitting: &dyn Fn() -> bool,
+) -> Option<thread::JoinHandle<()>> {
+    if let Some(previous) = previous {
+        let _ = previous.join();
+    }
+    if !engine.resume(quitting) {
+        return None;
+    }
+    Some(thread::spawn(move || supervise(&launch, &engine, &*view)))
+}
+
 /// What the window shows: the launcher's status page with one of these, or an engine page.
 pub trait View: Send + Sync {
     /// The status page with `fragment` (`Page::fragment`).

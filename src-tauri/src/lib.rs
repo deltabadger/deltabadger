@@ -283,6 +283,9 @@ struct AppHost {
     view: Arc<WindowView>,
     agent: Arc<Agent>,
     fault: Option<String>,
+    /// The supervisor thread of the engine started last: a respawn waits for it to end first, or two supervisors would
+    /// follow one engine.
+    supervisor: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl update::Host for AppHost {
@@ -317,11 +320,9 @@ impl update::Host for AppHost {
     }
 
     fn respawn(&self) {
-        if !self.engine.resume(&|| self.agent.quitting()) {
-            return;
-        }
-        let (launch, engine, view) = (self.launch.clone(), self.engine.clone(), self.view.clone());
-        std::thread::spawn(move || supervisor::supervise(&launch, &engine, &*view));
+        let mut supervisor = self.supervisor.lock().unwrap_or_else(|e| e.into_inner());
+        let view: Arc<dyn View> = self.view.clone();
+        *supervisor = supervisor::restart(self.launch.clone(), self.engine.clone(), view, supervisor.take(), &|| self.agent.quitting());
     }
 
     fn relaunch(&self) {
@@ -541,9 +542,9 @@ pub fn run() {
                     app.manage(LogFile(launch.log_file()));
                     let (launch, engine) = (Arc::new(launch), app.state::<Arc<Engine>>().inner().clone());
                     let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
-                    std::thread::spawn(move || supervisor::supervise(&l, &e, &*v));
+                    let supervisor = Mutex::new(Some(std::thread::spawn(move || supervisor::supervise(&l, &e, &*v))));
                     let fault = config.fault.clone();
-                    Some(Arc::new(AppHost { app: app.handle().clone(), engine, launch, view, agent: agent.clone(), fault }))
+                    Some(Arc::new(AppHost { app: app.handle().clone(), engine, launch, view, agent: agent.clone(), fault, supervisor }))
                 }
                 Err(error) => {
                     view.status(&Page::NotStarted(error).fragment(Path::new("")));

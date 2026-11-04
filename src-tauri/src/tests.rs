@@ -887,3 +887,40 @@ fn the_status_page_names_the_update_stop_without_a_version() {
     let script = &page[page.find("<script>").unwrap()..];
     assert!(!script.chars().zip(script.chars().skip(1)).any(|(a, b)| a.is_ascii_digit() && b == '.'), "a version-like number");
 }
+
+#[test]
+fn a_restart_after_an_update_stop_leaves_one_supervisor() {
+    // Serves its page for 6 s, then waits for its stdin's end.
+    let launch = Arc::new(stub("b7-restart", "serve:app:6000;stdin"));
+    let (view, engine) = (Arc::new(Recorder::default()), Arc::new(Engine::default()));
+    with_stub_script(&launch, || {
+        let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
+        let first = std::thread::spawn(move || supervise(&l, &e, &*v));
+        view.wait_for("open:", Duration::from_secs(20));
+        assert!(supervisor::stop_and_wait(&engine, &|| false));
+        let v: Arc<dyn View> = view.clone();
+        let second = supervisor::restart(launch.clone(), engine.clone(), v, Some(first), &|| false).expect("restarted");
+        view.wait_for("status:starting", Duration::from_secs(5));
+        let opened = view.events().iter().filter(|e| e.starts_with("open:")).count();
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while view.events().iter().filter(|e| e.starts_with("open:")).count() == opened {
+            assert!(Instant::now() < deadline, "the restarted engine's page never opened: {:?}", view.events());
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        // Well inside the new engine's 6 s of answers: only another supervisor polling the old port would show D7.
+        std::thread::sleep(Duration::from_secs(3));
+        assert!(!view.states().iter().any(|s| s == "not-responding"), "a second supervisor followed it: {:?}", view.events());
+        stop_engine(&engine);
+        second.join().unwrap();
+    });
+}
+
+#[test]
+fn a_restart_gives_way_to_a_quit() {
+    let launch = Arc::new(stub("b7-restart-quit", "exit:0"));
+    let (view, engine) = (Arc::new(Recorder::default()), Arc::new(Engine::default()));
+    stop_engine(&engine);
+    let v: Arc<dyn View> = view.clone();
+    assert!(supervisor::restart(launch, engine.clone(), v, None, &|| true).is_none());
+    assert!(engine.quitting());
+}
