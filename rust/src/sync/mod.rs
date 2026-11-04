@@ -35,6 +35,7 @@ pub mod kucoin_hf;
 pub mod kucoin_hf_ledger;
 pub mod gemini_ledger;
 pub mod hyperliquid_ledger;
+pub mod fills;
 pub mod cache;
 pub mod continuation;
 mod pending_transfers;
