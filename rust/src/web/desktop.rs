@@ -201,6 +201,12 @@ pub async fn prepare(app: &App) -> Result<Option<i64>, WebError> {
 }
 
 impl App {
+    /// D-DESKTOP-OTHER-USERS-UNREACHABLE for bearer tokens (REST, MCP): on the desktop only its account's tokens act;
+    /// a token a 2.x install issued to another user reads as one whose user is gone. Every token elsewhere.
+    pub fn desktop_owner_allowed(&self, user_id: i64) -> bool {
+        self.desktop.is_none() || self.desktop_account() == Some(user_id)
+    }
+
     /// The desktop account's id, once `prepare` ran; `None` off the desktop.
     pub fn desktop_account(&self) -> Option<i64> {
         self.desktop.as_ref().and_then(|d| d.account.get().copied())
@@ -276,14 +282,17 @@ fn landing() -> String {
 }
 
 /// A signed-in desktop window asks for a code to sign a browser in (Settings → Sign in a browser).
-pub fn new_code(app: &App) -> Result<String, WebError> {
-    app.desktop.as_ref().ok_or_else(|| WebError::Config("not the desktop".into()))?.issue_code(app.now().timestamp())
+/// None without the launcher's secret: a start that cannot sign its window in signs no browser in either (§1).
+pub fn new_code(app: &App) -> Result<Option<String>, WebError> {
+    let desktop = app.desktop.as_ref().ok_or_else(|| WebError::Config("not the desktop".into()))?;
+    if desktop.launcher.is_none() { return Ok(None); }
+    desktop.issue_code(app.now().timestamp()).map(Some)
 }
 
 /// A code typed on `/login`: true when it signed this browser's session in.
 pub async fn redeem_code(app: &App, session: &super::session::Session, typed: &str) -> Result<bool, WebError> {
     let Some(desktop) = app.desktop.as_ref() else { return Ok(false) };
-    let Some(id) = app.desktop_account() else { return Ok(false) };
+    let Some(id) = app.desktop_account().filter(|_| desktop.launcher.is_some()) else { return Ok(false) };
     if !desktop.redeem_code(typed, app.now().timestamp()) {
         return Ok(false);
     }

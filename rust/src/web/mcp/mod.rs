@@ -96,7 +96,8 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
     let app2=app.clone();
     let id=payload["id"].clone();
     let answer=app.db(move|c|{
-        let who=match bearer::authenticate(c,auth.as_deref(),"mcp",app2.clock.as_ref())?{
+        let who=match bearer::authenticate(c,auth.as_deref(),"mcp",app2.clock.as_ref())?
+            .and_then(|who|if app2.desktop_owner_allowed(who.user_id){Ok(who)}else{Err(bearer::Refusal::UserNotFound)}){
             Ok(w)=>w,Err(why)=>{
                 let mut r=err(401,&payload["id"],-32000,why.message());add(&mut r,"www-authenticate","Bearer error=\"invalid_token\"");return Ok((r,None));
             }

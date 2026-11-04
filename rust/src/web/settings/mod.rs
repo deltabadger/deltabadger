@@ -109,7 +109,7 @@ pub async fn write(
         return keys::delete(app, ctx).await;
     }
     if app.desktop.is_some() && ctx.method == Method::POST && ctx.params.route_path == "/settings/browser_sign_in_code" {
-        let code = crate::web::desktop::new_code(&app)?;
+        let Some(code) = crate::web::desktop::new_code(&app)? else { return Ok(layout::missing()) };
         let row = sections::browser_sign_in(&ctx, &ctx.csrf_token(), Some(&code));
         use axum::response::IntoResponse;
         let mut response = ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], row).into_response();

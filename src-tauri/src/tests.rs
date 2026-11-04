@@ -112,6 +112,9 @@ fn stub_engine() {
     let script = fs::read_to_string(script).unwrap();
     let port: u16 = std::env::var("PORT").unwrap().parse().unwrap();
     let mut token = std::env::var("DELTABADGER_READY_TOKEN").unwrap();
+    // PLAN-B6-3 §1: what each start was given, for the tests.
+    let _ = OpenOptions::new().create(true).append(true).open("starts")
+        .and_then(|mut f| writeln!(f, "{} {token}", std::env::var("DELTABADGER_DESKTOP_LAUNCHER").unwrap_or_default()));
     let serve = |body: &str, ms: u64, delay_first: u64| {
         let listener = TcpListener::bind(("127.0.0.1", port)).unwrap_or_else(|e| {
             eprintln!("stub: cannot bind port {port}: {e}");
@@ -432,20 +435,26 @@ fn the_refusal_page_is_shown_at_its_launch_url_without_a_ticket() {
     assert_eq!(requests(&launch), "");
 }
 
-/// Each start mints its own launcher secret, distinct from its ready token.
+/// Each start mints its own launcher secret, distinct from its ready token, and the engine slot holds this start's.
 #[test]
 fn each_start_has_its_own_launcher_secret() {
-    let launch = stub("secrets", "");
+    let launch = stub("secrets", "serve:app:800;exit:0");
     let engine = Engine::default();
-    let mut seen = Vec::new();
-    for _ in 0..2 {
-        let (token, launcher) = (secrets::random_hex(16).unwrap(), secrets::random_hex(16).unwrap());
-        assert_ne!(token, launcher);
-        let env = launch.engine_env(1, &token, &launcher, &HashMap::new());
-        seen.push(env["DELTABADGER_DESKTOP_LAUNCHER"].clone());
-    }
-    assert_ne!(seen[0], seen[1]);
     assert!(engine.launcher().is_none(), "nothing before a start");
+    let mut held = Vec::new();
+    for _ in 0..2 {
+        with_stub_script(&launch, || supervise(&launch, &engine, &Recorder::default()));
+        held.push(engine.launcher().unwrap().1);
+    }
+    let starts = fs::read_to_string(launch.cwd.join("starts")).unwrap();
+    let starts: Vec<(&str, &str)> = starts.lines().map(|l| l.split_once(' ').unwrap()).collect();
+    assert_eq!(starts.len(), 2, "{starts:?}");
+    for (secret, token) in &starts {
+        assert!(secret.len() == 32 && secret.bytes().all(|b| b.is_ascii_hexdigit()), "{secret}");
+        assert_ne!(secret, token);
+    }
+    assert_ne!(starts[0].0, starts[1].0);
+    assert_eq!(held, [starts[0].0, starts[1].0]);
 }
 
 #[test]

@@ -311,6 +311,19 @@ const HIDDEN_SETTINGS: &[&str] = &[
     "/settings/update_email", "/settings/update_password", "/settings/update_two_fa", "/settings/edit_two_fa",
 ];
 
+/// The settings actions the desktop serves.
+const SERVED_SETTINGS: &[&str] = &[
+    "/settings/account", "/settings/api", "/settings/api_key_permissions", "/settings/api_keys", "/settings/browser_sign_in_code",
+    "/settings/connect", "/settings/destroy_api_key", "/settings/disconnect_market_data", "/settings/disconnect_stocks",
+    "/settings/download_api_docs", "/settings/ibkr_connect", "/settings/ibkr_connect/activate", "/settings/ibkr_connect/download",
+    "/settings/mcp", "/settings/regenerate_api_token", "/settings/resync_assets", "/settings/revoke_mcp_client",
+    "/settings/update_client_tool_permissions", "/settings/update_locale", "/settings/update_market_data", "/settings/update_mcp_dry_run",
+    "/settings/update_mcp_tool_group_permissions", "/settings/update_mcp_tool_permissions", "/settings/update_name",
+    "/settings/update_rest_tool_group_permissions", "/settings/update_rest_tool_permissions", "/settings/update_stocks",
+    "/settings/update_time_zone", "/settings/update_wash_sale", "/settings/update_display_currency", "/settings/update_hide_balances",
+    "/settings/update_show_cash", "/settings/update_advanced_bots", "/settings/platform_connection",
+];
+
 #[test]
 fn every_route_of_the_router_is_classified() {
     let source = include_str!("../src/web/mod.rs");
@@ -325,6 +338,21 @@ fn every_route_of_the_router_is_classified() {
         assert_eq!(!desktop::hidden(&probe), served, "{path}");
     }
     for path in HIDDEN_SETTINGS { assert!(desktop::hidden(path), "{path}"); }
+    // Every action the settings dispatcher names (its literals, its action lists, its module paths) is classified.
+    let dispatcher = include_str!("../src/web/settings/mod.rs");
+    let mut actions: Vec<String> = dispatcher.split('"').skip(1).step_by(2)
+        .filter_map(|literal| if literal.starts_with("/settings/") && !literal.contains('{') { Some(literal.to_string()) }
+                    else if !literal.is_empty() && literal.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') && literal.contains('_') { Some(format!("/settings/{literal}")) }
+                    else { None })
+        .collect();
+    actions.extend(web::settings::preferences::ACTIONS.iter().map(|a| format!("/settings/{a}")));
+    actions.extend([web::settings::ibkr::PATH.to_string(), web::settings::platform::PATH.to_string()]);
+    for action in &actions {
+        let path = action.trim_end_matches('/');
+        let hidden = HIDDEN_SETTINGS.contains(&path);
+        assert!(hidden || SERVED_SETTINGS.contains(&path), "{path} is dispatched in web/settings/mod.rs but not classified here");
+        assert_eq!(desktop::hidden(path), hidden, "{path}");
+    }
     for path in ["/settings/account", "/settings/update_name", "/settings/update_locale", "/settings/update_time_zone", "/settings/connect",
                  "/settings/api_keys", "/settings/mcp", "/settings/api", "/settings/update_market_data", "/settings/platform_connection",
                  "/settings/browser_sign_in_code", "/settings/update_display_currency", "/settings/update_advanced_bots", "/setupx", "/signups"] {
@@ -473,4 +501,61 @@ async fn off_the_desktop_the_desktop_paths_and_the_account_pages_are_todays() {
     }
     let login = Browser::default().get(&app, "/login").await;
     assert!(login.body.contains("user[email]"));
+}
+
+// ---- Codex r1 ----
+
+/// D-DESKTOP-OTHER-USERS-UNREACHABLE reaches bearer tokens too: a 2.x install's token for another user no longer acts
+/// through REST or MCP; the desktop account's own tokens still do.
+#[tokio::test]
+async fn another_users_api_and_mcp_tokens_no_longer_act() {
+    let dir = install();
+    let admin = insert_user(&dir, "owner@example.com", true);
+    let other = insert_user(&dir, "user@example.com", false);
+    {
+        let c = db(&dir);
+        const T: &str = "2026-11-04 11:00:00";
+        c.execute("INSERT INTO oauth_applications(name,uid,redirect_uri,confidential,scopes,created_at,updated_at) VALUES ('c','c','http://localhost/cb',0,'mcp api',?1,?1)", [T]).unwrap();
+        let application = c.last_insert_rowid();
+        for (owner, prefix) in [(admin, "mine"), (other, "theirs")] {
+            for scope in ["api", "mcp"] {
+                c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,created_at,expires_in) VALUES (?1,?2,?3,?4,?5,86400)", (application, owner, format!("{prefix}-{scope}"), scope, T)).unwrap();
+            }
+            c.execute("INSERT INTO connected_clients(user_id,oauth_application_id,mcp_tools,rest_tools,created_at,updated_at) VALUES (?1,?2,NULL,NULL,?3,?3)", (owner, application, T)).unwrap();
+        }
+    }
+    let app = desktop_app(&dir, TestClock::at(NOW)).await;
+    let mut b = Browser::default();
+    let rest = |token: &'static str| format!("Bearer {token}");
+    let (mine, theirs) = (rest("mine-api"), rest("theirs-api"));
+    assert_ne!(b.send_body(&app, "GET", "/api/v1/bots", None, Csrf::None, &[("authorization", &mine)]).await.status, 401);
+    assert_eq!(b.send_body(&app, "GET", "/api/v1/bots", None, Csrf::None, &[("authorization", &theirs)]).await.status, 401);
+    let initialize = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}}).to_string();
+    for (token, refused) in [("mine-mcp", false), ("theirs-mcp", true)] {
+        let auth = format!("Bearer {token}");
+        let answer = b.send_body(&app, "POST", "/mcp", Some(initialize.clone()), Csrf::None,
+                                 &[("authorization", &auth), ("content-type", "application/json"), ("accept", "application/json, text/event-stream")]).await;
+        assert_eq!(answer.status == 401, refused, "{token}: {} {}", answer.status, answer.body);
+    }
+}
+
+/// §1 fail closed: a start without the launcher's secret makes no browser code and takes none, even for a window still
+/// signed in from before.
+#[tokio::test]
+async fn without_the_launcher_secret_no_browser_code_is_made_or_taken() {
+    let dir = install();
+    let clock = TestClock::at(NOW);
+    let with = desktop_app(&dir, clock.clone()).await;
+    let window = signed_in_window(&with).await;
+    let cookie = window.cookie.clone();
+    drop(with);
+    let without = app_in(dir.path(), SECRET, None, &desktop_env(None), clock);
+    let mut window = Browser { cookie, page: None };
+    let page = window.get(&without, "/settings/account").await;
+    assert_eq!(page.status, 200, "the old cookie still opens the window's own pages");
+    let answer = window.post(&without, "/settings/browser_sign_in_code", &[]).await;
+    assert_eq!(answer.status, 404);
+    assert!(!answer.body.contains("data-desktop-code"));
+    let mut browser = Browser::default();
+    assert_eq!(enter(&without, &mut browser, "00000000").await.status, 422);
 }

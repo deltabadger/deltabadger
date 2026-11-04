@@ -532,22 +532,22 @@ async fn retry_update(app: tauri::AppHandle, webview: tauri::Webview, token: Str
 /// Debug builds: a page script's report into the log (the proofs read what the window saw from there).
 /// PLAN-B6-3 §2.2: the engine's `/login` in the window (an expired cookie, cleared storage, a lost sign-in answer) asks
 /// for this. The launcher fetches a fresh ticket with its own secret and opens the sign-in in the window; the page gets
-/// nothing back. Behind the same guard as every command: only this launch's engine page may ask.
+/// nothing back but whether it worked (tauri.js tries again when it did not). Behind the same guard as every command:
+/// only this launch's engine page may ask.
 #[tauri::command]
-fn sign_in_window(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<(), String> {
+async fn sign_in_window(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<(), String> {
     guard(&app, &webview, &token)?;
     let Some((port, launcher)) = app.state::<Arc<Engine>>().launcher() else { return Err("refused".into()) };
-    // The request waits up to 5 s: off the command's thread.
-    std::thread::spawn(move || match supervisor::ticket(port, &launcher) {
-        Some(ticket) => {
-            log_line(&app, "desktop: signing the window in again");
-            if let (Some(window), Ok(url)) = (app.get_webview_window("main"), format!("http://{}:{port}/desktop/sign_in?ticket={ticket}", supervisor::HOST).parse()) {
-                let _ = window.navigate(url);
-            }
-        }
-        None => log_line(&app, "desktop: no sign-in ticket from the engine"),
-    });
-    Ok(())
+    // The request waits up to 5 s: on the blocking pool, never the main thread.
+    let ticket = tauri::async_runtime::spawn_blocking(move || supervisor::ticket(port, &launcher)).await.ok().flatten();
+    let Some(ticket) = ticket else {
+        log_line(&app, "desktop: no sign-in ticket from the engine");
+        return Err("no ticket".into());
+    };
+    let url: tauri::Url = format!("http://{}:{port}/desktop/sign_in?ticket={ticket}", supervisor::HOST).parse().map_err(|_| "no url".to_string())?;
+    let window = app.get_webview_window("main").ok_or("no window")?;
+    log_line(&app, "desktop: signing the window in again");
+    window.navigate(url).map_err(|e| e.to_string())
 }
 
 #[cfg(debug_assertions)]
