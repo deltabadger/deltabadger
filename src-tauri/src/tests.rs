@@ -753,6 +753,18 @@ fn stop_engine_closes_the_real_engines_input_and_it_stops_on_request() {
     assert!(launch.primary().is_file());
 }
 
+#[test]
+fn a_download_goes_to_the_downloads_folder_under_a_free_name() {
+    let downloads = temporary_directory("downloads");
+    let first = download_destination(&downloads, Path::new("deltabadger-api.md"));
+    assert_eq!(first, downloads.join("deltabadger-api.md"));
+    fs::write(&first, "").unwrap();
+    assert_eq!(download_destination(&downloads, Path::new("/elsewhere/deltabadger-api.md")), downloads.join("deltabadger-api (1).md"));
+    fs::write(downloads.join("deltabadger-api (1).md"), "").unwrap();
+    assert_eq!(download_destination(&downloads, Path::new("deltabadger-api.md")), downloads.join("deltabadger-api (2).md"));
+    assert_eq!(download_destination(&downloads, Path::new("")), downloads.join("download"));
+}
+
 // The desktop chrome hangs off html.tauri, and this script is the only thing that sets it:
 // the web layouts ship no tauri asset, and the page policy forbids an inline block. If this
 // string loses the class, the packaged app silently paints as a browser page.

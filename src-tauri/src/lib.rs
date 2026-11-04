@@ -117,6 +117,23 @@ fn engine_exe() -> Result<PathBuf, String> {
     Ok(dir.join(format!("deltabadger-engine{}", std::env::consts::EXE_SUFFIX)))
 }
 
+/// Where a download from the engine's pages goes (PLAN-B6 §7, r5.1): the Downloads folder, under the name the page
+/// gave it, numbered when that name is taken (`report (1).csv`). WKWebView saves nothing without a destination.
+pub fn download_destination(downloads: &Path, suggested: &Path) -> PathBuf {
+    let name = suggested.file_name().map_or_else(|| "download".into(), |n| n.to_string_lossy().into_owned());
+    let (stem, extension) = match name.rsplit_once('.') {
+        Some((stem, extension)) if !stem.is_empty() => (stem.to_string(), format!(".{extension}")),
+        _ => (name.clone(), String::new()),
+    };
+    let mut path = downloads.join(&name);
+    let mut n = 1;
+    while path.exists() {
+        path = downloads.join(format!("{stem} ({n}){extension}"));
+        n += 1;
+    }
+    path
+}
+
 /// The log file, once the data dir is known.
 struct LogFile(PathBuf);
 
@@ -309,7 +326,22 @@ pub fn run() {
                 .min_inner_size(320.0, 600.0)
                 .center()
                 .devtools(true)
-                .initialization_script(initialization_script());
+                .initialization_script(initialization_script())
+                .on_download(|webview, event| {
+                    match event {
+                        tauri::webview::DownloadEvent::Requested { destination, .. } => {
+                            match webview.app_handle().path().download_dir() {
+                                Ok(downloads) => *destination = download_destination(&downloads, destination),
+                                Err(error) => log_line(webview.app_handle(), &format!("desktop: download: no Downloads folder: {error}")),
+                            }
+                        }
+                        tauri::webview::DownloadEvent::Finished { success, .. } => {
+                            log_line(webview.app_handle(), &format!("desktop: download {}", if success { "saved" } else { "failed" }))
+                        }
+                        _ => {}
+                    }
+                    true
+                });
 
             // The overlay title bar is the macOS look; both builder methods exist only
             // on macOS in Tauri 2, so calling them unconditionally does not compile
