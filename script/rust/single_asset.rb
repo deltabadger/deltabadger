@@ -358,6 +358,13 @@ module SingleAssetVectors
       id = single('price_limited' => true, 'price_limit_action' => 'start_selling', 'sell_amount' => 0.01)
       patch!(id, price_limit_in_ticker_id: @t_eth.id)
     end
+    list << scenario('latched start_selling flip on another ticker', 'forced') do
+      id = single('price_limited' => true, 'price_limit_action' => 'start_selling', 'price_limit_timing_condition' => 'after',
+                  'sell_amount' => 0.01)
+      patch!(id, price_limit_in_ticker_id: @t_eth.id)
+      transient!(id, price_limit_condition_met_at: NOW - 7200)
+      order!(id)
+    end
     list << scenario('due ActionJob', 'forced') do
       id = single({}, start: true)
       job!(id, state: :scheduled, at: NOW - 60)
