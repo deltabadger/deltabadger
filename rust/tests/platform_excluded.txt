@@ -118,6 +118,7 @@ serve
 set_aside
 signal
 signal_conditions
+single_asset
 split_menu_api
 splits
 splits_engine
