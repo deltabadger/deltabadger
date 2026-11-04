@@ -325,27 +325,22 @@ def cleanup():
 
 class Window:
     """The app's window read over WebDriver (W3C, JSON over HTTP). Linux: tauri-driver starts the app under
-    WebKitWebDriver. Windows: the app is started as a user starts it, with WebView2's DevTools port opened through
-    WebView2's per-app registry override (CI only, removed after), and msedgedriver attaches to it (`debuggerAddress`).
-    The WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS variable, which msedgedriver launching the app (tauri-driver's way) relies
-    on, never reached the browser process: WebView2 156 used the app's own AdditionalBrowserArguments (wry's) instead."""
+    WebKitWebDriver. Windows: the app is started as a user starts it, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS opening
+    WebView2's DevTools port (a test build's launcher adds it to wry's arguments, lib.rs `test_webview_args`: WebView2
+    itself ignores the variable once an app passes arguments), and msedgedriver attaches to it (`debuggerAddress`)."""
 
     def __init__(self, data, **extra):
         self.port = free_port()
         self.out = open(ARGS.work / f"webdriver-{data.parent.name}-{time.monotonic_ns()}.out", "wb")
         if WIN:
             devtools = free_port()
-            check(os.environ.get("CI") == "true", "the WebView2 registry override is for CI runners only")
-            run(["reg", "add", WEBVIEW2_ARGS, "/v", ARGS.app.name, "/t", "REG_SZ", "/d", f"--remote-debugging-port={devtools}", "/f"])
             self.app = launch(data, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={devtools}", **extra)
             try:
                 until("WebView2's DevTools port", 60, lambda: http(devtools, "/json/version") == 200)
             except Fail:
-                # Why: did the flag reach WebView2's browser process, and does a policy turn remote debugging off?
+                # Why: did the flag reach WebView2's browser process?
                 ps = "Get-CimInstance Win32_Process -Filter \"Name='msedgewebview2.exe'\" | ForEach-Object { $_.ProcessId.ToString() + ' ' + $_.CommandLine }"
                 print(run(["powershell", "-NoProfile", "-Command", ps]).stdout[:6000])
-                for key in (r"HKLM\SOFTWARE\Policies\Microsoft\Edge", r"HKCU\SOFTWARE\Policies\Microsoft\Edge"):
-                    print(key, run(["reg", "query", key, "/s"]).stdout[:3000])
                 raise
             args = [os.environ["MSEDGEDRIVER"], f"--port={self.port}"]
             caps = {"browserName": "webview2", "ms:edgeOptions": {"debuggerAddress": f"127.0.0.1:{devtools}"}}
@@ -398,7 +393,6 @@ class Window:
             pass
         if WIN:
             run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)])
-            run(["reg", "delete", WEBVIEW2_ARGS, "/v", ARGS.app.name, "/f"])
         else:
             self.proc.terminate()
         try:
@@ -407,9 +401,6 @@ class Window:
             self.proc.kill()
         if LINUX:
             run(["pkill", "-x", "WebKitWebDriver"])
-
-
-WEBVIEW2_ARGS = r"HKCU\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
 
 
 def free_port():
