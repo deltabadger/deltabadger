@@ -303,6 +303,8 @@ const ROUTES: &[(&str, bool)] = &[
     ("/oauth/register", true), ("/oauth/token", true), ("/oauth/revoke", true), ("/oauth/introspect", true), ("/oauth/token/info", true),
     ("/oauth/authorize/native", true), ("/oauth/authorize", true),
     ("/up", true), ("/health-check", true), ("/ui-ready", true), ("/csp-report", true), ("/cable", true),
+    // A25: the admin jobs page (the desktop account is the admin), and its 404 for anything under it.
+    ("/jobs", true), ("/jobs/{*rest}", true),
 ];
 
 /// The settings actions the desktop does not serve; every other one is served.
@@ -586,4 +588,20 @@ async fn the_expiry_sweeps_past_a_marker_it_cannot_clear() {
     let left: Vec<(String, bool)> = c.prepare("SELECT label, instr(transient_data, '_mail_pending') > 0 FROM bots ORDER BY id").unwrap()
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(left, [("refused".into(), true), ("old".into(), false), ("fresh".into(), true), ("old too".into(), false)]);
+}
+
+/// A25 (D-JOBS-SETTINGS-LINK): the window has no address bar, so the desktop account (always the install's admin) reaches
+/// /jobs from Settings' Instance section, and the page opens in the window.
+#[tokio::test(flavor = "current_thread")]
+async fn the_desktop_window_reaches_the_jobs_page_from_settings() {
+    let dir = install();
+    let app = desktop_app(&dir, TestClock::at(NOW)).await;
+    let mut b = signed_in_window(&app).await;
+    let settings = b.get(&app, "/settings/account").await;
+    assert_eq!(settings.status, 200, "{}", settings.body);
+    let row = settings.body.split("<div id=\"jobs\" class=\"sitem\">").nth(1).unwrap_or_else(|| panic!("no Jobs row:\n{}", settings.body));
+    assert!(row.contains("href=\"/jobs\""), "{row}");
+    let jobs = b.get(&app, "/jobs").await;
+    assert_eq!(jobs.status, 200, "{}", jobs.body);
+    assert!(jobs.body.contains("<h1>Jobs</h1>"));
 }

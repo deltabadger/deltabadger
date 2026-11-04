@@ -57,6 +57,7 @@ struct Configured<C: Connect> {
 
 impl<C: Connect + Clone + 'static> Job for Configured<C> {
     fn spec(&self) -> super::Spec { self.job.spec() }
+    fn manual(&self) -> bool { self.job.manual() }
     fn wants(&self, event: &crate::engine::events::EngineEvent) -> bool { self.job.wants(event) }
     fn run<'a>(&'a self, cx: super::Cx<'a>, wakes: Vec<super::Wake>) -> super::JobFuture<'a> {
         Box::pin(async move { self.run_attributed(cx, wakes).await.value })
