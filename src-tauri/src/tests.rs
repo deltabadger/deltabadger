@@ -924,3 +924,21 @@ fn a_restart_gives_way_to_a_quit() {
     assert!(supervisor::restart(launch, engine.clone(), v, None, &|| true).is_none());
     assert!(engine.quitting());
 }
+
+#[test]
+fn a_stopping_engine_that_stops_answering_never_replaces_the_window() {
+    // Answers for 1.5 s, then nothing listens for 3 s while it lives (a drain after the listener drop), then it reads
+    // its stdin's end and exits.
+    let launch = stub("b7-drain", "serve:app:1500;gap:3000;stdin");
+    let (view, engine) = (Arc::new(Recorder::default()), Arc::new(Engine::default()));
+    with_stub_script(&launch, || {
+        std::thread::scope(|s| {
+            let (v, e, l) = (view.clone(), engine.clone(), &launch);
+            let supervisor = s.spawn(move || supervise(l, &e, &*v));
+            view.wait_for("open:", Duration::from_secs(20));
+            assert!(supervisor::stop_and_wait(&engine, &|| false));
+            supervisor.join().unwrap();
+        })
+    });
+    assert!(!view.states().iter().any(|s| s == "not-responding"), "{:?}", view.events());
+}

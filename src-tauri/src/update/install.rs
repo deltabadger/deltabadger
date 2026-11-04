@@ -23,12 +23,20 @@ impl Failure {
 
 impl From<io::Error> for Failure {
     fn from(error: io::Error) -> Self {
-        #[cfg(unix)]
-        let space = error.raw_os_error() == Some(libc::ENOSPC);
-        #[cfg(not(unix))]
-        let space = error.raw_os_error() == Some(112); // ERROR_DISK_FULL
-        Failure { reason: error.to_string(), space }
+        Failure { reason: error.to_string(), space: full(&error) }
     }
+}
+
+/// A full disk, also under the context tar wraps an extraction error in.
+fn full(error: &io::Error) -> bool {
+    #[cfg(unix)]
+    let code = Some(libc::ENOSPC);
+    #[cfg(not(unix))]
+    let code = Some(112); // ERROR_DISK_FULL
+    error.kind() == io::ErrorKind::StorageFull
+        || error.raw_os_error() == code
+        || error.get_ref().and_then(|inner| inner.downcast_ref::<io::Error>()).is_some_and(full)
+        || error.get_ref().and_then(|inner| inner.source()).and_then(|s| s.downcast_ref::<io::Error>()).is_some_and(full)
 }
 
 fn fault(fault: Option<&str>, step: &str) -> io::Result<()> {
@@ -405,6 +413,17 @@ mod tests {
         assert!(check_windows(&pe).is_err());
         assert!(check_windows(&elf).is_err() && check_appimage(&pe).is_err());
         assert!(check_macos(&elf).is_err());
+    }
+
+    #[test]
+    fn a_full_disk_is_found_under_the_extraction_context() {
+        assert!(Failure::from(io::Error::new(io::ErrorKind::StorageFull, "unpacking")).space);
+        #[cfg(unix)]
+        {
+            let enospc = io::Error::from_raw_os_error(libc::ENOSPC);
+            assert!(Failure::from(io::Error::other(enospc)).space, "wrapped");
+        }
+        assert!(!Failure::from(io::Error::new(io::ErrorKind::PermissionDenied, "x")).space);
     }
 
     #[test]

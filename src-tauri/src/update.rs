@@ -9,7 +9,7 @@
 pub mod install;
 
 use serde::Serialize;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -74,6 +74,9 @@ struct Inner {
 pub struct Agent {
     inner: Mutex<Inner>,
     phase: AtomicU8,
+    /// A quit came in, whatever the phase was: even one that came too late to stop the replacement step means no
+    /// respawn after it.
+    quit: AtomicBool,
     emit: Box<dyn Fn(&Snapshot) + Send + Sync>,
 }
 
@@ -91,6 +94,7 @@ impl Agent {
         Agent {
             inner: Mutex::new(Inner { seq: 0, state: State::Idle, busy: false, package: None }),
             phase: AtomicU8::new(OPEN),
+            quit: AtomicBool::new(false),
             emit: Box::new(emit),
         }
     }
@@ -113,11 +117,12 @@ impl Agent {
 
     fn open(&self) -> bool { self.phase.load(Ordering::SeqCst) == OPEN }
 
-    pub fn quitting(&self) -> bool { self.phase.load(Ordering::SeqCst) == QUITTING }
+    pub fn quitting(&self) -> bool { self.quit.load(Ordering::SeqCst) }
 
     /// Every quit, before B6's `stop_engine`: from here on nothing installs and nothing respawns. Once the replacement
     /// step has begun it can't be held on macOS (B6 r1.1); the swap is one step, so either app is left (r2.4).
     pub fn quit(&self) -> bool {
+        self.quit.store(true, Ordering::SeqCst);
         self.phase.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |p| (p != INSTALLING).then_some(QUITTING)).is_ok()
     }
 
@@ -168,7 +173,8 @@ impl Agent {
             self.set(&mut inner, State::DebNotice);
             return Next::Done;
         }
-        match inner.package.as_ref().filter(|p| p.version == version).map(|p| p.critical) {
+        // Only a newer release replaces the one in memory (a feed can go back to an older one).
+        match inner.package.as_ref().filter(|p| !newer(version, &p.version)).map(|p| p.critical) {
             Some(critical) => {
                 inner.busy = false;
                 if inner.state == State::Checking {
@@ -176,7 +182,7 @@ impl Agent {
                 }
                 Next::Done
             }
-            _ => Next::Download { visible: !matches!(inner.state, State::Ready { .. }) },
+            None => Next::Download { visible: !matches!(inner.state, State::Ready { .. }) },
         }
     }
 
@@ -245,7 +251,7 @@ impl Agent {
     /// Back to normal after an install that didn't happen; false when a quit won meanwhile.
     fn reopen(&self, from: u8, state: State) -> bool {
         let mut inner = self.lock();
-        if self.phase.compare_exchange(from, OPEN, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        if self.quitting() || self.phase.compare_exchange(from, OPEN, Ordering::SeqCst, Ordering::SeqCst).is_err() {
             return false;
         }
         self.set(&mut inner, state);
@@ -478,6 +484,14 @@ pub fn kind_of(error: &tauri_plugin_updater::Error) -> Kind {
     match error {
         Minisign(_) | Base64(_) | SignatureUtf8(_) | SignedVersionMismatch { .. } | MissingSignedVersion => Kind::Verify,
         _ => Kind::Download,
+    }
+}
+
+/// `candidate` is a later version than `held` (semver, as the plugin compares); an unparseable one never is.
+fn newer(candidate: &str, held: &str) -> bool {
+    match (semver::Version::parse(candidate), semver::Version::parse(held)) {
+        (Ok(c), Ok(h)) => c > h,
+        _ => false,
     }
 }
 

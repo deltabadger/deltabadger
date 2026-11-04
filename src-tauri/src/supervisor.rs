@@ -512,6 +512,12 @@ fn watch(engine: &Engine, view: &dyn View, show: &dyn Fn(Page), log: &Path, port
         if let Some(exit) = engine.exited() {
             return if engine.quitting() { Watched::Quit(exit) } else { Watched::Exited { status: exit, served } };
         }
+        // A stop was asked for (a quit, an update): the window is no longer the supervisor's to change while the engine
+        // finishes (an update shows U7/U8 there).
+        if engine.quitting() {
+            thread::sleep(POLL);
+            continue;
+        }
         let put = |page: Page, status: &mut Option<Page>| {
             if status.as_ref() != Some(&page) {
                 show(page.clone());

@@ -188,7 +188,9 @@ impl Host for Stub {
     fn install(&self, _: &Package) -> Result<(), install::Failure> {
         self.event("install");
         assert_eq!(self.agent.snapshot().state, State::Installing);
-        assert!(!self.agent.quit(), "a quit can't win once the replacement began");
+        if self.quit_at == "installing" {
+            assert!(!self.agent.quit(), "a quit can't stop the replacement once it began");
+        }
         self.install.lock().unwrap().take().map_or(Ok(()), Err)
     }
     fn respawn(&self) { self.event("respawn") }
@@ -267,6 +269,27 @@ fn a_failed_install_respawns_the_engine_and_can_be_retried() {
     let stub = Stub::new(&agent, "");
     install_with(&stub);
     assert_eq!(stub.events().last().unwrap(), "relaunch");
+}
+
+#[test]
+fn a_quit_during_a_failed_replacement_still_means_no_respawn() {
+    let (agent, _) = agent();
+    ready(&agent, "2.0.0");
+    let stub = Stub::new(&agent, "installing");
+    *stub.install.lock().unwrap() = Some(install::Failure { reason: "test".into(), space: false });
+    install_with(&stub);
+    assert_eq!(stub.events(), ["show updating", "stop", "lock", "install"], "no respawn after the quit");
+    assert!(agent.quitting());
+}
+
+#[test]
+fn an_older_release_never_replaces_a_newer_one_in_memory() {
+    let (agent, _) = agent();
+    ready(&agent, "2.2.0");
+    assert!(agent.begin_check(true));
+    assert_eq!(agent.found("2.1.0", false), Next::Done);
+    assert_eq!(agent.snapshot().state, State::Ready { critical: false });
+    assert_eq!(agent.begin_install().unwrap().version, "2.2.0");
 }
 
 #[test]
