@@ -117,3 +117,14 @@ pub fn enter(env: &dyn Fn(&str) -> Option<String>) -> Result<Option<File>, &'sta
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// The same vector as src-tauri/src/update/install.rs's test: the engine and the launcher name one file for one app.
+    #[test]
+    fn the_lock_name_matches_the_launchers() {
+        let env = |k: &str| (k == "LOCALAPPDATA").then(|| "C:\\Users\\x\\AppData\\Local".to_string());
+        let file = super::lock_file(std::path::Path::new("/Applications/Deltabadger.app"), &env).unwrap();
+        assert_eq!(file.file_name().unwrap(), "bundle-38dd6f0c052bec9f.lock");
+    }
+}

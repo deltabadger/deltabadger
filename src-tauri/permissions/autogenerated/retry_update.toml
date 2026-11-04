@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-retry-update"
+description = "Enables the retry_update command without any pre-configured scope."
+commands.allow = ["retry_update"]
+
+[[permission]]
+identifier = "deny-retry-update"
+description = "Denies the retry_update command without any pre-configured scope."
+commands.deny = ["retry_update"]

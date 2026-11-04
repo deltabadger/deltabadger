@@ -83,29 +83,89 @@ if (window.__IS_TAURI__) {
             }
         }, true);
 
-        // The Settings update button. The desktop build installs updates itself, so it gets a
-        // button rather than the instructions the container platforms need. Everything after
-        // finding an update is the native prompt, and a successful install restarts the app, so
-        // the only outcome worth reporting here is that there was nothing to install.
+        // Updates (PLAN-B7 §5): the app's update agent holds the one state; this page shows it in
+        // the banner (both layouts) and the Settings row. Every call carries the launch token the
+        // engine rendered, or the app refuses it. Each state has a sequence number: the newest wins.
+        const { listen } = await import('@tauri-apps/api/event');
+        const token = () => document.querySelector('meta[name="desktop-launch"]')?.content || '';
+        const call = (command) => invoke(command, { token: token() });
+        let update = null;
+        let checkedHere = false;
+
+        const lines = (s, t) => {
+            const pct = (key) => s.percent == null ? t[key] : t[key + 'Percent'].replace('%{percent}', s.percent);
+            switch (s.state) {
+                case 'downloading': return { line: pct(s.critical ? 'textCriticalDownloading' : 'textDownloading'), critical: s.critical };
+                case 'ready': return { line: s.critical ? t.textCriticalReady : t.textReady, more: t.textReadyMore, action: 'install', critical: s.critical };
+                case 'failed': return { line: t['textFailed' + s.kind[0].toUpperCase() + s.kind.slice(1)], action: 'retry', link: s.kind === 'install' };
+                case 'deb-notice': return { line: t.textDeb, link: true, about: t.textAboutCheckOnly };
+                case 'manual': return { line: t.textManual, link: true, about: t.textAboutCheckOnly };
+                default: return null;
+            }
+        };
+
+        const render = () => {
+            const banner = document.getElementById('desktop_update');
+            if (!banner || !update) return;
+            const t = banner.dataset;
+            const shown = lines(update, t);
+            banner.classList.toggle('hidden', !shown);
+            banner.classList.toggle('salert--danger', !!shown?.critical);
+            banner.querySelector('[data-desktop-update-line]').textContent = shown?.line || '';
+            banner.querySelector('[data-desktop-update-more]').textContent = shown?.more || '';
+            const action = banner.querySelector('[data-desktop-update-action]');
+            action.classList.toggle('hidden', !shown?.action);
+            action.dataset.command = shown?.action === 'install' ? 'install_update' : 'retry_update';
+            action.textContent = shown?.action === 'install' ? t.textRestart : t.textTryAgain;
+            banner.querySelector('[data-desktop-update-link]').classList.toggle('hidden', !shown?.link);
+
+            const row = document.querySelector('#app_update');
+            const status = row?.querySelector('[data-desktop-update-status]');
+            const button = row?.querySelector('[data-desktop-update]');
+            if (status) {
+                status.textContent = shown?.about || shown?.line || {
+                    'checking': t.textChecking,
+                    'check-failed': t.textCheckFailed,
+                    'idle': checkedHere ? t.textUpToDate : t.textAbout,
+                }[update.state] || t.textAbout;
+            }
+            if (button) {
+                const ready = update.state === 'ready';
+                button.textContent = ready ? t.textRestart : t.textCheckNow;
+                button.disabled = ['checking', 'downloading', 'stopping', 'installing'].includes(update.state);
+            }
+        };
+
+        const show = (next) => {
+            if (!next || (update && next.seq < update.seq)) return;
+            update = next;
+            render();
+        };
+
+        if (document.querySelector('meta[name="desktop-launch"]')) {
+            // Subscribe first, then the snapshot: a change between the two is never lost (r1.12).
+            await listen('update-state', (event) => show(event.payload));
+            try { show(await call('update_state')); } catch (error) { console.error('Update state:', error); }
+            document.addEventListener('turbo:load', render);
+            document.addEventListener('turbo:frame-load', render);
+        }
+
         document.addEventListener('click', async (e) => {
+            const action = e.target.closest('[data-desktop-update-action]');
             const button = e.target.closest('[data-desktop-update]');
-            if (!button) return;
+            if (!action && !button) return;
             e.preventDefault();
-
-            const status = button.closest('#app_update')?.querySelector('[data-desktop-update-status]');
-            const idle = button.textContent;
-            button.disabled = true;
-            button.textContent = button.dataset.desktopUpdateChecking;
-
             try {
-                const found = await invoke('check_for_updates');
-                if (!found && status) status.textContent = button.dataset.desktopUpdateUpToDate;
+                if (action) {
+                    show(await call(action.dataset.command));
+                } else if (update?.state === 'ready') {
+                    show(await call('install_update'));
+                } else {
+                    checkedHere = true;
+                    show(await call('check_for_updates'));
+                }
             } catch (error) {
-                console.error('Update check failed:', error);
-                if (status) status.textContent = button.dataset.desktopUpdateFailed;
-            } finally {
-                button.disabled = false;
-                button.textContent = idle;
+                console.error('Update:', error);
             }
         }, true);
 

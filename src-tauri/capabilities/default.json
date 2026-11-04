@@ -16,7 +16,10 @@
     "core:tray:default",
     "dialog:allow-save",
     "fs:allow-write-text-file",
+    "allow-update-state",
     "allow-check-for-updates",
+    "allow-install-update",
+    "allow-retry-update",
     "allow-test-report"
   ],
   "remote": {

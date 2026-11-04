@@ -773,12 +773,16 @@ dependencies = [
 name = "deltabadger-desktop"
 version = "2.70.21"
 dependencies = [
+ "flate2",
  "getrandom 0.3.4",
+ "libc",
  "log",
  "port_check",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha2",
+ "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -788,6 +792,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tokio",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

@@ -70,6 +70,9 @@ pub fn set_ready_token(token: Option<String>) {
     if let Some(t) = token.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()) { let _ = READY_TOKEN.set(t); }
 }
 
+/// The ready token, for the desktop pages' `<meta name="desktop-launch">` (PLAN-B7 r3.4).
+pub fn ready_token() -> Option<&'static str> { READY_TOKEN.get().map(String::as_str) }
+
 /// `/ui-ready`: 200 whenever something is served to the user, the app or this page (PLAN-B2 r2.8). With a ready token,
 /// `ready <token> <state>`, `state` being `app`, `refused` or `starting`; without, `ready`.
 pub async fn ui_ready(state: &'static str) -> Response {

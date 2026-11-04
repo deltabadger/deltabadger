@@ -265,10 +265,10 @@ pub fn app_update(ctx: &Ctx, platform: crate::jobs::app_update::Platform, latest
     let available = !desktop && latest.is_some_and(|l| update::available(current, &l.version));
     let (hint, control) = match latest {
         _ if desktop => (
-            format!("<span data-desktop-update-status=\"true\">{}</span>", ctx.t("settings.app_update.desktop")),
+            format!("<span data-desktop-update-status=\"true\">{}</span>", ctx.t("desktop_update.about")),
             format!(
-                "\n        <button name=\"button\" type=\"button\" class=\"rbutton rbutton--secondary\" data-desktop-update=\"true\" data-desktop-update-checking=\"{}\" data-desktop-update-up-to-date=\"{}\" data-desktop-update-failed=\"{}\">{}</button>\n",
-                ctx.t("settings.app_update.checking"), ctx.t("settings.app_update.up_to_date"), ctx.t("settings.app_update.check_failed"), ctx.t("settings.app_update.check_now")
+                "\n        <button name=\"button\" type=\"button\" class=\"rbutton rbutton--secondary\" data-desktop-update=\"true\">{}</button>\n",
+                ctx.t("settings.app_update.check_now")
             ),
         ),
         Some(l) if available => (

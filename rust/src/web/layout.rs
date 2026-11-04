@@ -60,6 +60,39 @@ impl Ctx {
         i18n::t(self.locale, key, &[])
     }
 
+    fn desktop(&self) -> bool { self.app.update_platform == crate::jobs::app_update::Platform::Desktop }
+
+    /// The desktop app's launch token (PLAN-B7 r3.4): the app answers only a page that carries the token of the engine
+    /// it started. Nothing elsewhere.
+    pub fn desktop_launch_meta(&self) -> String {
+        match crate::web::refused::ready_token() {
+            Some(token) if self.desktop() => format!("<meta name=\"desktop-launch\" content=\"{}\">", i18n::escape(token)),
+            _ => String::new(),
+        }
+    }
+
+    /// The desktop app's update banner (PLAN-B7 §5.2, r4.5), hidden: every state's line is carried here once, and
+    /// tauri.js shows the one the app's update agent is in — here and in the Settings row. Nothing elsewhere.
+    pub fn desktop_update_banner(&self) -> String {
+        if !self.desktop() {
+            return String::new();
+        }
+        const LINES: [&str; 18] = [
+            "about", "about_check_only", "downloading", "downloading_percent", "ready", "ready_more", "critical_ready",
+            "critical_downloading", "critical_downloading_percent", "failed_download", "failed_verify", "failed_space",
+            "failed_install", "deb", "manual", "restart", "try_again", "download_page",
+        ];
+        let mut texts: String = LINES.iter().map(|k| format!(" data-text-{}=\"{}\"", k.replace('_', "-"), self.t(&format!("desktop_update.{k}")))).collect();
+        for (name, key) in [("checking", "checking"), ("up-to-date", "up_to_date"), ("check-failed", "check_failed"), ("check-now", "check_now")] {
+            texts.push_str(&format!(" data-text-{name}=\"{}\"", self.t(&format!("settings.app_update.{key}"))));
+        }
+        format!(
+            "<div id=\"desktop_update\" class=\"salert salert--download hidden\" role=\"status\" data-desktop-update-banner{texts}>\n  <p data-desktop-update-line></p>\n  <p data-desktop-update-more></p>\n  <div>\n    <button type=\"button\" class=\"rbutton rbutton--secondary hidden\" data-desktop-update-action></button>\n    <a class=\"hidden\" target=\"_blank\" rel=\"noopener\" href=\"{}\" data-desktop-update-link>{}</a>\n  </div>\n</div>\n",
+            crate::jobs::app_update::RELEASES_URL,
+            self.t("desktop_update.download_page")
+        )
+    }
+
     /// `t(key, count: n)`.
     pub fn t_count(&self, key: &str, n: i64) -> String {
         i18n::t(self.locale, key, &[("count", i18n::Arg::Count(n))])

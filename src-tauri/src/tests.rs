@@ -788,3 +788,102 @@ fn the_initialization_script_marks_the_document_as_desktop() {
     assert!(INITIALIZATION_SCRIPT.contains("new MutationObserver"));
     assert!(!INITIALIZATION_SCRIPT.contains("DOMContentLoaded"));
 }
+
+// ---- PLAN-B7: the stop before an install, the command guard, the window's navigation ----
+
+fn started(launch: &Launch, within: Duration) {
+    let deadline = Instant::now() + within;
+    while starts(launch) == 0 {
+        assert!(Instant::now() < deadline, "the stub didn't start: {}", log(launch));
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+#[test]
+fn an_update_stop_waits_for_the_engine_to_exit_and_never_kills_it() {
+    let launch = stub("b7-stop", "stdin");
+    let (view, engine) = (Arc::new(Recorder::default()), Arc::new(Engine::default()));
+    with_stub_script(&launch, || {
+        std::thread::scope(|s| {
+            let (v, e, l) = (view.clone(), engine.clone(), &launch);
+            let supervisor = s.spawn(move || supervise(l, &e, &*v));
+            started(&launch, Duration::from_secs(20));
+            assert!(supervisor::stop_and_wait(&engine, &|| false));
+            supervisor.join().unwrap();
+            assert_eq!(engine.pid(), None);
+        })
+    });
+    assert!(log(&launch).contains("the engine stopped as asked (exit 0)"), "{}", log(&launch));
+    assert!(!view.states().iter().any(|s| s == "stopped" || s == "not-started"), "{:?}", view.events());
+}
+
+#[test]
+fn an_engine_that_keeps_running_is_waited_for_until_a_quit_and_never_killed() {
+    // The stub serves for 3 s whatever its stdin does: the stop can't end it sooner.
+    let launch = stub("b7-stop-held", "serve:starting:3000");
+    let (view, engine) = (Arc::new(Recorder::default()), Arc::new(Engine::default()));
+    with_stub_script(&launch, || {
+        std::thread::scope(|s| {
+            let (v, e, l) = (view.clone(), engine.clone(), &launch);
+            let supervisor = s.spawn(move || supervise(l, &e, &*v));
+            started(&launch, Duration::from_secs(20));
+            let asked = Instant::now();
+            assert!(!supervisor::stop_and_wait(&engine, &|| asked.elapsed() > Duration::from_millis(500)), "the quit won");
+            assert!(engine.pid().is_some(), "still running: nothing killed it");
+            supervisor.join().unwrap();
+            assert!(asked.elapsed() >= Duration::from_secs(2), "it ended on its own");
+        })
+    });
+}
+
+#[test]
+fn a_respawn_after_a_failed_install_gives_way_to_a_quit() {
+    let engine = Engine::default();
+    stop_engine(&engine);
+    assert!(engine.quitting());
+    assert!(!engine.resume(&|| true), "the app is quitting");
+    assert!(engine.quitting());
+    assert!(engine.resume(&|| false));
+    assert!(!engine.quitting());
+}
+
+#[test]
+fn the_window_goes_only_to_the_status_page_and_this_engine() {
+    let url = |u: &str| u.parse::<tauri::Url>().unwrap();
+    for allowed in ["tauri://localhost/index.html#starting", "http://tauri.localhost/#updating", "http://127.0.0.1:3001/bots", "about:blank"] {
+        assert_eq!(navigation(&url(allowed), Some(3001)), Navigation::Allow, "{allowed}");
+    }
+    for browser in ["http://127.0.0.1:3002/", "http://localhost:3001/", "https://deltabadger.com/", "http://127.0.0.2:3001/"] {
+        assert_eq!(navigation(&url(browser), Some(3001)), Navigation::Browser, "{browser}");
+    }
+    assert_eq!(navigation(&url("http://127.0.0.1:3001/"), None), Navigation::Browser, "no engine yet");
+    assert_eq!(navigation(&url("file:///etc/hosts"), Some(3001)), Navigation::Refuse);
+}
+
+#[test]
+fn a_command_needs_this_launchs_origin_and_its_token() {
+    let url = |u: &str| u.parse::<tauri::Url>().unwrap();
+    let launch = || Some((3001, "t0k3n".to_string()));
+    assert!(allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), "t0k3n"));
+    assert!(!allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), "other"), "another token");
+    assert!(!allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), ""), "no token");
+    assert!(!allowed("main", &url("http://127.0.0.1:3002/"), launch(), "t0k3n"), "another port");
+    assert!(!allowed("main", &url("tauri://localhost/"), launch(), "t0k3n"), "the status page");
+    assert!(!allowed("other", &url("http://127.0.0.1:3001/"), launch(), "t0k3n"), "another window");
+    assert!(!allowed("main", &url("http://127.0.0.1:3001/"), None, ""), "no engine");
+}
+
+#[test]
+fn the_status_page_names_the_update_stop_without_a_version() {
+    let page = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/index.html")).unwrap();
+    for line in [
+        "\"updating\": function",
+        "\"updating-long\": function",
+        "Deltabadger is finishing its current work before updating and restarting.",
+        "The update is waiting for Deltabadger to finish closing. Leave this window open. If Deltabadger is also running in a terminal or another account on this computer, quit it there.",
+    ] {
+        assert!(page.contains(line), "{line}");
+    }
+    let script = &page[page.find("<script>").unwrap()..];
+    assert!(!script.chars().zip(script.chars().skip(1)).any(|(a, b)| a.is_ascii_digit() && b == '.'), "a version-like number");
+}

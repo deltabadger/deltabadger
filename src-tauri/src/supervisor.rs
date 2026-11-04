@@ -97,6 +97,8 @@ struct Slot {
     stdin: Option<ChildStdin>,
     quitting: bool,
     log: Option<PathBuf>,
+    /// The port and ready token of the last engine started: its pages are the only ones the app's commands answer.
+    launch: Option<(u16, String)>,
 }
 
 /// How `stop_engine` found the engine.
@@ -116,6 +118,21 @@ impl Engine {
 
     /// The running engine's process id.
     pub fn pid(&self) -> Option<u32> { self.slot().child.as_ref().map(Child::id) }
+
+    /// The port and ready token of the engine started last (PLAN-B7 r1.8, r3.4).
+    pub fn launch(&self) -> Option<(u16, String)> { self.slot().launch.clone() }
+
+    /// Undoes a stop asked for by an update (PLAN-B7 r2.2), so the supervisor can start the engine again — unless
+    /// `quitting` says the app is quitting. Decided under the slot's lock: a quit either comes first (nothing resumes) or
+    /// finds the latch set again by its own `stop_engine`.
+    pub fn resume(&self, quitting: &dyn Fn() -> bool) -> bool {
+        let mut slot = self.slot();
+        if quitting() {
+            return false;
+        }
+        slot.quitting = false;
+        true
+    }
 
     /// The engine's exit status once it has exited (the child is then forgotten).
     fn exited(&self) -> Option<ExitStatus> {
@@ -147,6 +164,29 @@ pub fn stop_engine(engine: &Engine) -> Stopped {
         }
     }
     stopped
+}
+
+/// An update's stop (PLAN-B6 r1.6, PLAN-B7 §2.1): the same stdin close as `stop_engine`, then the wait for the child's
+/// exit — never a kill, never a deadline. The wait polls without holding the slot, so a quit or the supervisor is never
+/// blocked behind it. False when `cancelled` turned true first (the app is quitting).
+pub fn stop_and_wait(engine: &Engine, cancelled: &dyn Fn() -> bool) -> bool {
+    stop_engine(engine);
+    loop {
+        {
+            let mut slot = engine.slot();
+            let gone = match slot.child.as_mut() {
+                None => true,
+                Some(child) => !matches!(child.try_wait(), Ok(None)),
+            };
+            if gone {
+                return true;
+            }
+        }
+        if cancelled() {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
 }
 
 /// What the window shows: the launcher's status page with one of these, or an engine page.
@@ -392,6 +432,7 @@ fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, keys: &HashMa
     slot.stdin = child.stdin.take();
     slot.child = Some(child);
     slot.log = Some(log);
+    slot.launch = Some((port, token.to_string()));
     Ok(true)
 }
 
