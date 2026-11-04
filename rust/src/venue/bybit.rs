@@ -286,8 +286,9 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
     /// ones created in the window (`/v5/order/history`, startTime/endTime in ms as Rails' own history reads send them), 50 a
     /// page, at most five pages each, category spot (the envelope Rails reads: `result.list`, `nextPageCursor`). Open rows
     /// outside the window by `createdTime` are dropped (realtime is not windowed). An order both lists name is kept once,
-    /// as history (read last) has it. More pages than that is a cap (incomplete).
-    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>) -> Result<super::Created, super::HistoryError> {
+    /// as history (read last) has it. A page ends a list only without a cursor (or with no row); more pages than five is a
+    /// cap (incomplete).
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
         use super::HistoryError::{Refused, Retry};
         // order/history answers at most seven days between startTime and endTime.
         if to < from || to - from > Duration::days(7) { return Err(Refused("Bybit: an order-history window over seven days".into())); }
@@ -302,7 +303,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
                         q.extend([("startTime", super::bitvavo::ruby_ms(from).to_string()), ("endTime", super::bitvavo::ruby_ms(to).to_string())]);
                     }
                     if !cursor.is_empty() { q.push(("cursor", cursor.clone())); }
-                    let listed = self.history_page(&self.request("GET", path, q, None)).await.and_then(|b| {
+                    let listed = super::by_deadline(deadline, self.history_page(&self.request("GET", path, q, None))).await.and_then(|b| {
                         let rows = b["result"]["list"].as_array().cloned().ok_or_else(|| Retry("Bybit: unreadable response".into()))?;
                         let next = match &b["result"]["nextPageCursor"] { Value::Null => String::new(), Value::String(c) => c.clone(), _ => return Err(Retry("Bybit: unreadable response".into())) };
                         Ok((rows, next))
@@ -322,7 +323,8 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
                             None => out.complete = false,
                         }
                     }
-                    if next.is_empty() || rows.len() < HISTORY_LIMIT { break; }
+                    // Bybit pages by cursor alone: a short page with a cursor may still have more after it.
+                    if next.is_empty() || rows.is_empty() { break; }
                     cursor = next;
                 }
             }

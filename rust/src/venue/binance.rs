@@ -554,7 +554,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     /// A28-3 (PLAN-A28-3 §1, §5, r1.3, r2.2): allOrders per symbol, created from `from` to `to` (startTime/endTime in ms, as
     /// Rails' own allOrders reads send them), 1000 a page; every state, open orders included. A full page is a cap
     /// (incomplete); rows outside the window are dropped. Each row read strictly (`created_order`), never by the booking parse.
-    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>) -> Result<super::Created, super::HistoryError> {
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
         use super::HistoryError::{Refused, Retry};
         // allOrders answers at most 24 hours between startTime and endTime.
         if to < from || to - from > chrono::Duration::hours(24) { return Err(Refused(format!("{}: an order-history window over a day", self.rules.name))); }
@@ -562,7 +562,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         for symbol in symbols {
             let r = self.signed_now("GET", "/api/v3/allOrders", vec![("symbol", symbol.clone()), ("startTime", from.timestamp_millis().to_string()),
                                     ("endTime", to.timestamp_millis().to_string()), ("limit", PAGE.to_string()), ("recvWindow", READ_RECV_WINDOW.into())]);
-            let page = match self.history_page(&r).await.and_then(|b| match b { serde_json::Value::Array(rows) => Ok(rows), _ => Err(Retry(UNREADABLE.into())) }) {
+            let page = match super::by_deadline(deadline, self.history_page(&r)).await.and_then(|b| match b { serde_json::Value::Array(rows) => Ok(rows), _ => Err(Retry(UNREADABLE.into())) }) {
                 Ok(rows) => rows,
                 Err(e) if out.orders.is_empty() => return Err(e),
                 Err(_) => { out.complete = false; continue; }

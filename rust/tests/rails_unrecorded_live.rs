@@ -660,3 +660,70 @@ fn every_live_line_renders_in_english_without_a_missing_key() {
         assert!(!text.contains("%{") && !text.contains("no money"), "{key}: {text}");
     }
 }
+
+// ---- Codex branch r1 ---------------------------------------------------------------------------------------------------
+
+/// The scripted venue, but a request to `stall` never answers.
+#[derive(Clone)]
+struct Stalling { inner: ScriptedTransport, stall: &'static str }
+impl deltabadger::venue::http::Transport for Stalling {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        if r.path == self.stall { std::future::pending::<()>().await; }
+        self.inner.send(r).await
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_read_past_its_deadline_keeps_the_open_order_it_already_validated() {
+    let f = fx(Kind::Bybit);
+    f.tr.reply("GET /v5/order/realtime", 200, page(vec![bybit_row(&limit(9, St::Open, "0", "0"))], ""));
+    let venue = bybit::BybitVenue::new(Stalling { inner: f.tr.clone(), stall: bybit::HISTORY_PATH }, bybit::URL);
+    let before = money(&f.c);
+    assert_eq!(Report::new(Factory { venue, hook: RefCell::new(None) }).pass(&f.db, now()).await.unwrap(), 1);
+    let (event, d) = f.one();
+    assert_eq!((event.as_str(), d["complete"].as_bool()), (ru::LIVE_OPEN, Some(false)));
+    assert_eq!(money(&f.c), before);
+}
+
+#[tokio::test]
+async fn a_short_bybit_page_with_a_cursor_is_followed() {
+    let f = fx(Kind::Bybit);
+    f.tr.reply("GET /v5/order/realtime", 200, page(vec![bybit_row(&O { sell: true, ..limit(5, St::Open, "0", "0") })], "page2"));
+    f.tr.reply("GET /v5/order/realtime", 200, page(vec![bybit_row(&limit(9, St::Open, "0", "0"))], ""));
+    f.tr.reply("GET /v5/order/history", 200, page(vec![], ""));
+    f.pass(now()).await;
+    assert_eq!(f.one().0, ru::LIVE_OPEN);
+    let cursors: Vec<_> = f.tr.requests().iter().map(|r| r.query.iter().find(|(k, _)| *k == "cursor").map(|(_, v)| v.clone())).collect();
+    assert_eq!(cursors, [None, Some("page2".to_string()), None]);
+}
+
+#[tokio::test]
+async fn a_failed_read_is_retried_no_sooner_than_an_hour_later() {
+    let f = fx(Kind::Binance);
+    f.server_error(500);
+    f.pass(now()).await;
+    f.pass(now() + Duration::minutes(59)).await;
+    assert_eq!(f.requests(), 1);
+    f.pass(now() + Duration::minutes(60)).await;
+    assert_eq!(f.requests(), 2);
+}
+
+#[tokio::test]
+async fn a_key_changed_during_a_refused_or_last_failed_read_writes_nothing_then_reads_with_the_new_key() {
+    for refused in [true, false] {
+        let f = fx(Kind::Binance);
+        // In turn: the failure(s) — a refusal, or a third 500 after two — then the answer.
+        if refused { f.refuse(false); } else { for _ in 0..3 { f.server_error(500); } }
+        f.answer(&[limit(9, St::Open, "0", "0")]);
+        if !refused {
+            f.pass(now()).await;
+            f.pass(now() + Duration::hours(1)).await;
+        }
+        let (path, key) = (f.path.clone(), f.s.api_key_id);
+        let hook: Box<dyn FnOnce()> = Box::new(move || { open(&path).execute("UPDATE api_keys SET secret = ?2 WHERE id = ?1", params![key, seed::cipher().encrypt("other")]).unwrap(); });
+        assert_eq!(f.pass_with(now() + Duration::hours(2), Some(hook)).await, 0, "refused {refused}");
+        assert!(f.lines().is_empty());
+        assert_eq!(f.pass(now() + Duration::hours(3)).await, 1);
+        assert_eq!(f.one().0, ru::LIVE_OPEN, "refused {refused}: the new key is read afresh");
+    }
+}

@@ -496,7 +496,8 @@ const MAX_SYMBOLS: usize = 5;
 const MAX_READS: usize = 20;
 /// Failed reads (one per pass, at least `RETRY_AFTER` apart) before the line is written without them (r2.3).
 const MAX_ATTEMPTS: i64 = 3;
-const RETRY_AFTER: i64 = 55 * 60;
+const RETRY_AFTER: i64 = 60 * 60;
+/// A read's deadline: its requests past it fail, the rows already validated kept (r2.2).
 const READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 /// No read starts after this much of a pass (the job's deadline is 600 s).
 const PASS_BUDGET: std::time::Duration = std::time::Duration::from_secs(300);
@@ -526,8 +527,7 @@ impl<F: crate::venue::VenueFactory> Report<F> {
             if started.elapsed() >= PASS_BUDGET { break; }
             let p = &read.prepared;
             let venue = self.venues.for_bot_with_redaction(&p.venue_type, Some(read.credentials.clone()), read.sensitive.clone());
-            let result = tokio::time::timeout(READ_TIMEOUT, venue.orders_created(&p.symbols, p.from, p.to)).await
-                .unwrap_or_else(|_| Err(HistoryError::Retry("the order-history read timed out".into())));
+            let result = venue.orders_created(&p.symbols, p.from, p.to, tokio::time::Instant::now() + READ_TIMEOUT).await;
             last = Some(p.id);
             if db.run(move |c, cipher| settle(c, cipher, &read, result, now).map_err(|e| format!("{e:?}"))).await? { written += 1; }
         }
@@ -646,7 +646,15 @@ fn settle(c: &Connection, cipher: &crate::crypto::Cipher, read: &LiveRead, resul
                         ON CONFLICT (obligation_id) DO UPDATE SET stamp = excluded.stamp, attempts = excluded.attempts, refused_at = excluded.refused_at, last_at = excluded.last_at",
                        params![p.id, p.stamp, attempts, refused_at, format_time(now)])?;
             tx.commit()?;
-            return match prepare(c, cipher, p.id, now, &mut Linked::new())? { Prep::Write(bot, line) => write_line(c, p.id, bot, &line, now), _ => Ok(false) };
+            // The line this failure may end the live part with is A28-1's, written only when the obligation is still as it was
+            // prepared and under the key it was read with (r1.5); otherwise the next pass decides.
+            let written = model::credential_write(c, &Some(read.version.clone()), |tx| {
+                match prepare(tx, cipher, p.id, now, &mut Linked::new())? {
+                    Prep::Write(bot, line) if bot == p.bot && line == p.line => mark(tx, p.id, bot, &line, now),
+                    _ => Ok(false),
+                }
+            });
+            return match written { Err(EngineError::CredentialsChanged) => Ok(false), other => other };
         }
     };
     let written = model::credential_write(c, &Some(read.version.clone()), |tx| {

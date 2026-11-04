@@ -256,7 +256,7 @@ impl<V:Venue> Venue for &V {
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{(*self).withdrawal_fee(d,amount).await}
     async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{(*self).withdraw(r).await}
     async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{(*self).withdrawal_lookup(r).await}
-    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>)->Result<Created,HistoryError>{(*self).orders_created(s,from,to).await}
+    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>,d:tokio::time::Instant)->Result<Created,HistoryError>{(*self).orders_created(s,from,to,d).await}
 }
 impl<V:Venue> Venue for Handle<V> {
     async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{self.venue.prepare().await}
@@ -293,7 +293,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{self.venue.withdrawal_fee(d,amount).await}
     async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{self.venue.withdraw(r).await}
     async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{self.venue.withdrawal_lookup(r).await}
-    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>)->Result<Created,HistoryError>{self.venue.orders_created(s,from,to).await}
+    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>,d:tokio::time::Instant)->Result<Created,HistoryError>{self.venue.orders_created(s,from,to,d).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
@@ -460,8 +460,9 @@ pub trait Venue {
     /// The fee for sending `amount` to `destination` (§6): None when it is unknown.
     async fn withdrawal_fee(&self, _destination: &withdrawal::Destination, _amount: &BigDec) -> Result<Option<BigDec>, VenueError> { Err(withdrawal::not_connected()) }
     /// A28-3 (PLAN-A28-3 r1.2, r2.2): the orders on `symbols` created from `from` to `to`, all states, read strictly for the
-    /// report of orders Rails may have sent unrecorded. Never booked.
-    async fn orders_created(&self, _symbols: &[String], _from: DateTime<Utc>, _to: DateTime<Utc>) -> Result<Created, HistoryError> {
+    /// report of orders Rails may have sent unrecorded. Never booked. A request not answered by `deadline` fails as a later
+    /// page's failure does (r2.2): the rows already validated are kept.
+    async fn orders_created(&self, _symbols: &[String], _from: DateTime<Utc>, _to: DateTime<Utc>, _deadline: tokio::time::Instant) -> Result<Created, HistoryError> {
         Err(HistoryError::Refused("order history is not connected for this venue".into()))
     }
 }
@@ -493,6 +494,10 @@ pub struct Created { pub orders: Vec<CreatedOrder>, pub complete: bool }
 /// or anything else (throttle, server error, transport, an unreadable answer), which a later pass may get past.
 #[derive(Clone, Debug, PartialEq)]
 pub enum HistoryError { Refused(String), Retry(String) }
+/// One order-history request, bounded by the read's deadline: past it, a retryable failure.
+pub(crate) async fn by_deadline<T>(deadline: tokio::time::Instant, request: impl std::future::Future<Output = Result<T, HistoryError>>) -> Result<T, HistoryError> {
+    tokio::time::timeout_at(deadline, request).await.unwrap_or_else(|_| Err(HistoryError::Retry("the order-history read timed out".into())))
+}
 
 pub trait VenueFactory {
     type V: Venue;
