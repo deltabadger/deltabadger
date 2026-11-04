@@ -9,6 +9,7 @@ use crate::web::bots::CASH;
 use crate::web::format::{self, Num};
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
+use crate::engine::rails_unrecorded::{self, ObligationView};
 use crate::web::{turbo, WebError};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
@@ -170,6 +171,8 @@ struct Rows<'a> {
     decimals: HashMap<String, u8>,
     /// A broadcast has no session: its Cancel form carries no token, and Turbo sends the receiving page's.
     broadcast: bool,
+    /// A28-2a: the page's `rails_order_open`/`listed` lines' obligations, read at once (`with_obligations`).
+    obligations: HashMap<i64, ObligationView>,
 }
 
 const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
@@ -195,7 +198,7 @@ impl<'a> Rows<'a> {
                     decimals.insert(asset.symbol().to_string(), precision);
                 }
             }
-            return Rows { ctx, bot, zone: &user.time_zone, hidden: user.hide_balances, decimals, broadcast: false };
+            return Rows { ctx, bot, zone: &user.time_zone, hidden: user.hide_balances, decimals, broadcast: false, obligations: HashMap::new() };
         }
         if let (Some(quote), Some(precision)) = (bot.quote_asset.as_ref(), bot.quote_decimals()) {
             decimals.insert(quote.id.to_string(), precision);
@@ -208,7 +211,7 @@ impl<'a> Rows<'a> {
             decimals.insert(ticker.base.clone(), ticker.base_decimals);
             if let Some(symbol) = membership.asset.symbol.as_deref().filter(|symbol| !symbol.is_empty()) { decimals.entry(symbol.to_string()).or_insert(ticker.base_decimals); }
         }
-        Rows { ctx, bot, zone: &user.time_zone, hidden: user.hide_balances, decimals, broadcast: false }
+        Rows { ctx, bot, zone: &user.time_zone, hidden: user.hide_balances, decimals, broadcast: false, obligations: HashMap::new() }
     }
 
     fn t(&self, key: &str, args: &[(&str, Arg)]) -> String {
@@ -363,6 +366,18 @@ impl<'a> Rows<'a> {
                 event(if one { "rails_order_candidate" } else { "rails_order_candidates" },
                       &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("trades", Arg::Text(&detail("trades")))])
             }
+            // A28-3: the venue's own orders (engine::rails_unrecorded::merged).
+            "rails_order_open" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))]),
+            "rails_order_listed" => {
+                let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
+                event(if one { "rails_order_listed_one" } else { "rails_order_listed" },
+                      &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))])
+            }
+            // A28-2: the owner's booking of one of those orders, and what follows it (engine::rails_unrecorded).
+            "rails_order_recovered" => event(&log.event, &[("order", Arg::Text(&detail("order")))]),
+            "rails_order_not_added" => event(&format!("rails_order_not_added_{}", detail("reason")), &[("venue", Arg::Text(&detail("venue")))]),
+            "rails_order_not_mine" => event(&log.event, &[]),
+            "rails_order_unsettled" | "rails_order_settled_lower" => event(&log.event, &[("venue", Arg::Text(&detail("venue"))), ("placed", Arg::Text(&detail("placed")))]),
             "rails_order_none_seen" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "rails_order_unchecked" => event(&format!("rails_order_unchecked_{}", detail("reason")), &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "asset_split" => match detail("ratio") {
@@ -376,8 +391,51 @@ impl<'a> Rows<'a> {
     /// orders/_activity.html.erb.
     fn activity(&self, log: &Log) -> Result<String,WebError> {
         Ok(format!("<tr id=\"bot_activity_log_{}\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"{}\">\n  \
-                 <td scope=\"row\" class=\"table__when\">{}</td>\n  <td colspan=\"{}\" class=\"table__sentence\">{}</td>\n</tr>",
-                log.id, if self.hidden { "other" } else { "all" }, self.when(log.created_at), if self.hidden { 1 } else { 3 }, escape(&self.activity_summary(log)?)))
+                 <td scope=\"row\" class=\"table__when\">{}</td>\n  <td colspan=\"{}\" class=\"table__sentence\">{}{}</td>\n</tr>",
+                log.id, if self.hidden { "other" } else { "all" }, self.when(log.created_at), if self.hidden { 1 } else { 3 }, escape(&self.activity_summary(log)?), self.rails_order_answers(log)))
+    }
+
+    /// A28-2a (PLAN-A28-2 §1, r1.7): the owner's answers under a `rails_order_open`/`listed` line whose group is undecided:
+    /// one form per offer and one "none"; "Checking…" while a request waits; nothing once decided, or on any other line.
+    fn rails_order_answers(&self, log: &Log) -> String {
+        if !matches!(log.event.as_str(), "rails_order_open" | "rails_order_listed") || self.broadcast { return String::new(); }
+        let Some(view) = log.details.get("obligation").and_then(Value::as_i64).and_then(|id| self.obligations.get(&id)) else { return String::new() };
+        if view.resolved { return String::new(); }
+        let venue = log.details.get("venue").and_then(Value::as_str).unwrap_or_default();
+        if view.pending {
+            return format!("\n    <span class=\"text-inactive\">{}</span>", escape(&i18n::text(self.ctx.locale, "bot.rails_orders.checking", &[("venue", Arg::Text(venue))])));
+        }
+        let t = |key: &str, args: &[(&str, Arg)]| i18n::text(self.ctx.locale, &format!("bot.rails_orders.{key}"), args);
+        let action = escape(&self.ctx.path(&format!("/bots/{}/rails_orders", self.bot.id)));
+        let token = format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />", escape(&self.ctx.csrf_token()));
+        let quote = self.bot.quote_asset.as_ref().map(|asset| asset.symbol().to_string()).unwrap_or_default();
+        let amount = |value: &BigDec| round_amount(value, self.decimals.get(&quote).copied(), Some(&quote));
+        let form = |confirm: &str, label: &str, fields: &str| format!("\n    <form class=\"button_to\" data-turbo-confirm=\"{}\" method=\"post\" action=\"{action}\">\
+            <button class=\"sinput sinput--small\" type=\"submit\">{}</button><input type=\"hidden\" name=\"obligation\" value=\"{}\" />{fields}{token}</form>",
+            escape(confirm), escape(label), view.obligation);
+        let mut out = String::new();
+        for offer in &view.offers {
+            let confirm = match (&offer.carry_before, &offer.carry_after) {
+                (Some(before), Some(after)) if before != after => t("book_confirm", &[("order", Arg::Text(&offer.order)), ("before", Arg::Text(&amount(before))),
+                                                                                    ("after", Arg::Text(&amount(after))), ("quote", Arg::Text(&quote))]),
+                _ => t("book_confirm_unaffected", &[("order", Arg::Text(&offer.order))]),
+            };
+            out.push_str(&form(&confirm, &t("book", &[]), &format!("<input type=\"hidden\" name=\"offer\" value=\"{}\" />", offer.id)));
+        }
+        out.push_str(&form(&t("none_confirm", &[]), &t("none", &[]), "<input type=\"hidden\" name=\"none\" value=\"1\" />"));
+        out
+    }
+
+    /// The obligations of `items`' first page of `rails_order_open`/`listed` lines, in one `offers_for` call.
+    fn with_obligations(mut self, c: &Connection, items: &[Item]) -> Result<Self, WebError> {
+        let ids: Vec<i64> = items.iter().take(PAGE).filter_map(|item| match item {
+            Item::Log(log) if matches!(log.event.as_str(), "rails_order_open" | "rails_order_listed") => log.details.get("obligation").and_then(Value::as_i64),
+            _ => None,
+        }).collect();
+        if !ids.is_empty() {
+            self.obligations = rails_unrecorded::offers_for(c, self.bot.id, &ids, self.ctx.now)?.into_iter().map(|view| (view.obligation, view)).collect();
+        }
+        Ok(self)
     }
 }
 
@@ -398,7 +456,7 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
     for item in items.iter_mut().take(PAGE) {
         if let Item::Order(order) = item { order.read(c)?; }
     }
-    let rows = Rows::new(ctx, bot, user);
+    let rows = Rows::new(ctx, bot, user).with_obligations(c, &items)?;
     let mut appended = String::new();
     for item in items.iter().take(PAGE) {
         match item {

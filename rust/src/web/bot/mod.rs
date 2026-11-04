@@ -6,6 +6,7 @@ pub mod actions;
 pub mod liquidation;
 pub mod redeploy;
 pub mod rebalance;
+pub mod rails_orders;
 pub mod action_view;
 pub mod cancel;
 pub mod csv;

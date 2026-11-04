@@ -145,6 +145,13 @@ pub fn condition_started_at(kind: Kind, settings: &serde_json::Map<String, Value
 /// pending_quote_amount in Ruby's own class (Integer 0, or the Integer, Float or BigDecimal the arithmetic gives): what
 /// set_missed_quote_amount stores.
 pub fn pending_quote_amount_num(c: &Connection, bot: &Bot, now_us: i64) -> Result<Num, EngineError> {
+    pending_quote_amount_plus(c, bot, now_us, None)
+}
+
+/// A28-2: `pending_quote_amount_num` with one more waiting buy (its created_at text and its waiting value: the quote, or
+/// amount × price), counted only where its row would be inside the window: what the carry becomes once an order is booked.
+/// Read-only; a sell or a selling bot's frozen carry is unchanged by it.
+pub fn pending_quote_amount_plus(c: &Connection, bot: &Bot, now_us: i64, extra: Option<(&str, &BigDec)>) -> Result<Num, EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     if bot.status == BotStatus::Deleted { return Ok(Num::Int(0)); }
     // While selling the buy carry is frozen: the stored missed_quote_amount, before the started_at guard (accountable.rb:27).
@@ -156,7 +163,11 @@ pub fn pending_quote_amount_num(c: &Connection, bot: &Bot, now_us: i64) -> Resul
     // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
     let since_text = format_time(at(since)?);
 
-    let rows = crate::figures::fill::commitments(c,bot.id,&since_text).map_err(data)?;
+    let mut rows = crate::figures::fill::commitments(c,bot.id,&since_text).map_err(data)?;
+    if let Some((_, value)) = extra.filter(|(created, _)| *created >= since_text.as_str()) {
+        bounded_decimal(value)?;
+        rows.push(Commitment::normalized(0, value.clone(), CapKind::Decimal, false));
+    }
 
     let interval = bot.interval().ok_or_else(|| EngineError::Data("interval".into()))?;
     let quote_amount = bot.quote_amount().ok_or_else(|| EngineError::Data("quote_amount".into()))?;

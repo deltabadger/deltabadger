@@ -700,6 +700,11 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_idempotency_orders", Ignored),
         // A28-1: Rails' unrecorded-order candidates and whether their line was written; 2.x never reads it.
         (Table, "rust_rails_unrecorded", Ignored),
+        // A28-3: the live order-history reads of those candidates (refused or failed with a key), and the pass's cursor.
+        (Table, "rust_rails_unrecorded_live", Ignored), (AppConfig, "rust_rails_unrecorded.live_cursor", Ignored),
+        // A28-2: the bookable orders of those lines, the owner's resolutions and requests, and the booked rows' notices.
+        (Table, "rust_rails_unrecorded_offers", Ignored), (Table, "rust_rails_unrecorded_resolutions", Ignored),
+        (Table, "rust_rails_unrecorded_requests", Ignored), (Table, "rust_rails_unrecorded_notices", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),

@@ -805,6 +805,8 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/liquidation_resolutions", only(post(bot::liquidation::clear)))
         .route("/bots/{id}/redeploy", only(post(bot::redeploy::create).delete(bot::redeploy::destroy)))
         .route("/bots/{id}/rebalance_resolutions", only(post(bot::rebalance::resolve)))
+        // A28-2a: the owner's answer to an order Rails sent but never recorded.
+        .route("/bots/{id}/rails_orders", only(post(bot::rails_orders::create)))
         .route("/bots/{id}/transactions/{tx}", only(delete(bot::cancel::destroy)))
         .route("/bots/{id}/export", only(post(bot::csv::export)))
         .route("/bots/{id}/import", only(post(bot::csv::import)))

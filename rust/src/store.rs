@@ -123,6 +123,17 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261108000001", TableContract { name: "rust_rails_unrecorded", columns: &[("id", "INTEGER", false), ("bot_id", "INTEGER", true),
         ("source", "TEXT", true), ("source_ref", "INTEGER", true), ("span_from", "TEXT", true), ("span_to", "TEXT", true), ("scope", "TEXT", false),
         ("collected_at", "TEXT", true), ("reported_at", "TEXT", false), ("outcome", "TEXT", false)], unique_indexes: &[&["source", "source_ref"]] }),
+    ("20261109000001", TableContract { name: "rust_rails_unrecorded_live", columns: &[("obligation_id", "INTEGER", false), ("stamp", "TEXT", true),
+        ("attempts", "INTEGER", true), ("refused_at", "TEXT", false), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_offers", columns: &[("id", "INTEGER", false), ("obligation_id", "INTEGER", true),
+        ("external_id", "TEXT", true), ("symbol", "TEXT", true), ("facts", "TEXT", true)], unique_indexes: &[&["obligation_id", "external_id"]] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_resolutions", columns: &[("obligation_id", "INTEGER", false), ("resolution", "TEXT", true),
+        ("offer_id", "INTEGER", false), ("transaction_id", "INTEGER", false), ("resolved_at", "TEXT", true), ("confirmed_base", "TEXT", false),
+        ("confirmed_quote", "TEXT", false)], unique_indexes: &[] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_requests", columns: &[("obligation_id", "INTEGER", false), ("offer_id", "INTEGER", true),
+        ("requested_at", "TEXT", true), ("attempts", "INTEGER", true), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_notices", columns: &[("transaction_id", "INTEGER", true), ("kind", "TEXT", true),
+        ("at", "TEXT", true)], unique_indexes: &[&["transaction_id", "kind"]] }),
 ];
 
 /// What this build migrates.

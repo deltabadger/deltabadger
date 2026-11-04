@@ -1,0 +1,253 @@
+name: Desktop app
+
+# PLAN-B6 §6, r1.14 (B6-2): the desktop app built unsigned on macOS, Windows and Linux, installed the way a user installs
+# it, and its launcher's proofs run against the installed app (script/rust/desktop_smoke/smoke.py). Never signs, never
+# publishes; desktop-release.yml builds the releases.
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/**'
+      - 'script/rust/desktop_engine.sh'
+      - 'script/rust/build_assets.sh'
+      - 'script/rust/desktop_smoke/**'
+      - '.github/workflows/desktop.yml'
+      - '.github/workflows/desktop-release.yml'
+      - 'app/javascript/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'manual/api.md'
+      - 'rust/Cargo.lock'
+      - 'rust/build.rs'
+      - 'rust/src/main.rs'
+      - 'rust/src/stop.rs'
+      - 'rust/src/lease.rs'
+      - 'rust/src/logger.rs'
+      - 'rust/src/web/refused.rs'
+      - 'rust/src/web/server.rs'
+      - 'rust/src/web/mod.rs'
+      - 'rust/src/engine/run.rs'
+      - 'rust/tests/desktop_engine.rs'
+  # Nightly on main: whatever else the app depends on and the paths above don't name.
+  schedule:
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # PLAN-B6 r3.4(b): a 2.x desktop data dir, made fresh: its .secrets by the 2.x launcher's own code (read from the
+  # v2.70.21 tag), its databases by the 2.70.21 image's migrate. The Windows and Linux legs take it over.
+  fixture-2x:
+    name: 2.x desktop data dir
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust 1.94.0
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup default 1.94.0
+
+      - name: Make the 2.x data dir
+        run: bash script/rust/desktop_smoke/fixture_2x.sh "$RUNNER_TEMP/fixture"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fixture-2x
+          path: ${{ runner.temp }}/fixture/fixture-2x.tar
+          retention-days: 2
+          if-no-files-found: error
+
+  desktop:
+    name: ${{ matrix.name }}
+    needs: fixture-2x
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-aarch64
+            os: macos-15
+            triple: aarch64-apple-darwin
+            bundles: app
+          - name: windows-x86_64
+            os: windows-2025
+            triple: x86_64-pc-windows-msvc
+            bundles: nsis
+          - name: linux-x86_64
+            os: ubuntu-24.04
+            triple: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+    steps:
+      # rust/build.rs's gate hashes source bytes; Windows runners default to CRLF checkouts (PLAN-B6 r1.3).
+      - name: Check out LF line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Tauri 2's Linux prerequisites (PLAN-B6 §5), then what the smoke needs: a display, a session bus (the
+      # single-instance plugin), xdotool (window visibility) and WebKitWebDriver (tauri-driver's native driver).
+      - name: Install Linux build and smoke dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            libxdo-dev libssl-dev patchelf file xvfb xauth dbus dbus-x11 xdotool webkit2gtk-driver
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: bun install --frozen-lockfile
+
+      - name: Install Rust 1.94.0
+        shell: bash
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup default 1.94.0
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            rust -> target
+            src-tauri -> target
+          key: desktop-${{ matrix.name }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build the engine
+        shell: bash
+        run: bash script/rust/desktop_engine.sh "${{ matrix.triple }}"
+
+      # The test identifier: a test build never meets an installed app's single instance or data (PLAN-B6 r1.12, r2.2).
+      # beforeBuildCommand runs desktop_engine.sh again (a no-op build after the step above).
+      - name: Build the app (unsigned)
+        shell: bash
+        run: |
+          echo '{"identifier":"com.deltabadger.app.test","bundle":{"createUpdaterArtifacts":false}}' > "$RUNNER_TEMP/test.conf.json"
+          bunx tauri build --bundles "${{ matrix.bundles }}" --config "$RUNNER_TEMP/test.conf.json" -- --locked
+
+      # ---------------- macOS ----------------
+      - name: Check the macOS binaries (arm64, minimum macOS 11.3)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          app=src-tauri/target/release/bundle/macos/Deltabadger.app
+          for b in "$app/Contents/MacOS/Deltabadger" "$app/Contents/MacOS/deltabadger-engine"; do
+            archs=$(lipo -archs "$b"); minos=$(otool -l "$b" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')
+            echo "$b: $archs, minos $minos"
+            [ "$archs" = arm64 ] || { echo "::error::$b is $archs, not arm64"; exit 1; }
+            [ "$minos" = 11.3 ] || { echo "::error::$b has minos $minos, not 11.3"; exit 1; }
+          done
+          du -sh "$app"; ls -l "$app/Contents/MacOS/"
+
+      - name: Smoke the app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          python3 script/rust/desktop_smoke/smoke.py --kind macos --app src-tauri/target/release/bundle/macos/Deltabadger.app \
+            --work "$RUNNER_TEMP/smoke" fresh quit
+
+      # ---------------- Windows ----------------
+      - name: Install tauri-driver
+        if: runner.os == 'Linux'
+        shell: bash
+        run: cargo install tauri-driver --version 2.1.0 --locked
+
+      - name: Install the app (NSIS, silent) and check its binaries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem src-tauri\target\release\bundle\nsis\*-setup.exe | Select-Object -First 1
+          Write-Host "$($setup.Name): $([math]::Round($setup.Length / 1MB, 1)) MB"
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the installer exited $($p.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Deltabadger\Deltabadger.exe'
+          if (-not (Test-Path $app)) { throw "not installed at $app" }
+          Get-ChildItem (Split-Path $app) | Format-Table Name, Length -AutoSize | Out-String | Write-Host
+          # PLAN-B6 r1.2: no Visual C++ runtime imported (the universal CRT, part of Windows 10+, is allowed).
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          foreach ($b in 'Deltabadger.exe', 'deltabadger-engine.exe') {
+            $out = & $dumpbin /dependents (Join-Path (Split-Path $app) $b)
+            if ($LASTEXITCODE -ne 0) { throw "dumpbin $b exited $LASTEXITCODE" }
+            $deps = @($out | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() })
+            Write-Host "$b imports: $($deps -join ', ')"
+            # Every Windows program imports KERNEL32: without it the listing was not read.
+            if ($deps -notcontains 'KERNEL32.dll') { throw "no import list read for $b" }
+            $bad = $deps | Where-Object { $_ -match '^(vcruntime|msvcp|concrt|vcomp)' }
+            if ($bad) { throw "$b imports the Visual C++ runtime: $($bad -join ', ')" }
+          }
+          "DESKTOP_APP=$app" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Install msedgedriver for the runner's WebView2
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $keys = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $v = $keys | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty $_).pv } | Select-Object -First 1
+          if (-not $v) { throw 'no WebView2 runtime version in the registry' }
+          Write-Host "WebView2 $v"
+          $zip = Join-Path $env:RUNNER_TEMP 'edgedriver.zip'
+          Invoke-WebRequest "https://msedgedriver.microsoft.com/$v/edgedriver_win64.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'edgedriver')
+          "MSEDGEDRIVER=$(Join-Path $env:RUNNER_TEMP 'edgedriver\msedgedriver.exe')" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      # ---------------- Linux ----------------
+      - name: Check the Linux binaries (glibc <= 2.39) and sizes
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          for b in src-tauri/target/release/Deltabadger "src-tauri/binaries/deltabadger-engine-${{ matrix.triple }}"; do
+            top=$(objdump -T "$b" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V | tail -1)
+            echo "$b: needs glibc $top; $(stat -c %s "$b") bytes"
+            [ "$(printf '%s\n2.39\n' "$top" | sort -V | tail -1)" = 2.39 ] || { echo "::error::$b needs glibc $top > 2.39"; exit 1; }
+          done
+          ls -l src-tauri/target/release/bundle/appimage/*.AppImage src-tauri/target/release/bundle/deb/*.deb
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: runner.os != 'macOS'
+        with:
+          name: fixture-2x
+          path: ${{ runner.temp }}/fixture
+
+      - name: Smoke the installed app (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python script/rust/desktop_smoke/smoke.py --kind nsis \
+            --app "$DESKTOP_APP" --work "$RUNNER_TEMP/smoke" --fixture-2x "$RUNNER_TEMP/fixture/fixture-2x.tar" \
+            fresh app-killed engine-killed refusals takeover downloads
+
+      # The whole suite in one session bus and one display (PLAN-B6 r4.5); the AppImage runs extracted (no FUSE), and
+      # its extracted copy stays while a second instance exits. Downloads go to the folder user-dirs.dirs names.
+      - name: Smoke the AppImage, then the .deb (Linux)
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+          NO_CLEANUP: '1'
+        run: |
+          set -euo pipefail
+          export XDG_CONFIG_HOME=$RUNNER_TEMP/xdg-config SMOKE_DOWNLOADS=$RUNNER_TEMP/Downloads
+          mkdir -p "$XDG_CONFIG_HOME" "$SMOKE_DOWNLOADS"
+          echo "XDG_DOWNLOAD_DIR=\"$SMOKE_DOWNLOADS\"" > "$XDG_CONFIG_HOME/user-dirs.dirs"
+          export TAURI_DRIVER=$HOME/.cargo/bin/tauri-driver
+          appimage=$(ls "$PWD"/src-tauri/target/release/bundle/appimage/*.AppImage)
+          dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind appimage --app "$appimage" \
+            --work "$RUNNER_TEMP/smoke" --fixture-2x "$RUNNER_TEMP/fixture/fixture-2x.tar" \
+            fresh quit app-killed engine-killed refusals takeover downloads
+          sudo apt-get install -y ./src-tauri/target/release/bundle/deb/*.deb
+          dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind deb --app /usr/bin/Deltabadger \
+            --work "$RUNNER_TEMP/smoke-deb" fresh
