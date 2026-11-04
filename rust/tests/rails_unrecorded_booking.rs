@@ -480,7 +480,7 @@ async fn none_was_mine_resolves_the_group_with_one_line_and_no_row() {
     assert_eq!(f.carry("2026-09-30 12:00:00"), carry);
     assert_eq!(lines(&f.c, f.b, ru::NOT_MINE), [json!({ "obligation": obligation })]);
     assert_eq!(f.request(obligation, offers[0].0), Err(Refused::Decided));
-    assert_eq!(ru::offers_for(&f.c, f.b, &[obligation], now()).unwrap()[0].resolved, true);
+    assert!(ru::offers_for(&f.c, f.b, &[obligation], now()).unwrap()[0].resolved);
 }
 
 // ---- the carry (§4, r1.7) ------------------------------------------------------------------------------------------------
@@ -755,4 +755,19 @@ fn same(c: &Connection, tx: i64, rails: &Value, what: &str) {
         let equal = match (num(&got), num(want)) { (Some(a), Some(b)) => (a - b).abs() < 1e-12, _ => &got == want };
         assert!(equal, "{what}: {col}: Rust {got} vs Rails {want}");
     }
+}
+
+/// Codex branch r1: a failed row's stored pair is Rails' at T; one the bot no longer holds is refused at booking.
+#[tokio::test]
+async fn a_failed_row_offer_for_a_pair_the_bot_no_longer_holds_is_refused() {
+    let f = carry_fx(true);
+    f.answer(&[O { at: DAY1, ..o(7, St::Filled, "0.0004", "20") }]);
+    Report::new(Factory { venue: f.binance(), hook: RefCell::new(None) }).pass(&f.db, t("2026-09-03T00:00:01Z")).await.unwrap();
+    let (obligation, offers) = f.offers();
+    ru::request_booking(&f.c, f.s.user_id, f.b, obligation, offers[0].0, t("2026-09-03T00:00:01Z")).unwrap().unwrap();
+    f.c.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json('{\"999\": 1.0}')) WHERE id = ?1", [f.b]).unwrap();
+    let before = money(&f.c);
+    let served = ru::serve_bookings(&f.c, &Factory { venue: f.binance(), hook: RefCell::new(None) }, &seed::cipher(), &|_| false, t("2026-09-03T00:00:01Z")).await.unwrap();
+    assert_eq!((served.booked, money(&f.c)), (vec![], before));
+    assert_eq!(lines(&f.c, f.b, ru::NOT_ADDED)[0]["reason"], "settings_changed");
 }

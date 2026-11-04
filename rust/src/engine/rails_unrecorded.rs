@@ -850,7 +850,8 @@ fn group(c: &Connection, obligation: i64) -> Result<Vec<i64>, EngineError> {
     let around = Duration::seconds(AROUND);
     // A window that can't be read joins nothing.
     let window = |f: &str, t: &str| match (parse_time(f), parse_time(t)) { (Ok(f), Ok(t)) => Some((f - around, t + around)), _ => None };
-    let windows: Vec<(i64, Option<(DateTime<Utc>, DateTime<Utc>)>)> = rows.iter().map(|(id, f, t)| (*id, window(f, t))).collect();
+    type Window = Option<(DateTime<Utc>, DateTime<Utc>)>;
+    let windows: Vec<(i64, Window)> = rows.iter().map(|(id, f, t)| (*id, window(f, t))).collect();
     let mut members = vec![obligation];
     loop {
         let before = members.len();
@@ -941,10 +942,11 @@ pub fn offers_for(c: &Connection, bot: i64, obligations: &[i64], now: DateTime<U
         let rows = s.query_map([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
         for (offer, facts) in rows {
             let Some(f) = serde_json::from_str(&facts).ok().as_ref().and_then(facts_of) else { continue };
-            let names: Option<(String, String)> = c.query_row("SELECT base, quote FROM tickers WHERE exchange_id = ?1 AND ticker = ?2 LIMIT 1", params![b.exchange_id, f.symbol],
-                                                              |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-            let Some((base, quote)) = names else { continue };
-            let after = match (f.side, waiting_value(&f)) {
+            let names: Option<(String, String, i64)> = c.query_row("SELECT base, quote, price_decimals FROM tickers WHERE exchange_id = ?1 AND ticker = ?2 LIMIT 1",
+                                                                   params![b.exchange_id, f.symbol], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+            let Some((base, quote, places)) = names else { continue };
+            // The price as the booking writes it: to the ticker's price step.
+            let after = match (f.side, crate::ruby::scale(places).ok().and_then(|p| waiting_value(&f, p))) {
                 (Side::Sell, _) => before.clone(),
                 (Side::Buy, Some(v)) => carry(Some((&format_time(o.from), &v))),
                 (Side::Buy, None) => None,
@@ -958,20 +960,20 @@ pub fn offers_for(c: &Connection, bot: i64, obligations: &[i64], now: DateTime<U
 
 /// What the booked row counts in the carry until its poll (#invested_quote): its quote, or amount × price, price being the
 /// limit or a market order's gross average. None when the order doesn't say (refused at booking).
-fn waiting_value(f: &CreatedOrder) -> Option<BigDec> {
+fn waiting_value(f: &CreatedOrder, places: u8) -> Option<BigDec> {
     match &f.size {
         CreatedSize::Quote(q) => Some(q.clone()),
-        CreatedSize::Base(a) => Some(a * &row_price(f, None)?),
+        CreatedSize::Base(a) => Some(a * &row_price(f, places)?),
     }
 }
 
 /// r2.2: the limit price, or a market order's gross average fill (`filled_quote / filled_base`, to the ticker's price step).
-fn row_price(f: &CreatedOrder, places: Option<u8>) -> Option<BigDec> {
+fn row_price(f: &CreatedOrder, places: u8) -> Option<BigDec> {
     match &f.kind {
         CreatedKind::Limit { price } => Some(price.clone()),
         CreatedKind::Market => {
             let avg = f.filled_quote.as_ref()?.div(&f.filled_base).filter(|_| f.filled_base.is_positive())?;
-            Some(places.map_or(avg.clone(), |p| avg.round(p)))
+            Some(avg.round(places))
         }
     }
 }
@@ -992,10 +994,24 @@ pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, facto
         ids
     };
     for obligation in due {
-        if let Some(row) = book(c, factory, cipher, obligation, now).await? { served.booked.push(row); }
+        match book(c, factory, cipher, obligation, now).await {
+            Ok(Some(row)) => served.booked.push(row),
+            Ok(None) => {}
+            Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
+            // One request that can't be served never holds the others or the rows already booked (Codex branch r1).
+            Err(e) => {
+                super::log(&format!("[engine] Rails-unrecorded booking request {obligation} refused: {}", e.kind()));
+                let bot: Option<i64> = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| r.get(0)).optional()?;
+                match bot { Some(bot) => { refuse(c, obligation, bot, "unreadable", None, now)?; } None => { drop_request(c, obligation)?; } }
+            }
+        }
     }
     // A row booked now is polled now, not in an hour.
-    served.watch = watch(c, &|tx| polled(tx) || served.booked.iter().any(|(_, b)| *b == tx), now)?;
+    match watch(c, &|tx| polled(tx) || served.booked.iter().any(|(_, b)| *b == tx), now) {
+        Ok(watch) => served.watch = watch,
+        Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
+        Err(e) => super::log(&format!("[engine] booked Rails-unrecorded orders not watched this pass: {}", e.kind())),
+    }
     Ok(served)
 }
 
@@ -1105,6 +1121,10 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     };
     let [(ticker_id, base, quote)] = tickers[..] else { return Ok(Err("settings_changed")) };
     if !scope.bases.contains(&base) || quote != scope.quote { return Ok(Err("settings_changed")); }
+    // A failed row's stored scope is Rails' at T: the pair must also be in the bot's settings now (Codex branch r1).
+    let mut now_bases = bot.asset_ids();
+    if let Some(b) = bot.settings.get("base_asset_id").and_then(Value::as_i64) { now_bases.push(b); }
+    if !now_bases.contains(&base) || bot.quote_asset_id() != Some(quote) { return Ok(Err("settings_changed")); }
     let held: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND external_id = ?2)", params![exchange, fresh.external_id], |r| r.get(0))?;
     if held { return Ok(Err("held")); }
     match linked_keys(c, bot.user_id, exchange, venue_type, &mut Linked::new())? {
@@ -1122,7 +1142,7 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     }
     let Some(ticker) = model::ticker_by_id(c, exchange, ticker_id)? else { return Ok(Err("settings_changed")) };
     let Ok((_, _, places)) = ticker.scales() else { return Ok(Err("unreadable")) };
-    let Some(price) = row_price(fresh, Some(places)) else { return Ok(Err("no_cost")) };
+    let Some(price) = row_price(fresh, places) else { return Ok(Err("no_cost")) };
     let (amount, quote_amount, in_quote) = match &fresh.size { CreatedSize::Base(a) => (Some(a.clone()), None, false), CreatedSize::Quote(q) => (None, Some(q.clone()), true) };
     let plan = amount::OrderPlan { ticker, side: fresh.side, limit: matches!(fresh.kind, CreatedKind::Limit { .. }), price: price.clone(),
                                    amount: amount.clone().unwrap_or_else(BigDec::zero), quote_amount: quote_amount.clone().unwrap_or_else(BigDec::zero),
@@ -1176,15 +1196,18 @@ fn link_fills(c: &Connection, user: i64, exchange: i64, venue: &str, key: &str, 
     Ok(())
 }
 
-/// The booked row's offer facts and its venue's name (for the watch's lines).
-fn booked_facts(c: &Connection, tx: i64) -> Result<Option<(CreatedOrder, String, Option<String>, Option<String>, String)>, EngineError> {
+/// A booked row's offer facts, its venue's name, the totals its owner confirmed and when.
+struct Booked { facts: CreatedOrder, venue: String, base: Option<String>, quote: Option<String>, resolved: String }
+
+/// The booked row's `Booked` (for the watch's lines and the r5.1 guard).
+fn booked_facts(c: &Connection, tx: i64) -> Result<Option<Booked>, EngineError> {
     let row: Option<(String, Option<String>, Option<String>, String)> = c.query_row(
         "SELECT o.facts, r.confirmed_base, r.confirmed_quote, r.resolved_at FROM rust_rails_unrecorded_resolutions r JOIN rust_rails_unrecorded_offers o ON o.id = r.offer_id \
          WHERE r.transaction_id = ?1 AND r.resolution = 'booked' LIMIT 1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
     let Some((facts, base, quote, resolved)) = row else { return Ok(None) };
     let Some(facts) = serde_json::from_str(&facts).ok().as_ref().and_then(facts_of) else { return Ok(None) };
     let venue: String = c.query_row("SELECT coalesce(e.name, 'the exchange') FROM transactions t LEFT JOIN exchanges e ON e.id = t.exchange_id WHERE t.id = ?1", [tx], |r| r.get(0))?;
-    Ok(Some((facts, venue, base, quote, resolved)))
+    Ok(Some(Booked { facts, venue, base, quote, resolved }))
 }
 
 /// r3.2: the booked rows still unknown or open, of bots not deleted: those no poll holds are enrolled again (in an hour);
@@ -1200,7 +1223,7 @@ fn watch(c: &Connection, polled: &dyn Fn(i64) -> bool, now: DateTime<Utc>) -> Re
     for (tx, bot, status) in rows {
         if !polled(tx) { out.push((bot, tx)); }
         if status != UNKNOWN_STATUS { continue; }
-        let Some((facts, venue, _, _, resolved)) = booked_facts(c, tx)? else { continue };
+        let Some(Booked { facts, venue, resolved, .. }) = booked_facts(c, tx)? else { continue };
         if !matches!(parse_time(&resolved), Ok(at) if at + Duration::days(NOTICE_DAYS) <= now) { continue; }
         notice_once(c, tx, bot, "unsettled", UNSETTLED, &facts, &venue, now)?;
     }
@@ -1231,7 +1254,7 @@ pub(crate) fn booked(c: &Connection, tx: i64) -> Result<bool, EngineError> {
 pub(crate) fn holds(c: &Connection, bot: i64, tx: i64, s: &crate::venue::OrderState, now: DateTime<Utc>) -> Result<bool, EngineError> {
     use crate::venue::OrderStatus;
     if matches!(s.status, OrderStatus::Unknown | OrderStatus::Failed) { return Ok(false); }
-    let Some((facts, venue, base, quote, _)) = booked_facts(c, tx)? else { return Ok(false) };
+    let Some(Booked { facts, venue, base, quote, .. }) = booked_facts(c, tx)? else { return Ok(false) };
     let fee: Option<String> = c.query_row("SELECT CAST(e.taker_fee AS TEXT) FROM transactions t JOIN exchanges e ON e.id = t.exchange_id WHERE t.id = ?1", [tx], |r| r.get(0)).optional()?.flatten();
     let fee = fee.and_then(|f| BigDec::parse(&f).ok()).unwrap_or_else(BigDec::zero);
     let keep = &BigDec::from_i64(1) - &fee.div(&BigDec::from_i64(100)).unwrap_or_else(BigDec::zero);
