@@ -3144,3 +3144,45 @@ fn serve_on_an_empty_storage_dir_creates_the_install_and_a_second_start_creates_
     assert_eq!(databases(), ["production.sqlite3", "production_queue.sqlite3"], "nothing created");
     assert_eq!(state(), first, "nothing migrated or seeded");
 }
+
+/// No token reaches the log. The one line these endpoints can log is a failed request's (`request failed`, here
+/// from a token row whose time no reader can parse): it names the failure, never the token the request carried,
+/// in a header, the query or the body.
+#[test]
+fn a_failed_oauth_request_logs_no_token() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, scopes, expires_in, created_at)
+                     VALUES (1, 1, 'SECRET-TOKEN-1', 'mcp', 3600, 'not a time')").unwrap();
+    drop(c);
+    let (port, log) = (free_port(), tempfile::NamedTempFile::new().unwrap());
+    let server = Child(serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(Stdio::null()).stderr(log.reopen().unwrap()).spawn().unwrap());
+    let started = Instant::now();
+    while http_get(port, "/up").is_none() {
+        assert!(started.elapsed() < Duration::from_secs(10), "serve did not come up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let send = |raw: String| {
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        stream.write_all(raw.as_bytes()).unwrap();
+        let mut answer = String::new();
+        stream.read_to_string(&mut answer).unwrap();
+        answer
+    };
+    let body = "token=SECRET-TOKEN-1";
+    let answers = [
+        send("GET /oauth/token/info HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer SECRET-TOKEN-1\r\nConnection: close\r\n\r\n".into()),
+        send("GET /oauth/token/info?access_token=SECRET-TOKEN-1 HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".into()),
+        send(format!("POST /oauth/introspect HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer SECRET-TOKEN-1\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())),
+    ];
+    std::thread::sleep(Duration::from_millis(200));
+    drop(server);
+    let said = std::fs::read_to_string(log.path()).unwrap();
+    for answer in &answers {
+        assert!(answer.starts_with("HTTP/1.1 500") && !answer.contains("SECRET-TOKEN"), "{answer}");
+    }
+    assert_eq!(said.matches("request failed").count(), 3, "{said}");
+    assert!(!said.contains("SECRET-TOKEN"), "a token reached the log:\n{said}");
+}

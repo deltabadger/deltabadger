@@ -289,7 +289,13 @@ pub fn or_refused(ctx: &Ctx, error: WebError) -> Result<Response, WebError> {
 }
 
 pub async fn not_ported(request: Request) -> Response {
-    // The path as it was requested: `entry` has taken the locale prefix off the URI by now.
-    let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| params.fullpath.clone());
+    // The path as it was requested: `entry` has taken the locale prefix off the URI by now. Under /oauth/ and
+    // /.well-known/ without its query, where an OAuth client's secret or token may stand under a name the page's
+    // redaction (locale::SENSITIVE, Rails' list) does not know (`client_secret`, `bearer_token`).
+    let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| {
+        // `/de/oauth/…` too: those paths keep their locale segment (locale::UNSCOPED).
+        let oauth = params.route_path.split('/').skip(1).take(2).any(|segment| segment == "oauth" || segment == ".well-known");
+        if oauth { params.full_path.clone() } else { params.fullpath.clone() }
+    });
     not_ported_response(request.method(), &path, header_text(request.headers(), "turbo-frame"), turbo::accepts_stream(request.headers()))
 }

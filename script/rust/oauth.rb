@@ -61,6 +61,12 @@ module OauthParity
   end
 
   def revoke(token, over = {}) = post_form('/oauth/revoke', { 'token' => token, 'client_id' => '$client_id' }.merge(over).compact)
+  def introspect(token, over = {}, headers = {}) = post_form('/oauth/introspect', { 'token' => token, 'client_id' => '$client_id' }.merge(over).compact, headers)
+  # The caller authenticated by a bearer token alone.
+  def introspect_by(bearer, token) = introspect(token, { 'client_id' => nil }, 'Authorization' => bearer)
+  def token_info(authorization = 'Bearer $access_token', query = nil, path = '/oauth/token/info')
+    get(path, query, authorization ? { 'Authorization' => authorization } : {}).merge('client' => 'api')
+  end
 
   # A client registered and authorised by the owner, with its code not yet exchanged.
   def authorized(registration = {}, query = {}) = [register(registration)] + sign_in + [authorize(query), approve]
@@ -104,7 +110,8 @@ module OauthParity
                                    'rest_settings' => { 'tool_permissions' => { 'list_bots' => true, 'list_exchanges' => true } })
 
   def scenarios
-    {}.merge(hosts, discovery, registration, authorization, consent, token, refresh_scenarios, revocation, resolver, uri_rules, crossing)
+    {}.merge(hosts, discovery, registration, authorization, consent, token, refresh_scenarios, revocation, introspection, token_information, native,
+             resolver, uri_rules, crossing)
   end
 
   # ALLOWED_HOSTS: 'allowed_hosts' on a scenario is its value. Rails then answers as production does, with
@@ -246,7 +253,6 @@ module OauthParity
       'tighter_plain_challenge' => { 'steps' => [register] + sign_in + [authorize('code_challenge' => VERIFIER, 'code_challenge_method' => 'plain')] },
       'authorize_head' => { 'steps' => [register] + sign_in + [{ 'do' => 'head', 'path' => '/oauth/authorize', 'query' => authorize_query, 'headers' => {} }] },
       'throttle_authorize' => { 'steps' => [register] + sign_in + Array.new(10) { authorize } + [expect(429, authorize), later(30, authorize)] },
-      'not_ported_native_code_page' => { 'steps' => sign_in + [get('/oauth/authorize/native', 'code' => 'abc')] },
       'unrouted_locale_before_authorize' => { 'steps' => [register] + sign_in + [get('/de/oauth/authorize', authorize_query)] }
     }
   end
@@ -387,7 +393,13 @@ module OauthParity
                                     'code_verifier' => VERIFIER, 'client_id' => 'personal-application-uid' })
       ] },
       'throttle_token' => { 'steps' => authorized + Array.new(20) { exchange('code' => 'nothing') } + [expect(429, exchange), later(30, expect(200, exchange))] },
-      'unrouted_get_token' => { 'steps' => [get('/oauth/token')] }
+      'unrouted_get_token' => { 'steps' => [get('/oauth/token')] },
+      # Rails' routes take a `(.:format)` suffix: the client endpoints answer the same at `.json` (or any one format).
+      'token_format_suffixes' => { 'steps' => [register.merge('path' => '/oauth/register.json')] + sign_in + [
+        authorize, approve, expect(200, exchange.merge('path' => '/oauth/token.json')), expect(200, refresh.merge('path' => '/oauth/token.xml')),
+        expect(200, revoke('$access_token').merge('path' => '/oauth/revoke.json')), resolve('Bearer $access_token'),
+        expect(400, refresh('nothing').merge('path' => '/oauth/token.json'))
+      ].compact }
     }
   end
 
@@ -449,9 +461,200 @@ module OauthParity
                                                                  resolve('Bearer $access_token')] },
       'revoke_from_a_browser' => { 'steps' => connected + from('main', [revoke('$access_token').merge('headers' => { 'Origin' => 'http://evil.example' })]) +
         [expect(302, get('/login'))] },
-      'revoke_expired_access_token' => { 'steps' => connected + [later(3601, revoke('$access_token')), expect(200, refresh)] },
-      'not_ported_introspect' => { 'steps' => connected + [post_form('/oauth/introspect', { 'token' => '$access_token', 'client_id' => '$client_id' })] },
-      'not_ported_token_info' => { 'steps' => connected + [get('/oauth/token/info', nil, 'Authorization' => 'Bearer $access_token').merge('client' => 'api')] }
+      'revoke_expired_access_token' => { 'steps' => connected + [later(3601, revoke('$access_token')), expect(200, refresh)] }
+    }
+  end
+
+  # POST /oauth/introspect (RFC 7662, Doorkeeper's TokensController#introspect). The caller is a client (its credentials,
+  # as at the token endpoint) or holds a bearer token; `$access_token.1` and `.2` are one client's, the second from a refresh.
+  def introspection
+    two = connected + [later(10, expect(200, refresh))]
+    # Two tokens of one client from two approvals: neither came from the other, so using one retires nothing.
+    siblings = connected + [authorize, approve, expect(200, exchange)]
+    other_client = [register, authorize('client_id' => '$client_id.2'), approve, expect(200, exchange('client_id' => '$client_id.2'))]
+    {
+      'introspect_own_access_token' => { 'steps' => connected + [expect(200, introspect('$access_token')), later(1800, introspect('$access_token'))] },
+      'introspect_own_refresh_token' => { 'steps' => connected + [
+        introspect('$refresh_token'), introspect('$refresh_token', 'token_type_hint' => 'refresh_token'),
+        introspect('$access_token', 'token_type_hint' => 'refresh_token'), introspect('$refresh_token', 'token_type_hint' => 'access_token')
+      ] },
+      'introspect_expired' => { 'steps' => connected + [later(3600, introspect('$access_token')), later(1, introspect('$access_token')), introspect('$refresh_token')] },
+      'introspect_revoked' => { 'steps' => connected + [revoke('$access_token'), introspect('$access_token'), introspect('$refresh_token')] },
+      'introspect_revoked_refresh_token' => { 'steps' => connected + [revoke('$refresh_token', 'token_type_hint' => 'refresh_token'), introspect('$refresh_token'),
+                                                                     introspect('$access_token')] },
+      'introspect_unknown_and_blank' => { 'steps' => connected + [introspect('nothing'), introspect(''), introspect(nil), introspect('$access_token '),
+                                                                 introspect('$client_id')] },
+      'introspect_other_clients_token' => { 'steps' => connected + [register, introspect('$access_token', 'client_id' => '$client_id.2'),
+                                                                   introspect('$refresh_token', 'client_id' => '$client_id.2'), introspect('nothing', 'client_id' => '$client_id.2')] },
+      'introspect_personal_token' => { 'sql' => PERSONAL_SEED, 'steps' => connected + [
+        introspect(PERSONAL_TOKEN, 'client_id' => '$client_id.1'), introspect('$access_token.1', 'client_id' => 'personal-application-uid'),
+        introspect_by("Bearer #{PERSONAL_TOKEN}", '$access_token.1'), introspect_by('Bearer $access_token.1', PERSONAL_TOKEN),
+        introspect_by("Bearer #{PERSONAL_TOKEN}", PERSONAL_TOKEN), introspect(PERSONAL_TOKEN, 'client_id' => 'personal-application-uid')
+      ] },
+      'introspect_client_authentication' => { 'steps' => connected + [
+        introspect('$access_token', {}, 'Authorization' => 'Basic-of $client_id:'), introspect('$access_token', { 'client_id' => nil }, 'Authorization' => 'Basic-of $client_id:'),
+        introspect('$access_token', { 'client_id' => nil }, 'Authorization' => 'Basic-of $client_id'),
+        introspect('$access_token', 'client_secret' => 'x'), introspect('$access_token', 'client_id' => 'nobody'), introspect('$access_token', 'client_id' => nil),
+        introspect('$access_token', 'client_id' => ''), introspect('$access_token', { 'client_id' => 'nobody' }, 'Authorization' => 'Basic-of $client_id:'),
+        introspect('$access_token', { 'client_secret' => 'x' }, 'Authorization' => 'Basic-of $client_id:x'),
+        introspect('$access_token', { 'client_id' => nil }, 'Authorization' => 'Basic-of nobody:x'),
+        introspect('$access_token', 'client_id' => nil).merge('path' => '/oauth/introspect?client_id=$client_id'),
+        introspect('$access_token', { 'client_assertion' => 'a.b.c', 'client_assertion_type' => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer' })
+      ] },
+      'introspect_confidential_client' => { 'sql' => [CONFIDENTIAL_SEED], 'steps' => sign_in + [
+        authorize('client_id' => 'confidential-uid'), approve, expect(200, exchange({ 'client_id' => nil }, 'Authorization' => 'Basic-of confidential-uid:s3cret')),
+        introspect('$access_token', 'client_id' => 'confidential-uid'), introspect('$access_token', 'client_id' => 'confidential-uid', 'client_secret' => 's3cret'),
+        introspect('$access_token', 'client_id' => 'confidential-uid', 'client_secret' => 'wrong'),
+        introspect('$access_token', { 'client_id' => nil }, 'Authorization' => 'Basic-of confidential-uid:s3cret'),
+        introspect('$access_token', { 'client_id' => nil }, 'Authorization' => SPACED_BASIC),
+        introspect('$access_token', { 'client_id' => 'confidential-uid', 'client_secret' => 's3cret' }, 'Authorization' => SPACED_BASIC)
+      ] },
+      'introspect_json_body' => { 'steps' => connected + [post_json('/oauth/introspect', { 'token' => '$access_token', 'client_id' => '$client_id' }),
+                                                         post_json('/oauth/introspect.json', { 'token' => '$access_token', 'client_id' => '$client_id' }),
+                                                         post_json('/oauth/introspect', { 'token' => '$access_token', 'client_id' => '$client_id', 'client_secret' => 'x' }),
+                                                         post_json('/oauth/introspect', '{"token": ')] },
+      # D-OAUTH-STRUCTURED-TOKEN: a `token`, `access_token` or `bearer_token` sent as a list or a hash.
+      'structured_introspect_token_list' => { 'steps' => connected + [introspect(nil, 'token[]' => '$access_token')] },
+      'structured_introspect_token_list_in_the_query' => { 'steps' => connected + [introspect('$access_token').merge('path' => '/oauth/introspect?token%5B%5D=nothing')] },
+      'structured_introspect_token_hash' => { 'steps' => connected + [introspect(nil, 'token[a]' => '$access_token')] },
+      'structured_introspect_json_list' => { 'steps' => connected + [post_json('/oauth/introspect', { 'token' => ['$access_token'], 'client_id' => '$client_id' })] },
+      'structured_introspect_bearer_list' => { 'steps' => two + [introspect('$access_token.1', { 'client_id' => nil, 'access_token[]' => 'x' }, 'Authorization' => 'Bearer $access_token.2'),
+                                                                later(1, refresh('$refresh_token.1'))] },
+      # Rack's shapes: a later text replaces a list; a list after a text is Rack's 400, and nothing is read or retired.
+      'structured_introspect_list_then_text' => { 'steps' => connected + [introspect(nil, 'token[]' => 'x').merge('form' => [['token[]', 'x'], ['token', '$access_token'], ['client_id', '$client_id']])] },
+      'structured_introspect_text_then_list' => { 'steps' => two + [introspect_by('Bearer $access_token.2', nil).merge('form' => [['token', '$access_token.1'], ['token[]', 'x']]),
+                                                                   later(1, expect(200, refresh('$refresh_token.1')))] },
+      # Blank JSON values are no way of sending a token: the header's is used (and retires what it came from).
+      'structured_introspect_blank_json_values' => { 'steps' => siblings + [later(10, expect(200, refresh('$refresh_token.2'))),
+        post_json('/oauth/introspect', { 'token' => '$access_token.1', 'access_token' => [] }, 'Authorization' => 'Bearer $access_token.3'),
+        post_json('/oauth/introspect', { 'token' => '$access_token.1', 'access_token' => {} }, 'Authorization' => 'Bearer $access_token.3'),
+        post_json('/oauth/introspect', { 'token' => '$access_token.1', 'access_token' => false }, 'Authorization' => 'Bearer $access_token.3'),
+        post_json('/oauth/introspect', { 'token' => '$access_token.1', 'access_token' => [nil] }, 'Authorization' => 'Bearer $access_token.3'),
+        later(1, refresh('$refresh_token.2'))
+      ] },
+      # Client credentials in Rack's shapes: a list is no client id and no secret Doorkeeper can use.
+      'structured_introspect_client_shapes' => { 'steps' => connected + [
+        introspect('$access_token', { 'client_id' => nil, 'client_id[]' => '$client_id' }, 'Authorization' => 'Basic-of $client_id:'),
+        introspect('$access_token', { 'client_secret[]' => 'x' }, 'Authorization' => 'Basic-of $client_id:'),
+        introspect('$access_token', 'client_id' => nil, 'client_id[]' => '$client_id'),
+        introspect('$access_token', 'client_secret[]' => 'x'),
+        post_json('/oauth/introspect', { 'token' => '$access_token', 'client_id' => ['$client_id'] }),
+        post_json('/oauth/introspect', { 'token' => '$access_token', 'client_id' => '$client_id', 'client_secret' => [] })
+      ] },
+      # A query or form Rack cannot read is Rails' 400, whatever else the request holds; nothing is used or retired.
+      'structured_malformed_encoding' => { 'steps' => connected + [later(10, expect(200, refresh)),
+        token_info('Bearer $access_token.2').merge('path' => '/oauth/token/info?x=%FF'), introspect('$access_token.1').merge('path' => '/oauth/introspect?x=%FF'), introspect_by('Bearer $access_token.2', '$access_token.1').merge('path' => '/oauth/introspect?x=%FF'),
+        later(1, expect(200, refresh('$refresh_token.1')))] },
+      # A name with no `=` is nil to Rack: `access_token[]` alone is an empty list, no way of sending a token.
+      'structured_valueless_names' => { 'steps' => siblings + [later(10, expect(200, refresh('$refresh_token.2'))),
+        token_info('Bearer $access_token.3').merge('path' => '/oauth/token/info?access_token%5B%5D'),
+        token_info('Bearer $access_token.3').merge('path' => '/oauth/token/info?access_token%5B%5D='),
+        token_info('Bearer $access_token.3').merge('path' => '/oauth/token/info?access_token'),
+        introspect_by('Bearer $access_token.3', '$access_token.1').merge('path' => '/oauth/introspect?bearer_token%5B%5D'),
+        later(1, refresh('$refresh_token.2'))] },
+      # A valueless `token[]` in the query is there (an empty list), so the body's token is not read.
+      'structured_valueless_token_hides_the_body' => { 'steps' => connected + [introspect('$access_token').merge('path' => '/oauth/introspect?token%5B%5D')] },
+      # `access_token[a][]` alone is a hash: a way of sending a token, so with a header it is two, and nothing is used.
+      'structured_valueless_nested_name' => { 'steps' => two + [token_info('Bearer $access_token.2').merge('path' => '/oauth/token/info?access_token%5Ba%5D%5B%5D'),
+                                                               later(1, expect(200, refresh('$refresh_token.1')))] },
+      'structured_token_info_list' => { 'steps' => connected + [token_info(nil, 'access_token[]' => '$access_token')] },
+      'structured_token_info_list_and_header' => { 'steps' => connected + [later(10, expect(200, refresh)),
+                                                                          token_info('Bearer $access_token.2', 'bearer_token[]' => 'x'), later(1, refresh('$refresh_token.1'))] },
+      # A token carried two ways is no token: the request is refused before any row is read, so nothing is retired.
+      'introspect_two_methods_use_nothing' => { 'steps' => two + [
+        introspect('$access_token.1', 'client_id' => nil, 'access_token' => '$access_token.2').merge('path' => '/oauth/introspect?access_token=$access_token.2'),
+        introspect('$access_token.1', 'client_id' => nil, 'access_token' => '$access_token.2').merge('path' => '/oauth/introspect?access_token=nothing'),
+        introspect('$access_token.1', 'client_id' => nil, 'bearer_token' => '$access_token.2').merge('path' => '/oauth/introspect?access_token=$access_token.2'),
+        introspect('$access_token.1', { 'client_id' => nil, 'bearer_token' => '$access_token.2' }, 'Authorization' => 'Bearer $access_token.2'),
+        post_json('/oauth/introspect', { 'token' => '$access_token.1', 'access_token' => '$access_token.2' }, 'Authorization' => 'Bearer $access_token.2'),
+        later(1, expect(200, refresh('$refresh_token.1')))
+      ] },
+      'introspect_token_in_the_query' => { 'steps' => connected + [introspect(nil).merge('path' => '/oauth/introspect?token=$access_token'),
+                                                                  introspect('nothing').merge('path' => '/oauth/introspect?token=$access_token')] },
+      # A bearer token speaks for its client: it may introspect that client's other tokens, never itself.
+      # Using it is a use: under Rails it retires the refresh token it came from, as at any endpoint.
+      'introspect_with_a_bearer_token' => { 'steps' => siblings + [
+        introspect_by('Bearer $access_token.2', '$access_token.1'), introspect_by('Bearer $access_token.2', '$refresh_token.1'),
+        introspect_by('Bearer $access_token.2', '$access_token.2'), introspect_by('Bearer $access_token.2', 'nothing'),
+        introspect_by('Bearer nothing', '$access_token.1'), introspect_by('Bearer', '$access_token.1'), introspect_by('Bearer  $access_token.2', '$access_token.1'),
+        introspect_by('bearer $access_token.2', '$access_token.1'), introspect('$access_token.1', {}, 'Authorization' => 'Bearer $access_token.2'),
+        later(1, refresh('$refresh_token.1'))
+      ] },
+      'introspect_bearer_retires_what_it_came_from' => { 'steps' => two + [introspect_by('Bearer $access_token.2', 'nothing'), introspect('$access_token.1'),
+                                                                            introspect('$refresh_token.1'), later(1, refresh('$refresh_token.1'))] },
+      # D-OAUTH-INTROSPECT-AFTER-USE: the bearer's use retires the very token it asks about. Rails read it before the use.
+      'fresher_introspect_the_token_the_bearer_came_from' => { 'steps' => two + [introspect_by('Bearer $access_token.2', '$access_token.1')] },
+      'introspect_bearer_of_another_client' => { 'steps' => connected + other_client + [
+        introspect_by('Bearer $access_token.2', '$access_token.1'), introspect_by('Bearer $access_token.1', '$access_token.2'),
+        introspect_by('Bearer $access_token.1', '$refresh_token.2')
+      ] },
+      'introspect_bearer_expired_or_revoked' => { 'steps' => two + [
+        introspect_by('Bearer $access_token.1', '$access_token.2'), later(3601, introspect_by('Bearer $access_token.2', '$refresh_token.2')),
+        refresh('$refresh_token.2'), revoke('$access_token.3'), introspect_by('Bearer $access_token.3', '$refresh_token.3')
+      ] },
+      'introspect_bearer_in_parameters' => { 'steps' => siblings + [
+        introspect('$access_token.1', 'client_id' => nil, 'access_token' => '$access_token.2'),
+        introspect('$access_token.1', 'client_id' => nil).merge('path' => '/oauth/introspect?bearer_token=$access_token.2'),
+        introspect('$access_token.1', { 'client_id' => nil, 'access_token' => '$access_token.2' }, 'Authorization' => 'Bearer $access_token.2')
+      ] },
+      'introspect_format_suffixes' => { 'steps' => connected + [introspect('$access_token').merge('path' => '/oauth/introspect.json'),
+                                                               introspect('$access_token').merge('path' => '/oauth/introspect.xml'),
+                                                               introspect('$access_token').merge('path' => '/oauth/introspect/')] },
+      'introspect_from_a_browser' => { 'steps' => connected + from('main', [introspect('$access_token').merge('headers' => { 'Origin' => 'http://evil.example' })]) +
+        [expect(302, get('/login'))] },
+      'introspect_not_throttled' => { 'steps' => connected + Array.new(25) { introspect('$access_token') } + [expect(200, introspect('$access_token'))] },
+      # D-OAUTH-INTROSPECT-OWN-CLIENT: a token whose client row is gone. Doorkeeper's default rule reports it to any
+      # authenticated client; this crate only ever to the token's own client, which no longer exists.
+      'owned_introspect_orphan_token' => { 'sql' => [token_row('orphan', 'application_id' => 999)], 'steps' => [register, introspect('orphan')] },
+      # Two tokens of one deleted client: the one presented as a bearer is not that client either.
+      'owned_introspect_orphan_by_an_orphan' => { 'sql' => [token_row('orphan', 'application_id' => 999), token_row('orphan-2', 'application_id' => 999)],
+                                                  'steps' => [introspect_by('Bearer orphan-2', 'orphan')] },
+      'unrouted_get_introspect' => { 'steps' => [get('/oauth/introspect', 'token' => 'x').merge('client' => 'api')] }
+    }
+  end
+
+  # GET /oauth/token/info (Doorkeeper's TokenInfoController#show): the token the request carries, described to its holder.
+  def token_information
+    both = { 'scope' => 'mcp api' }
+    {
+      'token_info' => { 'steps' => connected + [expect(200, token_info), later(600, token_info), later(3000, token_info), later(1, token_info)] },
+      'token_info_both_scopes' => { 'steps' => connected(both, both) + [token_info] },
+      'token_info_refused' => { 'steps' => connected + [token_info('Bearer nothing'), token_info(nil), token_info('Basic-of $client_id:'), token_info('Bearer'),
+                                                       revoke('$access_token'), token_info] },
+      'token_info_expired' => { 'steps' => connected + [later(3601, token_info)] },
+      'token_info_personal_token' => { 'sql' => PERSONAL_SEED, 'steps' => [token_info("Bearer #{PERSONAL_TOKEN}")] },
+      'token_info_seeded_rows' => { 'sql' => [token_row('never-expires', 'expires_in' => nil, 'created_at' => '2020-01-01 00:00:00'),
+                                              token_row('no-user', 'resource_owner_id' => 999), token_row('no-scopes', 'scopes' => ''),
+                                              token_row('orphan', 'application_id' => 999)],
+                                    'steps' => [register] + %w[never-expires no-user no-scopes orphan].map { |name| token_info("Bearer #{name}") } },
+      'token_info_transmission' => { 'steps' => connected + [
+        token_info(nil, 'access_token' => '$access_token'), token_info(nil, 'bearer_token' => '$access_token'),
+        token_info('Bearer $access_token', 'access_token' => '$access_token'), token_info(nil, 'access_token' => '$access_token', 'bearer_token' => '$access_token'),
+        token_info('Bearer  $access_token'), token_info('bearer $access_token'), token_info('BEARER $access_token'), token_info('Bearer $access_token '),
+        token_info("Bearer\t$access_token"), token_info(' Bearer $access_token'), token_info('Bearer $access_token', 'access_token' => '')
+      ] },
+      'token_info_two_methods_use_nothing' => { 'steps' => connected + [later(10, expect(200, refresh)),
+                                                                       token_info('Bearer $access_token.2', 'access_token' => '$access_token.2'),
+                                                                       token_info(nil, 'access_token' => '$access_token.2', 'bearer_token' => 'x'),
+                                                                       later(1, expect(200, refresh('$refresh_token.1')))] },
+      'token_info_retires_the_refresh_token_before' => { 'steps' => connected + [later(10, expect(200, refresh)), token_info('Bearer $access_token.2'),
+                                                                                later(1, refresh('$refresh_token.1'))] },
+      'token_info_format_suffixes' => { 'steps' => connected + [token_info('Bearer $access_token', nil, '/oauth/token/info.json'),
+                                                               token_info('Bearer $access_token', nil, '/oauth/token/info.xml'),
+                                                               { 'do' => 'head', 'path' => '/oauth/token/info', 'headers' => { 'Authorization' => 'Bearer $access_token' }, 'client' => 'api' }] },
+      'token_info_from_a_signed_in_browser' => { 'steps' => connected + [get('/oauth/token/info'), expect(302, get('/login'))] },
+      'unrouted_post_token_info' => { 'steps' => connected + [post_form('/oauth/token/info', {}, 'Authorization' => 'Bearer $access_token')] }
+    }
+  end
+
+  # GET /oauth/authorize/native, Doorkeeper's page for an out-of-band redirect URI: it shows `?code=`, whatever it is.
+  def native
+    {
+      'unserved_native_code_page' => { 'steps' => sign_in + [get('/oauth/authorize/native', 'code' => 'abc')] },
+      'unserved_native_code_page_signed_out' => { 'steps' => [get('/oauth/authorize/native', 'code' => 'abc')] },
+      'unserved_native_code_page_markup' => { 'steps' => sign_in + [get('/oauth/authorize/native', 'code' => '<b>x</b>&"')] },
+      'unserved_native_code_page_json' => { 'steps' => sign_in + [get('/oauth/authorize/native.json', 'code' => 'abc')] },
+      'unrouted_post_native_code_page' => { 'steps' => [post_form('/oauth/authorize/native', { 'code' => 'abc' })] }
     }
   end
 
@@ -525,7 +728,13 @@ module OauthParity
         cut(later(3600, expect(200, refresh('$refresh_token', 'scopes' => 'mcp')))), use, resolve('Bearer $access_token', 'api'),
         cut(later(3600, expect(200, refresh))), use, resolve('Bearer $access_token', 'api'), expect(400, refresh('$refresh_token', 'scope' => 'mcp api'))
       ] },
-      'cross_revoked_stays_revoked' => { 'steps' => connected + [cut(revoke('$refresh_token')), cut(expect(400, refresh)), resolve('Bearer $access_token')] }
+      'cross_revoked_stays_revoked' => { 'steps' => connected + [cut(revoke('$refresh_token')), cut(expect(400, refresh)), resolve('Bearer $access_token')] },
+      # A token issued by one runtime is introspected and described by the other, and its use there retires its refresh token for both.
+      'cross_introspect_and_token_info' => { 'steps' => connected + [
+        cut(expect(200, introspect('$access_token'))), expect(200, token_info), cut(later(10, expect(200, refresh))), introspect('$access_token.1'),
+        introspect_by('Bearer $access_token.2', 'nothing'), introspect('$access_token.1'), cut(later(1, expect(400, refresh('$refresh_token.1')))), token_info('Bearer $access_token.2'),
+        cut(revoke('$access_token.2')), introspect('$access_token.2'), token_info('Bearer $access_token.2')
+      ] }
     }
   end
 
@@ -595,7 +804,8 @@ module OauthParity
   def capture(vars, response)
     if response.media_type == 'application/json'
       body = begin JSON.parse(response.body) rescue nil end
-      CAPTURED.each { |name| remember(vars, name, body[name]) } if body.is_a?(Hash)
+      # An introspection answer names a client it did not issue: not a value of the scenario's own.
+      CAPTURED.each { |name| remember(vars, name, body[name]) } if body.is_a?(Hash) && !body.key?('active')
     end
     code = response.headers['location'].to_s[/[?&#]code=([^&#]+)/, 1]
     remember(vars, 'code', code)
