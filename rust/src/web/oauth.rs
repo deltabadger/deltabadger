@@ -49,6 +49,11 @@ pub mod text {
     pub const CODE_CHALLENGE_METHOD: &str = "The code_challenge_method must be S256.";
     pub const MULTIPLE_CLIENT_AUTH: &str = "The request utilizes more than one mechanism for authenticating the client.";
     pub const REVOKE_UNAUTHORIZED: &str = "You are not authorized to revoke this token";
+    pub const REQUEST_NOT_AUTHORIZED: &str = "Request needs to be authorized. Required parameter for authorizing the request is missing or invalid.";
+    pub const MULTIPLE_TOKEN_METHODS: &str = "The request uses more than one method for including an access token.";
+    pub const TOKEN_INVALID: &str = "The access token is invalid";
+    pub const TOKEN_EXPIRED: &str = "The access token expired";
+    pub const TOKEN_REVOKED: &str = "The access token was revoked";
     pub fn missing(parameter: &str) -> String { format!("Missing required parameter: {parameter}.") }
 }
 
@@ -403,9 +408,16 @@ impl Sent<'_> {
 pub fn credentials(headers: &HeaderMap, sent: &Sent) -> Credentials {
     let authorization = header_text(headers, "authorization").unwrap_or("");
     let basic = basic_credentials(authorization);
-    let body_id = sent.body("client_id").filter(|id| !id.trim().is_empty());
-    let secret = sent.body("client_secret").filter(|secret| !secret.trim().is_empty());
-    let assertion = sent.body("client_assertion").filter(|assertion| !assertion.trim().is_empty());
+    // The body as Rack shapes it: a list or hash (`client_id[]=…`, a JSON array) is sent, and is no id or secret
+    // anything matches, so it stands as a value no client has. Blank values and empty lists are not sent.
+    let shaped = Shaped::of(sent.params);
+    let given = |name: &str| match shaped.as_ref().map(|shaped| shaped.body(name)) {
+        Some(Param::Structured) => Some(UNUSABLE.to_string()),
+        Some(Param::Text(text)) => Some(text),
+        Some(Param::Absent) => None,
+        None => sent.body(name),
+    }.filter(|value| !value.trim().is_empty());
+    let (body_id, secret, assertion) = (given("client_id"), given("client_secret"), given("client_assertion"));
     let asserted = assertion.is_some() && sent.body("client_assertion_type").as_deref() == Some("urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
     if usize::from(basic.is_some()) + usize::from(body_id.is_some() && secret.is_some()) + usize::from(asserted) > 1 {
         return Credentials::Multiple;
@@ -423,6 +435,9 @@ pub fn credentials(headers: &HeaderMap, sent: &Sent) -> Credentials {
     }
 }
 
+/// What a client id or secret sent as a list or hash stands as: no client has it, and it never equals a Basic header's.
+const UNUSABLE: &str = "\u{0}";
+
 /// A JSON body as Rails renders one. `Cache-Control` is Rack's for the status unless the caller set it.
 fn json_response(status: StatusCode, body: &Value) -> Response {
     let mut response = (status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body.to_string()).into_response();
@@ -434,8 +449,10 @@ fn json_response(status: StatusCode, body: &Value) -> Response {
 }
 
 /// Doorkeeper's ErrorResponse at the token endpoint: the error as JSON and in `WWW-Authenticate`.
+/// D-OAUTH-ERROR-STATE: Doorkeeper's `invalid_token` body also says `"state":"unauthorized"` (the HTTP status passed
+/// as the OAuth `state`); `state` is the client's own round-trip value, and nothing here sends it.
 pub fn token_error(error: &str, description: &str) -> Response {
-    let status = if error == "invalid_client" { StatusCode::UNAUTHORIZED } else { StatusCode::BAD_REQUEST };
+    let status = if matches!(error, "invalid_client" | "invalid_token") { StatusCode::UNAUTHORIZED } else { StatusCode::BAD_REQUEST };
     let mut response = json_response(status, &json!({ "error": error, "error_description": description }));
     // RFC 6750: characters outside %x20-21 / %x23-5B / %x5D-7E become "_".
     let clean: String = description.chars().map(|c| if matches!(c, ' '..='!' | '#'..='[' | ']'..='~') { c } else { '_' }).collect();
@@ -907,13 +924,7 @@ pub async fn revoke(State(app): State<App>, Extension(params): Extension<Arc<Par
     let (token, refresh_first) = (sent.get("token").unwrap_or_default(), sent.get("token_type_hint").as_deref() == Some("refresh_token"));
     let allowed = app.db(move |c| transaction(c, &*inner.clock, |c, now| {
         let Some(client) = client(c, &credentials)? else { return Ok(false) };
-        // The hint only says where to look first.
-        let by_token = |as_refresh: bool| AccessToken::find(c, if as_refresh { "refresh_token" } else { "token" }, &token).map(|found| found.map(|row| (row, as_refresh)));
-        let found = match by_token(refresh_first)? {
-            Some(found) => Some(found),
-            None => by_token(!refresh_first)?,
-        };
-        let Some((row, as_refresh)) = found else { return Ok(true) };
+        let Some((row, as_refresh)) = presented(c, &token, refresh_first)? else { return Ok(true) };
         if row.application_id != client.id {
             return Ok(false);
         }
@@ -928,4 +939,226 @@ pub async fn revoke(State(app): State<App>, Extension(params): Extension<Arc<Par
     } else {
         json_response(StatusCode::FORBIDDEN, &json!({ "error": "unauthorized_client", "error_description": text::REVOKE_UNAUTHORIZED }))
     })
+}
+
+/// The row a `token` parameter names, as revocation and introspection look it up (Doorkeeper's `revocable_token`): as
+/// an access token, then as a refresh token, or the other way round for `token_type_hint=refresh_token`. The hint
+/// only says where to look first. `true` with the row when it was found by its refresh token.
+fn presented(c: &Connection, token: &str, refresh_first: bool) -> Result<Option<(AccessToken, bool)>, WebError> {
+    let by = |as_refresh: bool| AccessToken::find(c, if as_refresh { "refresh_token" } else { "token" }, token).map(|found| found.map(|row| (row, as_refresh)));
+    Ok(match by(refresh_first)? {
+        Some(found) => Some(found),
+        None => by(!refresh_first)?,
+    })
+}
+
+/// The access token a request carries, as Doorkeeper's OAuth::Token.from_request reads it with the default
+/// extractors (not as the MCP/REST resolver does, web::bearer::bearer_token): the `Authorization` header after a
+/// leading `Bearer ` in any case, taken as it stands; then the `access_token` parameter; then `bearer_token`.
+/// RFC 6750 section 2 allows one method: the header, and a parameter's query and body, each count as one.
+pub enum Carried {
+    None,
+    Token(String),
+    Multiple,
+}
+
+pub fn carried_token(headers: &HeaderMap, shaped: &Shaped) -> Carried {
+    let header = header_text(headers, "authorization")
+        .and_then(|value| value.get(..7).filter(|scheme| scheme.eq_ignore_ascii_case("bearer ")).map(|_| &value[7..]))
+        .filter(|token| !token.trim().is_empty());
+    let used = usize::from(header.is_some())
+        + ["access_token", "bearer_token"].iter().map(|name| usize::from(shaped.query(name).given()) + usize::from(shaped.body(name).given())).sum::<usize>();
+    if used > 1 { return Carried::Multiple; }
+    if let Some(token) = header { return Carried::Token(token.to_string()); }
+    // A list or a hash sent alone names no row.
+    match ["access_token", "bearer_token"].iter().map(|name| shaped.get(name)).find(Param::given) {
+        Some(Param::Text(token)) => Carried::Token(token),
+        _ => Carried::None,
+    }
+}
+
+/// One parameter as Rails' `params` holds it: absent, a text, or a list or hash (`token[]=…`, `token[a]=…`, a JSON
+/// array or object), which names no token row.
+pub enum Param {
+    Absent,
+    Text(String),
+    Structured,
+}
+
+impl Param {
+    fn of(value: Option<&Value>) -> Self {
+        match value {
+            None | Some(Value::Null | Value::Bool(false)) => Self::Absent,
+            Some(Value::String(text)) => Self::Text(text.clone()),
+            // deep_munge drops the nulls of a JSON list; an empty list or hash is blank.
+            Some(Value::Array(items)) if items.iter().all(Value::is_null) => Self::Absent,
+            Some(Value::Object(members)) if members.is_empty() => Self::Absent,
+            Some(Value::Array(_) | Value::Object(_)) => Self::Structured,
+            Some(other) => Self::Text(other.to_string()),
+        }
+    }
+
+    /// Ruby's `presence`: blank text is nothing.
+    fn given(&self) -> bool {
+        match self { Self::Text(text) => !text.trim().is_empty(), Self::Structured => true, Self::Absent => false }
+    }
+}
+
+/// A request's query and body parameters as Rack builds them (web::bot::action_params::form, the nested shapes
+/// `a[]` and `a[b]` included), kept apart: Doorkeeper counts a token sent in each as a way of sending it, and
+/// Rails' `params` takes the query's value of a name over the body's.
+pub struct Shaped {
+    query: Value,
+    body: Value,
+}
+
+impl Shaped {
+    /// `None` when Rack refuses the query or the form (a name used as two shapes): Rails' 400, before anything is read.
+    pub fn of(params: &Params) -> Option<Self> {
+        // From the raw query, where a name without `=` is Rack's nil. After deep_munge `a[]` alone is an empty
+        // list, there and blank, and `a[b][]` alone is `{b: []}`, a hash: `a[]` is read as `a=` and `a[b][]` as
+        // `a[b]=`, which are the same to every question asked here (is it there, is it blank, is it a text).
+        // (A form body is read as its decoded fields: there `a[]` alone counts as `a[]=`.)
+        let raw = params.fullpath.split_once('?').map_or("", |(_, query)| query);
+        let fields: Vec<(String, String)> = raw.split('&').filter_map(|piece| {
+            let (name, value) = form_urlencoded::parse(piece.as_bytes()).next()?;
+            let name = match name.strip_suffix("[]") { Some(list) if !piece.contains('=') => list.to_string(), _ => name.into_owned() };
+            Some((name, value.into_owned()))
+        }).collect();
+        let query = super::bot::action_params::form(&fields).ok()?;
+        let body = if params.form.is_empty() { params.json.clone().filter(Value::is_object).unwrap_or_else(|| json!({})) } else { super::bot::action_params::form(&params.form).ok()? };
+        Some(Self { query, body })
+    }
+
+    pub fn query(&self, name: &str) -> Param { Param::of(self.query.get(name)) }
+    pub fn body(&self, name: &str) -> Param { Param::of(self.body.get(name)) }
+
+    /// `params[name]`: the query's where the query names it, else the body's.
+    pub fn get(&self, name: &str) -> Param {
+        match self.query.get(name) { Some(value) => Param::of(Some(value)), None => self.body(name) }
+    }
+}
+
+/// Whether the row is good for what was presented: a refresh token while its row is not revoked; an access token
+/// while it is neither revoked nor expired.
+fn live(row: &AccessToken, as_refresh: bool, now: DateTime<Utc>) -> bool {
+    !row.revoked(now) && (as_refresh || !row.expired(now))
+}
+
+/// POST /oauth/introspect (RFC 7662), as Doorkeeper's TokensController#introspect. The caller is a client, by the
+/// credentials the token endpoint reads (`credentials`), or, when the request has none, the holder of a bearer token
+/// (`carried_token`), whose request is a use of that token (web::bearer::use_token).
+///
+/// D-OAUTH-INTROSPECT-OWN-CLIENT: a token is described only to its own client. Doorkeeper's default rule also tells
+/// any authenticated client about a token whose client row is gone; here that token is inactive to everyone.
+/// D-OAUTH-INTROSPECT-AFTER-USE: the token asked about is read after the bearer's use, so a token that use has just
+/// retired is reported inactive (Rails read it before and called it active).
+///
+/// A bearer may not introspect itself nor a token of another client (401, Doorkeeper's), and a client is told no
+/// more than `{"active":false}` about a token that is not live or not its own.
+pub async fn introspect(State(app): State<App>, Extension(params): Extension<Arc<Params>>, unread: Option<Extension<super::hook::Unparseable>>, headers: HeaderMap)
+                        -> Result<Response, WebError> {
+    // Rails reads `params[:token]` first: a query or form Rack refuses is its 400 before anything else.
+    let Some(shaped) = Shaped::of(&params).filter(|_| unread.is_none()) else { return Ok(super::layout::bad_request()) };
+    let sent = Sent { params: &params };
+    let credentials = credentials(&headers, &sent);
+    if matches!(credentials, Credentials::Multiple) {
+        return Ok(token_error("invalid_request", text::MULTIPLE_CLIENT_AUTH));
+    }
+    let bearer = match carried_token(&headers, &shaped) { Carried::Token(token) => Some(token), Carried::None | Carried::Multiple => None };
+    // A list or a hash names no token: it is looked up as nothing.
+    let token = match shaped.get("token") { Param::Text(token) => token, Param::Absent | Param::Structured => String::new() };
+    let refresh_first = sent.get("token_type_hint").as_deref() == Some("refresh_token");
+    let inner = app.clone();
+    // One write transaction, its moment read once the lock is held: the bearer's use, then the token asked about,
+    // are read as they stand after it.
+    let answer = app.db(move |c| transaction(c, &*inner.clock, |c, now| {
+        let caller = if matches!(credentials, Credentials::Given(..)) {
+            match client(c, &credentials)? {
+                Some(client) => Ok(client.id),
+                None => return Ok(Err(token_error("invalid_client", text::INVALID_CLIENT))),
+            }
+        } else {
+            let used = match bearer.as_deref() { Some(bearer) => super::bearer::use_within(c, bearer, now)?, None => None };
+            match used {
+                Some(row) => Err(row),
+                None => return Ok(Err(token_error("invalid_request", text::REQUEST_NOT_AUTHORIZED))),
+            }
+        };
+        let subject = presented(c, &token, refresh_first)?;
+        let active = match &caller {
+            Ok(client_id) => subject.as_ref().filter(|(row, as_refresh)| row.application_id == *client_id && live(row, *as_refresh, now)),
+            Err(bearer) => {
+                let allowed = subject.as_ref().is_some_and(|(row, _)| row.id != bearer.id && row.application_id == bearer.application_id);
+                if !allowed || bearer.revoked(now) || bearer.expired(now) {
+                    let description = if bearer.revoked(now) { text::TOKEN_REVOKED } else if bearer.expired(now) { text::TOKEN_EXPIRED } else { text::TOKEN_INVALID };
+                    return Ok(Err(token_error("invalid_token", description)));
+                }
+                subject.as_ref().filter(|(row, as_refresh)| live(row, *as_refresh, now))
+            }
+        };
+        // A token whose client row is gone is nobody's (D-OAUTH-INTROSPECT-OWN-CLIENT).
+        let Some(((row, as_refresh), uid)) = active.map(|found| Application::by_id(c, found.0.application_id).map(|client| client.map(|client| (found, client.uid)))).transpose()?.flatten()
+        else { return Ok(Ok(json!({ "active": false }))) };
+        let mut body = json!({ "active": true, "scope": scopes(&row.scopes).join(" "), "client_id": uid, "iat": row.created_at.timestamp() });
+        if !as_refresh {
+            body["token_type"] = json!("Bearer");
+            if let Some(seconds) = row.expires_in {
+                body["exp"] = json!(Duration::try_seconds(seconds).and_then(|life| row.created_at.checked_add_signed(life)).map(|at| at.timestamp()));
+            }
+        }
+        Ok(Ok(body))
+    })).await?;
+    Ok(match answer {
+        Ok(body) => json_response(StatusCode::OK, &body),
+        Err(refusal) => refusal,
+    })
+}
+
+/// Doorkeeper's `expires_in_seconds`: what is left of the token's life at `now`, in whole seconds rounded as Ruby's
+/// `Float#round` (half away from zero), never below 0. `None` for a token that never expires.
+fn seconds_left(row: &AccessToken, now: DateTime<Utc>) -> Option<i64> {
+    let life = Duration::try_seconds(row.expires_in?)?;
+    let left = row.created_at.checked_add_signed(life)?.signed_duration_since(now).num_microseconds()?;
+    Some(((left.abs() + 500_000) / 1_000_000 * left.signum()).max(0))
+}
+
+/// GET /oauth/token/info, as Doorkeeper's TokenInfoController#show: the token the request carries
+/// (`carried_token`), described to whoever holds it. The request is a use of the token (web::bearer::use_token).
+pub async fn token_info(State(app): State<App>, Extension(params): Extension<Arc<Params>>, unread: Option<Extension<super::hook::Unparseable>>, headers: HeaderMap)
+                        -> Result<Response, WebError> {
+    // A query Rack cannot read is Rails' 400, before any token is used.
+    let Some(shaped) = Shaped::of(&params).filter(|_| unread.is_none()) else { return Ok(super::layout::bad_request()) };
+    let token = match carried_token(&headers, &shaped) {
+        Carried::Multiple => return Ok(token_error("invalid_request", text::MULTIPLE_TOKEN_METHODS)),
+        Carried::Token(token) => token,
+        Carried::None => return Ok(token_error("invalid_token", text::TOKEN_INVALID)),
+    };
+    let inner = app.clone();
+    let described = app.db(move |c| transaction(c, &*inner.clock, |c, now| {
+        let Some(row) = super::bearer::use_within(c, &token, now)?.filter(|row| live(row, false, now)) else { return Ok(None) };
+        let uid = Application::by_id(c, row.application_id)?.map(|client| client.uid);
+        Ok(Some(json!({ "resource_owner_id": row.resource_owner_id, "scope": scopes(&row.scopes), "expires_in": seconds_left(&row, now),
+                        "application": { "uid": uid }, "created_at": row.created_at.timestamp() })))
+    })).await?;
+    Ok(match described {
+        Some(body) => json_response(StatusCode::OK, &body),
+        None => token_error("invalid_token", text::TOKEN_INVALID),
+    })
+}
+
+/// The paths whose Rails route takes a `(.:format)` suffix that this crate serves at the bare path: one segment after
+/// a `.`, without `/` or `.` in it (Rails' format segment). Matchit has no suffix parameters.
+const FORMATTED: [&str; 3] = ["/oauth/introspect", "/oauth/token/info", "/oauth/authorize/native"];
+
+/// The two routes that read every parameter as Rack does, so that a query or form Rack cannot read (a `%` without
+/// two hex digits, bytes that are not UTF-8) is refused whole, as in Rails (`web::hook::Unparseable`). A multipart
+/// body, whose fields Rails would read and this crate does not, is refused the same way: a token in it would be a
+/// way of sending one that nothing here counted.
+pub const RACK_READ: [&str; 2] = ["/oauth/introspect", "/oauth/token/info"];
+
+/// `path` without a format suffix, where its route has one (`FORMATTED`); otherwise `path` as it is.
+pub fn unformatted(path: &str) -> &str {
+    FORMATTED.into_iter().find(|bare| path.strip_prefix(bare).and_then(|rest| rest.strip_prefix('.'))
+        .is_some_and(|format| !format.is_empty() && !format.contains(['/', '.']))).unwrap_or(path)
 }

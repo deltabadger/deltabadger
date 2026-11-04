@@ -670,7 +670,8 @@ fn only(route: MethodRouter<App>) -> MethodRouter<App> {
 
 /// What an OAuth client calls on its own (web::oauth). These routes are outside the pipeline: they
 /// never read the session and take no CSRF token, because nothing in them acts for a signed-in
-/// browser. That holds for exactly these paths and methods; any other method on them is the 501.
+/// browser. That holds for exactly these paths and methods; any other method on them is the 501
+/// (which names no query here: `layout::not_ported`).
 fn oauth_api(app: App) -> Router<App> {
     Router::new()
         .route("/.well-known/oauth-authorization-server", only(get(oauth::authorization_server)))
@@ -679,9 +680,10 @@ fn oauth_api(app: App) -> Router<App> {
         .route("/oauth/register", only(post(oauth::register)))
         .route("/oauth/token", only(post(oauth::token)))
         .route("/oauth/revoke", only(post(oauth::revoke)))
-        // Doorkeeper also routes these two. The metadata does not advertise them and no client is told of them: not served.
-        .route("/oauth/introspect", any(layout::not_ported))
-        .route("/oauth/token/info", any(layout::not_ported))
+        .route("/oauth/introspect", only(post(oauth::introspect)))
+        .route("/oauth/token/info", only(get(oauth::token_info)))
+        // D-OAUTH-NATIVE-UNSERVED: Doorkeeper's page for an out-of-band redirect URI, which no client here can be given.
+        .route("/oauth/authorize/native", only(get(oauth::absent)))
         .layer(middleware::from_fn_with_state(app, oauth::api))
 }
 
@@ -956,7 +958,7 @@ pub const QUERY_LIMIT: usize = 8 * 1024;
 pub const QUERY_FIELDS: usize = FORM_FIELDS;
 /// The paths whose POST may carry `application/json` instead of a form: what an OAuth client sends
 /// on its own (web::oauth). The body is read under the form's limit and deadline.
-pub const JSON_PATHS: [&str; 3] = ["/oauth/register", "/oauth/token", "/oauth/revoke"];
+pub const JSON_PATHS: [&str; 4] = ["/oauth/register", "/oauth/token", "/oauth/revoke", "/oauth/introspect"];
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 /// The multipart body read (POST /tracker/import, web::multipart; and POST /bots/:id/import): a file of transactions. Rails
@@ -1013,7 +1015,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
     let original_method = parts.method.clone();
     let (path_locale, route_path) = locale::split(&full_path);
-    let route_path = route_path.to_string();
+    let route_path = oauth::unformatted(route_path).to_string();
     let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
     let json_type = content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     // The method a JSON body's route is chosen by: Rack::MethodOverride reads no JSON body, so only the header can turn
@@ -1035,7 +1037,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // POST /hook/*: its body is read whatever its type (bounded, so a stalled body spends no claim) and parsed only as
     // Rack parses it (web::hook::body).
     let hook_post = original_method == Method::POST && (route_path == "/hook" || route_path.starts_with("/hook/"));
-    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&oauth::unformatted(&full_path))))
         && json_type;
     let mut json = None;
     let mut upload = None;
@@ -1095,7 +1097,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     if original_method == Method::POST {
         if let Some(method) = method_override(rack_form.then_some(form.as_slice()), override_header.as_deref()) { parts.method = method; }
     }
-    if unparseable { parts.extensions.insert(hook::Unparseable); }
+    let multipart = content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("multipart/form-data"));
+    let rack_refused = oauth::RACK_READ.contains(&route_path.as_str()) && (multipart || !(rack_form && hook::rack_form_ok(raw_query.as_bytes())));
+    if unparseable || rack_refused { parts.extensions.insert(hook::Unparseable); }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
