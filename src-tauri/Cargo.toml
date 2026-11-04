@@ -39,6 +39,9 @@ tokio = { version = "1", features = ["process", "time", "sync"] }
 reqwest = { version = "0.12", features = ["blocking"] }
 port_check = "0.2"
 getrandom = "0.3"
+# The OS's language and time zone for the desktop's one account (PLAN-B6-3 §2.1).
+sys-locale = "0.3"
+iana-time-zone = "0.1"
 # The bundle lock's name (PLAN-B7 r4.1: the same hash rust/src/bundle.rs names it by).
 sha2 = "0.10"
 # Which of two releases is newer, as the updater plugin compares them.

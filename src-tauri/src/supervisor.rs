@@ -45,6 +45,9 @@ pub struct Launch {
     pub notes: Vec<String>,
     /// The first start's port, taken without probing it (tests); else the first free one from PORT_BASE.
     pub first_port: Option<u16>,
+    /// The OS's language (`pl-PL`) and IANA time zone, for the one account a fresh data dir gets (PLAN-B6-3 §2.1).
+    pub locale: Option<String>,
+    pub time_zone: Option<String>,
 }
 
 impl Launch {
@@ -61,8 +64,9 @@ impl Launch {
 
     /// What the child gets on top of the app's own environment (PLAN-B6 §1.2, r1.4, r4.4): the 2.x desktop's paths and
     /// platform, the bind address and the stop on stdin's end, this start's ready token, the engine's log file, and the
-    /// keys `secrets::setup_secrets` resolved.
-    pub fn engine_env(&self, port: u16, token: &str, keys: &HashMap<String, String>) -> HashMap<String, String> {
+    /// keys `secrets::setup_secrets` resolved. PLAN-B6-3 §1, §2.1: this start's launcher secret (it never reaches the
+    /// window: not in a URL, a page, a cookie or a command's answer), the OS's language and time zone.
+    pub fn engine_env(&self, port: u16, token: &str, launcher: &str, keys: &HashMap<String, String>) -> HashMap<String, String> {
         let path = |p: PathBuf| p.to_string_lossy().into_owned();
         let mut env: HashMap<String, String> = [
             ("PORT", port.to_string()),
@@ -78,8 +82,11 @@ impl Launch {
             ("DELTABADGER_STOP_ON_STDIN_EOF", "1".to_string()),
             ("DELTABADGER_READY_TOKEN", token.to_string()),
             ("DELTABADGER_LOG_FILE", path(self.log_file())),
+            ("DELTABADGER_DESKTOP_LAUNCHER", launcher.to_string()),
         ]
         .into_iter()
+        .chain(self.locale.clone().map(|l| ("DELTABADGER_DESKTOP_LOCALE", l)))
+        .chain(self.time_zone.clone().map(|z| ("DELTABADGER_DESKTOP_TIME_ZONE", z)))
         .map(|(k, v)| (k.to_string(), v))
         .collect();
         env.extend(keys.iter().map(|(k, v)| (k.clone(), v.clone())));
@@ -99,6 +106,8 @@ struct Slot {
     log: Option<PathBuf>,
     /// The port and ready token of the last engine started: its pages are the only ones the app's commands answer.
     launch: Option<(u16, String)>,
+    /// That engine's launcher secret (PLAN-B6-3 §1): only the app's own requests to `/desktop/*` carry it.
+    launcher: Option<String>,
 }
 
 /// How `stop_engine` found the engine.
@@ -121,6 +130,12 @@ impl Engine {
 
     /// The port and ready token of the engine started last (PLAN-B7 r1.8, r3.4).
     pub fn launch(&self) -> Option<(u16, String)> { self.slot().launch.clone() }
+
+    /// The port and launcher secret of the engine started last (PLAN-B6-3 §1).
+    pub fn launcher(&self) -> Option<(u16, String)> {
+        let slot = self.slot();
+        Some((slot.launch.as_ref()?.0, slot.launcher.clone()?))
+    }
 
     /// Undoes a stop asked for by an update (PLAN-B7 r2.2), so the supervisor can start the engine again — unless
     /// `quitting` says the app is quitting. Decided under the slot's lock: a quit either comes first (nothing resumes) or
@@ -342,11 +357,11 @@ pub fn supervise(launch: &Launch, engine: &Engine, view: &dyn View) {
             Err(error) => return show(Page::NotStarted(error)),
         }
         let port = first_port.take().unwrap_or_else(|| find_available_port(base));
-        let token = match secrets::random_hex(16) {
-            Ok(token) => token,
-            Err(error) => return show(Page::NotStarted(error)),
+        let (token, launcher) = match (secrets::random_hex(16), secrets::random_hex(16)) {
+            (Ok(token), Ok(launcher)) => (token, launcher),
+            (Err(error), _) | (_, Err(error)) => return show(Page::NotStarted(error)),
         };
-        match start(launch, engine, port, &token, &keys) {
+        match start(launch, engine, port, &token, &launcher, &keys) {
             Ok(true) => {}
             Ok(false) => return,
             Err(error) => {
@@ -354,7 +369,7 @@ pub fn supervise(launch: &Launch, engine: &Engine, view: &dyn View) {
                 return show(Page::NotStarted(error));
             }
         }
-        let (status, served) = match watch(engine, view, &show, &log, port, &token) {
+        let (status, served) = match watch(engine, view, &show, &log, port, &token, &launcher) {
             Watched::Quit(status) => {
                 let _ = note(&log, &format!("desktop: the engine stopped as asked (exit {})", describe(&status)));
                 return;
@@ -407,7 +422,7 @@ fn wait_for_lock(launch: &Launch, engine: &Engine, show: &dyn Fn(Page)) -> Resul
 
 /// One spawn. Before it (r3.3, r4.3, r4.4, r5.3): the previous start's capture kept as `.1`, this start's marker and
 /// the data paths in the log, the key file synced. False when a quit came in first.
-fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, keys: &HashMap<String, String>) -> Result<bool, String> {
+fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, launcher: &str, keys: &HashMap<String, String>) -> Result<bool, String> {
     let log = launch.log_file();
     let capture_path = launch.stderr_file();
     match fs::rename(&capture_path, launch.log_dir().join("deltabadger-stderr.log.1")) {
@@ -433,7 +448,7 @@ fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, keys: &HashMa
         .arg("serve")
         .args(&launch.extra_args)
         .current_dir(&launch.cwd)
-        .envs(launch.engine_env(port, token, keys))
+        .envs(launch.engine_env(port, token, launcher, keys))
         .stdin(Stdio::piped())
         .stdout(capture)
         .stderr(capture_err);
@@ -453,6 +468,7 @@ fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, keys: &HashMa
     slot.child = Some(child);
     slot.log = Some(log);
     slot.launch = Some((port, token.to_string()));
+    slot.launcher = Some(launcher.to_string());
     Ok(true)
 }
 
@@ -493,10 +509,42 @@ fn ready(client: &reqwest::blocking::Client, port: u16, token: &str) -> Option<R
     words.next().is_none().then_some(state)
 }
 
+/// A sign-in ticket from this start's engine (PLAN-B6-3 §2.2): `POST /desktop/ticket` with the launcher secret in its
+/// header, on 127.0.0.1 only, no proxy, no redirect followed, 5 s at most. The ticket is never logged.
+pub fn ticket(port: u16, launcher: &str) -> Option<String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .ok()?;
+    let response = client.post(format!("http://{HOST}:{port}/desktop/ticket")).header("X-Deltabadger-Launcher", launcher).send().ok()?;
+    if response.status() != reqwest::StatusCode::OK {
+        return None;
+    }
+    let body: serde_json::Value = serde_json::from_str(&response.text().ok()?).ok()?;
+    let ticket = body.get("ticket")?.as_str()?;
+    ticket.bytes().all(|b| b.is_ascii_hexdigit()).then(|| ticket.to_string())
+}
+
+/// The window's URL for an engine page: the `app` state signs the window in with a fresh ticket (PLAN-B6-3 §2.2);
+/// `refused`, or a ticket that could not be had, is `/?launch=<token>` (never a page a service worker cached).
+fn page_url(log: &Path, port: u16, token: &str, launcher: &str, state: &str) -> String {
+    if state == "app" {
+        match ticket(port, launcher) {
+            Some(ticket) => return format!("http://{HOST}:{port}/desktop/sign_in?ticket={ticket}"),
+            None => {
+                let _ = note(log, "desktop: no sign-in ticket from the engine; the window opens signed out");
+            }
+        }
+    }
+    format!("http://{HOST}:{port}/?launch={token}")
+}
+
 /// Follows one child for its whole life (r1.5, r2.3, r3.1): `starting` is D1 on the status page; `app` or `refused`
-/// is shown once, at `/?launch=<token>` (never a page a service worker cached); once something was shown, three
-/// failed polls in a row put D7 in its place until the same child answers again.
-fn watch(engine: &Engine, view: &dyn View, show: &dyn Fn(Page), log: &Path, port: u16, token: &str) -> Watched {
+/// is shown once (`page_url`); once something was shown, three failed polls in a row put D7 in its place until the same
+/// child answers again.
+fn watch(engine: &Engine, view: &dyn View, show: &dyn Fn(Page), log: &Path, port: u16, token: &str, launcher: &str) -> Watched {
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(750))
         .no_proxy()
@@ -539,7 +587,7 @@ fn watch(engine: &Engine, view: &dyn View, show: &dyn Fn(Page), log: &Path, port
                         view.back();
                     } else {
                         let _ = note(log, &format!("desktop: showing the engine's {state} page"));
-                        view.open(&format!("http://{HOST}:{port}/?launch={token}"));
+                        view.open(&page_url(log, port, token, launcher, state));
                         opened = Some(state);
                     }
                     status = None;

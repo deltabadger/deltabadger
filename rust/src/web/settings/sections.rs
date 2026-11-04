@@ -177,6 +177,25 @@ pub fn two_fa_open(ctx: &Ctx, csrf: &str, enabled: bool, qr: &str, error: Option
     )
 }
 
+/// D-DESKTOP-BROWSER-CODE: the desktop's "Sign in a browser" row; with `code`, the code it just made.
+pub fn browser_sign_in(ctx: &Ctx, csrf: &str, code: Option<&str>) -> String {
+    let label = ctx.t("desktop_sign_in.settings_title");
+    let button = ctx.t(if code.is_some() { "desktop_sign_in.settings_new_code" } else { "desktop_sign_in.settings_show_code" });
+    let control = format!(
+        "\n    {}<input type=\"submit\" name=\"commit\" value=\"{button}\" class=\"rbutton rbutton--secondary\" data-disable-with=\"{button}\" />\n</form>\n",
+        form_open(" class=\"button_to\"", &ctx.path("/settings/browser_sign_in_code"), "post", csrf)
+    );
+    let hint = match code {
+        Some(code) => format!(
+            "<strong class=\"desktop-code\" data-desktop-code=\"{}\">{}-{}</strong> {}",
+            escape(code), escape(&code[..4]), escape(&code[4..]),
+            crate::web::i18n::t(ctx.locale, "desktop_sign_in.settings_code_hint", &[("count", crate::web::i18n::Arg::Count(crate::web::desktop::code_minutes()))])
+        ),
+        None => ctx.t("desktop_sign_in.settings_hint"),
+    };
+    format!("<turbo-frame class=\"sitem\" id=\"desktop_browser_sign_in\">\n  {}</turbo-frame>", row(&label, Some(&hint), "", "", None, Some(&control)))
+}
+
 /// settings/widgets/_advanced_bots.
 pub fn advanced(ctx: &Ctx, csrf: &str, on: bool) -> String {
     let label = ctx.t("settings.advanced_bots.toggle_label");

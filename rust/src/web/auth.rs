@@ -163,6 +163,11 @@ impl Current {
 /// lost confirmation ends the session, as Devise's activatable hook does on every request.
 pub async fn current_user(app: &App, session: &super::session::Session, now: DateTime<Utc>) -> Result<Current, WebError> {
     let Some((id, salt)) = session.lock().user.clone() else { return Ok(Current::SignedOut) };
+    // D-DESKTOP-OTHER-USERS-UNREACHABLE: on the desktop only its one account is ever signed in.
+    if app.desktop.is_some() && app.desktop_account() != Some(id) {
+        session.lock().user = None;
+        return Ok(Current::SignedOut);
+    }
     let user = app.db(move |c| User::find(c, id)).await?.filter(|user| user.salt() == salt);
     let current = match user {
         Some(user) if user.locked(now) => Current::Inactive("locked"),
@@ -280,6 +285,9 @@ async fn login_page(app: &App, ctx: &Ctx, status: StatusCode, email: &str, flash
 
 /// GET /login.
 pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    if app.desktop.is_some() {
+        return desktop_login(&ctx, StatusCode::OK, Vec::new());
+    }
     login_page(&app, &ctx, StatusCode::OK, ctx.params.query("user[email]").unwrap_or(""), Vec::new()).await
 }
 
@@ -362,6 +370,14 @@ fn continue_sign_in(ctx: &Ctx, user: &User, new_csrf_token: bool) -> Response {
 
 /// POST /login.
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    if app.desktop.is_some() {
+        // D-DESKTOP-BROWSER-CODE: the code from Settings, then where the browser was going, as after a password.
+        if super::desktop::redeem_code(&app, &ctx.session, ctx.params.form("code").unwrap_or("")).await? {
+            let location = ctx.session.lock().return_to.take().unwrap_or_else(|| ctx.path("/"));
+            return Ok(layout::redirect(StatusCode::SEE_OTHER, &location));
+        }
+        return desktop_login(&ctx, StatusCode::UNPROCESSABLE_ENTITY, vec![(flash::ALERT, i18n::text(ctx.locale, "desktop_sign_in.wrong_code", &[]))]);
+    }
     let email = ctx.params.form("user[email]").unwrap_or("").to_string();
     let password = ctx.params.form("user[password]").unwrap_or("").to_string();
     // The row under the lock, the bcrypt computation outside it, then the decision under the lock again.
@@ -399,6 +415,21 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     }
 }
 
+
+#[derive(Template)]
+#[template(path = "sessions/desktop.html")]
+struct DesktopView<'a> {
+    v: &'a Ctx,
+    csrf: &'a str,
+}
+
+/// The desktop's `/login`: in the app's window its script asks the launcher to sign the window in (`sign_in_window`);
+/// in a browser, the one field for the code Settings shows.
+fn desktop_login(ctx: &Ctx, status: StatusCode, flash_now: Vec<(&str, String)>) -> Result<Response, WebError> {
+    let csrf = ctx.csrf_token();
+    let body = DesktopView { v: ctx, csrf: &csrf }.render()?;
+    layout::devise(ctx, &csrf, Page { status, body, flash_now })
+}
 
 #[derive(Template)]
 #[template(path = "sessions/two_factor.html")]

@@ -767,17 +767,11 @@ def new_file(folder, before, prefix, seconds=30):
     return until(f"a new {prefix}* in {folder}", seconds, probe)[0]
 
 
-SIGN_UP = """
-var pw = document.querySelector('form input[type=password]');
-if (!pw) { return 'no form'; }
-pw.form.querySelectorAll('input').forEach(function (i) {
-  if (i.type === 'email') { i.value = 'smoke@example.com'; }
-  else if (i.type === 'password') { i.value = 'Smoke-password-48151623'; }
-  else if (i.type === 'text' && !i.value) { i.value = 'Smoke Test'; }
-  else if (i.type === 'checkbox') { i.checked = true; }
-});
-pw.form.requestSubmit();
-return 'submitted';
+SIGNED_IN = """
+var path = location.pathname;
+if (document.readyState !== 'complete' || document.querySelector('form input[type=password], [data-desktop-sign-in]')) { return null; }
+if (/^\\/([a-z]{2}(-[A-Za-z]{2})?\\/)?(login|signup|setup|desktop)(\\/|$)/.test(path)) { return null; }
+return location.href;
 """
 
 
@@ -791,13 +785,14 @@ def scenario_downloads(name):
         check_data_line(data)
         start = wait_start(data, 0)
         app_page_shown(win, start)
-        check(win.poll("the sign-up form", 60, "return document.querySelector('form input[type=password]') && 'yes';"), "no sign-up form")
-        check(win.js(SIGN_UP) == "submitted", "sign-up not submitted")
-        win.poll("signed in", 60, "return document.readyState === 'complete' && !document.querySelector('form input[type=password]') && location.href;")
-        say(f"signed up; the window is at {win.url()}")
+        # B6-3a: no sign-up; the window opens signed in as the one desktop account.
+        win.poll("signed in", 60, SIGNED_IN)
+        say(f"opened signed in; the window is at {win.url()}")
         # Three transactions; the chosen window holds the middle one only.
         c = sqlite3.connect(data / "db" / "production.sqlite3", timeout=30)
-        user = c.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()[0]
+        users = c.execute("SELECT id, email FROM users").fetchall()
+        check(len(users) == 1 and users[0][1] == "desktop@deltabadger.invalid", f"users: {len(users)}")
+        user = users[0][0]
         exchange = c.execute("SELECT id FROM exchanges ORDER BY id LIMIT 1").fetchone()[0]
         for tx, at in (("smoke-early", "2024-01-15 12:00:00"), ("smoke-mid", "2024-06-15 12:00:00"), ("smoke-late", "2024-12-15 12:00:00")):
             c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, "

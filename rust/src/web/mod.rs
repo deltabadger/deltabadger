@@ -14,6 +14,7 @@ pub mod bots;
 pub mod broadcasts;
 pub mod below_minimum;
 pub mod cable;
+pub mod desktop;
 pub mod consent;
 pub mod colors;
 pub mod csrf;
@@ -367,6 +368,8 @@ pub struct Inner {
     settings_smtp_provider_name:String,
     /// Installation.platform, as the process started (settings/widgets/_app_update).
     pub(crate) update_platform: crate::jobs::app_update::Platform,
+    /// The desktop's account, tickets and browser code (web::desktop); `None` on every other platform.
+    pub(crate) desktop: Option<desktop::Desktop>,
     settings_market_provider_name:String,
     pub settings_key_hosts:crate::venue::alpaca::Hosts,
     /// Where a venue's own key check goes (the wizard's key step), by exchange type: a test server; else the registry's host.
@@ -445,7 +448,7 @@ impl App {
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),venue_key_urls:Vec::new(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
-            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),update_platform:crate::jobs::app_update::platform(env),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
+            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),update_platform:crate::jobs::app_update::platform(env),desktop:desktop::Desktop::from_env(crate::jobs::app_update::platform(env),env),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
@@ -1134,6 +1137,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         && bot::action_params::ActionParams::parse(&params).is_err() {
         return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response();
     }
+    // D-DESKTOP-NO-ACCOUNT-PAGES and the launcher's /desktop routes: before the session, CSRF, the setup gate and sign-in.
+    if let Some(answer) = desktop::guard(&entry.app, &parts.method, &params, &parts.headers) { return answer; }
     parts.extensions.insert(Arc::new(params));
     match entry.routes.oneshot(Request::from_parts(parts, body)).await {
         Ok(response) => response,
@@ -1218,6 +1223,16 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         .or_else(||app.limiter.setup_token(request.method(), &params.route_path, &address, now,carries_input));
     if let Some(retry_after) = limited {
         return finish(&app, &session, &before, &nonce, now, false, rate_limit::throttled(retry_after));
+    }
+    // D-DESKTOP-LAUNCHER-SIGN-IN: before the setup gate and the signed-in redirects; its own limit.
+    if app.desktop.is_some() && params.path_locale.is_none() && params.route_path == "/desktop/sign_in" {
+        if let Some(retry_after) = app.limiter.desktop_sign_in(&address, now) {
+            return finish(&app, &session, &before, &nonce, now, false, rate_limit::throttled(retry_after));
+        }
+        let response = desktop::sign_in(&app, &session, &params).await;
+        let mut response = finish(&app, &session, &before, &nonce, now, false, response);
+        response.headers_mut().insert(header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+        return response;
     }
 
     let current = match auth::current_user(&app, &session, now).await {
