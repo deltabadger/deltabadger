@@ -527,8 +527,8 @@ fn each_start_keeps_the_previous_starts_output() {
     assert!(current.contains("second run") && !current.contains("first run"));
     // The second start's details hold nothing from the first.
     assert!(!details(&view.last()).contains("first run"));
-    // The log has both starts, each with its data paths line.
-    assert_eq!(log(&launch).matches(&format!("data: {} primary: ", launch.data.display())).count(), 2);
+    // The data paths line: at each launch, and again before each start.
+    assert_eq!(log(&launch).matches(&format!("data: {} primary: ", launch.data.display())).count(), 4);
 }
 
 #[test]

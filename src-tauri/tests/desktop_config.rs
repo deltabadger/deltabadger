@@ -36,6 +36,8 @@ fn the_bundle_carries_the_engine_and_the_catalogue_and_nothing_of_rails() {
     assert!(resources.keys().all(|k| !k.contains("_bundle")), "{resources:?}");
     assert_eq!(bundle["macOS"]["minimumSystemVersion"], "11.3");
     assert_eq!(config["build"]["frontendDist"], "ui");
+    // The executable is the app's name, not the crate's: the engine finds its app by it (rust/src/bundle.rs, Windows).
+    assert_eq!(config["mainBinaryName"], "Deltabadger");
     assert!(read("script/rust/desktop_engine.sh").contains("MACOSX_DEPLOYMENT_TARGET=11.3"));
 }
 

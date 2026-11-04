@@ -1,6 +1,6 @@
 [package]
 # Not "deltabadger": the engine (rust/) builds a binary of that name, and both share a target dir on CI caches and
-# developer machines. The bundled executable is named after productName (Deltabadger) either way.
+# developer machines. The bundled executable is Deltabadger (tauri.conf.json's mainBinaryName).
 name = "deltabadger-desktop"
 version = "2.70.21"
 description = "DeltaBadger - Dollar Cost Averaging Bot"

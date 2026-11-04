@@ -272,6 +272,8 @@ pub fn supervise(launch: &Launch, engine: &Engine, view: &dyn View) {
     for line in &launch.notes {
         let _ = note(&log, line);
     }
+    // Before any wait for the lock too, so a test (or support) can tell which data dir this is from the start (r4.3).
+    let _ = note(&log, &data_line(launch));
     let (mut first_port, mut base, mut retried_port) = (launch.first_port, PORT_BASE, false);
     loop {
         match wait_for_lock(launch, engine, &show) {
@@ -363,10 +365,7 @@ fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, keys: &HashMa
         .try_clone()
         .map_err(|error| format!("Failed to open {:?}: {error}", capture_path))?;
     note(&log, &format!("--- start {token} ---"))?;
-    note(
-        &log,
-        &format!("data: {} primary: {} queue: {}", launch.data.display(), launch.primary().display(), launch.queue().display()),
-    )?;
+    note(&log, &data_line(launch))?;
     secrets::make_durable(&launch.secrets())?;
 
     let mut command = Command::new(&launch.exe);
@@ -394,6 +393,11 @@ fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, keys: &HashMa
     slot.child = Some(child);
     slot.log = Some(log);
     Ok(true)
+}
+
+/// `data: <dir> primary: <path> queue: <path>` (r4.3).
+fn data_line(launch: &Launch) -> String {
+    format!("data: {} primary: {} queue: {}", launch.data.display(), launch.primary().display(), launch.queue().display())
 }
 
 enum Watched {
