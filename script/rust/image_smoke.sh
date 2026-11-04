@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The publish gate for a 3.0 image (PLAN-B3 §6, r1.8): B3-2's quick subset, offline. docker-publish.yml runs it on
+# The publish gate for a 3.0 image (PLAN-B3 §6, r1.8): B3-2's quick subset, offline. release.yml runs it on
 # each platform before that platform's image is pushed; rust.yml's image job runs it on deltabadger:ci, which proves
 # the gate. rust/tests/image.rs stays the full proof; this only stops a broken image from being published.
 #   1. an empty named volume, started as root → /health-check 200, /ui-ready 200, docker stop → exit 0;

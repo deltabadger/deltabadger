@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The config digest of a local image (sha256:…), read from `docker save`'s manifest.json, which Docker writes on both
 # the classic and the containerd image store. The config covers the labels, the command and every layer's diff_id, so
-# equal config digests mean the same image. docker-publish.yml compares it with the pushed image's; rust.yml's image
+# equal config digests mean the same image. release.yml compares it with the pushed image's; rust.yml's image
 # job runs it on both runners (one store each), so it is proved before a tag depends on it.
 # Usage: image_config_digest.sh <image>
 set -euo pipefail

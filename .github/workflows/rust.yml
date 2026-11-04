@@ -23,9 +23,10 @@ on:
       - 'docker-compose.build.yml'
       - 'deltabadger/**'
       - 'umbrel-app-store.yml'
-      # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
-      # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
-      - '.github/workflows/docker-publish.yml'
+      # How a release is published: release.yml runs script/rust/image_smoke.sh (run by the image job) before each push,
+      # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
+      - '.github/workflows/release.yml'
+      - 'script/release/**'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -218,9 +219,10 @@ on:
       - 'docker-compose.build.yml'
       - 'deltabadger/**'
       - 'umbrel-app-store.yml'
-      # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
-      # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
-      - '.github/workflows/docker-publish.yml'
+      # How a release is published: release.yml runs script/rust/image_smoke.sh (run by the image job) before each push,
+      # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
+      - '.github/workflows/release.yml'
+      - 'script/release/**'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -530,11 +532,11 @@ jobs:
       # records that digest, so the compose finds it).
       - name: Pull the 2.x images
         run: for tag in 2.70.21 2.60.0 2.34.0; do docker pull "ghcr.io/deltabadger/deltabadger:$tag"; done
-      # docker-publish.yml's gate before each 3.0 push (PLAN-B3 r1.8), on the same platforms: run here so a change to
+      # release.yml's gate before each 3.0 push (PLAN-B3 r1.8), on the same platforms: run here so a change to
       # it, or to the image, is proved before a tag depends on it.
       - name: Publish smoke test
         run: bash script/rust/image_smoke.sh deltabadger:ci
-      # docker-publish.yml's "pushed is smoked" check reads the smoked image's config digest this way (proved on the
+      # release.yml's "pushed is smoked" check reads the smoked image's config digest this way (proved on the
       # publish runners themselves by publish-digest below).
       - name: Config digest of the built image
         run: |
@@ -563,56 +565,17 @@ jobs:
           DELTABADGER_IMAGE: deltabadger:ci
         run: cargo test --locked --test image --test entrypoint
 
-  # PLAN-B3 r1.3: the tags docker-publish.yml's merge job would publish, for the three kinds of tag under both values of
-  # LATEST_MAJOR. Same metadata-action major, same flavor and tag lines (with value= in place of the pushed ref), and
-  # <latest> from the same script/rust/latest_tag.sh.
-  publish-tags:
+  # PLAN-B8 r1.6: release.yml's rules (desktop assets and signatures, latest.json, the image tags per tag and
+  # LATEST_MAJOR, never moving a shared tag backward, version files) as script/release/validate_test.sh's cases.
+  release-scripts:
     if: github.event_name != 'schedule'
-    name: publish-tags ${{ matrix.tag }} LATEST_MAJOR=${{ matrix.major }}
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { tag: v3.0.0-beta.1, major: 2, want: '3.0.0-beta.1' }
-          - { tag: v3.0.0-beta.1, major: 3, want: '3.0.0-beta.1' }
-          - { tag: v3.0.0, major: 2, want: '3.0.0 3.0 3' }
-          - { tag: v3.0.0, major: 3, want: '3.0.0 3.0 3 latest' }
-          - { tag: v2.70.22, major: 2, want: '2.70.22 2.70 2 latest' }
-          - { tag: v2.70.22, major: 3, want: '2.70.22 2.70 2' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Whether this tag moves latest
-        id: latest
-        env:
-          TAG: ${{ matrix.tag }}
-          LATEST_MAJOR: ${{ matrix.major }}
-        run: |
-          latest=$(bash script/rust/latest_tag.sh "$TAG" "$LATEST_MAJOR")
-          echo "latest=$latest" >> "$GITHUB_OUTPUT"
-      - name: Tags
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: ghcr.io/deltabadger/deltabadger
-          flavor: latest=false
-          tags: |
-            type=semver,pattern={{version}},value=${{ matrix.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ matrix.tag }}
-            type=semver,pattern={{major}},value=${{ matrix.tag }}
-            type=raw,value=latest,enable=${{ steps.latest.outputs.latest }}
-      - name: The tags are exactly these
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-          WANT: ${{ matrix.want }}
-        run: |
-          set -euo pipefail
-          got=$(sort <<< "${TAGS//ghcr.io\/deltabadger\/deltabadger:/}" | xargs)
-          want=$(tr ' ' '\n' <<< "$WANT" | sort | xargs)
-          echo "got:  $got"; echo "want: $want"
-          [ "$got" = "$want" ] || { echo "::error::${{ matrix.tag }} under LATEST_MAJOR=${{ matrix.major }} publishes '$got', not '$want'"; exit 1; }
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
+      - run: bash script/release/validate_test.sh
 
-  # docker-publish.yml's "pushed is smoked" check, on the runners the publish uses (their Docker image stores differ:
+  # release.yml's "pushed is smoked" check, on the runners the publish uses (their Docker image stores differ:
   # v3.0.0-beta.1's ubuntu-latest amd64 leg ran the containerd store, where buildx reports no config digest for a
   # loaded image, and the check failed closed). Same actions, same load build; a small image instead of the 3.0 one,
   # since only the digest path is under test: the config digest script/rust/image_config_digest.sh reads from the
@@ -624,7 +587,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm] # docker-publish.yml's build matrix
+        runner: [ubuntu-latest, ubuntu-24.04-arm] # release.yml's image matrix
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0

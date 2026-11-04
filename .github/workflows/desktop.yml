@@ -2,7 +2,7 @@ name: Desktop app
 
 # PLAN-B6 §6, r1.14 (B6-2): the desktop app built unsigned on macOS, Windows and Linux, installed the way a user installs
 # it, and its launcher's proofs run against the installed app (script/rust/desktop_smoke/smoke.py). Never signs, never
-# publishes; desktop-release.yml builds the releases.
+# publishes; release.yml builds the releases.
 on:
   pull_request:
     paths:
@@ -11,7 +11,7 @@ on:
       - 'script/rust/build_assets.sh'
       - 'script/rust/desktop_smoke/**'
       - '.github/workflows/desktop.yml'
-      - '.github/workflows/desktop-release.yml'
+      - '.github/workflows/release.yml'
       - 'app/javascript/**'
       - 'package.json'
       - 'bun.lock'

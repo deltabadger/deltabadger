@@ -1,0 +1,519 @@
+name: Release
+
+# PLAN-B8 §1.2 + r1–r3: one `v*` tag → the Docker image (amd64 + arm64) and the three desktop apps, published together or
+# not at all. The release stays a draft and no image tag moves until every leg has built and script/release/validate.sh
+# has passed. Replaces docker-publish.yml and desktop-release.yml.
+#
+# - tag push (`script/release.sh` pushes it): the release.
+# - pull_request / workflow_dispatch mode=dry: every leg builds at version 3.0.0-test.<run id>, publish validates
+#   (desktop packages signed with a throwaway key) and stops; nothing is tagged, released, pushed or announced.
+# - workflow_dispatch mode=promote tag=vX.Y.Z: moves :latest and GitHub's "Latest" to a published stable release
+#   (PLAN-B8 r1.1, after B5's ≥ 24 h wait). Nothing is rebuilt.
+# A v2.* tag never reaches this file: a tag runs the workflows of its own commit, and 2.x commits have docker-publish.yml.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - '.github/workflows/announce-release.yml'
+      - 'script/release/**'
+      - 'script/rust/image_smoke.sh'
+      - 'script/rust/image_config_digest.sh'
+      - 'script/rust/latest_tag.sh'
+      - 'src-tauri/**'
+      - 'Dockerfile.rust'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry: build everything, publish nothing. promote: move :latest and "Latest" to `tag`.'
+        type: choice
+        options: [dry, promote]
+        default: dry
+      tag:
+        description: 'promote only: the published stable release, e.g. v3.0.0'
+        type: string
+      drop_leg:
+        description: 'dry only: fail this leg on purpose (publish must not run)'
+        type: choice
+        options: [none, amd64, arm64, macos-aarch64, windows-x86_64, linux-x86_64]
+        default: none
+
+permissions:
+  contents: read
+
+# Releases and promotions queue behind each other, none dropped (r2.2); dry runs queue per ref.
+concurrency:
+  group: ${{ (github.event_name == 'push' || inputs.mode == 'promote') && 'release' || format('release-dry-{0}', github.ref) }}
+  cancel-in-progress: false
+  queue: max
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  meta:
+    if: github.event_name != 'workflow_dispatch' || inputs.mode == 'dry'
+    runs-on: ubuntu-24.04
+    outputs:
+      dry: ${{ steps.m.outputs.dry }}
+      tag: ${{ steps.m.outputs.tag }}
+      version: ${{ steps.m.outputs.version }}
+      prerelease: ${{ steps.m.outputs.prerelease }}
+      updater_ready: ${{ steps.m.outputs.updater_ready }}
+      apple_ready: ${{ steps.m.outputs.apple_ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: m
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+          # Read as env: an unset secret is an empty string here, never an empty expression in the script.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = push ]; then
+            dry=false tag=$REF_NAME
+            # r2.3: a real release is 3.x or later. Its version files must already say it (script/release.sh bumps them).
+            major=${tag#v}; major=${major%%.*}
+            [[ $major =~ ^[0-9]+$ ]] && [ "$major" -ge 3 ] || { echo "::error::$tag: release.yml publishes 3.x and later only"; exit 1; }
+            bash script/release/validate.sh same-version "$tag"
+          else
+            dry=true tag=v3.0.0-test.$RUN_ID
+          fi
+          version=${tag#v}
+          [[ $version == *-* ]] && prerelease=true || prerelease=false
+          # r1.10: updater signing (the real key pair) and Apple signing are configured separately (B13 sets both).
+          pubkey=$(jq -r '.plugins.updater.pubkey // empty' src-tauri/tauri.conf.json)
+          updater_ready=false apple_ready=false
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$pubkey" ] && [ "$pubkey" != REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY ] && updater_ready=true
+          [ -n "$APPLE_CERTIFICATE" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_TEAM_ID" ] && apple_ready=true
+          [ "$updater_ready" = true ] || echo "::notice::updater signing not configured (tauri signer generate; pubkey in tauri.conf.json, TAURI_SIGNING_PRIVATE_KEY in secrets)"
+          [ "$apple_ready" = true ] || echo "::notice::Apple signing not configured (APPLE_CERTIFICATE, APPLE_ID, APPLE_TEAM_ID secrets)"
+          printf '%s\n' "dry=$dry" "tag=$tag" "version=$version" "prerelease=$prerelease" \
+            "updater_ready=$updater_ready" "apple_ready=$apple_ready" | tee -a "$GITHUB_OUTPUT"
+
+  # The catalogue snapshot as of this release, attached to the draft and handed to every build. A re-run reuses the
+  # draft's copy, so it builds the same bytes (r1.7).
+  draft:
+    needs: meta
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.meta.outputs.tag }}
+      DRY: ${{ needs.meta.outputs.dry }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Draft the release
+        if: needs.meta.outputs.dry != 'true'
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          if state=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            [ "$state" = true ] || { echo "::error::$TAG is already published; a re-run only resumes a draft"; exit 1; }
+            gh release download "$TAG" --pattern catalogue.json.gz --dir . 2>/dev/null || true
+          else
+            # The notes are the annotated tag's body (D-RELEASE-NOTES-IN-TAG), without its trailers or signature.
+            git tag -l --format='%(contents:body)' "$TAG" | sed '/^-----BEGIN /,$d' | grep -v '^Critical: ' > notes.md || true
+            gh release create "$TAG" --draft --verify-tag --title "$TAG" --notes-file notes.md --generate-notes
+          fi
+      - name: Download the catalogue snapshot
+        run: |
+          set -euo pipefail
+          if [ ! -s catalogue.json.gz ]; then
+            curl -fsSL --retry 5 --retry-all-errors --max-filesize 33554432 -o catalogue.json.gz \
+              https://data.deltabadger.com/public/v1/catalogue.json.gz
+          fi
+          gzip -t catalogue.json.gz
+          gzip -dc catalogue.json.gz | jq -e '(.metadata.sources | type == "object") and (.data | type == "object")' > /dev/null
+      - name: Attach it to the draft
+        if: needs.meta.outputs.dry != 'true'
+        run: gh release upload "$TAG" catalogue.json.gz --clobber
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: catalogue
+          path: catalogue.json.gz
+          if-no-files-found: error
+          retention-days: 3
+
+  # Dry runs sign the desktop packages with a throwaway key pair, so the whole feed path (signatures, latest.json,
+  # validation) runs on every PR without B13's key. It signs nothing anyone installs. Made on every run (a skipped job
+  # would skip everything downstream of it), used only by dry ones.
+  testkey:
+    needs: meta
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - run: |
+          bun install --frozen-lockfile
+          mkdir -p "$RUNNER_TEMP/testkey"
+          bunx tauri signer generate --ci -w "$RUNNER_TEMP/testkey/test.key"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: testkey
+          path: ${{ runner.temp }}/testkey/
+          if-no-files-found: error
+          retention-days: 1
+
+  # The 3.0 image per platform: built, smoked on its own platform, then (not in a dry run) pushed by digest and checked
+  # to be the smoked image. No tag is pushed here; publish creates them.
+  image:
+    needs: [meta, draft]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, platform: linux/amd64, runner: ubuntu-latest }
+          - { arch: arm64, platform: linux/arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DRY: ${{ needs.meta.outputs.dry }}
+    steps:
+      - name: Dropped on purpose
+        if: inputs.drop_leg == matrix.arch
+        run: exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Dry run version
+        if: env.DRY == 'true'
+        run: bash script/release/validate.sh set-version "${{ needs.meta.outputs.version }}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: catalogue
+          path: db/seed_data
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Log in to the registry
+        if: env.DRY != 'true'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - id: labels
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ env.IMAGE }}
+          labels: org.opencontainers.image.version=${{ needs.meta.outputs.version }}
+      - name: Build for the smoke test
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: Dockerfile.rust
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.labels.outputs.labels }}
+          load: true
+          tags: deltabadger:smoke
+          provenance: false
+          sbom: false
+      - name: Smoke test
+        run: bash script/rust/image_smoke.sh deltabadger:smoke
+      - name: Build and push by digest
+        id: build
+        if: env.DRY != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: Dockerfile.rust
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.labels.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+      # A cache-hit rebuild, so its config is the smoked image's; checked, not assumed (rust.yml's publish-digest job
+      # proves the digest path on both runners).
+      - name: The pushed image is the smoked one
+        if: env.DRY != 'true'
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          SMOKED=$(bash script/rust/image_config_digest.sh deltabadger:smoke)
+          raw=$(docker buildx imagetools inspect --raw "$REF")
+          manifest=$(jq -r --arg arch "$ARCH" '.manifests // [] | map(select(.platform.architecture == $arch)) | .[0].digest // empty' <<< "$raw")
+          if [ -n "$manifest" ]; then raw=$(docker buildx imagetools inspect --raw "${REF%@*}@$manifest"); fi
+          pushed=$(jq -r '.config.digest' <<< "$raw")
+          echo "smoked $SMOKED, pushed $pushed"
+          [ -n "$SMOKED" ] && [ "$pushed" = "$SMOKED" ] || { echo "::error::the pushed image ($pushed) is not the smoked one ($SMOKED)"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/digests" && d="${{ steps.build.outputs.digest }}" && touch "$RUNNER_TEMP/digests/${d#sha256:}"
+      - if: env.DRY != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 3
+
+  # PLAN-B6 §6 + PLAN-B7 §7 (B6-4, B7-3): the three desktop apps. Signed for the updater when the key is configured
+  # (or with the throwaway key in a dry run), Apple-signed when Apple is; otherwise unsigned, kept as workflow artifacts
+  # for 14 days (B12's fresh-install checks) and never attached to a release.
+  desktop:
+    name: desktop ${{ matrix.name }}
+    needs: [meta, draft, testkey]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macos-aarch64, os: macos-15, bundles: 'app,dmg' }
+          - { name: windows-x86_64, os: windows-2025, bundles: nsis }
+          - { name: linux-x86_64, os: ubuntu-24.04, bundles: 'appimage,deb' }
+    env:
+      DRY: ${{ needs.meta.outputs.dry }}
+      SIGN: ${{ needs.meta.outputs.dry == 'true' || needs.meta.outputs.updater_ready == 'true' }}
+      APPLE_READY: ${{ needs.meta.outputs.dry != 'true' && needs.meta.outputs.apple_ready == 'true' }}
+    steps:
+      - name: Dropped on purpose
+        if: inputs.drop_leg == matrix.name
+        run: exit 1
+      # rust/build.rs's gate hashes source bytes; Windows runners default to CRLF checkouts (PLAN-B6 r1.3).
+      - name: Check out LF line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            libxdo-dev libssl-dev patchelf file
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Install frontend dependencies
+        shell: bash
+        run: bun install --frozen-lockfile
+      - name: Install Rust 1.94.0
+        shell: bash
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup default 1.94.0
+      # desktop.yml's caches, read only.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            rust -> target
+            src-tauri -> target
+          key: desktop-${{ matrix.name }}
+          save-if: false
+      - name: Dry run version
+        if: env.DRY == 'true'
+        shell: bash
+        run: bash script/release/validate.sh set-version "${{ needs.meta.outputs.version }}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: catalogue
+          path: db/seed_data
+      - if: env.DRY == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: testkey
+          path: ${{ runner.temp }}/testkey
+      - name: Build the app
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          conf=$RUNNER_TEMP/release.conf.json
+          if [ "$DRY" = true ]; then
+            TAURI_SIGNING_PRIVATE_KEY=$(cat "$RUNNER_TEMP/testkey/test.key")
+            export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD=
+            jq -n --arg k "$(cat "$RUNNER_TEMP/testkey/test.key.pub")" '{plugins: {updater: {pubkey: $k}}}' > "$conf"
+          elif [ "$SIGN" = true ]; then
+            echo '{}' > "$conf"
+          else
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            echo '{"bundle":{"createUpdaterArtifacts":false}}' > "$conf"
+          fi
+          # Tauri reads the Apple variables with var_os: an empty one is still set and fails the import, so unset them.
+          [ "$APPLE_READY" = true ] || unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+          bunx tauri build --bundles "${{ matrix.bundles }}" --config "$conf" -- --locked
+      - name: Stage the release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          b=src-tauri/target/release/bundle
+          mkdir -p "$RUNNER_TEMP/assets"
+          one() { # <glob> <asset name> <signed package?>
+            # shellcheck disable=SC2206 # the pattern is meant to glob
+            local found=( $1 )
+            [ ${#found[@]} = 1 ] && [ -f "${found[0]}" ] || { echo "::error::expected one $1, found: ${found[*]}"; exit 1; }
+            cp "${found[0]}" "$RUNNER_TEMP/assets/$2"
+            if [ "$3" = yes ] && [ "$SIGN" = true ]; then
+              [ -s "${found[0]}.sig" ] || { echo "::error::no updater signature for ${found[0]}"; exit 1; }
+              cp "${found[0]}.sig" "$RUNNER_TEMP/assets/$2.sig"
+            fi
+          }
+          case "${{ matrix.name }}" in
+            macos-aarch64)
+              one "$b/dmg/*.dmg" Deltabadger_darwin-aarch64.dmg no
+              [ "$SIGN" = true ] && one "$b/macos/*.app.tar.gz" Deltabadger_darwin-aarch64.app.tar.gz yes ;;
+            windows-x86_64) one "$b/nsis/*-setup.exe" Deltabadger_windows-x86_64-setup.exe yes ;;
+            linux-x86_64)
+              one "$b/appimage/*.AppImage" Deltabadger_linux-x86_64.AppImage yes
+              one "$b/deb/*.deb" Deltabadger_linux-x86_64.deb no ;;
+          esac
+          ls -l "$RUNNER_TEMP/assets"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-${{ matrix.name }}
+          path: ${{ runner.temp }}/assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  # Needs every leg: a failed or dropped one stops the release here, still a draft, with no image tag moved.
+  publish:
+    needs: [meta, draft, image, desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      url: ${{ steps.publish.outputs.url }}
+      body: ${{ steps.publish.outputs.body }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.meta.outputs.tag }}
+      DRY: ${{ needs.meta.outputs.dry }}
+      PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+      # r1.10: a release carries desktop assets only when both signings are configured; dry runs use the throwaway key.
+      SIGNED: ${{ needs.meta.outputs.dry == 'true' || (needs.meta.outputs.updater_ready == 'true' && needs.meta.outputs.apple_ready == 'true') }}
+      LATEST_MAJOR: ${{ vars.LATEST_MAJOR }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install minisign
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          path: assets
+          merge-multiple: true
+      - if: env.DRY != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digests-*
+          path: digests
+          merge-multiple: true
+      - if: env.DRY == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: testkey
+          path: testkey
+      - name: Validate
+        run: |
+          set -euo pipefail
+          # The remote's tags, so a newer release pushed meanwhile holds this one's shared tags back (r2.1).
+          git fetch --force --tags origin
+          if [ "$DRY" = true ]; then
+            bash script/release/validate.sh set-version "${TAG#v}"
+            pubkey=$(cat testkey/test.key.pub) critical=false major=${LATEST_MAJOR:-3}
+          else
+            pubkey=$(jq -r .plugins.updater.pubkey src-tauri/tauri.conf.json) major=$LATEST_MAJOR
+            critical=$(git tag -l --format='%(trailers:key=Critical,valueonly)' "$TAG" | tr -d '[:space:]')
+            digests=(digests/*)
+            [ ${#digests[@]} = 2 ] && [ -e "${digests[0]}" ] || { echo "::error::expected the amd64 and arm64 digests, found: ${digests[*]}"; exit 1; }
+            [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ] || { echo "::error::$TAG is already published"; exit 1; }
+          fi
+          bash script/release/validate.sh same-version "$TAG"
+          if [ "$SIGNED" = true ]; then
+            bash script/release/validate.sh feed assets "$TAG" "${critical:-false}" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+            bash script/release/validate.sh check assets "$TAG" signed "$pubkey"
+          else
+            bash script/release/validate.sh check assets "$TAG" unsigned ""
+          fi
+          # shellcheck disable=SC2046
+          bash script/release/validate.sh tags "$TAG" "$major" "$TAG" $(git tag -l 'v*') > tags.txt
+          echo "image tags: $(xargs < tags.txt)"
+          { echo "### $TAG $([ "$DRY" = true ] && echo '(dry run: validated, nothing published)')"
+            echo "image tags: \`$(xargs < tags.txt)\`"; echo "desktop assets: $([ "$SIGNED" = true ] && (cd assets && echo *) || echo none)"; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Attach the desktop assets
+        if: env.DRY != 'true' && env.SIGNED == 'true'
+        run: gh release upload "$TAG" assets/* --clobber
+      - name: Tag the image
+        if: env.DRY != 'true'
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          args=()
+          while read -r t; do args+=(-t "$IMAGE:$t"); done < tags.txt
+          for d in digests/*; do args+=("$IMAGE@sha256:$(basename "$d")"); done
+          docker buildx imagetools create "${args[@]}"
+          docker buildx imagetools inspect "$IMAGE:${TAG#v}"
+      - name: Publish the release
+        id: publish
+        if: env.DRY != 'true'
+        run: |
+          set -euo pipefail
+          # Explicit both ways (r1.2): GitHub makes a release "Latest" unless told otherwise, and betas never are.
+          latest=$(grep -qx latest tags.txt && echo true || echo false)
+          gh release edit "$TAG" --draft=false --prerelease="$PRERELEASE" --latest="$latest"
+          { echo "url=$(gh release view "$TAG" --json url --jq .url)"
+            echo "body<<RELEASE_BODY_END"; gh release view "$TAG" --json body --jq .body; echo RELEASE_BODY_END; } >> "$GITHUB_OUTPUT"
+
+  # A release published with GITHUB_TOKEN fires no `release: published`, so the announcement is called (r1.11).
+  announce:
+    needs: [meta, publish]
+    if: needs.meta.outputs.dry != 'true' && needs.meta.outputs.prerelease != 'true'
+    uses: ./.github/workflows/announce-release.yml
+    with:
+      tag: ${{ needs.meta.outputs.tag }}
+      url: ${{ needs.publish.outputs.url }}
+      body: ${{ needs.publish.outputs.body }}
+    secrets: inherit
+
+  # r1.1: :latest and GitHub's "Latest" move together, to a published stable release at least as new as the current one.
+  promote:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'promote'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      LATEST_MAJOR: ${{ vars.LATEST_MAJOR }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check the release
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$TAG' is not a stable release tag"; exit 1; }
+          read -r draft pre < <(gh release view "$TAG" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')
+          [ "$draft" = false ] && [ "$pre" = false ] || { echo "::error::$TAG is not a published stable release"; exit 1; }
+          major=${TAG#v}; major=${major%%.*}
+          [ "$LATEST_MAJOR" = "$major" ] || { echo "::error::LATEST_MAJOR is '$LATEST_MAJOR': set it to $major first (gh variable set LATEST_MAJOR --body $major), so later $major.x releases keep :latest"; exit 1; }
+          # shellcheck disable=SC2046
+          [ "$(bash script/release/validate.sh highest "v$major" "$TAG" $(git tag -l 'v*'))" = true ] || { echo "::error::$TAG is not the newest v$major release"; exit 1; }
+          current=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          if [ -n "$current" ] && [ "$(printf '%s\n' "$current" "$TAG" | sort -V | tail -1)" != "$TAG" ]; then
+            echo "::error::$TAG is older than the current Latest ($current)"; exit 1
+          fi
+      - name: Move :latest
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          digest=$(docker buildx imagetools inspect "$IMAGE:${TAG#v}" --format '{{json .Manifest}}' | jq -r .digest)
+          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE@$digest"
+          docker logout ghcr.io
+          # What an anonymous pull sees (B5 r4.2).
+          seen=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Manifest}}' | jq -r .digest)
+          [ "$seen" = "$digest" ] || { echo "::error:::latest is $seen anonymously, not $digest"; exit 1; }
+      - name: Mark it Latest
+        run: gh release edit "$TAG" --latest=true
