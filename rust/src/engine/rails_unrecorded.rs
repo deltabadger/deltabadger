@@ -257,7 +257,10 @@ fn venue_name(c: &Connection, exchange: i64) -> Result<String, EngineError> {
 
 fn when(o: &Obligation) -> String {
     let f = |t: DateTime<Utc>| t.format("%Y-%m-%d %H:%M UTC").to_string();
-    if o.source == QUEUE_JOB && o.to > o.from { format!("between {} and {}", f(o.from), o.to.format("%H:%M UTC")) } else { format!("around {}", f(o.from)) }
+    if o.source == QUEUE_JOB && o.to > o.from {
+        let to = if o.to.date_naive() == o.from.date_naive() { o.to.format("%H:%M UTC").to_string() } else { f(o.to) };
+        format!("between {} and {to}", f(o.from))
+    } else { format!("around {}", f(o.from)) }
 }
 
 struct Scope { exchange: i64, bases: Vec<i64>, quote: i64, side: Side }
@@ -281,6 +284,13 @@ fn current_scope(c: &Connection, o: &Obligation, exchange: i64) -> Result<Option
     let Some(quote) = bot.quote_asset_id() else { return Ok(None) };
     if bases.is_empty() || exchange == 0 { return Ok(None); }
     let side = if bot.selling() { Side::Sell } else { Side::Buy };
+    // The exchange then: Rails can move a bot to another exchange without touching any of the marks above. The bot's own
+    // nearest order before the span names it; with none before, an order after it on today's exchange does (every later
+    // order is checked below); with none at all it is unknown.
+    let before: Option<i64> = c.query_row("SELECT exchange_id FROM transactions WHERE bot_id = ?1 AND created_at <= ?2 ORDER BY created_at DESC, id DESC LIMIT 1",
+                                          params![o.bot, after], |r| r.get(0)).optional()?;
+    let later: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND created_at > ?2)", params![o.bot, after], |r| r.get(0))?;
+    match before { Some(e) if e != exchange => return Ok(None), None if !later => return Ok(None), _ => {} }
     let mut s = c.prepare("SELECT exchange_id, base_asset_id, quote_asset_id, side FROM transactions WHERE bot_id = ?1 AND created_at > ?2")?;
     for row in s.query_map(params![o.bot, after], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?, r.get::<_, Option<i64>>(3)?)))? {
         let (e, b, q, sd) = row?;
@@ -306,7 +316,7 @@ impl Trade {
     fn describe(&self, c: &Connection) -> Result<String, EngineError> {
         let (b, q): (String, String) = c.query_row("SELECT base, quote FROM tickers WHERE id = ?1", [self.ticker], |r| Ok((r.get(0)?, r.get(1)?)))?;
         let verb = match self.side { Side::Buy => "bought", Side::Sell => "sold" };
-        Ok(format!("{verb} {} {b} for {} {q} at {} (filled)", self.base.to_s_f(), self.quote.to_s_f(), self.at.format("%H:%M:%S UTC")))
+        Ok(format!("{verb} {} {b} for {} {q} on {} (filled)", self.base.to_s_f(), self.quote.to_s_f(), self.at.format("%Y-%m-%d %H:%M:%S UTC")))
     }
 }
 
@@ -354,10 +364,12 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
         drop(s);
         for (id, tx_id, entry_type, raw, at) in rows {
             let raw: Value = match raw.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
-            // A linked row whose time or object can't be read names no order to exclude; it is a bot's, never listed.
-            let Ok(transacted_at) = parse_time(&at) else { continue };
-            if let Read::Fill(f) = fills::read(c, venue, &LedgerRow { id, tx_id, entry_type, raw_data: raw, transacted_at, exchange_id: exchange }).map_err(EngineError::Data)? {
-                if !linked.contains(&f.order_key) { linked.push(f.order_key); }
+            // A linked row that can't be read may be a fill of a listed order: then no list can be trusted (unchecked).
+            let Ok(transacted_at) = parse_time(&at) else { return Ok(Err(())) };
+            match fills::read(c, venue, &LedgerRow { id, tx_id, entry_type, raw_data: raw, transacted_at, exchange_id: exchange }).map_err(EngineError::Data)? {
+                Read::Fill(f) => if !linked.contains(&f.order_key) { linked.push(f.order_key); },
+                Read::NotATrade => {}
+                Read::Unreadable(_) => return Ok(Err(())),
             }
         }
     }

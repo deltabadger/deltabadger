@@ -35,7 +35,14 @@ fn binance(c: &Connection) -> Seeded {
     c.execute("UPDATE tickers SET ticker = 'BTCEUR', base = 'BTC' WHERE id = ?1", [s.ticker_id]).unwrap();
     s
 }
-fn bot(c: &Connection, s: &Seeded) -> i64 { seed::insert_bot(c, s, &BotSpec::weekly(20.0, "2026-09-01 10:00:00")) }
+/// A running bot: its earlier weekly order, on its exchange, names the exchange it traded on (r3.2, Codex r2).
+fn bot(c: &Connection, s: &Seeded) -> i64 {
+    let b = seed::insert_bot(c, s, &BotSpec::weekly(20.0, "2026-09-01 10:00:00"));
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, base_asset_id, quote_asset_id, transaction_type, \
+               error_messages, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 2, 0, ?4, ?5, 'REGULAR', '[]', '2026-09-22 14:03:00', '2026-09-22 14:03:00')",
+              params![b, s.exchange_id, format!("PRIOR-{b}"), s.btc, s.quote]).unwrap();
+    b
+}
 fn ambiguous_line(c: &Connection, bot: i64, at: &str) -> i64 {
     c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, 'placement_ambiguous', 1, ?2, ?3)",
               params![bot, json!({ "error": "Net::ReadTimeout" }).to_string(), at]).unwrap();
@@ -333,7 +340,7 @@ fn a_trade_no_bot_recorded_in_the_window_is_listed_with_its_fills_summed() {
     let (event, details) = reported(&c, &s, b);
     assert_eq!(event, ru::CANDIDATES);
     assert_eq!(details, json!({ "when": "around 2026-09-29 14:03 UTC", "venue": "Binance", "count": 1,
-                                "trades": "bought 0.0004 BTC for 20.01 EUR at 14:03:05 UTC (filled)" }));
+                                "trades": "bought 0.0004 BTC for 20.01 EUR on 2026-09-29 14:03:05 UTC (filled)" }));
 }
 
 #[test]
@@ -481,12 +488,56 @@ fn a_bot_that_moved_exchange_is_told_to_check_the_exchange_it_traded_on_then() {
     let c = primary();
     let s = binance(&c);
     let b = bot(&c, &s);
-    seed::insert_tx(&c, &s, b, &seed::TxSpec { status: 0, external_status: Some(2), external_id: Some("BTCEUR-1".into()), order_type: 0, amount: Some("0.001"),
-        quote_amount: Some("20"), price: Some("20000"), quote_amount_exec: Some("20"), amount_exec: Some("0.001"), created_at: "2026-09-22 14:03:00".into() });
     ambiguous_line(&c, b, AT);
     c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', ?1, ?1)", [AT]).unwrap();
-    c.execute("UPDATE bots SET exchange_id = ?2, started_at = '2026-09-30 09:00:00' WHERE id = ?1", params![b, c.last_insert_rowid()]).unwrap();
+    c.execute("UPDATE bots SET exchange_id = ?2 WHERE id = ?1", params![b, c.last_insert_rowid()]).unwrap(); // no mark moves (Codex r2)
     ru::collect(&c, &queue(), None, now()).unwrap();
     ru::report(&c, now()).unwrap();
     assert_eq!(lines(&c, b)[0].1["venue"], "Binance");
+}
+
+// ---- Codex branch r2 ---------------------------------------------------------------------------------------------------
+
+#[test]
+fn a_bot_with_no_order_of_its_own_has_no_known_exchange_then() {
+    let c = primary();
+    let s = binance(&c);
+    let b = seed::insert_bot(&c, &s, &BotSpec::weekly(20.0, "2026-09-01 10:00:00"));
+    ambiguous_line(&c, b, AT);
+    // Its very first tick was the ambiguous one, and nothing since: the exchange then can't be told from its rows.
+    ru::collect(&c, &queue(), None, now()).unwrap();
+    synced(&c, s.api_key_id, now());
+    ru::report(&c, now()).unwrap();
+    assert_eq!(lines(&c, b)[0].1["reason"], "settings_changed");
+}
+
+#[test]
+fn an_unreadable_linked_fill_makes_the_list_untrustworthy() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    ambiguous_line(&c, b, AT);
+    let other = bot(&c, &s);
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, side, transaction_type, error_messages, created_at, updated_at) \
+               VALUES (?1, ?2, 'X', 0, 0, 'REGULAR', '[]', '2026-09-29 14:03:01', '2026-09-29 14:03:01')", params![other, s.exchange_id]).unwrap();
+    let held = c.last_insert_rowid();
+    fill(&c, &s, 11, 5, true, "0.0002", "10", "2026-09-29T14:03:05Z");
+    let late = fill(&c, &s, 12, 5, true, "0.0002", "10", "2026-09-29T16:00:00Z");
+    c.execute("UPDATE account_transactions SET transaction_id = ?2, raw_data = json_set(raw_data, '$.qty', 'abc') WHERE id = ?1", params![late, held]).unwrap();
+    assert_eq!(reported(&c, &s, b).1["reason"], "unreadable");
+}
+
+#[test]
+fn a_span_across_midnight_names_both_dates() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    let q = queue();
+    let args = json!({ "arguments": [{ "_aj_globalid": format!("gid://deltabadger/Bots::DcaMultiAsset/{b}") }] }).to_string();
+    q.execute("INSERT INTO solid_queue_jobs (id, class_name, arguments, scheduled_at, created_at) VALUES (1, 'Bot::ActionJob', ?1, '2026-09-28 23:58:00', '2026-09-28 23:58:00')", [&args]).unwrap();
+    q.execute("INSERT INTO solid_queue_failed_executions (job_id, created_at) VALUES (1, '2026-09-29 00:01:00')", []).unwrap();
+    c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [b]).unwrap();
+    ru::collect(&c, &q, None, now()).unwrap();
+    ru::report(&c, now()).unwrap();
+    assert_eq!(lines(&c, b)[0].1["when"], "between 2026-09-28 23:58 UTC and 2026-09-29 00:01 UTC");
 }
