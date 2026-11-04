@@ -105,7 +105,7 @@ def test(name, path, old, new, expression):
             primitive.write_text(json.dumps(hashes,indent=2)+"\n")
         disk(name)
         with (logs / f'{name}.log').open('w') as output:
-            result = run_mutant(name, ['cargo','nextest','run','-j','5','--test','histories','--test','eligibility','--test','histories_r1','--test','amount','--test','histories_sources','--test','web_actions','--test','start_time','--test','start_time_engine','--lib','-E',expression],
+            result = run_mutant(name, ['cargo','nextest','run','-j','5','--test','histories','--test','eligibility','--test','histories_r1','--test','amount','--test','histories_sources','--test','web_actions','--test','start_time','--test','start_time_engine','--test','single_asset','--test','set_aside','--lib','-E',expression],
                                     output, started)
         text=(logs/f'{name}.log').read_text()
         # Compilation errors are not a killed mutant. Require a real failing test.
@@ -200,6 +200,17 @@ new = [
     ('a22_web_anchor', 'rust/src/web/bot/mod.rs', 'pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> { Ok(self.started_at) }', 'pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> { let stored=crate::codec::optional_time(self.settings.get("start_at")).map_err(|e|data(format!("{e:?}")))?; Ok(if self.start_time_enabled() { stored.or(self.started_at) } else { self.started_at }) }', 'test(action_write_carry_decorator_oracle)'),
     ('a22_repeat_earlier', 'rust/src/web/bot/start.rs', 'LocalResult::Single(at) | LocalResult::Ambiguous(at, _) =>', 'LocalResult::Single(at) | LocalResult::Ambiguous(_, at) =>', 'test(a_repeated_time_is_its_earlier_occurrence_and_a_missing_one_moves_an_hour) | test(initial_start_at_matches_rails_or_the_chosen_wall_time)'),
     ('a22_wall_step', 'rust/src/web/bot/start.rs', 'if candidate > now { Ok(candidate) } else { on(first + step) }', 'if candidate > now { Ok(candidate) } else { Ok(candidate + Duration::days(step)) }', 'test(a_passed_start_steps_to_the_chosen_wall_time) | test(initial_start_at_matches_rails_or_the_chosen_wall_time)'),
+    # A23: legacy single-asset bots (engine::single_asset): the eligibility branch, its timestamp check, each Skip, the start's call.
+    ('a23_legacy_branch', 'rust/src/engine/eligibility.rs', '    if super::single_asset::legacy(bot) {', '    if false && super::single_asset::legacy(bot) {', 'test(a_kept_legacy_row_is_named_by_its_skip_alone)'),
+    ('a23_legacy_row_times', 'rust/src/engine/eligibility.rs', '        crate::figures::fill::validate_row_times(c, bot.id).map_err(|e| EngineError::Data(format!("{e:?}")))?;\n        let skip', '        let skip', 'test(a_kept_legacy_row_with_a_malformed_order_time_stays_unreadable)'),
+    ('a23_skip_settings', 'rust/src/engine/single_asset.rs', 'let Some(exchange) = exchange else { return Ok(Err(Skip::Settings)) };', 'let exchange = exchange.unwrap_or(0);', 'test(recorded_conversions_are_byte_equal)'),
+    ('a23_skip_market', 'rust/src/engine/single_asset.rs', 'let Some(ticker) = ticker else { return Ok(Err(Skip::Market)) };', 'let Some(ticker) = ticker else { return Ok(Err(Skip::Settings)) };', 'test(recorded_conversions_are_byte_equal) | test(a_kept_legacy_row_is_named_by_its_skip_alone)'),
+    ('a23_skip_memberships', 'rust/src/engine/single_asset.rs', '{ return Ok(Err(Skip::Memberships)); }', '{}', 'test(recorded_conversions_are_byte_equal)'),
+    ('a23_skip_other_asset', 'rust/src/engine/single_asset.rs', '{ return Ok(Err(Skip::History("orders of another asset"))); }', '{}', 'test(recorded_conversions_are_byte_equal)'),
+    ('a23_skip_non_regular', 'rust/src/engine/single_asset.rs', '{ return Ok(Err(Skip::History("rebalancing, liquidation or redeploy orders"))); }', '{}', 'test(recorded_conversions_are_byte_equal)'),
+    ('a23_skip_unpriced_sell', 'rust/src/engine/single_asset.rs', '        return Ok(Err(Skip::History("a sale whose proceeds weren\'t reported")));\n', '', 'test(recorded_conversions_are_byte_equal)'),
+    ('a23_skip_next_start', 'rust/src/engine/single_asset.rs', '.unwrap_or(Skip::NextStart)', '.unwrap_or(Skip::Settings)', 'test(a_kept_legacy_row_is_named_by_its_skip_alone) | test(a_kept_bot_whose_ticker_returns)'),
+    ('a23_apply_converts', 'rust/src/engine/set_aside.rs', '    let converted = super::single_asset::convert_all(tx, now)?;', '    let converted: Vec<i64> = vec![];', 'test(a_start_converts_a_legacy_bot_before_its_check) | test(a_takeover_converts_what_it_can)'),
 ]
 for args in new: test(*args)
 

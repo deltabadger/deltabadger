@@ -290,3 +290,32 @@ mod web {
         Ok(())
     }
 }
+
+/// PLAN-A23 §4: the four sentences a kept legacy bot is named by, verbatim (Q3).
+#[test]
+fn a_kept_legacy_bots_sentences() {
+    use deltabadger::engine::eligibility::{Kind, Reason};
+    use deltabadger::engine::single_asset::Skip;
+    let (_dir, o, s) = common::install();
+    let bot = seed::insert_bot(&o.primary, &s, &plain());
+    let said = |skip: Skip| set_aside::sentence(&o.primary, bot, &Reason { text: String::new(), kind: Kind::Legacy(skip) }).unwrap();
+    assert_eq!(said(Skip::Settings), "This is an older kind of bot, and its settings can't be read, so it can't be updated to run here. It stays stopped with its history. Contact support.");
+    assert_eq!(said(Skip::Market), "This is an older kind of bot, and its market isn't listed on Kraken anymore, so it can't be updated to run here. It stays stopped with its history. To keep investing, create a new bot.");
+    for (skip, what) in [(Skip::History("orders of another asset"), "orders of another asset"), (Skip::History("rebalancing, liquidation or redeploy orders"), "rebalancing, liquidation or redeploy orders"),
+                         (Skip::History("a sale whose proceeds weren't reported"), "a sale whose proceeds weren't reported"), (Skip::Memberships, "assets it didn't buy")] {
+        assert_eq!(said(skip), format!("This is an older kind of bot, and its order history has {what} that the current kind of bot would count differently, so it can't be updated to run here. It stays stopped with its history. To keep investing, create a new bot."));
+    }
+    assert_eq!(said(Skip::NextStart), "This is an older kind of bot. It's updated to run here the next time Deltabadger starts; then start the bot again.");
+}
+
+/// PLAN-A23: the conversion is the first thing every start does, before the set-aside check reads the bots.
+#[test]
+fn a_start_converts_a_legacy_bot_before_its_check() {
+    let (dir, o, s) = common::install();
+    let c = &o.primary;
+    let bot = seed::insert_bot(c, &s, &plain());
+    c.execute("UPDATE bots SET type = 'Bots::DcaSingleAsset', settings = json_set(json_remove(settings, '$.allocations'), '$.base_asset_id', ?2) WHERE id = ?1", [bot, s.btc]).unwrap();
+    let t = take_over(dir.path(), &o).unwrap();
+    assert_eq!((t.eligible, t.set_aside.len()), (vec![bot], 0));
+    assert_eq!(model::load_bot(c, bot).unwrap().bot_type, "Bots::DcaMultiAsset");
+}
