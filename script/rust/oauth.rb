@@ -393,7 +393,13 @@ module OauthParity
                                     'code_verifier' => VERIFIER, 'client_id' => 'personal-application-uid' })
       ] },
       'throttle_token' => { 'steps' => authorized + Array.new(20) { exchange('code' => 'nothing') } + [expect(429, exchange), later(30, expect(200, exchange))] },
-      'unrouted_get_token' => { 'steps' => [get('/oauth/token')] }
+      'unrouted_get_token' => { 'steps' => [get('/oauth/token')] },
+      # Rails' routes take a `(.:format)` suffix: the client endpoints answer the same at `.json` (or any one format).
+      'token_format_suffixes' => { 'steps' => [register.merge('path' => '/oauth/register.json')] + sign_in + [
+        authorize, approve, expect(200, exchange.merge('path' => '/oauth/token.json')), expect(200, refresh.merge('path' => '/oauth/token.xml')),
+        expect(200, revoke('$access_token').merge('path' => '/oauth/revoke.json')), resolve('Bearer $access_token'),
+        expect(400, refresh('nothing').merge('path' => '/oauth/token.json'))
+      ].compact }
     }
   end
 

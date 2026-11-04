@@ -963,13 +963,14 @@ pub enum Carried {
 }
 
 pub fn carried_token(headers: &HeaderMap, shaped: &Shaped) -> Carried {
-    let header = header_text(headers, "authorization")
-        .and_then(|value| value.get(..7).filter(|scheme| scheme.eq_ignore_ascii_case("bearer ")).map(|_| &value[7..]))
+    // The header's bytes as sent: one that is not ASCII is still a way of sending a token (it names no row).
+    let header = headers.get(header::AUTHORIZATION).map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned())
+        .and_then(|value| value.get(..7).filter(|scheme| scheme.eq_ignore_ascii_case("bearer ")).map(|_| value[7..].to_string()))
         .filter(|token| !token.trim().is_empty());
     let used = usize::from(header.is_some())
         + ["access_token", "bearer_token"].iter().map(|name| usize::from(shaped.query(name).given()) + usize::from(shaped.body(name).given())).sum::<usize>();
     if used > 1 { return Carried::Multiple; }
-    if let Some(token) = header { return Carried::Token(token.to_string()); }
+    if let Some(token) = header { return Carried::Token(token); }
     // A list or a hash sent alone names no row.
     match ["access_token", "bearer_token"].iter().map(|name| shaped.get(name)).find(Param::given) {
         Some(Param::Text(token)) => Carried::Token(token),
@@ -1034,8 +1035,12 @@ impl Shaped {
             }
             _ => Some((name.clone(), value.clone())),
         }).collect();
+        // Rack splits pairs at `&` and the spaces after it (`& *`): a name's leading spaces are not its own. A `+` or
+        // `%20` there is a space Rack keeps; it is taken off too, which can only count a way of sending a token more.
+        let fields: Vec<(String, String)> = fields.into_iter().map(|(name, value)| (name.trim_start_matches(' ').to_string(), value)).collect();
         let query = super::bot::action_params::form(&fields).ok()?;
-        let body = if params.form.is_empty() { params.json.clone().filter(Value::is_object).unwrap_or_else(|| json!({})) } else { super::bot::action_params::form(&params.form).ok()? };
+        let form: Vec<(String, String)> = params.form.iter().map(|(name, value)| (name.trim_start_matches(' ').to_string(), value.clone())).collect();
+        let body = if form.is_empty() { params.json.clone().filter(Value::is_object).unwrap_or_else(|| json!({})) } else { super::bot::action_params::form(&form).ok()? };
         Some(Self { query, body })
     }
 
@@ -1158,7 +1163,7 @@ pub async fn token_info(State(app): State<App>, Extension(params): Extension<Arc
 
 /// The paths whose Rails route takes a `(.:format)` suffix that this crate serves at the bare path: one segment after
 /// a `.`, without `/` or `.` in it (Rails' format segment). Matchit has no suffix parameters.
-const FORMATTED: [&str; 3] = ["/oauth/introspect", "/oauth/token/info", "/oauth/authorize/native"];
+const FORMATTED: [&str; 6] = ["/oauth/introspect", "/oauth/token/info", "/oauth/authorize/native", "/oauth/token", "/oauth/revoke", "/oauth/register"];
 
 /// The two routes that read every parameter as Rack does, so that a query or form Rack cannot read (a `%` without
 /// two hex digits, bytes that are not UTF-8) is refused whole, as in Rails (`web::hook::Unparseable`). A multipart

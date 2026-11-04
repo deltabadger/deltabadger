@@ -646,7 +646,7 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), names.len(), failures.join("\n"));
     println!("{} scenarios, {steps_compared} steps; {crossed} cross-runtime plays", names.len());
     if std::env::var("OAUTH").is_err() {
-        assert_eq!((names.len(), crossed), (181, 20), "a scenario was dropped or added without this count");
+        assert_eq!((names.len(), crossed), (182, 20), "a scenario was dropped or added without this count");
     }
 }
 
@@ -1136,7 +1136,7 @@ async fn no_oauth_refusal_repeats_the_query() {
     let query = "?bearer_token=LEAK1&client_secret=LEAK2&access_token=LEAK3&token=LEAK4&code=LEAK5&x=LEAK6";
     let cases = [("GET", "/oauth/introspect"), ("PUT", "/oauth/introspect"), ("PATCH", "/oauth/introspect"), ("DELETE", "/oauth/introspect"),
                  ("POST", "/oauth/token/info"), ("DELETE", "/oauth/token/info"), ("POST", "/oauth/authorize/native"), ("GET", "/oauth/token"),
-                 ("GET", "/oauth/revoke"), ("GET", "/oauth/register"), ("GET", "/oauth/token.json"), ("POST", "/oauth/introspect.json.extra"),
+                 ("GET", "/oauth/revoke"), ("GET", "/oauth/register"), ("GET", "/oauth/token.json"), ("GET", "/oauth/revoke.json.x"), ("POST", "/oauth/introspect.json.extra"),
                  ("POST", "/oauth/nothing"), ("GET", "/de/oauth/introspect"), ("POST", "/de/oauth/token"), ("POST", "/.well-known/oauth-authorization-server")];
     for (method, path) in cases {
         let answer = send(&app, method, &format!("{path}{query}"), FORM, "", None).await;
@@ -1172,6 +1172,13 @@ async fn token_info_refuses_a_get_body() {
     assert_eq!(send_with_type(&app, "POST", "/oauth/introspect?token=first", "application/json", &[("content-length", "1"), ("authorization", "Bearer second")], " ").await.status, 400);
     // `a=x&a[]` is two shapes of one name: Rack's 400.
     assert_eq!(send_with(&app, "GET", "/oauth/token/info?access_token=x&access_token%5B%5D", &[("authorization", "Bearer second")], "").await.status, 400);
+    // Rack splits at `& *`: ` access_token` after `& ` is `access_token`, a second way beside the header.
+    assert_eq!(send_with(&app, "POST", "/oauth/introspect", &[("authorization", "Bearer second")], "token=first& access_token=x").await.status, 400);
+    // A header that is not ASCII is still a header: with `access_token`, two ways.
+    let mut request = Request::builder().method("GET").uri("/oauth/token/info?access_token=second").header(header::HOST, web::HOST)
+        .header(header::AUTHORIZATION, axum::http::HeaderValue::from_bytes("Bearer é".as_bytes()).unwrap()).body(Body::empty()).unwrap();
+    request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+    assert_eq!(deltabadger::web::router(app.clone()).oneshot(request).await.unwrap().status().as_u16(), 400, "a non-ASCII header");
     assert_eq!(token_rows(dir.path()), before, "nothing was used");
     assert_eq!(send_with(&app, "GET", "/oauth/token/info", &[("authorization", "Bearer second")], "").await.status, 200);
 }
