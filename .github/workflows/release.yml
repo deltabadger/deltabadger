@@ -119,7 +119,10 @@ jobs:
           git fetch --force --tags origin
           if state=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
             [ "$state" = true ] || { echo "::error::$TAG is already published; a re-run only resumes a draft"; exit 1; }
-            gh release download "$TAG" --pattern catalogue.json.gz --dir . 2>/dev/null || true
+            # A re-run builds what the first run built: the attached snapshot, or a failure if it can't be read.
+            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx catalogue.json.gz; then
+              gh release download "$TAG" --pattern catalogue.json.gz --dir .
+            fi
           else
             # The notes are the annotated tag's body (D-RELEASE-NOTES-IN-TAG), without its trailers or signature.
             git tag -l --format='%(contents:body)' "$TAG" | sed '/^-----BEGIN /,$d' | grep -v '^Critical: ' > notes.md || true
@@ -501,10 +504,16 @@ jobs:
           [ "$LATEST_MAJOR" = "$major" ] || { echo "::error::LATEST_MAJOR is '$LATEST_MAJOR': set it to $major first (gh variable set LATEST_MAJOR --body $major), so later $major.x releases keep :latest"; exit 1; }
           # shellcheck disable=SC2046
           [ "$(bash script/release/validate.sh highest "v$major" "$TAG" $(git tag -l 'v*'))" = true ] || { echo "::error::$TAG is not the newest v$major release"; exit 1; }
-          current=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
-          if [ -n "$current" ] && [ "$(printf '%s\n' "$current" "$TAG" | sort -V | tail -1)" != "$TAG" ]; then
-            echo "::error::$TAG is older than the current Latest ($current)"; exit 1
-          fi
+          # Neither pointer moves backward: GitHub's Latest (none yet is fine; a failed lookup fails) and :latest's version.
+          current=$(gh release list --exclude-drafts --limit 200 --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')
+          image=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image}}' \
+            | jq -r 'if has("config") then . else .[keys[0]] end | .config.Labels["org.opencontainers.image.version"] // empty')
+          [ -n "$image" ] || { echo "::error::could not read the version of $IMAGE:latest"; exit 1; }
+          for was in $current "v$image"; do
+            if [ "$(printf '%s\n' "$was" "$TAG" | sort -V | tail -1)" != "$TAG" ]; then
+              echo "::error::$TAG is older than the current latest ($was)"; exit 1
+            fi
+          done
       - name: Move :latest
         run: |
           set -euo pipefail

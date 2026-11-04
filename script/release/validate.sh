@@ -37,7 +37,7 @@ verify() { # <file> <sig file> <pubkey>
 highest() { # <series> <tag> <tags...>: the newest stable tag of the series, by version order
   local series=$1 tag=$2; shift 2
   local top; top=$(printf '%s\n' "$tag" "$@" | grep -E "^${series//./\\.}\.[0-9.]+$" | while read -r t; do stable "$t" && echo "$t"; done | sort -V | tail -1 || true)
-  [ "$top" = "$tag" ] && echo true || echo false
+  if [ "$top" = "$tag" ]; then echo true; else echo false; fi
 }
 
 cmd=${1:?usage: validate.sh version|set-version|same-version|feed|check|highest|tags ...}; shift
@@ -122,10 +122,10 @@ case $cmd in
     echo "$v"
     if stable "$tag"; then
       mm=${v%.*} m=${v%%.*}
-      [ "$(highest "v$mm" "$tag" "$@")" = true ] && echo "$mm"
+      if [ "$(highest "v$mm" "$tag" "$@")" = true ]; then echo "$mm"; fi
       if [ "$(highest "v$m" "$tag" "$@")" = true ]; then
         echo "$m"
-        [ "$latest" = true ] && echo latest
+        if [ "$latest" = true ]; then echo latest; fi
       fi
     fi
     ;;

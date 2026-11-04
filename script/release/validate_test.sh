@@ -8,7 +8,10 @@ ok() { echo "ok   $1"; }
 bad() { echo "FAIL $1"; failures=$((failures + 1)); }
 passes() { local name=$1; shift; if out=$("$@" 2>&1); then ok "$name"; else bad "$name: $out"; fi; }
 refuses() { local name=$1 want=$2; shift 2; if out=$("$@" 2>&1); then bad "$name: passed: $out"; elif [[ $out == *"$want"* ]]; then ok "$name"; else bad "$name: said $out"; fi; }
-says() { local name=$1 want=$2; shift 2; local out; out=$("$@" 2>&1 | xargs) || true; [ "$out" = "$want" ] && ok "$name" || bad "$name: '$out', not '$want'"; }
+says() { # the output, and a zero exit
+  local name=$1 want=$2; shift 2; local out rc=0; out=$("$@" 2>&1) || rc=$?; out=$(xargs <<< "$out")
+  if [ "$rc" = 0 ] && [ "$out" = "$want" ]; then ok "$name"; else bad "$name: '$out' (exit $rc), not '$want'"; fi
+}
 
 # A copy of the files the script reads, so set-version writes nothing in the checkout.
 tree=$work/tree
