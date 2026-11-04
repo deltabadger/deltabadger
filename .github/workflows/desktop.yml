@@ -117,6 +117,7 @@ jobs:
             src-tauri -> target
           key: desktop-${{ matrix.name }}
           save-if: true # TEMPORARY while iterating (main only before review)
+          cache-on-failure: true # TEMPORARY while iterating
 
       - name: Build the engine
         shell: bash

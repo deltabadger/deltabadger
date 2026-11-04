@@ -326,14 +326,17 @@ def cleanup():
 class Window:
     """The app's window read over WebDriver (W3C, JSON over HTTP). Linux: tauri-driver starts the app under
     WebKitWebDriver. Windows: the app is started as a user starts it, with WebView2's DevTools port opened through
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, and msedgedriver attaches to it (`debuggerAddress`): msedgedriver launching
-    the app itself (tauri-driver's way) never found WebView2's DevToolsActivePort on the runner."""
+    WebView2's per-app registry override (CI only, removed after), and msedgedriver attaches to it (`debuggerAddress`).
+    The WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS variable, which msedgedriver launching the app (tauri-driver's way) relies
+    on, never reached the browser process: WebView2 156 used the app's own AdditionalBrowserArguments (wry's) instead."""
 
     def __init__(self, data, **extra):
         self.port = free_port()
         self.out = open(ARGS.work / f"webdriver-{data.parent.name}-{time.monotonic_ns()}.out", "wb")
         if WIN:
             devtools = free_port()
+            check(os.environ.get("CI") == "true", "the WebView2 registry override is for CI runners only")
+            run(["reg", "add", WEBVIEW2_ARGS, "/v", ARGS.app.name, "/t", "REG_SZ", "/d", f"--remote-debugging-port={devtools}", "/f"])
             self.app = launch(data, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={devtools}", **extra)
             try:
                 until("WebView2's DevTools port", 60, lambda: http(devtools, "/json/version") == 200)
@@ -395,6 +398,7 @@ class Window:
             pass
         if WIN:
             run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)])
+            run(["reg", "delete", WEBVIEW2_ARGS, "/v", ARGS.app.name, "/f"])
         else:
             self.proc.terminate()
         try:
@@ -403,6 +407,9 @@ class Window:
             self.proc.kill()
         if LINUX:
             run(["pkill", "-x", "WebKitWebDriver"])
+
+
+WEBVIEW2_ARGS = r"HKCU\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
 
 
 def free_port():
