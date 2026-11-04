@@ -370,6 +370,11 @@ impl<'a> Rows<'a> {
                 event(if one { "rails_order_listed_one" } else { "rails_order_listed" },
                       &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))])
             }
+            // A28-2: the owner's booking of one of those orders, and what follows it (engine::rails_unrecorded).
+            "rails_order_recovered" => event(&log.event, &[("order", Arg::Text(&detail("order")))]),
+            "rails_order_not_added" => event(&format!("rails_order_not_added_{}", detail("reason")), &[("venue", Arg::Text(&detail("venue")))]),
+            "rails_order_not_mine" => event(&log.event, &[]),
+            "rails_order_unsettled" | "rails_order_settled_lower" => event(&log.event, &[("venue", Arg::Text(&detail("venue"))), ("placed", Arg::Text(&detail("placed")))]),
             "rails_order_none_seen" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "rails_order_unchecked" => event(&format!("rails_order_unchecked_{}", detail("reason")), &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "asset_split" => match detail("ratio") {
