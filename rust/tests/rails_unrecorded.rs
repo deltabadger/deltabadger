@@ -602,3 +602,18 @@ fn a_source_time_that_cant_be_read_is_collected_wherever_it_sorts() {
     ru::report(&c, now()).unwrap();
     assert!(lines(&c, b).iter().all(|l| l.1["reason"] == "time"));
 }
+
+// ---- Codex branch r5 ---------------------------------------------------------------------------------------------------
+
+#[test]
+fn a_settings_change_in_the_spans_own_second_leaves_the_scope_unknown() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    ambiguous_line(&c, b, "2026-09-29 14:03:00.100000");
+    c.execute("UPDATE bots SET settings_changed_at = '2026-09-29 14:03:00' WHERE id = ?1", [b]).unwrap(); // to the second, as Rails stores it
+    ru::collect(&c, &queue(), None, now()).unwrap();
+    synced(&c, s.api_key_id, now());
+    ru::report(&c, now()).unwrap();
+    assert_eq!(lines(&c, b)[0].1["reason"], "settings_changed");
+}

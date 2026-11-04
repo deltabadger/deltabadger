@@ -170,28 +170,34 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> 
         ids
     };
     let mut written = 0;
+    // Per pass, per account: the order keys of every fill already linked to a bot's order (Codex r5: read once, as a set).
+    let mut linked = Linked::new();
     for id in open {
-        let tx = model::immediate(c)?;
-        let o = match load(&tx, id) {
+        // Judged on a plain read; only the line and its mark take the write lock, re-checked there (one line, ever).
+        let o = match load(c, id) {
             Ok(Some(o)) => o,
             Ok(None) => continue,
             // A row whose stored times can't be read is answered as such, so it never stops the obligations after it.
             Err(EngineError::Data(e)) => {
+                let tx = model::immediate(c)?;
                 let bot: i64 = tx.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [id], |r| r.get(0))?;
                 let line = Line { event: UNCHECKED, outcome: "time", details: json!({ "when": "at a time that can't be read", "venue": "exchange", "reason": "time", "error": e }) };
-                model::log_activity(&tx, bot, line.event, Level::Warning, line.details, now)?;
-                tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])?;
-                tx.commit()?;
-                written += 1;
+                if tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? == 1 {
+                    model::log_activity(&tx, bot, line.event, Level::Warning, line.details, now)?;
+                    tx.commit()?;
+                    written += 1;
+                }
                 continue;
             }
             Err(e) => return Err(e),
         };
-        let Some(line) = judge(&tx, &o, now)? else { continue };
-        model::log_activity(&tx, o.bot, line.event, Level::Warning, line.details, now)?;
-        tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])?;
-        tx.commit()?;
-        written += 1;
+        let Some(line) = judge(c, &o, now, &mut linked)? else { continue };
+        let tx = model::immediate(c)?;
+        if tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? == 1 {
+            model::log_activity(&tx, o.bot, line.event, Level::Warning, line.details, now)?;
+            tx.commit()?;
+            written += 1;
+        }
     }
     Ok(written)
 }
@@ -210,7 +216,7 @@ fn load(c: &Connection, id: i64) -> Result<Option<Obligation>, EngineError> {
 struct Line { event: &'static str, outcome: &'static str, details: Value }
 
 /// What the obligation's line says, or None while the ledger may still bring its answer.
-fn judge(c: &Connection, o: &Obligation, now: DateTime<Utc>) -> Result<Option<Line>, EngineError> {
+fn judge(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linked) -> Result<Option<Line>, EngineError> {
     let when = when(o);
     let bot: Option<(i64, i64, String, Option<String>, String, i64)> = c.query_row(
         "SELECT b.user_id, b.exchange_id, b.type, e.type, e.name, b.status FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [o.bot],
@@ -256,7 +262,7 @@ fn judge(c: &Connection, o: &Obligation, now: DateTime<Utc>) -> Result<Option<Li
     if !readable {
         return Ok((now >= o.collected + Duration::days(GIVE_UP_DAYS)).then(|| unchecked(&when, &venue, "unread")));
     }
-    let trades = match trades(c, user, scope.exchange, &venue_type, &scope, search_from, search_to)? {
+    let trades = match trades(c, user, scope.exchange, &venue_type, &scope, search_from, search_to, linked)? {
         Ok(t) => t,
         Err(()) => return Ok(Some(unchecked(&when, &venue, "unreadable"))),
     };
@@ -294,8 +300,10 @@ fn current_scope(c: &Connection, o: &Obligation, exchange: i64) -> Result<Option
     let bot = model::load_bot(c, o.bot)?;
     // From the span's start: a change while Rails was placing leaves the scope unknown too.
     let after = format_time(o.from);
-    let changed: bool = c.query_row("SELECT (settings_changed_at IS NOT NULL AND settings_changed_at > ?2) OR (started_at IS NOT NULL AND started_at > ?2) FROM bots WHERE id = ?1",
-                                    params![o.bot, after], |r| r.get(0))?;
+    // Rails stores these marks to the second: one in the span's own second may follow it (Codex r5), so it counts.
+    let second = o.from.format("%Y-%m-%d %H:%M:%S").to_string();
+    let changed: bool = c.query_row("SELECT (settings_changed_at IS NOT NULL AND settings_changed_at >= ?2) OR (started_at IS NOT NULL AND started_at >= ?2) FROM bots WHERE id = ?1",
+                                    params![o.bot, second], |r| r.get(0))?;
     if changed { return Ok(None); }
     let lines: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM bot_activity_logs WHERE bot_id = ?1 AND created_at > ?2 AND \
                                    (event IN ('started', 'stopped', 'merged', 'split', 'asset_split') OR event LIKE '%flip%' OR event LIKE 'start_selling%' OR event LIKE 'start_buying%'))",
@@ -343,7 +351,11 @@ impl Trade {
 
 /// The trades on the scope's pairs and side inside the window whose order no bot holds and none of whose fills is linked
 /// to a bot's order (r2.1, r3.6). Err(()) when a ledger row inside the window can't be read (r3.6, r4.3).
-fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Result<Vec<Trade>, ()>, EngineError> {
+/// (user, exchange) → the order keys of its linked fills, or Err(()) when one can't be read.
+type Linked = std::collections::HashMap<(i64, i64), Result<std::collections::HashSet<String>, ()>>;
+
+#[allow(clippy::too_many_arguments)]
+fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, from: DateTime<Utc>, to: DateTime<Utc>, cache: &mut Linked) -> Result<Result<Vec<Trade>, ()>, EngineError> {
     use crate::sync::fills::{self, LedgerRow, Read};
     let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at, transaction_id FROM account_transactions \
                            WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3 AND transacted_at <= ?4 ORDER BY transacted_at, id")?;
@@ -352,7 +364,7 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
         .collect::<Result<Vec<_>, _>>()?;
     drop(s);
     let mut seen: Vec<String> = vec![];
-    let mut linked: Vec<String> = vec![];
+    let mut linked: std::collections::HashSet<String> = Default::default();
     let mut orders: Vec<(String, Trade)> = vec![];
     for (id, tx_id, entry_type, raw, at, link) in rows {
         let raw: Value = raw.as_deref().and_then(|r| serde_json::from_str(r).ok()).unwrap_or(Value::Null);
@@ -363,7 +375,7 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
             Read::NotATrade => continue,
             Read::Unreadable(_) => return Ok(Err(())),
         };
-        if link.is_some() && !linked.contains(&fill.order_key) { linked.push(fill.order_key.clone()); }
+        if link.is_some() { linked.insert(fill.order_key.clone()); }
         if seen.contains(&fill.fill_id) { continue; }
         seen.push(fill.fill_id.clone());
         if fill.side != scope.side || fill.quote_asset_id != scope.quote || !scope.bases.contains(&fill.base_asset_id) { continue; }
@@ -377,7 +389,8 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
         }
     }
     // A fill of the order linked to a bot's order anywhere in the history, not only in the window, excludes it.
-    if !orders.is_empty() {
+    if !orders.is_empty() && !cache.contains_key(&(user, exchange)) {
+        let mut all: Result<std::collections::HashSet<String>, ()> = Ok(Default::default());
         let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions \
                                WHERE user_id = ?1 AND exchange_id = ?2 AND transaction_id IS NOT NULL")?;
         let rows = s.query_map(params![user, exchange], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
@@ -386,12 +399,19 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
         for (id, tx_id, entry_type, raw, at) in rows {
             let raw: Value = match raw.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
             // A linked row that can't be read may be a fill of a listed order: then no list can be trusted (unchecked).
-            let Ok(transacted_at) = parse_time(&at) else { return Ok(Err(())) };
+            let Ok(transacted_at) = parse_time(&at) else { all = Err(()); break };
             match fills::read(c, venue, &LedgerRow { id, tx_id, entry_type, raw_data: raw, transacted_at, exchange_id: exchange }).map_err(EngineError::Data)? {
-                Read::Fill(f) => if !linked.contains(&f.order_key) { linked.push(f.order_key); },
+                Read::Fill(f) => { if let Ok(keys) = all.as_mut() { keys.insert(f.order_key); } }
                 Read::NotATrade => {}
-                Read::Unreadable(_) => return Ok(Err(())),
+                Read::Unreadable(_) => { all = Err(()); break }
             }
+        }
+        cache.insert((user, exchange), all);
+    }
+    if !orders.is_empty() {
+        match cache.get(&(user, exchange)) {
+            Some(Ok(keys)) => linked.extend(keys.iter().cloned()),
+            _ => return Ok(Err(())),
         }
     }
     let mut out = vec![];
