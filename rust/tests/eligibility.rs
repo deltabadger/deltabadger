@@ -1320,3 +1320,43 @@ fn the_report_types_every_finding_beside_its_problem_line() {
     let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();
     assert!(e.contains(&format!("bot {stopped}: no Kraken API key")), "{e:?}");
 }
+
+/// PLAN-A23: a legacy row the start kept (single type, or a clobbered basket) carries one reason, Kind::Legacy with why
+/// (single_asset::preflight), and nothing else a basket would be asked; another class this build doesn't run keeps BotType.
+#[test]
+fn a_kept_legacy_row_is_named_by_its_skip_alone() {
+    use deltabadger::engine::eligibility::{Feature, Kind};
+    use deltabadger::engine::single_asset::Skip;
+    let kinds = |c: &rusqlite::Connection, id: i64| eligibility::bot_reasons_typed(c, &deltabadger::engine::model::load_bot(c, id).unwrap()).unwrap().into_iter().map(|r| r.kind).collect::<Vec<_>>();
+    let (_d, o, s) = install();
+    let c = &o.primary;
+    let single = seed::insert_bot(c, &s, &plain());
+    c.execute("UPDATE bots SET type = 'Bots::DcaSingleAsset', settings = json_remove(settings, '$.allocations') WHERE id = ?1", [single]).unwrap();
+    assert_eq!(kinds(c, single), vec![Kind::Legacy(Skip::Settings)], "no base_asset_id");
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.base_asset_id', ?2) WHERE id = ?1", [single, s.btc]).unwrap();
+    assert_eq!(kinds(c, single), vec![Kind::Legacy(Skip::NextStart)], "convertible: the next start converts it");
+    c.execute("DELETE FROM tickers", []).unwrap();
+    assert_eq!(kinds(c, single), vec![Kind::Legacy(Skip::Market)]);
+    // A clobbered basket: its pair's key back, its allocations gone.
+    let clobbered = seed::insert_bot(c, &s, &plain());
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.base_asset_id', ?2, '$.allocations', json('null')) WHERE id = ?1", [clobbered, s.btc]).unwrap();
+    assert_eq!(kinds(c, clobbered), vec![Kind::Legacy(Skip::Market)]);
+    let other = seed::insert_bot(c, &s, &plain());
+    c.execute("UPDATE bots SET type = 'Bots::Unsupported' WHERE id = ?1", [other]).unwrap();
+    assert!(kinds(c, other).contains(&Kind::Feature(Feature::BotType("Bots::Unsupported".into()))));
+}
+
+/// PLAN-A23: the legacy branch reads the history's times first: a malformed one stays the unreadable hard stop.
+#[test]
+fn a_kept_legacy_row_with_a_malformed_order_time_stays_unreadable() {
+    for status in [1, 2] {
+        let (_d, o, s) = install();
+        let c = &o.primary;
+        let id = seed::insert_bot(c, &s, &BotSpec { status, ..plain() });
+        seed::insert_tx(c, &s, id, &TxSpec { status: 0, external_status: Some(2), external_id: Some("O1".into()), order_type: 0, amount: Some("0.001"), quote_amount: Some("60"),
+                                             price: Some("60000"), quote_amount_exec: Some("60"), amount_exec: Some("0.001"), created_at: "garbage".into() });
+        c.execute("UPDATE bots SET type = 'Bots::DcaSingleAsset' WHERE id = ?1", [id]).unwrap();
+        let report = eligibility::check_install(c).unwrap();
+        assert_eq!(report.unreadable.iter().map(|(b, _)| *b).collect::<Vec<_>>(), vec![id], "status {status}");
+    }
+}

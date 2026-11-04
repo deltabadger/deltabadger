@@ -258,7 +258,14 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         Ok((Found::Bot(bot), configured)) => (*bot, configured),
         Ok((Found::Missing, _)) => return Ok(not_found(&ctx)),
         Ok((Found::NotPorted(reason), _)) => {
-            if !feed { if let Some(page) = set_aside_page(&app, &ctx, &user, &segment).await? { return Ok(page); } }
+            if !feed {
+                if let Some(page) = set_aside_page(&app, &ctx, &user, &segment).await? { return Ok(page); }
+                // PLAN-A23 Q4: a legacy bot the start kept says why.
+                if let Some(id) = super::id_from_path(segment.split('.').next().unwrap_or(&segment)) {
+                    let owner = user.id;
+                    if let Some(note) = app.db(move |c| Ok(crate::engine::single_asset::kept_sentence(c, owner, id)?)).await? { return Ok(layout::refused_noted(&ctx, reason, &note)); }
+                }
+            }
             return Ok(layout::refused(&ctx, reason));
         }
         Err(error) => return layout::or_refused(&ctx, error),

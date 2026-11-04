@@ -107,4 +107,5 @@ pub mod technical;
 
 pub mod rules;
 pub mod set_aside;
+pub mod single_asset;
 pub mod withdrawal;

@@ -49,6 +49,8 @@ pub enum Kind {
     Owner,
     /// Work Rails left in flight: never set aside (row 26), it keeps refusing a stopped bot.
     Work(Work),
+    /// PLAN-A23: a legacy single-asset bot (or a clobbered basket) the start could not convert, and why.
+    Legacy(super::single_asset::Skip),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -214,6 +216,13 @@ fn bot_reasons_with(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineErro
     // Nothing else in such a history can be read (the shared row reader refuses it): name it and stop.
     if r.iter().any(|reason| reason.ends_with(UNKNOWN_STATUS)) { return Ok(r); }
     if bot.bot_type == model::SIGNAL_TYPE { signal_reasons(c, bot, &mut r)?; return Ok(r); }
+    // PLAN-A23: what the start's conversion kept is never run. A malformed transaction time stays unreadable first.
+    if super::single_asset::legacy(bot) {
+        crate::figures::fill::validate_row_times(c, bot.id).map_err(|e| EngineError::Data(format!("{e:?}")))?;
+        let skip = super::single_asset::skip(c, bot)?;
+        r.push(why(Kind::Legacy(skip.clone()), format!("a single-asset bot not converted ({})", skip.text())));
+        return Ok(r);
+    }
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(why(Kind::Feature(Feature::BotType(bot.bot_type.clone())), format!("type {} (only DCA baskets and index bots)", bot.bot_type))); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;

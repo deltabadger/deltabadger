@@ -81,6 +81,7 @@ fn main() {
             let report = |c: &rusqlite::Connection| match &cipher { Some(cipher) => handover::startup_report(c, cipher, now), None => check_install_at(c, now) };
             match deltabadger::engine::set_aside::apply(&tx, cipher.as_ref(), &report, now) {
                 Ok(Ok(plan)) => {
+                    for id in &plan.converted { println!("{}", deltabadger::engine::set_aside::would_convert(&tx, *id).unwrap_or_else(|e| fail(&format!("{e:?}")))); }
                     for aside in &plan.bots { println!("{}", deltabadger::engine::set_aside::would_stop(aside)); }
                     match plan.report.refusal() {
                         Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
