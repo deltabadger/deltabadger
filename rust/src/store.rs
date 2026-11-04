@@ -123,6 +123,8 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261108000001", TableContract { name: "rust_rails_unrecorded", columns: &[("id", "INTEGER", false), ("bot_id", "INTEGER", true),
         ("source", "TEXT", true), ("source_ref", "INTEGER", true), ("span_from", "TEXT", true), ("span_to", "TEXT", true), ("scope", "TEXT", false),
         ("collected_at", "TEXT", true), ("reported_at", "TEXT", false), ("outcome", "TEXT", false)], unique_indexes: &[&["source", "source_ref"]] }),
+    ("20261109000001", TableContract { name: "rust_rails_unrecorded_live", columns: &[("obligation_id", "INTEGER", false), ("stamp", "TEXT", true),
+        ("attempts", "INTEGER", true), ("refused_at", "TEXT", false), ("last_at", "TEXT", false)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.

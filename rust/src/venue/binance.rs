@@ -551,6 +551,34 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         Ok(out)
     }
 
+    /// A28-3 (PLAN-A28-3 §1, §5, r1.3, r2.2): allOrders per symbol, created from `from` to `to` (startTime/endTime in ms, as
+    /// Rails' own allOrders reads send them), 1000 a page; every state, open orders included. A full page is a cap
+    /// (incomplete); rows outside the window are dropped. Each row read strictly (`created_order`), never by the booking parse.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        use super::HistoryError::{Refused, Retry};
+        // allOrders answers at most 24 hours between startTime and endTime.
+        if to < from || to - from > chrono::Duration::hours(24) { return Err(Refused(format!("{}: an order-history window over a day", self.rules.name))); }
+        let mut out = super::Created { orders: vec![], complete: true };
+        for symbol in symbols {
+            let r = self.signed_now("GET", "/api/v3/allOrders", vec![("symbol", symbol.clone()), ("startTime", from.timestamp_millis().to_string()),
+                                    ("endTime", to.timestamp_millis().to_string()), ("limit", PAGE.to_string()), ("recvWindow", READ_RECV_WINDOW.into())]);
+            let page = match super::by_deadline(deadline, self.history_page(&r)).await.and_then(|b| match b { serde_json::Value::Array(rows) => Ok(rows), _ => Err(Retry(UNREADABLE.into())) }) {
+                Ok(rows) => rows,
+                Err(e) if out.orders.is_empty() => return Err(e),
+                Err(_) => { out.complete = false; continue; }
+            };
+            if page.len() >= PAGE { out.complete = false; }
+            for raw in &page {
+                match created_order(symbol, raw) {
+                    Some(o) if o.created_at >= from && o.created_at <= to => out.orders.push(o),
+                    Some(_) => {}
+                    None => out.complete = false,
+                }
+            }
+        }
+        Ok(out)
+    }
+
     /// #get_order (Bot::FetchAndUpdateOrderJob): GET /api/v3/order by symbol and orderId, rebuilt from its trades when it
     /// executed. Binance states no identity to check: the callback is Alpaca's.
     async fn order_identified<F>(&self, txid: &str, _identify: F) -> Result<(Vec<OrderState>, Vec<String>), super::VenueError>
@@ -652,6 +680,54 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         }
         Err(super::VenueError::Rejected(vec![format!("{}: more than {} pages of candles", self.rules.name, candles::MAX_CANDLE_PAGES)]))
     }
+}
+
+impl<T: Transport> BinanceVenue<T> {
+    /// A28-3: one order-history request, its failure classed by the HTTP status and Binance's code (r1.3): 401/403, -2014
+    /// or -2015 is the key's refusal; a throttle, a server error, a transport failure or anything else may pass later.
+    async fn history_page(&self, r: &HttpRequest) -> Result<serde_json::Value, super::HistoryError> {
+        use super::HistoryError::{Refused, Retry};
+        let resp = self.transport.send_limited(r, http::MAX_BODY).await.map_err(|e| match e {
+            TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m) => Retry(self.transport.redact_diagnostic(&m)),
+        })?;
+        if !(200..300).contains(&resp.status) {
+            let message = self.transport.redact_diagnostic(&format!("HTTP {}: {}", resp.status, error_message(&resp.body)));
+            let refused = matches!(resp.status, 401 | 403) || matches!(error_code(&resp.body).as_deref(), Some("-2014" | "-2015"));
+            return Err(if refused { Refused(message) } else { Retry(message) });
+        }
+        http::decode_json(&resp.body).map_err(|_| Retry(UNREADABLE.into()))
+    }
+}
+
+/// A28-3 (r1.2): one allOrders row read strictly for the report, never by #parse_order_data (the booking parse): each field
+/// present and of its documented type, the creation time `time` (ms, which no Rails client reads) included; side BUY or
+/// SELL; type MARKET or LIMIT (a positive price); a status Binance documents. None for anything else. The size is
+/// `origQuoteOrderQty` for a market order placed in the quote, else `origQty`; a negative `cummulativeQuoteQty` ("for
+/// some historical orders") is an unknown quote.
+pub fn created_order(symbol: &str, o: &serde_json::Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
+    let text = |k: &str| o.get(k).and_then(serde_json::Value::as_str);
+    let zero = BigDec::zero();
+    let dec = |k: &str| text(k).and_then(|s| BigDec::parse(s).ok());
+    let amount = |k: &str| dec(k).filter(|d| *d >= zero);
+    if text("symbol")? != symbol { return None; }
+    let id = o.get("orderId")?.as_u64()?;
+    let created_at = DateTime::from_timestamp_millis(o.get("time")?.as_i64().filter(|t| *t > 0)?)?;
+    let side = match text("side")? { "BUY" => Side::Buy, "SELL" => Side::Sell, _ => return None };
+    let filled_base = amount("executedQty")?;
+    let filled_quote = Some(dec("cummulativeQuoteQty")?).filter(|q| *q >= zero);
+    let (orig, orig_quote, price) = (amount("origQty")?, amount("origQuoteOrderQty")?, amount("price")?);
+    let kind = match text("type")? { "MARKET" => CreatedKind::Market, "LIMIT" if price.is_positive() => CreatedKind::Limit { price }, _ => return None };
+    let size = if kind == CreatedKind::Market && orig_quote.is_positive() { CreatedSize::Quote(orig_quote) }
+               else if orig.is_positive() { CreatedSize::Base(orig) } else { return None };
+    let filled = filled_base.is_positive();
+    let state = match text("status")? {
+        "NEW" | "PARTIALLY_FILLED" => CreatedState::of(true, filled),
+        "FILLED" if filled => CreatedState::Filled,
+        "CANCELED" | "EXPIRED" | "EXPIRED_IN_MATCH" | "REJECTED" => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: format!("{symbol}-{id}"), symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote })
 }
 
 /// Clients::Binance#candlestick_data's path.

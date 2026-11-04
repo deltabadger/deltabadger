@@ -363,6 +363,13 @@ impl<'a> Rows<'a> {
                 event(if one { "rails_order_candidate" } else { "rails_order_candidates" },
                       &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("trades", Arg::Text(&detail("trades")))])
             }
+            // A28-3: the venue's own orders (engine::rails_unrecorded::merged).
+            "rails_order_open" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))]),
+            "rails_order_listed" => {
+                let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
+                event(if one { "rails_order_listed_one" } else { "rails_order_listed" },
+                      &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))])
+            }
             "rails_order_none_seen" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "rails_order_unchecked" => event(&format!("rails_order_unchecked_{}", detail("reason")), &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "asset_split" => match detail("ratio") {

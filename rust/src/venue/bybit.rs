@@ -178,6 +178,61 @@ impl<T: Transport> BybitVenue<T> {
         Ok(free)
     }
 }
+/// A28-3: what one order-history read asks per page, and the most pages per endpoint and symbol (PLAN-A28-3 §5).
+const HISTORY_LIMIT: usize = 50;
+const HISTORY_PAGES: usize = 5;
+
+impl<T: Transport> BybitVenue<T> {
+    /// A28-3: one order-history request, its failure classed by the HTTP status and Bybit's retCode (r1.3): 401/403 or
+    /// 10003/10004/10005/10010 is the key's refusal; anything else (10002, 10006, 10016, a server error, a transport
+    /// failure, an unreadable answer) may pass later.
+    async fn history_page(&self, r: &HttpRequest) -> Result<Value, super::HistoryError> {
+        use super::HistoryError::{Refused, Retry};
+        let resp = self.transport.send_limited(r, http::MAX_BODY).await.map_err(|e| match e {
+            TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m) => Retry(self.transport.redact_diagnostic(&m)),
+        })?;
+        let body = http::decode_json(&resp.body).ok();
+        let code = body.as_ref().and_then(|v| v.get("retCode")).filter(|v| v.as_i64().is_some() || v.as_str().is_some_and(|s| s.parse::<i64>().is_ok())).map(to_s);
+        let message = self.transport.redact_diagnostic(&format!("HTTP {}: {}", resp.status, failure_text(&resp.body)));
+        if matches!(resp.status, 401 | 403) || matches!(code.as_deref(), Some("10003" | "10004" | "10005" | "10010")) { return Err(Refused(message)); }
+        if !(200..300).contains(&resp.status) || code.as_deref() != Some("0") { return Err(Retry(message)); }
+        body.ok_or(Retry(message))
+    }
+}
+
+/// A28-3 (r1.2): one realtime or history row read strictly for the report, never by `parse_order` (the booking parse):
+/// `createdTime` (ms, which no Rails client reads) included; side Buy or Sell; a Limit's own `price` (never `avgPrice`) and
+/// its size in the base; a Market's size in the unit `marketUnit` names (quoteCoin or baseCoin, nothing else); a status
+/// Bybit documents for a placed order (Created, Untriggered or anything else is unreadable). None for anything else.
+pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState};
+    let text = |k: &str| o.get(k).and_then(Value::as_str);
+    let zero = BigDec::zero();
+    let amount = |k: &str| text(k).and_then(|s| BigDec::parse(s).ok()).filter(|d| *d >= zero);
+    if text("symbol")? != symbol { return None; }
+    let id = order_id(o.get("orderId")?)?;
+    let ms = text("createdTime").filter(|t| !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit()))?.parse::<i64>().ok().filter(|t| *t > 0)?;
+    let created_at = DateTime::from_timestamp_millis(ms)?;
+    let side = match text("side")? { "Buy" => Side::Buy, "Sell" => Side::Sell, _ => return None };
+    let qty = amount("qty").filter(BigDec::is_positive)?;
+    let (kind, size) = match (text("orderType")?, text("marketUnit")) {
+        ("Limit", _) => (CreatedKind::Limit { price: amount("price").filter(BigDec::is_positive)? }, CreatedSize::Base(qty)),
+        ("Market", Some("quoteCoin")) => (CreatedKind::Market, CreatedSize::Quote(qty)),
+        ("Market", Some("baseCoin")) => (CreatedKind::Market, CreatedSize::Base(qty)),
+        _ => return None,
+    };
+    let filled_base = amount("cumExecQty")?;
+    let filled_quote = Some(amount("cumExecValue")?);
+    let filled = filled_base.is_positive();
+    let state = match text("orderStatus")? {
+        "New" | "PartiallyFilled" => CreatedState::of(true, filled),
+        "Filled" if filled => CreatedState::Filled,
+        "Cancelled" | "PartiallyFilledCanceled" | "Rejected" | "Deactivated" => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: id, symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote })
+}
+
 /// Clients::Bybit#kline's path.
 pub const KLINE: &str = "/v5/market/kline";
 /// Exchanges::Bybit#get_candles' interval for each timeframe: 3 days are daily, built.
@@ -227,6 +282,55 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
         Err(candles::too_many_pages("Bybit"))
     }
 
+    /// A28-3 (PLAN-A28-3 §1, §5, r1.3, r2.2): per symbol, the open orders (`/v5/order/realtime`, by cursor) and the closed
+    /// ones created in the window (`/v5/order/history`, startTime/endTime in ms as Rails' own history reads send them), 50 a
+    /// page, at most five pages each, category spot (the envelope Rails reads: `result.list`, `nextPageCursor`). Open rows
+    /// outside the window by `createdTime` are dropped (realtime is not windowed). An order both lists name is kept once,
+    /// as history (read last) has it. A page ends a list only without a cursor (or with no row); more pages than five is a
+    /// cap (incomplete).
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        use super::HistoryError::{Refused, Retry};
+        // order/history answers at most seven days between startTime and endTime.
+        if to < from || to - from > Duration::days(7) { return Err(Refused("Bybit: an order-history window over seven days".into())); }
+        let mut out = super::Created { orders: vec![], complete: true };
+        for symbol in symbols {
+            'paths: for path in [REALTIME_PATH, HISTORY_PATH] {
+                let mut cursor = String::new();
+                for page in 0..=HISTORY_PAGES {
+                    if page == HISTORY_PAGES { out.complete = false; break; }
+                    let mut q = vec![("category", "spot".to_string()), ("symbol", symbol.clone()), ("limit", HISTORY_LIMIT.to_string())];
+                    if path == HISTORY_PATH {
+                        q.extend([("startTime", super::bitvavo::ruby_ms(from).to_string()), ("endTime", super::bitvavo::ruby_ms(to).to_string())]);
+                    }
+                    if !cursor.is_empty() { q.push(("cursor", cursor.clone())); }
+                    let listed = super::by_deadline(deadline, self.history_page(&self.request("GET", path, q, None))).await.and_then(|b| {
+                        let rows = b["result"]["list"].as_array().cloned().ok_or_else(|| Retry("Bybit: unreadable response".into()))?;
+                        let next = match &b["result"]["nextPageCursor"] { Value::Null => String::new(), Value::String(c) => c.clone(), _ => return Err(Retry("Bybit: unreadable response".into())) };
+                        Ok((rows, next))
+                    });
+                    let (rows, next) = match listed {
+                        Ok(l) => l,
+                        Err(e) if out.orders.is_empty() => return Err(e),
+                        Err(_) => { out.complete = false; continue 'paths; }
+                    };
+                    for raw in &rows {
+                        match created_order(symbol, raw) {
+                            Some(o) if o.created_at >= from && o.created_at <= to => {
+                                out.orders.retain(|k| k.external_id != o.external_id);
+                                out.orders.push(o);
+                            }
+                            Some(_) => {}
+                            None => out.complete = false,
+                        }
+                    }
+                    // Bybit pages by cursor alone: a short page with a cursor may still have more after it.
+                    if next.is_empty() || rows.is_empty() { break; }
+                    cursor = next;
+                }
+            }
+        }
+        Ok(out)
+    }
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
     async fn price(&self, t: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {

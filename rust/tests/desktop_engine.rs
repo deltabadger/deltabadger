@@ -744,7 +744,7 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// The two newest Rust migrations and how to make each pending again on a made install (its table gone, its row
 /// with it), as on an install from the build before it. The newest migration must be here, or these tests would stop
 /// testing "an update brings a migration" the day one is added.
-const UNDO: [(&str, &str); 2] = [("20261107000001", "DROP TABLE rust_idempotency_orders"), ("20261108000001", "DROP TABLE rust_rails_unrecorded")];
+const UNDO: [(&str, &str); 2] = [("20261108000001", "DROP TABLE rust_rails_unrecorded"), ("20261109000001", "DROP TABLE rust_rails_unrecorded_live")];
 
 #[test]
 fn the_undo_table_covers_the_newest_migration() {
