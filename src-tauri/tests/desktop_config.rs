@@ -88,3 +88,14 @@ fn platform_specific_window_apis_stay_behind_their_platform_gate() {
         }
     }
 }
+
+// The engine's pages are a remote origin to Tauri: the app's commands reach them only through a capability that names
+// them (the Settings update button is check_for_updates).
+#[test]
+fn the_engines_pages_may_call_the_apps_commands() {
+    let capability: serde_json::Value = serde_json::from_str(&read("src-tauri/capabilities/default.json")).unwrap();
+    assert_eq!(capability["remote"]["urls"], serde_json::json!(["http://127.0.0.1:*"]));
+    let permissions = capability["permissions"].as_array().unwrap();
+    assert!(permissions.contains(&serde_json::json!("allow-check-for-updates")), "{permissions:?}");
+    assert!(read("src-tauri/build.rs").contains("\"check_for_updates\""));
+}
