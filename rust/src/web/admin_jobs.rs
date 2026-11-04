@@ -41,8 +41,9 @@ fn cadence(s: Option<Schedule>) -> String {
 fn row(l: &Listed, st: &state::JobState) -> Row {
     let scope = match l.scope.as_deref() { None => String::new(), Some(s) if shown(s) => s.to_string(), Some(_) => "(scope hidden)".into() };
     let visible = l.scope.as_deref().is_none_or(shown);
-    let state = if l.running { "running".into() } else if let Some(t) = l.retry_at { format!("retry at {}", at(Some(t))) }
-        else if l.woken { "queued".into() } else if let Some(t) = l.scheduled { format!("next at {}", at(Some(t))) } else { "—".into() };
+    // A wake makes the slot due now, whatever retry or fire it also has.
+    let state = if l.running { "running".into() } else if l.woken { "queued".into() } else if let Some(t) = l.retry_at { format!("retry at {}", at(Some(t))) }
+        else if let Some(t) = l.scheduled { format!("next at {}", at(Some(t))) } else { "—".into() };
     Row { form_scope: visible.then(|| l.scope.clone().unwrap_or_default()), scope, cadence: cadence(l.schedule),
           last_run: at(st.last_run_at), last_refresh: at(st.last_success_at), latest_error: at(st.last_error_at), failing: st.error_class(),
           incomplete: st.incomplete_since.map_or_else(String::new, |t| at(Some(t))), state, runnable: l.manual && visible }
@@ -98,7 +99,8 @@ fn engine(c: &rusqlite::Connection, admin: i64) -> Result<Engine, WebError> {
 pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     // Rails mounts /jobs outside the locale scope: `/de/jobs` stays the refusal it was.
     if ctx.params.path_locale.is_some() { return Ok(layout::not_ported_for(&ctx)); }
-    let user = match auth::admin(&ctx) { Ok(user) => user.clone(), Err(answer) => return Ok(answer) };
+    if let Some(answer) = auth::unless_admin(&ctx) { return Ok(answer); }
+    let user = ctx.user().cloned().expect("the admin");
     let wakers = app.job_wakers().ok();
     let listed = wakers.as_ref().map(|w| w.listing()).unwrap_or_default();
     let (inner, owner, keys) = (app.clone(), user.clone(), listed.iter().map(|l| (l.name, l.scope.clone())).collect::<Vec<_>>());
@@ -118,7 +120,7 @@ fn unprocessable() -> Response { (StatusCode::UNPROCESSABLE_ENTITY, [(header::CO
 /// so a wake can never reach the resolver (whose refusal would stop the scheduler).
 pub async fn run(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.params.path_locale.is_some() { return Ok(layout::not_ported_for(&ctx)); }
-    if let Err(answer) = auth::admin(&ctx) { return Ok(answer); }
+    if let Some(answer) = auth::unless_admin(&ctx) { return Ok(answer); }
     let name = ctx.params.form("job").unwrap_or_default();
     let scope = ctx.params.form("scope").filter(|s| !s.is_empty());
     if scope.is_some_and(|s| !shown(s)) { return Ok(unprocessable()); }
@@ -134,4 +136,20 @@ pub async fn run(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
 pub async fn absent(Extension(ctx): Extension<Ctx>) -> Response {
     if ctx.params.path_locale.is_some() { return layout::not_ported_for(&ctx); }
     layout::missing()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_woken_slot_reads_queued_over_its_retry_and_its_next_fire() {
+        let t = |s: &str| Some(s.parse::<DateTime<Utc>>().unwrap());
+        let l = Listed { name: "j", scope: None, schedule: None, scheduled: t("2026-10-03T10:00:00Z"), retry_at: t("2026-10-02T12:10:00Z"),
+                         woken: true, running: false, manual: true };
+        assert_eq!(row(&l, &state::JobState::default()).state, "queued");
+        assert_eq!(row(&Listed { woken: false, ..l.clone() }, &state::JobState::default()).state, "retry at 2026-10-02 12:10:00 UTC");
+        assert_eq!(row(&Listed { woken: false, retry_at: None, ..l.clone() }, &state::JobState::default()).state, "next at 2026-10-03 10:00:00 UTC");
+        assert_eq!(row(&Listed { running: true, ..l }, &state::JobState::default()).state, "running");
+    }
 }
