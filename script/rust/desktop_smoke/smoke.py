@@ -386,6 +386,10 @@ class Window:
     def url(self):
         return self.js("return location.href;")
 
+    def click(self, css):
+        found = self.call("POST", f"/session/{self.sid}/element", {"using": "css selector", "value": css})
+        self.call("POST", f"/session/{self.sid}/element/{next(iter(found.values()))}/click", {})
+
     def close(self):
         try:
             self.call("DELETE", f"/session/{self.sid}", timeout=20)
@@ -509,6 +513,9 @@ def check_install_unchanged(before, app_pid):
     else:
         want, got = before, install_tree()
     changed = sorted(k for k in set(want) | set(got) if want.get(k) != got.get(k))
+    if ARGS.kind == "nsis":
+        # B7-0's update lock (rust/src/bundle.rs): per account in %LOCALAPPDATA%\Deltabadger, which is the NSIS install folder.
+        changed = [k for k in changed if not (k.startswith("bundle-") and k.endswith(".lock") and "/" not in k and "\\" not in k)]
     check(not changed, f"files written in the install: {changed[:20]}")
     say(f"nothing written in the install ({len(got)} files compared)")
 
@@ -810,7 +817,10 @@ def scenario_downloads(name):
         check(win.url() == page, f"the export navigated the window away: {win.url()}")
         say(f"tracker export saved as {csv.name}: {rows[1]}; the window stayed at {page}")
         before = {p.name for p in folder.iterdir()}
-        win.js("location.href = '/settings/download_api_docs'; return true;")
+        # A click, as on the Settings button: WebView2 blocks a second download a page starts without a user gesture.
+        win.js("var a = document.createElement('a'); a.id = 'smoke-docs'; a.dataset.turbo = 'false';"
+               " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md'; document.body.prepend(a); return true;")
+        win.click("#smoke-docs")
         docs = new_file(folder, before, "deltabadger-api")
         check(docs.read_bytes() == (REPO / "manual" / "api.md").read_bytes(), f"{docs.name} differs from manual/api.md")
         say(f"API docs saved as {docs.name}: byte-equal to manual/api.md ({docs.stat().st_size} bytes)")
