@@ -342,6 +342,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     super::withdrawal::phase(&e.primary, &e.cipher, &e.factory, clock).await?;
     run_condition_infos(e, &report.unreadable, clock, &mut wake).await?;
     run_open_orders(e, &report.unreadable, clock, &mut wake).await?;
+    run_bookings(e, clock).await?;
     run_resyncs(e, clock, &mut wake).await?;
     for id in report.eligible {
         if e.stopping() { break; }
@@ -785,6 +786,24 @@ async fn refresh_open_orders<F: VenueFactory>(e: &mut Engine<F>, id: i64, versio
         Err(err) => super::log(&format!("[engine] bot {id}: open-orders refresh failed: {}", err.kind())),
     }
     polling::ack_refresh(&e.primary, id, version)
+}
+
+/// A28-2 (r2.1, r3.2): the owners' booking requests, each re-checked and booked or refused; a booked row is polled now and
+/// announced as a recorded order, and a booked row no poll holds is enrolled again in an hour.
+async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
+    let polled: HashSet<i64> = e.polls.keys().copied().collect();
+    let served = match super::rails_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await {
+        Ok(served) => served,
+        Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+        Err(err) => { super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind())); return Ok(()); }
+    };
+    let now_us = clock.now().timestamp_micros();
+    for ((bot, tx), at) in served.booked.iter().map(|r| (*r, now_us)).chain(served.watch.iter().map(|r| (*r, now_us + super::rails_unrecorded::WATCH_AFTER_US))) {
+        let producer = model::load_bot(&e.primary, bot).and_then(|row| e.venue_for(&row)).map(|(_, p)| p).unwrap_or(None);
+        e.polls.insert(tx, model::Produced::new((bot, at, Attempts::default()), producer));
+    }
+    for &(bot_id, transaction_id) in &served.booked { e.events.send(EngineEvent::OrderRecorded { bot_id, transaction_id }); }
+    Ok(())
 }
 
 /// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the
