@@ -1019,11 +1019,18 @@ impl Shaped {
         // list, there and blank, and `a[b][]` alone is `{b: []}`, a hash: `a[]` is read as `a=` and `a[b][]` as
         // `a[b]=`, which are the same to every question asked here (is it there, is it blank, is it a text).
         // (A form body is read as its decoded fields: there `a[]` alone counts as `a[]=`.)
+        // A valueless `a[]` beside another element of `a` (`a[]=x&a[]`) is a nil the munge drops: left out.
         let raw = params.fullpath.split_once('?').map_or("", |(_, query)| query);
-        let fields: Vec<(String, String)> = raw.split('&').filter_map(|piece| {
+        let decoded: Vec<(String, String, bool)> = raw.split('&').filter_map(|piece| {
             let (name, value) = form_urlencoded::parse(piece.as_bytes()).next()?;
-            let name = match name.strip_suffix("[]") { Some(list) if !piece.contains('=') => list.to_string(), _ => name.into_owned() };
-            Some((name, value.into_owned()))
+            Some((name.into_owned(), value.into_owned(), piece.contains('=')))
+        }).collect();
+        let fields: Vec<(String, String)> = decoded.iter().filter_map(|(name, value, valued)| match name.strip_suffix("[]") {
+            Some(list) if !valued => {
+                let others = decoded.iter().any(|(other, _, valued)| *valued && other.strip_prefix(list).is_some_and(|rest| rest.starts_with('[')));
+                (!others).then(|| (list.to_string(), String::new()))
+            }
+            _ => Some((name.clone(), value.clone())),
         }).collect();
         let query = super::bot::action_params::form(&fields).ok()?;
         let body = if params.form.is_empty() { params.json.clone().filter(Value::is_object).unwrap_or_else(|| json!({})) } else { super::bot::action_params::form(&params.form).ok()? };
@@ -1154,7 +1161,8 @@ const FORMATTED: [&str; 3] = ["/oauth/introspect", "/oauth/token/info", "/oauth/
 /// The two routes that read every parameter as Rack does, so that a query or form Rack cannot read (a `%` without
 /// two hex digits, bytes that are not UTF-8) is refused whole, as in Rails (`web::hook::Unparseable`). A multipart
 /// body, whose fields Rails would read and this crate does not, is refused the same way: a token in it would be a
-/// way of sending one that nothing here counted.
+/// way of sending one that nothing here counted; so is a body sent with no content type, which Rack reads as a
+/// form on a POST and this crate does not read.
 pub const RACK_READ: [&str; 2] = ["/oauth/introspect", "/oauth/token/info"];
 
 /// `path` without a format suffix, where its route has one (`FORMATTED`); otherwise `path` as it is.

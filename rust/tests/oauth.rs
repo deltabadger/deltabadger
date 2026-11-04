@@ -1003,7 +1003,13 @@ async fn a_request_that_waited_for_the_database_is_dated_when_its_turn_came() {
 /// confidential client C, each user's personal application; for every client and user, a live, an expired and a
 /// revoked token; and two tokens of a client whose row is gone (id 99). Token `t-<app>-<user>-<state>`, refresh
 /// token `r-…`. No token came from another, so no use retires anything. (application id, uid, secret) of each client.
-fn property_install() -> (tempfile::TempDir, App, Vec<(i64, &'static str, Option<&'static str>)>, Vec<(String, i64, &'static str)>) {
+/// (application id, uid, secret) of a client; (token, application id, state) of a token row.
+type Clients = Vec<(i64, &'static str, Option<&'static str>)>;
+type Tokens = Vec<(String, i64, &'static str)>;
+/// A token string, and the row it names: (application id, found by its refresh token, state).
+type Subject<'a> = (String, Option<(i64, bool, &'a str)>);
+
+fn property_install() -> (tempfile::TempDir, App, Clients, Tokens) {
     let dir = common::baseline_install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch("INSERT INTO users (id, email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) VALUES
@@ -1053,7 +1059,7 @@ async fn send_with(app: &App, method: &str, path: &str, headers: &[(&str, &str)]
 async fn a_token_is_described_only_to_its_own_client_and_no_answer_carries_a_token() {
     let (_dir, app, clients, tokens) = property_install();
     let all_secrets: Vec<String> = tokens.iter().flat_map(|(token, _, _)| [token.clone(), format!("r{}", &token[1..])]).collect();
-    let mut subjects: Vec<(String, Option<(i64, bool, &str)>)> = vec![("nothing".into(), None)];
+    let mut subjects: Vec<Subject> = vec![("nothing".into(), None)];
     for (token, app_id, state) in &tokens {
         subjects.push((token.clone(), Some((*app_id, false, *state))));
         subjects.push((format!("r{}", &token[1..]), Some((*app_id, true, *state))));
@@ -1198,6 +1204,13 @@ async fn a_multipart_body_is_refused_before_any_token_is_used() {
         let answer = deltabadger::web::router(app.clone()).oneshot(request).await.unwrap();
         assert_eq!(answer.status().as_u16(), 400, "{method} {path}");
     }
+    // So is a POST body with no content type, which Rack reads as a form.
+    let mut request = Request::builder().method("POST").uri("/oauth/introspect?token=first").header(header::HOST, web::HOST)
+        .header(header::AUTHORIZATION, "Bearer second").header(header::CONTENT_LENGTH, "15").body(Body::from("access_token=se")).unwrap();
+    request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+    assert_eq!(deltabadger::web::router(app.clone()).oneshot(request).await.unwrap().status().as_u16(), 400, "an untyped POST body");
+    // A valueless `access_token[]` beside `access_token[]=x` is the list `["x"]`: with the header, two ways (400).
+    assert_eq!(send_with(&app, "GET", "/oauth/token/info?access_token%5B%5D=x&access_token%5B%5D", &[("authorization", "Bearer second")], "").await.status, 400);
     assert_eq!(token_rows(dir.path()), before, "nothing was used");
     // Without the body the same bearer is a use, and retires the token it came from.
     assert_eq!(send_with(&app, "GET", "/oauth/token/info", &[("authorization", "Bearer second")], "").await.status, 200);

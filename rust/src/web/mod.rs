@@ -1098,7 +1098,10 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         if let Some(method) = method_override(rack_form.then_some(form.as_slice()), override_header.as_deref()) { parts.method = method; }
     }
     let multipart = content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("multipart/form-data"));
-    let rack_refused = oauth::RACK_READ.contains(&route_path.as_str()) && (multipart || !(rack_form && hook::rack_form_ok(raw_query.as_bytes())));
+    // A body with no content type: Rack reads a POST's as a form; nothing here reads it.
+    let untyped_body = content_type.trim().is_empty() && original_method == Method::POST
+        && (header_text(&parts.headers, "content-length").is_some_and(|length| length.trim() != "0") || parts.headers.contains_key(header::TRANSFER_ENCODING));
+    let rack_refused = oauth::RACK_READ.contains(&route_path.as_str()) && (multipart || untyped_body || !(rack_form && hook::rack_form_ok(raw_query.as_bytes())));
     if unparseable || rack_refused { parts.extensions.insert(hook::Unparseable); }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);
