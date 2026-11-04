@@ -6,7 +6,7 @@ fn main() {
   // test_report exists only in debug builds (the proofs' reports).
   tauri_build::try_build(
     tauri_build::Attributes::new()
-      .app_manifest(tauri_build::AppManifest::new().commands(&["check_for_updates", "test_report"])),
+      .app_manifest(tauri_build::AppManifest::new().commands(&["update_state", "check_for_updates", "install_update", "retry_update", "test_report"])),
   )
   .expect("failed to run tauri-build")
 }

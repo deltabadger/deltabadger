@@ -1,0 +1,67 @@
+{
+  "ported_sources": {
+    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
+    "app/models/bot/exchange_user.rb": "c918210dd56bf470c33c515c8bcfb5acef340c0adbae5bf6d4df1777e1f5cb5e",
+    "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
+    "app/models/bot/order_creator.rb": "2187adb422ff1dd324fcf0d0b14a10d079ab35ba38ce60b53e78dd82e53d776c"
+  },
+  "vectors": [
+    {
+      "errors": [
+        "Faraday::TimeoutError: Net::ReadTimeout with \"Net::ReadTimeout\""
+      ],
+      "ambiguous": true,
+      "path": "raised"
+    },
+    {
+      "errors": [
+        "Faraday::ConnectionFailed: Connection reset by peer - Connection reset by peer"
+      ],
+      "ambiguous": true,
+      "path": "raised"
+    },
+    {
+      "errors": [
+        "Faraday::ConnectionFailed: Failed to open TCP connection to api.example:443 (Connection refused - connect(2) for 127.0.0.1:443)"
+      ],
+      "ambiguous": false,
+      "path": "raised"
+    },
+    {
+      "errors": [
+        "Faraday::ConnectionFailed: Failed to open TCP connection to api.example:443 (execution expired)"
+      ],
+      "ambiguous": false,
+      "path": "raised"
+    },
+    {
+      "errors": [
+        "Faraday::ConnectionFailed: Failed to open TCP connection to api.example:443 (getaddrinfo: nodename nor servname provided, or not known)"
+      ],
+      "ambiguous": false,
+      "path": "raised"
+    },
+    {
+      "errors": [
+        "Faraday::ConnectionFailed: end of file reached"
+      ],
+      "ambiguous": true,
+      "path": "raised"
+    },
+    {
+      "errors": [
+        "Faraday::SSLError: SSL_read: unexpected eof while reading"
+      ],
+      "ambiguous": true,
+      "path": "raised"
+    },
+    {
+      "errors": [
+        "Faraday::TimeoutError: Net::WriteTimeout with \"Net::WriteTimeout\""
+      ],
+      "ambiguous": true,
+      "path": "raised"
+    }
+  ]
+}

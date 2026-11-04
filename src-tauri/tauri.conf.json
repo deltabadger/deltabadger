@@ -24,12 +24,13 @@
       "endpoints": [
         "https://github.com/deltabadger/deltabadger/releases/latest/download/latest.json"
       ],
-      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY"
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "requireSignedVersion": true
     }
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": "v1Compatible",
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",

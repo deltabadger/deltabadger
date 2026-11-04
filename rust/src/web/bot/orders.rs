@@ -357,6 +357,14 @@ impl<'a> Rows<'a> {
             // PLAN-B2 C3, C4 (B2-6): a takeover's lines for Rails' queued work.
             "upgrade_signal_unresolved" => event(&log.event, &[("call", Arg::Text(&detail("call")))]),
             "upgrade_command_dropped" => event(&log.event, &[("action", Arg::Text(&detail("action")))]),
+            // A28-1: Rails' unrecorded-order candidates (engine::rails_unrecorded).
+            "rails_order_candidates" => {
+                let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
+                event(if one { "rails_order_candidate" } else { "rails_order_candidates" },
+                      &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("trades", Arg::Text(&detail("trades")))])
+            }
+            "rails_order_none_seen" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
+            "rails_order_unchecked" => event(&format!("rails_order_unchecked_{}", detail("reason")), &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "asset_split" => match detail("ratio") {
                 ratio if ratio.trim().is_empty() => event("asset_split_unknown_ratio", &[("base", Arg::Text(&detail("base")))]),
                 ratio => event("asset_split", &[("base", Arg::Text(&detail("base"))), ("ratio", Arg::Text(&ratio))]),

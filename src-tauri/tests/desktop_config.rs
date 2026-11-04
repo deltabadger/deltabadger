@@ -99,3 +99,17 @@ fn the_engines_pages_may_call_the_apps_commands() {
     assert!(permissions.contains(&serde_json::json!("allow-check-for-updates")), "{permissions:?}");
     assert!(read("src-tauri/build.rs").contains("\"check_for_updates\""));
 }
+
+// PLAN-B7 §7, r1.13: the committed config updates from the production feed only, refuses a package signed for another
+// version, and builds the updater artifacts; nothing insecure is ever committed (the proofs pass those with --config).
+#[test]
+fn the_updater_config_is_the_production_one() {
+    let config = config();
+    let updater = &config["plugins"]["updater"];
+    assert_eq!(updater["endpoints"], serde_json::json!(["https://github.com/deltabadger/deltabadger/releases/latest/download/latest.json"]));
+    assert_eq!(updater["requireSignedVersion"], true);
+    assert_eq!(config["bundle"]["createUpdaterArtifacts"], true);
+    let text = read("src-tauri/tauri.conf.json");
+    assert!(!text.contains("dangerous"), "a dangerous* flag is committed");
+    assert!(!text.contains("http://"), "a plain-http endpoint is committed");
+}

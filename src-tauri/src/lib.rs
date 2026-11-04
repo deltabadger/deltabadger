@@ -7,19 +7,19 @@ use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
-    Manager, WebviewUrl, WebviewWindowBuilder,
+    Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 // Tauri re-exports this only for macOS, and all three call sites are already cfg-gated — an
 // unconditional import is what breaks the Windows and Linux builds.
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-use tauri_plugin_updater::UpdaterExt;
 
 mod secrets;
 pub mod supervisor;
+pub mod update;
 
 use supervisor::{stop_engine, Engine, Launch, Page, View};
+use update::{Agent, Snapshot};
 
 /// The released app's identifier: the only one that runs on the 2.x data dir (PLAN-B6 r2.2). Test builds use
 /// `com.deltabadger.app.test`, `tauri dev` `com.deltabadger.app.dev`.
@@ -159,6 +159,15 @@ fn log_line<R: tauri::Runtime>(app: &tauri::AppHandle<R>, line: &str) {
     }
 }
 
+/// Every quit (B6's path): an install that hasn't begun its replacement step gives way (PLAN-B7 r1.2), then the
+/// engine's stdin is closed.
+fn quit(app: &tauri::AppHandle) {
+    if let Some(updates) = app.try_state::<Updates>() {
+        updates.agent.quit();
+    }
+    stop_engine(&app.state::<Arc<Engine>>());
+}
+
 fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     // Show in Dock when window is shown
     #[cfg(target_os = "macos")]
@@ -225,61 +234,164 @@ impl View for WindowView {
     }
 }
 
-// Also the Settings button: an install that can update itself should not be handing its owner
-// instructions. Returns whether an update was found — the caller only needs that much to say
-// "you are up to date", because everything after finding one is the native prompt below, and a
-// successful install never returns at all.
-#[tauri::command]
-async fn check_for_updates(app: tauri::AppHandle) -> Result<bool, String> {
-    let Some(update) = app
-        .updater()
-        .map_err(|error| format!("Failed to initialize updater: {error}"))?
-        .check()
-        .await
-        .map_err(|error| format!("Failed to check for updates: {error}"))?
-    else {
-        log::info!("Deltabadger is up to date");
-        return Ok(false);
-    };
+/// Where the main window may go (PLAN-B7 r1.8): the status page and this launch's engine; any other web page opens in
+/// the browser; nothing else loads.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Navigation {
+    Allow,
+    Browser,
+    Refuse,
+}
 
-    let version = update.version.clone();
-    let (answer, answered) = tokio::sync::oneshot::channel();
-    app.dialog()
-        .message(format!(
-            "Deltabadger {version} is available. Install it now and restart?"
-        ))
-        .title("Update available")
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Install and restart".to_string(),
-            "Later".to_string(),
-        ))
-        .show(move |install| {
-            let _ = answer.send(install);
-        });
+pub fn navigation(url: &tauri::Url, engine_port: Option<u16>) -> Navigation {
+    let status = url.scheme() == "tauri" || (url.scheme() == "http" && url.host_str() == Some("tauri.localhost"));
+    let engine = url.scheme() == "http" && url.host_str() == Some(supervisor::HOST) && engine_port.is_some_and(|p| url.port() == Some(p));
+    if status || engine || url.as_str() == "about:blank" {
+        Navigation::Allow
+    } else if matches!(url.scheme(), "http" | "https") {
+        Navigation::Browser
+    } else {
+        Navigation::Refuse
+    }
+}
 
-    if !answered
-        .await
-        .map_err(|error| format!("Update prompt was closed unexpectedly: {error}"))?
-    {
-        log::info!("Update {version} deferred by the user");
-        return Ok(true);
+/// The guard on every command (PLAN-B7 r1.8, r3.4): the caller is the main window on this launch's engine origin, and
+/// its document carries this launch's token (`<meta name="desktop-launch">`, which only the engine this launch started
+/// renders). A page on another port, or another listener on the engine's port, has neither.
+pub fn allowed(label: &str, url: &tauri::Url, launch: Option<(u16, String)>, token: &str) -> Result<(), &'static str> {
+    let Some((port, own)) = launch.filter(|_| label == "main") else { return Err("no engine page") };
+    if url.scheme() != "http" || url.host_str() != Some(supervisor::HOST) || url.port() != Some(port) {
+        return Err("not this engine's origin");
+    }
+    if token.is_empty() || token != own {
+        return Err("not this launch's token");
+    }
+    Ok(())
+}
+
+fn guard(app: &tauri::AppHandle, webview: &tauri::Webview, token: &str) -> Result<(), String> {
+    let url = webview.url().map_err(|e| e.to_string())?;
+    allowed(webview.label(), &url, app.state::<Arc<Engine>>().launch(), token).map_err(|why| {
+        let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
+        log_line(app, &format!("desktop: refused a command from {}://{}{port}: {why}", url.scheme(), url.host_str().unwrap_or("")));
+        "refused".to_string()
+    })
+}
+
+/// The update agent and what an install needs (the host exists once the data dir is known).
+struct Updates {
+    agent: Arc<Agent>,
+    config: update::Config,
+    host: Option<Arc<AppHost>>,
+}
+
+/// The app, as the install sees it.
+struct AppHost {
+    app: tauri::AppHandle,
+    engine: Arc<Engine>,
+    launch: Arc<Launch>,
+    view: Arc<WindowView>,
+    agent: Arc<Agent>,
+    fault: Option<String>,
+    /// The supervisor thread of the engine started last: a respawn waits for it to end first, or two supervisors would
+    /// follow one engine.
+    supervisor: Mutex<Option<std::thread::JoinHandle<()>>>,
+}
+
+impl update::Host for AppHost {
+    fn show(&self, page: &str) { self.view.status(page) }
+
+    fn stop_and_wait(&self, cancelled: &dyn Fn() -> bool) -> bool { supervisor::stop_and_wait(&self.engine, cancelled) }
+
+    fn bundle_lock(&self) -> Result<Option<Box<dyn std::any::Any>>, String> {
+        let env = |k: &str| std::env::var(k).ok();
+        let exe = std::env::current_exe().and_then(|e| e.canonicalize()).map_err(|e| e.to_string())?;
+        let app = update::install::installed_app(&exe, &env).ok_or("not an installed app")?;
+        let dir = update::install::lock_dir(&env).ok_or("no folder for the update lock")?;
+        let file = update::install::open_lock(&dir.join(update::install::lock_name(&app)))?;
+        Ok(update::install::try_exclusive(file)?.map(|f| Box::new(f) as Box<dyn std::any::Any>))
     }
 
-    log::info!("Downloading and installing update {version}");
-    update
-        .download_and_install(
-            |chunk_length, content_length| {
-                log::debug!(
-                    "Downloaded {chunk_length} update bytes (total size: {content_length:?})"
-                );
-            },
-            || log::info!("Update download finished"),
-        )
-        .await
-        .map_err(|error| format!("Failed to install update {version}: {error}"))?;
+    fn install(&self, package: &update::Package) -> Result<(), update::install::Failure> {
+        let bytes = &package.bytes[..];
+        let exe = std::env::current_exe().and_then(|e| e.canonicalize())?;
+        let app = update::install::installed_app(&exe, &|k| std::env::var(k).ok())
+            .ok_or_else(|| update::install::Failure { reason: "not an installed app".into(), space: false })?;
+        let log = |line: &str| self.log(line);
+        #[cfg(target_os = "macos")]
+        return update::install::install_macos(&app, bytes, self.fault.as_deref(), &log);
+        #[cfg(target_os = "linux")]
+        return update::install::install_appimage(&app, bytes, self.fault.as_deref(), &log);
+        #[cfg(windows)]
+        {
+            let _ = (app, log);
+            return update::install::launch_windows_installer(bytes, &self.launch.data, &package.version, true, self.fault.as_deref());
+        }
+    }
 
-    log::info!("Update {version} installed; restarting");
-    app.restart();
+    fn respawn(&self) {
+        let mut supervisor = self.supervisor.lock().unwrap_or_else(|e| e.into_inner());
+        let view: Arc<dyn View> = self.view.clone();
+        *supervisor = supervisor::restart(self.launch.clone(), self.engine.clone(), view, supervisor.take(), &|| self.agent.quitting());
+    }
+
+    fn relaunch(&self) {
+        // Windows: the installer relaunches the app itself (/R).
+        if cfg!(windows) { self.app.exit(0) } else { self.app.request_restart() }
+    }
+
+    fn log(&self, line: &str) { log_line(&self.app, line) }
+}
+
+fn updates(app: &tauri::AppHandle) -> (Arc<Agent>, update::Config, Option<Arc<AppHost>>) {
+    let updates = app.state::<Updates>();
+    (updates.agent.clone(), updates.config.clone(), updates.host.clone())
+}
+
+async fn run_check(app: &tauri::AppHandle, button: bool) -> Snapshot {
+    let (agent, config, _) = updates(app);
+    let log = |line: &str| log_line(app, line);
+    update::check(app, &agent, &config, button, &log).await
+}
+
+fn start_install(app: &tauri::AppHandle) -> Result<Snapshot, String> {
+    let (agent, _, host) = updates(app);
+    let host = host.ok_or("the app can't install here")?;
+    let package = agent.begin_install()?;
+    log_line(app, "desktop: update: install asked for");
+    std::thread::spawn(move || host.agent.run_install(&*host, &package, &update::Timing::APP));
+    Ok(agent.snapshot())
+}
+
+#[tauri::command]
+fn update_state(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<Snapshot, String> {
+    guard(&app, &webview, &token)?;
+    Ok(updates(&app).0.snapshot())
+}
+
+/// The Settings button: a check now; the state after it.
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<Snapshot, String> {
+    guard(&app, &webview, &token)?;
+    Ok(run_check(&app, true).await)
+}
+
+/// "Restart to update".
+#[tauri::command]
+fn install_update(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<Snapshot, String> {
+    guard(&app, &webview, &token)?;
+    start_install(&app)
+}
+
+/// "Try again" (r1.11): the install again after an install failure, else a new check and download.
+#[tauri::command]
+async fn retry_update(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<Snapshot, String> {
+    guard(&app, &webview, &token)?;
+    if updates(&app).0.retry_installs() {
+        start_install(&app)
+    } else {
+        Ok(run_check(&app, true).await)
+    }
 }
 
 /// Debug builds: a page script's report into the log (the proofs read what the window saw from there).
@@ -331,9 +443,9 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(debug_assertions)]
-    let builder = builder.invoke_handler(tauri::generate_handler![check_for_updates, test_report]);
+    let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update, test_report]);
     #[cfg(not(debug_assertions))]
-    let builder = builder.invoke_handler(tauri::generate_handler![check_for_updates]);
+    let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update]);
     builder
         .manage(Arc::new(Engine::default()))
         .setup(|app| {
@@ -347,6 +459,7 @@ pub fn run() {
             }
 
             // The window first, on the status page: whatever happens next is shown in it (r1.11).
+            let (engine, handle) = (app.state::<Arc<Engine>>().inner().clone(), app.handle().clone());
             let window_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("Deltabadger")
                 .inner_size(1280.0, 800.0)
@@ -354,6 +467,15 @@ pub fn run() {
                 .center()
                 .devtools(true)
                 .initialization_script(initialization_script())
+                .on_navigation(move |url| match navigation(url, engine.launch().map(|(port, _)| port)) {
+                    Navigation::Allow => true,
+                    Navigation::Browser => {
+                        #[allow(deprecated)] // the plugin tauri.js already opens links with
+                        let _ = tauri_plugin_shell::ShellExt::shell(&handle).open(url.as_str(), None);
+                        false
+                    }
+                    Navigation::Refuse => false,
+                })
                 .on_download(|webview, event| {
                     match event {
                         tauri::webview::DownloadEvent::Requested { destination, .. } => {
@@ -409,7 +531,7 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "show" => show_window(app),
                     "quit" => {
-                        stop_engine(&app.state::<Arc<Engine>>());
+                        quit(app);
                         app.exit(0);
                     }
                     _ => {}
@@ -423,26 +545,45 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            let view = WindowView { app: app.handle().clone(), status: status_page(), last: Mutex::new(None) };
-            match launch(app) {
+            let view = Arc::new(WindowView { app: app.handle().clone(), status: status_page(), last: Mutex::new(None) });
+            let handle = app.handle().clone();
+            let agent = Arc::new(Agent::new(move |state: &Snapshot| {
+                let _ = handle.emit_to("main", "update-state", state);
+                // The log names every state (download progress in quarters): support and the proofs read it there.
+                if !matches!(state.state, update::State::Downloading { percent: Some(p), .. } if p % 25 != 0) {
+                    let json = serde_json::to_value(state).unwrap_or_default();
+                    log_line(&handle, &format!("desktop: update: state {}", json.as_object().map(|o| o.iter().filter(|(k, _)| *k != "seq").map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(" ")).unwrap_or_default()));
+                }
+            }));
+            let config = update::Config::read(&app.config().identifier, cfg!(debug_assertions), &|k| std::env::var(k).ok());
+            let host = match launch(app) {
                 Ok(launch) => {
                     app.manage(LogFile(launch.log_file()));
-                    let engine = app.state::<Arc<Engine>>().inner().clone();
-                    std::thread::spawn(move || supervisor::supervise(&launch, &engine, &view));
+                    let (launch, engine) = (Arc::new(launch), app.state::<Arc<Engine>>().inner().clone());
+                    let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
+                    let supervisor = Mutex::new(Some(std::thread::spawn(move || supervisor::supervise(&l, &e, &*v))));
+                    let fault = config.fault.clone();
+                    Some(Arc::new(AppHost { app: app.handle().clone(), engine, launch, view, agent: agent.clone(), fault, supervisor }))
                 }
-                Err(error) => view.status(&Page::NotStarted(error).fragment(Path::new(""))),
-            }
-
-            // Packaged apps check after startup so development never contacts the
-            // production update endpoint or requires a real updater public key.
-            if !cfg!(debug_assertions) {
-                let app_handle = app.handle().clone();
+                Err(error) => {
+                    view.status(&Page::NotStarted(error).fragment(Path::new("")));
+                    None
+                }
+            };
+            app.manage(Updates { agent, config: config.clone(), host });
+            // At start once the window exists, then every 12 hours (§1); independent of the engine.
+            if config.enabled {
+                let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = check_for_updates(app_handle).await {
-                        log::error!("{error}");
+                    if let Ok(exe) = std::env::current_exe().and_then(|e| e.canonicalize()) {
+                        if let Some(app) = update::install::installed_app(&exe, &|k| std::env::var(k).ok()) {
+                            update::install::remove_leftovers(&app, &|line| log_line(&handle, line));
+                        }
                     }
-                    // The result is only interesting to the Settings button; at startup the
-                    // prompt has already said everything there is to say.
+                    loop {
+                        run_check(&handle, false).await;
+                        tokio::time::sleep(config.interval).await;
+                    }
                 });
             }
 
@@ -466,9 +607,7 @@ pub fn run() {
         .run(|app, event| match event {
             // Every quit, whichever way it came (PLAN-B6 r1.1): close the engine's stdin and let the app go. Cmd-Q, Dock
             // Quit, AppleScript and logout arrive as Exit, which cannot be held; the engine drains on its own.
-            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
-                stop_engine(&app.state::<Arc<Engine>>());
-            }
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => quit(app),
             // A Dock click or a Finder open while the window is hidden (r1.12).
             #[cfg(target_os = "macos")]
             tauri::RunEvent::Reopen { .. } => show_window(app),

@@ -97,6 +97,8 @@ struct Slot {
     stdin: Option<ChildStdin>,
     quitting: bool,
     log: Option<PathBuf>,
+    /// The port and ready token of the last engine started: its pages are the only ones the app's commands answer.
+    launch: Option<(u16, String)>,
 }
 
 /// How `stop_engine` found the engine.
@@ -116,6 +118,21 @@ impl Engine {
 
     /// The running engine's process id.
     pub fn pid(&self) -> Option<u32> { self.slot().child.as_ref().map(Child::id) }
+
+    /// The port and ready token of the engine started last (PLAN-B7 r1.8, r3.4).
+    pub fn launch(&self) -> Option<(u16, String)> { self.slot().launch.clone() }
+
+    /// Undoes a stop asked for by an update (PLAN-B7 r2.2), so the supervisor can start the engine again — unless
+    /// `quitting` says the app is quitting. Decided under the slot's lock: a quit either comes first (nothing resumes) or
+    /// finds the latch set again by its own `stop_engine`.
+    pub fn resume(&self, quitting: &dyn Fn() -> bool) -> bool {
+        let mut slot = self.slot();
+        if quitting() {
+            return false;
+        }
+        slot.quitting = false;
+        true
+    }
 
     /// The engine's exit status once it has exited (the child is then forgotten).
     fn exited(&self) -> Option<ExitStatus> {
@@ -147,6 +164,49 @@ pub fn stop_engine(engine: &Engine) -> Stopped {
         }
     }
     stopped
+}
+
+/// An update's stop (PLAN-B6 r1.6, PLAN-B7 §2.1): the same stdin close as `stop_engine`, then the wait for the child's
+/// exit — never a kill, never a deadline. The wait polls without holding the slot, so a quit or the supervisor is never
+/// blocked behind it. False when `cancelled` turned true first (the app is quitting).
+pub fn stop_and_wait(engine: &Engine, cancelled: &dyn Fn() -> bool) -> bool {
+    stop_engine(engine);
+    loop {
+        {
+            let mut slot = engine.slot();
+            let gone = match slot.child.as_mut() {
+                None => true,
+                Some(child) => !matches!(child.try_wait(), Ok(None)),
+            };
+            if gone {
+                return true;
+            }
+        }
+        if cancelled() {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// The engine started again after an update stopped it and didn't install (PLAN-B7 r2.2), through the same `supervise`:
+/// first the previous supervisor is waited for (its engine has exited and the stop is still latched, so it returns within
+/// one poll; resumed earlier, it would take the new engine for its own and follow it on the old port), then the latch is
+/// cleared unless `quitting`, then a new supervisor starts. Returns its thread, or None when a quit came in.
+pub fn restart(
+    launch: std::sync::Arc<Launch>,
+    engine: std::sync::Arc<Engine>,
+    view: std::sync::Arc<dyn View>,
+    previous: Option<thread::JoinHandle<()>>,
+    quitting: &dyn Fn() -> bool,
+) -> Option<thread::JoinHandle<()>> {
+    if let Some(previous) = previous {
+        let _ = previous.join();
+    }
+    if !engine.resume(quitting) {
+        return None;
+    }
+    Some(thread::spawn(move || supervise(&launch, &engine, &*view)))
 }
 
 /// What the window shows: the launcher's status page with one of these, or an engine page.
@@ -392,6 +452,7 @@ fn start(launch: &Launch, engine: &Engine, port: u16, token: &str, keys: &HashMa
     slot.stdin = child.stdin.take();
     slot.child = Some(child);
     slot.log = Some(log);
+    slot.launch = Some((port, token.to_string()));
     Ok(true)
 }
 
@@ -450,6 +511,12 @@ fn watch(engine: &Engine, view: &dyn View, show: &dyn Fn(Page), log: &Path, port
     loop {
         if let Some(exit) = engine.exited() {
             return if engine.quitting() { Watched::Quit(exit) } else { Watched::Exited { status: exit, served } };
+        }
+        // A stop was asked for (a quit, an update): the window is no longer the supervisor's to change while the engine
+        // finishes (an update shows U7/U8 there).
+        if engine.quitting() {
+            thread::sleep(POLL);
+            continue;
         }
         let put = |page: Page, status: &mut Option<Page>| {
             if status.as_ref() != Some(&page) {

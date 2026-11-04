@@ -744,7 +744,7 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// The two newest Rust migrations and how to make each pending again on a made install (its table gone, its row
 /// with it), as on an install from the build before it. The newest migration must be here, or these tests would stop
 /// testing "an update brings a migration" the day one is added.
-const UNDO: [(&str, &str); 2] = [("20261106000001", "DROP TABLE estv_crypto_values"), ("20261107000001", "DROP TABLE rust_idempotency_orders")];
+const UNDO: [(&str, &str); 2] = [("20261107000001", "DROP TABLE rust_idempotency_orders"), ("20261108000001", "DROP TABLE rust_rails_unrecorded")];
 
 #[test]
 fn the_undo_table_covers_the_newest_migration() {
@@ -1111,4 +1111,60 @@ fn an_engine_that_waited_out_a_replacement_of_its_app_stops() {
     assert_eq!(e.exit_code(Duration::from_secs(10)), Some(1));
     assert!(e.rest().iter().any(|l| l.contains(deltabadger::bundle::BEING_UPDATED)));
     assert!(!data.primary().exists(), "nothing was created");
+}
+
+/// The first page of a fresh install (setup), following one redirect.
+fn first_page(port: u16) -> String {
+    let answer = get(port, "/").unwrap();
+    let location = answer.lines().find_map(|l| l.strip_prefix("location: ").or_else(|| l.strip_prefix("Location: "))).map(str::trim);
+    match location {
+        Some(to) => get(port, &to.replace(&format!("http://127.0.0.1:{port}"), "")).unwrap(),
+        None => answer,
+    }
+}
+
+/// PLAN-B7 r3.4, r4.5, §5.2: on the desktop every full page carries the launch token and the hidden update banner with
+/// every state's line (no version in any); elsewhere neither.
+#[test]
+fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
+    for platform in ["desktop", "docker"] {
+        let data = Data::new();
+        let port = free_port();
+        let mut c = desktop(&data, port);
+        c.env("DELTABADGER_PLATFORM", platform);
+        let mut e = start(&mut c, port);
+        assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+        let page = first_page(port);
+        let page = body(&page);
+        if platform == "desktop" {
+            assert!(page.contains(&format!("<meta name=\"desktop-launch\" content=\"{TOKEN}\">")), "{page}");
+            // D-DESKTOP-DEVISE-MODULE: as a classic script the bundle's top-level functions collide with the webview's
+            // own globals (`isTauri`) and nothing runs on the setup and login pages; a module keeps them its own.
+            assert!(page.contains("data-turbo-track=\"reload\" type=\"module\"></script>"), "{page}");
+            let start = page.find("<div id=\"desktop_update\"").expect("the banner");
+            let banner = &page[start..start + page[start..].find("</div>\n</div>").unwrap()];
+            assert!(banner.contains("class=\"salert salert--download hidden\""), "hidden until the app says otherwise");
+            for line in [
+                "data-text-ready=\"An update is ready.\"",
+                "data-text-restart=\"Restart to update\"",
+                "data-text-downloading-percent=\"Downloading an update… %{percent}%\"",
+                "data-text-critical-ready=\"An important update is ready. Please restart soon to install it.\"",
+                "data-text-failed-install=\"The update couldn&#39;t be installed. Try again, or download Deltabadger from the download page and install it again.\"",
+                "data-text-manual=\"An update is available, but Deltabadger can&#39;t install it itself. Download Deltabadger from the download page and install it again.\"",
+                "href=\"https://github.com/deltabadger/deltabadger/releases\"",
+            ] {
+                assert!(banner.contains(line), "{line}\n{banner}");
+            }
+            for word in ["engine", "sidecar", "launcher", "translation_missing"] {
+                assert!(!banner.contains(word), "{word}");
+            }
+            let bytes = banner.as_bytes();
+            assert!(!bytes.windows(3).any(|w| w[0].is_ascii_digit() && w[1] == b'.' && w[2].is_ascii_digit()), "a version: {banner}");
+        } else {
+            assert!(!page.contains("desktop-launch") && !page.contains("desktop_update"), "{platform}");
+            assert!(page.contains("data-turbo-track=\"reload\" defer=\"defer\"></script>"), "{platform}: today's script tag");
+        }
+        e.close_stdin();
+        assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    }
 }
