@@ -3191,7 +3191,7 @@ fn a_failed_oauth_request_logs_no_token() {
 
 /// An install with its seeded owner confirmed, and a browser signed in as them; `bot_config` is the wizard state the session holds.
 fn legacy_fixture(bot_config: Option<serde_json::Value>) -> (tempfile::TempDir, deltabadger::store::Opened, common::seed::Seeded, deltabadger::web::App, Browser) {
-    use deltabadger::web::session::{self, csrf, SessionData};
+    use deltabadger::web::{csrf, session::{self, SessionData}};
     let (dir, opened, seeded) = common::install();
     opened.primary.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00' WHERE id = ?1", [seeded.user_id]).unwrap();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
@@ -3264,8 +3264,10 @@ async fn legacy_unserved_posts_are_404() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_stale_create_form_creates_nothing() {
     use deltabadger::web::session;
-    let config = serde_json::json!({ "index_type": "top", "exchange_id": 1, "settings": { "quote_asset_id": 2, "quote_amount": 100, "interval": "week" } });
-    let (_dir, opened, _seeded, app, mut browser) = legacy_fixture(Some(config));
+    // What web::wizard::index leaves before its quote step creates the bot: an index, a venue, a quote and the defaults.
+    let config = serde_json::json!({ "exchange_id": 1, "settings": { "index_type": "top", "index_category_id": null, "index_name": null,
+                                                                      "index_name_prefix": null, "quote_asset_id": 2, "quote_amount": 100, "interval": "week" } });
+    let (_dir, opened, _seeded, app, mut browser) = legacy_fixture(Some(config.clone()));
     let stream = [("turbo-frame", "modal_content"), ("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")];
 
     // (a) The 2.x tab: Rails' session cookie, Rails' token, no Rust session.
@@ -3280,11 +3282,14 @@ async fn a_stale_create_form_creates_nothing() {
     assert_eq!(stale.get(&app, "/bots").await.header("location"), Some("/login"));
 
     // (b) A Rust session in the middle of a wizard.
-    let restart = |answer: &web::Answer, location: &str, what: &str| {
-        if answer.header("content-type") == Some(deltabadger::web::turbo::CONTENT_TYPE) {
+    // A Turbo Stream when the request asked for one; otherwise 302 for the GET and 303 for a post.
+    let restart = |answer: &web::Answer, method: &str, streamed: bool, location: &str, what: &str| {
+        if streamed {
+            assert_eq!(answer.header("content-type"), Some(deltabadger::web::turbo::CONTENT_TYPE), "{what}");
             assert_eq!((answer.status, answer.body.as_str()), (200, deltabadger::web::turbo::redirect(location).as_str()), "{what}");
         } else {
-            assert!(matches!(answer.status, 302 | 303) && answer.header("location") == Some(location), "{what}: {} {:?}", answer.status, answer.header("location"));
+            let status = if method == "GET" { 302 } else { 303 };
+            assert_eq!((answer.status, answer.header("location")), (status, Some(location)), "{what}");
         }
     };
     for (method, path, location) in [("POST", "/bots/dca_indexes", "/bots/new"), ("POST", "/bots/dca_indexes/confirm_settings", "/bots/new"),
@@ -3292,12 +3297,11 @@ async fn a_stale_create_form_creates_nothing() {
                                       ("POST", "/de/bots/dca_indexes", "/de/bots/new")] {
         let csrf = if method == "GET" { web::Csrf::None } else { web::Csrf::Header };
         for headers in [&stream[..], &[]] {
-            let (_d, opened, _s, app, mut browser) = legacy_fixture(Some(serde_json::json!({ "index_type": "top", "settings": { "quote_amount": 100 } })));
+            let (_d, opened, _s, app, mut browser) = legacy_fixture(Some(config.clone()));
             let form = (method == "POST").then_some(&[("bot[quote_amount]", "50")][..]);
             let answer = browser.send(&app, method, path, form, csrf, headers).await;
             let what = format!("{method} {path} {}", if headers.is_empty() { "plain" } else { "stream" });
-            if method == "POST" && headers.is_empty() { assert_eq!(answer.status, 303, "{what}"); }
-            restart(&answer, location, &what);
+            restart(&answer, method, !headers.is_empty(), location, &what);
             assert_eq!(bot_rows(&opened.primary), 0, "{what}");
             let data = session::open(&app.keys.session, browser.cookie.as_deref().unwrap(), app.now()).unwrap();
             assert_eq!(data.bot_config, None, "{what}: no wizard state left");
@@ -3306,7 +3310,12 @@ async fn a_stale_create_form_creates_nothing() {
     }
     // Signed out: the same answer; the wizard's start then asks for a sign-in.
     let mut signed_out = Browser::default();
-    restart(&signed_out.get(&app, "/bots/dca_indexes/confirm_settings/new").await, "/bots/new", "signed out");
+    restart(&signed_out.get(&app, "/bots/dca_indexes/confirm_settings/new").await, "GET", false, "/bots/new", "signed out GET");
+    assert_eq!(signed_out.get(&app, "/login").await.status, 200, "a signed-out page with a Rust token");
+    for path in ["/bots/dca_indexes", "/bots/dca_indexes/confirm_settings", "/bots/dca_multi_assets"] {
+        let answer = signed_out.send(&app, "POST", path, Some(&[]), web::Csrf::Header, &stream).await;
+        restart(&answer, "POST", true, "/bots/new", &format!("signed out POST {path}"));
+    }
     assert_eq!(signed_out.get(&app, "/bots/new").await.header("location"), Some("/login"));
     // Methods the routes never took keep the 501.
     assert_eq!(browser.send(&app, "DELETE", "/bots/dca_indexes", Some(&[]), web::Csrf::Header, &[]).await.status, 501);
