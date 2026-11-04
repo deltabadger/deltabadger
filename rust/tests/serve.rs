@@ -140,7 +140,7 @@ async fn a_page_this_build_does_not_serve_is_a_501_that_names_it() {
         assert_eq!(answer.header("location"), None, "never a redirect");
     }
     assert_eq!(browser.get(&app, "/setup").await.header("location"), Some("/"), "setup is closed once an admin exists");
-    let framed = browser.send(&app, "GET", "/bots/dca_indexes/confirm_settings/new", None, web::Csrf::None, &[("turbo-frame", "modal")]).await;
+    let framed = browser.send(&app, "GET", "/bots/dca_indexes/nope/new", None, web::Csrf::None, &[("turbo-frame", "modal")]).await;
     assert!(framed.status == 501 && framed.body.contains("<turbo-frame id=\"modal\">"), "Turbo shows the message in the frame it asked for: {}", framed.body);
     assert_eq!(browser.send(&app, "PUT", "/up", None, web::Csrf::None, &[]).await.status, 501, "a method a route does not take");
     for method in ["POST", "PUT", "DELETE"] {
@@ -346,7 +346,7 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     // Deferred writes still answer 501 with a valid token, and no row moves.
     opened.primary.execute("UPDATE bots SET status = 1", []).unwrap();
     let before: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
-    for (method, path) in [("delete", format!("/bots/{first}")), ("post", "/bots/dca_multi_assets".to_string()),
+    for (method, path) in [("delete", format!("/bots/{first}")),
                            ("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
                            ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split"))] {
         let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
@@ -3185,4 +3185,130 @@ fn a_failed_oauth_request_logs_no_token() {
     }
     assert_eq!(said.matches("request failed").count(), 3, "{said}");
     assert!(!said.contains("SECRET-TOKEN"), "a token reached the log:\n{said}");
+}
+
+// ---- 3.0 A26: the legacy routes Rails still draws (PLAN-A26-legacy-routes.md) ----
+
+/// An install with its seeded owner confirmed, and a browser signed in as them; `bot_config` is the wizard state the session holds.
+fn legacy_fixture(bot_config: Option<serde_json::Value>) -> (tempfile::TempDir, deltabadger::store::Opened, common::seed::Seeded, deltabadger::web::App, Browser) {
+    use deltabadger::web::session::{self, csrf, SessionData};
+    let (dir, opened, seeded) = common::install();
+    opened.primary.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00' WHERE id = ?1", [seeded.user_id]).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let hash: String = opened.primary.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [seeded.user_id], |r| r.get(0)).unwrap();
+    let token = csrf::new_token();
+    let data = SessionData { user: Some((seeded.user_id, hash.chars().take(29).collect())), csrf: Some(token.clone()), bot_config, ..Default::default() };
+    let browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: Some(format!("<meta name=\"csrf-token\" content=\"{}\">", csrf::masked(&token))) };
+    (dir, opened, seeded, app, browser)
+}
+
+fn bot_rows(c: &rusqlite::Connection) -> i64 { c.query_row("SELECT COUNT(*) FROM bots", [], |r| r.get(0)).unwrap() }
+
+/// `/dashboard` (in the locale scope) and `/cryptocurrency-dollar-cost-averaging` (outside it) are bookmarks: a 301 each,
+/// signed in or out. D-LEGACY-DASHBOARD-PATH, D-LEGACY-DCA-PAGE-ONE-HOP.
+#[tokio::test(flavor = "current_thread")]
+async fn legacy_bookmarks_redirect() {
+    let (_dir, _opened, _seeded, app, mut signed_in) = legacy_fixture(None);
+    let mut signed_out = Browser::default();
+    for browser in [&mut signed_in, &mut signed_out] {
+        for (method, path, location) in [("GET", "/dashboard", "/bots"), ("HEAD", "/dashboard", "/bots"), ("GET", "/de/dashboard", "/de/bots"),
+                                         ("GET", "/cryptocurrency-dollar-cost-averaging", "/"), ("HEAD", "/cryptocurrency-dollar-cost-averaging", "/"),
+                                         ("GET", "/de/cryptocurrency-dollar-cost-averaging", "/de")] {
+            let answer = browser.send(&app, method, path, None, web::Csrf::None, &[]).await;
+            assert_eq!((answer.status, answer.header("location")), (301, Some(location)), "{method} {path}");
+        }
+        assert_eq!(browser.get(&app, "/zz/dashboard").await.status, 501, "an unknown locale is not a route 3.0 answers");
+    }
+    assert_eq!(signed_out.get(&app, "/bots").await.header("location"), Some("/login"), "where a signed-out bookmark then lands");
+}
+
+/// `/404`, `/422`, `/500` under every method (Rails `via: :all`): ErrorsController's answers, with public/'s bodies.
+#[tokio::test(flavor = "current_thread")]
+async fn legacy_error_paths_answer_under_every_method() {
+    let (_dir, _opened, _seeded, app, mut browser) = legacy_fixture(None);
+    let page = |name: &str| String::from_utf8(std::fs::read(format!("{}/../public/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    for method in ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] {
+        let csrf = if matches!(method, "GET" | "HEAD") { web::Csrf::None } else { web::Csrf::Header };
+        for prefix in ["", "/de"] {
+            let gone = browser.send(&app, method, &format!("{prefix}/404"), None, csrf, &[]).await;
+            assert_eq!((gone.status, gone.header("location")), (302, Some(if prefix.is_empty() { "/" } else { "/de" })), "{method} {prefix}/404");
+            for (path, status, body) in [("/422", 422, page("422.html")), ("/500", 500, page("500.html"))] {
+                let answer = browser.send(&app, method, &format!("{prefix}{path}"), None, csrf, &[]).await;
+                assert_eq!(answer.status, status, "{method} {prefix}{path}");
+                assert_eq!(answer.header("content-type"), Some("text/html; charset=utf-8"), "{method} {prefix}{path}");
+                assert_eq!(answer.body, if method == "HEAD" { String::new() } else { body }, "{method} {prefix}{path}");
+            }
+        }
+    }
+}
+
+/// Two posts no 2.x page sends any more: a 404, and nothing changes. D-LEGACY-SHOW-POST-ABSENT, D-LEGACY-REMOVE-INVALID-KEYS-ABSENT.
+#[tokio::test(flavor = "current_thread")]
+async fn legacy_unserved_posts_are_404() {
+    let (_dir, opened, seeded, app, mut browser) = legacy_fixture(None);
+    let bot = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    opened.primary.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [seeded.api_key_id]).unwrap(); // incorrect
+    let not_found = String::from_utf8(std::fs::read(format!("{}/../public/404.html", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    for path in [format!("/bots/{bot}/show"), format!("/de/bots/{bot}/show"), "/api/remove_invalid_keys".to_string()] {
+        let answer = browser.send(&app, "POST", &path, Some(&[("exchange_id", seeded.exchange_id.to_string().as_str())]), web::Csrf::Header, &[]).await;
+        assert_eq!((answer.status, answer.body.as_str()), (404, not_found.as_str()), "{path}");
+    }
+    let keys: i64 = opened.primary.query_row("SELECT COUNT(*) FROM api_keys WHERE id = ?1", [seeded.api_key_id], |r| r.get(0)).unwrap();
+    assert_eq!(keys, 1, "the incorrect key is still there");
+    assert_eq!(bot_rows(&opened.primary), 1);
+}
+
+/// The old create forms (D-LEGACY-STALE-CREATE). A real 2.x tab carries Rails' cookie and token, which Rust does not read:
+/// it is turned back before any route. A request with a Rust session is sent to the wizard's start. Neither creates a
+/// bot, and the Rust session keeps no wizard state.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stale_create_form_creates_nothing() {
+    use deltabadger::web::session;
+    let config = serde_json::json!({ "index_type": "top", "exchange_id": 1, "settings": { "quote_asset_id": 2, "quote_amount": 100, "interval": "week" } });
+    let (_dir, opened, _seeded, app, mut browser) = legacy_fixture(Some(config));
+    let stream = [("turbo-frame", "modal_content"), ("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")];
+
+    // (a) The 2.x tab: Rails' session cookie, Rails' token, no Rust session.
+    let mut stale = Browser::default();
+    let referer = format!("http://{}/bots", web::HOST);
+    for path in ["/bots/dca_indexes", "/bots/dca_indexes/confirm_settings", "/bots/dca_multi_assets"] {
+        let headers = [stream[0], stream[1], ("cookie", "_deltabadger_session=rails-2x"), ("referer", referer.as_str())];
+        let answer = stale.send(&app, "POST", path, Some(&[("authenticity_token", "rails-token")]), web::Csrf::None, &headers).await;
+        assert_eq!((answer.status, answer.header("location")), (302, Some("/bots")), "{path}: turned back before the route");
+        assert_eq!(bot_rows(&opened.primary), 0, "{path}");
+    }
+    assert_eq!(stale.get(&app, "/bots").await.header("location"), Some("/login"));
+
+    // (b) A Rust session in the middle of a wizard.
+    let restart = |answer: &web::Answer, location: &str, what: &str| {
+        if answer.header("content-type") == Some(deltabadger::web::turbo::CONTENT_TYPE) {
+            assert_eq!((answer.status, answer.body.as_str()), (200, deltabadger::web::turbo::redirect(location).as_str()), "{what}");
+        } else {
+            assert!(matches!(answer.status, 302 | 303) && answer.header("location") == Some(location), "{what}: {} {:?}", answer.status, answer.header("location"));
+        }
+    };
+    for (method, path, location) in [("POST", "/bots/dca_indexes", "/bots/new"), ("POST", "/bots/dca_indexes/confirm_settings", "/bots/new"),
+                                      ("POST", "/bots/dca_multi_assets", "/bots/new"), ("GET", "/bots/dca_indexes/confirm_settings/new", "/bots/new"),
+                                      ("POST", "/de/bots/dca_indexes", "/de/bots/new")] {
+        let csrf = if method == "GET" { web::Csrf::None } else { web::Csrf::Header };
+        for headers in [&stream[..], &[]] {
+            let (_d, opened, _s, app, mut browser) = legacy_fixture(Some(serde_json::json!({ "index_type": "top", "settings": { "quote_amount": 100 } })));
+            let form = (method == "POST").then_some(&[("bot[quote_amount]", "50")][..]);
+            let answer = browser.send(&app, method, path, form, csrf, headers).await;
+            let what = format!("{method} {path} {}", if headers.is_empty() { "plain" } else { "stream" });
+            if method == "POST" && headers.is_empty() { assert_eq!(answer.status, 303, "{what}"); }
+            restart(&answer, location, &what);
+            assert_eq!(bot_rows(&opened.primary), 0, "{what}");
+            let data = session::open(&app.keys.session, browser.cookie.as_deref().unwrap(), app.now()).unwrap();
+            assert_eq!(data.bot_config, None, "{what}: no wizard state left");
+            assert!(data.user.is_some(), "{what}: still signed in");
+        }
+    }
+    // Signed out: the same answer; the wizard's start then asks for a sign-in.
+    let mut signed_out = Browser::default();
+    restart(&signed_out.get(&app, "/bots/dca_indexes/confirm_settings/new").await, "/bots/new", "signed out");
+    assert_eq!(signed_out.get(&app, "/bots/new").await.header("location"), Some("/login"));
+    // Methods the routes never took keep the 501.
+    assert_eq!(browser.send(&app, "DELETE", "/bots/dca_indexes", Some(&[]), web::Csrf::Header, &[]).await.status, 501);
+    assert_eq!(bot_rows(&opened.primary), 0);
 }
