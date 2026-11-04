@@ -145,7 +145,20 @@ a new one.
 for a token that is unknown or already dead. A token that belongs to another
 client is refused with `403 unauthorized_client`.
 
-`/oauth/introspect` and `/oauth/token/info` are not served (`501`).
+### Introspecting a token
+
+`POST /oauth/introspect` (RFC 7662) takes `token` (and optionally
+`token_type_hint`). The caller authenticates as a client, the same way as at
+`/oauth/token`, or with `Authorization: Bearer {access_token}` of the same
+client. A live token of the caller's own client answers
+`{ "active": true, "scope": ..., "client_id": ..., "iat": ..., "token_type": "Bearer", "exp": ... }`;
+any other token answers `{ "active": false }`. A bearer token cannot
+introspect itself or a token of another client (`401 invalid_token`).
+
+`GET /oauth/token/info` with `Authorization: Bearer {access_token}` describes
+that token: `resource_owner_id`, `scope`, `expires_in` (seconds left),
+`application.uid` and `created_at`. A token that is unknown, expired or
+revoked answers `401 invalid_token`.
 
 ### Discovery
 
