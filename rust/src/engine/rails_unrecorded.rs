@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 
 use super::model::{self, Level};
 use crate::enums::BotStatus;
-use super::EngineError;
+use super::{amount, EngineError};
 use crate::codec::{format_time, parse_time};
 use crate::venue::Side;
 
@@ -210,15 +210,28 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> 
     Ok(written)
 }
 
-struct Obligation { bot: i64, source: String, from: DateTime<Utc>, to: DateTime<Utc>, scope: Option<Value>, collected: DateTime<Utc> }
+struct Obligation { bot: i64, source: String, source_ref: i64, from: DateTime<Utc>, to: DateTime<Utc>, scope: Option<Value>, collected: DateTime<Utc> }
 
-fn load(c: &Connection, id: i64) -> Result<Option<Obligation>, EngineError> {
-    let row = c.query_row("SELECT bot_id, source, span_from, span_to, scope, collected_at FROM rust_rails_unrecorded WHERE id = ?1 AND reported_at IS NULL", [id],
-                          |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, Option<String>>(4)?, r.get::<_, String>(5)?)))
+fn load(c: &Connection, id: i64) -> Result<Option<Obligation>, EngineError> { load_where(c, id, true) }
+
+/// The obligation, only while its line is unwritten when `open`.
+fn load_where(c: &Connection, id: i64, open: bool) -> Result<Option<Obligation>, EngineError> {
+    let row = c.query_row("SELECT bot_id, source, span_from, span_to, scope, collected_at, source_ref FROM rust_rails_unrecorded WHERE id = ?1 AND (reported_at IS NULL OR NOT ?2)",
+                          params![id, open],
+                          |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, Option<String>>(4)?, r.get::<_, String>(5)?, r.get::<_, i64>(6)?)))
         .optional()?;
-    let Some((bot, source, from, to, scope, collected)) = row else { return Ok(None) };
+    let Some((bot, source, from, to, scope, collected, source_ref)) = row else { return Ok(None) };
     let t = |s: &str| parse_time(s).map_err(|e| EngineError::Data(format!("rust_rails_unrecorded {id}: {e:?}")));
-    Ok(Some(Obligation { bot, source, from: t(&from)?, to: t(&to)?, scope: scope.and_then(|s| serde_json::from_str(&s).ok()), collected: t(&collected)? }))
+    Ok(Some(Obligation { bot, source, source_ref, from: t(&from)?, to: t(&to)?, scope: scope.and_then(|s| serde_json::from_str(&s).ok()), collected: t(&collected)? }))
+}
+
+/// The pair and side a failed row recorded (r3.2), when all four are known.
+fn stored_scope(s: &Value) -> Option<Scope> {
+    let get = |k: &str| s.get(k).and_then(Value::as_i64);
+    match (get("exchange_id"), get("base_asset_id"), get("quote_asset_id"), get("side")) {
+        (Some(e), Some(b), Some(q), Some(side)) => Some(Scope { exchange: e, bases: vec![b], quote: q, side: if side == 1 { Side::Sell } else { Side::Buy } }),
+        _ => None,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -256,13 +269,7 @@ fn judged(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linke
     }
     // The pairs and side to look at, only where they are known (r3.2, r4.2).
     let scope = match &o.scope {
-        Some(s) => {
-            let get = |k: &str| s.get(k).and_then(Value::as_i64);
-            match (get("exchange_id"), get("base_asset_id"), get("quote_asset_id"), get("side")) {
-                (Some(e), Some(b), Some(q), Some(side)) => Some(Scope { exchange: e, bases: vec![b], quote: q, side: if side == 1 { Side::Sell } else { Side::Buy } }),
-                _ => None,
-            }
-        }
+        Some(s) => stored_scope(s),
         None if bot_type == "Bots::DcaIndex" => return prefix(unchecked(&when, &then()?, "index")),
         None => current_scope(c, o, bot_exchange)?,
     };
@@ -660,8 +667,17 @@ fn settle(c: &Connection, cipher: &crate::crypto::Cipher, read: &LiveRead, resul
     let written = model::credential_write(c, &Some(read.version.clone()), |tx| {
         let mut linked = Linked::new();
         let again = match prepare(tx, cipher, p.id, now, &mut linked)? { Prep::Live(r) if r.prepared == *p => r.prepared, _ => return Ok(false) };
-        let line = merged(tx, &again, &created, &mut linked)?.unwrap_or(again.line);
-        mark(tx, p.id, p.bot, &line, now)
+        // A28-2 §1: a line naming the venue's orders carries its obligation, and its bookable orders are stored with it.
+        let (line, offers) = match merged(tx, &again, &created, &mut linked)? {
+            Some((mut line, live)) => { line.details["obligation"] = json!(p.id); (line, live) }
+            None => (again.line, vec![]),
+        };
+        if !mark(tx, p.id, p.bot, &line, now)? { return Ok(false); }
+        for o in offers.iter().filter(|o| bookable(o)) {
+            tx.execute("INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, ?3, ?4) ON CONFLICT DO NOTHING",
+                       params![p.id, o.external_id, o.symbol, facts_json(o).to_string()])?;
+        }
+        Ok(true)
     });
     match written { Err(EngineError::CredentialsChanged) => Ok(false), other => other }
 }
@@ -669,7 +685,7 @@ fn settle(c: &Connection, cipher: &crate::crypto::Cipher, read: &LiveRead, resul
 /// r2.1, r3.1, r4.1: the line with the venue's orders on the scope's pairs and side that no bot holds (by external id, or
 /// by a fill linked to a bot's order), each reconciled with every imported fill of its key, merged with the ledger's
 /// candidates the venue did not list; open orders first. None when the venue lists no such order: A28-1's line stands.
-fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) -> Result<Option<Line>, EngineError> {
+fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) -> Result<Option<(Line, Vec<CreatedOrder>)>, EngineError> {
     let mut live: Vec<&CreatedOrder> = vec![];
     for o in &created.orders {
         if o.side != p.side || !p.symbols.contains(&o.symbol) { continue; }
@@ -697,8 +713,8 @@ fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) 
     let mut listed: Vec<String> = items.iter().take(LISTED).map(|(.., text)| text.clone()).collect();
     if items.len() > LISTED { listed.push(format!("and {} more", items.len() - LISTED)); }
     let (event, outcome) = if open { (LIVE_OPEN, "live_open") } else { (LIVE_LISTED, "live_listed") };
-    Ok(Some(Line { event, outcome, details: json!({ "when": p.when, "venue": p.venue, "orders": listed.join("; "), "count": items.len(),
-                                                     "complete": created.complete, "conflict": conflict }) }))
+    Ok(Some((Line { event, outcome, details: json!({ "when": p.when, "venue": p.venue, "orders": listed.join("; "), "count": items.len(),
+                                                      "complete": created.complete, "conflict": conflict }) }, live.into_iter().cloned().collect())))
 }
 
 type BigDec = crate::ruby::BigDec;
@@ -767,4 +783,470 @@ fn describe_live(o: &CreatedOrder, base: &str, quote: &str, ledger: Option<&(Big
         CreatedState::Cancelled => format!("{head} cancelled"),
     };
     (format!("{text}, placed {at}"), false)
+}
+
+// ---- A28-2: booking an order Rails sent unrecorded, on the bot owner's confirmation (PLAN-A28-2 Final shape) ----------------
+//
+// D-RAILS-UNRECORDED-RECOVERED: the owner names one order a served venue's live line offered; the engine re-reads it by its
+// own history read (r1.1) and books it as `persist_accepted_order!` writes a row (r2.2), stamped at Rails' tick anchor; the
+// follow-up poll then settles it as every order (FetchAndUpdateOrderJob). One booking per attempt group
+// (D-RAILS-UNRECORDED-ONE-PER-ATTEMPT), never while the bot is mid-tick (D-RAILS-UNRECORDED-BOOK-BUSY), never on KuCoin or
+// IBKR (D-RAILS-UNRECORDED-NO-ROUTE). A booked row is watched until it settles (D-RAILS-UNRECORDED-WATCHED), never
+// abandoned by age (D-RAILS-UNRECORDED-NEVER-STALE) and never lowered below what the owner confirmed
+// (D-RAILS-UNRECORDED-SETTLED-LOWER).
+
+/// Activity events (texts: web::i18n `bot_activity.events.<event>`; `rails_order_not_added` by its `reason`).
+pub const RECOVERED: &str = "rails_order_recovered";
+pub const NOT_ADDED: &str = "rails_order_not_added";
+pub const NOT_MINE: &str = "rails_order_not_mine";
+pub const UNSETTLED: &str = "rails_order_unsettled";
+pub const SETTLED_LOWER: &str = "rails_order_settled_lower";
+
+/// A transient identity read is retried no sooner than this, at most `BOOK_ATTEMPTS` times (r2.1).
+const BOOK_RETRY_AFTER: i64 = 60;
+const BOOK_ATTEMPTS: i64 = 3;
+/// A booked row no poll holds is enrolled again this long after (r3.2).
+pub const WATCH_AFTER_US: i64 = 3_600_000_000;
+/// An unsettled or held booked row gets its one line after this (r3.2, r5.1).
+const NOTICE_DAYS: i64 = 7;
+
+/// Something filled, or still open (§1, Q-CANCELLED): a cancelled order with nothing filled moved no money.
+fn bookable(o: &CreatedOrder) -> bool { o.state != CreatedState::Cancelled }
+
+fn state_name(s: CreatedState) -> &'static str {
+    match s { CreatedState::Open => "open", CreatedState::PartlyFilledOpen => "partly_filled_open", CreatedState::Filled => "filled",
+              CreatedState::Cancelled => "cancelled", CreatedState::PartlyFilledCancelled => "partly_filled_cancelled" }
+}
+
+/// The order as an offer stores it (`facts`), every decimal as its text.
+fn facts_json(o: &CreatedOrder) -> Value {
+    let (size, amount) = match &o.size { CreatedSize::Base(x) => ("base", x), CreatedSize::Quote(x) => ("quote", x) };
+    let price = match &o.kind { CreatedKind::Limit { price } => Some(price.to_s_f()), CreatedKind::Market => None };
+    json!({ "external_id": o.external_id, "symbol": o.symbol, "created_at": format_time(o.created_at),
+            "side": o.side.as_str(), "limit": price, "size": { size: amount.to_s_f() }, "state": state_name(o.state),
+            "filled_base": o.filled_base.to_s_f(), "filled_quote": o.filled_quote.as_ref().map(BigDec::to_s_f) })
+}
+
+/// `facts_json` read back; None when anything doesn't read.
+fn facts_of(v: &Value) -> Option<CreatedOrder> {
+    let dec = |v: &Value| v.as_str().and_then(|s| BigDec::parse(s).ok());
+    let size = match (v["size"].get("base"), v["size"].get("quote")) { (Some(b), None) => CreatedSize::Base(dec(b)?), (None, Some(q)) => CreatedSize::Quote(dec(q)?), _ => return None };
+    let state = ["open", "partly_filled_open", "filled", "cancelled", "partly_filled_cancelled"].iter().zip([CreatedState::Open, CreatedState::PartlyFilledOpen,
+        CreatedState::Filled, CreatedState::Cancelled, CreatedState::PartlyFilledCancelled]).find(|(n, _)| v["state"] == **n)?.1;
+    Some(CreatedOrder {
+        external_id: v["external_id"].as_str()?.into(), symbol: v["symbol"].as_str()?.into(), created_at: match parse_time(v["created_at"].as_str()?) { Ok(t) => t, Err(_) => return None },
+        side: match v["side"].as_str()? { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None },
+        kind: match &v["limit"] { Value::Null => CreatedKind::Market, p => CreatedKind::Limit { price: dec(p)? } },
+        size, state, filled_base: dec(&v["filled_base"])?,
+        filled_quote: match &v["filled_quote"] { Value::Null => None, q => Some(dec(q)?) },
+    })
+}
+
+/// r1.6: the obligations of the bot whose search windows overlap the obligation's, transitively (itself included).
+fn group(c: &Connection, obligation: i64) -> Result<Vec<i64>, EngineError> {
+    let Some(bot) = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| r.get::<_, i64>(0)).optional()? else { return Ok(vec![]) };
+    let mut s = c.prepare("SELECT id, span_from, span_to FROM rust_rails_unrecorded WHERE bot_id = ?1 ORDER BY id")?;
+    let rows = s.query_map([bot], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
+    let around = Duration::seconds(AROUND);
+    // A window that can't be read joins nothing.
+    let window = |f: &str, t: &str| match (parse_time(f), parse_time(t)) { (Ok(f), Ok(t)) => Some((f - around, t + around)), _ => None };
+    let windows: Vec<(i64, Option<(DateTime<Utc>, DateTime<Utc>)>)> = rows.iter().map(|(id, f, t)| (*id, window(f, t))).collect();
+    let mut members = vec![obligation];
+    loop {
+        let before = members.len();
+        for (id, w) in &windows {
+            if members.contains(id) { continue; }
+            let joins = w.is_some_and(|(f, t)| windows.iter().any(|(m, mw)| members.contains(m) && mw.is_some_and(|(mf, mt)| f <= mt && mf <= t)));
+            if joins { members.push(*id); }
+        }
+        if members.len() == before { return Ok(members); }
+    }
+}
+
+fn any_of(c: &Connection, table: &str, ids: &[i64]) -> Result<bool, EngineError> {
+    let list = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+    Ok(c.query_row(&format!("SELECT EXISTS (SELECT 1 FROM {table} WHERE obligation_id IN ({list}))"), [], |r| r.get(0))?)
+}
+
+/// Why the web's POST was not taken. Its text is the flash.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Refused { NotFound, Decided, Pending }
+impl Refused {
+    pub fn text(self) -> &'static str {
+        match self {
+            Self::NotFound => "That order isn't on this bot's list any more.",
+            Self::Decided => "This was already decided.",
+            Self::Pending => "Deltabadger is already checking an order for this. It's added to the bot's history in a moment if it checks out.",
+        }
+    }
+}
+
+/// The obligation's group, when the obligation is the user's bot's and its line was written; else NotFound. Decided or
+/// Pending when the group has a resolution or a waiting request.
+fn open_group(c: &Connection, user: i64, bot: i64, obligation: i64) -> Result<Result<Vec<i64>, Refused>, EngineError> {
+    let mine: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM rust_rails_unrecorded o JOIN bots b ON b.id = o.bot_id WHERE o.id = ?1 AND o.bot_id = ?2 \
+                                  AND b.user_id = ?3 AND o.reported_at IS NOT NULL)", params![obligation, bot, user], |r| r.get(0))?;
+    if !mine { return Ok(Err(Refused::NotFound)); }
+    let ids = group(c, obligation)?;
+    if any_of(c, "rust_rails_unrecorded_resolutions", &ids)? { return Ok(Err(Refused::Decided)); }
+    if any_of(c, "rust_rails_unrecorded_requests", &ids)? { return Ok(Err(Refused::Pending)); }
+    Ok(Ok(ids))
+}
+
+/// POST "This was this bot's order" (r2.1): the request the engine serves (`serve_bookings`). The caller wakes the engine.
+pub fn request_booking(c: &Connection, user: i64, bot: i64, obligation: i64, offer: i64, now: DateTime<Utc>) -> Result<Result<(), Refused>, EngineError> {
+    let tx = model::immediate(c)?;
+    if let Err(r) = open_group(&tx, user, bot, obligation)? { return Ok(Err(r)); }
+    let offered: bool = tx.query_row("SELECT EXISTS (SELECT 1 FROM rust_rails_unrecorded_offers WHERE id = ?1 AND obligation_id = ?2)", params![offer, obligation], |r| r.get(0))?;
+    if !offered { return Ok(Err(Refused::NotFound)); }
+    tx.execute("INSERT INTO rust_rails_unrecorded_requests (obligation_id, offer_id, requested_at, attempts) VALUES (?1, ?2, ?3, 0)", params![obligation, offer, format_time(now)])?;
+    tx.commit()?;
+    Ok(Ok(()))
+}
+
+/// POST "None of these was this bot's" (D-RAILS-UNRECORDED-NOT-MINE): the group resolved `not_mine`, one line, no row.
+pub fn dismiss(c: &Connection, user: i64, bot: i64, obligation: i64, now: DateTime<Utc>) -> Result<Result<(), Refused>, EngineError> {
+    let tx = model::immediate(c)?;
+    let ids = match open_group(&tx, user, bot, obligation)? { Ok(ids) => ids, Err(r) => return Ok(Err(r)) };
+    for id in &ids {
+        tx.execute("INSERT INTO rust_rails_unrecorded_resolutions (obligation_id, resolution, resolved_at) VALUES (?1, 'not_mine', ?2)", params![id, format_time(now)])?;
+    }
+    model::log_activity(&tx, bot, NOT_MINE, Level::Info, json!({ "obligation": obligation }), now)?;
+    tx.commit()?;
+    Ok(Ok(()))
+}
+
+/// One offer as the web shows it: its text and the bot's carry now and with it booked (None where it can't be read).
+#[derive(Clone, Debug, PartialEq)]
+pub struct OfferView { pub id: i64, pub order: String, pub carry_before: Option<BigDec>, pub carry_after: Option<BigDec> }
+/// One line's obligation: whether its group is decided or being checked, and its offers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObligationView { pub obligation: i64, pub resolved: bool, pub pending: bool, pub offers: Vec<OfferView> }
+
+/// Read-only: the offers of the bot's lines named by `obligations` (their details' `obligation`), each with the carry
+/// computed by the bot's own formula with and without the order as the booking would write it (§1, r1.7).
+pub fn offers_for(c: &Connection, bot: i64, obligations: &[i64], now: DateTime<Utc>) -> Result<Vec<ObligationView>, EngineError> {
+    let b = model::load_bot(c, bot)?;
+    let now_us = now.timestamp_micros();
+    let carry = |extra: Option<(&str, &BigDec)>| super::accounting::pending_quote_amount_plus(c, &b, now_us, extra).ok().and_then(|n| n.to_dec().ok());
+    let before = carry(None);
+    let mut out = vec![];
+    for &id in obligations {
+        let Some(o) = load_where(c, id, false)? else { continue };
+        if o.bot != bot { continue; }
+        let ids = group(c, id)?;
+        let mut view = ObligationView { obligation: id, resolved: any_of(c, "rust_rails_unrecorded_resolutions", &ids)?,
+                                        pending: any_of(c, "rust_rails_unrecorded_requests", &ids)?, offers: vec![] };
+        let mut s = c.prepare("SELECT id, facts FROM rust_rails_unrecorded_offers WHERE obligation_id = ?1 ORDER BY id")?;
+        let rows = s.query_map([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+        for (offer, facts) in rows {
+            let Some(f) = serde_json::from_str(&facts).ok().as_ref().and_then(facts_of) else { continue };
+            let names: Option<(String, String)> = c.query_row("SELECT base, quote FROM tickers WHERE exchange_id = ?1 AND ticker = ?2 LIMIT 1", params![b.exchange_id, f.symbol],
+                                                              |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+            let Some((base, quote)) = names else { continue };
+            let after = match (f.side, waiting_value(&f)) {
+                (Side::Sell, _) => before.clone(),
+                (Side::Buy, Some(v)) => carry(Some((&format_time(o.from), &v))),
+                (Side::Buy, None) => None,
+            };
+            view.offers.push(OfferView { id: offer, order: describe_live(&f, &base, &quote, None, true).0, carry_before: before.clone(), carry_after: after });
+        }
+        out.push(view);
+    }
+    Ok(out)
+}
+
+/// What the booked row counts in the carry until its poll (#invested_quote): its quote, or amount × price, price being the
+/// limit or a market order's gross average. None when the order doesn't say (refused at booking).
+fn waiting_value(f: &CreatedOrder) -> Option<BigDec> {
+    match &f.size {
+        CreatedSize::Quote(q) => Some(q.clone()),
+        CreatedSize::Base(a) => Some(a * &row_price(f, None)?),
+    }
+}
+
+/// r2.2: the limit price, or a market order's gross average fill (`filled_quote / filled_base`, to the ticker's price step).
+fn row_price(f: &CreatedOrder, places: Option<u8>) -> Option<BigDec> {
+    match &f.kind {
+        CreatedKind::Limit { price } => Some(price.clone()),
+        CreatedKind::Market => {
+            let avg = f.filled_quote.as_ref()?.div(&f.filled_base).filter(|_| f.filled_base.is_positive())?;
+            Some(places.map_or(avg.clone(), |p| avg.round(p)))
+        }
+    }
+}
+
+/// What a pass of `serve_bookings` leaves the engine: the rows it booked (polled now, announced) and the booked rows to
+/// enrol again (polled in an hour), each (bot, transaction).
+#[derive(Debug, Default, PartialEq)]
+pub struct Served { pub booked: Vec<(i64, i64)>, pub watch: Vec<(i64, i64)> }
+
+/// The engine's pass (r2.1, r3.2): each due request re-checked and booked or refused, then the booked rows' watch.
+/// `polled` says whether a row already has a poll owed.
+pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher: &crate::crypto::Cipher, polled: &dyn Fn(i64) -> bool,
+                                                           now: DateTime<Utc>) -> Result<Served, EngineError> {
+    let mut served = Served::default();
+    let due: Vec<i64> = {
+        let mut s = c.prepare("SELECT obligation_id FROM rust_rails_unrecorded_requests WHERE last_at IS NULL OR last_at <= ?1 ORDER BY requested_at, obligation_id")?;
+        let ids = s.query_map([format_time(now - Duration::seconds(BOOK_RETRY_AFTER))], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        ids
+    };
+    for obligation in due {
+        if let Some(row) = book(c, factory, cipher, obligation, now).await? { served.booked.push(row); }
+    }
+    // A row booked now is polled now, not in an hour.
+    served.watch = watch(c, &|tx| polled(tx) || served.booked.iter().any(|(_, b)| *b == tx), now)?;
+    Ok(served)
+}
+
+/// A request read for booking.
+struct Booking { obligation: i64, offer: i64, attempts: i64, o: Obligation, facts: CreatedOrder }
+
+async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher: &crate::crypto::Cipher, obligation: i64, now: DateTime<Utc>) -> Result<Option<(i64, i64)>, EngineError> {
+    let req: Option<(i64, i64, Option<String>)> = c.query_row(
+        "SELECT r.offer_id, r.attempts, (SELECT facts FROM rust_rails_unrecorded_offers WHERE id = r.offer_id AND obligation_id = r.obligation_id) \
+         FROM rust_rails_unrecorded_requests r WHERE r.obligation_id = ?1", [obligation], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let Some((offer, attempts, facts)) = req else { return Ok(None) };
+    let o = match load_where(c, obligation, false) { Ok(Some(o)) => o, Ok(None) | Err(EngineError::Data(_)) => return drop_request(c, obligation), Err(e) => return Err(e) };
+    let Some(facts) = facts.and_then(|f| serde_json::from_str(&f).ok()).as_ref().and_then(facts_of) else { return refuse(c, obligation, o.bot, "unreadable", None, now) };
+    let b = Booking { obligation, offer, attempts, o, facts };
+    let bot = match model::load_bot(c, b.o.bot) { Ok(bot) => bot, Err(EngineError::Data(_)) => return refuse(c, obligation, b.o.bot, "unreadable", Some(&b.facts), now), Err(e) => return Err(e) };
+    let refused = |reason| refuse(c, obligation, bot.id, reason, Some(&b.facts), now);
+    // §2.1: read-side checks.
+    if bot.status == BotStatus::Deleted { return refused("deleted"); }
+    let venue_type = model::exchange_type(c, &bot)?;
+    // D-RAILS-UNRECORDED-NO-ROUTE: KuCoin and IBKR are never served here, whatever SERVED holds.
+    if !SERVED.contains(&venue_type.as_str()) || [crate::venue::kucoin::KUCOIN, crate::venue::ibkr::IBKR].contains(&venue_type.as_str()) { return refused("unsupported"); }
+    if scope_now(c, &b.o, &bot)?.is_none_or(|s| s.exchange != bot.exchange_id) { return refused("settings_changed"); }
+    let (venue, version) = super::run::venue_for(c, factory, cipher, &bot)?;
+    let Some(version) = version else { return refused("key_changed") };
+    let updated: Option<String> = c.query_row("SELECT updated_at FROM api_keys WHERE id = ?1", [version.id], |r| r.get(0))?;
+    if !matches!(updated.as_deref().map(parse_time), Some(Ok(u)) if u + Duration::seconds(1) < b.o.from - Duration::seconds(AROUND)) { return refused("key_changed"); }
+    // r1.1: the identity read, by the history read's own contract.
+    let at = b.facts.created_at;
+    let read = venue.orders_created(std::slice::from_ref(&b.facts.symbol), at - Duration::seconds(1), at + Duration::seconds(1), tokio::time::Instant::now() + READ_TIMEOUT).await;
+    let created = match read {
+        Ok(created) => created,
+        Err(HistoryError::Refused(_)) => return refused("refused"),
+        Err(HistoryError::Retry(_)) => {
+            if b.attempts + 1 >= BOOK_ATTEMPTS { return refused("unreachable"); }
+            c.execute("UPDATE rust_rails_unrecorded_requests SET attempts = attempts + 1, last_at = ?2 WHERE obligation_id = ?1", params![obligation, format_time(now)])?;
+            return Ok(None);
+        }
+    };
+    let same: Vec<&CreatedOrder> = created.orders.iter().filter(|o| o.external_id == b.facts.external_id && o.symbol == b.facts.symbol && o.side == b.facts.side
+                                                                  && o.created_at == b.facts.created_at).collect();
+    let [fresh] = same[..] else { return refused("not_found") };
+    // r1.2: nothing filled, or a fill whose cost the venue doesn't state, can't be booked.
+    if fresh.state == CreatedState::Cancelled { return refused("nothing_filled"); }
+    if (fresh.kind == CreatedKind::Market && !fresh.filled_base.is_positive()) || (fresh.filled_base.is_positive() && fresh.filled_quote.is_none()) { return refused("no_cost"); }
+    let tx = model::immediate(c)?;
+    let written = match model::check_credential_result(&tx, &Some(version)) {
+        Ok(fenced) => write_booking(&fenced, cipher, &b, &bot, &venue_type, fresh, now)?,
+        Err(EngineError::CredentialsChanged) => Err("key_changed"),
+        Err(e) => return Err(e),
+    };
+    match written {
+        Ok(row) => { tx.commit()?; Ok(Some((bot.id, row))) }
+        Err("gone") => Ok(None),
+        Err(reason) => { drop(tx); refused(reason) }
+    }
+}
+
+/// The request alone goes (its obligation is gone).
+fn drop_request(c: &Connection, obligation: i64) -> Result<Option<(i64, i64)>, EngineError> {
+    c.execute("DELETE FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [obligation])?;
+    Ok(None)
+}
+
+/// A refusal (r2.1): the request goes and the bot gets one `rails_order_not_added` line saying why; nothing else is written.
+fn refuse(c: &Connection, obligation: i64, bot: i64, reason: &str, facts: Option<&CreatedOrder>, now: DateTime<Utc>) -> Result<Option<(i64, i64)>, EngineError> {
+    let tx = model::immediate(c)?;
+    if tx.execute("DELETE FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [obligation])? == 1 {
+        let venue: String = tx.query_row("SELECT coalesce(e.name, 'the exchange') FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [bot], |r| r.get(0))
+            .optional()?.unwrap_or_else(|| "the exchange".into());
+        let placed = facts.map(|f| f.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string());
+        model::log_activity(&tx, bot, NOT_ADDED, Level::Warning, json!({ "reason": reason, "venue": venue, "placed": placed, "obligation": obligation }), now)?;
+    }
+    tx.commit()?;
+    Ok(None)
+}
+
+/// The obligation's pairs and side now, re-derived as `judge` derives them (§2.3); None when they can't be told.
+fn scope_now(c: &Connection, o: &Obligation, bot: &model::Bot) -> Result<Option<Scope>, EngineError> {
+    match &o.scope {
+        Some(s) if s.get("time_error").is_some() => Ok(None),
+        Some(s) => Ok(stored_scope(s)),
+        None if bot.bot_type == "Bots::DcaIndex" => Ok(None),
+        None => current_scope(c, o, bot.exchange_id),
+    }
+}
+
+/// §2.3 + r2.1 step 3 + r2.3, in the one fenced transaction: every re-check, then Rails' accepted row (r2.2), the fills
+/// linked, the group resolved, the request gone, the line, the history generation; readability and the eligibility guard
+/// last. Err(reason) means the caller rolls everything back; "gone" is a request another pass already served.
+fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Cipher, b: &Booking, bot_then: &model::Bot, venue_type: &str, fresh: &CreatedOrder,
+                 now: DateTime<Utc>) -> Result<Result<i64, &'static str>, EngineError> {
+    let c: &Connection = f;
+    let still: Option<i64> = c.query_row("SELECT offer_id FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [b.obligation], |r| r.get(0)).optional()?;
+    if still != Some(b.offer) { return Ok(Err("gone")); }
+    let ids = group(c, b.obligation)?;
+    if any_of(c, "rust_rails_unrecorded_resolutions", &ids)? { return Ok(Err("resolved")); }
+    let bot = model::load_bot(c, bot_then.id)?;
+    if bot.status == BotStatus::Deleted { return Ok(Err("deleted")); }
+    // §5: a tick that claimed the bot sized on the carry this would change.
+    if bot.status == BotStatus::Executing || bot.rust_placement().is_some() { return Ok(Err("busy")); }
+    let Some(scope) = scope_now(c, &b.o, &bot)?.filter(|s| s.exchange == bot.exchange_id && s.side == fresh.side) else { return Ok(Err("settings_changed")) };
+    let exchange = bot.exchange_id;
+    let tickers: Vec<(i64, i64, i64)> = {
+        let mut s = c.prepare("SELECT id, base_asset_id, quote_asset_id FROM tickers WHERE exchange_id = ?1 AND ticker = ?2 LIMIT 2")?;
+        let rows = s.query_map(params![exchange, fresh.symbol], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+        rows
+    };
+    let [(ticker_id, base, quote)] = tickers[..] else { return Ok(Err("settings_changed")) };
+    if !scope.bases.contains(&base) || quote != scope.quote { return Ok(Err("settings_changed")); }
+    let held: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND external_id = ?2)", params![exchange, fresh.external_id], |r| r.get(0))?;
+    if held { return Ok(Err("held")); }
+    match linked_keys(c, bot.user_id, exchange, venue_type, &mut Linked::new())? {
+        Err(()) => return Ok(Err("unreadable")),
+        Ok(keys) if keys.contains(&fresh.external_id) => return Ok(Err("linked")),
+        Ok(_) => {}
+    }
+    // r2.3: never less than the ledger proves, on both totals.
+    let since = fresh.created_at - Duration::seconds(60);
+    let (sums, clean) = ledger_sums(c, bot.user_id, exchange, venue_type, since)?;
+    if !clean { return Ok(Err("ledger")); }
+    let zero = BigDec::zero();
+    if let Some((lb, lq)) = sums.get(&fresh.external_id) {
+        if *lb > fresh.filled_base || *lq > *fresh.filled_quote.as_ref().unwrap_or(&zero) { return Ok(Err("ledger")); }
+    }
+    let Some(ticker) = model::ticker_by_id(c, exchange, ticker_id)? else { return Ok(Err("settings_changed")) };
+    let Ok((_, _, places)) = ticker.scales() else { return Ok(Err("unreadable")) };
+    let Some(price) = row_price(fresh, Some(places)) else { return Ok(Err("no_cost")) };
+    let (amount, quote_amount, in_quote) = match &fresh.size { CreatedSize::Base(a) => (Some(a.clone()), None, false), CreatedSize::Quote(q) => (None, Some(q.clone()), true) };
+    let plan = amount::OrderPlan { ticker, side: fresh.side, limit: matches!(fresh.kind, CreatedKind::Limit { .. }), price: price.clone(),
+                                   amount: amount.clone().unwrap_or_else(BigDec::zero), quote_amount: quote_amount.clone().unwrap_or_else(BigDec::zero),
+                                   quote_type: in_quote, volume: amount.clone().or(quote_amount.clone()).unwrap_or_else(BigDec::zero), kind: amount::TxKind::Regular,
+                                   origin: if in_quote { amount::Origin::QuoteBudget } else { amount::Origin::Base }, wire_price: None };
+    let row = amount::write_order_row(f, &bot, &plan, amount::RowKind::Submitted { external_id: fresh.external_id.clone() }, b.o.from)?;
+    // r1.2 / r2.2: the order's own denomination only; Rails' BUY schedule columns for every side (base_order_values), or
+    // the failed Rails row's own stamp (D-RAILS-UNRECORDED-FAILED-ROW-STAMP).
+    let (interval, stamped): (Option<String>, Option<f64>) = if b.o.source == FAILED_ROW {
+        c.query_row("SELECT bot_interval, bot_quote_amount FROM transactions WHERE id = ?1", [b.o.source_ref], |r| Ok((r.get(0)?, r.get(1)?)))?
+    } else {
+        (bot.interval().map(|i| i.as_str().to_string()), Some(crate::ruby::to_sql(&bot.quote_amount_num()?.to_dec().map_err(|e| EngineError::Data(format!("{e:?}")))?)))
+    };
+    c.execute("UPDATE transactions SET amount = ?2, quote_amount = ?3, price = ?4, bot_interval = ?5, bot_quote_amount = ?6 WHERE id = ?1",
+              params![row, amount.as_ref().map(crate::ruby::to_sql), quote_amount.as_ref().map(crate::ruby::to_sql), crate::ruby::to_sql(&price), interval.unwrap_or_default(), stamped])?;
+    link_fills(c, bot.user_id, exchange, venue_type, &fresh.external_id, since, row)?;
+    for id in &ids {
+        c.execute("INSERT INTO rust_rails_unrecorded_resolutions (obligation_id, resolution, offer_id, transaction_id, resolved_at, confirmed_base, confirmed_quote) \
+                   VALUES (?1, 'booked', ?2, ?3, ?4, ?5, ?6)",
+                  params![id, b.offer, row, format_time(now), fresh.filled_base.to_s_f(), fresh.filled_quote.as_ref().map(BigDec::to_s_f)])?;
+        c.execute("DELETE FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [id])?;
+    }
+    let (base_name, quote_name): (String, String) = c.query_row("SELECT base, quote FROM tickers WHERE id = ?1", [ticker_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    model::log_activity(c, bot.id, RECOVERED, Level::Info, json!({ "obligation": b.obligation, "transaction_id": row,
+        "venue_created_at": format_time(fresh.created_at), "order": describe_live(fresh, &base_name, &quote_name, None, true).0 }), now)?;
+    // The bot's history changed: an operation sized from the old one is fenced (placement::begin_checked), as the CSV import.
+    let key = format!("$.{}", model::HISTORY_GENERATION);
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, ?2, coalesce(json_extract(transient_data, ?2), 0) + 1) WHERE id = ?1", params![bot.id, key])?;
+    // R-IMPORT-READABLE: the row as every money reader reads it, then the install's guard.
+    let readable = crate::figures::db::orders(c, bot.id).ok().and_then(|orders| orders.into_iter().find(|o| o.id == row))
+        .is_some_and(|o| crate::figures::fill::for_engine(&o).is_ok());
+    if !readable || super::eligibility::guard(c, cipher, Some(bot.id)).is_err() { return Ok(Err("unreadable")); }
+    Ok(Ok(row))
+}
+
+/// Every unlinked imported fill of the order from `since` on, linked to the booked row (§3).
+fn link_fills(c: &Connection, user: i64, exchange: i64, venue: &str, key: &str, since: DateTime<Utc>, row: i64) -> Result<(), EngineError> {
+    use crate::sync::fills::{self, LedgerRow, Read};
+    let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3 \
+                           AND transaction_id IS NULL")?;
+    let rows = s.query_map(params![user, exchange, format_time(since)], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
+                                                                                 r.get::<_, Option<String>>(3)?, r.get::<_, String>(4)?)))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for (id, tx_id, entry_type, raw, at) in rows {
+        let raw: Value = match raw.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
+        let Ok(transacted_at) = parse_time(&at) else { continue };
+        if let Read::Fill(fill) = fills::read(c, venue, &LedgerRow { id, tx_id, entry_type, raw_data: raw, transacted_at, exchange_id: exchange }).map_err(EngineError::Data)? {
+            if fill.order_key == key { c.execute("UPDATE account_transactions SET transaction_id = ?2 WHERE id = ?1 AND transaction_id IS NULL", params![id, row])?; }
+        }
+    }
+    Ok(())
+}
+
+/// The booked row's offer facts and its venue's name (for the watch's lines).
+fn booked_facts(c: &Connection, tx: i64) -> Result<Option<(CreatedOrder, String, Option<String>, Option<String>, String)>, EngineError> {
+    let row: Option<(String, Option<String>, Option<String>, String)> = c.query_row(
+        "SELECT o.facts, r.confirmed_base, r.confirmed_quote, r.resolved_at FROM rust_rails_unrecorded_resolutions r JOIN rust_rails_unrecorded_offers o ON o.id = r.offer_id \
+         WHERE r.transaction_id = ?1 AND r.resolution = 'booked' LIMIT 1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
+    let Some((facts, base, quote, resolved)) = row else { return Ok(None) };
+    let Some(facts) = serde_json::from_str(&facts).ok().as_ref().and_then(facts_of) else { return Ok(None) };
+    let venue: String = c.query_row("SELECT coalesce(e.name, 'the exchange') FROM transactions t LEFT JOIN exchanges e ON e.id = t.exchange_id WHERE t.id = ?1", [tx], |r| r.get(0))?;
+    Ok(Some((facts, venue, base, quote, resolved)))
+}
+
+/// r3.2: the booked rows still unknown or open, of bots not deleted: those no poll holds are enrolled again (in an hour);
+/// an unknown one 7 days after booking gets its one `rails_order_unsettled` line.
+fn watch(c: &Connection, polled: &dyn Fn(i64) -> bool, now: DateTime<Utc>) -> Result<Vec<(i64, i64)>, EngineError> {
+    let rows: Vec<(i64, i64, i64)> = {
+        let mut s = c.prepare("SELECT t.id, t.bot_id, t.external_status FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE t.status = 0 AND t.external_status IN (0, 1) \
+                               AND b.status <> ?1 AND t.id IN (SELECT transaction_id FROM rust_rails_unrecorded_resolutions WHERE resolution = 'booked') ORDER BY t.id")?;
+        let rows = s.query_map([BotStatus::Deleted as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+        rows
+    };
+    let mut out = vec![];
+    for (tx, bot, status) in rows {
+        if !polled(tx) { out.push((bot, tx)); }
+        if status != UNKNOWN_STATUS { continue; }
+        let Some((facts, venue, _, _, resolved)) = booked_facts(c, tx)? else { continue };
+        if !matches!(parse_time(&resolved), Ok(at) if at + Duration::days(NOTICE_DAYS) <= now) { continue; }
+        notice_once(c, tx, bot, "unsettled", UNSETTLED, &facts, &venue, now)?;
+    }
+    Ok(out)
+}
+const UNKNOWN_STATUS: i64 = 0;
+
+/// One line per row and kind, ever (the notices table), in its own transaction unless one is open.
+#[allow(clippy::too_many_arguments)]
+fn notice_once(c: &Connection, tx: i64, bot: i64, kind: &str, event: &str, facts: &CreatedOrder, venue: &str, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let own = c.is_autocommit().then(|| model::immediate(c)).transpose()?;
+    if c.execute("INSERT INTO rust_rails_unrecorded_notices (transaction_id, kind, at) VALUES (?1, ?2, ?3) ON CONFLICT DO NOTHING", params![tx, kind, format_time(now)])? == 1 {
+        model::log_activity(c, bot, event, Level::Warning, json!({ "transaction_id": tx, "venue": venue,
+            "placed": facts.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string() }), now)?;
+    }
+    if let Some(own) = own { own.commit()?; }
+    Ok(())
+}
+
+/// r4.1 (D-RAILS-UNRECORDED-NEVER-STALE): is this row a booked one?
+pub(crate) fn booked(c: &Connection, tx: i64) -> Result<bool, EngineError> {
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM rust_rails_unrecorded_resolutions WHERE transaction_id = ?1 AND resolution = 'booked')", [tx], |r| r.get(0))?)
+}
+
+/// r5.1 (D-RAILS-UNRECORDED-SETTLED-LOWER), inside the poll's transaction: true when the answer would lower a booked row
+/// below the gross totals the owner confirmed, net of the venue's taker fee (percent): it is then not applied, and the
+/// hold is noted; after 7 days held, one `rails_order_settled_lower` line. A consistent answer ends the hold.
+pub(crate) fn holds(c: &Connection, bot: i64, tx: i64, s: &crate::venue::OrderState, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    use crate::venue::OrderStatus;
+    if matches!(s.status, OrderStatus::Unknown | OrderStatus::Failed) { return Ok(false); }
+    let Some((facts, venue, base, quote, _)) = booked_facts(c, tx)? else { return Ok(false) };
+    let fee: Option<String> = c.query_row("SELECT CAST(e.taker_fee AS TEXT) FROM transactions t JOIN exchanges e ON e.id = t.exchange_id WHERE t.id = ?1", [tx], |r| r.get(0)).optional()?.flatten();
+    let fee = fee.and_then(|f| BigDec::parse(&f).ok()).unwrap_or_else(BigDec::zero);
+    let keep = &BigDec::from_i64(1) - &fee.div(&BigDec::from_i64(100)).unwrap_or_else(BigDec::zero);
+    let below = |confirmed: Option<String>, answer: Option<&BigDec>| match (confirmed.and_then(|t| BigDec::parse(&t).ok()), answer) {
+        (Some(confirmed), Some(answer)) => *answer < &confirmed * &keep,
+        _ => false,
+    };
+    let lower = below(base, Some(&s.amount_exec)) || (!s.sell && below(quote, s.quote_amount_exec.as_ref()));
+    if !lower {
+        c.execute("DELETE FROM rust_rails_unrecorded_notices WHERE transaction_id = ?1 AND kind = 'held'", [tx])?;
+        return Ok(false);
+    }
+    super::log(&format!("[engine] bot {bot}: {venue} answered transaction {tx} with less filled than its owner confirmed; the row waits"));
+    c.execute("INSERT INTO rust_rails_unrecorded_notices (transaction_id, kind, at) VALUES (?1, 'held', ?2) ON CONFLICT DO NOTHING", params![tx, format_time(now)])?;
+    let since: String = c.query_row("SELECT at FROM rust_rails_unrecorded_notices WHERE transaction_id = ?1 AND kind = 'held'", [tx], |r| r.get(0))?;
+    if matches!(parse_time(&since), Ok(at) if at + Duration::days(NOTICE_DAYS) <= now) { notice_once(c, tx, bot, "lower", SETTLED_LOWER, &facts, &venue, now)?; }
+    Ok(true)
 }

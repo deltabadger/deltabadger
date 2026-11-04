@@ -224,7 +224,8 @@ async fn each_order_state_is_named_as_the_venue_lists_it() {
             f.answer(std::slice::from_ref(order));
             assert_eq!(f.pass(now()).await, 1);
             let (_, venue) = kind.exchange();
-            assert_eq!(f.one(), (event.to_string(), json!({ "when": WHEN, "venue": venue, "orders": format!("{text}, {placed}"), "count": 1, "complete": true, "conflict": false })),
+            assert_eq!(f.one(), (event.to_string(), json!({ "when": WHEN, "venue": venue, "orders": format!("{text}, {placed}"), "count": 1, "complete": true, "conflict": false,
+                                            "obligation": f.c.query_row("SELECT id FROM rust_rails_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })),
                        "{kind:?}");
             assert_eq!(f.pass(now() + Duration::hours(1)).await, 0, "one line, ever");
             assert_eq!(f.requests(), if kind == Kind::Bybit { 2 } else { 1 }, "{kind:?}: read once");
