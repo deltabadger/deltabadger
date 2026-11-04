@@ -51,10 +51,15 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
     let until = format_time(now);
     let mut found: Vec<Source> = vec![];
     // (a) every placement_ambiguous line on a non-signal bot (D-RAILS-UNRECORDED-ALL-LINES).
-    let mut s = tx.prepare("SELECT l.id, l.bot_id, l.created_at FROM bot_activity_logs l JOIN bots b ON b.id = l.bot_id \
+    // A line this engine wrote (placement.rs: a proved absence, an operator's resolution) carries its source and the
+    // intent's client order id, which Rails' `{ error: }` never does (r4.1).
+    let mut s = tx.prepare("SELECT l.id, l.bot_id, l.created_at, l.details FROM bot_activity_logs l JOIN bots b ON b.id = l.bot_id \
                             WHERE l.event = 'placement_ambiguous' AND b.type <> ?1 AND b.status <> ?2 AND l.created_at > ?3 AND l.created_at < ?4 ORDER BY l.id")?;
-    for row in s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64, since, until], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?)))? {
-        let (id, bot, at) = row?;
+    for row in s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64, since, until],
+                           |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?)))? {
+        let (id, bot, at, details) = row?;
+        let details: Value = match details.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
+        if details.get("source").is_some() || details.get("cl_ord_id").is_some() || details.get("resolution").is_some() { continue; }
         found.push((bot, AMBIGUOUS_LINE, id, at.clone(), at, None));
     }
     drop(s);
@@ -69,7 +74,8 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
         .collect::<Result<Vec<_>, _>>()?;
     drop(s);
     for (id, bot, at, errors, exchange, base, quote, side, venue) in rows {
-        let errors: Vec<String> = errors.as_deref().and_then(|e| serde_json::from_str(e).ok()).unwrap_or_default();
+        // Unreadable saved errors are of unknown provenance: collected (r3.3).
+        let errors: Vec<String> = match errors.as_deref().map(serde_json::from_str::<Vec<String>>) { Some(Ok(e)) => e, _ => vec![] };
         if !ambiguous_failure(venue.as_deref().unwrap_or(""), &errors) { continue; }
         let scope = json!({ "exchange_id": exchange, "base_asset_id": base, "quote_asset_id": quote, "side": side });
         found.push((bot, FAILED_ROW, id, at.clone(), at, Some(scope)));
@@ -88,17 +94,24 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
         let live: bool = tx.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND type <> ?2 AND status <> ?3)",
                                       params![bot, model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| r.get(0))?;
         if !live { continue; }
-        let t = |s: &Option<String>| -> Result<Option<DateTime<Utc>>, EngineError> {
-            match s.as_deref() { Some(s) => Ok(Some(parse_time(s).map_err(|e| EngineError::Data(format!("solid_queue_jobs {id}: {e:?}")))?)), None => Ok(None) }
-        };
-        let from = match (t(&claimed)?, t(&scheduled)?) { (Some(c), _) => c, (None, Some(s)) => s, (None, None) => t(&Some(created))?.unwrap_or(now) };
-        let bound = from + Duration::minutes(10);
-        let to = match (t(&failed)?, t(&heartbeat)?) {
-            (Some(f), _) => f,
-            (None, Some(h)) => (h + Duration::seconds(60)).min(bound).max(from),
-            (None, None) => bound,
-        };
-        found.push((bot, QUEUE_JOB, id, format_time(from), format_time(to), None));
+        // A time that can't be read never fails the takeover: the obligation keeps the error and its line says the time
+        // is unknown (the first readable of the claim, the schedule and the enqueue opens the span).
+        let span = (|| -> Result<(DateTime<Utc>, DateTime<Utc>), String> {
+            let t = |s: Option<&str>| -> Result<Option<DateTime<Utc>>, String> {
+                match s { Some(s) => parse_time(s).map(Some).map_err(|e| format!("{s:?}: {e:?}")), None => Ok(None) }
+            };
+            let from = match t(claimed.as_deref())? { Some(c) => c, None => match t(scheduled.as_deref())? { Some(s) => s, None => t(Some(&created))?.ok_or("no time")? } };
+            let bound = from + Duration::minutes(10);
+            let to = match t(failed.as_deref())? {
+                Some(f) => f,
+                None => match t(heartbeat.as_deref())? { Some(h) => (h + Duration::seconds(60)).min(bound).max(from), None => bound },
+            };
+            Ok((from, to))
+        })();
+        match span {
+            Ok((from, to)) => found.push((bot, QUEUE_JOB, id, format_time(from), format_time(to), None)),
+            Err(e) => found.push((bot, QUEUE_JOB, id, until.clone(), until.clone(), Some(json!({ "time_error": e })))),
+        }
     }
     let mut n = 0;
     for (bot, source, sref, from, to, scope) in found {
@@ -112,23 +125,30 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
 /// Does a failed row's saved error leave the order's fate unknown (r3.3, Exchange#ambiguous_placement_error? read from
 /// what a Transaction keeps)? Never when the text proves nothing left (Client.pre_transmission?: a refused or unopened
 /// connection, a name that didn't resolve, a refused proxy CONNECT) or the venue's own pre-trade rejection (-1021);
-/// yes for a transport failure after the connection opened, a gateway 5xx, an unreadable answer and an answer without
-/// an order id. A venue's own error text is a definitive rejection, as Rails reads it.
-pub fn ambiguous_failure(_venue: &str, errors: &[String]) -> bool {
+/// never for a rejection the venue's own error table names (insufficient funds, a bad key, a refused permission, a
+/// restriction, a throttle) or a 4xx. Everything else is collected, the unknown included: a report too many, never one
+/// too few.
+pub fn ambiguous_failure(venue: &str, errors: &[String]) -> bool {
     const PRE_TRANSMISSION: &[&str] = &["Net::OpenTimeout", "Failed to open TCP connection", "SocketError", "getaddrinfo", "ResolutionError",
         "Resolv::ResolvError", "ECONNREFUSED", "EHOSTUNREACH", "EHOSTDOWN", "ENETUNREACH", "ENETDOWN", "EADDRNOTAVAIL", "Net::HTTPClientException"];
     const POST_TRANSMISSION: &[&str] = &["Net::ReadTimeout", "Net::WriteTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed", "Faraday::SSLError",
         "execution expired", "Connection reset", "ECONNRESET", "EPIPE", "ETIMEDOUT", "end of file reached", "unexpected eof while reading", "EOFError",
         "Unreadable response", "order_id is nil", "with no order id", "no order ID returned", "no statuses returned"];
     let text = errors.join(" ");
-    if text.trim().is_empty() { return false; }
-    if PRE_TRANSMISSION.iter().any(|p| text.contains(p)) || text.to_ascii_lowercase().contains("connection refused") { return false; }
+    // Proof that nothing left decides first (Client.pre_transmission?), then a transport failure after the connection opened.
+    let pre = PRE_TRANSMISSION.iter().any(|p| text.contains(p)) || text.to_ascii_lowercase().contains("connection refused");
+    if pre { return false; }
+    if POST_TRANSMISSION.iter().any(|p| text.contains(p)) { return true; }
     if super::placement::safe_rejection(errors) { return false; }
-    POST_TRANSMISSION.iter().any(|p| text.contains(p)) || gateway_5xx(&text)
+    let rejected = super::venue_rules::for_exchange(venue).is_some_and(|r| r.kinds.iter().filter(|(kind, _)| *kind != "transient")
+        .any(|(_, texts)| texts.iter().any(|t| errors.iter().any(|e| e.contains(t)))));
+    !(rejected || http_status(&text, '4'))
 }
 
-fn gateway_5xx(text: &str) -> bool {
-    text.match_indices("HTTP 5").any(|(i, _)| text[i + 6..].chars().take(2).filter(char::is_ascii_digit).count() == 2)
+/// "HTTP 4xx" in the text (Client#with_rescue's HTML-bodied answer).
+fn http_status(text: &str, class: char) -> bool {
+    let tag = format!("HTTP {class}");
+    text.match_indices(&tag).any(|(i, _)| text[i + tag.len()..].chars().take(2).filter(char::is_ascii_digit).count() == 2)
 }
 
 // ---- the report (the hourly job) ---------------------------------------------------------------------------------------
@@ -175,7 +195,17 @@ fn judge(c: &Connection, o: &Obligation, now: DateTime<Utc>) -> Result<Option<Li
         |r| Ok((r.get::<_, Option<i64>>(0)?.unwrap_or(0), r.get::<_, Option<i64>>(1)?.unwrap_or(0), r.get(2)?, r.get(3)?,
                 r.get::<_, Option<String>>(4)?.unwrap_or_default(), r.get(5)?))).optional()?;
     let Some((user, bot_exchange, bot_type, _, _, status)) = bot else { return Ok(None) };
-    if status == BotStatus::Deleted as i64 { return Ok(Some(unchecked(&when, "", "gone"))); }
+    // The venue a line names when the scope is unknown: the exchange of the bot's order nearest the span, never today's
+    // exchange of a bot that moved (r3.2); "exchange" when it has none.
+    let then = || -> Result<String, EngineError> {
+        let nearest: Option<i64> = c.query_row("SELECT exchange_id FROM transactions WHERE bot_id = ?1 ORDER BY abs(julianday(created_at) - julianday(?2)) LIMIT 1",
+                                               params![o.bot, format_time(o.from)], |r| r.get(0)).optional()?;
+        match nearest { Some(e) => venue_name(c, e).map(|v| if v.is_empty() { "exchange".into() } else { v }), None => Ok("exchange".into()) }
+    };
+    if status == BotStatus::Deleted as i64 { return Ok(Some(unchecked(&when, "exchange", "gone"))); }
+    if o.scope.as_ref().is_some_and(|s| s.get("time_error").is_some()) {
+        return Ok(Some(Line { event: UNCHECKED, outcome: "time", details: json!({ "when": "at a time that can't be read", "venue": then()?, "reason": "time" }) }));
+    }
     // The pairs and side to look at, only where they are known (r3.2, r4.2).
     let scope = match &o.scope {
         Some(s) => {
@@ -185,10 +215,10 @@ fn judge(c: &Connection, o: &Obligation, now: DateTime<Utc>) -> Result<Option<Li
                 _ => None,
             }
         }
-        None if bot_type == "Bots::DcaIndex" => return Ok(Some(unchecked(&when, &venue_name(c, bot_exchange)?, "index"))),
+        None if bot_type == "Bots::DcaIndex" => return Ok(Some(unchecked(&when, &then()?, "index"))),
         None => current_scope(c, o, bot_exchange)?,
     };
-    let Some(scope) = scope else { return Ok(Some(unchecked(&when, &venue_name(c, bot_exchange)?, "settings_changed"))) };
+    let Some(scope) = scope else { return Ok(Some(unchecked(&when, &then()?, "settings_changed"))) };
     let (venue_type, venue) = c.query_row("SELECT type, name FROM exchanges WHERE id = ?1", [scope.exchange], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
     if !crate::sync::fills::supported(&venue_type) { return Ok(Some(unchecked(&when, &venue, "no_history"))); }
     let search_from = o.from - Duration::seconds(AROUND);
@@ -237,7 +267,8 @@ struct Scope { exchange: i64, bases: Vec<i64>, quote: i64, side: Side }
 /// The pairs come from the stored settings by asset id, delisted ones included (r4.2).
 fn current_scope(c: &Connection, o: &Obligation, exchange: i64) -> Result<Option<Scope>, EngineError> {
     let bot = model::load_bot(c, o.bot)?;
-    let after = format_time(o.to);
+    // From the span's start: a change while Rails was placing leaves the scope unknown too.
+    let after = format_time(o.from);
     let changed: bool = c.query_row("SELECT (settings_changed_at IS NOT NULL AND settings_changed_at > ?2) OR (started_at IS NOT NULL AND started_at > ?2) FROM bots WHERE id = ?1",
                                     params![o.bot, after], |r| r.get(0))?;
     if changed { return Ok(None); }
@@ -312,6 +343,22 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
                 t.at = t.at.min(fill.at);
             }
             None => orders.push((fill.order_key.clone(), Trade { side: fill.side, ticker: fill.ticker_id, base: fill.base_qty, quote: fill.quote_qty, at: fill.at })),
+        }
+    }
+    // A fill of the order linked to a bot's order anywhere in the history, not only in the window, excludes it.
+    if !orders.is_empty() {
+        let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions \
+                               WHERE user_id = ?1 AND exchange_id = ?2 AND transaction_id IS NOT NULL")?;
+        let rows = s.query_map(params![user, exchange], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
+                                                                 r.get::<_, Option<String>>(3)?, r.get::<_, String>(4)?)))?.collect::<Result<Vec<_>, _>>()?;
+        drop(s);
+        for (id, tx_id, entry_type, raw, at) in rows {
+            let raw: Value = match raw.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
+            // A linked row whose time or object can't be read names no order to exclude; it is a bot's, never listed.
+            let Ok(transacted_at) = parse_time(&at) else { continue };
+            if let Read::Fill(f) = fills::read(c, venue, &LedgerRow { id, tx_id, entry_type, raw_data: raw, transacted_at, exchange_id: exchange }).map_err(EngineError::Data)? {
+                if !linked.contains(&f.order_key) { linked.push(f.order_key); }
+            }
         }
     }
     let mut out = vec![];

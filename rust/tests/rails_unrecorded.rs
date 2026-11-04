@@ -59,10 +59,14 @@ fn lines(c: &Connection, bot: i64) -> Vec<(String, Value)> {
 /// A finished ledger sync of the key, at `at`.
 fn synced(c: &Connection, key: i64, at: DateTime<Utc>) { deltabadger::jobs::state::record_success(c, deltabadger::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), at).unwrap(); }
 /// Everything a report must leave alone: no order row, carry, figure or ledger link moves (the money guard, r2.6).
-fn money(c: &Connection) -> String {
-    c.query_row("SELECT (SELECT group_concat(id || ':' || status || ':' || coalesce(external_id, ''), ',') FROM transactions) || '|' || \
-                 (SELECT group_concat(transient_data, ',') FROM bots) || '|' || (SELECT group_concat(coalesce(transaction_id, 0), ',') FROM account_transactions)",
-                [], |r| r.get::<_, Option<String>>(0)).unwrap().unwrap_or_default()
+fn money(c: &Connection) -> Vec<String> {
+    let dump = |sql: &str| -> String {
+        let mut s = c.prepare(sql).unwrap();
+        let n = s.column_count();
+        s.query_map([], |r| Ok((0..n).map(|i| format!("{:?}", r.get_ref(i).unwrap())).collect::<Vec<_>>().join(","))).unwrap().map(Result::unwrap).collect::<Vec<_>>().join(";")
+    };
+    vec![dump("SELECT * FROM transactions ORDER BY id"), dump("SELECT id, settings, transient_data, status, started_at, settings_changed_at FROM bots ORDER BY id"),
+         dump("SELECT id, transaction_id, linked_transaction_id FROM account_transactions ORDER BY id"), dump("SELECT count(*) FROM transactions")]
 }
 
 // ---- collection ------------------------------------------------------------------------------------------------------
@@ -110,6 +114,8 @@ fn a_failed_row_is_collected_only_when_its_saved_error_leaves_the_order_unknown(
         ("Timestamp for this request is outside of the recvWindow", false),
         ("Account has insufficient balance for requested action.", false),
         ("HTTP 404", false),
+        ("IBKR accepted the order but returned no order id for BTC", true),
+        ("Order would immediately match and take.", true),
     ] {
         assert_eq!(ru::ambiguous_failure("Exchanges::Binance", &[error.to_string()]), collected, "{error}");
     }
@@ -252,7 +258,7 @@ fn a_user_without_a_reading_key_on_the_venue_gets_unread_after_seven_days() {
 fn every_line_renders_in_english_without_a_missing_key() {
     use deltabadger::web::i18n::{self, Arg};
     for key in ["rails_order_candidate", "rails_order_candidates", "rails_order_none_seen", "rails_order_unchecked_settings_changed", "rails_order_unchecked_index",
-                "rails_order_unchecked_no_history", "rails_order_unchecked_unread", "rails_order_unchecked_unreadable", "rails_order_unchecked_reach", "rails_order_unchecked_gone"] {
+                "rails_order_unchecked_no_history", "rails_order_unchecked_unread", "rails_order_unchecked_unreadable", "rails_order_unchecked_reach", "rails_order_unchecked_gone", "rails_order_unchecked_time"] {
         let text = i18n::text("en", &format!("bot_activity.events.{key}"), &[("when", Arg::Text("around 2026-09-29 14:03 UTC")), ("venue", Arg::Text("Binance")), ("trades", Arg::Text("x"))]);
         assert!(text.starts_with("Before the update, an order from this bot may have gone through without being recorded (around 2026-09-29 14:03 UTC)."), "{key}: {text}");
         assert!(!text.contains("%{"), "{key}: {text}");
@@ -407,4 +413,80 @@ fn a_delisted_pair_of_an_unchanged_bot_is_still_searched() {
     ambiguous_line(&c, b, AT);
     fill(&c, &s, 11, 5, true, "0.0004", "20", "2026-09-29T14:03:05Z");
     assert_eq!(reported(&c, &s, b).0, ru::CANDIDATES);
+}
+
+// ---- Codex branch r1 ---------------------------------------------------------------------------------------------------
+
+#[test]
+fn this_engines_own_ambiguity_lines_are_never_collected() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    for details in [json!({ "error": "the order never reached Binance", "resolution": "not_placed", "source": "rust", "cl_ord_id": "x" }),
+                    json!({ "error": "resolved by the operator", "resolution": "filled", "source": "operator", "cl_ord_id": "y", "order_id": "1" })] {
+        c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, 'placement_ambiguous', 1, ?2, ?3)", params![b, details.to_string(), AT]).unwrap();
+    }
+    assert_eq!(ru::collect(&c, &queue(), None, now()).unwrap(), 0);
+}
+
+#[test]
+fn an_unreadable_queue_time_never_fails_the_takeover_and_its_line_says_the_time_is_unknown() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    let q = queue();
+    let args = json!({ "arguments": [{ "_aj_globalid": format!("gid://deltabadger/Bots::DcaMultiAsset/{b}") }] }).to_string();
+    q.execute("INSERT INTO solid_queue_jobs (id, class_name, arguments, scheduled_at, created_at) VALUES (1, 'Bot::ActionJob', ?1, 'not a time', '2026-09-29 14:00:00')", [&args]).unwrap();
+    q.execute("INSERT INTO solid_queue_failed_executions (job_id, created_at) VALUES (1, '2026-09-29 14:01:00')", []).unwrap();
+    assert_eq!(ru::collect(&c, &q, None, now()).unwrap(), 1);
+    ru::report(&c, now()).unwrap();
+    let l = lines(&c, b);
+    assert_eq!((l[0].1["reason"].as_str(), l[0].1["when"].as_str()), (Some("time"), Some("at a time that can't be read")));
+}
+
+#[test]
+fn a_change_while_rails_was_placing_leaves_the_scope_unknown() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    let q = queue();
+    let args = json!({ "arguments": [{ "_aj_globalid": format!("gid://deltabadger/Bots::DcaMultiAsset/{b}") }] }).to_string();
+    q.execute("INSERT INTO solid_queue_jobs (id, class_name, arguments, scheduled_at, created_at) VALUES (1, 'Bot::ActionJob', ?1, '2026-09-29 12:00:00', '2026-09-29 12:00:00')", [&args]).unwrap();
+    q.execute("INSERT INTO solid_queue_claimed_executions (job_id, process_id, created_at) VALUES (1, 99, '2026-09-29 12:00:00')", []).unwrap();
+    c.execute("UPDATE bots SET settings_changed_at = '2026-09-29 12:05:00' WHERE id = ?1", [b]).unwrap();
+    ru::collect(&c, &q, None, now()).unwrap();
+    synced(&c, s.api_key_id, now());
+    ru::report(&c, now()).unwrap();
+    assert_eq!(lines(&c, b)[0].1["reason"], "settings_changed");
+}
+
+#[test]
+fn a_fill_of_the_order_linked_outside_the_window_excludes_it() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    ambiguous_line(&c, b, AT);
+    let other = bot(&c, &s);
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, side, transaction_type, error_messages, created_at, updated_at) \
+               VALUES (?1, ?2, 'BTCEUR-OTHER', 0, 0, 'REGULAR', '[]', '2026-09-29 14:03:01', '2026-09-29 14:03:01')", params![other, s.exchange_id]).unwrap();
+    let held = c.last_insert_rowid();
+    fill(&c, &s, 11, 5, true, "0.0002", "10", "2026-09-29T14:03:05Z");
+    let late = fill(&c, &s, 12, 5, true, "0.0002", "10", "2026-09-29T16:00:00Z");
+    c.execute("UPDATE account_transactions SET transaction_id = ?2 WHERE id = ?1", params![late, held]).unwrap();
+    assert_eq!(reported(&c, &s, b).0, ru::NONE_SEEN);
+}
+
+#[test]
+fn a_bot_that_moved_exchange_is_told_to_check_the_exchange_it_traded_on_then() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    seed::insert_tx(&c, &s, b, &seed::TxSpec { status: 0, external_status: Some(2), external_id: Some("BTCEUR-1".into()), order_type: 0, amount: Some("0.001"),
+        quote_amount: Some("20"), price: Some("20000"), quote_amount_exec: Some("20"), amount_exec: Some("0.001"), created_at: "2026-09-22 14:03:00".into() });
+    ambiguous_line(&c, b, AT);
+    c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', ?1, ?1)", [AT]).unwrap();
+    c.execute("UPDATE bots SET exchange_id = ?2, started_at = '2026-09-30 09:00:00' WHERE id = ?1", params![b, c.last_insert_rowid()]).unwrap();
+    ru::collect(&c, &queue(), None, now()).unwrap();
+    ru::report(&c, now()).unwrap();
+    assert_eq!(lines(&c, b)[0].1["venue"], "Binance");
 }
