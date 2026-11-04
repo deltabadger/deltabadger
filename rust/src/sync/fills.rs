@@ -84,6 +84,9 @@ pub fn read(c: &Connection, venue: &str, row: &LedgerRow) -> Result<Read, String
                          side: p.side, base_qty: p.base_qty, quote_qty: p.quote_qty, at: p.at }))
 }
 
+/// A28-3: does a tombstoned listing of the exchange carry this venue symbol (as `read` asks it of a fill's)?
+pub(crate) fn symbol_reused(c: &Connection, exchange_id: i64, symbol: &str) -> Result<bool, String> { reused(c, exchange_id, symbol, Match::Exact) }
+
 /// Does a tombstoned ticker of the exchange carry this symbol?
 fn reused(c: &Connection, exchange_id: i64, symbol: &str, matching: Match) -> Result<bool, String> {
     let mut s = c.prepare_cached("SELECT ticker FROM tickers WHERE exchange_id = ?1 AND substr(ticker, 1, 8) = '__stale_'").map_err(|e| e.to_string())?;

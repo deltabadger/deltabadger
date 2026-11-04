@@ -433,8 +433,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
     // D-BINANCE-ORDER-LINK: stored Binance fills link to their bot orders, at every start.
     registered.push(Box::new(deltabadger::sync::binance_order_links::OrderLinks));
-    // A28-1: the lines for Rails' unrecorded-order candidates, hourly.
-    registered.push(Box::new(deltabadger::engine::rails_unrecorded::Report));
+    // A28-1: the lines for Rails' unrecorded-order candidates, hourly; A28-3: with the served venues' order history read live.
+    registered.push(Box::new(deltabadger::engine::rails_unrecorded::Report::new(LiveFactory::new())));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
     // PLAN-B2 r3.3, r4.4: the runs a stopped 2.x left queued (handover::RAILS_WAKES_KEY), woken until each has run.
