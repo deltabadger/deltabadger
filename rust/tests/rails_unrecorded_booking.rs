@@ -771,3 +771,156 @@ async fn a_failed_row_offer_for_a_pair_the_bot_no_longer_holds_is_refused() {
     assert_eq!((served.booked, money(&f.c)), (vec![], before));
     assert_eq!(lines(&f.c, f.b, ru::NOT_ADDED)[0]["reason"], "settings_changed");
 }
+
+// ---- the web: the line's buttons and POST /bots/:id/rails_orders (A28-2a, §1, §2, r1.7, r2.1) -----------------------------
+
+/// The web over the fixture's install at `at`, an engine attached (its wake), and the owner signed in.
+fn web(f: &Fx, at: &str) -> (deltabadger::web::App, common::web::Browser, std::sync::Arc<tokio::sync::Notify>) {
+    use deltabadger::web::{csrf, session};
+    let env = |n: &str| (n == "SECRET_KEY_BASE").then(|| "booking-web-secret".to_string());
+    let primary = open(&f.path);
+    deltabadger::store::configure(&primary).unwrap();
+    let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, primary, common::web::TestClock::at(at)).unwrap();
+    let wake = std::sync::Arc::new(tokio::sync::Notify::new());
+    app.attach_engine(wake.clone());
+    f.c.execute("UPDATE users SET confirmed_at = created_at, setup_completed = 1, wash_sale_enabled = 0", []).unwrap();
+    let hash: String = f.c.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [f.s.user_id], |r| r.get(0)).unwrap();
+    let token = csrf::new_token();
+    let data = session::SessionData { user: Some((f.s.user_id, hash.chars().take(29).collect())), csrf: Some(token.clone()), ..Default::default() };
+    let browser = common::web::Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: Some(format!("<meta name=\"csrf-token\" content=\"{}\">", csrf::masked(&token))) };
+    (app, browser, wake)
+}
+async fn answer(app: &deltabadger::web::App, b: &mut common::web::Browser, bot: i64, form: &[(&str, &str)], csrf: common::web::Csrf) -> common::web::Answer {
+    b.send(app, "POST", &format!("/bots/{bot}/rails_orders"), Some(form), csrf, &[]).await
+}
+/// The flash the POST left in the session.
+fn flash(app: &deltabadger::web::App, b: &common::web::Browser) -> Vec<(String, String)> {
+    deltabadger::web::session::open(&app.keys.session, b.cookie.as_deref().unwrap(), app.now()).unwrap().flash
+}
+/// The bot's feed (the orders frame): its `bot_activity_log_` row for the line.
+async fn line_row(app: &deltabadger::web::App, b: &mut common::web::Browser, bot: i64, c: &Connection) -> String {
+    let feed = b.send(app, "GET", &format!("/bots/{bot}.turbo_stream"), None, common::web::Csrf::None, &[("Turbo-Frame", "orders_pagination")]).await;
+    assert_eq!(feed.status, 200, "{}", feed.body);
+    let id: i64 = c.query_row("SELECT id FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('rails_order_open', 'rails_order_listed') ORDER BY id DESC LIMIT 1", [bot], |r| r.get(0)).unwrap();
+    let start = feed.body.find(&format!("<tr id=\"bot_activity_log_{id}\"")).unwrap_or_else(|| panic!("{}", feed.body));
+    feed.body[start..].split_once("</tr>").unwrap().0.to_string() + "</tr>"
+}
+fn waiting(c: &Connection) -> Vec<String> { vec![dump(c, "SELECT * FROM rust_rails_unrecorded_requests"), dump(c, "SELECT id, event, details FROM bot_activity_logs ORDER BY id")] }
+
+#[tokio::test]
+async fn the_post_without_csrf_or_on_another_users_bot_writes_nothing() {
+    let f = fx(Kind::Binance);
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    let (app, mut b, _) = web(&f, "2026-09-30T12:00:00Z");
+    let (obligation, offer) = (obligation.to_string(), offers[0].0.to_string());
+    let before = (money(&f.c), waiting(&f.c));
+    for form in [[("obligation", obligation.as_str()), ("offer", offer.as_str())], [("obligation", obligation.as_str()), ("none", "1")]] {
+        let forged = answer(&app, &mut b, f.b, &form, common::web::Csrf::None).await;
+        assert_eq!((forged.status, forged.header("location")), (302, Some("/")), "Rails' unverified-request handler");
+        assert_eq!((money(&f.c), waiting(&f.c)), before);
+    }
+    // A forged request signs the session out (Rails' handler): sign in again.
+    let (app, mut b, _) = web(&f, "2026-09-30T12:00:00Z");
+    f.c.execute("INSERT INTO users (id, email, created_at, updated_at) VALUES (9999, 'foreign@example.com', '2026-01-01', '2026-01-01')", []).unwrap();
+    f.c.execute("UPDATE bots SET user_id = 9999 WHERE id = ?1", [f.b]).unwrap();
+    for form in [[("obligation", obligation.as_str()), ("offer", offer.as_str())], [("obligation", obligation.as_str()), ("none", "1")]] {
+        let foreign = answer(&app, &mut b, f.b, &form, common::web::Csrf::Header).await;
+        assert_eq!(foreign.status, 404, "another user's bot: the bot actions' not-found: {:?} {}", foreign.header("location"), foreign.body);
+        assert_eq!((money(&f.c), waiting(&f.c)), before);
+    }
+    let unknown = answer(&app, &mut b, f.b + 100, &[("obligation", obligation.as_str()), ("none", "1")], common::web::Csrf::Header).await;
+    assert_eq!(unknown.status, 404);
+}
+
+#[tokio::test]
+async fn this_was_this_bots_order_leaves_a_request_and_wakes_the_engine() {
+    let f = fx(Kind::Binance);
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    let (app, mut b, wake) = web(&f, "2026-09-30T12:00:00Z");
+    let before = money(&f.c);
+    let posted = answer(&app, &mut b, f.b, &[("obligation", &obligation.to_string()), ("offer", &offers[0].0.to_string())], common::web::Csrf::Header).await;
+    assert_eq!((posted.status, posted.header("location")), (302, Some(format!("/bots/{}", f.b).as_str())), "{}", posted.body);
+    assert_eq!(flash(&app, &b), [("notice".to_string(), "Checking this order with Binance. It's added to the bot's history in a moment if it checks out.".to_string())]);
+    assert_eq!(dump(&f.c, "SELECT obligation_id, offer_id, attempts FROM rust_rails_unrecorded_requests"), format!("Integer({obligation}),Integer({}),Integer(0)", offers[0].0));
+    assert_eq!(money(&f.c), before, "the engine books it, not the web");
+    tokio::time::timeout(std::time::Duration::from_secs(1), wake.notified()).await.expect("the engine is woken");
+    // Pending: refused, nothing written; the line says it is being checked.
+    let again = waiting(&f.c);
+    for form in [[("obligation", obligation.to_string()), ("offer", offers[0].0.to_string())], [("obligation", obligation.to_string()), ("none", "1".to_string())]] {
+        let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        assert_eq!(answer(&app, &mut b, f.b, &form, common::web::Csrf::Header).await.status, 302);
+        assert_eq!(flash(&app, &b), [("alert".to_string(), Refused::Pending.text().to_string())]);
+        assert_eq!((money(&f.c), waiting(&f.c)), (before.clone(), again.clone()));
+    }
+    let row = line_row(&app, &mut b, f.b, &f.c).await;
+    assert!(row.contains("Checking with Binance…") && !row.contains("<form"), "{row}");
+}
+
+#[tokio::test]
+async fn none_of_these_resolves_not_mine_and_then_refuses_as_decided() {
+    let f = fx(Kind::Binance);
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    let (app, mut b, _) = web(&f, "2026-09-30T12:00:00Z");
+    let rows = dump(&f.c, "SELECT * FROM transactions ORDER BY id");
+    let posted = answer(&app, &mut b, f.b, &[("obligation", &obligation.to_string()), ("none", "1")], common::web::Csrf::Header).await;
+    assert_eq!((posted.status, posted.header("location")), (302, Some(format!("/bots/{}", f.b).as_str())));
+    assert_eq!(flash(&app, &b), [("notice".to_string(), "Noted: none of these orders was this bot's.".to_string())]);
+    let resolution: (i64, String) = f.c.query_row("SELECT obligation_id, resolution FROM rust_rails_unrecorded_resolutions", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(resolution, (obligation, "not_mine".to_string()));
+    assert_eq!(lines(&f.c, f.b, ru::NOT_MINE), [json!({ "obligation": obligation })]);
+    assert_eq!(dump(&f.c, "SELECT * FROM transactions ORDER BY id"), rows);
+    let before = (money(&f.c), waiting(&f.c));
+    for form in [[("obligation", obligation.to_string()), ("offer", offers[0].0.to_string())], [("obligation", obligation.to_string()), ("none", "1".to_string())]] {
+        let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        assert_eq!(answer(&app, &mut b, f.b, &form, common::web::Csrf::Header).await.status, 302);
+        assert_eq!(flash(&app, &b), [("alert".to_string(), "This was already decided.".to_string())]);
+        assert_eq!((money(&f.c), waiting(&f.c)), before);
+    }
+    // Decided: the line is as it was before A28-2a, its sentence alone.
+    let row = line_row(&app, &mut b, f.b, &f.c).await;
+    assert!(row.ends_with("</td>\n</tr>") && !row.contains("<form") && !row.contains("Checking"), "{row}");
+}
+
+#[tokio::test]
+async fn the_line_offers_each_order_with_its_carry_and_a_none_button() {
+    let f = carry_fx(false);
+    f.answer(&[O { at: DAY1, ..o(7, St::Filled, "0.0004", "20") }]);
+    Report::new(Factory { venue: f.binance(), hook: RefCell::new(None) }).pass(&f.db, t("2026-09-03T00:00:01Z")).await.unwrap();
+    let (obligation, offers) = f.offers();
+    let (app, mut b, _) = web(&f, "2026-09-04T00:00:01Z");
+    let row = line_row(&app, &mut b, f.b, &f.c).await;
+    let forms: Vec<&str> = row.split("<form ").skip(1).collect();
+    assert_eq!(forms.len(), 2, "one per offer and one none: {row}");
+    assert!(forms[0].contains("data-turbo-confirm=\"Add this order to this bot: bought 0.0004 BTC for 20 EUR (filled), placed 2026-09-02 00:00:03 UTC. \
+                                This bot now owes 20.00 EUR toward its next order. With this order added, it owes 0.00 EUR.\""), "{row}");
+    assert!(forms[0].contains(&format!("action=\"/bots/{}/rails_orders\"", f.b)) && forms[0].contains(">This was this bot&#39;s order</button>"), "{row}");
+    assert!(forms[0].contains(&format!("name=\"obligation\" value=\"{obligation}\"")) && forms[0].contains(&format!("name=\"offer\" value=\"{}\"", offers[0].0)), "{row}");
+    assert!(forms[1].contains("data-turbo-confirm=\"None of these orders was this bot&#39;s? The bot keeps trading as it does now.\"") &&
+            forms[1].contains(">None of these was this bot&#39;s</button>") && forms[1].contains("name=\"none\" value=\"1\""), "{row}");
+    for form in &forms { assert_eq!(form.matches("name=\"authenticity_token\"").count(), 1, "{form}"); }
+    // The form's own token is accepted, as a browser posts it.
+    let field = regex::Regex::new(r#"name="authenticity_token" value="([^"]+)""#).unwrap();
+    let mine = field.captures(forms[1]).unwrap()[1].to_string();
+    let posted = b.send(&app, "POST", &format!("/bots/{}/rails_orders", f.b), Some(&[("obligation", &obligation.to_string()), ("none", "1"), ("authenticity_token", &mine)]), common::web::Csrf::None, &[]).await;
+    assert_eq!(posted.header("location"), Some(format!("/bots/{}", f.b).as_str()));
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_resolutions WHERE resolution = 'not_mine'"), 1);
+}
+
+#[tokio::test]
+async fn an_offer_that_leaves_the_carry_says_it_goes_into_the_history_only() {
+    let f = carry_fx(true);
+    // As a_booked_failed_row_order_before_the_window_leaves_the_carry_and_keeps_rails_stamp: outside the window.
+    f.c.execute("UPDATE bots SET settings_changed_at = '2026-09-02 12:00:00' WHERE id = ?1", [f.b]).unwrap();
+    f.answer(&[O { at: DAY1, ..o(7, St::Filled, "0.0004", "20") }]);
+    Report::new(Factory { venue: f.binance(), hook: RefCell::new(None) }).pass(&f.db, t("2026-09-03T00:00:01Z")).await.unwrap();
+    let (app, mut b, _) = web(&f, "2026-09-04T00:00:01Z");
+    let row = line_row(&app, &mut b, f.b, &f.c).await;
+    assert!(!row.contains("owes"), "{row}");
+    assert!(row.contains("It goes into the bot&#39;s history only; its next order isn&#39;t affected.\""), "{row}");
+}
