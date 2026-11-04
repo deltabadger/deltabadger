@@ -303,6 +303,8 @@ const ROUTES: &[(&str, bool)] = &[
     ("/oauth/register", true), ("/oauth/token", true), ("/oauth/revoke", true), ("/oauth/introspect", true), ("/oauth/token/info", true),
     ("/oauth/authorize/native", true), ("/oauth/authorize", true),
     ("/up", true), ("/health-check", true), ("/ui-ready", true), ("/csp-report", true), ("/cable", true),
+    // A25: the admin jobs page (the desktop account is the admin), and its 404 for anything under it.
+    ("/jobs", true), ("/jobs/{*rest}", true),
 ];
 
 /// The settings actions the desktop does not serve; every other one is served.
