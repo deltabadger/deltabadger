@@ -718,7 +718,8 @@ fn routes(app: App) -> Router {
         .route("/bots/dca_indexes", only(post(wizard::stale)))
         .route("/bots/dca_indexes/confirm_settings", only(post(wizard::stale)))
         .route("/bots/dca_indexes/confirm_settings/new", only(get(wizard::stale)))
-        .route("/bots", only(get(bots::index)))
+        // A26: `resources :bots` draws a create Rails' controller never had (D-LEGACY-BOTS-CREATE-DESTROY-ABSENT).
+        .route("/bots", only(get(bots::index).post(legacy::absent)))
         .route("/rules", only(get(rules::index)))
         .route("/rules/withdrawals", only(post(rules::missing)))
         .route("/rules/withdrawals/{id}", only(patch(rules::tile).delete(rules::tile)))
@@ -810,7 +811,8 @@ fn routes(app: App) -> Router {
         .route("/bots/merge", only(post(bot::actions::merge_create)))
         .route("/bots/split/new", only(get(bot::actions::split_new)))
         .route("/bots/split", only(post(bot::actions::split_create)))
-        .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
+        // PUT is Rails' update as much as PATCH; DELETE draws a destroy Rails' controller never had (A26).
+        .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update).put(bot::actions::update).delete(legacy::absent)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
         .route("/bots/{id}/stop", only(patch(bot::actions::stop)))
