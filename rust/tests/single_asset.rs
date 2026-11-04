@@ -342,6 +342,18 @@ async fn an_untradeable_working_bot_converts_and_its_tick_fails_visibly() {
     assert!(venue.sent().is_empty());
     let said: String = e.primary.query_row("SELECT transient_data || coalesce((SELECT group_concat(details) FROM bot_activity_logs WHERE bot_id = 1), '') FROM bots WHERE id = 1", [], |r| r.get(0)).unwrap();
     assert!(said.contains("None of the portfolio's weighted assets trade on Kraken"), "{said}");
+    // With its price condition on (unlatched, pause): the condition finds no available ticker and the bot pauses there.
+    let mut sc = sc;
+    let mut settings: Value = serde_json::from_str(sc["before"]["bots"][0]["settings"].as_str().unwrap()).unwrap();
+    settings["price_limited"] = json!(true);
+    sc["before"]["bots"][0]["settings"] = json!(settings.to_string());
+    let venue = kraken();
+    let (_d, t, mut e) = engine(&sc, venue.clone());
+    assert_eq!(t.eligible, vec![1]);
+    let _ = run::step(&mut e, &at(due + chrono::Duration::milliseconds(1))).await;
+    assert!(venue.sent().is_empty());
+    let said: String = e.primary.query_row("SELECT transient_data || coalesce((SELECT group_concat(details) FROM bot_activity_logs WHERE bot_id = 1), '') FROM bots WHERE id = 1", [], |r| r.get(0)).unwrap();
+    assert!(!said.contains("None of the portfolio's weighted assets"), "the gate stops it first: {said}");
 }
 
 /// §8 5b: the converted bot's orders are the amounts Rails' converted bot sizes: a buy at its carry, a sale of
@@ -492,4 +504,35 @@ mod web {
             assert!(!start.body.contains(&sentence) && start.status != 501, "{name}: {} {:.600}", start.status, start.body);
         }
     }
+}
+
+/// §8 7 (D-SINGLE-CONDITION-CONVERTS): a condition watching another market reads after the conversion as Rails' single bot
+/// read it before and its basket after: unlatched it finds no ticker among the bot's own (not met; a flip doesn't fire);
+/// latched "after" it passes before any lookup. No price is read for any of them.
+#[tokio::test(flavor = "current_thread")]
+async fn a_condition_on_another_market_reads_as_rails_reads_it() {
+    use deltabadger::engine::conditions::{self, Rule};
+    let mut n = 0;
+    for sc in scenarios().into_iter().filter(|s| s["rails_skips"].to_string().contains("condition watches another ticker")) {
+        let name = sc["name"].as_str().unwrap();
+        let (_d, o) = install(&sc);
+        let c = &o.primary;
+        assert_eq!(convert(c), vec![1], "{name}");
+        let bot = model::load_bot(c, 1).unwrap();
+        let rails = sc["probes"]["1"]["after"]["conditions"].as_object().unwrap().clone();
+        assert_eq!(rails, sc["probes"]["1"]["before"]["conditions"].as_object().unwrap().clone(), "{name}: Rails reads it alike before and after");
+        for (prefix, met) in rails {
+            let selling = prefix.starts_with("sell_");
+            let (kind, _) = Rule::of_flag(&format!("{prefix}ed")).unwrap();
+            // evaluate_rule's reading before any venue call: a latched "after" rule is met; else its ticker among the bot's own.
+            let rule = bot.condition_rule(kind, selling).unwrap().unwrap().common;
+            let rust = (rule.after && rule.met_at_us.is_some()) || {
+                assert!(conditions::rule_ticker(c, &bot, &rule).unwrap().is_none(), "{name}: {prefix} finds no ticker of its own");
+                false
+            };
+            assert_eq!(json!(rust), met, "{name}: {prefix}");
+            n += 1;
+        }
+    }
+    assert_eq!(n, 10);
 }
