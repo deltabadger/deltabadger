@@ -157,6 +157,13 @@ fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+/// The status page's URL: the app's own origin, which serves ui/index.html at its root (frontendDist). Not read from the
+/// window, which may still be at about:blank right after it was created (WebView2 navigates asynchronously).
+fn status_page() -> tauri::Url {
+    let origin = if cfg!(windows) { "http://tauri.localhost/" } else { "tauri://localhost/" };
+    origin.parse().expect("a fixed URL")
+}
+
 /// The main window, for the supervisor.
 struct WindowView {
     app: tauri::AppHandle,
@@ -351,11 +358,7 @@ pub fn run() {
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .hidden_title(true);
 
-            let window = window_builder.build()?;
-            let status = window.url().map(|mut url| {
-                url.set_fragment(None);
-                url
-            })?;
+            window_builder.build()?;
 
             // Set up system tray
             let show_item = MenuItemBuilder::with_id("show", "Show Deltabadger").build(app)?;
@@ -391,7 +394,7 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            let view = WindowView { app: app.handle().clone(), status, last: Mutex::new(None) };
+            let view = WindowView { app: app.handle().clone(), status: status_page(), last: Mutex::new(None) };
             match launch(app) {
                 Ok(launch) => {
                     app.manage(LogFile(launch.log_file()));

@@ -214,20 +214,23 @@ fn the_engine_gets_exactly_the_desktop_environment() {
 
 #[test]
 fn only_the_released_identifier_runs_on_the_production_data_dir() {
-    let tauri_dir = |id: &str| Ok(PathBuf::from(format!("/apps/{id}")));
+    let root = std::env::temp_dir();
+    let tauri_dir = |id: &str| Ok(root.join("apps").join(id));
     // Released: the 2.x dir, the override ignored and said so.
-    let (dir, notes) = choose_data_dir(RELEASE_IDENTIFIER, Some("/elsewhere"), false, tauri_dir(RELEASE_IDENTIFIER)).unwrap();
+    let elsewhere = root.join("elsewhere");
+    let (dir, notes) = choose_data_dir(RELEASE_IDENTIFIER, elsewhere.to_str(), false, tauri_dir(RELEASE_IDENTIFIER)).unwrap();
     if cfg!(windows) {
         assert!(dir.ends_with("Deltabadger"), "{dir:?}");
     } else {
-        assert_eq!(dir, PathBuf::from("/apps/com.deltabadger.app"));
+        assert_eq!(dir, root.join("apps").join("com.deltabadger.app"));
     }
     assert_eq!(notes, vec!["desktop: DELTABADGER_DESKTOP_DATA_DIR is ignored by the released app"]);
     // A test build: the override, else its own identifier's dir; never the production one.
     let test = "com.deltabadger.app.test";
-    assert_eq!(choose_data_dir(test, Some("/scenario/x"), false, tauri_dir(test)).unwrap().0, PathBuf::from("/scenario/x"));
+    let scenario = root.join("scenario").join("x");
+    assert_eq!(choose_data_dir(test, scenario.to_str(), false, tauri_dir(test)).unwrap().0, scenario);
     let (own, _) = choose_data_dir(test, None, false, tauri_dir(test)).unwrap();
-    assert_eq!(own, PathBuf::from("/apps/com.deltabadger.app.test"));
+    assert_eq!(own, root.join("apps").join("com.deltabadger.app.test"));
     assert!(!own.ends_with("Deltabadger"));
     // A relative override is refused rather than read against some working directory.
     assert!(choose_data_dir(test, Some("relative"), false, tauri_dir(test)).is_err());
