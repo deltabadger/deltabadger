@@ -284,8 +284,9 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # desktop.yml's list, so both build the AppImage on the same packages.
           sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-            libxdo-dev libssl-dev patchelf file
+            libxdo-dev libssl-dev patchelf file xvfb xauth dbus dbus-x11 xdotool webkit2gtk-driver
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - name: Install frontend dependencies
         shell: bash
@@ -342,7 +343,8 @@ jobs:
           fi
           # Tauri reads the Apple variables with var_os: an empty one is still set and fails the import, so unset them.
           [ "$APPLE_READY" = true ] || unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
-          bunx tauri build --bundles "${{ matrix.bundles }}" --config "$conf" -- --locked
+          # --verbose: a bundler failure (linuxdeploy, NSIS, dmg) prints its tool's output, not only its name.
+          bunx tauri build --verbose --bundles "${{ matrix.bundles }}" --config "$conf" -- --locked
       - name: Stage the release assets
         shell: bash
         run: |
