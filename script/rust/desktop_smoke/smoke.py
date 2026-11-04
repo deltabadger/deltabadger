@@ -819,7 +819,8 @@ def scenario_downloads(name):
         before = {p.name for p in folder.iterdir()}
         # A click, as on the Settings button: WebView2 blocks a second download a page starts without a user gesture.
         win.js("var a = document.createElement('a'); a.id = 'smoke-docs'; a.dataset.turbo = 'false';"
-               " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md'; document.body.prepend(a); return true;")
+               " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md';"
+               " a.style.cssText = 'position:fixed;left:40%;top:40%;padding:1em;z-index:2147483647;background:#fff'; document.body.append(a); return true;")
         win.click("#smoke-docs")
         docs = new_file(folder, before, "deltabadger-api")
         check(docs.read_bytes() == (REPO / "manual" / "api.md").read_bytes(), f"{docs.name} differs from manual/api.md")
