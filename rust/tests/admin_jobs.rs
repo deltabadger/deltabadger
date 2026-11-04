@@ -275,3 +275,19 @@ async fn the_eleventh_run_now_in_a_minute_is_throttled() {
     assert_eq!(f.run_now(&mut b, jobs::reference::STOCKS, "", Csrf::Header).await.status, 429);
     let _ = &f.dir;
 }
+
+/// D-JOBS-SETTINGS-LINK: the admin's Settings links to the page from its Instance section; a member's has no such row.
+#[tokio::test(flavor = "current_thread")]
+async fn settings_links_the_admin_to_the_page() {
+    let f = fx();
+    let mut admin = f.browser(f.s.user_id);
+    let settings = admin.get(&f.app, "/settings/account").await;
+    assert_eq!(settings.status, 200, "{}", settings.body);
+    let instance = settings.body.split("<div id=\"jobs\" class=\"sitem\">").nth(1).unwrap_or_else(|| panic!("{}", settings.body));
+    assert!(instance.contains("href=\"/jobs\"") && instance.contains("data-turbo-frame=\"_top\""), "{instance}");
+    let member = f.member();
+    let mut b = f.browser(member);
+    let settings = b.get(&f.app, "/settings/account").await;
+    assert_eq!(settings.status, 200);
+    assert!(!settings.body.contains("id=\"jobs\"") && !settings.body.contains("href=\"/jobs\""));
+}

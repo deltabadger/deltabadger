@@ -820,6 +820,39 @@ fn without_split_item(body: &mut Value) -> usize {
     taken
 }
 
+/// Named divergence D-JOBS-SETTINGS-LINK (A25): the admin's Settings has a Jobs row last in its Instance section, a link to
+/// this build's /jobs page; Rails links nowhere to its dashboard. Only that row, with the whitespace before it, is taken out
+/// of this crate's page; returns how many.
+fn without_jobs_row(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 0);
+    while i < lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        let jobs = line.trim_start().starts_with("<div ") && attr(line, "id").as_deref() == Some("jobs") && attr(line, "class").as_deref() == Some("sitem");
+        if !jobs { i += 1; continue; }
+        let end = subtree_end(lines, i);
+        let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+        lines.drain(start..end);
+        taken += 1;
+        i = start;
+    }
+    taken
+}
+
+#[test]
+fn only_the_settings_jobs_row_is_left_out() {
+    let rails = json!(["      </turbo-frame>", "      \" \"", "    </div>"]);
+    let mut ours = json!(["      </turbo-frame>", "      \" \"", "      <div class=\"sitem\" id=\"jobs\">", "        \" \"", "        <div class=\"srow\">", "          \"Jobs\"",
+                          "        </div>", "      </div>", "      \" \"", "    </div>"]);
+    assert_eq!((without_jobs_row(&mut ours), &ours), (1, &rails));
+    // Another sitem, or a jobs id on anything but an sitem, is still compared.
+    for other in [r#"      <div class="sitem" id="app_update">"#, r#"      <div class="srow" id="jobs">"#] {
+        let mut ours = json!(["      \" \"", other, "      </div>"]);
+        let before = ours.clone();
+        assert_eq!((without_jobs_row(&mut ours), &ours), (0, &before), "{other}");
+    }
+}
+
 /// Named divergence D-SPLIT-API in Settings: the split_bots switch under Control (this build's own tool) is taken out of this
 /// crate's page with the whitespace before it, and its entry out of the rows a write stored (the owner's switches, a
 /// client's grant). Returns how many switches were taken.
@@ -2389,7 +2422,7 @@ fn page_grid_selection_is_complete_and_disjoint() {
     }
     // These tests may skip on PAGES selections, but their witnesses must exist in the full gate.
     for name in ["twin_index_member", "twin_index_departed", "twin_index_off", "twin_basket_member",
-                 "twin_signal_rules", "twin_signal_basket_buy", "twin_signal_basket_sell", "venue_bot_page_hyperliquid_limit_lock"] {
+                 "twin_signal_rules", "twin_signal_basket_buy", "twin_signal_basket_sell", "venue_bot_page_hyperliquid_limit_lock", "settings_page_account_pt"] {
         assert!(full.contains(name), "the unfiltered gate must include {name}");
     }
     let countdown_pages: usize = all.iter().filter(|(name, _)| name.starts_with("countdown_")).map(|(_, s)| s["steps"].as_array().unwrap().len() - 2).sum();
@@ -2449,7 +2482,7 @@ async fn replay_page_shard(shard: usize) {
         // Shown with the captured output when the shard fails or times out: the last name is the scenario it stopped in.
         eprintln!("page shard {}: {name}/{scope}", shard + 1);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages) = (0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows) = (0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| rails_answer(answer, step)).collect();
         let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2478,12 +2511,14 @@ async fn replay_page_shard(shard: usize) {
         for answer in rust["responses"].as_array_mut().unwrap() {
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
+            jobs_rows += without_jobs_row(&mut answer["body"]);
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
         for (witness, count, divergence) in [("twin_index_member", index_rule_pages, "D-COND-FORMS-INDEX"),
                                              ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
-                                             ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU")] {
+                                             ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
+                                             ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }
         if name.starts_with("countdown_") {
