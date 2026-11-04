@@ -88,6 +88,10 @@ fn remember(vars: &mut Map<String, Value>, name: &str, value: Option<&str>) {
 
 /// `name=value` pairs of a JSON object, an array value giving one pair per element.
 fn pairs(fields: &Value) -> Vec<(String, String)> {
+    // An ordered list of [name, value] pairs, where the order is the point.
+    if let Some(list) = fields.as_array() {
+        return list.iter().map(|pair| (text(&pair[0]), text(&pair[1]))).collect();
+    }
     fields.as_object().into_iter().flatten().flat_map(|(name, value)| match value {
         Value::Array(all) => all.iter().map(|one| (name.clone(), text(one))).collect(),
         Value::Null => vec![],
@@ -228,7 +232,7 @@ async fn requested(app: &App, browsers: &mut BTreeMap<String, Browser>, step: &V
         fields.extend(pairs(&step["set"]));
         headers.push(("content-type".into(), "application/x-www-form-urlencoded".into()));
         Some(encode(&fields))
-    } else if step["form"].is_object() {
+    } else if step["form"].is_object() || step["form"].is_array() {
         if !has(&headers, "content-type") { headers.push(("content-type".into(), "application/x-www-form-urlencoded".into())); }
         Some(encode(&pairs(&step["form"])))
     } else if !step["json"].is_null() {
@@ -262,7 +266,8 @@ async fn requested(app: &App, browsers: &mut BTreeMap<String, Browser>, step: &V
     if web::meta_token(&body).is_some() { browser.page = Some(body.clone()); }
     assert_genuine(app, browser, &body, now, at);
     if answered.get("content-type").is_some_and(|v| v[0].starts_with("application/json")) {
-        if let Ok(Value::Object(members)) = serde_json::from_str::<Value>(&body) {
+        // An introspection answer names a client it did not issue: not a value of the scenario's own.
+        if let Ok(Value::Object(members)) = serde_json::from_str::<Value>(&body).map(|body| if body.get("active").is_some() { json!({}) } else { body }) {
             for name in ["client_id", "access_token", "refresh_token", "registration_access_token"] { remember(vars, name, members.get(name).and_then(Value::as_str)); }
         }
     }
@@ -366,7 +371,10 @@ fn comparable(answer: &Value, masks: &[(String, String)]) -> Value {
     let body = if by_rails { body.replace("must be one of plain, S256.", "must be S256.") } else { body.to_string() };
     let content_type = header("content-type").unwrap_or_default();
     let body = if content_type.starts_with("application/json") {
-        serde_json::from_str::<Value>(&masked(&body, masks)).unwrap_or_else(|_| json!(body))
+        let mut body = serde_json::from_str::<Value>(&masked(&body, masks)).unwrap_or_else(|_| json!(body));
+        // D-OAUTH-ERROR-STATE: Doorkeeper's invalid_token body also says "state":"unauthorized"; this crate's does not.
+        if by_rails && body["error"] == "invalid_token" && body["state"] == "unauthorized" { body.as_object_mut().unwrap().remove("state"); }
+        body
     } else if content_type.starts_with("text/html") {
         json!(html::normalize(&body).iter().map(|line| masked(line, masks)).collect::<Vec<_>>())
     } else {
@@ -509,9 +517,12 @@ fn unmet_expectation(name: &str, steps: &[Value], rails: &Played) -> Option<Stri
 /// Scenarios whose LAST response this crate deliberately answers otherwise than Rails. Everything
 /// before it, and (except where stated) the rows, are compared as in any scenario.
 /// - `unrouted_`: Rails has no such route (404). This crate: 501, naming the request.
-/// - `not_ported_`: Rails serves it (200) and this crate does not: Doorkeeper's out-of-band code
-///   page, which no http(s) client can reach, and its introspection and token-info endpoints, which
-///   the metadata does not advertise. 501, naming the request.
+/// - `unserved_`: D-OAUTH-NATIVE-UNSERVED. Doorkeeper's out-of-band code page, which no client here can be sent
+///   to: Rails answers it (200 signed in, 302 to /login signed out, 406 for `.json`); this crate 404s.
+/// - `owned_`: D-OAUTH-INTROSPECT-OWN-CLIENT. A token whose client row is gone: Rails tells any client it is
+///   active; this crate answers `{"active":false}`.
+/// - `fresher_`: D-OAUTH-INTROSPECT-AFTER-USE. A bearer introspects the token its own use has just retired:
+///   Rails read it before the use (active); this crate after (`{"active":false}`).
 /// - `stricter_`: a POST or DELETE to /oauth/authorize that fails the CSRF check. Rails raises (422,
 ///   an error page); this crate's pipeline answers as it does for every page: back, with a flash.
 ///   Nothing is written by either.
@@ -523,7 +534,7 @@ fn unmet_expectation(name: &str, steps: &[Value], rails: &Played) -> Option<Stri
 /// presented to this crate. Rails honours it for ever (200); once this crate has seen its successor
 /// used, it is retired (400 invalid_grant), for this crate and for Rails after a handback.
 fn listed_divergence(name: &str, steps: &[Value], rails: &Played, rust: &Played) -> Option<Result<(), String>> {
-    let kind = ["unrouted_", "not_ported_", "stricter_", "tighter_"].into_iter().find(|prefix| name.starts_with(prefix))?;
+    let kind = ["unrouted_", "unserved_", "owned_", "fresher_", "stricter_", "tighter_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let last = steps.len() - 1;
     if let Some(message) = first_difference(name, "rust", &rails.answers[..last], &rust.answers[..last]) {
         return Some(Err(format!("before its last response: {message}")));
@@ -539,7 +550,12 @@ fn listed_divergence(name: &str, steps: &[Value], rails: &Played, rust: &Played)
     let same_rows = || (rails.rows == rust.rows).then_some(()).ok_or_else(|| format!("rows differ:\n  rails: {}\n  rust:  {}", rails.rows, rust.rows));
     Some(match kind {
         "unrouted_" => statuses(404, 501).and(named.then_some(()).ok_or_else(|| "the 501 does not name the request".to_string())).and_then(|()| same_rows()),
-        "not_ported_" => statuses(200, 501).and(named.then_some(()).ok_or_else(|| "the 501 does not name the request".to_string())).and_then(|()| same_rows()),
+        "unserved_" => [200, 302, 406].contains(&theirs["status"].as_u64().unwrap_or(0)).then_some(()).ok_or_else(|| format!("Rails answered {}", theirs["status"]))
+            .and_then(|()| statuses(theirs["status"].as_u64().unwrap(), 404)).and_then(|()| same_rows()),
+        "owned_" | "fresher_" => statuses(200, 200).and_then(|()| same_rows()).and_then(|()| {
+            let (rails_body, rust_body): (Value, Value) = (serde_json::from_str(theirs["body"].as_str().unwrap()).unwrap(), serde_json::from_str(ours["body"].as_str().unwrap()).unwrap());
+            (rails_body["active"] == true && rust_body == json!({ "active": false })).then_some(()).ok_or_else(|| format!("expected Rails active and this crate {{\"active\":false}}; got {rails_body} and {rust_body}"))
+        }),
         "stricter_" => statuses(422, 302).and_then(|()| same_rows()).and_then(|()| {
             (ours["headers"]["location"][0] == "/" && ours["session_changed"] == true).then_some(()).ok_or_else(|| format!("expected a redirect to / with a flash, got {}", ours["headers"]))
         }),
@@ -630,7 +646,7 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), names.len(), failures.join("\n"));
     println!("{} scenarios, {steps_compared} steps; {crossed} cross-runtime plays", names.len());
     if std::env::var("OAUTH").is_err() {
-        assert_eq!((names.len(), crossed), (126, 18), "a scenario was dropped or added without this count");
+        assert_eq!((names.len(), crossed), (182, 20), "a scenario was dropped or added without this count");
     }
 }
 
@@ -981,4 +997,239 @@ async fn a_request_that_waited_for_the_database_is_dated_when_its_turn_came() {
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let written: (String, String) = c.query_row("SELECT g.revoked_at, t.created_at FROM oauth_access_grants g, oauth_access_tokens t WHERE g.token = 'the-code'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(written, ("2026-09-10 12:05:00".to_string(), "2026-09-10 12:05:00".to_string()));
+}
+
+/// An install for the introspection rule: two users; public clients A and B (each authorised by both users), a
+/// confidential client C, each user's personal application; for every client and user, a live, an expired and a
+/// revoked token; and two tokens of a client whose row is gone (id 99). Token `t-<app>-<user>-<state>`, refresh
+/// token `r-…`. No token came from another, so no use retires anything. (application id, uid, secret) of each client.
+/// (application id, uid, secret) of a client; (token, application id, state) of a token row.
+type Clients = Vec<(i64, &'static str, Option<&'static str>)>;
+type Tokens = Vec<(String, i64, &'static str)>;
+/// A token string, and the row it names: (application id, found by its refresh token, state).
+type Subject<'a> = (String, Option<(i64, bool, &'a str)>);
+
+fn property_install() -> (tempfile::TempDir, App, Clients, Tokens) {
+    let dir = common::baseline_install();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch("INSERT INTO users (id, email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) VALUES
+                       (1, 'o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01', '2026-01-01'), (2, 't@example.com', 'x', 'Two', 0, '2026-01-01', '2026-01-01', '2026-01-01');
+                     INSERT INTO oauth_applications (id, name, uid, secret, redirect_uri, scopes, confidential, personal_access_token, personal_owner_id, created_at, updated_at) VALUES
+                       (1, 'A', 'a-uid', NULL, 'https://a.example/cb', 'mcp', 0, 0, NULL, '2026-01-01', '2026-01-01'),
+                       (2, 'B', 'b-uid', NULL, 'https://b.example/cb', 'mcp', 0, 0, NULL, '2026-01-01', '2026-01-01'),
+                       (3, 'C', 'c-uid', 'c-secret', 'https://c.example/cb', 'mcp', 1, 0, NULL, '2026-01-01', '2026-01-01'),
+                       (4, 'Personal API token', 'p1-uid', NULL, 'https://localhost/personal-access-token', 'api', 0, 1, 1, '2026-01-01', '2026-01-01'),
+                       (5, 'Personal API token', 'p2-uid', NULL, 'https://localhost/personal-access-token', 'api', 0, 1, 2, '2026-01-01', '2026-01-01');").unwrap();
+    let mut tokens = vec![];
+    let owners: [(i64, &[i64]); 6] = [(1, &[1, 2]), (2, &[1, 2]), (3, &[1, 2]), (4, &[1]), (5, &[2]), (99, &[1])];
+    for (app, users) in owners {
+        for user in users {
+            for state in ["live", "expired", "revoked"] {
+                let token = format!("t-{app}-{user}-{state}");
+                let (created, revoked) = match state { "expired" => ("2026-09-10 10:00:00", "NULL"), "revoked" => ("2026-09-10 12:00:00", "'2026-09-10 12:00:10'"), _ => ("2026-09-10 12:00:00", "NULL") };
+                c.execute_batch(&format!("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, refresh_token, scopes, expires_in, created_at, revoked_at)
+                                          VALUES ({app}, {user}, '{token}', 'r{}', 'mcp', 3600, '{created}', {revoked})", &token[1..])).unwrap();
+                tokens.push((token, app, state));
+            }
+        }
+    }
+    c.execute_batch("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, refresh_token, scopes, expires_in, created_at)
+                     VALUES (99, 1, 't-99-1-live2', 'r-99-1-live2', 'mcp', 3600, '2026-09-10 12:00:00')").unwrap();
+    tokens.push(("t-99-1-live2".to_string(), 99, "live"));
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(AT));
+    (dir, app, vec![(1, "a-uid", None), (2, "b-uid", None), (3, "c-uid", Some("c-secret")), (4, "p1-uid", None), (5, "p2-uid", None)], tokens)
+}
+
+async fn send_with(app: &App, method: &str, path: &str, headers: &[(&str, &str)], body: &str) -> Sent {
+    send_with_type(app, method, path, FORM, headers, body).await
+}
+
+async fn send_with_type(app: &App, method: &str, path: &str, content_type: &str, headers: &[(&str, &str)], body: &str) -> Sent {
+    let mut request = Request::builder().method(method).uri(path).header(header::HOST, web::HOST).header(header::CONTENT_TYPE, content_type);
+    for (name, value) in headers { request = request.header(*name, *value); }
+    let mut request = request.body(Body::from(body.to_string())).unwrap();
+    request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+    let response = deltabadger::web::router(app.clone()).oneshot(request).await.unwrap();
+    let status = response.status().as_u16();
+    let headers = response.headers().iter().map(|(n, v)| (n.as_str().to_string(), v.to_str().unwrap().to_string())).collect();
+    Sent { status, headers, body: String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap()).into_owned() }
+}
+
+/// The security property of introspection, every caller against every token: a token is reported active only to
+/// its own client (by its credentials, or a bearer of that client that is not the token itself), only while it is
+/// live, and only while its client exists; every other answer is `{"active":false}` exactly or a fixed error. No
+/// answer carries any token, any refresh token or whose token it is.
+#[tokio::test(flavor = "current_thread")]
+async fn a_token_is_described_only_to_its_own_client_and_no_answer_carries_a_token() {
+    let (_dir, app, clients, tokens) = property_install();
+    let all_secrets: Vec<String> = tokens.iter().flat_map(|(token, _, _)| [token.clone(), format!("r{}", &token[1..])]).collect();
+    let mut subjects: Vec<Subject> = vec![("nothing".into(), None)];
+    for (token, app_id, state) in &tokens {
+        subjects.push((token.clone(), Some((*app_id, false, *state))));
+        subjects.push((format!("r{}", &token[1..]), Some((*app_id, true, *state))));
+    }
+    let live = |as_refresh: bool, state: &str| state == "live" || (as_refresh && state == "expired");
+    let mut checked = 0;
+    for (client_id, uid, secret) in &clients {
+        for (subject, row) in &subjects {
+            let body = format!("token={subject}&client_id={uid}{}", secret.map_or(String::new(), |s| format!("&client_secret={s}")));
+            let answer = send_with(&app, "POST", "/oauth/introspect", &[], &body).await;
+            let expected = row.filter(|(app_id, as_refresh, state)| app_id == client_id && live(*as_refresh, state));
+            assert_eq!(answer.status, 200, "{uid} asks about {subject}: {}", answer.body);
+            let got: Value = serde_json::from_str(&answer.body).unwrap();
+            match expected {
+                Some(_) => assert!(got["active"] == true && got["client_id"] == *uid && got.get("resource_owner_id").is_none(), "{uid} asks about {subject}: {got}"),
+                None => assert_eq!(got, json!({ "active": false }), "{uid} asks about {subject}"),
+            }
+            let everything = format!("{} {:?}", answer.body, answer.headers);
+            assert!(!all_secrets.iter().any(|secret| everything.contains(secret.as_str())), "{uid} asks about {subject}: {everything}");
+            checked += 1;
+        }
+    }
+    for (bearer, bearer_app, bearer_state) in tokens.iter().filter(|(_, _, state)| *state == "live") {
+        for (subject, row) in &subjects {
+            let answer = send_with(&app, "POST", "/oauth/introspect", &[("authorization", &format!("Bearer {bearer}"))], &format!("token={subject}")).await;
+            let itself = subject == bearer || *subject == format!("r{}", &bearer[1..]);
+            let same_client = row.is_some_and(|(app_id, _, _)| app_id == *bearer_app);
+            let everything = format!("{} {:?}", answer.body, answer.headers);
+            assert!(!all_secrets.iter().any(|secret| everything.contains(secret.as_str())), "{bearer} asks about {subject}: {everything}");
+            assert_eq!(*bearer_state, "live");
+            if itself || !same_client {
+                assert_eq!((answer.status, serde_json::from_str::<Value>(&answer.body).unwrap()["error"].clone()), (401, json!("invalid_token")), "{bearer} asks about {subject}: {}", answer.body);
+            } else {
+                let (_, as_refresh, state) = row.unwrap();
+                let got: Value = serde_json::from_str(&answer.body).unwrap();
+                // The orphans' client is gone: nobody's, even to a bearer of the same deleted client.
+                if *bearer_app != 99 && live(as_refresh, state) {
+                    assert!(answer.status == 200 && got["active"] == true && got.get("resource_owner_id").is_none(), "{bearer} asks about {subject}: {got}");
+                } else {
+                    assert_eq!((answer.status, got), (200, json!({ "active": false })), "{bearer} asks about {subject}");
+                }
+            }
+            checked += 1;
+        }
+    }
+    // Token info describes the token presented and nothing else, to whoever holds it.
+    for (subject, row) in &subjects {
+        let answer = send_with(&app, "GET", "/oauth/token/info", &[("authorization", &format!("Bearer {subject}"))], "").await;
+        let everything = format!("{} {:?}", answer.body, answer.headers);
+        assert!(!all_secrets.iter().any(|secret| everything.contains(secret.as_str())), "token info for {subject}: {everything}");
+        match row.filter(|(_, as_refresh, state)| !as_refresh && *state == "live") {
+            Some((app_id, _, _)) => {
+                let got: Value = serde_json::from_str(&answer.body).unwrap();
+                let uid = clients.iter().find(|(id, _, _)| *id == app_id).map(|(_, uid, _)| *uid);
+                let user: i64 = subject.split('-').nth(2).unwrap().parse().unwrap();
+                assert_eq!((answer.status, got["application"]["uid"].clone(), got["resource_owner_id"].clone()), (200, json!(uid), json!(user)), "token info for {subject}");
+            }
+            None => assert_eq!((answer.status, answer.body.as_str()), (401, r#"{"error":"invalid_token","error_description":"The access token is invalid"}"#), "token info for {subject}"),
+        }
+        checked += 1;
+    }
+    assert_eq!(checked, 912, "every caller against every token");
+}
+
+/// Every method a route does not serve, and every OAuth spelling no route has, is the 501, and none of them repeats
+/// a query value: an OAuth client's secret or token may stand there under any name.
+#[tokio::test(flavor = "current_thread")]
+async fn no_oauth_refusal_repeats_the_query() {
+    let (dir, app) = seeded();
+    let query = "?bearer_token=LEAK1&client_secret=LEAK2&access_token=LEAK3&token=LEAK4&code=LEAK5&x=LEAK6";
+    let cases = [("GET", "/oauth/introspect"), ("PUT", "/oauth/introspect"), ("PATCH", "/oauth/introspect"), ("DELETE", "/oauth/introspect"),
+                 ("POST", "/oauth/token/info"), ("DELETE", "/oauth/token/info"), ("POST", "/oauth/authorize/native"), ("GET", "/oauth/token"),
+                 ("GET", "/oauth/revoke"), ("GET", "/oauth/register"), ("GET", "/oauth/token.json"), ("GET", "/oauth/revoke.json.x"), ("POST", "/oauth/introspect.json.extra"),
+                 ("POST", "/oauth/nothing"), ("GET", "/de/oauth/introspect"), ("POST", "/de/oauth/token"), ("POST", "/.well-known/oauth-authorization-server")];
+    for (method, path) in cases {
+        let answer = send(&app, method, &format!("{path}{query}"), FORM, "", None).await;
+        // A path no route has is the session pipeline's: a POST without the session's token goes back, with a flash.
+        if answer.status == 302 && method == "POST" && !path.starts_with("/oauth/token/info") && !path.starts_with("/oauth/authorize/native") {
+            assert_eq!(answer.headers.iter().find(|(name, _)| name == "location").map(|(_, value)| value.as_str()), Some("/"), "{method} {path}");
+        } else {
+            assert_eq!(answer.status, 501, "{method} {path}: {}", answer.body);
+            assert!(answer.body.contains(&format!("{method} {path}")), "{method} {path}: the 501 names the request");
+        }
+        let everything = format!("{} {:?}", answer.body, answer.headers);
+        assert!(!everything.contains("LEAK"), "{method} {path}: {everything}");
+    }
+    // The native page's 404 (D-OAUTH-NATIVE-UNSERVED) says nothing either.
+    for path in ["/oauth/authorize/native", "/oauth/authorize/native.json"] {
+        let answer = send(&app, "GET", &format!("{path}{query}"), FORM, "", None).await;
+        assert!(answer.status == 404 && !answer.body.contains("LEAK"), "{path}: {} {}", answer.status, answer.body);
+    }
+    assert_eq!(count(dir.path(), "oauth_access_tokens"), 0);
+}
+
+/// D-OAUTH-UNREAD-BODY-REFUSED: a body this crate does not read as Rails does (a GET's, here) is refused whole on
+/// token info and introspection, before any token is used: Rails would read a token from it.
+#[tokio::test(flavor = "current_thread")]
+async fn token_info_refuses_a_get_body() {
+    let (dir, app) = seeded();
+    seed_tokens(dir.path(), &[("first".into(), String::new()), ("second".into(), "first".into())]);
+    let before = token_rows(dir.path());
+    for headers in [vec![("content-length", "18")], vec![("content-length", "18"), ("authorization", "Bearer second")]] {
+        assert_eq!(send_with(&app, "GET", "/oauth/token/info", &headers, "access_token=first").await.status, 400, "{headers:?}");
+    }
+    // JSON of whitespace alone is Rails' parse error, not an empty body.
+    assert_eq!(send_with_type(&app, "POST", "/oauth/introspect?token=first", "application/json", &[("content-length", "1"), ("authorization", "Bearer second")], " ").await.status, 400);
+    // `a=x&a[]` is two shapes of one name: Rack's 400.
+    assert_eq!(send_with(&app, "GET", "/oauth/token/info?access_token=x&access_token%5B%5D", &[("authorization", "Bearer second")], "").await.status, 400);
+    // Rack splits at `& *`: ` access_token` after `& ` is `access_token`, a second way beside the header.
+    assert_eq!(send_with(&app, "POST", "/oauth/introspect", &[("authorization", "Bearer second")], "token=first& access_token=x").await.status, 400);
+    // A header that is not ASCII is still a header: with `access_token`, two ways.
+    let mut request = Request::builder().method("GET").uri("/oauth/token/info?access_token=second").header(header::HOST, web::HOST)
+        .header(header::AUTHORIZATION, axum::http::HeaderValue::from_bytes("Bearer é".as_bytes()).unwrap()).body(Body::empty()).unwrap();
+    request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+    assert_eq!(deltabadger::web::router(app.clone()).oneshot(request).await.unwrap().status().as_u16(), 400, "a non-ASCII header");
+    assert_eq!(token_rows(dir.path()), before, "nothing was used");
+    assert_eq!(send_with(&app, "GET", "/oauth/token/info", &[("authorization", "Bearer second")], "").await.status, 200);
+}
+
+/// A use is judged at the moment the request holds the write lock, on the rows as they stand then: a bearer revoked
+/// by another connection while introspection or token info waited is revoked.
+#[tokio::test(flavor = "current_thread")]
+async fn a_token_revoked_while_the_request_waited_is_revoked() {
+    let (dir, app) = seeded();
+    let path = dir.path().join("production.sqlite3");
+    rusqlite::Connection::open(&path).unwrap().execute_batch("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, refresh_token, scopes, expires_in, created_at)
+        VALUES (1, 1, 'subject', 'rsubject', 'mcp', 3600, '2026-09-10 12:00:00'), (1, 1, 'bearer', 'rbearer', 'mcp', 3600, '2026-09-10 12:00:00'), (1, 1, 'info', 'rinfo', 'mcp', 3600, '2026-09-10 12:00:00')").unwrap();
+    for (method, uri, authorization, body, token) in [("POST", "/oauth/introspect", "Bearer bearer", "token=subject", "bearer"), ("GET", "/oauth/token/info", "Bearer info", "", "info")] {
+        let other = rusqlite::Connection::open(&path).unwrap();
+        other.execute_batch("BEGIN IMMEDIATE").unwrap();
+        let waiting = { let app = app.clone(); tokio::spawn(async move { send_with(&app, method, uri, &[("authorization", authorization)], body).await }) };
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        other.execute(&format!("UPDATE oauth_access_tokens SET revoked_at = '2026-09-10 12:00:01' WHERE token = '{token}'"), []).unwrap();
+        other.execute_batch("COMMIT").unwrap();
+        let answer = waiting.await.unwrap();
+        assert_eq!(answer.status, 401, "{uri}: {}", answer.body);
+        if uri == "/oauth/introspect" { assert!(answer.body.contains(oauth::text::TOKEN_REVOKED), "{}", answer.body); }
+    }
+}
+
+/// A multipart body is a body Rails would read for a token and this crate does not: on the two routes that count the
+/// ways a token was sent it is Rails' 400, before any token is used, so the bearer's predecessor is not retired.
+#[tokio::test(flavor = "current_thread")]
+async fn a_multipart_body_is_refused_before_any_token_is_used() {
+    let (dir, app) = seeded();
+    seed_tokens(dir.path(), &[("first".into(), String::new()), ("second".into(), "first".into())]);
+    let before = token_rows(dir.path());
+    let multipart = "--x\r\nContent-Disposition: form-data; name=\"access_token\"\r\n\r\nsecond\r\n--x--\r\n";
+    for (method, path) in [("POST", "/oauth/introspect?token=first"), ("GET", "/oauth/token/info")] {
+        let mut request = Request::builder().method(method).uri(path).header(header::HOST, web::HOST)
+            .header(header::CONTENT_TYPE, "multipart/form-data; boundary=x").header(header::AUTHORIZATION, "Bearer second");
+        request = request.header(header::CONTENT_LENGTH, multipart.len());
+        let mut request = request.body(Body::from(multipart)).unwrap();
+        request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+        let answer = deltabadger::web::router(app.clone()).oneshot(request).await.unwrap();
+        assert_eq!(answer.status().as_u16(), 400, "{method} {path}");
+    }
+    // So is a POST body with no content type, which Rack reads as a form.
+    let mut request = Request::builder().method("POST").uri("/oauth/introspect?token=first").header(header::HOST, web::HOST)
+        .header(header::AUTHORIZATION, "Bearer second").header(header::CONTENT_LENGTH, "15").body(Body::from("access_token=se")).unwrap();
+    request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+    assert_eq!(deltabadger::web::router(app.clone()).oneshot(request).await.unwrap().status().as_u16(), 400, "an untyped POST body");
+    // A valueless `access_token[]` beside `access_token[]=x` is the list `["x"]`: with the header, two ways (400).
+    assert_eq!(send_with(&app, "GET", "/oauth/token/info?access_token%5B%5D=x&access_token%5B%5D", &[("authorization", "Bearer second")], "").await.status, 400);
+    assert_eq!(token_rows(dir.path()), before, "nothing was used");
+    // Without the body the same bearer is a use, and retires the token it came from.
+    assert_eq!(send_with(&app, "GET", "/oauth/token/info", &[("authorization", "Bearer second")], "").await.status, 200);
+    assert!(token_rows(dir.path())[0].1.is_some(), "the use retired `first`");
 }

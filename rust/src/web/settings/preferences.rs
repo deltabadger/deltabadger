@@ -260,17 +260,46 @@ async fn email_notifications(app: App, ctx: Ctx) -> Result<Response, WebError> {
                 _ => None,
             };
             let widget = view::email(&tx, &inner, &v, &csrf, show_form)?;
-            // D-NO-MAIL-SAYS-SO: an open registration's row says whether confirmation mail can arrive, so it is redrawn
-            // with the mail it depends on. Closed, the row cannot change, and the answer is Rails'.
-            let registration = match auth::app_config(&tx, cipher, "registration_open")?.as_deref() {
-                Some("true") => Some(view::registration(&v, &csrf, true, super::mail::set_up(&inner, &tx)?)?),
-                _ => None,
-            };
+            let registration = registration_row(&tx, &inner, &v, &csrf)?;
             tx.commit()?;
             Ok((widget, notice, registration))
         })
         .await?;
-    let Some(registration) = registration_row else { return widget_and_flash(&ctx, "email_notifications", &widget, notice) };
+    email_answer(&ctx, &widget, notice, registration_row)
+}
+
+/// D-NO-MAIL-SAYS-SO: an open registration's row says whether confirmation mail can arrive, so it is redrawn with the mail
+/// it depends on. Closed, the row cannot change, and the answer is Rails'.
+fn registration_row(tx: &Connection, app: &App, ctx: &Ctx, csrf: &str) -> Result<Option<String>, WebError> {
+    Ok(match auth::app_config(tx, &app.cipher, "registration_open")?.as_deref() {
+        Some("true") => Some(view::registration(ctx, csrf, true, super::mail::set_up(app, tx)?)?),
+        _ => None,
+    })
+}
+
+/// SettingsController#disconnect_email (admin only): AppConfig.clear_smtp_settings!, then the mail widget and the notice.
+pub async fn disconnect_email(app: App, ctx: Ctx) -> Result<Response, WebError> {
+    let Some(user) = ctx.user() else { return Ok(auth::unauthenticated(&ctx)) };
+    if !user.admin { return Ok((StatusCode::FORBIDDEN, [(header::CONTENT_TYPE, "text/html")]).into_response()) }
+    let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
+    let (widget, registration) = app
+        .db(move |c| {
+            let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+            for key in ["smtp_provider", "smtp_username", "smtp_password", "smtp_host", "smtp_port"] {
+                crate::app_config::delete(&tx, key).map_err(WebError::Config)?;
+            }
+            let widget = view::email(&tx, &inner, &v, &csrf, false)?;
+            let registration = registration_row(&tx, &inner, &v, &csrf)?;
+            tx.commit()?;
+            Ok((widget, registration))
+        })
+        .await?;
+    email_answer(&ctx, &widget, Some("settings.email_notifications.disconnected"), registration)
+}
+
+/// The mail widget and the flash, with the registration row when it is open (registration_row).
+fn email_answer(ctx: &Ctx, widget: &str, notice: Option<&str>, registration_row: Option<String>) -> Result<Response, WebError> {
+    let Some(registration) = registration_row else { return widget_and_flash(ctx, "email_notifications", widget, notice) };
     let now: Vec<(&str, String)> = notice.map(|key| (flash::NOTICE, ctx.t(key))).into_iter().collect();
     let markup = flash::render(&flash::take(&ctx.session, &now))?;
     Ok(stream(turbo::stream("replace", "email_notifications", widget.trim_end())

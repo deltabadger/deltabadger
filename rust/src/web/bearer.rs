@@ -178,14 +178,28 @@ fn retire_ancestors(c: &Connection, presented: &AccessToken, now: DateTime<Utc>)
 ///
 /// Called inside `App::db`. The time is read from `clock` after the write lock is held.
 pub fn authenticate(c: &Connection, header: Option<&str>, required_scope: &str, clock: &dyn Clock) -> Result<Result<Bearer, Refusal>, WebError> {
-    let token = match find(c, header)? {
-        Ok(token) => token,
-        Err(refusal) => return Ok(Err(refusal)),
-    };
-    let now = if token.previous_refresh_token.trim().is_empty() {
-        clock.now()
-    } else {
-        super::oauth::transaction(c, clock, |c, now| retire_ancestors(c, &token, now).map(|()| now))?
-    };
-    check(c, &token, required_scope, now)
+    let Some(token) = bearer_token(header) else { return Ok(Err(Refusal::Missing)) };
+    match use_token(c, token, clock)? {
+        Some((token, now)) => check(c, &token, required_scope, now),
+        None => Ok(Err(Refusal::Invalid)),
+    }
+}
+
+/// A use of an access token, however the request carried it: its row, as it was found, and the moment it is judged
+/// at. A token that came from a refresh retires every refresh token before it first (`retire_ancestors`), in one
+/// write transaction in which the row is read again: what is judged is the row as it stands once the lock is held.
+/// The row itself is never revoked by its own use. `None` when no row has this token. Called inside `App::db`.
+pub fn use_token(c: &Connection, token: &str, clock: &dyn Clock) -> Result<Option<(AccessToken, DateTime<Utc>)>, WebError> {
+    let Some(found) = AccessToken::find(c, "token", token)? else { return Ok(None) };
+    if found.previous_refresh_token.trim().is_empty() {
+        return Ok(Some((found, clock.now())));
+    }
+    super::oauth::transaction(c, clock, |c, now| Ok(use_within(c, token, now)?.map(|row| (row, now))))
+}
+
+/// `use_token` for a caller that holds the write transaction already, at its moment `now`.
+pub fn use_within(c: &Connection, token: &str, now: DateTime<Utc>) -> Result<Option<AccessToken>, WebError> {
+    let Some(found) = AccessToken::find(c, "token", token)? else { return Ok(None) };
+    if !found.previous_refresh_token.trim().is_empty() { retire_ancestors(c, &found, now)?; }
+    Ok(Some(found))
 }

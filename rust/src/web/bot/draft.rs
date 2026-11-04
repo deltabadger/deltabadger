@@ -1016,7 +1016,7 @@ fn callback_set(values: &mut Map<String, Value>, key: String, value: Value) {
 
 impl Draft {
     /// Startable#initial_start_at for the candidate: `start::initial_start_at` in the owner's zone.
-    pub fn initial_start_at(&self, now: DateTime<Utc>, name: &str) -> Result<Option<start::StartAt>, WebError> {
+    pub fn initial_start_at(&self, now: DateTime<Utc>, name: &str) -> Result<Option<DateTime<Utc>>, WebError> {
         if !self.candidate.start_time_enabled() { return Ok(None); }
         let text=|key:&str| self.candidate.text(key);
         start::initial_start_at(text("start_time_mode"), text("start_time_of_day"), text("start_at"), now, name).map(Some).map_err(failure)

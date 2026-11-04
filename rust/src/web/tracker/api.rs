@@ -4,7 +4,7 @@
 //! The tools' texts are the Rails tools'. Named divergences: specs/PLAN-A11-tracker-api.md.
 use super::{csv_rows, first_sync, guarded, read, row::Row, sync_plan, transaction, Guarded, Step, SyncPlan, CSV_COLUMNS};
 use crate::{codec, ruby::{self, BigDec}, web::{bot_api::{self, Domain, Res}, bot::mcp_input, mcp::{protocol::tool_text, read_limits, tools::str_value}, timezone, App, WebError}};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate};
 use chrono_tz::Tz;
 use rusqlite::{types::Value as Sql, Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
@@ -55,24 +55,6 @@ fn day(v: &Value) -> Result<Option<NaiveDate>, ()> {
     match first_sync::iso_day(&text) { Ok(Some(day)) => Ok(Some(day)), _ => Err(()) }
 }
 
-/// A day's bound in `zone` as Date#beginning_of_day / #end_of_day resolve it (TimeZone#period_for_local(t, dst = true) {
-/// periods.last }): a repeated wall time is the occurrence in DST when exactly one is, else the later one (Magadan
-/// 2014-10-26 00:00 is +10:00); a missing one moves forward an hour at a time (Santiago 2026-09-06 00:00 is 01:00).
-fn wall(zone: Tz, naive: chrono::NaiveDateTime) -> Option<DateTime<Utc>> {
-    use chrono::{LocalResult, TimeZone};
-    use chrono_tz::OffsetComponents;
-    let dst = |t: &DateTime<Tz>| !t.offset().dst_offset().is_zero();
-    let mut at = naive;
-    for _ in 0..48 {
-        match zone.from_local_datetime(&at) {
-            LocalResult::Single(t) => return Some(t.with_timezone(&Utc)),
-            LocalResult::Ambiguous(first, second) => return Some(if dst(&first) && !dst(&second) { first } else { second }.with_timezone(&Utc)),
-            LocalResult::None => at = at.checked_add_signed(chrono::Duration::hours(1))?,
-        }
-    }
-    None
-}
-
 
 /// ListAccount's and ExportCsv's shared checks, in Rails' order: the exchange (any venue row), then the dates.
 /// D-API-NONSCALAR: an `exchange_id` that is no scalar is an unknown exchange (Rails raises on Array#to_i).
@@ -91,7 +73,7 @@ fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
     let (Ok(from), Ok(to)) = (day(arg("from_date")), day(arg("to_date"))) else { return Ok(Err(failure(Domain::ValidationFailed, "invalid_date", INVALID_DATE))) };
     let bound = |day: NaiveDate, clock: (u32, u32, u32, u32)| -> Result<Sql, WebError> {
         let naive = day.and_hms_micro_opt(clock.0, clock.1, clock.2, clock.3).ok_or_else(super::row::invalid)?;
-        Ok(Sql::Text(codec::format_time(wall(zone, naive).ok_or_else(super::row::invalid)?)))
+        Ok(Sql::Text(codec::format_time(timezone::wall(zone, naive).ok_or_else(super::row::invalid)?)))
     };
     if let Some(day) = from { out.push("transacted_at>=", bound(day, (0, 0, 0, 0))?); }
     if let Some(day) = to { out.push("transacted_at<=", bound(day, (23, 59, 59, 999_999))?); }
@@ -343,22 +325,4 @@ pub fn mcp(c: &Connection, app: &App, user: i64, name: &str, args: &Value) -> Re
         }
         _ => return Err(WebError::Config("unregistered tracker tool".into())),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    /// Recorded with activesupport 8.1.4 (`Time.zone = zone; Date.parse(day).beginning_of_day` and `.end_of_day`).
-    #[test]
-    fn day_bounds_resolve_as_activesupport() {
-        for (zone, day, from, to) in [("Magadan", "2014-10-26", "2014-10-25T14:00:00Z", "2014-10-26T13:59:59.999999Z"),
-                                      ("Santiago", "2026-09-06", "2026-09-06T04:00:00Z", "2026-09-07T02:59:59.999999Z"),
-                                      ("Santiago", "2026-04-05", "2026-04-05T04:00:00Z", "2026-04-06T03:59:59.999999Z"),
-                                      ("Warsaw", "2026-10-25", "2026-10-24T22:00:00Z", "2026-10-25T22:59:59.999999Z")] {
-            let zone = crate::web::timezone::strict(zone).unwrap();
-            let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
-            let at = |t: &str| chrono::DateTime::parse_from_rfc3339(t).unwrap().with_timezone(&chrono::Utc);
-            assert_eq!(super::wall(zone, day.and_hms_micro_opt(0, 0, 0, 0).unwrap()), Some(at(from)), "{zone} {day}");
-            assert_eq!(super::wall(zone, day.and_hms_micro_opt(23, 59, 59, 999_999).unwrap()), Some(at(to)), "{zone} {day}");
-        }
-    }
 }

@@ -70,8 +70,8 @@ pub struct Engine<F: VenueFactory> {
     owed_buys: std::collections::HashSet<(i64, i64)>,
     /// The composition resyncs' retry waits and once-only logs.
     resyncs: Resyncs,
-    /// When this engine was built, while the last process's API order requests are still unswept: none is taken until they are.
-    sweep_pending: Option<DateTime<Utc>>,
+    /// The last process's API order requests are still unswept: none is taken until they are (api_orders::sweep_orders).
+    sweep_pending: bool,
 }
 
 /// What `resync_bot` keeps between passes, in memory (a restart grants a fresh retry budget, which Rails' timing allows).
@@ -88,19 +88,22 @@ impl Resyncs {
 }
 
 impl<F: VenueFactory> Engine<F> {
-    /// Built before the web is attached (`App::attach_engine`), so an API order request still in the database belongs to a
-    /// process that died: it is settled here (api_orders::sweep_at_start), never taken.
+    /// Built before the web serves (`supervisor::serve`), so an API order request or an in-progress Idempotency-Key still in
+    /// the database belongs to a process that died: it is settled here (api_orders::sweep_at_start), never taken.
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         let built = Utc::now();
         let sweep_pending = match super::api_orders::sweep_at_start(&primary, built) {
-            Ok(()) => None,
-            Err(err) => { super::log(&format!("[engine] the API order requests of the last process were not swept: {err:?}; retried before any is taken")); Some(built) }
+            Ok(()) => false,
+            Err(err) => { super::log(&format!("[engine] the API order requests and Idempotency-Keys of the last process were not swept: {err:?}; \
+                                               the requests are retried before any is taken, the keys at the next start")); true }
         };
         Self { sweep_pending, primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
                events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, owed_buys: Default::default(), resyncs: Resyncs::default() }
     }
+    /// Tests only: the start sweep failed, so the next pass retries it (api_orders::sweep_orders).
+    #[doc(hidden)] pub fn inject_sweep_pending(&mut self) { self.sweep_pending = true; }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
     /// A receiver of every event this engine sends from now on. Taken before `run::run` consumes the engine.
@@ -147,6 +150,11 @@ impl Shutdown {
         self.wake.notify_one(); // a permit is stored if the loop is not asleep yet
     }
     pub fn is_requested(&self) -> bool { self.flag.load(Ordering::SeqCst) }
+    /// The desktop's stdin latch (crate::stop) requests the stop synchronously, from the thread that saw stdin's end.
+    fn on_stdin_latch(&self) {
+        let me = self.clone();
+        crate::stop::on_request(move || me.request());
+    }
     /// `true` once a stop is requested: for a service that selects on a `watch` (a scheduler).
     pub fn subscribe(&self) -> tokio::sync::watch::Receiver<bool> { self.stopped.subscribe() }
     /// Resolves once a stop is requested, at once if it already was. It never takes the engine's wake permit.
@@ -154,11 +162,13 @@ impl Shutdown {
         let mut rx = self.subscribe();
         let _ = rx.wait_for(|stopped| *stopped).await;
     }
-    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers).
+    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers); and,
+    /// on every OS, once the desktop's stdin latch is set (crate::stop), at once if it already is.
     /// The handlers are registered before this returns, so a signal that arrives afterwards is never lost. Call inside
     /// the runtime.
     #[cfg(unix)]
     pub fn on_signals(&self) {
+        self.on_stdin_latch();
         use tokio::signal::unix::{signal, SignalKind};
         let mut term = signal(SignalKind::terminate()).expect("a SIGTERM handler");
         let mut int = signal(SignalKind::interrupt()).expect("a SIGINT handler");
@@ -170,6 +180,7 @@ impl Shutdown {
     }
     #[cfg(not(unix))]
     pub fn on_signals(&self) {
+        self.on_stdin_latch();
         // The same as `tokio::signal::ctrl_c()`, but this registers the console handler now, not on first poll.
         let mut ctrl_c = tokio::signal::windows::ctrl_c().expect("a Ctrl-C handler");
         let me = self.clone();
@@ -330,6 +341,8 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     run_signals(e, clock, &mut wake).await?;
     super::withdrawal::phase(&e.primary, &e.cipher, &e.factory, clock).await?;
     run_condition_infos(e, &report.unreadable, clock, &mut wake).await?;
+    run_open_orders(e, &report.unreadable, clock, &mut wake).await?;
+    run_bookings(e, clock).await?;
     run_resyncs(e, clock, &mut wake).await?;
     for id in report.eligible {
         if e.stopping() { break; }
@@ -730,6 +743,69 @@ async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(
     Ok(())
 }
 
+/// D-OPEN-ORDERS-WAKE: the orders tables' refresh requests (BroadcastsController#fetch_open_orders), for any bot whatever its
+/// status: Bot::FetchAndUpdateOpenOrdersJob as `success_or_kill` runs it. The sweep is a tick's (`polling::sweep`); a failure
+/// of it is logged and the request served, never a failed or stopped bot by itself. A fill it committed still owes its
+/// amount-limit stop (`end_of_run`), whatever came after. Credentials or rows that changed under it: served again next pass.
+async fn run_open_orders<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    for (id, version) in polling::refresh_claims(&e.primary)? {
+        if e.stopping() { break; }
+        if unreadable.iter().any(|(u, _)| *u == id) { continue; }
+        match refresh_open_orders(e, id, version, clock, wake).await {
+            Ok(()) => {}
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            // Its own reads or acknowledgement failed: the request stays for the next pass, and the other bots go on.
+            Err(err) => super::log(&format!("[engine] bot {id}: open-orders refresh deferred: {}", err.kind())),
+        }
+    }
+    Ok(())
+}
+
+async fn refresh_open_orders<F: VenueFactory>(e: &mut Engine<F>, id: i64, version: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    let waiting = waiting_rows(&e.primary, id)?;
+    let status_of = |c: &Connection| c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get::<_, i64>(0)).optional();
+    let status_before = status_of(&e.primary)?;
+    let swept = async {
+        let bot = model::load_bot(&e.primary, id)?;
+        let (venue, _) = e.venue_for(&bot)?;
+        Ok(polling::sweep(&e.primary, &venue, &bot, clock.now()).await.err())
+    }.await;
+    let outcome = tick::end_of_run(&e.primary, id, clock.now(), swept);
+    for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only
+    e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+    if status_of(&e.primary)? != status_before { e.events.send(EngineEvent::StatusChanged { bot_id: id }); }
+    // Logged by kind only: a venue's answer can carry account details (an address, a name).
+    match outcome {
+        Ok(None) => {}
+        Ok(Some(polling::PollFailure::CredentialsChanged | polling::PollFailure::OwnerChanged(_))) => {
+            *wake = (*wake).min(clock.now().timestamp_micros());
+            return Ok(());
+        }
+        Ok(Some(failure)) => super::log(&format!("[engine] bot {id}: open-orders refresh failed: {}", failure.kind())),
+        Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+        Err(err) => super::log(&format!("[engine] bot {id}: open-orders refresh failed: {}", err.kind())),
+    }
+    polling::ack_refresh(&e.primary, id, version)
+}
+
+/// A28-2 (r2.1, r3.2): the owners' booking requests, each re-checked and booked or refused; a booked row is polled now and
+/// announced as a recorded order, and a booked row no poll holds is enrolled again in an hour.
+async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
+    let polled: HashSet<i64> = e.polls.keys().copied().collect();
+    let served = match super::rails_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await {
+        Ok(served) => served,
+        Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+        Err(err) => { super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind())); return Ok(()); }
+    };
+    let now_us = clock.now().timestamp_micros();
+    for ((bot, tx), at) in served.booked.iter().map(|r| (*r, now_us)).chain(served.watch.iter().map(|r| (*r, now_us + super::rails_unrecorded::WATCH_AFTER_US))) {
+        let producer = model::load_bot(&e.primary, bot).and_then(|row| e.venue_for(&row)).map(|(_, p)| p).unwrap_or(None);
+        e.polls.insert(tx, model::Produced::new((bot, at, Attempts::default()), producer));
+    }
+    for &(bot_id, transaction_id) in &served.booked { e.events.send(EngineEvent::OrderRecorded { bot_id, transaction_id }); }
+    Ok(())
+}
+
 /// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the
 /// bot is stopped meanwhile). Transient/RateLimited failures and a still-open order retry as FetchAndUpdateOrderJob's retry_on.
 async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) {
@@ -820,6 +896,10 @@ fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> 
     placement::remove_wait(&tx, Some(id))?;
     let decision = if bot.started_at_us()?.is_none() || bot.effective().is_none() {
         "never ticks" // step_bot skips it as before
+    } else if bot.started_at_us()?.is_some_and(|start| start > now.timestamp_micros()) {
+        // D-START-CONTINUE-WAITS: a delayed start not reached yet keeps its time; the next checkpoint is started_at.
+        placement::defer_to_next_checkpoint(&tx, &bot, now)?;
+        "waits for its start"
     } else if request.get("was_stopped").and_then(serde_json::Value::as_bool) == Some(false)
         || amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
         placement::run_now(&tx, &bot, now)?;
@@ -947,6 +1027,11 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     };
     let due = if bot.rust_placement().is_some() {
         e.reconcile_at.get(&id).is_none_or(|t| t.value <= now_us)
+    } else if anchor > now_us {
+        // D-START-CONTINUE-WAITS: no new order attempt before a started_at still ahead (a delayed start not yet reached),
+        // whatever the status or wait says: a continue, or a Rails row left retrying, would otherwise run now and again at
+        // the start (for a seller, two sales). Only the placement intent above is reconciled.
+        false
     } else if e.closed_until.get(&id).is_some_and(|(t, _)| t.value > now_us) || deferred.is_some() {
         false
     } else if defer.flatten().is_some_and(|t| t < now_us) {
@@ -1084,6 +1169,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
 pub async fn run<F: VenueFactory>(mut e: Engine<F>, clock: &dyn Clock) -> Result<Infallible, EngineError> {
     loop {
         if e.stopping() { return Err(EngineError::Stopped); }
+        // Tests: a tick that has begun, for a stop to arrive in (it finishes before the engine stops, PLAN-B7 r4.7).
+        crate::stop::pause_async("in-tick").await;
         let wake = step(&mut e, clock).await?;
         if e.stopping() { return Err(EngineError::Stopped); }
         let wait = (wake - clock.now().timestamp_micros()).max(0) as u64;
@@ -1202,9 +1289,9 @@ pub const RULES_SCHEDULE: crate::jobs::schedule::Schedule = crate::jobs::schedul
 /// ambiguous, its intent left to recovery) and is logged.
 pub async fn run_api_orders<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
     use super::api_orders::{self, Outcome};
-    if let Some(built) = e.sweep_pending {
-        api_orders::sweep_at_start(&e.primary, built)?;
-        e.sweep_pending = None;
+    if e.sweep_pending {
+        api_orders::sweep_orders(&e.primary)?;
+        e.sweep_pending = false;
     }
     let until = tokio::time::Instant::now() + api_orders::DRAIN;
     for id in api_orders::queued(&e.primary)? {
@@ -1275,4 +1362,36 @@ async fn standalone_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::a
     let cx = TickContext { credential_version: producer, prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
                            stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
     api_orders::place_standalone(&e.primary, &venue, request, clock, &cx).await
+}
+
+#[cfg(test)]
+mod stop_tests {
+    fn shutdown() -> super::Shutdown {
+        super::Shutdown { flag: Default::default(), wake: Default::default(), stopped: std::sync::Arc::new(tokio::sync::watch::channel(false).0) }
+    }
+
+    /// A latch already set when the handlers go in: the stop is requested before `on_signals` returns, with no task
+    /// polled in between, so the loop's first `stopping()` sees it (Codex B6-0a r1 P1).
+    #[test]
+    fn a_stdin_latch_set_before_the_handlers_is_the_engines_stop_before_any_yield() {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            crate::stop::request();
+            let stop = shutdown();
+            stop.on_signals();
+            assert!(stop.is_requested());
+        });
+    }
+
+    /// One set later, on the stdin thread: the flag is set on that thread, before the runtime polls anything.
+    #[test]
+    fn a_stdin_latch_set_later_is_the_engines_stop_on_the_thread_that_set_it() {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            let stop = shutdown();
+            stop.on_signals();
+            std::thread::spawn(crate::stop::request).join().unwrap();
+            assert!(stop.is_requested());
+        });
+    }
 }

@@ -14,6 +14,8 @@
 //!
 //! A job may be registered once per scope (`Spec::scope`, e.g. a ledger sync per API key): each scope has its own due
 //! time, wakes and record (`rust_job.<name>:<scope>`).
+pub mod app_update;
+pub mod asset_color;
 pub mod coingecko;
 pub mod data_api;
 pub mod import;
@@ -214,6 +216,8 @@ pub enum Outcome {
 pub enum Wake { Schedule, Manual(Option<i64>), Event(EngineEvent) }
 
 pub trait Job {
+    /// Whether the admin jobs page (A25) may wake it by hand. False for a slot that only spawns other jobs.
+    fn manual(&self) -> bool { true }
     /// S1: registered scope factories create a real job when a newly saved key/user is first woken.
     fn spawn(&self, _name: &str, _scope: Option<&str>) -> Option<Box<dyn Job>> { None }
     fn spec(&self) -> Spec;
@@ -232,7 +236,23 @@ pub struct Wakers(Arc<Shared>);
 type Pending = (String, Option<String>, Wake);
 
 #[derive(Default)]
-struct Shared { pending: Mutex<Vec<Pending>>, notify: Notify, engine:std::sync::OnceLock<Arc<Notify>> }
+struct Shared { pending: Mutex<Vec<Pending>>, notify: Notify, engine:std::sync::OnceLock<Arc<Notify>>, listing: Mutex<Vec<Listed>> }
+
+/// A slot as the scheduler last published it (A25's admin page): read-only, a copy.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Listed {
+    pub name: &'static str,
+    pub scope: Option<String>,
+    pub schedule: Option<Schedule>,
+    /// The next scheduled fire, plus its draw.
+    pub scheduled: Option<DateTime<Utc>>,
+    /// A failed run's retry, in memory only (lost on restart, as the runner loses it).
+    pub retry_at: Option<DateTime<Utc>>,
+    /// Woken and waiting for the runner.
+    pub woken: bool,
+    pub running: bool,
+    pub manual: bool,
+}
 
 impl Wakers {
     /// Bind the process's engine once; every clone shares its wake handle.
@@ -252,6 +272,9 @@ impl Wakers {
     pub fn pending(&self) -> Vec<(String, Option<String>)> {
         self.0.pending.lock().unwrap_or_else(PoisonError::into_inner).iter().map(|(job, scope, _)| (job.clone(), scope.clone())).collect()
     }
+
+    /// Every slot as the scheduler last published it: empty until a scheduler holding these wakers starts (or lists).
+    pub fn listing(&self) -> Vec<Listed> { self.0.listing.lock().unwrap_or_else(PoisonError::into_inner).clone() }
 
     fn take(&self) -> Vec<Pending> {
         std::mem::take(&mut *self.0.pending.lock().unwrap_or_else(PoisonError::into_inner))
@@ -329,8 +352,10 @@ impl Scheduler {
     pub fn wakers(&self) -> Wakers { self.wakers.clone() }
 
     /// Every slot's name and scope, once the wakes queued so far are admitted (late scopes resolve here, as in `run`).
+    /// The listing is published with them.
     pub fn slots(&mut self, now: DateTime<Utc>) -> Result<Vec<(String, Option<String>)>, String> {
         self.collect(now)?;
+        self.publish(None);
         Ok(self.slots.iter().map(|s| (s.spec.name.to_string(), s.spec.scope.clone())).collect())
     }
 
@@ -350,14 +375,19 @@ impl Scheduler {
             };
             s.scheduled = Some(first_due(schedule, s.spec.jitter.draw(), last, now));
         }
+        self.publish(None);
         loop {
             if *stop.borrow() { return Ok(()); }
             let now = clock.now();
             self.collect(now)?;
             if let Some(i) = self.pick(now) {
-                if !self.run_slot(i, &mut stop, clock).await? { return Ok(()); }
+                self.publish(Some(i));
+                let ran = self.run_slot(i, &mut stop, clock).await;
+                self.publish(None);
+                if !ran? { return Ok(()); }
                 continue;
             }
+            self.publish(None);
             let wait = self.slots.iter().filter_map(Slot::due).min().map_or(IDLE, |t| (t - now).to_std().unwrap_or_default().min(IDLE));
             let event = tokio::select! {
                 _ = tokio::time::sleep(wait) => None,
@@ -414,6 +444,15 @@ impl Scheduler {
         if closed { self.events = None; }
         for e in queued { self.route(&e, now); }
         Ok(())
+    }
+
+    /// Copies every slot into the wakers' listing; `running`: the slot in hand.
+    fn publish(&self, running: Option<usize>) {
+        let listed = self.slots.iter().enumerate().map(|(i, s)| Listed {
+            name: s.spec.name, scope: s.spec.scope.clone(), schedule: s.spec.schedule, scheduled: s.scheduled, retry_at: s.retry_at,
+            woken: s.pending_since.is_some(), running: running == Some(i), manual: s.job.manual(),
+        }).collect();
+        *self.wakers.0.listing.lock().unwrap_or_else(PoisonError::into_inner) = listed;
     }
 
     fn route(&mut self, e: &EngineEvent, now: DateTime<Utc>) {

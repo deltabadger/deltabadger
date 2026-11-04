@@ -1,6 +1,8 @@
 name: Rust engine
 
 on:
+  # By hand only: the only run with the macos-arm64 leg (the platform job's matrix).
+  workflow_dispatch:
   # The image job only: base images and package repositories change under an unchanged repository.
   schedule:
     - cron: '17 3 * * *'
@@ -16,12 +18,17 @@ on:
       - 'docker/**'
       - 'docker-entrypoint.sh'
       - '.dockerignore'
-      # The compose files the image tests run (tests/image.rs).
+      # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
       - 'docker-compose.yml'
-      - 'deltabadger/docker-compose.yml'
-      # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
-      # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
-      - '.github/workflows/docker-publish.yml'
+      - 'docker-compose.build.yml'
+      - 'deltabadger/**'
+      - 'umbrel-app-store.yml'
+      # How a release is published: release.yml runs script/rust/image_smoke.sh (run by the image job) before each push,
+      # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
+      - '.github/workflows/release.yml'
+      - 'script/release/**'
+      - 'script/release.sh'
+      - 'script/release_test.sh'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -209,12 +216,17 @@ on:
       - 'docker/**'
       - 'docker-entrypoint.sh'
       - '.dockerignore'
-      # The compose files the image tests run (tests/image.rs).
+      # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
       - 'docker-compose.yml'
-      - 'deltabadger/docker-compose.yml'
-      # How the image is published: docker-publish.yml runs script/rust/image_smoke.sh (run by the image job) and
-      # script/rust/latest_tag.sh (proved by publish-tags) before each push; both scripts sit under script/rust/** below.
-      - '.github/workflows/docker-publish.yml'
+      - 'docker-compose.build.yml'
+      - 'deltabadger/**'
+      - 'umbrel-app-store.yml'
+      # How a release is published: release.yml runs script/rust/image_smoke.sh (run by the image job) before each push,
+      # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
+      - '.github/workflows/release.yml'
+      - 'script/release/**'
+      - 'script/release.sh'
+      - 'script/release_test.sh'
       - 'test/config/docker_entrypoint_secrets_test.rb'
       # Read by the build too: the app version the binary embeds, and build.rs's gates.
       - 'src-tauri/Cargo.toml'
@@ -409,15 +421,13 @@ jobs:
     if: github.event_name != 'schedule'
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { name: linux-x86_64, os: ubuntu-24.04 }
-          - { name: linux-arm64, os: ubuntu-24.04-arm }
-          # No macOS job until 3.0: development runs on Apple Silicon, and Intel Macs are not supported. Restore
-          # macos-arm64 before the 3.0 desktop release.
-          - { name: windows-x86_64, os: windows-2025 }
+        # macos-arm64 (Apple Silicon; Intel Macs are not supported) runs only when the workflow is started by hand
+        # (`gh workflow run rust.yml --ref <branch>`): development runs on a Mac, and the leg queued up to an hour per PR.
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"}]') }}
     defaults:
       run:
         working-directory: rust
@@ -446,6 +456,12 @@ jobs:
         with:
           workspaces: rust
           key: ${{ matrix.name }}
+          # Pull requests restore main's cache and save none of their own (the cache budget is 10 GB).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: cargo-nextest@0.9.146
 
       # A release build embeds the web UI's JavaScript and CSS, which are built, not committed
       # (rust/build.rs stops without them). The script runs `bun install --frozen-lockfile`, the
@@ -461,17 +477,40 @@ jobs:
 
       - run: cargo clippy --all-targets --locked -- -D warnings
 
-      # Rails-free tests. Rule: test files that build a Rails install (via common::install,
-      # common::rails_install, bin/rails or script/rust/prepare_install.rb) are excluded;
-      # add new Rails-free test files here.
+      # Every test file except those rust/tests/platform_excluded.txt names for this OS, with the reason they can't run
+      # here (Rails, Ruby, Docker). Only the selected targets are built: nextest builds every target it is given
+      # before it filters. macOS's bash is 3.2 (no ${v,,}, no mapfile).
       - name: Test
-        run: >
-          cargo test --locked --lib --bins
-          --test codec --test crypto --test enums
-          --test ruby --test schedule --test venue_fake --test entrypoint
-          --test http --test http_proxy_env --test venue_rules --test alpaca_live --test kraken
-          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test tracker_holdings_contract --test tracker_cache_contract --test tracker_deadline --test tracker_first_sync_contract --test histories_sources --test index_histories_contract --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
-          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time --test setup --test signal_sizing
+        shell: bash
+        env:
+          # About 65 test binaries, each linking the whole crate: no debuginfo, as in the full suite.
+          CARGO_PROFILE_DEV_DEBUG: 'false'
+          CARGO_PROFILE_DEV_STRIP: debuginfo
+        run: |
+          set -euo pipefail
+          os=$(printf '%s' "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')   # linux | macos | windows
+          list=tests/platform_excluded.txt
+          ex=$(sed -E 's/#.*//; s/[[:space:]]+$//' "$list" | awk -v os="$os" 'NF { if (index($0, ":")) { split($0, p, ":"); if (p[1] == os) print p[2] } else print }')
+          while read -r e; do
+            [ -z "$e" ] || [ -f "tests/$e.rs" ] || { echo "::error::$list names $e, which is not a test file"; exit 1; }
+          done < <(sed -E 's/#.*//; s/[[:space:]]+$//; s/^[a-z]+://' "$list")
+          args=(); n=0
+          for f in tests/*.rs; do
+            t=$(basename "$f" .rs)
+            # grep without -q reads all its input: printf can't take SIGPIPE and fail the match under pipefail.
+            printf '%s\n' "$ex" | grep -xF "$t" >/dev/null && continue
+            args+=(--test "$t"); n=$((n + 1))
+          done
+          echo "running $n test files on $os"
+          df -k . | tail -1
+          dflog=$(mktemp)
+          ( while :; do df -k . | tail -1 | awk '{print "free KB", $4}'; sleep 15; done ) > "$dflog" &
+          sampler=$!
+          status=0
+          cargo nextest run --locked --no-fail-fast --lib --bins "${args[@]}" || status=$?
+          kill "$sampler" || true
+          echo "least free KB during build and run: $(awk '{print $3}' "$dflog" | sort -n | head -1)"
+          exit "$status"
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
   image:
@@ -497,11 +536,11 @@ jobs:
       # records that digest, so the compose finds it).
       - name: Pull the 2.x images
         run: for tag in 2.70.21 2.60.0 2.34.0; do docker pull "ghcr.io/deltabadger/deltabadger:$tag"; done
-      # docker-publish.yml's gate before each 3.0 push (PLAN-B3 r1.8), on the same platforms: run here so a change to
+      # release.yml's gate before each 3.0 push (PLAN-B3 r1.8), on the same platforms: run here so a change to
       # it, or to the image, is proved before a tag depends on it.
       - name: Publish smoke test
         run: bash script/rust/image_smoke.sh deltabadger:ci
-      # docker-publish.yml's "pushed is smoked" check reads the smoked image's config digest this way (proved on the
+      # release.yml's "pushed is smoked" check reads the smoked image's config digest this way (proved on the
       # publish runners themselves by publish-digest below).
       - name: Config digest of the built image
         run: |
@@ -523,62 +562,26 @@ jobs:
         with:
           workspaces: rust
           key: image-${{ matrix.arch }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Test the image
         working-directory: rust
         env:
           DELTABADGER_IMAGE: deltabadger:ci
         run: cargo test --locked --test image --test entrypoint
 
-  # PLAN-B3 r1.3: the tags docker-publish.yml's merge job would publish, for the three kinds of tag under both values of
-  # LATEST_MAJOR. Same metadata-action major, same flavor and tag lines (with value= in place of the pushed ref), and
-  # <latest> from the same script/rust/latest_tag.sh.
-  publish-tags:
+  # PLAN-B8 r1.6: release.yml's rules (desktop assets and signatures, latest.json, the image tags per tag and
+  # LATEST_MAJOR, never moving a shared tag backward, version files) as script/release/validate_test.sh's cases.
+  release-scripts:
     if: github.event_name != 'schedule'
-    name: publish-tags ${{ matrix.tag }} LATEST_MAJOR=${{ matrix.major }}
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { tag: v3.0.0-beta.1, major: 2, want: '3.0.0-beta.1' }
-          - { tag: v3.0.0-beta.1, major: 3, want: '3.0.0-beta.1' }
-          - { tag: v3.0.0, major: 2, want: '3.0.0 3.0 3' }
-          - { tag: v3.0.0, major: 3, want: '3.0.0 3.0 3 latest' }
-          - { tag: v2.70.22, major: 2, want: '2.70.22 2.70 2 latest' }
-          - { tag: v2.70.22, major: 3, want: '2.70.22 2.70 2' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Whether this tag moves latest
-        id: latest
-        env:
-          TAG: ${{ matrix.tag }}
-          LATEST_MAJOR: ${{ matrix.major }}
-        run: |
-          latest=$(bash script/rust/latest_tag.sh "$TAG" "$LATEST_MAJOR")
-          echo "latest=$latest" >> "$GITHUB_OUTPUT"
-      - name: Tags
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: ghcr.io/deltabadger/deltabadger
-          flavor: latest=false
-          tags: |
-            type=semver,pattern={{version}},value=${{ matrix.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ matrix.tag }}
-            type=semver,pattern={{major}},value=${{ matrix.tag }}
-            type=raw,value=latest,enable=${{ steps.latest.outputs.latest }}
-      - name: The tags are exactly these
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-          WANT: ${{ matrix.want }}
-        run: |
-          set -euo pipefail
-          got=$(sort <<< "${TAGS//ghcr.io\/deltabadger\/deltabadger:/}" | xargs)
-          want=$(tr ' ' '\n' <<< "$WANT" | sort | xargs)
-          echo "got:  $got"; echo "want: $want"
-          [ "$got" = "$want" ] || { echo "::error::${{ matrix.tag }} under LATEST_MAJOR=${{ matrix.major }} publishes '$got', not '$want'"; exit 1; }
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
+      - run: bash script/release/validate_test.sh
+      # script/release.sh (PLAN-B8 B8-3): versions, refusals that write nothing, the signed tag and its trailer, promote, umbrel.
+      - run: bash script/release_test.sh
 
-  # docker-publish.yml's "pushed is smoked" check, on the runners the publish uses (their Docker image stores differ:
+  # release.yml's "pushed is smoked" check, on the runners the publish uses (their Docker image stores differ:
   # v3.0.0-beta.1's ubuntu-latest amd64 leg ran the containerd store, where buildx reports no config digest for a
   # loaded image, and the check failed closed). Same actions, same load build; a small image instead of the 3.0 one,
   # since only the digest path is under test: the config digest script/rust/image_config_digest.sh reads from the
@@ -590,7 +593,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm] # docker-publish.yml's build matrix
+        runner: [ubuntu-latest, ubuntu-24.04-arm] # release.yml's image matrix
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -666,6 +669,7 @@ jobs:
         with:
           workspaces: rust
           key: full-suite
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
           tool: cargo-nextest@0.9.146

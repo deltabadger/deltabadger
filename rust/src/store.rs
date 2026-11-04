@@ -118,7 +118,22 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         unique_indexes: &[] }),
     ("20261106000001", TableContract { name: "estv_crypto_values", columns: &[("year", "INTEGER", true), ("symbol", "TEXT", true), ("value", "TEXT", false)],
         unique_indexes: &[&["year", "symbol"]] }),
-
+    ("20261107000001", TableContract { name: "rust_idempotency_orders", columns: &[("key_id", "INTEGER", false), ("order_id", "INTEGER", false)],
+        unique_indexes: &[] }),
+    ("20261108000001", TableContract { name: "rust_rails_unrecorded", columns: &[("id", "INTEGER", false), ("bot_id", "INTEGER", true),
+        ("source", "TEXT", true), ("source_ref", "INTEGER", true), ("span_from", "TEXT", true), ("span_to", "TEXT", true), ("scope", "TEXT", false),
+        ("collected_at", "TEXT", true), ("reported_at", "TEXT", false), ("outcome", "TEXT", false)], unique_indexes: &[&["source", "source_ref"]] }),
+    ("20261109000001", TableContract { name: "rust_rails_unrecorded_live", columns: &[("obligation_id", "INTEGER", false), ("stamp", "TEXT", true),
+        ("attempts", "INTEGER", true), ("refused_at", "TEXT", false), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_offers", columns: &[("id", "INTEGER", false), ("obligation_id", "INTEGER", true),
+        ("external_id", "TEXT", true), ("symbol", "TEXT", true), ("facts", "TEXT", true)], unique_indexes: &[&["obligation_id", "external_id"]] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_resolutions", columns: &[("obligation_id", "INTEGER", false), ("resolution", "TEXT", true),
+        ("offer_id", "INTEGER", false), ("transaction_id", "INTEGER", false), ("resolved_at", "TEXT", true), ("confirmed_base", "TEXT", false),
+        ("confirmed_quote", "TEXT", false)], unique_indexes: &[] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_requests", columns: &[("obligation_id", "INTEGER", false), ("offer_id", "INTEGER", true),
+        ("requested_at", "TEXT", true), ("attempts", "INTEGER", true), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261110000001", TableContract { name: "rust_rails_unrecorded_notices", columns: &[("transaction_id", "INTEGER", true), ("kind", "TEXT", true),
+        ("at", "TEXT", true)], unique_indexes: &[&["transaction_id", "kind"]] }),
 ];
 
 /// What this build migrates.
@@ -599,6 +614,11 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
             let ran = tx.execute_batch(m.sql);
             tx.commit_hook(None::<fn() -> bool>);
             ran.map_err(|e| e.to_string())?;
+            // Tests (debug builds): this migration's body fails inside its own transaction (PLAN-B6 r3.5).
+            #[cfg(debug_assertions)]
+            if std::env::var("DELTABADGER_TEST_FAIL_MIGRATION").is_ok_and(|v| v == m.version) {
+                return Err("failed on purpose (DELTABADGER_TEST_FAIL_MIGRATION)".into());
+            }
             if tx.is_autocommit() {
                 return Err("the file ended its transaction (COMMIT or END); it was rolled back".into());
             }
@@ -607,6 +627,7 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
             tx.commit().map_err(|e| e.to_string())
         };
         run().map_err(|error| StoreError::Migration { version: m.version.into(), name: m.name.into(), error })?;
+        mark_changed();
         applied.push(m.version.to_string());
         #[cfg(debug_assertions)]
         if applied.len() == 1 { abort_point("mid-migrate"); }
@@ -733,6 +754,7 @@ pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Ciphe
     if create_queue {
         let q = Connection::open_with_flags(&paths.queue, create).map_err(|e| at(&paths.queue, &e))?;
         create_queue_schema(&q).map_err(|e| at(&paths.queue, &e))?;
+        mark_changed();
     }
     #[cfg(debug_assertions)]
     abort_point("after-queue");
@@ -749,6 +771,7 @@ pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Ciphe
     #[cfg(debug_assertions)]
     abort_point("before-commit");
     tx.commit().map_err(|e| fail(&e))?;
+    mark_changed();
     Ok(true)
 }
 
@@ -852,6 +875,28 @@ pub fn copy_in_memory(paths: &Paths) -> Result<Opened, StoreError> {
     Ok(Opened { primary: copy(&paths.primary)?, queue: copy(&paths.queue)? })
 }
 
+static CHANGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Whether this process has changed the install yet (PLAN-B6 r2.4, r3.7): a bootstrap's queue or commit, a backup made, a
+/// Rust migration applied, or `identity::initialize` committing a reset. A start refused before any of them changed nothing.
+pub fn changed() -> bool { CHANGED.load(std::sync::atomic::Ordering::SeqCst) }
+
+/// Records a committed startup write (`changed`).
+pub fn mark_changed() { CHANGED.store(true, std::sync::atomic::Ordering::SeqCst) }
+
+/// The copy before a takeover from Rails (`backup`).
+pub const TAKEOVER_COPY: &str = "pre-3.0-";
+/// The copy before a desktop update migrates the data (PLAN-B7 §4).
+pub const UPDATE_COPY: &str = "before-update-";
+
+/// Whether `backup_as` has left a complete copy of either kind in `backups_dir`.
+pub fn has_backup(paths: &Paths) -> bool {
+    std::fs::read_dir(backups_dir(paths)).is_ok_and(|d| d.flatten().any(|e| {
+        let name = e.file_name().to_string_lossy().into_owned();
+        [TAKEOVER_COPY, UPDATE_COPY].iter().any(|p| name.starts_with(p)) && !name.ends_with(".partial")
+    }))
+}
+
 /// Where `backup` keeps its copies: `backups/` next to the primary.
 pub fn backups_dir(paths: &Paths) -> PathBuf {
     paths.primary.parent().unwrap_or(Path::new(".")).join("backups")
@@ -900,6 +945,12 @@ impl BackupError {
 /// to `pre-3.0-<UTC>/`. Copies are never replaced or deleted. A `.partial` left by a crash is deleted first; one this call
 /// made is deleted on its error. Cache and cable are not copied. The error says what the user can do about it (BackupError).
 pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backup, BackupError> {
+    backup_as(paths, TAKEOVER_COPY, now)
+}
+
+/// `backup` under `prefix` (`TAKEOVER_COPY` or `UPDATE_COPY`): the same copy, named `<prefix><UTC>`, compared only with
+/// the newest copy of its own kind. Neither kind is ever deleted (PLAN-B7 r2.5).
+pub fn backup_as(paths: &Paths, prefix: &str, now: chrono::DateTime<chrono::Utc>) -> Result<Backup, BackupError> {
     use sha2::Digest;
     const STAMP: &str = "%Y%m%dT%H%M%S%.6fZ";
     let dir = backups_dir(paths);
@@ -915,15 +966,15 @@ pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backu
     let mut complete = Vec::new();
     for entry in std::fs::read_dir(&dir).map_err(|e| io(&dir, e))? {
         let name = entry.map_err(|e| io(&dir, e))?.file_name().to_string_lossy().into_owned();
-        if !name.starts_with("pre-3.0-") { continue }
+        if !name.starts_with(prefix) { continue }
         if name.ends_with(".partial") { std::fs::remove_dir_all(dir.join(&name)).map_err(|e| io(&dir.join(&name), e))?; } else { complete.push(name) }
     }
     let newest = complete.into_iter().max();
     // Microseconds, after a lock that serialises starts: no two starts share a name. A clock set back still names the copy
     // after the newest one (1 µs later), so "newest" stays the last one made and names keep one length.
-    let after_newest = newest.as_deref().and_then(|n| n.strip_prefix("pre-3.0-"))
+    let after_newest = newest.as_deref().and_then(|n| n.strip_prefix(prefix))
         .and_then(|t| chrono::NaiveDateTime::parse_from_str(t, STAMP).ok()).map(|t| t.and_utc() + chrono::Duration::microseconds(1));
-    let name = format!("pre-3.0-{}", after_newest.map_or(now, |t| t.max(now)).format(STAMP));
+    let name = format!("{prefix}{}", after_newest.map_or(now, |t| t.max(now)).format(STAMP));
     let digest_of = |folder: &Path| -> Result<String, BackupError> {
         names.iter().map(|n| {
             let file = folder.join(n);
@@ -934,7 +985,10 @@ pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backu
     };
     // ponytail: Windows can't open a folder to fsync it (std has no FILE_FLAG_BACKUP_SEMANTICS); there the files are
     // synced and the folders are left to NTFS's own journal. Add a Windows-specific folder flush if B7 needs one.
-    let sync = |p: &Path| if cfg!(not(unix)) && p.is_dir() { Ok(()) } else { std::fs::File::open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e)) };
+    // Windows' FlushFileBuffers needs a handle with write access (D-BACKUP-WINDOWS-SYNC): opened without truncating,
+    // nothing written. Unix fsyncs a read-only handle.
+    let sync = |p: &Path| if cfg!(not(unix)) && p.is_dir() { Ok(()) } else {
+        std::fs::OpenOptions::new().read(true).write(cfg!(windows)).open(p).and_then(|f| f.sync_all()).map_err(|e| io(p, e)) };
     let partial = dir.join(format!("{name}.partial"));
     std::fs::create_dir(&partial).map_err(|e| io(&partial, e))?;
     let made = (|| -> Result<Backup, BackupError> {
@@ -962,6 +1016,7 @@ pub fn backup(paths: &Paths, now: chrono::DateTime<chrono::Utc>) -> Result<Backu
         abort_point("mid-backup");
         let done = dir.join(&name);
         std::fs::rename(&partial, &done).map_err(|e| io(&done, e))?;
+        mark_changed();
         sync(&dir)?;
         sync(dir.parent().unwrap_or(Path::new(".")))?;
         Ok(Backup::Made(done))

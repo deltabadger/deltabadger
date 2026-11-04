@@ -18,7 +18,7 @@ pub trait Logger: Send + Sync {
 struct Stderr;
 impl Logger for Stderr {
     fn warn(&self, line: &str) {
-        eprintln!("{line}");
+        crate::eline!("{line}");
     }
 }
 pub fn logger() -> Arc<dyn Logger> {
@@ -435,21 +435,22 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
     Ok(super::sections::api_keys(ctx, csrf, &keys))
 }
 /// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
-/// `show_coingecko_form`: Rails' `@show_coingecko_form`, a switch to CoinGecko with no key to use.
-pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool)->Result<String,WebError>{
+/// `show_coingecko_form`: Rails' `@show_coingecko_form`, a switch to CoinGecko with no key to use. `platform_errors`: Rails'
+/// `@platform_errors` with `@show_platform_form`, a claim that failed.
+pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool,platform_errors:Option<&str>)->Result<String,WebError>{
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
     let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::ruby::blank(&s)));
     let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
     let platform_connected=has("platform_connected_at")?;
-    let proxies:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'proxy_%')",[],|r|r.get(0))?;
+    let proxies=super::platform::proxies(c)?;
     let hosted_note=|key:&str|i18n::t(v.locale,key,&[("provider_name",i18n::Arg::Text(&app.settings_market_provider_name))]);
     let coingecko_configured=!hosted&&provider=="coingecko";
     // What the reader is in the middle of outranks what is stored; on a plain visit that is what is stored.
-    let selected=if show_coingecko_form||coingecko_configured{"coingecko"}else if provider=="deltabadger"{"deltabadger"}else{""};
+    let selected=if platform_errors.is_some(){"deltabadger"}else if show_coingecko_form||coingecko_configured{"coingecko"}else if provider=="deltabadger"{"deltabadger"}else{""};
     let market_note=hosted_note("settings.market_data.deltabadger_configured");
     let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
     let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
-    let market=super::sections::market_data(v,csrf,&super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,coingecko_key_blank:crate::ruby::blank(&super::market_data::stored_key(c,app)?),platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors:None});
+    let market=super::sections::market_data(v,csrf,&super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,coingecko_key_blank:crate::ruby::blank(&super::market_data::stored_key(c,app)?),platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors});
     Ok(market)
 }
 /// GET /settings/api_keys: the exchange keys.
@@ -467,7 +468,7 @@ pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let token = csrf.clone();
     let (pane, shell) = app.db(move |c| {
-        let pane = if user.admin { format!("\n{}\n", market_data(c, &inner, &v, &token, false)?) } else { String::new() };
+        let pane = if user.admin { format!("\n{}\n", market_data(c, &inner, &v, &token, false, None)?) } else { String::new() };
         Ok((pane, crate::web::shell::Shell::load(c, &inner, &user)?))
     }).await?;
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;

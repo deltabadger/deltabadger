@@ -118,6 +118,12 @@ module Pages
       'root_signed_out' => { 'steps' => [get('/'), get('/de'), get('/en'), get('/?locale=de')] },
       'root_signed_in' => { 'user' => user('locale' => 'pl'), 'steps' => [get('/login'), login, get('/'), get('/en'), get('/de')] },
       'bots_requires_sign_in' => { 'steps' => [get('/bots'), get('/login')] },
+      # A25: the two answers Rust keeps from Rails' /jobs (config/routes.rb:34-36, `authenticate :user, ->(u) { u.admin? }`
+      # around Mission Control): a signed-out visitor is sent to sign in, a signed-in non-admin finds no route. The admin's
+      # page is Rust's own (D-JOBS-RUST-VIEW), pinned by rust/tests/admin_jobs.rs.
+      'jobs_requires_sign_in' => { 'steps' => [get('/jobs'), get('/login')] },
+      'missing_jobs_not_admin' => { 'user' => user('admin' => false), 'extra_users' => [user('email' => 'admin@example.com')],
+                                    'steps' => signed_in(get('/jobs').merge('expect' => 404)) },
       'bots_requires_sign_in_de' => { 'steps' => [get('/de/bots'), get('/de/login'), login(path: '/de/login')] },
       'bots_requires_sign_in_param' => { 'steps' => [get('/bots?locale=de'), get('/login'), get('/en/bots'), get('/en/login')] },
       'locked_while_signed_in' => { 'steps' => [get('/login'), login, get('/')] +
@@ -197,7 +203,7 @@ module Pages
       'bots_empty_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
                                         'steps' => [get('/login'), login, get('/bots')] },
       'up' => { 'steps' => [get('/up')] }
-    }.merge(bot_scenarios).merge(action_scenarios)
+    }.merge(bot_scenarios).merge(action_scenarios).merge(tooltip_scenarios)
   end
 
   def signed_in(*steps) = [get('/login'), login] + steps
@@ -913,6 +919,22 @@ module Pages
     {
       'broadcasts' => with_bots(three, signed_in(get('/bots'), *asks)),
       'broadcasts_of_another_user' => two_users.merge('steps' => signed_in(get('/bots'), *strangers)),
+      # 3.0 A20: the orders table's refresh (Bot::FetchAndUpdateOpenOrdersJob in the request). A bot that is not the user's, a
+      # number that is no bot's, no bot at all: "not found". The user's own bots, none with a waiting order, reach no venue.
+      'broadcasts_fetch_open_orders' => two_users.merge('steps' => signed_in(get('/bots'),
+                                                                              broadcast('fetch_open_orders', 'bot_id' => 3).merge('expect' => 404),
+                                                                              broadcast('fetch_open_orders', 'bot_id' => 99), broadcast('fetch_open_orders'),
+                                                                              broadcast('fetch_open_orders', 'bot_id' => 1).merge('expect' => 200),
+                                                                              broadcast('fetch_open_orders', { 'bot_id' => '4' }, '/de/broadcasts/fetch_open_orders'),
+                                                                              broadcast('fetch_open_orders', 'bot_id' => 2).merge('csrf' => 'none'))),
+      # D-OPEN-ORDERS-WAKE's witness: with an order waiting, Rails asks the venue inside the request (pages_settings.rb answers
+      # GET /v2/orders/refresh-1 with 503, an error the job swallows); this build only wakes the engine.
+      'broadcasts_fetch_open_orders_waiting' => with_bots([stopped('single', 'orders' => [['QQQM', '2026-09-10T11:00:00Z',
+                                                                                          { 'external_status' => 'open', 'order_type' => 'limit_order', 'price' => '408.25',
+                                                                                            'amount' => '0.12247', 'amount_exec' => '0', 'quote_amount' => nil,
+                                                                                            'quote_amount_exec' => '0', 'external_id' => 'refresh-1' }]])],
+                                                          signed_in(get('/bots/1'), broadcast('fetch_open_orders', 'bot_id' => 1).merge('expect' => 200))),
+      'broadcasts_fetch_open_orders_signed_out' => with_bots(three, [get('/login'), broadcast('fetch_open_orders', 'bot_id' => 1)]),
       'broadcasts_without_token' => with_bots(three, signed_in(get('/bots'), broadcast('global_pnl_update').merge('csrf' => 'none'),
                                                                    broadcast('wake_dispatcher').merge('csrf' => 'none'),
                                                                    broadcast('price_limit_info_update', 'bot_id' => 1).merge('csrf' => 'none'))),
@@ -1264,6 +1286,39 @@ module Pages
     }
   end
 
+  # 3.0 A20: AssetsController#tooltip, the .ticker hover card (ticker_tooltips_controller.js fetches it). Two assets share XYZ
+  # (a ranked coin and an unranked stock); `btc` is stored lower case with no logo; EUR is cash (its flag wins over its image);
+  # NOPIC has neither image nor colour.
+  TOOLTIP_ASSETS = [
+    { 'external_id' => 'xyzverse', 'symbol' => 'XYZ', 'name' => 'Xyzverse', 'category' => 'Cryptocurrency', 'market_cap_rank' => 900,
+      'image_url' => 'https://img.example/xyz.png', 'color' => '#123456' },
+    { 'external_id' => 'XYZ.US', 'symbol' => 'XYZ', 'name' => 'Block Inc', 'category' => 'Stock', 'color' => '#FAFAFA' },
+    { 'external_id' => 'bitcoin', 'symbol' => 'btc', 'name' => 'Bitcoin', 'category' => 'Cryptocurrency', 'market_cap_rank' => 1, 'color' => '#F7931A' },
+    { 'external_id' => 'eur', 'symbol' => 'EUR', 'name' => 'Euro', 'category' => 'Fiat', 'image_url' => 'https://img.example/eur.png' },
+    { 'external_id' => 'nopic', 'symbol' => 'NOPIC', 'name' => 'No <Picture>', 'category' => 'ETF' },
+    # A blank category is "not known to be anything else": its flag still wins. No symbol at all draws an empty fallback.
+    { 'external_id' => 'usd-blank', 'symbol' => 'USD', 'name' => 'Dollar', 'category' => ' ', 'image_url' => 'https://img.example/usd.png' },
+    { 'external_id' => 'nameless', 'name' => 'Nameless', 'color' => '#000000' }
+  ].freeze
+
+  def tooltip_scenarios
+    card = ->(query, locale = '') { get("#{locale}/asset_tooltip?#{query}", 'Accept' => 'text/html') }
+    at = ->(*steps) { { 'assets' => TOOLTIP_ASSETS, 'steps' => signed_in(*steps) } }
+    {
+      'tooltip_by_id' => at.(card.('asset_id=1&symbol=XYZ'), card.('asset_id=2&symbol=XYZ'), card.('asset_id=4'), card.('asset_id=5'), card.('asset_id=0003'),
+                              card.('asset_id=6'), card.('asset_id=7')),
+      # A present id decides alone: one that names no asset, or is not digits, is "not found", never the symbol's asset.
+      'tooltip_bad_id' => at.(card.('asset_id=1a&symbol=XYZ'), card.('asset_id=-1&symbol=XYZ'), card.('asset_id=%201&symbol=XYZ')),
+      'tooltip_unknown_id' => at.(card.('asset_id=99&symbol=XYZ'), card.('asset_id=99999999999999999999&symbol=XYZ')),
+      'tooltip_by_symbol' => at.(card.('symbol=BTC'), card.('symbol=%20btc%20'), card.('symbol=eur'), card.('symbol=nopic'), card.('symbol=BTC', '/de'),
+                                 card.('asset_id=&symbol=BTC'), card.('asset_id=%20&symbol=BTC'), card.('symbol=usd')),
+      # The ranked coin wins over the unranked stock.
+      'tooltip_colliding_symbol' => at.(card.('symbol=XYZ'), card.('symbol=xyz')),
+      'tooltip_unknown_symbol' => at.(card.('symbol=NOPE'), card.('symbol=%20'), card.('')),
+      'tooltip_signed_out' => { 'assets' => TOOLTIP_ASSETS, 'steps' => [card.('symbol=BTC'), card.('asset_id=1')] }
+    }
+  end
+
   def connect(dir) = ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
 
   # An install as Rails prepares one, built once and copied per scenario.
@@ -1287,6 +1342,7 @@ module Pages
         User.new(attrs.merge(times).merge('password' => PASSWORD)).save!(validate: false)
       end
       scenario.fetch('app_configs', {}).each { |key, value| AppConfig.set(key, value) }
+      scenario.fetch('assets', []).each { |attrs| Asset.create!(attrs) }
       alpaca(scenario) if scenario['install'] == 'alpaca'
       venues(scenario) if scenario['venues']
       balances(scenario.fetch('balances', {}))
@@ -1379,6 +1435,9 @@ module Pages
     # Bot 1's price status line within its 20 s, as Bot#broadcast_price_limit_info_update caches it (a real cache, this scenario only).
     'warm_price_info' => -> { WARM_PRICE_INFO.(false) },
     'warm_price_info_met' => -> { WARM_PRICE_INFO.(true) },
+    # A21: the latest release AppUpdate::CheckJob last stored (Rails.cache, this scenario only): newer than any build, or older.
+    'app_update_available' => -> { APP_UPDATE.('99.0.0') },
+    'app_update_current' => -> { APP_UPDATE.('0.0.1') },
     # PLAN-A12: a tax report already queued or running for the first user (Tax::Generating.for?: an unfinished job under the
     # job's concurrency key). Made after enqueue_jobs, which clears the queue at each scenario's start.
     'tax_generating' => lambda {
@@ -1389,6 +1448,10 @@ module Pages
     # test adapter holds none): Rails' status then reads `generating`. This build's create already wrote its request row.
     'tax_queued' => -> { BEFORE.fetch('tax_generating').call }
   }.freeze
+  APP_UPDATE = lambda do |version|
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new unless Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)
+    Rails.cache.write(AppUpdate::CACHE_KEY, { version:, url: "#{Clients::Github::RELEASES_URL}/tag/v#{version}" }, expires_in: AppUpdate::CACHE_TTL)
+  end
   WARM_PRICE_INFO = lambda do |met|
     Rails.cache = ActiveSupport::Cache::MemoryStore.new unless Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)
     Rails.cache.write('bot_1_price_limit_info_buying', { base: 'BTC', quote: 'USD', price: BigDecimal('64310.75'), condition_met: met }, expires_in: 20.seconds)
@@ -1459,6 +1522,16 @@ module Pages
     end
   end
   NETWORK = [] # rubocop:disable Style/MutableConstant
+  # 3.0 A20: a step's 'smtp_failure', the reply its SMTP server refuses mail with, raised by the test delivery method as
+  # Net::SMTP raises it. Set for that step only.
+  SMTP_FAILURE = [] # rubocop:disable Style/MutableConstant
+  Mail::TestMailer.prepend(Module.new do
+    def deliver!(mail)
+      raise Net::SMTPAuthenticationError, Net::SMTP::Response.parse(SMTP_FAILURE.first) if SMTP_FAILURE.first
+
+      super
+    end
+  end)
   # The venue requests a step made that a stub answered (pages_settings.rb records them through WebMock), as
   # method, host, path and params, without what a clock or a key makes up (a signature, a timestamp, a nonce).
   # rust/tests/pages.rs holds the requests this crate sent to its wiremock server to the same list.
@@ -1525,6 +1598,7 @@ module Pages
       mailed_token = nil
       travel_to(now, with_usec: true) { enqueue_jobs(scenario.fetch('jobs', {})) } # the queue database is one for the whole grid
       responses = scenario['steps'].each_with_index.map do |step, index|
+        SMTP_FAILURE.replace([step['smtp_failure']].compact)
         client = clients[step['client'] || 'main']
         rows_before = other_before = request_exception = nil
         broadcasts = []
@@ -1644,6 +1718,7 @@ module Pages
       end
       ActiveJob::Base.queue_adapter = original_adapter # :test for action scenarios, :inline for mail ones
       saved_env.each { |name, value| value.nil? ? ENV.delete(name) : ENV.store(name, value) }
+      SMTP_FAILURE.clear
       travel_back
       users = ActiveRecord::Base.connection.select_all("SELECT #{USER_COLUMNS.join(', ')} FROM users ORDER BY id").to_a
       bots = ActiveRecord::Base.connection.select_all("SELECT #{BOT_COLUMNS.join(', ')} FROM bots ORDER BY id").to_a

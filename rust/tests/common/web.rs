@@ -60,7 +60,13 @@ pub fn app_in(dir: &Path, secret: &str, allowed_hosts: Option<&str>, extra: &ser
         "APP_TMP_DIR" => Some(tmp.clone()),
         other => extra.get(other).and_then(|v| v.as_str()).map(str::to_string),
     };
-    App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap().with_queue_path(paths.queue).unwrap().with_figure_source(web::figure::loading::Source::Disabled).unwrap()
+    let app = App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap().with_queue_path(paths.queue).unwrap().with_figure_source(web::figure::loading::Source::Disabled).unwrap();
+    // As `serve` does before its first request (PLAN-B6-3 §2.1): the desktop's one account. Nothing elsewhere. On a
+    // thread of its own: the caller may already be inside a runtime.
+    let prepared = app.clone();
+    std::thread::spawn(move || tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(web::desktop::prepare(&prepared)).unwrap())
+        .join().unwrap();
+    app
 }
 
 pub struct Answer {

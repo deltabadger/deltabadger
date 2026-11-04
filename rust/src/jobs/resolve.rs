@@ -22,6 +22,7 @@ pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Opt
             jobs::LEDGER_SYNC=>Box::new(jobs::LedgerSync::new(venues.clone(),id)),
             jobs::BALANCE_SYNC=>Box::new(jobs::BalanceSync::new(venues.clone(),prices.clone(),id)),
             super::reference::ASSET_DATA=>Box::new(super::reference::AssetData{cg:super::coingecko::live_clients(),asset:id}),
+            super::asset_color::NAME=>Box::new(super::asset_color::InferColor::new(id)),
             _=>tracker::jobs::resolve(name,id,&venues,feed.clone(),wall.clone()).ok_or("unknown scoped job")?,
         };
         Ok(job)
@@ -71,6 +72,7 @@ struct Configured<C: Connect, T: Transport> {
 
 impl<C: Connect + Clone + 'static, T: Transport + 'static> Job for Configured<C, T> {
     fn spec(&self) -> super::Spec { self.job.spec() }
+    fn manual(&self) -> bool { self.job.manual() }
     fn wants(&self, event: &crate::engine::events::EngineEvent) -> bool { self.job.wants(event) }
     fn run<'a>(&'a self, cx: super::Cx<'a>, wakes: Vec<super::Wake>) -> super::JobFuture<'a> {
         Box::pin(async move { self.run_attributed(cx, wakes).await.value })
@@ -115,7 +117,7 @@ mod tests{
         let api:Rc<Option<DataApi<ScriptedTransport>>>=Rc::new(None);
         let resolve=all(LiveFactory::new(),api,tracker::jobs::system_wall());
         for spec in crate::jobs::reference::specs(){assert_eq!(resolve(spec.name,None).unwrap().spec(),spec);}
-        for name in [jobs::LEDGER_SYNC,jobs::BALANCE_SYNC,tracker::jobs::TRACKER_LEDGER,tracker::jobs::PORTFOLIO_BACKFILL,crate::jobs::reference::ASSET_DATA]{
+        for name in [jobs::LEDGER_SYNC,jobs::BALANCE_SYNC,tracker::jobs::TRACKER_LEDGER,tracker::jobs::PORTFOLIO_BACKFILL,crate::jobs::reference::ASSET_DATA,crate::jobs::asset_color::NAME]{
             let spec=resolve(name,Some("42")).unwrap().spec();
             assert_eq!(spec.name,name);assert_eq!(spec.scope.as_deref(),Some("42"));
         }

@@ -168,6 +168,7 @@ module Pages
       end
       ibkr_stubs
       coingecko_stubs
+      a18_stubs
       super
     ensure
       WebMock.reset!
@@ -184,6 +185,24 @@ module Pages
       WebMock.stub_request(:get, markets).to_return(status: 200, body: CG_COINS.to_json, headers: json)
       WebMock.stub_request(:get, markets).with(headers: { 'x-cg-demo-api-key' => CG_BAD })
              .to_return(status: 401, body: '{"status":{"error_code":10002}}', headers: json)
+    end
+
+    # A18: the launchpad's claim (Clients::Launchpad#claim at LAUNCHPAD_URL's default) by code, and Alpaca's live account read.
+    # rust/tests/pages.rs mounts the same.
+    def a18_stubs
+      json = { 'Content-Type' => 'application/json' }
+      claim = 'https://deltabadger.com/api/claim'
+      market = { 'url' => 'http://data-api.invalid', 'token' => 'platform-token' }
+      WebMock.stub_request(:post, claim).with(body: { 'code' => 'dbc_ok' })
+             .to_return(status: 200, headers: json, body: { 'identity' => { 'name' => 'Owner', 'email' => 'owner@example.com' }, 'market_data' => market,
+                                                            'proxies' => { 'Binance' => 'http://proxy.invalid:8080', 'kraken' => 'http://proxy.invalid:8081' } }.to_json)
+      WebMock.stub_request(:post, claim).with(body: { 'code' => 'dbc_no_proxies' })
+             .to_return(status: 200, headers: json, body: { 'identity' => {}, 'market_data' => market }.to_json)
+      WebMock.stub_request(:post, claim).with(body: { 'code' => 'dbc_bad' }).to_return(status: 401, headers: json, body: '{"error":"invalid"}')
+      WebMock.stub_request(:get, 'https://api.alpaca.markets/v2/account')
+             .to_return(status: 200, body: '{"status":"ACTIVE","cash":"0"}', headers: json)
+      # A20: the open-orders refresh's read of a waiting order (pages.rb broadcasts_fetch_open_orders_waiting), refused.
+      WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/orders/refresh-1').to_return(status: 503, body: '{"message":"unavailable"}', headers: json)
     end
 
     # The plan Clients::Coingecko detected and the client MarketData holds are memoised for the process: each scenario starts
@@ -498,6 +517,9 @@ module Pages
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
     tracker_connect_scenarios(grid)
     market_data_scenarios(grid)
+    stocks_platform_scenarios(grid)
+    email_and_docs_scenarios(grid)
+    app_update_scenarios(grid)
     ibkr_connect_scenarios(grid)
     venue_key_scenarios(grid)
     preference_scenarios(grid)
@@ -786,6 +808,98 @@ module Pages
     grid['settings_setup_coingecko_tracker_ok'] = settings_case(connect.(), setup.(CG_KEY))
     grid['settings_setup_coingecko_tracker_bad_key'] = settings_case(connect.(), setup.(CG_BAD, 422))
     grid['settings_setup_coingecko_tracker_non_admin'] = settings_case(connect.(), setup.(CG_KEY, 403), user: member)
+  end
+
+  # A18: SettingsController#update_stocks/#disconnect_stocks (D-STOCKS-RETIRED: Rust refuses them; Rails' answers are the
+  # witnesses) and Settings::PlatformConnectionsController (served alike, D-PLATFORM-HOSTED-KEPT aside). Admin only.
+  def self.stocks_platform_scenarios(grid)
+    write = ->(action, form, status = 200) { settings_write(action, form, status) }
+    stocks = ->(form, status = 200) { write.('update_stocks', { '_method' => 'patch' }.merge(form), status) }
+    unstock = ->(status = 200) { write.('disconnect_stocks', { '_method' => 'delete' }, status) }
+    claim = ->(code, status = 200) { write.('platform_connection', { 'claim_code' => code }, status) }
+    unclaim = ->(status = 200) { write.('platform_connection', { '_method' => 'delete' }, status) }
+    key = { 'alpaca_api_key' => 'stock-key', 'alpaca_api_secret' => 'stock-secret' }
+    stored = { 'alpaca_api_key' => 'stock-key', 'alpaca_api_secret' => 'stock-secret', 'alpaca_mode' => 'paper' }
+    platform = { 'platform_connected_at' => '2026-01-01T00:00:00Z', 'market_data_url' => 'http://data-api.invalid',
+                 'market_data_token' => 'platform-token', 'market_data_provider' => 'deltabadger', 'proxy_binance' => 'http://proxy.invalid:8080' }
+    member = owner('admin' => false)
+    # The witnesses' rows before the write (rust/tests/pages.rs a18_divergences: this build's write leaves them as they are).
+    snap = get('/settings/account').merge('settings_snapshot' => true)
+    grid['settings_stocks_update_new_key'] = settings_case(snap, stocks.(key.merge('alpaca_mode' => 'paper')), fixture: 'venues')
+    grid['settings_stocks_update_existing_key'] = settings_case(snap, stocks.(key.merge('alpaca_mode' => 'paper')), fixture: 'keys')
+    grid['settings_stocks_update_live'] = settings_case(snap, stocks.(key.merge('alpaca_mode' => 'live')), fixture: 'venues')
+    grid['settings_stocks_update_missing'] = settings_case(snap, stocks.({ 'alpaca_api_key' => 'stock-key', 'alpaca_api_secret' => '' }, 422), fixture: 'venues')
+    grid['settings_stocks_update_invalid'] = settings_case(snap, stocks.({ 'alpaca_api_key' => 'incorrect-key', 'alpaca_api_secret' => 's' }, 422), fixture: 'venues')
+    grid['settings_stocks_update_deltabadger'] = settings_case(stocks.(key, 422), fixture: 'venues').merge('app_configs' => platform)
+    grid['settings_stocks_disconnect'] = settings_case(snap, unstock.(), fixture: 'venues').merge('app_configs' => stored)
+    grid['settings_stocks_update_nonadmin'] = settings_case(stocks.(key, 403), user: member)
+    grid['settings_stocks_disconnect_nonadmin'] = settings_case(unstock.(403), user: member).merge('app_configs' => stored)
+    grid['settings_platform_create_proxies'] = settings_case(claim.('dbc_ok')).merge('app_configs' => { 'market_data_provider' => 'coingecko', 'coingecko_api_key' => CG_KEY })
+    # Rows that only look like proxies are none (AppConfig.platform_proxies_configured? is a start_with?).
+    grid['settings_platform_create_no_proxies'] = settings_case(claim.('dbc_no_proxies')).merge('app_configs' => { 'PROXY_binance' => 'kept', 'proxyx' => 'kept' })
+    grid['settings_platform_create_invalid'] = settings_case(claim.('dbc_bad', 422))
+    # params[:claim_code]: a query value wins over the body's; a query alone is read too.
+    grid['settings_platform_create_query_wins'] = settings_case(write.('platform_connection?claim_code=dbc_no_proxies', { 'claim_code' => 'dbc_bad' }))
+    grid['settings_platform_create_query_only'] = settings_case(write.('platform_connection?claim_code=dbc_no_proxies', {}))
+    grid['settings_platform_create_reclaim'] = settings_case(claim.('dbc_no_proxies')).merge('app_configs' => platform.merge('market_data_url' => 'http://old-data-api.invalid', 'market_data_token' => 'old-token'))
+    grid['settings_platform_destroy'] = settings_case(unclaim.()).merge('app_configs' => platform.merge('PROXY_binance' => 'kept', 'proxyx' => 'kept'))
+    grid['settings_platform_destroy_off'] = settings_case(unclaim.()).merge('app_configs' => platform.except('market_data_provider'))
+    grid['settings_platform_destroy_coingecko'] = settings_case(unclaim.()).merge('app_configs' => platform.merge('market_data_provider' => 'coingecko', 'coingecko_api_key' => CG_KEY))
+    # D-PLATFORM-HOSTED-KEPT: Rails deletes a hosted install's claimed rows, its proxies among them.
+    grid['settings_platform_destroy_hosted'] = settings_case(snap, unclaim.()).merge('app_configs' => platform, 'env' => { 'MARKET_DATA_URL' => 'http://env-data-api.invalid', 'MARKET_DATA_TOKEN' => 'env-token' })
+    grid['settings_platform_create_nonadmin'] = settings_case(claim.('dbc_ok', 403), user: member)
+    grid['settings_platform_destroy_nonadmin'] = settings_case(unclaim.(403), user: member).merge('app_configs' => platform)
+  end
+
+  # 3.0 A20: SettingsController#send_test_email and #disconnect_email (admin only), and #download_api_docs (anyone signed in).
+  def self.email_and_docs_scenarios(grid)
+    test = ->(status = 200, opts = {}) { settings_write('send_test_email', {}, status, opts) }
+    disconnect = ->(status = 200) { settings_write('disconnect_email', { '_method' => 'delete' }, status) }
+    custom = { 'smtp_provider' => 'custom_smtp', 'smtp_host' => 'smtp.example.com', 'smtp_port' => '587',
+               'smtp_username' => 'smtp-user@example.com', 'smtp_password' => 'smtp-secret' }
+    member = owner('admin' => false)
+    grid['settings_email_test_not_configured'] = settings_case(test.())
+    # Saved without credentials is not configured either (SmtpSettings.custom_settings).
+    grid['settings_email_test_no_credentials'] = settings_case(test.()).merge('app_configs' => custom.except('smtp_password'))
+    grid['settings_email_test_sent'] = settings_case(test.(200, 'mails' => true)).merge('app_configs' => custom)
+    # The mail is written in the user's language, whatever the request's.
+    grid['settings_email_test_sent_de'] = settings_case(test.(200, 'mails' => true), user: owner('locale' => 'de')).merge('app_configs' => custom)
+    grid['settings_email_test_sent_env'] = settings_case(test.(200, 'mails' => true)).merge('env' => { 'SMTP_ADDRESS' => 'smtp.example.com' })
+    # D-TEST-EMAIL-ERROR-SAFE: Rails shows the server's reply, which here names the SMTP account.
+    grid['settings_email_test_failed'] = settings_case(test.(200, 'mails' => true, 'smtp_failure' => '535 5.7.8 Authentication failed for smtp-user@example.com'))
+                                         .merge('app_configs' => custom)
+    grid['settings_email_test_nonadmin'] = settings_case(test.(403), user: member).merge('app_configs' => custom)
+    grid['settings_email_disconnect'] = settings_case(disconnect.()).merge('app_configs' => custom)
+    grid['settings_email_disconnect_env'] = settings_case(disconnect.()).merge('app_configs' => { 'smtp_provider' => 'env_smtp' })
+    grid['settings_email_disconnect_nothing'] = settings_case(disconnect.())
+    # D-NO-MAIL-SAYS-SO: with registration open, Rails redraws only the mail widget.
+    grid['settings_email_disconnect_registration_open'] = settings_case(disconnect.()).merge('app_configs' => custom.merge('registration_open' => 'true'))
+    grid['settings_email_disconnect_nonadmin'] = settings_case(disconnect.(403), user: member).merge('app_configs' => custom)
+    docs = get('/settings/download_api_docs').merge('headers_extra' => %w[content-disposition])
+    grid['settings_api_docs'] = settings_case(docs, get('/de/settings/download_api_docs').merge('headers_extra' => %w[content-disposition]))
+    grid['settings_api_docs_member'] = settings_case(docs, user: member)
+    grid['settings_api_docs_signed_out'] = { 'user' => owner, 'steps' => [docs] }
+  end
+
+  # A21: Settings → Account's update row (settings/widgets/_app_update) per launcher marker and cache state. 'hosted' is what a
+  # hosted container is not told (launchpad sets only DELTABADGER_UPDATE_CHECK=false), so it reads as an unknown platform.
+  def self.app_update_scenarios(grid)
+    platforms = { 'docker' => 'docker', 'umbrel' => 'umbrel', 'desktop' => 'desktop', 'none' => nil, 'hosted' => 'hosted' }
+    states = { 'available' => ['app_update_available', {}], 'current' => ['app_update_current', {}], 'empty' => [nil, {}],
+               'opted_out' => [nil, { 'DELTABADGER_UPDATE_CHECK' => 'false' }],
+               'opted_out_cached' => ['app_update_available', { 'DELTABADGER_UPDATE_CHECK' => 'false' }] }
+    platforms.each do |platform, marker|
+      states.each do |state, (before, env)|
+        page = get('/settings/account')
+        page = page.merge('before' => before) if before
+        env = env.merge('DELTABADGER_PLATFORM' => marker) if marker
+        grid["settings_app_update_#{platform}_#{state}"] = settings_case(page).merge('env' => env)
+      end
+    end
+    grid['settings_app_update_docker_available_de'] = settings_case(get('/de/settings/account').merge('before' => 'app_update_available'))
+                                                      .merge('env' => { 'DELTABADGER_PLATFORM' => 'docker' })
+    grid['settings_app_update_member'] = settings_case(get('/settings/account').merge('before' => 'app_update_available'), user: owner('admin' => false))
+                                         .merge('env' => { 'DELTABADGER_PLATFORM' => 'docker' })
   end
 
   # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).

@@ -11,6 +11,10 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>, hea
     let owner = user.id;
     // Bots::StartsController#update asks the wash-sale question before anything else, of every kind of bot it starts.
     if action == Some(Action::Start) {
+        // PLAN-A23 Q4: a legacy bot the start kept says why, before the wash-sale question (a selling one would get it instead).
+        if let Some(note) = app.db(move |c| Ok(crate::engine::single_asset::kept_sentence(c, owner, id)?)).await? {
+            return Ok(layout::refused_noted(&ctx, "a legacy single-asset bot", &note));
+        }
         let view = ctx.clone();
         if let Some(refused) = app.db(move |c| super::wash::owed_start(c, &view, owner, id)).await? { return Ok(refused); }
     }
@@ -316,7 +320,7 @@ pub async fn split_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
         }
         Ok(Performed::Refused(refusal)) => Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text: refusal.reason }])?.trim_end()), true)),
         Ok(Performed::Unported(reason)) => {
-            eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, ctx.params.fullpath);
+            crate::eline!("deltabadger: {} {} is not served: {reason}", ctx.method, ctx.params.fullpath);
             let text = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]);
             Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text }])?.trim_end()), true))
         }

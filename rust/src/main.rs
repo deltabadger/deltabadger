@@ -13,7 +13,13 @@
 //! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
 //! and FORCE_SSL. Without data-api, run and serve import db/seed_data/catalogue.json.gz at start and the public catalogue
-//! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off).
+//! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off). DELTABADGER_PLATFORM=umbrel
+//! words the refusal of an older install for Umbrel. The desktop app sets three more for serve (PLAN-B6): BINDING (the
+//! listen address, default 0.0.0.0), DELTABADGER_READY_TOKEN (`/ui-ready` answers `ready <token> app|refused|starting`)
+//! and DELTABADGER_STOP_ON_STDIN_EOF=1 (stdin's end stops serve as SIGTERM does, deltabadger::stop). With
+//! DELTABADGER_LOG_FILE, run and serve write their lines to that file instead of stdout and stderr (deltabadger::logger).
+//! Under DELTABADGER_PLATFORM=desktop, serve's refusal page says why in the desktop user's words (`Desktop`) and
+//! /service-worker.js answers a worker that removes itself.
 //!
 //! Files: on an empty STORAGE_DIR, `run` and `serve` create the install under the engine lock (store::bootstrap: the
 //! primary, seeded and owned by Rust from its first commit, and an empty queue; never cache or cable). Every other
@@ -35,23 +41,26 @@ const EXIT_ENGINE_ERROR: i32 = 2;
 
 fn main() {
     let env = |k: &str| std::env::var(k).ok();
+    // First, for every command: an engine of an installed desktop app holds that app's update lock while it runs, so the
+    // app is never replaced under it (PLAN-B7 r3.2). Released by the OS when the process ends.
+    let _installed_app = deltabadger::bundle::enter(&env).unwrap_or_else(|line| { deltabadger::eline!("deltabadger: {line}"); std::process::exit(1) });
     match std::env::args().nth(1).as_deref() {
         Some("check") => {
             refuse_url_overrides(&env);
             let paths = paths(&env);
             let _lock = take_lock(&paths);
-            let report = store::check(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let report = store::check(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             for version in &report.pending_rust { println!("pending Rust migration {version}: run or serve applies it"); }
             // What `run` and `serve` will start from (PLAN-B2 r1.9, r2.2): the files copied into memory, the secret checked
             // as they check it, then this build's pending migrations applied to the copy. The files are only read.
-            let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             let cipher = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).map(|secret| {
                 let cipher = Cipher::new(&EncryptionKeys::resolve(&env, &secret).unwrap_or_else(|_| fail("index encryption configuration unreadable")));
                 if !deltabadger::crypto::reads_install(&copy.primary, &cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
                 cipher
             });
             if cipher.is_none() { println!("{SECRET_NOT_CHECKED}"); }
-            store::migrate_copy(&copy).unwrap_or_else(|e| refuse_store(e, &paths));
+            store::migrate_copy(&copy).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             let c = copy.primary;
             if let Some(cipher) = &cipher {
                 deltabadger::engine::provider::bind(&c,cipher,&env).unwrap_or_else(|_|fail("index configuration reader unavailable"));
@@ -72,6 +81,7 @@ fn main() {
             let report = |c: &rusqlite::Connection| match &cipher { Some(cipher) => handover::startup_report(c, cipher, now), None => check_install_at(c, now) };
             match deltabadger::engine::set_aside::apply(&tx, cipher.as_ref(), &report, now) {
                 Ok(Ok(plan)) => {
+                    for id in &plan.converted { println!("{}", deltabadger::engine::set_aside::would_convert(&tx, *id).unwrap_or_else(|e| fail(&format!("{e:?}")))); }
                     for aside in &plan.bots { println!("{}", deltabadger::engine::set_aside::would_stop(aside)); }
                     match plan.report.refusal() {
                         Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
@@ -97,9 +107,9 @@ fn main() {
             let secret=env("SECRET_KEY_BASE").unwrap_or_else(||fail("SECRET_KEY_BASE is required"));
             let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
             let cipher=Cipher::new(&keys);
-            check_readable(&paths,&cipher);
-            store::migrate(&paths,&lock).unwrap_or_else(|e|refuse_store(e, &paths));
-            let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths));
+            check_readable(&paths,&cipher,&env);
+            store::migrate(&paths,&lock).unwrap_or_else(|e|refuse_store(e, &paths, &env));
+            let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths, &env));
             if let Target::RailsList(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::seed_rails_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
@@ -123,7 +133,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             deltabadger::engine::placement::resolve_by_operator(&o.primary, bot_id, resolution, chrono::Utc::now())
                 .unwrap_or_else(|e| fail(&format!("{e:?}")));
             println!("resolved");
@@ -141,7 +151,7 @@ fn main() {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
-            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+            let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, &env));
             match deltabadger::engine::reconcile::by_operator(&o.primary, tx_id, &text, chrono::Utc::now()) {
                 Ok(deltabadger::engine::reconcile::Operator::Reconciled) => println!("reconciled"),
                 Ok(deltabadger::engine::reconcile::Operator::AlreadyReconciled) => println!("already reconciled"),
@@ -166,7 +176,7 @@ fn main() {
         }
         _ => println!(
             "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | reconcile-order <transaction_id> --evidence <file> | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
-            env!("CARGO_PKG_VERSION")
+            deltabadger::VERSION
         ),
     }
 }
@@ -192,7 +202,7 @@ fn take_lock_waiting(paths: &Paths) -> EngineLock {
         tokio::pin!(stop);
         log(&format!("the previous version stopped {ago} s ago; waiting {wait} s before taking over"));
         let page = async {
-            if let Some(port) = REFUSAL_PORT.get() { eprintln!("deltabadger: cannot show the wait on port {port}: {}", deltabadger::web::refused::show_starting(*port, wait).await); }
+            if let Some(port) = REFUSAL_PORT.get() { deltabadger::eline!("deltabadger: cannot show the wait on port {port}: {}", deltabadger::web::refused::show_starting(*port, wait).await); }
             std::future::pending::<()>().await
         };
         tokio::select! {
@@ -209,10 +219,23 @@ fn take_lock_waiting(paths: &Paths) -> EngineLock {
     taken.unwrap_or_else(|e| lock_refused(paths, e))
 }
 
+/// A stop the desktop's stdin latch took (deltabadger::stop) between two start phases: the phase that ran is complete, the
+/// next one is not begun (PLAN-B6 r3.6). Before the claim, so nothing is taken over.
+fn stop_if_requested() {
+    if deltabadger::stop::requested() { log("stopped on request"); std::process::exit(0) }
+}
+
+/// Tests (debug builds): with DELTABADGER_TEST_PAUSE=`point`, start holds here until the file DELTABADGER_TEST_RELEASE
+/// names exists, after logging "paused at `point`" (PLAN-B6 r2.5).
+fn pause(point: &str) { deltabadger::stop::pause(point) }
+
+/// `pause` inside the runtime, which keeps running its tasks (the engine's stop handlers) meanwhile.
+async fn pause_async(point: &str) { deltabadger::stop::pause_async(point).await }
+
 fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
     match e {
         // Not on the refusal page: the engine that holds the lock is the one serving this install.
-        LeaseError::Locked => { eprintln!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
+        LeaseError::Locked => { deltabadger::eline!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
         // A heartbeat in the future is a clock ahead of this one: the detail's negative age says so.
         LeaseError::RailsAlive { seconds_ago } => fail_with(RAILS_ALIVE, &format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         LeaseError::Io(e) => fail(&format!("{}: {e}", paths.lock_file().display())),
@@ -220,10 +243,21 @@ fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
     }
 }
 
-/// C1, the user's words (no version); the operator's detail names the release that brings the data up to date.
+/// C1, the user's words (no version); the operator's detail names the release that brings the data up to date. It names
+/// Umbrel's way too, for Umbrel composes older than the platform marker (PLAN-B5 r5.1, Q9').
 const BEHIND: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Go back to your previous \
                       Deltabadger, update it to its latest version and start it. Once it has finished starting, stop it and start this \
-                      again. Nothing was changed.";
+                      again. On Umbrel, update Deltabadger in the Umbrel App Store instead. Nothing was changed.";
+/// C1-U, C1 on Umbrel (PLAN-B5 r2.2): the App Store's update runs the upgrade step; a failed restart on umbrelOS 1.7.4
+/// leaves the update button off until the Umbrel restarts.
+const BEHIND_UMBREL: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Update Deltabadger in the \
+                             Umbrel App Store: the update brings your data up to date first. If the update button isn't available, \
+                             restart your Umbrel first. Nothing was changed.";
+
+/// C1 for this platform: DELTABADGER_PLATFORM read as Rails' Installation.platform_from_env reads it (stripped, any case).
+fn behind(env: &dyn Fn(&str) -> Option<String>) -> &'static str {
+    if env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("umbrel")) { BEHIND_UMBREL } else { BEHIND }
+}
 const RAILS_ALIVE: &str = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. \
                            Stop it, then start this again. Nothing was changed.";
 // Not "Nothing was changed": the Rust migrations and the backup ran before the takeover refused.
@@ -235,18 +269,27 @@ fn behind_detail(missing: usize) -> String {
 }
 
 /// `fail` for a store refusal: Behind in the user's words with the operator's detail, the rest in `explain`'s.
-fn refuse_store(e: StoreError, paths: &Paths) -> ! {
+fn refuse_store(e: StoreError, paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -> ! {
     match e {
-        StoreError::Behind { missing } => fail_with(BEHIND, &behind_detail(missing.len())),
-        e => fail(&explain(e, paths)),
+        StoreError::Behind { missing } => fail_with(behind(env), &behind_detail(missing.len())),
+        e => {
+            let why = match &e {
+                StoreError::Missing { path } if path == &paths.queue => Why::FileMissing,
+                StoreError::QueueInTheWay { .. } => Why::FileMissing,
+                StoreError::Unrecognised { .. } | StoreError::Unsupported { .. } | StoreError::Diverged { .. } | StoreError::Incompatible { .. } => Why::Foreign,
+                StoreError::Migration { .. } => Why::Migration,
+                _ => Why::Other,
+            };
+            fail_as(why, &explain(e, paths, env))
+        }
     }
 }
 
 /// A store refusal in the operator's words. `paths` tells a missing queue (its install's data is there: the check reads
 /// the primary first) from a missing install.
-fn explain(e: StoreError, paths: &Paths) -> String {
+fn explain(e: StoreError, paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -> String {
     match e {
-        StoreError::Behind { missing } => format!("{BEHIND}\n{}", behind_detail(missing.len())),
+        StoreError::Behind { missing } => format!("{}\n{}", behind(env), behind_detail(missing.len())),
         StoreError::Missing { path } if path == paths.queue => format!("the job queue {} is missing, but this install's data is at {}. Put the queue file back, or set QUEUE_DATABASE_PATH to where it is, then start again.", path.display(), paths.primary.display()),
         StoreError::Missing { path } => format!("there's no Deltabadger data at {} yet. Start \"deltabadger serve\" to set up a new install.", path.display()),
         StoreError::QueueInTheWay { path } => {
@@ -272,22 +315,31 @@ fn explain(e: StoreError, paths: &Paths) -> String {
 fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLock, store::Opened, Cipher) {
     refuse_url_overrides(env);
     let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
-    let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail(&format!("encryption keys: {e:?}")));
+    let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail_as(Why::KeysIncomplete, &format!("encryption keys: {e:?}")));
     let cipher = Cipher::new(&keys);
     let paths = paths(env);
     let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
-    let created = start && store::bootstrap(&paths, &lock, &cipher, env, env!("CARGO_PKG_VERSION"), chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths));
+    let created = start && store::bootstrap(&paths, &lock, &cipher, env, deltabadger::VERSION, chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths, env));
     if created {
         log(&format!("set up a new install at {}", paths.primary.display()));
         #[cfg(debug_assertions)]
         store::abort_point("after-commit");
     }
-    check_readable(&paths, &cipher);
-    if start && !created && !owned_by_rust(&paths, &cipher) { back_up(&paths) }
-    if start {
-        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths)) { log(&format!("applied Rust migration {version}")); }
+    check_readable(&paths, &cipher, env);
+    if start { pause("before-backup"); stop_if_requested(); }
+    // One copy per start at most (PLAN-B7 §4): before a takeover from Rails, or before this build migrates a desktop install
+    // that is already Rust's. A new install has nothing to copy.
+    if start && !created {
+        if !owned_by_rust(&paths, &cipher) { back_up(&paths, store::TAKEOVER_COPY) }
+        else if deltabadger::jobs::app_update::platform(env) == deltabadger::jobs::app_update::Platform::Desktop
+            && !store::check(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env)).pending_rust.is_empty() { back_up(&paths, store::UPDATE_COPY) }
     }
-    let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths));
+    if start {
+        pause("after-backup");
+        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths, env)) { log(&format!("applied Rust migration {version}")); }
+        pause("after-migrate");
+    }
+    let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
     // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
     if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
@@ -301,15 +353,16 @@ fn owned_by_rust(paths: &Paths, cipher: &Cipher) -> bool {
     matches!(lease::read(&c, cipher), Ok(Some(v)) if v["engine"] == "rust")
 }
 
-/// The copy before a takeover from Rails (PLAN-B2 r3.4, §5): C5a once a new copy is complete; a failure stops the start
-/// with C5b (r6 Q3) before anything is migrated or claimed, in the user's words: what happened, then what to do.
-fn back_up(paths: &Paths) {
-    match store::backup(paths, chrono::Utc::now()) {
+/// The copy before a takeover from Rails (PLAN-B2 r3.4, §5) or before a desktop update migrates (PLAN-B7 §4, `prefix`):
+/// C5a once a new copy is complete; a failure stops the start with C5b (r6 Q3) before anything is migrated or claimed, in
+/// the user's words: what happened, then what to do.
+fn back_up(paths: &Paths, prefix: &str) {
+    match store::backup_as(paths, prefix, chrono::Utc::now()) {
         Ok(store::Backup::Made(dir)) => log(&format!("Saved a copy of your data to {} before updating it.", dir.display())),
         Ok(store::Backup::Unchanged(dir)) => log(&format!("Your data hasn't changed since the copy in {}, so no new copy was needed.", dir.display())),
-        Err(store::BackupError::SameName(name)) if name == "digest" => fail(&format!("Deltabadger didn't start: one of your data files is called {name}, \
+        Err(store::BackupError::SameName(name)) if name == "digest" => fail_plain(&format!("Deltabadger didn't start: one of your data files is called {name}, \
             the name its copy uses for its checksums. Your data hasn't been changed. Rename that file (the DATABASE_PATH or QUEUE_DATABASE_PATH setting), then start again.")),
-        Err(store::BackupError::SameName(name)) => fail(&format!("Deltabadger didn't start: your two data files are both called {name}, so it can't keep a \
+        Err(store::BackupError::SameName(name)) => fail_plain(&format!("Deltabadger didn't start: your two data files are both called {name}, so it can't keep a \
             copy of both in one folder. Your data hasn't been changed. Rename one of them (the DATABASE_PATH or QUEUE_DATABASE_PATH setting), then start again.")),
         Err(e) => {
             let (reason, todo) = match e {
@@ -317,7 +370,7 @@ fn back_up(paths: &Paths) {
                 store::BackupError::NotWritable => ("this folder can't be written to".to_string(), "Make sure Deltabadger can write to this folder, then start it again."),
                 store::BackupError::Other(why) | store::BackupError::SameName(why) => (why, "Check the disk and this folder, then start Deltabadger again."),
             };
-            fail(&format!("Deltabadger didn't start: it couldn't save a copy of your data to {} first ({reason}). Your data hasn't been changed. {todo}",
+            fail_plain(&format!("Deltabadger didn't start: it couldn't save a copy of your data to {} first ({reason}). Your data hasn't been changed. {todo}",
                           store::backups_dir(paths).display()))
         }
     }
@@ -332,17 +385,17 @@ const SECRET_NOT_CHECKED: &str = "note: SECRET_KEY_BASE isn't set, so this didn'
 /// Behind or foreign install is refused in its own words, before anything else is read), then whether this secret reads
 /// the install (crypto::reads_install). Nothing is written before either refusal: `identity::initialize` would clear
 /// every known account identity under a wrong secret.
-fn check_readable(paths: &Paths, cipher: &Cipher) {
-    store::check(paths).unwrap_or_else(|e| refuse_store(e, paths));
+fn check_readable(paths: &Paths, cipher: &Cipher, env: &dyn Fn(&str) -> Option<String>) {
+    store::check(paths).unwrap_or_else(|e| refuse_store(e, paths, env));
     let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
-    if !deltabadger::crypto::reads_install(&c, cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail(WRONG_SECRET) }
+    if !deltabadger::crypto::reads_install(&c, cipher).unwrap_or_else(|e| fail(&format!("{e}"))) { fail_as(Why::WrongKeys, WRONG_SECRET) }
 }
 
 /// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),
 /// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
 fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
     let install = paths(env);
-    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install)).primary;
+    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install, env)).primary;
     deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
 }
 
@@ -359,7 +412,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     -> Result<supervisor::Service<'a>, String> {
     let secret = env("SECRET_KEY_BASE").unwrap_or_default();
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
-    let own = store::open(paths).map_err(|e| explain(e, paths))?;
+    let own = store::open(paths).map_err(|e| explain(e, paths, env))?;
     let cipher = Cipher::new(&keys);
     // Utilities::Currency's Rails.cache entries: one fiat-rate cache for the whole engine process, shared by every run.
     let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
@@ -371,6 +424,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let mut registered = jobs::reference::shared_jobs(api.clone());
     // Setup::SeedAndSyncJob, which a platform claim on /setup wakes: it reads the data-api configuration the claim wrote.
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
+    // AppUpdate::CheckJob: the latest release for the Settings row; nothing is asked on the desktop or once opted out.
+    registered.push(jobs::app_update::job(env));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), feed.clone(), deltabadger::tracker::jobs::system_wall())?);
     registered.push(deltabadger::tax::job::job(feed, LiveFactory::new(), deltabadger::tax::job::tmp_dir(env)));
@@ -381,6 +436,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
     // D-BINANCE-ORDER-LINK: stored Binance fills link to their bot orders, at every start.
     registered.push(Box::new(deltabadger::sync::binance_order_links::OrderLinks));
+    // A28-1: the lines for Rails' unrecorded-order candidates, hourly; A28-3: with the served venues' order history read live.
+    registered.push(Box::new(deltabadger::engine::rails_unrecorded::Report::new(LiveFactory::new())));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
     // PLAN-B2 r3.3, r4.4: the runs a stopped 2.x left queued (handover::RAILS_WAKES_KEY), woken until each has run.
@@ -409,14 +466,14 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
 /// The takeover `run` and `serve` share: Err(exit code, what it printed after "deltabadger: "). Refusals are
 /// EXIT_REFUSED before anything is claimed; a takeover that fails after the claim is EXIT_ENGINE_ERROR.
 fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), (i32, String)> {
-    let refused = |code: i32, message: String| { eprintln!("deltabadger: {message}"); Err((code, message)) };
+    let refused = |code: i32, message: String| { deltabadger::eline!("deltabadger: {message}"); Err((code, message)) };
     // preflight's refusals (venue, key) are the takeover's own now: a working bot without a key is set aside, one that
     // still owes orders is a hard stop (set_aside::apply).
-    let t = match handover::take_over(lock, o, cipher, env!("CARGO_PKG_VERSION"), chrono::Utc::now()) {
+    let t = match handover::take_over(lock, o, cipher, deltabadger::VERSION, chrono::Utc::now()) {
         Ok(t) => t,
         Err(EngineError::HardStop(message)) => return refused(EXIT_REFUSED, message),
         // The lines are support's (e.g. a Rails withdrawal to resolve with resolve-withdrawal): stderr only.
-        Err(EngineError::Ineligible(p)) => { eprintln!("deltabadger: {}", p.join("\n")); return refused(EXIT_REFUSED, TAKEOVER_INELIGIBLE.into()) }
+        Err(EngineError::Ineligible(p)) => { deltabadger::eline!("deltabadger: {}", p.join("\n")); return refused(EXIT_REFUSED, TAKEOVER_INELIGIBLE.into()) }
         Err(e) => return refused(EXIT_ENGINE_ERROR, format!("takeover failed: {e:?}")),
     };
     for aside in &t.set_aside { log(&deltabadger::engine::set_aside::stopped(aside)); }
@@ -430,6 +487,7 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
 }
 
 fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
+    deltabadger::logger::init(env);
     let (lock, o, cipher) = open_install(env, true);
     // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns,
     // and a service may still be draining then.
@@ -443,7 +501,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         engine.stop_handle().on_signals();
         let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock, None) {
             Ok(s) => s,
-            Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
+            Err(e) => { deltabadger::eline!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
         let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
         log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
@@ -465,10 +523,19 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 /// r1.0), except when another engine holds the install or the port cannot be taken. Exit codes: 0 stopped as asked
 /// (the refusal page too), 1 refused with nothing shown, 2 ended otherwise.
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
+    deltabadger::logger::init(env);
+    if let Some(d) = Desktop::from_env(env) { let _ = DESKTOP.set(d); }
+    if env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("desktop")) { deltabadger::web::refused::retire_worker(); }
     let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
         Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
         None => 3000,
     };
+    // BINDING, the name `rails server` reads for its bind address (PLAN-B6 §1.3): the desktop sets 127.0.0.1.
+    if let Some(ip) = env("BINDING").filter(|b| !b.trim().is_empty()) {
+        deltabadger::web::server::set_binding(ip.trim().parse().unwrap_or_else(|_| fail("BINDING must be an IP address, such as 127.0.0.1")));
+    }
+    deltabadger::web::refused::set_ready_token(env("DELTABADGER_READY_TOKEN"));
+    deltabadger::stop::watch_stdin(env);
     REFUSAL_PORT.set(port).expect("serve runs once");
     // The refusal page needs no assets, so a build without them says so in the browser too.
     if !deltabadger::web::assets::BUILT {
@@ -488,34 +555,45 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         drop(tx);
         match outcome {
             Ok(Ok(plan)) => for aside in &plan.bots { log(&deltabadger::engine::set_aside::would_stop(aside)); },
-            Ok(Err(hard)) => fail(&deltabadger::engine::set_aside::hard_stop(&hard)),
-            Err(e) => fail(&Refusal::Failed(e).message()),
+            Ok(Err(hard)) => fail_plain(&deltabadger::engine::set_aside::hard_stop(&hard)),
+            Err(e) => fail_as(Why::SetAside, &Refusal::Failed(e).message()),
         }
     }
     let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
     // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.
     let install = paths(env);
-    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install)).primary;
+    let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install, env)).primary;
     let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).and_then(|app| app.with_queue_path(install.queue))
         .unwrap_or_else(|e| fail(&web_problem(e)));
     let mail = mail_sender(env, &cipher);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     // The port cannot be taken: there is nowhere to show the refusal page either.
     let listener = rt.block_on(deltabadger::web::server::bind(&app, port))
-        .unwrap_or_else(|e| { eprintln!("deltabadger: {}", web_problem(e)); std::process::exit(EXIT_REFUSED) });
+        .unwrap_or_else(|e| { deltabadger::eline!("deltabadger: {}", web_problem(e)); std::process::exit(EXIT_REFUSED) });
+    pause("before-claim");
+    stop_if_requested();
     if let Err((code, message)) = claim_install(&lock, &o, &cipher) {
         if code != EXIT_REFUSED { return code; }
         // Nothing was claimed: the port goes to the refusal page, and the lock goes with this process's other handles.
         drop((listener, mail, app, o, lock, _held, rt));
         return deltabadger::web::refused::serve(port, &message);
     }
+    // D-DESKTOP-ACCOUNT (PLAN-B6-3 §2.1): after the migrations and the takeover, before the first request is served.
+    if let Err(e) = rt.block_on(deltabadger::web::desktop::prepare(&app)) {
+        deltabadger::eline!("deltabadger: the desktop account could not be prepared: {}", web_problem(e));
+        return EXIT_ENGINE_ERROR;
+    }
     let code = rt.block_on(async move {
         let factory = LiveFactory::for_install(&o.primary, &cipher);
         let mut engine = Engine::new(o.primary, factory, cipher, lock);
         engine.stop_handle().on_signals();
+        pause_async("after-handlers").await;
+        // Tests (debug builds): a panic once the engine runs, for the desktop app's "stopped unexpectedly" (PLAN-B6 r4.4).
+        #[cfg(debug_assertions)]
+        if std::env::var("DELTABADGER_TEST_PANIC").is_ok_and(|s| s == "after-handlers") { panic!("DELTABADGER_TEST_PANIC at after-handlers"); }
         let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock, Some(&app)) {
             Ok(s) => s,
-            Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
+            Err(e) => { deltabadger::eline!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
         // The boot's figures go to the queue first, before any page asks.
         let (booted, order_events, stop) = (app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_order), engine.stop_handle().subscribe());
@@ -525,7 +603,14 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             run: Box::pin(deltabadger::web::below_minimum::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_warning), engine.stop_handle().subscribe())) };
         let live = supervisor::Service { name: "bot pages",
             run: Box::pin(deltabadger::web::bot::live::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_live), engine.stop_handle().subscribe())) };
-        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler, figures, warnings, live];
+        // D-DESKTOP-NO-MAIL (PLAN-B6-3 §2.5): the desktop sends no mail, whatever SMTP settings a 2.x install left; its
+        // markers still expire after seven days.
+        let mail = if app.desktop_account().is_some() {
+            supervisor::Service { name: "mail expiry", run: Box::pin(mail.expire_only(engine.stop_handle().subscribe())) }
+        } else {
+            mail_service(mail, &engine.stop_handle(), engine.subscribe())
+        };
+        let services = vec![mail, scheduler, figures, warnings, live];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {
@@ -549,12 +634,12 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     match result {
         Ok(n) => log(&format!("handed back: {n} bot(s) scheduled. You can start Deltabadger 2.70.21 now.")),
         Err(EngineError::Unresolved(ids)) => {
-            eprintln!("deltabadger: handback refused: the venue could not yet account for the order of bot(s) {ids:?}.\n\
+            deltabadger::eline!("deltabadger: handback refused: the venue could not yet account for the order of bot(s) {ids:?}.\n\
                        Look each order up on the venue's own site by its client order id (bots.transient_data.rust_placement.cl_ord_id),\n\
                        then run `deltabadger resolve-placement <bot_id> --placed <order_id>` or `--not-placed`, and run handback again.");
         }
-        Err(EngineError::Ineligible(reasons)) => eprintln!("deltabadger: handback refused: {}", reasons.join("\n")),
-        Err(e) => eprintln!("deltabadger: handback failed: {e:?}"),
+        Err(EngineError::Ineligible(reasons)) => deltabadger::eline!("deltabadger: handback refused: {}", reasons.join("\n")),
+        Err(e) => deltabadger::eline!("deltabadger: handback failed: {e:?}"),
     }
     code
 }
@@ -607,14 +692,14 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             tx.commit().map_err(|_|"cannot commit job result")?;
             Ok(outcome)
         }));
-        let outcome = match recorded { Ok(outcome) => outcome, Err(_) => { eprintln!("deltabadger: {name}: cannot save job outcome"); code = EXIT_ENGINE_ERROR; continue; } };
+        let outcome = match recorded { Ok(outcome) => outcome, Err(_) => { deltabadger::eline!("deltabadger: {name}: cannot save job outcome"); code = EXIT_ENGINE_ERROR; continue; } };
         match outcome {
             Outcome::Done => println!("{name}: done"),
             // An import larger than one run reads: what was read is stored, and the next run continues.
             Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),
             Outcome::Failed(_) | Outcome::Transient(_) | Outcome::RateLimited(_) => {
                 // Fixed text only; never a venue body.
-                eprintln!("deltabadger: {name} failed: venue diagnostic omitted");code=EXIT_ENGINE_ERROR;
+                deltabadger::eline!("deltabadger: {name} failed: venue diagnostic omitted");code=EXIT_ENGINE_ERROR;
             }
         }
     }
@@ -642,7 +727,7 @@ fn repair_binance_history(env:&dyn Fn(&str)->Option<String>)->i32 {
     repair::require_ownership(c,&cipher).unwrap_or_else(|e|fail(&e.0));
     let inventory=repair::inventory(c).unwrap_or_else(|e|fail(&e.0));
     if mode=="--inventory" {println!("{}",serde_json::to_string_pretty(&inventory).expect("inventory"));return 0}
-    for account in inventory.iter().filter(|a|a.key_id.is_none()) {eprintln!("user {} venue {}: awaiting credentials; history remains incomplete",account.user_id,account.exchange_id);}
+    for account in inventory.iter().filter(|a|a.key_id.is_none()) {deltabadger::eline!("user {} venue {}: awaiting credentials; history remains incomplete",account.user_id,account.exchange_id);}
     let approved:Option<repair::Manifest>=if mode=="--apply" {
         let bytes=std::fs::read(options["--manifest"]).unwrap_or_else(|_|fail("cannot read repair manifest"));
         let m:repair::Manifest=serde_json::from_slice(&bytes).unwrap_or_else(|_|fail("invalid repair manifest"));
@@ -692,7 +777,7 @@ fn refuse_url_overrides(env: &dyn Fn(&str) -> Option<String>) {
         .into_iter()
         .find(|v| env(v).is_some_and(|x| !x.trim().is_empty()))
     {
-        fail(&format!("{var} is set; this build supports only *_DATABASE_PATH"));
+        fail_as(Why::DatabaseUrl, &format!("{var} is set; this build supports only *_DATABASE_PATH"));
     }
 }
 
@@ -706,14 +791,77 @@ fn web_problem(e: deltabadger::web::WebError) -> String {
 /// `serve`'s port once it is read: from then on a refusal shows the refusal page there (PLAN-B2 r1.0).
 static REFUSAL_PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
 
-fn fail(msg: &str) -> ! {
-    eprintln!("deltabadger: {msg}");
+/// A refusal in the operator's words: on the desktop page, D5's line instead (`fail_as`).
+fn fail(msg: &str) -> ! { fail_as(Why::Other, msg) }
+
+/// A refusal with a desktop line: on the desktop, the page shows `why`'s line and the operator's `msg` goes to the log
+/// only (`fail_with`); elsewhere, `msg` on both, as before.
+fn fail_as(why: Why, msg: &str) -> ! {
+    match DESKTOP.get() {
+        Some(d) => fail_with(&d.line(why), msg),
+        None => fail_plain(msg),
+    }
+}
+
+/// A refusal already in the user's words (C5b, C6): the same text on every platform.
+fn fail_plain(msg: &str) -> ! {
+    deltabadger::eline!("deltabadger: {msg}");
     refuse(msg)
+}
+
+/// `serve`'s desktop wording (PLAN-B6 r1.10, r1.9, r2.4, r4.4, r5.2): set under DELTABADGER_PLATFORM=desktop, read as
+/// `behind` reads the platform, with the folders the lines name: `<data>` = STORAGE_DIR's parent (the app sets
+/// STORAGE_DIR=<data>/db) and the log folder = DELTABADGER_LOG_FILE's. Without either variable, today's wording.
+static DESKTOP: std::sync::OnceLock<Desktop> = std::sync::OnceLock::new();
+
+struct Desktop { data: std::path::PathBuf, db: std::path::PathBuf, log: std::path::PathBuf, paths: Paths }
+
+/// What a desktop refusal is about: each has its line (`Desktop::line`).
+#[derive(Clone, Copy)]
+enum Why { WrongKeys, KeysIncomplete, FileMissing, Foreign, Migration, DatabaseUrl, SetAside, Other }
+
+impl Desktop {
+    fn from_env(env: &dyn Fn(&str) -> Option<String>) -> Option<Self> {
+        let set = |name: &str| env(name).filter(|v| !v.trim().is_empty()).map(std::path::PathBuf::from);
+        if !env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("desktop")) { return None }
+        let (db, file) = (set("STORAGE_DIR")?, set("DELTABADGER_LOG_FILE")?);
+        Some(Self { data: db.parent()?.to_path_buf(), log: file.parent()?.to_path_buf(), paths: paths(env), db })
+    }
+
+    /// The page's line. Its phase sentence follows what this start changed (store::changed), never the refusal's kind:
+    /// "Nothing was changed." only while nothing was; after a change, where a copy from before the update exists, that
+    /// copy's folder. The migration line says what changed instead, and names the copy wherever one exists.
+    fn line(&self, why: Why) -> String {
+        let (secrets, db, log) = (self.data.join(".secrets"), self.db.display(), self.log.display());
+        let copy = || if store::has_backup(&self.paths) {
+            format!("A copy of your data from before the update is in {}.", store::backups_dir(&self.paths).display())
+        } else { String::new() };
+        let phase = if store::changed() { copy() } else { "Nothing was changed.".into() };
+        let support = format!("Contact support and send them the files in {log}.");
+        let again = format!("Quit Deltabadger and open it again. If this keeps happening, contact support and send them the files in {log}.");
+        let parts = match why {
+            Why::WrongKeys => vec![format!("Deltabadger didn't start: it can't read your data with the keys in {}. If that file was replaced or \
+                deleted, quit Deltabadger, put the original file back, and open it again. If you set Deltabadger's keys yourself, they must be the \
+                ones this data was made with.", secrets.display()), phase],
+            Why::KeysIncomplete => vec![format!("Deltabadger didn't start: it doesn't have all the keys it needs to read your data. If you supplied \
+                Deltabadger's keys yourself, open it again with the same complete keys. Otherwise, quit Deltabadger, put the original {} file back, \
+                and open it again.", secrets.display()), phase],
+            Why::FileMissing => vec![format!("Deltabadger didn't start: one of its two data files is missing from {db}. If you moved files out of \
+                that folder, quit Deltabadger, put them back, and open it again."), phase],
+            Why::Foreign => vec![format!("Deltabadger didn't start: the data in {db} isn't data this version can open."), phase, support],
+            Why::Migration => vec!["Deltabadger didn't start: updating your data failed, and the last step was undone.".into(), copy(), support],
+            Why::DatabaseUrl => vec!["Deltabadger didn't start: a DATABASE_URL setting on this computer points it elsewhere. Remove it, then open \
+                Deltabadger again.".into(), phase],
+            Why::SetAside => vec!["Deltabadger didn't start: it couldn't check your bots before starting them. Nothing was bought or sold.".into(), phase, again],
+            Why::Other => vec!["Deltabadger didn't start.".into(), phase, again],
+        };
+        parts.into_iter().filter(|p| !p.is_empty()).collect::<Vec<_>>().join(" ")
+    }
 }
 
 /// `fail`, with the operator's `detail` after the user's `line` on stderr; the refusal page shows the line alone.
 fn fail_with(line: &str, detail: &str) -> ! {
-    eprintln!("deltabadger: {line}\ndeltabadger: {detail}");
+    deltabadger::eline!("deltabadger: {line}\ndeltabadger: {detail}");
     refuse(line)
 }
 

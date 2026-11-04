@@ -191,7 +191,9 @@ pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result
     if accounts == 0 { return Ok(()); }
     let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
     key(&tx, cipher, now)?;
-    tx.commit().map_err(|e| e.to_string())
+    tx.commit().map_err(|e| e.to_string())?;
+    crate::store::mark_changed();
+    Ok(())
 }
 
 /// The account row of (user, exchange), created unknown when there is none.

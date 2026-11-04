@@ -60,6 +60,40 @@ impl Ctx {
         i18n::t(self.locale, key, &[])
     }
 
+    /// The desktop app's pages (DELTABADGER_PLATFORM=desktop).
+    pub fn desktop(&self) -> bool { self.app.update_platform == crate::jobs::app_update::Platform::Desktop }
+
+    /// The desktop app's launch token (PLAN-B7 r3.4): the app answers only a page that carries the token of the engine
+    /// it started. Nothing elsewhere.
+    pub fn desktop_launch_meta(&self) -> String {
+        match crate::web::refused::ready_token() {
+            Some(token) if self.desktop() => format!("<meta name=\"desktop-launch\" content=\"{}\">", i18n::escape(token)),
+            _ => String::new(),
+        }
+    }
+
+    /// The desktop app's update banner (PLAN-B7 §5.2, r4.5), hidden: every state's line is carried here once, and
+    /// tauri.js shows the one the app's update agent is in — here and in the Settings row. Nothing elsewhere.
+    pub fn desktop_update_banner(&self) -> String {
+        if !self.desktop() {
+            return String::new();
+        }
+        const LINES: [&str; 18] = [
+            "about", "about_check_only", "downloading", "downloading_percent", "ready", "ready_more", "critical_ready",
+            "critical_downloading", "critical_downloading_percent", "failed_download", "failed_verify", "failed_space",
+            "failed_install", "deb", "manual", "restart", "try_again", "download_page",
+        ];
+        let mut texts: String = LINES.iter().map(|k| format!(" data-text-{}=\"{}\"", k.replace('_', "-"), self.t(&format!("desktop_update.{k}")))).collect();
+        for (name, key) in [("checking", "checking"), ("up-to-date", "up_to_date"), ("check-failed", "check_failed"), ("check-now", "check_now")] {
+            texts.push_str(&format!(" data-text-{name}=\"{}\"", self.t(&format!("settings.app_update.{key}"))));
+        }
+        format!(
+            "<div id=\"desktop_update\" class=\"salert salert--download hidden\" role=\"status\" data-desktop-update-banner{texts}>\n  <p data-desktop-update-line></p>\n  <p data-desktop-update-more></p>\n  <div>\n    <button type=\"button\" class=\"rbutton rbutton--secondary hidden\" data-desktop-update-action></button>\n    <a class=\"hidden\" target=\"_blank\" rel=\"noopener\" href=\"{}\" data-desktop-update-link>{}</a>\n  </div>\n</div>\n",
+            crate::jobs::app_update::RELEASES_URL,
+            self.t("desktop_update.download_page")
+        )
+    }
+
     /// `t(key, count: n)`.
     pub fn t_count(&self, key: &str, n: i64) -> String {
         i18n::t(self.locale, key, &[("count", i18n::Arg::Count(n))])
@@ -94,7 +128,8 @@ impl Ctx {
     }
 
     pub fn csrf_verified(&self, headers: &HeaderMap) -> bool {
-        csrf::verified(self.session.lock().csrf.as_deref(), headers, self.params.authenticity_token(), self.app.config.origin(headers).as_deref())
+        let [own, request] = self.app.config.form_origins(headers);
+        csrf::verified(self.session.lock().csrf.as_deref(), headers, self.params.authenticity_token(), &[own.as_deref(), request.as_deref()])
     }
 
     /// The entries of the language dropdown. Which one is left out follows `params[:locale]`, not
@@ -185,6 +220,7 @@ struct NotPorted<'a> {
     frame: &'a str,
     method: &'a str,
     path: &'a str,
+    note: Option<&'a str>,
 }
 
 #[derive(Template)]
@@ -192,6 +228,8 @@ struct NotPorted<'a> {
 struct NotPortedMessage<'a> {
     method: &'a str,
     path: &'a str,
+    /// One line for the owner under the request (PLAN-A23 Q4: why a legacy bot stays as it is).
+    note: Option<&'a str>,
 }
 
 /// A rendered view on its way into a layout.
@@ -227,15 +265,17 @@ pub fn devise(ctx: &Ctx, csrf: &str, page: Page) -> Result<Response, WebError> {
 /// request that also accepts a Turbo Stream (the redirect a nested frame's form submission follows: Turbo renders a stream
 /// before it looks at the status, and loads a failed submission into the frame that holds the form) gets the message as a
 /// stream that updates that frame instead.
-pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>, stream: bool) -> Response {
+pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>, stream: bool) -> Response { noted(method, path, frame, stream, None) }
+
+fn noted(method: &Method, path: &str, frame: Option<&str>, stream: bool, note: Option<&str>) -> Response {
     let safe=locale::without_secret_query(path);
     if let (Some(frame), true) = (frame, stream) {
-        return match (NotPortedMessage { method: method.as_str(), path: &safe }).render() {
+        return match (NotPortedMessage { method: method.as_str(), path: &safe, note }).render() {
             Ok(inner) => (StatusCode::NOT_IMPLEMENTED, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], turbo::stream("update", frame, &inner)).into_response(),
             Err(error) => WebError::from(error).into_response(),
         };
     }
-    let page = NotPorted { frame: frame.unwrap_or("not-ported"), method: method.as_str(), path:&safe };
+    let page = NotPorted { frame: frame.unwrap_or("not-ported"), method: method.as_str(), path:&safe, note };
     match page.render() {
         Ok(body) => html(StatusCode::NOT_IMPLEMENTED, body),
         Err(error) => WebError::from(error).into_response(),
@@ -266,8 +306,14 @@ pub fn missing() -> Response {
 /// The same answer from a handler that knows why it does not serve a page Rails serves. The reason
 /// goes to the log: the page names the request, which is what its reader can act on.
 pub fn refused(ctx: &Ctx, reason: &str) -> Response {
-    eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, super::hook::mask_hook_path(&locale::without_secret_query(&ctx.params.fullpath)));
+    crate::eline!("deltabadger: {} {} is not served: {reason}", ctx.method, super::hook::mask_hook_path(&locale::without_secret_query(&ctx.params.fullpath)));
     not_ported_for(ctx)
+}
+
+/// `refused` with one line for the owner on the page (PLAN-A23 Q4).
+pub fn refused_noted(ctx: &Ctx, reason: &str, note: &str) -> Response {
+    crate::eline!("deltabadger: {} {} is not served: {reason}", ctx.method, super::hook::mask_hook_path(&locale::without_secret_query(&ctx.params.fullpath)));
+    noted(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref(), ctx.stream, Some(note))
 }
 
 /// The answer to a failed read of a bot: the 501 page when it failed on a stored number this build
@@ -277,7 +323,13 @@ pub fn or_refused(ctx: &Ctx, error: WebError) -> Result<Response, WebError> {
 }
 
 pub async fn not_ported(request: Request) -> Response {
-    // The path as it was requested: `entry` has taken the locale prefix off the URI by now.
-    let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| params.fullpath.clone());
+    // The path as it was requested: `entry` has taken the locale prefix off the URI by now. Under /oauth/ and
+    // /.well-known/ without its query, where an OAuth client's secret or token may stand under a name the page's
+    // redaction (locale::SENSITIVE, Rails' list) does not know (`client_secret`, `bearer_token`).
+    let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| {
+        // `/de/oauth/…` too: those paths keep their locale segment (locale::UNSCOPED).
+        let oauth = params.route_path.split('/').skip(1).take(2).any(|segment| segment == "oauth" || segment == ".well-known");
+        if oauth { params.full_path.clone() } else { params.fullpath.clone() }
+    });
     not_ported_response(request.method(), &path, header_text(request.headers(), "turbo-frame"), turbo::accepts_stream(request.headers()))
 }

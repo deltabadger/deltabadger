@@ -247,9 +247,15 @@ pub(super) fn switch(ctx: &Ctx) -> Result<String, WebError> {
 #[allow(clippy::too_many_arguments)] // tracker/_record's locals, the history-gap lines above its newest row, and the holdings pane
 pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap], holdings: &str) -> Result<String, WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
-    let all = ctx.params.query("all").is_some_and(|v| !v.trim().is_empty());
-    let sql = format!("SELECT id FROM account_transactions WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) ORDER BY transacted_at DESC{}", if all { String::new() } else { format!(" LIMIT {ROW_LIMIT}") });
-    let ids: Vec<i64> = { let mut s = c.prepare(&sql)?; let ids = s.query_map(rusqlite::params![owner, scope], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?; ids };
+    let all = super::window::present(ctx, "all").is_some();
+    // `filtered_transactions.by_date`: the window narrows this table (and its Type filter) only, before the limit.
+    let zone = super::window::zone(ctx);
+    let window = super::window::read(ctx, zone).map_err(|_| invalid())?;
+    let mut sql = "SELECT id FROM account_transactions WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2)".to_string();
+    let mut binds = vec![rusqlite::types::Value::Integer(owner), scope.map_or(rusqlite::types::Value::Null, rusqlite::types::Value::Integer)];
+    window.push(&mut sql, &mut binds);
+    sql.push_str(&format!(" ORDER BY transacted_at DESC{}", if all { String::new() } else { format!(" LIMIT {ROW_LIMIT}") }));
+    let ids: Vec<i64> = { let mut s = c.prepare(&sql)?; let ids = s.query_map(rusqlite::params_from_iter(binds), |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?; ids };
     let mut rows = vec![];
     for id in &ids { crate::figures::budget::charge(1, 0).map_err(|_| invalid())?; rows.push(super::row::Row::load(c, owner, *id)?.ok_or_else(invalid)?); }
     let record = |key: &str| i18n::text(ctx.locale, &format!("tracker.record.{key}"), &[]);
@@ -285,8 +291,8 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: O
             column("opened"), column("name"), column("type"), column("status"), ctx.t("data_labels.pnl"), column("hold"))
     };
     let first: Option<String> = c.query_row("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id=?1", [owner], |r| r.get(0))?;
-    let from = match ctx.params.query("from").filter(|v| !v.trim().is_empty()) { Some(v) => v.to_string(), None => first.map(|t| crate::codec::parse_time(&t).map(|t| t.date_naive().to_string()).map_err(|_| invalid())).transpose()?.unwrap_or_default() };
-    let to = match ctx.params.query("to").filter(|v| !v.trim().is_empty()) { Some(v) => v.to_string(), None => ctx.app.now().date_naive().to_string() };
+    let first = first.map(|t| crate::codec::parse_time(&t).map_err(|_| invalid())).transpose()?;
+    let (from, to) = super::window::defaults(ctx, zone, first);
     let hidden_scope = ctx.params.query("exchange_id").filter(|s| !s.trim().is_empty()).map(|s| format!("        <input type=\"hidden\" name=\"exchange_id\" id=\"exchange_id\" value=\"{}\" />\n", escape(s))).unwrap_or_default();
     let filters_action = FILTERS_ACTION;
     Ok(format!("<div class=\"tracker-record\" data-controller=\"tracker--record\">\n  <div class=\"tracker-record__switch filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold\">\n    {switch}\n  </div>\n\n{holdings}  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table\" data-controller=\"table-fit\">\n{tx_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"pos\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table tracker-positions\" data-controller=\"table-fit\">\n{positions_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__actions\">\n    <form class=\"tracker-date-range\" data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"get\">\n{hidden_scope}      <input type=\"date\" name=\"from\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n      <input type=\"date\" name=\"to\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n</form>  </div>\n</div>\n",

@@ -199,13 +199,21 @@ async fn create_order(app: App, job: OrderJob) -> Answer {
     let app2 = app.clone();
     let OrderJob { user, key, payload, kind, args, bot_id, unported } = job;
     let first = app.db(move |c| {
-        let id = match super::rest_idempotency::claim(c, &app2, user, key.as_deref(), payload)? {
+        let id = match super::rest_idempotency::claim(c, &app2, user, key.as_deref(), payload, true)? {
             super::rest_idempotency::Claim::Answer(answer) => return Ok(Err(answer)),
             super::rest_idempotency::Claim::Claimed(id) => id,
         };
         // REST is never a dry run.
         let caller = orders::Caller { user, dry_run: false, mcp: false };
-        Ok(match orders::place(c, &app2, caller, kind, &args, bot_id.as_ref())? {
+        // A20d: the order row and the key's link to it commit together, or neither does.
+        let placed = {
+            let tx = crate::engine::model::immediate(c)?;
+            let placed = orders::place(&tx, &app2, caller, kind, &args, bot_id.as_ref())?;
+            if let Placed::Queued(queued) = &placed { super::rest_idempotency::link(&tx, id, queued.id)?; }
+            tx.commit()?;
+            placed
+        };
+        Ok(match placed {
             Placed::Done(res) if res.status == Domain::NotPorted => {
                 super::rest_idempotency::release(c, id)?;
                 Err(failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &unported))
@@ -249,7 +257,9 @@ fn render(res: Res) -> Answer {
 /// ApiOauthAuthentication: a read of the token (OauthBearerTokenResolver, no write of any token row), 403 for a token
 /// without the `api` scope and 401 for every other refusal.
 fn authenticate(c: &Connection, app: &App, authorization: Option<&str>) -> Result<Result<bearer::Bearer, Answer>, WebError> {
-    Ok(bearer::resolve(c, authorization, "api", app.clock.as_ref())?.map_err(|why| {
+    let resolved = bearer::resolve(c, authorization, "api", app.clock.as_ref())?
+        .and_then(|who| if app.desktop_owner_allowed(who.user_id) { Ok(who) } else { Err(bearer::Refusal::UserNotFound) });
+    Ok(resolved.map_err(|why| {
         let status = if why == bearer::Refusal::InsufficientScope { StatusCode::FORBIDDEN } else { StatusCode::UNAUTHORIZED };
         failure(status, why.code(), why.message())
     }))
@@ -661,5 +671,209 @@ mod tests {
         assert_eq!(found(Method::POST, "/api/v1/bots/1%30/stop").map(|r| r.2), Some(vec![("id", "10".into())]));
         assert_eq!(found(Method::POST, "/api/v1/bots/1+%/stop").map(|r| r.2), Some(vec![("id", "1+%".into())]));
         assert!(route(&Method::POST, "/api/v1/bots/%E2%82/stop").is_some_and(|r| r.bad));
+    }
+
+    /// manual/api.md's endpoint table: each row's method, path segments (`:id` and the like as written) and the tools
+    /// its Tool column names.
+    fn manual_rows() -> Vec<(Method, Vec<String>, Vec<String>)> {
+        let ticked = |cell: &str| cell.split('`').skip(1).step_by(2).map(str::to_string).collect::<Vec<_>>();
+        crate::web::settings::api::MANUAL.lines().filter_map(|line| {
+            let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+            let method = [Method::GET, Method::POST, Method::PATCH, Method::DELETE].into_iter().find(|m| cells.get(1) == Some(&m.as_str()))?;
+            let path = cells.get(2)?.strip_prefix("`/")?.strip_suffix('`')?;
+            Some((method, path.split('/').map(str::to_string).collect(), ticked(cells.get(3)?)))
+        }).collect()
+    }
+
+    /// The tools a gate admits: its one tool, or every tool a `type` can name.
+    fn gate_tools(gate: Gate) -> Vec<&'static str> {
+        let kinds: &[&str] = match gate { Gate::Tool(tool) => return vec![tool], Gate::BotType => &["dca", "index", "signal"],
+            Gate::OrderType => &["market_buy", "market_sell", "limit_buy", "limit_sell"] };
+        kinds.iter().map(|kind| typed_tool(gate, &object(json!({"type": kind}))).unwrap_or_else(|_| panic!("type {kind}"))).collect()
+    }
+
+    /// One path per slice pattern of route()'s match, read from its source: a literal as written, a binding as an id, and
+    /// an arm ending in `rest @ ..` joined to each nested arm under it. An arm in another shape fails here, so a new kind
+    /// of pattern is never skipped unseen.
+    fn route_patterns(source: &str) -> Vec<Vec<String>> {
+        let body = &source[source.find("fn route(").unwrap()..];
+        let body = &body[..body.find("\n}\n").unwrap()];
+        // An arm is one line: one slice pattern, an optional `if` guard, then `=>`. Every arm has its `=>`, so each line
+        // holding one must be such an arm or `_ =>`; anything else fails: an arm over two lines, two on one line, an
+        // or-pattern (`[..] | [..]`, a leading `|`), a binding.
+        for line in body.lines().filter(|l| l.contains("=>")) {
+            let t = line.trim_start();
+            // One arm per line: a second `=>` on it is a second arm (or a match inside the arm) it would not read.
+            assert!((t.starts_with('[') || t.starts_with("_ =>")) && line.matches("=>").count() == 1, "an arm route_patterns cannot read: {line}");
+        }
+        let arms: Vec<(usize, &str)> = body.lines().filter_map(|line| {
+            let inside = line.trim_start().strip_prefix('[')?;
+            let unread = format!("an arm route_patterns cannot read: {line}");
+            let close = inside.find(']').expect(&unread);
+            let (between, _) = inside[close + 1..].split_once("=>").expect(&unread);
+            let between = between.trim();
+            assert!((between.is_empty() || between.starts_with("if ")) && !between.contains(['|', '[']), "{unread}");
+            Some((line.len() - line.trim_start().len(), &inside[..close]))
+        }).collect();
+        let top = arms.iter().map(|(indent, _)| *indent).min().unwrap();
+        let (mut paths, mut prefix) = (vec![], None::<Vec<String>>);
+        for (indent, inside) in arms {
+            let mut segments = vec![];
+            let mut open = false;
+            for element in inside.split(',').map(str::trim).filter(|e| !e.is_empty()) {
+                let literal = element.strip_prefix('"').and_then(|e| e.strip_suffix('"')).filter(|l| !l.is_empty() && l.bytes().all(|b| b.is_ascii_lowercase() || b == b'_'));
+                if let Some(literal) = literal { segments.push(literal.to_string()); }
+                else if element.ends_with("@ ..") { open = true; }
+                else if element.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') { segments.push("7".to_string()); }
+                else { panic!("an element route_patterns cannot read: {element}"); }
+            }
+            if indent == top {
+                prefix = open.then(|| segments.clone());
+                if !open { paths.push(segments); }
+            } else {
+                let mut path = prefix.clone().expect("a nested arm under an arm without `rest @ ..`");
+                path.extend(segments);
+                paths.push(path);
+            }
+        }
+        assert!(paths.len() > 30 && paths.iter().any(|p| p.join("/") == "tax/reports/7/7/download"), "route()'s arms were not read: {paths:?}");
+        paths
+    }
+
+    /// route_patterns refuses an arm it would otherwise drop: a pattern written over two lines.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_an_arm_over_two_lines() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b),\n        [\"orders\",\n         id] if delete => (c, d),\n    }\n}\n");
+    }
+
+    /// Nor an or-pattern, whose second alternative it would drop.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_an_or_pattern() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] | [\"new_bots\"] if get => (a, b),\n    }\n}\n");
+    }
+
+    /// Nor an arm opened by `|`.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_a_leading_bar_arm() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b),\n        | [\"new_bots\"] if get => (a, b),\n    }\n}\n");
+    }
+
+    /// Nor a second arm on one line.
+    #[test]
+    #[should_panic(expected = "an arm route_patterns cannot read")]
+    fn route_patterns_refuses_two_arms_on_one_line() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\"] if get => (a, b), [\"new_bots\"] if get => (a, b),\n    }\n}\n");
+    }
+
+    /// Nor an or-pattern inside an element.
+    #[test]
+    #[should_panic(expected = "an element route_patterns cannot read")]
+    fn route_patterns_refuses_an_or_pattern_in_an_element() {
+        route_patterns("fn route() {\n    match x {\n        [\"bots\" | \"new_bots\"] if get => (a, b),\n    }\n}\n");
+    }
+
+    /// The manual's REST table against the router, both ways, and its tools against the MCP catalogue. Undocumented on
+    /// purpose: PUT wherever PATCH is served, HEAD wherever GET is, and a `.<format>` suffix on any path (Rails' routing
+    /// draws them; a client never needs them).
+    #[test]
+    fn manual_documents_every_served_route_and_tool() {
+        let rows = manual_rows();
+        assert!(rows.len() >= 30, "the endpoint table was not found in manual/api.md");
+        for (method, segments, tools) in &rows {
+            let path = segments.iter().map(|s| if s.starts_with(':') { "7" } else { s.as_str() }).collect::<Vec<_>>().join("/");
+            let found = route(method, &format!("/api/v1/{path}")).unwrap_or_else(|| panic!("the manual documents {method} /{path}, which is not routed"));
+            assert_eq!(gate_tools(found.gate), *tools, "{method} /{path}: the Tool column");
+        }
+        let documented = |method: &Method, path: &[String], gate: Gate| rows.iter().any(|(m, segments, tools)| {
+            m == method && segments.len() == path.len() && segments.iter().zip(path).all(|(s, p)| s.starts_with(':') || s == p) && *tools == gate_tools(gate)
+        });
+        let mut undocumented = vec![];
+        for path in route_patterns(include_str!("rest.rs")) {
+            let joined = format!("/api/v1/{}", path.join("/"));
+            // A path read from an arm that no method routes was misread.
+            assert!([Method::GET, Method::POST, Method::PATCH, Method::DELETE].iter().any(|m| route(m, &joined).is_some()), "route()'s arm for /{} routes nothing", path.join("/"));
+            for method in [Method::GET, Method::POST, Method::PATCH, Method::PUT, Method::DELETE] {
+                let Some(found) = route(&method, &joined) else { continue };
+                // PUT is PATCH's alias.
+                let shown = if method == Method::PUT { Method::PATCH } else { method.clone() };
+                if !documented(&shown, &path, found.gate) { undocumented.push(format!("{method} /{}", path.join("/"))); }
+            }
+        }
+        assert!(undocumented.is_empty(), "served under /api/v1 but not in manual/api.md's endpoint table: {undocumented:?}");
+        // The Tool column names the MCP catalogue, every tool once.
+        let mut named: Vec<&str> = rows.iter().flat_map(|(_, _, tools)| tools.iter().map(String::as_str)).collect();
+        named.sort_unstable();
+        let mut catalogue = super::super::mcp::tools::NAMES.to_vec();
+        catalogue.sort_unstable();
+        assert_eq!(named, catalogue, "manual/api.md's Tool column against the MCP catalogue");
+    }
+
+    /// Every error code the REST envelope can carry, read from the sources dispatch() reaches. A code is a `&'static str`
+    /// literal (bot_api::Res), so each way one is written is a pattern here; each pattern must still match somewhere, so
+    /// a renamed helper fails this test instead of hiding its codes.
+    // ponytail: a source scan, not a type-checked registry; a code written in a new shape is missed until a pattern is
+    // added. A registry would mean touching every service.
+    fn emitted_codes() -> std::collections::BTreeSet<String> {
+        let sources = [
+            include_str!("rest.rs"), include_str!("rest_idempotency.rs"), include_str!("bearer.rs"), include_str!("bot_api.rs"),
+            include_str!("bot_api/orders.rs"), include_str!("bot/create.rs"), include_str!("bot/write.rs"), include_str!("bot/signal_write.rs"),
+            include_str!("bot/mcp_input.rs"), include_str!("bot/liquidation.rs"), include_str!("bot/redeploy.rs"), include_str!("bot/split.rs"),
+            include_str!("mcp/reads.rs"), include_str!("tracker/api.rs"), include_str!("rules/service.rs"), include_str!("../tax/api.rs"),
+        ];
+        // The code a build runs: each file above its tests (this file's own examples below are no codes).
+        let sources = sources.map(|s| s.split("\n#[cfg(test)]").next().unwrap_or(s));
+        let code = r#""([a-z][a-z_]*)""#;
+        let patterns = [
+            // A service's failure: Res::failure and its wrappers, the rules' refuse, rest's failure.
+            format!(r"(?:Res::failure|\bfail|\bfailure|\bfailed|\brefuse)\(\s*(?:Domain|Status|StatusCode)::(?:[A-Z][A-Za-z_]*),\s*{code}"),
+            // bot::create's invalid, bot::write's Failure.
+            format!(r"(?:\binvalid|Failure::invalid|Failure::conflict)\(\s*{code}"),
+            format!(r"\bcode:\s*{code}"),
+            // A bare (code, message) pair: mcp_input's refusals, write's conflicts. Not a call's arguments: `error("base", …)`
+            // names a form field.
+            format!(r#"[^\w]\(\s*{code},\s*(?:format!\(|"[A-Z]|i18n::text\()"#),
+            // bot::split's reasons, and the codes its refusal maps them to.
+            format!(r"Reason::(?:Plain|Bot)\(\s*{code}"),
+            format!(r"Reason::[A-Za-z]+(?:\([^)]*\))?\s*=>\s*{code}"),
+            // orders' REFUSALS: the engine's codes it lets through.
+            format!(r"\(\s*{code},\s*Domain::[A-Za-z]+\s*\)"),
+        ];
+        // The pair pattern reads a refusal, never a field's error.
+        let pair = regex::Regex::new(&patterns[3]).unwrap();
+        assert!(pair.is_match(r#"Some(("bot_not_running", format!("x")))"#) && pair.is_match(r#"fail(draft, ("no_updates_provided", "No settings".into()))"#));
+        assert!(!pair.is_match(r#"errors.push(error("exchange", i18n::text(l, "k", &[])))"#) && !pair.is_match(r#"self.add("base", i18n::text(l, "k", &[]))"#));
+        let mut codes = std::collections::BTreeSet::new();
+        for pattern in &patterns {
+            let re = regex::Regex::new(pattern).unwrap();
+            let found: Vec<String> = sources.iter().flat_map(|s| re.captures_iter(s).map(|c| c[1].to_string())).collect();
+            assert!(!found.is_empty(), "no source matches {pattern}");
+            codes.extend(found);
+        }
+        // bearer::Refusal::code, the REST refusal of a token.
+        let bearer = include_str!("bearer.rs");
+        let body = &bearer[bearer.find("pub fn code(self)").unwrap()..];
+        let body = &body[..body.find("\n    }\n").unwrap()];
+        codes.extend(regex::Regex::new(&format!("=> {code}")).unwrap().captures_iter(body).map(|c| c[1].to_string()));
+        // A split reason the refusal renames; and the one failure that is Rails' 500 below the controllers, never an envelope.
+        let renamed = regex::Regex::new(&format!(r"Reason::Bot\(\s*{code},\s*_\)\s*=>")).unwrap();
+        for gone in renamed.captures_iter(include_str!("bot/split.rs")).map(|c| c[1].to_string()).chain(["internal_error".to_string()]) { codes.remove(&gone); }
+        codes
+    }
+
+    /// manual/api.md's status table names exactly the codes the envelope can carry.
+    #[test]
+    fn manual_status_table_lists_every_error_code() {
+        let manual = crate::web::settings::api::MANUAL;
+        let table = &manual[manual.find("### HTTP status mapping").expect("the status table's heading")..];
+        let table = &table[..table.find("\n\n## ").or_else(|| table.find("\n---")).unwrap()];
+        let listed: std::collections::BTreeSet<String> = table.lines().filter(|l| l.starts_with("| ") && l.as_bytes().get(2).is_some_and(u8::is_ascii_digit))
+            .flat_map(|l| l.split('|').nth(2).unwrap_or("").split('`').skip(1).step_by(2).map(str::to_string).collect::<Vec<_>>()).collect();
+        let emitted = emitted_codes();
+        let missing: Vec<_> = emitted.difference(&listed).collect();
+        let stale: Vec<_> = listed.difference(&emitted).collect();
+        assert!(missing.is_empty() && stale.is_empty(), "manual/api.md's status table: missing {missing:?}; never emitted {stale:?}");
     }
 }

@@ -1,5 +1,0 @@
-{
-  "build": {
-    "beforeBuildCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bundle_desktop.ps1"
-  }
-}

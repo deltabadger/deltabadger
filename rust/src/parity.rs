@@ -24,10 +24,10 @@ const TABLES: [&str; 5] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-pub const RUST_KEYS: [&str; 14] = ["run_generation", crate::engine::model::HISTORY_GENERATION, "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+pub const RUST_KEYS: [&str; 15] = ["run_generation", crate::engine::model::HISTORY_GENERATION, "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
                                crate::engine::amount_limit::STOP_MAILED,
                                "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY,
-                               crate::engine::conditions::INFO_KEY, crate::engine::conditions::INFO_WANTED_KEY];
+                               crate::engine::conditions::INFO_KEY, crate::engine::conditions::INFO_WANTED_KEY, crate::engine::polling::REFRESH_KEY];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -234,6 +234,12 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
     // copy's last Rails heartbeat must not read as alive against it.
     let _lock = lease::lock(&paths, chrono::Utc::now())?;
     let o = store::open(&paths)?;
+    // A poll reads A28-2's booking tables (a booked row is never stale-abandoned nor lowered); Rails built the copy without
+    // them. Only those (empty) tables: the decisions are judged on the install as Rails left it.
+    // Recorded as applied, so a scenario that later migrates the copy (api_orders) skips it.
+    o.primary.execute_batch(include_str!("../migrations/20261110000001_rust_rails_unrecorded_booking.sql"))?;
+    o.primary.execute_batch("CREATE TABLE IF NOT EXISTS rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL); \
+                             INSERT INTO rust_schema_migrations (version, applied_at) VALUES ('20261110000001', '2026-11-04 00:00:00')")?;
     if let (Some(primary),Some(salt))=(scenario["encryption"]["primary_key"].as_str(),scenario["encryption"]["key_derivation_salt"].as_str()) {
         let cipher=Cipher::new(&EncryptionKeys{primary_key:primary.into(),key_derivation_salt:salt.into()});
         crate::engine::provider::bind(&o.primary,&cipher,&|_|None)?;

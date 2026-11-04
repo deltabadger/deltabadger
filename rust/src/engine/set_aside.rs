@@ -4,7 +4,8 @@
 //! refused it runs again on the same transaction: what is still refused (work in flight, a row or key this build can't
 //! read) is a hard stop, and the caller rolls the transaction back, so nothing is written.
 //! D-UPGRADE-SET-ASIDE: Rails would have kept trading such a bot; 3.0 stops it and says why.
-use super::eligibility::{self, Allocations, Feature, History, Kind, Reason, Report, StartTime, Work};
+use super::eligibility::{self, Allocations, Feature, History, Kind, Reason, Report, Work};
+use super::single_asset::Skip;
 use super::EngineError;
 use crate::crypto::Cipher;
 use crate::enums::{RuleStatus, BOT_WORKING};
@@ -23,7 +24,8 @@ pub const STOP_KEY: &str = "bot.status.set_aside";
 pub struct Aside { pub id: i64, pub name: String, pub reasons: Vec<String> }
 
 /// What a start sets aside, and the report of the state it leaves (the one the engine then runs).
-pub struct Plan { pub bots: Vec<Aside>, pub rules: Vec<i64>, pub report: Report }
+/// `converted`: the legacy single-asset bots this start turned into one-asset baskets (single_asset::convert_all).
+pub struct Plan { pub bots: Vec<Aside>, pub rules: Vec<i64>, pub report: Report, pub converted: Vec<i64> }
 
 /// A hard stop: C6's lines for the owner, one per bot, and the check's own lines for support (the log, never the page).
 #[derive(Debug)]
@@ -34,6 +36,8 @@ pub struct Hard { pub lines: Vec<String>, pub details: Vec<String> }
 /// a hard stop; the caller must roll `tx` back.
 pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connection) -> Result<Report, EngineError>, now: DateTime<Utc>)
     -> Result<Result<Plan, Hard>, EngineError> {
+    // PLAN-A23: legacy single-asset bots become one-asset baskets first; the check below then reads them as any basket.
+    let converted = super::single_asset::convert_all(tx, now)?;
     let first = report(tx)?;
     // Candidates: each working bot the check refuses, with its reasons, and each working bot whose exchange has no Rust code
     // or that has no key. A key that does not read is no candidate (it means a wrong secret): it stays refused below.
@@ -106,7 +110,7 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
     for (id, said) in left { lines.push(format!("{}: {}", name(tx, id)?, said.join(" "))); }
     for id in &after.rules { lines.push(format!("Rule {id}: {}", rule_stopped(tx, *id)?)); }
     if !lines.is_empty() { return Ok(Err(Hard { lines, details })); }
-    Ok(Ok(Plan { bots, rules, report: after }))
+    Ok(Ok(Plan { bots, rules, report: after, converted }))
 }
 
 /// The reasons a set-aside bot carries (`KEY`), or None.
@@ -125,6 +129,14 @@ pub fn would_stop(aside: &Aside) -> String {
     format!("{} will be stopped at the next start: {}", aside.name, aside.reasons.join(" "))
 }
 
+/// `check`'s line for a bot `apply` converts (PLAN-A23).
+pub fn would_convert(c: &Connection, id: i64) -> Result<String, EngineError> {
+    Ok(format!("{} will be converted into a one-asset basket at the next start", name(c, id)?))
+}
+
+/// The start log's line for it.
+pub fn converted(c: &Connection, id: i64) -> Result<String, EngineError> { Ok(format!("converted {} into a one-asset basket", name(c, id)?)) }
+
 /// The start log's line for it.
 pub fn stopped(aside: &Aside) -> String {
     format!("stopped {}: {}", aside.name, aside.reasons.join(" "))
@@ -133,7 +145,7 @@ pub fn stopped(aside: &Aside) -> String {
 /// C6: the hard stop, one line per bot. The details go to stderr first, beside the refusal, for support; the page shows
 /// only C6.
 pub fn hard_stop(hard: &Hard) -> String {
-    for line in &hard.details { eprintln!("deltabadger: [check] {line}"); }
+    for line in &hard.details { crate::eline!("deltabadger: [check] {line}"); }
     let lines = &hard.lines;
     format!("Deltabadger didn't start: it can't safely stop these bots for you, because they have orders or data it can't account for yet:\n{}\nNothing was bought or sold. Contact support.",
             lines.join("\n"))
@@ -204,14 +216,12 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
         Kind::Feature(Feature::IbkrLimit) => format!("Limit orders on Interactive Brokers aren't supported yet. Switch the bot to market orders, {again}"),
         Kind::Feature(Feature::IndexSelling) => format!("An index bot can't sell. Switch it back to buying, {again}"),
         Kind::Feature(Feature::BotType(_)) => "This kind of bot isn't supported yet. Keep it stopped.".into(),
+        Kind::Legacy(skip) => legacy_sentence(c, bot_id, skip)?,
         Kind::Flip { condition, to_selling, .. } => {
             let way = if *to_selling { "selling" } else { "buying" };
             format!("When {} is met it would start {way}, and it couldn't run that way. Check its {way} settings, or change what the condition does, {again}",
                     feature(condition).unwrap_or_else(|| "one of its conditions".into()))
         }
-        Kind::StartTime(StartTime::Moved) => "Its starting time no longer matches when it started (a clock change can do this). Set the starting time again, then start the bot.".into(),
-        Kind::StartTime(StartTime::Continued) => "It was continued with a starting time set. Start it fresh, or turn the starting time off, then start the bot.".into(),
-        Kind::StartTime(StartTime::TimeZone) => "Your time zone isn't one Deltabadger recognizes. Choose your time zone again in Settings, then start the bot.".into(),
         Kind::Asset(Some(asset)) => format!("{} can't be traded by this bot on {}. Remove it from the bot or choose another exchange, {again}", symbol(c, *asset)?, exchange_name(c, bot_id)?),
         Kind::Asset(None) => format!("This bot's quote currency can't be used on {}. Choose another one, {again}", exchange_name(c, bot_id)?),
         Kind::Allocations(Allocations::Unbalanced(sum)) => match sum.parse::<f64>() {
@@ -240,6 +250,19 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
             Work::Rebalancing => "It still rebalances, in a way that isn't supported yet.",
             Work::Outstanding => "It has open orders.",
         }.into(),
+    })
+}
+
+/// PLAN-A23 §4: why a legacy single-asset bot stays as it is (S-SETTINGS, S-MARKET, S-HISTORY, S-NEXT-START).
+pub fn legacy_sentence(c: &Connection, bot_id: i64, skip: &Skip) -> Result<String, EngineError> {
+    let kept = "so it can't be updated to run here. It stays stopped with its history.";
+    let history = |what: &str| format!("This is an older kind of bot, and its order history has {what} that the current kind of bot would count differently, {kept} To keep investing, create a new bot.");
+    Ok(match skip {
+        Skip::Settings => format!("This is an older kind of bot, and its settings can't be read, {kept} Contact support."),
+        Skip::Market => format!("This is an older kind of bot, and its market isn't listed on {} anymore, {kept} To keep investing, create a new bot.", exchange_name(c, bot_id)?),
+        Skip::History(what) => history(what),
+        Skip::Memberships => history("assets it didn't buy"),
+        Skip::NextStart => "This is an older kind of bot. It's updated to run here the next time Deltabadger starts; then start the bot again.".into(),
     })
 }
 

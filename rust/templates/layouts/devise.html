@@ -10,11 +10,12 @@
     {% include "layouts/_favicon.html" %}
 
     <link rel="stylesheet" href="{{ v.asset("application.css") }}" media="all" data-turbo-track="reload" />
-    <script src="{{ v.asset("application.js") }}" data-turbo-track="reload" defer="defer"></script>
+    {% if v.desktop() %}<script src="{{ v.asset("application.js") }}" data-turbo-track="reload" type="module"></script>{% else %}<script src="{{ v.asset("application.js") }}" data-turbo-track="reload" defer="defer"></script>{% endif %}
 
     <meta name="csrf-param" content="authenticity_token" />
 <meta name="csrf-token" content="{{ csrf }}" />
     <meta name="csp-nonce" content="{{ v.nonce }}" />
+    {{- v.desktop_launch_meta()|safe }}
   </head>
 
   <body data-controller="hotwire-animations">
@@ -28,6 +29,7 @@
       </div>
       <div id="flash" class="flash-stack">
         {{ flash|safe }}
+        {{- v.desktop_update_banner()|safe }}
       </div>
 
     </div>

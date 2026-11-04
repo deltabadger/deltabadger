@@ -4,6 +4,7 @@
 //!
 //! A request passes through `entry` (static files, form parsing, method override, locale prefix),
 //! then the routes, wrapped by `pipeline` (session, rate limits, who is signed in, CSRF, response headers).
+pub mod admin_jobs;
 pub mod assets;
 pub mod auth;
 pub mod bearer;
@@ -13,6 +14,7 @@ pub mod bots;
 pub mod broadcasts;
 pub mod below_minimum;
 pub mod cable;
+pub mod desktop;
 pub mod consent;
 pub mod colors;
 pub mod csrf;
@@ -31,7 +33,7 @@ pub mod oauth;
 pub mod rate_limit;
 pub mod refused;
 pub mod rest;
-mod rest_idempotency;
+pub(crate) mod rest_idempotency;
 pub mod ring;
 pub mod rules;
 pub mod server;
@@ -42,6 +44,7 @@ pub mod password;
 pub mod registration;
 pub mod shell;
 pub mod timezone;
+pub mod tooltip;
 pub mod tracker;
 pub mod string_column;
 pub mod turbo;
@@ -97,7 +100,7 @@ impl IntoResponse for WebError {
             response.extensions_mut().insert(headers::BelowControllers);
             return response;
         }
-        eprintln!("deltabadger: request failed: {self:?}");
+        crate::eline!("deltabadger: request failed: {self:?}");
         (StatusCode::INTERNAL_SERVER_ERROR, [(header::CONTENT_TYPE, "text/html; charset=utf-8")], error_page()).into_response()
     }
 }
@@ -329,6 +332,15 @@ impl Config {
     pub fn origin(&self, headers: &HeaderMap) -> Option<String> {
         self.own_origin.clone().or_else(|| self.request_origin(headers))
     }
+
+    /// The origins a form may be posted from: APP_ROOT_URL's, and the request's own (Rails' `request.base_url`, all
+    /// Rails compares with). D-B5-ORIGIN-HOST: APP_ROOT_URL's alone refused a browser that reached the app by another
+    /// name than the configured one (Umbrel's proxy keeps the browser's Host, and users open the app at the device's
+    /// address as well as at umbrel.local), where 2.x accepted it. A page on another site can set neither its Origin
+    /// nor the Host it is sent to, so the request's own origin is no weaker than the configured one.
+    pub fn form_origins(&self, headers: &HeaderMap) -> [Option<String>; 2] {
+        [self.own_origin.clone(), self.request_origin(headers)]
+    }
 }
 
 /// Keys for this crate's own cookie and signatures: HMAC-SHA256(secret_key_base, label). The labels
@@ -354,6 +366,10 @@ pub struct Inner {
     settings_jobs:std::sync::OnceLock<crate::jobs::Wakers>,
     pub settings_smtp:crate::mail::smtp::Env,
     settings_smtp_provider_name:String,
+    /// Installation.platform, as the process started (settings/widgets/_app_update).
+    pub(crate) update_platform: crate::jobs::app_update::Platform,
+    /// The desktop's account, tickets and browser code (web::desktop); `None` on every other platform.
+    pub(crate) desktop: Option<desktop::Desktop>,
     settings_market_provider_name:String,
     pub settings_key_hosts:crate::venue::alpaca::Hosts,
     /// Where a venue's own key check goes (the wizard's key step), by exchange type: a test server; else the registry's host.
@@ -432,7 +448,7 @@ impl App {
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),venue_key_urls:Vec::new(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
-            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
+            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),update_platform:crate::jobs::app_update::platform(env),desktop:desktop::Desktop::from_env(crate::jobs::app_update::platform(env),env),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
@@ -658,7 +674,8 @@ fn only(route: MethodRouter<App>) -> MethodRouter<App> {
 
 /// What an OAuth client calls on its own (web::oauth). These routes are outside the pipeline: they
 /// never read the session and take no CSRF token, because nothing in them acts for a signed-in
-/// browser. That holds for exactly these paths and methods; any other method on them is the 501.
+/// browser. That holds for exactly these paths and methods; any other method on them is the 501
+/// (which names no query here: `layout::not_ported`).
 fn oauth_api(app: App) -> Router<App> {
     Router::new()
         .route("/.well-known/oauth-authorization-server", only(get(oauth::authorization_server)))
@@ -667,9 +684,10 @@ fn oauth_api(app: App) -> Router<App> {
         .route("/oauth/register", only(post(oauth::register)))
         .route("/oauth/token", only(post(oauth::token)))
         .route("/oauth/revoke", only(post(oauth::revoke)))
-        // Doorkeeper also routes these two. The metadata does not advertise them and no client is told of them: not served.
-        .route("/oauth/introspect", any(layout::not_ported))
-        .route("/oauth/token/info", any(layout::not_ported))
+        .route("/oauth/introspect", only(post(oauth::introspect)))
+        .route("/oauth/token/info", only(get(oauth::token_info)))
+        // D-OAUTH-NATIVE-UNSERVED: Doorkeeper's page for an out-of-band redirect URI, which no client here can be given.
+        .route("/oauth/authorize/native", only(get(oauth::absent)))
         .layer(middleware::from_fn_with_state(app, oauth::api))
 }
 
@@ -788,6 +806,8 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/liquidation_resolutions", only(post(bot::liquidation::clear)))
         .route("/bots/{id}/redeploy", only(post(bot::redeploy::create).delete(bot::redeploy::destroy)))
         .route("/bots/{id}/rebalance_resolutions", only(post(bot::rebalance::resolve)))
+        // A28-2a: the owner's answer to an order Rails sent but never recorded.
+        .route("/bots/{id}/rails_orders", only(post(bot::rails_orders::create)))
         .route("/bots/{id}/transactions/{tx}", only(delete(bot::cancel::destroy)))
         .route("/bots/{id}/export", only(post(bot::csv::export)))
         .route("/bots/{id}/import", only(post(bot::csv::import)))
@@ -822,6 +842,11 @@ fn routes(app: App) -> Router {
         .route("/broadcasts/moving_average_limit_info_update", only(post(broadcasts::moving_average_limit_info_update)))
         .route("/broadcasts/indicator_limit_info_update", only(post(broadcasts::indicator_limit_info_update)))
         .route("/broadcasts/tax_report_state", only(post(tracker::report::tax_report_state)))
+        .route("/broadcasts/fetch_open_orders", only(post(broadcasts::fetch_open_orders)))
+        .route("/asset_tooltip", only(get(tooltip::show)))
+        // A25 (D-JOBS-RUST-VIEW): the admin's jobs page; nothing under it (D-JOBS-SUBPATHS-ABSENT).
+        .route("/jobs", only(get(admin_jobs::show).post(admin_jobs::run)))
+        .route("/jobs/{*rest}", any(admin_jobs::absent))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
@@ -832,7 +857,7 @@ fn routes(app: App) -> Router {
         // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
-        .route("/ui-ready", only(get(refused::ui_ready)))
+        .route("/ui-ready", only(get(|| refused::ui_ready("app"))))
         .route("/csp-report", only(post(csp_report)))
         .route("/cable", only(get(cable::connect)))
         .with_state(app)
@@ -925,7 +950,7 @@ struct Entry {
 pub fn blocked_host(headers: &HeaderMap, hosts: &[String]) -> Response {
     // The hosts are the request's own text: shortened, and escaped, before they are printed.
     let named: Vec<String> = hosts.iter().map(|host| host.chars().take(100).flat_map(char::escape_default).collect()).collect();
-    eprintln!("deltabadger: blocked hosts: {}", named.join(", "));
+    crate::eline!("deltabadger: blocked hosts: {}", named.join(", "));
     let xhr = header_text(headers, "x-requested-with").is_some_and(|with| with.to_ascii_lowercase().contains("xmlhttprequest"));
     (StatusCode::FORBIDDEN, [(header::CONTENT_TYPE, if xhr { "text/plain; charset=UTF-8" } else { "text/html; charset=UTF-8" })], "").into_response()
 }
@@ -942,7 +967,7 @@ pub const QUERY_LIMIT: usize = 8 * 1024;
 pub const QUERY_FIELDS: usize = FORM_FIELDS;
 /// The paths whose POST may carry `application/json` instead of a form: what an OAuth client sends
 /// on its own (web::oauth). The body is read under the form's limit and deadline.
-pub const JSON_PATHS: [&str; 3] = ["/oauth/register", "/oauth/token", "/oauth/revoke"];
+pub const JSON_PATHS: [&str; 4] = ["/oauth/register", "/oauth/token", "/oauth/revoke", "/oauth/introspect"];
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 /// The multipart body read (POST /tracker/import, web::multipart; and POST /bots/:id/import): a file of transactions. Rails
@@ -989,6 +1014,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     }
     let full_path = normalize_path(parts.uri.path());
     if matches!(parts.method, Method::GET | Method::HEAD) {
+        if full_path == "/service-worker.js" && entry.app.update_platform == crate::jobs::app_update::Platform::Desktop {
+            return assets::retiring_worker(parts.method == Method::HEAD);
+        }
         if let Some(file) = assets::find(&full_path) {
             return assets::respond(file, parts.method == Method::HEAD);
         }
@@ -996,7 +1024,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
     let original_method = parts.method.clone();
     let (path_locale, route_path) = locale::split(&full_path);
-    let route_path = route_path.to_string();
+    let route_path = oauth::unformatted(route_path).to_string();
     let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
     let json_type = content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     // The method a JSON body's route is chosen by: Rack::MethodOverride reads no JSON body, so only the header can turn
@@ -1018,9 +1046,11 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // POST /hook/*: its body is read whatever its type (bounded, so a stalled body spends no claim) and parsed only as
     // Rack parses it (web::hook::body).
     let hook_post = original_method == Method::POST && (route_path == "/hook" || route_path.starts_with("/hook/"));
-    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&oauth::unformatted(&full_path))))
         && json_type;
     let mut json = None;
+    // A JSON body of whitespace alone: no parameters here, a parse error to Rails.
+    let mut blank_json = false;
     let mut upload = None;
     // What Rack read as the form, for the override: None when it read none, or could not parse it.
     let mut rack_form = true;
@@ -1061,7 +1091,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
             },
             Ok(bytes) if json_post => match serde_json::from_slice::<serde_json::Value>(&bytes) {
                 Ok(value) => { json = value.is_object().then_some(value); (Vec::new(), Body::empty()) }
-                Err(_) if bytes.iter().all(u8::is_ascii_whitespace) => (Vec::new(), Body::empty()),
+                Err(_) if bytes.iter().all(u8::is_ascii_whitespace) => { blank_json = !bytes.is_empty(); (Vec::new(), Body::empty()) }
                 Err(_) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
             },
             Ok(bytes) if form_urlencoded::parse(&bytes).nth(FORM_FIELDS).is_some() => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
@@ -1078,7 +1108,14 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     if original_method == Method::POST {
         if let Some(method) = method_override(rack_form.then_some(form.as_slice()), override_header.as_deref()) { parts.method = method; }
     }
-    if unparseable { parts.extensions.insert(hook::Unparseable); }
+    // On the routes that count how a token was sent, a body is read only where Rails and this crate read it alike:
+    // a POST's form, or a POST's JSON object. Any other body (a GET's, a multipart one, one with no content type,
+    // which Rack reads as a form; JSON of whitespace alone) could hold a token nothing here counted: refused whole.
+    let sent_body = header_text(&parts.headers, "content-length").is_some_and(|length| length.trim() != "0") || parts.headers.contains_key(header::TRANSFER_ENCODING);
+    let body_read_alike = original_method == Method::POST && (form_post || json_post) && !blank_json;
+    let rack_refused = oauth::RACK_READ.contains(&route_path.as_str())
+        && ((sent_body && !body_read_alike) || !(rack_form && hook::rack_form_ok(raw_query.as_bytes())));
+    if unparseable || rack_refused { parts.extensions.insert(hook::Unparseable); }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
@@ -1100,6 +1137,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         && bot::action_params::ActionParams::parse(&params).is_err() {
         return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response();
     }
+    // D-DESKTOP-NO-ACCOUNT-PAGES and the launcher's /desktop routes: before the session, CSRF, the setup gate and sign-in.
+    if let Some(answer) = desktop::guard(&entry.app, &parts.method, &params, &parts.headers) { return answer; }
     parts.extensions.insert(Arc::new(params));
     match entry.routes.oneshot(Request::from_parts(parts, body)).await {
         Ok(response) => response,
@@ -1122,6 +1161,18 @@ pub fn router_with_routes(app: App, routes: Router, body_read_timeout: Duration)
     Router::new().fallback(entry).with_state(Entry { app, routes, body_read_timeout })
 }
 
+/// D-DESKTOP-DOWNLOADS-INLINE (PLAN-B6 §7, r5.1): the desktop's WebView shows any type it can display, attachment or not,
+/// so a download of text (the tracker export, the tax report, the API manual) would replace the app in its window, and
+/// the tax report is gone once served. On the desktop an attachment is sent as a type no WebView displays: the app saves
+/// it to the Downloads folder. Every other platform keeps its type.
+fn desktop_download(headers: &mut axum::http::HeaderMap, platform: crate::jobs::app_update::Platform) {
+    let attachment = headers.get(header::CONTENT_DISPOSITION).and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.trim_start().to_ascii_lowercase().starts_with("attachment"));
+    if platform == crate::jobs::app_update::Platform::Desktop && attachment {
+        headers.insert(header::CONTENT_TYPE, axum::http::HeaderValue::from_static("application/octet-stream"));
+    }
+}
+
 /// What goes onto every response of the app: the session cookie when it has to be written, the
 /// policy headers, and the controller's default headers unless the response was produced below the
 /// controllers. The cookie is written when the request changed the session (`before` is what the
@@ -1140,6 +1191,7 @@ fn finish(app: &App, session: &session::Session, before: &session::SessionData, 
         }
     }
     headers::policy(response.headers_mut(), nonce, app.config.force_ssl);
+    desktop_download(response.headers_mut(), app.update_platform);
     let status = response.status();
     if response.extensions().get::<headers::BelowControllers>().is_some() {
         headers::cache_control(response.headers_mut(), status, false);
@@ -1172,6 +1224,16 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     if let Some(retry_after) = limited {
         return finish(&app, &session, &before, &nonce, now, false, rate_limit::throttled(retry_after));
     }
+    // D-DESKTOP-LAUNCHER-SIGN-IN: before the setup gate and the signed-in redirects; its own limit.
+    if app.desktop.is_some() && params.path_locale.is_none() && params.route_path == "/desktop/sign_in" {
+        if let Some(retry_after) = app.limiter.desktop_sign_in(&address, now) {
+            return finish(&app, &session, &before, &nonce, now, false, rate_limit::throttled(retry_after));
+        }
+        let response = desktop::sign_in(&app, &session, &params).await;
+        let mut response = finish(&app, &session, &before, &nonce, now, false, response);
+        response.headers_mut().insert(header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+        return response;
+    }
 
     let current = match auth::current_user(&app, &session, now).await {
         Ok(current) => current,
@@ -1201,4 +1263,34 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         next.run(request).await
     };
     finish(&app, &session, &before, &nonce, now, signed_in, response)
+}
+
+#[cfg(test)]
+mod desktop_download_tests {
+    use super::*;
+    use crate::jobs::app_update::Platform;
+
+    fn download(disposition: Option<&str>) -> axum::http::HeaderMap {
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(header::CONTENT_TYPE, "text/csv; charset=utf-8".parse().unwrap());
+        if let Some(d) = disposition { headers.insert(header::CONTENT_DISPOSITION, d.parse().unwrap()); }
+        headers
+    }
+
+    #[test]
+    fn a_desktop_attachment_is_sent_as_a_type_no_webview_shows_and_every_other_response_keeps_its_type() {
+        let mut desktop = download(Some("attachment; filename=\"a.csv\""));
+        desktop_download(&mut desktop, Platform::Desktop);
+        assert_eq!(desktop[header::CONTENT_TYPE], "application/octet-stream");
+        for platform in [Platform::Docker, Platform::Umbrel, Platform::Unknown] {
+            let mut other = download(Some("attachment; filename=\"a.csv\""));
+            desktop_download(&mut other, platform);
+            assert_eq!(other[header::CONTENT_TYPE], "text/csv; charset=utf-8");
+        }
+        for disposition in [None, Some("inline")] {
+            let mut page = download(disposition);
+            desktop_download(&mut page, Platform::Desktop);
+            assert_eq!(page[header::CONTENT_TYPE], "text/csv; charset=utf-8");
+        }
+    }
 }

@@ -1,0 +1,88 @@
+<!doctype html>
+<!-- The desktop app's own page (PLAN-B6 §3.1, r1.11): shown while the engine starts, waits, or after it stopped. The app
+     sets its state in the fragment: #<state>[&log=<folder>&details=<lines>] (src-tauri/src/supervisor.rs, Page). No
+     script reaches the app: the page only reads location.hash. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deltabadger</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --box: #f2f2f4; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1c1c1e; --fg: #f5f5f7; --muted: #a1a1a6; --box: #2c2c2e; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+  body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; }
+  .drag { height: 32px; flex: none; }
+  main { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 36rem; margin: 0 auto; padding: 0 1.5rem 4rem; }
+  p { margin: 0 0 0.75rem; }
+  #lead { font-size: 1.15rem; font-weight: 600; }
+  .muted { color: var(--muted); }
+  details { margin-top: 1rem; }
+  summary { cursor: pointer; color: var(--muted); }
+  pre { background: var(--box); padding: 0.75rem; border-radius: 6px; overflow: auto; max-height: 40vh; font-size: 12px; white-space: pre-wrap; word-break: break-word; user-select: text; }
+</style>
+</head>
+<body>
+<div class="drag" data-tauri-drag-region></div>
+<main>
+  <p id="lead"></p>
+  <p id="more" class="muted"></p>
+  <details id="details" hidden><summary>Details</summary><pre id="lines"></pre></details>
+</main>
+<script>
+  (function () {
+    var STARTING = "Starting Deltabadger…";
+    var FINISHING = "Deltabadger is finishing its previous run. This usually takes a few seconds.";
+    var UPDATING = "Deltabadger is finishing its current work before updating and restarting.";
+    var QUITTING_UPDATE = "Deltabadger is finishing its current work, then it installs the update and closes.";
+    var UPDATE_WAITING = "The update is waiting for Deltabadger to finish closing. Leave this window open. If Deltabadger is also running in a terminal or another account on this computer, quit it there.";
+    function support(log) {
+      return "Quit Deltabadger and open it again. If this keeps happening, contact support and send them the files in " + log + ".";
+    }
+    var PAGES = {
+      "starting": function () { return [STARTING, ""]; },
+      "still-starting": function () {
+        return [STARTING, "Still starting. The first start after an update can take a few minutes while Deltabadger saves a copy of your data and updates it. Leave Deltabadger open."];
+      },
+      "finishing": function () { return [FINISHING, ""]; },
+      "finishing-long": function () {
+        return [FINISHING, "If this doesn't change, Deltabadger may be open in another program on this computer, for example in a terminal. Close it, or restart your computer, then open Deltabadger again."];
+      },
+      "stopped": function (p) {
+        return ["Deltabadger stopped unexpectedly.", "Your bots are paused until it runs again. " + support(p.log || "")];
+      },
+      "not-started": function (p) { return ["Deltabadger didn't start.", support(p.log || "")]; },
+      // PLAN-B7 U7, U8 (r6 Q6): the engine is stopping for an update the user asked for.
+      "updating": function () { return [UPDATING, ""]; },
+      "updating-long": function () { return [UPDATING, UPDATE_WAITING]; },
+      // U12 (r6 Q6): the user chose Quit with an update ready; U8 joins it after 60 s.
+      "quitting-update": function () { return [QUITTING_UPDATE, ""]; },
+      "quitting-update-long": function () { return [QUITTING_UPDATE, UPDATE_WAITING]; },
+      "not-responding": function () {
+        return ["Deltabadger isn't responding.", "It may be stopping after a problem. Wait a moment. If this doesn't change, quit Deltabadger and open it again."];
+      }
+    };
+    function render() {
+      var parts = location.hash.replace(/^#/, "").split("&");
+      // Only the page's own states, by name from its own list: a fragment never names a method.
+      var names = Object.keys(PAGES);
+      var page = PAGES[names[names.indexOf(parts[0])] || "starting"];
+      var params = Object.create(null);
+      for (var i = 1; i < parts.length; i++) {
+        var at = parts[i].indexOf("=");
+        if (at < 1) { continue; }
+        try { params[parts[i].slice(0, at)] = decodeURIComponent(parts[i].slice(at + 1)); } catch (e) { /* left out */ }
+      }
+      var text = page(params);
+      document.getElementById("lead").textContent = text[0];
+      document.getElementById("more").textContent = text[1];
+      var details = params.details || "";
+      document.getElementById("lines").textContent = details;
+      document.getElementById("details").hidden = details === "";
+    }
+    window.addEventListener("hashchange", render);
+    render();
+  })();
+</script>
+</body>
+</html>

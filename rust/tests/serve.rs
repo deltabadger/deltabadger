@@ -348,8 +348,7 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     let before: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
     for (method, path) in [("delete", format!("/bots/{first}")), ("post", "/bots/dca_multi_assets".to_string()),
                            ("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
-                           ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split")),
-                           ("post", "/en/broadcasts/fetch_open_orders".to_string())] {
+                           ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split"))] {
         let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{} {path}", method.to_uppercase())), "{method} {path}: {} {}", answer.status, answer.body);
         let refused = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::None, &[]).await;
@@ -360,6 +359,13 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
         assert_ne!(browser.send(&app, "POST", &path, Some(&[]), web::Csrf::Header, &[]).await.status, 501, "{path} is served");
         assert_eq!(browser.send(&app, "POST", &path, Some(&[]), web::Csrf::None, &[]).await.status, 302, "{path} without a token is turned back");
     }
+    // 3.0 plan A20 serves the orders table's refresh (D-OPEN-ORDERS-WAKE): the request only leaves the engine a request.
+    let path = "/en/broadcasts/fetch_open_orders";
+    let refresh = browser.send(&app, "POST", path, Some(&[("bot_id", first.to_string().as_str())]), web::Csrf::Header, &[]).await;
+    assert_eq!(refresh.status, 200, "{path}: {}", refresh.body);
+    assert_eq!(browser.send(&app, "POST", path, Some(&[("bot_id", "999")]), web::Csrf::Header, &[]).await.status, 404);
+    assert_eq!(browser.send(&app, "POST", path, Some(&[("bot_id", first.to_string().as_str())]), web::Csrf::None, &[]).await.status, 302, "{path} without a token is turned back");
+    opened.primary.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}')", deltabadger::engine::polling::REFRESH_KEY), []).unwrap();
     // 3.0 plan A4 serves the order cancel (Bots::CancelOrdersController): a row the bot does not have is a 404, nothing moves.
     let path = format!("/bots/{first}/transactions/1");
     assert_eq!(browser.send(&app, "POST", &path, Some(&[("_method", "delete")]), web::Csrf::Header, &[]).await.status, 404);
@@ -679,6 +685,36 @@ async fn a_form_is_accepted_behind_a_tls_terminating_proxy_when_app_root_url_spe
     for foreign in ["http://bot.example", "https://bot.example:8443", "https://bot.example.evil.test"] {
         let refused = submit(foreign).await;
         assert_eq!((refused.status, refused.header("location")), (302, Some("/login")), "{foreign}: back to the referer, which is ours");
+    }
+}
+
+/// D-B5-ORIGIN-HOST: with APP_ROOT_URL set, a login is accepted from its origin and from the request's own (Rails'
+/// `request.base_url`), as from a browser that opened an Umbrel app at the device's address; any other is refused.
+#[tokio::test(flavor = "current_thread")]
+async fn a_form_is_accepted_from_app_root_urls_origin_or_the_requests_own() {
+    let (_dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let env = |name: &str| match name {
+        "SECRET_KEY_BASE" => Some(web::SECRET.to_string()),
+        "APP_ROOT_URL" => Some("http://umbrel.local:3737".to_string()),
+        _ => None,
+    };
+    let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, opened.primary, TestClock::at(NOW)).unwrap();
+    let form: [(&str, &str); 2] = [("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")];
+    let submit = |origin: &'static str| {
+        let app = app.clone();
+        async move {
+            let mut browser = Browser::default();
+            browser.get(&app, "/login").await;
+            browser.send(&app, "POST", "/login", Some(&form), web::Csrf::Form, &[("origin", origin)]).await.status
+        }
+    };
+    // The request's Host is localhost:3000 (web::HOST).
+    assert_eq!(submit("http://umbrel.local:3737").await, 303, "APP_ROOT_URL's origin");
+    assert_eq!(submit("http://localhost:3000").await, 303, "the request's own");
+    for foreign in ["http://evil.example", "https://localhost:3000", "http://localhost:3001"] {
+        assert_eq!(submit(foreign).await, 302, "{foreign}");
     }
 }
 
@@ -3107,4 +3143,46 @@ fn serve_on_an_empty_storage_dir_creates_the_install_and_a_second_start_creates_
     assert!(!log.contains("applied Rust migration") && !log.contains("set up a new install") && log.contains("took over (AfterCrash)"), "{log}");
     assert_eq!(databases(), ["production.sqlite3", "production_queue.sqlite3"], "nothing created");
     assert_eq!(state(), first, "nothing migrated or seeded");
+}
+
+/// No token reaches the log. The one line these endpoints can log is a failed request's (`request failed`, here
+/// from a token row whose time no reader can parse): it names the failure, never the token the request carried,
+/// in a header, the query or the body.
+#[test]
+fn a_failed_oauth_request_logs_no_token() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, scopes, expires_in, created_at)
+                     VALUES (1, 1, 'SECRET-TOKEN-1', 'mcp', 3600, 'not a time')").unwrap();
+    drop(c);
+    let (port, log) = (free_port(), tempfile::NamedTempFile::new().unwrap());
+    let server = Child(serve_command(dir.path(), port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(Stdio::null()).stderr(log.reopen().unwrap()).spawn().unwrap());
+    let started = Instant::now();
+    while http_get(port, "/up").is_none() {
+        assert!(started.elapsed() < Duration::from_secs(10), "serve did not come up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let send = |raw: String| {
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        stream.write_all(raw.as_bytes()).unwrap();
+        let mut answer = String::new();
+        stream.read_to_string(&mut answer).unwrap();
+        answer
+    };
+    let body = "token=SECRET-TOKEN-1";
+    let answers = [
+        send("GET /oauth/token/info HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer SECRET-TOKEN-1\r\nConnection: close\r\n\r\n".into()),
+        send("GET /oauth/token/info?access_token=SECRET-TOKEN-1 HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".into()),
+        send(format!("POST /oauth/introspect HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer SECRET-TOKEN-1\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())),
+    ];
+    std::thread::sleep(Duration::from_millis(200));
+    drop(server);
+    let said = std::fs::read_to_string(log.path()).unwrap();
+    for answer in &answers {
+        assert!(answer.starts_with("HTTP/1.1 500") && !answer.contains("SECRET-TOKEN"), "{answer}");
+    }
+    assert_eq!(said.matches("request failed").count(), 3, "{said}");
+    assert!(!said.contains("SECRET-TOKEN"), "a token reached the log:\n{said}");
 }

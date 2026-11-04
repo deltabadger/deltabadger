@@ -96,7 +96,8 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
     let app2=app.clone();
     let id=payload["id"].clone();
     let answer=app.db(move|c|{
-        let who=match bearer::authenticate(c,auth.as_deref(),"mcp",app2.clock.as_ref())?{
+        let who=match bearer::authenticate(c,auth.as_deref(),"mcp",app2.clock.as_ref())?
+            .and_then(|who|if app2.desktop_owner_allowed(who.user_id){Ok(who)}else{Err(bearer::Refusal::UserNotFound)}){
             Ok(w)=>w,Err(why)=>{
                 let mut r=err(401,&payload["id"],-32000,why.message());add(&mut r,"www-authenticate","Bearer error=\"invalid_token\"");return Ok((r,None));
             }
@@ -175,7 +176,7 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
     let initialize=http==Method::POST&&method=="initialize"&&v.get("id").is_some();
     let now=crate::codec::format_time(app.now());
     let names=tools::registry(c,who)?;
-    let info=json!({"name":"Deltabadger","version":app_version()});
+    let info=json!({"name":"Deltabadger","version":crate::VERSION});
     let caps=json!({"tools":{"listChanged":false},"logging":{},"completions":{}});
     let mut s=if let Some(sid)=sid{
         let Some(s)=load(c,sid)?else{return Ok(err(404,id,-32001,"Session not found."));};
@@ -271,13 +272,3 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
     Ok(r)
 }
 
-/// config/initializers/version.rb: src-tauri/Cargo.toml's first `version = "..."` line, else "0.0.0".
-/// Compiled in, so a release bump needs no re-recorded metadata.
-pub fn app_version() -> &'static str {
-    include_str!("../../../../src-tauri/Cargo.toml").lines()
-        .find_map(|line| {
-            let rest = line.strip_prefix("version")?.trim_start().strip_prefix('=')?.trim_start().strip_prefix('"')?;
-            rest.split('"').next().filter(|v| !v.is_empty() && rest.len() > v.len())
-        })
-        .unwrap_or("0.0.0")
-}

@@ -287,7 +287,7 @@ impl ReqwestTransport {
     /// known credential (`send_limited` settles each answer at once; the figures' fill settles them off the runtime's thread).
     pub fn settle(&self, mut response: HttpResponse) -> HttpResponse {
         if !(200..300).contains(&response.status) || decode_json(&response.body).is_err() {
-            eprintln!("{}", self.failure_line(&response));
+            crate::eline!("{}", self.failure_line(&response));
         }
         response.body=self.redact_diagnostic(&response.body);
         response

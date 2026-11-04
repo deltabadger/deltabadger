@@ -237,7 +237,7 @@ pub(crate) fn positions(text: &str) -> Result<Result<Vec<Position>, String>, Unr
         });
         let category = match identity("asset_class").as_deref() {
             Some("us_equity") => "Stock", Some("crypto") => "Cryptocurrency",
-            _ => { eprintln!("Alpaca position skipped: unsupported class"); return None; }
+            _ => { crate::eline!("Alpaca position skipped: unsupported class"); return None; }
         };
         let Some(symbol) = identity("symbol").filter(|s| !s.trim().is_empty()) else {
             return Some(Err("a position without a symbol".to_string()));
@@ -1242,7 +1242,7 @@ pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<
     for (category, symbol, raw) in positions {
         let ids = catalog.by_symbol.get(&(category, symbol));
         let Some(asset) = ids.filter(|ids| ids.len() == 1).and_then(|ids| ids.iter().next()).copied().filter(|id| catalog.asset_ids.contains(id)) else {
-            eprintln!("Alpaca position skipped: unmapped or ambiguous identity");
+            crate::eline!("Alpaca position skipped: unmapped or ambiguous identity");
             continue;
         };
         let position = Raw::from_node(&raw).map_err(|_| "unreadable position".to_string())?;

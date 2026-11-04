@@ -150,10 +150,12 @@ fn production_source_names_the_live_alpaca_host_only_in_the_venue() {
     assert_eq!(naming, vec![src.join("venue/alpaca.rs")]);
 }
 
+/// Every message captured; or, switched to `live`, delivered by the live mailer (A20's SMTP timeout).
 #[derive(Default)]
-struct CapturedMail(Mutex<Vec<deltabadger::mail::Message>>);
+struct CapturedMail(Mutex<Vec<deltabadger::mail::Message>>, std::sync::atomic::AtomicBool);
 impl deltabadger::web::settings::mail::Mailer for CapturedMail {
-    fn deliver(&self,message:deltabadger::mail::Message,_settings:Option<deltabadger::mail::smtp::Settings>,now:chrono::DateTime<chrono::Utc>)->deltabadger::web::settings::mail::Delivery {
+    fn deliver(&self,message:deltabadger::mail::Message,settings:Option<deltabadger::mail::smtp::Settings>,now:chrono::DateTime<chrono::Utc>)->deltabadger::web::settings::mail::Delivery {
+        if self.1.load(std::sync::atomic::Ordering::SeqCst) { return deltabadger::web::settings::mail::live().deliver(message, settings, now) }
         message.encode(now,"fixture@deltabadger").unwrap();
         self.0.lock().unwrap().push(message);
         Box::pin(async {Ok(())})
@@ -186,7 +188,9 @@ impl Harness {
     }
     async fn starting_on(hosts:deltabadger::venue::alpaca::Hosts, hook:Option<deltabadger::web::PasswordHook>, clock:Arc<web::TestClock>)->Self{
         let (dir, opened, seed) = fixture::install();
-        let env = web::env(web::SECRET);
+        // The launchpad's claim on the venue server, under /launchpad.
+        let (base, launchpad) = (web::env(web::SECRET), format!("{}/launchpad", hosts.paper));
+        let env = move |key: &str| if key == "LAUNCHPAD_URL" { Some(launchpad.clone()) } else { base(key) };
         let mail=Arc::new(CapturedMail::default());
         let logs=Arc::new(Logs::default());
         let app = App::new(
@@ -409,6 +413,12 @@ async fn every_settings_write_rejects_missing_csrf_and_preserves_all_rows() {
         ("PATCH","/settings/update_mcp_tool_group_permissions",vec![("group","read"),("enabled","0")]),
         ("PATCH","/settings/update_rest_tool_group_permissions",vec![("group","read"),("enabled","0")]),
         ("PATCH","/settings/update_mcp_dry_run",vec![("enabled","1")]),
+        ("POST","/settings/platform_connection",vec![("claim_code","dbc_csrf")]),
+        ("DELETE","/settings/platform_connection",vec![]),
+        ("PATCH","/settings/update_stocks",vec![("alpaca_api_key","k"),("alpaca_api_secret","s")]),
+        ("DELETE","/settings/disconnect_stocks",vec![]),
+        ("POST","/settings/send_test_email",vec![]),
+        ("DELETE","/settings/disconnect_email",vec![]),
     ]);
 
     for (method, path, form) in writes {
@@ -3093,7 +3103,7 @@ async fn r2_stored_errors_and_mcp_answers_check_every_column_and_encoding(){
         h.app=h.app.with_figure_source(Source::Script(script)).unwrap();
         let balances=reads::fetch(&h.app,reads::Fetch::Balances{user:h.seed.user_id,exchange:h.seed.exchange_id,name:"Alpaca".into(),credentials:deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()}).await;
         let response=reads::finish(&h.c,balances).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP balances: {encoded:?}");assert!(!response.contains(&encoded),"no reflected balances diagnostic");
-        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],rows:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,"Alpaca".into(),Some(deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()))]}).await;
+        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],rows:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,"Alpaca".into(),Some(deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()))],unread:vec![]}).await;
         let response=reads::finish(&h.c,orders).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP orders: {encoded:?}");assert!(!response.contains(&encoded),"no reflected orders diagnostic");
     }
     }
@@ -3250,7 +3260,7 @@ async fn r3_html_settings_refuse_json_bodies_without_writes(){
         let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH",path,Some(body.to_string()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
         assert_eq!(response.status,400,"R3 HTML settings are form-only: {path}");assert_eq!(h.snapshot(),before,"R3 JSON settings request must not write: {path}");
     }
-    for path in ["/settings/revoke_mcp_client/999","/settings/destroy_api_key/1"]{
+    for path in ["/settings/revoke_mcp_client/999","/settings/destroy_api_key/1","/settings/platform_connection","/settings/disconnect_stocks"]{
         let before=h.snapshot();let response=h.browser.send_body(&h.app,"DELETE",path,Some("{}".into()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
         assert_eq!(response.status,400,"R3 HTML settings are form-only: {path}");assert_eq!(h.snapshot(),before);
     }
@@ -4077,4 +4087,73 @@ async fn a_read_only_kucoin_key_on_an_hf_account_is_saved() {
     let response=h.submit("POST",&format!("/tracker/add_api_key?exchange_id={kucoin}&key_type=read_only"),&[("exchange_id",&kucoin.to_string()),("key_type","read_only"),("api_key[key]","kc-read"),("api_key[secret]","kc-secret"),("api_key[passphrase]","kc-pass")],Csrf::Header).await;
     assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys WHERE exchange_id=?1 AND key_type=2 AND status=1",[kucoin],|r|r.get::<_,i64>(0)).unwrap(),1,"{mode} {accounts:?}: {} {}",response.status,response.body);
     }
+}
+
+fn app_configs(c:&rusqlite::Connection)->Vec<(String,Option<String>)>{
+    let mut s=c.prepare("SELECT key,value FROM app_configs ORDER BY key").unwrap();
+    s.query_map([],|r|Ok((r.get(0)?,r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+
+/// A18: a claim on Connect whose proxies are not an object fails as setup's does (no row written); a refused claim is the
+/// form again at 422 with no flash stream; the stocks writes (D-STOCKS-RETIRED) write nothing and ask nothing.
+#[tokio::test(flavor="current_thread")]
+async fn platform_claims_that_fail_write_nothing_and_stocks_writes_are_refused(){
+    use wiremock::{matchers,Mock,ResponseTemplate};
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    Mock::given(matchers::method("POST")).and(matchers::path("/launchpad/api/claim")).and(matchers::body_json(serde_json::json!({"code":"dbc_array"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"market_data":{"url":"http://d.invalid","token":"t"},"proxies":["x"]}))).mount(&server).await;
+    Mock::given(matchers::method("POST")).and(matchers::path("/launchpad/api/claim")).and(matchers::body_json(serde_json::json!({"code":"dbc_bad"})))
+        .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).mount(&server).await;
+    let before=(h.snapshot(),app_configs(&h.c));
+    let malformed=h.submit("POST","/settings/platform_connection",&[("claim_code","dbc_array")],Csrf::Header).await;
+    assert_eq!(malformed.status,500);assert_eq!((h.snapshot(),app_configs(&h.c)),before,"a malformed claim writes nothing");
+    let refused=h.submit("POST","/settings/platform_connection",&[("claim_code","dbc_bad")],Csrf::Header).await;
+    assert_eq!(refused.status,422);assert_eq!((h.snapshot(),app_configs(&h.c)),before);
+    assert!(refused.body.contains("That claim code is invalid or has expired.")&&!refused.body.contains("target=\"flash\""),"{}",refused.body);
+    for (method,path,form) in [("PATCH","/settings/update_stocks",vec![("alpaca_api_key","stock-key"),("alpaca_api_secret","stock-secret"),("alpaca_mode","live")]),("DELETE","/settings/disconnect_stocks",vec![])]{
+        let answer=h.submit(method,path,&form,Csrf::Header).await;
+        assert_eq!((answer.status,answer.body.as_str()),(422,""),"{path}");assert_eq!((h.snapshot(),app_configs(&h.c)),before,"{path} writes nothing");
+    }
+    assert_eq!(server.received_requests().await.unwrap().len(),2,"the two claims, and nothing for the stocks writes");
+}
+
+/// D-ALPACA-CATALOGUE, which D-STOCKS-RETIRED rests on: no code reads the install's Alpaca credential, so dropping or keeping
+/// it changes no bot. Only the secret-parameter mask names the keys.
+#[test]
+fn no_code_reads_the_install_alpaca_credential(){
+    fn walk(dir:&std::path::Path,out:&mut Vec<String>){
+        for entry in std::fs::read_dir(dir).unwrap(){let path=entry.unwrap().path();
+            if path.is_dir(){walk(&path,out)}else if path.extension().is_some_and(|e|e=="rs"){
+                let text=std::fs::read_to_string(&path).unwrap();
+                if ["\"alpaca_api_key\"","\"alpaca_api_secret\"","\"alpaca_mode\""].iter().any(|k|text.contains(k)){out.push(path.display().to_string())}
+            }}
+    }
+    let mut readers=vec![];walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),&mut readers);
+    assert_eq!(readers.iter().map(|p|p.replace('\\',"/").rsplit("/src/").next().unwrap().to_string()).collect::<Vec<_>>(),["web/locale.rs"]);
+}
+
+/// A20 (F22): the test email is sent inside the request, bounded by the SMTP client's own timeouts. A server that accepts and
+/// never greets is an alert naming the stage once the greeting's 5 s read timeout passes; nothing is written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_test_email_to_a_server_that_never_answers_is_an_alert_after_the_greeting_timeout() {
+    let silent = common::smtp::start(common::smtp::Behaviour { silent: true, ..Default::default() }).await;
+    let server = MockServer::start().await;
+    let mut h = Harness::new(server.uri()).await;
+    for (key, value) in [("smtp_provider", "custom_smtp"), ("smtp_host", "127.0.0.1"), ("smtp_port", &silent.port.to_string()),
+                         ("smtp_username", "smtp-user@example.com"), ("smtp_password", "smtp-secret")] {
+        deltabadger::app_config::set(&h.c, &h.app.cipher, key, value, h.app.now()).unwrap();
+    }
+    h.mail.1.store(true, std::sync::atomic::Ordering::SeqCst);
+    let before = h.snapshot();
+    let started = std::time::Instant::now();
+    let answer = h.browser.send(&h.app, "POST", "/settings/send_test_email", Some(&[]), Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    let waited = started.elapsed();
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    let alert = deltabadger::web::i18n::t("en", "settings.email_notifications.test_email_failed",
+                                          &[("error", deltabadger::web::i18n::Arg::Text("greeting: no answer in time"))]);
+    assert!(answer.body.contains(&alert), "{}", answer.body);
+    assert!(!answer.body.contains("smtp-user") && !answer.body.contains("smtp-secret"), "no credential reaches the page");
+    assert!(waited >= std::time::Duration::from_secs(5) && waited < std::time::Duration::from_secs(15), "bounded by the greeting's read timeout: {waited:?}");
+    assert_eq!(h.snapshot(), before, "nothing is written");
+    assert_eq!(silent.sessions().len(), 1, "one connection, never greeted");
 }

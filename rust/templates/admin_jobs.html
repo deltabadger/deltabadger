@@ -1,0 +1,41 @@
+<div class="page-head">
+  <h1>Jobs</h1>
+  <div>As of {{ as_of }}. Reload for the latest.</div>
+</div>
+{% if !attached %}
+<p>The scheduler is not running in this process: nothing to list.</p>
+{% endif %}
+<p>Run now wakes the job at once, even one waiting for a retry. Errors show their time only: the text stays off this page.</p>
+<table class="table">
+  <thead><tr><th>Job</th><th>Scope</th><th>Cadence</th><th>Last completed run</th><th>Last data refresh</th><th>Latest error</th><th>Failing</th><th>Incomplete since</th><th>State</th><th></th></tr></thead>
+  <tbody>
+{% for g in groups %}
+{% if g.scoped %}
+    <tr id="jobs_{{ g.name }}_scoped"><th colspan="10">{{ g.name }}: {{ g.count }} scope(s), {{ g.failing }} failing</th></tr>
+{% endif %}
+{% for r in g.rows %}
+    <tr>
+      <td>{{ g.name }}</td><td>{{ r.scope }}</td><td>{{ r.cadence }}</td><td>{{ r.last_run }}</td><td>{{ r.last_refresh }}</td>
+      <td>{{ r.latest_error }}</td><td>{% if let Some(f) = r.failing %}{{ f }}{% endif %}</td><td>{{ r.incomplete }}</td><td>{{ r.state }}</td>
+      <td>{% if r.runnable %}{% if let Some(scope) = r.form_scope %}<form method="post" action="/jobs"><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="job" value="{{ g.name }}" /><input type="hidden" name="scope" value="{{ scope }}" /><button class="sbutton sbutton--sky" type="submit">Run now</button></form>{% endif %}{% endif %}</td>
+    </tr>
+{% endfor %}
+{% endfor %}
+  </tbody>
+</table>
+
+<h2>Engine</h2>
+<p>As stored: the engine's in-memory retry timers are not shown. Working bots:{% for (label, n) in engine.working %} {{ label }} {{ n }}{% if !loop.last %},{% endif %}{% endfor %}.{% if engine.unreadable > 0 %} Unreadable: {{ engine.unreadable }}.{% endif %}</p>
+{% for (title, bots) in engine.sections %}
+<h3>{{ title }}: {{ bots.len() }}</h3>
+{% if !bots.is_empty() %}
+<table class="table">
+  <thead><tr><th>Bot</th><th>Owner</th><th>Status</th></tr></thead>
+  <tbody>
+{% for b in bots %}
+    <tr><td>{% if let Some(link) = b.link %}<a href="{{ link }}">bot #{{ b.id }}</a>{% else %}bot #{{ b.id }}{% endif %}</td><td>user #{{ b.user_id }}</td><td>{{ b.status }}</td></tr>
+{% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endfor %}

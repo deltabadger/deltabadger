@@ -43,13 +43,21 @@ async fn export_is_rails_own_csv_and_saves_the_export_type() {
     let data = session::SessionData { user: Some((seeded.user_id, hash.chars().take(29).collect())), csrf: Some(csrf::new_token()), ..Default::default() };
     let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
     let cases = v["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 15);
+    assert_eq!(cases.len(), 17);
+    // PLAN-A19: what Rails did stays recorded; Rust answers these 400 (D-TRACKER-FILTER-BAD-INPUT for the 500s,
+    // D-TRACKER-FILTER-ISO-ONLY for the day Date.parse reads), after the same export-type write.
+    let refused = [("impossible_date", 500), ("structured_from", 500), ("non_iso", 200)];
     for case in cases {
         let name = case["name"].as_str().unwrap();
         opened.primary.execute("UPDATE users SET tracker_settings=?1, updated_at=?2 WHERE id=?3",
             (case["settings_before"].as_str(), OLD, seeded.user_id)).unwrap();
         let answer = browser.send(&app, "GET", case["path"].as_str().unwrap(), None, Csrf::None, &[]).await;
-        assert_eq!(i64::from(answer.status), case["status"].as_i64().unwrap(), "{name}: {}", answer.body);
+        if let Some((_, rails)) = refused.iter().find(|(n, _)| *n == name) {
+            assert_eq!(case["status"].as_i64(), Some(*rails), "{name}: what Rails did");
+            assert_eq!((answer.status, answer.body.as_str()), (400, include_str!("../../public/400.html")), "{name}");
+        } else {
+            assert_eq!(i64::from(answer.status), case["status"].as_i64().unwrap(), "{name}: {}", answer.body);
+        }
         if answer.status == 200 {
             assert_eq!(answer.body, case["body"].as_str().unwrap(), "{name}");
             for (header, want) in case["headers"].as_object().unwrap() {

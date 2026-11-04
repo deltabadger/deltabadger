@@ -89,6 +89,40 @@ impl<C: Clock> Sender<C> {
         }
     }
 
+    /// D-DESKTOP-NO-MAIL (PLAN-B6-3 §2.5): the sender's seven-day expiry alone, for an install that sends no mail. Every
+    /// `poll`, the markers are read in batches and each one seven days old or more is cleared unsent; nothing is
+    /// rendered and no mail server is ever reached. Returns once `stop` turns true.
+    pub async fn expire_only(self, mut stop: watch::Receiver<bool>) -> Result<(), String> {
+        tokio::select! {
+            biased;
+            _ = stop.wait_for(|stopped| *stopped) => Ok(()),
+            never = self.expiring() => match never {},
+        }
+    }
+
+    async fn expiring(&self) -> Infallible {
+        let mut after = 0;
+        loop {
+            let (batch, now) = (self.batch, self.clock.now());
+            let wait = match self.db(move |c, cipher| -> Result<i64, crate::engine::EngineError> {
+                let (markers, next) = notice::pending(c, after, batch)?;
+                // One marker that cannot be cleared (the guard refuses its bot) stays for the next sweep; the rest go on.
+                for marker in markers.iter().filter(|m| expired(m, now)) {
+                    match notice::clear(c, cipher, marker) {
+                        Ok(_) => log(&format!("[mail] {} for bot {}: given up: raised seven days ago or more", marker.notice.mail(), marker.bot_id)),
+                        Err(e) => log(&format!("[mail] {} for bot {}: its marker could not be cleared ({e:?}); tried again at the next sweep", marker.notice.mail(), marker.bot_id)),
+                    }
+                }
+                Ok(next)
+            }).await {
+                Ok(Ok(next)) => { after = next; if next != 0 { Duration::ZERO } else { self.poll } }
+                Ok(Err(e)) => { log(&format!("[mail] the markers could not be read: {e:?}; trying again in {} s", self.poll.as_secs())); self.poll }
+                Err(e) => { log(&format!("[mail] the markers could not be read: {e}; trying again in {} s", self.poll.as_secs())); self.poll }
+            };
+            tokio::time::sleep(wait).await;
+        }
+    }
+
     /// Database work, off the runtime's thread.
     async fn db<R: Send + 'static>(&self, work: impl FnOnce(&Connection, &Cipher) -> R + Send + 'static) -> Result<R, String> {
         let (db, cipher) = (self.db.clone(), self.cipher.clone());
@@ -166,7 +200,7 @@ impl<C: Clock> Sender<C> {
         let raised = match marker.raised_at() { Ok(at)=>at, Err(e)=>return self.later(marker, tried, false, &format!("unreadable timestamp: {e:?}"), attempts) };
         let (outcome, accepted) = if accepted {
             ("sent".to_string(), true)
-        } else if now - raised >= chrono::Duration::hours(MAX_AGE_HOURS) {
+        } else if older_than_max(raised, now) {
             ("given up: raised seven days ago or more".to_string(), false)
         } else {
             let (m, env, urls, trust) = (marker.clone(), self.env.clone(), self.urls.clone(), self.trust_root.clone());
@@ -200,6 +234,15 @@ impl<C: Clock> Sender<C> {
             Err(e) => self.later(marker, tried, accepted, &format!("{outcome}, but its marker could not be cleared ({e})"), attempts),
         }
     }
+}
+
+fn older_than_max(raised: chrono::DateTime<chrono::Utc>, now: chrono::DateTime<chrono::Utc>) -> bool {
+    now - raised >= chrono::Duration::hours(MAX_AGE_HOURS)
+}
+
+/// A marker the expiry gives up: seven days old or more. One whose time cannot be read is left to the full sender.
+fn expired(marker: &Pending, now: chrono::DateTime<chrono::Utc>) -> bool {
+    marker.raised_at().is_ok_and(|raised| older_than_max(raised, now))
 }
 
 /// The sender address and where to deliver, read for every mail, as Rails' interceptor reads them: a change made in

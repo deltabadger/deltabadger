@@ -89,10 +89,12 @@ pub const RAILS_WORK: &[(&str, RailsWork)] = {
         // Syncs and maintenance the scheduler runs on its own schedule, or that have no Rust counterpart to finish.
         ("AccountBalance::SyncAllJob", Dropped), ("AccountBalance::SyncJob", Dropped), ("AccountTransaction::ResolveAssetsJob", Dropped),
         ("AccountTransaction::SyncAllJob", Dropped), ("AccountTransaction::SyncJob", Dropped), ("AccountTransaction::SyncTrackerJob", Dropped),
-        ("AppUpdate::CheckJob", Dropped), ("Asset::FetchAllAssetsDataFromCoingeckoJob", WakeUnscoped(crate::jobs::reference::ASSETS)),
+        ("AppUpdate::CheckJob", WakeUnscoped(crate::jobs::app_update::NAME)), ("Asset::FetchAllAssetsDataFromCoingeckoJob", WakeUnscoped(crate::jobs::reference::ASSETS)),
         ("Asset::FetchDataFromCoingeckoJob", Wake(crate::jobs::reference::ASSET_DATA)),
-        ("Asset::InferColorFromImageJob", Dropped), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
-        ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped), ("Bot::ConvertSingleAssetBotsJob", Dropped),
+        ("Asset::InferColorFromImageJob", Wake(crate::jobs::asset_color::NAME)), ("Asset::SyncAlpacaCryptoFromDeltabadgerJob", Dropped),
+        ("Asset::SyncStocksFromDeltabadgerJob", Dropped), ("BotActivityLog::PruneJob", Dropped),
+        // PLAN-A23: its work is every start's own pass now (set_aside::apply → single_asset::convert_all).
+        ("Bot::ConvertSingleAssetBotsJob", Dropped),
         ("Bot::EvaluateRebalancersJob", Dropped), ("Bot::RepairOrphanedBotsJob", Dropped), ("Exchange::SyncAllTickersAndAssetsJob", Dropped),
         ("Exchange::SyncAlpacaAssetsJob", Dropped), ("Exchange::SyncTickersAndAssetsJob", WakeUnscoped(crate::jobs::reference::TICKERS)), ("Ibkr::CheckActivationJob", Dropped),
         ("Index::SyncFromCoingeckoJob", Dropped), ("Setup::SeedAndSyncJob", WakeUnscoped(crate::jobs::setup_sync::NAME)), ("SolidQueue::RecurringJob", Dropped),
@@ -179,8 +181,12 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         Err(hard) => return Err(EngineError::HardStop(super::set_aside::hard_stop(&hard))),
     };
     let report = plan.report;
+    let converted = plan.converted.iter().map(|id| super::set_aside::converted(&tx, *id)).collect::<Result<Vec<_>, _>>()?;
     // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
     super::reconcile::mark_adopted(&tx, cipher, now)?;
+    // A28-1: Rails' ownership window, read before the claim restamps it (lease::claim's own rule for a new ownership).
+    let handed_back = lease::plain_at(&tx, lease::HANDED_BACK_AT)?;
+    let taken_before = lease::plain_at(&tx, lease::TAKEN_OVER_AT)?;
     let claim = lease::claim(lock, &tx, cipher, version, now)?;
     // In the claim's own transaction, before the engine ticks or the web serves a request: every unresolved intent
     // carries what it was sent under (placement::backfill_snapshots).
@@ -191,6 +197,12 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     super::staleness::seed(&tx, now)?;
     let imported_calls = import_signal_jobs(&tx, &signal_jobs, now)?;
     apply_queue_work(&tx, &work, matches!(claim, Claim::FromRails), now)?;
+    // A28-1: what Rails may have sent unrecorded while it owned the install, from the last handback on (r4.1, r5.1).
+    let rails_window = match claim {
+        Claim::FromRails | Claim::AfterHandback => true,
+        Claim::AfterCrash => handed_back.is_some_and(|back| taken_before.is_none_or(|taken| taken < back)),
+    };
+    if rails_window { super::rails_unrecorded::collect(&tx, &o.queue, handed_back, now)?; }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
     super::rules::acknowledge_fanouts(&tx, &mut rule_jobs, now)?;
@@ -200,7 +212,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     write_queue_done(&tx, &done, now)?;
     // Before the commit: once it lands, a crash would skip these rows for good, so the line must already be out. A failed
     // commit repeats it next start, which is harmless.
-    for line in &work.log { super::log(line); }
+    for line in work.log.iter().chain(&converted) { super::log(line); }
     tx.commit()?;
     // A crash here leaves the outcomes committed and Rails' rows queued: the next start deletes them and repeats nothing.
     #[cfg(debug_assertions)]
@@ -302,6 +314,9 @@ fn bot_of(arguments: Option<&str>, class: Option<&str>) -> Option<i64> {
     id.parse().ok()
 }
 
+/// The bot a Rails job's first argument names (A28-1's queue source).
+pub(crate) fn job_bot(arguments: Option<&str>) -> Option<i64> { bot_of(arguments, None) }
+
 /// A bot row that is there and not deleted: Rails' GlobalID finds a deleted bot too, but nothing of it runs again.
 fn live_bot(c: &Connection, id: i64) -> Result<bool, EngineError> {
     Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND status <> ?2)", params![id, BotStatus::Deleted as i64], |r| r.get(0))?)
@@ -400,8 +415,9 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                 // integer (ActiveJob serializes an Integer as itself); a row naming nothing there is Rails' RecordNotFound.
                 w.done.push(row.id);
                 let (table, noun) = wake_scope(job);
-                // Asset::FetchDataFromCoingeckoJob is enqueued with the Asset itself (sync_alpaca_assets_job.rb:166): a GlobalID.
-                let id = if job == crate::jobs::reference::ASSET_DATA { asset_of(args) } else { first_id(args) };
+                // Asset::FetchDataFromCoingeckoJob and Asset::InferColorFromImageJob are enqueued with the Asset itself
+                // (sync_alpaca_assets_job.rb:166, market_data.rb:86): a GlobalID.
+                let id = if job == crate::jobs::reference::ASSET_DATA || job == crate::jobs::asset_color::NAME { asset_of(args) } else { first_id(args) };
                 match id {
                     Some(id) if exists(c, table, id)? => { if !w.wakes.contains(&(job, Some(id))) { w.wakes.push((job, Some(id))); } }
                     _ => {
@@ -519,7 +535,7 @@ struct RailsWake { job: String, scope: String, at: String }
 /// The table a wake job's scope is a row of, and its name in a log line.
 fn wake_scope(job: &str) -> (&'static str, &'static str) {
     if job == crate::sync::jobs::API_KEY_VALIDATOR { ("api_keys", "API key") }
-    else if job == crate::jobs::reference::ASSET_DATA { ("assets", "asset") }
+    else if job == crate::jobs::reference::ASSET_DATA || job == crate::jobs::asset_color::NAME { ("assets", "asset") }
     else { ("users", "user") }
 }
 
@@ -680,6 +696,15 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
         // its stored route (a KuCoin HF or UTA family) is this engine's; 2.x's cancel sends on its own route.
         (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
+        // A20d: an order key's link to its order, read only by the start sweep. A key handed back in_progress is 2.x's 409.
+        (Table, "rust_idempotency_orders", Ignored),
+        // A28-1: Rails' unrecorded-order candidates and whether their line was written; 2.x never reads it.
+        (Table, "rust_rails_unrecorded", Ignored),
+        // A28-3: the live order-history reads of those candidates (refused or failed with a key), and the pass's cursor.
+        (Table, "rust_rails_unrecorded_live", Ignored), (AppConfig, "rust_rails_unrecorded.live_cursor", Ignored),
+        // A28-2: the bookable orders of those lines, the owner's resolutions and requests, and the booked rows' notices.
+        (Table, "rust_rails_unrecorded_offers", Ignored), (Table, "rust_rails_unrecorded_resolutions", Ignored),
+        (Table, "rust_rails_unrecorded_requests", Ignored), (Table, "rust_rails_unrecorded_notices", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
@@ -696,6 +721,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "engine_lease", Adopted),
         (AppConfig, "rust_created_at", Refuses("this install was created new, so there is no earlier app to hand it back to.")),
         (AppConfig, "rust_taken_over_at", Ignored), (AppConfig, "rust_handed_back_at", Ignored),
+        // The latest release the update check stored (jobs::app_update): 2.x keeps its own in Rails.cache.
+        (AppConfig, "rust_app_update", Ignored),
         (AppConfig, "rust_binance_a12_v1:", Refuses("Binance A12 identity data permanently requires Rust ownership")),
         (AppConfig, "rust_binance_repair_gaps.", Ignored), (AppConfig, "rust_account_identity_key_v1", Ignored),
         (AppConfig, "rust_coinbase_size_in_quote_repaired_at", Ignored),
@@ -722,7 +749,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_redeploy_request", Refuses("redeploy request pending; run the engine before handing back")),
         (Bot, "liquidation_selling_since.holdings", Refuses("liquidation request pending; run the engine before handing back")),
         (Bot, "rust_amount_limit_stops_pending", Settled), (Bot, "rust_condition_check_dead", Settled), (Bot, "rust_condition_info", Settled),
-        (Bot, "rust_condition_info_wanted", Settled), (Bot, "rust_defer_until", Settled), (Bot, "rust_continue_start", Settled),
+        (Bot, "rust_condition_info_wanted", Settled), (Bot, "rust_open_orders_wanted", Settled), (Bot, "rust_defer_until", Settled), (Bot, "rust_continue_start", Settled),
         (Bot, "rust_index_resync", Adopted),
         // D-HANDBACK-SPLIT-HOLD: 2.x does not compare a split against the venue's positions, so it would trade the bot.
         (Bot, "rust_split_hold", Refuses("its holdings disagree with a stock split")),
@@ -821,7 +848,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         tx.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3", params![scheduled, crate::codec::format_time(now), id])?;
     }
     // The check's death marker, and the status line's stored info and waiting requests (Rails' own cache starts empty).
-    for key in [super::conditions::DEAD, super::conditions::INFO_KEY, super::conditions::INFO_WANTED_KEY] {
+    for key in [super::conditions::DEAD, super::conditions::INFO_KEY, super::conditions::INFO_WANTED_KEY, super::polling::REFRESH_KEY] {
         tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{key}') WHERE json_type(transient_data, '$.{key}') IS NOT NULL"), [])?;
     }
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;

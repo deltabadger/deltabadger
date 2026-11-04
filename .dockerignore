@@ -84,3 +84,6 @@ umbrel-app.yml
 # Misc
 Thumbs.db
 .byebug_history
+
+# The API manual is compiled into the Rust build (rust/src/web/settings/api.rs MANUAL).
+!manual/api.md

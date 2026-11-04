@@ -92,6 +92,21 @@ fn sql(dir: &Path, file: &str, statements: &str) {
     Connection::open(dir.join(file)).unwrap().execute_batch(statements).unwrap();
 }
 
+/// src-tauri/Cargo.toml's version, read here rather than through build.rs.
+fn release_version() -> String {
+    let text = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../src-tauri/Cargo.toml")).unwrap();
+    text.lines().find_map(|l| l.strip_prefix("version = \"")?.strip_suffix('"')).unwrap().to_string()
+}
+
+/// D-ENGINE-VERSION: `--version`, the lease stamps (bootstrap and takeover), the sidebar and MCP all say the release.
+#[test]
+fn the_engine_reports_the_release_version() {
+    assert_eq!(deltabadger::VERSION, release_version());
+    assert_ne!(deltabadger::VERSION, env!("CARGO_PKG_VERSION"));
+    let out = output(command(tempfile::tempdir().unwrap().path(), &["--version"]));
+    assert_eq!(said(&out).lines().next(), Some(format!("deltabadger {}", release_version()).as_str()));
+}
+
 fn plain(c: &Connection, key: &str) -> Option<String> { deltabadger::app_config::get_plain(c, key).unwrap() }
 
 /// The install in `dir` as T1 compares it, structure apart from rows, and its rows (dump) with the install-time stamps
@@ -103,6 +118,7 @@ fn installed(dir: &Path) -> (BTreeMap<String, Rows>, Tables, BTreeMap<String, i6
     assert!(rows(&c, "PRAGMA foreign_key_check").is_empty(), "foreign keys hold");
     let lease = deltabadger::lease::read(&c, &common::seed::cipher()).unwrap().expect("a lease row");
     assert_eq!(lease["engine"], "rust", "{lease}");
+    assert_eq!(lease["version"], release_version(), "the release's version, not the crate's (D-ENGINE-VERSION)");
     let created = plain(&c, deltabadger::lease::CREATED_AT).expect("the marker");
     assert_eq!(plain(&c, deltabadger::lease::TAKEN_OVER_AT).as_deref(), Some(created.as_str()), "the first claim continues the bootstrap's ownership");
 

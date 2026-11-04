@@ -300,7 +300,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
                 Ok(Some(bot)) => entries.push(Ok(bot)),
                 Ok(None) => {}
                 Err(reason) => {
-                    eprintln!("deltabadger: bot {id} is listed but not served: {reason}");
+                    crate::eline!("deltabadger: bot {id} is listed but not served: {reason}");
                     entries.push(Err(Refused::load(c, *id, ctx.locale)?));
                 }
             }
@@ -352,7 +352,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
                     }
                     // A number the tile reads (a cap's sum, say) this build does not: that bot's tile is plain, as a refused bot's.
                     Err(error) if bot::unreadable(&error) => {
-                        eprintln!("deltabadger: bot {} is listed but not served: {}", bot.id, bot::UNREADABLE);
+                        crate::eline!("deltabadger: bot {} is listed but not served: {}", bot.id, bot::UNREADABLE);
                         tiles.push(Refused::load(c, bot.id, ctx.locale)?.tile(ctx));
                     }
                     Err(error) => return Err(error),

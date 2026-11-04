@@ -41,7 +41,7 @@ impl Limiter {
     pub fn hit(&self, method: &Method, route_path: &str, address: &str, now: DateTime<Utc>) -> Option<i64> {
         let route_path=route_path.split('.').next().unwrap_or(route_path);
         let (rule, _, limit) = RULES.iter().filter(|_| method == Method::POST).copied()
-            .chain([("users/confirmation","/confirmation",5),("users/registration","/signup",5),("setup","/setup",5),("setup/platform_connection","/setup/platform_connection",5),("csp-report","/csp-report",30)].into_iter().filter(|_|method==Method::POST))
+            .chain([("users/confirmation","/confirmation",5),("users/registration","/signup",5),("setup","/setup",5),("setup/platform_connection","/setup/platform_connection",5),("csp-report","/csp-report",30),("jobs","/jobs",10)].into_iter().filter(|_|method==Method::POST))
             .chain([("users/password","/password",5)].into_iter().filter(|_|matches!(*method,Method::POST|Method::PATCH|Method::PUT)))
             .chain(OAUTH_RULES.iter().filter(|(_, limited, _, _)| method.as_str() == *limited).map(|&(rule, _, path, limit)| (rule, path, limit)))
             .find(|(_, path, _)| *path == route_path)?;
@@ -53,6 +53,10 @@ impl Limiter {
         if matches!(*method,Method::GET|Method::HEAD) && route_path.split('.').next()==Some("/setup") && carries_input {
             self.count("setup/token",5,address,now)
         }else{None}
+    }
+    /// The desktop's `GET /desktop/sign_in` (PLAN-B6-3 §2.2): desktop only, so no other platform's answers change.
+    pub fn desktop_sign_in(&self, address: &str, now: DateTime<Utc>) -> Option<i64> {
+        self.count("desktop/sign_in", super::desktop::SIGN_IN_LIMIT, address, now)
     }
     fn count(&self,rule:&'static str,limit:u32,address:&str,now:DateTime<Utc>)->Option<i64>{
         let epoch = now.timestamp();

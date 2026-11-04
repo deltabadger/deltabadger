@@ -9,7 +9,7 @@ use serde_json::{json, Map, Value};
 use std::path::Path;
 #[allow(dead_code)]
 #[derive(Clone,Copy)]
-pub enum Mode { Exact, Deferred, FirstSync, Holdings, Served }
+pub enum Mode { Exact, BadRequest, FirstSync, Holdings, Served }
 pub fn snapshot(c: &Connection) -> Value {
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
@@ -145,8 +145,11 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         if matches!(mode(&name),Mode::Served) {
             assert_eq!(answer.status,200,"{name}: the populated page is served");assert!(answer.body.contains("  <div class=\"tracker\">\n"),"{name}");continue;
         }
-        if matches!(mode(&name),Mode::Deferred) {
-            assert_eq!(answer.status,501,"{name}: deferred scope must be refused");assert!(answer.body.contains("not-ported"));continue;
+        // PLAN-A19 (D-TRACKER-FILTER-ISO-ONLY, D-TRACKER-FILTER-BAD-INPUT): a window this build does not read. What Rails
+        // did stays recorded (it served the page, or raised); Rust answers 400.
+        if matches!(mode(&name),Mode::BadRequest) {
+            assert!(expected["status"]==json!(200) || (expected["status"]==json!(500) && expected.get("exception").is_some()),"{name}: Rails served or raised: {}",expected["status"]);
+            assert_eq!((answer.status,answer.body.as_str()),(400,include_str!("../../../public/400.html")),"{name}");continue;
         }
         assert_eq!(json!(answer.status),expected["status"],"{name}");
         if expected.get("exception").is_some(){

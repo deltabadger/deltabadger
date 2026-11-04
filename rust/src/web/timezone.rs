@@ -1,7 +1,7 @@
 //! `users.time_zone` holds an ActiveSupport zone name ("Warsaw", "Eastern Time (US & Canada)"), not
 //! an IANA id. time_zones.json is ActiveSupport::TimeZone::MAPPING, written by
 //! script/rust/record_vectors.rb and pinned by test/contracts/rust_time_zones_test.rb.
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -23,28 +23,6 @@ pub fn zone(name: &str) -> Option<Tz> {
 /// ActiveSupport::TimeZone[]: a Rails zone name or an IANA identifier. `None` for any other name, never UTC.
 pub fn strict(name: &str) -> Option<Tz> {
     zone(name).or_else(|| name.parse::<Tz>().ok())
-}
-
-pub const REPEATED_TIME: &str = "the starting time occurs twice that day in the owner's time zone (a daylight-saving change), and which occurrence Rails picks is not proven";
-pub const MISSING_TIME: &str = "the starting time does not exist that day in the owner's time zone, across a change this build does not match";
-
-/// TimeZone#local for a wall time: one instant as it is; a wall time in a one-hour spring gap moves forward an hour, Rails'
-/// answer as the start-time vectors pin it. A repeated wall time, or one in any other gap, is refused, never guessed.
-pub fn resolve_local(zone: Tz, naive: NaiveDateTime) -> Result<(NaiveDateTime, DateTime<Tz>), &'static str> {
-    use chrono::{Duration, LocalResult, TimeZone};
-    match zone.from_local_datetime(&naive) {
-        LocalResult::Single(at) => Ok((naive, at)),
-        LocalResult::Ambiguous(..) => Err(REPEATED_TIME),
-        LocalResult::None => {
-            // A one-hour gap: the wall times an hour either side are one real hour apart.
-            let hour = Duration::hours(1);
-            let single = |wall: Option<NaiveDateTime>| wall.and_then(|wall| zone.from_local_datetime(&wall).single().map(|at| (wall, at)));
-            match (single(naive.checked_sub_signed(hour)), single(naive.checked_add_signed(hour))) {
-                (Some((_, before)), Some((wall, at))) if at.signed_duration_since(before) == hour => Ok((wall, at)),
-                _ => Err(MISSING_TIME),
-            }
-        }
-    }
 }
 
 /// `t + n.days` on a TimeWithZone (ActiveSupport 8.1, `advance(days:)`): the wall time moves by whole days, then a wall time
@@ -92,6 +70,24 @@ pub fn parse_explicit_offset(text: &str) -> Option<String> {
         .map(|at| at.with_timezone(&chrono::Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
 }
 
+/// A day's bound in `zone` as Date#beginning_of_day / #end_of_day resolve it (TimeZone#period_for_local(t, dst = true) {
+/// periods.last }): a repeated wall time is the occurrence in DST when exactly one is, else the later one (Magadan
+/// 2014-10-26 00:00 is +10:00); a missing one moves forward an hour at a time (Santiago 2026-09-06 00:00 is 01:00).
+pub fn wall(zone: Tz, naive: chrono::NaiveDateTime) -> Option<DateTime<Utc>> {
+    use chrono::{LocalResult, TimeZone};
+    use chrono_tz::OffsetComponents;
+    let dst = |t: &DateTime<Tz>| !t.offset().dst_offset().is_zero();
+    let mut at = naive;
+    for _ in 0..48 {
+        match zone.from_local_datetime(&at) {
+            LocalResult::Single(t) => return Some(t.with_timezone(&Utc)),
+            LocalResult::Ambiguous(first, second) => return Some(if dst(&first) && !dst(&second) { first } else { second }.with_timezone(&Utc)),
+            LocalResult::None => at = at.checked_add_signed(chrono::Duration::hours(1))?,
+        }
+    }
+    None
+}
+
 #[test]
 fn explicit_offsets_in_every_form() {
     assert_eq!(parse_explicit_offset("2026-11-05T09:30:00+0200").as_deref(), Some("2026-11-05T07:30:00Z"));
@@ -118,6 +114,24 @@ mod advance_tests {
             let at = DateTime::parse_from_rfc3339(from).unwrap().with_timezone(&Utc);
             let want = DateTime::parse_from_rfc3339(to).unwrap().with_timezone(&Utc);
             assert_eq!(advance_days(at, strict(zone).unwrap(), days), Some(want), "{zone} {from} {days}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod wall_tests {
+    /// Recorded with activesupport 8.1.4 (`Time.zone = zone; Date.parse(day).beginning_of_day` and `.end_of_day`).
+    #[test]
+    fn day_bounds_resolve_as_activesupport() {
+        for (zone, day, from, to) in [("Magadan", "2014-10-26", "2014-10-25T14:00:00Z", "2014-10-26T13:59:59.999999Z"),
+                                      ("Santiago", "2026-09-06", "2026-09-06T04:00:00Z", "2026-09-07T02:59:59.999999Z"),
+                                      ("Santiago", "2026-04-05", "2026-04-05T04:00:00Z", "2026-04-06T03:59:59.999999Z"),
+                                      ("Warsaw", "2026-10-25", "2026-10-24T22:00:00Z", "2026-10-25T22:59:59.999999Z")] {
+            let zone = super::strict(zone).unwrap();
+            let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
+            let at = |t: &str| chrono::DateTime::parse_from_rfc3339(t).unwrap().with_timezone(&chrono::Utc);
+            assert_eq!(super::wall(zone, day.and_hms_micro_opt(0, 0, 0, 0).unwrap()), Some(at(from)), "{zone} {day}");
+            assert_eq!(super::wall(zone, day.and_hms_micro_opt(23, 59, 59, 999_999).unwrap()), Some(at(to)), "{zone} {day}");
         }
     }
 }

@@ -1,7 +1,7 @@
 //! BroadcastsController, for the three figures a page waits on: `broadcast--on-connect` posts here once every stream
 //! source of the page is connected (app/javascript/controllers/broadcast/on_connect_controller.js). Rails answers
 //! `head :ok` at once and leaves the broadcast to a job; so does this build, and the work is `figure::loading::publish`.
-//! `wake_dispatcher` and the four limit rules' info are served too; `fetch_open_orders` is not yet.
+//! `wake_dispatcher`, the four limit rules' info and the orders table's refresh (`fetch_open_orders`) are served too.
 use super::layout::Ctx;
 use super::{auth, bot, App, WebError};
 use axum::extract::{Extension, State};
@@ -101,5 +101,18 @@ async fn info_update(app: App, ctx: Ctx, rule: Option<&'static str>) -> Result<R
     }).await?;
     if !found { return Ok(head(StatusCode::NOT_FOUND)); }
     if rule.is_some() { app.wake_engine(); }
+    Ok(head(StatusCode::OK))
+}
+
+/// `fetch_open_orders`: the orders table's refresh while the bot has waiting orders. A bot that is not the user's is "not
+/// found"; a deleted one is found. D-OPEN-ORDERS-WAKE: Rails runs Bot::FetchAndUpdateOpenOrdersJob inside the request, reading
+/// the venue; venue calls stay in the engine here, so the request leaves a versioned refresh request (polling::REFRESH_KEY)
+/// and wakes it, and the page hears the rows the engine's sweep writes. The page never reads this answer.
+pub async fn fetch_open_orders(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
+    let Some(id) = id(&ctx, "bot_id") else { return Ok(head(StatusCode::NOT_FOUND)) };
+    let found = app.db(move |c| crate::engine::polling::want_refresh(c, id, user).map_err(|e| WebError::Config(format!("{e:?}")))).await?;
+    if !found { return Ok(head(StatusCode::NOT_FOUND)); }
+    app.wake_engine();
     Ok(head(StatusCode::OK))
 }

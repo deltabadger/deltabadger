@@ -159,9 +159,12 @@ async fn the_one_asset_job_keeps_its_own_record() {
     demo(&t).reply("GET /api/v3/coins/ethereum", 200, json!({ "symbol": "eth", "name": "Ethereum", "image": { "large": "https://img/eth.png" } }));
     let cg = clients(&t);
     // As jobs::resolve builds it in production, with the scripted clients.
+    // A21: the image it fills in wakes the asset's colour job too (fetch_data_from_coingecko_job.rb:11).
     let resolver: deltabadger::jobs::Resolver = Box::new(move |name, scope| {
+        let asset = scope.unwrap().parse().unwrap();
+        if name == deltabadger::jobs::asset_color::NAME { return Ok(Box::new(deltabadger::jobs::asset_color::InferColor::new(asset)) as Box<dyn Job>); }
         assert_eq!(name, reference::ASSET_DATA);
-        Ok(Box::new(reference::AssetData { cg: cg.clone(), asset: scope.unwrap().parse().unwrap() }) as Box<dyn Job>)
+        Ok(Box::new(reference::AssetData { cg: cg.clone(), asset }) as Box<dyn Job>)
     });
     // Only the woken job: a scheduled bulk run would race it for the transport.
     let scheduler = deltabadger::jobs::Scheduler::new(c, seed::cipher(), vec![], None).with_resolver(resolver);

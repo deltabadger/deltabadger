@@ -10,6 +10,7 @@ pub mod key_check;
 pub mod validator;
 pub mod mail;
 pub mod market_data;
+pub mod platform;
 pub mod preferences;
 pub mod sections;
 mod qr;
@@ -49,6 +50,7 @@ pub async fn show(
         "/settings/api" => api::show(app, ctx, "rest").await,
         ibkr::PATH => ibkr::show(app, ctx).await,
         "/settings/ibkr_connect/download" => ibkr::download(app, ctx).await,
+        "/settings/download_api_docs" => api::download(ctx).await,
         p if p.starts_with("/settings/api_key_permissions/") => keys::modal(app, ctx).await,
         _ => Ok(layout::not_ported_for(&ctx)),
     }
@@ -106,12 +108,25 @@ pub async fn write(
     {
         return keys::delete(app, ctx).await;
     }
+    if app.desktop.is_some() && ctx.method == Method::POST && ctx.params.route_path == "/settings/browser_sign_in_code" {
+        let Some(code) = crate::web::desktop::new_code(&app)? else { return Ok(layout::missing()) };
+        let row = sections::browser_sign_in(&ctx, &ctx.csrf_token(), Some(&code));
+        use axum::response::IntoResponse;
+        let mut response = ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], row).into_response();
+        response.headers_mut().insert(axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+        return Ok(response);
+    }
     match (&ctx.method, ctx.params.route_path.as_str()) {
         (&Method::POST, ibkr::PATH) => return ibkr::create(app, ctx).await,
         (&Method::DELETE, ibkr::PATH) => return ibkr::destroy(app, ctx).await,
         (&Method::POST, "/settings/ibkr_connect/activate") => return ibkr::activate(app, ctx).await,
+        (&Method::POST, "/settings/send_test_email") => return mail::send_test(app, ctx).await,
+        (&Method::DELETE, "/settings/disconnect_email") => return preferences::disconnect_email(app, ctx).await,
         (&Method::PATCH, "/settings/update_market_data") | (&Method::DELETE, "/settings/disconnect_market_data")
         | (&Method::POST, "/settings/resync_assets") => return market_data::write(app, ctx, &headers).await,
+        (&Method::POST | &Method::DELETE, platform::PATH) | (&Method::PATCH, "/settings/update_stocks") | (&Method::DELETE, "/settings/disconnect_stocks") => {
+            return platform::write(app, ctx, &headers).await
+        }
         _ => {}
     }
     if ctx.method == Method::PATCH && ctx.params.route_path == "/settings/update_wash_sale" {

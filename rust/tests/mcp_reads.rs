@@ -9,6 +9,8 @@ use base64::Engine;
 const EXPECTED_READS: &[&str] = &["get_exchange_balances","list_open_orders","get_bot_details","get_portfolio_summary"];
 const ALL_READS: &[&str] = &["get_exchange_balances","list_open_orders","get_bot_details","get_portfolio_summary"];
 const AT: &str = "2026-09-10T12:00:30.123456Z";
+/// D-OPEN-ORDERS-UNREAD-NAMED's line for Kraken, after the last bot order the scenario lists there.
+const UNREAD_KRAKEN_AFTER_LIMITED: &str = "| Kraken | ext: Limited-1\n! Kraken: not read live on this build — only your bots' orders there are listed";
 const HEADERS: [&str; 12] = ["content-type", "www-authenticate", "mcp-session-id", "mcp-protocol-version", "allow", "cache-control", "x-frame-options", "x-xss-protection", "x-content-type-options", "x-permitted-cross-domain-policies", "referrer-policy", "content-security-policy-report-only"];
 fn read(p: impl AsRef<Path>) -> Value { serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap() }
 fn copy_install(from: &Path, to: &Path) {
@@ -112,7 +114,7 @@ async fn four_reads_match_rails() {
         }
         actual.push((dir,steps,got));
     }
-    assert_eq!(actual.len(),103,"all recorded M3 scenarios");
+    assert_eq!(actual.len(),104,"all recorded M3 scenarios (3.0 A20c: m3_unread_venue)");
     common::rails(boot.path(),"test",&["runner","script/rust/mcp.rb","record",root.path().to_str().unwrap()]);
     if let Ok(root)=std::env::var("M3_RECORDINGS"){
         for (dir,_,got) in &actual {
@@ -159,7 +161,13 @@ async fn four_reads_match_rails() {
             // Preserve actual Rails bytes, changing this one read-only presentation in the comparison copy.
             "m3_start_combined"=>vec![("Started: 2026-09-09 14:00 CEST","Started: 2026-09-09 16:00 CEST")],
             "m3_other_venue_figures"=>vec![("Portfolio Summary\n================\nTotal bots: 3 (3 active, 0 stopped, 0 not started)\n\nGlobal P/L: +1.14%\nProfit (USD): +$9.64\n\n--- Per-Bot Summary ---\n- Basket (ID 1) (AAA+BBB/USD) | scheduled | P/L: +0.08% | Invested: 200.0 USD\n- Limited (ID 2) (AAA/USD) | scheduled | P/L: +3.64% | Invested: 346.99 USD\n- ND100 (ID 3) (N/A) | scheduled | P/L: -1.05% | Invested: 300.0 USD","this build reads Alpaca only")],
-            "m3_other_venue"=>vec![("Failed to fetch balances from Kraken: EAPI:Invalid key","this build reads Alpaca only")],
+            // B-1: the balances 501 names the venues whose balances this build reads (Rails reads every venue; no 501).
+            // D-OPEN-ORDERS-UNREAD-NAMED: Rails drops an exchange whose open orders it cannot list (list_open.rb:64-65);
+            // this build names it on its own line after the orders (and in `unavailable`). Only those lines change.
+            "m3_other_venue"=>vec![("Failed to fetch balances from Kraken: EAPI:Invalid key","this build reads balances from Alpaca and Interactive Brokers only"),("| Kraken | ext: Limited-1",UNREAD_KRAKEN_AFTER_LIMITED)],
+            "m3_other_venue_missing_key"=>vec![("| Kraken | ext: Limited-1",UNREAD_KRAKEN_AFTER_LIMITED)],
+            "m3_unread_venue"=>vec![("| Alpaca | ext: external-limit","| Alpaca | ext: external-limit\n! Kraken: not read live on this build — only your bots' orders there are listed"),
+                                    ("No open orders found.","No open orders found on the exchanges that answered.\n! Kraken: not read live on this build — only your bots' orders there are listed")],
             "m3_unpriced"=>vec![("Global P/L: -13.83%\nProfit (USD): $-117.15","Global P/L: Not available (needs market data)")],
             "m3_stored_zero_price"=>vec![("AAA/USD @ 0.0 (Market order)","AAA/USD  (Market order)")], // list_transactions drops a zero price in Rails too.
             "m3_market_no_price"=>vec![("AAA/USD @ 0 (Market order)","AAA/USD  (Market order)")],

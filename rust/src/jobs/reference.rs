@@ -371,7 +371,7 @@ pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome 
 /// committed whatever follows; every crypto external id, 250 per `coins/markets?ids=` page (Coingecko#
 /// get_coins_list_with_market_data, all batches before any write, a failed one ending the run); then each crypto asset the
 /// answer carries refreshed (asset.rb:147-166), the blacklist skipped, a coin without symbol or name skipped
-/// (D-CG-ASSET-ROW-SKIPS). Asset::InferColorFromImageJob on a changed image is F25's, not ported.
+/// (D-CG-ASSET-ROW-SKIPS). A changed image wakes Asset::InferColorFromImageJob (jobs::asset_color) for that asset.
 /// Done only when some asset was refreshed or confirmed; ids asked and no coin answered certifies nothing (Failed).
 async fn coingecko_assets(cg: &Clients, cx: &Cx<'_>) -> Outcome {
     let key = match coingecko_key(cx).await { Ok(Some(k)) => k, Ok(None) => return Outcome::NothingNew, Err(m) => return Outcome::Failed(m) };
@@ -441,7 +441,10 @@ async fn refresh(cx: &Cx<'_>, assets: &[(i64, String)], coin: impl Fn(&str) -> O
     if answered == 0 { return Outcome::Failed(format!("CoinGecko answered no coin of the {asked} asked; nothing refreshed")); }
     let now = cx.clock.now();
     if bulk { if let Err(m) = incomplete(cx, ASSETS, now).await { return Outcome::Failed(m); } }
-    done(import::refresh_assets(&cx.db, rows, now).await)
+    // Asset::InferColorFromImageJob for each asset whose image_url changed, woken once its unit is committed.
+    let wakers = cx.wakers.clone();
+    let wake = move |ids: Vec<i64>| for id in ids { wakers.wake(super::asset_color::NAME, Some(&id.to_string()), None); };
+    done(import::refresh_assets(&cx.db, rows, now, wake).await)
 }
 
 /// Asset::FetchDataFromCoingeckoJob (D-CG one-asset job, PLAN-A17 item 10): one asset's `coins/{id}`, registered per

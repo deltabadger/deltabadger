@@ -287,14 +287,14 @@ fn keys_2x(dir: &Path, env: &[&str]) -> (String, EncryptionKeys) {
 /// Copies `dir` into the named volume `volume` (root, ownership as in `dir`; the entrypoint gives it to 1000 on start).
 fn put(image: &str, volume: &Volume, dir: &Path) {
     let src = format!("{}:/src", dir.display());
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "cp", "-v", &volume.mount(), "-v", &src, image, "-a", "/src/.", "/app/storage/"]);
+    docker(&["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "cp", "-v", &volume.mount(), "-v", &src, image, "-a", "/src/.", "/app/storage/"]);
 }
 
 /// A copy of the volume on this host, owned by this user (for SQLite reads and the backup folder).
 fn take(image: &str, volume: &Volume) -> tempfile::TempDir {
     let out = tempfile::tempdir().unwrap();
     let dst = format!("{}:/out", out.path().display());
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), "-v", &dst, image, "-c",
+    docker(&["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), "-v", &dst, image, "-c",
              &format!("cp -a /app/storage/. /out/ && chown -R {} /out", uid_gid())]);
     out
 }
@@ -302,7 +302,7 @@ fn take(image: &str, volume: &Volume) -> tempfile::TempDir {
 /// Every folder and every file's sha256 on the volume, `.secrets` included. As tests/cli.rs files_of: the engine lock,
 /// SQLite's -shm and an empty -wal are incidental (taking the lock creates the first; opening a file the others).
 fn snapshot(image: &str, volume: &Volume) -> String {
-    docker(&["run", "--rm", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
+    docker(&["run", "--rm", "--network", "none", "--user", "0", "--entrypoint", "sh", "-v", &volume.mount(), image, "-c",
              "cd /app/storage && find . -type d | sort && find . -type f ! -name .engine.lock ! -name '*-shm' ! \\( -name '*-wal' -empty \\) \
               -exec sha256sum {} + | sort -k2"])
 }
@@ -478,6 +478,18 @@ fn format_5_an_old_crlf_file_with_legacy_keys_is_taken_over() {
     takes_over(&image, &fixture);
 }
 
+/// C1 (main.rs BEHIND): the user's line on a Behind install, naming Umbrel's way too (PLAN-B5 r6 Q9' A).
+const C1: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Go back to your previous Deltabadger, \
+                  update it to its latest version and start it. Once it has finished starting, stop it and start this again. On Umbrel, \
+                  update Deltabadger in the Umbrel App Store instead. Nothing was changed.";
+/// C1-U (main.rs BEHIND_UMBREL): C1 where DELTABADGER_PLATFORM is umbrel (PLAN-B5 r2.2).
+const C1_UMBREL: &str = "Deltabadger didn't start: this data is from an older version of Deltabadger. Update Deltabadger in the Umbrel \
+                         App Store: the update brings your data up to date first. If the update button isn't available, restart your \
+                         Umbrel first. Nothing was changed.";
+
+/// A line as the refusal page writes it (HTML-escaped apostrophes).
+fn on_page(line: &str) -> String { line.replace('\'', "&#39;") }
+
 /// Behind (B2's C1): the newest Rails migrations missing. The refusal page with C1, `/health-check` 503, `/ui-ready`
 /// 200, the operator's detail on stderr, SIGTERM → 0, and the volume exactly as it was: no backups folder, `.secrets`
 /// and every data file byte-equal.
@@ -495,9 +507,9 @@ fn a_behind_2x_volume_is_refused_untouched() {
     app.wait_for("/health-check", 503);
     let (status, page) = app.get("/").unwrap();
     assert_eq!(status, 503);
-    assert!(page.contains("this data is from an older version of Deltabadger"), "{page}");
+    assert!(page.contains(&on_page(C1)), "{page}");
     assert_eq!(app.status("/ui-ready"), Some(200));
-    assert!(app.stderr().contains(&behind_detail(3)), "{}", app.logs());
+    assert!(app.stderr().contains(&format!("deltabadger: {C1}\ndeltabadger: {}", behind_detail(3))), "{}", app.logs());
     assert_eq!(app.stop(), "0", "{}", app.logs());
     drop(app);
     let after = snapshot(&image, &volume);
@@ -519,6 +531,23 @@ fn launchpads_shape_takes_a_2x_volume_over() {
 // ---- B3-3: the commands and both compose files (PLAN-B3 §1.3, §3, §8 slice 3) ----
 
 /// J1, M1, R1 (docker/entrypoint.sh, PLAN-B3 §3 as approved).
+/// The Umbrel compose of 2.60.0 and 2.70.21 (deltabadger/docker-compose.yml at those tags), frozen: an installed app
+/// keeps the compose of its last Update (PLAN-B5 r5.1), so a 2.x install runs under its own version's file, never under
+/// the one the repository ships. 2.34.0's (no DELTABADGER_PLATFORM, `jobs` waits for no health) is frozen beside it.
+const UMBREL_2X: &str = "rust/tests/fixtures/umbrel/2.70.21-docker-compose.yml";
+
+/// The frozen composes are the tagged files, byte for byte (`git show v<version>:deltabadger/docker-compose.yml`).
+/// Needs no Docker.
+#[test]
+fn the_frozen_umbrel_composes_are_the_tagged_files() {
+    use sha2::{Digest, Sha256};
+    for (version, sha256) in [("2.34.0", "be91d372d29aa2e75244377aeb691b0796980fd87a76b14c9976f64a0c886caa"),
+                              ("2.70.21", "2c91f1245d1cbd20198b40d753702d9c53ee1383ad1ee0731520fb4a9097e09e")] {
+        let file = format!("{}/tests/fixtures/umbrel/{version}-docker-compose.yml", env!("CARGO_MANIFEST_DIR"));
+        assert_eq!(hex::encode(Sha256::digest(std::fs::read(&file).unwrap())), sha256, "{file} is v{version}'s deltabadger/docker-compose.yml");
+    }
+}
+
 const J1: &str = "This service no longer does anything: Deltabadger now runs its background work in its main service. You can remove this one.";
 const M1: &str = "Nothing to do: Deltabadger updates its data itself when it starts.";
 const R1: &str = "This command isn't available in this version of Deltabadger.";
@@ -572,6 +601,16 @@ impl Project {
         Container { id, port }
     }
 
+    /// This project's files and env with one more override on top, as a project of its own (its own name and containers).
+    fn and(&self, yaml: &str) -> Project {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("override.yml");
+        std::fs::write(&path, yaml).unwrap();
+        let mut files = self.files.clone();
+        files.push(path.display().to_string());
+        Project { name: unique("dbimage"), files, _overrides: dir, env: self.env.clone() }
+    }
+
     fn logs(&self) -> String {
         let out = self.compose(&["logs", "--no-color"]);
         format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))
@@ -579,10 +618,11 @@ impl Project {
 }
 
 impl Drop for Project {
-    fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--remove-orphans", "-t", "5"]); }
+    // `--rmi local`: the image a `build:` service made (named after the project) goes too.
+    fn drop(&mut self) { let _ = self.compose(&["down", "-v", "--rmi", "local", "--remove-orphans", "-t", "5"]); }
 }
 
-/// Umbrel's compose (deltabadger/docker-compose.yml) as 2.x users have it, on a 2.x Umbrel install (format 2: the
+/// Umbrel's compose as 2.x users have it (UMBREL_2X, frozen), on a 2.x Umbrel install (format 2: the
 /// secret is `${APP_SEED}-secret-key-base` in the env, the pair in `.secrets`). The override only swaps both images for
 /// the 3.0 one, drops `app_proxy` (Umbrel's own) and publishes `web`'s 3000 for the test. One engine trades: `web`
 /// takes the install over; `jobs` waits for `web` to be healthy, logs J1 and runs no `deltabadger`; a second engine
@@ -607,7 +647,7 @@ fn umbrels_two_service_compose_runs_one_engine() {
 
     let override_yaml = format!("services:\n  app_proxy: !reset null\n  web:\n    image: {image}\n    ports: [\"127.0.0.1::3000\"]\n  jobs:\n    image: {image}\n");
     let app_data_dir = data.path().display().to_string();
-    let project = Project::new("deltabadger/docker-compose.yml", &override_yaml,
+    let project = Project::new(UMBREL_2X, &override_yaml,
                                &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", seed), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
 
     project.ok(&["up", "-d", "web"]);
@@ -720,13 +760,14 @@ fn rails_commands_are_refused_and_change_nothing() {
 /// C8 (main.rs hand_back), handback's success line.
 const C8: &str = "scheduled. You can start Deltabadger 2.70.21 now.";
 
-/// docker-compose.build.yml builds the Rails Dockerfile until B3-7, so only its config is read here; its grace period is
-/// the 60 s docker-compose.yml's container shows (the_own_server_compose_takes_a_2x_volume_over).
+/// The build-from-source compose's config: it builds Dockerfile.rust (B3-7) and gives its service 60 s to stop (Q2).
+/// Read before anything builds, so a revert to `build: .` (the Rails Dockerfile) fails here first.
 #[test]
-fn the_build_compose_gives_its_service_60_s_to_stop() {
+fn the_build_compose_builds_dockerfile_rust_and_gives_its_service_60_s_to_stop() {
     let Some(_) = image() else { return };
-    let file = format!("{}/../docker-compose.build.yml", env!("CARGO_MANIFEST_DIR"));
+    let file = format!("{}/../{BUILD_COMPOSE}", env!("CARGO_MANIFEST_DIR"));
     let config = docker(&["compose", "-f", &file, "config"]);
+    assert!(config.contains("dockerfile: Dockerfile.rust"), "{config}");
     assert!(config.contains("stop_grace_period: 1m0s"), "{config}");
 }
 
@@ -793,6 +834,106 @@ fn handback_through_the_compose_gives_the_volume_back_to_2x() {
     assert_eq!(lease(&image, &fixture.volume, &fixture.cipher), None, "2.70.21 adopted the handback and deleted the row");
 }
 
+// ---- B3-7: building from source (PLAN-B3 r1.5) ----
+
+const BUILD_COMPOSE: &str = "docker-compose.build.yml";
+
+/// The test's only change to the build compose: offline (`network_mode: none`, nothing published) and `storage` is
+/// `volume`. The build itself still uses the builder's network.
+fn offline_on(volume: &Volume) -> String {
+    let Volume::Named(name) = volume else { panic!("a named volume") };
+    format!("services:\n  deltabadger:\n    network_mode: none\n    ports: !reset []\nvolumes:\n  storage:\n    name: {name}\n    external: true\n")
+}
+
+/// `docker compose up -d --build`, as a build-from-source user runs it. Prints how long the build and start took.
+fn build_up(project: &Project) {
+    let start = Instant::now();
+    project.ok(&["up", "-d", "--build"]);
+    eprintln!("docker compose up -d --build: {:?}", start.elapsed());
+}
+
+/// `docker compose stop`: the command and the service both exit 0.
+fn stopped(project: &Project, app: &Container) {
+    project.ok(&["stop"]);
+    assert_eq!(docker(&["inspect", "-f", "{{.State.ExitCode}}", &app.id]), "0", "{}", app.logs());
+}
+
+/// docker-compose.build.yml as it is, on an empty volume: it builds this checkout's Rust program, which sets up a new
+/// install (`.secrets` 600, owned by 1000) and serves 200.
+#[test]
+fn the_build_compose_builds_3_0_and_sets_up_an_empty_volume() {
+    let Some(_) = image() else { return };
+    let volume = Volume::named();
+    let project = Project::new(BUILD_COMPOSE, &offline_on(&volume), &[]);
+    build_up(&project);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("set up a new install"), "{}", app.logs());
+    assert_eq!(app.exec(&["stat", "-c", "%u %a", "/app/storage/.secrets"]), "1000 600");
+    let said = app.exec(&["deltabadger", "--version"]);
+    assert_eq!(said.lines().next(), Some(format!("deltabadger {}", deltabadger::VERSION).as_str()), "the Rust program of this checkout: {said}");
+    stopped(&project, &app);
+}
+
+/// docker-compose.build.yml as it is, on a real 2.x volume (format 1): taken over as by the published image.
+#[test]
+fn the_build_compose_takes_a_2x_volume_over() {
+    let Some(image) = image() else { return };
+    let fixture = made_by_2x_migrate(&image);
+    let secrets = std::fs::read(take(&image, &fixture.volume).path().join(".secrets")).unwrap();
+    let project = Project::new(BUILD_COMPOSE, &offline_on(&fixture.volume), &[]);
+    build_up(&project);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("took over ("), "{}", app.logs());
+    stopped(&project, &app);
+    left_taken_over(&image, &fixture.volume, &fixture.cipher, &secrets);
+}
+
+/// A Behind (2.60.0) install of a build-from-source user, whose SECRET_KEY_BASE is in `.env.docker` beside a copy of
+/// docker-compose.build.yml (built from this checkout). 3.0 refuses it: 503, C1 and r4.1's line on stderr, every file
+/// byte-equal. B10's command (`compose run` can't swap the image of a service that builds its own) with the same env
+/// file, `docker run --rm --env-file .env.docker -v <volume>:/app/storage …:2.70.21 migrate`, then `up -d` → taken over.
+#[test]
+fn a_behind_install_of_the_build_compose_is_upgraded_by_the_manual_command() {
+    let Some(image) = image() else { return };
+    let root = format!("{}/..", env!("CARGO_MANIFEST_DIR"));
+    let dir = tempfile::tempdir().unwrap();
+    let compose = dir.path().join(BUILD_COMPOSE);
+    std::fs::copy(format!("{root}/{BUILD_COMPOSE}"), &compose).unwrap();
+    std::fs::write(dir.path().join(".env.docker"), "SECRET_KEY_BASE=b3-7-build-secret\n").unwrap();
+    let volume = Volume::named();
+    let Volume::Named(name) = &volume else { unreachable!() };
+    docker(&["run", "--rm", "--network", "none", "-v", &volume.mount(), "-e", "SECRET_KEY_BASE=b3-7-build-secret", RAILS_2_60, "migrate"]);
+    let missing = missing_2x(&image, &volume).len();
+    let project = Project::layered(&compose.display().to_string(),
+        &[&format!("services:\n  deltabadger:\n    build:\n      context: {root}\n"), &offline_on(&volume)], &[]);
+
+    let before = snapshot(&image, &volume);
+    build_up(&project);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 503);
+    let said = app.stderr();
+    assert!(said.contains("this data is from an older version of Deltabadger") && said.contains(&behind_detail(missing)), "{}", app.logs());
+    stopped(&project, &app);
+    assert_eq!(snapshot(&image, &volume), before, "the refused start changes no file");
+
+    // B10's line, run where the user's compose file and .env.docker are (offline here: --network none).
+    let run = unique("dbmigrate");
+    let mut command = Command::new("docker");
+    command.current_dir(dir.path()).args(["run", "--rm", "--name", &run, "--network", "none", "--env-file", ".env.docker", "-v",
+                                          &format!("{name}:/app/storage"), RAILS_2X, "migrate"]);
+    let out = exits(command, &run);
+    assert_eq!(out.status.code(), Some(0), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert_eq!(missing_2x(&image, &volume), Vec::<String>::new());
+
+    project.ok(&["up", "-d"]);
+    let app = project.container("deltabadger");
+    app.wait_for("/health-check", 200);
+    assert!(app.logs().contains("took over ("), "{}", app.logs());
+    stopped(&project, &app);
+}
+
 // ---- B3-6: the Behind guard (PLAN-B3 §4 A+, §8 slice 6, r1.1, r1.6, r2.2, r3.2, r4.1) ----
 
 /// The image of Umbrel's `upgrade` step as B5's compose names it: 2.70.21 pinned by its index digest. A daemon that can't
@@ -803,10 +944,13 @@ const RAILS_2_34: &str = "ghcr.io/deltabadger/deltabadger:2.34.0";
 const RAILS_2_60: &str = "ghcr.io/deltabadger/deltabadger:2.60.0";
 const UMBREL_SEED: &str = "b3-6-umbrel-seed";
 const UMBREL_SECRET: &str = "SECRET_KEY_BASE=b3-6-umbrel-seed-secret-key-base";
-/// The guard's own line when it runs migrate.
-const GUARD_RUNS: &str = "update(s) behind; bringing it up to date with 2.70.21 first";
+/// The guard's own line when it runs migrate (G1, PLAN-B5 §7).
+const GUARD_RUNS: &str = "Deltabadger: your data is from an older version, so it's being updated first.";
+/// The guard's line when that migrate fails (F1, PLAN-B5 §7).
+const GUARD_FAILED: &str = "Deltabadger couldn't finish updating your data. Nothing was bought or sold. Restart the app to try again; if it \
+                            keeps failing, contact support.";
 
-/// B5's lines for Umbrel's compose (deltabadger/docker-compose.yml): the one-shot `upgrade` service, and `web` started
+/// B5's lines for Umbrel's 2.x compose (UMBREL_2X): the one-shot `upgrade` service, and `web` started
 /// only once it exits 0. GUARD goes in where its name is, verbatim, as a YAML block; it has no "$", so compose
 /// interpolates nothing in it.
 const B5_LINES: &str = "services:
@@ -840,17 +984,22 @@ fn b5_lines() -> String {
 /// data/storage (`storage`); every service on `network_mode: none`; app_proxy dropped; `web` and `jobs` on the 3.0 image.
 struct Umbrel { project: Project, storage: Volume, _data: Volume }
 
-fn umbrel(image: &str) -> Umbrel {
+fn umbrel(image: &str) -> Umbrel { umbrel_with(image, true) }
+
+/// `umbrel`, or (`step` false) the 2.x compose alone, as an installed app has it when `:latest` becomes 3.0 (PLAN-B5 r1.1).
+fn umbrel_with(image: &str, step: bool) -> Umbrel {
     let data = Volume::bind(image);
     std::fs::create_dir_all(data.path().join("data/storage")).unwrap();
     std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
     let storage = Volume::At(format!("{}/data/storage:/app/storage", data.path().display()));
     let local = std::env::var("DELTABADGER_GUARD_IMAGE").ok().filter(|v| !v.is_empty()).map(|i| format!("    image: {i}\n")).unwrap_or_default();
-    let offline = format!("services:\n  app_proxy: !reset null\n  upgrade:\n{local}    network_mode: none\n  web:\n    image: {image}\n    network_mode: none\n  \
+    let upgrade = if step { format!("  upgrade:\n{local}    network_mode: none\n") } else { String::new() };
+    let offline = format!("services:\n  app_proxy: !reset null\n{upgrade}  web:\n    image: {image}\n    network_mode: none\n  \
                            jobs:\n    image: {image}\n    network_mode: none\n");
     let app_data_dir = data.path().display().to_string();
-    let file = format!("{}/../deltabadger/docker-compose.yml", env!("CARGO_MANIFEST_DIR"));
-    let project = Project::layered(&file, &[&b5_lines(), &offline],
+    let file = format!("{}/../{UMBREL_2X}", env!("CARGO_MANIFEST_DIR"));
+    let lines = if step { b5_lines() } else { "services: {}\n".into() };
+    let project = Project::layered(&file, &[&lines, &offline],
                                    &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", UMBREL_SEED), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
     Umbrel { project, storage, _data: data }
 }
@@ -1081,6 +1230,93 @@ fn umbrels_step_leaves_every_install_that_is_not_behind_alone() {
     step_leaves_alone(&image, &u, "handed back");
 }
 
+/// C1-U (PLAN-B5 r2.2, r6 Q9' A): Umbrel's 2.x compose as installed (no step; its `web` sets DELTABADGER_PLATFORM:
+/// umbrel) with `web` on 3.0, on a Behind 2.60.0 install. `web` refuses with 503 in Umbrel's words (not generic C1), the
+/// operator's detail on stderr, and every file stays byte-equal.
+#[test]
+fn umbrels_web_without_the_step_refuses_a_behind_install_in_umbrels_words() {
+    let Some(image) = image() else { return };
+    let u = umbrel_with(&image, false);
+    u.rails(RAILS_2_60, &["migrate"]);
+    let missing = missing_2x(&image, &u.storage).len();
+    let before = snapshot(&image, &u.storage);
+    u.project.ok(&["up", "-d", "web"]);
+    let web = u.project.container("web");
+    web.wait_for("/health-check", 503);
+    let page = web.exec(&["curl", "-s", "http://localhost:3000/"]);
+    assert!(page.contains(&on_page(C1_UMBREL)) && !page.contains("Go back to your previous"), "{page}");
+    assert!(web.stderr().contains(&format!("deltabadger: {C1_UMBREL}\ndeltabadger: {}", behind_detail(missing))), "{}", web.logs());
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+    assert_eq!(snapshot(&image, &u.storage), before, "a refused start changes no file");
+}
+
+/// An image `FROM` the guard image with 2.70.21's last migration replaced by one that raises (b3-6-pr mutation 4).
+/// Removed on drop.
+struct FailingGuard { tag: String, last: String }
+
+impl FailingGuard {
+    fn build() -> Self {
+        let base = std::env::var("DELTABADGER_GUARD_IMAGE").ok().filter(|v| !v.is_empty()).unwrap_or_else(|| GUARD_IMAGE.into());
+        let files = docker(&["run", "--rm", "--network", "none", "--entrypoint", "ls", &base, "/app/db/migrate"]);
+        let file = files.lines().max().expect("2.70.21 has migrations").to_string();
+        let original = docker(&["run", "--rm", "--network", "none", "--entrypoint", "cat", &base, &format!("/app/db/migrate/{file}")]);
+        let class = original.lines().find(|l| l.starts_with("class ")).expect("a migration class").to_string();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(&file), format!("{class}\n  def up\n    raise \"B5-3: this migration fails on purpose\"\n  end\nend\n")).unwrap();
+        std::fs::write(dir.path().join("Dockerfile"), format!("FROM {base}\nCOPY {file} /app/db/migrate/{file}\n")).unwrap();
+        let tag = format!("{}:failing", unique("dbguard"));
+        docker(&["build", "-q", "-t", &tag, &dir.path().display().to_string()]);
+        FailingGuard { tag, last: file.split('_').next().unwrap().to_string() }
+    }
+}
+
+impl Drop for FailingGuard {
+    fn drop(&mut self) { let _ = Command::new("docker").args(["rmi", "-f", &self.tag]).output(); }
+}
+
+/// What 3.0 would have written on the install: its tables (`rust_*`), its lease row, its backups.
+fn traces_of_3_0(image: &str, storage: &Volume) -> (Vec<String>, Option<String>, bool) {
+    let copy = take(image, storage);
+    let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
+    let tables = c.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'rust\\_%' ESCAPE '\\'").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let lease = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deltabadger::lease::KEY], |r| r.get(0)).ok();
+    (tables, lease, copy.path().join("backups").exists())
+}
+
+/// F1 (PLAN-B5 §3.2, §7; b3-6-pr mutation 4 as a test): Umbrel's step with a migrate that fails, on a 2.60.0 install.
+/// `up -d web` fails naming `upgrade`; `web` is created and never started; the step's log has G1 and the F1 line; 3.0
+/// wrote nothing (no `rust_*` table, no lease row, no backup); the install keeps the failed migration missing. Then the
+/// real guard image: the step completes and `web` takes over, 200.
+#[test]
+fn a_failing_step_keeps_web_stopped_says_so_and_the_next_start_completes_it() {
+    let Some(image) = image() else { return };
+    let failing = FailingGuard::build();
+    let u = umbrel(&image);
+    u.rails(RAILS_2_60, &["migrate"]);
+    assert!(!missing_2x(&image, &u.storage).is_empty(), "the fixture is Behind");
+    let untouched = traces_of_3_0(&image, &u.storage);
+    assert_eq!((untouched.0.as_slice(), untouched.2), (&[][..], false), "a 2.60.0 install has nothing of 3.0's");
+
+    let broken = u.project.and(&format!("services:\n  upgrade:\n    image: {}\n", failing.tag));
+    let web_name = format!("{}-web-1", broken.name);
+    let out = exits(broken.command(&["up", "-d", "web"]), &web_name);
+    let up = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(!out.status.success() && up.contains("\"upgrade\" didn't complete successfully"), "{up}");
+    assert_eq!(docker(&["inspect", "-f", "{{.State.Status}} {{.State.StartedAt}}", &web_name]), "created 0001-01-01T00:00:00Z", "web never started");
+    let said = broken.ok(&["logs", "--no-color", "--no-log-prefix", "upgrade"]);
+    assert!(said.contains(GUARD_RUNS) && said.contains(GUARD_FAILED) && !said.contains("Migrations completed!"), "{said}");
+    assert_eq!(traces_of_3_0(&image, &u.storage), untouched, "3.0 never ran: no rust_* table, no lease, no backup");
+    assert_eq!(missing_2x(&image, &u.storage), std::slice::from_ref(&failing.last), "the failed migration stays to do");
+    drop(broken);
+
+    let web = u.web_takes_over();
+    let said = u.project.ok(&["logs", "--no-color", "--no-log-prefix", "upgrade"]);
+    assert!(said.contains(GUARD_RUNS) && said.contains("Migrations completed!") && !said.contains(GUARD_FAILED), "{said}");
+    assert_eq!(missing_2x(&image, &u.storage), Vec::<String>::new());
+    assert_eq!(web.stop(), "0", "{}", web.logs());
+}
+
 /// (e) r1.1, the own-server manual command (B10), on the own-server compose copied into a folder of its own with
 /// SECRET_KEY_BASE in `.env.docker` beside it, offline. A 2.60.0 install: 3.0 refuses it (503, C1 and r4.1's line on
 /// stderr, nothing changed); then B10's steps exactly: `docker compose stop`, the compose file's image set to
@@ -1106,7 +1342,7 @@ fn the_own_server_manual_command_upgrades_a_behind_install() {
     let app = project.container("deltabadger");
     app.wait_for("/health-check", 503);
     let said = app.stderr();
-    assert!(said.contains("this data is from an older version of Deltabadger") && said.contains(&behind_detail(missing)), "{}", app.logs());
+    assert!(said.contains(&format!("deltabadger: {C1}\ndeltabadger: {}", behind_detail(missing))), "{}", app.logs());
     project.ok(&["stop"]);
     assert_eq!(snapshot(&image, &volume), before, "the refused start changes no file");
 
@@ -1124,4 +1360,50 @@ fn the_own_server_manual_command_upgrades_a_behind_install() {
     project.ok(&["stop"]);
     drop(project);
     drop(volume);
+}
+
+/// The first-run setup form of a new install, posted the way a browser that opened Umbrel's app at `host` posts it:
+/// GET /setup for the session cookie and the form's token, then the POST, both with `Host: host` (app_proxy forwards
+/// the browser's own Host, PLAN-B5 §0 F9) and the POST with `Origin: http://host`. Asked from inside `web` (offline).
+/// The POST's status and its Location.
+fn setup_posted_from(web: &Container, host: &str) -> (u16, String) {
+    let script = r#"curl -s -c /tmp/jar -H "Host: $1" http://localhost:3000/setup | grep -o 'name="authenticity_token" value="[^"]*"' | head -1 | cut -d'"' -f4 > /tmp/token
+        curl -s -o /dev/null -D /tmp/head -w '%{http_code}\n' -b /tmp/jar -H "Host: $1" -H "Origin: http://$1" --data-urlencode "authenticity_token=$(cat /tmp/token)" \
+             --data-urlencode 'user[name]=Origin' --data-urlencode 'user[email]=origin@example.com' --data-urlencode 'user[password]=Origin-password-1234' \
+             http://localhost:3000/setup
+        grep -i '^location:' /tmp/head | cut -d' ' -f2 | tr -d '\r'"#;
+    let said = web.exec(&["sh", "-c", script, "sh", host]);
+    let (status, location) = said.split_once('\n').unwrap_or((&said, ""));
+    (status.parse().unwrap_or_else(|_| panic!("{said}")), location.to_string())
+}
+
+/// `web` on the 2.x Umbrel compose (UMBREL_2X) with `web_image`, on a new install (an empty APP_DATA_DIR, Umbrel's
+/// APP_SEED and DEVICE_DOMAIN_NAME, so APP_ROOT_URL is http://umbrel.local:3737), offline: `setup_posted_from(host)`.
+fn umbrel_setup_from(image: &str, web_image: &str, host: &str) -> (u16, String) {
+    let data = Volume::bind(image);
+    std::fs::create_dir_all(data.path().join("data/storage")).unwrap();
+    std::fs::create_dir_all(data.path().join("data/logs")).unwrap();
+    let offline = format!("services:\n  app_proxy: !reset null\n  web:\n    image: {web_image}\n    network_mode: none\n");
+    let app_data_dir = data.path().display().to_string();
+    let project = Project::new(UMBREL_2X, &offline, &[("APP_DATA_DIR", &app_data_dir), ("APP_SEED", UMBREL_SEED), ("DEVICE_DOMAIN_NAME", "umbrel.local")]);
+    project.ok(&["up", "-d", "web"]);
+    let web = project.container("web");
+    web.wait_for("/setup", 200);
+    setup_posted_from(&web, host)
+}
+
+/// R-B5-ORIGIN (PLAN-B5 §1.4): Umbrel users open the app at the name APP_ROOT_URL carries (umbrel.local:3737) or at the
+/// device's address (192.168.1.10:3737 here) or another name. 2.70.21 (the oracle) accepts a form from either: Rails
+/// compares `Origin` with the request's own base URL. 3.0 accepts both too (D-B5-ORIGIN-HOST): APP_ROOT_URL's origin or
+/// the request's own. Accepted = the admin is created and the browser sent on to /bots.
+#[test]
+fn umbrels_web_accepts_a_form_from_the_address_the_browser_used() {
+    let Some(image) = image() else { return };
+    for web in [RAILS_2X, image.as_str()] {
+        for host in ["umbrel.local:3737", "192.168.1.10:3737"] {
+            let (status, location) = umbrel_setup_from(&image, web, host);
+            eprintln!("{web} from {host}: {status} {location}");
+            assert!(status == 302 && location.ends_with("/bots"), "{web} from {host}: {status} {location}");
+        }
+    }
 }

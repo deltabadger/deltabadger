@@ -1,0 +1,1283 @@
+{
+  "sources": {
+    "app/models/app_update.rb": "c429b94b6abe82579e36cd00cb7ee48e4f32c3e51deb6f1d0c4b70f81d7c5e93",
+    "app/models/clients/github.rb": "938f2ecede8843fa6bc05ec7b63eedc03419be02d95bde7bb0abe1282f1bdf37",
+    "app/models/installation.rb": "425df8b58132895ad6a229abe2d5f4efb63533c68e9734590e2101204b224ed5",
+    "app/jobs/app_update/check_job.rb": "d630a89a3953ce9bb73bc90a41d8da48645c7d7c53d5dc657919d73b1a782e56",
+    "config/application.rb": "c41b20cf3b35ee2d5d4111113733ad70d66f91a2bcec30fae2032b2a6ed7f815"
+  },
+  "refresh": [
+    {
+      "case": "success",
+      "returned": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "server_error",
+      "returned": null,
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "timeout",
+      "returned": null,
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "prerelease_tag",
+      "returned": null,
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "nightly_tag",
+      "returned": null,
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "array_body",
+      "returned": null,
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "not_json",
+      "returned": null,
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "redirect",
+      "returned": null,
+      "cached": {
+        "version": "3.0.1",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "redirect_with_release",
+      "returned": {
+        "version": "3.0.3",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.3"
+      },
+      "cached": {
+        "version": "3.0.3",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.3"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "not_found_with_release",
+      "returned": null,
+      "cached": {
+        "version": "3.0.3",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.3"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "missing_tag",
+      "returned": null,
+      "cached": {
+        "version": "3.0.3",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/v3.0.3"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "bare_tag",
+      "returned": {
+        "version": "3.0.2",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/3.0.2"
+      },
+      "cached": {
+        "version": "3.0.2",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/3.0.2"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    },
+    {
+      "case": "four_part_tag",
+      "returned": null,
+      "cached": {
+        "version": "3.0.2",
+        "url": "https://github.com/deltabadger/deltabadger/releases/tag/3.0.2"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.github.com:443/repos/deltabadger/deltabadger/releases/latest",
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Deltabadger"
+          }
+        }
+      ]
+    }
+  ],
+  "silent": [
+    {
+      "env": {
+        "DELTABADGER_PLATFORM": "desktop",
+        "DELTABADGER_UPDATE_CHECK": null
+      },
+      "returned": null,
+      "requests": []
+    },
+    {
+      "env": {
+        "DELTABADGER_PLATFORM": null,
+        "DELTABADGER_UPDATE_CHECK": "false"
+      },
+      "returned": null,
+      "requests": []
+    }
+  ],
+  "available": [
+    {
+      "current": "2.70.21",
+      "latest": "3.0.0",
+      "available": true
+    },
+    {
+      "current": "3.0.0-beta.2",
+      "latest": "3.0.0",
+      "available": true
+    },
+    {
+      "current": "3.0.0",
+      "latest": "3.0.0",
+      "available": false
+    },
+    {
+      "current": "3.0.1",
+      "latest": "3.0.0",
+      "available": false
+    },
+    {
+      "current": "3.0",
+      "latest": "3.0.0",
+      "available": false
+    },
+    {
+      "current": "3",
+      "latest": "3.0.1",
+      "available": true
+    },
+    {
+      "current": "3.0.0.1",
+      "latest": "3.0.0",
+      "available": false
+    },
+    {
+      "current": "3.0.0",
+      "latest": "3.0.0.1",
+      "available": true
+    },
+    {
+      "current": "3.0.0-rc1",
+      "latest": "3.0.0",
+      "available": true
+    },
+    {
+      "current": "3.0.0-beta.2",
+      "latest": "2.99.99",
+      "available": false
+    },
+    {
+      "current": "3.0.0-beta.10",
+      "latest": "3.0.0",
+      "available": true
+    },
+    {
+      "current": "10.0.0",
+      "latest": "9.9.9",
+      "available": false
+    },
+    {
+      "current": "3.0.0+build",
+      "latest": "3.0.0",
+      "available": false
+    },
+    {
+      "current": "garbage",
+      "latest": "3.0.0",
+      "available": false
+    },
+    {
+      "current": "",
+      "latest": "3.0.0",
+      "available": true
+    },
+    {
+      "current": "v3.0.0",
+      "latest": "3.0.1",
+      "available": false
+    },
+    {
+      "current": "3.0.0",
+      "latest": "99.0.0",
+      "available": true
+    },
+    {
+      "current": "3.0.0",
+      "latest": "0.0.1",
+      "available": false
+    },
+    {
+      "current": "3.0.0 ",
+      "latest": "3.0.1",
+      "available": true
+    },
+    {
+      "current": "03.0.0",
+      "latest": "3.0.1",
+      "available": true
+    },
+    {
+      "current": "3.0.0-1",
+      "latest": "3.0.0",
+      "available": true
+    }
+  ],
+  "enabled": [
+    {
+      "platform_marker": null,
+      "update_check": null,
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": null,
+      "update_check": "",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": null,
+      "update_check": "false",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": "FALSE",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": " false ",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": "0",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": "no",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": "off",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": "f",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": "n",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": null,
+      "update_check": "true",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": null,
+      "update_check": "1",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": null,
+      "update_check": "yes",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": null,
+      "update_check": "on",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": null,
+      "update_check": "garbage",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "",
+      "update_check": null,
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "",
+      "update_check": "",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "",
+      "update_check": "false",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": "FALSE",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": " false ",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": "0",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": "no",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": "off",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": "f",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": "n",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "",
+      "update_check": "true",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "",
+      "update_check": "1",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "",
+      "update_check": "yes",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "",
+      "update_check": "on",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "",
+      "update_check": "garbage",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": null,
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "false",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "FALSE",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": " false ",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "0",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "no",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "off",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "f",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "n",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "true",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "1",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "yes",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "on",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "docker",
+      "update_check": "garbage",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": null,
+      "platform": "umbrel",
+      "enabled": true
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "",
+      "platform": "umbrel",
+      "enabled": true
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "false",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "FALSE",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": " false ",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "0",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "no",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "off",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "f",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "n",
+      "platform": "umbrel",
+      "enabled": false
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "true",
+      "platform": "umbrel",
+      "enabled": true
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "1",
+      "platform": "umbrel",
+      "enabled": true
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "yes",
+      "platform": "umbrel",
+      "enabled": true
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "on",
+      "platform": "umbrel",
+      "enabled": true
+    },
+    {
+      "platform_marker": "umbrel",
+      "update_check": "garbage",
+      "platform": "umbrel",
+      "enabled": true
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": null,
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "false",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "FALSE",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": " false ",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "0",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "no",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "off",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "f",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "n",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "true",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "1",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "yes",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "on",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop",
+      "update_check": "garbage",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": null,
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "false",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "FALSE",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": " false ",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "0",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "no",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "off",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "f",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "n",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "true",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "1",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "yes",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "on",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "hosted",
+      "update_check": "garbage",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": null,
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "false",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "FALSE",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": " false ",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "0",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "no",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "off",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "f",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "n",
+      "platform": "unknown",
+      "enabled": false
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "true",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "1",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "yes",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "on",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": "compose",
+      "update_check": "garbage",
+      "platform": "unknown",
+      "enabled": true
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": null,
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "false",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "FALSE",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": " false ",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "0",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "no",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "off",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "f",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "n",
+      "platform": "docker",
+      "enabled": false
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "true",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "1",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "yes",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "on",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": " Docker ",
+      "update_check": "garbage",
+      "platform": "docker",
+      "enabled": true
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": null,
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "false",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "FALSE",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": " false ",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "0",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "no",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "off",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "f",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "n",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "true",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "1",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "yes",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "on",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "DESKTOP",
+      "update_check": "garbage",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": null,
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "false",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "FALSE",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": " false ",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "0",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "no",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "off",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "f",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "n",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "true",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "1",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "yes",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "on",
+      "platform": "desktop",
+      "enabled": false
+    },
+    {
+      "platform_marker": "desktop\n",
+      "update_check": "garbage",
+      "platform": "desktop",
+      "enabled": false
+    }
+  ],
+  "cache_ttl_secs": 90000,
+  "compose_command": "docker compose pull && docker compose up -d"
+}

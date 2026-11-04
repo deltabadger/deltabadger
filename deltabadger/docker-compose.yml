@@ -8,7 +8,7 @@ services:
       PROXY_AUTH_ADD: "false"
 
   web:
-    image: ghcr.io/deltabadger/deltabadger:latest
+    image: ghcr.io/deltabadger/deltabadger:2.70.21@sha256:7c8f73518134ba6414551b3978f49bd91dacc3ff75d0e1c6aea92401b449de81
     restart: on-failure
     command: web
     environment:
@@ -35,7 +35,7 @@ services:
       - ${APP_DATA_DIR}/data/logs:/app/log
 
   jobs:
-    image: ghcr.io/deltabadger/deltabadger:latest
+    image: ghcr.io/deltabadger/deltabadger:2.70.21@sha256:7c8f73518134ba6414551b3978f49bd91dacc3ff75d0e1c6aea92401b449de81
     restart: on-failure
     command: jobs
     environment:
