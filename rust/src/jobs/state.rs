@@ -52,6 +52,14 @@ impl JobState {
     /// Venue text stays in the stored state, while CLI diagnostics omit its free text.
     pub fn describe_venue(&self)->String { let mut public=self.clone(); if public.last_error.is_some(){public.last_error=Some("venue diagnostic omitted".into())} public.describe() }
 
+    /// A25 (D-JOBS-DIAGNOSTIC-OMITTED): what the admin jobs page says of the latest error while it is failing. Never the
+    /// stored text, which can carry a venue's or data-api's reply: only whether the runner dropped the run at its
+    /// deadline (its own prefix, which the 200-char cut cannot remove), or that it failed.
+    pub fn error_class(&self) -> Option<&'static str> {
+        if !self.failing() { return None; }
+        Some(if self.last_error.as_deref().is_some_and(|e| e.starts_with("dropped past its ")) { "timed out" } else { "failed — diagnostic text omitted" })
+    }
+
     /// One line, for `check` and the staleness refusal.
     pub fn describe(&self) -> String {
         let t = |at: Option<DateTime<Utc>>| at.map_or_else(|| "never".to_string(), |t| t.to_rfc3339_opts(SecondsFormat::Secs, true));

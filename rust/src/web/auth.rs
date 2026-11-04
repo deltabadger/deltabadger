@@ -195,6 +195,16 @@ fn failure(ctx: &Ctx, message: &str) -> Response {
 }
 
 /// `authenticate_user!` for a request with nobody signed in: the failure app's response.
+/// A25: the install's admin, or the answer anyone else gets from a page only the admin has (Rails'
+/// `authenticate :user, ->(u) { u.admin? }` route constraint): signed out, the sign-in redirect; signed in, no route (404).
+pub fn admin(ctx: &Ctx) -> Result<&User, Response> {
+    match ctx.user() {
+        None => Err(unauthenticated(ctx)),
+        Some(user) if !user.admin => Err(layout::missing()),
+        Some(user) => Ok(user),
+    }
+}
+
 pub fn unauthenticated(ctx: &Ctx) -> Response {
     failure(ctx, "unauthenticated")
 }
