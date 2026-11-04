@@ -615,7 +615,7 @@ async fn a_booked_bybit_row_thirty_days_old_and_missing_is_never_abandoned() {
     f.tr.reply("GET /v5/order/history", 200, page(vec![]));
     let bot = model::load_bot(&f.c, f.b).unwrap();
     let swept = polling::sweep(&f.c, &f.bybit(), &bot, t("2026-10-30T12:00:00Z")).await;
-    assert!(swept.is_err(), "kept as young: Bybit omitting it fails the sweep loudly");
+    assert_eq!(swept, Ok(()), "a missing booked row neither fails the bot's sweep nor is abandoned");
     assert_eq!(f.row(tx)["external_status"], json!(0), "D-RAILS-UNRECORDED-NEVER-STALE");
     assert_eq!(f.carry("2026-10-30 12:00:00"), carry);
     assert_eq!(f.serve().await.watch, [(f.b, tx)]);

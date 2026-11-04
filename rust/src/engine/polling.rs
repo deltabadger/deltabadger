@@ -396,9 +396,10 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     let mut young = vec![];
     for (id, ext, created) in &rows {
         if mode == PollMode::Terminal || !reports || skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
-        // A28-2 r4.1 (D-RAILS-UNRECORDED-NEVER-STALE): a booked row, back-dated to Rails' tick, is never abandoned by age.
-        if *created >= now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros()
-            || super::rails_unrecorded::booked(c, *id).map_err(db)? {
+        // A28-2 r4.1 (D-RAILS-UNRECORDED-NEVER-STALE): a booked row, back-dated to Rails' tick, is never abandoned by age, nor
+        // does its absence fail the bot's sweep: it waits, and the booking watch polls it hourly.
+        if super::rails_unrecorded::booked(c, *id).map_err(db)? { continue; }
+        if *created >= now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
             young.push(ext.clone());
         } else {
             model::credential_write(c, &version, |tx| {
