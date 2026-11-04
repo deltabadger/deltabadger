@@ -559,3 +559,31 @@ async fn without_the_launcher_secret_no_browser_code_is_made_or_taken() {
     let mut browser = Browser::default();
     assert_eq!(enter(&without, &mut browser, "00000000").await.status, 422);
 }
+
+/// Codex r2 (D-DESKTOP-NO-MAIL): the desktop's expiry clears every marker seven days old, one batch after another; a
+/// marker whose clear is refused stays, and the bots after it are still swept.
+#[tokio::test]
+async fn the_expiry_sweeps_past_a_marker_it_cannot_clear() {
+    struct Fixed;
+    impl deltabadger::engine::Clock for Fixed { fn now(&self) -> chrono::DateTime<chrono::Utc> { common::web::at(NOW) } }
+    let dir = install();
+    let user = insert_user(&dir, "owner@example.com", true);
+    let marker = |stamped: &str| json!({ "rust_set_aside_mail_pending": { "error": "a reason", "stamped_at": stamped } }).to_string();
+    let c = db(&dir);
+    for (label, stamped) in [("refused", "2026-10-27T11:00:00.000Z"), ("old", "2026-10-27T11:00:00.000Z"), ("fresh", "2026-11-03T12:00:00.000Z"), ("old too", "2026-10-20T12:00:00.000Z")] {
+        c.execute("INSERT INTO bots (user_id, type, label, transient_data, created_at, updated_at) VALUES (?1, 'Bots::DcaSingleAsset', ?2, ?3, ?4, ?4)", (user, label, marker(stamped), "2026-01-01 00:00:00")).unwrap();
+    }
+    c.execute_batch("CREATE TRIGGER refuse BEFORE UPDATE ON bots WHEN OLD.label = 'refused' BEGIN SELECT RAISE(ABORT, 'refused'); END;").unwrap();
+    let opened = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
+    let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, SECRET).unwrap());
+    let mut s = deltabadger::mail::sender::Sender::new(opened.primary, cipher, &|_| None, Fixed);
+    (s.batch, s.poll) = (1, std::time::Duration::from_millis(20));
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let run = tokio::spawn(s.expire_only(stopped));
+    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+    stop.send(true).unwrap();
+    run.await.unwrap().unwrap();
+    let left: Vec<(String, bool)> = c.prepare("SELECT label, instr(transient_data, '_mail_pending') > 0 FROM bots ORDER BY id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(left, [("refused".into(), true), ("old".into(), false), ("fresh".into(), true), ("old too".into(), false)]);
+}

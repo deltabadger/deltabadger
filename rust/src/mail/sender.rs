@@ -106,9 +106,12 @@ impl<C: Clock> Sender<C> {
             let (batch, now) = (self.batch, self.clock.now());
             let wait = match self.db(move |c, cipher| -> Result<i64, crate::engine::EngineError> {
                 let (markers, next) = notice::pending(c, after, batch)?;
+                // One marker that cannot be cleared (the guard refuses its bot) stays for the next sweep; the rest go on.
                 for marker in markers.iter().filter(|m| expired(m, now)) {
-                    notice::clear(c, cipher, marker)?;
-                    log(&format!("[mail] {} for bot {}: given up: raised seven days ago or more", marker.notice.mail(), marker.bot_id));
+                    match notice::clear(c, cipher, marker) {
+                        Ok(_) => log(&format!("[mail] {} for bot {}: given up: raised seven days ago or more", marker.notice.mail(), marker.bot_id)),
+                        Err(e) => log(&format!("[mail] {} for bot {}: its marker could not be cleared ({e:?}); tried again at the next sweep", marker.notice.mail(), marker.bot_id)),
+                    }
                 }
                 Ok(next)
             }).await {
