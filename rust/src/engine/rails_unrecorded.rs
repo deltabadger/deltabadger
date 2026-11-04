@@ -436,7 +436,7 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
 /// linked row can't be read: it may be a fill of a listed order, so then no list can be trusted (unchecked).
 fn linked_keys<'a>(c: &Connection, user: i64, exchange: i64, venue: &str, cache: &'a mut Linked) -> Result<&'a Result<std::collections::HashSet<String>, ()>, EngineError> {
     use crate::sync::fills::{self, LedgerRow, Read};
-    if !cache.contains_key(&(user, exchange)) {
+    if let std::collections::hash_map::Entry::Vacant(slot) = cache.entry((user, exchange)) {
         let mut all: Result<std::collections::HashSet<String>, ()> = Ok(Default::default());
         let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions \
                                WHERE user_id = ?1 AND exchange_id = ?2 AND transaction_id IS NOT NULL")?;
@@ -452,7 +452,7 @@ fn linked_keys<'a>(c: &Connection, user: i64, exchange: i64, venue: &str, cache:
                 Read::Unreadable(_) => { all = Err(()); break }
             }
         }
-        cache.insert((user, exchange), all);
+        slot.insert(all);
     }
     Ok(cache.get(&(user, exchange)).expect("inserted above"))
 }
@@ -694,16 +694,18 @@ fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) 
 }
 
 type BigDec = crate::ruby::BigDec;
+/// Per order key, the base and quote of its imported fills.
+type Sums = std::collections::HashMap<String, (BigDec, BigDec)>;
 
 /// r4.1: per order key, the base and quote of every imported fill from `since` on (each fill once), and whether every row
 /// in that range read cleanly.
-fn ledger_sums(c: &Connection, user: i64, exchange: i64, venue: &str, since: DateTime<Utc>) -> Result<(std::collections::HashMap<String, (BigDec, BigDec)>, bool), EngineError> {
+fn ledger_sums(c: &Connection, user: i64, exchange: i64, venue: &str, since: DateTime<Utc>) -> Result<(Sums, bool), EngineError> {
     use crate::sync::fills::{self, LedgerRow, Read};
     let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3")?;
     let rows = s.query_map(params![user, exchange, format_time(since)], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
                                                                                  r.get::<_, Option<String>>(3)?, r.get::<_, String>(4)?)))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
-    let (mut sums, mut seen, mut clean) = (std::collections::HashMap::<String, (BigDec, BigDec)>::new(), std::collections::HashSet::new(), true);
+    let (mut sums, mut seen, mut clean) = (Sums::new(), std::collections::HashSet::new(), true);
     for (id, tx_id, entry_type, raw, at) in rows {
         let raw: Value = match raw.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
         let Ok(transacted_at) = parse_time(&at) else { clean = false; continue };

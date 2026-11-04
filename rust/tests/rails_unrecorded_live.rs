@@ -330,11 +330,11 @@ async fn a_line_not_due_on_the_ledger_is_not_read_yet() {
 #[tokio::test]
 async fn an_unreadable_row_alone_leaves_a28_1s_line_and_beside_an_open_order_keeps_it() {
     for kind in SERVED {
-        let odd: Vec<Box<dyn Fn(&mut Value)>> = vec![
-            Box::new(|r: &mut Value| { let k = if r.get("time").is_some() { "time" } else { "createdTime" }; r.as_object_mut().unwrap().remove(k); }),
-            Box::new(|r: &mut Value| r["side"] = json!("BOTH")),
-            Box::new(|r: &mut Value| if r.get("orderStatus").is_some() { r["orderStatus"] = json!("Untriggered") } else { r["status"] = json!("PENDING_NEW") }),
-            Box::new(|r: &mut Value| if r.get("marketUnit").is_some() { r["marketUnit"] = json!("") } else { r["type"] = json!("STOP_LOSS_LIMIT") }),
+        let odd: [fn(&mut Value); 4] = [
+            |r| { let k = if r.get("time").is_some() { "time" } else { "createdTime" }; r.as_object_mut().unwrap().remove(k); },
+            |r| r["side"] = json!("BOTH"),
+            |r| if r.get("orderStatus").is_some() { r["orderStatus"] = json!("Untriggered") } else { r["status"] = json!("PENDING_NEW") },
+            |r| if r.get("marketUnit").is_some() { r["marketUnit"] = json!("") } else { r["type"] = json!("STOP_LOSS_LIMIT") },
         ];
         for (n, spoil) in odd.iter().enumerate() {
             for with_open in [false, true] {

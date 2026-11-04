@@ -196,7 +196,7 @@ impl<T: Transport> BybitVenue<T> {
         let message = self.transport.redact_diagnostic(&format!("HTTP {}: {}", resp.status, failure_text(&resp.body)));
         if matches!(resp.status, 401 | 403) || matches!(code.as_deref(), Some("10003" | "10004" | "10005" | "10010")) { return Err(Refused(message)); }
         if !(200..300).contains(&resp.status) || code.as_deref() != Some("0") { return Err(Retry(message)); }
-        body.ok_or_else(|| Retry(message))
+        body.ok_or(Retry(message))
     }
 }
 
