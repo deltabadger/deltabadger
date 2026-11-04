@@ -26,6 +26,7 @@ pub mod hook;
 pub mod i18n;
 pub mod launchpad;
 pub mod layout;
+pub mod legacy;
 pub mod locale;
 pub mod mcp;
 pub mod multipart;
@@ -705,6 +706,18 @@ fn routes(app: App) -> Router {
         .route("/setup/platform_connection", only(post(setup::connect_platform)))
         // `/setup.<format>` reaches the setup action in Rails; any other single segment is this build's refusal.
         .route("/{page}", any(setup::formatted))
+        // A26: the legacy routes Rails still draws (web::legacy, wizard::stale).
+        .route("/dashboard", only(get(legacy::dashboard)))
+        .route("/cryptocurrency-dollar-cost-averaging", only(get(legacy::dca_page)))
+        .route("/404", any(legacy::not_found))
+        .route("/422", any(legacy::unprocessable))
+        .route("/500", any(legacy::server_error))
+        .route("/api/remove_invalid_keys", only(post(legacy::absent)))
+        .route("/bots/{id}/show", only(post(legacy::absent)))
+        .route("/bots/dca_multi_assets", only(post(wizard::stale)))
+        .route("/bots/dca_indexes", only(post(wizard::stale)))
+        .route("/bots/dca_indexes/confirm_settings", only(post(wizard::stale)))
+        .route("/bots/dca_indexes/confirm_settings/new", only(get(wizard::stale)))
         .route("/bots", only(get(bots::index)))
         .route("/rules", only(get(rules::index)))
         .route("/rules/withdrawals", only(post(rules::missing)))

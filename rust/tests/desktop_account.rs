@@ -305,6 +305,8 @@ const ROUTES: &[(&str, bool)] = &[
     ("/up", true), ("/health-check", true), ("/ui-ready", true), ("/csp-report", true), ("/cable", true),
     // A25: the admin jobs page (the desktop account is the admin), and its 404 for anything under it.
     ("/jobs", true), ("/jobs/{*rest}", true),
+    // A26: the legacy routes' redirects and error pages.
+    ("/dashboard", true), ("/cryptocurrency-dollar-cost-averaging", true), ("/404", true), ("/422", true), ("/500", true),
 ];
 
 /// The settings actions the desktop does not serve; every other one is served.

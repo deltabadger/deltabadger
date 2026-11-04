@@ -368,10 +368,6 @@ module Pages
           chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(5), wz_step.(IDX_KEY_NEW),
           wz_key.('kucoin-incorrect', IDX_KEY, KC_PASS), wz_key.('kucoin-correct', IDX_KEY, KC_PASS), wz_step.(IDX_QUOTE_NEW), ix_quote.(19), get('/bots/1')
         ), 'crypto_indices' => true, 'kucoin' => true, 'kucoin_coins' => true, 'venue_keys' => {}),
-        # The legacy settings step (no link reaches it).
-        'not_ported_wizard_index_confirm_settings' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
-          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.("#{IDX}/confirm_settings/new")
-        ) },
         # Each step goes back to the first one missing: no index, no venue, no correct key.
         'wizard_index_stale_step' => { 'user' => owner, 'install' => 'alpaca', 'api_keys' => { 'alpaca' => 'incorrect' }, 'steps' => signed_in(
           chooser.('/bots/new', MODAL), wz_step.(IDX_EXCHANGE_NEW), wz_step.(IDX_KEY_NEW), wz_step.(IDX_QUOTE_NEW), wz_step.("/de#{IDX_PICK_NEW}"), ix_pick.(ND100, "/de#{IDX_PICK}"),
