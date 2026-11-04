@@ -844,7 +844,7 @@ async fn this_was_this_bots_order_leaves_a_request_and_wakes_the_engine() {
     let before = money(&f.c);
     let posted = answer(&app, &mut b, f.b, &[("obligation", &obligation.to_string()), ("offer", &offers[0].0.to_string())], common::web::Csrf::Header).await;
     assert_eq!((posted.status, posted.header("location")), (302, Some(format!("/bots/{}", f.b).as_str())), "{}", posted.body);
-    assert_eq!(flash(&app, &b), [("notice".to_string(), "Checking this order with Binance. It's added to the bot's history in a moment if it checks out.".to_string())]);
+    assert_eq!(flash(&app, &b), [("notice".to_string(), "Checking this order with Binance. Reload the page in a moment to see whether it was added.".to_string())]);
     assert_eq!(dump(&f.c, "SELECT obligation_id, offer_id, attempts FROM rust_rails_unrecorded_requests"), format!("Integer({obligation}),Integer({}),Integer(0)", offers[0].0));
     assert_eq!(money(&f.c), before, "the engine books it, not the web");
     tokio::time::timeout(std::time::Duration::from_secs(1), wake.notified()).await.expect("the engine is woken");
@@ -857,7 +857,7 @@ async fn this_was_this_bots_order_leaves_a_request_and_wakes_the_engine() {
         assert_eq!((money(&f.c), waiting(&f.c)), (before.clone(), again.clone()));
     }
     let row = line_row(&app, &mut b, f.b, &f.c).await;
-    assert!(row.contains("Checking with Binance…") && !row.contains("<form"), "{row}");
+    assert!(row.contains("Checking with Binance… Reload the page to see the result.") && !row.contains("<form"), "{row}");
 }
 
 #[tokio::test]
