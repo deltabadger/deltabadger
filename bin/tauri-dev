@@ -1,36 +1,8 @@
 #!/usr/bin/env bash
-
-# DeltaBadger Tauri Development Script
-# This script prepares the Rails app and launches Tauri in dev mode
-
-set -e
-
-# Get the directory where this script lives, then go to project root
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# Clean up stale PID file if the process is not running
-PIDFILE="$PROJECT_ROOT/tmp/pids/server.pid"
-if [ -f "$PIDFILE" ]; then
-  PID=$(cat "$PIDFILE")
-  if ! kill -0 "$PID" 2>/dev/null; then
-    echo "==> Removing stale PID file..."
-    rm -f "$PIDFILE"
-  fi
-fi
-
-# tauri-build refuses to configure when a declared bundle resource is missing, so a dev run
-# needs _bundle/ to exist even though it stays empty here. lib.rs falls back to the system
-# `bundle exec` when it finds no Ruby inside it.
-"$PROJECT_ROOT/scripts/bundle_skeleton.sh"
-
-echo "==> Preparing assets..."
-npm run build
-bundle exec rails dartsass:build
-
-echo "==> Preparing database..."
-bundle exec rails db:prepare
-
-echo "==> Starting Tauri development mode..."
-echo "    (Rails server will be started automatically by Tauri)"
-npm run tauri:dev
+# The desktop app in development: a debug engine as its sidecar (script/rust/desktop_engine.sh --debug, run by
+# tauri.conf.json's beforeDevCommand), the app under its development identifier, so it never meets an installed app's
+# single instance, with its data in storage/desktop-dev/.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+bun install --frozen-lockfile
+exec bunx tauri dev --config '{"identifier":"com.deltabadger.app.dev"}' "$@"

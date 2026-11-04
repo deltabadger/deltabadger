@@ -72,9 +72,7 @@ spring/*.pid
 
 # Tauri
 /src-tauri/target/
-/src-tauri/Cargo.lock
-/_bundle/
-/.desktop-ruby-cache/
+/src-tauri/binaries/
 
 # graphify knowledge graph (generated locally; run `graphify update .`)
 /graphify-out/

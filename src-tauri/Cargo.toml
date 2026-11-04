@@ -1,12 +1,14 @@
 [package]
-name = "deltabadger"
+# Not "deltabadger": the engine (rust/) builds a binary of that name, and both share a target dir on CI caches and
+# developer machines. The bundled executable is Deltabadger (tauri.conf.json's mainBinaryName).
+name = "deltabadger-desktop"
 version = "2.70.21"
 description = "DeltaBadger - Dollar Cost Averaging Bot"
 authors = ["DeltaBadger"]
 license = "MIT"
 repository = ""
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.89"
 
 [lib]
 name = "app_lib"
@@ -16,6 +18,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
+# Cargo.lock keeps tauri and its plugins on the minor versions of the @tauri-apps npm packages in bun.lock (tauri build
+# refuses a mismatch), and tauri's own crates (tauri-runtime*, wry, tao, tauri-utils) on the ones tauri 2.11 builds with.
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
@@ -25,6 +29,8 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-updater = "2"
+# A second launch hands over to the running app (PLAN-B6 §3.2, D-DESKTOP-ONE-INSTANCE).
+tauri-plugin-single-instance = "2"
 # cocoa and objc were here unconditionally and referenced nowhere in src/, which pulled
 # core-graphics onto the Windows target for no reason. Removed rather than cfg-gated: nothing
 # uses them.

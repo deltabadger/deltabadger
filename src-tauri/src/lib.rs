@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+//! The desktop app: a window, a tray, and the engine (`deltabadger-engine serve`) as its child (PLAN-B6). `setup`
+//! shows the window on the launcher's status page (ui/index.html) and returns at once; everything that can fail runs
+//! on the supervisor's thread (supervisor.rs), which moves the window to the engine's page once it answers.
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
-use std::thread;
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
 use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
@@ -19,12 +16,14 @@ use tauri::ActivationPolicy;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::UpdaterExt;
 
-const RAILS_PORT: u16 = 3000;
-const RAILS_HOST: &str = "127.0.0.1";
-const SECRET_KEY_BASE: &str = "SECRET_KEY_BASE";
-const AR_PRIMARY_KEY: &str = "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY";
-const AR_DERIVATION_SALT: &str = "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT";
-const AR_EXTERNAL_MARKER: &str = "ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL";
+mod secrets;
+pub mod supervisor;
+
+use supervisor::{stop_engine, Engine, Launch, Page, View};
+
+/// The released app's identifier: the only one that runs on the 2.x data dir (PLAN-B6 r2.2). Test builds use
+/// `com.deltabadger.app.test`, `tauri dev` `com.deltabadger.app.dev`.
+pub const RELEASE_IDENTIFIER: &str = "com.deltabadger.app";
 
 // Injected at document start in the desktop webview, before any page script and before the
 // stylesheet applies, so the chrome never paints in its browser form first.
@@ -56,87 +55,6 @@ const INITIALIZATION_SCRIPT: &str = concat!(
     "})();"
 );
 
-struct RailsServer(Mutex<Option<Child>>);
-
-enum RailsCommand {
-    Bundled(PathBuf),
-    System,
-}
-
-struct RailsLaunch {
-    app_dir: PathBuf,
-    command: RailsCommand,
-    env: HashMap<String, String>,
-}
-
-fn find_available_port(start: u16) -> u16 {
-    for port in start..start + 100 {
-        if port_check::is_port_reachable_with_timeout(
-            format!("{}:{}", RAILS_HOST, port),
-            Duration::from_millis(100),
-        ) == false
-        {
-            return port;
-        }
-    }
-    start
-}
-
-fn wait_for_server(port: u16, timeout_secs: u64) -> bool {
-    let start = std::time::Instant::now();
-    let timeout = Duration::from_secs(timeout_secs);
-    let url = format!("http://{}:{}/health-check", RAILS_HOST, port);
-    let client = match reqwest::blocking::Client::builder()
-        .timeout(Duration::from_millis(750))
-        .build()
-    {
-        Ok(client) => client,
-        Err(_) => return false,
-    };
-
-    while start.elapsed() < timeout {
-        if client
-            .get(&url)
-            .send()
-            .map(|response| response.status().is_success())
-            .unwrap_or(false)
-        {
-            return true;
-        }
-        thread::sleep(Duration::from_millis(200));
-    }
-    false
-}
-
-fn nonblank_environment_value(name: &str) -> Option<String> {
-    std::env::var(name)
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-}
-
-fn random_hex(byte_count: usize) -> Result<String, String> {
-    let mut bytes = vec![0_u8; byte_count];
-    getrandom::fill(&mut bytes)
-        .map_err(|error| format!("Failed to generate secure random bytes: {error}"))?;
-
-    let mut encoded = String::with_capacity(byte_count * 2);
-    for byte in bytes {
-        use std::fmt::Write as _;
-        write!(&mut encoded, "{byte:02x}").expect("writing to a String cannot fail");
-    }
-    Ok(encoded)
-}
-
-#[cfg(windows)]
-fn bundled_ruby_path(resource_dir: &Path) -> PathBuf {
-    resource_dir.join("ruby").join("bin").join("rubyw.exe")
-}
-
-#[cfg(not(windows))]
-fn bundled_ruby_path(resource_dir: &Path) -> PathBuf {
-    resource_dir.join("ruby/bin/ruby")
-}
-
 #[cfg(windows)]
 fn desktop_app_data_dir(_default: PathBuf) -> Result<PathBuf, String> {
     std::env::var_os("APPDATA")
@@ -152,378 +70,149 @@ fn desktop_app_data_dir(default: PathBuf) -> Result<PathBuf, String> {
     Ok(default)
 }
 
-#[cfg(unix)]
-fn set_secret_permissions(path: &Path) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-        .map_err(|error| format!("Failed to chmod {:?}: {error}", path))
+/// The identifier a build runs under (PLAN-B6 r1.12): a debug build never runs as the released app, however it was
+/// started (`tauri dev` without bin/tauri-dev included), so it never meets an installed app's single instance.
+pub fn run_identifier(configured: &str, debug: bool) -> String {
+    if debug && configured == RELEASE_IDENTIFIER { format!("{RELEASE_IDENTIFIER}.dev") } else { configured.to_string() }
 }
 
-#[cfg(not(unix))]
-fn set_secret_permissions(_path: &Path) -> Result<(), String> {
-    Ok(())
-}
-
-fn install_may_have_database(database_path: &Path) -> bool {
-    nonblank_environment_value("DATABASE_URL").is_some()
-        || nonblank_environment_value("PRIMARY_DATABASE_URL").is_some()
-        || database_path.exists()
-}
-
-fn write_secrets_atomically(path: &Path, contents: &str) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| format!("Secrets path has no parent: {:?}", path))?;
-    let mut temporary_path = None;
-
-    for attempt in 0..100_u32 {
-        let candidate = parent.join(format!(".secrets.{}.{}", std::process::id(), attempt));
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&candidate)
-        {
-            Ok(mut file) => {
-                file.write_all(contents.as_bytes())
-                    .and_then(|_| file.sync_all())
-                    .map_err(|error| format!("Failed to write {:?}: {error}", candidate))?;
-                set_secret_permissions(&candidate)?;
-                temporary_path = Some(candidate);
-                break;
+/// The data dir (PLAN-B6 §1.2, r2.2, r4.3): `DELTABADGER_DESKTOP_DATA_DIR` for any build but the released app's
+/// identifier; else a debug build's `<repo>/storage/desktop-dev/`; else the 2.x desktop's dir for the released app,
+/// and the identifier's own app data dir for every other one. With the lines the log gets about the choice.
+pub fn choose_data_dir(
+    identifier: &str,
+    override_dir: Option<&str>,
+    debug: bool,
+    identifier_dir: Result<PathBuf, String>,
+) -> Result<(PathBuf, Vec<String>), String> {
+    let mut notes = Vec::new();
+    if let Some(dir) = override_dir.filter(|d| !d.trim().is_empty()) {
+        if identifier == RELEASE_IDENTIFIER {
+            notes.push("desktop: DELTABADGER_DESKTOP_DATA_DIR is ignored by the released app".to_string());
+        } else {
+            let dir = PathBuf::from(dir);
+            if !dir.is_absolute() {
+                return Err(format!("DELTABADGER_DESKTOP_DATA_DIR must be an absolute path: {}", dir.display()));
             }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(error) => {
-                return Err(format!(
-                    "Failed to create a temporary secrets file: {error}"
-                ))
-            }
+            return Ok((dir, notes));
         }
     }
+    let dir = if debug {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join("storage")
+            .join("desktop-dev")
+    } else if identifier == RELEASE_IDENTIFIER {
+        desktop_app_data_dir(identifier_dir?)?
+    } else {
+        identifier_dir?
+    };
+    Ok((dir, notes))
+}
 
-    let temporary_path = temporary_path
-        .ok_or_else(|| "Failed to allocate a temporary secrets filename".to_string())?;
-    let link_result = fs::hard_link(&temporary_path, path);
-    let _ = fs::remove_file(&temporary_path);
+/// The sidecar next to the app's executable (Tauri's externalBin). Debug builds: `DELTABADGER_TEST_ENGINE` names
+/// another program (a test fixture served in its place).
+fn engine_exe() -> Result<PathBuf, String> {
+    #[cfg(debug_assertions)]
+    if let Some(exe) = std::env::var_os("DELTABADGER_TEST_ENGINE").filter(|e| !e.is_empty()) {
+        return Ok(exe.into());
+    }
+    let exe = std::env::current_exe().map_err(|error| format!("Failed to find the app's executable: {error}"))?;
+    let dir = exe.parent().ok_or_else(|| format!("{:?} has no folder", exe))?;
+    Ok(dir.join(format!("deltabadger-engine{}", std::env::consts::EXE_SUFFIX)))
+}
 
-    match link_result {
-        Ok(()) => {
-            log::info!("Generated secrets at {:?}", path);
-            Ok(())
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            log::info!("Another process created {:?}; adopting its secrets", path);
-            Ok(())
-        }
-        Err(error) => Err(format!(
-            "Failed to install secrets file {:?}: {error}",
-            path
-        )),
+/// Where a download from the engine's pages goes (PLAN-B6 §7, r5.1): the Downloads folder, under the name the page
+/// gave it, numbered when that name is taken (`report (1).csv`). WKWebView saves nothing without a destination.
+pub fn download_destination(downloads: &Path, suggested: &Path) -> PathBuf {
+    let name = suggested.file_name().map_or_else(|| "download".into(), |n| n.to_string_lossy().into_owned());
+    let (stem, extension) = match name.rsplit_once('.') {
+        Some((stem, extension)) if !stem.is_empty() => (stem.to_string(), format!(".{extension}")),
+        _ => (name.clone(), String::new()),
+    };
+    let mut path = downloads.join(&name);
+    let mut n = 1;
+    while path.exists() {
+        path = downloads.join(format!("{stem} ({n}){extension}"));
+        n += 1;
+    }
+    path
+}
+
+/// The log file, once the data dir is known.
+struct LogFile(PathBuf);
+
+fn log_line<R: tauri::Runtime>(app: &tauri::AppHandle<R>, line: &str) {
+    if let Some(log) = app.try_state::<LogFile>() {
+        let _ = supervisor::note(&log.0, line);
     }
 }
 
-fn read_secrets(path: &Path) -> Result<HashMap<String, String>, String> {
-    let contents = fs::read_to_string(path)
-        .map_err(|error| format!("Failed to read secrets file {:?}: {error}", path))?;
-    let mut secrets = HashMap::new();
+fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    // Show in Dock when window is shown
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(ActivationPolicy::Regular);
 
-    for line in contents.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if let Some((key, value)) = line.split_once('=') {
-            secrets.insert(key.trim().to_string(), value.trim().to_string());
-        }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        let visible = window.is_visible().unwrap_or(false);
+        log_line(app, &format!("desktop: window shown (visible: {visible})"));
     }
-    Ok(secrets)
 }
 
-fn setup_secrets(
-    app_data_dir: &Path,
-    database_path: &Path,
-) -> Result<HashMap<String, String>, String> {
-    let secrets_path = app_data_dir.join(".secrets");
-    let external_secret = nonblank_environment_value(SECRET_KEY_BASE);
-    let external_primary = nonblank_environment_value(AR_PRIMARY_KEY);
-    let external_salt = nonblank_environment_value(AR_DERIVATION_SALT);
-    let encryption_pair_supplied = external_primary.is_some() || external_salt.is_some();
+/// The status page's URL: the app's own origin, which serves ui/index.html at its root (frontendDist). Not read from the
+/// window, which may still be at about:blank right after it was created (WebView2 navigates asynchronously).
+fn status_page() -> tauri::Url {
+    let origin = if cfg!(windows) { "http://tauri.localhost/" } else { "tauri://localhost/" };
+    origin.parse().expect("a fixed URL")
+}
 
-    if !secrets_path.exists() {
-        let mut contents = String::from(
-            "# Auto-generated secrets for Deltabadger\n# DO NOT DELETE - required to read encrypted data\n",
-        );
-        if external_secret.is_none() {
-            contents.push_str(&format!("{SECRET_KEY_BASE}={}\n", random_hex(64)?));
+/// The main window, for the supervisor.
+struct WindowView {
+    app: tauri::AppHandle,
+    /// The status page's URL, without a fragment.
+    status: tauri::Url,
+    /// The engine page the status page replaced (r2.3).
+    last: Mutex<Option<tauri::Url>>,
+}
+
+impl WindowView {
+    fn navigate(&self, url: tauri::Url) {
+        if let Some(window) = self.app.get_webview_window("main") {
+            let _ = window.navigate(url);
         }
-
-        if encryption_pair_supplied {
-            contents.push_str(&format!("{AR_EXTERNAL_MARKER}=true\n"));
-        } else if !install_may_have_database(database_path) {
-            contents.push_str(&format!("{AR_PRIMARY_KEY}={}\n", random_hex(32)?));
-            contents.push_str(&format!("{AR_DERIVATION_SALT}={}\n", random_hex(32)?));
-        }
-
-        write_secrets_atomically(&secrets_path, &contents)?;
-    } else {
-        log::info!("Loading existing secrets from {:?}", secrets_path);
     }
-    set_secret_permissions(&secrets_path)?;
+}
 
-    let stored = read_secrets(&secrets_path)?;
-    let mut resolved = HashMap::new();
-    let secret = external_secret
-        .or_else(|| {
-            stored
-                .get(SECRET_KEY_BASE)
-                .filter(|v| !v.trim().is_empty())
-                .cloned()
-        })
-        .ok_or_else(|| {
-            format!(
-                "{SECRET_KEY_BASE} is not supplied and is absent from {:?}",
-                secrets_path
-            )
-        })?;
-    resolved.insert(SECRET_KEY_BASE.to_string(), secret);
-
-    if encryption_pair_supplied {
-        if let Some(value) = external_primary {
-            resolved.insert(AR_PRIMARY_KEY.to_string(), value);
-        }
-        if let Some(value) = external_salt {
-            resolved.insert(AR_DERIVATION_SALT.to_string(), value);
-        }
-    } else {
-        for key in [AR_PRIMARY_KEY, AR_DERIVATION_SALT] {
-            if let Some(value) = stored.get(key).filter(|value| !value.trim().is_empty()) {
-                resolved.insert(key.to_string(), value.clone());
+impl View for WindowView {
+    fn status(&self, fragment: &str) {
+        let Some(window) = self.app.get_webview_window("main") else { return };
+        if let Ok(current) = window.url() {
+            if current.scheme() == "http" && current.host_str() == Some(supervisor::HOST) {
+                *self.last.lock().unwrap_or_else(|e| e.into_inner()) = Some(current);
             }
         }
+        let mut url = self.status.clone();
+        url.set_fragment(Some(fragment));
+        let _ = window.navigate(url);
     }
 
-    if let Some(value) = stored.get(AR_EXTERNAL_MARKER) {
-        resolved.insert(AR_EXTERNAL_MARKER.to_string(), value.clone());
-    }
-    // Old desktop secrets may contain this migration-only key. Preserve it, but never mint it.
-    if nonblank_environment_value("APP_ENCRYPTION_KEY").is_none() {
-        if let Some(value) = stored.get("APP_ENCRYPTION_KEY") {
-            resolved.insert("APP_ENCRYPTION_KEY".to_string(), value.clone());
+    fn open(&self, url: &str) {
+        if let Ok(url) = url.parse() {
+            *self.last.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            self.navigate(url);
         }
     }
 
-    Ok(resolved)
-}
-
-fn prepare_launch(
-    fallback_app_dir: PathBuf,
-    resource_dir: PathBuf,
-    app_data_dir: PathBuf,
-    port: u16,
-) -> Result<RailsLaunch, String> {
-    let database_dir = app_data_dir.join("db");
-    let temporary_dir = app_data_dir.join("tmp");
-    let cache_dir = temporary_dir.join("cache");
-    for directory in [&app_data_dir, &database_dir, &temporary_dir, &cache_dir] {
-        fs::create_dir_all(directory).map_err(|error| {
-            format!(
-                "Failed to create writable directory {:?}: {error}",
-                directory
-            )
-        })?;
-    }
-
-    let bundled_ruby = bundled_ruby_path(&resource_dir);
-    let (app_dir, command, rails_env) = if bundled_ruby.is_file() {
-        let bundled_app = resource_dir.join("app");
-        if !bundled_app.join("bin/rails").is_file() {
-            return Err(format!(
-                "Bundled Ruby exists but Rails app is missing from {:?}",
-                bundled_app
-            ));
-        }
-        log::info!("Using bundled Ruby at {:?}", bundled_ruby);
-        (
-            bundled_app,
-            RailsCommand::Bundled(bundled_ruby),
-            "production",
-        )
-    } else {
-        log::info!("Bundled Ruby not found; using the system bundle exec fallback");
-        (fallback_app_dir, RailsCommand::System, "development")
-    };
-
-    let database_path = database_dir.join("production.sqlite3");
-    let mut env = HashMap::from([
-        ("RAILS_ENV".to_string(), rails_env.to_string()),
-        ("PORT".to_string(), port.to_string()),
-        ("RAILS_LOG_TO_STDOUT".to_string(), "true".to_string()),
-        ("RAILS_SERVE_STATIC_FILES".to_string(), "1".to_string()),
-        ("SOLID_QUEUE_IN_PUMA".to_string(), "true".to_string()),
-        // Settings reads this to know updates arrive through check_for_updates below, not
-        // through anything the user has to run.
-        ("DELTABADGER_PLATFORM".to_string(), "desktop".to_string()),
-        ("RAILS_MAX_THREADS".to_string(), "1".to_string()),
-        (
-            "APP_ROOT_URL".to_string(),
-            format!("http://{}:{}", RAILS_HOST, port),
-        ),
-        (
-            "DATABASE_PATH".to_string(),
-            database_path.to_string_lossy().into_owned(),
-        ),
-        (
-            "QUEUE_DATABASE_PATH".to_string(),
-            database_dir
-                .join("production_queue.sqlite3")
-                .to_string_lossy()
-                .into_owned(),
-        ),
-        (
-            "CACHE_DATABASE_PATH".to_string(),
-            database_dir
-                .join("production_cache.sqlite3")
-                .to_string_lossy()
-                .into_owned(),
-        ),
-        (
-            "CABLE_DATABASE_PATH".to_string(),
-            database_dir
-                .join("production_cable.sqlite3")
-                .to_string_lossy()
-                .into_owned(),
-        ),
-        (
-            "PIDFILE".to_string(),
-            temporary_dir
-                .join("server.pid")
-                .to_string_lossy()
-                .into_owned(),
-        ),
-        (
-            "BOOTSNAP_CACHE_DIR".to_string(),
-            cache_dir.to_string_lossy().into_owned(),
-        ),
-        (
-            "APP_TMP_DIR".to_string(),
-            temporary_dir.to_string_lossy().into_owned(),
-        ),
-    ]);
-
-    // The system fallback is the development loop: it keeps using its existing
-    // tmp/local_secret.txt and development database. Generating independent keys there could
-    // make an existing dev database unreadable. A bundled Ruby is production by construction,
-    // including when the desktop executable was compiled with debug assertions.
-    if rails_env == "production" {
-        env.extend(setup_secrets(&app_data_dir, &database_path)?);
-    }
-
-    if matches!(&command, RailsCommand::Bundled(_)) {
-        let bundle_path = app_dir.join("vendor/bundle").to_string_lossy().into_owned();
-        env.insert(
-            "BUNDLE_GEMFILE".to_string(),
-            app_dir.join("Gemfile").to_string_lossy().into_owned(),
-        );
-        env.insert("GEM_HOME".to_string(), bundle_path.clone());
-        env.insert("BUNDLE_PATH".to_string(), bundle_path);
-    }
-
-    Ok(RailsLaunch {
-        app_dir,
-        command,
-        env,
-    })
-}
-
-fn rails_command(launch: &RailsLaunch, arguments: &[&str]) -> Command {
-    let mut command = match &launch.command {
-        RailsCommand::Bundled(ruby) => {
-            let mut command = Command::new(ruby);
-            command.arg(launch.app_dir.join("bin/rails"));
-            command
-        }
-        RailsCommand::System if cfg!(target_os = "windows") => {
-            let mut command = Command::new("ruby");
-            command.arg("bin/rails");
-            command
-        }
-        RailsCommand::System => {
-            let mut command = Command::new("bundle");
-            command.args(["exec", "rails"]);
-            command
-        }
-    };
-    command
-        .args(arguments)
-        .current_dir(&launch.app_dir)
-        .envs(&launch.env)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-    command
-}
-
-fn run_migrations(launch: &RailsLaunch) -> Result<(), String> {
-    log::info!("Preparing databases...");
-
-    let status = rails_command(launch, &["db:prepare"])
-        .status()
-        .map_err(|e| format!("Failed to prepare databases: {}", e))?;
-
-    if status.success() {
-        log::info!("Database preparation completed successfully");
-        Ok(())
-    } else {
-        Err(format!(
-            "Database preparation failed with exit code: {}",
-            status.code().unwrap_or(-1)
-        ))
-    }
-}
-
-fn start_rails_server(launch: &RailsLaunch, port: u16) -> Result<Child, String> {
-    log::info!("Starting Rails server from: {:?}", launch.app_dir);
-    log::info!("Rails will listen on port: {}", port);
-
-    let port = port.to_string();
-    let mut cmd = rails_command(launch, &["server", "-p", &port, "-b", RAILS_HOST]);
-
-    // On Windows, prevent console window
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-    }
-
-    cmd.spawn()
-        .map_err(|e| format!("Failed to start Rails server: {}", e))
-}
-
-fn stop_rails_server<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    let state: tauri::State<RailsServer> = app.state();
-    let Ok(mut guard) = state.0.lock() else {
-        log::error!("Rails server state lock is poisoned; unable to stop it cleanly");
-        return;
-    };
-    let Some(mut child) = guard.take() else {
-        return;
-    };
-
-    log::info!("Shutting down Rails server (PID {})...", child.id());
-    #[cfg(unix)]
-    {
-        let _ = Command::new("/bin/kill")
-            .args(["-TERM", &child.id().to_string()])
-            .status();
-        for _ in 0..25 {
-            match child.try_wait() {
-                Ok(Some(_)) => return,
-                Ok(None) => thread::sleep(Duration::from_millis(100)),
-                Err(_) => break,
-            }
+    fn back(&self) {
+        let last = self.last.lock().unwrap_or_else(|e| e.into_inner()).take();
+        if let Some(url) = last {
+            self.navigate(url);
         }
     }
-
-    let _ = child.kill();
-    let _ = child.wait();
 }
 
 // Also the Settings button: an install that can update itself should not be handing its owner
@@ -583,15 +272,60 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<bool, String> {
     app.restart();
 }
 
+/// Debug builds: a page script's report into the log (the proofs read what the window saw from there).
+#[cfg(debug_assertions)]
+#[tauri::command]
+fn test_report(app: tauri::AppHandle, text: String) {
+    log_line(&app, &format!("test: {text}"));
+}
+
+/// The document-start script: the desktop marks, and in debug builds `DELTABADGER_TEST_EVAL` after them.
+fn initialization_script() -> String {
+    #[cfg(debug_assertions)]
+    if let Ok(eval) = std::env::var("DELTABADGER_TEST_EVAL") {
+        return format!("{INITIALIZATION_SCRIPT}\n{eval}");
+    }
+    INITIALIZATION_SCRIPT.to_string()
+}
+
+/// Everything the supervisor needs, or why it can't run.
+fn launch(app: &tauri::App) -> Result<Launch, String> {
+    let identifier = app.config().identifier.clone();
+    let override_dir = std::env::var("DELTABADGER_DESKTOP_DATA_DIR").ok();
+    let identifier_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Failed to resolve app data directory: {error}"));
+    let (data, notes) = choose_data_dir(&identifier, override_dir.as_deref(), cfg!(debug_assertions), identifier_dir)?;
+    let cwd = app
+        .path()
+        .resource_dir()
+        .map_err(|error| format!("Failed to resolve resource directory: {error}"))?;
+    Ok(Launch { exe: engine_exe()?, extra_args: Vec::new(), cwd, data, notes, first_port: None })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut context = tauri::generate_context!();
+    // Before the single-instance plugin reads it.
+    let identifier = run_identifier(&context.config().identifier, cfg!(debug_assertions));
+    context.config_mut().identifier = identifier;
+    // First: a second launch hands over to the running app and exits before it touches anything (r1.12).
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            log_line(app, "desktop: the app was opened again");
+            show_window(app);
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![check_for_updates])
-        .manage(RailsServer(Mutex::new(None)))
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(debug_assertions)]
+    let builder = builder.invoke_handler(tauri::generate_handler![check_for_updates, test_report]);
+    #[cfg(not(debug_assertions))]
+    let builder = builder.invoke_handler(tauri::generate_handler![check_for_updates]);
+    builder
+        .manage(Arc::new(Engine::default()))
         .setup(|app| {
             // Set up logging in debug mode
             if cfg!(debug_assertions) {
@@ -602,154 +336,82 @@ pub fn run() {
                 )?;
             }
 
-            // Get the app directory (where Rails app lives)
-            let app_dir = if cfg!(debug_assertions) {
-                // In development, find project root relative to executable
-                // When run via .app bundle: exe is in target/debug/bundle/macos/Deltabadger.app/Contents/MacOS/
-                // When run via cargo/tauri dev: current_dir is project root
-                let exe_path = std::env::current_exe().ok();
-                let from_bundle = exe_path.as_ref().map(|p| {
-                    p.ancestors()
-                        .find(|a| a.ends_with("src-tauri"))
-                        .map(|p| p.parent().unwrap().to_path_buf())
-                }).flatten();
-
-                from_bundle.unwrap_or_else(|| {
-                    std::env::current_dir()
-                        .unwrap_or_else(|_| std::path::PathBuf::from("."))
-                })
-            } else {
-                // In production, resources are bundled
-                app.path()
-                    .resource_dir()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            };
-
-            // Find an available port
-            let port = find_available_port(RAILS_PORT);
-            log::info!("Using port: {}", port);
-
-            let resource_dir = app
-                .path()
-                .resource_dir()
-                .map_err(|error| format!("Failed to resolve resource directory: {error}"))?;
-            let default_app_data_dir = app
-                .path()
-                .app_data_dir()
-                .map_err(|error| format!("Failed to resolve app data directory: {error}"))?;
-            let app_data_dir = desktop_app_data_dir(default_app_data_dir)?;
-            let launch = prepare_launch(app_dir, resource_dir, app_data_dir, port)?;
-            log::info!("App directory: {:?}", launch.app_dir);
-
-            // Run pending migrations before starting the server
-            if let Err(e) = run_migrations(&launch) {
-                log::error!("Migration error: {}", e);
-                return Err(e.into());
-            }
-
-            // Start the Rails server
-            match start_rails_server(&launch, port) {
-                Ok(child) => {
-                    log::info!("Rails server process started with PID: {}", child.id());
-
-                    // Store the child process handle
-                    let state: tauri::State<RailsServer> = app.state();
-                    *state.0.lock().unwrap() = Some(child);
-
-                    // Wait for server to be ready
-                    log::info!("Waiting for Rails server to be ready...");
-                    if wait_for_server(port, 60) {
-                        log::info!("Rails server is ready!");
-
-                        // Create the main window pointing to Rails
-                        let url = format!("http://{}:{}", RAILS_HOST, port);
-                        let window_builder = WebviewWindowBuilder::new(
-                            app,
-                            "main",
-                            WebviewUrl::External(url.parse().unwrap()),
-                        )
-                        .title("Deltabadger")
-                        .inner_size(1280.0, 800.0)
-                        .min_inner_size(320.0, 600.0)
-                        .center()
-                        .devtools(true)
-                        .initialization_script(INITIALIZATION_SCRIPT);
-
-                        // The overlay title bar is the macOS look; both builder methods exist only
-                        // on macOS in Tauri 2, so calling them unconditionally does not compile
-                        // anywhere else. Other platforms get their native title bar.
-                        #[cfg(target_os = "macos")]
-                        let window_builder = window_builder
-                            .title_bar_style(tauri::TitleBarStyle::Overlay)
-                            .hidden_title(true);
-
-                        window_builder.build()?;
-
-                        // Set up system tray
-                        let show_item = MenuItemBuilder::with_id("show", "Show Deltabadger").build(app)?;
-                        let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-                        let tray_menu = MenuBuilder::new(app)
-                            .item(&show_item)
-                            .separator()
-                            .item(&quit_item)
-                            .build()?;
-
-                        let tray_icon = Image::from_path("icons/tray-icon.png")
-                            .unwrap_or_else(|_| Image::from_bytes(include_bytes!("../icons/tray-icon.png")).unwrap());
-
-                        let _tray = TrayIconBuilder::new()
-                            .icon(tray_icon)
-                            .icon_as_template(true)
-                            .menu(&tray_menu)
-                            .tooltip("Deltabadger")
-                            .on_menu_event(|app, event| {
-                                match event.id().as_ref() {
-                                    "show" => {
-                                        // Show in Dock when window is shown
-                                        #[cfg(target_os = "macos")]
-                                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
-
-                                        if let Some(window) = app.get_webview_window("main") {
-                                            let _ = window.show();
-                                            let _ = window.set_focus();
-                                        }
-                                    }
-                                    "quit" => {
-                                        stop_rails_server(app);
-                                        app.exit(0);
-                                    }
-                                    _ => {}
-                                }
-                            })
-                            .on_tray_icon_event(|tray, event| {
-                                if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
-                                    if button == tauri::tray::MouseButton::Left {
-                                        let app = tray.app_handle();
-
-                                        // Show in Dock when window is shown
-                                        #[cfg(target_os = "macos")]
-                                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
-
-                                        if let Some(window) = app.get_webview_window("main") {
-                                            let _ = window.show();
-                                            let _ = window.set_focus();
-                                        }
-                                    }
-                                }
-                            })
-                            .build(app)?;
-
-                        log::info!("System tray initialized");
-                    } else {
-                        log::error!("Rails server failed to start within timeout");
-                        stop_rails_server(app.handle());
-                        return Err("Rails server failed to start".into());
+            // The window first, on the status page: whatever happens next is shown in it (r1.11).
+            let window_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                .title("Deltabadger")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(320.0, 600.0)
+                .center()
+                .devtools(true)
+                .initialization_script(initialization_script())
+                .on_download(|webview, event| {
+                    match event {
+                        tauri::webview::DownloadEvent::Requested { destination, .. } => {
+                            match webview.app_handle().path().download_dir() {
+                                Ok(downloads) => *destination = download_destination(&downloads, destination),
+                                Err(error) => log_line(webview.app_handle(), &format!("desktop: download: no Downloads folder: {error}")),
+                            }
+                        }
+                        tauri::webview::DownloadEvent::Finished { success, .. } => {
+                            log_line(webview.app_handle(), &format!("desktop: download {}", if success { "saved" } else { "failed" }))
+                        }
+                        _ => {}
                     }
+                    true
+                });
+
+            // The overlay title bar is the macOS look; both builder methods exist only
+            // on macOS in Tauri 2, so calling them unconditionally does not compile
+            // anywhere else. Other platforms get their native title bar.
+            #[cfg(target_os = "macos")]
+            let window_builder = window_builder
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true);
+
+            window_builder.build()?;
+
+            // Set up system tray
+            let show_item = MenuItemBuilder::with_id("show", "Show Deltabadger").build(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+            let tray_menu = MenuBuilder::new(app)
+                .item(&show_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
+
+            let tray_icon = Image::from_path("icons/tray-icon.png")
+                .unwrap_or_else(|_| Image::from_bytes(include_bytes!("../icons/tray-icon.png")).unwrap());
+
+            let _tray = TrayIconBuilder::new()
+                .icon(tray_icon)
+                .icon_as_template(true)
+                .menu(&tray_menu)
+                .tooltip("Deltabadger")
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => show_window(app),
+                    "quit" => {
+                        stop_engine(&app.state::<Arc<Engine>>());
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
+                        if button == tauri::tray::MouseButton::Left {
+                            show_window(tray.app_handle());
+                        }
+                    }
+                })
+                .build(app)?;
+
+            let view = WindowView { app: app.handle().clone(), status: status_page(), last: Mutex::new(None) };
+            match launch(app) {
+                Ok(launch) => {
+                    app.manage(LogFile(launch.log_file()));
+                    let engine = app.state::<Arc<Engine>>().inner().clone();
+                    std::thread::spawn(move || supervisor::supervise(&launch, &engine, &view));
                 }
-                Err(e) => {
-                    log::error!("Failed to start Rails server: {}", e);
-                    return Err(e.into());
-                }
+                Err(error) => view.status(&Page::NotStarted(error).fragment(Path::new(""))),
             }
 
             // Packaged apps check after startup so development never contacts the
@@ -780,92 +442,20 @@ pub fn run() {
                 log::info!("Window hidden, app running in tray");
             }
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application")
-        .run(|app, event| {
-            if matches!(
-                event,
-                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
-            ) {
-                stop_rails_server(app);
+        .run(|app, event| match event {
+            // Every quit, whichever way it came (PLAN-B6 r1.1): close the engine's stdin and let the app go. Cmd-Q, Dock
+            // Quit, AppleScript and logout arrive as Exit, which cannot be held; the engine drains on its own.
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+                stop_engine(&app.state::<Arc<Engine>>());
             }
+            // A Dock click or a Finder open while the window is hidden (r1.12).
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { .. } => show_window(app),
+            _ => {}
         });
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temporary_directory(label: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("the system clock should be after the Unix epoch")
-            .as_nanos();
-        std::env::temp_dir().join(format!(
-            "deltabadger-{label}-{}-{nonce}",
-            std::process::id()
-        ))
-    }
-
-    fn create_file(path: &Path) {
-        fs::create_dir_all(path.parent().expect("test file should have a parent")).unwrap();
-        fs::write(path, "").unwrap();
-    }
-
-    #[test]
-    fn bundled_ruby_launches_rails_in_production_even_in_a_debug_build() {
-        let root = temporary_directory("bundled-launch");
-        let fallback_app_dir = root.join("fallback-app");
-        let resource_dir = root.join("resources");
-        let app_data_dir = root.join("data");
-        create_file(&bundled_ruby_path(&resource_dir));
-        create_file(&resource_dir.join("app/bin/rails"));
-
-        let launch = prepare_launch(fallback_app_dir, resource_dir.clone(), app_data_dir.clone(), 3010)
-            .expect("bundled launch should be prepared");
-
-        assert!(matches!(launch.command, RailsCommand::Bundled(_)));
-        assert_eq!(launch.app_dir, resource_dir.join("app"));
-        assert_eq!(launch.env.get("RAILS_ENV").map(String::as_str), Some("production"));
-        assert_eq!(
-            launch.env.get("DATABASE_PATH").map(String::as_str),
-            Some(app_data_dir.join("db/production.sqlite3").to_string_lossy().as_ref())
-        );
-        assert!(app_data_dir.join(".secrets").is_file());
-
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn system_bundle_fallback_keeps_the_development_environment() {
-        let root = temporary_directory("system-launch");
-        let fallback_app_dir = root.join("fallback-app");
-        let resource_dir = root.join("resources");
-        let app_data_dir = root.join("data");
-
-        let launch = prepare_launch(fallback_app_dir.clone(), resource_dir, app_data_dir.clone(), 3011)
-            .expect("system launch should be prepared");
-
-        assert!(matches!(launch.command, RailsCommand::System));
-        assert_eq!(launch.app_dir, fallback_app_dir);
-        assert_eq!(launch.env.get("RAILS_ENV").map(String::as_str), Some("development"));
-        assert!(!app_data_dir.join(".secrets").exists());
-
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    // The desktop chrome hangs off html.tauri, and this script is the only thing that sets it:
-    // the web layouts ship no tauri asset, and the page policy forbids an inline block. If this
-    // string loses the class, the packaged app silently paints as a browser page.
-    #[test]
-    fn the_initialization_script_marks_the_document_as_desktop() {
-        assert!(INITIALIZATION_SCRIPT.contains("window.__IS_TAURI__ = true;"));
-        assert!(INITIALIZATION_SCRIPT.contains("window.__TAURI_INTERNALS__ = true;"));
-        assert!(INITIALIZATION_SCRIPT.contains("classList.add('tauri')"));
-        // The null-documentElement path is the Windows one, and it is the path that cannot be
-        // exercised from here — so what it hangs on is pinned instead.
-        assert!(INITIALIZATION_SCRIPT.contains("new MutationObserver"));
-        assert!(!INITIALIZATION_SCRIPT.contains("DOMContentLoaded"));
-    }
-}
+mod tests;

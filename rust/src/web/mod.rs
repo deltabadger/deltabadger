@@ -1150,6 +1150,18 @@ pub fn router_with_routes(app: App, routes: Router, body_read_timeout: Duration)
     Router::new().fallback(entry).with_state(Entry { app, routes, body_read_timeout })
 }
 
+/// D-DESKTOP-DOWNLOADS-INLINE (PLAN-B6 §7, r5.1): the desktop's WebView shows any type it can display, attachment or not,
+/// so a download of text (the tracker export, the tax report, the API manual) would replace the app in its window, and
+/// the tax report is gone once served. On the desktop an attachment is sent as a type no WebView displays: the app saves
+/// it to the Downloads folder. Every other platform keeps its type.
+fn desktop_download(headers: &mut axum::http::HeaderMap, platform: crate::jobs::app_update::Platform) {
+    let attachment = headers.get(header::CONTENT_DISPOSITION).and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.trim_start().to_ascii_lowercase().starts_with("attachment"));
+    if platform == crate::jobs::app_update::Platform::Desktop && attachment {
+        headers.insert(header::CONTENT_TYPE, axum::http::HeaderValue::from_static("application/octet-stream"));
+    }
+}
+
 /// What goes onto every response of the app: the session cookie when it has to be written, the
 /// policy headers, and the controller's default headers unless the response was produced below the
 /// controllers. The cookie is written when the request changed the session (`before` is what the
@@ -1168,6 +1180,7 @@ fn finish(app: &App, session: &session::Session, before: &session::SessionData, 
         }
     }
     headers::policy(response.headers_mut(), nonce, app.config.force_ssl);
+    desktop_download(response.headers_mut(), app.update_platform);
     let status = response.status();
     if response.extensions().get::<headers::BelowControllers>().is_some() {
         headers::cache_control(response.headers_mut(), status, false);
@@ -1229,4 +1242,34 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         next.run(request).await
     };
     finish(&app, &session, &before, &nonce, now, signed_in, response)
+}
+
+#[cfg(test)]
+mod desktop_download_tests {
+    use super::*;
+    use crate::jobs::app_update::Platform;
+
+    fn download(disposition: Option<&str>) -> axum::http::HeaderMap {
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(header::CONTENT_TYPE, "text/csv; charset=utf-8".parse().unwrap());
+        if let Some(d) = disposition { headers.insert(header::CONTENT_DISPOSITION, d.parse().unwrap()); }
+        headers
+    }
+
+    #[test]
+    fn a_desktop_attachment_is_sent_as_a_type_no_webview_shows_and_every_other_response_keeps_its_type() {
+        let mut desktop = download(Some("attachment; filename=\"a.csv\""));
+        desktop_download(&mut desktop, Platform::Desktop);
+        assert_eq!(desktop[header::CONTENT_TYPE], "application/octet-stream");
+        for platform in [Platform::Docker, Platform::Umbrel, Platform::Unknown] {
+            let mut other = download(Some("attachment; filename=\"a.csv\""));
+            desktop_download(&mut other, platform);
+            assert_eq!(other[header::CONTENT_TYPE], "text/csv; charset=utf-8");
+        }
+        for disposition in [None, Some("inline")] {
+            let mut page = download(disposition);
+            desktop_download(&mut page, Platform::Desktop);
+            assert_eq!(page[header::CONTENT_TYPE], "text/csv; charset=utf-8");
+        }
+    }
 }

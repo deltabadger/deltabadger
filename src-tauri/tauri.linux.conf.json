@@ -1,5 +1,0 @@
-{
-  "build": {
-    "beforeBuildCommand": "./scripts/bundle_skeleton.sh"
-  }
-}

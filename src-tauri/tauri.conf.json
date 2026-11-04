@@ -1,11 +1,16 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Deltabadger",
+  "mainBinaryName": "Deltabadger",
   "version": "2.70.21",
   "identifier": "com.deltabadger.app",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "./scripts/bundle_desktop.sh"
+    "frontendDist": "ui",
+    "beforeDevCommand": {
+      "script": "bash script/rust/desktop_engine.sh --debug",
+      "wait": true
+    },
+    "beforeBuildCommand": "bash script/rust/desktop_engine.sh"
   },
   "app": {
     "windows": [],
@@ -34,18 +39,20 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "11.0",
+      "minimumSystemVersion": "11.3",
       "infoPlist": "Info.plist"
     },
     "resources": {
-      "../_bundle/app": "app",
-      "../_bundle/ruby": "ruby",
+      "../db/seed_data/catalogue.json.gz": "db/seed_data/catalogue.json.gz",
       "icons/tray-icon.png": "icons/tray-icon.png"
     },
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
       }
-    }
+    },
+    "externalBin": [
+      "binaries/deltabadger-engine"
+    ]
   }
 }

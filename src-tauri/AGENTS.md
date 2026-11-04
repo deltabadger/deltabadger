@@ -1,4 +1,4 @@
-- Rails runs as background process managed by Tauri
-- `app/javascript/tauri.js` — IPC bridge between Rails and Tauri
+- The engine (`rust/`, `deltabadger serve`) runs as the sidecar `deltabadger-engine`; `script/rust/desktop_engine.sh` builds it into `binaries/` before every `tauri build` / `tauri dev`
+- `src/supervisor.rs` starts it, follows `/ui-ready`, and shows the status page (`ui/index.html`) while it starts or after it stopped; a quit only closes its stdin
+- `src/secrets.rs` owns `<data>/.secrets`; `app/javascript/tauri.js` is the IPC bridge the engine's pages use
 - Rust code in `src/` handles OS integration, tray icon, window management
-- Desktop app shares same Rails backend as web version
