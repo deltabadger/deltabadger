@@ -5,9 +5,9 @@
 
 Each scenario runs the installed test build (identifier com.deltabadger.app.test) on its own
 DELTABADGER_DESKTOP_DATA_DIR under --work, reads the launcher's `data:` line and asserts it names that dir before it acts,
-and on failure prints the scenario's deltabadger.log and deltabadger-stderr.log. What the window shows is read through
-tauri-driver (TAURI_DRIVER, and MSEDGEDRIVER on Windows) on Windows and Linux; macOS has no WebDriver, so its scenarios
-read the launcher log and the engine over HTTP. Python 3 standard library only.
+and on failure prints the scenario's deltabadger.log and deltabadger-stderr.log. What the window shows is read over
+WebDriver: tauri-driver (TAURI_DRIVER) on Linux, msedgedriver (MSEDGEDRIVER) on Windows (see Window); macOS has no
+WebDriver, so its scenarios read the launcher log and the engine over HTTP. Python 3 standard library only.
 """
 import argparse
 import hashlib
@@ -324,19 +324,29 @@ def cleanup():
 # ---------- the window ----------
 
 class Window:
-    """The app started by tauri-driver, its window read over WebDriver (W3C, JSON over HTTP)."""
+    """The app's window read over WebDriver (W3C, JSON over HTTP). Linux: tauri-driver starts the app under
+    WebKitWebDriver. Windows: the app is started as a user starts it, with WebView2's DevTools port opened through
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, and msedgedriver attaches to it (`debuggerAddress`): msedgedriver launching
+    the app itself (tauri-driver's way) never found WebView2's DevToolsActivePort on the runner."""
 
     def __init__(self, data, **extra):
         self.port = free_port()
-        args = [os.environ["TAURI_DRIVER"], "--port", str(self.port), "--native-port", str(free_port())]
+        self.out = open(ARGS.work / f"webdriver-{data.parent.name}-{time.monotonic_ns()}.out", "wb")
         if WIN:
-            args += ["--native-driver", os.environ["MSEDGEDRIVER"]]
-        self.out = open(ARGS.work / f"tauri-driver-{data.parent.name}-{time.monotonic_ns()}.out", "wb")
-        self.proc = subprocess.Popen(args, env=scenario_env(data, **extra), stdout=self.out, stderr=subprocess.STDOUT)
-        until("tauri-driver answering", 30, lambda: self._status())
-        caps = {"capabilities": {"alwaysMatch": {"tauri:options": {"application": str(ARGS.app)}}}}
-        self.sid = self.call("POST", "/session", caps, timeout=180)["sessionId"]
-        say(f"tauri-driver session {self.sid[:8]}")
+            devtools = free_port()
+            self.app = launch(data, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={devtools}", **extra)
+            until("WebView2's DevTools port", 60, lambda: http(devtools, "/json/version") == 200)
+            args = [os.environ["MSEDGEDRIVER"], f"--port={self.port}"]
+            caps = {"browserName": "webview2", "ms:edgeOptions": {"debuggerAddress": f"127.0.0.1:{devtools}"}}
+            env = None
+        else:
+            args = [os.environ["TAURI_DRIVER"], "--port", str(self.port), "--native-port", str(free_port())]
+            caps = {"tauri:options": {"application": str(ARGS.app)}}
+            env = scenario_env(data, **extra)
+        self.proc = subprocess.Popen(args, env=env, stdout=self.out, stderr=subprocess.STDOUT)
+        until("the WebDriver server answering", 30, lambda: self._status())
+        self.sid = self.call("POST", "/session", {"capabilities": {"alwaysMatch": caps}}, timeout=180)["sessionId"]
+        say(f"WebDriver session {self.sid[:8]}")
 
     def _status(self):
         try:

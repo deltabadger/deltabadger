@@ -120,7 +120,7 @@ jobs:
             rust -> target
             src-tauri -> target
           key: desktop-${{ matrix.name }}
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          save-if: true # TEMPORARY while iterating (main only before review)
 
       - name: Build the engine
         shell: bash
@@ -156,7 +156,7 @@ jobs:
 
       # ---------------- Windows ----------------
       - name: Install tauri-driver
-        if: runner.os != 'macOS'
+        if: runner.os == 'Linux'
         shell: bash
         run: cargo install tauri-driver --version 2.1.0 --locked
 
@@ -220,7 +220,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          TAURI_DRIVER="$USERPROFILE/.cargo/bin/tauri-driver.exe" python script/rust/desktop_smoke/smoke.py --kind nsis \
+          python script/rust/desktop_smoke/smoke.py --kind nsis \
             --app "$DESKTOP_APP" --work "$RUNNER_TEMP/smoke" --fixture-2x "$RUNNER_TEMP/fixture/fixture-2x.tar" \
             fresh app-killed engine-killed refusals takeover downloads
 
