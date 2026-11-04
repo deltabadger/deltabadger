@@ -179,8 +179,12 @@ jobs:
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
           foreach ($b in 'Deltabadger.exe', 'deltabadger-engine.exe') {
-            $deps = & $dumpbin /dependents (Join-Path (Split-Path $app) $b) | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
+            $out = & $dumpbin /dependents (Join-Path (Split-Path $app) $b)
+            if ($LASTEXITCODE -ne 0) { throw "dumpbin $b exited $LASTEXITCODE" }
+            $deps = @($out | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() })
             Write-Host "$b imports: $($deps -join ', ')"
+            # Every Windows program imports KERNEL32: without it the listing was not read.
+            if ($deps -notcontains 'KERNEL32.dll') { throw "no import list read for $b" }
             $bad = $deps | Where-Object { $_ -match '^(vcruntime|msvcp|concrt|vcomp)' }
             if ($bad) { throw "$b imports the Visual C++ runtime: $($bad -join ', ')" }
           }

@@ -398,13 +398,13 @@ class Window:
         if WIN:
             run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)])
         else:
+            if LINUX:
+                run(["pkill", "-P", str(self.proc.pid), "-x", "WebKitWebDriver"])  # tauri-driver's own, nobody else's
             self.proc.terminate()
         try:
             self.proc.wait(10)
         except subprocess.TimeoutExpired:
             self.proc.kill()
-        if LINUX:
-            run(["pkill", "-x", "WebKitWebDriver"])
 
 
 def free_port():
@@ -871,6 +871,9 @@ def main():
     ap.add_argument("scenarios", nargs="+", choices=list(SCENARIOS))
     ARGS = ap.parse_args()
     check(ARGS.app.exists(), f"no app at {ARGS.app}")
+    # On macOS the app's processes are found by the test .app's own path; elsewhere by process name, which an installed
+    # Deltabadger shares, so those kinds run only on a CI runner, where nothing else is (cleanup kills what it finds).
+    check(MAC or os.environ.get("CI") == "true", f"--kind {ARGS.kind} runs on a CI runner only (CI=true)")
     ARGS.work.mkdir(parents=True, exist_ok=True)
     check(not app_pids() and not engine_pids(), f"the app is already running: {app_pids()} {engine_pids()}")
     if LINUX:
