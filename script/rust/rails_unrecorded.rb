@@ -89,7 +89,8 @@ module RailsUnrecordedBookings
       'workingTime' => 1_788_220_800_000, 'origQuoteOrderQty' => orig_quote, 'selfTradePreventionMode' => 'EXPIRE_MAKER' }
   end
 
-  # name => [order body, trades, the booking's own denomination: [:quote | :base, size]]
+  # name => [order body, trades, the booking's own denomination: [:quote | :base, size]]. As the Rust booking reads a body
+  # (venue::binance): a LIMIT order is sized in base (origQty), a MARKET order with origQuoteOrderQty > 0 in quote.
   def cases
     {
       'market_buy_quote_base_fee' => [
@@ -102,19 +103,19 @@ module RailsUnrecordedBookings
       'limit_buy_open' => [
         order(1002, 'LIMIT', 'BUY', 'NEW', price: '50000.00', orig_qty: '0.00040000', orig_quote: '0.00000000',
                                             executed: '0.00000000', cumulative: '0.00000000'),
-        [], [:quote, '20']
+        [], [:base, '0.0004']
       ],
       'limit_buy_partial' => [
         order(1003, 'LIMIT', 'BUY', 'PARTIALLY_FILLED', price: '50000.00', orig_qty: '0.00040000', orig_quote: '0.00000000',
                                                          executed: '0.00010000', cumulative: '5.00000000'),
         [trade(5003, 1003, '0.00010000', '50000.00', '5.00000000', '0.00000010', 'BTC', buyer: true, maker: true)],
-        [:quote, '20']
+        [:base, '0.0004']
       ],
       'limit_buy_better_price' => [
         order(1004, 'LIMIT', 'BUY', 'FILLED', price: '50000.00', orig_qty: '0.00040000', orig_quote: '0.00000000',
                                                executed: '0.00040000', cumulative: '19.99600000'),
         [trade(5004, 1004, '0.00040000', '49990.00', '19.99600000', '0.00000040', 'BTC', buyer: true, maker: false)],
-        [:quote, '20']
+        [:base, '0.0004']
       ],
       'market_sell_base_quote_fee' => [
         order(1005, 'MARKET', 'SELL', 'FILLED', price: '0.00', orig_qty: '0.00040000', orig_quote: '0.00000000',
