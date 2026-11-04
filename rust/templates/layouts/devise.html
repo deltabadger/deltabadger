@@ -15,7 +15,7 @@
     <meta name="csrf-param" content="authenticity_token" />
 <meta name="csrf-token" content="{{ csrf }}" />
     <meta name="csp-nonce" content="{{ v.nonce }}" />
-    {{ v.desktop_launch_meta()|safe }}
+    {{- v.desktop_launch_meta()|safe }}
   </head>
 
   <body data-controller="hotwire-animations">
@@ -29,7 +29,7 @@
       </div>
       <div id="flash" class="flash-stack">
         {{ flash|safe }}
-        {{ v.desktop_update_banner()|safe }}
+        {{- v.desktop_update_banner()|safe }}
       </div>
 
     </div>

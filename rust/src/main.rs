@@ -575,6 +575,11 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         drop((listener, mail, app, o, lock, _held, rt));
         return deltabadger::web::refused::serve(port, &message);
     }
+    // D-DESKTOP-ACCOUNT (PLAN-B6-3 §2.1): after the migrations and the takeover, before the first request is served.
+    if let Err(e) = rt.block_on(deltabadger::web::desktop::prepare(&app)) {
+        deltabadger::eline!("deltabadger: the desktop account could not be prepared: {}", web_problem(e));
+        return EXIT_ENGINE_ERROR;
+    }
     let code = rt.block_on(async move {
         let factory = LiveFactory::for_install(&o.primary, &cipher);
         let mut engine = Engine::new(o.primary, factory, cipher, lock);
@@ -595,7 +600,14 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             run: Box::pin(deltabadger::web::below_minimum::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_warning), engine.stop_handle().subscribe())) };
         let live = supervisor::Service { name: "bot pages",
             run: Box::pin(deltabadger::web::bot::live::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_live), engine.stop_handle().subscribe())) };
-        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler, figures, warnings, live];
+        // D-DESKTOP-NO-MAIL (PLAN-B6-3 §2.5): the desktop sends no mail, whatever SMTP settings a 2.x install left; its
+        // markers still expire after seven days.
+        let mail = if app.desktop_account().is_some() {
+            supervisor::Service { name: "mail expiry", run: Box::pin(mail.expire_only(engine.stop_handle().subscribe())) }
+        } else {
+            mail_service(mail, &engine.stop_handle(), engine.subscribe())
+        };
+        let services = vec![mail, scheduler, figures, warnings, live];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {

@@ -89,6 +89,28 @@ if (window.__IS_TAURI__) {
         const { listen } = await import('@tauri-apps/api/event');
         const token = () => document.querySelector('meta[name="desktop-launch"]')?.content || '';
         const call = (command) => invoke(command, { token: token() });
+
+        // PLAN-B6-3 §2.2: the engine's sign-in page in the window (an expired cookie, cleared storage): the app signs the
+        // window in again with its own ticket. Outside the app this page is the browser's code field.
+        // A failed try (the engine busy, a timeout) is tried again while this page is shown: every 3 s five times, then
+        // every 30 s.
+        let signInAsked = null;
+        const signInWindow = async () => {
+            const form = document.querySelector('[data-desktop-sign-in]');
+            if (!form || !token() || signInAsked === form) return;
+            signInAsked = form;
+            for (let attempt = 0; document.contains(form); attempt++) {
+                try {
+                    await invoke('sign_in_window', { token: token() });
+                    return;
+                } catch (error) {
+                    console.error('Sign in:', error);
+                    await new Promise((resolve) => setTimeout(resolve, attempt < 5 ? 3000 : 30000));
+                }
+            }
+        };
+        signInWindow();
+        document.addEventListener('turbo:load', signInWindow);
         let update = null;
         let checkedHere = false;
 

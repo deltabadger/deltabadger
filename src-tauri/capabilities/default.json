@@ -20,6 +20,7 @@
     "allow-check-for-updates",
     "allow-install-update",
     "allow-retry-update",
+    "allow-sign-in-window",
     "allow-test-report"
   ],
   "remote": {

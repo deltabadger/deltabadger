@@ -1132,10 +1132,12 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
         let data = Data::new();
         let port = free_port();
         let mut c = desktop(&data, port);
-        c.env("DELTABADGER_PLATFORM", platform);
+        c.env("DELTABADGER_PLATFORM", platform).env("DELTABADGER_DESKTOP_LAUNCHER", LAUNCHER);
         let mut e = start(&mut c, port);
         assert_eq!(e.ready(), format!("ready {TOKEN} app"));
         let page = first_page(port);
+        // PLAN-B6-3 §1: the launcher's secret is never in a page, a header or a URL the engine hands out.
+        assert!(!page.contains(LAUNCHER), "{page}");
         let page = body(&page);
         if platform == "desktop" {
             assert!(page.contains(&format!("<meta name=\"desktop-launch\" content=\"{TOKEN}\">")), "{page}");
@@ -1166,6 +1168,96 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
             assert!(!page.contains("desktop-launch") && !page.contains("desktop_update"), "{platform}");
             assert!(page.contains("data-turbo-track=\"reload\" defer=\"defer\"></script>"), "{platform}: today's script tag");
         }
+        e.close_stdin();
+        assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    }
+}
+
+// ---- PLAN-B6-3 §1, §2: the desktop's account, its launcher secret, no mail ----
+
+const LAUNCHER: &str = "fedcba9876543210fedcba9876543210";
+
+/// One request on its own connection, the whole answer as text.
+fn request(port: u16, method: &str, path: &str, headers: &[(&str, &str)]) -> String {
+    let mut s = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+    s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+    let extra: String = headers.iter().map(|(n, v)| format!("{n}: {v}\r\n")).collect();
+    write!(s, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nConnection: close\r\n{extra}\r\n").unwrap();
+    let mut a = String::new();
+    s.read_to_string(&mut a).unwrap();
+    a
+}
+
+fn header<'a>(answer: &'a str, name: &str) -> Option<&'a str> {
+    answer.split("\r\n\r\n").next()?.lines().find_map(|l| l.split_once(':').filter(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, v)| v.trim()))
+}
+
+#[test]
+fn a_fresh_desktop_signs_its_window_in_with_a_ticket_and_refuses_one_without_the_launchers_header() {
+    let data = Data::new();
+    let port = free_port();
+    let mut e = start(desktop(&data, port).env("DELTABADGER_DESKTOP_LAUNCHER", LAUNCHER), port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    let refused = request(port, "POST", "/desktop/ticket", &[]);
+    assert!(refused.starts_with("HTTP/1.1 401"), "{refused}");
+    assert!(header(&refused, "set-cookie").is_none());
+    let answer = request(port, "POST", "/desktop/ticket", &[("X-Deltabadger-Launcher", LAUNCHER)]);
+    assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
+    let ticket = body(&answer).split('"').nth(3).unwrap().to_string();
+    let signed = request(port, "GET", &format!("/desktop/sign_in?ticket={ticket}"), &[]);
+    assert_eq!(header(&signed, "location"), Some(format!("/?launch={TOKEN}").as_str()), "{signed}");
+    let cookie = header(&signed, "set-cookie").unwrap().split(';').next().unwrap().to_string();
+    let bots = request(port, "GET", "/bots", &[("Cookie", &cookie)]);
+    assert!(bots.starts_with("HTTP/1.1 200"), "{bots}");
+    // No form: the setup page is not served.
+    assert!(request(port, "GET", "/setup", &[]).starts_with("HTTP/1.1 404"));
+    e.close_stdin();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+}
+
+#[test]
+fn a_desktop_started_without_the_launchers_secret_signs_nothing_in() {
+    let data = Data::new();
+    let port = free_port();
+    let mut e = start(&mut desktop(&data, port), port);
+    assert_eq!(e.ready(), format!("ready {TOKEN} app"));
+    for headers in [vec![], vec![("X-Deltabadger-Launcher", "")], vec![("X-Deltabadger-Launcher", LAUNCHER)]] {
+        let answer = request(port, "POST", "/desktop/ticket", &headers);
+        assert!(answer.starts_with("HTTP/1.1 401"), "{answer}");
+    }
+    e.close_stdin();
+    assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+    let log = std::fs::read_to_string(data.log_file()).unwrap();
+    assert!(log.contains("started without the launcher's secret"), "{log}");
+    assert!(!log.contains(LAUNCHER));
+}
+
+/// A mail is owed (a set-aside marker on a bot of the one user) and SMTP points at a local listener: off the desktop
+/// the sender connects to it; on the desktop nothing ever does (D-DESKTOP-NO-MAIL).
+#[test]
+fn the_desktop_never_reaches_the_mail_server_that_every_other_platform_reaches() {
+    for on_desktop in [false, true] {
+        let data = made();
+        let c = rusqlite::Connection::open(data.db().join("production.sqlite3")).unwrap();
+        let user: i64 = c.query_row("SELECT id FROM users ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
+        let marker = format!("{{\"rust_set_aside_mail_pending\":{{\"error\":\"a reason\",\"stamped_at\":\"{}\"}}}}", chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ"));
+        c.execute("INSERT INTO bots (user_id, type, label, transient_data, created_at, updated_at) VALUES (?1, 'Bots::DcaSingleAsset', 'B', ?2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (user, marker)).unwrap();
+        drop(c);
+        let smtp = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        smtp.set_nonblocking(true).unwrap();
+        let port = free_port();
+        let mut cmd = if on_desktop { desktop(&data, port) } else { command(&data.db(), port) };
+        cmd.env("DELTABADGER_DESKTOP_LAUNCHER", LAUNCHER).env("SMTP_ADDRESS", "127.0.0.1").env("SMTP_PORT", smtp.local_addr().unwrap().port().to_string())
+            .env("SMTP_DOMAIN", "localhost").env("NOTIFICATIONS_SENDER", "bots@example.com");
+        let mut e = start(&mut cmd, port);
+        e.ready();
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let mut reached = false;
+        while Instant::now() < deadline && !reached {
+            reached = smtp.accept().is_ok();
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert_eq!(reached, !on_desktop, "on the desktop: {on_desktop}");
         e.close_stdin();
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
     }

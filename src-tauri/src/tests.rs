@@ -5,7 +5,7 @@ use super::*;
 use crate::secrets::hooks;
 use crate::supervisor::{lock_held, supervise, this_start};
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Mutex;
@@ -64,6 +64,8 @@ fn stub(label: &str, script: &str) -> Launch {
         data: data.join("data"),
         notes: Vec::new(),
         first_port: Some(free_port()),
+        locale: None,
+        time_zone: None,
     }
 }
 
@@ -74,7 +76,7 @@ fn sidecar() -> PathBuf {
 
 fn engine(label: &str) -> Launch {
     let data = temporary_directory(label);
-    Launch { exe: sidecar(), extra_args: Vec::new(), cwd: data.clone(), data: data.join("data"), notes: Vec::new(), first_port: Some(free_port()) }
+    Launch { exe: sidecar(), extra_args: Vec::new(), cwd: data.clone(), data: data.join("data"), notes: Vec::new(), first_port: Some(free_port()), locale: None, time_zone: None }
 }
 
 fn log(launch: &Launch) -> String { fs::read_to_string(launch.log_file()).unwrap_or_default() }
@@ -110,6 +112,9 @@ fn stub_engine() {
     let script = fs::read_to_string(script).unwrap();
     let port: u16 = std::env::var("PORT").unwrap().parse().unwrap();
     let mut token = std::env::var("DELTABADGER_READY_TOKEN").unwrap();
+    // PLAN-B6-3 §1: what each start was given, for the tests.
+    let _ = OpenOptions::new().create(true).append(true).open("starts")
+        .and_then(|mut f| writeln!(f, "{} {token}", std::env::var("DELTABADGER_DESKTOP_LAUNCHER").unwrap_or_default()));
     let serve = |body: &str, ms: u64, delay_first: u64| {
         let listener = TcpListener::bind(("127.0.0.1", port)).unwrap_or_else(|e| {
             eprintln!("stub: cannot bind port {port}: {e}");
@@ -123,8 +128,19 @@ fn stub_engine() {
                     stream.set_nonblocking(false).unwrap();
                     stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
                     let mut request = [0_u8; 1024];
-                    let _ = stream.read(&mut request);
+                    let n = stream.read(&mut request).unwrap_or(0);
+                    let request = String::from_utf8_lossy(&request[..n]).to_string();
                     std::thread::sleep(Duration::from_millis(std::mem::take(&mut delay)));
+                    // PLAN-B6-3 §2.2: a ticket for the launcher's own header; every such request is recorded.
+                    if request.starts_with("POST /desktop/ticket ") {
+                        let secret = std::env::var("DELTABADGER_DESKTOP_LAUNCHER").unwrap_or_default();
+                        let ok = !secret.is_empty() && request.lines().any(|l| l.eq_ignore_ascii_case(&format!("x-deltabadger-launcher: {secret}")));
+                        let _ = OpenOptions::new().create(true).append(true).open("requests").and_then(|mut f| writeln!(f, "ticket {ok}"));
+                        let answer = if ok { "{\"ticket\":\"abc123\"}" } else { "" };
+                        let status = if ok { "200 OK" } else { "401 Unauthorized" };
+                        let _ = write!(stream, "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len());
+                        continue;
+                    }
                     let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
                 }
                 Err(_) => std::thread::sleep(Duration::from_millis(10)),
@@ -182,7 +198,7 @@ fn the_engine_gets_exactly_the_desktop_environment() {
         ("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY".to_string(), "p".to_string()),
         ("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT".to_string(), "s".to_string()),
     ]);
-    let env = launch.engine_env(3007, "tok", &keys);
+    let env = launch.engine_env(3007, "tok", "lch", &keys);
     let data = |p: &str| launch.data.join(p).to_string_lossy().into_owned();
     let expected: HashMap<String, String> = [
         ("PORT", "3007".to_string()),
@@ -196,6 +212,7 @@ fn the_engine_gets_exactly_the_desktop_environment() {
         ("DELTABADGER_STOP_ON_STDIN_EOF", "1".to_string()),
         ("DELTABADGER_READY_TOKEN", "tok".to_string()),
         ("DELTABADGER_LOG_FILE", launch.data.join("log").join("deltabadger.log").to_string_lossy().into_owned()),
+        ("DELTABADGER_DESKTOP_LAUNCHER", "lch".to_string()),
         ("SECRET_KEY_BASE", "k".to_string()),
         ("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", "p".to_string()),
         ("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", "s".to_string()),
@@ -204,6 +221,10 @@ fn the_engine_gets_exactly_the_desktop_environment() {
     .map(|(k, v)| (k.to_string(), v))
     .collect();
     assert_eq!(env, expected);
+    // PLAN-B6-3 §2.1: the OS's language and zone, when the app could read them.
+    let with = Launch { locale: Some("pl-PL".into()), time_zone: Some("Europe/Warsaw".into()), ..engine("env-os") };
+    let os = with.engine_env(3007, "tok", "lch", &keys);
+    assert_eq!((os.get("DELTABADGER_DESKTOP_LOCALE").map(String::as_str), os.get("DELTABADGER_DESKTOP_TIME_ZONE").map(String::as_str)), (Some("pl-PL"), Some("Europe/Warsaw")));
     // None of the Rails rows (§1.2 D).
     for gone in ["RAILS_ENV", "PIDFILE", "BOOTSNAP_CACHE_DIR", "CACHE_DATABASE_PATH", "CABLE_DATABASE_PATH", "BUNDLE_GEMFILE", "SOLID_QUEUE_IN_PUMA"] {
         assert!(!env.contains_key(gone), "{gone}");
@@ -390,12 +411,50 @@ fn a_port_taken_by_someone_else_is_never_shown_and_the_next_port_is_tried_once()
 
 // ---- r1.5: supervision for the child's whole life ----
 
+fn requests(launch: &Launch) -> String { fs::read_to_string(launch.cwd.join("requests")).unwrap_or_default() }
+
+/// PLAN-B6-3 §2.2: the app state opens once, signed in with a ticket the launcher's own header got.
 #[test]
-fn the_page_is_shown_once_at_its_launch_url() {
+fn the_app_page_is_shown_once_signed_in_with_a_fresh_ticket() {
     let (launch, view) = run_stub("once", "serve:app:3000;exit:0");
+    let opens: Vec<String> = view.events().into_iter().filter(|e| e.starts_with("open:")).collect();
+    assert_eq!(opens, vec![format!("open:http://127.0.0.1:{}/desktop/sign_in?ticket=abc123", launch.first_port.unwrap())]);
+    assert_eq!(requests(&launch), "ticket true\n");
+    // Nor is the secret in what the log says.
+    let secret = log(&launch);
+    assert!(!secret.contains("abc123"), "the ticket is never logged");
+}
+
+/// A refused start shows the refusal page at its launch URL and asks for no ticket.
+#[test]
+fn the_refusal_page_is_shown_at_its_launch_url_without_a_ticket() {
+    let (launch, view) = run_stub("refused-once", "serve:refused:3000;exit:0");
     let token = log(&launch).lines().find_map(|l| l.strip_prefix("--- start ").map(|t| t.trim_end_matches(" ---").to_string())).unwrap();
     let opens: Vec<String> = view.events().into_iter().filter(|e| e.starts_with("open:")).collect();
     assert_eq!(opens, vec![format!("open:http://127.0.0.1:{}/?launch={token}", launch.first_port.unwrap())]);
+    assert_eq!(requests(&launch), "");
+}
+
+/// Each start mints its own launcher secret, distinct from its ready token, and the engine slot holds this start's.
+#[test]
+fn each_start_has_its_own_launcher_secret() {
+    let launch = stub("secrets", "serve:app:800;exit:0");
+    let engine = Engine::default();
+    assert!(engine.launcher().is_none(), "nothing before a start");
+    let mut held = Vec::new();
+    for _ in 0..2 {
+        with_stub_script(&launch, || supervise(&launch, &engine, &Recorder::default()));
+        held.push(engine.launcher().unwrap().1);
+    }
+    let starts = fs::read_to_string(launch.cwd.join("starts")).unwrap();
+    let starts: Vec<(&str, &str)> = starts.lines().map(|l| l.split_once(' ').unwrap()).collect();
+    assert_eq!(starts.len(), 2, "{starts:?}");
+    for (secret, token) in &starts {
+        assert!(secret.len() == 32 && secret.bytes().all(|b| b.is_ascii_hexdigit()), "{secret}");
+        assert_ne!(secret, token);
+    }
+    assert_ne!(starts[0].0, starts[1].0);
+    assert_eq!(held, [starts[0].0, starts[1].0]);
 }
 
 #[test]

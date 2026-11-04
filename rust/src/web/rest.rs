@@ -257,7 +257,9 @@ fn render(res: Res) -> Answer {
 /// ApiOauthAuthentication: a read of the token (OauthBearerTokenResolver, no write of any token row), 403 for a token
 /// without the `api` scope and 401 for every other refusal.
 fn authenticate(c: &Connection, app: &App, authorization: Option<&str>) -> Result<Result<bearer::Bearer, Answer>, WebError> {
-    Ok(bearer::resolve(c, authorization, "api", app.clock.as_ref())?.map_err(|why| {
+    let resolved = bearer::resolve(c, authorization, "api", app.clock.as_ref())?
+        .and_then(|who| if app.desktop_owner_allowed(who.user_id) { Ok(who) } else { Err(bearer::Refusal::UserNotFound) });
+    Ok(resolved.map_err(|why| {
         let status = if why == bearer::Refusal::InsufficientScope { StatusCode::FORBIDDEN } else { StatusCode::UNAUTHORIZED };
         failure(status, why.code(), why.message())
     }))
