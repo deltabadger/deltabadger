@@ -57,7 +57,7 @@ impl Engine {
         loop {
             if let Some(a) = get(self.port, "/ui-ready").filter(|a| a.starts_with("HTTP/1.1 200")) {
                 let b = body(&a);
-                if b == "ready" || b.starts_with(&format!("ready {TOKEN} ")) { return b.to_string() }
+                if b.starts_with(&format!("ready {TOKEN} ")) { return b.to_string() }
             }
             assert!(Instant::now() < deadline, "/ui-ready never answered 200");
             std::thread::sleep(Duration::from_millis(50));
@@ -185,7 +185,7 @@ fn without_the_desktop_variables_stdin_is_not_a_stop_and_the_bind_is_every_addre
     c.env_remove("BINDING").env_remove("DELTABADGER_READY_TOKEN").env_remove("DELTABADGER_STOP_ON_STDIN_EOF");
     let mut e = start(&mut c, port);
     e.line("running, with the web UI");
-    assert_eq!(e.ready(), "ready");
+    assert_eq!(body(&get(port, "/ui-ready").unwrap()), "ready");
     let addrs = listening(port);
     assert!(addrs.iter().any(|a| a != &format!("127.0.0.1:{port}")), "every address: {addrs:?}");
     e.close_stdin();
