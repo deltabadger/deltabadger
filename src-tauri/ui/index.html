@@ -55,8 +55,9 @@
     };
     function render() {
       var parts = location.hash.replace(/^#/, "").split("&");
-      var page = PAGES[parts[0]] || PAGES["starting"];
-      var params = {};
+      // Only the page's own states: a fragment never names an inherited method.
+      var page = Object.prototype.hasOwnProperty.call(PAGES, parts[0]) ? PAGES[parts[0]] : PAGES["starting"];
+      var params = Object.create(null);
       for (var i = 1; i < parts.length; i++) {
         var at = parts[i].indexOf("=");
         if (at < 1) { continue; }
