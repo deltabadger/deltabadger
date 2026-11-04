@@ -480,6 +480,14 @@ async fn run(dir: &Path) -> Value {
     app.attach_jobs(Default::default()).unwrap();
     let mut observer = None;
     let mut browsers: BTreeMap<String, Browser> = BTreeMap::new();
+    // D-DESKTOP-LAUNCHER-SIGN-IN (desktop_divergence): signed in as the launcher signs the window in.
+    if desktop_scenario(&scenario) {
+        let mut main = Browser::default();
+        let answer = main.send_body(&app, "POST", "/desktop/ticket", None, Csrf::None, &[(deltabadger::web::desktop::LAUNCHER_HEADER, DESKTOP_LAUNCHER)]).await;
+        let ticket = serde_json::from_str::<Value>(&answer.body).unwrap()["ticket"].as_str().unwrap().to_string();
+        main.get(&app, &format!("/desktop/sign_in?ticket={ticket}")).await;
+        browsers.insert("main".into(), main);
+    }
     let mut responses = vec![];
     let mut etags: BTreeMap<String, String> = BTreeMap::new();
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
@@ -1405,7 +1413,61 @@ async fn mount_launchpad(server: &wiremock::MockServer) {
 fn launchpad_env(scenario: &Value, server: &str) -> serde_json::Map<String, Value> {
     let mut env = scenario["env"].as_object().cloned().unwrap_or_default();
     env.entry("LAUNCHPAD_URL").or_insert_with(|| json!(format!("{server}/deltabadger.com")));
+    if desktop_scenario(scenario) { env.insert("DELTABADGER_DESKTOP_LAUNCHER".into(), json!(DESKTOP_LAUNCHER)); }
     env
+}
+
+/// The launcher secret a desktop scenario's app runs with (PLAN-B6-3 §1).
+const DESKTOP_LAUNCHER: &str = "pages-desktop-launcher-secret";
+
+fn desktop_scenario(scenario: &Value) -> bool { scenario["env"]["DELTABADGER_PLATFORM"] == "desktop" }
+
+/// Named divergences D-DESKTOP-LAUNCHER-SIGN-IN, D-DESKTOP-NO-ACCOUNT-PAGES and D-DESKTOP-DEVISE-MODULE (PLAN-B6-3, PLAN-B7):
+/// a desktop scenario's browser is signed in with a launcher ticket, not the password Rails' first two steps send; the
+/// desktop's sign-in page, its Settings rows and its script tag are its own. What these scenarios pin, the update row
+/// (`#app_update`), is compared with Rails' on every later step, with the status, the users and the bots.
+fn desktop_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if !desktop_scenario(scenario) { return None; }
+    // A body is its normalized lines (`html::normalize`): the row is the element's opening line to its closing one.
+    let row = |body: &Value| -> Value {
+        let lines: Vec<&str> = body.as_array().map(|l| l.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+        let Some(start) = lines.iter().position(|l| l.contains("id=\"app_update\"")) else { return json!("") };
+        let indent = lines[start].len() - lines[start].trim_start().len();
+        let end = lines[start + 1..].iter().position(|l| l.len() - l.trim_start().len() == indent).map_or(lines.len(), |i| start + 1 + i);
+        json!(lines[start..=end.min(lines.len() - 1)])
+    };
+    let rows = |v: &Value| -> Vec<Value> {
+        v["responses"].as_array().unwrap().iter().skip(2).map(|answer| json!({ "status": answer["status"], "body": row(&answer["body"]) })).collect()
+    };
+    let (mut theirs, ours) = (rows(rails), rows(rust));
+    // PLAN-B7 §5.2: the desktop's row says what its own updater does (tauri.js keeps it current); Rails' says the 2.x line.
+    let b7 = format!("\"{}\"", deltabadger::web::i18n::text("en", "desktop_update.about", &[]));
+    for answer in &mut theirs {
+        if let Some(lines) = answer["body"].as_array_mut() {
+            for line in lines.iter_mut().filter(|l| l.as_str().is_some_and(|l| l.trim() == "\"Deltabadger checks for updates each time it starts.\"")) {
+                let indent = line.as_str().unwrap().len() - line.as_str().unwrap().trim_start().len();
+                *line = json!(format!("{}{b7}", " ".repeat(indent)));
+            }
+            // PLAN-B7 r4.5: the button's three state texts ride on the banner (every page), not on the button.
+            for line in lines.iter_mut() {
+                let Some(text) = line.as_str().filter(|l| l.contains("data-desktop-update=\"true\"")) else { continue };
+                let mut text = text.to_string();
+                for attribute in ["data-desktop-update-checking", "data-desktop-update-failed", "data-desktop-update-up-to-date"] {
+                    if let Some(at) = text.find(&format!(" {attribute}=\"")) {
+                        let end = at + attribute.len() + 3 + text[at + attribute.len() + 3..].find('"').unwrap() + 1;
+                        text.replace_range(at..end, "");
+                    }
+                }
+                *line = json!(text);
+            }
+        }
+    }
+    if let Some(at) = theirs.iter().position(|answer| answer["body"] == "") {
+        let body = rails["responses"][at + 2]["body"].to_string();
+        return Some(Err(format!("Rails' step {} has no #app_update row: review this divergence: {}", at + 2, &body[..body.len().min(400)])));
+    }
+    let whole = |v: &Value, responses: Vec<Value>| json!({ "responses": responses, "users": v["users"], "bots": v["bots"] });
+    Some(difference(name, &whole(rails, theirs), &whole(rust, ours)).map_or(Ok(()), Err))
 }
 
 async fn mount_ibkr(server: &wiremock::MockServer) {
@@ -2518,7 +2580,7 @@ async fn replay_page_shard(shard: usize) {
         if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)).and_then(|()|tax_api_difference(&name,&mut rails)).and_then(|()|account_divergences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|market_data_divergences(&name,&mut rails,&mut rust)).and_then(|()|a18_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20c_divergences(&name,&mut rails,&rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
-        match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
+        match unknown_origin_ring(&name, &rails, &rust).or_else(||desktop_divergence(&name, &scenario, &rails, &rust)).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name}/{scope} (listed divergence): {message}")),
             None => if let Some(message) = difference(&format!("{name}/{scope}"), &rails, &rust) { failures.push(message); },

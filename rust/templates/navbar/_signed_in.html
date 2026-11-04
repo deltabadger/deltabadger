@@ -42,9 +42,9 @@
 </a><a class="menu-mobile__item menu-mobile__item--settings" data-turbo-frame="modal" href="{{ v.path("/settings/account") }}">{{ v.t("links.settings")|safe }}
 </a>{% call hide_balances_toggle("menu-mobile__item") %}{% endcall %}
 {% call display_currency_picker("menu-mobile__item") %}{% endcall %}
-<div class="menu-mobile__divider"></div>
+{% if !v.desktop() %}<div class="menu-mobile__divider"></div>
 <form class="button_to" method="post" action="{{ v.path("/logout") }}"><input type="hidden" name="_method" value="delete" /><button class="menu-mobile__item menu-mobile__button" data-turbo="false" type="submit">{{ v.t("links.log_out")|safe }}
-</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form></div>
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>{% endif %}</div>
 <div class="menu">
 <div class="menu__section menu__section--top menu__section--logo">
 <a class="menu__logo" aria-label="Deltabadger" href="{{ v.path(shell.bots_path()) }}">{% include "svg/_40x30_logo.html" %}
@@ -80,9 +80,9 @@
 <a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/settings/account") }}">{{ v.t("links.settings")|safe }}</a>
 {% call hide_balances_toggle("dropdown__item") %}{% endcall %}
 {% call display_currency_picker("dropdown__item") %}{% endcall %}
-<div class="dropdown__item dropdown__item--divider"></div>
+{% if !v.desktop() %}<div class="dropdown__item dropdown__item--divider"></div>
 <form class="button_to" method="post" action="{{ v.path("/logout") }}"><input type="hidden" name="_method" value="delete" /><button class="dropdown__item dropdown__item--danger" data-turbo="false" type="submit">{{ v.t("links.log_out")|safe }}
-</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form></div>
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>{% endif %}</div>
 </div>
 </div>
 </div>

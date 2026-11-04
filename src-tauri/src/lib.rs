@@ -530,6 +530,26 @@ async fn retry_update(app: tauri::AppHandle, webview: tauri::Webview, token: Str
 }
 
 /// Debug builds: a page script's report into the log (the proofs read what the window saw from there).
+/// PLAN-B6-3 §2.2: the engine's `/login` in the window (an expired cookie, cleared storage, a lost sign-in answer) asks
+/// for this. The launcher fetches a fresh ticket with its own secret and opens the sign-in in the window; the page gets
+/// nothing back. Behind the same guard as every command: only this launch's engine page may ask.
+#[tauri::command]
+fn sign_in_window(app: tauri::AppHandle, webview: tauri::Webview, token: String) -> Result<(), String> {
+    guard(&app, &webview, &token)?;
+    let Some((port, launcher)) = app.state::<Arc<Engine>>().launcher() else { return Err("refused".into()) };
+    // The request waits up to 5 s: off the command's thread.
+    std::thread::spawn(move || match supervisor::ticket(port, &launcher) {
+        Some(ticket) => {
+            log_line(&app, "desktop: signing the window in again");
+            if let (Some(window), Ok(url)) = (app.get_webview_window("main"), format!("http://{}:{port}/desktop/sign_in?ticket={ticket}", supervisor::HOST).parse()) {
+                let _ = window.navigate(url);
+            }
+        }
+        None => log_line(&app, "desktop: no sign-in ticket from the engine"),
+    });
+    Ok(())
+}
+
 #[cfg(debug_assertions)]
 #[tauri::command]
 fn test_report(app: tauri::AppHandle, text: String) {
@@ -558,7 +578,16 @@ fn launch(app: &tauri::App) -> Result<Launch, String> {
         .path()
         .resource_dir()
         .map_err(|error| format!("Failed to resolve resource directory: {error}"))?;
-    Ok(Launch { exe: engine_exe()?, extra_args: Vec::new(), cwd, data, notes, first_port: None })
+    Ok(Launch {
+        exe: engine_exe()?,
+        extra_args: Vec::new(),
+        cwd,
+        data,
+        notes,
+        first_port: None,
+        locale: sys_locale::get_locale(),
+        time_zone: iana_time_zone::get_timezone().ok(),
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -578,9 +607,9 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(debug_assertions)]
-    let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update, test_report]);
+    let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update, sign_in_window, test_report]);
     #[cfg(not(debug_assertions))]
-    let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update]);
+    let builder = builder.invoke_handler(tauri::generate_handler![update_state, check_for_updates, install_update, retry_update, sign_in_window]);
     // Windows and Linux keep no app menu: the tray's Quit is their Quit.
     #[cfg(target_os = "macos")]
     let builder = builder.menu(app_menu).on_menu_event(|app, event| {

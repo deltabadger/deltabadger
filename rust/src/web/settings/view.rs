@@ -305,18 +305,21 @@ pub async fn account(
     let errors = sections::Errors(&draft.messages);
     let registration = registration(ctx, &csrf, registration_open.0, registration_open.1)?;
     let update = sections::app_update(ctx, app.update_platform, update.as_ref(), super::dialog::version());
+    // D-DESKTOP-NO-ACCOUNT-PAGES: the desktop's one account has no email, password, 2FA, registration or mail rows; its
+    // Security heading holds "Sign in a browser" (D-DESKTOP-BROWSER-CODE).
+    let desktop = ctx.desktop();
     let pane = sections::account(
         ctx,
         &sections::Account {
             name: sections::name(ctx, &csrf, &draft.name.clone().unwrap_or(name), &errors),
-            email: sections::email(ctx, &csrf, &hint, &errors),
-            password: sections::password(ctx, &csrf, draft.email.as_deref().unwrap_or(&user.email), &errors),
+            email: if desktop { String::new() } else { sections::email(ctx, &csrf, &hint, &errors) },
+            password: if desktop { String::new() } else { sections::password(ctx, &csrf, draft.email.as_deref().unwrap_or(&user.email), &errors) },
             locale: sections::locale(ctx, &csrf, &locale_options),
             time_zone: time_zone_row(ctx, &csrf, &user.time_zone),
-            two_fa: sections::two_fa(ctx, user.otp_enabled),
+            two_fa: if desktop { sections::browser_sign_in(ctx, &csrf, None) } else { sections::two_fa(ctx, user.otp_enabled) },
             advanced: self::advanced(ctx, &csrf, advanced)?,
             wash: wash_widget,
-            admin: user.admin.then_some((registration.as_str(), email_widget.as_str(), update.as_str())),
+            admin: user.admin.then_some(if desktop { ("", "", update.as_str()) } else { (registration.as_str(), email_widget.as_str(), update.as_str()) }),
         },
     );
     section_page(ctx, &csrf, &user, &shell_data, "account", &pane, status, flash_now)

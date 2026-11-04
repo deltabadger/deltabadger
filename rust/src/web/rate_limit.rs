@@ -54,6 +54,10 @@ impl Limiter {
             self.count("setup/token",5,address,now)
         }else{None}
     }
+    /// The desktop's `GET /desktop/sign_in` (PLAN-B6-3 §2.2): desktop only, so no other platform's answers change.
+    pub fn desktop_sign_in(&self, address: &str, now: DateTime<Utc>) -> Option<i64> {
+        self.count("desktop/sign_in", super::desktop::SIGN_IN_LIMIT, address, now)
+    }
     fn count(&self,rule:&'static str,limit:u32,address:&str,now:DateTime<Utc>)->Option<i64>{
         let epoch = now.timestamp();
         let window = epoch.div_euclid(PERIOD);

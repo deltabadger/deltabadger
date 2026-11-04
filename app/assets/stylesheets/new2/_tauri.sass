@@ -2,6 +2,9 @@
   *
     user-select: none
     -webkit-user-select: none
+  // PLAN-B6-3 §2.2: the window never shows the browser's code form; tauri.js signs it in.
+  [data-desktop-sign-in]
+    visibility: hidden
   .menu__section--logo
     opacity: 0
   .titlebar-drag-region

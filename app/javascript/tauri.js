@@ -89,6 +89,19 @@ if (window.__IS_TAURI__) {
         const { listen } = await import('@tauri-apps/api/event');
         const token = () => document.querySelector('meta[name="desktop-launch"]')?.content || '';
         const call = (command) => invoke(command, { token: token() });
+
+        // PLAN-B6-3 §2.2: the engine's sign-in page in the window (an expired cookie, cleared storage): the app signs the
+        // window in again with its own ticket. Outside the app this page is the browser's code field.
+        let signInAsked = null;
+        const signInWindow = () => {
+            const form = document.querySelector('[data-desktop-sign-in]');
+            if (form && token() && signInAsked !== form) {
+                signInAsked = form;
+                invoke('sign_in_window', { token: token() }).catch((error) => console.error('Sign in:', error));
+            }
+        };
+        signInWindow();
+        document.addEventListener('turbo:load', signInWindow);
         let update = null;
         let checkedHere = false;
 

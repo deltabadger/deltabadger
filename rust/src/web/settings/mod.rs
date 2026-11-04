@@ -108,6 +108,14 @@ pub async fn write(
     {
         return keys::delete(app, ctx).await;
     }
+    if app.desktop.is_some() && ctx.method == Method::POST && ctx.params.route_path == "/settings/browser_sign_in_code" {
+        let code = crate::web::desktop::new_code(&app)?;
+        let row = sections::browser_sign_in(&ctx, &ctx.csrf_token(), Some(&code));
+        use axum::response::IntoResponse;
+        let mut response = ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], row).into_response();
+        response.headers_mut().insert(axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+        return Ok(response);
+    }
     match (&ctx.method, ctx.params.route_path.as_str()) {
         (&Method::POST, ibkr::PATH) => return ibkr::create(app, ctx).await,
         (&Method::DELETE, ibkr::PATH) => return ibkr::destroy(app, ctx).await,

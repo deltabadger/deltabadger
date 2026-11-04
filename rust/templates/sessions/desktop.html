@@ -1,0 +1,17 @@
+<form data-desktop-sign-in="true" data-turbo="false" action="{{ v.path("/login") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+  {% include "svg/_40x30_logo.html" %}
+
+  <h1>{{ v.t("desktop_sign_in.title")|safe }}</h1>
+
+  <p>{{ v.t("desktop_sign_in.instructions")|safe }}</p>
+
+  <div class="form__row">
+    <input autofocus="autofocus" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="12" class="form__input form__input--large" type="text" name="code" id="desktop_code" />
+    <label class="form__label" for="desktop_code">{{ v.t("desktop_sign_in.code")|safe }}</label>
+  </div>
+
+  <div class="form__row form__row--final-button">
+    <input type="submit" name="commit" value="{{ v.t("desktop_sign_in.submit")|safe }}" class="button button--sky button--large" />
+  </div>
+</form>
