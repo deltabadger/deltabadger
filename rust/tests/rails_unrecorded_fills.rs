@@ -412,3 +412,20 @@ fn alpaca_fills() {
     unreadable(&c, ALPACA, &stored(ex, &alpaca_entry("TSLA", "a7", "ord-uuid-4", "buy")));
     unreadable(&c, ALPACA, &row(ex, Some("a8"), 0, json!({ "id": "a8", "activity_type": "DIV" })));
 }
+
+/// Codex A28 branch r4: Alpaca's compact spelling of a replaced listing is a reused symbol too.
+#[test]
+fn alpaca_compact_symbol_of_a_replaced_listing_is_unreadable() {
+    let c = db();
+    let ex = exchange(&c, ALPACA);
+    ticker(&c, ex, "BTC/USD", "BTC", "USD");
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+               minimum_base_size, minimum_quote_size, created_at, updated_at) VALUES (?1, '__stale_99_BTC/USD', '__stale_99_BTC', 'USD', ?2, ?3, 8, 8, 2, 0, 0, '2026-01-01', '2026-01-01')",
+              params![ex, asset("ETH"), asset("USD")]).unwrap();
+    let raw = json!({ "id": "1", "activity_type": "FILL", "order_id": "o-1", "symbol": "BTCUSD", "side": "buy", "qty": "0.001", "price": "50000",
+                      "transaction_time": "2026-09-29T14:03:05Z", "type": "fill" });
+    match read(&c, ALPACA, &row(ex, Some("1"), 0, raw)).unwrap() {
+        Read::Unreadable(why) => assert!(why.contains("reused"), "{why}"),
+        other => panic!("{other:?}"),
+    }
+}

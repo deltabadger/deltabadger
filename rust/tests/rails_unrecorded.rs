@@ -588,3 +588,17 @@ fn a_source_time_that_cant_be_read_gets_its_line_and_the_others_still_get_theirs
     let l = lines(&c, b);
     assert_eq!((l[0].1["reason"].as_str(), l[1].0.as_str()), (Some("time"), ru::NONE_SEEN));
 }
+
+// ---- Codex branch r4 ---------------------------------------------------------------------------------------------------
+
+#[test]
+fn a_source_time_that_cant_be_read_is_collected_wherever_it_sorts() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    ambiguous_line(&c, b, "not a time");
+    failed_row(&c, &s, b, "Faraday::TimeoutError: Net::ReadTimeout", "zzz");
+    assert_eq!(ru::collect(&c, &queue(), None, now()).unwrap(), 2);
+    ru::report(&c, now()).unwrap();
+    assert!(lines(&c, b).iter().all(|l| l.1["reason"] == "time"));
+}

@@ -47,18 +47,19 @@ type Source = (i64, &'static str, i64, String, String, Option<Value>);
 /// Records the obligations of Rails' ownership that ended with this takeover: sources created after `since` (the last
 /// handback, r5.1; None = an install Rust never ran) and before `now`. Idempotent on (source, source_ref).
 pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>, now: DateTime<Utc>) -> Result<usize, EngineError> {
-    let since = since.map(format_time).unwrap_or_default();
+    let owned = |t: DateTime<Utc>| since.is_none_or(|s| t > s) && t < now;
     let until = format_time(now);
     let mut found: Vec<Source> = vec![];
     // (a) every placement_ambiguous line on a non-signal bot (D-RAILS-UNRECORDED-ALL-LINES).
     // A line this engine wrote (placement.rs: a proved absence, an operator's resolution) carries its source and the
     // intent's client order id, which Rails' `{ error: }` never does (r4.1).
     let mut s = tx.prepare("SELECT l.id, l.bot_id, l.created_at, l.details FROM bot_activity_logs l JOIN bots b ON b.id = l.bot_id \
-                            WHERE l.event = 'placement_ambiguous' AND b.type <> ?1 AND b.status <> ?2 AND l.created_at > ?3 AND l.created_at < ?4 ORDER BY l.id")?;
-    for row in s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64, since, until],
+                            WHERE l.event = 'placement_ambiguous' AND b.type <> ?1 AND b.status <> ?2 ORDER BY l.id")?;
+    for row in s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64],
                            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?)))? {
         let (id, bot, at, details) = row?;
-        let at_error = parse_time(&at).err().map(|e| format!("{at:?}: {e:?}"));
+        // Rails' window is judged on the parsed time; one that can't be read is collected with its error (Codex r4).
+        let at_error = match parse_time(&at) { Ok(t) if !owned(t) => continue, Ok(_) => None, Err(e) => Some(format!("{at:?}: {e:?}")) };
         let details: Value = match details.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
         if details.get("source").is_some() || details.get("cl_ord_id").is_some() || details.get("resolution").is_some() { continue; }
         match at_error {
@@ -71,8 +72,8 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
     let mut s = tx.prepare("SELECT t.id, t.bot_id, t.created_at, t.error_messages, t.exchange_id, t.base_asset_id, t.quote_asset_id, t.side, e.type \
                             FROM transactions t JOIN bots b ON b.id = t.bot_id JOIN exchanges e ON e.id = t.exchange_id \
                             WHERE t.status = 1 AND t.transaction_type = 'REGULAR' AND t.external_id IS NULL AND t.run_identity IS NULL \
-                            AND b.type <> ?1 AND b.status <> ?2 AND t.created_at > ?3 AND t.created_at < ?4 ORDER BY t.id")?;
-    let rows = s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64, since, until], |r| Ok((
+                            AND b.type <> ?1 AND b.status <> ?2 ORDER BY t.id")?;
+    let rows = s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| Ok((
         r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, i64>(4)?,
         r.get::<_, Option<i64>>(5)?, r.get::<_, Option<i64>>(6)?, r.get::<_, Option<i64>>(7)?, r.get::<_, Option<String>>(8)?)))?
         .collect::<Result<Vec<_>, _>>()?;
@@ -82,6 +83,7 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
         let errors: Vec<String> = match errors.as_deref().map(serde_json::from_str::<Vec<String>>) { Some(Ok(e)) => e, _ => vec![] };
         if !ambiguous_failure(venue.as_deref().unwrap_or(""), &errors) { continue; }
         match parse_time(&at) {
+            Ok(t) if !owned(t) => {}
             Ok(_) => found.push((bot, FAILED_ROW, id, at.clone(), at, Some(json!({ "exchange_id": exchange, "base_asset_id": base, "quote_asset_id": quote, "side": side })))),
             Err(e) => found.push((bot, FAILED_ROW, id, until.clone(), until.clone(), Some(json!({ "time_error": format!("{at:?}: {e:?}") })))),
         }

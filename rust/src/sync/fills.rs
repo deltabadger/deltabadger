@@ -90,7 +90,9 @@ fn reused(c: &Connection, exchange_id: i64, symbol: &str, matching: Match) -> Re
     let names = s.query_map([exchange_id], |r| r.get::<_, String>(0)).and_then(|r| r.collect::<Result<Vec<_>, _>>()).map_err(|e| e.to_string())?;
     Ok(names.iter().filter_map(|n| n.strip_prefix("__stale_").and_then(|rest| rest.split_once('_')).map(|(_, old)| old)).any(|old| match matching {
         Match::Lower => old.eq_ignore_ascii_case(symbol),
-        Match::Exact | Match::Alpaca => old == symbol,
+        Match::Exact => old == symbol,
+        // As the lookup reads Alpaca: the listed "BTC/USD" or its compact spelling "BTCUSD".
+        Match::Alpaca => old == symbol || (old.contains('/') && old.replace('/', "") == symbol),
     }))
 }
 
