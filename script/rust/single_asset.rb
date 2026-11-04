@@ -29,6 +29,20 @@ Ticker.prepend(Module.new do
   def get_rsi_value(*, **) = Result::Success.new(BigDecimal(PRICES['rsi']))
 end)
 
+# The chart's price sources, fixed (as test/models/bots/one_asset_chart_parity_test.rb stubs them): daily candle opens from
+# CANDLES_FROM, a day before the first fill, stepping up 1 a day from 100, whatever window is asked for; and one live
+# price per ticker from the venue's bulk read.
+CANDLES_FROM = Time.utc(2026, 8, 30)
+CANDLE_DAYS = 12 # 2026-08-30 .. 2026-09-10, the last open before NOW
+CANDLES = Array.new(CANDLE_DAYS) { |day| [CANDLES_FROM + (day * 86_400), BigDecimal(100 + day)] }.freeze
+LIVE = { 'XBTEUR' => '210', 'ETHEUR' => '15' }.freeze
+[Bots::DcaSingleAsset, Bots::DcaMultiAsset].each do |klass|
+  klass.prepend(Module.new { def fetch_candle_series(**) = Result::Success.new(CANDLES.map(&:dup)) })
+end
+Exchanges::Kraken.prepend(Module.new do
+  def get_tickers_prices(force: false, symbols: nil) = Result::Success.new(LIVE.transform_values { |v| BigDecimal(v) })
+end)
+
 module SingleAssetVectors
   extend ActiveSupport::Testing::TimeHelpers
   module_function
@@ -217,6 +231,7 @@ module SingleAssetVectors
         out['conditions_error'] = "#{e.class}: #{e.message}"
       end
       read('metrics', out) { JSON.parse(Bot.find(id).metrics(force: true).to_json) }
+      read('chart', out) { JSON.parse(Bot.find(id).metrics_with_current_prices_and_candles(force: true)[:chart].to_json) }
       begin
         bot = Bot.find(id)
         if bot.respond_to?(:selling?) && bot.selling?
@@ -323,6 +338,7 @@ module SingleAssetVectors
       list << scenario("#{name} on another ticker, buying", 'forced') do
         id = single("#{name}ed" => true)
         patch!(id, "#{name}_in_ticker_id": @t_eth.id)
+        order!(id)
       end
       list << scenario("sell_#{name} on another ticker, selling", 'forced') do
         id = single('direction' => 'selling', 'sell_amount' => 0.01, "sell_#{name}ed" => true)
@@ -345,6 +361,7 @@ module SingleAssetVectors
     list << scenario('due ActionJob', 'forced') do
       id = single({}, start: true)
       job!(id, state: :scheduled, at: NOW - 60)
+      order!(id, at: STARTED + 1)
     end
     list << scenario('claimed ActionJob', 'forced') do
       id = single({}, start: true)
@@ -353,9 +370,10 @@ module SingleAssetVectors
     list << scenario('executing', 'forced') do
       id = working
       status!(id, 'executing')
+      order!(id, at: STARTED + 1)
     end
     list << scenario('working on an unavailable ticker', 'forced') do
-      working
+      order!(working, at: STARTED + 1)
       @t_btc.update_columns(available: false)
     end
     list << scenario('stopped on an unavailable ticker', 'run') do
@@ -426,5 +444,6 @@ scenarios = SingleAssetVectors.scenarios
 sources = SingleAssetVectors::PORTED.to_h { |path| [path, Digest::SHA256.file(Rails.root.join(path)).hexdigest] }
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate({ 'ported_sources' => sources, 'now' => SingleAssetVectors.iso(SingleAssetVectors::NOW),
                                                     'conditions_price' => PRICES['last'], 'condition_stubs' => PRICES,
+                                                    'chart_stubs' => { 'candles' => CANDLES.map { |t, p| [SingleAssetVectors.iso(t), p.to_s('F')] }, 'live' => LIVE },
                                                     'scenarios' => scenarios })}\n")
 puts "wrote #{scenarios.size} scenarios"
