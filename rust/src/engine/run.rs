@@ -1150,6 +1150,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
 pub async fn run<F: VenueFactory>(mut e: Engine<F>, clock: &dyn Clock) -> Result<Infallible, EngineError> {
     loop {
         if e.stopping() { return Err(EngineError::Stopped); }
+        // Tests: a tick that has begun, for a stop to arrive in (it finishes before the engine stops, PLAN-B7 r4.7).
+        crate::stop::pause_async("in-tick").await;
         let wake = step(&mut e, clock).await?;
         if e.stopping() { return Err(EngineError::Stopped); }
         let wait = (wake - clock.now().timestamp_micros()).max(0) as u64;

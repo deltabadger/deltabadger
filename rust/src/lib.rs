@@ -2,6 +2,7 @@
 //! schema.
 pub mod app_config;
 pub mod asset_taxonomy;
+pub mod bundle;
 pub mod codec;
 pub mod crypto;
 pub mod engine;

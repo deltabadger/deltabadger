@@ -41,6 +41,9 @@ const EXIT_ENGINE_ERROR: i32 = 2;
 
 fn main() {
     let env = |k: &str| std::env::var(k).ok();
+    // First, for every command: an engine of an installed desktop app holds that app's update lock while it runs, so the
+    // app is never replaced under it (PLAN-B7 r3.2). Released by the OS when the process ends.
+    let _installed_app = deltabadger::bundle::enter(&env).unwrap_or_else(|line| { deltabadger::eline!("deltabadger: {line}"); std::process::exit(1) });
     match std::env::args().nth(1).as_deref() {
         Some("check") => {
             refuse_url_overrides(&env);
@@ -224,20 +227,10 @@ fn stop_if_requested() {
 
 /// Tests (debug builds): with DELTABADGER_TEST_PAUSE=`point`, start holds here until the file DELTABADGER_TEST_RELEASE
 /// names exists, after logging "paused at `point`" (PLAN-B6 r2.5).
-fn pause(point: &str) {
-    if let Some(release) = pause_release(point) { while !release.exists() { std::thread::sleep(std::time::Duration::from_millis(20)) } }
-}
+fn pause(point: &str) { deltabadger::stop::pause(point) }
 
 /// `pause` inside the runtime, which keeps running its tasks (the engine's stop handlers) meanwhile.
-async fn pause_async(point: &str) {
-    if let Some(release) = pause_release(point) { while !release.exists() { tokio::time::sleep(std::time::Duration::from_millis(20)).await } }
-}
-
-fn pause_release(point: &str) -> Option<std::path::PathBuf> {
-    if !cfg!(debug_assertions) || std::env::var("DELTABADGER_TEST_PAUSE").ok().as_deref() != Some(point) { return None }
-    log(&format!("paused at {point}"));
-    Some(std::env::var("DELTABADGER_TEST_RELEASE").expect("DELTABADGER_TEST_RELEASE: the file that ends the pause").into())
-}
+async fn pause_async(point: &str) { deltabadger::stop::pause_async(point).await }
 
 fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
     match e {
@@ -334,7 +327,13 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     }
     check_readable(&paths, &cipher, env);
     if start { pause("before-backup"); stop_if_requested(); }
-    if start && !created && !owned_by_rust(&paths, &cipher) { back_up(&paths) }
+    // One copy per start at most (PLAN-B7 §4): before a takeover from Rails, or before this build migrates a desktop install
+    // that is already Rust's. A new install has nothing to copy.
+    if start && !created {
+        if !owned_by_rust(&paths, &cipher) { back_up(&paths, store::TAKEOVER_COPY) }
+        else if deltabadger::jobs::app_update::platform(env) == deltabadger::jobs::app_update::Platform::Desktop
+            && !store::check(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env)).pending_rust.is_empty() { back_up(&paths, store::UPDATE_COPY) }
+    }
     if start {
         pause("after-backup");
         for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths, env)) { log(&format!("applied Rust migration {version}")); }
@@ -354,10 +353,11 @@ fn owned_by_rust(paths: &Paths, cipher: &Cipher) -> bool {
     matches!(lease::read(&c, cipher), Ok(Some(v)) if v["engine"] == "rust")
 }
 
-/// The copy before a takeover from Rails (PLAN-B2 r3.4, §5): C5a once a new copy is complete; a failure stops the start
-/// with C5b (r6 Q3) before anything is migrated or claimed, in the user's words: what happened, then what to do.
-fn back_up(paths: &Paths) {
-    match store::backup(paths, chrono::Utc::now()) {
+/// The copy before a takeover from Rails (PLAN-B2 r3.4, §5) or before a desktop update migrates (PLAN-B7 §4, `prefix`):
+/// C5a once a new copy is complete; a failure stops the start with C5b (r6 Q3) before anything is migrated or claimed, in
+/// the user's words: what happened, then what to do.
+fn back_up(paths: &Paths, prefix: &str) {
+    match store::backup_as(paths, prefix, chrono::Utc::now()) {
         Ok(store::Backup::Made(dir)) => log(&format!("Saved a copy of your data to {} before updating it.", dir.display())),
         Ok(store::Backup::Unchanged(dir)) => log(&format!("Your data hasn't changed since the copy in {}, so no new copy was needed.", dir.display())),
         Err(store::BackupError::SameName(name)) if name == "digest" => fail_plain(&format!("Deltabadger didn't start: one of your data files is called {name}, \
