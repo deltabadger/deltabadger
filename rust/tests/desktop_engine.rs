@@ -10,7 +10,13 @@ use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 const SECRET: &str = "desktop-test-secret";
-const TOKEN: &str = "0123456789abcdef0123456789abcdef";
+/// This test process's ready token: tests run in parallel processes, and a port `free_port` gave back can be another
+/// test's a moment later; an answer with another engine's token is not this engine's.
+struct Token;
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "{:032x}", std::process::id()) }
+}
+const TOKEN: Token = Token;
 
 struct Engine { child: Child, stdin: Option<ChildStdin>, lines: Receiver<String>, port: u16 }
 impl Drop for Engine {
@@ -49,7 +55,10 @@ impl Engine {
     fn ready(&self) -> String {
         let deadline = Instant::now() + Duration::from_secs(60);
         loop {
-            if let Some(a) = get(self.port, "/ui-ready").filter(|a| a.starts_with("HTTP/1.1 200")) { return body(&a).to_string() }
+            if let Some(a) = get(self.port, "/ui-ready").filter(|a| a.starts_with("HTTP/1.1 200")) {
+                let b = body(&a);
+                if b == "ready" || b.starts_with(&format!("ready {TOKEN} ")) { return b.to_string() }
+            }
             assert!(Instant::now() < deadline, "/ui-ready never answered 200");
             std::thread::sleep(Duration::from_millis(50));
         }
@@ -61,7 +70,7 @@ fn free_port() -> u16 { std::net::TcpListener::bind("127.0.0.1:0").unwrap().loca
 fn command(dir: &Path, port: u16) -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_deltabadger"));
     c.arg("serve").env("STORAGE_DIR", dir).env("SECRET_KEY_BASE", SECRET).env("PORT", port.to_string())
-        .env("IBKR_CATALOGUE_URL", "off").env("BINDING", "127.0.0.1").env("DELTABADGER_READY_TOKEN", TOKEN)
+        .env("IBKR_CATALOGUE_URL", "off").env("BINDING", "127.0.0.1").env("DELTABADGER_READY_TOKEN", TOKEN.to_string())
         .env("DELTABADGER_STOP_ON_STDIN_EOF", "1")
         .env_remove("DATABASE_URL").env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT")
         .env_remove("DELTABADGER_TEST_PAUSE").env_remove("DELTABADGER_PLATFORM").env_remove("DELTABADGER_LOG_FILE")
