@@ -30,7 +30,9 @@ if [ "$profile" = release ]; then release_flag=--release; fi
 script/rust/build_assets.sh
 # Always with --target: the engine's output lands in <target dir>/<triple>/, apart from the desktop shell's.
 (cd rust && "$cargo" build --locked $release_flag --target "$triple" --bin deltabadger)
-target_dir=$(cd rust && "$cargo" metadata --format-version 1 --no-deps | python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])')
+# Cargo's own rule: CARGO_TARGET_DIR (relative to the crate) or the crate's target/.
+target_dir=${CARGO_TARGET_DIR:-target}
+case "$target_dir" in /*|[A-Za-z]:*) ;; *) target_dir="rust/$target_dir" ;; esac
 mkdir -p src-tauri/binaries
 sidecar="src-tauri/binaries/deltabadger-engine-$triple$exe"
 cp "$target_dir/$triple/$profile/deltabadger$exe" "$sidecar"
