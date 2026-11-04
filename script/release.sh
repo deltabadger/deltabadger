@@ -44,10 +44,13 @@ ci_passed() {
 Run: gh workflow run rust.yml --ref main   then wait for it to pass, and run this again."
 }
 
-no_release_running() {
-  local busy; busy=$(gh run list --workflow release.yml --limit 50 --json status,event \
-    --jq '[.[] | select(.event != "pull_request" and (.status | IN("queued", "in_progress", "waiting", "pending", "requested")))] | length')
-  [ "$busy" = 0 ] || die "a release.yml run is queued or running; wait for it to finish"
+no_release_running() { # asked per active status, so no number of older runs can hide one
+  local status busy
+  for status in queued in_progress waiting pending requested; do
+    busy=$(gh run list --workflow release.yml --status "$status" --limit 200 --json event \
+      --jq '[.[] | select(.event != "pull_request")] | length')
+    [ "$busy" = 0 ] || die "a release.yml run is $status; wait for it to finish"
+  done
 }
 
 next_beta() { # <X.Y.Z>: one past the highest beta of it, on the fetched tags and the current version
@@ -89,10 +92,15 @@ case $cmd in
     digest=$(docker buildx imagetools inspect "$IMAGE:$v" --format '{{json .Manifest}}' | jq -r '.digest // empty') || true
     [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]] || die "$IMAGE:$v does not resolve to an index digest"
     if [ -z "$line" ]; then # the release's prose: its notes up to GitHub's generated list, as one line
-      line=$(gh release view "v$v" --json body --jq '.body' | tr -d '\r' | awk '/^## What.s Changed|^\*\*Full Changelog/{exit} {print}' | xargs)
+      line=$(gh release view "v$v" --json body --jq '.body' | tr -d '\r' | awk '/^## What.s Changed|^\*\*Full Changelog/{exit} {print}' \
+        | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')
     fi
     [ -n "$line" ] || die "v$v has no notes line; pass one: release.sh umbrel $v \"<line>\""
+    git show origin/main:deltabadger/docker-compose.yml | grep -Eq "image: $IMAGE:[^@[:space:]]+@sha256:[0-9a-f]{64}" \
+      || die "no pinned image line in deltabadger/docker-compose.yml"
     branch=umbrel/v$v tree=$(mktemp -d)/umbrel
+    ! git rev-parse -q --verify "refs/heads/$branch" > /dev/null && [ -z "$(git ls-remote --heads origin "$branch")" ] \
+      || die "branch $branch exists already"
     git worktree add -q -b "$branch" "$tree" origin/main
     trap 'git worktree remove --force "$tree" 2>/dev/null || true' EXIT
     sed -E -i.bak "s#(image: $IMAGE:)[^@[:space:]]+@sha256:[0-9a-f]{64}#\1$v@$digest#" "$tree/deltabadger/docker-compose.yml"
@@ -124,6 +132,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -z "$notes_file" ] || [ -s "$notes_file" ] || die "$notes_file: no such file, or empty"
+[ -z "$notes_file" ] || ! grep -q '^Critical:' "$notes_file" || die "$notes_file has a 'Critical:' line; that is the --critical trailer's"
 [ "$cmd" != major ] || [ -n "$notes_file" ] || die "a major release is an announcement: write it, then release.sh major --notes FILE"
 
 on_fresh_main

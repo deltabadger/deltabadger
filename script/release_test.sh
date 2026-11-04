@@ -62,7 +62,8 @@ release() { (cd "$repo" && bash script/release.sh "$@"); }
 yes_release() { printf 'y\n' | release "$@"; }
 state() { # what a refusal must leave untouched: origin's refs, the checkout's refs, HEAD, files
   { git -C "$work/origin.git" for-each-ref --format='%(refname) %(objectname)'; git -C "$repo" for-each-ref --format='%(refname) %(objectname)' refs/heads refs/tags
-    git -C "$repo" rev-parse HEAD; git -C "$repo" status --porcelain --untracked-files=all; } | sort
+    git -C "$repo" rev-parse HEAD; git -C "$repo" status --porcelain --untracked-files=all; git -C "$repo" ls-files -s
+    (cd "$repo" && find . -path ./.git -prune -o -type f -print0 | xargs -0 shasum); } | sort
 }
 refused() { # <name> <wanted words> <args...>
   local name=$1 want=$2; shift 2
@@ -89,7 +90,7 @@ check "nightly fast-forwarded to it" test "$(git -C "$work/origin.git" rev-parse
 check "the tag is pushed, annotated, on the release commit" test "$(git -C "$work/origin.git" rev-parse 'v3.0.0-beta.1^{commit}')" = "$(git -C "$repo" rev-parse HEAD)"
 check "the tag is signed" git -C "$repo" tag -v v3.0.0-beta.1
 check "exactly the three version files change" test "$(git -C "$repo" show --format= --name-only HEAD | sort | xargs)" = "src-tauri/Cargo.lock src-tauri/Cargo.toml src-tauri/tauri.conf.json"
-check "the lock's entry moved" grep -A1 -x 'name = "deltabadger-desktop"' "$repo/src-tauri/Cargo.lock"
+check "the lock's entry moved" test "$(grep -A1 -x 'name = "deltabadger-desktop"' "$repo/src-tauri/Cargo.lock" | tail -1)" = 'version = "3.0.0-beta.1"'
 check "tauri.conf.json moved" test "$(jq -r .version "$repo/src-tauri/tauri.conf.json")" = 3.0.0-beta.1
 check "a beta has no notes and no trailer" test "$(message v3.0.0-beta.1 | xargs)" = v3.0.0-beta.1
 
@@ -101,6 +102,7 @@ check "a beta tag pushed elsewhere is counted (fetched first)" test "$(version)"
 refused "from a beta, another bump is refused" "finish it with 'release.sh major'" minor
 refused "a beta takes no kind" "makes its next beta" beta minor
 refused "a major needs written notes" "release.sh major --notes FILE" major
+printf 'Better bots.\n\nCritical: true\n' > "$work/sneaky.md"; refused "notes can't carry the Critical trailer" "--critical trailer" major --notes "$work/sneaky.md"
 echo "A new, lighter Deltabadger." > "$work/notes.md"
 yes_release major --notes "$work/notes.md" > /dev/null
 check "beta + major → 3.0.0 (the suffix dropped)" test "$(version)" = 3.0.0
@@ -131,7 +133,7 @@ reset_state
 echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"skipped"}]}' > "$STATE/jobs.json"; refused "a skipped platform job" "no rust.yml run" patch
 echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"}]}' > "$STATE/jobs.json"; refused "a push run without macOS" "no rust.yml run" patch
 reset_state
-echo '[{"status":"in_progress","event":"push"}]' > "$STATE/release_runs.json"; refused "a release still running" "queued or running" patch
+echo '[{"status":"in_progress","event":"push"}]' > "$STATE/release_runs.json"; refused "a release still running" "wait for it to finish" patch
 reset_state; touch "$STATE/no_auth"; refused "gh not logged in" "gh auth login" patch
 reset_state
 (cd "$other" && git fetch -q && git tag v3.1.1 origin/main && git push -q origin v3.1.1)
@@ -146,13 +148,13 @@ reset_state; refused "promote refuses a beta" "not a stable release tag" promote
 refused "umbrel refuses 3.0.0" "B5-2" umbrel 3.0.0
 reset_state; refused "umbrel refuses a version with no release" "has no release" umbrel 3.1.0
 echo '{"isDraft":true,"isPrerelease":false,"body":"x"}' > "$STATE/release.json"; refused "umbrel refuses a draft" "not a published stable release" umbrel 3.1.0
-echo '{"isDraft":false,"isPrerelease":false,"body":"Fixes in the bots.\n\n## What'"'"'s Changed\n* a thing"}' > "$STATE/release.json"
+echo '{"isDraft":false,"isPrerelease":false,"body":"Fixes in the bot'"'"'s \"Pause all\".\n\n## What'"'"'s Changed\n* a thing"}' > "$STATE/release.json"
 release umbrel 3.1.0 > /dev/null
 pushed() { git -C "$work/origin.git" show "umbrel/v3.1.0:deltabadger/$1"; }
 check "umbrel pins every image to the index digest" bash -c "test \"\$(git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/docker-compose.yml | grep -c 'image: ghcr.io/deltabadger/deltabadger:3.1.0@$DIGEST')\" = \"\$(grep -c 'image: ghcr.io/deltabadger/deltabadger:' '$repo/deltabadger/docker-compose.yml')\""
 check "umbrel sets the version" bash -c "git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -qx 'version: \"3.1.0\"'"
-check "umbrel sets the notes line" bash -c "git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -A1 '^releaseNotes:' | grep -qx '  Fixes in the bots.'"
-check "umbrel keeps the rest of the app file" bash -c "diff <(git -C '$repo' show HEAD:deltabadger/umbrel-app.yml | grep -v '^version:\|^releaseNotes:\|^  Deltabadger will now') <(git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -v '^version:\|^releaseNotes:\|^  Fixes in the bots')"
+check "umbrel sets the notes line" bash -c "git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -A1 '^releaseNotes:' | grep -qxF '  Fixes in the bot'\\''s \"Pause all\".'"
+check "umbrel keeps the rest of the app file" bash -c "diff <(git -C '$repo' show HEAD:deltabadger/umbrel-app.yml | grep -v '^version:\|^releaseNotes:\|^  Deltabadger will now') <(git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -v '^version:\|^releaseNotes:\|^  Fixes in the bot')"
 check "umbrel opens the PR" grep -q "pr create --base main --head umbrel/v3.1.0" "$STATE/gh.log"
 check "umbrel leaves the checkout on a clean main" test "$(git -C "$repo" symbolic-ref --short HEAD) $(git -C "$repo" status --porcelain | wc -l | xargs)" = "main 0"
 
