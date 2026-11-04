@@ -22,12 +22,13 @@ fn env(n: &str) -> Option<String> { (n == "SECRET_KEY_BASE").then(|| "admin-jobs
 fn registered(c: &Connection) -> Vec<Box<dyn jobs::Job>> {
     use deltabadger::venue::alpaca::LiveFactory;
     let api: Api = Rc::new(None);
+    let feed: Rc<Option<jobs::market::Feed<deltabadger::venue::http::ReqwestTransport>>> = Rc::new(None);
     let mut all = jobs::reference::shared_jobs(api.clone());
     all.push(Box::new(jobs::setup_sync::SeedAndSync::new(&env, jobs::data_api::DataApi::live)));
     all.push(jobs::app_update::job(&env));
     all.extend(deltabadger::sync::jobs::register(c, &LiveFactory::new(), api.clone()).unwrap());
-    all.extend(deltabadger::tracker::jobs::register(c, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall()).unwrap());
-    all.push(deltabadger::tax::job::job(api.clone(), LiveFactory::new(), deltabadger::tax::job::tmp_dir(&env)));
+    all.extend(deltabadger::tracker::jobs::register(c, &LiveFactory::new(), feed.clone(), deltabadger::tracker::jobs::system_wall()).unwrap());
+    all.push(deltabadger::tax::job::job(feed, LiveFactory::new(), deltabadger::tax::job::tmp_dir(&env)));
     all.push(Box::new(deltabadger::sync::binance_repair::HistoryRepair::new(LiveFactory::new())));
     all.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
     all.extend(jobs::reference::catalogue_jobs(&env, PathBuf::from(jobs::reference::BUNDLE), jobs::reference::LiveFetch::default()));
