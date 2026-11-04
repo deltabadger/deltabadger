@@ -23,14 +23,6 @@ const NAV: [(&str, &str, &str); 5] = [
     ("api", "settings.rest.title", DOC),
 ];
 
-/// The version the sidebar shows: the release, as src-tauri/Cargo.toml carries it.
-pub fn version() -> &'static str {
-    include_str!("../../../../src-tauri/Cargo.toml")
-        .lines()
-        .find_map(|line| line.strip_prefix("version = ").and_then(|s| s.strip_prefix('"')).and_then(|s| s.strip_suffix('"')))
-        .unwrap_or("0.0.0")
-}
-
 /// settings/_shell around `pane`. `connect`: Connect holds only the admin's market data (D-BROKERS-AS-VENUES; Rails also
 /// shows it for IBKR), so it is the admin's section only.
 pub fn shell(ctx: &Ctx, section: &str, connect: bool, pane: &str) -> String {
@@ -57,7 +49,7 @@ pub fn shell(ctx: &Ctx, section: &str, connect: bool, pane: &str) -> String {
     format!(
         "<turbo-frame id=\"modal\">\n  <dialog class=\"dialog sdialog\" data-controller=\"modal--base\" data-action=\"click-&gt;modal--base#clickOutside\"{close}>\n    <div class=\"settings\">\n      <button name=\"button\" type=\"button\" class=\"settings__close\" aria-label=\"{}\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        {CLOSE}\n</button>      <turbo-frame class=\"settings__frame\" id=\"settings_pane\">\n        <nav class=\"settings__nav\">\n          <div class=\"settings__items\" data-controller=\"settings-nav\">\n{items}          </div>\n          <div class=\"settings__version\">{}</div>\n        </nav>\n        <div class=\"settings__pane\" tabindex=\"-1\" autofocus>\n          \n{pane}\n\n        </div>\n</turbo-frame>    </div>\n</dialog></turbo-frame>",
         escape(&ctx.t("button.close")),
-        version()
+        crate::VERSION
     )
 }
 
