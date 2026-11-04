@@ -14,9 +14,14 @@ export STATE=$work/state; mkdir -p "$STATE" "$work/bin"
 cat > "$work/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 echo "gh $*" >> "$STATE/gh.log"
-jq_expr=.; args=("$@")
-for i in "${!args[@]}"; do [ "${args[$i]}" = --jq ] && jq_expr=${args[$((i + 1))]}; done
-answer() { jq -r "$jq_expr" < "$STATE/$1"; }
+jq_expr=.; status=; args=("$@")
+for i in "${!args[@]}"; do
+  [ "${args[$i]}" = --jq ] && jq_expr=${args[$((i + 1))]}
+  [ "${args[$i]}" = --status ] && status=${args[$((i + 1))]}
+done
+answer() { # a list filtered by --status, as gh does
+  if [ -n "$status" ]; then jq --arg s "$status" '[.[] | select(.status == $s)]' < "$STATE/$1" | jq -r "$jq_expr"; else jq -r "$jq_expr" < "$STATE/$1"; fi
+}
 case "$1 $2" in
   "auth status") [ ! -e "$STATE/no_auth" ] ;;
   "run list") if [[ " $* " == *" rust.yml "* ]]; then answer rust_runs.json; else answer release_runs.json; fi ;;
@@ -102,7 +107,9 @@ check "a beta tag pushed elsewhere is counted (fetched first)" test "$(version)"
 refused "from a beta, another bump is refused" "finish it with 'release.sh major'" minor
 refused "a beta takes no kind" "makes its next beta" beta minor
 refused "a major needs written notes" "release.sh major --notes FILE" major
-printf 'Better bots.\n\nCritical: true\n' > "$work/sneaky.md"; refused "notes can't carry the Critical trailer" "--critical trailer" major --notes "$work/sneaky.md"
+for t in 'Critical: true' 'critical: true' 'Critical : true'; do
+  printf 'Better bots.\n\n%s\n' "$t" > "$work/sneaky.md"; refused "notes ending in '$t'" "use --critical instead" major --notes "$work/sneaky.md"
+done
 echo "A new, lighter Deltabadger." > "$work/notes.md"
 yes_release major --notes "$work/notes.md" > /dev/null
 check "beta + major → 3.0.0 (the suffix dropped)" test "$(version)" = 3.0.0
@@ -133,12 +140,17 @@ reset_state
 echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"skipped"}]}' > "$STATE/jobs.json"; refused "a skipped platform job" "no rust.yml run" patch
 echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"}]}' > "$STATE/jobs.json"; refused "a push run without macOS" "no rust.yml run" patch
 reset_state
-echo '[{"status":"in_progress","event":"push"}]' > "$STATE/release_runs.json"; refused "a release still running" "wait for it to finish" patch
+for st in queued in_progress waiting pending requested; do
+  echo '[{"status":"completed","event":"push"},{"status":"'$st'","event":"pull_request"},{"status":"'$st'","event":"push"}]' > "$STATE/release_runs.json"
+  refused "a release run $st" "a release.yml run is $st" patch
+done
+echo '[{"status":"in_progress","event":"pull_request"}]' > "$STATE/release_runs.json"
+yes_release patch > /dev/null && check "a pull request's dry run doesn't block" test "$(version)" = 3.1.1
 reset_state; touch "$STATE/no_auth"; refused "gh not logged in" "gh auth login" patch
 reset_state
-(cd "$other" && git fetch -q && git tag v3.1.1 origin/main && git push -q origin v3.1.1)
+(cd "$other" && git fetch -q && git tag v3.1.2 origin/main && git push -q origin v3.1.2)
 git -C "$repo" fetch -q --tags origin # the command fetches it too; that read is not a change
-refused "the version's tag exists on origin" "v3.1.1 exists already" patch
+refused "the version's tag exists on origin" "v3.1.2 exists already" patch
 
 # ---- promote and umbrel
 reset_state
@@ -148,12 +160,12 @@ reset_state; refused "promote refuses a beta" "not a stable release tag" promote
 refused "umbrel refuses 3.0.0" "B5-2" umbrel 3.0.0
 reset_state; refused "umbrel refuses a version with no release" "has no release" umbrel 3.1.0
 echo '{"isDraft":true,"isPrerelease":false,"body":"x"}' > "$STATE/release.json"; refused "umbrel refuses a draft" "not a published stable release" umbrel 3.1.0
-echo '{"isDraft":false,"isPrerelease":false,"body":"Fixes in the bot'"'"'s \"Pause all\".\n\n## What'"'"'s Changed\n* a thing"}' > "$STATE/release.json"
+echo '{"isDraft":false,"isPrerelease":false,"body":"Fixes in the bot'"'"'s \"Pause all\" (C:\\new\\test).\n\n## What'"'"'s Changed\n* a thing"}' > "$STATE/release.json"
 release umbrel 3.1.0 > /dev/null
 pushed() { git -C "$work/origin.git" show "umbrel/v3.1.0:deltabadger/$1"; }
 check "umbrel pins every image to the index digest" bash -c "test \"\$(git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/docker-compose.yml | grep -c 'image: ghcr.io/deltabadger/deltabadger:3.1.0@$DIGEST')\" = \"\$(grep -c 'image: ghcr.io/deltabadger/deltabadger:' '$repo/deltabadger/docker-compose.yml')\""
 check "umbrel sets the version" bash -c "git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -qx 'version: \"3.1.0\"'"
-check "umbrel sets the notes line" bash -c "git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -A1 '^releaseNotes:' | grep -qxF '  Fixes in the bot'\\''s \"Pause all\".'"
+check "umbrel sets the notes line" bash -c "git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -A1 '^releaseNotes:' | grep -qxF '  Fixes in the bot'\\''s \"Pause all\" (C:\\new\\test).'"
 check "umbrel keeps the rest of the app file" bash -c "diff <(git -C '$repo' show HEAD:deltabadger/umbrel-app.yml | grep -v '^version:\|^releaseNotes:\|^  Deltabadger will now') <(git -C '$work/origin.git' show umbrel/v3.1.0:deltabadger/umbrel-app.yml | grep -v '^version:\|^releaseNotes:\|^  Fixes in the bot')"
 check "umbrel opens the PR" grep -q "pr create --base main --head umbrel/v3.1.0" "$STATE/gh.log"
 check "umbrel leaves the checkout on a clean main" test "$(git -C "$repo" symbolic-ref --short HEAD) $(git -C "$repo" status --porcelain | wc -l | xargs)" = "main 0"

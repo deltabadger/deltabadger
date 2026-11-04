@@ -104,9 +104,9 @@ case $cmd in
     git worktree add -q -b "$branch" "$tree" origin/main
     trap 'git worktree remove --force "$tree" 2>/dev/null || true' EXIT
     sed -E -i.bak "s#(image: $IMAGE:)[^@[:space:]]+@sha256:[0-9a-f]{64}#\1$v@$digest#" "$tree/deltabadger/docker-compose.yml"
-    awk -v v="$v" -v line="$line" '
+    LINE=$line awk -v v="$v" '
       /^version: / { print "version: \"" v "\""; next }
-      /^releaseNotes:/ { print "releaseNotes: >-"; print "  " line; skip = 1; next }
+      /^releaseNotes:/ { print "releaseNotes: >-"; print "  " ENVIRON["LINE"]; skip = 1; next }
       skip && /^[^ ]/ { skip = 0 }
       !skip { print }' "$tree/deltabadger/umbrel-app.yml" > "$tree/umbrel-app.yml.new"
     mv "$tree/umbrel-app.yml.new" "$tree/deltabadger/umbrel-app.yml"; rm -f "$tree/deltabadger/docker-compose.yml.bak"
@@ -132,7 +132,6 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -z "$notes_file" ] || [ -s "$notes_file" ] || die "$notes_file: no such file, or empty"
-[ -z "$notes_file" ] || ! grep -q '^Critical:' "$notes_file" || die "$notes_file has a 'Critical:' line; that is the --critical trailer's"
 [ "$cmd" != major ] || [ -n "$notes_file" ] || die "a major release is an announcement: write it, then release.sh major --notes FILE"
 
 on_fresh_main
@@ -190,7 +189,10 @@ $log" < /dev/null 2>/dev/null || true)
   fi
 fi
 message=$(mktemp); trap 'rm -f "$message"' EXIT
-{ echo "$tag"; [ -z "$notes" ] || printf '\n%s\n' "$notes"; [ "$critical" = false ] || printf '\nCritical: true\n'; } > "$message"
+{ echo "$tag"; [ -z "$notes" ] || printf '\n%s\n' "$notes"; } > "$message"
+# Only --critical marks a release critical: notes (written or generated) that git would read as a Critical trailer are refused.
+! git interpret-trailers --parse < "$message" | grep -qi '^critical *:' || die "the notes end in a 'Critical:' trailer; use --critical instead"
+[ "$critical" = false ] || printf '\nCritical: true\n' >> "$message"
 
 echo "$current → $new$([ "$critical" = true ] && echo ' (critical)')"
 echo "--- tag message"; cat "$message"; echo "---"
