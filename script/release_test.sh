@@ -110,10 +110,10 @@ refused "a major needs written notes" "release.sh major --notes FILE" major
 for t in 'Critical: true' 'critical: true' 'Critical : true'; do
   printf 'Better bots.\n\n%s\n' "$t" > "$work/sneaky.md"; refused "notes ending in '$t'" "use --critical instead" major --notes "$work/sneaky.md"
 done
-echo "A new, lighter Deltabadger." > "$work/notes.md"
+printf 'A new, lighter Deltabadger.\n\n## Upgrade\n\nNothing to do.\n' > "$work/notes.md"
 yes_release major --notes "$work/notes.md" > /dev/null
 check "beta + major → 3.0.0 (the suffix dropped)" test "$(version)" = 3.0.0
-check "the notes are in the tag" test "$(message v3.0.0 | sed 1,2d)" = "A new, lighter Deltabadger."
+check "the notes are in the tag, headings kept" test "$(message v3.0.0 | sed 1,2d)" = "$(cat "$work/notes.md")"
 check "no Critical trailer without --critical" test -z "$(critical v3.0.0)"
 (cd "$repo" && echo fix > fix.txt && git add fix.txt && git commit -q -m "Fix the bots" && git push -q origin main)
 yes_release patch --critical > /dev/null

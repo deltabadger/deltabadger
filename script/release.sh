@@ -206,6 +206,6 @@ git commit -q -m "Release $tag" -- "${FILES[@]}"
 git push -q origin main
 # nightly never sits behind a release (as release.rake did).
 git push -q origin main:nightly
-git tag -s "$tag" -F "$message"
+git tag -s --cleanup=whitespace "$tag" -F "$message" # keeps Markdown headings
 git push -q origin "$tag"
 echo "Pushed $tag; release.yml builds and publishes it: gh run list --workflow release.yml --limit 1"
