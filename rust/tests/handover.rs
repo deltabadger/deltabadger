@@ -1772,3 +1772,35 @@ fn unscoped_and_asset_wakes_replay_until_their_job_runs() {
     o.primary.execute("DELETE FROM assets WHERE id = ?1", [asset]).unwrap();
     assert!(handover::due_rails_wakes(&o.primary, now()).unwrap().is_empty(), "the asset is gone");
 }
+
+// ---- A28-1: Rails' unrecorded-order candidates (engine::rails_unrecorded) ----------------------------------------------
+
+fn unrecorded_refs(c: &rusqlite::Connection) -> Vec<i64> {
+    let mut s = c.prepare("SELECT source_ref FROM rust_rails_unrecorded ORDER BY id").unwrap();
+    s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+fn line_id(c: &rusqlite::Connection, bot: i64, at: DateTime<Utc>) -> i64 {
+    model::log_activity(c, bot, "placement_ambiguous", model::Level::Warning, json!({ "error": "Net::ReadTimeout" }), at).unwrap();
+    c.last_insert_rowid()
+}
+
+/// r4.1, r5.1: the takeover from Rails collects what Rails wrote; a restart collects nothing; after a handback that Rails
+/// adopted (its boot deletes the lease, so the reclaim reads FromRails) only what Rails wrote after the handback is
+/// collected, never this engine's own lines from before it.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_unrecorded_candidates_are_collected_per_rails_ownership_only() {
+    let (_dir, l, o, _s, b) = dca_install();
+    let first = line_id(&o.primary, b, now() - chrono::Duration::days(3));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(unrecorded_refs(&o.primary), [first]);
+    let own = line_id(&o.primary, b, now() + chrono::Duration::hours(1)); // this engine's own, while it owns the install
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now() + chrono::Duration::hours(2)).unwrap();
+    assert_eq!(unrecorded_refs(&o.primary), [first], "a restart collects nothing");
+    let back = now() + chrono::Duration::hours(3);
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(back)).await.unwrap();
+    o.primary.execute("DELETE FROM app_configs WHERE key = 'engine_lease'", []).unwrap(); // Rails adopts the handback
+    let rails = line_id(&o.primary, b, back + chrono::Duration::hours(1));
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", back + chrono::Duration::hours(2)).unwrap();
+    assert!(matches!(t.claim, Claim::FromRails));
+    assert_eq!(unrecorded_refs(&o.primary), [first, rails], "only Rails' new line; never the engine's own {own}");
+}

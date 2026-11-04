@@ -184,6 +184,9 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let converted = plan.converted.iter().map(|id| super::set_aside::converted(&tx, *id)).collect::<Result<Vec<_>, _>>()?;
     // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
     super::reconcile::mark_adopted(&tx, cipher, now)?;
+    // A28-1: Rails' ownership window, read before the claim restamps it (lease::claim's own rule for a new ownership).
+    let handed_back = lease::plain_at(&tx, lease::HANDED_BACK_AT)?;
+    let taken_before = lease::plain_at(&tx, lease::TAKEN_OVER_AT)?;
     let claim = lease::claim(lock, &tx, cipher, version, now)?;
     // In the claim's own transaction, before the engine ticks or the web serves a request: every unresolved intent
     // carries what it was sent under (placement::backfill_snapshots).
@@ -194,6 +197,12 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     super::staleness::seed(&tx, now)?;
     let imported_calls = import_signal_jobs(&tx, &signal_jobs, now)?;
     apply_queue_work(&tx, &work, matches!(claim, Claim::FromRails), now)?;
+    // A28-1: what Rails may have sent unrecorded while it owned the install, from the last handback on (r4.1, r5.1).
+    let rails_window = match claim {
+        Claim::FromRails | Claim::AfterHandback => true,
+        Claim::AfterCrash => handed_back.is_some_and(|back| taken_before.is_none_or(|taken| taken < back)),
+    };
+    if rails_window { super::rails_unrecorded::collect(&tx, &o.queue, handed_back, now)?; }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
     super::rules::acknowledge_fanouts(&tx, &mut rule_jobs, now)?;
@@ -304,6 +313,9 @@ fn bot_of(arguments: Option<&str>, class: Option<&str>) -> Option<i64> {
     if !ty.starts_with("Bots::") || class.is_some_and(|c| c != ty) { return None; }
     id.parse().ok()
 }
+
+/// The bot a Rails job's first argument names (A28-1's queue source).
+pub(crate) fn job_bot(arguments: Option<&str>) -> Option<i64> { bot_of(arguments, None) }
 
 /// A bot row that is there and not deleted: Rails' GlobalID finds a deleted bot too, but nothing of it runs again.
 fn live_bot(c: &Connection, id: i64) -> Result<bool, EngineError> {
@@ -686,6 +698,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
         // A20d: an order key's link to its order, read only by the start sweep. A key handed back in_progress is 2.x's 409.
         (Table, "rust_idempotency_orders", Ignored),
+        // A28-1: Rails' unrecorded-order candidates and whether their line was written; 2.x never reads it.
+        (Table, "rust_rails_unrecorded", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
