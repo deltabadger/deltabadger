@@ -108,7 +108,7 @@ fn changed(sc: &Value) -> Vec<i64> {
 #[test]
 fn recorded_conversions_are_byte_equal() {
     let all = scenarios();
-    assert_eq!(all.len(), 55);
+    assert_eq!(all.len(), 56);
     for sc in &all {
         let name = sc["name"].as_str().unwrap();
         let (_d, o) = install(sc);
@@ -549,7 +549,7 @@ async fn a_condition_on_another_market_reads_as_rails_reads_it() {
             n += 1;
         }
     }
-    assert_eq!(n, 10);
+    assert_eq!(n, 11);
 }
 
 // ---- §8 5: the figures each surface serves, before and after ----
@@ -772,11 +772,14 @@ fn a_working_kept_bot_with_an_open_order_is_the_hard_stop() {
 }
 
 /// D-SINGLE-CONDITION-CONVERTS through the engine's own tick: each recorded condition on another market, and the price
-/// condition on its own (the fake venue at Rails' stubbed price), on the converted bot made working. Rails' recorded
-/// reading decides: a met rule carries its met stamp after the tick (conditions::evaluate_rule writes it; a latched one keeps
-/// it); an unmet one has none and holds the order; an unlatched flip doesn't fire and the bot keeps its direction. A subject
-/// outside the bot's tickers is never priced. (The candle rules on the bot's own market read Rails' stubbed SMA/RSI, which
-/// the fake venue has no candles for: those are ordinary basket conditions, Rails-parity-tested in tests/conditions.rs.)
+/// condition on its own (the fake venue at Rails' stubbed price), on the converted bot made working, ticked at the first
+/// instant it owes an amount (a buyer) or is due (a seller). Rails' recorded reading decides the outcome on the venue:
+/// - an unmet pause (another market, unlatched): no order, and no price read for a subject the bot doesn't trade;
+/// - a met one (latched "after", or its own market below the limit): the order goes out and its row is recorded;
+/// - an unlatched start_selling flip on another market: no flip, the bot buys as before;
+/// - a latched start_selling flip: the bot turns to selling, as a basket's flip does, and any order it places sells.
+/// The met stamp evaluate_rule writes is checked too. (The candle rules on the bot's own market read Rails' stubbed SMA/RSI,
+/// which the fake venue has no candles for: ordinary basket conditions, Rails-parity-tested in tests/conditions.rs.)
 #[tokio::test(flavor = "current_thread")]
 async fn a_condition_reads_through_the_tick_as_rails_recorded_it() {
     assert_eq!(fixture()["conditions_price"], "100");
@@ -790,22 +793,46 @@ async fn a_condition_reads_through_the_tick_as_rails_recorded_it() {
         let recorded = sc["probes"]["1"]["after"]["conditions"].as_object().unwrap().clone();
         assert_eq!(recorded.len(), 1, "{name}");
         let (prefix, met) = recorded.iter().next().map(|(k, v)| (k.clone(), v == true)).unwrap();
+        let flip = settings[format!("{prefix}_action")].as_str().is_some_and(|a| a.starts_with("start_"));
         let venue = kraken();
         let (_d, t, mut e) = engine(&working(sc.clone()), venue.clone());
         assert_eq!(t.eligible, vec![1], "{name}: {:?}", t.set_aside);
-        run::step(&mut e, &at(now())).await.unwrap();
+        // Three daily checkpoints: a price-limited bot's carry starts at its met stamp (Bot::PriceLimitable's started_at), so
+        // a rule met at the first owes its amount at the next.
+        let rows = |c: &Connection| c.query_row("SELECT count(*) FROM transactions WHERE bot_id = 1", [], |r| r.get::<_, i64>(0)).unwrap();
+        let before = rows(&e.primary);
+        for d in 0..3 { run::step(&mut e, &at(now() + chrono::Duration::days(d) + chrono::Duration::seconds(d))).await.unwrap(); }
         let after = model::load_bot(&e.primary, 1).unwrap();
+        let sent = venue.sent();
         let stamped = after.transient.get(format!("{prefix}_condition_met_at")).is_some_and(|v| !v.is_null());
-        assert_eq!(stamped, met, "{name}: {prefix} reads as Rails recorded it");
-        assert_eq!(after.selling(), selling, "{name}: no flip fired");
-        if !met {
-            let flip = settings[format!("{prefix}_action")].as_str().is_some_and(|a| a.starts_with("start_"));
-            if !flip { assert!(venue.sent().is_empty(), "{name}: held"); }
-            if foreign && !flip { assert_eq!(venue.calls("/0/public/Ticker"), 0, "{name}: no price read for a subject the bot doesn't trade"); }
+        // A flip that fires turns the bot and starts its new side afresh: its stamp is not kept.
+        if !(met && flip) { assert_eq!(stamped, met, "{name}: {prefix} reads as Rails recorded it"); }
+        match (met, flip) {
+            (false, false) => {
+                assert!(sent.is_empty(), "{name}: held");
+                if foreign { assert_eq!(venue.calls("/0/public/Ticker"), 0, "{name}: no price read for a subject the bot doesn't trade"); }
+                assert_eq!(after.selling(), selling, "{name}");
+            }
+            (true, false) => {
+                assert!(!sent.is_empty(), "{name}: the order goes out");
+                assert!(sent.iter().all(|o| (o.side == deltabadger::venue::Side::Sell) == selling), "{name}");
+                assert_eq!(rows(&e.primary), before + sent.len() as i64, "{name}: their rows");
+            }
+            (false, true) => {
+                assert!(!after.selling(), "{name}: the flip doesn't fire");
+                assert!(!sent.is_empty(), "{name}: the bot buys as before");
+                assert!(sent.iter().all(|o| o.side == deltabadger::venue::Side::Buy), "{name}");
+            }
+            (true, true) => {
+                assert!(after.selling(), "{name}: the flip fires");
+                assert_eq!(after.settings["direction"], "selling", "{name}");
+                assert!(sent.iter().all(|o| o.side == deltabadger::venue::Side::Sell), "{name}: {sent:?}");
+            }
         }
         n += 1;
     }
-    assert_eq!(n, 12);
+    assert!(scenarios().iter().any(|s| s["name"] == "latched start_selling flip on another ticker"));
+    assert_eq!(n, 13);
 }
 
 // ---- review r1: charts ----
