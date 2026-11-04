@@ -417,7 +417,7 @@ pub async fn check<R: tauri::Runtime>(app: &tauri::AppHandle<R>, agent: &Agent, 
             return agent.snapshot();
         }
         Err(error) => {
-            log(&format!("desktop: update: the check failed: {error}"));
+            log(&format!("desktop: update: the check failed: {}", chain(&error)));
             agent.check_failed(button);
             return agent.snapshot();
         }
@@ -453,11 +453,23 @@ pub async fn check<R: tauri::Runtime>(app: &tauri::AppHandle<R>, agent: &Agent, 
         }
         Err(error) => {
             let kind = kind_of(&error);
-            log(&format!("desktop: update: the download failed ({kind:?}): {error}"));
+            log(&format!("desktop: update: the download failed ({kind:?}): {}", chain(&error)));
             agent.download_failed(kind, visible);
         }
     }
     agent.snapshot()
+}
+
+/// An error with its causes (reqwest's own text leaves out why a request failed).
+fn chain(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        text.push_str(": ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    text
 }
 
 /// The plugin's errors that mean the package didn't verify (U5b); every other is a failed download (U5a).

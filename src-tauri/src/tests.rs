@@ -864,13 +864,13 @@ fn the_window_goes_only_to_the_status_page_and_this_engine() {
 fn a_command_needs_this_launchs_origin_and_its_token() {
     let url = |u: &str| u.parse::<tauri::Url>().unwrap();
     let launch = || Some((3001, "t0k3n".to_string()));
-    assert!(allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), "t0k3n"));
-    assert!(!allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), "other"), "another token");
-    assert!(!allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), ""), "no token");
-    assert!(!allowed("main", &url("http://127.0.0.1:3002/"), launch(), "t0k3n"), "another port");
-    assert!(!allowed("main", &url("tauri://localhost/"), launch(), "t0k3n"), "the status page");
-    assert!(!allowed("other", &url("http://127.0.0.1:3001/"), launch(), "t0k3n"), "another window");
-    assert!(!allowed("main", &url("http://127.0.0.1:3001/"), None, ""), "no engine");
+    assert_eq!(allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), "t0k3n"), Ok(()));
+    assert_eq!(allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), "other"), Err("not this launch's token"));
+    assert!(allowed("main", &url("http://127.0.0.1:3001/settings"), launch(), "").is_err(), "no token");
+    assert_eq!(allowed("main", &url("http://127.0.0.1:3002/"), launch(), "t0k3n"), Err("not this engine's origin"));
+    assert!(allowed("main", &url("tauri://localhost/"), launch(), "t0k3n").is_err(), "the status page");
+    assert!(allowed("other", &url("http://127.0.0.1:3001/"), launch(), "t0k3n").is_err(), "another window");
+    assert!(allowed("main", &url("http://127.0.0.1:3001/"), None, "").is_err(), "no engine");
 }
 
 #[test]

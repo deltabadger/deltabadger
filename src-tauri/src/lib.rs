@@ -248,21 +248,24 @@ pub fn navigation(url: &tauri::Url, engine_port: Option<u16>) -> Navigation {
 /// The guard on every command (PLAN-B7 r1.8, r3.4): the caller is the main window on this launch's engine origin, and
 /// its document carries this launch's token (`<meta name="desktop-launch">`, which only the engine this launch started
 /// renders). A page on another port, or another listener on the engine's port, has neither.
-pub fn allowed(label: &str, url: &tauri::Url, launch: Option<(u16, String)>, token: &str) -> bool {
-    label == "main"
-        && launch.is_some_and(|(port, own)| {
-            url.scheme() == "http" && url.host_str() == Some(supervisor::HOST) && url.port() == Some(port) && !token.is_empty() && token == own
-        })
+pub fn allowed(label: &str, url: &tauri::Url, launch: Option<(u16, String)>, token: &str) -> Result<(), &'static str> {
+    let Some((port, own)) = launch.filter(|_| label == "main") else { return Err("no engine page") };
+    if url.scheme() != "http" || url.host_str() != Some(supervisor::HOST) || url.port() != Some(port) {
+        return Err("not this engine's origin");
+    }
+    if token.is_empty() || token != own {
+        return Err("not this launch's token");
+    }
+    Ok(())
 }
 
 fn guard(app: &tauri::AppHandle, webview: &tauri::Webview, token: &str) -> Result<(), String> {
     let url = webview.url().map_err(|e| e.to_string())?;
-    if allowed(webview.label(), &url, app.state::<Arc<Engine>>().launch(), token) {
-        Ok(())
-    } else {
-        log_line(app, &format!("desktop: refused a command from {}", url.origin().ascii_serialization()));
-        Err("refused".into())
-    }
+    allowed(webview.label(), &url, app.state::<Arc<Engine>>().launch(), token).map_err(|why| {
+        let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
+        log_line(app, &format!("desktop: refused a command from {}://{}{port}: {why}", url.scheme(), url.host_str().unwrap_or("")));
+        "refused".to_string()
+    })
 }
 
 /// The update agent and what an install needs (the host exists once the data dir is known).
