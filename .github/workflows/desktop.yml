@@ -81,10 +81,6 @@ jobs:
             os: windows-2025
             triple: x86_64-pc-windows-msvc
             bundles: nsis
-          - name: linux-x86_64
-            os: ubuntu-24.04
-            triple: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
     steps:
       # rust/build.rs's gate hashes source bytes; Windows runners default to CRLF checkouts (PLAN-B6 r1.3).
       - name: Check out LF line endings

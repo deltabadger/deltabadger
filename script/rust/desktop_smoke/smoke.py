@@ -335,7 +335,15 @@ class Window:
         if WIN:
             devtools = free_port()
             self.app = launch(data, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={devtools}", **extra)
-            until("WebView2's DevTools port", 60, lambda: http(devtools, "/json/version") == 200)
+            try:
+                until("WebView2's DevTools port", 60, lambda: http(devtools, "/json/version") == 200)
+            except Fail:
+                # Why: did the flag reach WebView2's browser process, and does a policy turn remote debugging off?
+                ps = "Get-CimInstance Win32_Process -Filter \"Name='msedgewebview2.exe'\" | ForEach-Object { $_.ProcessId.ToString() + ' ' + $_.CommandLine }"
+                print(run(["powershell", "-NoProfile", "-Command", ps]).stdout[:6000])
+                for key in (r"HKLM\SOFTWARE\Policies\Microsoft\Edge", r"HKCU\SOFTWARE\Policies\Microsoft\Edge"):
+                    print(key, run(["reg", "query", key, "/s"]).stdout[:3000])
+                raise
             args = [os.environ["MSEDGEDRIVER"], f"--port={self.port}"]
             caps = {"browserName": "webview2", "ms:edgeOptions": {"debuggerAddress": f"127.0.0.1:{devtools}"}}
             env = None
