@@ -75,12 +75,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMPORARY while iterating (removed before review): one leg at a time.
         include:
+          - name: macos-aarch64
+            os: macos-15
+            triple: aarch64-apple-darwin
+            bundles: app
           - name: windows-x86_64
             os: windows-2025
             triple: x86_64-pc-windows-msvc
             bundles: nsis
+          - name: linux-x86_64
+            os: ubuntu-24.04
+            triple: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
     steps:
       # rust/build.rs's gate hashes source bytes; Windows runners default to CRLF checkouts (PLAN-B6 r1.3).
       - name: Check out LF line endings
@@ -116,8 +123,7 @@ jobs:
             rust -> target
             src-tauri -> target
           key: desktop-${{ matrix.name }}
-          save-if: true # TEMPORARY while iterating (main only before review)
-          cache-on-failure: true # TEMPORARY while iterating
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build the engine
         shell: bash
