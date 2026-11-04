@@ -788,3 +788,13 @@ fn the_initialization_script_marks_the_document_as_desktop() {
     assert!(INITIALIZATION_SCRIPT.contains("new MutationObserver"));
     assert!(!INITIALIZATION_SCRIPT.contains("DOMContentLoaded"));
 }
+
+#[test]
+fn only_a_test_build_adds_webview2_arguments_and_it_keeps_wrys_defaults() {
+    let wry = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required";
+    let port = Some(" --remote-debugging-port=9222 ");
+    assert_eq!(test_webview_args("com.deltabadger.app.test", port), Some(format!("{wry} --remote-debugging-port=9222")));
+    assert_eq!(test_webview_args(RELEASE_IDENTIFIER, port), None, "the released app keeps wry's arguments");
+    assert_eq!(test_webview_args("com.deltabadger.app.test", None), None);
+    assert_eq!(test_webview_args("com.deltabadger.app.test", Some("  ")), None);
+}

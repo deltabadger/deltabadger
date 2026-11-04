@@ -111,6 +111,16 @@ pub fn choose_data_dir(
     Ok((dir, notes))
 }
 
+/// WebView2's browser arguments for a build other than the released app (PLAN-B6 B6-2): wry's defaults plus
+/// `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`. WebView2 ignores that variable (and its registry twin) once an app passes
+/// arguments of its own, and wry always does, so desktop.yml's Windows leg could not open the DevTools port WebDriver
+/// reads the window through. None (wry's defaults) for the released app, or with the variable unset.
+pub fn test_webview_args(identifier: &str, extra: Option<&str>) -> Option<String> {
+    let extra = extra.map(str::trim).filter(|e| !e.is_empty() && identifier != RELEASE_IDENTIFIER)?;
+    // wry's own defaults (webview2/mod.rs: the mini menu, PDF and SmartScreen features off; autoplay, as Tauri asks).
+    Some(format!("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required {extra}"))
+}
+
 /// The sidecar next to the app's executable (Tauri's externalBin). Debug builds: `DELTABADGER_TEST_ENGINE` names
 /// another program (a test fixture served in its place).
 fn engine_exe() -> Result<PathBuf, String> {
@@ -359,6 +369,15 @@ pub fn run() {
                     }
                     true
                 });
+
+            let test_args = test_webview_args(
+                &app.config().identifier,
+                std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").ok().as_deref(),
+            );
+            let window_builder = match test_args {
+                Some(args) => window_builder.additional_browser_args(&args),
+                None => window_builder,
+            };
 
             // The overlay title bar is the macOS look; both builder methods exist only
             // on macOS in Tauri 2, so calling them unconditionally does not compile
