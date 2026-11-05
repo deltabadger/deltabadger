@@ -86,8 +86,15 @@ if [ -n "$exe" ]; then
   package=next-setup.exe
   cp $b/nsis/*_"$next"_*-setup.exe "$out/$package"
   cp $b/nsis/*_"$next"_*-setup.exe.sig "$out/$package.sig"
-  cp src-tauri/target/release/Deltabadger.exe "$out/next-Deltabadger.exe"
-  cp "src-tauri/binaries/deltabadger-engine-$triple.exe" "$out/next-deltabadger-engine.exe"
+  # The reference pair is what N+1's installer carries (the bundler patches the exe it packs: target/'s copy differs).
+  rm -rf "$out/next-files"
+  7z x -y -o"$out/next-files" "$out/$package" >/dev/null
+  for f in Deltabadger.exe deltabadger-engine.exe; do
+    found=$(find "$out/next-files" -name "$f" -type f | head -1)
+    [ -n "$found" ] || { echo "N+1's installer has no $f" >&2; exit 1; }
+    cp "$found" "$out/next-$f"
+  done
+  rm -rf "$out/next-files"
 else
   package=next.AppImage
   cp $b/appimage/*_"$next"_*.AppImage "$out/$package"

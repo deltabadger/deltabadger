@@ -176,9 +176,13 @@ def installed():
     return (sha(s.ARGS.app),)
 
 
+def next_pair():
+    return (sha(P / "next-Deltabadger.exe"), sha(P / "next-deltabadger-engine.exe"))
+
+
 def is_next():
     if WIN:
-        return installed() == (sha(P / "next-Deltabadger.exe"), sha(P / "next-deltabadger-engine.exe"))
+        return installed() == next_pair()
     return installed() == (sha(P / V["package"]),)
 
 
@@ -465,7 +469,7 @@ def scenario_p4_p6(name):
     finally:
         win.close()
     check_runs(data, V["next"], "P4: relaunched")
-    check(is_next(), "P4: N+1's executables are not the installed ones")
+    check(is_next(), f"P4: N+1's executables are not the installed ones: {installed()} vs N+1's installer's {next_pair()}")
     if not WIN:
         check(s.ARGS.app.stat().st_mode == mode, f"P4: mode {oct(s.ARGS.app.stat().st_mode)}, was {oct(mode)}")
         say("P4: the file at $APPIMAGE replaced, its mode kept")
@@ -752,7 +756,7 @@ def scenario_killed(name):
             outcome = "U10"
             check(not engines, f"{name}-{k}: U10 with an engine")
         elif engines:
-            check(pair in (n_pair, (sha(P / "next-Deltabadger.exe"), sha(P / "next-deltabadger-engine.exe"))), f"{name}-{k}: an engine runs from a mixed pair")
+            check(pair in (n_pair, next_pair()), f"{name}-{k}: an engine runs from a mixed pair")
             outcome = "N+1 runs" if is_next() else "N runs"
         elif not s.app_pids():
             outcome = "the launcher doesn't start"
@@ -813,6 +817,8 @@ def cleanup():
 
 def main():
     global ARGS, P, V
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows' console codepage can't print "→"
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--kind", required=True, choices=["nsis", "appimage", "deb"])
     ap.add_argument("--packages", required=True, type=lambda p: Path(p).resolve())
