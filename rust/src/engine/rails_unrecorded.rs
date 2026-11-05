@@ -497,7 +497,7 @@ use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState
 
 /// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1) and A28-3b-1 Alpaca
 /// (a recorded answer, tests/fixtures/order_lists/alpaca).
-const SERVED: [&str; 4] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA];
+const SERVED: [&str; 5] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID];
 /// Pairs one read may ask for (§4); more leave the line A28-1's.
 const MAX_SYMBOLS: usize = 5;
 /// Live reads per pass (r1.4), taken round-robin from `LIVE_CURSOR`.

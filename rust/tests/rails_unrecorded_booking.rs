@@ -13,7 +13,7 @@ use deltabadger::engine::rails_unrecorded::{self as ru, Refused, Report};
 use deltabadger::jobs::Db;
 use deltabadger::ruby::BigDec;
 use deltabadger::venue::http::ScriptedTransport;
-use deltabadger::venue::{alpaca, binance, bybit, Venue, VenueFactory};
+use deltabadger::venue::{alpaca, binance, bybit, hyperliquid, Venue, VenueFactory};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::cell::RefCell;
@@ -25,14 +25,18 @@ const AT: &str = "2026-09-29 14:03:00";
 const PLACED: &str = "2026-09-29T14:03:05Z";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Kind { Binance, Bybit, Alpaca }
+enum Kind { Binance, Bybit, Alpaca, Hyperliquid }
 impl Kind {
     fn exchange(self) -> (&'static str, &'static str) {
-        match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::Bybit => ("Exchanges::Bybit", "Bybit"), Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca") }
+        match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::Bybit => ("Exchanges::Bybit", "Bybit"), Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca"),
+                     Kind::Hyperliquid => ("Exchanges::Hyperliquid", "Hyperliquid") }
     }
-    fn external_id(self, id: u64) -> String { match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Binance => format!("BTCEUR-{id}") } }
-    /// Alpaca spells a crypto pair "BASE/QUOTE" and trades it against USD only (eligibility's "Alpaca: only USD").
-    fn symbol(self) -> &'static str { if self == Kind::Alpaca { "BTC/USD" } else { "BTCEUR" } }
+    fn external_id(self, id: u64) -> String {
+        match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"), Kind::Binance => format!("BTCEUR-{id}") }
+    }
+    /// Alpaca spells a crypto pair "BASE/QUOTE" and trades it against USD only (eligibility's "Alpaca: only USD");
+    /// Hyperliquid names a spot pair by its index.
+    fn symbol(self) -> &'static str { match self { Kind::Alpaca => "BTC/USD", Kind::Hyperliquid => HL_COIN, _ => "BTCEUR" } }
 }
 
 /// The scripted venue for every bot, after `hook` (what happens between the read and the write).
@@ -174,6 +178,10 @@ impl Fx {
     fn binance(&self) -> binance::BinanceVenue<ScriptedTransport> { binance::BinanceVenue::new(self.tr.clone(), binance::URL, "secret") }
     fn bybit(&self) -> bybit::BybitVenue<ScriptedTransport> { bybit::BybitVenue::new(self.tr.clone(), bybit::URL).with_history_db(self.path.clone(), now() + Duration::days(40)) }
     fn alpaca(&self) -> alpaca::AlpacaVenue<ScriptedTransport> { alpaca::AlpacaVenue::new(self.tr.clone(), alpaca::Urls::for_passphrase(Some("paper"))) }
+    fn hl(&self) -> hyperliquid::HyperliquidVenue<ScriptedTransport> {
+        let pairs = binance::Pairs { by_symbol: [(HL_COIN.to_string(), binance::Pair { base: "BTC".into(), quote: "EUR".into(), price_decimals: 2 })].into(), assets: Default::default() };
+        hyperliquid::HyperliquidVenue::new(self.tr.clone(), hyperliquid::URL, "0x00000000000000000000000000000000000000a1").with_pairs(pairs)
+    }
     /// The venue lists these orders (both the report's read and the booking's identity read: the last reply repeats).
     fn answer(&self, orders: &[O]) {
         match self.kind {
@@ -184,6 +192,10 @@ impl Fx {
             }
             Kind::Binance => { self.tr.reply("GET /api/v3/allOrders", 200, Value::Array(orders.iter().map(binance_row).collect())); }
             Kind::Alpaca => { self.tr.reply("GET /v2/orders", 200, Value::Array(orders.iter().map(alpaca_row).collect())); }
+            Kind::Hyperliquid => {
+                self.tr.reply(HL_ORDERS, 200, Value::Array(orders.iter().map(hl_row).collect()));
+                self.tr.reply(HL_FILLS, 200, Value::Array(orders.iter().filter(|o| o.exec != "0").map(|o| hl_fill(o.id, o.exec, &dec(o.cum).div(&dec(o.exec)).unwrap().to_s_f(), o.id, ms(o.at) + 500)).collect()));
+            }
         }
     }
     /// The report's pass: the line and its offers.
@@ -192,6 +204,7 @@ impl Fx {
             Kind::Binance => Report::new(Factory { venue: self.binance(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
             Kind::Bybit => Report::new(Factory { venue: self.bybit(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
             Kind::Alpaca => Report::new(Factory { venue: self.alpaca(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
+            Kind::Hyperliquid => Report::new(Factory { venue: self.hl(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
         }.unwrap();
         assert_eq!(n, 1);
     }
@@ -212,6 +225,7 @@ impl Fx {
             Kind::Binance => ru::serve_bookings(&self.c, &Factory { venue: self.binance(), hook }, &seed::cipher(), &|_| false, at).await,
             Kind::Bybit => ru::serve_bookings(&self.c, &Factory { venue: self.bybit(), hook }, &seed::cipher(), &|_| false, at).await,
             Kind::Alpaca => ru::serve_bookings(&self.c, &Factory { venue: self.alpaca(), hook }, &seed::cipher(), &|_| false, at).await,
+            Kind::Hyperliquid => ru::serve_bookings(&self.c, &Factory { venue: self.hl(), hook }, &seed::cipher(), &|_| false, at).await,
         }.unwrap()
     }
     async fn serve(&self) -> ru::Served { self.serve_with(now(), None).await }
@@ -230,6 +244,7 @@ impl Fx {
             Kind::Binance => polling::follow_up(&self.c, &self.binance(), self.b, tx, at).await,
             Kind::Bybit => polling::follow_up(&self.c, &self.bybit(), self.b, tx, at).await,
             Kind::Alpaca => polling::follow_up(&self.c, &self.alpaca(), self.b, tx, at).await,
+            Kind::Hyperliquid => polling::follow_up(&self.c, &self.hl(), self.b, tx, at).await,
         }
     }
     fn row(&self, tx: i64) -> Value {
@@ -344,7 +359,7 @@ async fn each_bookable_state_is_booked_and_an_open_one_is_polled_to_closed() {
                 f.tr.reply("GET /v5/order/realtime", 200, page(vec![]));
                 f.tr.reply("GET /v5/order/history", 200, page(vec![bybit_row(&limit(7, St::Filled, "0.0004", "20"))]));
             }
-            Kind::Alpaca => unreachable!(),
+            Kind::Alpaca | Kind::Hyperliquid => unreachable!(),
         }
         assert_eq!(f.follow_up(tx, now()).await, Ok(polling::FollowUp::Done), "{kind:?}");
         assert_eq!(f.row(tx)["external_status"], json!(2), "{kind:?}");
@@ -1400,4 +1415,72 @@ async fn an_alpaca_quote_from_a_rounded_average_is_booked_beside_the_ledgers_exa
             assert_eq!(f.c.query_row("SELECT transaction_id FROM account_transactions WHERE id = ?1", [id], |r| r.get::<_, Option<i64>>(0)).unwrap(), Some(tx), "its fills linked");
         }
     }
+}
+
+// ---- A28-3c-3a: Hyperliquid, its booking on the recorded answer -------------------------------------------------------------
+
+const HL_COIN: &str = "@142";
+const HL_ORDERS: &str = "POST /info historicalOrders";
+const HL_FILLS: &str = "POST /info userFillsByTime";
+fn dec(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
+/// A recorded Hyperliquid `filled` row (tests/fixtures/order_lists/hyperliquid, scrubbed) edited into `o` as the live-read
+/// tests edit it: oid, coin, side, limitPx, origSz, `sz` left, status, both times.
+fn hl_row(o: &O) -> Value {
+    let rows: Vec<Value> = serde_json::from_str(include_str!("fixtures/order_lists/hyperliquid/historical_orders.json")).unwrap();
+    let mut r = rows.into_iter().find(|r| r["status"] == "filled").unwrap();
+    let left = match o.state { St::Open | St::Partly | St::Cancelled => o.size.to_string(), St::Filled => "0.0".into(), St::PartlyCancelled => (&dec(o.size) - &dec(o.exec)).to_s_f() };
+    let status = match o.state { St::Open | St::Partly => "open", St::Filled => "filled", St::PartlyCancelled | St::Cancelled => "canceled" };
+    for (k, v) in [("oid", json!(o.id)), ("coin", json!(HL_COIN)), ("side", json!(if o.sell { "A" } else { "B" })), ("limitPx", json!(o.limit.unwrap_or("50000"))),
+                   ("origSz", json!(o.size)), ("sz", json!(left)), ("timestamp", json!(ms(o.at)))] {
+        r["order"][k] = v;
+    }
+    r["status"] = json!(status);
+    r["statusTimestamp"] = json!(ms(o.at) + 1000);
+    r
+}
+/// A recorded fill edited: coin, oid, a buy, sz, px, tid, time; no fee.
+fn hl_fill(oid: u64, sz: &str, px: &str, tid: u64, time: i64) -> Value {
+    let fills: Vec<Value> = serde_json::from_str(include_str!("fixtures/order_lists/hyperliquid/user_fills_by_time.json")).unwrap();
+    let mut f = fills[0].clone();
+    for (k, v) in [("coin", json!(HL_COIN)), ("oid", json!(oid)), ("side", json!("B")), ("sz", json!(sz)), ("px", json!(px)), ("tid", json!(tid)), ("time", json!(time)), ("fee", json!("0.0"))] {
+        f[k] = v;
+    }
+    f
+}
+/// The fill stored as the Hyperliquid ledger import stores it: a buy of BTC for EUR, keyed by its tid, its raw row kept.
+fn hl_ledger_fill(c: &Connection, s: &Seeded, fill: &Value) -> i64 {
+    let (sz, px) = (dec(fill["sz"].as_str().unwrap()), dec(fill["px"].as_str().unwrap()));
+    let at = deltabadger::codec::format_time(DateTime::<Utc>::from_timestamp_millis(fill["time"].as_i64().unwrap()).unwrap());
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, api_key_id, tx_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
+               raw_data, transacted_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, 'BTC', ?5, 'EUR', ?6, ?7, ?8, ?8, ?8)",
+              params![s.user_id, s.exchange_id, s.api_key_id, fill["tid"].to_string(), sz.to_s_f(), (&px * &sz).to_s_f(), fill.to_string(), at]).unwrap();
+    c.last_insert_rowid()
+}
+
+#[tokio::test]
+async fn a_hyperliquid_order_is_offered_and_booked_once_with_its_fills_quote_and_its_fills_linked() {
+    let f = fx(Kind::Hyperliquid);
+    // Two fills, 0.0003 at 50000 and 0.0001 at 50100: 20.01 EUR, the quote the venue's own fills state.
+    let fills = [hl_fill(7, "0.0003", "50000", 1, ms(PLACED) + 400), hl_fill(7, "0.0001", "50100", 2, ms(PLACED) + 600)];
+    let linked: Vec<i64> = fills.iter().map(|x| hl_ledger_fill(&f.c, &f.s, x)).collect();
+    f.tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(7, St::Filled, "0.0004", "20.01")), hl_row(&limit(8, St::Cancelled, "0", "0"))]));
+    f.tr.reply(HL_FILLS, 200, json!(fills));
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    assert_eq!(offers.iter().map(|(_, e)| e.as_str()).collect::<Vec<_>>(), ["BTC-7"], "the id is <base>-<oid>; cancelled with nothing filled is never offered");
+    let before = count(&f.c, "SELECT count(*) FROM transactions");
+    f.request(obligation, offers[0].0).unwrap();
+    let served = f.serve().await;
+    assert_eq!(served.booked.len(), 1, "{:?}", lines(&f.c, f.b, ru::NOT_ADDED));
+    let tx = served.booked[0].1;
+    let row = f.row(tx);
+    assert_eq!((row["external_id"].clone(), row["amount"].clone(), row["price"].clone(), row["created_at"].clone()), (json!("BTC-7"), json!(0.0004), json!(50000), json!(AT)));
+    for id in linked {
+        assert_eq!(f.c.query_row("SELECT transaction_id FROM account_transactions WHERE id = ?1", [id], |r| r.get::<_, Option<i64>>(0)).unwrap(), Some(tx), "its fills linked");
+    }
+    assert_eq!(f.serve().await.booked.len(), 0, "booked once");
+    assert_eq!(count(&f.c, "SELECT count(*) FROM transactions"), before + 1);
+    // The identity re-read: the account's orders, then the fills from its creation time - 1 s.
+    let bodies: Vec<Value> = f.tr.requests().iter().rev().take(2).map(|r| r.body.clone().unwrap()).collect();
+    assert_eq!((bodies[1]["type"].clone(), bodies[0]["type"].clone(), bodies[0]["startTime"].clone()), (json!("historicalOrders"), json!("userFillsByTime"), json!(ms(PLACED) - 1000)));
 }

@@ -311,6 +311,105 @@ impl<T: Transport> HyperliquidVenue<T> {
     }
 }
 
+/// historicalOrders' documented cap: a full answer may have dropped older rows.
+pub const HISTORY_LIMIT: usize = 2000;
+/// userFillsByTime pages the history read follows (each FILLS_PAGE fills) before its fills are capped.
+pub const HISTORY_FILL_PAGES: usize = 5;
+
+impl<T: Transport> HyperliquidVenue<T> {
+    /// One /info read for the history: 401/403/422 (an address Hyperliquid can't read) refuse the key; any other failure,
+    /// or an answer that is no array, is retried.
+    async fn history_info(&self, kind: &str, fields: Vec<(&str, Value)>) -> Result<Vec<Value>, super::HistoryError> {
+        use super::HistoryError::{Refused, Retry};
+        let r = self.post(INFO, Self::info_body(kind, fields));
+        let resp = self.transport.send_limited(&r, http::MAX_BODY).await.map_err(|e| match e {
+            TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m) => Retry(self.transport.redact_diagnostic(&m)),
+        })?;
+        let message = || self.transport.redact_diagnostic(&format!("Hyperliquid {kind}: HTTP {} {}", resp.status, resp.body.chars().take(200).collect::<String>()));
+        if matches!(resp.status, 401 | 403 | 422) { return Err(Refused(message())); }
+        if !(200..300).contains(&resp.status) { return Err(Retry(message())); }
+        match http::decode_json(&resp.body) { Ok(Value::Array(rows)) => Ok(rows), _ => Err(Retry(UNREADABLE.into())) }
+    }
+
+    /// The fills of the `needed` orders (oid, coin, side) from `from_ms` on: Σsz and Σ(px × sz) per oid, page after page from
+    /// the newest time seen while a page is full, at most HISTORY_FILL_PAGES. A fill is one (time, coin, tid) (Hyperliquid's
+    /// own uniqueness): a repeat is dropped, a different body under it unreadable. A needed fill of another coin or side, or
+    /// with an unreadable amount, makes its order's sums None.
+    async fn history_fills(&self, from_ms: i64, needed: &[(u64, &str, &str)], deadline: tokio::time::Instant) -> Fills {
+        let mut f = Fills { sums: Default::default(), ended: false, failed: None };
+        let mut pages: Vec<Vec<Value>> = vec![];
+        let mut start = from_ms;
+        for _ in 0..HISTORY_FILL_PAGES {
+            let fields = vec![("user", self.user.clone().into()), ("startTime", start.into())];
+            match super::by_deadline(deadline, self.history_info("userFillsByTime", fields)).await {
+                Ok(page) => pages.push(page),
+                Err(e) => { f.failed = Some(e); return f.sum(&pages, needed); }
+            }
+            let page = pages.last().expect("just pushed");
+            start = page.iter().filter_map(|x| x["time"].as_i64()).fold(start, i64::max);
+            if page.len() < FILLS_PAGE { f.ended = true; break; }
+        }
+        f.sum(&pages, needed)
+    }
+}
+
+/// What the history read's fills say: per needed oid its (Σsz, Σ(px × sz)), None when a fill of it is unreadable; whether
+/// the list ended; the failure that stopped it.
+struct Fills { sums: std::collections::HashMap<u64, Option<(BigDec, BigDec)>>, ended: bool, failed: Option<super::HistoryError> }
+
+impl Fills {
+    fn sum(mut self, pages: &[Vec<Value>], needed: &[(u64, &str, &str)]) -> Self {
+        let mut seen: std::collections::HashMap<(i64, &str, u64), &Value> = Default::default();
+        for fill in pages.iter().flatten() {
+            let (Some(time), Some(coin), Some(tid)) = (fill["time"].as_i64(), fill["coin"].as_str(), fill["tid"].as_u64()) else { return self.unreadable() };
+            match seen.get(&(time, coin, tid)) {
+                Some(prior) if *prior == fill => continue,
+                Some(_) => return self.unreadable(),
+                None => { seen.insert((time, coin, tid), fill); }
+            }
+            let Some(&(oid, want_coin, want_side)) = fill["oid"].as_u64().and_then(|o| needed.iter().find(|n| n.0 == o)) else { continue };
+            let amount = |k: &str| required(&fill[k]).ok().filter(BigDec::is_positive);
+            let entry = self.sums.entry(oid).or_insert(Some((BigDec::zero(), BigDec::zero())));
+            *entry = match (entry.take(), coin == want_coin && fill["side"] == want_side, amount("sz"), amount("px")) {
+                (Some((b, q)), true, Some(sz), Some(px)) => Some((&b + &sz, &q + &(&px * &sz))),
+                _ => None,
+            };
+        }
+        self
+    }
+    /// A fill that can't be read (or two bodies under one identity): nothing it summed is evidence.
+    fn unreadable(self) -> Self { Fills { sums: Default::default(), ended: false, failed: Some(self.failed.unwrap_or(super::HistoryError::Retry(UNREADABLE.into()))) } }
+}
+
+/// The oid of an external id "<base>-<oid>".
+fn oid_of(external_id: &str) -> Option<u64> { external_id.rsplit_once('-')?.1.parse().ok() }
+
+/// A28-3c-3a: one historicalOrders row (an order's newest) read strictly, and whether it is still open. A simple limit
+/// order (`orderType` Limit, no trigger; Rails reads every Hyperliquid order as a limit), sized in base (`origSz`), its id
+/// "<base>-<oid>" as `add_order` stores it. A final row's filled base is origSz − sz (`filled` needs sz 0); an `open` row's
+/// is left at 0 for its fills to state. A status naming a cancel or a reject ended the order (`order_status`).
+pub fn history_row(symbol: &str, base: &str, raw: &Value) -> Option<(super::CreatedOrder, bool)> {
+    let order = &raw["order"];
+    let oid = order["oid"].as_u64()?;
+    let created_at = DateTime::<Utc>::from_timestamp_millis(order["timestamp"].as_i64()?)?;
+    let side = match order["side"].as_str()? { "B" => super::Side::Buy, "A" => super::Side::Sell, _ => return None };
+    if order["orderType"] != "Limit" || order["isTrigger"] != false { return None; }
+    let price = required(&order["limitPx"]).ok().filter(BigDec::is_positive)?;
+    let ordered = required(&order["origSz"]).ok().filter(BigDec::is_positive)?;
+    let left = required(&order["sz"]).ok().filter(|s| *s >= BigDec::zero() && *s <= ordered)?;
+    let filled = &ordered - &left;
+    let status = raw["status"].as_str()?;
+    let (state, open) = match (status, order_status(status)) {
+        ("open", _) => (super::CreatedState::Open, true),
+        ("filled", _) if left.is_zero() => (super::CreatedState::Filled, false),
+        (_, OrderStatus::Cancelled) => (super::CreatedState::of(false, filled.is_positive()), false),
+        _ => return None,
+    };
+    let filled_base = if open { BigDec::zero() } else { filled };
+    Some((super::CreatedOrder { external_id: format!("{base}-{oid}"), symbol: symbol.into(), created_at, side, kind: super::CreatedKind::Limit { price },
+                                size: super::CreatedSize::Base(ordered), state, filled_base, filled_quote: None }, open))
+}
+
 /// `row['time'].to_i`.
 fn time_ms(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
 
@@ -351,6 +450,73 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
     }
 
     fn rules(&self) -> &'static VenueRules { &RULES }
+    /// A28-3c-3a (PLAN-A28-3 "A28-3c-3a"): one historicalOrders read for the account, each asked coin's orders by their
+    /// newest row (D-HL-HISTORY-LAST-ROW), and, only when an order in the window is open or filled anything, its fills from
+    /// userFillsByTime (D-HL-HISTORY-QUOTE-FILLS). The answer is capped at HISTORY_LIMIT rows, newest status first: it
+    /// covers the window when it is shorter, or when its oldest status is before `from`.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        let rows = super::by_deadline(deadline, self.history_info("historicalOrders", vec![("user", self.user.clone().into())])).await?;
+        let from_ms = from.timestamp_millis();
+        let status_ms = |r: &Value| r["statusTimestamp"].as_i64();
+        let covered = rows.len() < HISTORY_LIMIT || rows.iter().filter_map(status_ms).min().is_some_and(|t| t < from_ms);
+        let mut out = super::Created { orders: vec![], complete: covered };
+        // Each asked order's newest row: a final row beats the `open` one written at placement with the same time; two
+        // rows that still tie can't be told apart (None).
+        let mut latest: Vec<(u64, &String, Option<&Value>)> = vec![];
+        for raw in &rows {
+            let Some(coin) = raw["order"]["coin"].as_str() else { out.complete = false; continue };
+            let Some(symbol) = symbols.iter().find(|s| *s == coin) else { continue };
+            let (Some(oid), Some(_)) = (raw["order"]["oid"].as_u64(), status_ms(raw)) else { out.complete = false; continue };
+            let rank = |r: &Value| (status_ms(r), r["status"] != "open");
+            match latest.iter_mut().find(|(o, _, _)| *o == oid) {
+                None => latest.push((oid, symbol, Some(raw))),
+                Some((_, _, slot)) => match slot.map(rank) {
+                    Some(r) if r < rank(raw) => *slot = Some(raw),
+                    Some(r) if r == rank(raw) => *slot = None,
+                    _ => {}
+                },
+            }
+        }
+        let mut read: Vec<(super::CreatedOrder, bool)> = vec![];
+        for (_, symbol, raw) in latest {
+            let base = self.pairs.by_symbol.get(symbol).map(|p| p.base.as_str());
+            match raw.zip(base).and_then(|(raw, base)| history_row(symbol, base, raw)) {
+                Some(o) if o.0.created_at >= from && o.0.created_at <= to => read.push(o),
+                Some(_) => {}
+                None => out.complete = false,
+            }
+        }
+        let needed: Vec<(u64, &str, &str)> = read.iter().filter(|(o, open)| *open || o.filled_base.is_positive())
+            .filter_map(|(o, _)| Some((oid_of(&o.external_id)?, o.symbol.as_str(), if o.side == super::Side::Buy { "B" } else { "A" }))).collect();
+        let fills = if needed.is_empty() { None } else { Some(self.history_fills(from_ms, &needed, deadline).await) };
+        let mut orders = vec![];
+        for (mut o, open) in read {
+            let zero = BigDec::zero();
+            let Some(f) = fills.as_ref().filter(|_| open || o.filled_base.is_positive()) else {
+                o.filled_quote = Some(zero);
+                orders.push(o);
+                continue;
+            };
+            let ordered = match &o.size { super::CreatedSize::Base(b) => b.clone(), super::CreatedSize::Quote(q) => q.clone() };
+            let sums = oid_of(&o.external_id).and_then(|oid| f.sums.get(&oid).cloned().unwrap_or(Some((zero.clone(), zero))));
+            let readable = match sums {
+                None => false,
+                // An open row's size is a placement snapshot: what filled is its fills, read to their end, below the size.
+                Some((base, quote)) if open => {
+                    let read = f.ended && base < ordered;
+                    if read { o.state = super::CreatedState::of(true, base.is_positive()); (o.filled_base, o.filled_quote) = (base, Some(quote)); }
+                    read
+                }
+                // A final row's filled base must be its fills' whole size (more fills of it would exceed it, so a later page
+                // that failed or capped can't change it): the quote is never guessed.
+                Some((base, quote)) => { let read = base == o.filled_base; if read { o.filled_quote = Some(quote); } read }
+            };
+            if readable { orders.push(o) } else { out.complete = false }
+        }
+        if let (true, Some(Fills { failed: Some(e), .. })) = (orders.is_empty(), fills) { return Err(e); }
+        out.orders = orders;
+        Ok(out)
+    }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
     /// #get_ask_price / #get_bid_price through #get_l2_book (a side with no orders is "Hyperliquid has no asks for …", H3),
