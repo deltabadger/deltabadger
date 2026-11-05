@@ -280,13 +280,15 @@ def status_text(win, what, lead, seconds=60):
 class Seen:
     """When `probe` first turned true, polled on a thread."""
 
-    def __init__(self, probe, every=0.1):
-        self.at, self.value, self.stop = None, None, False
+    def __init__(self, probe, every=0.1, then=None):
+        self.at, self.value, self.stop, self.then = None, None, False, None
 
         def loop():
             while not self.stop and self.at is None:
                 v = probe()
                 if v:
+                    # `then` runs on the first sight (an installer's exit watch needs a handle opened while it runs).
+                    self.then = then and then(v)
                     self.at, self.value = time.monotonic(), v
                 time.sleep(every)
         threading.Thread(target=loop, daemon=True).start()
@@ -341,10 +343,16 @@ def no_app_within(seconds, what):
     say(f"{what}: no Deltabadger process {seconds} s later")
 
 
-def wait_installer_exit(what, seconds=180):
-    """Windows: the update's installer appears, then ends; its exit code."""
-    pid = until(f"{what}: the installer started", 120, lambda: installer_pids() and installer_pids()[0])
-    code = s.ExitWatch(pid).wait(seconds)
+def installer_seen():
+    """Windows: the update's installer, watched from its first sight (it may end before the app has handed over)."""
+    return Seen(installer_pids, every=0.05, then=lambda v: s.ExitWatch(v[0]))
+
+
+def wait_installer_exit(what, seen, seconds=180):
+    """Windows: the update's installer appeared, then ends; its exit code."""
+    until(f"{what}: the installer started", 120, lambda: seen.then)
+    pid = seen.value[0]
+    code = seen.then.wait(seconds)
     say(f"{what}: the installer (process {pid}) exited {code}")
     return code
 
@@ -581,7 +589,8 @@ def scenario_lock(name):
 
 
 def ready_then(data, name, how, hooks=()):
-    """N running with N+1 ready; then the test hooks set and the update started by `how` (click | quit)."""
+    """N running with N+1 ready; then the test hooks set and the update started by `how` (click | quit). Returns the
+    installer's Seen."""
     for h in hooks:
         (HOOKS / h).write_text("")
     publish()
@@ -589,6 +598,7 @@ def ready_then(data, name, how, hooks=()):
     try:
         s.wait_start(data, 0)
         banner(win, "An update is ready.")
+        seen = installer_seen()
         if how == "click":
             win.click("[data-desktop-update-action]")
         else:
@@ -596,6 +606,7 @@ def ready_then(data, name, how, hooks=()):
         until(f"{name}: the app handed over to the installer", 180, lambda: not s.app_pids())
     finally:
         win.close()
+    return seen
 
 
 def scenario_refuse(name, how):
@@ -661,7 +672,7 @@ def scenario_u13(name):
     """While the installer copies (held by PREINSTALL's test Sleep with .updating written): an engine started then exits
     with the line; a second launch shows U13 and starts no engine; after POSTINSTALL N+1 serves."""
     data = install_n(name)
-    ready_then(data, name, "quit", hooks=("sleep",))
+    seen = ready_then(data, name, "quit", hooks=("sleep",))
     until(f"{name}: .updating", 60, lambda: (INST / ".updating").exists())
     cli = cli_engine(name, INST / "deltabadger-engine.exe")
     check(cli.wait(30) == 1, f"{name}: the engine started during the copy exited {cli.returncode}")
@@ -679,7 +690,7 @@ def scenario_u13(name):
         raise
     finally:
         win.close()
-    code = wait_installer_exit(name)
+    code = wait_installer_exit(name, seen)
     check(code == 0, f"{name}: the installer exited {code}")
     check(not (INST / ".updating").exists(), f"{name}: .updating after POSTINSTALL")
     check(not s.engine_pids(), f"{name}: an engine ran before POSTINSTALL")
@@ -692,8 +703,8 @@ def scenario_u10(name):
     """An installer that ends after writing .updating (PREINSTALL's test Quit) → the next launch shows U10 and starts no
     engine; an engine started by hand exits with the line."""
     data = install_n(name)
-    ready_then(data, name, "quit", hooks=("quit",))
-    wait_installer_exit(name)
+    seen = ready_then(data, name, "quit", hooks=("quit",))
+    wait_installer_exit(name, seen)
     check((INST / ".updating").exists(), f"{name}: no .updating left")
     cli = cli_engine(name, INST / "deltabadger-engine.exe")
     check(cli.wait(30) == 1 and BEING_UPDATED in cli.out.read_text(errors="replace"), f"{name}: the CLI engine ran")
@@ -717,15 +728,23 @@ def scenario_killed(name):
     for k in range(1, 6):
         data = install_n(f"{name}-{k}")
         n_pair = n_pair or installed()
-        seen = Seen(installer_pids, every=0.05)
-        ready_then(data, f"{name}-{k}", "quit")
+        seen = ready_then(data, f"{name}-{k}", "quit")
         until(f"{name}-{k}: the installer", 60, lambda: seen.at)
         while time.monotonic() < seen.at + 0.5 * k:
             time.sleep(0.01)
         s.run(["taskkill", "/F", "/PID", str(seen.value[0])])
         time.sleep(1)
         pair = installed()
-        launch(data)
+        try:
+            launch(data)
+        except OSError as e:
+            # A Deltabadger.exe the kill left half written (D-DESKTOP-WIN-INTERRUPTED-COPY): Windows won't start it.
+            exe = INST / "Deltabadger.exe"
+            outcomes.append("the launcher doesn't start")
+            say(f"{name}-{k}: killed {0.5 * k:.1f} s in → Deltabadger.exe doesn't start ({e}; {exe.stat().st_size if exe.exists() else 'no'} bytes)")
+            check(not s.engine_pids(), f"{name}-{k}: an engine runs")
+            s.cleanup()
+            continue
         time.sleep(30)
         lines = s.lines(data)[(version_starts(data, V["n"]) + version_starts(data, V["next"]) or [0])[-1]:]
         engines = s.engine_pids()

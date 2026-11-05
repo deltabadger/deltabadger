@@ -45,25 +45,34 @@ Var DbUpdating
   Push $3
   Push $4
   Push $5
+  Push $6
+  Push $7
   StrCpy $5 0
   ${Do}
-    StrCpy $0 ""
-    StrCpy $2 ""
+    ; Every answer starts as "-": a call the System plugin couldn't make leaves it, and only the string "0" counts as
+    ; success (NSIS's numeric "=" would read "" or "-" as 0).
+    StrCpy $0 "-"
+    StrCpy $2 "-"
     StrCpy $4 1
     ${IfNot} ${FileExists} "$INSTDIR\deltabadger-engine.exe"
       StrCpy $4 0
     ${Else}
-      System::Call 'rstrtmgr::RmStartSession(*i .r1, i 0, w .r2) i .r0'
-      ${If} $0 = 0
+      System::Call 'rstrtmgr::RmStartSession(*i .r1, i 0, w .r6) i .r0'
+      ${If} $0 == 0
+        ; RmRegisterResources takes an array of string pointers: one string, and a one-cell array holding its address.
         System::Call '*(&w${NSIS_MAX_STRLEN} "$INSTDIR\deltabadger-engine.exe") p .r3'
-        System::Call 'rstrtmgr::RmRegisterResources(i r1, i 1, *p r3, i 0, p 0, i 0, p 0) i .r0'
-        ${If} $0 = 0
+        System::Call '*(p r3) p .r7'
+        StrCpy $0 "-"
+        System::Call 'rstrtmgr::RmRegisterResources(i r1, i 1, p r7, i 0, p 0, i 0, p 0) i .r0'
+        ${If} $0 == 0
+          StrCpy $0 "-"
           System::Call 'rstrtmgr::RmGetList(i r1, *i 0 .r2, *i 0, p 0, *i 0) i .r0'
-          ${If} $0 = 0
-          ${AndIf} $2 = 0
+          ${If} $0 == 0
+          ${AndIf} $2 == 0
             StrCpy $4 0
           ${EndIf}
         ${EndIf}
+        System::Free $7
         System::Free $3
         System::Call 'rstrtmgr::RmEndSession(i r1)'
       ${EndIf}
@@ -100,6 +109,8 @@ Var DbUpdating
     SetErrorLevel 2
     Quit
   ${EndIf}
+  Pop $7
+  Pop $6
   Pop $5
   Pop $4
   Pop $3
