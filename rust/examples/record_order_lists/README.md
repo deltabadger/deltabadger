@@ -71,7 +71,7 @@ Open orders are recorded once.
 - Kraken and KuCoin-classic page boundaries: their smallest page is 50 and 10 orders, so a boundary needs more test
   orders than that.
 - Gemini's empty case: its history read takes a start time only.
-- Hyperliquid's window: `historicalOrders` takes none.
+- Hyperliquid's window: `historicalOrders` takes none; `userFillsByTime` reads from `--since` on (no end, so no empty case).
 
 **The run aborts and writes nothing** when:
 
