@@ -346,8 +346,7 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     // Deferred writes still answer 501 with a valid token, and no row moves.
     opened.primary.execute("UPDATE bots SET status = 1", []).unwrap();
     let before: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
-    for (method, path) in [("delete", format!("/bots/{first}")),
-                           ("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
+    for (method, path) in [("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
                            ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split"))] {
         let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{} {path}", method.to_uppercase())), "{method} {path}: {} {}", answer.status, answer.body);
@@ -3320,4 +3319,38 @@ async fn a_stale_create_form_creates_nothing() {
     // Methods the routes never took keep the 501.
     assert_eq!(browser.send(&app, "DELETE", "/bots/dca_indexes", Some(&[]), web::Csrf::Header, &[]).await.status, 501);
     assert_eq!(bot_rows(&opened.primary), 0);
+}
+
+/// `resources :bots` also draws `POST /bots` and `DELETE /bots/:id`, actions BotsController never had (a 404 in Rails too,
+/// D-LEGACY-BOTS-CREATE-DESTROY-ABSENT), and `PUT /bots/:id`, Rails' update as much as PATCH is.
+#[tokio::test(flavor = "current_thread")]
+async fn bots_resource_routes_rails_draws() {
+    let (_dir, opened, seeded, app, mut browser) = legacy_fixture(None);
+    // Stopped: a working bot's settings form is locked, so neither method would write.
+    let spec = common::seed::BotSpec { status: deltabadger::enums::BotStatus::Stopped as i64, ..common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00") };
+    let (patched, put) = (common::seed::insert_bot(&opened.primary, &seeded, &spec), common::seed::insert_bot(&opened.primary, &seeded, &spec));
+    let not_found = String::from_utf8(std::fs::read(format!("{}/../public/404.html", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    let rows = |c: &rusqlite::Connection| -> Vec<(i64, i64, String)> {
+        c.prepare("SELECT id, status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().collect::<Result<_, _>>().unwrap()
+    };
+    let before = rows(&opened.primary);
+    for (method, path, form) in [("POST", "/bots".to_string(), vec![("bots_dca_multi_asset[quote_amount]", "5")]),
+                                 ("DELETE", format!("/bots/{patched}"), vec![]),
+                                 ("POST", format!("/bots/{patched}"), vec![("_method", "delete")]),
+                                 ("DELETE", format!("/de/bots/{patched}.turbo_stream"), vec![])] {
+        let answer = browser.send(&app, method, &path, Some(&form), web::Csrf::Header, &[("accept", "text/vnd.turbo-stream.html, text/html")]).await;
+        assert_eq!((answer.status, answer.body.as_str()), (404, not_found.as_str()), "{method} {path} {form:?}");
+    }
+    assert_eq!(rows(&opened.primary), before, "nothing created, deleted or changed");
+
+    let stream = [("accept", "text/vnd.turbo-stream.html, text/html")];
+    let form = [("bots_dca_multi_asset[quote_amount]", "12.5")];
+    let by_patch = browser.send(&app, "PATCH", &format!("/bots/{patched}"), Some(&form), web::Csrf::Header, &stream).await;
+    let by_put = browser.send(&app, "PUT", &format!("/bots/{put}"), Some(&form), web::Csrf::Header, &stream).await;
+    assert_eq!((by_put.status, by_put.header("content-type")), (by_patch.status, by_patch.header("content-type")), "{}", by_put.body);
+    let settings = |id: i64| -> serde_json::Value {
+        serde_json::from_str(&opened.primary.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get::<_, String>(0)).unwrap()).unwrap()
+    };
+    assert_eq!(settings(put)["quote_amount"], serde_json::json!(12.5), "PUT saved the settings: {}", by_put.body);
+    assert_eq!(settings(put), settings(patched), "the same write as PATCH");
 }
