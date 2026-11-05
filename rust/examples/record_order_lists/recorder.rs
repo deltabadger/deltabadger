@@ -319,8 +319,10 @@ impl Scrubber {
         if let Some(f) = self.map.get(&cache) { return Ok(f.clone()); }
         for attempt in 0u32..64 {
             let stream = self.stream(&cache, attempt, s.len());
-            let (mut significant, mut exponent) = (false, false);
+            let mut exponent = false;
             let hex = s.starts_with("0x");
+            // Leading zeros are kept only in a decimal's text (its magnitude); an id's digits are all free.
+            let mut significant = !(decimal(s) || digits_only);
             let out: String = s.chars().zip(stream).enumerate().map(|(i, (c, b))| {
                 let pick = |from: u8, n: u8| char::from(from + b % n);
                 match c {
@@ -406,8 +408,17 @@ impl Scrubber {
     }
 }
 
-/// All-zero amount ("0", "0.00000000"): "nothing filled" is what A28-3 reads, and it says nothing about anyone.
-fn zero(s: &str) -> bool { s.contains('0') && s.chars().all(|c| "0.-+".contains(c)) }
+/// A decimal number's text, `-?digits(.digits)?`: its leading zeros carry the magnitude.
+fn decimal(s: &str) -> bool {
+    let s = s.strip_prefix('-').unwrap_or(s);
+    let (int, frac) = match s.split_once('.') { Some((i, f)) => (i, Some(f)), None => (s, None) };
+    let digits = |t: &str| !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit());
+    digits(int) && frac.is_none_or(digits)
+}
+
+/// An all-zero amount (`0`, `"0.00000000"`): "nothing filled" is what A28-3 reads, and it says nothing about anyone. Only
+/// a decimal's text: an all-zero id like `"0000-0000"` is replaced.
+fn zero(s: &str) -> bool { decimal(s) && !s.bytes().any(|b| (b'1'..=b'9').contains(&b)) }
 
 /// Every key, string and number text in `v`, with its folded path; a key's own text reports its parent's path.
 fn visit(v: &Value, path: &str, f: &mut dyn FnMut(&str, &str)) {
@@ -490,7 +501,7 @@ fn failure(e: &TransportError) -> &'static str {
     match e { TransportError::NotSent(_) => "not sent", TransportError::MaybeSent(_) => "no answer", TransportError::Permanent(_) => "refused locally" }
 }
 
-struct Got { file: String, e: &'static Endpoint, params: Vec<(&'static str, String)>, status: u16, body: Value }
+struct Got { file: String, e: &'static Endpoint, params: Vec<(&'static str, String)>, status: u16, body: Value, orders: usize }
 
 /// One venue's whole set: the permission read, every case of every endpoint, the case checks, the scrub, the leak
 /// check, and only then the writes into `out/<venue>/`. Returns the report Jan reads. Prints nothing from a body.
@@ -520,12 +531,14 @@ pub async fn record<T: Transport>(t: &T, venue: &str, base: &str, w: &Window, ke
             if !(200..300).contains(&resp.status) { return Err(format!("{venue} {file}: HTTP {}; nothing written", resp.status)); }
             if long_integer(&resp.body) { return Err(format!("{venue} {file}: an integer of 20+ digits would be lossy; nothing written")); }
             let body: Value = serde_json::from_str(&resp.body).map_err(|_| format!("{venue} {file}: the answer is not JSON; nothing written"))?;
-            counts.insert((e.file, case), orders(e, &body)?);
-            got.push(Got { file, e, params, status: resp.status, body });
+            let n = orders(e, &body)?;
+            counts.insert((e.file, case), n);
+            got.push(Got { file, e, params, status: resp.status, body, orders: n });
         }
     }
-    // The cases must show what they are for (r1.6); where the full history lists < 2 orders, page/empty prove nothing
-    // and are dropped (named in the report); at least one history read must list ≥ 2.
+    // The cases must show what they are for (r1.6). Where a full history lists < 2 orders (KuCoin classic on an HF
+    // account lists none), its page/empty prove nothing and are dropped, named under `not_recorded`; the full file stays
+    // as the envelope's shape, its order count in the manifest. At least one history read must list ≥ 2.
     let mut dropped = Vec::new();
     for e in eps.iter().filter(|e| e.history) {
         let full = counts[&(e.file, Case::Full)];
@@ -554,7 +567,7 @@ pub async fn record<T: Transport>(t: &T, venue: &str, base: &str, w: &Window, ke
             };
             params.insert(k.into(), Value::String(v));
         }
-        entries.push(json!({ "file": g.file, "method": g.e.method, "path": g.e.path, "params": params, "status": g.status }));
+        entries.push(json!({ "file": g.file, "method": g.e.method, "path": g.e.path, "params": params, "status": g.status, "orders": g.orders }));
         files.push((g.file, body));
     }
     let report = sc.report_text();
@@ -569,6 +582,11 @@ pub async fn record<T: Transport>(t: &T, venue: &str, base: &str, w: &Window, ke
     sc.leak_check("report", &Value::String(report.clone()), &secrets)?;
     let dir = out.join(venue);
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    // A rerun replaces the whole set: an earlier run's files (another salt and offset) must not linger beside it.
+    for old in std::fs::read_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+        let old = old.map_err(|e| e.to_string())?.path();
+        if old.extension().is_some_and(|x| x == "json") { std::fs::remove_file(&old).map_err(|e| format!("{}: {e}", old.display()))?; }
+    }
     files.push(("manifest.json".into(), manifest));
     for (name, v) in &files {
         let text = serde_json::to_string_pretty(v).expect("a Value serializes") + "\n";

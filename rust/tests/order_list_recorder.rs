@@ -62,8 +62,8 @@ fn bodies() -> Vec<Body> {
              {"order_id": "abcdef12-3456-7890-abcd-ef1234567890", "client_order_id": "c0ffee00-1234", "product_id": "BTC-USD", "side": "SELL", "status": "CANCELLED",
               "filled_size": "0", "average_filled_price": "0", "total_fees": "0", "created_time": "2024-03-05T11:00:00Z", "user_id": "a1b2c3d4-e5f6"}
          ], "has_next": true, "cursor": "789123456", "sequence": "0"}),
-         vec!["abcdef12-3456-7890-abcd-ef1234567890", "11111111-2222-3333-4444-555555555555", "a1b2c3d4-e5f6", "65123.45", "0.0012", "789123456"],
-         vec![("/has_next", json!(true)), ("/orders/0/status", json!("FILLED")), ("/orders/0/order_id", json!("0000-000000-000000"))],
+         vec!["0000-000000-000000", "abcdef12-3456-7890-abcd-ef1234567890", "11111111-2222-3333-4444-555555555555", "a1b2c3d4-e5f6", "65123.45", "0.0012", "789123456"],
+         vec![("/has_next", json!(true)), ("/orders/0/status", json!("FILLED"))],
          vec![("/orders/0/created_time", json!("2023-11-26T10:11:12.123456Z"))]),
         ("alpaca", "orders",
          json!([{"id": "61e69015-8549-4bfd-b9c3-01e75843f47d", "client_order_id": "eb9e2aaa-f71a-4f51-b5b4-52a6c565dad4", "symbol": "AAPL", "qty": "1.5",
@@ -187,7 +187,9 @@ fn hex_ids_stay_hex_and_every_replacement_differs() {
     let f = sc.fake("68a3e81d2a090d00070575f7", false, "/id").unwrap();
     assert!(f.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) && f.len() == 24, "{f}");
     for s in ["1", "a", "Z", "9"] { assert_ne!(sc.fake(s, false, "/x").unwrap(), s); }
-    let out = sc.scrub("bitget", "x", json!({"code": "00000", "data": [{"cancelReason": "", "dash": "-", "one": "1", "zero": "0.000", "n0": 0}]})).unwrap();
+    let out = sc.scrub("bitget", "x", json!({"code": "00000", "data": [{"cancelReason": "", "dash": "-", "one": "1", "zero": "0.000", "n0": 0, "id": "0000-0000", "small": "0.00123"}]})).unwrap();
+    assert_ne!(out["data"][0]["id"], "0000-0000", "an all-zero id is no amount");
+    assert!(out["data"][0]["small"].as_str().unwrap().starts_with("0.00"), "a decimal keeps its magnitude");
     assert_eq!(out["data"][0]["cancelReason"], "");
     assert_eq!(out["data"][0]["dash"], "-");
     assert_ne!(out["data"][0]["one"], "1");
@@ -321,6 +323,23 @@ async fn a_scripted_run_writes_the_set_with_no_key_and_shifted_windows() {
     let manifest: Value = serde_json::from_str(&std::fs::read_to_string(venue.join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest["files"][0]["params"], json!({"status": "all", "after": "2023-11-22T00:00:00Z", "until": "2023-12-01T00:00:00Z"}));
     assert_eq!(manifest["exchange"], "alpaca");
+    assert_eq!(manifest["files"][0]["orders"], 3);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_rerun_replaces_the_whole_set() {
+    let dir = tempfile::tempdir().unwrap();
+    let venue = dir.path().join("alpaca");
+    std::fs::create_dir_all(&venue).unwrap();
+    std::fs::write(venue.join("orders.stale.json"), "{}").unwrap();
+    std::fs::write(venue.join("notes.txt"), "kept").unwrap();
+    let t = ScriptedTransport::default();
+    t.reply("GET /v2/orders", 200, json!([alpaca_order(1), alpaca_order(2)]));
+    t.reply("GET /v2/orders", 200, json!([alpaca_order(1)]));
+    t.reply("GET /v2/orders", 200, json!([]));
+    record(&t, "alpaca", "https://x", &window(), &keys(), &mut scrubber(), dir.path()).await.unwrap();
+    assert!(!venue.join("orders.stale.json").exists());
+    assert!(venue.join("notes.txt").exists() && venue.join("orders.json").exists());
 }
 
 #[tokio::test(flavor = "current_thread")]
