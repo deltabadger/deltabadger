@@ -46,6 +46,9 @@ iana-time-zone = "0.1"
 sha2 = "0.10"
 # Which of two releases is newer, as the updater plugin compares them.
 semver = "1"
+# D-DESKTOP-NOTIFY (PLAN-B6-3 r4): bot alerts as system notifications, called directly (tauri-plugin-notification's
+# desktop show() always returns Ok, and its versions past 2.4 need tauri 2.12).
+notify-rust = "4.18"
 
 # B7's own install step (PLAN-B7 r3.1): the macOS package is a .app.tar.gz; renamex_np and the lock's modes need libc.
 # All three are in Cargo.lock already (the updater plugin's).

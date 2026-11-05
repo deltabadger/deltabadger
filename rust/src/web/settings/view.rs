@@ -308,6 +308,8 @@ pub async fn account(
     // D-DESKTOP-NO-ACCOUNT-PAGES: the desktop's one account has no email, password, 2FA, registration or mail rows; its
     // Security heading holds "Sign in a browser" (D-DESKTOP-BROWSER-CODE).
     let desktop = ctx.desktop();
+    // D-DESKTOP-NOTIFY: where the mail row was, one line on how bot alerts arrive.
+    let notifications = if desktop { sections::desktop_notifications(ctx) } else { String::new() };
     let pane = sections::account(
         ctx,
         &sections::Account {
@@ -319,7 +321,7 @@ pub async fn account(
             two_fa: if desktop { sections::browser_sign_in(ctx, &csrf, None) } else { sections::two_fa(ctx, user.otp_enabled) },
             advanced: self::advanced(ctx, &csrf, advanced)?,
             wash: wash_widget,
-            admin: user.admin.then_some(if desktop { ("", "", update.as_str()) } else { (registration.as_str(), email_widget.as_str(), update.as_str()) }),
+            admin: user.admin.then_some(if desktop { ("", notifications.as_str(), update.as_str()) } else { (registration.as_str(), email_widget.as_str(), update.as_str()) }),
         },
     );
     section_page(ctx, &csrf, &user, &shell_data, "account", &pane, status, flash_now)
