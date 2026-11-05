@@ -27,12 +27,16 @@ if [ -n "$exe" ]; then
   nsi=$(ls src-tauri/target/release/nsis/x64/installer.nsi)
   makensis=$(ls "$LOCALAPPDATA"/tauri/NSIS/makensis.exe)
   grep -q '^!define BUNDLEID "com.deltabadger.app.test"$' "$nsi" || { echo "::error::$nsi is not the test identifier's"; exit 1; }
+  # The plugins the bundler's own run found (makensis checks plugin calls while preprocessing too).
+  grep -n '^!addplugindir' "$nsi" || true
+  plugins=$(cygpath -w "$(dirname "$(find "$LOCALAPPDATA/tauri" -iname nsis_tauri_utils.dll -path '*x86-unicode*' | head -1)")")
+  echo "nsis_tauri_utils in $plugins"
   sed 's/^!define BUNDLEID "com.deltabadger.app.test"$/!define BUNDLEID "com.deltabadger.app"/' "$nsi" > "$(dirname "$nsi")/release-id.nsi"
   # The script an installer is compiled from under each identifier, its macros expanded (makensis /PPO): the test
   # build's is the one this job's installer was made from.
   for which in test release; do
     src=installer.nsi; [ $which = release ] && src=release-id.nsi
-    (cd "$(dirname "$nsi")" && "$makensis" -INPUTCHARSET UTF8 -PPO "$src") > "$out/$which.ppo.nsi"
+    (cd "$(dirname "$nsi")" && "$makensis" -INPUTCHARSET UTF8 "-X!addplugindir /x86-unicode \"$plugins\"" -PPO "$src") > "$out/$which.ppo.nsi"
     hooks=$(grep -c 'deltabadger-test-hooks' "$out/$which.ppo.nsi" || true)
     rm_calls=$(grep -c 'RmGetList' "$out/$which.ppo.nsi" || true)
     echo "$which installer: $hooks test-hook lines, $rm_calls RmGetList calls"
