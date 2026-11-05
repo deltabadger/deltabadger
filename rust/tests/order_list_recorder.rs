@@ -187,6 +187,8 @@ fn hex_ids_stay_hex_and_every_replacement_differs() {
     let f = sc.fake("68a3e81d2a090d00070575f7", false, "/id").unwrap();
     assert!(f.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) && f.len() == 24, "{f}");
     for s in ["1", "a", "Z", "9"] { assert_ne!(sc.fake(s, false, "/x").unwrap(), s); }
+    let cloid = sc.fake("0x1234567890abcdef1234567890abcdef", false, "/cloid").unwrap();
+    assert!(cloid.starts_with("0x") && cloid.len() == 34 && cloid[2..].chars().all(|c| c.is_ascii_hexdigit()), "{cloid}");
     let out = sc.scrub("bitget", "x", json!({"code": "00000", "data": [{"cancelReason": "", "dash": "-", "one": "1", "zero": "0.000", "n0": 0, "id": "0000-0000", "small": "0.00123"}]})).unwrap();
     assert_ne!(out["data"][0]["id"], "0000-0000", "an all-zero id is no amount");
     assert!(out["data"][0]["small"].as_str().unwrap().starts_with("0.00"), "a decimal keeps its magnitude");

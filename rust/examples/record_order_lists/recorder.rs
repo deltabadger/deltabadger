@@ -329,7 +329,7 @@ impl Scrubber {
                     // A number's exponent is its magnitude, kept; so is a hex value's `0x`.
                     _ if exponent => c,
                     'e' | 'E' if digits_only => { exponent = true; c }
-                    'x' if hex && i == 1 => c,
+                    '0' | 'x' if hex && i < 2 => c,
                     '0' if !significant => '0',
                     '0'..='9' if significant => pick(b'0', 10),
                     '0'..='9' => { significant = true; pick(b'1', 9) }
