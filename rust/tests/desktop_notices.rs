@@ -49,12 +49,12 @@ fn stopped(at: &str) -> Value { json!({ "rust_stopped_mail_pending": { "error": 
 struct Fixed;
 impl deltabadger::engine::Clock for Fixed { fn now(&self) -> chrono::DateTime<chrono::Utc> { common::web::at(NOW) } }
 
-/// The sender as `serve` runs it on the desktop, fast: looks every 20 ms, waits `ack_wait` for an ack, retries after 150 ms.
+/// The sender as `serve` runs it on the desktop, fast: looks every 20 ms, waits `ack_wait` for an ack, retries after 400 ms.
 fn run_sender(dir: &tempfile::TempDir, outbox: Arc<Outbox>, account: i64, ack_wait: Duration) -> (tokio::sync::watch::Sender<bool>, tokio::task::JoinHandle<Result<(), String>>) {
     let opened = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, SECRET).unwrap());
     let mut s = deltabadger::mail::sender::Sender::new(opened.primary, cipher, &|_| None, Fixed).desktop(outbox, account);
-    (s.poll, s.waits, s.ack_wait) = (Duration::from_millis(20), vec![Duration::from_millis(150)], ack_wait);
+    (s.poll, s.waits, s.ack_wait) = (Duration::from_millis(20), vec![Duration::from_millis(400)], ack_wait);
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let run = tokio::spawn(s.run::<()>(stopped, None));
     (stop, run)
@@ -104,8 +104,8 @@ async fn an_unacked_notice_times_out_keeps_its_marker_and_is_offered_again_after
     until("offered", || !outbox.list(20).is_empty()).await;
     until("timed out", || outbox.list(20).is_empty()).await;
     assert_ne!(markers(&c, b), json!({}), "no ack: the marker stays");
-    // Not at once: after the retry wait (150 ms).
-    tokio::time::sleep(Duration::from_millis(60)).await;
+    // Not at once: after the retry wait (400 ms).
+    tokio::time::sleep(Duration::from_millis(100)).await;
     assert!(outbox.list(20).is_empty(), "offered again before its retry was due");
     until("offered again", || !outbox.list(20).is_empty()).await;
     stop.send(true).unwrap();
@@ -148,9 +148,13 @@ async fn an_ack_for_a_marker_raised_again_since_clears_nothing() {
     let first = outbox.list(20)[0].id.clone();
     const AGAIN: &str = "2026-11-05T11:30:00.000Z";
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (stopped(AGAIN).to_string(), b)).unwrap();
-    outbox.ack(&[first]);
+    // Codex branch r1: the old notice leaves the outbox once the sender has read every bot again, acked or not.
     until("the new one offered", || outbox.list(20).iter().any(|n| n.id.ends_with(AGAIN))).await;
+    until("the old one gone", || outbox.list(20).iter().all(|n| n.id != first)).await;
+    outbox.ack(&[first]);
+    tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(markers(&c, b)["rust_stopped_mail_pending"]["stamped_at"], AGAIN);
+    assert_eq!(outbox.list(20).len(), 1);
     stop.send(true).unwrap();
     run.await.unwrap().unwrap();
 }
@@ -163,12 +167,31 @@ async fn seven_day_old_markers_expire_unoffered_for_every_user_and_another_users
     let other = user(&c, "someone@example.com", false);
     let (mine_old, theirs_old, theirs_fresh) =
         (bot(&c, me, "Mine", "{}", stopped(OLD)), bot(&c, other, "Theirs", "{}", stopped(OLD)), bot(&c, other, "Theirs too", "{}", stopped(FRESH)));
+    // Codex branch r1: another user's markers wait out their week even when no notice could be made of them.
+    let funds = json!({ "rust_funds_mail_pending": { "quote_asset": 999_999, "stamped_at": FRESH } });
+    let theirs_unsendable = bot(&c, other, "No quote", "{}", funds);
     let outbox = Arc::new(Outbox::default());
     let (stop, run) = run_sender(&dir, outbox.clone(), me, Duration::from_secs(60));
     until("both old ones expired", || markers(&c, mine_old) == json!({}) && markers(&c, theirs_old) == json!({})).await;
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert!(outbox.list(20).is_empty(), "{:?}", outbox.list(20));
-    assert_ne!(markers(&c, theirs_fresh), json!({}), "kept for its seven days");
+    for kept in [theirs_fresh, theirs_unsendable] { assert_ne!(markers(&c, kept), json!({}), "bot {kept}: kept for its seven days"); }
+    stop.send(true).unwrap();
+    run.await.unwrap().unwrap();
+}
+
+/// Codex branch r1: a deleted bot's notice leaves the outbox, and it never holds a place there.
+#[tokio::test]
+async fn a_deleted_bots_notice_leaves_the_outbox() {
+    let dir = install();
+    let c = db(&dir);
+    let me = user(&c, "desktop@deltabadger.invalid", true);
+    let b = bot(&c, me, "Weekly BTC", "{}", stopped(FRESH));
+    let outbox = Arc::new(Outbox::default());
+    let (stop, run) = run_sender(&dir, outbox.clone(), me, Duration::from_secs(60));
+    until("offered", || !outbox.list(20).is_empty()).await;
+    c.execute("DELETE FROM bots WHERE id = ?1", [b]).unwrap();
+    until("gone", || outbox.list(20).is_empty()).await;
     stop.send(true).unwrap();
     run.await.unwrap().unwrap();
 }

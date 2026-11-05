@@ -52,10 +52,10 @@ pub struct Outbox {
 impl Outbox {
     fn entries(&self) -> std::sync::MutexGuard<'_, VecDeque<Entry>> { self.entries.lock().unwrap_or_else(PoisonError::into_inner) }
 
-    /// Unacked entries past their deadline go; an acked one waits for the sender's `take` (an hour at most, for a
-    /// marker that vanished before the sender came back to it).
+    /// Unacked entries past their deadline go. An acked one stays until the sender takes it, or `keep_only` drops it
+    /// once its marker is gone.
     fn prune(entries: &mut VecDeque<Entry>, now: Instant) {
-        entries.retain(|e| if e.acked { e.deadline + std::time::Duration::from_secs(3600) > now } else { e.deadline > now });
+        entries.retain(|e| e.acked || e.deadline > now);
     }
 
     /// Holds `notice` until `deadline`. False when the outbox is full. An id already held keeps its entry.
@@ -99,6 +99,10 @@ impl Outbox {
     /// A notice whose marker is gone (expired, cleared).
     pub fn remove(&self, id: &str) { self.entries().retain(|e| e.notice.id != id); }
 
+    /// After the sender has read every bot's markers: entries for markers it did not see (a deleted bot, a marker
+    /// raised again since) go.
+    pub fn keep_only(&self, seen: &std::collections::HashSet<String>) { self.entries().retain(|e| seen.contains(&e.notice.id)); }
+
     /// Resolves after the next `ack`.
     pub async fn acked(&self) { self.acked.notified().await }
 }
@@ -123,6 +127,19 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(60)).await;
         o.ack(&["b".into()]);
         assert_eq!(o.take("b"), Taken::Gone, "too late: the sender counts it as a failure");
+    }
+
+    /// Codex branch r1: an ack the sender has not taken yet survives a long pause and any listing in between.
+    #[tokio::test]
+    async fn an_ack_waits_for_the_sender_however_long_it_takes() {
+        let o = Outbox::default();
+        assert!(o.offer(notice("a"), Instant::now() + Duration::from_millis(20)));
+        o.ack(&["a".into()]);
+        tokio::time::sleep(Duration::from_millis(40)).await;
+        assert!(o.list(10).is_empty() && o.offer(notice("b"), Instant::now() + Duration::from_secs(60)));
+        assert_eq!(o.take("a"), Taken::Acked);
+        o.keep_only(&std::collections::HashSet::new());
+        assert_eq!(o.take("b"), Taken::Gone, "its marker was not seen in a whole round");
     }
 
     #[tokio::test]

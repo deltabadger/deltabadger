@@ -139,6 +139,8 @@ impl<C: Clock> Sender<C> {
         let mut attempts = Attempts::new();
         let mut said: Option<String> = None; // the "not configured" reason last logged
         let mut after = 0; // the bot id the next look starts above
+        // D-DESKTOP-NOTIFY: the notice ids of this round of looks; the outbox keeps only these once the round ends.
+        let mut seen = std::collections::HashSet::new();
         let (env, trust) = (self.env.clone(), self.trust_root.clone());
         if matches!(self.delivery, Delivery::Smtp) {
             if let Ok(Err(reason)) = self.db(move |c, cipher| configuration(c, cipher, &env, trust).map(|_| ())).await { self.not_configured(&reason, &mut said); }
@@ -153,6 +155,10 @@ impl<C: Clock> Sender<C> {
                     // as its marker can live, so an ack is never forgotten and a notice never shown twice for it.
                     attempts.retain(|_, a| a.due + if a.offered || a.accepted { MAX_KEPT } else { Duration::from_secs(3600) } > now);
                     let mut wait = self.poll;
+                    if let Delivery::Desktop { outbox, .. } = &self.delivery {
+                        seen.extend(markers.iter().map(Pending::id));
+                        if next == 0 { outbox.keep_only(&std::mem::take(&mut seen)); }
+                    }
                     for marker in markers {
                         // An offered notice is settled before the due gate: an ack clears it now, not at its deadline.
                         if let (Delivery::Desktop { outbox, .. }, Some(a)) = (&self.delivery, attempts.get(&marker).copied().filter(|a| a.offered)) {
@@ -320,10 +326,15 @@ fn prepare(c: &Connection, cipher: &Cipher, marker: &Pending, env: &smtp::Env, u
 
 /// D-DESKTOP-NOTIFY: the launcher's notice for `marker`, if its bot is the desktop `account`'s.
 fn prepare_desktop(c: &Connection, marker: &Pending, account: i64) -> Prepared {
+    // Ownership first: another user's marker only waits for its expiry, whatever its notice would say.
+    match c.query_row("SELECT user_id FROM bots WHERE id = ?1", [marker.bot_id], |r| r.get::<_, Option<i64>>(0)) {
+        Ok(Some(owner)) if owner == account => {}
+        Ok(_) => return Prepared::NotOurs,
+        Err(e) => return Prepared::Later(format!("its bot could not be read ({e})")),
+    }
     match render::facts(c, marker.bot_id, &marker.notice) {
         Err(e) => Prepared::Later(format!("it could not be rendered ({e:?})")),
         Ok(None) => Prepared::Unsendable("its bot's user, venue or quote asset is gone".into()),
-        Ok(Some(facts)) if facts.user_id != account => Prepared::NotOurs,
         Ok(Some(facts)) => {
             let (title, body) = render::desktop_text(&facts, &marker.notice);
             Prepared::Offer(super::outbox::Notice { id: marker.id(), bot_id: marker.bot_id, title, body })

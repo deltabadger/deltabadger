@@ -249,7 +249,7 @@ fn ruby_to_s(v: Option<&Value>) -> String {
 }
 
 /// What a marker's notice says, from the rows as they are now: the part the mail and the desktop notice share.
-pub struct Facts { pub user_id: i64, pub email: Option<String>, pub name: String, pub locale: &'static str, pub label: String, pub what: What }
+pub struct Facts { pub email: Option<String>, pub name: String, pub locale: &'static str, pub label: String, pub what: What }
 
 pub enum What {
     EndOfFunds { exchange_name: String, quote: String },
@@ -265,12 +265,12 @@ pub enum What {
 /// A bot whose label is blank is named by Rails the first time it loads the row; here the label is used as stored
 /// (a listed divergence that needs a bot Rails never loaded).
 pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Facts>, EngineError> {
-    type Row = (i64, Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
     let row: Option<Row> = c.query_row(
-        "SELECT u.id, b.label, b.settings, u.email, u.name, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
+        "SELECT b.label, b.settings, u.email, u.name, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
          LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
-        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?))).optional()?;
-    let Some((user_id, label, settings, email, name, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
+        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))).optional()?;
+    let Some((label, settings, email, name, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
     let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(format!("bot {bot_id}: settings: {e}")))?;
     let locale = user_locale(stored_locale.as_deref());
     let label = bounded(&label.unwrap_or_default(), NAME_LIMIT);
@@ -294,7 +294,7 @@ pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Fact
         Notice::StoppedByBaseAmountLimit => base_mail_values(c, bot_id, &settings, base_marker.as_deref())?
             .map(|(amount, base)| What::BaseLimit { amount, base }),
     };
-    Ok(what.map(|what| Facts { user_id, email, name: bounded(&name.unwrap_or_default(), NAME_LIMIT), locale, label, what }))
+    Ok(what.map(|what| Facts { email, name: bounded(&name.unwrap_or_default(), NAME_LIMIT), locale, label, what }))
 }
 
 /// The mail a marker on bot `bot_id` asks for (`facts`), for a user with an address.
