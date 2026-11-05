@@ -364,7 +364,8 @@ async fn without_the_deltabadger_provider_every_data_api_job_fails_and_prune_sti
         if spec.name == reference::PRUNE { assert_eq!(out, Outcome::Done); }
         // PLAN-A17: with no provider at all the asset refresh returns, as Rails' `return unless MarketData.configured?`.
         // A17-2: so do the venue tickers (SyncAllTickersAndAssetsJob's own guard).
-        else if spec.name == reference::ASSETS || spec.name == reference::TICKERS { assert_eq!(out, Outcome::NothingNew); }
+        // A17-4: and the indices (Index::SyncFromCoingeckoJob's own guard).
+        else if [reference::ASSETS, reference::TICKERS, reference::INDICES].contains(&spec.name) { assert_eq!(out, Outcome::NothingNew); }
         else { assert!(matches!(&out, Outcome::Failed(m) if m.contains("not deltabadger")), "{}: {out:?}", spec.name); }
     }
 }
@@ -916,38 +917,114 @@ async fn an_index_pull_that_did_not_fail_marks_every_live_index_bot_for_a_resync
     assert_eq!(marked(&reopen(&d)), Vec::<i64>::new(), "PullFailed: no recheck");
 }
 
-struct CoinGeckoAnswer(Value);
+// ---- The INDICES job on a CoinGecko install: Top Coins (D-INDEX-TOP-N), then the category pass (PLAN-A17 A17-4) ----
+
+use deltabadger::jobs::coingecko::{self, Api, Clients, CoinGecko as CgClient, Throttle};
+use std::rc::Rc;
+
+const CG_KEY: &str = "cg-test-key";
+const CG_NOW: &str = "2026-10-02T10:31:00Z";
+/// `coins/markets` as Top Coins asks it, and as a category is asked (the client's sorted params).
+const TOP_KEY: &str = "GET /api/v3/coins/markets?locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd";
+const CATS_KEY: &str = "GET /api/v3/coins/categories?order=market_cap_desc";
+fn cat_key(id: &str) -> String { format!("GET /api/v3/coins/markets?category={id}&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd") }
+
+/// Scripted clients over one transport (the throttle generous: request counts are under test, not timing).
+fn cg_clients(t: &ScriptedTransport) -> Clients {
+    let t = t.clone();
+    Rc::new(move |key: &str| { assert!(key.starts_with("cg-"), "{key}"); Box::new(CgClient::new(key, t.clone()).with_throttle(Arc::new(Throttle::new(10_000)))) as Box<dyn Api> })
+}
+/// The transport with the demo ping (a 401 picks the demo host) and Top Coins' answer.
+fn cg_transport() -> ScriptedTransport {
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v3/ping", 401, json!({})).reply(TOP_KEY, 200, json!([{ "id": "bitcoin", "market_cap": 1e12 }]));
+    t
+}
+/// What a run asked, by name: ping, top-coins, categories, or the category id.
+fn asked(t: &ScriptedTransport) -> Vec<String> {
+    t.requests().iter().map(|r| match r.path.as_str() {
+        "/api/v3/ping" => "ping".to_string(),
+        "/api/v3/coins/categories" => "categories".to_string(),
+        "/api/v3/coins/markets" => r.query.iter().find(|(k, _)| *k == "category").map_or("top-coins".to_string(), |(_, v)| v.clone()),
+        p => p.to_string(),
+    }).collect()
+}
+fn set_coingecko(c: &Connection, key: &str) {
+    deltabadger::engine::provider::bind(c, &seed::cipher(), &|_| None).unwrap();
+    for (k, v) in [("market_data_provider", "coingecko"), ("coingecko_api_key", key)] { deltabadger::app_config::set(c, &seed::cipher(), k, v, at("2026-01-01T00:00:00Z")).unwrap(); }
+}
+/// A CoinGecko install over the seeded Kraken (BTC/EUR), with `coins` listed at EUR there.
+fn cg_install(coins: &[&str]) -> (tempfile::TempDir, Connection, seed::Seeded) {
+    let (d, o, s) = common::install();
+    let c = o.primary;
+    set_coingecko(&c, CG_KEY);
+    for coin in coins { cg_listed(&c, &s, coin); }
+    (d, c, s)
+}
+/// An asset with an available, trading-enabled EUR ticker on the seeded venue.
+fn cg_listed(c: &Connection, s: &seed::Seeded, coin: &str) -> i64 {
+    let id = asset(c, coin, &coin.to_uppercase(), "Cryptocurrency");
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+               minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, ?3, 'EUR', ?4, ?5, 8, 2, 2, 0.001, 0.01, 1, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.exchange_id, format!("{}EUR", coin.to_uppercase()), coin.to_uppercase(), id, s.quote]).unwrap();
+    id
+}
+/// A category index bot on the seeded venue, `status` (1 scheduled, 2 stopped).
+fn cg_bot(c: &Connection, s: &seed::Seeded, category: &str, status: i64) -> i64 {
+    let settings = json!({ "quote_asset_id": s.quote, "quote_amount": 60.0, "interval": "week", "num_coins": 3, "allocation_flattening": 0.0,
+                           "index_type": "category", "index_category_id": category, "hold_all": false });
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+               VALUES ('Bots::DcaIndex', ?1, ?2, ?3, ?4, '{}', '2026-09-01 14:00:00', '2026-01-01', '2026-01-01')",
+              rusqlite::params![status, s.exchange_id, s.user_id, settings.to_string()]).unwrap();
+    c.last_insert_rowid()
+}
+/// A `coins/categories` row.
+fn category(id: &str, content: &str) -> Value { json!({ "id": id, "name": format!("{id} (X)"), "content": content, "market_cap": 1.5e9 }) }
+/// A `coins/markets?category=` answer: the coins with their caps.
+fn members(coins: &[(&str, f64)]) -> Value { json!(coins.iter().map(|(id, cap)| json!({ "id": id, "symbol": id, "market_cap": cap })).collect::<Vec<_>>()) }
+async fn cg_run(d: &tempfile::TempDir, t: &ScriptedTransport, now: &str) -> Outcome {
+    let c = reopen(d);
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    reference::run_once_with(reference::INDICES, None::<DataApi<ScriptedTransport>>, &cg_clients(t),
+                             Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(now)), wakers: Default::default() }).await
+}
+/// The ranking of the `coingecko` row of `id`: (provider, ranked_at).
+fn ranking(c: &Connection, id: &str) -> Option<(String, String)> {
+    use rusqlite::OptionalExtension;
+    c.query_row("SELECT r.provider, r.ranked_at FROM indices i JOIN rust_index_rankings r ON r.index_id = i.id WHERE i.external_id = ?1 AND i.source = 'coingecko'",
+                [id], |r| Ok((r.get(0)?, r.get(1)?))).optional().unwrap()
+}
+fn row_text(c: &Connection, id: &str, col: &str) -> Option<String> {
+    use rusqlite::OptionalExtension;
+    c.query_row(&format!("SELECT {col} FROM indices WHERE external_id = ?1 AND source = 'coingecko'"), [id], |r| r.get(0)).optional().unwrap().flatten()
+}
+fn top_of(c: &Connection, id: &str) -> Vec<String> { serde_json::from_str(&row_text(c, id, "top_coins").unwrap()).unwrap() }
+/// An existing `coingecko` row as Rails' pass leaves it (10 display coins, no weights), unattested.
+fn rails_category_row(c: &Connection, id: &str, top: &[&str]) -> i64 {
+    c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+               VALUES (?1, 'coingecko', ?1, 'Rails', ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
+              rusqlite::params![id, json!(top).to_string()]).unwrap();
+    c.last_insert_rowid()
+}
 
 /// Exercise the production job outcome and the real scheduler, including its 15-minute delay.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn direct_index_503_is_retried_then_succeeds_on_attempt_two() {
     use deltabadger::jobs::{Job, JobFuture, Scheduler, Spec, Wake, Retry};
-    use deltabadger::jobs::data_api::ApiError;
-    use std::{cell::Cell, rc::Rc};
-    struct Feed(Rc<Cell<usize>>);
-    impl reference::CoinGecko for Feed {
-        fn markets<'a>(&'a self, _: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,ApiError>> + 'a>> {
-            Box::pin(async {
-                self.0.set(self.0.get() + 1);
-                if self.0.get() == 1 { Err(ApiError::Failed { status: Some(503), message: "CoinGecko ranking HTTP 503".into() }) }
-                else { Ok(json!([{ "id":"bitcoin", "market_cap":1000000 }])) }
-            })
-        }
-    }
-    struct Direct(Feed);
+    struct Direct(Clients);
     impl Job for Direct {
         fn spec(&self) -> Spec { reference::specs().into_iter().find(|s| s.name == reference::INDICES).unwrap() }
         fn run<'a>(&'a self, cx: Cx<'a>, _: Vec<Wake>) -> JobFuture<'a> { Box::pin(async move { reference::coingecko_indices(&self.0, &cx).await }) }
     }
     let (d,c) = db();
     let now = at("2026-10-02T10:30:00Z");
-    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_|None).unwrap();
-    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
-        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
-    }
-    seed::insert_index(&c,"top-coins",&["previous"],&json!({}));
-    let calls = Rc::new(Cell::new(0));
-    let job = Direct(Feed(calls.clone()));
+    seed::insert_index(&c,"top-coins",&["previous"],&json!({})); // before the provider: unranked
+    set_coingecko(&c, CG_KEY);
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v3/ping", 401, json!({})).reply(TOP_KEY, 503, json!({})).reply(TOP_KEY, 200, json!([{ "id":"bitcoin", "market_cap":1000000 }]))
+        .reply(CATS_KEY, 200, json!([]));
+    let calls = || t.requests().iter().filter(|r| r.path == "/api/v3/coins/markets").count();
+    let job = Direct(cg_clients(&t));
     assert_eq!(job.spec().retry, Retry::Fixed { wait_secs: 900, attempts: 4 });
     let scheduler = Scheduler::new(c, seed::cipher(), vec![Box::new(job)], None);
     struct Clock { start: DateTime<Utc>, origin: tokio::time::Instant }
@@ -958,37 +1035,29 @@ async fn direct_index_503_is_retried_then_succeeds_on_attempt_two() {
     let (stop, rx) = tokio::sync::watch::channel(false);
     let (result, ()) = tokio::join!(scheduler.run(rx, &clock), async {
         tokio::time::sleep(std::time::Duration::from_secs(600)).await;
-        assert_eq!(calls.get(), 1, "no retry before 15 minutes");
+        assert_eq!(calls(), 1, "no retry before 15 minutes");
         assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"previous\"]");
         tokio::time::sleep(std::time::Duration::from_secs(600)).await;
         stop.send(true).unwrap();
     });
     result.unwrap();
-    assert_eq!(calls.get(), 2, "503 must schedule the second attempt");
+    assert_eq!(calls(), 2, "503 must schedule the second attempt");
     assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"bitcoin\"]");
-}
-impl reference::CoinGecko for CoinGeckoAnswer {
-    fn markets<'a>(&'a self, key: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,deltabadger::jobs::data_api::ApiError>> + 'a>> {
-        assert_eq!(key,"cg-test-key");
-        Box::pin(async { Ok(self.0.clone()) })
-    }
 }
 
 #[tokio::test(flavor = "current_thread")]
 async fn direct_index_refresh_preserves_bundled_stablecoin_classification() {
     let (d,c) = db();
     let now = at("2026-10-02T10:30:00Z");
-    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_|None).unwrap();
-    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
-        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
-    }
+    set_coingecko(&c, CG_KEY);
     let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
     let ids = ["usds", "ethena-usde", "usd1-wlfi"];
     let rows: Vec<_> = catalogue["data"].as_array().unwrap().iter().filter(|a| ids.contains(&a["external_id"].as_str().unwrap())).cloned().collect();
     let db = Db::new(c,seed::cipher());
     import::import_assets(&db, import::plan_assets(&rows, "").unwrap(), now).await.unwrap();
-    let answer = CoinGeckoAnswer(json!(ids.map(|id| json!({"id":id,"market_cap":999}))));
-    assert_eq!(reference::coingecko_indices(&answer,&Cx { db, clock:&FixedClock(now), wakers:Default::default() }).await, Outcome::Done);
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v3/ping", 401, json!({})).reply(TOP_KEY, 200, json!(ids.map(|id| json!({"id":id,"market_cap":999})))).reply(CATS_KEY, 200, json!([]));
+    assert_eq!(reference::coingecko_indices(&cg_clients(&t),&Cx { db, clock:&FixedClock(now), wakers:Default::default() }).await, Outcome::Done);
     let c = reopen(&d);
     for id in ids {
         let (category, cap): (String, i64) = c.query_row("SELECT category,market_cap FROM assets WHERE external_id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
@@ -1000,32 +1069,26 @@ async fn direct_index_refresh_preserves_bundled_stablecoin_classification() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn direct_index_fetch_errors_use_the_data_api_retry_classification() {
-    use deltabadger::jobs::data_api::ApiError;
-    struct ErrorFeed(Option<u16>);
-    impl reference::CoinGecko for ErrorFeed {
-        fn markets<'a>(&'a self, _: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,ApiError>> + 'a>> {
-            Box::pin(async { Err(match self.0 {
-                Some(status) => ApiError::Failed { status:Some(status),message:format!("HTTP {status}") },
-                None => ApiError::Transient("CoinGecko ranking request failed".into()),
-            }) })
-        }
-    }
     let (d,c) = db();
     let now = at("2026-10-02T10:30:00Z");
-    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_|None).unwrap();
-    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
-        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
-    }
-    seed::insert_index(&c,"top-coins",&["previous"],&json!({}));
+    seed::insert_index(&c,"top-coins",&["previous"],&json!({})); // before the provider: unranked
+    set_coingecko(&c, CG_KEY);
     let db = Db::new(c,seed::cipher());
     for status in [Some(500),Some(502),Some(503),None] {
-        let out = reference::coingecko_indices(&ErrorFeed(status), &Cx { db:db.clone(), clock:&FixedClock(now), wakers:Default::default() }).await;
+        let t = ScriptedTransport::default();
+        t.reply("GET /api/v3/ping", 401, json!({})).reply(CATS_KEY, 200, json!([]));
+        match status { Some(s) => { t.reply(TOP_KEY, s, json!({})); } None => { t.network(TOP_KEY, "pre_send", "down"); } }
+        let out = reference::coingecko_indices(&cg_clients(&t), &Cx { db:db.clone(), clock:&FixedClock(now), wakers:Default::default() }).await;
         assert!(matches!(out,Outcome::Transient(_)), "{status:?}: {out:?}");
         assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"previous\"]");
     }
-    // PLAN-A17 item 11: a 429 (the plan ping's or the ranking's) stays a rate limit; the same Retry retries it.
-    let out = reference::coingecko_indices(&ErrorFeed(Some(429)), &Cx { db:db.clone(), clock:&FixedClock(now), wakers:Default::default() }).await;
+    // PLAN-A17 item 11: a 429 (the plan ping's or the ranking's) stays a rate limit; the same Retry retries it. Nothing more
+    // is asked (D-CG-INDEX-429-STOPS): the categories are not scripted.
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v3/ping", 401, json!({})).reply(TOP_KEY, 429, json!({}));
+    let out = reference::coingecko_indices(&cg_clients(&t), &Cx { db:db.clone(), clock:&FixedClock(now), wakers:Default::default() }).await;
     assert!(matches!(out,Outcome::RateLimited(_)), "{out:?}");
+    assert_eq!(asked(&t), ["ping", "top-coins"]);
     assert_eq!(one::<String>(&reopen(&d), "SELECT top_coins FROM indices WHERE external_id='top-coins'"), "[\"previous\"]");
 }
 
@@ -1037,17 +1100,16 @@ async fn self_hosted_top_coins_refreshes_and_expires_without_forcing_trades() {
     seed::insert_index(&c,"top-coins",&["old"],&json!({}));
     let id = seed::index_bot(&c,&s,"top-coins",20,0.0,false);
     let now = at("2026-10-02T10:30:00Z");
-    for (k,v) in [("market_data_provider","coingecko"),("market_data_url",""),("market_data_token",""),("coingecko_api_key","cg-test-key")] {
+    for (k,v) in [("market_data_provider","coingecko"),("market_data_url",""),("market_data_token",""),("coingecko_api_key",CG_KEY)] {
         deltabadger::app_config::set(&c,&seed::cipher(),k,v,now).unwrap();
     }
-    let answer = CoinGeckoAnswer(json!([{ "id":"bitcoin", "market_cap":1000000 }]));
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([]));
     let db = Db::new(c,seed::cipher());
-    let clock = FixedClock(now);
-    let cx = || Cx{db:db.clone(),clock:&clock,wakers:Default::default()};
     // The same daily job used for hosted indices dispatches to the direct provider.
     let spec = reference::specs().into_iter().find(|s|s.name==reference::INDICES).unwrap();
     assert!(spec.schedule.is_some());
-    assert_eq!(reference::coingecko_indices(&answer,&cx()).await,Outcome::Done);
+    assert_eq!(reference::coingecko_indices(&cg_clients(&t),&Cx{db:db.clone(),clock:&FixedClock(now),wakers:Default::default()}).await,Outcome::Done);
     let c = reopen(&d);
     assert_eq!(one::<String>(&c,"SELECT top_coins FROM indices WHERE external_id='top-coins'"),"[\"bitcoin\"]");
     assert_eq!(one::<i64>(&c,"SELECT count(*) FROM transactions"),0);
@@ -1056,42 +1118,46 @@ async fn self_hosted_top_coins_refreshes_and_expires_without_forcing_trades() {
     let bot = model::load_bot(&c,id).unwrap();
     assert!(deltabadger::engine::eligibility::bot_reasons(&c,&bot).unwrap().is_empty(),"the refreshed direct-provider bot is admitted");
     assert!(provider::stale(&c,&bot).unwrap().is_none());
-    // ponytail: the Top Coins writer's own ranking row is A17-4's jobs half; until it lands, attested here as it will write it.
-    let top: i64 = one(&c,"SELECT id FROM indices WHERE external_id='top-coins'");
-    index::record_ranking(&c,top,"coingecko",&provider::fingerprint(&c).unwrap().unwrap(),now).unwrap();
+    assert_eq!(index::ranked_row(&c,"top-coins").unwrap().map(|r|r.provider).as_deref(),Some("coingecko"),"the writer attests its own ranking");
     assert!(staleness::stale(&c,&bot,now).unwrap().is_none());
     seed::insert_index(&c,"unrelated-category",&["bitcoin"],&json!({}));
     assert!(staleness::stale(&c,&bot,now+chrono::Duration::hours(50)).unwrap().is_some(),"another index cannot hide an old Top Coins ranking");
     assert!(staleness::report(&c,now+chrono::Duration::hours(50)).unwrap().iter().any(|line|line.contains("Top Coins")&&line.contains("STALE")));
-    let empty = CoinGeckoAnswer(json!([]));
-    assert!(matches!(reference::coingecko_indices(&empty,&cx()).await,Outcome::Failed(_)));
+    // The next slot asks again; an empty answer keeps the previous ranking.
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v3/ping", 401, json!({})).reply(TOP_KEY, 200, json!([])).reply(CATS_KEY, 200, json!([]));
+    let next = now + chrono::Duration::days(1);
+    assert!(matches!(reference::coingecko_indices(&cg_clients(&t),&Cx{db,clock:&FixedClock(next),wakers:Default::default()}).await,Outcome::Failed(_)));
     assert_eq!(one::<String>(&c,"SELECT top_coins FROM indices WHERE external_id='top-coins'"),"[\"bitcoin\"]");
 }
 
-struct ChangedCoinGecko(std::path::PathBuf);
-impl reference::CoinGecko for ChangedCoinGecko {
-    fn markets<'a>(&'a self, _: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value,deltabadger::jobs::data_api::ApiError>> + 'a>> {
-        Box::pin(async {
-            let c=Connection::open(&self.0).unwrap();
-            deltabadger::app_config::set(&c,&seed::cipher(),"coingecko_api_key","replacement",at("2026-10-02T10:30:00Z")).unwrap();
-            Ok(json!([{ "id":"bitcoin", "market_cap":1000000 }]))
-        })
+/// A client whose Top Coins request switches the install's key mid-run.
+struct Changing(std::path::PathBuf, Box<dyn Api>);
+impl Api for Changing {
+    fn markets<'a>(&'a self, ids: Option<&'a [String]>, category: Option<&'a str>, per_page: usize, page: usize) -> coingecko::Fut<'a> {
+        let c = Connection::open(&self.0).unwrap();
+        deltabadger::app_config::set(&c,&seed::cipher(),"coingecko_api_key","replacement",at("2026-10-02T10:30:00Z")).unwrap();
+        self.1.markets(ids, category, per_page, page)
     }
+    fn coin<'a>(&'a self, id: &'a str) -> coingecko::Fut<'a> { self.1.coin(id) }
+    fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> coingecko::Fut<'a> { self.1.exchange_tickers(id, page) }
+    fn categories(&self) -> coingecko::Fut<'_> { self.1.categories() }
 }
 
 #[tokio::test(flavor = "current_thread")]
 async fn direct_index_refresh_rejects_a_provider_change_during_the_request() {
     let (d,c)=db();
-    seed::insert_index(&c,"top-coins",&["previous"],&json!({}));
+    seed::insert_index(&c,"top-coins",&["previous"],&json!({})); // before the provider: unranked
     let now=at("2026-10-02T10:30:00Z");
-    deltabadger::engine::provider::bind(&c,&seed::cipher(),&|_|None).unwrap();
-    for (key,value) in [("market_data_provider","coingecko"),("coingecko_api_key","cg-test-key")] {
-        deltabadger::app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
-    }
-    let fetch=ChangedCoinGecko(d.path().join("production.sqlite3"));
-    let out=reference::coingecko_indices(&fetch,&Cx{db:Db::new(c,seed::cipher()),clock:&FixedClock(now),wakers:Default::default()}).await;
-    assert!(matches!(out,Outcome::Failed(message) if message.contains("configuration changed")));
+    set_coingecko(&c, CG_KEY);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("payments", "P")]));
+    let (path, inner) = (d.path().join("production.sqlite3"), cg_clients(&t));
+    let changing: Clients = Rc::new(move |k: &str| Box::new(Changing(path.clone(), inner(k))) as Box<dyn Api>);
+    let out=reference::coingecko_indices(&changing,&Cx{db:Db::new(c,seed::cipher()),clock:&FixedClock(now),wakers:Default::default()}).await;
+    assert!(matches!(&out,Outcome::Failed(message) if message.contains("configuration changed")), "{out:?}");
     assert_eq!(one::<String>(&reopen(&d),"SELECT top_coins FROM indices WHERE external_id='top-coins'"),"[\"previous\"]");
+    assert_eq!(one::<i64>(&reopen(&d),"SELECT count(*) FROM indices WHERE external_id='payments'"),0, "the category pass's units are fenced too");
 }
 
 #[test]
@@ -1108,4 +1174,393 @@ fn direct_index_provider_uses_the_environment_key_only_without_a_database_overri
     assert_ne!(provider::fingerprint(&c).unwrap(),fingerprint);
     app_config::set(&c,&seed::cipher(),"coingecko_api_key","",now).unwrap();
     assert_eq!(provider::coingecko_key(&c).unwrap(),None,"explicitly clearing the key does not restore the environment key");
+}
+
+// ---- A17-4: the category pass (jobs::categories). On 2026-10-02 (JDN mod 14 = 4) the slice is MD5(id) mod 14 = 4:
+// payments, music, pump-fun, launchpad, frog-themed-coins; layer-1, dex, nft are 2026-10-01's (3); oracle, storage, meme-token
+// are never due here. ----
+
+fn twelve() -> Vec<String> { (b'a'..=b'l').map(|ch| format!("coin-{}", ch as char)).collect() }
+
+/// Rails' rules and the named divergences on one run: the slice asked in feed order, then the followed (sorted); Top Coins
+/// first. D-CG-CATEGORY-STORED (every valid member and its cap stored), D-CG-FOLLOWED-KEPT (a followed category kept
+/// through the sweep, written with < 3 valid members), the sweep's cascade (a swept category's ranking goes with it).
+#[tokio::test(flavor = "current_thread")]
+async fn the_category_pass_ranks_the_slice_sweeps_and_keeps_what_is_followed() {
+    let coins = twelve();
+    let (d, c, s) = cg_install(&coins.iter().map(String::as_str).collect::<Vec<_>>());
+    asset(&c, "unlisted-1", "U1", "Cryptocurrency");
+    asset(&c, "unlisted-2", "U2", "Cryptocurrency");
+    asset(&c, "unlisted-3", "U3", "Cryptocurrency");
+    let fp = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
+    // A row this engine ranked, now gone from the feed: swept, its ranking cascaded.
+    let old = rails_category_row(&c, "old-category", &["coin-a"]);
+    deltabadger::engine::index::record_ranking(&c, old, "coingecko", &fp, at("2026-09-30T10:31:00Z")).unwrap();
+    rails_category_row(&c, "launchpad", &["coin-a"]); // listed without a description: swept
+    rails_category_row(&c, "oracle", &["coin-a"]);    // followed, gone from the feed: kept and asked
+    rails_category_row(&c, "meme-token", &["coin-b"]); // eligible, not due: untouched
+    cg_bot(&c, &s, "oracle", 2);
+    cg_bot(&c, &s, "frog-themed-coins", 1);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("stablecoins", "S"), category("payments", "Payments"), category("music", "M"), category("pump-fun", "P"),
+                                   category("launchpad", ""), category("frog-themed-coins", "F"), category("meme-token", "Memes")]))
+        .reply(&cat_key("payments"), 200, members(&coins.iter().enumerate().map(|(i, id)| (id.as_str(), 1e9 - i as f64)).chain([("no-asset", 5.0), ("coin-a", 1.0)]).collect::<Vec<_>>()))
+        .reply(&cat_key("music"), 200, members(&[("coin-a", 3.0), ("coin-b", 2.0), ("no-asset", 1.0)]))
+        .reply(&cat_key("pump-fun"), 200, members(&[("unlisted-1", 3.0), ("unlisted-2", 2.0), ("unlisted-3", 1.0)]))
+        .reply(&cat_key("frog-themed-coins"), 200, members(&[("coin-c", 7.0), ("no-asset", 1.0)]))
+        .reply(&cat_key("oracle"), 200, members(&[("coin-d", 5.0), ("coin-e", 0.0), ("coin-f", 4.0)]));
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments", "music", "pump-fun", "frog-themed-coins", "oracle"]);
+    let c = reopen(&d);
+    let ids = |sql: &str| -> Vec<String> { c.prepare(sql).unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
+    assert_eq!(ids("SELECT external_id FROM indices WHERE source = 'coingecko' ORDER BY external_id"), ["frog-themed-coins", "meme-token", "oracle", "payments"],
+               "old-category and launchpad swept; music disqualified; pump-fun skipped (no venue, no row)");
+    assert_eq!(one::<i64>(&c, &format!("SELECT count(*) FROM rust_index_rankings WHERE index_id = {old}")), 0, "the sweep cascades its ranking");
+    assert_eq!(top_of(&c, "payments"), coins, "D-CG-CATEGORY-STORED: every valid member, deduped, answer order (Rails: the first 10)");
+    let weights: Value = serde_json::from_str(&row_text(&c, "payments", "weights").unwrap()).unwrap();
+    assert_eq!((weights["coin-a"].as_f64(), weights["coin-l"].as_f64(), weights.as_object().unwrap().len()), (Some(1e9), Some(1e9 - 11.0), 12), "the first answer's cap");
+    assert_eq!(row_text(&c, "payments", "name").as_deref(), Some("payments"), "brackets stripped");
+    assert_eq!(one::<i64>(&c, "SELECT weight FROM indices WHERE external_id = 'payments'"), 0);
+    let by_ex: Value = serde_json::from_str(&row_text(&c, "payments", "top_coins_by_exchange").unwrap()).unwrap();
+    assert_eq!(by_ex["Exchanges::Kraken"].as_array().unwrap().len(), 10, "per venue: Rails' first 10");
+    assert_eq!(row_text(&c, "payments", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":10}"#));
+    assert_eq!(ranking(&c, "payments").map(|r| r.0).as_deref(), Some("coingecko"));
+    assert_eq!(top_of(&c, "frog-themed-coins"), ["coin-c"], "D-CG-FOLLOWED-KEPT: written with one valid member");
+    assert_eq!(row_text(&c, "frog-themed-coins", "available_exchanges").as_deref(), Some("{}"), "and no venue with 3");
+    assert_eq!(top_of(&c, "oracle"), ["coin-d", "coin-e", "coin-f"]);
+    assert_eq!(row_text(&c, "oracle", "description").as_deref(), Some("Rails"), "absent from the feed: the row keeps its own attributes");
+    assert_eq!(top_of(&c, "meme-token"), ["coin-b"], "not due, not followed: not asked");
+    assert_eq!(ranking(&c, "meme-token"), None);
+    assert_eq!(deltabadger::app_config::get_plain(&c, deltabadger::jobs::categories::SLICE_KEY).unwrap(),
+               Some(format!("{fp}@{}", deltabadger::engine::index::ranked_at_text(at("2026-10-02T10:30:00Z")))), "the slice completed for this slot");
+    assert!(deltabadger::engine::index::resync_marked(&c).unwrap().len() == 2, "every index bot marked (recheck_index_bots)");
+}
+
+/// D-CG-RANK-ONCE-PER-SLOT: a second run in the slot asks the list only; a key change asks everything due again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_second_run_in_the_slot_asks_the_list_only_and_a_key_change_asks_everything_again() {
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    cg_bot(&c, &s, "oracle", 1);
+    let three = members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]);
+    let script = |t: &ScriptedTransport| { t.reply(CATS_KEY, 200, json!([category("payments", "P"), category("oracle", "O")]))
+        .reply(&cat_key("payments"), 200, three.clone()).reply(&cat_key("oracle"), 200, three.clone()); };
+    let t = cg_transport();
+    script(&t);
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments", "oracle"]);
+    let t = cg_transport();
+    script(&t);
+    assert_eq!(cg_run(&d, &t, "2026-10-02T12:00:00Z").await, Outcome::NothingNew);
+    assert_eq!(asked(&t), ["ping", "categories"], "Top Coins, the slice and the followed are current");
+    deltabadger::app_config::set(&reopen(&d), &seed::cipher(), "coingecko_api_key", "cg-other-key", at("2026-10-02T12:30:00Z")).unwrap(); // a new fingerprint
+    let t = cg_transport();
+    script(&t);
+    assert_eq!(cg_run(&d, &t, "2026-10-02T13:00:00Z").await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments", "oracle"]);
+}
+
+/// D-CG-INDEX-429-STOPS: a 429 on the list, on Top Coins or mid-slice asks nothing more, keeps every committed unit, and ends
+/// RateLimited; the retry asks only what is not current.
+#[tokio::test(flavor = "current_thread")]
+async fn a_429_anywhere_stops_the_run_and_the_retry_asks_only_the_rest() {
+    let three = members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]);
+    let feed = json!([category("payments", "P"), category("music", "M"), category("pump-fun", "F")]);
+    // On the list: Top Coins committed.
+    let (d, _c, _s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 429, json!({}));
+    assert!(matches!(cg_run(&d, &t, CG_NOW).await, Outcome::RateLimited(_)));
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories"]);
+    assert_eq!(index_ranked(&reopen(&d), "top-coins"), Some("coingecko".into()));
+    // On Top Coins: the categories are not asked.
+    let (d, _c, _s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v3/ping", 401, json!({})).reply(TOP_KEY, 429, json!({}));
+    assert!(matches!(cg_run(&d, &t, CG_NOW).await, Outcome::RateLimited(_)));
+    assert_eq!(asked(&t), ["ping", "top-coins"]);
+    // Mid-slice: payments committed, music's 429 stops it, pump-fun not asked; the retry asks music and pump-fun only.
+    let (d, _c, _s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed.clone()).reply(&cat_key("payments"), 200, three.clone()).reply(&cat_key("music"), 429, json!({}));
+    assert!(matches!(cg_run(&d, &t, CG_NOW).await, Outcome::RateLimited(_)));
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments", "music"]);
+    assert_eq!(ranking(&reopen(&d), "payments").map(|r| r.0).as_deref(), Some("coingecko"), "the committed unit is kept");
+    assert_eq!(deltabadger::app_config::get_plain(&reopen(&d), deltabadger::jobs::categories::SLICE_KEY).unwrap(), None, "the slice is not complete");
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed).reply(&cat_key("music"), 200, three.clone()).reply(&cat_key("pump-fun"), 200, three);
+    assert_eq!(cg_run(&d, &t, "2026-10-02T10:46:00Z").await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "categories", "music", "pump-fun"], "the retry: Top Coins and payments are current");
+    assert!(deltabadger::app_config::get_plain(&reopen(&d), deltabadger::jobs::categories::SLICE_KEY).unwrap().is_some());
+}
+
+fn index_ranked(c: &Connection, id: &str) -> Option<String> {
+    deltabadger::engine::provider::bind(c, &seed::cipher(), &|_| None).unwrap();
+    deltabadger::engine::index::ranked_row(c, id).unwrap().map(|r| r.provider)
+}
+
+/// Top Coins first, never blocking the categories (r4 P2): a 500 is Transient with the categories committed, and the retry asks
+/// Top Coins only; a malformed answer is Failed with the categories committed.
+#[tokio::test(flavor = "current_thread")]
+async fn a_top_coins_failure_never_blocks_the_categories() {
+    let three = members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]);
+    for (status, body) in [(500, json!({ "error": "boom" })), (200, json!([]))] {
+        let (d, _c, _s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+        let t = ScriptedTransport::default();
+        t.reply("GET /api/v3/ping", 401, json!({})).reply(TOP_KEY, status, body.clone())
+            .reply(CATS_KEY, 200, json!([category("payments", "P")])).reply(&cat_key("payments"), 200, three.clone());
+        let out = cg_run(&d, &t, CG_NOW).await;
+        if status == 500 { assert!(matches!(out, Outcome::Transient(_)), "{out:?}"); } else { assert!(matches!(out, Outcome::Failed(_)), "{out:?}"); }
+        assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments"]);
+        assert_eq!(ranking(&reopen(&d), "payments").map(|r| r.0).as_deref(), Some("coingecko"), "{status}: the categories are committed");
+        if status == 500 {
+            let t = cg_transport();
+            t.reply(CATS_KEY, 200, json!([category("payments", "P")]));
+            assert_eq!(cg_run(&d, &t, "2026-10-02T10:46:00Z").await, Outcome::Done);
+            assert_eq!(asked(&t), ["ping", "top-coins", "categories"], "the retry asks Top Coins only");
+        }
+    }
+}
+
+/// The slice is the slot's UTC date: a run at 01:00 belongs to the previous day's 10:30 slot; and a wake after a successful
+/// slot asks no slice category.
+#[tokio::test(flavor = "current_thread")]
+async fn the_slice_crosses_midnight_with_its_slot_and_a_later_wake_asks_no_slice() {
+    let three = members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]);
+    let feed = json!([category("payments", "P"), category("layer-1", "L1"), category("storage", "S")]);
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed.clone()).reply(&cat_key("layer-1"), 200, three.clone());
+    assert_eq!(cg_run(&d, &t, "2026-10-02T01:00:00Z").await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "layer-1"], "01:00 on the 2nd is the 1st's slot (JDN mod 14 = 3)");
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed.clone()).reply(&cat_key("payments"), 200, three.clone());
+    assert_eq!(cg_run(&d, &t, "2026-10-03T01:00:00Z").await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments"], "01:00 on the 3rd is the 2nd's slot");
+    // Followed after the slot succeeded: the woken run asks the list and that category only.
+    cg_bot(&c, &s, "storage", 2);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed).reply(&cat_key("storage"), 200, three);
+    assert_eq!(cg_run(&d, &t, "2026-10-03T02:00:00Z").await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "categories", "storage"]);
+}
+
+/// The slice's completion is its own row per (fingerprint, slot), whatever the Outcome: a non-followed fetch that fails leaves
+/// it open (logged, Rails' skip); the retry that writes nothing (a disqualified answer) completes it.
+#[tokio::test(flavor = "current_thread")]
+async fn the_slice_completes_per_fingerprint_and_slot_even_on_a_run_that_writes_nothing() {
+    use deltabadger::jobs::categories::SLICE_KEY;
+    let (d, _c, _s) = cg_install(&["coin-a"]);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("payments", "P")])).reply(&cat_key("payments"), 500, json!({}));
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done, "Top Coins was written; a non-followed failure is Rails' logged skip");
+    assert_eq!(deltabadger::app_config::get_plain(&reopen(&d), SLICE_KEY).unwrap(), None);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("payments", "P")])).reply(&cat_key("payments"), 200, members(&[("coin-a", 1.0)]));
+    assert_eq!(cg_run(&d, &t, "2026-10-02T10:46:00Z").await, Outcome::Done, "the slice completed");
+    assert_eq!(asked(&t), ["ping", "categories", "payments"]);
+    assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM indices WHERE external_id = 'payments'"), 0, "disqualified: nothing written");
+    assert!(deltabadger::app_config::get_plain(&reopen(&d), SLICE_KEY).unwrap().is_some());
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("payments", "P")]));
+    assert_eq!(cg_run(&d, &t, "2026-10-02T11:00:00Z").await, Outcome::NothingNew);
+    assert_eq!(asked(&t), ["ping", "categories"], "a complete slot asks no slice category again, the disqualified one included");
+}
+
+/// The wake (contract item 3): the INDICES job, and only it, wants RankingMissing; a held bot's category is followed, so the
+/// woken run asks the list and that category only, and the bot's ranking is then usable.
+#[tokio::test(flavor = "current_thread")]
+async fn the_ranking_wake_runs_indices_and_asks_the_list_and_the_missing_category_only() {
+    use deltabadger::engine::events::EngineEvent;
+    let wake = EngineEvent::RankingMissing { external_id: "storage".into() };
+    let jobs = reference::jobs(None::<DataApi<ScriptedTransport>>);
+    let wanting: Vec<&str> = jobs.iter().filter(|j| j.wants(&wake)).map(|j| j.spec().name).collect();
+    assert_eq!(wanting, [reference::INDICES]);
+    let three = members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]);
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("storage", "S")]));
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    let bot = cg_bot(&c, &s, "storage", 1);
+    let held = deltabadger::engine::model::load_bot(&c, bot).unwrap();
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    assert!(deltabadger::engine::index::ranking_wanted(&c, &held, at("2026-10-02T11:00:00Z")).unwrap());
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("storage", "S")])).reply(&cat_key("storage"), 200, three);
+    assert_eq!(cg_run(&d, &t, "2026-10-02T11:00:01Z").await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "categories", "storage"], "ping + list + the category: 3 requests");
+    let c = reopen(&d);
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    assert!(!deltabadger::engine::index::ranking_wanted(&c, &held, at("2026-10-02T11:00:02Z")).unwrap());
+    assert!(deltabadger::engine::staleness::ranking_stale(&c, &held, at("2026-10-02T11:00:02Z")).unwrap().is_none());
+}
+
+/// D-CG-INVALID-CAP-HELD: a negative cap refuses the whole answer, as a failed fetch (previous ranking kept, a followed one
+/// Transient and retried); D-CG-INDEX-PULL-RETRIED: a failed list is Transient too, with no sweep.
+#[tokio::test(flavor = "current_thread")]
+async fn a_negative_cap_refuses_the_answer_and_a_failed_list_is_retried() {
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    cg_bot(&c, &s, "oracle", 1);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("oracle", "O")])).reply(&cat_key("oracle"), 200, members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]));
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    let before = (ranking(&reopen(&d), "oracle"), top_of(&reopen(&d), "oracle"));
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("oracle", "O")])).reply(&cat_key("oracle"), 200, members(&[("coin-a", 100.0), ("coin-b", -50.0)]));
+    let out = cg_run(&d, &t, "2026-10-03T10:31:00Z").await;
+    assert!(matches!(&out, Outcome::Transient(m) if m.contains("negative")), "{out:?}");
+    assert_eq!((ranking(&reopen(&d), "oracle"), top_of(&reopen(&d), "oracle")), before, "the previous ranking kept");
+    let t = cg_transport();
+    t.reply(CATS_KEY, 500, json!({})).reply(&cat_key("oracle"), 200, members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]));
+    let out = cg_run(&d, &t, "2026-10-04T10:31:00Z").await;
+    assert!(matches!(&out, Outcome::Transient(m) if m.contains("categories")), "{out:?}");
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "oracle"], "the followed category is still asked, from its row");
+    assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM indices WHERE external_id = 'oracle'"), 1, "no sweep");
+}
+
+/// D-CG-AVAILABILITY-FROM-RANKING: a 72-hour-old, unfollowed, not-due category whose venue lists its members after the fetch
+/// is available after the next pass with no fetch of it, ranked_at unchanged. A failed fetch of a followed category with an
+/// availability change moves updated_at only.
+#[tokio::test(flavor = "current_thread")]
+async fn availability_is_recomputed_from_the_stored_ranking_without_a_fetch() {
+    let (d, c, s) = cg_install(&[]);
+    for id in ["coin-a", "coin-b", "coin-c"] { asset(&c, id, &id.to_uppercase(), "Cryptocurrency"); }
+    cg_bot(&c, &s, "oracle", 1);
+    let three = members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("storage", "S"), category("oracle", "O")])).reply(&cat_key("oracle"), 200, three.clone());
+    assert_eq!(cg_run(&d, &t, "2026-09-29T10:31:00Z").await, Outcome::Done); // the 29th's slice (bucket 1) holds neither
+    // storage, ranked 72 h ago by this engine with no venue listing its members.
+    let c = reopen(&d);
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    let fp = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
+    let storage = rails_category_row(&c, "storage", &["coin-a", "coin-b", "coin-c"]);
+    deltabadger::engine::index::record_ranking(&c, storage, "coingecko", &fp, at("2026-09-29T10:31:00Z")).unwrap();
+    let ranked_before = ranking(&c, "storage");
+    let oracle_before = (ranking(&c, "oracle"), row_text(&c, "oracle", "updated_at"));
+    assert_eq!(row_text(&c, "oracle", "available_exchanges").as_deref(), Some("{}"));
+    for id in ["coin-a", "coin-b", "coin-c"] {
+        let a: i64 = one(&c, &format!("SELECT id FROM assets WHERE external_id = '{id}'"));
+        c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                   minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, ?2, 'EUR', ?3, ?4, 8, 2, 2, 0.001, 0.01, 1, 1, '2026-01-01', '2026-01-01')",
+                  rusqlite::params![s.exchange_id, format!("{id}EUR"), a, s.quote]).unwrap();
+    }
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("storage", "S"), category("oracle", "O")])).reply(&cat_key("oracle"), 500, json!({}));
+    assert!(matches!(cg_run(&d, &t, "2026-10-02T10:31:00Z").await, Outcome::Transient(_)));
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "oracle"], "storage is not fetched");
+    let c = reopen(&d);
+    assert_eq!(row_text(&c, "storage", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":3}"#));
+    assert_eq!(row_text(&c, "storage", "top_coins_by_exchange").as_deref(), Some(r#"{"Exchanges::Kraken":["coin-a","coin-b","coin-c"]}"#),
+               "re-derived from the stored ranking (Rails re-counts its saved per-venue lists)");
+    assert_eq!(ranking(&c, "storage"), ranked_before, "ranked_at untouched");
+    assert_eq!(ranking(&c, "oracle"), oracle_before.0, "the failed fetch keeps the ranking");
+    assert_ne!(row_text(&c, "oracle", "updated_at"), oracle_before.1, "the availability change moved updated_at");
+    assert_eq!(row_text(&c, "oracle", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":3}"#));
+}
+
+/// Takeover of a 2.x CoinGecko install (D-INDEX-UNATTESTED-HELD): Rails' 10-coin row holds the bot stale and is never composed;
+/// the woken run ranks it, and the bot is fresh.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rails_coingecko_row_is_held_until_the_job_ranks_it() {
+    use deltabadger::engine::{index, model, staleness};
+    let coins = twelve();
+    let (d, c, s) = cg_install(&coins.iter().map(String::as_str).collect::<Vec<_>>());
+    rails_category_row(&c, "layer-1", &coins[..10].iter().map(String::as_str).collect::<Vec<_>>());
+    let bot = model::load_bot(&c, cg_bot(&c, &s, "layer-1", 1)).unwrap();
+    let now = at(CG_NOW);
+    // As Rails' last pull left the fence (a takeover keeps it): only the ranking holds the bot.
+    deltabadger::engine::provider::record(&c, &deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap(), now).unwrap();
+    assert!(index::ranked_row(&c, "layer-1").unwrap().is_none(), "Rails' row is never selected");
+    assert!(staleness::reference_stale(&c, &bot, now).unwrap().is_some(), "held stale");
+    assert!(index::ranking_wanted(&c, &bot, now).unwrap(), "and wanted: the tick wakes the job");
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("layer-1", "L1")]))
+        .reply(&cat_key("layer-1"), 200, members(&coins.iter().map(|id| (id.as_str(), 2.0)).collect::<Vec<_>>()));
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "layer-1"], "not in today's slice: asked as followed");
+    let c = reopen(&d);
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    let r = index::ranked_row(&c, "layer-1").unwrap().expect("ranked");
+    assert_eq!((r.provider.as_str(), serde_json::from_str::<Vec<String>>(r.top_coins.as_deref().unwrap()).unwrap().len()), ("coingecko", 12));
+    assert!(staleness::reference_stale(&c, &bot, now).unwrap().is_none(), "fresh once ranked");
+}
+
+/// The Rust half of the composition check (decisions.rb cannot script CoinGecko beneath a venue tick): the pass's stored
+/// ranking of an answer composes the members and weights Rails' live composition takes from the same answer (its own caps,
+/// to_f; the top N by cap, weighed by cap: index_allocatable.rb:56-123), never the assets' caps.
+#[tokio::test(flavor = "current_thread")]
+async fn a_category_bot_composes_from_the_stored_answer_as_rails_composes_it_live() {
+    use deltabadger::engine::{index, model};
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c", "coin-d"]);
+    c.execute("UPDATE assets SET market_cap = 1 WHERE external_id LIKE 'coin-%'", []).unwrap(); // conflicting local caps: never read
+    let id = cg_bot(&c, &s, "layer-1", 1);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("layer-1", "L1")]))
+        .reply(&cat_key("layer-1"), 200, members(&[("coin-a", 300.0), ("no-asset", 250.0), ("coin-b", 200.0), ("coin-c", 100.0), ("coin-d", 50.0)]));
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    let c = reopen(&d);
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    let venue = deltabadger::venue::fake::FakeVenue::new().ticker("COIN-AEUR", "10", "10", "10").ticker("COIN-BEUR", "10", "10", "10")
+        .ticker("COIN-CEUR", "10", "10", "10").ticker("COIN-DEUR", "10", "10", "10");
+    let bot = model::load_bot(&c, id).unwrap();
+    index::refresh_composition(&c, &venue, &bot, &FixedClock(at(CG_NOW)), &Default::default()).await.unwrap().unwrap();
+    let mut s = c.prepare("SELECT a.external_id, m.target_allocation FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 AND m.in_index = 1 ORDER BY m.target_allocation DESC").unwrap();
+    let got: Vec<(String, f64)> = s.query_map([id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    let names: Vec<&str> = got.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(names, ["coin-a", "coin-b", "coin-c"], "the top 3 by the answer's caps");
+    // Rails' blend rounds each target to 6 places.
+    for ((_, w), cap) in got.iter().zip([300.0, 200.0, 100.0]) { assert!((w - cap / 600.0).abs() < 1e-6, "{got:?}"); }
+}
+
+/// The data-api pull stamps every row it upserts `data-api` under its captured fingerprint (the recorded `indices-import`
+/// payload: source 'coingecko' rows included), so they compose on data-api; a Rails row it does not ship stays unattested.
+#[tokio::test(flavor = "current_thread")]
+async fn the_data_api_pull_ranks_what_it_imports_and_nothing_else() {
+    use deltabadger::engine::{index, provider};
+    let (d, o, s) = common::install();
+    let c = o.primary;
+    let bot = seed::index_bot(&c, &s, "layer-1", 3, 0.0, false); // a data-api install
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap();
+    rails_category_row(&c, "rails-only", &["bitcoin"]);
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/indices", 200, json!({ "data": [
+        { "external_id": "nasdaq-100", "source": "deltabadger", "name": "Nasdaq 100", "top_coins": ["AAPL.US"], "weights": { "AAPL.US": 0.08 } },
+        { "external_id": "layer-1", "source": "coingecko", "name": "Layer 1", "top_coins": ["bitcoin"], "weights": { "bitcoin": 1.0 } } ] }));
+    let api = DataApi::new(Config { url: "https://data.invalid".into(), token: "scripted-token".into() }, t.clone(), t.clone());
+    assert_eq!(reference::run_once(reference::INDICES, Some(api), Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(CG_NOW)), wakers: Default::default() }).await, Outcome::Done);
+    let c = reopen(&d);
+    provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    let fp = provider::fingerprint(&c).unwrap().unwrap();
+    let ranked: Vec<(String, String, String)> = c.prepare("SELECT i.external_id, r.provider, r.fingerprint FROM rust_index_rankings r JOIN indices i ON i.id = r.index_id ORDER BY i.external_id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(ranked, [("layer-1".to_string(), "data-api".to_string(), fp.clone()), ("nasdaq-100".into(), "data-api".into(), fp)]);
+    assert_eq!(index::ranked_row(&c, "layer-1").unwrap().map(|r| r.source), Some(Some("coingecko".into())));
+    assert!(index::ranked_row(&c, "rails-only").unwrap().is_none());
+    let bot = deltabadger::engine::model::load_bot(&c, bot).unwrap();
+    assert!(deltabadger::engine::staleness::ranking_stale(&c, &bot, at(CG_NOW)).unwrap().is_none(), "the imported row composes");
+}
+
+/// Per-ranking fingerprint: a same-slot key change with one followed category fetched and one failing: the failed one stays
+/// unselected (its ranking is the old configuration's), the retry asks only it.
+#[tokio::test(flavor = "current_thread")]
+async fn after_a_key_change_a_failed_category_stays_unselected_and_the_retry_asks_only_it() {
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    cg_bot(&c, &s, "oracle", 1);
+    cg_bot(&c, &s, "storage", 1);
+    let three = members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]);
+    let feed = json!([category("oracle", "O"), category("storage", "S")]);
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed.clone()).reply(&cat_key("oracle"), 200, three.clone()).reply(&cat_key("storage"), 200, three.clone());
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    deltabadger::app_config::set(&reopen(&d), &seed::cipher(), "coingecko_api_key", "cg-other-key", at("2026-10-02T12:00:00Z")).unwrap();
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed.clone()).reply(&cat_key("oracle"), 200, three.clone()).reply(&cat_key("storage"), 500, json!({}));
+    assert!(matches!(cg_run(&d, &t, "2026-10-02T12:01:00Z").await, Outcome::Transient(_)));
+    assert_eq!(index_ranked(&reopen(&d), "oracle"), Some("coingecko".into()));
+    assert_eq!(index_ranked(&reopen(&d), "storage"), None, "the old key's ranking is never selected under the new one");
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, feed).reply(&cat_key("storage"), 200, three);
+    assert_eq!(cg_run(&d, &t, "2026-10-02T12:16:00Z").await, Outcome::Done);
+    assert_eq!(asked(&t), ["ping", "categories", "storage"]);
+    assert_eq!(index_ranked(&reopen(&d), "storage"), Some("coingecko".into()));
 }

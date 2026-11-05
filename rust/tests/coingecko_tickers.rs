@@ -200,7 +200,7 @@ async fn setup_sync_runs_tickers_first_and_stops_on_a_closed_quota() {
     cats.set(KRAKEN, Ok(vec![row("XY", "X", "Y")])).set(COINBASE, Err("Coinbase: HTTP 500".into()));
     let t = ScriptedTransport::default();
     demo(&t).reply(&crawl_key("kraken", 1), 200, json!({ "tickers": [gecko("X", "coin-x", "Y"), gecko("Y", "coin-y", "X")] }))
-        .reply("GET /api/v3/coins/markets", 200, json!([]));
+        .reply("GET /api/v3/coins/markets", 200, json!([])).reply("GET /api/v3/coins/categories", 200, json!([]));
     let db = Db::new(c, seed::cipher());
     setup_sync::request(&reopen(&d), at(NOW)).unwrap();
     let job = setup_sync::SeedAndSync::new(&|_| None, DataApi::live).with_coingecko(clients(&t)).with_catalogues(cats.seam());
@@ -208,7 +208,7 @@ async fn setup_sync_runs_tickers_first_and_stops_on_a_closed_quota() {
     job.run(cx(&db, NOW), vec![]).await;
     let keys = cg_requests(&t);
     assert_eq!(keys[0], crawl_key("kraken", 1), "tickers first: {keys:?}");
-    assert!(keys[1..].iter().all(|k| k.starts_with("GET /api/v3/coins/markets")) && keys.len() >= 2, "then assets and indices: {keys:?}");
+    assert!(keys[1..].iter().all(|k| k.starts_with("GET /api/v3/coins/")) && keys.len() >= 2, "then assets and indices: {keys:?}");
     assert_eq!(count(&reopen(&d), "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_job.crawl_claim.%'"), 0, "forced: no claim");
     assert_eq!(state::read(&reopen(&d), reference::TICKERS, None).unwrap().last_error.as_deref().map(|e| e.contains("coinbase")), Some(true));
 

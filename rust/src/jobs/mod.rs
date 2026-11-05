@@ -16,6 +16,7 @@
 //! time, wakes and record (`rust_job.<name>:<scope>`).
 pub mod app_update;
 pub mod asset_color;
+pub mod categories;
 pub mod coingecko;
 pub mod data_api;
 pub mod import;

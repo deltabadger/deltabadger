@@ -161,6 +161,9 @@ impl<T: Transport> CoinGecko<T> {
         self.get("/coins/markets", &q).await
     }
 
+    /// Clients::Coingecko#categories (:302-310): every category with its market data, by market cap.
+    pub async fn categories(&self) -> Result<Value, ApiError> { self.get("/coins/categories", &[("order", "market_cap_desc".into())]).await }
+
     /// Clients::Coingecko#coin_data_by_id (:117-140) as Coingecko#get_coin_data_by_id asks it: market data only.
     pub async fn coin(&self, id: &str) -> Result<Value, ApiError> {
         let q = [("community_data", "false"), ("developer_data", "false"), ("localization", "false"), ("market_data", "true"),
@@ -204,6 +207,7 @@ pub trait Api {
     fn markets<'a>(&'a self, ids: Option<&'a [String]>, category: Option<&'a str>, per_page: usize, page: usize) -> Fut<'a>;
     fn coin<'a>(&'a self, id: &'a str) -> Fut<'a>;
     fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> Fut<'a>;
+    fn categories(&self) -> Fut<'_>;
 }
 
 impl<T: Transport> Api for CoinGecko<T> {
@@ -212,6 +216,7 @@ impl<T: Transport> Api for CoinGecko<T> {
     }
     fn coin<'a>(&'a self, id: &'a str) -> Fut<'a> { Box::pin(CoinGecko::coin(self, id)) }
     fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> Fut<'a> { Box::pin(CoinGecko::exchange_tickers(self, id, page)) }
+    fn categories(&self) -> Fut<'_> { Box::pin(CoinGecko::categories(self)) }
 }
 
 /// Why a venue's crawl found nothing.
