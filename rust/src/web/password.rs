@@ -16,6 +16,12 @@
 //! - D-RESET-UPDATE-STALE-TOKEN: an unknown or expired token on submit goes back to the request page with the expiry
 //!   message, as the link itself does (Rails re-renders the form with an error it never shows).
 //! - D-ACCOUNT-MAIL-OFF-REQUEST (settings::mail): the answer never waits for or depends on the mail.
+//!
+//! `deltabadger reset-password` (PLAN-A16b) writes through `reset_by_owner`, sharing the reset's write (`set_password`):
+//! - D-RESET-PASSWORD-COMMAND: a local command sets a password for whoever can run commands in the install (Rails has
+//!   none). It needs no token and no mail, and has no web route.
+//! - D-RESET-COMMAND-UNLOCKS: it lifts a failed-attempts lock (Devise's reset doesn't, under `unlock_strategy :time`).
+//! - D-RESET-COMMAND-CONFIRMS: it confirms an unconfirmed account (an install with no mail can't send the link).
 use super::auth::{self, User};
 use super::layout::{self, Ctx, Page};
 use super::registration::{registration_open, Links};
@@ -225,8 +231,7 @@ pub async fn update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             }
             user.reset_failed_attempts(&tx, now)?;
         }
-        tx.execute("UPDATE users SET encrypted_password = ?1, reset_password_token = NULL, reset_password_sent_at = NULL, updated_at = ?2 WHERE id = ?3",
-                   (&hash, format_time(now), user.id))?;
+        set_password(&tx, user.id, &hash, now)?;
         tx.commit()?;
         Ok(Decision::Changed)
     }).await?;
@@ -239,4 +244,45 @@ pub async fn update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             Ok(layout::redirect(StatusCode::SEE_OTHER, &ctx.path("/login")))
         }
     }
+}
+
+/// The reset's write: the new hash (a new salt, so every session of the account ends: auth::current_user), and the reset
+/// token and its time cleared, so a mailed link dies with it.
+fn set_password(c: &Connection, user_id: i64, hash: &str, now: DateTime<Utc>) -> Result<(), WebError> {
+    c.execute("UPDATE users SET encrypted_password = ?1, reset_password_token = NULL, reset_password_sent_at = NULL, updated_at = ?2 WHERE id = ?3",
+              (hash, format_time(now), user_id))?;
+    Ok(())
+}
+
+/// What `reset_by_owner` did.
+#[derive(Debug, PartialEq, Eq)]
+pub enum OwnerReset {
+    /// `confirmed_now`: the account was unconfirmed and is confirmed now. `two_factor`: sign-in still asks for a code.
+    Changed { confirmed_now: bool, two_factor: bool },
+    /// The account with that id no longer has that address (deleted, or the address moved): nothing was written.
+    AccountChanged,
+}
+
+/// The account an address signs in as (sign-in's normalisation), for `deltabadger reset-password`.
+pub fn owner_lookup(c: &Connection, email: &str) -> Result<Option<i64>, WebError> {
+    Ok(User::find_by_email(c, email)?.map(|user| user.id))
+}
+
+/// Why the web form would refuse `password`, in English; `None` when it accepts it.
+pub fn policy_message(password: &str) -> Option<String> {
+    password_refusal(super::i18n::DEFAULT, password, None).and_then(|refusal| refusal.password)
+}
+
+/// `deltabadger reset-password`'s write, in one transaction: the reset's write, the lock lifted (D-RESET-COMMAND-UNLOCKS),
+/// the account confirmed if it isn't (D-RESET-COMMAND-CONFIRMS; a pending address change is left as it is) and Rails'
+/// remember-me time cleared. Only when the row `user_id` still has `email`. Two-factor is left on. `hash` is computed by the
+/// caller, outside the transaction.
+pub fn reset_by_owner(c: &Connection, user_id: i64, email: &str, hash: &str, now: DateTime<Utc>) -> Result<OwnerReset, WebError> {
+    let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+    let Some(mut user) = User::find_by_email(&tx, email)?.filter(|user| user.id == user_id) else { return Ok(OwnerReset::AccountChanged) };
+    set_password(&tx, user.id, hash, now)?;
+    if user.locked_at.is_some() || user.failed_attempts != 0 { user.unlock(&tx, now)? }
+    tx.execute("UPDATE users SET confirmed_at = COALESCE(confirmed_at, ?1), remember_created_at = NULL WHERE id = ?2", (format_time(now), user.id))?;
+    tx.commit()?;
+    Ok(OwnerReset::Changed { confirmed_now: !user.confirmed, two_factor: user.otp_enabled })
 }
