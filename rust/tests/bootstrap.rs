@@ -204,6 +204,9 @@ fn an_uninterrupted_bootstrap_makes_two_files_owned_by_rust() {
     let c = Connection::open(dir.path().join(PRIMARY)).unwrap();
     assert!(c.query_row("SELECT count(*) FROM tickers", [], |r| r.get::<_, i64>(0)).unwrap() > 10_000, "seeded");
     assert_eq!(c.query_row("SELECT count(*) FROM users", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "no user: /setup");
+    // A17-4 (D-INDEX-UNATTESTED-HELD): the seed's indices are no ranking of this engine's; the first pull ranks them.
+    assert!(c.query_row("SELECT count(*) FROM indices", [], |r| r.get::<_, i64>(0)).unwrap() > 100);
+    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "the seed ranks nothing");
 }
 
 #[test]

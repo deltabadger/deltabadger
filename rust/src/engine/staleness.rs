@@ -219,9 +219,6 @@ fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> 
 /// The tick (tick.rs). Once the job has a record (seeded at the takeover), only its completed runs count: no complete
 /// refresh at all is stale. Before any takeover, the door's verdict (Unknown is not stale).
 fn source_stale(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
-    // An absent ranking is the composition step's explicit "Index not found" failure.
-    // Preserve that activity line instead of parking the bot without an execution result.
-    if s.name == TOP_COINS.name && column_at(c,s,None)?.is_none() { return Ok(None); }
     Ok(match record_at(c, s)? {
         Some(Some(at)) => judge(c, s, at, now),
         Some(None) => Some(Stale { source: s.name, message: format!(
@@ -294,25 +291,52 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineE
 }
 
 
+/// The source name of an index bot's ranking refusal (`ranking_stale`).
+pub const RANKING_SOURCE: &str = "Index ranking";
+
+/// D-INDEX-FRESH-PER-ROW: an index bot's ranking is fresh by the row it composes from (index::ranked_row), ranked within
+/// 49 h, whatever the INDICES job's record or the table's other rows say. A row with the followed id that none usable
+/// selects (unattested, another provider's or configuration's, or old) is Stale; no row with the id at all is the
+/// composition's own "Index not found" (None here).
+pub fn ranking_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    if bot.bot_type != "Bots::DcaIndex" { return Ok(None); }
+    let id = bot.index_external_id();
+    // D-INDEX-RETIRED-KEPT: a retired index is never refreshed; the composition keeps or refuses (index::RETIRED).
+    if super::index::retired(c, id)? { return Ok(None); }
+    if !c.query_row("SELECT EXISTS (SELECT 1 FROM indices WHERE external_id = ?1)", [id], |r| r.get::<_, bool>(0))? { return Ok(None); }
+    let why = match super::index::ranked_row(c, id)? {
+        Some(r) if super::index::usable(&r, now) => return Ok(None),
+        Some(r) => format!("was ranked at {}, over its {}h bound", r.ranked_at, bound_secs(24) / 3600),
+        None => "has no ranking by this install's index provider under its current configuration".into(),
+    };
+    Ok(Some(Stale { source: RANKING_SOURCE, message: format!(
+        "reference data stale: the index {id} {why}; refreshed by {}; the bot does not tick until it is ranked again", INDICES.refreshed_by) }))
+}
+
 /// Only sources this bot sizes from; index candidates can include both stocks and crypto. A crypto venue's index bot
-/// sizes from the index rows and the crypto market caps; its venue tickers are not refused on (VENUE_TICKERS).
+/// sizes from its ranking (`ranking_stale`, never a source here) and, on data-api, the crypto market caps; a CoinGecko
+/// ranking carries its own caps. Its venue tickers are not refused on (VENUE_TICKERS).
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
     let index = bot.bot_type == "Bots::DcaIndex";
     // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
-    let ranking = if bot.index_external_id() == "top-coins" { &TOP_COINS } else { &INDICES };
-    let direct_top = index && bot.index_external_id() == "top-coins" && super::provider::coingecko_key(c)?.is_some();
+    // A retired index's bot keeps its stored weights (D-INDEX-RETIRED-KEPT) and reads no market cap either.
+    let own_caps = index && (super::provider::coingecko_key(c)?.is_some() || super::index::retired(c, bot.index_external_id())?);
     let market_cap = bot.bot_type == "Bots::DcaMultiAsset" && bot.weighting() == "market_cap";
     let crypto_member = || -> Result<bool, EngineError> {
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
         Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE category = 'Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))", [ids], |r| r.get(0))?)
     };
     let venue = model::exchange_type(c, bot)?;
-    if venue == "Exchanges::Ibkr" { return Ok(if index { vec![&IBKR_TICKERS, ranking] } else { vec![&IBKR_TICKERS] }); }
+    if venue == "Exchanges::Ibkr" { return Ok(vec![&IBKR_TICKERS]); }
     if venue != "Exchanges::Alpaca" {
-        return Ok(if direct_top { vec![ranking] } else if index { vec![ranking, &CRYPTO_ASSETS] } else if market_cap && crypto_member()? { vec![&CRYPTO_ASSETS] } else { vec![] });
+        return Ok(if own_caps { vec![] } else if index || (market_cap && crypto_member()?) { vec![&CRYPTO_ASSETS] } else { vec![] });
     }
     let mut sources = vec![];
-    let (stocks, crypto): (bool, bool) = if index {
+    let (stocks, crypto): (bool, bool) = if index && super::index::retired(c, bot.index_external_id())? {
+        // D-INDEX-RETIRED-KEPT: no ranking any more; the bot trades the members it holds, so their catalogues stay judged.
+        c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
+                     FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 AND m.in_index = 1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?
+    } else if index {
         let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;
         c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
                      FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 \
@@ -325,8 +349,7 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     };
     if stocks { sources.push(&ALPACA_STOCK_TICKERS); }
     if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
-    if index { sources.push(ranking); }
-    if (index || market_cap) && crypto && !direct_top { sources.push(&CRYPTO_ASSETS); }
+    if (index || market_cap) && crypto && !own_caps { sources.push(&CRYPTO_ASSETS); }
     Ok(sources)
 }
 
@@ -360,7 +383,8 @@ pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Opt
 pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
     // A restart must be able to start the index refresher. Runtime stale() still refuses all orders.
     if let Some(s) = super::provider::stale(c, bot)? { return Ok(Verdict::Unknown(s)); }
-    let mut unknown = None;
+    // Only this engine's own pull or pass ranks an index row (a takeover clears every ranking): noted, never refused.
+    let mut unknown = ranking_stale(c, bot, now)?;
     for source in bot_sources(c, bot)? {
         match source_verdict(c, bot, source, now)? {
             Verdict::Stale(s) => return Ok(Verdict::Stale(s)),
@@ -382,6 +406,7 @@ pub fn stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Sta
 /// never waited for its sync (D-UPGRADE-FRESHNESS-AT-TICK).
 pub fn reference_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     if let Some(s) = super::provider::stale(c, bot)? { return Ok(Some(s)); }
+    if let Some(s) = ranking_stale(c, bot, now)? { return Ok(Some(s)); }
     for source in bot_sources(c, bot)? { if let Some(s) = source_stale(c, bot, source, now)? { return Ok(Some(s)); } }
     Ok(None)
 }

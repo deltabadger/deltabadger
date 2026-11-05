@@ -1997,6 +1997,8 @@ async fn a_stock_and_an_index_copy_are_planned_with_stock_bodies_and_an_open_clo
         seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(aapl, 1.0)]));
         seed::insert_index(&o.primary, "nasdaq-100", &["MSFT.US", "AAPL.US"], &json!({ "MSFT.US": 3.1e12, "AAPL.US": 3.4e12 }));
         seed::index_bot(&o.primary, &s, "nasdaq-100", 2, 0.0, false);
+        // A Rails source holds no rankings (D-INDEX-UNATTESTED-HELD): the copy prices the row Rails reads all the same.
+        o.primary.execute("DELETE FROM rust_index_rankings", []).map_err(|e| format!("{e:?}"))?;
     }
     let tickers = json!({ "AAPL": { "quote": { "symbol": "AAPL", "quote": { "ap": 187.43 } }, "trade": { "symbol": "AAPL", "trade": { "p": 187.41 } } },
                           "MSFT": { "quote": { "symbol": "MSFT", "quote": { "ap": 401.25 } }, "trade": { "symbol": "MSFT", "trade": { "p": 401.2 } } } });
@@ -2418,7 +2420,7 @@ fn kraken_limit_under_costmin(rails_out: &serde_json::Value, rust_out: &serde_js
 /// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
-    let (_copies, outputs) = grid_outputs("grid-venue-index", 333).await;
+    let (_copies, outputs) = grid_outputs("grid-venue-index", 336).await;
     let mut failures = vec![];
     for (name, dir, rails_out, rust_out) in &outputs {
         if KRAKEN_LIMIT_COSTMIN.contains(&name.as_str()) {
@@ -2447,6 +2449,9 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
         if name.contains("-leaver") || name.contains("-member_unavailable-") || name.contains("index_sync_then_tick") {
             checks.push(pinned(exited, "mark a member out of the index"));
         }
+        // A17-4: Rails composed live from the scripted CoinGecko answer (and Rust from its stored ranking of it, compared above).
+        if name.contains("-coingecko_") { checks.push(pinned(seated == 3, "seat three members from the CoinGecko answer")); }
+        if name.contains("-coingecko_unlisted") { checks.push(pinned(!sent.iter().any(|p| p.starts_with("SOL")), "pass over the member Kraken does not list")); }
         if name.contains("-index_missing-") { checks.push(pinned(sent.is_empty() && errors == ["Index not found"], "fail with Index not found")); }
         if name.starts_with("vi-binance-top-") { checks.push(pinned(!sent.iter().any(|p| p == "USDTUSDT"), "skip the quote's own coin")); }
         if name == "vi-binance-top-fresh-market" { checks.push(pinned(seated == 3, "seat USDC beside BTC and ETH")); }

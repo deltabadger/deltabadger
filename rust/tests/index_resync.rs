@@ -487,6 +487,135 @@ async fn a_resync_waits_for_a_complete_refresh_after_a_provider_change() {
     let fingerprint = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
     deltabadger::engine::provider::record(&c, &fingerprint, at(NOW)).unwrap();
     step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert!(r.members().is_empty() && r.marker().is_some(), "D-INDEX-UNATTESTED-HELD: the row is still the previous configuration's ranking");
+    seed::rank_indices(&c, at(NOW));
+    step(&mut e, "2026-09-03T15:02:00Z").await;
     assert_eq!(r.members(), ["AAA", "BBB", "CCC"]);
     assert_eq!(r.marker(), None);
+}
+
+// ---- A17-4: the ranking a resync or a tick needs, and the INDICES job's wake ----
+
+fn ranking_wakes(rx: &mut tokio::sync::mpsc::UnboundedReceiver<EngineEvent>) -> Vec<String> {
+    let mut out = vec![];
+    while let Ok(EngineEvent::RankingMissing { external_id }) = rx.try_recv() { out.push(external_id); }
+    out
+}
+fn wants_ranking(e: &EngineEvent) -> bool { matches!(e, EngineEvent::RankingMissing { .. }) }
+
+/// Contract item 2 (r2 P1): a stopped bot whose index has no usable ranking (here: a Rails row, or after a takeover) is not
+/// resynced; its marker stays, the INDICES job is woken once per slot, and the resync applies once the ranking lands.
+#[tokio::test(flavor = "current_thread")]
+async fn a_resync_of_an_unranked_index_is_held_with_its_marker_and_wakes_the_ranking_once() {
+    let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
+    r.c().execute("DELETE FROM rust_index_rankings", []).unwrap();
+    r.mark();
+    let mut e = r.engine();
+    let mut rx = e.subscribe_to(wants_ranking);
+    step(&mut e, NOW).await;
+    assert!(r.members().is_empty() && r.marker().is_some(), "held: no membership, the marker kept");
+    assert_eq!(ranking_wakes(&mut rx), ["nasdaq-100"]);
+    step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert!(r.members().is_empty() && r.marker().is_some());
+    assert!(ranking_wakes(&mut rx).is_empty(), "one wake per (index, configuration, slot)");
+    // The woken run ranks it and marks every index bot (mark_resync_all): the resync applies.
+    let c = r.c();
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    seed::rank_indices(&c, at("2026-09-03T15:01:30Z"));
+    index::mark_resync_all(&c, at("2026-09-03T15:01:30Z")).unwrap();
+    step(&mut e, "2026-09-03T15:02:00Z").await;
+    assert_eq!(r.members(), ["AAA", "BBB", "CCC"]);
+    assert_eq!(r.marker(), None);
+    assert!(ranking_wakes(&mut rx).is_empty(), "nothing wanted any more");
+}
+
+/// Wake dedup: a configuration change in the slot (the fingerprint moves) wakes again, though provider::stale refuses the
+/// resync first; the next slot wakes again; an absent row (the composition's "Index not found") wakes too.
+#[tokio::test(flavor = "current_thread")]
+async fn the_ranking_wake_is_per_configuration_and_slot_and_precedes_every_refusal() {
+    let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
+    r.c().execute("DELETE FROM rust_index_rankings", []).unwrap();
+    r.mark();
+    let mut e = r.engine();
+    let mut rx = e.subscribe_to(wants_ranking);
+    step(&mut e, NOW).await;
+    assert_eq!(ranking_wakes(&mut rx), ["nasdaq-100"]);
+    deltabadger::app_config::set_plain(&r.c(), "market_data_token", "rotated-token", at(NOW)).unwrap();
+    step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert_eq!(ranking_wakes(&mut rx), ["nasdaq-100"], "a same-slot configuration change wakes again, before provider::stale's refusal");
+    assert!(r.marker().is_some());
+    step(&mut e, "2026-09-03T16:00:00Z").await;
+    assert!(ranking_wakes(&mut rx).is_empty());
+    step(&mut e, "2026-09-04T10:31:00Z").await;
+    assert_eq!(ranking_wakes(&mut rx), ["nasdaq-100"], "the next slot");
+    // A bot switched to an index with no row at all: woken, and the resync ends on Index not found (the marker goes).
+    let c = r.c();
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    deltabadger::engine::provider::record(&c, &deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap(), at(NOW)).unwrap();
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.index_category_id', 'absent-index') WHERE id = ?1", [r.id]).unwrap();
+    index::mark_resync(&c, r.id, at("2026-09-04T10:31:30Z")).unwrap();
+    step(&mut e, "2026-09-04T10:32:00Z").await;
+    assert_eq!(ranking_wakes(&mut rx), ["absent-index"]);
+    assert_eq!(r.marker(), None, "Index not found: the job completes");
+}
+
+/// The tick: a running index bot with no usable ranking is refused stale, and the wake goes out once per slot however often
+/// it is retried; it buys once the ranking lands.
+#[tokio::test(flavor = "current_thread")]
+async fn a_held_tick_wakes_the_ranking_once_per_slot_and_buys_once_ranked() {
+    let r = Rig::with(true, [100.0, 200.0, 300.0, 400.0, 500.0], json!({
+        "POST /v2/orders": (1..=3).map(|n| json!({ "status": 200, "body": { "id": format!("OTX-{n}"), "status": "accepted" } })).collect::<Vec<_>>(),
+        "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
+        "GET /v2/positions": ok(json!([])),
+    }));
+    let c = r.c();
+    c.execute("UPDATE bots SET status = 1 WHERE id = ?1", [r.id]).unwrap();
+    seed::fresh_stock_jobs(&c, at(NOW));
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap();
+    let mut e = r.engine();
+    let mut rx = e.subscribe_to(wants_ranking);
+    step(&mut e, NOW).await;
+    assert_eq!(ranking_wakes(&mut rx), ["nasdaq-100"]);
+    step(&mut e, "2026-09-03T15:06:00Z").await;
+    step(&mut e, "2026-09-03T15:12:00Z").await;
+    assert!(ranking_wakes(&mut rx).is_empty(), "retried ticks in the slot wake nothing more");
+    assert!(r.t.posted_orders().is_empty(), "held: nothing bought");
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    seed::rank_indices(&c, at("2026-09-03T15:12:30Z"));
+    step(&mut e, "2026-09-03T15:18:00Z").await;
+    assert_eq!(r.t.posted_orders().len(), 3, "ranked: the members are bought");
+    assert!(ranking_wakes(&mut rx).is_empty());
+}
+
+/// A17-4 r18: a retirement that lands during a resync's probes writes no membership; the next pass, with no composition of
+/// this engine's own to keep, ends the job on "Index retired" and nothing is traded.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retirement_during_a_resyncs_probes_writes_nothing() {
+    let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
+    r.mark();
+    *r.sql.borrow_mut() = Some("INSERT INTO rust_index_retired VALUES ('nasdaq-100', 'data-api', '2026-09-03T15:00:00Z')".into());
+    let mut e = r.engine();
+    step(&mut e, NOW).await;
+    assert!(r.members().is_empty(), "nothing written from a ranking retired mid-run");
+    step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert!(r.members().is_empty() && r.marker().is_none(), "no provenance: Index retired, the job ends");
+    assert!(r.t.posted_orders().is_empty());
+}
+
+/// A17-4 r18: a resync of a retired index this engine composed keeps the membership and ends the job, unwoken.
+#[tokio::test(flavor = "current_thread")]
+async fn a_resync_of_a_retired_index_it_composed_keeps_the_membership() {
+    let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
+    r.mark();
+    let mut e = r.engine();
+    let mut rx = e.subscribe_to(wants_ranking);
+    step(&mut e, NOW).await;
+    assert_eq!(r.members(), ["AAA", "BBB", "CCC"]);
+    let c = r.c();
+    c.execute("INSERT INTO rust_index_retired VALUES ('nasdaq-100', 'data-api', '2026-09-03T15:00:30Z')", []).unwrap();
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap();
+    index::mark_resync(&c, r.id, at("2026-09-03T15:00:40Z")).unwrap();
+    step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert_eq!((r.members(), r.marker()), (vec!["AAA".to_string(), "BBB".into(), "CCC".into()], None));
+    assert!(ranking_wakes(&mut rx).is_empty(), "a retired index is not woken");
 }

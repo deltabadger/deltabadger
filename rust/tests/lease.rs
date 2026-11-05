@@ -177,3 +177,57 @@ fn a_claim_stamps_a_new_ownership_and_a_restart_reopens_nothing() {
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T11:00:00Z")).unwrap(), Claim::AfterCrash));
     assert_eq!(taken(&o).as_deref(), Some("2026-10-01T11:00:00.000Z"), "the restart closes the open window");
 }
+
+/// A17-4 (contract item 1): a claim that starts a new ownership (from Rails, after a handback) deletes every index ranking in
+/// its own transaction, since Rails rewrote `indices` rows in place while it owned the install; an ordinary restart keeps
+/// them. A claim on a copy no Rust migration ran on has no rankings table and claims all the same.
+#[test]
+fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    let l = lease::lock(&p, t0()).unwrap();
+    let o = store::open(&p).unwrap();
+    let rankings = || o.primary.query_row("SELECT count(*) FROM rust_index_rankings", [], |r| r.get::<_, i64>(0)).unwrap();
+    let rank = || {
+        o.primary.execute("INSERT OR IGNORE INTO indices (external_id, source, name, created_at, updated_at) VALUES ('layer-1', 'coingecko', 'Layer 1', '2026-01-01', '2026-01-01')", []).unwrap();
+        let id: i64 = o.primary.query_row("SELECT id FROM indices WHERE external_id = 'layer-1'", [], |r| r.get(0)).unwrap();
+        deltabadger::engine::index::record_ranking(&o.primary, id, "coingecko", "a-fingerprint", t0()).unwrap();
+    };
+    rank();
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails));
+    assert_eq!(rankings(), 0, "from Rails: cleared");
+    rank();
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
+    assert_eq!(rankings(), 1, "an ordinary restart keeps them");
+    lease::hand_back(&l, &o.primary, &cipher(), t0()).unwrap();
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0() + Duration::seconds(1)).unwrap(), Claim::AfterHandback));
+    assert_eq!(rankings(), 0, "after a handback: cleared");
+    drop(o);
+    drop(l);
+    let bare = common::rails_install_unmigrated();
+    let p = paths(bare.path());
+    let l = lease::lock(&p, t0()).unwrap();
+    let c = rusqlite::Connection::open(bare.path().join("production.sqlite3")).unwrap();
+    assert!(matches!(lease::claim(&l, &c, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails), "no rankings table: claimed all the same");
+}
+
+/// A17-4 r18: a new ownership removes every composition marker (Rails may have changed membership) and keeps retirements
+/// (the provider's catalogue, not a row Rails rewrites).
+#[test]
+fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    let l = lease::lock(&p, t0()).unwrap();
+    let o = store::open(&p).unwrap();
+    o.primary.execute("INSERT INTO users (id, email, encrypted_password, name, created_at, updated_at) VALUES (1, 'o@example.com', 'x', 'O', '2026-01-01', '2026-01-01')", []).unwrap();
+    o.primary.execute("INSERT INTO bots (type, status, user_id, settings, transient_data, created_at, updated_at) VALUES ('Bots::DcaIndex', 2, 1, '{}', '{\"rust_composed_index\":\"layer-1\",\"n\":1}', '2026-01-01', '2026-01-01')", []).unwrap();
+    o.primary.execute("INSERT INTO rust_index_retired VALUES ('layer-1', 'coingecko', '2026-09-01T00:00:00Z')", []).unwrap();
+    let marker = || o.primary.query_row("SELECT json_extract(transient_data, '$.rust_composed_index') FROM bots", [], |r| r.get::<_, Option<String>>(0)).unwrap();
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails));
+    assert_eq!(marker(), None, "removed");
+    assert_eq!(o.primary.query_row("SELECT json_extract(transient_data, '$.n') FROM bots", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "the rest kept");
+    assert_eq!(o.primary.query_row("SELECT count(*) FROM rust_index_retired", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "the retirement kept");
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'layer-1')", []).unwrap();
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
+    assert_eq!(marker().as_deref(), Some("layer-1"), "an ordinary restart keeps it");
+}

@@ -324,6 +324,14 @@ fn row_difference(context: &str, before: &Value, after: &Value) -> Option<String
     None
 }
 
+/// D-INDEX-UNATTESTED-HELD: the fixture's index rows as this engine's own pull ranks them (parity::rank_fixture_indices),
+/// before the resync step's snapshot.
+fn rank_fixture(dir: &std::path::Path, cipher: &deltabadger::crypto::Cipher, now: chrono::DateTime<chrono::Utc>) {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    deltabadger::engine::provider::bind(&c, cipher, &|_| None).unwrap();
+    deltabadger::parity::rank_fixture_indices(&c, now).unwrap();
+}
+
 fn action_snapshot_difference(context: &str, rails: &Value, rust: &Value) -> Option<String> {
     for (side, response) in [("Rails", rails), ("Rust", rust)] {
         for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
@@ -549,6 +557,7 @@ async fn run(dir: &Path) -> Value {
         };
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
+        if step["resync"] == true { rank_fixture(dir, &app.cipher, now); }
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let woken = app.job_wakers().map_or(0, |jobs| jobs.pending().len());
         // `raw_body`: a body sent as it is, whatever the method (pages.rb hands it to Rails unparsed).
@@ -2018,6 +2027,12 @@ fn without_counters(bot: &mut Value) {
         let (from, to) = if text[..start].ends_with(',') { (start - 1, end) } else if text[end..].starts_with(',') { (start, end + 1) } else { (start, end) };
         text.replace_range(from..to, "");
     }
+    // A17-4 r18: the composition marker, a plain string (engine::index::COMPOSED_KEY).
+    if let Some(start) = text.find("\"rust_composed_index\":\"") {
+        let end = start + 23 + text[start + 23..].find('"').unwrap() + 1;
+        let (from, to) = if text[..start].ends_with(',') { (start - 1, end) } else if text[end..].starts_with(',') { (start, end + 1) } else { (start, end) };
+        text.replace_range(from..to, "");
+    }
     for counter in ["run_generation", "tick_generation"] {
         let Some(start) = text.find(&format!("\"{counter}\":")) else { continue };
         let end = start + text[start..].find([',', '}']).unwrap();
@@ -2175,7 +2190,8 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             else { Ok(()) }
         }
         "refused_web_" => {
-            // D-IDX-COINGECKO: a web write Rails makes and this build refuses by name, as the flash Rails prepends for a
+            // D-IDX-COINGECKO (an install with no provider: neither data-api nor a CoinGecko key; A17-4 admits a keyed
+            // CoinGecko install): a web write Rails makes and this build refuses by name, as the flash Rails prepends for a
             // refusal (422 `engine.write_refused`), having written nothing.
             let unchanged = rust_last["rows_before"] == rust_last["rows_after"] && rust_last["other_rows_before"] == rust_last["other_rows_after"];
             if !rails_last["status"].as_u64().is_some_and(|s| (200..300).contains(&s)) { Err(format!("Rails now refuses ({}): drop or rename this scenario", rails_last["status"])) }
@@ -3230,6 +3246,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
     for (step, recorded) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
         now += chrono::Duration::seconds(step["advance"].as_i64().unwrap_or(0));
         clock.set(now);
+        if step["resync"] == true { rank_fixture(&dir, &app.cipher, now); }
         let before = action_rows(&dir, &app.cipher).unwrap();
         let headers: Vec<_> = step["headers"].as_object().unwrap().iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect();
         let form: Option<Vec<_>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());

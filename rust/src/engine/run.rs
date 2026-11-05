@@ -81,10 +81,16 @@ pub struct Resyncs {
     retry: HashMap<i64, (u32, i64)>,
     /// Bots whose pending resync is left to Rails (outside this engine's slice) or keeps failing here: logged once.
     logged: HashSet<i64>,
+    /// The RankingMissing wakes sent in this process (index::ranking_wake), by the tick and the resync alike.
+    ranking_sent: HashSet<super::index::WakeKey>,
+    /// The RankingMissing wakes a resync owes, sent by `run_resyncs` once it returns.
+    ranking_owed: Vec<String>,
 }
 impl Resyncs {
     /// When the bot's resync is tried again, µs, if it waits for a retry.
     pub fn retry_at(&self, id: i64) -> Option<i64> { self.retry.get(&id).map(|(_, at)| *at) }
+    /// The RankingMissing wakes owed since the last call (the followed external ids), for its caller to send.
+    pub fn take_ranking_wakes(&mut self) -> Vec<String> { std::mem::take(&mut self.ranking_owed) }
 }
 
 impl<F: VenueFactory> Engine<F> {
@@ -524,7 +530,9 @@ async fn run_resyncs<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake
     for (id, marker) in marked {
         if e.stopping() { break; }
         let Engine { primary, factory, cipher, prices, resyncs, .. } = &mut *e;
-        match resync_bot(primary, id, &marker, clock, prices, resyncs, |bot| venue_for(primary, factory, cipher, bot), wake).await {
+        let resynced = resync_bot(primary, id, &marker, clock, prices, resyncs, |bot| venue_for(primary, factory, cipher, bot), wake).await;
+        for external_id in e.resyncs.take_ranking_wakes() { e.events.send(EngineEvent::RankingMissing { external_id }); }
+        match resynced {
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
             Err(err) => if e.resyncs.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync failed: {err:?}; retried at the next pass")); },
             Ok(true) => e.events.send(EngineEvent::OrderUpdated { bot_id: id }),
@@ -550,6 +558,8 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
     if no_exchange { clear()?; return Ok(false); } // never enqueued for one (sync_from_coingecko_job.rb:151-153)
     let bot = model::load_bot(c, id)?;
     if matches!(bot.status, Deleted | Archived) { clear()?; return Ok(false); } // `return if bot.deleted? || bot.archived?`
+    // A17-4 item 2: the INDICES job is woken for a followed index with no usable ranking before any refusal below returns.
+    if let Some(external_id) = super::index::ranking_wake(c, &bot, clock.now(), &mut state.ranking_sent)? { state.ranking_owed.push(external_id); }
     let reasons = eligibility::bot_reasons(c, &bot)?;
     if !reasons.is_empty() {
         if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({})", reasons.join(", "))); }
@@ -559,6 +569,12 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
     // D-CG-RESYNC-FENCED: after a provider or credential change, members wait for a complete refresh under the new
     // configuration; the marker stays, and that refresh's mark_resync_all wakes it again.
     if let Some(stale) = super::provider::stale(c, &bot)? {
+        if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync waits: {}", stale.message)); }
+        return Ok(false);
+    }
+    // D-INDEX-FRESH-PER-ROW: no membership from a ranking the tick would refuse; the marker stays, and the ranking's own
+    // write (mark_resync_all) wakes it again.
+    if let Some(stale) = super::staleness::ranking_stale(c, &bot, clock.now())? {
         if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync waits: {}", stale.message)); }
         return Ok(false);
     }
@@ -1079,6 +1095,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let waiting = waiting_rows(&e.primary, id)?;
         let info_before = info_marker(&e.primary, id)?;
         let selling_before = bot.selling();
+        // A17-4 item 2: judged before the tick, so the wake goes out whichever refusal the tick then returns.
+        let ranking_wake = super::index::ranking_wake(&e.primary, &bot, clock.now(), &mut e.resyncs.ranking_sent)?;
         let ticked = tick::tick_recovering_for_run(&e.primary, &venue, &mut bot, clock, attempts, &mut recovered, &cx).await;
         // Whatever the tick wrote (its sweep's fills, its placement), on success or on error, the bot is announced, with
         // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
@@ -1097,6 +1115,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only; the tick's own outcome follows
         // After its rows are announced, so the page shows the failed order its status bar names.
         e.events.send(EngineEvent::TickEnded { bot_id: id });
+        if let Some(external_id) = ranking_wake { e.events.send(EngineEvent::RankingMissing { external_id }); }
         announce_condition_infos(e, id, info_before)?;
         let outcome = ticked?;
         e.run_keys.insert(id, bot.run_identity()?);

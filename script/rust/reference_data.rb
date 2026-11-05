@@ -397,6 +397,65 @@ module Reference
     end
   end
 
+  # PLAN-A17 A17-4: Index::SyncFromCoingeckoJob's coingecko branch over scripted `coins/categories` and
+  # `coins/markets?category=` answers. AT's day (2026-10-02, JDN mod 14 = 4) pins the slice: payments, music and pump-fun are
+  # due (MD5(id) mod 14 = 4); meme-token (13) and storage (12) are not. Rust ranks Top Coins first (D-INDEX-TOP-N): its
+  # `coins/markets` page is answered empty here, which Rust refuses and writes nothing for; Rails never asks it.
+  TOP_COINS_KEY = 'GET /api/v3/coins/markets?locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd'.freeze
+  CATEGORIES_KEY = 'GET /api/v3/coins/categories?order=market_cap_desc'.freeze
+
+  def category_key(id) = "GET /api/v3/coins/markets?category=#{id}&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd"
+  def gecko_category(id, name, content) = { 'id' => id, 'name' => name, 'content' => content, 'market_cap' => 1.5e9, 'market_cap_change_24h' => 1.25 }
+  def category_members(*ids) = ids.each_with_index.map { |id, i| gecko(id, id, 'market_cap' => 9e9 - (i * 1e8)) }
+
+  # Kraken lists coin-01..11 at EUR; Binance none (an empty per-venue list); coin-12 and the unlisted coins have no venue.
+  # `settled`: every row's availability already what a refresh derives, for the runs where Rails returns before refreshing.
+  def cg_category_seed(settled: false)
+    coingecko_install
+    kraken = venue('Exchanges::Kraken')
+    venue('Exchanges::Binance')
+    eur = asset('EUR.FOREX', 'EUR', 'Currency')
+    coins = (1..12).map { |i| asset(format('coin-%02d', i), format('C%02d', i), 'Cryptocurrency') }
+    coins.first(11).each { |c| ticker(kraken, c, eur, "#{c.symbol}EUR", c.symbol, 'EUR') }
+    %w[u1 u2 u3].each { |id| asset("unlisted-#{id}", id.upcase, 'Cryptocurrency') }
+    three = %w[coin-01 coin-02 coin-03]
+    kraken3 = settled ? { 'Exchanges::Kraken' => 3 } : {}
+    row = ->(id, **attrs) { Index.create!({ external_id: id, source: 'coingecko', name: id, description: id, weight: 0, top_coins_by_exchange: {}, available_exchanges: {} }.merge(attrs)) }
+    row.('old-category', top_coins: %w[coin-01])                                # gone from the feed: swept
+    row.('data-style', top_coins: three, weights: three.to_h { |c| [c, 0.1] },  # data-api's shape under source coingecko: swept
+                       top_coins_by_exchange: { 'Exchanges::Kraken' => three }, available_exchanges: { 'Exchanges::Kraken' => 3 })
+    row.('meme-token', top_coins: three, available_exchanges: kraken3)          # not due: only its availability refreshed
+    row.('music', top_coins: %w[coin-01 coin-02])                               # due, two valid members: disqualified
+    row.('pump-fun', top_coins: %w[unlisted-u1 unlisted-u2 unlisted-u3])        # due, no venue: skipped, kept
+  end
+
+  def coingecko_category_scenarios(add) # rubocop:disable Metrics/AbcSize
+    job = 'sync_indices_from_coingecko_job'
+    off = {}
+    base = { 'GET /api/v3/ping' => [error(401, { 'error' => 'invalid key' })], TOP_COINS_KEY => [ok([])] }
+    feed = [gecko_category('stablecoins', 'Stablecoins', 'Pegged'), gecko_category('payments', 'Payments (PAY)', 'Payment coins'),
+            gecko_category('music', 'Music', 'Music coins'), gecko_category('pump-fun', 'Pump.fun Ecosystem', 'Launched on pump.fun'),
+            gecko_category('launchpad', 'Launchpad', ''), gecko_category('meme-token', 'Meme (MEME)', 'Memes')]
+    twelve = (1..12).map { |i| format('coin-%02d', i) }
+    slice = { CATEGORIES_KEY => [ok(feed)],
+              category_key('payments') => [ok(category_members(*twelve, 'not-an-asset', 'coin-01'))], # 12 valid: Rails stores 10
+              category_key('music') => [ok(category_members('coin-01', 'coin-02', 'not-an-asset'))],
+              category_key('pump-fun') => [ok(category_members('unlisted-u1', 'unlisted-u2', 'unlisted-u3'))] }
+    add.('coingecko-categories', job, base.merge(slice), env: off) { cg_category_seed }
+    # Nothing eligible: Rails' empty guard sweeps nothing.
+    add.('coingecko-categories-empty', job, base.merge(CATEGORIES_KEY => [ok([gecko_category('stablecoins', 'S', 'Pegged'), gecko_category('payments', 'P', '')])]),
+         env: off) { cg_category_seed(settled: true) }
+    # D-CG-INDEX-PULL-RETRIED: a failed list writes nothing; Rails returns, Rust's run is Transient (retried).
+    add.('coingecko-categories-failed', job, base.merge(CATEGORIES_KEY => [error(500, { 'error' => 'boom' })]), env: off) { cg_category_seed(settled: true) }
+    # D-CG-INDEX-429-STOPS: music answers 429; Rails asks pump-fun next (skipped: no venue), Rust asks nothing more.
+    add.('coingecko-categories-429-midway', job, base.merge(slice).merge(category_key('music') => [error(429, { 'status' => { 'error_code' => 429 } })]),
+         env: off) { cg_category_seed }
+    # The MD5/JDN rule: of two eligible categories only the bucketed one is asked.
+    add.('coingecko-categories-slice-day', job, base.merge(CATEGORIES_KEY => [ok([gecko_category('storage', 'Storage', 'Files'), gecko_category('payments', 'Payments', 'Pay')])],
+                                                          category_key('payments') => [ok(category_members('coin-01', 'coin-02', 'coin-03'))]),
+         env: off) { cg_category_seed(settled: true) }
+  end
+
   def scenarios # rubocop:disable Metrics/MethodLength,Metrics/AbcSize
     list = []
     add = lambda do |name, job, http, env: ON, raises: false, asset: nil, &setup|
@@ -404,6 +463,7 @@ module Reference
     end
     coingecko_scenarios(add)
     coingecko_ticker_scenarios(add)
+    coingecko_category_scenarios(add)
 
     # Asset::FetchAllAssetsDataFromCoingeckoJob
     job = 'fetch_all_assets_data_from_coingecko_job'
@@ -641,6 +701,7 @@ module Reference
     Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedDataApi::Adapter)
     Faraday::Adapter.lookup_middleware(:net_http).prepend(ScriptedDataApi::Adapter) # Clients::Coingecko's plan ping
     Coingecko.prepend(Module.new { private def sleep(*) = 0 })
+    Index::SyncFromCoingeckoJob.prepend(Module.new { private def sleep(*) = 0 }) # its `sleep(3)` between categories
     # The per-plan rate limit waits on Time.now, which travel_to freezes: a 31st request of a run would wait forever.
     FaradayRateLimitMiddleware.prepend(Module.new { def call(env) = @app.call(env) })
   end

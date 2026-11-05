@@ -169,7 +169,17 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
             None => false,
         },
     };
-    if new_ownership { upsert(primary, TAKEN_OVER_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)?; }
+    if new_ownership {
+        upsert(primary, TAKEN_OVER_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)?;
+        // A17-4: Rails rewrote `indices` rows in place while it owned the install, so no ranking attested before survives.
+        // The table exists wherever Rust's migrations ran; a claim on an unmigrated copy (a parity scratch) has none.
+        let ranked: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
+        if ranked { primary.execute("DELETE FROM rust_index_rankings", [])?; }
+        // A17-4 r18: Rails may have changed any bot's membership while it owned the install, so no composition marker
+        // (engine::index::COMPOSED_KEY) survives either. Retirements (rust_index_retired) do.
+        primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index') \
+                         WHERE json_valid(transient_data) AND json_type(transient_data, '$.rust_composed_index') IS NOT NULL", [])?;
+    }
     Ok(from)
 }
 

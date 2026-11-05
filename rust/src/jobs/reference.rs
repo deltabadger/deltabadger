@@ -74,6 +74,11 @@ pub const COINGECKO_TICKERS_DEADLINE: std::time::Duration = std::time::Duration:
 
 impl<T: Transport + 'static> Job for Reference<T> {
     fn spec(&self) -> Spec { spec(self.kind) }
+    /// A17-4 item 3: a held index tick or resync wakes the ranking (engine::index::ranking_wake); the woken run asks only
+    /// what is not current (D-CG-RANK-ONCE-PER-SLOT), on either provider.
+    fn wants(&self, event: &crate::engine::events::EngineEvent) -> bool {
+        self.kind == Kind::Indices && matches!(event, crate::engine::events::EngineEvent::RankingMissing { .. })
+    }
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(run(self.kind, Option::as_ref(&self.api), &self.cg, &self.catalogues, cx)) }
 }
 
@@ -112,7 +117,7 @@ pub async fn run_once_full<T: Transport>(name: &str, api: Option<DataApi<T>>, cg
 async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cg: &Clients, catalogues: &Catalogues, cx: Cx<'_>) -> Outcome {
     if kind == Kind::Prune { return prune(&cx).await; }
     if kind == Kind::Tickers && api.is_none() { return synchronizer::run(cg, catalogues, &cx, false).await; }
-    if kind == Kind::Indices && api.is_none() { return coingecko_indices(&Ranking(cg.clone()), &cx).await; }
+    if kind == Kind::Indices && api.is_none() { return coingecko_indices(cg, &cx).await; }
     if kind == Kind::Assets && api.is_none() { return coingecko_assets(cg, &cx).await; }
     let Some(api) = api else { return Outcome::Failed(NOT_PORTED.into()) };
     let feeds = Feeds::Api(api);
@@ -271,9 +276,14 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     let now = cx.clock.now();
     let plan = cx.db.run(move |_, _| {
         let rows = take_data(body)?;
-        if !present(&rows) { return Ok(vec![]); } // `return if indices_data.blank?`
-        import::plan_indices(rows.as_array().ok_or_else(|| "the indices payload's data is not a list".to_string())?)
+        if !present(&rows) { return Ok((vec![], None)); } // `return if indices_data.blank?`
+        let list = rows.as_array().ok_or_else(|| "the indices payload's data is not a list".to_string())?;
+        // A17-4 r18: validated when every row names a non-empty string external_id (the payload is non-empty here).
+        let listed: Option<std::collections::HashSet<String>> = list.iter()
+            .map(|r| r["external_id"].as_str().filter(|id| !id.trim().is_empty()).map(str::to_string)).collect();
+        Ok((import::plan_indices(list)?, listed))
     }).await;
+    let (plan, listed) = match plan { Ok((rows, listed)) => (Ok(rows), listed), Err(m) => (Err(m), None) };
     let result = match plan {
         Ok(rows) if rows.is_empty() => { // Rails writes nothing; the indices keep their age
             let now = cx.clock.now();
@@ -282,13 +292,14 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
                 Err(e) => Outcome::Failed(e),
             };
         }
-        Ok(rows) => match incomplete(cx, INDICES, now).await { Ok(()) => import::import_indices(&cx.db, rows, now).await, Err(m) => Err(m) },
+        Ok(rows) => match incomplete(cx, INDICES, now).await { Ok(()) => import::import_indices(&cx.db, rows, now, Some((captured.clone(), now))).await, Err(m) => Err(m) },
         Err(m) => Err(m),
     };
     match result {
         Ok(()) => match cx.db.run(move |c,_| {
             crate::engine::model::locked(c,|tx| {
                 if crate::engine::provider::fingerprint(tx)?.as_deref()!=Some(&captured) {return Err(crate::engine::EngineError::Data("index configuration changed during refresh".into()));}
+                if let Some(listed) = &listed { super::categories::apply_catalogue(tx, "data-api", listed, now)?; }
                 crate::engine::provider::record(tx,&captured,now)?;
                 crate::engine::index::mark_resync_all(tx,now).map(|_|())
             }).map_err(|_|"index configuration changed during refresh; refresh again".to_string())
@@ -297,37 +308,45 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     }
 }
 
-/// D-INDEX-TOP-N: the direct provider refreshes Top Coins through the same daily indices job,
-/// retry policy, provider fence and composition resync path as the data-api provider.
-pub trait CoinGecko {
-    fn markets<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>>;
-}
-
-/// The ranking through the shared client (jobs::coingecko): one `coins/markets` page of 250, after the plan ping.
-pub struct Ranking(pub Clients);
-impl CoinGecko for Ranking {
-    fn markets<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>> {
-        Box::pin(async move { (self.0)(key).markets(None, None, 250, 1).await })
-    }
-}
-
-pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome {
+/// Index::SyncFromCoingeckoJob on a CoinGecko install (PLAN-A17 A17-4): the guards (not configured or not CoinGecko:
+/// nothing asked; a blank key: Failed), then Top Coins (D-INDEX-TOP-N), then the category pass (jobs::categories), on one
+/// client, each write fenced by the fingerprint captured here. Top Coins never blocks the categories but by its 429.
+pub async fn coingecko_indices(cg: &Clients, cx: &Cx<'_>) -> Outcome {
     let captured = cx.db.run(|c, cipher| {
         crate::engine::provider::bind_cipher(c,cipher).map_err(|e|format!("{e:?}"))?;
         // The key and the fingerprint from one snapshot, so a switch between the two reads can't pair them.
         let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
         let c = &*tx;
-        let key = crate::engine::provider::coingecko_key(c).map_err(|_|"index configuration unreadable")?
-            .ok_or_else(||NOT_PORTED.to_string())?;
+        let s = crate::engine::provider::settings(c).map_err(|_|"index configuration unreadable")?;
+        let key = match (s.configured, &s.provider) {
+            (true, crate::market_data::Provider::CoinGecko { key: Some(k) }) => k.clone(),
+            (true, crate::market_data::Provider::CoinGecko { key: None }) => return Err("CoinGecko API key not configured".into()),
+            _ => return Ok(None),
+        };
         let fingerprint = crate::engine::provider::fingerprint(c).map_err(|_|"index configuration unreadable")?
             .ok_or("index provider not configured")?;
-        Ok((key,fingerprint))
+        Ok(Some((key,fingerprint)))
     }).await;
-    let (key,captured) = match captured { Ok(v)=>v, Err(e)=>return Outcome::Failed(e) };
-    // Same PullFailed classification as indices() above: feed failures (including HTTP 5xx
-    // and timeouts) use the indices job's four attempts, with a 15-minute wait.
-    // A 429 (the plan ping's or the ranking's) stays a rate limit, which the same Retry still retries.
-    let body = match fetch.markets(&key).await {
+    let (key,captured) = match captured { Ok(Some(v))=>v, Ok(None)=>return Outcome::NothingNew, Err(e)=>return Outcome::Failed(e) };
+    let client = cg(&key);
+    let mut tally = super::categories::Tally::default();
+    tally.add(top_coins(&*client, &captured, cx).await);
+    if tally.rate_limited.is_none() { super::categories::pass(&*client, &captured, cx, &mut tally).await; }
+    tally.outcome()
+}
+
+/// Top Coins: one `coins/markets` page of 250, unless this slot already ranked it under this configuration
+/// (D-CG-RANK-ONCE-PER-SLOT). Feed failures (HTTP 5xx and timeouts included) are PullFailed, retried 4 × 15 min as on
+/// data-api; a 429 (the plan ping's or the ranking's) stays a rate limit, which the same Retry still retries.
+async fn top_coins(api: &dyn coingecko::Api, captured: &str, cx: &Cx<'_>) -> Outcome {
+    let slot = crate::engine::index::ranking_slot(cx.clock.now());
+    let fp = captured.to_string();
+    match cx.db.run(move |c, _| super::categories::current(c, "top-coins", &fp, slot).map_err(|e| format!("{e:?}"))).await {
+        Ok(true) => return Outcome::NothingNew,
+        Ok(false) => {}
+        Err(e) => return Outcome::Failed(e),
+    }
+    let body = match api.markets(None, None, 250, 1).await {
         Ok(body)=>body,
         Err(e) if e.rate_limited() => return Outcome::RateLimited(e.message()),
         Err(e)=>return Outcome::Transient(e.message()),
@@ -345,6 +364,7 @@ pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome 
         ids.push(id.to_string());
     }
     let now = cx.clock.now();
+    let captured = captured.to_string();
     let result = cx.db.run(move |c,_| crate::engine::model::locked(c,|tx| {
         use crate::engine::{index,provider,EngineError};
         if provider::fingerprint(tx)?.as_deref()!=Some(&captured) { return Err(EngineError::Data("index configuration changed during refresh".into())); }
@@ -352,12 +372,12 @@ pub async fn coingecko_indices<F: CoinGecko>(fetch: &F, cx: &Cx<'_>) -> Outcome 
         // Keep existing asset identities and taxonomy. Fresh market caps are also used by the next composition step.
         for (id,cap) in &weights { tx.execute("UPDATE assets SET market_cap=?1,updated_at=?2 WHERE external_id=?3",rusqlite::params![cap.as_f64(),stamp,id])?; }
         let id: Option<i64> = tx.query_row("SELECT id FROM indices WHERE external_id='top-coins' ORDER BY id LIMIT 1",[],|r|r.get(0)).optional()?;
-        match id {
-            Some(id) => { tx.execute("UPDATE indices SET top_coins=?1,weights=?2,updated_at=?3 WHERE id=?4",rusqlite::params![json!(ids).to_string(),json!(weights).to_string(),stamp,id])?; }
-            None => { tx.execute("INSERT INTO indices (external_id,source,name,top_coins,weights,created_at,updated_at) VALUES ('top-coins','internal','Top Coins',?1,?2,?3,?3)",rusqlite::params![json!(ids).to_string(),json!(weights).to_string(),stamp])?; }
-        }
+        let id = match id {
+            Some(id) => { tx.execute("UPDATE indices SET top_coins=?1,weights=?2,updated_at=?3 WHERE id=?4",rusqlite::params![json!(ids).to_string(),json!(weights).to_string(),stamp,id])?; id }
+            None => { tx.execute("INSERT INTO indices (external_id,source,name,top_coins,weights,created_at,updated_at) VALUES ('top-coins','internal','Top Coins',?1,?2,?3,?3)",rusqlite::params![json!(ids).to_string(),json!(weights).to_string(),stamp])?; tx.last_insert_rowid() }
+        };
+        index::record_ranking(tx,id,"coingecko",&captured,now)?;
         provider::record(tx,&captured,now)?;
-        // Only Top Coins was refreshed; direct-provider category indices remain unsupported.
         let mut s=tx.prepare("SELECT id FROM bots WHERE type='Bots::DcaIndex' AND status NOT IN (3,7) AND exchange_id IS NOT NULL")?;
         let bots=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
         for id in bots { if crate::engine::model::load_bot(tx,id)?.index_external_id()=="top-coins" { index::mark_resync(tx,id,now)?; } }

@@ -215,12 +215,29 @@ pub fn fresh_stock_jobs(c: &Connection, now: chrono::DateTime<chrono::Utc>) {
     }
 }
 
-/// data-api's index row as MarketData.import_indices! writes it (source deltabadger), synced at SYNCED.
+/// data-api's index row as MarketData.import_indices! writes it (source deltabadger), synced at SYNCED; ranked by the
+/// install's current provider (`rank_indices`) when it has one.
 pub fn insert_index(c: &Connection, external_id: &str, top_coins: &[&str], weights: &Value) -> i64 {
     c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
                VALUES (?1, 'deltabadger', ?1, ?2, '{}', '{}', ?3, 0, ?4, ?5)",
               params![external_id, json!(top_coins).to_string(), weights.to_string(), T, SYNCED]).unwrap();
-    c.last_insert_rowid()
+    let id = c.last_insert_rowid();
+    rank(c, Some(id), "2099-01-01T00:00:00Z".parse().unwrap()); // SYNCED
+    id
+}
+
+/// Every `indices` row attested as the install's current provider's own complete pull or pass leaves it
+/// (engine::index::record_ranking) at `at`. Nothing without a provider or before Rust's migrations ran.
+pub fn rank_indices(c: &Connection, at: chrono::DateTime<chrono::Utc>) { rank(c, None, at) }
+
+fn rank(c: &Connection, only: Option<i64>, at: chrono::DateTime<chrono::Utc>) {
+    use deltabadger::engine::{index, provider};
+    let table: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name = 'rust_index_rankings')", [], |r| r.get(0)).unwrap();
+    if !table { return; }
+    let (Some(by), Some(hash)) = (provider::ranking_provider(c).unwrap(), provider::fingerprint(c).unwrap()) else { return };
+    let ids: Vec<i64> = c.prepare("SELECT id FROM indices WHERE ?1 IS NULL OR id = ?1 ORDER BY id").unwrap()
+        .query_map([only], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for id in ids { index::record_ranking(c, id, by, &hash, at).unwrap(); }
 }
 
 /// A weekly Bots::DcaIndex on the seeded venue over the data-api category `external_id`, started 2026-09-01 14:00 UTC.
@@ -232,6 +249,7 @@ pub fn index_bot(c: &Connection, s: &Seeded, external_id: &str, num_coins: i64, 
     // As a complete index refresh under this configuration leaves it (engine::provider::record).
     let fingerprint = deltabadger::engine::provider::fingerprint(c).unwrap().unwrap();
     deltabadger::engine::provider::record(c, &fingerprint, "2026-01-01T00:00:00Z".parse().unwrap()).unwrap();
+    rank_indices(c, "2099-01-01T00:00:00Z".parse().unwrap());
     let settings = json!({ "quote_asset_id": s.quote, "quote_amount": 60.0, "interval": "week", "num_coins": num_coins,
                            "allocation_flattening": flattening, "index_type": "category", "index_category_id": external_id, "hold_all": hold_all });
     c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \

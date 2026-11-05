@@ -628,6 +628,13 @@ pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venu
     };
     match refreshed {
         Ok(written) => claim.composition = written,
+        // D-INDEX-RETIRED-KEPT: no membership of this engine's own for a retired index (refused, or retired during the
+        // probes): nothing is traded.
+        Err(m) if m == super::index::RETIRED || (bot.bot_type == "Bots::DcaIndex" && super::index::retired(c, bot.index_external_id())?
+                                                  && !super::index::composed_here(&super::model::load_bot(c, bot.id)?)) => {
+            super::log(&format!("[engine] bot {}: rebalance skipped: {m}", bot.id));
+            return Ok(false);
+        }
         Err(m) => super::log(&format!("[engine] rebalance composition refresh failed bot={}: {m}", bot.id)),
     }
     Ok(true)

@@ -329,6 +329,11 @@ pub fn ownership_business_rows(mut tables: serde_json::Value) -> serde_json::Val
             if let Some(marker) = bot["transient_data"].as_object_mut().unwrap().remove("rust_index_resync") {
                 assert!(marker["n"].as_i64().is_some_and(|n| n > 0) && marker["at"].is_string(), "invalid resync marker: {marker}");
             }
+            // A17-4 r18: the provenance of a membership this engine's composition wrote (engine::index::COMPOSED_KEY): the
+            // id the bot follows.
+            if let Some(marker) = bot["transient_data"].as_object_mut().unwrap().remove("rust_composed_index") {
+                assert!(marker.is_string(), "invalid composition marker: {marker}");
+            }
         }
     }
     if let Some(rows) = tables["transactions"].as_array_mut() {

@@ -272,6 +272,8 @@ pub struct IndexRow {
     pub source: Option<String>,
     pub top_coins: Vec<String>,
     pub weights: Map<String, Value>,
+    /// The provider whose ranking selected the row (engine::index::ranked_row), None for the fallback lookup.
+    pub ranked_by: Option<String>,
 }
 
 /// The last order of a bot (`bot.transactions.last`), for the status bar of a retrying bot.
@@ -498,9 +500,8 @@ pub fn refusal(c: &Connection, bot_id: i64, provider_is_deltabadger: bool, asked
     // A rebalance in progress is drawn in any phase (3.0 plan A3): the page locks what it locks (the venue menu, the
     // composition, the Redeploy offer). A pending state stored in a shape the engine cannot read is still an error.
     crate::engine::rebalance::pending(&transient)?;
-    // On the deltabadger provider as before; else the engine's own rule (eligibility::index_data): Top Coins on a CoinGecko key.
-    if class == "Bots::DcaIndex" && !provider_is_deltabadger
-        && !crate::engine::eligibility::index_data(c, &crate::web::wizard::index::followed(settings.as_object()))? {
+    // On the deltabadger provider as before; else the engine's own rule (eligibility::index_data): a CoinGecko key.
+    if class == "Bots::DcaIndex" && !provider_is_deltabadger && !crate::engine::eligibility::index_data(c)? {
         return Ok(Some("an index bot whose market data comes from CoinGecko"));
     }
     // Every ticker the pages may round by: the venue's, and those the bot's memberships name.
@@ -1108,8 +1109,18 @@ fn allocation_ids(settings: &Map<String, Value>) -> Vec<i64> {
     }
 }
 
-/// Bots::DcaIndex#current_index.
+/// Bots::DcaIndex#current_index, as the engine's composition reads it: the row engine::index::ranked_row selects, else (no
+/// ranking selects one: an unranked install or fixture) Rails' lookup.
 fn index_row(c: &Connection, settings: &Map<String, Value>) -> Result<Option<IndexRow>, WebError> {
+    let json = |text: Option<String>| text.and_then(|t| serde_json::from_str::<Value>(&t).ok());
+    if let Some(r) = crate::engine::index::ranked_row(c, &crate::web::wizard::index::followed(Some(settings))).map_err(|e| data(format!("{e:?}")))? {
+        return Ok(Some(IndexRow {
+            source: r.source,
+            top_coins: json(r.top_coins).and_then(|v| serde_json::from_value::<Vec<String>>(v).ok()).unwrap_or_default(),
+            weights: json(r.weights).and_then(|v| v.as_object().cloned()).unwrap_or_default(),
+            ranked_by: Some(r.provider),
+        }));
+    }
     let category = settings.get("index_category_id").and_then(Value::as_str).filter(|id| !id.is_empty());
     let by_category = settings.get("index_type").and_then(Value::as_str) == Some("category") && category.is_some();
     let read = |r: &rusqlite::Row<'_>| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?));
@@ -1122,6 +1133,7 @@ fn index_row(c: &Connection, settings: &Map<String, Value>) -> Result<Option<Ind
         source,
         top_coins: top_coins.and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok()).unwrap_or_default(),
         weights: weights.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default(),
+        ranked_by: None,
     }))
 }
 

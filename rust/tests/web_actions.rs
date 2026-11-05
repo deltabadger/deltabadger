@@ -2585,14 +2585,52 @@ mod custom_allocation {
         follow_refused_unchanged(&f, "nasdaq-100", "Wait for the pending swap or sale to finish.")
     }
 
-    /// D-IDX-COINGECKO: on a CoinGecko install this engine derives no index, so the switch Rails would make is refused.
+    /// D-IDX-COINGECKO: on a CoinGecko install with no key (no provider at all) this engine ranks no index, so the switch
+    /// Rails would make is refused.
     #[test]
-    fn a_coingecko_install_refuses_a_follow() -> Result {
+    fn a_coingecko_install_without_a_key_refuses_a_follow() -> Result {
         let f = Fixture::new()?;
         as_basket(&f)?;
         f.c.execute("UPDATE indices SET source='coingecko'", [])?;
         deltabadger::app_config::set_plain(&f.c, "market_data_provider", "coingecko", harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
         follow_refused_unchanged(&f, "nasdaq-100", "This app can't run that yet: an index bot whose market data comes from CoinGecko")
+    }
+
+    /// A17-4: with a CoinGecko key the switch is made (the engine holds the bot until CoinGecko ranks the category).
+    #[test]
+    fn a_coingecko_install_with_a_key_follows() -> Result {
+        let f = Fixture::new()?;
+        as_basket(&f)?;
+        f.c.execute("UPDATE indices SET source='coingecko'", [])?;
+        f.c.execute("DELETE FROM app_configs WHERE key IN ('market_data_url','market_data_token')", [])?;
+        for (key, value) in [("market_data_provider", "coingecko"), ("coingecko_api_key", "CG-test-key")] {
+            deltabadger::app_config::set_plain(&f.c, key, value, harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+        }
+        assert!(matches!(follow(&f, "nasdaq-100")?, Switched::Done));
+        let (class, settings, transient) = f.row()?;
+        assert_eq!((class.as_str(), &settings["index_category_id"]), ("Bots::DcaIndex", &json!("nasdaq-100")));
+        assert!(transient.get(deltabadger::engine::index::RESYNC_KEY).is_some(), "the engine derives it once ranked");
+        Ok(())
+    }
+
+    /// A17-4 r18: the switch ends the provenance of the bot's membership. A bot this engine composed from ND100 becomes a
+    /// portfolio, its allocations change, it follows ND100 again, ND100 retires: "Index retired", nothing composed.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_portfolio_that_follows_a_retired_index_again_has_no_provenance() -> Result {
+        use deltabadger::engine::{index, model};
+        let f = Fixture::new()?;
+        f.c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = ?1", [f.id])?;
+        assert!(matches!(f.customize()?, Switched::Done));
+        assert!(f.row()?.2.get(index::COMPOSED_KEY).is_none(), "the portfolio conversion removes it");
+        f.c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = ?1", [f.id])?; // as if left behind
+        assert!(matches!(follow(&f, "nasdaq-100")?, Switched::Done));
+        assert!(f.row()?.2.get(index::COMPOSED_KEY).is_none(), "following an index removes it");
+        index::retire(&f.c, "nasdaq-100", "data-api", &[], harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+        let bot = model::load_bot(&f.c, f.id).map_err(|e| format!("{e:?}"))?;
+        let venue = deltabadger::venue::fake::FakeVenue::new().on_price(|| panic!("nothing is probed"));
+        let out = index::refresh_composition(&f.c, &venue, &bot, &deltabadger::engine::FixedClock(harness::at(NOW)), &deltabadger::engine::tick::PriceCache::default()).await.map_err(|e| format!("{e:?}"))?;
+        assert_eq!(out, Err(index::Refusal::Failure(index::RETIRED.into())));
+        Ok(())
     }
 
     /// An index bot is not offered the index it follows; a selling portfolio may not follow one.

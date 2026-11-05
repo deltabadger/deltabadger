@@ -84,6 +84,24 @@ module ScriptedKrakenHttp
   end
 end
 
+# PLAN-A17 A17-4: CoinGecko at the same adapter, as script/rust/reference_data.rb scripts it: the key in the header its host
+# takes (the plan ping picks pro or demo), a request named "GET path?query" (decoded, sorted), else its bare path.
+module ScriptedCoinGecko
+  KEY = 'CG-parity-key'.freeze
+  HOSTS = { 'pro-api.coingecko.com' => 'x-cg-pro-api-key', 'api.coingecko.com' => 'x-cg-demo-api-key' }.freeze
+  mattr_accessor :http
+
+  def self.reply(env)
+    header = HOSTS.fetch(env.url.host)
+    raise Harness::Unscripted, "no #{header}" unless env.request_headers[header] == KEY
+
+    path = "#{env.method.to_s.upcase} #{env.url.path}"
+    query = URI.decode_www_form(env.url.query.to_s).sort.map { |k, v| "#{k}=#{v}" }.join('&')
+    queue = (query.empty? ? nil : http["#{path}?#{query}"]) || http[path] or raise Harness::Unscripted, "unscripted CoinGecko call #{path}?#{query}"
+    queue.size > 1 ? queue.shift : queue.first
+  end
+end
+
 # Alpaca is scripted one layer lower than Kraken: beneath Clients::Alpaca, at the Faraday adapter its connections use, so
 # Rails' own middleware (json, raise_error), Clients::Alpaca#with_rescue, Client.network_failure and Exchanges::Alpaca's
 # parsing all run. Only while an Alpaca scenario runs (http set); a Kraken scenario never reaches this adapter.
@@ -123,7 +141,8 @@ module ScriptedAlpaca
   module Adapter
     def call(env)
       # Every honeymaker client uses the same adapter: a venue's host is answered by its ScriptedVenue (VENUES).
-      scripted = VENUES.values.to_h { |v| [v.scripted.host, v.scripted] }.merge('api.kraken.com' => ScriptedKrakenHttp).fetch(env.url.host, ScriptedAlpaca)
+      scripted = VENUES.values.to_h { |v| [v.scripted.host, v.scripted] }.merge('api.kraken.com' => ScriptedKrakenHttp)
+                          .merge(ScriptedCoinGecko::HOSTS.transform_values { ScriptedCoinGecko }).fetch(env.url.host, ScriptedAlpaca)
       raise Harness::Unscripted, "unscripted HTTP call #{env.method.to_s.upcase} #{env.url}" if scripted.http.nil?
 
       reply = scripted.reply(env)
@@ -2139,9 +2158,14 @@ module Decisions
         Ticker.create!(exchange:, ticker: sym, base: sym, quote: 'USD', base_asset: stock, quote_asset: quote, **MarketData::STOCK_TICKER_DEFAULTS.transform_keys(&:to_sym))
       end
     end
-    AppConfig.market_data_provider = 'deltabadger'
-    AppConfig.market_data_url = 'https://data.invalid'
-    AppConfig.market_data_token = 'scripted-token'
+    if sc['coingecko'] # A17-4: a CoinGecko install (own key, no data-api); Rails composes live from coins/markets?category=
+      AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
+      AppConfig.coingecko_api_key = ScriptedCoinGecko::KEY
+    else
+      AppConfig.market_data_provider = 'deltabadger'
+      AppConfig.market_data_url = 'https://data.invalid'
+      AppConfig.market_data_token = 'scripted-token'
+    end
     unless sc['index_missing']
       Index.create!(external_id: 'top-coins', source: 'internal', name: 'Top coins', top_coins: sc['top'] || VI_TOP, weights: sc['weights'] || {},
                     top_coins_by_exchange: {}, available_exchanges: {}, weight: 0)
@@ -2332,6 +2356,20 @@ module Decisions
     second = vi_ranked('kucoin', VI_TOP)[1]
     vi_probe_failures('kucoin').each { |fname, reply| list << venue_index('kucoin', 'top', "probe_#{fname}-market", at: first, prices: { second => [reply] }) }
     KUCOIN_VENUES.each { |venue| list << venue_index(venue, 'category', 'flattened-market', at: first, flattening: 0.5) }
+    # A17-4: a layer-1 bot on Kraken on a CoinGecko install. Rails composes live from the scripted category answer (its own caps,
+    # to_f); Rust from the ranking its category pass stores from the same answer (parity::plan_copy). The assets keep their
+    # local caps (VI_COINS), which neither may read; a member without a Kraken pair (SOL) or a local asset is passed over.
+    { 'zero_null_caps' => [['bitcoin', 1.3e12], ['ethereum', nil], ['solana', 0], ['cardano', 2e10]],
+      'all_zero_caps' => [['bitcoin', 0], ['ethereum', '0'], ['solana', 0.0]],
+      'unlisted_and_unknown' => [['bitcoin', 300], ['not-an-asset', 250], ['solana', 200], ['ethereum', 150], ['cardano', 100]] }.each do |cname, rows|
+      answer = rows.map { |id, cap| { 'id' => id, 'symbol' => id, 'name' => id, 'current_price' => 1.5, 'market_cap' => cap } }
+      script = { 'GET /api/v3/ping' => [{ 'status' => 401, 'body' => { 'error' => 'invalid key' } }],
+                 'GET /api/v3/coins/markets?category=layer-1&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd' => [ok(answer)] }
+      sc = venue_index('kraken', 'category', "coingecko_#{cname}-market", at: first, coingecko: { 'id' => 'layer-1', 'answer' => answer },
+                       unlisted: cname == 'unlisted_and_unknown' ? ['SOL'] : nil)
+      sc['script']['coingecko'] = script
+      list << sc
+    end
     # Weights flattened, and legs below the venue minimum (one skipped with its amount carried, then all: the notice).
     { 'kraken' => [8.0, 0.6], 'binance' => [40.0, 6.0], 'binance_btc' => [0.001, 0.0001] }.each do |venue, (one, all)|
       list << venue_index(venue, 'category', 'flattened-market', at: first, flattening: 0.5)
@@ -2446,7 +2484,7 @@ module Decisions
               'top_coins' => %w[AAA BBB DDD EEE CCC], 'transactions' => [], 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false,
               'members' => [{ 'symbol' => 'AAA', 'target' => 0.6, 'in_index' => true }, { 'symbol' => 'BBB', 'target' => 0.4, 'in_index' => true }],
               'script' => { 'alpaca' => http }, 'tick' => true }
-    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 333" unless l.size == 333 }
+    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 336" unless l.size == 336 }
   end
 
   # Binance spot (spec E2), one asset on BTCUSDT: Rails' own answers to the bodies below, beneath honeymaker.
@@ -5441,7 +5479,7 @@ module Decisions
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) || sc['reverse'] || sc['liquidation'] || sc['redeploy'] ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'], 'liquidation' => liquidation, 'redeploy' => redeploy,
-                                        'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
+                                        'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'], 'coingecko' => sc['coingecko'],
                                         'conditions' => sc['conditions'], 'info' => sc['info'], 'check_job' => sc['check_job'], 'info_job' => sc['info_job'],
                                         'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'], 'reverse' => sc['reverse'],
                                         # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
@@ -5563,6 +5601,10 @@ module Decisions
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
       ScriptedAlpaca.reads = sc['record_reads'] ? [] : nil
+      ScriptedCoinGecko.http = sc['script']['coingecko']&.transform_values(&:dup)
+      # Clients::Coingecko and MarketData memoise the plan and the client for the process: each scenario pings anew.
+      Clients::Coingecko.instance_variable_set(:@detect_plan, nil)
+      MarketData.instance_variable_set(:@coingecko, nil)
       VENUES.each do |key, row|
         row.scripted.http = key == sc['venue'] ? sc['script'][key].transform_values(&:dup) : {}
         row.scripted.sent = []

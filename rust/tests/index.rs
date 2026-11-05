@@ -455,6 +455,8 @@ fn encrypted_provider_configuration_and_environment_precedence_match_rails() {
     assert!(staleness::stale(&o.primary,&bot,at(T0)).unwrap().is_some());
     assert!(matches!(staleness::verdict(&o.primary,&bot,at(T0)).unwrap(),staleness::Verdict::Unknown(_)),"scheduler can start to refresh");
     seed::fresh_stock_jobs(&o.primary,at(T0));
+    assert_eq!(staleness::stale(&o.primary,&bot,at(T0)).unwrap().map(|s|s.source),Some(staleness::RANKING_SOURCE),"the row was ranked under the previous configuration");
+    seed::rank_indices(&o.primary,at(T0));
     assert!(staleness::stale(&o.primary,&bot,at(T0)).unwrap().is_none());
     app_config::set(&o.primary,&seed::cipher(),"market_data_token","",at(T0)).unwrap();
     assert!(provider::config(&o.primary).unwrap().is_none(),"a blank db token does not fall back to environment");
@@ -475,8 +477,9 @@ async fn a_stock_only_index_ignores_stale_unrelated_crypto_feeds() {
     assert_eq!(posted_symbols(&t), ["AAA", "BBB", "CCC"]);
 }
 
-/// A crypto venue's index bot sizes from the index rows and the crypto market caps, so it waits on them as an Alpaca one
+/// A crypto venue's index bot sizes from its ranking and the crypto market caps, so it waits on them as an Alpaca one
 /// does; a basket bot on that venue does not, unless it is weighted by market cap (plan CB T5): then it waits on the caps only.
+/// D-INDEX-FRESH-PER-ROW: the ranking is fresh by its own row's `ranked_at`, never by the INDICES job's record.
 #[test]
 fn a_crypto_venue_index_bot_waits_on_stale_indices_and_market_caps() {
     for venue in ["Kraken", "Binance", "Kucoin"] { crypto_venue_index_staleness(venue); }
@@ -492,23 +495,31 @@ fn crypto_venue_index_staleness(venue: &str) {
     let basket = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00"));
     let market_cap = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("weighting", json!("market_cap")));
     let now = at(T0);
-    for (job, label) in [(deltabadger::jobs::reference::INDICES, "Indices"), (deltabadger::jobs::reference::ASSETS, "Crypto assets")] {
-        seed::fresh_stock_jobs(c, now);
-        deltabadger::jobs::state::record_success(c, job, None, now - Duration::days(7)).unwrap();
-        let stale = staleness::stale(c, &model::load_bot(c, index).unwrap(), now).unwrap().expect(label);
-        assert_eq!(stale.source, label, "{venue}");
-        let weighted = staleness::stale(c, &model::load_bot(c, market_cap).unwrap(), now).unwrap();
-        assert_eq!(weighted.map(|s| s.source), (label == "Crypto assets").then_some(label), "{venue} {label}: a market-cap basket");
-        // The door also trusts Rails' own refresh stamp: it refuses once that is as old.
-        let old = (now - Duration::days(7)).format("%Y-%m-%d %H:%M:%S").to_string();
-        c.execute(if label == "Indices" { "UPDATE indices SET updated_at = ?1" } else { "UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'" }, [&old]).unwrap();
-        assert!(matches!(staleness::verdict(c, &model::load_bot(c, index).unwrap(), now).unwrap(), staleness::Verdict::Stale(_)), "{venue} {label}: the door refuses too");
-        c.execute("UPDATE indices SET updated_at = ?1", [&at(T0).format("%Y-%m-%d %H:%M:%S").to_string()]).unwrap();
-        c.execute("UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'", [&at(T0).format("%Y-%m-%d %H:%M:%S").to_string()]).unwrap();
-        assert!(staleness::stale(c, &model::load_bot(c, basket).unwrap(), now).unwrap().is_none(), "{label}: a basket bot does not size from it");
-    }
+    let bot = |id| model::load_bot(c, id).unwrap();
+    // The ranking: an old INDICES record refuses nothing; an old ranking of the row does, and the door notes it.
     seed::fresh_stock_jobs(c, now);
-    assert!(staleness::stale(c, &model::load_bot(c, index).unwrap(), now).unwrap().is_none());
+    deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::INDICES, None, now - Duration::days(7)).unwrap();
+    assert!(staleness::stale(c, &bot(index), now).unwrap().is_none(), "{venue}: the job's record is not the ranking's freshness");
+    seed::rank_indices(c, now - Duration::hours(50));
+    assert_eq!(staleness::stale(c, &bot(index), now).unwrap().map(|s| s.source), Some(staleness::RANKING_SOURCE), "{venue}");
+    assert!(matches!(staleness::verdict(c, &bot(index), now).unwrap(), staleness::Verdict::Unknown(_)), "{venue}: the door notes it");
+    assert!(staleness::stale(c, &bot(market_cap), now).unwrap().is_none() && staleness::stale(c, &bot(basket), now).unwrap().is_none(), "{venue}: baskets read no ranking");
+    seed::rank_indices(c, now - Duration::hours(48));
+    assert!(staleness::stale(c, &bot(index), now).unwrap().is_none(), "{venue}: 48 h is within the 49 h bound");
+    // The market caps, as before.
+    let label = "Crypto assets";
+    seed::fresh_stock_jobs(c, now);
+    deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::ASSETS, None, now - Duration::days(7)).unwrap();
+    assert_eq!(staleness::stale(c, &bot(index), now).unwrap().expect(label).source, label, "{venue}");
+    assert_eq!(staleness::stale(c, &bot(market_cap), now).unwrap().map(|s| s.source), Some(label), "{venue}: a market-cap basket");
+    // The door also trusts Rails' own refresh stamp: it refuses once that is as old.
+    let old = (now - Duration::days(7)).format("%Y-%m-%d %H:%M:%S").to_string();
+    c.execute("UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'", [&old]).unwrap();
+    assert!(matches!(staleness::verdict(c, &bot(index), now).unwrap(), staleness::Verdict::Stale(_)), "{venue}: the door refuses too");
+    c.execute("UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'", [&at(T0).format("%Y-%m-%d %H:%M:%S").to_string()]).unwrap();
+    assert!(staleness::stale(c, &bot(basket), now).unwrap().is_none(), "a basket bot does not size from it");
+    seed::fresh_stock_jobs(c, now);
+    assert!(staleness::stale(c, &bot(index), now).unwrap().is_none());
 }
 
 /// Slice 6b: an index bot's swap sell whose reply was lost, then the index itself changes (data-api's sync) before the engine
@@ -730,6 +741,14 @@ async fn index_searches_beyond_three_times_n_and_skips_taxonomy_stablecoins() {
 /// D-ASSET-TAXONOMY: the generated catalogue labels these stablecoins Cryptocurrency.
 /// Import its real rows, preserving that sync-routing category, and rank them ahead of BTC/ETH.
 async fn bundled_stablecoin_index() -> (tempfile::TempDir, store::Opened, seed::Seeded, i64) {
+    let (d, o, s, ids) = bundled_assets().await;
+    seed::insert_index(&o.primary, "top-coins", &ids, &json!({}));
+    let id = seed::index_bot(&o.primary, &s, "top-coins", 2, 1.0, false);
+    (d, o, s, id)
+}
+
+/// The catalogue rows of three stablecoins, Bitcoin and Ethereum (caps 1000..996), each with an EUR ticker on the seeded venue.
+async fn bundled_assets() -> (tempfile::TempDir, store::Opened, seed::Seeded, [&'static str; 5]) {
     use deltabadger::jobs::{import, Db};
     let (d, o, s) = common::install();
     let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
@@ -747,9 +766,7 @@ async fn bundled_stablecoin_index() -> (tempfile::TempDir, store::Opened, seed::
         c.execute("INSERT OR REPLACE INTO tickers (exchange_id,base_asset_id,quote_asset_id,ticker,base,quote,available,trading_enabled,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,created_at,updated_at) SELECT ?1,id,?2,symbol||'EUR',symbol,'EUR',1,1,8,2,2,0.001,0.01,'2026-01-01','2099-01-01' FROM assets WHERE external_id=?3",
             rusqlite::params![s.exchange_id,s.quote,row["external_id"].as_str().unwrap()]).unwrap();
     }
-    seed::insert_index(c, "top-coins", &ids, &json!({}));
-    let id = seed::index_bot(c, &s, "top-coins", 2, 1.0, false);
-    (d, o, s, id)
+    (d, o, s, ids)
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -798,8 +815,12 @@ async fn a_top_coins_bot_on_a_coingecko_key_ticks_once_the_ranking_is_the_provid
     let first = venue();
     tick::tick(c, &first, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(first.sent().is_empty(), "the stored ranking is still the previous provider's: nothing bought");
-    // What coingecko_indices records after a complete ranking refresh.
+    // What coingecko_indices records after a complete ranking refresh: the fingerprint, and its ranking of the row.
     provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    let first = venue();
+    tick::tick(c, &first, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(first.sent().is_empty(), "D-INDEX-UNATTESTED-HELD: the row is still data-api's ranking, never composed on CoinGecko");
+    seed::rank_indices(c, at(T0));
     let second = venue();
     let out = tick::tick(c, &second, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
@@ -820,6 +841,7 @@ async fn a_platform_disconnect_keeps_a_coingecko_top_coins_bot_admitted_and_wait
         .ticker("USDSEUR", "10", "10", "10").ticker("USDEEUR", "10", "10", "10").ticker("USD1EUR", "10", "10", "10")
         .ticker("BTCEUR", "10", "10", "10").ticker("ETHEUR", "10", "10", "10");
     provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    seed::rank_indices(c, at(T0));
     deltabadger::web::settings::platform::forget(c, &seed::cipher()).unwrap();
     assert_eq!(app_config::get(c, &seed::cipher(), "market_data_provider").unwrap().as_deref(), Some("coingecko"), "the provider stays");
     let bot = model::load_bot(c, id).unwrap();
@@ -828,6 +850,7 @@ async fn a_platform_disconnect_keeps_a_coingecko_top_coins_bot_admitted_and_wait
     tick::tick(c, &first, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(first.sent().is_empty(), "the ranking was attested under the claim's rows: nothing bought");
     provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    seed::rank_indices(c, at(T0));
     let second = venue();
     let out = tick::tick(c, &second, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
@@ -857,4 +880,592 @@ fn bundled_stablecoin_classification_grid() {
     }
     assert!(index::stablecoin(Some("stablecoin"), "new-provider-stablecoin"), "new provider classifications remain authoritative without a bundled override");
     assert!(!index::stablecoin(Some("Stablecoin"), "pax-gold"), "the explicit RWA override wins over CoinGecko's commodity-backed stablecoin category");
+}
+
+// ---- A17-4: CoinGecko category bots, and the provenance of every index ranking ----
+
+fn bundled_venue() -> deltabadger::venue::fake::FakeVenue {
+    deltabadger::venue::fake::FakeVenue::new()
+        .ticker("USDSEUR", "10", "10", "10").ticker("USDEEUR", "10", "10", "10").ticker("USD1EUR", "10", "10", "10")
+        .ticker("BTCEUR", "10", "10", "10").ticker("ETHEUR", "10", "10", "10")
+}
+
+/// Moves the install to CoinGecko with a key (no data-api), as a complete refresh under it leaves the provider record.
+fn to_coingecko(c: &rusqlite::Connection, now: DateTime<Utc>) {
+    use deltabadger::{app_config, engine::provider};
+    provider::bind(c, &seed::cipher(), &|_| None).unwrap();
+    c.execute("DELETE FROM app_configs WHERE key IN ('market_data_url','market_data_token')", []).unwrap();
+    app_config::set(c, &seed::cipher(), "market_data_provider", "coingecko", now).unwrap();
+    app_config::set(c, &seed::cipher(), "coingecko_api_key", "CG-test-key", now).unwrap();
+    provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), now).unwrap();
+}
+
+/// A CoinGecko category row as the category pass stores it: every valid member with the answer's caps.
+fn cg_category(c: &rusqlite::Connection, external_id: &str, top: &[&str], weights: &Value) -> i64 {
+    c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+               VALUES (?1, 'coingecko', ?1, ?2, '{}', '{}', ?3, 0, '2026-01-01', '2026-01-01')", rusqlite::params![external_id, json!(top).to_string(), weights.to_string()]).unwrap();
+    c.last_insert_rowid()
+}
+
+fn rank(c: &rusqlite::Connection, id: i64, by: &str, now: DateTime<Utc>) {
+    use deltabadger::engine::provider;
+    index::record_ranking(c, id, by, &provider::fingerprint(c).unwrap().unwrap(), now).unwrap();
+}
+
+/// A stopped-then-started category bot (layer-1, two members, pure market cap) on a CoinGecko install, its row unranked.
+async fn coingecko_category_bot(weights: Value) -> (tempfile::TempDir, store::Opened, seed::Seeded, i64, i64) {
+    let (d, o, s, _) = bundled_assets().await;
+    let c = &o.primary;
+    let row = cg_category(c, "layer-1", &["usds", "bitcoin", "ethereum"], &weights);
+    let id = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap(); // a Rails row: no ranking (D-INDEX-UNATTESTED-HELD)
+    to_coingecko(c, at(T0));
+    (d, o, s, id, row)
+}
+
+/// A17-4 end to end, the engine's leg: a category bot on a CoinGecko key is admitted, held while its row is a Rails one, and
+/// buys the members the CoinGecko ranking names once the pass ranked it, weighed by the ranking's own caps.
+#[tokio::test(flavor = "current_thread")]
+async fn a_category_bot_on_a_coingecko_key_buys_what_the_coingecko_ranking_names() {
+    use deltabadger::engine::staleness;
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "usds": 900, "bitcoin": 300, "ethereum": 100 })).await;
+    let c = &o.primary;
+    let bot = model::load_bot(c, id).unwrap();
+    assert!(eligibility::bot_reasons(c, &bot).unwrap().is_empty(), "a category on a CoinGecko key is admitted");
+    let first = bundled_venue();
+    let out = tick::tick(c, &first, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(&out, TickOutcome::Stale { source, .. } if *source == staleness::RANKING_SOURCE), "{out:?}");
+    assert!(first.sent().is_empty(), "D-INDEX-UNATTESTED-HELD: nothing bought from a row this engine did not rank");
+    rank(c, row, "coingecko", at(T0));
+    let second = bundled_venue();
+    let out = tick::tick(c, &second, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(in_index(&o, id), [("BTC".to_string(), 0.75), ("ETH".to_string(), 0.25)], "the ranking's caps, not the assets' (999, 998)");
+    assert_eq!(second.sent().len(), 2);
+}
+
+/// Contract item 6 (as Rails' live answer, `market_cap.to_f`): a CoinGecko ranking's caps alone weigh it; zero, null and
+/// missing read 0.0 and the member stays; an all-zero ranking weighs equally; a negative cap composes nothing
+/// (D-CG-INVALID-CAP-HELD). The same row on data-api weighs by the assets' caps.
+#[tokio::test(flavor = "current_thread")]
+async fn a_coingecko_ranking_weighs_by_its_own_caps_only() {
+    for (weights, expected) in [
+        (json!({ "bitcoin": 0, "ethereum": 5 }), Some(vec![("ETH", 1.0), ("BTC", 0.0)])),
+        (json!({ "bitcoin": null, "ethereum": 2 }), Some(vec![("ETH", 1.0), ("BTC", 0.0)])),
+        (json!({ "ethereum": 2 }), Some(vec![("ETH", 1.0), ("BTC", 0.0)])),
+        (json!({ "bitcoin": 0, "ethereum": 0 }), Some(vec![("BTC", 0.5), ("ETH", 0.5)])),
+        (json!({}), Some(vec![("BTC", 0.5), ("ETH", 0.5)])),
+        (json!({ "bitcoin": 1, "ethereum": 3 }), Some(vec![("ETH", 0.75), ("BTC", 0.25)])),
+        (json!({ "bitcoin": 100, "ethereum": -50 }), None),
+    ] {
+        let (_d, o, _s, id, row) = coingecko_category_bot(weights.clone()).await;
+        let c = &o.primary;
+        rank(c, row, "coingecko", at(T0));
+        let venue = bundled_venue();
+        let out = tick::tick(c, &venue, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        match expected {
+            Some(members) => {
+                assert!(matches!(out, TickOutcome::Done { .. }), "{weights}: {out:?}");
+                let got: Vec<(String, f64)> = in_index(&o, id);
+                assert_eq!(got, members.iter().map(|(s, w)| (s.to_string(), *w)).collect::<Vec<_>>(), "{weights}");
+            }
+            None => {
+                assert!(in_index(&o, id).is_empty() && venue.sent().is_empty(), "{weights}: nothing composed or bought ({out:?})");
+            }
+        }
+    }
+}
+
+/// D-INDEX-NEWEST-RANKING and D-INDEX-UNATTESTED-HELD: of two rows with one id (sources `coingecko` and `deltabadger`), the
+/// current provider's newest ranking is read; an unranked row, or one ranked by the other provider or under another
+/// configuration, never is.
+#[test]
+fn of_two_rows_with_one_id_the_current_providers_newest_ranking_is_read() {
+    use deltabadger::engine::staleness;
+    let (_d, o, _s, id, _) = universe(3, 0.0, false);
+    let c = &o.primary;
+    let first: i64 = c.query_row("SELECT id FROM indices WHERE external_id = 'nasdaq-100'", [], |r| r.get(0)).unwrap();
+    let second = cg_category(c, "nasdaq-100", &["EEE.US", "DDD.US"], &json!({}));
+    let read = || index::ranked_row(c, "nasdaq-100").unwrap().map(|r| r.id);
+    assert_eq!(read(), Some(first), "the second row is unranked");
+    rank(c, second, "data-api", at("2026-09-01T10:30:00Z"));
+    rank(c, first, "data-api", at("2026-09-01T10:30:00Z"));
+    assert_eq!(read(), Some(first), "one import: the lowest id, as Rails' find_by");
+    rank(c, second, "data-api", at("2026-09-02T10:30:00Z"));
+    assert_eq!(read(), Some(second), "a later import that ships the id under another source: the newer");
+    let pairs = index::candidate_pairs(c, &model::load_bot(c, id).unwrap()).unwrap();
+    assert!(pairs.len() == 2 && pairs.iter().all(|p| p.contains("DDD") || p.contains("EEE")), "the parity copy prices the selected row's members: {pairs:?}");
+    rank(c, second, "coingecko", at("2026-09-03T10:30:00Z"));
+    assert_eq!(read(), Some(first), "another provider's ranking is never read");
+    c.execute("UPDATE rust_index_rankings SET fingerprint = 'another-configuration' WHERE index_id = ?1", [first]).unwrap();
+    assert_eq!(read(), None, "nor one made under another configuration");
+    let bot = model::load_bot(c, id).unwrap();
+    assert_eq!(staleness::stale(c, &bot, at(T0)).unwrap().map(|s| s.source), Some(staleness::RANKING_SOURCE), "held, not composed");
+    assert!(index::ranking_wanted(c, &bot, at(T0)).unwrap());
+    c.execute("DELETE FROM indices WHERE external_id = 'nasdaq-100'", []).unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "Rails' delete cascades");
+    assert!(staleness::stale(c, &bot, at(T0)).unwrap().is_none(), "no row with the id at all: the composition's own Index not found");
+    assert!(index::ranking_wanted(c, &bot, at(T0)).unwrap(), "and the pull is still woken");
+}
+
+/// Switching provider (contract item 8): data-api → CoinGecko → data-api. The other provider's ranking is never selected;
+/// each bot is held until its own provider ranks the row, and then composes from that ranking only.
+#[tokio::test(flavor = "current_thread")]
+async fn switching_provider_holds_every_index_bot_until_its_own_provider_ranks_the_row() {
+    use deltabadger::{app_config, engine::{provider, staleness}};
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 1, "ethereum": 1 })).await;
+    let c = &o.primary;
+    let held = |now| staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().map(|s| s.source);
+    // Back to the data-api row's state: data-api configured and ranked.
+    for (key, value) in [("market_data_provider", "deltabadger"), ("market_data_url", "https://data.invalid"), ("market_data_token", "scripted-token")] {
+        app_config::set(c, &seed::cipher(), key, value, at(T0)).unwrap();
+    }
+    provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    rank(c, row, "data-api", at(T0));
+    assert_eq!(held(at(T0)), None, "data-api's own ranking composes on data-api");
+    to_coingecko(c, at(T0));
+    assert_eq!(held(at(T0)), Some(staleness::RANKING_SOURCE), "data-api's ranking is never read on CoinGecko");
+    rank(c, row, "coingecko", at(T0));
+    assert_eq!(held(at(T0)), None);
+    for (key, value) in [("market_data_provider", "deltabadger"), ("market_data_url", "https://data.invalid"), ("market_data_token", "scripted-token")] {
+        app_config::set(c, &seed::cipher(), key, value, at(T0)).unwrap();
+    }
+    provider::record(c, &provider::fingerprint(c).unwrap().unwrap(), at(T0)).unwrap();
+    assert_eq!(held(at(T0)), Some(staleness::RANKING_SOURCE), "CoinGecko's ranking is never read on data-api");
+    rank(c, row, "data-api", at(T0));
+    assert_eq!(held(at(T0)), None, "the data-api import stamps the same row");
+    assert_eq!(held(at(T0) + Duration::hours(50)), Some(staleness::RANKING_SOURCE), "past 49 h: held again");
+}
+
+/// D-INDEX-FRESH-PER-ROW: Top Coins keeps trading while a followed category's ranking fails for three days; the category
+/// bot is held from 49 h on.
+#[tokio::test(flavor = "current_thread")]
+async fn top_coins_keeps_trading_while_a_category_ranking_goes_stale() {
+    use deltabadger::engine::staleness;
+    let (_d, o, s, category, row) = coingecko_category_bot(json!({ "bitcoin": 1, "ethereum": 1 })).await;
+    let c = &o.primary;
+    let top = cg_category(c, "top-coins", &["bitcoin", "ethereum"], &json!({ "bitcoin": 2, "ethereum": 1 }));
+    let top_bot = seed::index_bot(c, &s, "top-coins", 2, 0.0, false);
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap();
+    to_coingecko(c, at(T0));
+    rank(c, row, "coingecko", at(T0));
+    let stale = |id, now| staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().map(|s| s.source);
+    for day in 1..=3 {
+        let now = at(T0) + Duration::days(day);
+        rank(c, top, "coingecko", now); // Top Coins ranked every day; the category's fetch fails
+        assert_eq!(stale(top_bot, now), None, "day {day}: Top Coins trades");
+        assert_eq!(stale(category, now), (day >= 3).then_some(staleness::RANKING_SOURCE), "day {day}: the category from 49 h on");
+    }
+    let now = at(T0) + Duration::days(3);
+    let out = tick::tick(c, &bundled_venue(), top_bot, &FixedClock(now), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+}
+
+/// A member missing from the next answer drops out of the composition (and is never sold).
+#[tokio::test(flavor = "current_thread")]
+async fn a_member_missing_from_the_next_ranking_drops_out() {
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 1, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0));
+    tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert_eq!(in_index(&o, id).len(), 2);
+    c.execute("UPDATE indices SET top_coins = '[\"bitcoin\"]', weights = '{\"bitcoin\": 1}' WHERE id = ?1", [row]).unwrap();
+    rank(c, row, "coingecko", at(T0) + Duration::days(7));
+    let venue = bundled_venue();
+    tick::tick(c, &venue, id, &FixedClock(at(T0) + Duration::days(7)), &mut Attempts::default()).await.unwrap();
+    assert_eq!(in_index(&o, id), [("BTC".to_string(), 1.0)]);
+    assert!(venue.sent().iter().all(|o| o.side == deltabadger::venue::Side::Buy), "a leaver is never sold");
+}
+
+/// An install with no provider (neither data-api nor a CoinGecko key) still refuses a category bot (D-IDX-COINGECKO).
+#[tokio::test(flavor = "current_thread")]
+async fn without_any_provider_an_index_bot_is_still_refused() {
+    let (_d, o, _s, id, _) = coingecko_category_bot(json!({})).await;
+    let c = &o.primary;
+    c.execute("DELETE FROM app_configs WHERE key = 'coingecko_api_key'", []).unwrap();
+    assert!(!eligibility::index_data(c).unwrap());
+    let reasons = eligibility::bot_reasons(c, &model::load_bot(c, id).unwrap()).unwrap();
+    assert!(reasons.iter().any(|r| r.contains("market-data provider")), "{reasons:?}");
+}
+
+/// A17-4 end to end through the web: on a CoinGecko key the index wizard picks a category, its venue and quote and creates
+/// the bot (the quote step refused it before A17-4), its page opens, and once CoinGecko ranked the category the engine's
+/// tick buys the ranked members.
+#[tokio::test(flavor = "current_thread")]
+async fn the_index_wizard_creates_a_coingecko_category_bot_whose_tick_buys_the_ranking() {
+    use common::web::{self as harness, Browser, Csrf};
+    use deltabadger::web::{csrf, session::{self, SessionData}};
+    let (d, o, s, _) = bundled_assets().await;
+    let c = &o.primary;
+    let row = cg_category(c, "layer-1", &["usds", "bitcoin", "ethereum"], &json!({ "bitcoin": 3, "ethereum": 1 }));
+    to_coingecko(c, at(T0));
+    c.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00' WHERE id = ?1", [s.user_id]).unwrap();
+    let app = harness::app(d.path(), "engine-test-secret", harness::TestClock::starting(at(T0)));
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [s.user_id], |r| r.get(0)).unwrap();
+    let token = csrf::new_token();
+    let data = SessionData { user: Some((s.user_id, hash.chars().take(29).collect())), csrf: Some(token.clone()), ..Default::default() };
+    let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: Some(format!("<meta name=\"csrf-token\" content=\"{}\">", csrf::masked(&token))) };
+    let turbo = [("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")];
+    let (exchange, quote) = (s.exchange_id.to_string(), s.quote.to_string());
+    for (path, form) in [("/bots/dca_indexes/pick_index", vec![("index_type", "category"), ("index_category_id", "layer-1"), ("index_name", "Layer 1")]),
+                         ("/bots/dca_indexes/pick_exchange", vec![("bots_dca_index[exchange_id]", exchange.as_str())]),
+                         ("/bots/dca_indexes/pick_spendable_asset", vec![("bots_dca_index[quote_asset_id]", quote.as_str())])] {
+        let answer = browser.send(&app, "POST", path, Some(&form), Csrf::Header, &turbo).await;
+        assert!(answer.status < 400 && !answer.body.contains("run that yet"), "{path}: {} {}", answer.status, answer.body);
+    }
+    let id: i64 = c.query_row("SELECT id FROM bots WHERE type = 'Bots::DcaIndex' AND json_extract(settings, '$.index_category_id') = 'layer-1'", [], |r| r.get(0)).expect("the bot is created");
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    assert!(!page.body.contains("run that yet"), "the bot page opens");
+    // Started as Start does: at once.
+    c.execute("UPDATE bots SET status = 1, started_at = created_at WHERE id = ?1", [id]).unwrap();
+    rank(c, row, "coingecko", at(T0));
+    let venue = bundled_venue();
+    let out = tick::tick(c, &venue, id, &FixedClock(at(T0) + Duration::seconds(1)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(in_index(&o, id), [("BTC".to_string(), 0.75), ("ETH".to_string(), 0.25)]);
+}
+
+/// Codex r1 P1: a ranking that ages past its 49 h bound while the composition's probes await composes nothing (the commit's
+/// re-check), so no membership is written from it and the next pass's gate holds the bot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_ranking_that_expires_during_the_composition_writes_no_membership() {
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 1, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0) - Duration::hours(50));
+    let bot = model::load_bot(c, id).unwrap();
+    let out = index::refresh_composition(c, &bundled_venue(), &bot, &FixedClock(at(T0)), &tick::PriceCache::default()).await.unwrap();
+    assert_eq!(out, Err(index::Refusal::Transient(index::CHANGED.into())));
+    assert!(in_index(&o, id).is_empty());
+}
+
+// ---- A17-4 r18: retired categories (D-INDEX-RETIRED-KEPT) ----
+
+fn retire(c: &rusqlite::Connection, id: &str, by: &str, now: DateTime<Utc>) { assert!(index::retire(c, id, by, &[], now).unwrap()); }
+fn composed_marker(c: &rusqlite::Connection, id: i64) -> Option<String> {
+    c.query_row("SELECT json_extract(transient_data, '$.rust_composed_index') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap()
+}
+
+/// A bot this engine composed keeps its allocation once its category is retired: the tick is neither held nor woken, reads
+/// no ranking, writes no membership, and buys the members it holds.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retired_category_keeps_the_allocation_this_engine_composed() {
+    use deltabadger::engine::staleness;
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0));
+    let out = tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(composed_marker(c, id).as_deref(), Some("layer-1"), "the composition records its provenance");
+    let members = in_index(&o, id);
+    retire(c, "layer-1", "coingecko", at(T0) + Duration::days(1));
+    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings WHERE index_id = ?1", [row], |r| r.get::<_, i64>(0)).unwrap(), 0, "its rankings dropped");
+    let later = at(T0) + Duration::days(7);
+    let bot = model::load_bot(c, id).unwrap();
+    assert!(staleness::stale(c, &bot, later).unwrap().is_none(), "not held");
+    assert!(!index::ranking_wanted(c, &bot, later).unwrap(), "not woken");
+    c.execute("UPDATE indices SET top_coins = '[\"ethereum\"]', weights = '{\"ethereum\": 1}' WHERE id = ?1", [row]).unwrap(); // never read
+    let venue = bundled_venue();
+    let out = tick::tick(c, &venue, id, &FixedClock(later), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(in_index(&o, id), members, "the last allocation, unwritten");
+    assert_eq!(venue.sent().len(), 2);
+}
+
+/// No provenance, no trade: a bot whose index is retired before this engine composed it (a takeover, a failed switch, a
+/// portfolio that follows it again) fails "Index retired" and buys nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retired_category_without_this_engines_composition_fails_and_trades_nothing() {
+    let failed = |o: &store::Opened, id: i64| -> bool {
+        o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed' AND details LIKE '%Index retired%'", [id], |r| r.get::<_, i64>(0)).unwrap() > 0
+    };
+    // Never composed here (as after a takeover: the claim removed every marker).
+    let (_d, o, _s, id, _) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    retire(c, "layer-1", "coingecko", at(T0));
+    let venue = bundled_venue();
+    let out = tick::tick(c, &venue, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(failed(&o, id) && venue.sent().is_empty() && in_index(&o, id).is_empty(), "{out:?}");
+    // Composed from another index (a switch A -> B whose composition failed, then B retires).
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0));
+    tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.index_category_id', 'meme') WHERE id = ?1", [id]).unwrap();
+    cg_category(c, "meme", &["bitcoin", "ethereum"], &json!({}));
+    retire(c, "meme", "coingecko", at(T0));
+    let venue = bundled_venue();
+    let out = tick::tick(c, &venue, id, &FixedClock(at(T0) + Duration::days(7)), &mut Attempts::default()).await.unwrap();
+    assert!(failed(&o, id) && venue.sent().is_empty(), "{out:?}: layer-1's membership is not meme's");
+}
+
+/// The fence: a retirement that lands during the composition's price probes writes nothing (Transient CHANGED); the next
+/// step keeps the allocation, or refuses without provenance.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retirement_during_the_probes_writes_nothing() {
+    let (d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0));
+    let path = d.path().join("production.sqlite3");
+    let venue = bundled_venue().on_price(move || {
+        rusqlite::Connection::open(&path).unwrap().execute("INSERT OR IGNORE INTO rust_index_retired (external_id, provider, retired_at) VALUES ('layer-1', 'coingecko', '2026-09-01T14:00:00Z')", []).unwrap();
+    });
+    let bot = model::load_bot(c, id).unwrap();
+    let out = index::refresh_composition(c, &venue, &bot, &FixedClock(at(T0)), &tick::PriceCache::default()).await.unwrap();
+    assert_eq!(out, Err(index::Refusal::Transient(index::CHANGED.into())));
+    assert!(in_index(&o, id).is_empty() && composed_marker(c, id).is_none());
+    let out = index::refresh_composition(c, &bundled_venue(), &bot, &FixedClock(at(T0)), &tick::PriceCache::default()).await.unwrap();
+    assert_eq!(out, Err(index::Refusal::Failure(index::RETIRED.into())), "no provenance: nothing composed");
+}
+
+/// The rebalance keeps the last allocation of a retired index it composed, and without provenance stops before any order
+/// (before_rebalance would otherwise log the failure and go on).
+#[tokio::test(flavor = "current_thread")]
+async fn a_rebalance_of_a_retired_index_runs_on_its_last_membership_or_not_at_all() {
+    use deltabadger::engine::rebalance::Outcome;
+    for composed in [true, false] {
+        let (_d, o, id, t) = index_swap();
+        let c = &o.primary;
+        if composed {
+            // Composed by this engine while running, then stopped again.
+            c.execute("UPDATE bots SET status = 1 WHERE id = ?1", [id]).unwrap();
+            let bot = model::load_bot(c, id).unwrap();
+            let out = index::refresh_composition(c, &venue(&t), &bot, &FixedClock(at("2026-09-01T16:00:00Z")), &tick::PriceCache::default()).await.unwrap();
+            assert_eq!(out, Ok(()));
+            c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        }
+        retire(c, "nasdaq-100", "data-api", at("2026-09-01T16:10:00Z"));
+        let before = t.posted_orders().len();
+        let out = evaluate_swap(&o, &venue(&t), id).await;
+        if composed { assert_eq!(t.posted_orders().len(), before + 1, "{out:?}: the overweight member sold"); }
+        else { assert_eq!((out, t.posted_orders().len()), (Outcome::Skipped("changed"), before), "zero orders"); }
+    }
+}
+
+/// A stopped rebalancing index bot over the ND100 row holding 10 AAA and 3 BBB at 100 (AAA overweight against its cap).
+fn index_swap() -> (tempfile::TempDir, store::Opened, i64, ScriptedTransport) {
+    let (d, o, s, id, m) = universe(3, 0.0, false);
+    o.primary.execute("UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true')) WHERE id = ?1", [id]).unwrap();
+    o.primary.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) \
+                       SELECT exchange_id, base_asset_id, 1, created_at, updated_at FROM tickers WHERE quote = 'USD' AND ticker NOT LIKE '%/%'", []).unwrap();
+    for (i, (sym, qty, quote)) in [("AAA", "10", "1000"), ("BBB", "3", "300")].into_iter().enumerate() {
+        seed::insert_stock_tx(&o.primary, &s, id, m[i].0, sym, &TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("held-{sym}")), order_type: 0,
+            amount: Some(qty), quote_amount: Some(quote), price: Some("100"), amount_exec: Some(qty), quote_amount_exec: Some(quote), created_at: "2026-08-01 14:00:00".into() });
+    }
+    let snapshots: serde_json::Map<String, Value> = SYMBOLS.iter().map(|s| (s.to_string(), json!({ "latestTrade": { "p": 100 } }))).collect();
+    let mut script = json!({
+        "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })),
+        "POST /v2/orders": ok(json!({ "id": "OTX-1", "status": "accepted" })),
+        "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
+        "GET /v2/positions": ok(json!([{ "symbol": "AAA", "asset_class": "us_equity", "qty": "10", "qty_available": "10" },
+                                      { "symbol": "BBB", "asset_class": "us_equity", "qty": "3", "qty_available": "3" }])),
+        "GET /v2/stocks/snapshots": ok(Value::Object(snapshots)),
+        "GET /v1beta3/crypto/us/latest/trades": ok(json!({ "trades": {} })),
+    });
+    for sym in SYMBOLS { script[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": 100, "bp": 100 } })); }
+    (d, o, id, ScriptedTransport::from_script(&script))
+}
+
+/// The settings line names a retired index " (Retired)", red, in every locale this build ships.
+#[tokio::test(flavor = "current_thread")]
+async fn the_settings_line_says_retired_in_red_in_every_locale() {
+    use common::web::{self as harness, Browser};
+    use deltabadger::web::{csrf, session::{self, SessionData}};
+    let (d, o, s, id, _) = coingecko_category_bot(json!({})).await;
+    let c = &o.primary;
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    c.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00' WHERE id = ?1", [s.user_id]).unwrap();
+    let app = harness::app(d.path(), "engine-test-secret", harness::TestClock::starting(at(T0)));
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [s.user_id], |r| r.get(0)).unwrap();
+    let data = SessionData { user: Some((s.user_id, hash.chars().take(29).collect())), csrf: Some(csrf::new_token()), ..Default::default() };
+    let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200);
+    assert!(!page.body.contains("text-danger\">(Retired)"), "not retired yet");
+    retire(c, "layer-1", "coingecko", at(T0));
+    for locale in ["bg", "cs", "da", "de", "el", "en", "es", "fr", "it", "nl", "pl", "pt", "ru", "sk", "sv"] {
+        let path = if locale == "en" { format!("/bots/{id}") } else { format!("/{locale}/bots/{id}") };
+        let page = browser.get(&app, &path).await;
+        assert_eq!(page.status, 200, "{locale}");
+        let word = deltabadger::web::i18n::text(locale, "bot.dca_index.retired", &[]);
+        assert!(locale == "en" || word != "(Retired)", "{locale} is translated");
+        assert!(page.body.contains(&format!(" <span class=\"text-danger\">{}</span>", askama_escape(&word))), "{locale}: {word}");
+    }
+}
+fn askama_escape(s: &str) -> String { s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&#34;").replace('\'', "&#39;") }
+
+/// What the Alpaca transport answers, with one SQL statement run before the first quote read (a write while probes await).
+#[derive(Clone)]
+struct DuringQuotes { inner: ScriptedTransport, db: std::path::PathBuf, sql: std::rc::Rc<std::cell::RefCell<Option<String>>> }
+impl deltabadger::venue::http::Transport for DuringQuotes {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        if r.path.contains("/quotes/") { if let Some(sql) = self.sql.borrow_mut().take() { rusqlite::Connection::open(&self.db).unwrap().execute_batch(&sql).unwrap(); } }
+        self.inner.send(r).await
+    }
+}
+
+/// Codex r18-1 P1: a retirement that lands during a rebalance's composition probes, on a bot without provenance, places
+/// nothing (the rebalance stops; the order intent's fence refuses too).
+#[tokio::test(flavor = "current_thread")]
+async fn a_retirement_during_a_rebalances_probes_places_nothing() {
+    let (d, o, id, t) = index_swap();
+    let hooked = DuringQuotes { inner: t.clone(), db: d.path().join("production.sqlite3"),
+                                sql: std::rc::Rc::new(std::cell::RefCell::new(Some("INSERT INTO rust_index_retired VALUES ('nasdaq-100', 'data-api', '2026-09-01T16:00:00Z')".into()))) };
+    let out = evaluate_swap(&o, &AlpacaVenue::new(hooked.clone(), Urls::for_passphrase(Some("paper"))), id).await;
+    assert!(hooked.sql.borrow().is_none(), "the probes ran");
+    assert!(t.posted_orders().is_empty(), "{out:?}: zero orders");
+}
+
+/// Codex r18-1 P1: a retired index's bot trades the members it holds, so their catalogues stay judged: a stale Alpaca stock
+/// catalogue still holds it.
+#[test]
+fn a_retired_index_is_still_held_by_its_members_stale_catalogue() {
+    use deltabadger::engine::staleness;
+    let (_d, o, _s, id, m) = universe(3, 0.0, false);
+    let c = &o.primary;
+    for (asset, ticker) in &m[..3] { seed::insert_member(c, id, *asset, *ticker, 1.0 / 3.0, true, "2026-09-01 14:00:00", None); }
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = ?1", [id]).unwrap();
+    retire(c, "nasdaq-100", "data-api", at(T0));
+    let now = at(T0);
+    assert!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().is_none());
+    deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::STOCKS, None, now - Duration::days(7)).unwrap();
+    assert_eq!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().map(|s| s.source), Some(staleness::ALPACA_STOCK_TICKERS.name));
+}
+
+/// Codex r18-2 P2: a retired data-api index keeps its stored weights, so stale crypto market caps hold it no more; its venue
+/// catalogue still would.
+#[test]
+fn a_retired_data_api_index_does_not_wait_for_market_caps() {
+    use deltabadger::engine::staleness;
+    let (_d, o, s) = common::install();
+    let c = &o.primary;
+    seed::insert_index(c, "layer-1", &["bitcoin"], &json!({}));
+    let id = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
+    let now = at(T0);
+    seed::fresh_stock_jobs(c, now);
+    deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::ASSETS, None, now - Duration::days(7)).unwrap();
+    assert_eq!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().map(|s| s.source), Some("Crypto assets"), "ranked: caps read");
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'layer-1') WHERE id = ?1", [id]).unwrap();
+    retire(c, "layer-1", "data-api", now);
+    assert!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().is_none(), "retired: no cap is read");
+}
+
+/// The bot page as its owner sees it.
+async fn bot_page(d: &tempfile::TempDir, c: &rusqlite::Connection, s: &seed::Seeded, id: i64) -> String {
+    use common::web::{self as harness, Browser};
+    use deltabadger::web::{csrf, session::{self, SessionData}};
+    c.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00' WHERE id = ?1", [s.user_id]).unwrap();
+    let app = harness::app(d.path(), "engine-test-secret", harness::TestClock::starting(at(T0)));
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [s.user_id], |r| r.get(0)).unwrap();
+    let data = SessionData { user: Some((s.user_id, hash.chars().take(29).collect())), csrf: Some(csrf::new_token()), ..Default::default() };
+    let page = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None }.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200);
+    page.body
+}
+
+/// The page's allocation preview as index_allocation_controller.js computes it on connect, from the sliders' rendered
+/// values: the first min(num_coins, coins) coins, each `cap/Σcap × (1 − f) + f/n`, by asset id.
+fn previewed(body: &str) -> Vec<(String, f64)> {
+    let slider = |target: &str| -> f64 {
+        let re = regex::Regex::new(&format!(r#"value="([^"]*)"\s+class="slider__input"\s+data-index-allocation-target="{target}""#)).unwrap();
+        re.captures(body).map(|m| m[1].parse().unwrap()).unwrap_or_else(|| panic!("no {target} slider"))
+    };
+    let (num_coins, flattening) = (slider("numCoins") as usize, slider("flattening"));
+    let re = regex::Regex::new(r#"data-market-cap="([^"]*)" data-asset-id="(\d+)""#).unwrap();
+    let coins: Vec<(i64, f64)> = re.captures_iter(body).map(|m| (m[2].parse().unwrap(), m[1].parse().unwrap())).take(num_coins).collect();
+    let total: f64 = coins.iter().map(|(_, cap)| cap).sum();
+    let n = coins.len() as f64;
+    coins.into_iter().map(|(asset, cap)| (asset.to_string(), (if total > 0.0 { cap / total } else { 1.0 / n }) * (1.0 - flattening) + flattening / n)).collect()
+}
+/// Whether the page draws both allocation sliders disabled.
+fn sliders_disabled(body: &str) -> bool {
+    ["numCoins", "flattening"].iter().all(|target| {
+        let at = body.find(&format!("data-index-allocation-target=\"{target}\"")).unwrap();
+        body[at..at + body[at..].find("<div").unwrap()].contains("disabled") // the input's own attributes (its data-action holds a '>')
+    })
+}
+fn targets(o: &store::Opened, id: i64) -> Vec<(String, f64)> {
+    let mut s = o.primary.prepare("SELECT asset_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY target_allocation DESC, id").unwrap();
+    s.query_map([id], |r| Ok((r.get::<_, i64>(0)?.to_string(), r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+fn close(a: &[(String, f64)], b: &[(String, f64)]) -> bool { a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.0 == y.0 && (x.1 - y.1).abs() < 1e-6) }
+
+/// Codex branch r2 P2: on a CoinGecko ranking whose caps conflict with the assets' (300 and 100 against 997 and 996), the
+/// page previews what the composition targets (75/25), not the assets' caps (about 50/50); with flattening too.
+#[tokio::test(flavor = "current_thread")]
+async fn the_page_previews_a_coingecko_ranking_as_the_composition_weighs_it() {
+    for flattening in [0.0, 0.5] {
+        let (d, o, s, id, row) = coingecko_category_bot(json!({ "bitcoin": 300, "ethereum": 100 })).await;
+        let c = &o.primary;
+        c.execute("UPDATE bots SET settings = json_set(settings, '$.allocation_flattening', ?2) WHERE id = ?1", rusqlite::params![id, flattening]).unwrap();
+        rank(c, row, "coingecko", at(T0));
+        tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        let page = bot_page(&d, c, &s, id).await;
+        let shown = previewed(&page);
+        assert!(close(&shown, &targets(&o, id)), "f={flattening}: page {shown:?} vs orders {:?}", targets(&o, id));
+        assert!(!sliders_disabled(&page), "a stopped, unretired bot's sliders are live");
+        assert!((targets(&o, id)[0].1 - (0.75 * (1.0 - flattening) + flattening / 2.0)).abs() < 1e-6);
+    }
+}
+
+/// D-INDEX-RETIRED-KEPT: a retired index this engine composed previews its stored membership, whatever the row now holds,
+/// with both sliders disabled; a later change of flattening or num_coins changes neither the preview nor the membership. A
+/// retired index without provenance previews nothing and keeps live sliders.
+#[tokio::test(flavor = "current_thread")]
+async fn the_page_previews_a_retired_index_as_its_stored_membership() {
+    for (flattening, changed) in [(0.0, 0.5), (0.5, 1.0), (0.5, 0.0)] {
+        let (d, o, s, id, row) = coingecko_category_bot(json!({ "bitcoin": 300, "ethereum": 100 })).await;
+        let c = &o.primary;
+        c.execute("UPDATE bots SET settings = json_set(settings, '$.allocation_flattening', ?2) WHERE id = ?1", rusqlite::params![id, flattening]).unwrap();
+        rank(c, row, "coingecko", at(T0));
+        tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let stored = targets(&o, id);
+        retire(c, "layer-1", "coingecko", at(T0));
+        c.execute("UPDATE indices SET weights = '{\"bitcoin\": 1, \"ethereum\": 9}' WHERE id = ?1", [row]).unwrap(); // never read
+        c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        let page = bot_page(&d, c, &s, id).await;
+        assert!(sliders_disabled(&page), "f={flattening}: frozen sliders");
+        assert!(close(&previewed(&page), &stored), "f={flattening}: page {:?} vs stored {stored:?}", previewed(&page));
+        // A later settings change: the preview and the membership stay.
+        c.execute("UPDATE bots SET status = 1, settings = json_set(settings, '$.allocation_flattening', ?2, '$.num_coins', 5) WHERE id = ?1", rusqlite::params![id, changed]).unwrap();
+        let out = tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0) + Duration::days(7)), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::Done { .. }), "{out:?}");
+        assert_eq!(targets(&o, id), stored, "f={flattening}->{changed}: the membership unchanged");
+        c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        let page = bot_page(&d, c, &s, id).await;
+        assert!(sliders_disabled(&page) && close(&previewed(&page), &stored), "f={flattening}->{changed}: page {:?} vs stored {stored:?}", previewed(&page));
+    }
+    // Without provenance: nothing previewed, the sliders live.
+    let (d, o, s, id, _) = coingecko_category_bot(json!({ "bitcoin": 300, "ethereum": 100 })).await;
+    let c = &o.primary;
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    retire(c, "layer-1", "coingecko", at(T0));
+    let page = bot_page(&d, c, &s, id).await;
+    assert!(!sliders_disabled(&page) && !page.contains("data-market-cap="), "no provenance: no preview, live sliders");
+}
+
+/// Codex p1 P2: the page's bounds come from the row the composition reads. An older two-member `deltabadger` row (a bounded
+/// universe of 2) and a newer three-member CoinGecko ranking of the same id: the page previews three, as the composition targets.
+#[tokio::test(flavor = "current_thread")]
+async fn the_page_bounds_come_from_the_selected_ranking() {
+    let (d, o, s, _) = bundled_assets().await;
+    let c = &o.primary;
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, color, market_cap, created_at, updated_at) VALUES ('solana', 'SOL', 'Solana', 'Cryptocurrency', '#9945FF', 5, '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO tickers (exchange_id,base_asset_id,quote_asset_id,ticker,base,quote,available,trading_enabled,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,created_at,updated_at) \
+               SELECT ?1,id,?2,'SOLEUR','SOL','EUR',1,1,8,2,2,0.001,0.01,'2026-01-01','2099-01-01' FROM assets WHERE external_id='solana'", rusqlite::params![s.exchange_id, s.quote]).unwrap();
+    c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+               VALUES ('layer-1', 'deltabadger', 'layer-1', '[\"bitcoin\",\"ethereum\"]', '{}', '{}', '{}', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    let row = cg_category(c, "layer-1", &["bitcoin", "ethereum", "solana"], &json!({ "bitcoin": 3, "ethereum": 2, "solana": 1 }));
+    let id = seed::index_bot(c, &s, "layer-1", 3, 0.0, false);
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap();
+    to_coingecko(c, at(T0));
+    rank(c, row, "coingecko", at(T0));
+    let venue = bundled_venue().ticker("SOLEUR", "10", "10", "10");
+    let out = tick::tick(c, &venue, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(targets(&o, id).len(), 3, "the composition targets three");
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    let shown = previewed(&bot_page(&d, c, &s, id).await);
+    assert!(close(&shown, &targets(&o, id)), "page {shown:?} vs orders {:?}", targets(&o, id));
 }

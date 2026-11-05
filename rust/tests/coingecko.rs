@@ -204,7 +204,8 @@ async fn setup_sync_runs_assets_then_ranking_and_stops_on_a_rate_limit() {
 
     let t = ScriptedTransport::default();
     demo(&t).reply("GET /api/v3/coins/markets", 200, json!([coin("bitcoin")]))
-        .reply("GET /api/v3/coins/markets", 200, json!([{ "id": "bitcoin", "market_cap": 1e12 }]));
+        .reply("GET /api/v3/coins/markets", 200, json!([{ "id": "bitcoin", "market_cap": 1e12 }]))
+        .reply("GET /api/v3/coins/categories", 200, json!([])); // A17-4: the category pass after Top Coins
     job(&t).run(cx(&db), vec![]).await;
     assert_eq!(t.requests().iter().filter(|r| r.path == "/api/v3/coins/markets").count(), 2, "assets, then the ranking");
     assert!(state::read(&reopen(&d), reference::INDICES, None).unwrap().last_success_at.is_some());
@@ -220,10 +221,12 @@ async fn setup_sync_runs_assets_then_ranking_and_stops_on_a_rate_limit() {
         }
         fn coin<'a>(&'a self, id: &'a str) -> coingecko::Fut<'a> { self.1.coin(id) }
         fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> coingecko::Fut<'a> { self.1.exchange_tickers(id, page) }
+        fn categories(&self) -> coingecko::Fut<'_> { self.1.categories() }
     }
     let t = ScriptedTransport::default();
     demo(&t).reply("GET /api/v3/coins/markets", 200, json!([coin("bitcoin")]))
-        .reply("GET /api/v3/coins/markets", 200, json!([{ "id": "bitcoin", "market_cap": 1e12 }]));
+        .reply("GET /api/v3/coins/markets", 200, json!([{ "id": "bitcoin", "market_cap": 1e12 }]))
+        .reply("GET /api/v3/coins/categories", 200, json!([])); // A17-4: the category pass after Top Coins
     let path = d.path().join("production.sqlite3").display().to_string();
     let inner = clients(&t);
     let bumping: Clients = Rc::new(move |k: &str| Box::new(Bump(path.clone(), inner(k))) as Box<dyn Api>);

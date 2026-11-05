@@ -5,7 +5,7 @@ use crate::{codec, engine::{eligibility, model}, ruby::BigDec};
 use crate::web::format::Num;
 use crate::web::{bot_api::Domain, bots, i18n, layout::Ctx, WebError};
 use rusqlite::{Connection, OptionalExtension};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 pub enum Outcome<T> {
     Missing,
@@ -79,6 +79,15 @@ SET transient_data = json_remove(transient_data, ?1)
 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3;";
 
 fn error(message: &str) -> WebError { super::data(message.into()) }
+
+/// A17-4 r18: a settings write that changes what an index bot follows ends the provenance of its membership
+/// (engine::index::COMPOSED_KEY), in the same transaction.
+fn forget_composed(tx: &Connection, id: i64, set: &Map<String, Value>) -> Result<(), WebError> {
+    if set.keys().any(|key| matches!(key.as_str(), "index_type" | "index_category_id")) {
+        tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index') WHERE id = ?1", [id])?;
+    }
+    Ok(())
+}
 fn one(rows: usize) -> Result<(), WebError> {
     if rows == 1 { Ok(()) } else { Err(error("settings writer lost its owned bot")) }
 }
@@ -208,6 +217,7 @@ fn settings_inner<T>(
     let exchange_changed = draft.candidate.exchange.id != draft.original.exchange.id;
     let changed = label_changed || exchange_changed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
+    forget_composed(&tx, id, &effects.settings.set)?;
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
@@ -571,6 +581,7 @@ pub fn lifecycle_in<T>(
             if same { effects.transient.set.retain(|k,_| !own(k)); } else { for (k,v) in start { effects.transient.set.insert(k.into(),v); } }
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
+        forget_composed(tx, id, &effects.settings.set)?;
         for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT,(path(key,true)?,id,owner,&class))?)?; }
         if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3",(id,owner,&class,&at))?)?; }

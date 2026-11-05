@@ -45,6 +45,8 @@ serde_json = { version = "1", features = ["float_roundtrip", "preserve_order", "
 serde = { version = "1", features = ["derive"] }
 sha1 = "0.10"
 sha2 = "0.10"
+# Index::SyncFromCoingeckoJob#due_today? (jobs::categories): Digest::MD5 of a category id, RustCrypto as sha2.
+md-5 = "0.10"
 subtle = "2"
 # TLS for the mail sender's own SMTP client (src/mail/smtp.rs): rustls on aws-lc-rs with the platform's verifier, the
 # stack reqwest already links, named here because the client uses it directly. Both were already locked.

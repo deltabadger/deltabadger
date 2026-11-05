@@ -124,7 +124,7 @@ fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace
     if on_new { if let Some(path) = prerequisite_path(c, user, config, namespace)? { return Ok(Route::To(path)) } }
     if exchange_id(config).is_none() { return Ok(Route::To(missing_exchange_path(c, config, namespace)?)) }
     let Some(venue) = venue.filter(|venue| ported(&venue.class)) else { return Ok(Route::Refused) };
-    if namespace == Namespace::Index && super::index::refusal(c, app, &super::index::external_id(config), &venue.class)?.is_some() { return Ok(Route::Refused) }
+    if namespace == Namespace::Index && super::index::refusal(c, app, &venue.class)?.is_some() { return Ok(Route::Refused) }
     if namespace == Namespace::Signal && crate::engine::eligibility::signal_admission(Some(&venue.class)).is_some() { return Ok(Route::Refused) }
     let key = keys::Key::read(c, app, user, venue.id, 0)?;
     Ok(Route::Ready(venue, Box::new(key)))

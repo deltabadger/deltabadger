@@ -50,10 +50,17 @@ pub fn settings(c:&Connection)->Result<crate::market_data::Settings,EngineError>
 pub fn config(c:&Connection)->Result<Option<Config>,EngineError> {
     Ok(settings(c)?.data_api_complete().cloned())
 }
-/// Direct CoinGecko is supported for the Top Coins ranking. Never fall back from a configured
+/// The direct CoinGecko key (Top Coins and categories). Never fall back from a configured
 /// data-api to a different provider, including when its credentials are blank.
 pub fn coingecko_key(c: &Connection) -> Result<Option<String>, EngineError> {
     Ok(settings(c)?.coingecko_key().map(str::to_string))
+}
+
+/// The provider whose rankings the engine reads (`rust_index_rankings.provider`): a complete data-api configuration, else a
+/// CoinGecko key; None without either.
+pub fn ranking_provider(c: &Connection) -> Result<Option<&'static str>, EngineError> {
+    let s = settings(c)?;
+    Ok(if s.data_api_complete().is_some() { Some("data-api") } else if s.coingecko_key().is_some() { Some("coingecko") } else { None })
 }
 
 /// Hash effective credentials and raw configuration rows/timestamps. Removing a row or changing
@@ -76,7 +83,6 @@ pub fn record(c:&Connection, fingerprint:&str, now:DateTime<Utc>)->Result<(),Eng
 }
 pub fn stale(c:&Connection,bot:&Bot)->Result<Option<Stale>,EngineError> {
     if bot.bot_type!="Bots::DcaIndex" {return Ok(None);}
-    if config(c)?.is_none() && bot.index_external_id() != "top-coins" { return Ok(Some(Stale{source:"Index provider",message:MESSAGE.into()})); }
     let current=fingerprint(c)?;
     let recorded=app_config::get_plain(c,KEY).map_err(EngineError::Data)?;
     Ok((current.is_none() || current!=recorded).then(||Stale{source:"Index provider",message:MESSAGE.into()}))

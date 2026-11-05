@@ -697,12 +697,16 @@ struct IndexMain<'a> {
     path: &'a str,
     bot_id: i64,
     locked: bool,
+    /// D-INDEX-RETIRED-KEPT: the allocation is frozen; the sliders are drawn disabled.
+    frozen: bool,
     quote: &'a str,
     quote_asset_id: Option<i64>,
     amount_field: String,
     interval_words: String,
     interval_select: String,
     index_name: String,
+    /// A17-4 r18: " (Retired)" after the name, red, while the provider has retired the index (engine::index::retired).
+    retired: Option<String>,
     num_coins: i64,
     max_coins: i64,
     num_coins_progress: i64,
@@ -717,25 +721,43 @@ fn intervals(locale: &str) -> Vec<(String, String)> {
     ["hour", "day", "week", "month"].iter().map(|name| (i18n::text(locale, &format!("bot.{name}"), &[]), name.to_string())).collect()
 }
 
-/// Bots::DcaIndex#current_index_preview with the Deltabadger provider: the index's members that
-/// trade here in the bot's quote, in index order, each with the market cap it is weighted by
-/// (the asset's own, else the weight the index carries for it).
+/// Bots::DcaIndex#current_index_preview: the index's members that trade here in the bot's quote, in index order, each with
+/// the market cap it is weighted by, read as the engine's composition reads it (engine::index): the row `ranked_row`
+/// selects when there is one, weighed on a `coingecko` ranking by its own caps only (zero kept), else the asset's own cap
+/// and then the weight the index carries for it (data-api, and a row no provider ranked yet, as before). A retired index
+/// shows the membership this engine composed from it (D-INDEX-RETIRED-KEPT), or nothing without that provenance.
 pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebError> {
     let Some(index) = bot.index.as_ref() else { return Ok(vec![]) };
     if bot.setting("quote_asset_id").is_none() { return Ok(vec![]); }
+    match frozen(c, bot)? {
+        Some(true) => return Ok(retired_preview(bot)?.0),
+        Some(false) => return Ok(vec![]),
+        None => {}
+    }
+    // bot.index is the row ranked_row selects (web::bot::index_row), with the provider that ranked it.
+    let own_caps = index.ranked_by.as_deref() == Some("coingecko");
+    let (top_coins, weights) = (&index.top_coins, &index.weights);
     let limit = 1000;
     let mut coins = vec![];
     let num_coins = shown_coins(bot);
     // Looked up once: a member is asked for among every listing of the venue.
     let listed: std::collections::HashSet<i64> = bot.tickers.iter().map(|ticker| ticker.base_asset_id).collect();
-    for external_id in index.top_coins.iter().take(limit) {
+    for external_id in top_coins.iter().take(limit) {
         if coins.len() as i64 >= bot.max_coins() { break; }
         let Some(asset) = Asset::find_by_external_id(c, external_id)? else { continue };
         if crate::engine::index::stablecoin(asset.category.as_deref(), external_id) { continue; }
-        // MarketData.get_top_coins: a real market cap when there is one, else the index's weight; a member with neither is skipped.
-        let own = asset.market_cap.map_or(0.0, |cap| cap as f64);
-        let cap = if own > 0.0 { own } else { index.weights.get(external_id).and_then(Value::as_f64).unwrap_or(0.0) };
-        if cap <= 0.0 { continue; }
+        let cap = if own_caps {
+            // The ranking's own cap, Ruby's to_f (missing or null: 0.0), never the asset's, never skipped for zero.
+            let cap = crate::engine::index::to_f(weights.get(external_id));
+            if !cap.is_finite() || cap < 0.0 { return Ok(vec![]); } // the composition refuses it too
+            cap
+        } else {
+            // MarketData.get_top_coins: a real market cap when there is one, else the index's weight; a member with neither is skipped.
+            let own = asset.market_cap.map_or(0.0, |cap| cap as f64);
+            let cap = if own > 0.0 { own } else { weights.get(external_id).and_then(Value::as_f64).unwrap_or(0.0) };
+            if cap <= 0.0 { continue; }
+            cap
+        };
         if !listed.contains(&asset.id) { continue; }
         coins.push(Coin {
             color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", asset.id)))?,
@@ -743,6 +765,35 @@ pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebE
         });
     }
     Ok(coins)
+}
+
+/// D-INDEX-RETIRED-KEPT: Some(true) for a retired index whose membership this engine composed (its allocation is frozen),
+/// Some(false) for a retired one without that provenance (nothing composes), None while the index is not retired.
+fn frozen(c: &Connection, bot: &Bot) -> Result<Option<bool>, WebError> {
+    let followed = crate::web::wizard::index::followed(Some(&bot.settings));
+    if !crate::engine::index::retired(c, &followed).map_err(|e| super::data(format!("{e:?}")))? { return Ok(None); }
+    Ok(Some(bot.transient.get(crate::engine::index::COMPOSED_KEY).and_then(Value::as_str) == Some(followed.as_str())))
+}
+
+/// D-INDEX-RETIRED-KEPT: the stored in-index membership, largest first, and the flattening its disabled slider is drawn at.
+/// The page's blend (index_allocation_controller.js, on connect, from the slider values: `cap/Σcap × (1 − f) + f/n` over
+/// the n shown, n = the membership as the disabled count slider shows it) turns each "cap" back into its stored target:
+/// `(target − f/n) / (1 − f)` at the stored flattening f. Where that cannot reproduce the targets (f = 1, or a target under
+/// f/n: the flattening changed after the composition), the slider is drawn at 0 and the caps are the targets themselves.
+fn retired_preview(bot: &Bot) -> Result<(Vec<Coin>, f64), WebError> {
+    let mut members: Vec<(&super::Membership, f64)> = bot.memberships.iter().filter(|m| m.in_index)
+        .map(|m| (m, m.target_allocation.as_ref().and_then(|t| t.to_persisted().ok()).and_then(|t| t.parse::<f64>().ok()).unwrap_or(0.0))).collect();
+    members.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let stored = bot.number("allocation_flattening").map_or(0.0, |n| n.to_f()).clamp(0.0, 1.0);
+    let n = members.len() as f64;
+    let feasible = stored < 1.0 && members.iter().all(|(_, t)| *t >= stored / n - 1e-9);
+    let f = if feasible { stored } else { 0.0 };
+    let coins = members.into_iter().map(|(m, target)| Ok(Coin {
+        color: colors::pill_color(m.asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", m.asset.id)))?,
+        market_cap: format::float_to_s(((target - f / n) / (1.0 - f)).max(0.0)),
+        asset_id: m.asset.id, symbol: m.asset.symbol().to_string(), visible: true,
+    })).collect::<Result<Vec<_>, WebError>>()?;
+    Ok((coins, f))
 }
 
 /// The count the index form's slider is drawn at: the stored one, held within what the index offers.
@@ -833,16 +884,21 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             if !bot.one_asset() && !bot.selling() { out.push_str(&format!("    {}\n", forms.rebalance())); }
         }
         Kind::Index => {
-            let coins = index_preview(c, bot)?;
-            let max_coins = if coins.is_empty() { bot.max_coins() } else { bot.max_coins().min(coins.len() as i64) };
-            let num_coins = shown_coins(bot).min(max_coins);
-            let flattening = bot.number("allocation_flattening").unwrap_or(Num::Int(0));
+            // A frozen allocation (D-INDEX-RETIRED-KEPT) is drawn with both sliders disabled at the values its preview is
+            // computed at: every held member shown, the flattening retired_preview chose.
+            let frozen = frozen(c, bot)? == Some(true);
+            let (coins, frozen_flattening) = if frozen { let (coins, f) = retired_preview(bot)?; (coins, Some(f)) } else { (index_preview(c, bot)?, None) };
+            let max_coins = if frozen { (coins.len() as i64).max(MIN_COINS) } else if coins.is_empty() { bot.max_coins() } else { bot.max_coins().min(coins.len() as i64) };
+            let num_coins = if frozen { coins.len() as i64 } else { shown_coins(bot).min(max_coins) };
+            let flattening = match frozen_flattening { Some(f) => Num::Float(f), None => bot.number("allocation_flattening").unwrap_or(Num::Int(0)) };
             let fewer_note = i18n::text(ctx.locale, "bot.dca_index.fewer_coins_available", &[
                 ("available", Arg::Text(&coins.len().to_string())), ("requested", Arg::Text(&num_coins.to_string())), ("exchange_name", Arg::Text(&bot.exchange.name)),
             ]);
             out.push_str(&IndexMain {
-                v: ctx, csrf: forms.csrf, path: &forms.path, bot_id: bot.id, locked: bot.working(), quote, quote_asset_id, amount_field, interval_words, interval_select,
+                v: ctx, csrf: forms.csrf, path: &forms.path, bot_id: bot.id, locked: bot.working(), frozen, quote, quote_asset_id, amount_field, interval_words, interval_select,
                 index_name: bot.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])),
+                retired: crate::engine::index::retired(c, &crate::web::wizard::index::followed(Some(&bot.settings))).map_err(|e| super::data(format!("{e:?}")))?
+                    .then(|| i18n::text(ctx.locale, "bot.dca_index.retired", &[])),
                 num_coins, max_coins,
                 num_coins_progress: if max_coins > MIN_COINS { ((num_coins - MIN_COINS) as f64 / (max_coins - MIN_COINS) as f64 * 100.0).round() as i64 } else { 100 },
                 flattening_progress: (flattening.to_f() * 100.0).round() as i64, flattening: flattening.to_s(),
