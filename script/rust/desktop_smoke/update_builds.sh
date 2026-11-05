@@ -27,13 +27,11 @@ if [ -n "$exe" ]; then
   nsi=$(ls src-tauri/target/release/nsis/x64/installer.nsi)
   makensis=$(ls "$LOCALAPPDATA"/tauri/NSIS/makensis.exe)
   grep -q '^!define BUNDLEID "com.deltabadger.app.test"$' "$nsi" || { echo "::error::$nsi is not the test identifier's"; exit 1; }
-  sed 's/^!define BUNDLEID "com.deltabadger.app.test"$/!define BUNDLEID "com.deltabadger.app"/; s|^!define OUTFILE ".*"$|!define OUTFILE "release-id-setup.exe"|' "$nsi" > "$(dirname "$nsi")/release-id.nsi"
-  (cd "$(dirname "$nsi")" && "$makensis" -V2 -INPUTCHARSET UTF8 -OUTPUTCHARSET UTF8 release-id.nsi)
-  # The script each installer was compiled from, macros expanded under its identifier (makensis /PPO), and the built
-  # installers' manifests.
+  sed 's/^!define BUNDLEID "com.deltabadger.app.test"$/!define BUNDLEID "com.deltabadger.app"/' "$nsi" > "$(dirname "$nsi")/release-id.nsi"
+  # The script an installer is compiled from under each identifier, its macros expanded (makensis /PPO): the test
+  # build's is the one this job's installer was made from.
   for which in test release; do
-    src=installer.nsi installer=$out/N-setup.exe
-    [ $which = release ] && src=release-id.nsi installer=$(dirname "$nsi")/release-id-setup.exe
+    src=installer.nsi; [ $which = release ] && src=release-id.nsi
     (cd "$(dirname "$nsi")" && "$makensis" -INPUTCHARSET UTF8 -PPO "$src") > "$out/$which.ppo.nsi"
     hooks=$(grep -c 'deltabadger-test-hooks' "$out/$which.ppo.nsi" || true)
     rm_calls=$(grep -c 'RmGetList' "$out/$which.ppo.nsi" || true)
@@ -41,10 +39,9 @@ if [ -n "$exe" ]; then
     [ "$rm_calls" -ge 1 ] || { echo "::error::the $which installer has no Restart Manager query"; exit 1; }
     # /PPO may echo the macros' definitions as written: those copies are not compiled. Only the test build expands them.
     eval "${which}_hooks=$hooks"
-    [ -s "$installer" ] || { echo "::error::no $which installer was built"; exit 1; }
-    # A per-account install needs no elevation: no UAC prompt (installer.nsi `RequestExecutionLevel user`).
-    grep -aq 'level="asInvoker"' "$installer" || { echo "::error::the $which installer asks for elevation"; exit 1; }
   done
+  # A per-account install needs no elevation: no UAC prompt (installer.nsi `RequestExecutionLevel user`).
+  grep -aq 'level="asInvoker"' "$out/N-setup.exe" || { echo "::error::the installer asks for elevation"; exit 1; }
   defined=$(grep -c 'deltabadger-test-hooks' src-tauri/windows/hooks.nsh)
   { [ "$release_hooks" = 0 ] || [ "$release_hooks" = "$defined" ]; } || { echo "::error::the release installer carries test hooks"; exit 1; }
   [ $((test_hooks - release_hooks)) -ge 3 ] || { echo "::error::the test installer lacks its test hooks"; exit 1; }
