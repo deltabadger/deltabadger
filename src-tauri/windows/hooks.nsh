@@ -66,7 +66,7 @@ Var DbUpdating
         System::Call 'rstrtmgr::RmRegisterResources(i r1, i 1, p r7, i 0, p 0, i 0, p 0) i .r0'
         ${If} $0 == 0
           StrCpy $0 "-"
-          System::Call 'rstrtmgr::RmGetList(i r1, *i 0 .r2, *i 0, p 0, *i 0) i .r0'
+          System::Call 'rstrtmgr::RmGetList(i r1, *i .r2, *i 0, p 0, *i 0) i .r0'
           ${If} $0 == 0
           ${AndIf} $2 == 0
             StrCpy $4 0
