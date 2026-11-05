@@ -2,6 +2,8 @@
 
 One Deltabadger can serve several people, each with their own login, exchange keys and bots. The account created on first run is the admin (see [First run](06-first-run.md)); everyone else signs up through a page the admin opens.
 
+The desktop app has one account and no sign-up. A 2.x install with several users that is taken over by the desktop app opens as its admin; the other users' bots and data stay in the database, but nobody can sign in as them there.
+
 ## Enable Sign Up
 
 Open **Settings → Account → Multiple Accounts**. The widget shows ON or OFF. Press **Enable Sign Up** to open registration; press **Disable Sign Up** to close it again. Closing it does not remove anyone — existing users keep signing in.

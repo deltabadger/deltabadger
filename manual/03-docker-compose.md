@@ -35,7 +35,7 @@ cp .env.docker.example .env.docker
 | `docker compose down` | Stop all containers |
 | `docker compose pull` | Pull latest image |
 | `docker compose logs -f` | View logs (Ctrl+C to exit) |
-| `docker compose logs -f web` | View web server logs only |
+| `docker compose run --rm --no-deps deltabadger <command>` | Run one of Deltabadger's [commands](29-configuration.md#commands) with the app stopped |
 
 ## Starting fresh
 
@@ -43,10 +43,14 @@ If something goes wrong and you want to reset everything:
 
 ```bash
 docker compose down
-docker volume rm deltabadger_storage deltabadger_logs
+docker volume rm deltabadger_storage
 ```
 
 > **Note:** This deletes all data. Volume names may vary — run `docker volume ls` to see all volumes.
+
+## Coming from 2.x
+
+Updating a 2.x install is the same `docker compose pull` and `docker compose up -d`. Deltabadger 3 saves a copy of your data and takes the install over on its first start; see [Updating from 2.x](07-updating.md#updating-from-2x).
 
 ## Production notes
 
@@ -54,7 +58,7 @@ Secrets are auto-generated on first run and stored in `/app/storage/.secrets` (i
 
 For production deployments:
 - Use a reverse proxy (nginx, Traefik) for HTTPS
-- Set `APP_ROOT_URL` and `HOME_PAGE_URL` to your domain in `.env.docker`
+- Set `APP_ROOT_URL` to your domain in a `.env` file next to `docker-compose.yml` (see [Configuration](29-configuration.md))
 
 ## Building from source
 

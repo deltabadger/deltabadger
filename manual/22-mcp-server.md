@@ -18,6 +18,12 @@ The page asks nothing about tools. A newly connected client can use whatever you
 
 The client receives a token that lasts an hour and renews it on its own. You do not authorize again unless you revoke the client.
 
+## Desktop app
+
+On the desktop app the MCP URL is the app's own address followed by `/mcp`, for example `http://127.0.0.1:3000/mcp`: the app takes port 3000, or the next free one if another program has it, so the address can change between starts when that port is busy. **Settings → MCP Server** shows the one in use. The app listens only on this computer, so the client must run on it too.
+
+The desktop app has no password. When the client opens the browser, the sign-in page asks for a code instead: in the app, open **Settings → Sign in a browser**, press **Show a code**, and enter it on that page within 10 minutes. The code works once. The **Authorize access** page then follows as above.
+
 ## Connected clients
 
 **Connected clients**, at the bottom of the page, is a card per client you have authorized, with the date it connected. Each card has a switch per group for MCP; the same card on **Settings → REST API** has the client's REST switches. A surface the client never asked for shows **–** instead of a switch.

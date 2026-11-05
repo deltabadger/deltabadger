@@ -8,6 +8,8 @@ docker run -d --name deltabadger -p 3737:3000 -v deltabadger_data:/app/storage g
 
 That's it! Access the app at `http://localhost:3737`.
 
+Already running Deltabadger 2.x? See [Updating from 2.x](07-updating.md#updating-from-2x). Would rather not use Docker? Use the [desktop app](04-desktop-app.md).
+
 ## Self-Hosted plan
 
 If you have a Deltabadger.com Self-Hosted subscription, copy the one-time connect code from your dashboard and pass it when you first start the container:
