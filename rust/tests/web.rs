@@ -1003,9 +1003,10 @@ mod oauth_sources {
             let (name, on) = line.trim().trim_end_matches(',').split_once(" => ")?;
             Some((name.trim_matches('\'').to_string(), on == "true"))
         }).collect();
-        // D-SPLIT-API: split_bots (off, among the controls) is this build's own.
-        let ours = |name: &&str| *name != "split_bots";
-        assert!(oauth::TOOL_DEFAULTS.contains(&("split_bots", false)));
+        // D-SPLIT-API: split_bots (off, among the controls) is this build's own, as D-RAILS-UNRECORDED-API's
+        // answer_unrecorded_order (off, among the trade tools).
+        let ours = |name: &&str| !["split_bots", "answer_unrecorded_order"].contains(name);
+        assert!(oauth::TOOL_DEFAULTS.contains(&("split_bots", false)) && oauth::TOOL_DEFAULTS.contains(&("answer_unrecorded_order", false)));
         assert_eq!(defaults, oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| ours(name)).map(|(name, on)| (name.to_string(), *on)).collect::<Vec<_>>());
         let groups: Vec<(String, Vec<String>)> = between(&ruby, "TOOL_GROUPS = {", "}.freeze").split("' => %w[").collect::<Vec<_>>().windows(2).map(|pair| {
             let name = pair[0].rsplit('\'').next().unwrap().to_string();

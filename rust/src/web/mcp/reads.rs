@@ -491,6 +491,9 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
         if !locks.is_empty(){lines.push(format!("Locked out of buying (wash sale): {}",locks.join(", ")));}
     }
     if let Some(line)=redeploy_line{lines.push(line);}
+    // A28-2b (D-RAILS-UNRECORDED-API): the orders from before the update the owner answers with answer_unrecorded_order.
+    let (unrecorded,unrecorded_lines)=crate::web::bot::rails_orders::listing(c,b.id,&b.quote,now.utc())?;
+    lines.extend(unrecorded_lines);
     lines.push(format!("Interval: {}",b.settings["interval"].as_str().unwrap_or("N/A")));
     lines.push(format!("Amount per order: {} {}",tools::str_value(&b.settings["quote_amount"]),b.quote));
     let count:i64=c.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND status IN (0,2)",[id],|r|r.get(0))?;
@@ -536,6 +539,9 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
                     "holdings":holdings,"exited_holdings":exited_holdings,"locked_members":locked,"redeploy_offer":redeploy,"base_asset":b.base,"quote_asset":b.quote_asset,
                     "interval":b.settings.get("interval").cloned().unwrap_or(Value::Null),"quote_amount":b.settings.get("quote_amount").cloned().unwrap_or(Value::Null),
                     "orders_executed":count,"started_at":started.map(crate::ruby::iso8601_ms),"metrics":shown_metrics,"metrics_error":shown_error});
+    // Only on a bot that has them: every other bot's answer stays Rails' (D-RAILS-UNRECORDED-API).
+    let mut data=data;
+    if !unrecorded.is_null(){data["unrecorded_orders"]=unrecorded;}
     Ok(ok(data,lines.join("\n")))
 }
 fn ids(c:&Connection,user:i64)->Result<Vec<i64>,WebError>{Ok(c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status!=3 ORDER BY id")?.query_map([user],|r|r.get(0))?.collect::<Result<Vec<_>,_>>()?)}

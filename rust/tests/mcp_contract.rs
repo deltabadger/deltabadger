@@ -38,7 +38,10 @@ fn m3_reads_remain_registered_at_every_m4_task_boundary(){
 #[test]
 fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     let (mut recorded,mut ours)=(protocol::recorded(),protocol::metadata().clone());
-    // D-SPLIT-API: split_bots, this build's own, is listed after the recorded tools (pinned below).
+    // D-SPLIT-API: split_bots and D-RAILS-UNRECORDED-API: answer_unrecorded_order, this build's own, are listed after the
+    // recorded tools (pinned below).
+    let unrecorded=ours["tools"].as_array_mut().unwrap().pop().unwrap();
+    assert_eq!(unrecorded["name"],"answer_unrecorded_order");
     let split=ours["tools"].as_array_mut().unwrap().pop().unwrap();
     assert_eq!(split["name"],"split_bots");
     ours["tools"].as_array_mut().unwrap().retain(|t| !["list_rules","create_rule","update_rule_settings","start_rule","stop_rule","delete_rule"].contains(&t["name"].as_str().unwrap()));
@@ -84,9 +87,10 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
 #[test]
 fn split_bots_schema_is_pinned(){
     let tools=protocol::metadata()["tools"].as_array().unwrap();
-    assert_eq!(tools.last().unwrap()["name"],"split_bots");
-    assert_eq!(tools.len(),protocol::recorded()["tools"].as_array().unwrap().len()+6+1, "six A1 rule tools and split_bots are listed additions");
-    assert_eq!(tools.last().unwrap()["inputSchema"],serde_json::json!({
+    let split=&tools[tools.len()-2];
+    assert_eq!(split["name"],"split_bots");
+    assert_eq!(tools.len(),protocol::recorded()["tools"].as_array().unwrap().len()+6+2, "six A1 rule tools, split_bots and answer_unrecorded_order are listed additions");
+    assert_eq!(split["inputSchema"],serde_json::json!({
         "$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
         "properties":{
             "bot_ids":{"type":"array","items":{"type":"integer"},"description":"The IDs of the bots to split"},
@@ -94,7 +98,7 @@ fn split_bots_schema_is_pinned(){
         },
         "required":["bot_ids"],"additionalProperties":false
     }));
-    assert!(tools.last().unwrap()["description"].as_str().unwrap().contains("proceeds_unanswered"));
+    assert!(split["description"].as_str().unwrap().contains("proceeds_unanswered"));
 }
 
 /// A1 listed additions: Rails property types and required fields, plus the W2 matrix fields.
@@ -136,4 +140,17 @@ fn withdrawal_rule_schemas_and_permissions_are_pinned() {
         if name!="list_rules" {want["required"]=if name=="create_rule" {serde_json::json!(["exchange_name","asset","address"])} else {serde_json::json!(["rule_id"])};}
         assert_eq!(*schema,want,"the complete {name} schema");
     }
+}
+
+/// D-RAILS-UNRECORDED-API: answer_unrecorded_order's schema, last: integer ids, an offer or none, nothing else.
+#[test]
+fn answer_unrecorded_order_schema_is_pinned(){
+    let tools=protocol::metadata()["tools"].as_array().unwrap();
+    let tool=tools.last().unwrap();
+    assert_eq!(tool["name"],"answer_unrecorded_order");
+    let schema=&tool["inputSchema"];
+    assert_eq!(schema["required"],serde_json::json!(["bot_id","obligation"]));
+    assert_eq!(schema["additionalProperties"],false);
+    let kinds:Vec<(String,String)>=schema["properties"].as_object().unwrap().iter().map(|(k,v)|(k.clone(),v["type"].as_str().unwrap().to_string())).collect();
+    assert_eq!(kinds,[("bot_id","integer"),("obligation","integer"),("offer","integer"),("none","boolean")].map(|(a,b)|(a.to_string(),b.to_string())));
 }

@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); data })
 }
 /// A1 listed additions. Rails' six rule tools, extended with W2's one-matrix fields.
 /// The Rails definitions remain source-pinned by withdrawal_vectors.json.
@@ -64,6 +64,27 @@ fn split_bots(data: &mut Value) {
                 "keep_proceeds_for": ids("The IDs of the bots whose money from past sales stays as it is (No to the redeploy offer)")
             },
             "required": ["bot_ids"],
+            "additionalProperties": false
+        }
+    }));
+}
+/// D-RAILS-UNRECORDED-API: answer_unrecorded_order, this build's own, after split_bots (oauth::TOOL_DEFAULTS' order).
+fn unrecorded_orders(data: &mut Value) {
+    let id = |description: &str| json!({"type": "integer", "description": description});
+    let Some(tools) = data["tools"].as_array_mut() else { return };
+    tools.push(json!({
+        "name": "answer_unrecorded_order",
+        "description": "Answer a bot's question about an order from before the update that may have gone through without being recorded (get_bot_details lists them under unrecorded orders, each with its obligation and offers). Name the offer that was this bot's order, or pass none: true if none was. A named order is checked with the exchange and then added to the bot's history, which counts toward the bot's plan; get_bot_details shows the result. Each obligation is decided once.",
+        "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {
+                "bot_id": id("The bot's ID"),
+                "obligation": id("The obligation, from get_bot_details"),
+                "offer": id("The offer that was this bot's order, from get_bot_details"),
+                "none": {"type": "boolean", "description": "true: none of the offered orders was this bot's"}
+            },
+            "required": ["bot_id", "obligation"],
             "additionalProperties": false
         }
     }));

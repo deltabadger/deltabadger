@@ -3,9 +3,9 @@ use super::reads;
 use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
-/// D-SPLIT-API: split_bots is this build's own, after the recorded tools. PLAN-A11: the tracker tools (tracker::api::NAMES).
+/// D-SPLIT-API: split_bots is this build's own, after the recorded tools; so is answer_unrecorded_order (D-RAILS-UNRECORDED-API). PLAN-A11: the tracker tools (tracker::api::NAMES).
 /// PLAN-A12 A12-1: the tax report tools (tax::api::NAMES), after list_tax_jurisdictions as oauth::TOOL_DEFAULTS orders them.
-pub const NAMES: [&str;40] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","generate_tax_report","get_tax_report_status","download_tax_report","export_transactions_csv","list_account_transactions","list_rules","create_rule","delete_rule","list_indices","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","sync_tracker","set_transfer_link","set_transaction_price","split_bots"];
+pub const NAMES: [&str;41] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","generate_tax_report","get_tax_report_status","download_tax_report","export_transactions_csv","list_account_transactions","list_rules","create_rule","delete_rule","list_indices","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","sync_tracker","set_transfer_link","set_transaction_price","split_bots","answer_unrecorded_order"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -105,6 +105,20 @@ impl QueuedOrder {
         }
     }
 }
+/// A28-2b (D-RAILS-UNRECORDED-API): answer_unrecorded_order, the web's answer (rails_orders::api). Paper trading writes
+/// nothing: a booking changes the bot's next real orders.
+fn unrecorded(c:&Connection,app:&App,user:i64,args:&Value)->Result<Value,WebError>{
+    use crate::web::bot::rails_orders as ro;
+    let none=serde_json::Map::new();
+    let (bot,parsed)=match (args.get("bot_id").and_then(Value::as_i64).filter(|_|args["bot_id"].is_i64()||args["bot_id"].is_u64()),ro::parse(args.as_object().unwrap_or(&none),false)) {
+        (Some(bot),Some(parsed))=>(bot,parsed),
+        _=>{let a=ro::invalid();return Ok(tool_text(&a.text,true));}
+    };
+    if paper_trading(c,user)? {return Ok(tool_text("[DRY RUN] Paper trading is on, so nothing was recorded: the answer would change what the bot buys next. Turn Paper Trading off in Settings > MCP to answer.",true));}
+    let a=ro::api(c,user,bot,parsed.0,parsed.1,app.now())?;
+    if a.accepted {app.wake_engine();}
+    Ok(tool_text(&a.text,a.res.code.is_some()))
+}
 /// What a call answers now, the venue or market read it needs first (`reads`), the engine's answer (`Order`), or the cancel
 /// it sends (`Cancel`, never a dry run).
 pub enum Called { Done(Value), Fetch(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<QueuedOrder>), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
@@ -147,6 +161,10 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
             tool_text("An unexpected error occurred.",true)
         })));
     }
+    if name==crate::web::bot::rails_orders::TOOL{return Ok(Called::Done(unrecorded(c,app,who.user_id,args).unwrap_or_else(|_|{
+        crate::engine::log("MCP answer_unrecorded_order failed");
+        tool_text("An unexpected error occurred.",true)
+    })));}
     if name=="split_bots"{return Ok(Called::Done(super::control::split(c,app,who.user_id,args).unwrap_or_else(|_|{
         crate::engine::log("MCP split_bots failed");
         tool_text("An unexpected error occurred.",true)

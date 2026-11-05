@@ -15,6 +15,8 @@ pub fn count(n:usize,limit:usize)->bool {n<=limit}
 /// All identifiers below come from static callers or SQLite schema, never request data.
 pub fn table(c:&Connection,table:&str,filter:&str,cap:usize,user:i64,total:&mut usize)->Result<bool,WebError>{
     let cols=c.prepare(&format!("PRAGMA table_info({table})"))?.query_map([],|r|r.get::<_,String>(1))?.collect::<Result<Vec<_>,_>>()?;
+    // A table this install doesn't have holds no rows (a Rails-only schema has no rust_* tables).
+    if cols.is_empty(){return Ok(true)}
     let lengths=cols.iter().map(|name|format!("COALESCE(length(CAST(\"{}\" AS BLOB)),0)",name.replace('"',"\"\""))).collect::<Vec<_>>();
     let sql=format!("SELECT {} FROM {table} WHERE {filter} LIMIT {}",lengths.join(","),cap+1);
     let mut q=c.prepare(&sql)?;
@@ -30,6 +32,7 @@ pub fn table(c:&Connection,table:&str,filter:&str,cap:usize,user:i64,total:&mut 
     }
     Ok(true)
 }
+const UNRECORDED:&str="obligation_id IN (SELECT o.id FROM rust_rails_unrecorded o JOIN bots b ON b.id=o.bot_id WHERE b.user_id=?1)";
 pub fn check(c:&Connection,user:i64)->Result<bool,WebError>{
     let mut bytes=0;
     for (table_name,filter,cap) in [
@@ -38,6 +41,10 @@ pub fn check(c:&Connection,user:i64)->Result<bool,WebError>{
         ("bots","user_id=?1",BOTS),("transactions","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
         ("bot_index_assets","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
         ("wash_sale_locks","user_id=?1",ORDERS),("account_transactions","user_id=?1",ORDERS),
+        // A28-2b: get_bot_details' unrecorded orders.
+        ("rust_rails_unrecorded","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
+        ("rust_rails_unrecorded_offers",UNRECORDED,ORDERS),("rust_rails_unrecorded_requests",UNRECORDED,ORDERS),
+        ("rust_rails_unrecorded_resolutions",UNRECORDED,ORDERS),
     ]{if !table(c,table_name,filter,cap,user,&mut bytes)?{return Ok(false)}}
     Ok(true)
 }
