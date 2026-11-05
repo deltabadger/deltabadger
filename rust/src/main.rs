@@ -7,6 +7,9 @@
 //! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
 //!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before Rails starts again.
 //! - sync ledger|balances [<api_key_id>]: one tracker sync by hand, under the engine lock, and exit.
+//! - reset-password <email> [--stdin | --generate]: set an account's password from the install's shell (PLAN-A16b,
+//!   D-RESET-PASSWORD-COMMAND), asked twice on the terminal, read from a pipe, or made and printed once to a terminal.
+//!   Not an engine: it takes no engine lock and writes one short transaction while `serve` runs (`reset_password`).
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
@@ -97,6 +100,7 @@ fn main() {
         Some("sync") => std::process::exit(sync_by_hand(&env)),
         Some("repair-binance-history") => std::process::exit(repair_binance_history(&env)),
         Some("serve") => std::process::exit(serve(&env)),
+        Some("reset-password") => reset_password(&env),
         Some("resolve-withdrawal") => {
             use deltabadger::engine::withdrawal::{self,Target};
             let args:Vec<String>=std::env::args().skip(2).collect();
@@ -175,9 +179,68 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | reconcile-order <transaction_id> --evidence <file> | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | reset-password <email> [--stdin | --generate] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | reconcile-order <transaction_id> --evidence <file> | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             deltabadger::VERSION
         ),
+    }
+}
+
+/// `deltabadger reset-password` (PLAN-A16b). The engine lock keeps two engines off one install; this is not one: it
+/// writes only `users`, in one IMMEDIATE transaction under SQLite's writer lock as a web request does, so it works in the
+/// running container (`docker exec`). The password is never an argument, never printed (a generated one aside, once, to a
+/// terminal) and never logged; nothing encrypted is read, so no secret is needed.
+fn reset_password(env: &dyn Fn(&str) -> Option<String>) {
+    use deltabadger::password_input::{self as input, Refused};
+    use deltabadger::web::password::{owner_lookup, policy_message, reset_by_owner, OwnerReset};
+    use std::io::IsTerminal;
+    const USAGE: &str = "usage: deltabadger reset-password <email> [--stdin | --generate]";
+    enum Source { Prompt, Stdin, Generate }
+    // args_os: a non-UTF-8 argument (a password typed by mistake) is the usage line, never printed (args() panics with it).
+    let args: Vec<String> = std::env::args_os().skip(2).map(|a| a.into_string().unwrap_or_else(|_| fail(USAGE))).collect();
+    let (email, source) = match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        [email] if !email.starts_with('-') => (email.to_string(), Source::Prompt),
+        [email, "--stdin"] if !email.starts_with('-') => (email.to_string(), Source::Stdin),
+        [email, "--generate"] if !email.starts_with('-') => (email.to_string(), Source::Generate),
+        _ => fail(USAGE),
+    };
+    match source {
+        Source::Prompt if !std::io::stdin().is_terminal() => fail("stdin is not a terminal: use --stdin or --generate"),
+        Source::Stdin if std::io::stdin().is_terminal() => fail("--stdin reads a pipe; leave it off to be asked on the terminal"),
+        Source::Generate if !std::io::stdout().is_terminal() => fail("--generate prints the new password, so it needs a terminal; nothing was changed"),
+        _ => {}
+    }
+    refuse_url_overrides(env);
+    let paths = paths(env);
+    let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
+    let busy = |e: &deltabadger::web::WebError| matches!(e, deltabadger::web::WebError::Engine(EngineError::Sqlite(rusqlite::Error::SqliteFailure(f, _)))
+                                                       if matches!(f.code, rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked));
+    let refuse_db = |e: deltabadger::web::WebError| -> ! {
+        if busy(&e) { fail("the database is busy; try again in a moment. Nothing was changed") }
+        fail(&format!("cannot change the password: {}; nothing was changed", web_problem(e)))
+    };
+    let email = deltabadger::ruby::strip(&email).to_lowercase();
+    let Some(user_id) = owner_lookup(&o.primary, &email).unwrap_or_else(|e| refuse_db(e)) else {
+        fail(&format!("no account with the email {email}; nothing was changed"))
+    };
+    let password = match source {
+        Source::Prompt => input::prompt_twice(&format!("New password for {email}: ")),
+        Source::Stdin => input::read_line(&mut std::io::stdin().lock()),
+        Source::Generate => Ok(input::generate()),
+    };
+    let password = password.unwrap_or_else(|refused| {
+        deltabadger::eline!("deltabadger: {}", refused.message());
+        std::process::exit(if refused == Refused::Cancelled { 130 } else { 1 })
+    });
+    if let Some(why) = policy_message(&password) { fail(&format!("{why}; nothing was changed")) }
+    let hash = deltabadger::crypto::hash_password(&password).unwrap_or_else(|_| fail("no random salt for the new password; nothing was changed"));
+    match reset_by_owner(&o.primary, user_id, &email, &hash, chrono::Utc::now()).unwrap_or_else(|e| refuse_db(e)) {
+        OwnerReset::AccountChanged => fail("the account changed while you typed; nothing was changed"),
+        OwnerReset::Changed { confirmed_now, two_factor } => {
+            println!("password changed for {email}; every session of that account is signed out");
+            if confirmed_now { println!("the account is confirmed now"); }
+            if two_factor { println!("two-factor stays on: sign-in still asks for the code"); }
+            if let Source::Generate = source { println!("new password: {password}"); }
+        }
     }
 }
 

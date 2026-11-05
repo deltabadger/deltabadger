@@ -2174,8 +2174,8 @@ mod auth_decision_clock {
         fn pending(&mut self, started: i64) -> Result {
             let cookie = self.browser.cookie.as_deref().ok_or("cookie")?;
             let mut data = session::open(&self.app.keys.session,cookie,self.clock.now()).ok_or("session")?;
-            let id = self.c.query_row("SELECT id FROM users",[],|r|r.get(0))?;
-            data.pending=Some(session::Pending {user_id:id,started_at:started});
+            let (id,salt) = self.c.query_row("SELECT id, substr(encrypted_password, 1, 29) FROM users",[],|r|Ok((r.get(0)?,r.get(1)?)))?;
+            data.pending=Some(session::Pending {user_id:id,started_at:started,salt});
             self.browser.cookie=Some(session::seal(&self.app.keys.session,&data,self.clock.now()));
             Ok(())
         }

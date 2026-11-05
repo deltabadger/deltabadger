@@ -1312,8 +1312,9 @@ async fn a_password_sign_in_ends_a_second_factor_step_left_open() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_session_with_only_a_second_factor_step_owed_is_not_signed_in() {
     use deltabadger::web::session::{self, Pending, SessionData};
-    let (_dir, _db, app, owner, _) = two_accounts(true);
-    let pending = SessionData { pending: Some(Pending { user_id: owner, started_at: web::at(NOW).timestamp() }), ..SessionData::default() };
+    let (_dir, db, app, owner, _) = two_accounts(true);
+    let salt: String = db.query_row("SELECT substr(encrypted_password, 1, 29) FROM users WHERE id = ?1", [owner], |r| r.get(0)).unwrap();
+    let pending = SessionData { pending: Some(Pending { user_id: owner, started_at: web::at(NOW).timestamp(), salt }), ..SessionData::default() };
     let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &pending, web::at(NOW))), ..Browser::default() };
     let bots = browser.get(&app, "/bots").await;
     assert_eq!((bots.status, bots.header("location")), (302, Some("/login")));
