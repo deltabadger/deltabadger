@@ -10,7 +10,8 @@
 //! - D-DESKTOP-NO-ACCOUNT-PAGES: signup, password, setup, confirmation, second factor, logout and the account's email,
 //!   password, 2FA, registration and mail settings answer 404, before CSRF, the setup gate and any sign-in check.
 //! - D-DESKTOP-BROWSER-CODE: a browser (an MCP client's OAuth page) signs in with an 8-character code from Settings.
-//! - D-DESKTOP-NO-MAIL: `serve` starts no mail sender (main.rs); the markers still expire after seven days.
+//! - D-DESKTOP-NOTIFY: `serve` runs the mail sender with the desktop delivery (main.rs): bot alerts wait in `outbox` for
+//!   the launcher (`GET /desktop/notices`, `POST /desktop/notices/ack`), which shows them as system notifications.
 use super::{auth, layout, setup, App, Params, WebError};
 use crate::codec::format_time;
 use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
@@ -43,6 +44,8 @@ pub struct Desktop {
     account: OnceLock<i64>,
     tickets: Mutex<VecDeque<(String, i64)>>,
     code: Mutex<Option<Code>>,
+    /// D-DESKTOP-NOTIFY: the bot alerts the launcher shows (PLAN-B6-3 §3).
+    outbox: std::sync::Arc<crate::mail::outbox::Outbox>,
 }
 
 struct Code {
@@ -68,6 +71,7 @@ impl Desktop {
             account: OnceLock::new(),
             tickets: Mutex::default(),
             code: Mutex::default(),
+            outbox: Default::default(),
         })
     }
 
@@ -207,6 +211,11 @@ impl App {
         self.desktop.is_none() || self.desktop_account() == Some(user_id)
     }
 
+    /// D-DESKTOP-NOTIFY: the outbox the mail sender offers to and the launcher lists; `None` off the desktop.
+    pub fn desktop_outbox(&self) -> Option<std::sync::Arc<crate::mail::outbox::Outbox>> {
+        self.desktop.as_ref().map(|d| d.outbox.clone())
+    }
+
     /// The desktop account's id, once `prepare` ran; `None` off the desktop.
     pub fn desktop_account(&self) -> Option<i64> {
         self.desktop.as_ref().and_then(|d| d.account.get().copied())
@@ -249,6 +258,21 @@ pub fn guard(app: &App, method: &Method, params: &Params, headers: &HeaderMap) -
                 match desktop.issue_ticket(app.now().timestamp()) {
                     Ok(ticket) => no_store(([(header::CONTENT_TYPE, "application/json")], serde_json::json!({ "ticket": ticket }).to_string()).into_response()),
                     Err(e) => e.into_response(),
+                }
+            }
+            // D-DESKTOP-NOTIFY (PLAN-B6-3 §3): the launcher lists the bot alerts to show, and acks the ones it showed.
+            (&Method::GET, "/desktop/notices", None) | (&Method::POST, "/desktop/notices/ack", None) if !desktop.launcher_matches(headers) => {
+                no_store((StatusCode::UNAUTHORIZED, "").into_response())
+            }
+            (&Method::GET, "/desktop/notices", None) => {
+                let notices = desktop.outbox.list(crate::mail::outbox::LIST_LIMIT);
+                no_store(([(header::CONTENT_TYPE, "application/json")], serde_json::json!({ "notices": notices }).to_string()).into_response())
+            }
+            (&Method::POST, "/desktop/notices/ack", None) => {
+                let ids: Option<Vec<String>> = params.json.as_ref().and_then(|j| serde_json::from_value(j.get("ids")?.clone()).ok());
+                match ids {
+                    Some(ids) => { desktop.outbox.ack(&ids); no_store(StatusCode::NO_CONTENT.into_response()) }
+                    None => no_store((StatusCode::BAD_REQUEST, "").into_response()),
                 }
             }
             _ => layout::missing(),
@@ -309,7 +333,7 @@ mod tests {
     use super::*;
 
     fn desktop() -> Desktop {
-        Desktop { launcher: Some("s".into()), locale: None, time_zone: None, account: OnceLock::new(), tickets: Mutex::default(), code: Mutex::default() }
+        Desktop { launcher: Some("s".into()), locale: None, time_zone: None, account: OnceLock::new(), tickets: Mutex::default(), code: Mutex::default(), outbox: Default::default() }
     }
 
     #[test]
