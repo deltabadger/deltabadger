@@ -1456,7 +1456,7 @@ mod reset_password {
         use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
         use std::sync::{Arc, Mutex};
 
-        struct Pty { master: OwnedFd, slave: OwnedFd, seen: Arc<Mutex<Vec<u8>>>, stop: Arc<std::sync::atomic::AtomicBool>, child: std::process::Child }
+        struct Pty { master: OwnedFd, slave: OwnedFd, seen: Arc<Mutex<Vec<u8>>>, stop: Arc<std::sync::atomic::AtomicBool>, reader: std::thread::JoinHandle<()>, child: std::process::Child }
 
         fn modes(fd: i32) -> (libc::tcflag_t, libc::tcflag_t) {
             let mut t: libc::termios = unsafe { std::mem::zeroed() };
@@ -1474,7 +1474,7 @@ mod reset_password {
                 .stdin(fd()).stderr(fd()).stdout(if stdout_terminal { fd() } else { Stdio::piped() }).spawn().unwrap();
             let (seen, stop) = (Arc::new(Mutex::new(vec![])), Arc::new(std::sync::atomic::AtomicBool::new(false)));
             let (read_fd, into, until) = (master.as_raw_fd(), seen.clone(), stop.clone());
-            std::thread::spawn(move || {
+            let reader = std::thread::spawn(move || {
                 let mut buf = [0u8; 1024];
                 while !until.load(std::sync::atomic::Ordering::SeqCst) {
                     let mut p = libc::pollfd { fd: read_fd, events: libc::POLLIN, revents: 0 };
@@ -1484,7 +1484,7 @@ mod reset_password {
                     into.lock().unwrap().extend_from_slice(&buf[..n as usize]);
                 }
             });
-            Pty { master, slave, seen, stop, child }
+            Pty { master, slave, seen, stop, reader, child }
         }
 
         impl Pty {
@@ -1500,9 +1500,14 @@ mod reset_password {
                 let status = self.child.wait().unwrap();
                 std::thread::sleep(std::time::Duration::from_millis(200));
                 self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+                // Joined before the master closes: a reader still polling its fd number would read the next pty's
+                // prompt (Linux hands the number straight back to the next openpty) into this one's buffer.
+                let Pty { reader, mut child, seen, .. } = self;
+                reader.join().unwrap();
+                let seen = String::from_utf8_lossy(&seen.lock().unwrap()).to_string();
                 let mut piped = String::new();
-                if let Some(mut out) = self.child.stdout.take() { std::io::Read::read_to_string(&mut out, &mut piped).unwrap(); }
-                (status, self.seen(), piped)
+                if let Some(mut out) = child.stdout.take() { std::io::Read::read_to_string(&mut out, &mut piped).unwrap(); }
+                (status, seen, piped)
             }
         }
 
