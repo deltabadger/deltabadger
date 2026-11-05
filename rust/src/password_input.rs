@@ -38,18 +38,18 @@ impl Refused {
 /// is read, so a script that keeps its pipe open isn't waited on.
 pub fn read_line(input: &mut impl std::io::Read) -> Result<String, Refused> {
     let mut line = Vec::new();
-    let mut byte = [0u8; 1];
+    let (mut byte, mut ended) = ([0u8; 1], false);
     // One byte past the bound (and its \r) tells a line at the bound from a longer one.
     while line.len() <= MAX_BYTES + 1 {
         match input.read(&mut byte) {
             Ok(0) => break,
-            Ok(_) if byte[0] == b'\n' => break,
+            Ok(_) if byte[0] == b'\n' => { ended = true; break }
             Ok(_) => line.push(byte[0]),
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
             Err(e) => return Err(Refused::Terminal(e.to_string())),
         }
     }
-    if line.last() == Some(&b'\r') { line.pop(); }
+    if ended && line.last() == Some(&b'\r') { line.pop(); } // CRLF; a lone \r at the end of the input is the password's
     if line.len() > MAX_BYTES { return Err(Refused::TooLong) }
     if line.is_empty() { return Err(Refused::NoPassword) }
     String::from_utf8(line).map_err(|_| Refused::NotText)
@@ -103,12 +103,13 @@ mod terminal {
 
     pub struct Raw { saved: libc::termios, previous: Vec<(libc::c_int, libc::sigaction)>, restored: bool }
 
-    /// tcsetattr(TCSAFLUSH), again when a signal interrupts it. Async-signal-safe (errno aside, read on the caller's side).
-    fn set(t: &libc::termios) -> Result<(), String> {
+    /// tcsetattr(TCSAFLUSH), again when a signal interrupts it. Allocation-free, so the signal handler can call it; the
+    /// error is formatted by the caller, outside signal context.
+    fn set(t: &libc::termios) -> std::io::Result<()> {
         loop {
             if unsafe { libc::tcsetattr(0, libc::TCSAFLUSH, t) } == 0 { return Ok(()) }
             let e = std::io::Error::last_os_error();
-            if e.kind() != std::io::ErrorKind::Interrupted { return Err(e.to_string()) }
+            if e.kind() != std::io::ErrorKind::Interrupted { return Err(e) }
         }
     }
 
@@ -130,7 +131,7 @@ mod terminal {
             raw.c_cc[libc::VTIME] = 0;
             let entered = Raw { saved, previous, restored: false };
             CHANGED.store(true, Ordering::SeqCst);
-            set(&raw)?; // on failure, Drop restores
+            set(&raw).map_err(|e| e.to_string())?; // on failure, Drop restores
             Ok(entered)
         }
 
@@ -173,7 +174,7 @@ mod terminal {
         /// The terminal as it was, checked: a failure is the caller's to report, before anything is written. The signal
         /// handlers stay armed until the settings are back.
         pub fn restore(mut self) -> Result<(), String> {
-            set(&self.saved)?;
+            set(&self.saved).map_err(|e| e.to_string())?;
             self.restored = true;
             Ok(())
         }
@@ -196,6 +197,7 @@ mod tests {
     fn a_line_keeps_its_spaces_and_drops_only_its_ending() {
         assert_eq!(read_line(&mut &b" two words-A1 \r\nrest"[..]), Ok(" two words-A1 ".into()));
         assert_eq!(read_line(&mut &b"no-newline-A1"[..]), Ok("no-newline-A1".into()));
+        assert_eq!(read_line(&mut &b"ends-in-cr-A1\r"[..]), Ok("ends-in-cr-A1\r".into()), "a lone \\r at the end is kept");
         assert_eq!(read_line(&mut &b"\n"[..]), Err(Refused::NoPassword));
         assert_eq!(read_line(&mut &b""[..]), Err(Refused::NoPassword));
         assert_eq!(read_line(&mut &b"\xff\xfe-A1a\n"[..]), Err(Refused::NotText));
