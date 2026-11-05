@@ -71,6 +71,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
     ep("bitrue", "open_orders", "GET", "/api/v1/openOrders", "").symbol("symbol"),
     ep("hyperliquid", "historical_orders", "POST", "/info", "").info("historicalOrders", true),
     ep("hyperliquid", "frontend_open_orders", "POST", "/info", "").info("frontendOpenOrders", false),
+    ep("hyperliquid", "user_fills_by_time", "POST", "/info", "").info("userFillsByTime", true).window("startTime", "", Unit::Ms),
 ];
 
 /// The permission reads, where the venue can tell whether a key trades or withdraws.
@@ -201,7 +202,7 @@ fn kept_shape(s: &str) -> bool {
     s.len() <= 32
         && s.chars().all(|c| {
             run = if c.is_ascii_digit() { run + 1 } else { 0 };
-            run < 5 && (c.is_ascii_alphanumeric() || "_/ .-".contains(c))
+            run < 5 && (c.is_ascii_alphanumeric() || "_/ .-@".contains(c))
         })
 }
 
@@ -217,13 +218,16 @@ pub struct Scrubber {
     map: HashMap<String, String>,
     originals: HashSet<String>,
     fakes: HashSet<String>,
+    /// Every value of every answer (`reserve`, before any fake): no fake may equal or contain one (≥ 4 characters), as
+    /// the leak check reads it.
+    reserved: Vec<String>,
     /// "file path" → kind → count, paths folded (`[]` for indices, `*` for Kraken's id keys).
     pub report: BTreeMap<String, BTreeMap<&'static str, usize>>,
 }
 
 impl Scrubber {
     pub fn new(key: Vec<u8>, days: i64) -> Self {
-        Self { key, days, map: HashMap::new(), originals: HashSet::new(), fakes: HashSet::new(), report: BTreeMap::new() }
+        Self { key, days, map: HashMap::new(), originals: HashSet::new(), fakes: HashSet::new(), reserved: vec![], report: BTreeMap::new() }
     }
     /// A salt that is never stored and an offset of 30–400 whole days back, both from the OS's randomness.
     pub fn random() -> Self {
@@ -235,6 +239,14 @@ impl Scrubber {
 
     fn note(&mut self, file: &str, path: &str, kind: &'static str) {
         *self.report.entry(format!("{file} {}", if path.is_empty() { "/" } else { path })).or_default().entry(kind).or_default() += 1;
+    }
+
+    /// Notes every key, string and number text of an answer, so that no fake made later collides with a value met after it.
+    pub fn reserve(&mut self, v: &Value) {
+        let mut seen: HashSet<String> = self.reserved.drain(..).collect();
+        // A zero is kept, never a leak (`zero`): reserving it would bar every fake sharing its leading zeros.
+        visit(v, "", &mut |text, _| { if text.chars().count() >= 4 && !zero(text) { seen.insert(text.to_string()); } });
+        self.reserved = seen.into_iter().collect();
     }
 
     /// The scrubbed body: every value replaced unless kept, zero, empty or a shifted time (PLAN §3, r1, r2).
@@ -341,7 +353,8 @@ impl Scrubber {
                     c => c,
                 }
             }).collect();
-            if out != s && !self.fakes.contains(&out) && !self.originals.contains(&out) && !self.map.contains_key(&out) {
+            if out != s && !self.fakes.contains(&out) && !self.originals.contains(&out) && !self.map.contains_key(&out)
+                && !self.reserved.iter().any(|r| out.contains(r.as_str())) {
                 self.fakes.insert(out.clone());
                 self.originals.insert(s.to_string());
                 self.map.insert(cache, out.clone());
@@ -467,14 +480,18 @@ pub fn request(e: &Endpoint, case: Case, w: &Window, keys: &Keys, base: &str, no
         if !end.is_empty() { params.push((end, stamp(to, unit))); }
     }
     if let (Case::Page, Some((name, value))) = (case, e.page) { params.push((name, value.into())); }
-    if let Some(info) = e.info { params = vec![("type", info.into()), ("user", keys.key.clone())]; }
+    if let Some(info) = e.info {
+        // An /info body: its type and the address, then only the window's own params (userFillsByTime's startTime).
+        params.retain(|(k, _)| e.window.is_some_and(|(start, end, _)| *k == start || *k == end));
+        params.splice(0..0, [("type", info.to_string()), ("user", keys.key.clone())]);
+    }
     let named = params.clone();
     let get = |query| HttpRequest { method: e.method, base: base.into(), path: e.path.into(), query, body: None, not_after: None };
     let post = |body| HttpRequest { method: e.method, base: base.into(), path: e.path.into(), query: vec![], body: Some(body), not_after: None };
     let r = match e.venue {
         "kraken" => post(Value::Object(params.into_iter().map(|(k, v)| (k.to_string(), Value::String(v))).collect())),
         "gemini" => post(Value::Object(params.into_iter().map(|(k, v)| (k.to_string(), v.parse::<i64>().map_or(Value::String(v), Value::from))).collect())),
-        "hyperliquid" => post(Value::Object(params.into_iter().map(|(k, v)| (k.to_string(), Value::String(v))).collect::<Map<_, _>>())),
+        "hyperliquid" => post(Value::Object(params.into_iter().map(|(k, v)| (k.to_string(), v.parse::<i64>().map_or(Value::String(v), Value::from))).collect::<Map<_, _>>())),
         "mexc" | "bitrue" => {
             params.push(("recvWindow", "5000".into()));
             let t = ScriptedTransport::default();
@@ -556,6 +573,7 @@ pub async fn record<T: Transport>(t: &T, venue: &str, base: &str, w: &Window, ke
     got.retain(|g| !dropped.contains(&g.file));
     let mut files = Vec::new();
     let mut entries = Vec::new();
+    for g in &got { sc.reserve(&g.body); }
     for g in got {
         let body = sc.scrub(venue, &g.file, g.body)?;
         let mut params = Map::new();

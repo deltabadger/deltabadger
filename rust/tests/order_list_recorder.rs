@@ -260,7 +260,7 @@ fn the_allow_list_refuses_every_write_and_allows_every_read() {
         assert!(allowed(e.venue, e.method, e.path));
         assert!(e.method == "GET" || ["kraken", "gemini", "hyperliquid"].contains(&e.venue), "{} {}: a POST read outside the three venues whose reads are POSTs", e.venue, e.file);
     }
-    assert_eq!(ENDPOINTS.len(), 22, "the PLAN-A28-3 §8 Q1 list");
+    assert_eq!(ENDPOINTS.len(), 23, "the PLAN-A28-3 §8 Q1 list, with A28-3c-3a's userFillsByTime");
 }
 
 #[test]
@@ -384,4 +384,37 @@ fn query_signed_requests_carry_the_clients_signature_and_never_the_secret() {
     assert!(named.iter().all(|(k, _)| !["signature", "timestamp", "recvWindow"].contains(k)));
     let (r, _) = request(endpoint("hyperliquid", "historical_orders"), Case::Full, &w, &keys(), "https://x", now);
     assert_eq!(r.body, Some(json!({"type": "historicalOrders", "user": KEY})));
+    // userFillsByTime: the type, the address, then the window's start as a number (no end, no other param).
+    let (r, named) = request(endpoint("hyperliquid", "user_fills_by_time"), Case::Full, &w, &keys(), "https://x", now);
+    assert_eq!(r.body, Some(json!({"type": "userFillsByTime", "user": KEY, "startTime": w.since.timestamp_millis()})));
+    assert_eq!(named.iter().map(|(k, _)| *k).collect::<Vec<_>>(), ["type", "user", "startTime"]);
+}
+
+#[test]
+fn a_hyperliquid_spot_coin_named_by_its_index_is_kept() {
+    let mut sc = Scrubber::new(b"salt".to_vec(), DAYS);
+    let body = sc.scrub("hyperliquid", "historical_orders.json", json!([{"order": {"coin": "@107", "oid": 9123456789i64}, "status": "filled"}])).unwrap();
+    assert_eq!(body[0]["order"]["coin"], json!("@107"));
+    assert_ne!(body[0]["order"]["oid"], json!(9123456789i64));
+}
+
+#[test]
+fn many_near_equal_values_scrub_without_a_fake_meeting_a_real_one() {
+    // 1500 prices one tick apart (the Assistance Fund's answer): a fake made early must not equal or contain one met later.
+    let rows: Vec<Value> = (0..1500).map(|i| json!({"order": {"limitPx": format!("79.{i:03}"), "sz": format!("1{i:03}.3"), "oid": 9_000_000_000i64 + i}})).collect();
+    let mut sc = scrubber();
+    sc.reserve(&Value::Array(rows.clone()));
+    let body = sc.scrub("hyperliquid", "historical_orders.json", Value::Array(rows)).unwrap();
+    sc.leak_check("historical_orders.json", &body, &[]).unwrap();
+}
+
+#[test]
+fn a_kept_zero_bars_no_fake() {
+    // Gemini's shape: a zero average beside a small amount whose fake keeps the same leading zeros.
+    let body = json!([{"avg_execution_price": "0.00", "original_amount": "0.0015", "executed_amount": "0.0015"}]);
+    let mut sc = scrubber();
+    sc.reserve(&body);
+    let out = sc.scrub("gemini", "orders_history.json", body).unwrap();
+    assert_eq!(out[0]["avg_execution_price"], json!("0.00"));
+    sc.leak_check("orders_history.json", &out, &[]).unwrap();
 }

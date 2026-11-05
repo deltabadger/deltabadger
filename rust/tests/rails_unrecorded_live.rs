@@ -2,7 +2,10 @@
 //! venue's order history live once A28-1's line is due, and names the orders no bot recorded. Each case runs the real
 //! Binance, Binance.US and Bybit venue over `http::ScriptedTransport` with hand-written bodies in the documented row shape
 //! (no order-list body is recorded live anywhere, §1). A28-3b-1 adds Alpaca, its rows built on a recorded one
-//! (tests/fixtures/order_lists/alpaca, Jan's paper account; each edit named in `alpaca_row`). No live venue call. Every pass
+//! (tests/fixtures/order_lists/alpaca, Jan's paper account; each edit named in `alpaca_row`). A28-3c-3a adds Hyperliquid, its
+//! rows and fills built on recorded ones (tests/fixtures/order_lists/hyperliquid, a public protocol address; each edit named
+//! in `hl_row` / `hl_fill`); it runs the cases below whose orders are limits (`SERVED_ALL`) and its own: a Hyperliquid
+//! order is always a limit sized in base. No live venue call. Every pass
 //! is checked by the money guard.
 mod common;
 use chrono::{DateTime, Duration, Utc};
@@ -10,7 +13,7 @@ use common::seed::{self, BotSpec, Seeded};
 use deltabadger::engine::rails_unrecorded::{self as ru, Report};
 use deltabadger::jobs::Db;
 use deltabadger::venue::http::ScriptedTransport;
-use deltabadger::venue::{alpaca, binance, bybit, Venue, VenueFactory};
+use deltabadger::venue::{alpaca, binance, bybit, hyperliquid, Venue, VenueFactory};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::cell::RefCell;
@@ -24,22 +27,26 @@ const PLACED: &str = "2026-09-29T14:03:05Z";
 const WHEN: &str = "around 2026-09-29 14:03 UTC";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Kind { Binance, BinanceUs, Bybit, Alpaca }
+enum Kind { Binance, BinanceUs, Bybit, Alpaca, Hyperliquid }
+/// The venues every case runs on (market and limit orders).
 const SERVED: [Kind; 4] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca];
+/// The venues the limit-order cases run on: SERVED and Hyperliquid.
+const SERVED_ALL: [Kind; 5] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Hyperliquid];
 
 impl Kind {
     fn exchange(self) -> (&'static str, &'static str) {
         match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::BinanceUs => ("Exchanges::BinanceUs", "Binance.US"), Kind::Bybit => ("Exchanges::Bybit", "Bybit"),
-                     Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca") }
+                     Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca"), Kind::Hyperliquid => ("Exchanges::Hyperliquid", "Hyperliquid") }
     }
-    /// The order's id as `add_order` writes `transactions.external_id`: Alpaca's bare UUID.
+    /// The order's id as `add_order` writes `transactions.external_id`: Alpaca's bare UUID, Hyperliquid's "<base>-<oid>".
     fn external_id(self, id: u64) -> String {
-        match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), _ => format!("BTCEUR-{id}") }
+        match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"), _ => format!("BTCEUR-{id}") }
     }
-    /// The pair's listing: Alpaca spells a crypto pair "BASE/QUOTE".
-    fn symbol(self) -> &'static str { if self == Kind::Alpaca { "BTC/EUR" } else { "BTCEUR" } }
-    /// One row of the single list a venue answers with (Binance's allOrders, Alpaca's /v2/orders; Bybit's either list).
-    fn row(self, o: &O) -> Value { match self { Kind::Bybit => bybit_row(o), Kind::Alpaca => alpaca_row(o), _ => binance_row(o) } }
+    /// The pair's listing: Alpaca spells a crypto pair "BASE/QUOTE"; Hyperliquid names a spot pair by its index.
+    fn symbol(self) -> &'static str { match self { Kind::Alpaca => "BTC/EUR", Kind::Hyperliquid => HL_COIN, _ => "BTCEUR" } }
+    /// One row of the single list a venue answers with (Binance's allOrders, Alpaca's /v2/orders, Hyperliquid's
+    /// historicalOrders; Bybit's either list).
+    fn row(self, o: &O) -> Value { match self { Kind::Bybit => bybit_row(o), Kind::Alpaca => alpaca_row(o), Kind::Hyperliquid => hl_row(o), _ => binance_row(o) } }
 }
 
 /// A test venue factory: the scripted venue for every bot, after `hook` (what happens between the read and the write).
@@ -133,6 +140,7 @@ impl Fx {
                 .with_rules(&deltabadger::engine::venue_rules::BINANCE_US), hook }).pass(&self.db, at).await,
             Kind::Bybit => Report::new(Factory { venue: bybit::BybitVenue::new(self.tr.clone(), bybit::URL), hook }).pass(&self.db, at).await,
             Kind::Alpaca => Report::new(Factory { venue: alpaca_venue(&self.tr), hook }).pass(&self.db, at).await,
+            Kind::Hyperliquid => Report::new(Factory { venue: hl_venue(&self.tr), hook }).pass(&self.db, at).await,
         }.unwrap();
         assert_eq!(guard(&self.c), before, "a pass writes no order, carry or link");
         n
@@ -159,11 +167,15 @@ impl Fx {
                 self.tr.reply("GET /v5/order/realtime", 200, page(open.iter().map(|o| bybit_row(o)).collect(), ""));
                 self.tr.reply("GET /v5/order/history", 200, page(closed.iter().map(|o| bybit_row(o)).collect(), ""));
             }
+            Kind::Hyperliquid => {
+                self.tr.reply(self.first_path(), 200, Value::Array(orders.iter().map(hl_row).collect()));
+                self.tr.reply(HL_FILLS, 200, Value::Array(orders.iter().filter(|o| o.exec != "0").map(|o| hl_fill(o, o.id, 500)).collect()));
+            }
             kind => { self.tr.reply(self.first_path(), 200, Value::Array(orders.iter().map(|o| kind.row(o)).collect())); }
         }
     }
     fn first_path(&self) -> &'static str {
-        match self.kind { Kind::Bybit => "GET /v5/order/realtime", Kind::Alpaca => "GET /v2/orders", _ => "GET /api/v3/allOrders" }
+        match self.kind { Kind::Bybit => "GET /v5/order/realtime", Kind::Alpaca => "GET /v2/orders", Kind::Hyperliquid => HL_ORDERS, _ => "GET /api/v3/allOrders" }
     }
     /// The key's refusal, as each venue answers it.
     fn refuse(&self, http: bool) {
@@ -172,6 +184,9 @@ impl Fx {
             (Kind::Bybit, true) => self.tr.reply(self.first_path(), 401, json!("Unauthorized")),
             (Kind::Alpaca, false) => self.tr.reply(self.first_path(), 403, json!({ "code": 40310000, "message": "forbidden." })),
             (Kind::Alpaca, true) => self.tr.reply(self.first_path(), 401, json!({ "code": 40110000, "message": "request is not authorized" })),
+            // Hyperliquid's answer to an address it can't read.
+            (Kind::Hyperliquid, false) => self.tr.reply(self.first_path(), 422, json!("Failed to deserialize the JSON body into the target type")),
+            (Kind::Hyperliquid, true) => self.tr.reply(self.first_path(), 401, json!("Unauthorized")),
             (_, false) => self.tr.reply(self.first_path(), 400, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
             (_, true) => self.tr.reply(self.first_path(), 401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
         };
@@ -412,11 +427,11 @@ async fn an_unreadable_row_alone_leaves_a28_1s_line_and_beside_an_open_order_kee
 
 #[tokio::test]
 async fn a_capped_read_keeps_what_it_validated() {
-    for kind in SERVED {
+    for kind in SERVED_ALL {
         for with_open in [false, true] {
             let f = fx(kind);
             let oracle = f.a28_1();
-            let full = match kind { Kind::Bybit => 50, Kind::Alpaca => alpaca::HISTORY_LIMIT, _ => 1000 };
+            let full = match kind { Kind::Bybit => 50, Kind::Alpaca => alpaca::HISTORY_LIMIT, Kind::Hyperliquid => hyperliquid::HISTORY_LIMIT, _ => 1000 };
             let sells: Vec<O> = (100..).take(full).map(|id| O { sell: true, ..limit(id, St::Open, "0", "0") }).collect();
             match kind {
                 Kind::Bybit => {
@@ -432,6 +447,7 @@ async fn a_capped_read_keeps_what_it_validated() {
                     let mut rows: Vec<Value> = sells.iter().map(|o| kind.row(o)).collect();
                     if with_open { rows[0] = kind.row(&limit(9, St::Open, "0", "0")); }
                     f.tr.reply(f.first_path(), 200, Value::Array(rows));
+                    if kind == Kind::Hyperliquid { f.tr.reply(HL_FILLS, 200, json!([])); }
                 }
             }
             f.pass(now()).await;
@@ -483,7 +499,7 @@ async fn a_symbol_a_replaced_listing_also_carried_is_not_read() {
 
 #[tokio::test]
 async fn a_refusal_writes_a28_1s_line_and_after_a_crash_is_never_asked_again() {
-    for kind in SERVED {
+    for kind in SERVED_ALL {
         for http in [false, true] {
             let f = fx(kind);
             let oracle = f.a28_1();
@@ -501,7 +517,7 @@ async fn a_refusal_writes_a28_1s_line_and_after_a_crash_is_never_asked_again() {
 
 #[tokio::test]
 async fn a_server_error_or_throttle_writes_nothing_and_a_later_pass_reads_again() {
-    for kind in SERVED {
+    for kind in SERVED_ALL {
         for status in [500, 429, 503] {
             let f = fx(kind);
             // The scripted replies are served in turn: the failure, then the answer.
@@ -527,7 +543,7 @@ async fn bybits_rate_limit_code_is_retried_too() {
 
 #[tokio::test]
 async fn three_failed_passes_write_a28_1s_line() {
-    for kind in SERVED {
+    for kind in SERVED_ALL {
         let f = fx(kind);
         let oracle = f.a28_1();
         f.server_error(500);
@@ -542,7 +558,7 @@ async fn three_failed_passes_write_a28_1s_line() {
 async fn a_key_replaced_since_before_the_window_is_never_read() {
     // Rails stores updated_at to the second: the second before the window's start is no proof of continuity either.
     for (updated, read) in [("2026-09-29 13:52:58", true), ("2026-09-29 13:52:59", false), ("2026-09-29 13:55:00", false), ("2026-09-30 09:00:00", false)] {
-        for kind in SERVED {
+        for kind in SERVED_ALL {
             let f = fx(kind);
             f.c.execute("UPDATE api_keys SET updated_at = ?2 WHERE id = ?1", params![f.s.api_key_id, updated]).unwrap();
             let oracle = f.a28_1();
@@ -593,7 +609,7 @@ async fn a_settings_change_between_the_read_and_the_write_writes_nothing_then_th
 
 #[tokio::test]
 async fn an_order_recorded_between_the_read_and_the_write_is_not_named() {
-    for kind in SERVED {
+    for kind in SERVED_ALL {
         let f = fx(kind);
         let oracle = f.a28_1();
         f.answer(&[limit(9, St::Open, "0", "0")]);
@@ -872,4 +888,320 @@ async fn another_pairs_alpaca_row_is_skipped_unread() {
     f.pass(now()).await;
     let (event, d) = f.one();
     assert_eq!((event.as_str(), d["count"].as_i64(), d["complete"].as_bool()), (ru::LIVE_OPEN, Some(1), Some(true)));
+}
+
+// ---- A28-3c-3a: Hyperliquid, on its recorded answer --------------------------------------------------------------------
+
+const HL_COIN: &str = "@142";
+const HL_USER: &str = "0x00000000000000000000000000000000000000a1";
+const HL_ORDERS: &str = "POST /info historicalOrders";
+const HL_FILLS: &str = "POST /info userFillsByTime";
+
+fn hl_venue<T: deltabadger::venue::http::Transport + Clone>(tr: &T) -> hyperliquid::HyperliquidVenue<T> {
+    hl_venue_for(tr, HL_COIN, "BTC")
+}
+fn hl_venue_for<T: deltabadger::venue::http::Transport + Clone>(tr: &T, coin: &str, base: &str) -> hyperliquid::HyperliquidVenue<T> {
+    let pairs = binance::Pairs { by_symbol: [(coin.to_string(), binance::Pair { base: base.into(), quote: "EUR".into(), price_decimals: 2 })].into(), assets: Default::default() };
+    hyperliquid::HyperliquidVenue::new(tr.clone(), hyperliquid::URL, HL_USER).with_pairs(pairs)
+}
+/// The recorded answers (the Hyperliquid Assistance Fund's spot orders and fills, scrubbed by the recorder).
+fn hl_recorded() -> Vec<Value> { serde_json::from_str(include_str!("fixtures/order_lists/hyperliquid/historical_orders.json")).unwrap() }
+fn hl_fills_recorded() -> Vec<Value> { serde_json::from_str(include_str!("fixtures/order_lists/hyperliquid/user_fills_by_time.json")).unwrap() }
+fn dec(s: &str) -> deltabadger::ruby::BigDec { deltabadger::ruby::BigDec::parse(s).unwrap() }
+
+/// A recorded `filled` row edited into `o` (a limit: Hyperliquid has no other order): oid, coin (the seeded pair), side,
+/// limitPx, origSz, `sz` (what is left; an `open` row is written at placement, so all of it), status, both times (the
+/// status a second after placement). Everything else is as recorded.
+fn hl_row(o: &O) -> Value {
+    let mut r = hl_recorded().into_iter().find(|r| r["status"] == "filled").unwrap();
+    let left = match o.state { St::Open | St::Partly | St::Cancelled => o.size.to_string(), St::Filled => "0.0".into(), St::PartlyCancelled => (&dec(o.size) - &dec(o.exec)).to_s_f() };
+    let status = match o.state { St::Open | St::Partly => "open", St::Filled => "filled", St::PartlyCancelled | St::Cancelled => "canceled" };
+    for (k, v) in [("oid", json!(o.id)), ("coin", json!(HL_COIN)), ("side", json!(if o.sell { "A" } else { "B" })), ("limitPx", json!(o.limit.unwrap_or("50000"))),
+                   ("origSz", json!(o.size)), ("sz", json!(left)), ("timestamp", json!(ms(o.at)))] {
+        r["order"][k] = v;
+    }
+    r["status"] = json!(status);
+    r["statusTimestamp"] = json!(ms(o.at) + 1000);
+    r
+}
+/// A recorded fill edited into `o`'s whole fill: coin, oid, side, `sz` = exec, `px` = cum / exec, `time` placement + `after`
+/// ms, `tid`.
+fn hl_fill(o: &O, tid: u64, after: i64) -> Value {
+    let mut f = hl_fills_recorded().remove(0);
+    for (k, v) in [("coin", json!(HL_COIN)), ("oid", json!(o.id)), ("side", json!(if o.sell { "A" } else { "B" })), ("sz", json!(o.exec)),
+                   ("px", json!(dec(o.cum).div(&dec(o.exec)).unwrap().to_s_f())), ("time", json!(ms(o.at) + after)), ("tid", json!(tid))] {
+        f[k] = v;
+    }
+    f
+}
+/// D-HL-HISTORY-PUBLIC-RECORDED, the named edit: the scrub replaced each amount on its own, so an order's sizes are
+/// restated from its recorded fills (origSz = what is left + Σ fill sz; a filled order leaves 0).
+fn hl_consistent(rows: &mut [Value], fills: &[Value]) {
+    for r in rows.iter_mut() {
+        let oid = r["order"]["oid"].clone();
+        let filled = fills.iter().filter(|f| f["oid"] == oid).fold(dec("0"), |a, f| &a + &dec(f["sz"].as_str().unwrap()));
+        if !filled.is_positive() { continue; }
+        let left = if r["status"] == "filled" { dec("0") } else { dec(r["order"]["sz"].as_str().unwrap()) };
+        r["order"]["origSz"] = json!((&left + &filled).to_s_f());
+    }
+}
+async fn hl_read(tr: &ScriptedTransport, coin: &str, base: &str, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<deltabadger::venue::Created, deltabadger::venue::HistoryError> {
+    hl_venue_for(tr, coin, base).orders_created(&[coin.to_string()], from, to, tokio::time::Instant::now() + std::time::Duration::from_secs(20)).await
+}
+fn window() -> (DateTime<Utc>, DateTime<Utc>) { (t("2026-09-29T13:53:00Z"), t("2026-09-29T14:13:00Z")) }
+
+#[tokio::test]
+async fn every_recorded_hyperliquid_order_reads_strictly_by_its_newest_row_and_its_fills() {
+    let fills = hl_fills_recorded();
+    let mut rows = hl_recorded();
+    hl_consistent(&mut rows, &fills);
+    let at = |r: &Value| DateTime::<Utc>::from_timestamp_millis(r["order"]["timestamp"].as_i64().unwrap()).unwrap();
+    let (from, to) = (rows.iter().map(at).min().unwrap(), rows.iter().map(at).max().unwrap());
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, Value::Array(rows.clone()));
+    tr.reply(HL_FILLS, 200, Value::Array(fills.clone()));
+    let read = hl_read(&tr, "@107", "HYPE", from, to).await.unwrap();
+    assert!(read.complete, "{} rows, fewer than the cap", rows.len());
+    let mut states = std::collections::BTreeMap::new();
+    for o in &read.orders {
+        *states.entry(format!("{:?}", o.state)).or_insert(0) += 1;
+        assert!(o.external_id.starts_with("HYPE-"));
+        if o.filled_base.is_positive() {
+            let oid: u64 = o.external_id[5..].parse().unwrap();
+            let mine: Vec<&Value> = fills.iter().filter(|f| f["oid"] == json!(oid)).collect();
+            let quote = mine.iter().fold(dec("0"), |a, f| &a + &(&dec(f["px"].as_str().unwrap()) * &dec(f["sz"].as_str().unwrap())));
+            assert_eq!(o.filled_quote, Some(quote), "the quote is the order's own fills");
+        } else {
+            assert_eq!(o.filled_quote, Some(dec("0")));
+        }
+    }
+    assert_eq!(states, [("Cancelled".to_string(), 1106), ("Filled".into(), 31), ("PartlyFilledCancelled".into(), 9)].into_iter().collect());
+    assert_eq!(read.orders.len(), rows.len());
+    // The request bodies: the account's orders, then its fills from the window's start.
+    let bodies: Vec<Value> = tr.requests().iter().map(|r| r.body.clone().unwrap()).collect();
+    assert_eq!(bodies, [json!({ "type": "historicalOrders", "user": HL_USER }), json!({ "type": "userFillsByTime", "user": HL_USER, "startTime": from.timestamp_millis() })]);
+    let open: Vec<Value> = serde_json::from_str(include_str!("fixtures/order_lists/hyperliquid/frontend_open_orders.json")).unwrap();
+    assert!(open.is_empty(), "the recorded account had nothing resting");
+}
+
+#[tokio::test]
+async fn each_hyperliquid_order_state_is_named_as_the_venue_lists_it() {
+    let placed = "placed 2026-09-29 14:03:05 UTC";
+    let cases: [(O, &str, &str, usize); 5] = [
+        (limit(7, St::Filled, "0.0004", "20.01"), ru::LIVE_LISTED, "bought 0.0004 BTC for 20.01 EUR (filled)", 2),
+        (limit(7, St::Open, "0", "0"), ru::LIVE_OPEN, "buy of 0.0004 BTC at 50000 EUR, still open", 2),
+        (limit(7, St::Partly, "0.0001", "5"), ru::LIVE_OPEN, "buy of 0.0004 BTC at 50000 EUR, 0.0001 BTC filled for 5 EUR, still open", 2),
+        (limit(7, St::PartlyCancelled, "0.0002", "10"), ru::LIVE_LISTED, "buy of 0.0004 BTC at 50000 EUR cancelled, 0.0002 BTC filled for 10 EUR", 2),
+        (limit(7, St::Cancelled, "0", "0"), ru::LIVE_LISTED, "buy of 0.0004 BTC at 50000 EUR cancelled, nothing filled", 1),
+    ];
+    for (order, event, text, requests) in &cases {
+        let f = fx(Kind::Hyperliquid);
+        f.answer(std::slice::from_ref(order));
+        assert_eq!(f.pass(now()).await, 1);
+        assert_eq!(f.one(), (event.to_string(), json!({ "when": WHEN, "venue": "Hyperliquid", "orders": format!("{text}, {placed}"), "count": 1, "complete": true, "conflict": false,
+                                        "obligation": f.c.query_row("SELECT id FROM rust_rails_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })));
+        assert_eq!(f.pass(now() + Duration::hours(1)).await, 0, "one line, ever");
+        assert_eq!(f.requests(), *requests, "{text}: fills read only for an open or filled order");
+    }
+}
+
+#[tokio::test]
+async fn a_hyperliquid_order_held_on_another_side_outside_or_none_leaves_a28_1s_reach_line() {
+    for case in ["held", "sell", "empty", "outside"] {
+        let f = fx(Kind::Hyperliquid);
+        let oracle = f.a28_1();
+        match case {
+            "held" => {
+                f.c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, side, transaction_type, error_messages, created_at, updated_at) \
+                             VALUES (?1, ?2, 'BTC-7', 0, 0, 'REGULAR', '[]', '2026-09-22 14:03:00', '2026-09-22 14:03:00')", params![f.b, f.s.exchange_id]).unwrap();
+                f.answer(&[limit(7, St::Filled, "0.0004", "20")]);
+            }
+            "sell" => f.answer(&[O { sell: true, ..limit(7, St::Filled, "0.0004", "20") }]),
+            "outside" => f.answer(&[O { at: "2026-09-29T14:20:00Z", ..limit(7, St::Open, "0", "0") }]),
+            _ => f.answer(&[]),
+        }
+        assert_eq!(f.pass(now()).await, 1);
+        assert_eq!(f.one(), oracle, "{case}");
+        // D-HL-HISTORY-REACH-KEPT: the ledger's reach is short; the live read never turns it into "none seen".
+        assert_eq!((oracle.0.as_str(), oracle.1["reason"].as_str()), (ru::UNCHECKED, Some("reach")));
+    }
+}
+
+#[tokio::test]
+async fn a_hyperliquid_order_keeps_its_newest_row_and_an_open_rows_fill_is_its_fills() {
+    let (from, to) = window();
+    let order = limit(7, St::Partly, "0.0001", "5");
+    let placement = hl_row(&limit(7, St::Open, "0", "0"));
+    for final_first in [true, false] {
+        // The placement row and the final one, in either order; the final one is the order's.
+        let fin = hl_row(&limit(7, St::Filled, "0.0004", "20"));
+        let tr = ScriptedTransport::default();
+        tr.reply(HL_ORDERS, 200, if final_first { json!([fin, placement]) } else { json!([placement, fin]) });
+        tr.reply(HL_FILLS, 200, json!([hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500)]));
+        let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+        assert_eq!(read.orders.iter().map(|o| format!("{:?}", o.state)).collect::<Vec<_>>(), ["Filled"], "final first {final_first}");
+    }
+    // A placement row and a final row with the same status time: the final one; two final rows that tie: unreadable.
+    let mut fin = hl_row(&limit(7, St::Cancelled, "0", "0"));
+    fin["statusTimestamp"] = placement["statusTimestamp"].clone();
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([placement, fin]));
+    let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+    assert_eq!((read.orders.len(), read.orders[0].state, read.complete), (1, deltabadger::venue::CreatedState::Cancelled, true));
+    let mut other = hl_row(&limit(7, St::Filled, "0.0004", "20"));
+    other["statusTimestamp"] = fin["statusTimestamp"].clone();
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([fin, other]));
+    let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+    assert_eq!((read.orders.len(), read.complete), (0, false));
+    // An open row says nothing of fills: two fills make it partly filled, open.
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([placement]));
+    tr.reply(HL_FILLS, 200, json!([hl_fill(&limit(7, St::Partly, "0.00005", "2.5"), 1, 400), hl_fill(&limit(7, St::Partly, "0.00005", "2.5"), 2, 600)]));
+    let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+    let o = &read.orders[0];
+    assert_eq!((o.state, o.filled_base.to_s_f(), o.filled_quote.as_ref().map(|q| q.to_s_f())), (deltabadger::venue::CreatedState::PartlyFilledOpen, order.exec.to_string(), Some("5.0".into())));
+}
+
+#[tokio::test]
+async fn a_hyperliquid_order_whose_fills_dont_state_its_fill_is_unreadable() {
+    let (from, to) = window();
+    let cases: [(&str, O, Vec<Value>); 7] = [
+        ("final, fills short", limit(7, St::Filled, "0.0004", "20"), vec![hl_fill(&limit(7, St::Partly, "0.0001", "5"), 1, 500)]),
+        ("final, no fill", limit(7, St::PartlyCancelled, "0.0002", "10"), vec![]),
+        ("open, fills the whole size", limit(7, St::Partly, "0.0001", "5"), vec![hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500)]),
+        ("another coin", limit(7, St::Filled, "0.0004", "20"), vec![{ let mut f = hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500); f["coin"] = json!("@7"); f }]),
+        ("another side", limit(7, St::Filled, "0.0004", "20"), vec![{ let mut f = hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500); f["side"] = json!("A"); f }]),
+        ("no price", limit(7, St::Filled, "0.0004", "20"), vec![{ let mut f = hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500); f["px"] = json!("0"); f }]),
+        // An order id that can't be read may be this order's: an open order is never read as unfilled beside it.
+        ("unreadable oid", limit(7, St::Open, "0", "0"), vec![{ let mut f = hl_fill(&limit(7, St::Partly, "0.0001", "5"), 1, 500); f["oid"] = json!("7"); f }]),
+    ];
+    for (name, order, fills) in cases {
+        let tr = ScriptedTransport::default();
+        tr.reply(HL_ORDERS, 200, json!([hl_row(&order), hl_row(&limit(8, St::Cancelled, "0", "0"))]));
+        tr.reply(HL_FILLS, 200, Value::Array(fills));
+        let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+        assert_eq!((read.orders.iter().map(|o| o.external_id.as_str()).collect::<Vec<_>>(), read.complete), (vec!["BTC-8"], false), "{name}");
+    }
+}
+
+#[tokio::test]
+async fn hyperliquid_fills_are_one_per_time_coin_and_tid() {
+    let (from, to) = window();
+    let half = limit(7, St::Partly, "0.0002", "10");
+    // Overlapping pages repeat a fill: counted once. The same tid at another time is another fill.
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(7, St::Filled, "0.0004", "20"))]));
+    tr.reply(HL_FILLS, 200, json!([hl_fill(&half, 1, 400), hl_fill(&half, 1, 400), hl_fill(&half, 1, 600)]));
+    let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+    assert_eq!((read.orders.len(), read.complete), (1, true));
+    // One identity with two bodies: no fill read is evidence.
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(7, St::Filled, "0.0004", "20")), hl_row(&limit(8, St::Cancelled, "0", "0"))]));
+    let mut twin = hl_fill(&half, 1, 400);
+    twin["px"] = json!("50001");
+    tr.reply(HL_FILLS, 200, json!([hl_fill(&half, 1, 400), twin, hl_fill(&half, 2, 600)]));
+    let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+    assert_eq!((read.orders.iter().map(|o| o.external_id.as_str()).collect::<Vec<_>>(), read.complete), (vec!["BTC-8"], false));
+}
+
+#[tokio::test]
+async fn hyperliquid_fills_are_paged_to_their_end_and_capped() {
+    let (from, to) = window();
+    let filler = |n: u64| { let mut f = hl_fill(&O { id: 99, ..limit(99, St::Filled, "0.0004", "20") }, 10_000 + n, 100); f["time"] = json!(ms(PLACED) + n as i64); f };
+    let full: Vec<Value> = (0..2000).map(filler).collect();
+    // A full page, then the short one after it (from the newest time seen): the open order's fill is on the second page.
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(7, St::Open, "0", "0"))]));
+    tr.reply(HL_FILLS, 200, Value::Array(full.clone()));
+    tr.reply(HL_FILLS, 200, json!([hl_fill(&limit(7, St::Partly, "0.0001", "5"), 1, 5000)]));
+    let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+    assert_eq!((read.orders[0].state, read.complete), (deltabadger::venue::CreatedState::PartlyFilledOpen, true));
+    let starts: Vec<Value> = tr.requests().iter().filter(|r| r.body.as_ref().unwrap()["type"] == "userFillsByTime").map(|r| r.body.as_ref().unwrap()["startTime"].clone()).collect();
+    assert_eq!(starts, [json!(from.timestamp_millis()), json!(ms(PLACED) + 1999)]);
+    // Full pages past the cap: the open order is unreadable (nothing else read: retried); a filled order whose fills
+    // already add up is kept (more fills would exceed it).
+    for (orders, kept) in [(vec![limit(7, St::Open, "0", "0")], None), (vec![limit(7, St::Open, "0", "0"), limit(8, St::Filled, "0.0004", "20")], Some("BTC-8"))] {
+        let tr = ScriptedTransport::default();
+        tr.reply(HL_ORDERS, 200, Value::Array(orders.iter().map(hl_row).collect()));
+        let mut first = full.clone();
+        first[0] = hl_fill(&limit(8, St::Filled, "0.0004", "20"), 2, 300);
+        tr.reply(HL_FILLS, 200, Value::Array(first));
+        tr.reply(HL_FILLS, 200, Value::Array(full.clone()));
+        let read = hl_read(&tr, HL_COIN, "BTC", from, to).await;
+        match kept {
+            None => assert!(matches!(read, Ok(ref c) if c.orders.is_empty() && !c.complete), "{read:?}"),
+            Some(id) => { let c = read.unwrap(); assert_eq!((c.orders.iter().map(|o| o.external_id.as_str()).collect::<Vec<_>>(), c.complete), (vec![id], false)); }
+        }
+        assert_eq!(tr.requests().len(), 1 + hyperliquid::HISTORY_FILL_PAGES);
+    }
+}
+
+#[tokio::test]
+async fn a_failed_hyperliquid_fills_read_is_retried_unless_an_order_was_read() {
+    let (from, to) = window();
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(7, St::Filled, "0.0004", "20"))]));
+    tr.reply(HL_FILLS, 503, json!("busy"));
+    assert!(matches!(hl_read(&tr, HL_COIN, "BTC", from, to).await, Err(deltabadger::venue::HistoryError::Retry(_))));
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(7, St::Filled, "0.0004", "20")), hl_row(&limit(8, St::Cancelled, "0", "0"))]));
+    tr.reply(HL_FILLS, 503, json!("busy"));
+    let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+    assert_eq!((read.orders.iter().map(|o| o.external_id.as_str()).collect::<Vec<_>>(), read.complete), (vec!["BTC-8"], false));
+    // Through the report: a pass writes nothing, the next one reads again.
+    let f = fx(Kind::Hyperliquid);
+    f.tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(7, St::Filled, "0.0004", "20"))]));
+    f.tr.reply(HL_FILLS, 503, json!("busy"));
+    f.tr.reply(HL_FILLS, 200, json!([hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500)]));
+    assert_eq!(f.pass(now()).await, 0);
+    assert_eq!(f.pass(now() + Duration::hours(1)).await, 1);
+    assert_eq!(f.one().0, ru::LIVE_LISTED);
+}
+
+#[tokio::test]
+async fn a_full_hyperliquid_answer_covers_the_window_when_its_oldest_status_is_before_it() {
+    let (from, to) = window();
+    for (oldest, complete) in [("2026-09-29T13:52:59Z", true), ("2026-09-29T13:53:00Z", false)] {
+        let mut rows: Vec<Value> = (0..hyperliquid::HISTORY_LIMIT as u64).map(|n| hl_row(&O { sell: true, ..limit(100 + n, St::Cancelled, "0", "0") })).collect();
+        let last = rows.len() - 1;
+        rows[last]["statusTimestamp"] = json!(ms(oldest));
+        rows[last]["order"]["timestamp"] = json!(ms(oldest) - 1000);
+        rows[0] = hl_row(&limit(7, St::Cancelled, "0", "0"));
+        let tr = ScriptedTransport::default();
+        tr.reply(HL_ORDERS, 200, Value::Array(rows));
+        let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+        assert_eq!(read.complete, complete, "oldest status {oldest}");
+    }
+}
+
+#[tokio::test]
+async fn an_unreadable_hyperliquid_row_of_the_pair_is_incomplete_and_anothers_is_skipped() {
+    let (from, to) = window();
+    type Spoil = (&'static str, fn(&mut Value));
+    let spoils: [Spoil; 7] = [
+        ("no creation time", |r| { r["order"].as_object_mut().unwrap().remove("timestamp"); }),
+        ("odd side", |r| r["order"]["side"] = json!("X")),
+        ("triggered", |r| r["status"] = json!("triggered")),
+        ("a market order", |r| r["order"]["orderType"] = json!("Market")),
+        ("a trigger", |r| r["order"]["isTrigger"] = json!(true)),
+        ("more left than ordered", |r| r["order"]["sz"] = json!("0.0005")),
+        ("filled with some left", |r| { r["status"] = json!("filled"); r["order"]["sz"] = json!("0.0001"); }),
+    ];
+    for (name, spoil) in spoils {
+        for (coin, complete) in [(HL_COIN, false), ("@7", true)] {
+            let mut bad = hl_row(&limit(8, St::Cancelled, "0", "0"));
+            spoil(&mut bad);
+            bad["order"]["coin"] = json!(coin);
+            let tr = ScriptedTransport::default();
+            tr.reply(HL_ORDERS, 200, json!([bad, hl_row(&limit(9, St::Cancelled, "0", "0"))]));
+            let read = hl_read(&tr, HL_COIN, "BTC", from, to).await.unwrap();
+            assert_eq!((read.orders.iter().map(|o| o.external_id.as_str()).collect::<Vec<_>>(), read.complete), (vec!["BTC-9"], complete), "{name} on {coin}");
+        }
+    }
+    // A pair the venue's tickers don't name has no "<base>-<oid>": unreadable.
+    let tr = ScriptedTransport::default();
+    tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(9, St::Cancelled, "0", "0"))]));
+    let read = hl_venue_for(&tr, "@999", "BTC").orders_created(&[HL_COIN.to_string()], from, to, tokio::time::Instant::now() + std::time::Duration::from_secs(20)).await.unwrap();
+    assert_eq!((read.orders.len(), read.complete), (0, false));
 }
