@@ -46,7 +46,7 @@ The quick-start command names the volume `deltabadger_data`; `docker-compose.yml
 
 If the keys came from the environment, the restored install has to run with the same values, or nothing stored under them can be read. Restore into the same version of Deltabadger the backup was taken from, or a newer one: Deltabadger updates the data on start, and refuses data from a newer version than itself.
 
-A restored backup knows nothing of the orders Deltabadger placed after it was taken, and its bots resume as soon as it starts. Before you start it (step 3), check each exchange's open orders and order history, so you know what was already bought; pause a bot after the start if it would buy something again.
+A restored backup knows nothing of the orders Deltabadger placed after it was taken, and its bots resume as soon as it starts: there is no way to start it with them held. Before you start it (step 3), check each exchange's open orders and order history since the backup. If any order was placed since, contact support before you start it.
 
 To wipe an install instead, see [Starting fresh](03-docker-compose.md#starting-fresh).
 
@@ -80,7 +80,7 @@ With Docker Compose, to restore a `pre-3.0-` copy and run 2.x again:
      cp backups/pre-3.0-20261105T120000.000000Z/production.sqlite3 backups/pre-3.0-20261105T120000.000000Z/production_queue.sqlite3 . &&
      rm -f production.sqlite3-wal production.sqlite3-shm production_queue.sqlite3-wal production_queue.sqlite3-shm'
    ```
-3. Before you start it: check each exchange's open orders and order history since the copy was made. The restored bots resume as soon as 2.x starts and know nothing of those orders.
+3. Before you start it: check each exchange's open orders and order history since the copy was made. The restored bots resume as soon as 2.x starts and know nothing of those orders. If any order was placed since, contact support before you start it.
 4. Change the `image:` line in `docker-compose.yml` to `ghcr.io/deltabadger/deltabadger:2.70.21` and start it: `docker compose up -d`.
 
 The desktop app's `before-update-` copies are restored the same way, by hand, into the data folder's `db/`, with the app quit; see [Going back to an earlier version](07-updating.md#going-back-to-an-earlier-version).

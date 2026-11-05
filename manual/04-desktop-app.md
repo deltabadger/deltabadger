@@ -27,7 +27,7 @@ To use Deltabadger in a browser on the same computer, or to connect an AI assist
 
 Closing the window hides it. Deltabadger keeps running, and your bots keep trading, until you quit it: choose **Quit** from the tray icon's menu, or on a Mac **Quit Deltabadger** (⌘Q) from the app menu. **Show Deltabadger** in the tray menu brings the window back.
 
-While the app is quit, nothing trades. After you quit, the engine finishes what it is doing and closes by itself, usually within seconds. Before touching the data folder, make sure no program called `deltabadger-engine` is still running (Activity Monitor on a Mac, Task Manager on Windows, `pgrep deltabadger-engine` on Linux).
+While the app is quit, nothing trades. After you quit, the engine finishes what it is doing and closes by itself, usually within seconds. Before touching the data folder, make sure no program called `deltabadger-engine` is still running (Activity Monitor on a Mac, Task Manager on Windows, `pgrep -f '[d]eltabadger-engine'` on Linux).
 
 ## What the window can show
 
