@@ -28,8 +28,9 @@ pub async fn unprocessable() -> Response { public(StatusCode::UNPROCESSABLE_ENTI
 /// ErrorsController#internal_server_error, any method.
 pub async fn server_error() -> Response { public(StatusCode::INTERNAL_SERVER_ERROR, "/500.html") }
 
-/// A post no 2.x page sends any more: `POST /bots/:id/show` (D-LEGACY-SHOW-POST-ABSENT) and `POST /api/remove_invalid_keys`
-/// (D-LEGACY-REMOVE-INVALID-KEYS-ABSENT).
+/// A request no 2.x page sends any more: `POST /bots/:id/show` (D-LEGACY-SHOW-POST-ABSENT), `POST /api/remove_invalid_keys`
+/// (D-LEGACY-REMOVE-INVALID-KEYS-ABSENT), and `POST /bots`, `DELETE /bots/:id`, which `resources :bots` draws for actions
+/// BotsController never had (D-LEGACY-BOTS-CREATE-DESTROY-ABSENT; Rails' 404 ends at the root).
 pub async fn absent() -> Response { layout::missing() }
 
 fn public(status: StatusCode, file: &str) -> Response {
