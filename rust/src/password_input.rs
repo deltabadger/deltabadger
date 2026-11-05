@@ -34,13 +34,21 @@ impl Refused {
     }
 }
 
-/// One line from `input`: up to `\n` or the end, its `\r\n`/`\n` dropped, every other byte kept.
+/// One line from `input`: up to `\n` or the end, its `\r\n`/`\n` dropped, every other byte kept. Nothing after the `\n`
+/// is read, so a script that keeps its pipe open isn't waited on.
 pub fn read_line(input: &mut impl std::io::Read) -> Result<String, Refused> {
-    use std::io::Read;
     let mut line = Vec::new();
-    // One byte past the bound tells a line at the bound from a longer one.
-    input.take(MAX_BYTES as u64 + 2).read_to_end(&mut line).map_err(|e| Refused::Terminal(e.to_string()))?;
-    if let Some(end) = line.iter().position(|b| *b == b'\n') { line.truncate(end) }
+    let mut byte = [0u8; 1];
+    // One byte past the bound (and its \r) tells a line at the bound from a longer one.
+    while line.len() <= MAX_BYTES + 1 {
+        match input.read(&mut byte) {
+            Ok(0) => break,
+            Ok(_) if byte[0] == b'\n' => break,
+            Ok(_) => line.push(byte[0]),
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(Refused::Terminal(e.to_string())),
+        }
+    }
     if line.last() == Some(&b'\r') { line.pop(); }
     if line.len() > MAX_BYTES { return Err(Refused::TooLong) }
     if line.is_empty() { return Err(Refused::NoPassword) }
@@ -62,7 +70,7 @@ pub fn prompt_twice(label: &str) -> Result<String, Refused> {
     let raw = terminal::Raw::enter().map_err(Refused::Terminal)?;
     let first = raw.line(label);
     let second = first.is_ok().then(|| raw.line("Again: "));
-    drop(raw); // the terminal back as it was, before anything is answered
+    raw.restore().map_err(Refused::Terminal)?; // the terminal back as it was, before anything is answered
     let first = first?;
     if second.expect("asked after a first")? != first { return Err(Refused::Mismatch) }
     Ok(first)
@@ -88,12 +96,21 @@ mod terminal {
     extern "C" fn restore_and_exit(_: libc::c_int) {
         // tcsetattr, write and _exit are async-signal-safe.
         if CHANGED.load(Ordering::SeqCst) {
-            if let Some(saved) = SAVED.get() { unsafe { libc::tcsetattr(0, libc::TCSAFLUSH, saved) }; }
+            if let Some(saved) = SAVED.get() { let _ = set(saved); }
         }
         unsafe { libc::write(2, b"\n".as_ptr().cast(), 1); libc::_exit(130) }
     }
 
-    pub struct Raw { saved: libc::termios, previous: Vec<(libc::c_int, libc::sigaction)> }
+    pub struct Raw { saved: libc::termios, previous: Vec<(libc::c_int, libc::sigaction)>, restored: bool }
+
+    /// tcsetattr(TCSAFLUSH), again when a signal interrupts it. Async-signal-safe (errno aside, read on the caller's side).
+    fn set(t: &libc::termios) -> Result<(), String> {
+        loop {
+            if unsafe { libc::tcsetattr(0, libc::TCSAFLUSH, t) } == 0 { return Ok(()) }
+            let e = std::io::Error::last_os_error();
+            if e.kind() != std::io::ErrorKind::Interrupted { return Err(e.to_string()) }
+        }
+    }
 
     impl Raw {
         pub fn enter() -> Result<Raw, String> {
@@ -111,9 +128,9 @@ mod terminal {
             raw.c_lflag &= !(libc::ECHO | libc::ICANON | libc::ISIG);
             raw.c_cc[libc::VMIN] = 1;
             raw.c_cc[libc::VTIME] = 0;
-            let entered = Raw { saved, previous };
+            let entered = Raw { saved, previous, restored: false };
             CHANGED.store(true, Ordering::SeqCst);
-            if unsafe { libc::tcsetattr(0, libc::TCSAFLUSH, &raw) } != 0 { return Err(std::io::Error::last_os_error().to_string()) } // Drop restores
+            set(&raw)?; // on failure, Drop restores
             Ok(entered)
         }
 
@@ -152,11 +169,19 @@ mod terminal {
             line.fill(0);
             result
         }
+
+        /// The terminal as it was, checked: a failure is the caller's to report, before anything is written. The signal
+        /// handlers stay armed until the settings are back.
+        pub fn restore(mut self) -> Result<(), String> {
+            set(&self.saved)?;
+            self.restored = true;
+            Ok(())
+        }
     }
 
     impl Drop for Raw {
         fn drop(&mut self) {
-            unsafe { libc::tcsetattr(0, libc::TCSAFLUSH, &self.saved) };
+            if !self.restored && set(&self.saved).is_err() { return } // the handlers stay armed: a later signal tries again
             CHANGED.store(false, Ordering::SeqCst);
             for (signal, old) in &self.previous { unsafe { libc::sigaction(*signal, old, std::ptr::null_mut()) }; }
         }

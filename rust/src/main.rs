@@ -195,7 +195,8 @@ fn reset_password(env: &dyn Fn(&str) -> Option<String>) {
     use std::io::IsTerminal;
     const USAGE: &str = "usage: deltabadger reset-password <email> [--stdin | --generate]";
     enum Source { Prompt, Stdin, Generate }
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    // args_os: a non-UTF-8 argument (a password typed by mistake) is the usage line, never printed (args() panics with it).
+    let args: Vec<String> = std::env::args_os().skip(2).map(|a| a.into_string().unwrap_or_else(|_| fail(USAGE))).collect();
     let (email, source) = match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
         [email] if !email.starts_with('-') => (email.to_string(), Source::Prompt),
         [email, "--stdin"] if !email.starts_with('-') => (email.to_string(), Source::Stdin),

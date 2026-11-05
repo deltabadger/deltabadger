@@ -1358,6 +1358,37 @@ mod reset_password {
         }
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn a_non_utf8_argument_is_the_usage_line_and_never_printed() {
+        use std::os::unix::ffi::OsStrExt;
+        let (dir, hash) = install();
+        let out = bare(dir.path(), &["reset-password", "owner@example.com"]).arg(std::ffi::OsStr::from_bytes(b"Secret-pw-9\xff"))
+            .env_remove("SECRET_KEY_BASE").stdin(Stdio::null()).output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{}", stderr(&out));
+        assert!(stderr(&out).contains("usage: deltabadger reset-password") && !stderr(&out).contains("Secret-pw"), "{}", stderr(&out));
+        assert_eq!(stored(dir.path()), hash);
+    }
+
+    #[test]
+    fn stdin_is_read_to_its_first_line_only_so_an_open_pipe_is_not_waited_on() {
+        let (dir, _) = install();
+        let mut child = bare(dir.path(), &["reset-password", "owner@example.com", "--stdin"]).env_remove("SECRET_KEY_BASE")
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let mut pipe = child.stdin.take().unwrap();
+        pipe.write_all(format!("{NEW}\n").as_bytes()).unwrap();
+        pipe.flush().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() { break status }
+            assert!(std::time::Instant::now() < deadline, "the command waited for the pipe to close");
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        drop(pipe);
+        assert!(status.success());
+        assert!(deltabadger::crypto::verify_password(NEW, &stored(dir.path())));
+    }
+
     #[test]
     fn without_a_terminal_the_prompt_and_generate_refuse_and_stdin_refuses_a_terminal_only() {
         let (dir, hash) = install();
