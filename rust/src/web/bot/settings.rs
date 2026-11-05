@@ -13,7 +13,7 @@ use crate::web::{colors, WebError};
 use crate::ruby::BigDec;
 use askama::Template;
 use rusqlite::Connection;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 const AUTOWIDTH: &str = "data-controller=\"autowidth-input\" data-action=\"input-&gt;form--submit-after-delay#submit input-&gt;autowidth-input#resize\" data-form--move-cursor-to-end-target=\"input\"";
 const SUBMIT_ON_CHANGE: &str = "data-action=\"change-&gt;form--submit#submit\"";
@@ -719,25 +719,48 @@ fn intervals(locale: &str) -> Vec<(String, String)> {
     ["hour", "day", "week", "month"].iter().map(|name| (i18n::text(locale, &format!("bot.{name}"), &[]), name.to_string())).collect()
 }
 
-/// Bots::DcaIndex#current_index_preview with the Deltabadger provider: the index's members that
-/// trade here in the bot's quote, in index order, each with the market cap it is weighted by
-/// (the asset's own, else the weight the index carries for it).
+/// Bots::DcaIndex#current_index_preview: the index's members that trade here in the bot's quote, in index order, each with
+/// the market cap it is weighted by, read as the engine's composition reads it (engine::index): the row `ranked_row`
+/// selects when there is one, weighed on a `coingecko` ranking by its own caps only (zero kept), else the asset's own cap
+/// and then the weight the index carries for it (data-api, and a row no provider ranked yet, as before). A retired index
+/// shows the membership this engine composed from it (D-INDEX-RETIRED-KEPT), or nothing without that provenance.
 pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebError> {
     let Some(index) = bot.index.as_ref() else { return Ok(vec![]) };
     if bot.setting("quote_asset_id").is_none() { return Ok(vec![]); }
+    let engine = |e: crate::engine::EngineError| super::data(format!("{e:?}"));
+    let followed = crate::web::wizard::index::followed(Some(&bot.settings));
+    if crate::engine::index::retired(c, &followed).map_err(engine)? {
+        let composed = bot.transient.get(crate::engine::index::COMPOSED_KEY).and_then(Value::as_str) == Some(followed.as_str());
+        return if composed { retired_preview(bot) } else { Ok(vec![]) };
+    }
+    let ranked = crate::engine::index::ranked_row(c, &followed).map_err(engine)?;
+    let own_caps = ranked.as_ref().is_some_and(|r| r.provider == "coingecko");
+    let (top_coins, weights): (Vec<String>, Map<String, Value>) = match &ranked {
+        Some(r) => (r.top_coins.as_deref().and_then(|t| serde_json::from_str(t).ok()).unwrap_or_default(),
+                    r.weights.as_deref().and_then(|w| serde_json::from_str(w).ok()).unwrap_or_default()),
+        None => (index.top_coins.clone(), index.weights.clone()),
+    };
     let limit = 1000;
     let mut coins = vec![];
     let num_coins = shown_coins(bot);
     // Looked up once: a member is asked for among every listing of the venue.
     let listed: std::collections::HashSet<i64> = bot.tickers.iter().map(|ticker| ticker.base_asset_id).collect();
-    for external_id in index.top_coins.iter().take(limit) {
+    for external_id in top_coins.iter().take(limit) {
         if coins.len() as i64 >= bot.max_coins() { break; }
         let Some(asset) = Asset::find_by_external_id(c, external_id)? else { continue };
         if crate::engine::index::stablecoin(asset.category.as_deref(), external_id) { continue; }
-        // MarketData.get_top_coins: a real market cap when there is one, else the index's weight; a member with neither is skipped.
-        let own = asset.market_cap.map_or(0.0, |cap| cap as f64);
-        let cap = if own > 0.0 { own } else { index.weights.get(external_id).and_then(Value::as_f64).unwrap_or(0.0) };
-        if cap <= 0.0 { continue; }
+        let cap = if own_caps {
+            // The ranking's own cap, Ruby's to_f (missing or null: 0.0), never the asset's, never skipped for zero.
+            let cap = crate::engine::index::to_f(weights.get(external_id));
+            if !cap.is_finite() || cap < 0.0 { return Ok(vec![]); } // the composition refuses it too
+            cap
+        } else {
+            // MarketData.get_top_coins: a real market cap when there is one, else the index's weight; a member with neither is skipped.
+            let own = asset.market_cap.map_or(0.0, |cap| cap as f64);
+            let cap = if own > 0.0 { own } else { weights.get(external_id).and_then(Value::as_f64).unwrap_or(0.0) };
+            if cap <= 0.0 { continue; }
+            cap
+        };
         if !listed.contains(&asset.id) { continue; }
         coins.push(Coin {
             color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", asset.id)))?,
@@ -745,6 +768,24 @@ pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebE
         });
     }
     Ok(coins)
+}
+
+/// D-INDEX-RETIRED-KEPT: the stored in-index membership, largest first, each "cap" the one the page's blend
+/// (index_allocation_controller.js: `cap/Σcap × (1 − f) + f/n` over the n shown) turns back into its stored target:
+/// `(target − f/n) / (1 − f)`, equal caps at f = 1.
+/// ponytail: exact while the slider shows every member (num_coins ≥ the membership, as composed); fewer shown, the page blends a prefix.
+fn retired_preview(bot: &Bot) -> Result<Vec<Coin>, WebError> {
+    let mut members: Vec<(&super::Membership, f64)> = bot.memberships.iter().filter(|m| m.in_index)
+        .map(|m| (m, m.target_allocation.as_ref().and_then(|t| t.to_persisted().ok()).and_then(|t| t.parse::<f64>().ok()).unwrap_or(0.0))).collect();
+    members.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let f = bot.number("allocation_flattening").map_or(0.0, |n| n.to_f()).clamp(0.0, 1.0);
+    let n = members.len() as f64;
+    let num_coins = shown_coins(bot);
+    members.into_iter().enumerate().map(|(position, (m, target))| Ok(Coin {
+        color: colors::pill_color(m.asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", m.asset.id)))?,
+        market_cap: format::float_to_s(if f >= 1.0 { 1.0 } else { ((target - f / n) / (1.0 - f)).max(0.0) }),
+        asset_id: m.asset.id, symbol: m.asset.symbol().to_string(), visible: (position as i64) < num_coins,
+    })).collect()
 }
 
 /// The count the index form's slider is drawn at: the stored one, held within what the index offers.

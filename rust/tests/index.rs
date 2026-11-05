@@ -1349,3 +1349,63 @@ fn a_retired_data_api_index_does_not_wait_for_market_caps() {
     retire(c, "layer-1", "data-api", now);
     assert!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().is_none(), "retired: no cap is read");
 }
+
+/// The bot page as its owner sees it.
+async fn bot_page(d: &tempfile::TempDir, c: &rusqlite::Connection, s: &seed::Seeded, id: i64) -> String {
+    use common::web::{self as harness, Browser};
+    use deltabadger::web::{csrf, session::{self, SessionData}};
+    c.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00' WHERE id = ?1", [s.user_id]).unwrap();
+    let app = harness::app(d.path(), "engine-test-secret", harness::TestClock::starting(at(T0)));
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [s.user_id], |r| r.get(0)).unwrap();
+    let data = SessionData { user: Some((s.user_id, hash.chars().take(29).collect())), csrf: Some(csrf::new_token()), ..Default::default() };
+    let page = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None }.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200);
+    page.body
+}
+
+/// The page's allocation preview as index_allocation_controller.js computes it: each shown coin's
+/// `cap/Σcap × (1 − f) + f/n`, by symbol.
+fn previewed(body: &str, flattening: f64) -> Vec<(String, f64)> {
+    let re = regex::Regex::new(r#"data-market-cap="([^"]*)" data-asset-id="(\d+)""#).unwrap();
+    let coins: Vec<(i64, f64)> = re.captures_iter(body).map(|m| (m[2].parse().unwrap(), m[1].parse().unwrap())).collect();
+    let total: f64 = coins.iter().map(|(_, cap)| cap).sum();
+    let n = coins.len() as f64;
+    coins.into_iter().map(|(asset, cap)| (asset.to_string(), (if total > 0.0 { cap / total } else { 1.0 / n }) * (1.0 - flattening) + flattening / n)).collect()
+}
+fn targets(o: &store::Opened, id: i64) -> Vec<(String, f64)> {
+    let mut s = o.primary.prepare("SELECT asset_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY target_allocation DESC, id").unwrap();
+    s.query_map([id], |r| Ok((r.get::<_, i64>(0)?.to_string(), r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+fn close(a: &[(String, f64)], b: &[(String, f64)]) -> bool { a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.0 == y.0 && (x.1 - y.1).abs() < 1e-6) }
+
+/// Codex branch r2 P2: on a CoinGecko ranking whose caps conflict with the assets' (300 and 100 against 997 and 996), the
+/// page previews what the composition targets (75/25), not the assets' caps (about 50/50); with flattening too.
+#[tokio::test(flavor = "current_thread")]
+async fn the_page_previews_a_coingecko_ranking_as_the_composition_weighs_it() {
+    for flattening in [0.0, 0.5] {
+        let (d, o, s, id, row) = coingecko_category_bot(json!({ "bitcoin": 300, "ethereum": 100 })).await;
+        let c = &o.primary;
+        c.execute("UPDATE bots SET settings = json_set(settings, '$.allocation_flattening', ?2) WHERE id = ?1", rusqlite::params![id, flattening]).unwrap();
+        rank(c, row, "coingecko", at(T0));
+        tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let shown = previewed(&bot_page(&d, c, &s, id).await, flattening);
+        assert!(close(&shown, &targets(&o, id)), "f={flattening}: page {shown:?} vs orders {:?}", targets(&o, id));
+        assert!((targets(&o, id)[0].1 - (0.75 * (1.0 - flattening) + flattening / 2.0)).abs() < 1e-6);
+    }
+}
+
+/// D-INDEX-RETIRED-KEPT: a retired index this engine composed previews its stored membership, whatever the row now holds.
+#[tokio::test(flavor = "current_thread")]
+async fn the_page_previews_a_retired_index_as_its_stored_membership() {
+    for flattening in [0.0, 0.5] {
+        let (d, o, s, id, row) = coingecko_category_bot(json!({ "bitcoin": 300, "ethereum": 100 })).await;
+        let c = &o.primary;
+        c.execute("UPDATE bots SET settings = json_set(settings, '$.allocation_flattening', ?2) WHERE id = ?1", rusqlite::params![id, flattening]).unwrap();
+        rank(c, row, "coingecko", at(T0));
+        tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        retire(c, "layer-1", "coingecko", at(T0));
+        c.execute("UPDATE indices SET weights = '{\"bitcoin\": 1, \"ethereum\": 9}' WHERE id = ?1", [row]).unwrap(); // never read
+        let shown = previewed(&bot_page(&d, c, &s, id).await, flattening);
+        assert!(close(&shown, &targets(&o, id)), "f={flattening}: page {shown:?} vs stored {:?}", targets(&o, id));
+    }
+}

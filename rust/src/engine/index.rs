@@ -73,7 +73,7 @@ pub fn blend(caps: &[f64], flattening: f64) -> Vec<f64> {
 }
 
 /// `value.to_f` on a JSON weight: a number, or a numeric string (String#to_f; data-api sends numbers).
-fn to_f(v: Option<&Value>) -> f64 {
+pub(crate) fn to_f(v: Option<&Value>) -> f64 {
     match v { Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0), Some(Value::String(s)) => s.trim().parse().unwrap_or(0.0), _ => 0.0 }
 }
 
@@ -87,6 +87,9 @@ pub struct Ranked { pub id: i64, pub source: Option<String>, pub top_coins: Opti
 pub fn ranked_row(c: &Connection, external_id: &str) -> Result<Option<Ranked>, EngineError> {
     let Some(provider) = super::provider::ranking_provider(c)? else { return Ok(None) };
     let Some(fingerprint) = super::provider::fingerprint(c)? else { return Ok(None) };
+    // A copy no Rust migration ran on (a page-grid fixture the web reads) holds no ranking: nothing is selected.
+    let table: bool = c.prepare_cached("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')")?.query_row([], |r| r.get(0))?;
+    if !table { return Ok(None); }
     Ok(c.query_row("SELECT i.id, i.source, i.top_coins, i.weights, r.provider, r.ranked_at FROM indices i JOIN rust_index_rankings r ON r.index_id = i.id \
                     WHERE i.external_id = ?1 AND r.provider = ?2 AND r.fingerprint = ?3 ORDER BY r.ranked_at DESC, i.id LIMIT 1",
         params![external_id, provider, fingerprint],
