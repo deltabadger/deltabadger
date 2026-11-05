@@ -1293,3 +1293,41 @@ async fn the_settings_line_says_retired_in_red_in_every_locale() {
     }
 }
 fn askama_escape(s: &str) -> String { s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&#34;").replace('\'', "&#39;") }
+
+/// What the Alpaca transport answers, with one SQL statement run before the first quote read (a write while probes await).
+#[derive(Clone)]
+struct DuringQuotes { inner: ScriptedTransport, db: std::path::PathBuf, sql: std::rc::Rc<std::cell::RefCell<Option<String>>> }
+impl deltabadger::venue::http::Transport for DuringQuotes {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        if r.path.contains("/quotes/") { if let Some(sql) = self.sql.borrow_mut().take() { rusqlite::Connection::open(&self.db).unwrap().execute_batch(&sql).unwrap(); } }
+        self.inner.send(r).await
+    }
+}
+
+/// Codex r18-1 P1: a retirement that lands during a rebalance's composition probes, on a bot without provenance, places
+/// nothing (the rebalance stops; the order intent's fence refuses too).
+#[tokio::test(flavor = "current_thread")]
+async fn a_retirement_during_a_rebalances_probes_places_nothing() {
+    let (d, o, id, t) = index_swap();
+    let hooked = DuringQuotes { inner: t.clone(), db: d.path().join("production.sqlite3"),
+                                sql: std::rc::Rc::new(std::cell::RefCell::new(Some("INSERT INTO rust_index_retired VALUES ('nasdaq-100', 'data-api', '2026-09-01T16:00:00Z')".into()))) };
+    let out = evaluate_swap(&o, &AlpacaVenue::new(hooked.clone(), Urls::for_passphrase(Some("paper"))), id).await;
+    assert!(hooked.sql.borrow().is_none(), "the probes ran");
+    assert!(t.posted_orders().is_empty(), "{out:?}: zero orders");
+}
+
+/// Codex r18-1 P1: a retired index's bot trades the members it holds, so their catalogues stay judged: a stale Alpaca stock
+/// catalogue still holds it.
+#[test]
+fn a_retired_index_is_still_held_by_its_members_stale_catalogue() {
+    use deltabadger::engine::staleness;
+    let (_d, o, _s, id, m) = universe(3, 0.0, false);
+    let c = &o.primary;
+    for (asset, ticker) in &m[..3] { seed::insert_member(c, id, *asset, *ticker, 1.0 / 3.0, true, "2026-09-01 14:00:00", None); }
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = ?1", [id]).unwrap();
+    retire(c, "nasdaq-100", "data-api", at(T0));
+    let now = at(T0);
+    assert!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().is_none());
+    deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::STOCKS, None, now - Duration::days(7)).unwrap();
+    assert_eq!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().map(|s| s.source), Some(staleness::ALPACA_STOCK_TICKERS.name));
+}

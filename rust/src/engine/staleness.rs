@@ -331,7 +331,11 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
         return Ok(if own_caps { vec![] } else if index || (market_cap && crypto_member()?) { vec![&CRYPTO_ASSETS] } else { vec![] });
     }
     let mut sources = vec![];
-    let (stocks, crypto): (bool, bool) = if index {
+    let (stocks, crypto): (bool, bool) = if index && super::index::retired(c, bot.index_external_id())? {
+        // D-INDEX-RETIRED-KEPT: no ranking any more; the bot trades the members it holds, so their catalogues stay judged.
+        c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
+                     FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 AND m.in_index = 1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?
+    } else if index {
         let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;
         c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
                      FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 \
