@@ -943,6 +943,8 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let cipher = Cipher::new(&keys);
     let env_map = scenario["env"].clone();
     let env = move |k: &str| env_map[k].as_str().map(String::from);
+    // The index writers rank what they write (A17-4); a Rails-built scratch has no rankings table. No row is ranked here.
+    rankings_table(&o.primary)?;
     let before = reference_snapshot(&o.primary, &cipher)?;
     let transport = ScriptedTransport::from_script(&scenario["script"]);
     let api = data_api::config(&env, &o.primary, &cipher).map_err(EngineError::Data)?
@@ -1024,15 +1026,21 @@ fn add_stock_bodies(c: &Connection, bot: &crate::engine::model::Bot, script: &mu
 /// copy has none (Rails built it), recorded as applied so a later migrate of the copy skips it. The page grid runs it before
 /// a resync step's snapshot, so the ranking is the fixture's, not the step's write.
 pub fn rank_fixture_indices(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
+    rankings_table(c)?;
+    if let (Some(provider), Some(hash)) = (crate::engine::provider::ranking_provider(c)?, crate::engine::provider::fingerprint(c)?) {
+        let ids = c.prepare("SELECT id FROM indices ORDER BY id")?.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+        for id in ids { crate::engine::index::record_ranking(c, id, provider, &hash, now)?; }
+    }
+    Ok(())
+}
+
+/// `rust_index_rankings` on a Rails-built copy that has none, recorded as applied so a later migrate of the copy skips it.
+fn rankings_table(c: &Connection) -> Result<(), EngineError> {
     let table: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
     if !table {
         c.execute_batch(include_str!("../migrations/20261111000001_rust_index_rankings.sql"))?;
         c.execute_batch("CREATE TABLE IF NOT EXISTS rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL); \
                          INSERT OR IGNORE INTO rust_schema_migrations (version, applied_at) VALUES ('20261111000001', '2026-11-05 00:00:00')")?;
-    }
-    if let (Some(provider), Some(hash)) = (crate::engine::provider::ranking_provider(c)?, crate::engine::provider::fingerprint(c)?) {
-        let ids = c.prepare("SELECT id FROM indices ORDER BY id")?.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-        for id in ids { crate::engine::index::record_ranking(c, id, provider, &hash, now)?; }
     }
     Ok(())
 }

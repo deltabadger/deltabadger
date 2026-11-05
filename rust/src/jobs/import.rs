@@ -859,7 +859,7 @@ fn sweep(c: &Connection, ids: Vec<i64>) -> R<Touched> {
 }
 
 /// Index::WEIGHTED_CATEGORIES (app/models/index.rb:20-33).
-const WEIGHTED_CATEGORIES: [(&str, i64); 12] = [
+pub(crate) const WEIGHTED_CATEGORIES: [(&str, i64); 12] = [
     ("layer-1", 12), ("layer-2", 11), ("meme-token", 10), ("privacy-coins", 9), ("yield-farming", 8), ("runes", 7),
     ("decentralized-finance-defi", 6), ("artificial-intelligence", 5), ("gaming", 4), ("real-world-assets-rwa", 3), ("ai-agents", 2),
     ("zero-knowledge-zk", 1),
@@ -878,29 +878,37 @@ pub fn plan_indices(rows: &[Value]) -> R<Vec<Vec<Sql>>> {
     }).collect()
 }
 
-/// Publishes the indices (tens of rows: one unit in practice).
-pub async fn import_indices(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc>) -> R<()> {
+/// This engine's ranking of each upserted row (PLAN-A17 A17-4 item 5, D-INDEX-UNATTESTED-HELD): the run's captured
+/// provider fingerprint and the pull's time, stamped `data-api` in the row's own write unit.
+pub type Attest = Option<(String, DateTime<Utc>)>;
+
+/// Publishes the indices (tens of rows: one unit in practice), each row ranked `data-api` under `attest` (the live pull).
+pub async fn import_indices(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc>, attest: Attest) -> R<()> {
     let t = format_time(now);
-    publish(db, "indices", chunks(&rows), move |c, rows: Vec<Vec<Sql>>| upsert_indices(c, rows, &t)).await
+    publish(db, "indices", chunks(&rows), move |c, rows: Vec<Vec<Sql>>| upsert_indices(c, rows, &t, &attest)).await
 }
 
-/// `import_indices` as one synchronous write unit in the caller's transaction: the same chunks, in order.
+/// `import_indices` as one synchronous write unit in the caller's transaction: the same chunks, in order. Unattested: the
+/// bootstrap seed runs before Rust's migrations create `rust_index_rankings`, and no seeded row was ranked by this engine.
 pub fn write_indices(c: &Connection, rows: Vec<Vec<Sql>>, now: DateTime<Utc>) -> R<()> {
     let t = format_time(now);
-    for rows in chunks(&rows) { upsert_indices(c, rows, &t)?; }
+    for rows in chunks(&rows) { upsert_indices(c, rows, &t, &None)?; }
     Ok(())
 }
 
 /// One chunk of the index upserts.
-fn upsert_indices(c: &Connection, rows: Vec<Vec<Sql>>, t: &str) -> R<Touched> {
+fn upsert_indices(c: &Connection, rows: Vec<Vec<Sql>>, t: &str, attest: &Attest) -> R<Touched> {
     for r in rows {
-        c.prepare_cached("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, market_cap, available_exchanges, \
+        let id: i64 = c.prepare_cached("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, market_cap, available_exchanges, \
                    weights, weight, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11) \
                    ON CONFLICT (external_id, source) DO UPDATE SET name = excluded.name, description = excluded.description, \
                    top_coins = excluded.top_coins, top_coins_by_exchange = excluded.top_coins_by_exchange, market_cap = excluded.market_cap, \
                    available_exchanges = excluded.available_exchanges, weights = excluded.weights, weight = excluded.weight, \
-                   created_at = excluded.created_at, updated_at = excluded.updated_at").map_err(sql)?
-            .execute(params_from_iter(r.into_iter().chain([Sql::Text(t.into())]))).map_err(sql)?;
+                   created_at = excluded.created_at, updated_at = excluded.updated_at RETURNING id").map_err(sql)?
+            .query_row(params_from_iter(r.into_iter().chain([Sql::Text(t.into())])), |r| r.get(0)).map_err(sql)?;
+        if let Some((fingerprint, at)) = attest {
+            crate::engine::index::record_ranking(c, id, "data-api", fingerprint, *at).map_err(|e| format!("{e:?}"))?;
+        }
     }
     Ok(Touched::None)
 }

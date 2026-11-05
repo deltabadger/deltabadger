@@ -103,7 +103,7 @@ async fn a_conflict_key_met_twice_is_applied_in_order_and_the_last_row_wins() {
     let coin = |symbol: &str| json!({ "external_id": "dup", "symbol": symbol, "name": symbol, "category": "Cryptocurrency" });
     import::import_assets(&db, import::plan_assets(&[coin("D"), coin("D2")], "https://data.example").unwrap(), at("2026-10-02T00:20:00Z")).await.unwrap();
     let index = |name: &str| json!({ "external_id": "layer-1", "source": "coingecko", "name": name });
-    import::import_indices(&db, import::plan_indices(&[index("L1"), index("Layer 1")]).unwrap(), at("2026-10-02T10:30:00Z")).await.unwrap();
+    import::import_indices(&db, import::plan_indices(&[index("L1"), index("Layer 1")]).unwrap(), at("2026-10-02T10:30:00Z"), None).await.unwrap();
     let c = reopen(&d);
     assert_eq!(one::<String>(&c, "SELECT symbol FROM assets WHERE external_id = 'dup'"), "D2", "as Rails 8.1.4's upsert_all on SQLite");
     assert_eq!(one::<String>(&c, "SELECT name FROM indices"), "Layer 1");

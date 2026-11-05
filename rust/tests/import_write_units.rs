@@ -162,7 +162,7 @@ async fn write_tokenized_writes_what_mark_tokenized_writes() {
 #[tokio::test(flavor = "current_thread")]
 async fn write_indices_writes_what_import_indices_writes() {
     let (da, a) = install();
-    import::import_indices(&Db::new(a, common::seed::cipher()), import::plan_indices(&indices_payload()).unwrap(), at(NOW)).await.unwrap();
+    import::import_indices(&Db::new(a, common::seed::cipher()), import::plan_indices(&indices_payload()).unwrap(), at(NOW), None).await.unwrap();
     let (_db, b) = install();
     committed(&b, |tx| import::write_indices(tx, import::plan_indices(&indices_payload()).unwrap(), at(NOW)).unwrap());
     assert_same(&reopen(&da), &b);

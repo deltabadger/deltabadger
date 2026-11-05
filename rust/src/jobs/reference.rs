@@ -282,7 +282,7 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
                 Err(e) => Outcome::Failed(e),
             };
         }
-        Ok(rows) => match incomplete(cx, INDICES, now).await { Ok(()) => import::import_indices(&cx.db, rows, now).await, Err(m) => Err(m) },
+        Ok(rows) => match incomplete(cx, INDICES, now).await { Ok(()) => import::import_indices(&cx.db, rows, now, Some((captured.clone(), now))).await, Err(m) => Err(m) },
         Err(m) => Err(m),
     };
     match result {
