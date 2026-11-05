@@ -265,6 +265,12 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         }
     }
     if index_bot { rank_fixture_indices(&o.primary, start)?; }
+    // A17-4: on a CoinGecko install the category row is what this engine's category pass stores from the answer Rails composes
+    // from live (jobs::categories), ranked at the copy's start.
+    if let (Some(id), Some(answer)) = (scenario["coingecko"]["id"].as_str(), scenario["coingecko"]["answer"].as_array()) {
+        let hash = crate::engine::provider::fingerprint(&o.primary)?.ok_or_else(|| EngineError::Data("no CoinGecko key on the copy".into()))?;
+        crate::jobs::categories::write_answer(&o.primary, id, answer, &hash, start)?;
+    }
     // The recorder explicitly seeded this prior failure with the scratch account's key.
     // Unknown live rows receive no inferred producer and are stale.
     if scenario["parity_scratch"] == true {

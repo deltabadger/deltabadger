@@ -194,6 +194,11 @@ fn rank(c: &Connection, id: &str, rows: &[Value], followed: bool, feed: Option<&
     Ok(Ranked::Written)
 }
 
+/// A followed category's good answer, written and ranked as the pass writes it (the decisions grid: parity::plan_copy).
+pub fn write_answer(c: &Connection, id: &str, rows: &[Value], fingerprint: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    Ok(rank(c, id, rows, true, None, fingerprint, now)? == Ranked::Written)
+}
+
 /// `refresh_availability` (:132-138) as D-CG-AVAILABILITY-FROM-RANKING reads it: for every `coingecko` row, the new
 /// (top_coins_by_exchange, available_exchanges) when they changed. A row this engine ranked under `fingerprint` (of any age)
 /// re-derives the per-venue lists from its stored full ranking; any other row, Rails' `refresh_available_exchanges!`
