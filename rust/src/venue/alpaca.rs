@@ -536,6 +536,84 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     async fn candles(&self, t: &Ticker, start_at: DateTime<Utc>, tf: Timeframe) -> Result<Vec<Candle>, VenueError> {
         self.candles_diagnostic_source(t, start_at, tf).await.map_err(|error| self.redact_error(error))
     }
+    /// A28-3b-1 (PLAN-A28-3 "A28-3b-1" + r1): one GET /v2/orders over every symbol, status=all, `after`/`until` the window
+    /// widened by HISTORY_MARGIN (Alpaca filters by submission, which follows creation; D-ALPACA-HISTORY-SUBMISSION-WINDOW),
+    /// limit HISTORY_LIMIT (a full page is capped: no cursor to follow). Rows of other symbols are skipped unparsed; a row in
+    /// the compact spelling of an asked "BASE/QUOTE" is never attributed and makes the read incomplete (r1.1).
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        use super::HistoryError::{Refused, Retry};
+        let at = |t: DateTime<Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let q = vec![("status", "all".to_string()), ("after", at(from - HISTORY_MARGIN)), ("until", at(to + HISTORY_MARGIN)), ("limit", HISTORY_LIMIT.to_string())];
+        let r = self.request("GET", false, "/v2/orders".into(), q, None);
+        let rows = super::by_deadline(deadline, async {
+            let resp = self.transport.send_limited(&r, http::MAX_BODY).await.map_err(|e| match e {
+                TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m) => Retry(self.transport.redact_diagnostic(&m)),
+            })?;
+            let message = || self.transport.redact_diagnostic(&error_message(&r, &resp));
+            if matches!(resp.status, 401 | 403) { return Err(Refused(message())); }
+            if !(200..300).contains(&resp.status) { return Err(Retry(message())); }
+            match http::decode_json(&resp.body) { Ok(Value::Array(rows)) => Ok(rows), _ => Err(Retry(message())) }
+        }).await?;
+        let mut out = super::Created { orders: vec![], complete: rows.len() < HISTORY_LIMIT };
+        for raw in &rows {
+            let Some(listed) = raw.get("symbol").and_then(Value::as_str) else { out.complete = false; continue };
+            let asked = symbols.iter().find(|s| *s == listed);
+            if asked.is_none() && !symbols.iter().any(|s| s.contains('/') && s.replace('/', "") == listed) { continue; }
+            // r2: attributed only when the class agrees with the spelling (a crypto pair as "BASE/QUOTE", a stock without a
+            // slash), so a compact crypto row never passes for a stock listing spelled the same, nor for its own pair.
+            let class_agrees = match raw.get("asset_class").and_then(Value::as_str) { Some("crypto") => listed.contains('/'), Some("us_equity") => !listed.contains('/'), _ => false };
+            match asked.filter(|_| class_agrees).and_then(|symbol| created_order(symbol, raw)) {
+                Some(o) if o.created_at >= from && o.created_at <= to => out.orders.push(o),
+                Some(_) => {}
+                None => out.complete = false,
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// GET /v2/orders' documented maximum page: a full one may have more behind it.
+pub const HISTORY_LIMIT: usize = 500;
+/// How far `after`/`until` reach past the window (r1.2): Alpaca filters by submission time, which follows creation.
+pub const HISTORY_MARGIN: chrono::Duration = chrono::Duration::minutes(10);
+
+/// A28-3b-1: one /v2/orders row read strictly for the report, never by `parse_order` (the booking poll). `created_at`
+/// (RFC 3339) kept to the microsecond (D-ALPACA-HISTORY-MICROS: what `codec::format_time` stores, so A28-2's re-read
+/// compares equal); side buy or sell; a simple order (order_class "" or "simple"); market or limit (a limit's own
+/// `limit_price`); its size `qty` (base) or `notional` (quote), exactly one; `filled_qty`, with `filled_avg_price` when
+/// anything filled; the filled quote is their product (D-ALPACA-HISTORY-QUOTE-COMPUTED, as `parse_order`). A state by
+/// Rails' status lists, except `calculated`, `stopped` and `suspended`, which don't say whether it is still open (r1.3).
+pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState};
+    use chrono::Timelike;
+    let text = |k: &str| o.get(k).and_then(Value::as_str);
+    let amount = |k: &str| match o.get(k) { Some(Value::Null) | None => Some(None), Some(Value::String(s)) => BigDec::parse(s).ok().filter(|d| *d >= BigDec::zero()).map(Some), _ => None };
+    if text("symbol")? != symbol { return None; }
+    let id = text("id").filter(|s| !s.is_empty())?.to_string();
+    let t = DateTime::parse_from_rfc3339(text("created_at")?).ok()?.with_timezone(&Utc);
+    let created_at = t.with_nanosecond(t.nanosecond() / 1_000 * 1_000)?;
+    let side = match text("side")? { "buy" => super::Side::Buy, "sell" => super::Side::Sell, _ => return None };
+    if !matches!(text("order_class")?, "" | "simple") { return None; }
+    let size = match (amount("qty")?, amount("notional")?) {
+        (Some(q), None) if q.is_positive() => CreatedSize::Base(q),
+        (None, Some(n)) if n.is_positive() => CreatedSize::Quote(n),
+        _ => return None,
+    };
+    let kind = match text("type")? {
+        "market" => CreatedKind::Market,
+        "limit" => CreatedKind::Limit { price: amount("limit_price")?.filter(BigDec::is_positive)? },
+        _ => return None,
+    };
+    let filled_base = amount("filled_qty")??;
+    let filled = filled_base.is_positive();
+    let filled_quote = if filled { &filled_base * &amount("filled_avg_price")?.filter(BigDec::is_positive)? } else { BigDec::zero() };
+    let state = match text("status")? {
+        "new" | "accepted" | "pending_new" | "partially_filled" | "held" | "accepted_for_bidding" | "pending_cancel" | "pending_replace" | "done_for_day" => CreatedState::of(true, filled),
+        "filled" if filled => CreatedState::Filled,
+        "canceled" | "expired" | "replaced" | "rejected" => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: id, symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote: Some(filled_quote) })
 }
 
 /// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper or live, as
