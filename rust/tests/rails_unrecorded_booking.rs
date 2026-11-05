@@ -1370,8 +1370,8 @@ fn alpaca_fill(c: &Connection, s: &Seeded, id: &str, order: &str, qty: &str, pri
     let e = deltabadger::sync::activities::normalize(&raw, &deltabadger::sync::activities::CryptoPairs::default()).unwrap().unwrap();
     c.execute("INSERT INTO account_transactions (user_id, exchange_id, api_key_id, tx_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
                raw_data, transacted_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'BTC', ?6, 'USD', ?7, ?8, ?9, ?9, ?9)",
-              params![s.user_id, s.exchange_id, s.api_key_id, e.tx_id, e.entry_type, qty, price, e.raw.value.to_string(),
-                      deltabadger::codec::format_time(e.transacted_at.unwrap())]).unwrap();
+              params![s.user_id, s.exchange_id, s.api_key_id, e.tx_id, e.entry_type, e.base_amount.to_s_f(), e.quote_amount.as_ref().map(BigDec::to_s_f),
+                      e.raw.value.to_string(), deltabadger::codec::format_time(e.transacted_at.unwrap())]).unwrap();
     c.last_insert_rowid()
 }
 
