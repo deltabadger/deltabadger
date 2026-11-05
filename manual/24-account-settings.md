@@ -2,6 +2,8 @@
 
 Account settings hold what is yours alone: name, email, password, language, time zone and display currency. Open the **Settings** menu at the bottom of the sidebar and choose **Account**; what you change there applies to your own login only. The number at the top of the page is the Deltabadger version you are running.
 
+On the desktop app this page has no email, password or two-factor rows, and there is no **Logout**: the app has one account and always opens signed in. It adds **Sign in a browser**, which shows a one-time code to sign a browser or an AI assistant in; see [Desktop app](04-desktop-app.md#the-first-start).
+
 ## Name, email and password
 
 - **Name** — type a **New name** and press **Update**.

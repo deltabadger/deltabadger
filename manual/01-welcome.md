@@ -34,5 +34,5 @@ A free CoinGecko API key, pasted under **Settings → Connect → Market Data**,
 |---|---|
 | Docker, one command | [Quick start](02-quick-start.md) |
 | Docker Compose, with an `.env.docker` file | [Docker Compose](03-docker-compose.md) |
-| Desktop app on macOS or Linux, built from source | [Desktop app](04-desktop-app.md) |
+| Desktop app for macOS, Windows or Linux | [Desktop app](04-desktop-app.md) |
 | Umbrel app | [Umbrel](05-umbrel.md) |

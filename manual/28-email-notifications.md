@@ -38,6 +38,10 @@ Every email goes to the account's own address. Bot alerts and the test email use
 
 There is no per-user opt-out: with SMTP configured, every user gets their own alerts. Email is the only channel — there is no Telegram, push or webhook delivery.
 
+## Desktop app
+
+The desktop app sends no email, whatever a 2.x install had set up. It shows bot alerts as your computer's notifications instead, one for each alert the table above would email: an order that failed, a bot stopped by errors, running out of funds, and a bot that invested or sold its full amount. Settings says **Deltabadger shows bot alerts as system notifications.** Your computer's notification settings decide how they appear; on a Mac, allow notifications for Deltabadger in **System Settings → Notifications** if you don't see them.
+
 ## Sender address
 
 Emails come from `NOTIFICATIONS_SENDER` if that is set in the environment, otherwise from the SMTP username, otherwise from `noreply@localhost` (see [Configuration](29-configuration.md)).

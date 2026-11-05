@@ -1,5 +1,7 @@
 # First run
 
+On the [desktop app](04-desktop-app.md) there is no setup page: it opens signed in, and this page doesn't apply.
+
 The setup page creates the admin account and, if you have one, connects a Deltabadger.com subscription. The first time you open Deltabadger it shows this page, titled **Welcome to Deltabadger**, and every other page redirects there until the admin account exists.
 
 If the page says **Setup is locked** instead, the server was started with `SETUP_TOKEN` (see [Configuration](29-configuration.md)). Open it from the dashboard of the service that hosts it, which links to the setup page with the token; the token is then dropped from the address.

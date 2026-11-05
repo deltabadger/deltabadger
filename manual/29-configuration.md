@@ -4,7 +4,7 @@ Deltabadger is configured through environment variables. A local install needs n
 
 With Docker Compose, put them in `.env.docker` next to `docker-compose.yml` (copy `.env.docker.example`, see [Docker Compose](03-docker-compose.md)). With a single `docker run`, pass them with `-e NAME=value`. Compose reads `.env.docker` when it creates the container, so after editing it run `docker compose up -d --force-recreate`; a plain restart keeps the old values.
 
-Three variables are an exception: Compose resolves `APP_PORT`, `APP_ROOT_URL` and `HOME_PAGE_URL` itself, from your shell or from a `.env` file next to `docker-compose.yml`. Values for those in `.env.docker` do not reach it.
+Compose resolves `APP_PORT` and `APP_ROOT_URL` itself, from your shell or from a `.env` file next to `docker-compose.yml`. Values for those in `.env.docker` do not reach it.
 
 ## Ports and URLs
 
@@ -32,14 +32,14 @@ Leave these empty on a normal install. See [Secrets and encryption keys](31-secr
 
 ## Databases
 
-Four SQLite files, all under `/app/storage` by default. See [Data and backups](30-data-and-backups.md).
+Two SQLite files, both under `/app/storage` by default. See [Data and backups](30-data-and-backups.md).
 
 | Variable | Default |
 |---|---|
 | `DATABASE_PATH` | `/app/storage/production.sqlite3` |
 | `QUEUE_DATABASE_PATH` | `/app/storage/production_queue.sqlite3` |
-| `CACHE_DATABASE_PATH` | `/app/storage/production_cache.sqlite3` |
-| `CABLE_DATABASE_PATH` | `/app/storage/production_cable.sqlite3` |
+
+`DATABASE_URL` and the other `*_DATABASE_URL` variables are refused: Deltabadger doesn't start while one is set.
 
 ## Email
 
@@ -69,40 +69,19 @@ See [Market data](26-market-data.md) for what each provider covers.
 
 `PROXY_<EXCHANGE>` routes one exchange's API traffic through an HTTP proxy, for exchanges that require a fixed IP on the API key. The value is the proxy URL, for example `PROXY_BINANCE=http://proxy.example.com:8100`. Recognised names: `BINANCE`, `BINANCE_US`, `BINGX`, `BITGET`, `BITRUE`, `BITVAVO`, `BYBIT`, `COINBASE`, `GEMINI`, `HYPERLIQUID`, `KRAKEN`, `KUCOIN`, `MEXC`. A proxy supplied by a Deltabadger.com connection overrides the environment value for that exchange.
 
-## Performance
-
-| Variable | What it does |
-|---|---|
-| `WEB_CONCURRENCY` | Web server worker processes. Default `0`, a single process; values above `1` start that many workers. |
-| `RAILS_MAX_THREADS` | Threads per process, and the base of the database connection pool. The image sets `1`; the Umbrel app sets `5`. |
-| `MAX_DB_CONNECTIONS` | Worker pool for live page updates over websockets. Default `4`. |
-
 ## Other
 
 | Variable | What it does |
 |---|---|
-| `AUTO_MIGRATE` | In `web` mode, `true` runs database migrations on start. `standalone` always migrates. |
-| `RAILS_LOG_TO_STDOUT` | Set by the image. Logs go to the container output, so `docker compose logs -f` shows them. |
-| `RAILS_SERVE_STATIC_FILES` | Set by the image. The app serves its own assets; keep it unless a web server in front serves `/public`. |
 | `DELTABADGER_UPDATE_CHECK` | `false` stops the twice-daily check for a newer release. See [Updating](07-updating.md). |
 | `DELTABADGER_PLATFORM` | How this copy was installed — `docker`, `umbrel` or `desktop` — which decides what **Settings → Account** offers when an update exists. Set for you by the Compose file, the Umbrel app and the desktop app. Set it yourself only if you start the container some other way and want the Compose instructions: `docker` if you use Compose, otherwise leave it unset and the manual is linked instead. |
 | `SETUP_TOKEN` | Locks the first-run setup page. While set, the page only opens at `/setup?token=<value>`, and everyone else sees **Setup is locked**. Meant for platforms that start the server before its owner arrives and then send the owner that link. Leave it unset otherwise — a value that is set but empty locks setup for everyone. See [First run](06-first-run.md). |
 
-## Command modes
+## Commands
 
-The word after the image name chooses what the container runs.
+The word after the image name, or the compose file's `command:`, chooses what the container runs. `web`, `standalone` and `serve` all run the app: the web interface, your bots and all background work, in one process. It updates the data on start. With no command, the image runs `web`.
 
-| Command | Runs |
-|---|---|
-| `standalone` | Web server and job worker in one process. Migrates the database on every start. Used by the quick-start command and `docker-compose.yml`. |
-| `web` | Web server only. Migrates only when `AUTO_MIGRATE=true`. The image default when no command is given. |
-| `jobs` | Job worker only: bots, rules, syncs, emails. Must share the storage volume with a `web` container. |
-
-The Umbrel app runs `web` and `jobs` as two containers; see [Umbrel](05-umbrel.md).
-
-## Maintenance commands
-
-Run these against a stopped app, with the same volume and environment:
+Other commands are run against a stopped app, with the same volume and environment:
 
 ```bash
 docker compose stop
@@ -111,21 +90,27 @@ docker compose run --rm --no-deps deltabadger <command>
 
 | Command | Does |
 |---|---|
-| `migrate` | Creates or migrates the databases, and loads the asset list if it is empty. |
-| `setup` | Prepares and seeds the databases. |
-| `console` | Opens an interactive console on the app. |
-| `rake <task>` | Runs a named task, for example `rake deltabadger:encryption:report`. See [Secrets and encryption keys](31-secrets-and-encryption-keys.md). |
+| `check` | Checks that this version can start on the data, and what it would update, without changing anything. |
+| `handback` | Returns a 2.x install to 2.70.21; see [Going back to 2.x](07-updating.md#going-back-to-2x). |
+| `reset-password <email>` | Sets an account's password; see [Account settings](24-account-settings.md#forgot-your-password). It also runs while the app does, with `docker compose exec`. |
+| `sync ledger` or `sync balances` | One Alpaca history or balance sync by hand. |
+| `resolve-placement`, `resolve-withdrawal`, `reconcile-order`, `repair-binance-history` | For support: each settles one specific problem, and support tells you the exact command. |
 | `shell` | Opens a shell inside the container. |
+| `migrate`, `setup` | Do nothing in Deltabadger 3, which updates its data itself when it starts. They are kept so older compose files keep working. |
+| `jobs` | Does nothing: 2.x ran background work in a separate `jobs` container, which is no longer needed. It waits until it is stopped. |
+| `console`, `rake`, `export` | Refused: "This command isn't available in this version of Deltabadger." |
 
-Anything else is run as given. On Umbrel, run them inside the `web` container instead; the command is on the [Umbrel](05-umbrel.md) page.
+Anything else is run as given inside the container. On Umbrel, see [Umbrel](05-umbrel.md).
+
+When a container is stopped, the app finishes what it is doing first. `docker-compose.yml` gives it 60 seconds (`stop_grace_period`); plain `docker stop` gives 10 unless you pass `-t`.
 
 ## Health endpoints
 
 Both answer without signing in and are safe to poll.
 
-| Endpoint | Response | Used by |
-|---|---|---|
-| `GET /health-check` | `{"health":"check"}`, without touching the database | `docker-compose.yml` |
-| `GET /up` | `200` once the app has booted | The image's own health check, every 30 seconds |
+| Endpoint | Response |
+|---|---|
+| `GET /health-check` | `{"health":"check"}` while the app runs. The image's own health check polls it every 30 seconds, and so does `docker-compose.yml`. |
+| `GET /up` | `200` while the app runs. |
 
-If a container reports unhealthy, read its logs with `docker compose logs -f`. See [Troubleshooting](32-troubleshooting.md).
+While Deltabadger is refused or still waiting to start (see [If it doesn't start](07-updating.md#if-it-doesnt-start)), both answer `503`, so the container reports unhealthy, and every other address shows the page that says why. Read the logs with `docker compose logs -f`. See [Troubleshooting](32-troubleshooting.md).
