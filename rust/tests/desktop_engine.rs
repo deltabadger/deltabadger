@@ -754,8 +754,8 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// with it), as on an install from the build before it. The newest migration must be here, or these tests would stop
 /// testing "an update brings a migration" the day one is added.
 const UNDO: [(&str, &str); 2] = [
-    ("20261110000001", "DROP TABLE rust_rails_unrecorded_offers; DROP TABLE rust_rails_unrecorded_resolutions; DROP TABLE rust_rails_unrecorded_requests; DROP TABLE rust_rails_unrecorded_notices"),
-    ("20261111000001", "DROP TABLE rust_index_rankings")];
+    ("20261111000001", "DROP TABLE rust_index_rankings"),
+    ("20261112000001", "DROP TABLE rust_index_retired")];
 
 #[test]
 fn the_undo_table_covers_the_newest_migration() {

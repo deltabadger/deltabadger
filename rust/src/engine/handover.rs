@@ -707,6 +707,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_rails_unrecorded_requests", Ignored), (Table, "rust_rails_unrecorded_notices", Ignored),
         // A17-4: which provider ranked an index row; Rails never reads it, its deletes cascade, and the next claim clears it.
         (Table, "rust_index_rankings", Ignored),
+        // A17-4 r18: index ids the provider retired; 2.x never reads it, and it outlives a takeover.
+        (Table, "rust_index_retired", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
@@ -753,6 +755,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_amount_limit_stops_pending", Settled), (Bot, "rust_condition_check_dead", Settled), (Bot, "rust_condition_info", Settled),
         (Bot, "rust_condition_info_wanted", Settled), (Bot, "rust_open_orders_wanted", Settled), (Bot, "rust_defer_until", Settled), (Bot, "rust_continue_start", Settled),
         (Bot, "rust_index_resync", Adopted),
+        // A17-4 r18: a composition's provenance; 2.x never reads it, and the next claim removes it.
+        (Bot, "rust_composed_index", Ignored),
         // A14b: Rails can change the base cap and change it back without moving a stamp; a reclaim reads the unknown basis.
         (Bot, "rust_base_cap_basis", Settled),
         // D-HANDBACK-SPLIT-HOLD: 2.x does not compare a split against the venue's positions, so it would trade the bot.

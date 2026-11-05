@@ -136,6 +136,8 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("at", "TEXT", true)], unique_indexes: &[&["transaction_id", "kind"]] }),
     ("20261111000001", TableContract { name: "rust_index_rankings", columns: &[("index_id", "INTEGER", false), ("provider", "TEXT", true),
         ("fingerprint", "TEXT", true), ("ranked_at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261112000001", TableContract { name: "rust_index_retired", columns: &[("external_id", "TEXT", true), ("provider", "TEXT", true),
+        ("retired_at", "TEXT", true)], unique_indexes: &[&["external_id", "provider"]] }),
 ];
 
 /// What this build migrates.

@@ -24,7 +24,7 @@ const TABLES: [&str; 5] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-pub const RUST_KEYS: [&str; 16] = ["run_generation", crate::engine::model::HISTORY_GENERATION, "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+pub const RUST_KEYS: [&str; 17] = [crate::engine::index::COMPOSED_KEY, "run_generation", crate::engine::model::HISTORY_GENERATION, "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
                                crate::engine::amount_limit::STOP_MAILED,
                                "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY,
                                crate::engine::conditions::INFO_KEY, crate::engine::conditions::INFO_WANTED_KEY, crate::engine::polling::REFRESH_KEY,
@@ -1040,13 +1040,16 @@ pub fn rank_fixture_indices(c: &Connection, now: DateTime<Utc>) -> Result<(), En
     Ok(())
 }
 
-/// `rust_index_rankings` on a Rails-built copy that has none, recorded as applied so a later migrate of the copy skips it.
+/// `rust_index_rankings` and `rust_index_retired` on a Rails-built copy that has none, each recorded as applied so a later
+/// migrate of the copy skips it.
 fn rankings_table(c: &Connection) -> Result<(), EngineError> {
-    let table: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
-    if !table {
-        c.execute_batch(include_str!("../migrations/20261111000001_rust_index_rankings.sql"))?;
-        c.execute_batch("CREATE TABLE IF NOT EXISTS rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL); \
-                         INSERT OR IGNORE INTO rust_schema_migrations (version, applied_at) VALUES ('20261111000001', '2026-11-05 00:00:00')")?;
+    for (table, version, sql) in [("rust_index_rankings", "20261111000001", include_str!("../migrations/20261111000001_rust_index_rankings.sql")),
+                                  ("rust_index_retired", "20261112000001", include_str!("../migrations/20261112000001_rust_index_retired.sql"))] {
+        let made: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)", [table], |r| r.get(0))?;
+        if made { continue; }
+        c.execute_batch(sql)?;
+        c.execute_batch("CREATE TABLE IF NOT EXISTS rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL)")?;
+        c.execute("INSERT OR IGNORE INTO rust_schema_migrations (version, applied_at) VALUES (?1, '2026-11-05 00:00:00')", [version])?;
     }
     Ok(())
 }
