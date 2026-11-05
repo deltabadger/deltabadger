@@ -88,6 +88,7 @@ fn one(rows: usize) -> Result<(), WebError> {
 fn path(key: &str, transient: bool) -> Result<String, WebError> {
     let allowed = if transient {
         matches!(key, "missed_quote_amount" | "missed_quote_amount_was_set" | "flip_reserve_pending")
+            || key == crate::engine::accounting::BASIS_KEY
             || ["quote_amount_limit", "base_amount_limit", "price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit", "sell_price_limit", "sell_price_drop_limit", "sell_moving_average_limit", "sell_indicator_limit"]
                 .iter().any(|prefix| key == format!("{prefix}_enabled_at") || key == format!("{prefix}_condition_met_at"))
     } else {

@@ -216,7 +216,7 @@ fn apply_body(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &Ord
     // Its sell-side mirror (transaction.rb:34-36 → Bot::BaseAmountLimitable#handle_base_amount_limit_update): a sell of any
     // kind whose executed base changed to a positive value, or that was newly closed (base_cap_relevant_change?), re-checks
     // the base cap while the bot sells its one asset; reached, Bot::StopJob(amount_sold) and the base cap's mail.
-    let base_hit = side == 1 && base_changed && bot.base_amount_limited() && super::accounting::base_amount_limit_reached(c, &bot)?;
+    let base_hit = side == 1 && base_changed && bot.base_amount_limited() && super::accounting::base_amount_limit_reached_at(c, &bot, now)?;
     // A rotation's deferred D-6D-2 decision (amount_limit::ROTATION_PENDING) waits for this order's final state.
     amount_limit::settle_rotation(c, bot_id, tx_id, now, base_hit)?;
     Ok(base_hit.then_some(Cap::Base))

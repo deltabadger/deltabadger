@@ -612,7 +612,7 @@ impl Draft {
             self.boolean(locale, "base_amount_limited");
             if self.candidate.one_asset() && self.read("base_amount_limited") == json!(true) && self.read("direction") == "selling" {
                 self.number(locale, "base_amount_limit", Some((0.0, false)), None, false);
-                if starting && self.base_cap_reached(c)? { self.error(locale, "settings", "base_amount_limit_reached", None); }
+                if starting && self.base_cap_reached(c, now)? { self.error(locale, "settings", "base_amount_limit_reached", None); }
             }
             self.conditions(locale);
         }
@@ -688,9 +688,22 @@ impl Draft {
         crate::engine::accounting::sell_minimum(amount, seconds, decimals)
     }
 
-    fn base_cap_reached(&self, c: &Connection) -> Result<bool, WebError> {
+    fn base_cap_reached(&self, c: &Connection, now: DateTime<Utc>) -> Result<bool, WebError> {
         numeric(&self.read("base_amount_limit"), false)?;
-        crate::engine::accounting::web_base_cap_reached(c, &self.candidate)
+        crate::engine::accounting::web_base_cap_reached(c, &self.candidate, now, self.writes_basis().then_some(now))
+    }
+
+    /// A14b (D-SPLIT-BASE-CAP): whether this save writes a new basis for the base cap (accounting::BASIS_KEY): the saved state
+    /// has the switch on, and the switch turns on, the number changes by value (Ruby's numeric equality: 10 is 10.0), or the
+    /// one asset changes. Anything else leaves the basis, or its absence, as it is.
+    fn writes_basis(&self) -> bool {
+        let on = |s: &Map<String, Value>| s.get("base_amount_limited") == Some(&json!(true));
+        let asset = |s: &Map<String, Value>| crate::engine::accounting::one_asset_id(Some(s));
+        // Only a basis the tally can count: a number of shares of one asset.
+        let countable = self.candidate.settings.get("base_amount_limit").is_some_and(Value::is_number) && asset(&self.candidate.settings).is_some();
+        countable && on(&self.candidate.settings) && (!on(&self.raw_settings)
+            || !equal_option(self.raw_settings.get("base_amount_limit"), self.candidate.settings.get("base_amount_limit"))
+            || asset(&self.raw_settings) != asset(&self.candidate.settings))
     }
 
     /// Bot::QuoteAmountLimitable's validations: the cap at no less than the quote's smallest amount, and a start refused
@@ -940,6 +953,15 @@ impl Draft {
                     if prefix != "quote_amount_limit" && prefix != "base_amount_limit" { callback_set(&mut transient, format!("{prefix}_condition_met_at"), Value::Null); }
                 }
             }
+            // A14b: the base cap's basis, under the stamp this save leaves; a save that switches the cap off removes it.
+            let basis = crate::engine::accounting::BASIS_KEY;
+            if self.writes_basis() {
+                transient.insert(basis.into(), json!({ "at": now.to_rfc3339_opts(chrono::SecondsFormat::Micros, true), "limit": self.candidate.settings.get("base_amount_limit"),
+                    "asset_id": crate::engine::accounting::one_asset_id(Some(&self.candidate.settings)),
+                    "enabled_at": transient.get("base_amount_limit_enabled_at").cloned().unwrap_or(Value::Null) }));
+            } else if self.candidate.settings.get("base_amount_limited") != Some(&json!(true)) || crate::engine::accounting::one_asset_id(Some(&self.candidate.settings)).is_none() {
+                transient.remove(basis);
+            }
             for prefix in ["price_limit", "sell_price_limit"] {
                 let timing = format!("{prefix}_timing_condition");
                 let condition = format!("{prefix}_value_condition");
@@ -996,7 +1018,7 @@ fn changes(before: &Map<String, Value>, after: &Map<String, Value>) -> JsonChang
 fn equal_option(a: Option<&Value>, b: Option<&Value>) -> bool {
     match (a, b) { (Some(a), Some(b)) => equal(a, b), (None, None) => true, _ => false }
 }
-pub(super) fn equal(a: &Value, b: &Value) -> bool {
+pub(crate) fn equal(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Object(a), Value::Object(b)) => a.len() == b.len() && a.iter().all(|(key, value)| equal_option(Some(value), b.get(key))),
         (Value::Array(a), Value::Array(b)) => a.len() == b.len() && a.iter().zip(b).all(|(a, b)| equal(a, b)),

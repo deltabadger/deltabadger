@@ -120,6 +120,7 @@ set_aside
 signal
 signal_conditions
 single_asset
+split_base_cap
 split_menu_api
 splits
 splits_engine
