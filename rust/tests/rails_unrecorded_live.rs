@@ -1066,13 +1066,15 @@ async fn a_hyperliquid_order_keeps_its_newest_row_and_an_open_rows_fill_is_its_f
 #[tokio::test]
 async fn a_hyperliquid_order_whose_fills_dont_state_its_fill_is_unreadable() {
     let (from, to) = window();
-    let cases: [(&str, O, Vec<Value>); 6] = [
+    let cases: [(&str, O, Vec<Value>); 7] = [
         ("final, fills short", limit(7, St::Filled, "0.0004", "20"), vec![hl_fill(&limit(7, St::Partly, "0.0001", "5"), 1, 500)]),
         ("final, no fill", limit(7, St::PartlyCancelled, "0.0002", "10"), vec![]),
         ("open, fills the whole size", limit(7, St::Partly, "0.0001", "5"), vec![hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500)]),
         ("another coin", limit(7, St::Filled, "0.0004", "20"), vec![{ let mut f = hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500); f["coin"] = json!("@7"); f }]),
         ("another side", limit(7, St::Filled, "0.0004", "20"), vec![{ let mut f = hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500); f["side"] = json!("A"); f }]),
         ("no price", limit(7, St::Filled, "0.0004", "20"), vec![{ let mut f = hl_fill(&limit(7, St::Filled, "0.0004", "20"), 1, 500); f["px"] = json!("0"); f }]),
+        // An order id that can't be read may be this order's: an open order is never read as unfilled beside it.
+        ("unreadable oid", limit(7, St::Open, "0", "0"), vec![{ let mut f = hl_fill(&limit(7, St::Partly, "0.0001", "5"), 1, 500); f["oid"] = json!("7"); f }]),
     ];
     for (name, order, fills) in cases {
         let tr = ScriptedTransport::default();

@@ -244,7 +244,8 @@ impl Scrubber {
     /// Notes every key, string and number text of an answer, so that no fake made later collides with a value met after it.
     pub fn reserve(&mut self, v: &Value) {
         let mut seen: HashSet<String> = self.reserved.drain(..).collect();
-        visit(v, "", &mut |text, _| { if text.chars().count() >= 4 { seen.insert(text.to_string()); } });
+        // A zero is kept, never a leak (`zero`): reserving it would bar every fake sharing its leading zeros.
+        visit(v, "", &mut |text, _| { if text.chars().count() >= 4 && !zero(text) { seen.insert(text.to_string()); } });
         self.reserved = seen.into_iter().collect();
     }
 

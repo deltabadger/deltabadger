@@ -407,3 +407,14 @@ fn many_near_equal_values_scrub_without_a_fake_meeting_a_real_one() {
     let body = sc.scrub("hyperliquid", "historical_orders.json", Value::Array(rows)).unwrap();
     sc.leak_check("historical_orders.json", &body, &[]).unwrap();
 }
+
+#[test]
+fn a_kept_zero_bars_no_fake() {
+    // Gemini's shape: a zero average beside a small amount whose fake keeps the same leading zeros.
+    let body = json!([{"avg_execution_price": "0.00", "original_amount": "0.0015", "executed_amount": "0.0015"}]);
+    let mut sc = scrubber();
+    sc.reserve(&body);
+    let out = sc.scrub("gemini", "orders_history.json", body).unwrap();
+    assert_eq!(out[0]["avg_execution_price"], json!("0.00"));
+    sc.leak_check("orders_history.json", &out, &[]).unwrap();
+}

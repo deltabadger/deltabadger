@@ -333,8 +333,8 @@ impl<T: Transport> HyperliquidVenue<T> {
 
     /// The fills of the `needed` orders (oid, coin, side) from `from_ms` on: Σsz and Σ(px × sz) per oid, page after page from
     /// the newest time seen while a page is full, at most HISTORY_FILL_PAGES. A fill is one (time, coin, tid) (Hyperliquid's
-    /// own uniqueness): a repeat is dropped, a different body under it unreadable. A needed fill of another coin or side, or
-    /// with an unreadable amount, makes its order's sums None.
+    /// own uniqueness): a repeat is dropped, a different body under it unreadable, as is a fill whose `oid` can't be read. A
+    /// needed fill of another coin or side, or with an unreadable amount, makes its order's sums None.
     async fn history_fills(&self, from_ms: i64, needed: &[(u64, &str, &str)], deadline: tokio::time::Instant) -> Fills {
         let mut f = Fills { sums: Default::default(), ended: false, failed: None };
         let mut pages: Vec<Vec<Value>> = vec![];
@@ -367,7 +367,9 @@ impl Fills {
                 Some(_) => return self.unreadable(),
                 None => { seen.insert((time, coin, tid), fill); }
             }
-            let Some(&(oid, want_coin, want_side)) = fill["oid"].as_u64().and_then(|o| needed.iter().find(|n| n.0 == o)) else { continue };
+            // A fill whose order can't be told may be a needed order's: nothing summed is evidence then (Codex branch r1).
+            let Some(oid) = fill["oid"].as_u64() else { return self.unreadable() };
+            let Some(&(oid, want_coin, want_side)) = needed.iter().find(|n| n.0 == oid) else { continue };
             let amount = |k: &str| required(&fill[k]).ok().filter(BigDec::is_positive);
             let entry = self.sums.entry(oid).or_insert(Some((BigDec::zero(), BigDec::zero())));
             *entry = match (entry.take(), coin == want_coin && fill["side"] == want_side, amount("sz"), amount("px")) {
