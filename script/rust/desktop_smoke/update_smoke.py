@@ -469,7 +469,7 @@ def scenario_p4_p6(name):
     finally:
         win.close()
     check_runs(data, V["next"], "P4: relaunched")
-    check(is_next(), f"P4: N+1's executables are not the installed ones: {installed()} vs N+1's installer's {next_pair()}")
+    check(is_next(), f"P4: N+1's executables are not the installed ones: {installed()} vs {next_pair() if WIN else sha(P / V['package'])}")
     if not WIN:
         check(s.ARGS.app.stat().st_mode == mode, f"P4: mode {oct(s.ARGS.app.stat().st_mode)}, was {oct(mode)}")
         say("P4: the file at $APPIMAGE replaced, its mode kept")
