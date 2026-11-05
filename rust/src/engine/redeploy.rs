@@ -140,7 +140,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, clock: &dyn Clock
     }
     // get_orders_data(amount, market: true): holdings with resting buys, every member at its market buy price, the split.
     let Some(holdings) = model::locked(c, |tx| {
-        if super::splits::snapshot(tx, bot)? != reconciled { return Ok(None); }
+        if super::splits::snapshot(tx, bot, clock.now())? != reconciled { return Ok(None); }
         Ok(Some(basket::walk(tx, bot, clock.now())?.amounts))
     })? else { return refuse(c, id, json!(["changed"]), clock) };
     let reserved = basket::reserved(c, bot)?;

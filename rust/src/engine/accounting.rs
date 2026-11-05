@@ -309,31 +309,159 @@ fn sell_intent_base(intent: Option<&Value>) -> Result<Option<BigDec>, EngineErro
     BigDec::parse(amount).map(Some).map_err(data)
 }
 
+/// A14b (D-SPLIT-BASE-CAP): `{at, limit, asset_id, enabled_at}`, the instant the typed base cap was in shares, of which asset,
+/// in which enable cycle. Written only by the settings save (web::bot::draft::save_effects); removed at a handback.
+pub const BASIS_KEY: &str = "rust_base_cap_basis";
+
+/// What a tally does when a split of an asset it counts cannot be sized: the sell refuses (never unbounded), a stop or start
+/// decision reads Rails' as-traded count, the page shows nothing.
+#[derive(Clone, Copy, PartialEq)]
+enum Unknown { Refuse, AsTraded, Hide }
+
+/// The one asset of a one-asset seller (its single allocation key, or the legacy single base_asset_ids entry).
+pub(crate) fn one_asset_id(settings: Option<&serde_json::Map<String, Value>>) -> Option<i64> {
+    let s = settings?;
+    match (s.get("allocations"), s.get("base_asset_ids")) {
+        (Some(Value::Object(a)), _) if a.len() == 1 => a.keys().next()?.parse().ok(),
+        (_, Some(Value::Array(ids))) if ids.len() == 1 => ids[0].as_i64(),
+        _ => None,
+    }
+}
+
+/// A REGULAR sell intent's asset and time (µs), each as the intent recorded it.
+type IntentSale = (Option<i64>, Option<i64>);
+/// The intent's (asset, at µs) when it is a REGULAR sell the cap counts.
+fn intent_sale(intent: Option<&Value>) -> Result<Option<IntentSale>, EngineError> {
+    let Some(intent) = intent.filter(|v| !v.is_null()) else { return Ok(None) };
+    if intent.get("side").is_none_or(|s| s != "sell") || intent.get("transaction_type").is_some_and(|k| k != "REGULAR") { return Ok(None); }
+    let at = intent.get("at").and_then(Value::as_str).map(stored_us).transpose()?;
+    Ok(Some((intent.get("base_asset_id").and_then(Value::as_i64), at)))
+}
+fn stored_us(t: &str) -> Result<i64, EngineError> { Ok(codec::parse_time(t).map_err(|_| data("unreadable stored time"))?.timestamp_micros()) }
+
+/// Who the cap belongs to and where it counts.
+struct CapOwner<'a> { user_id: i64, bot_id: i64, venue: i64, asset: Option<i64>, limit: Option<&'a Value>, enabled: Option<&'a Value>,
+                      basis: Option<&'a Value>, changed_us: Option<i64> }
+
+/// The (venue, asset) pairs a tally restates by: the bot's venue × the cap asset, each commitment's own venue × asset (a row
+/// with no asset is counted in the cap asset), and the intent's.
+fn pairs_of(owner: &CapOwner, sold: &[crate::figures::fill::Sold], intent: Option<&Value>) -> Result<Vec<(i64, i64)>, EngineError> {
+    let Some(asset) = owner.asset else { return Ok(vec![]) };
+    let mut pairs = vec![(owner.venue, asset)];
+    pairs.extend(sold.iter().map(|s| (s.exchange_id.unwrap_or(owner.venue), s.asset_id.unwrap_or(asset))));
+    if let Some((a, _)) = intent_sale(intent)? { pairs.push((owner.venue, a.unwrap_or(asset))); }
+    pairs.sort_unstable();
+    pairs.dedup();
+    Ok(pairs)
+}
+
+fn engine_owner(bot: &Bot) -> Result<CapOwner<'_>, EngineError> {
+    Ok(CapOwner { user_id: bot.user_id, bot_id: bot.id, venue: bot.exchange_id, asset: one_asset_id(bot.settings.as_object()),
+                  limit: bot.settings.get("base_amount_limit"), enabled: bot.transient.get("base_amount_limit_enabled_at"),
+                  basis: bot.transient.get(BASIS_KEY), changed_us: bot.settings_changed_at_us()? })
+}
+fn since_text(bot: &Bot) -> Result<Option<String>, EngineError> {
+    Ok(bot.base_amount_limit_enabled_at_us().map_err(EngineError::Data)?.map(at).transpose()?.map(format_time))
+}
+
+/// The pairs the engine's tally of this bot restates by; None while the cap is off. engine::splits::cap_dependencies.
+pub(crate) fn cap_pairs(c: &Connection, bot: &Bot) -> Result<Option<Vec<(i64, i64)>>, EngineError> {
+    if bot.base_amount_limit().map_err(EngineError::Data)?.is_none() { return Ok(None); }
+    let sold = crate::figures::fill::sold_commitments(c, bot.id, since_text(bot)?.as_deref()).map_err(data)?;
+    Ok(Some(pairs_of(&engine_owner(bot)?, &sold, bot.rust_placement().as_ref())?))
+}
+
+/// F_cap: the factor the typed cap is multiplied by. A valid basis (same enable cycle, the same number by Ruby's numeric
+/// equality, the same asset) gives its instant. Otherwise the number was typed at some instant in [stamp, u], u being
+/// settings_changed_at when at or after the stamp, else `now` (no stamp: from the beginning); the least reading over it, so
+/// the cap is never larger than any reading the history allows.
+fn cap_factor(owner: &CapOwner, splits: &super::splits::CapSplits, asset: i64, basis_at: Option<i64>, now_us: i64) -> Result<BigDec, EngineError> {
+    let f = |t: i64| splits.factor(owner.venue, asset, t);
+    let valid = owner.basis.and_then(Value::as_object).filter(|b| {
+        b.get("enabled_at").unwrap_or(&Value::Null) == owner.enabled.unwrap_or(&Value::Null)
+            && owner.limit.zip(b.get("limit")).is_some_and(|(a, b)| crate::web::bot::draft::equal(a, b))
+            && b.get("asset_id").and_then(Value::as_i64) == Some(asset)
+    }).and_then(|b| b.get("at")?.as_str()).map(stored_us).transpose()?;
+    if let Some(b) = basis_at.or(valid) { return Ok(f(b)); }
+    let lo = codec::optional_time(owner.enabled).map_err(|_| data("unreadable base_amount_limit_enabled_at"))?.map(|t| t.timestamp_micros());
+    let u = match (lo, owner.changed_us) { (Some(lo), Some(changed)) if changed >= lo => changed, _ => now_us };
+    let mut least = f(lo.unwrap_or(i64::MIN));
+    for (v, e) in &splits.events {
+        if *v == owner.venue && e.asset_id == asset && lo.is_none_or(|lo| lo < e.at_us) && e.at_us <= u {
+            let candidate = f(e.at_us);
+            if candidate < least { least = candidate; }
+        }
+    }
+    Ok(least)
+}
+
+/// Bot::BaseAmountLimitable's tally with D-SPLIT-BASE-CAP: the typed cap and every counted sale in today's shares at `now`
+/// (`left = L × F_cap − Σ c_i × F_i(t_i)`), then Rails' numerics (`base_cap`). A factor of 1 leaves a value and its Ruby
+/// class untouched, so with no split this is Rails' number bit for bit. `basis_at`: the save's own new basis (the start
+/// validation of a save that writes one). None only for `Unknown::Hide` with an unresolved split.
+#[allow(clippy::too_many_arguments)]
+fn restated(c: &Connection, owner: &CapOwner, limit: Num, mut sold: Vec<crate::figures::fill::Sold>, intent: Option<&Value>, settled: bool,
+            decimals: Option<i64>, now: DateTime<Utc>, basis_at: Option<i64>, unknown: Unknown) -> Result<Option<(Num, bool)>, EngineError> {
+    let pairs = pairs_of(owner, &sold, intent)?;
+    let splits = super::splits::asset_splits(c, owner.user_id, owner.bot_id, &pairs, now)?;
+    let sale = intent_sale(intent)?;
+    let amount = if settled { sold.retain(|s| !matches!(s.commitment.status, 0 | 1)); None } else { sell_intent_base(intent)? };
+    let (Some(asset), false) = (owner.asset, splits.unresolved) else {
+        if owner.asset.is_some() {
+            match unknown {
+                Unknown::Refuse => return Err(data("the base cap counts a split this build cannot size; nothing is sold until it resolves")),
+                Unknown::Hide => return Ok(None),
+                Unknown::AsTraded => {}
+            }
+        }
+        let rows: Vec<Commitment> = sold.into_iter().map(|s| s.commitment).collect();
+        return base_cap(limit, &rows, amount, decimals).map(Some);
+    };
+    let one = BigDec::one();
+    let now_us = now.timestamp_micros();
+    let f_cap = cap_factor(owner, &splits, asset, basis_at, now_us)?;
+    let limit = if f_cap == one { limit } else { Num::Dec(&limit.to_dec().map_err(data)? * &f_cap) };
+    let rows: Vec<Commitment> = sold.into_iter().map(|s| {
+        let f = splits.factor(s.exchange_id.unwrap_or(owner.venue), s.asset_id.unwrap_or(asset), s.at_us);
+        if f == one { s.commitment } else { Commitment { value: &s.commitment.value * &f, cap_kind: CapKind::Decimal, ..s.commitment } }
+    }).collect();
+    let amount = match (amount, sale) {
+        (Some(a), Some((intent_asset, Some(t)))) => Some(&a * &splits.factor(owner.venue, intent_asset.unwrap_or(asset), t)),
+        (a, _) => a,
+    };
+    base_cap(limit, &rows, amount, decimals).map(Some)
+}
+
 /// `settled`: only what is definitely sold (closed, cancelled, abandoned), neither an open sell nor an unresolved intent.
-fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>, settled: bool) -> Result<(Option<Num>, bool), EngineError> {
+fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>, settled: bool, now: DateTime<Utc>, unknown: Unknown) -> Result<(Option<Num>, bool), EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     let Some(limit) = bot.base_amount_limit().map_err(EngineError::Data)? else { return Ok((None, false)) };
-    let since = bot.base_amount_limit_enabled_at_us().map_err(EngineError::Data)?.map(at).transpose()?.map(format_time);
-    let mut rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(data)?;
-    let intent = if settled { rows.retain(|r| !matches!(r.status, 0 | 1)); None } else { sell_intent_base(bot.rust_placement().as_ref())? };
-    let (left, reached) = base_cap(limit, &rows, intent, decimals)?;
+    let sold = crate::figures::fill::sold_commitments(c, bot.id, since_text(bot)?.as_deref()).map_err(data)?;
+    let intent = bot.rust_placement();
+    let (left, reached) = restated(c, &engine_owner(bot)?, limit, sold, intent.as_ref(), settled, decimals, now, None, unknown)?
+        .ok_or_else(|| data("base cap unknown"))?;
     Ok((Some(left), reached))
 }
 
-/// What the base cap leaves, as Ruby's numerics leave it; None when it is off (Rails' Float::INFINITY).
-pub fn base_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
-    Ok(engine_base_cap(c, bot, None, false)?.0)
+/// What the base cap leaves at `now`, in today's shares (D-SPLIT-BASE-CAP), as Ruby's numerics leave it; None when it is off
+/// (Rails' Float::INFINITY). Err while a split it counts cannot be sized: unknown is never read as unbounded.
+pub fn base_amount_available_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Num>, EngineError> {
+    Ok(engine_base_cap(c, bot, None, false, now, Unknown::Refuse)?.0)
 }
+/// `base_amount_available_at` now (tests and tools with no clock of their own).
+pub fn base_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> { base_amount_available_at(c, bot, Utc::now()) }
 
-pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, false) }
+/// Restated at `now`; with a split it cannot size, decided on Rails' as-traded count, so a stop is never lost to unknown.
+pub fn base_amount_limit_reached_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, EngineError> { base_reached(c, bot, false, now) }
+pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, false, Utc::now()) }
 
 /// D-6D-2 at a rotation: reached on what is definitely sold, the open sells the rotation cancels left out.
-pub fn base_amount_limit_reached_settled(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, true) }
+pub fn base_amount_limit_reached_settled_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, EngineError> { base_reached(c, bot, true, now) }
 
-fn base_reached(c: &Connection, bot: &Bot, settled: bool) -> Result<bool, EngineError> {
+fn base_reached(c: &Connection, bot: &Bot, settled: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
     if !bot.base_amount_limited() { return Ok(false); }
     let Some(d) = tickers_min_decimals(c, bot, "base_decimals")? else { return Ok(false) };
-    Ok(engine_base_cap(c, bot, Some(d), settled)?.1)
+    Ok(engine_base_cap(c, bot, Some(d), settled, now, Unknown::AsTraded)?.1)
 }
 
 /// R1c order safety: exact cap minus exact normalized commitments, including unresolved intent.
@@ -566,21 +694,30 @@ pub(crate) fn round_up(value: f64, scale: f64) -> f64 {
     if value > f64::MAX / scale { value } else { (value * scale).ceil() / scale }
 }
 
-/// validate_base_amount_limit_not_reached on the start: the engine's tally (`base_cap`) on the candidate's limit, stamp,
-/// intent and tickers. A limit that is not a number is Rails' blank (Float::INFINITY): never reached.
-pub fn web_base_cap_reached(c: &Connection, bot: &WebBot) -> Result<bool, WebError> {
-    Ok(web_base_cap(c, bot)?.is_some_and(|(_, reached)| reached))
+/// validate_base_amount_limit_not_reached on the start: the engine's tally (`base_cap`, restated) on the candidate's limit,
+/// stamp, intent and tickers; `basis_at` is the save's own new basis when the save writes one. With a split it cannot size,
+/// Rails' as-traded count. A limit that is not a number is Rails' blank (Float::INFINITY): never reached.
+pub fn web_base_cap_reached(c: &Connection, bot: &WebBot, now: DateTime<Utc>, basis_at: Option<DateTime<Utc>>) -> Result<bool, WebError> {
+    Ok(web_tally(c, bot, now, basis_at.map(|t| t.timestamp_micros()), Unknown::AsTraded)?.is_some_and(|(_, reached)| reached))
 }
 
-/// The same tally for the settings page (bots/settings/_amount_limit_info): what is left, as Ruby's numerics leave it, and
-/// whether that is reached. None for a limit that is not a number.
-pub fn web_base_cap(c: &Connection, bot: &WebBot) -> Result<Option<(WebNum, bool)>, WebError> {
+/// The same tally for the settings page (bots/settings/_amount_limit_info): what is left at `now` in today's shares, as Ruby's
+/// numerics leave it, and whether that is reached. None for a limit that is not a number, or while a split it counts cannot
+/// be sized (the page then shows no "left" line).
+pub fn web_base_cap(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<Option<(WebNum, bool)>, WebError> {
+    web_tally(c, bot, now, None, Unknown::Hide)
+}
+
+fn web_tally(c: &Connection, bot: &WebBot, now: DateTime<Utc>, basis_at: Option<i64>, unknown: Unknown) -> Result<Option<(WebNum, bool)>, WebError> {
     let Some(limit) = bot.number("base_amount_limit") else { return Ok(None) };
     let since = codec::optional_time(bot.transient.get("base_amount_limit_enabled_at")).map_err(|_|error("unreadable stored timestamp"))?.map(format_time);
-    let rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(web_bot::fill_error)?;
+    let sold = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(web_bot::fill_error)?;
     let decimals = bot.tickers.iter().map(|t| i64::from(t.base_decimals)).min();
-    let (left, reached) = base_cap(core(limit), &rows, sell_intent_base(bot.transient.get("rust_placement"))?, decimals)?;
-    Ok(Some((view(left), reached)))
+    let (user_id, changed): (i64, Option<String>) = c.query_row("SELECT user_id, settings_changed_at FROM bots WHERE id = ?1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let changed_us = changed.as_deref().map(codec::parse_time).transpose().map_err(|_| error("unreadable settings_changed_at"))?.map(|t| t.timestamp_micros());
+    let owner = CapOwner { user_id, bot_id: bot.id, venue: bot.exchange.id, asset: one_asset_id(Some(&bot.settings)), limit: bot.settings.get("base_amount_limit"),
+                           enabled: bot.transient.get("base_amount_limit_enabled_at"), basis: bot.transient.get(BASIS_KEY), changed_us };
+    Ok(restated(c, &owner, core(limit), sold, bot.transient.get("rust_placement"), false, decimals, now, basis_at, unknown)?.map(|(left, reached)| (view(left), reached)))
 }
 
 /// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as Rails'

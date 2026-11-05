@@ -1373,7 +1373,7 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
     let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
     let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::ruby::BigDec::from_i64(60),&deltabadger::ruby::BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
     let composition=placement::composition_snapshot(&h.c,&bot).unwrap();
-    let reconciled=deltabadger::engine::splits::snapshot(&h.c,&bot).unwrap();
+    let reconciled=deltabadger::engine::splits::snapshot(&h.c,&bot,"2026-09-10T12:00:00Z".parse().unwrap()).unwrap();
     for column in ["key","secret","passphrase","access_token","rsa_signature_key","rsa_encryption_key","dh_param"] {
         let (_,captured)=model::credentials_with_version(&h.c,&h.app.cipher,&bot).unwrap();
         let stored:Option<String>=h.c.query_row(&format!("SELECT {column} FROM api_keys WHERE id=?1"),[h.seed.api_key_id],|r|r.get(0)).unwrap();

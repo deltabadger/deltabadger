@@ -286,7 +286,7 @@ fn stock_and_index_intents_recheck_status_members_settings_and_every_ticker() {
             let ticker=model::ticker_by_id(&o.primary,s.exchange_id,ticker).unwrap().unwrap();
             let composition=placement::composition_snapshot(&o.primary,&bot).unwrap();
             let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(100),&ALPACA).unwrap() else {panic!("sized")};
-            let reconciled=deltabadger::engine::splits::snapshot(&o.primary,&bot).unwrap();
+            let reconciled=deltabadger::engine::splits::snapshot(&o.primary,&bot,"2026-09-10T12:00:00Z".parse().unwrap()).unwrap();
             let writer=rusqlite::Connection::open(o.primary.path().unwrap()).unwrap();
             match mutation {
                 "status"=>{writer.execute("UPDATE bots SET status=2 WHERE id=?1",[id]).unwrap();},

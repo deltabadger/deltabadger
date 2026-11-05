@@ -45,6 +45,9 @@ pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: 
     pub wash_claim: Option<super::wash::Held>,
     /// An API order's send deadline (PLAN-A9 r1 §2): no order request leaves after it, whatever the intent's own window.
     pub send_by: Option<DateTime<Utc>>,
+    /// In-memory only: a capped seller's base-cap split dependencies as the order was sized (A14b); `send` re-reads them under
+    /// its dispatch lock. None for an intent read back by recovery, or with the cap off.
+    cap: Option<super::splits::CapSplits>,
 }
 
 impl Intent {
@@ -83,7 +86,7 @@ impl Intent {
         let wire_price = match v.get("wire_price") { None | Some(Value::Null) => None, Some(_) => Some(d("wire_price")?) };
         let wash_claim = super::wash::Held::from_json(v.get("wash_claim"))?;
         let send_by = crate::codec::optional_time(v.get("send_by")).map_err(|_| bad())?;
-        Ok(Self { wash_claim, send_by, source, symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
+        Ok(Self { cap: None, wash_claim, send_by, source, symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, side, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")?, kind, origin, wire_price } })
     }
@@ -323,6 +326,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
             else if &composition_snapshot(&tx, &current)? != composition { Some("its member rows or index settings changed") }
             else if current.restatement_generation != reconciled.generation { Some("its split rows changed") }
+            // A14b: a split of an asset the base cap counts, stored or come into effect since sizing (no generation moves for it).
+            else if super::splits::cap_dependencies(&tx, &current, clock.now())? != reconciled.cap { Some("its base cap's split rows changed") }
             else if let Some(stale) = super::staleness::ledger_stale(&tx, &current, clock.now())? {
                 // Usually another bot's order on the same key woke the ledger sync after this one was sized. Nothing is
                 // sent on that ledger; the tick hands its checkpoint back and sizes again once the sync completes.
@@ -352,7 +357,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         &guarded
     } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let mut intent = Intent { wash_claim: None, send_by: None, source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: match plan.kind { TxKind::Regular => Some(bot.run_identity()?), TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => None }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let cap = fence.filter(|_| current.base_amount_limited()).map(|(_, _, reconciled)| reconciled.cap.clone());
+    let mut intent = Intent { cap, wash_claim: None, send_by: None, source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: match plan.kind { TxKind::Regular => Some(bot.run_identity()?), TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => None }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -507,7 +513,7 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
             }
         }
     } else { plan };
-    let intent = Intent { wash_claim: None, send_by, source: Some(SIGNAL_SOURCE.into()), symbol: plan.ticker.ticker.clone(), bot_id: current.id, run: None, credential_version: version.clone(),
+    let intent = Intent { cap: None, wash_claim: None, send_by, source: Some(SIGNAL_SOURCE.into()), symbol: plan.ticker.ticker.clone(), bot_id: current.id, run: None, credential_version: version.clone(),
                           cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?,
                           at: now, plan: plan.clone() };
     let mut v = intent.to_json()?;
@@ -598,6 +604,8 @@ pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &
         if dispatched { return Ok(Sent::Ambiguous(format!("{}; previous dispatch remains unresolved", error.message()))); }
         return Ok(Sent::NotSent(error.message()));
     }
+    // The dispatch time the base cap's splits are re-read at (A14b), taken before the write lock.
+    let dispatch_at = clock.now();
     {
         let tx = model::immediate(c)?;
         if !intent_owned(&tx, intent)? || !still_pending(&tx, intent.bot_id, &intent.cl_ord_id)? {
@@ -613,6 +621,14 @@ pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &
             return Ok(Sent::Fenced);
         }
         model::check_credential_result(&tx, &intent.credential_version)?;
+        // A14b: the base cap's splits as sized. A split stored, or come into effect, since then: nothing is sent, and the
+        // not-placed path clears the intent; the retry sizes on the restated cap.
+        if let Some(cap) = &intent.cap {
+            if super::splits::cap_dependencies(&tx, &model::load_bot(&tx, intent.bot_id)?, dispatch_at)? != *cap {
+                super::log(&format!("[engine] bot {}: {} order not sent: its base cap's split rows changed after it was sized", intent.bot_id, intent.symbol));
+                return Ok(Sent::NotSent("its base cap's split rows changed after it was sized".into()));
+            }
+        }
         tx.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement.dispatched',json('true')) WHERE id=?1", [intent.bot_id])?;
         tx.commit()?;
     }

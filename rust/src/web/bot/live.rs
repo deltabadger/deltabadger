@@ -67,7 +67,7 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
             // the base cap redraws what is left of it, before the stop its fill may cause (StatusChanged follows).
             let sell: bool = c.query_row("SELECT IFNULL(side = 1, 0) FROM transactions WHERE id = ?1", [transaction_id], |r| r.get(0)).optional()?.unwrap_or(false);
             if sell && bot.selling() && bot.one_asset() && bot.on("base_amount_limited") {
-                let info = super::settings::base_amount_limit_info(c, ctx.locale, &bot, owner.hide_balances)?;
+                let info = super::settings::base_amount_limit_info(c, ctx.locale, &bot, owner.hide_balances, ctx.now)?;
                 out.push((super::page::page_stream(&bot), crate::web::turbo::stream("replace", "settings-amount-limit-info", &info)));
             }
             out

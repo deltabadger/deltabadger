@@ -71,8 +71,8 @@ fn decide(c: &Connection, bot_id: i64, now: DateTime<Utc>, defer: bool) -> Resul
     if !bot.base_amount_limited() { return Ok(false); }
     let key = bot.base_amount_limit_key()?;
     if bot.transient.get(STOP_MAILED).and_then(Value::as_str) == Some(key.as_str()) { return Ok(false); }
-    if !accounting::base_amount_limit_reached_settled(c, &bot)? {
-        if defer && accounting::base_amount_limit_reached(c, &bot)? {
+    if !accounting::base_amount_limit_reached_settled_at(c, &bot, now)? {
+        if defer && accounting::base_amount_limit_reached_at(c, &bot, now)? {
             let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND side = 1 AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR' ORDER BY id")?;
             let open = s.query_map([bot_id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
             c.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",

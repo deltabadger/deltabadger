@@ -340,7 +340,7 @@ fn fenced_operation_claims_allow_stopped_bots_and_commit_no_dca_run() {
         o.primary.execute("UPDATE bots SET status=2",[]).unwrap();
         let bot=model::load_bot(&o.primary,id).unwrap();
         let snapshot=placement::composition_snapshot(&o.primary,&bot).unwrap();
-        let reconciled=deltabadger::engine::splits::snapshot(&o.primary,&bot).unwrap();
+        let reconciled=deltabadger::engine::splits::snapshot(&o.primary,&bot,now()).unwrap();
         let op=if kind==TxKind::Liquidation {Op::Liquidation{symbol:"BTC"}} else {Op::Redeploy};
         let begun=placement::begin_operation(&o.primary,&bot,&plan,&[&plan.ticker],&snapshot,&reconciled,&model::credential_version(&o.primary,&bot).unwrap(),None,op,false,None,&FixedClock(now())).unwrap();
         assert!(matches!(begun,placement::Begun::Intent(_)));

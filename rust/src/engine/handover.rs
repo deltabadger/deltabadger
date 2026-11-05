@@ -749,6 +749,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_amount_limit_stops_pending", Settled), (Bot, "rust_condition_check_dead", Settled), (Bot, "rust_condition_info", Settled),
         (Bot, "rust_condition_info_wanted", Settled), (Bot, "rust_open_orders_wanted", Settled), (Bot, "rust_defer_until", Settled), (Bot, "rust_continue_start", Settled),
         (Bot, "rust_index_resync", Adopted),
+        // A14b: Rails can change the base cap and change it back without moving a stamp; a reclaim reads the unknown basis.
+        (Bot, "rust_base_cap_basis", Settled),
         // D-HANDBACK-SPLIT-HOLD: 2.x does not compare a split against the venue's positions, so it would trade the bot.
         (Bot, "rust_split_hold", Refuses("its holdings disagree with a stock split")),
         // A set-aside bot is stopped; 2.x shows its stop key untranslated (D-HANDBACK-RUST-TEXT).
@@ -846,7 +848,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         tx.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3", params![scheduled, crate::codec::format_time(now), id])?;
     }
     // The check's death marker, and the status line's stored info and waiting requests (Rails' own cache starts empty).
-    for key in [super::conditions::DEAD, super::conditions::INFO_KEY, super::conditions::INFO_WANTED_KEY, super::polling::REFRESH_KEY] {
+    for key in [super::conditions::DEAD, super::conditions::INFO_KEY, super::conditions::INFO_WANTED_KEY, super::polling::REFRESH_KEY, super::accounting::BASIS_KEY] {
         tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{key}') WHERE json_type(transient_data, '$.{key}') IS NOT NULL"), [])?;
     }
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;

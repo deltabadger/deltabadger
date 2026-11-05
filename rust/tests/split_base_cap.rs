@@ -70,6 +70,11 @@ fn seller(limit: Value) -> Fixture {
     let (aapl, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
     let (msft, _) = seed::add_alpaca_stock(&o.primary, &s, "MSFT");
     o.primary.execute("UPDATE users SET confirmed_at = created_at, wash_sale_enabled = 0", []).unwrap();
+    // The stock listings sync's ExchangeAsset rows: the position reader names a holding through them.
+    for asset in [aapl, msft] {
+        o.primary.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?3)",
+                          params![s.exchange_id, asset, seed::SYNCED]).unwrap();
+    }
     let spec = BotSpec { settings_changed_at: Some(CHANGED.into()), ..BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(aapl, 1.0)])
         .with("direction", json!("selling")).with("sell_denomination", json!("base")).with("sell_amount", json!(15)).with("sell_interval", json!("week"))
         .with("base_amount_limited", json!(true)).with("base_amount_limit", limit).transient("base_amount_limit_enabled_at", json!(STAMP)) };
@@ -95,6 +100,7 @@ fn script(positions: Value) -> ScriptedTransport {
         "POST /v2/orders": (1..=3).map(|n| json!({ "status": 200, "body": { "id": format!("OTX-{n}"), "status": "accepted" } })).collect::<Vec<_>>(),
         "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
         "GET /v2/positions": ok(positions),
+        "GET /v2/stocks/snapshots": ok(json!({ "AAPL": { "latestTrade": { "p": 187.41 } }, "MSFT": { "latestTrade": { "p": 401.2 } } })),
     }))
 }
 fn holding(sym: &str, qty: &str) -> Value { json!([{ "symbol": sym, "asset_class": "us_equity", "qty": qty, "qty_available": qty }]) }
@@ -268,10 +274,14 @@ async fn edits_on(surface: Surface) -> Vec<(Option<Value>, BigDec)> {
     let app = surfaces(&f);
     let basis = |f: &Fixture| f.basis().map(|mut b| {
         if b["enabled_at"] == f.bot().transient["base_amount_limit_enabled_at"] { b["enabled_at"] = json!("current"); }
+        if b["asset_id"] == f.aapl { b["asset_id"] = json!("AAPL"); }
+        // Compared by value: the page writes the number as a Float, the API as typed (draft::equal reads them alike).
+        b["limit"] = json!(b["limit"].as_f64());
         b
     });
     let mut out = vec![(basis(&f), f.left())];
-    // An unchanged number (spelled 10.0) beside another change: still unknown (16), and the exact reading stays 12.
+    // An unchanged number (spelled 10.0) beside another change: still unknown (16). That save moved settings_changed_at past
+    // the split, so the number may now be today's shares: the least reading, 10×1 − 8 (the plan's conservative case).
     save(&f, &app, surface, json!({ "base_amount_limit": 10.0, "sell_amount": 16 })).await;
     out.push((basis(&f), f.left()));
     for step in [json!({ "base_amount_limit": 20 }), json!({ "base_amount_limit": 20.0, "sell_amount": 15 }), json!({ "base_amount_limit": 10 }),
@@ -285,17 +295,17 @@ async fn edits_on(surface: Surface) -> Vec<(Option<Value>, BigDec)> {
 #[tokio::test(flavor = "current_thread")]
 async fn the_basis_moves_only_with_the_number_or_the_switch_on_every_surface() {
     let web = edits_on(Surface::Web).await;
-    let key = |at: &str, limit: Value, _: &str| Some(json!({ "at": at, "limit": limit, "asset_id": 2, "enabled_at": "current" }));
+    let key = |at: &str, limit: f64, _: &str| Some(json!({ "at": at, "limit": limit, "asset_id": "AAPL", "enabled_at": "current" }));
     let now = "2026-09-10T14:00:00.500000Z";
     let on = "";
     assert_eq!(web, vec![
         (None, dec("12")),
-        (None, dec("12")),
-        (key(now, json!(20), STAMP), dec("12")), // 20 typed after the split: 20 − 8
-        (key(now, json!(20), STAMP), dec("12")), // the same number, re-spelled: kept
-        (key(now, json!(10), STAMP), dec("2")), // 10 − 8: earlier sales stay counted, restated
+        (None, dec("2")),
+        (key(now, 20.0, STAMP), dec("12")), // 20 typed after the split: 20 − 8
+        (key(now, 20.0, STAMP), dec("12")), // the same number, re-spelled: kept
+        (key(now, 10.0, STAMP), dec("2")), // 10 − 8: earlier sales stay counted, restated
         (None, dec("-1")), // off: removed
-        (key(now, json!(10), on), dec("10")), // on: a new window, as in Rails
+        (key(now, 10.0, on), dec("10")), // on: a new window, as in Rails
     ]);
     assert_eq!(edits_on(Surface::Mcp).await, web, "MCP writes the same basis");
     assert_eq!(edits_on(Surface::Rest).await, web, "REST writes the same basis");
@@ -320,16 +330,21 @@ async fn a_respelled_number_keeps_its_basis_across_a_reverse_split() {
     }
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn an_asset_switch_counts_in_the_new_asset_and_keeps_the_old_sales_restated() {
-    for surface in [Surface::Mcp, Surface::Rest] {
-        let f = recorded(Some("2:1"));
-        let app = surfaces(&f);
-        save(&f, &app, surface, json!({ "allocations": { f.msft.to_string(): 1.0 } })).await;
-        assert_eq!(f.basis().unwrap()["asset_id"], f.msft, "{surface:?}");
-        f.split("MSFT", "2026-09-10 14:00:01", Some("2:1"));
-        assert_eq!(f.left_at("2026-09-11T14:00:00Z"), dec("12"), "{surface:?}: 10 MSFT × 2, less 4 AAPL × 2");
-    }
+/// The surfaces switch a basket's asset through their composition tools; every one ends in the one writer, so the switch
+/// is driven through it here.
+#[test]
+fn an_asset_switch_counts_in_the_new_asset_and_keeps_the_old_sales_restated() {
+    let f = recorded(Some("2:1"));
+    f.c().execute("UPDATE bots SET status = 2 WHERE id = ?1", [f.id]).unwrap();
+    let mut draft = web::bot::draft::Draft::load(f.c(), f.s.user_id, f.id, "en").unwrap().unwrap();
+    draft.candidate.settings.insert("allocations".into(), json!({ f.msft.to_string(): 1.0 }));
+    let effects = draft.save_effects(f.c(), at(NOW)).unwrap();
+    let basis = effects.transient.set.get(accounting::BASIS_KEY).cloned().expect("the switch writes a basis");
+    assert_eq!((basis["asset_id"].clone(), basis["limit"].clone()), (json!(f.msft), json!(10)));
+    f.set("$.allocations", json!({ f.msft.to_string(): 1.0 }));
+    f.set_transient(&format!("$.{}", accounting::BASIS_KEY), basis);
+    f.split("MSFT", "2026-09-10 14:00:01", Some("2:1"));
+    assert_eq!(f.left_at("2026-09-11T14:00:00Z"), dec("12"), "10 MSFT × 2, less 4 AAPL × 2");
 }
 
 // ---- 7, 13: unknown basis ----
@@ -641,7 +656,7 @@ async fn a_split_between_the_begin_and_the_dispatch_sends_nothing() {
 #[tokio::test(flavor = "current_thread")]
 async fn the_page_the_engine_the_start_and_the_reads_agree() {
     let f = recorded(Some("2:1"));
-    let app = surfaces(&f);
+    surfaces(&f);
     assert_eq!(f.left(), dec("12"));
     let bot = web::bot::Bot::find(f.c(), f.s.user_id, f.id, web::bot::For::Settings, "en").unwrap().unwrap();
     let info = web::bot::settings::base_amount_limit_info(f.c(), "en", &bot, false, at(NOW)).unwrap();
@@ -650,8 +665,8 @@ async fn the_page_the_engine_the_start_and_the_reads_agree() {
     draft.candidate.status = BotStatus::Scheduled;
     draft.validate(f.c(), web::bot::draft::ValidationContext::Start, at(NOW), true, "en").unwrap();
     assert!(!draft.errors.iter().any(|e| e.field == "settings"));
-    let (_, read) = mcp(&app, "get_bot_details", json!({ "bot_id": f.id })).await;
-    assert!(read.to_string().contains("\\\"base_amount_limit\\\":10") || read.to_string().contains("base_amount_limit: 10"), "typed 10: {read}");
+    // No MCP or REST read carries the cap; the stored setting, which the form and the stop mail show, stays the typed 10.
+    assert_eq!(f.bot().settings["base_amount_limit"], json!(10));
     // Unknown: the page shows no "left" line.
     f.split("AAPL", "2026-09-01 00:00:00", None);
     let bot = web::bot::Bot::find(f.c(), f.s.user_id, f.id, web::bot::For::Settings, "en").unwrap().unwrap();
