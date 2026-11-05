@@ -77,7 +77,16 @@ fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
 /// of asset in the user's account (`account_classes`) — a name that is both is grouped under no date.
 pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
     let (string_pairs, asset_pairs, exchange_ids) = eligibility(orders)?;
-    let (rows, named) = names(c, user_id, &exchange_ids)?;
+    groups_with(c, user_id, &(string_pairs, asset_pairs, exchange_ids), holdings)
+}
+
+/// The (venue, name) and (venue, asset) pairs a bot is eligible for, and their venues, sorted.
+pub type Eligibility<'a> = (HashSet<(i64, &'a str)>, HashSet<(i64, i64)>, Vec<i64>);
+
+/// `groups` with the eligibility given instead of read from orders (A14b: a seller's assets with no traded history).
+pub fn groups_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
+    let (string_pairs, asset_pairs, exchange_ids) = eligible;
+    let (rows, named) = names(c, user_id, exchange_ids)?;
     if rows.is_empty() { return Ok(vec![]); }
     let mut holding_strings = Vec::new();
     for holding in holdings {
@@ -144,8 +153,7 @@ pub fn lookups(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Ve
 }
 
 /// The (venue, name) and (venue, asset) pairs these orders traded, and their venues, sorted.
-#[allow(clippy::type_complexity)]
-fn eligibility(orders: &[Order]) -> Result<(HashSet<(i64, &str)>, HashSet<(i64, i64)>, Vec<i64>), FiguresError> {
+fn eligibility(orders: &[Order]) -> Result<Eligibility<'_>, FiguresError> {
     let mut string_pairs = HashSet::new();
     let mut asset_pairs = HashSet::new();
     let mut exchange_ids = vec![];
@@ -190,8 +198,14 @@ fn names(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<Spli
 /// Bot::Restatable#split_events: one composed event per holding and date whose reports agree within each action, timed at the
 /// earliest instant the group reports, already in effect at `now`, oldest first.
 pub fn events(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
+    events_of(groups(c, user_id, orders, holdings)?, now)
+}
+pub fn events_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
+    events_of(groups_with(c, user_id, eligible, holdings)?, now)
+}
+fn events_of(groups: Vec<Group>, now: At) -> Result<Vec<Event>, FiguresError> {
     let mut out: Vec<Event> = vec![];
-    for group in groups(c, user_id, orders, holdings)? {
+    for group in groups {
         budget::charge(1 + group.rows.len() as u64, 0)?;
         if group.date.is_none() { continue; }
         let (Some(at), Some(factor)) = (group.rows.iter().map(|row| row.at).min(), resolved_factor(&group.rows)?) else { continue };
@@ -206,7 +220,13 @@ pub fn events(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
 /// Bot::Restatable#unresolved_split?: a split in effect that this bot can see and cannot size, or whose name stands
 /// for more than one class of asset in the account.
 pub fn unresolved(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
-    for group in groups(c, user_id, orders, holdings)? {
+    unresolved_of(groups(c, user_id, orders, holdings)?, now)
+}
+pub fn unresolved_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
+    unresolved_of(groups_with(c, user_id, eligible, holdings)?, now)
+}
+fn unresolved_of(groups: Vec<Group>, now: At) -> Result<bool, FiguresError> {
+    for group in groups {
         budget::charge(1 + group.rows.len() as u64, 0)?;
         if group.rows.iter().map(|row| row.at).min().is_none_or(|at| at <= now) && (group.date.is_none() || resolved_factor(&group.rows)?.is_none()) { return Ok(true); }
     }
