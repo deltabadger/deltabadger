@@ -853,6 +853,8 @@ pub(crate) struct Groups { component: std::collections::HashMap<i64, usize>, mem
 impl Groups {
     /// The obligation's group; an id the bot doesn't hold is its own.
     pub(crate) fn of(&self, obligation: i64) -> Vec<i64> { self.component.get(&obligation).map_or_else(|| vec![obligation], |&g| self.members[g].clone()) }
+    /// The obligation's component, when the bot holds it.
+    fn index(&self, obligation: i64) -> Option<usize> { self.component.get(&obligation).copied() }
 }
 
 pub(crate) fn groups(c: &Connection, bot: i64) -> Result<Groups, EngineError> {
@@ -1044,15 +1046,22 @@ pub fn listing(c: &Connection, bot: i64, now: DateTime<Utc>) -> Result<Option<Li
     };
     if eligible.is_empty() { return Ok(None); }
     let groups = groups(c, bot)?;
+    // One state per component (Codex branch r1: never a group's queries per member).
+    let mut states: std::collections::HashMap<usize, (ListedState, Option<i64>, String)> = std::collections::HashMap::new();
     let mut all = vec![];
     for (id, from, to) in eligible {
-        let ids = groups.of(id);
-        let (state, transaction_id, at) = match decided(c, &ids)? {
-            Some((r, tx, at)) => (if r == "booked" { ListedState::Booked } else { ListedState::NotMine }, tx, at),
-            None if any_of(c, "rust_rails_unrecorded_requests", &ids)? => (ListedState::Checking, None, String::new()),
-            None => (ListedState::Open, None, String::new()),
-        };
-        all.push((Listed { obligation: id, state, from, to, offers: vec![], transaction_id, refused: None }, at, ids));
+        let Some(g) = groups.index(id) else { continue };
+        if let std::collections::hash_map::Entry::Vacant(slot) = states.entry(g) {
+            let ids = &groups.members[g];
+            let state = match decided(c, ids)? {
+                Some((r, tx, at)) => (if r == "booked" { ListedState::Booked } else { ListedState::NotMine }, tx, at),
+                None if any_of(c, "rust_rails_unrecorded_requests", ids)? => (ListedState::Checking, None, String::new()),
+                None => (ListedState::Open, None, String::new()),
+            };
+            slot.insert(state);
+        }
+        let (state, transaction_id, at) = states[&g].clone();
+        all.push((Listed { obligation: id, state, from, to, offers: vec![], transaction_id, refused: None }, at, g));
     }
     let rank = |s: ListedState| match s { ListedState::Open => 0, ListedState::Checking => 1, _ => 2 };
     all.sort_by(|(a, at_a, _), (b, at_b, _)| rank(a.state).cmp(&rank(b.state)).then_with(|| match a.state {
@@ -1071,16 +1080,16 @@ pub fn listing(c: &Connection, bot: i64, now: DateTime<Utc>) -> Result<Option<Li
         let rows = s.query_map([bot], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
         rows
     };
-    let refusals: Vec<(i64, String, String, String)> = lines.into_iter().filter(|(event, _, _)| event == NOT_ADDED).filter_map(|(_, details, at)| {
+    let refusals: Vec<(Option<usize>, String, String, String)> = lines.into_iter().filter(|(event, _, _)| event == NOT_ADDED).filter_map(|(_, details, at)| {
         let d: Value = serde_json::from_str(&details?).ok()?;
-        Some((d["obligation"].as_i64()?, d["reason"].as_str()?.to_string(), d["venue"].as_str().unwrap_or_default().to_string(), at))
+        Some((groups.index(d["obligation"].as_i64()?), d["reason"].as_str()?.to_string(), d["venue"].as_str().unwrap_or_default().to_string(), at))
     }).collect();
     let before = super::accounting::pending_quote_amount_plus(c, &model::load_bot(c, bot)?, now.timestamp_micros(), None).ok().and_then(|n| n.to_dec().ok());
-    let obligations = all.into_iter().map(|(mut l, _, ids)| {
+    let obligations = all.into_iter().map(|(mut l, _, g)| {
         let open = l.state == ListedState::Open;
         l.offers = views.remove(&l.obligation).map(|v| v.offers).unwrap_or_default();
         if !open { for o in &mut l.offers { o.carry_after = None; } }
-        if open { l.refused = refusals.iter().find(|(o, ..)| ids.contains(o)).map(|(_, reason, venue, at)| (reason.clone(), venue.clone(), at.clone())); }
+        if open { l.refused = refusals.iter().find(|(o, ..)| *o == Some(g)).map(|(_, reason, venue, at)| (reason.clone(), venue.clone(), at.clone())); }
         l
     }).collect();
     Ok(Some(Listing { carry: before, obligations, more }))
