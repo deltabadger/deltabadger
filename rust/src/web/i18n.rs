@@ -269,6 +269,9 @@ const FROM_GEMS: &[(&str, &str)] = &[
     // A28-2 (PLAN-A28-2): the owner's booking of an order Rails sent unrecorded, and its watch.
     ("en.bot_activity.events.rails_order_recovered", "Added an order from before the update to this bot's history: %{order}."),
     // A28-2a: the line's buttons, their confirmations and the POST's flash (web::bot::rails_orders).
+    // A28-2b (D-RAILS-UNRECORDED-API): the Settings switch of this build's own tool, as A28's copy in English for every locale.
+    ("en.settings.mcp.tools.answer_unrecorded_order.label", "Answer unrecorded order"),
+    ("en.settings.mcp.tools.answer_unrecorded_order.description", "Say which order from before the update was a bot's, or that none was"),
     ("en.bot.rails_orders.book", "This was this bot's order"),
     ("en.bot.rails_orders.book_confirm", "Add this order to this bot: %{order}. This bot now owes %{before} %{quote} toward its next order. With this order added, it owes %{after} %{quote}."),
     ("en.bot.rails_orders.book_confirm_unaffected", "Add this order to this bot: %{order}. It goes into the bot's history only; its next order isn't affected."),

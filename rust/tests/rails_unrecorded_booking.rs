@@ -1274,3 +1274,13 @@ async fn the_read_is_refused_past_the_read_limits() {
     assert_eq!((status, body["error"]["code"].clone()), (501, json!("not_ported")));
     assert_eq!(a.mcp("get_bot_details", json!({ "bot_id": f.b })).await.0, "Read unavailable: request data exceeds read limits");
 }
+
+/// Codex branch r2: the Settings switch names the tool, on both surfaces.
+#[test]
+fn the_settings_switch_names_the_tool() {
+    use deltabadger::web::i18n;
+    for locale in ["en", "de", "pl"] {
+        assert_eq!(i18n::text(locale, "settings.mcp.tools.answer_unrecorded_order.label", &[]), "Answer unrecorded order");
+        assert_eq!(i18n::text(locale, "settings.mcp.tools.answer_unrecorded_order.description", &[]), "Say which order from before the update was a bot's, or that none was");
+    }
+}
