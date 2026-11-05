@@ -2505,6 +2505,10 @@ fn start_watchdog() {
             if let Some(stalled) = stalled {
                 eprintln!("page grid hung: {stalled}");
                 eprintln!("page grid threads: {}", threads());
+                // The stacks say what a spinning thread runs (CI installs gdb; its runner's sudo needs no password).
+                let pid = std::process::id().to_string();
+                let gdb = std::process::Command::new("sudo").args(["-n", "gdb", "-p", &pid, "-batch", "-ex", "thread apply all bt 40"]).output();
+                if let Ok(out) = gdb { eprintln!("page grid stacks:\n{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)); }
                 std::process::exit(101);
             }
         });
