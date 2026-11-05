@@ -1331,3 +1331,21 @@ fn a_retired_index_is_still_held_by_its_members_stale_catalogue() {
     deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::STOCKS, None, now - Duration::days(7)).unwrap();
     assert_eq!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().map(|s| s.source), Some(staleness::ALPACA_STOCK_TICKERS.name));
 }
+
+/// Codex r18-2 P2: a retired data-api index keeps its stored weights, so stale crypto market caps hold it no more; its venue
+/// catalogue still would.
+#[test]
+fn a_retired_data_api_index_does_not_wait_for_market_caps() {
+    use deltabadger::engine::staleness;
+    let (_d, o, s) = common::install();
+    let c = &o.primary;
+    seed::insert_index(c, "layer-1", &["bitcoin"], &json!({}));
+    let id = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
+    let now = at(T0);
+    seed::fresh_stock_jobs(c, now);
+    deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::ASSETS, None, now - Duration::days(7)).unwrap();
+    assert_eq!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().map(|s| s.source), Some("Crypto assets"), "ranked: caps read");
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'layer-1') WHERE id = ?1", [id]).unwrap();
+    retire(c, "layer-1", "data-api", now);
+    assert!(staleness::stale(c, &model::load_bot(c, id).unwrap(), now).unwrap().is_none(), "retired: no cap is read");
+}

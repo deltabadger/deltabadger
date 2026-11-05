@@ -319,7 +319,8 @@ pub fn ranking_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Op
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
     let index = bot.bot_type == "Bots::DcaIndex";
     // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
-    let own_caps = index && super::provider::coingecko_key(c)?.is_some();
+    // A retired index's bot keeps its stored weights (D-INDEX-RETIRED-KEPT) and reads no market cap either.
+    let own_caps = index && (super::provider::coingecko_key(c)?.is_some() || super::index::retired(c, bot.index_external_id())?);
     let market_cap = bot.bot_type == "Bots::DcaMultiAsset" && bot.weighting() == "market_cap";
     let crypto_member = || -> Result<bool, EngineError> {
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
