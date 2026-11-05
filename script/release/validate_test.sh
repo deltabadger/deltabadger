@@ -104,6 +104,13 @@ refuses "an index's per-exchange coin outside assets.json fails" "coin gone is n
   bundle '.["indices.json"].data[0].top_coins_by_exchange["Exchanges::Kraken"] += ["gone"]'
 passes "an extra file (Alpaca) is not checked" bundle '.["tickers/alpaca.json"] = {data: []}'
 echo nope > "$work/seed.gz"; refuses "not a gzip fails" "not a valid gzip" v seed "$work/seed.gz"
-echo '[]' | gzip > "$work/seed.gz"; refuses "not an object fails" "not a JSON object" v seed "$work/seed.gz"
+refuses "an exchange whose tickers all lack decimals fails" "tickers/kraken.json: no ticker with base, quote and price decimals" \
+  bundle '.["tickers/kraken.json"].data |= map(del(.base_decimals))'
+passes "one ticker with decimals is enough" bundle '.["tickers/kraken.json"].data |= (.[1:] |= map(.price_decimals = null))'
+for doc in '[]' '' ' ' '{"assets.json": {}} {"assets.json": {}}'; do
+  printf '%s' "$doc" | gzip > "$work/seed.gz"; refuses "'$doc' is not one JSON object" "not one JSON object" v seed "$work/seed.gz"
+done
+gzip -dc "$good" | { cat; echo; gzip -dc "$good"; } | gzip > "$work/seed.gz"
+refuses "two good bundles in one file fail" "not one JSON object" v seed "$work/seed.gz"
 
 [ "$failures" = 0 ] && echo "all passed" || { echo "$failures failed"; exit 1; }

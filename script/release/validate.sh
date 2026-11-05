@@ -134,9 +134,12 @@ case $cmd in
     fi
     ;;
 
-  seed) # PLAN-B8 r1.9, r2.5: every file has rows, no logo_url (tests/seeds.rs), no reference outside assets.json
+  seed) # PLAN-B8 r1.9, r2.5: every file has rows (each ticker file one the import keeps), no logo_url (tests/seeds.rs),
+        # no reference outside assets.json
     file=${1:?seed <file>}
     gzip -t "$file" 2>/dev/null || fail "$file is not a valid gzip"
+    # One JSON object, as store::seed_files parses it (serde_json::from_slice).
+    gzip -dc "$file" | jq -se 'length == 1 and (.[0] | type == "object")' > /dev/null 2>&1 || fail "$file is not one JSON object"
     files=(assets.json indices.json); for x in "${SEED_EXCHANGES[@]}"; do files+=("tickers/$x.json"); done
     problems=$(gzip -dc "$file" | jq -r --argjson files "$(jq -n '$ARGS.positional' --args "${files[@]}")" '
       . as $b
@@ -144,6 +147,10 @@ case $cmd in
       | def missing($x): ($x | type) != "string" or ($ids[$x] | not);
       [ $files[] | select(($b[.].data | type) != "array" or ($b[.].data | length) == 0 or ($b[.].data | all(type == "object") | not))
                | "\(.): no data rows" ]
+      # MarketData.ticker_records_for skips a row without all three decimals (rust/src/jobs/import.rs).
+      + [ $files[] | select(startswith("tickers/")) | select([$b[.].data[]? | objects
+            | select([.base_decimals, .quote_decimals, .price_decimals] | all(. != null and . != false))] | length == 0)
+          | "\(.): no ticker with base, quote and price decimals" ]
       + (if [.. | objects | select(has("logo_url"))] | length > 0 then ["a logo_url (a seeded install has no public URL for it)"] else [] end)
       + ([$b["indices.json"].data[]? | objects | .external_id as $i
           | ((.top_coins // []) + ([(.top_coins_by_exchange // {})[]] | add // []))[] | select(missing(.))
@@ -151,7 +158,7 @@ case $cmd in
       + [$b | to_entries[] | select(.key | startswith("tickers/")) | .key as $k | .value.data[]? | objects
           | . as $t | (.base_external_id, .quote_external_id) | select(missing(.))
           | "\($k) \($t.ticker): \(.) is not in assets.json"]
-      | .[:20][]') || fail "$file is not a JSON object"
+      | .[:20][]')
     [ -z "$problems" ] || fail "$file is not a seed bundle: $(tr '\n' ';' <<< "$problems")"
     echo "seed bundle $file: $(gzip -dc "$file" | jq -r '[.["assets.json"].data, .["indices.json"].data] | map(length) | "\(.[0]) assets, \(.[1]) indices"'), ${#SEED_EXCHANGES[@]} ticker files"
     ;;
