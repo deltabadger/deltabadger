@@ -1456,7 +1456,7 @@ mod reset_password {
         use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
         use std::sync::{Arc, Mutex};
 
-        struct Pty { master: OwnedFd, slave: OwnedFd, seen: Arc<Mutex<Vec<u8>>>, stop: Arc<std::sync::atomic::AtomicBool>, child: std::process::Child }
+        struct Pty { master: OwnedFd, slave: OwnedFd, seen: Arc<Mutex<Vec<u8>>>, stop: Arc<std::sync::atomic::AtomicBool>, reader: std::thread::JoinHandle<()>, child: std::process::Child }
 
         fn modes(fd: i32) -> (libc::tcflag_t, libc::tcflag_t) {
             let mut t: libc::termios = unsafe { std::mem::zeroed() };
@@ -1474,7 +1474,7 @@ mod reset_password {
                 .stdin(fd()).stderr(fd()).stdout(if stdout_terminal { fd() } else { Stdio::piped() }).spawn().unwrap();
             let (seen, stop) = (Arc::new(Mutex::new(vec![])), Arc::new(std::sync::atomic::AtomicBool::new(false)));
             let (read_fd, into, until) = (master.as_raw_fd(), seen.clone(), stop.clone());
-            std::thread::spawn(move || {
+            let reader = std::thread::spawn(move || {
                 let mut buf = [0u8; 1024];
                 while !until.load(std::sync::atomic::Ordering::SeqCst) {
                     let mut p = libc::pollfd { fd: read_fd, events: libc::POLLIN, revents: 0 };
@@ -1484,7 +1484,7 @@ mod reset_password {
                     into.lock().unwrap().extend_from_slice(&buf[..n as usize]);
                 }
             });
-            Pty { master, slave, seen, stop, child }
+            Pty { master, slave, seen, stop, reader, child }
         }
 
         impl Pty {
@@ -1496,13 +1496,21 @@ mod reset_password {
             fn type_bytes(&self, bytes: &[u8]) {
                 assert_eq!(unsafe { libc::write(self.master.as_raw_fd(), bytes.as_ptr().cast(), bytes.len()) }, bytes.len() as isize);
             }
-            fn finish(mut self) -> (std::process::ExitStatus, String, String) {
+            /// The exit, what the terminal showed, the piped stdout, and the terminal's modes once the command ended: read
+            /// here, while the master is open (on Linux the slave hangs up once the master closes, and tcgetattr fails).
+            fn finish(mut self) -> (std::process::ExitStatus, String, String, (libc::tcflag_t, libc::tcflag_t)) {
                 let status = self.child.wait().unwrap();
+                let after = modes(self.slave.as_raw_fd());
                 std::thread::sleep(std::time::Duration::from_millis(200));
                 self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+                // Joined before the master closes: a reader still polling its fd number would read the next pty's
+                // prompt (Linux hands the number straight back to the next openpty) into this one's buffer.
+                let Pty { reader, mut child, seen, .. } = self;
+                reader.join().unwrap();
+                let seen = String::from_utf8_lossy(&seen.lock().unwrap()).to_string();
                 let mut piped = String::new();
-                if let Some(mut out) = self.child.stdout.take() { std::io::Read::read_to_string(&mut out, &mut piped).unwrap(); }
-                (status, self.seen(), piped)
+                if let Some(mut out) = child.stdout.take() { std::io::Read::read_to_string(&mut out, &mut piped).unwrap(); }
+                (status, seen, piped, after)
             }
         }
 
@@ -1515,12 +1523,11 @@ mod reset_password {
             pty.type_bytes(b"Another-horse-7x\x7f\r"); // a typo, rubbed out
             pty.wait_for("Again: ");
             pty.type_bytes(format!("{NEW}\r").as_bytes());
-            let slave = pty.slave.try_clone().unwrap();
-            let (status, seen, _) = pty.finish();
+            let (status, seen, _, after) = pty.finish();
             assert!(status.success(), "{seen}");
             assert!(seen.contains("password changed for owner@example.com"), "{seen}");
             assert!(!seen.contains("horse"), "nothing typed is echoed: {seen:?}");
-            assert_eq!(modes(slave.as_raw_fd()), before);
+            assert_eq!(after, before);
             assert!(deltabadger::crypto::verify_password(NEW, &stored(dir.path())));
             assert_ne!(stored(dir.path()), hash);
         }
@@ -1533,7 +1540,7 @@ mod reset_password {
             pty.type_bytes(format!("{NEW}\r").as_bytes());
             pty.wait_for("Again: ");
             pty.type_bytes(b"Another-horse-8\r");
-            let (status, seen, _) = pty.finish();
+            let (status, seen, _, _) = pty.finish();
             assert_eq!(status.code(), Some(1));
             assert!(seen.contains("deltabadger: the passwords didn't match; nothing was changed"), "{seen}");
             assert!(!seen.contains("horse"), "{seen:?}");
@@ -1552,11 +1559,10 @@ mod reset_password {
                     Some(k) => pty.type_bytes(&[k]),
                     None => { std::thread::sleep(std::time::Duration::from_millis(200)); unsafe { libc::kill(pty.child.id() as i32, libc::SIGTERM); } }
                 }
-                let slave = pty.slave.try_clone().unwrap();
-                let (status, seen, _) = pty.finish();
+                let (status, seen, _, after) = pty.finish();
                 assert_eq!(status.code(), Some(130), "{key:?}: {seen}");
                 if key.is_some() { assert!(seen.contains("cancelled; nothing was changed"), "{key:?}: {seen}") }
-                assert_eq!(modes(slave.as_raw_fd()), before, "{key:?}: the terminal is restored");
+                assert_eq!(after, before, "{key:?}: the terminal is restored");
                 assert_eq!(stored(dir.path()), hash, "{key:?}");
             }
         }
@@ -1565,7 +1571,7 @@ mod reset_password {
         fn generate_prints_the_new_password_once_on_the_terminal() {
             let (dir, hash) = install();
             let pty = spawn(dir.path(), &["owner@example.com", "--generate"], true);
-            let (status, seen, _) = pty.finish();
+            let (status, seen, _, _) = pty.finish();
             assert!(status.success(), "{seen}");
             let line = seen.lines().find_map(|l| l.strip_prefix("new password: ")).unwrap_or_else(|| panic!("{seen}")).trim().to_string();
             assert!(line.len() >= 41, "{line}");
@@ -1575,7 +1581,7 @@ mod reset_password {
             assert!(!seen.contains(&now) && !seen.contains(&hash));
             // Its stdout a pipe (docker logs, a file): refused before anything is written.
             let pty = spawn(dir.path(), &["owner@example.com", "--generate"], false);
-            let (status, seen, piped) = pty.finish();
+            let (status, seen, piped, _) = pty.finish();
             assert_eq!(status.code(), Some(1), "{seen}");
             assert!(piped.is_empty());
             assert_eq!(stored(dir.path()), now);
@@ -1585,7 +1591,7 @@ mod reset_password {
         fn stdin_refuses_a_terminal() {
             let (dir, hash) = install();
             let pty = spawn(dir.path(), &["owner@example.com", "--stdin"], true);
-            let (status, seen, _) = pty.finish();
+            let (status, seen, _, _) = pty.finish();
             assert_eq!(status.code(), Some(1));
             assert!(seen.contains("--stdin reads a pipe; leave it off to be asked on the terminal"), "{seen}");
             assert_eq!(stored(dir.path()), hash);
