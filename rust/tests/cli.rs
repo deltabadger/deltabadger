@@ -1255,3 +1255,340 @@ fn a_crash_between_the_wake_journal_and_the_queue_delete_imports_nothing_twice()
     assert_eq!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "the rows go");
     assert_eq!(rails_wakes(dir.path()), Some(journal), "nothing journalled twice");
 }
+
+// A16b (PLAN-A16b-reset-password-command.md): `deltabadger reset-password <email> [--stdin | --generate]`, the process.
+// The write itself (sessions, unlock, confirm, identity, pending 2FA) is in tests/accounts.rs.
+mod reset_password {
+    use super::*;
+    use std::io::Write;
+
+    pub const OLD: &str = "Correct-horse-9";
+    pub const NEW: &str = "Another-horse-7";
+
+    /// An install with the owner and one other account. Returns the owner's stored hash.
+    pub fn install() -> (tempfile::TempDir, String) {
+        let dir = common::rails_install();
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        let hash = deltabadger::crypto::hash_password(OLD).unwrap();
+        for (email, hash) in [("owner@example.com", hash.as_str()), ("someone-else@example.com", "x")] {
+            c.execute("INSERT INTO users (name, email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
+                       VALUES ('Owner', ?1, ?2, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, hash)).unwrap();
+        }
+        (dir, hash)
+    }
+
+    pub fn stored(dir: &Path) -> String {
+        rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+            .query_row("SELECT encrypted_password FROM users WHERE email = 'owner@example.com'", [], |r| r.get(0)).unwrap()
+    }
+
+    /// The command with `input` on stdin (a pipe), no secret in its environment.
+    pub fn with_stdin(dir: &Path, args: &[&str], input: &str) -> std::process::Output {
+        let mut child = bare(dir, &[&["reset-password"], args].concat()).env_remove("SECRET_KEY_BASE")
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let _ = child.stdin.take().unwrap().write_all(input.as_bytes()); // a refusal may exit before reading
+        child.wait_with_output().unwrap()
+    }
+
+    /// Neither password, nor the stored hash, nor its salt, in anything the command printed.
+    pub fn assert_silent(out: &std::process::Output, dir: &Path, secrets: &[&str]) {
+        let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), stderr(out));
+        let hash = stored(dir);
+        for secret in secrets.iter().copied().chain([hash.as_str(), &hash[..29], &hash[7..29]]) {
+            assert!(!all.contains(secret), "{secret:?} printed: {all}");
+        }
+    }
+
+    #[test]
+    fn stdin_sets_the_password_and_says_so_without_printing_it() {
+        let (dir, old_hash) = install();
+        let log = dir.path().join("engine.log");
+        let mut child = bare(dir.path(), &["reset-password", " Owner@Example.com ", "--stdin"]).env_remove("SECRET_KEY_BASE")
+            .env("DELTABADGER_LOG_FILE", &log).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        child.stdin.take().unwrap().write_all(format!("{NEW}\n").as_bytes()).unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(out.status.success(), "{}", stderr(&out));
+        assert_eq!(String::from_utf8_lossy(&out.stdout), "password changed for owner@example.com; every session of that account is signed out\n");
+        let hash = stored(dir.path());
+        assert!(deltabadger::crypto::verify_password(NEW, &hash) && !deltabadger::crypto::verify_password(OLD, &hash));
+        assert_ne!(hash[..29], old_hash[..29], "a new salt: every session of the account ends");
+        assert_silent(&out, dir.path(), &[NEW, OLD, &old_hash]);
+        assert!(!log.exists(), "the command writes no log file");
+        // \r\n is a line ending too; spaces inside are kept.
+        let out = with_stdin(dir.path(), &["owner@example.com", "--stdin"], "Two words-Here 7\r\n");
+        assert!(out.status.success(), "{}", stderr(&out));
+        assert!(deltabadger::crypto::verify_password("Two words-Here 7", &stored(dir.path())));
+    }
+
+    #[test]
+    fn an_unknown_address_is_refused_and_no_account_is_named() {
+        let (dir, hash) = install();
+        let out = with_stdin(dir.path(), &["nobody@example.com", "--stdin"], &format!("{NEW}\n"));
+        assert_eq!(out.status.code(), Some(1));
+        assert_eq!(stderr(&out), "deltabadger: no account with the email nobody@example.com; nothing was changed\n");
+        assert!(out.stdout.is_empty());
+        assert_eq!(stored(dir.path()), hash);
+    }
+
+    #[test]
+    fn a_password_the_web_form_refuses_is_refused() {
+        let (dir, hash) = install();
+        for (password, words) in [("Short-1", "too short (minimum is 8 characters)"), ("alllowercase-and-long", "uppercase characters"), ("", "no password given")] {
+            let out = with_stdin(dir.path(), &["owner@example.com", "--stdin"], &format!("{password}\n"));
+            assert_eq!(out.status.code(), Some(1), "{password}");
+            assert!(stderr(&out).contains(words) && stderr(&out).contains("nothing was changed"), "{password}: {}", stderr(&out));
+            assert_silent(&out, dir.path(), &[password].into_iter().filter(|p| !p.is_empty()).collect::<Vec<_>>());
+            assert_eq!(stored(dir.path()), hash);
+        }
+        let out = with_stdin(dir.path(), &["owner@example.com", "--stdin"], &"Aa-1".repeat(300));
+        assert!(stderr(&out).contains("too long"), "{}", stderr(&out));
+        assert_eq!(stored(dir.path()), hash);
+    }
+
+    #[test]
+    fn any_other_shape_is_the_usage_line_and_reads_nothing() {
+        let (dir, hash) = install();
+        for args in [&[][..], &["owner@example.com", "Another-horse-7"], &["owner@example.com", "--stdin", "--generate"], &["owner@example.com", "--password"],
+                     &["a@example.com", "b@example.com"], &["--stdin"]] {
+            let out = with_stdin(dir.path(), args, &format!("{NEW}\n"));
+            assert_eq!(out.status.code(), Some(1), "{args:?}");
+            assert!(stderr(&out).contains("usage: deltabadger reset-password <email> [--stdin | --generate]"), "{args:?}: {}", stderr(&out));
+            assert!(!stderr(&out).contains(NEW), "{args:?}: an argument is never echoed");
+            assert_eq!(stored(dir.path()), hash);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_non_utf8_argument_is_the_usage_line_and_never_printed() {
+        use std::os::unix::ffi::OsStrExt;
+        let (dir, hash) = install();
+        let out = bare(dir.path(), &["reset-password", "owner@example.com"]).arg(std::ffi::OsStr::from_bytes(b"Secret-pw-9\xff"))
+            .env_remove("SECRET_KEY_BASE").stdin(Stdio::null()).output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{}", stderr(&out));
+        assert!(stderr(&out).contains("usage: deltabadger reset-password") && !stderr(&out).contains("Secret-pw"), "{}", stderr(&out));
+        assert_eq!(stored(dir.path()), hash);
+    }
+
+    #[test]
+    fn stdin_is_read_to_its_first_line_only_so_an_open_pipe_is_not_waited_on() {
+        let (dir, _) = install();
+        let mut child = bare(dir.path(), &["reset-password", "owner@example.com", "--stdin"]).env_remove("SECRET_KEY_BASE")
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let mut pipe = child.stdin.take().unwrap();
+        pipe.write_all(format!("{NEW}\n").as_bytes()).unwrap();
+        pipe.flush().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() { break status }
+            assert!(std::time::Instant::now() < deadline, "the command waited for the pipe to close");
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        drop(pipe);
+        assert!(status.success());
+        assert!(deltabadger::crypto::verify_password(NEW, &stored(dir.path())));
+    }
+
+    #[test]
+    fn without_a_terminal_the_prompt_and_generate_refuse_and_stdin_refuses_a_terminal_only() {
+        let (dir, hash) = install();
+        let out = with_stdin(dir.path(), &["owner@example.com"], &format!("{NEW}\n{NEW}\n"));
+        assert_eq!(out.status.code(), Some(1));
+        assert!(stderr(&out).contains("stdin is not a terminal: use --stdin or --generate"), "{}", stderr(&out));
+        let out = with_stdin(dir.path(), &["owner@example.com", "--generate"], "");
+        assert_eq!(out.status.code(), Some(1));
+        assert!(stderr(&out).contains("--generate prints the new password, so it needs a terminal"), "{}", stderr(&out));
+        assert!(out.stdout.is_empty());
+        assert_eq!(stored(dir.path()), hash);
+    }
+
+    #[test]
+    fn a_missing_install_is_refused_and_nothing_is_created() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = with_stdin(dir.path(), &["owner@example.com", "--stdin"], &format!("{NEW}\n"));
+        assert_eq!(out.status.code(), Some(1));
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0, "{}", stderr(&out));
+    }
+
+    /// The command is not an engine: it takes no engine lock, so it works while `serve` holds it (docker exec into the
+    /// running container), under SQLite's own writer lock.
+    #[test]
+    fn it_works_while_an_engine_holds_the_install() {
+        let (dir, _) = install();
+        let paths = deltabadger::store::Paths::from_env(&|_: &str| None, dir.path());
+        let _held = deltabadger::lease::lock(&paths, chrono::Utc::now()).unwrap();
+        let out = with_stdin(dir.path(), &["owner@example.com", "--stdin"], &format!("{NEW}\n"));
+        assert!(out.status.success(), "{}", stderr(&out));
+        assert!(deltabadger::crypto::verify_password(NEW, &stored(dir.path())));
+    }
+
+    #[test]
+    fn a_database_busy_past_the_timeout_is_refused_and_nothing_is_written() {
+        let (dir, hash) = install();
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        c.execute_batch("BEGIN IMMEDIATE").unwrap();
+        let out = with_stdin(dir.path(), &["owner@example.com", "--stdin"], &format!("{NEW}\n"));
+        c.execute_batch("ROLLBACK").unwrap();
+        assert_eq!(out.status.code(), Some(1));
+        assert!(stderr(&out).contains("the database is busy; try again in a moment. Nothing was changed"), "{}", stderr(&out));
+        assert_eq!(stored(dir.path()), hash);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn it_works_while_serve_runs() {
+        let (dir, _) = install();
+        let port = free_port();
+        let mut serve = bare(dir.path(), &["serve"]).env("PORT", port.to_string()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap();
+        let up = (0..600).any(|_| { std::thread::sleep(std::time::Duration::from_millis(100)); http_up(port).is_some() });
+        let out = with_stdin(dir.path(), &["owner@example.com", "--stdin"], &format!("{NEW}\n"));
+        unsafe { libc::kill(serve.id() as i32, libc::SIGTERM); }
+        let _ = serve.wait();
+        assert!(up, "serve answered");
+        assert!(out.status.success(), "{}", stderr(&out));
+        assert!(deltabadger::crypto::verify_password(NEW, &stored(dir.path())));
+    }
+
+    /// The prompt, on a pseudo-terminal as `docker exec -it` gives one.
+    #[cfg(unix)]
+    mod terminal {
+        use super::*;
+        use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+        use std::sync::{Arc, Mutex};
+
+        struct Pty { master: OwnedFd, slave: OwnedFd, seen: Arc<Mutex<Vec<u8>>>, stop: Arc<std::sync::atomic::AtomicBool>, child: std::process::Child }
+
+        fn modes(fd: i32) -> (libc::tcflag_t, libc::tcflag_t) {
+            let mut t: libc::termios = unsafe { std::mem::zeroed() };
+            assert_eq!(unsafe { libc::tcgetattr(fd, &mut t) }, 0);
+            (t.c_lflag & (libc::ECHO | libc::ICANON | libc::ISIG), t.c_iflag)
+        }
+
+        /// The command on a terminal: stdin and stderr always, stdout too when `stdout_terminal`.
+        fn spawn(dir: &Path, args: &[&str], stdout_terminal: bool) -> Pty {
+            let (mut m, mut s) = (0, 0);
+            assert_eq!(unsafe { libc::openpty(&mut m, &mut s, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut()) }, 0);
+            let (master, slave) = unsafe { (OwnedFd::from_raw_fd(m), OwnedFd::from_raw_fd(s)) };
+            let fd = || Stdio::from(slave.try_clone().unwrap());
+            let child = bare(dir, &[&["reset-password"], args].concat()).env_remove("SECRET_KEY_BASE")
+                .stdin(fd()).stderr(fd()).stdout(if stdout_terminal { fd() } else { Stdio::piped() }).spawn().unwrap();
+            let (seen, stop) = (Arc::new(Mutex::new(vec![])), Arc::new(std::sync::atomic::AtomicBool::new(false)));
+            let (read_fd, into, until) = (master.as_raw_fd(), seen.clone(), stop.clone());
+            std::thread::spawn(move || {
+                let mut buf = [0u8; 1024];
+                while !until.load(std::sync::atomic::Ordering::SeqCst) {
+                    let mut p = libc::pollfd { fd: read_fd, events: libc::POLLIN, revents: 0 };
+                    if unsafe { libc::poll(&mut p, 1, 50) } <= 0 { continue }
+                    let n = unsafe { libc::read(read_fd, buf.as_mut_ptr().cast(), buf.len()) };
+                    if n <= 0 { break }
+                    into.lock().unwrap().extend_from_slice(&buf[..n as usize]);
+                }
+            });
+            Pty { master, slave, seen, stop, child }
+        }
+
+        impl Pty {
+            fn seen(&self) -> String { String::from_utf8_lossy(&self.seen.lock().unwrap()).to_string() }
+            fn wait_for(&self, text: &str) {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+                while !self.seen().contains(text) { assert!(std::time::Instant::now() < deadline, "never saw {text:?}: {:?}", self.seen()); std::thread::sleep(std::time::Duration::from_millis(20)); }
+            }
+            fn type_bytes(&self, bytes: &[u8]) {
+                assert_eq!(unsafe { libc::write(self.master.as_raw_fd(), bytes.as_ptr().cast(), bytes.len()) }, bytes.len() as isize);
+            }
+            fn finish(mut self) -> (std::process::ExitStatus, String, String) {
+                let status = self.child.wait().unwrap();
+                std::thread::sleep(std::time::Duration::from_millis(200));
+                self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+                let mut piped = String::new();
+                if let Some(mut out) = self.child.stdout.take() { std::io::Read::read_to_string(&mut out, &mut piped).unwrap(); }
+                (status, self.seen(), piped)
+            }
+        }
+
+        #[test]
+        fn typed_twice_with_echo_off_sets_it_and_the_terminal_is_left_as_it_was() {
+            let (dir, hash) = install();
+            let pty = spawn(dir.path(), &["owner@example.com"], true);
+            let before = modes(pty.slave.as_raw_fd());
+            pty.wait_for("New password for owner@example.com: ");
+            pty.type_bytes(b"Another-horse-7x\x7f\r"); // a typo, rubbed out
+            pty.wait_for("Again: ");
+            pty.type_bytes(format!("{NEW}\r").as_bytes());
+            let slave = pty.slave.try_clone().unwrap();
+            let (status, seen, _) = pty.finish();
+            assert!(status.success(), "{seen}");
+            assert!(seen.contains("password changed for owner@example.com"), "{seen}");
+            assert!(!seen.contains("horse"), "nothing typed is echoed: {seen:?}");
+            assert_eq!(modes(slave.as_raw_fd()), before);
+            assert!(deltabadger::crypto::verify_password(NEW, &stored(dir.path())));
+            assert_ne!(stored(dir.path()), hash);
+        }
+
+        #[test]
+        fn two_different_passwords_change_nothing() {
+            let (dir, hash) = install();
+            let pty = spawn(dir.path(), &["owner@example.com"], true);
+            pty.wait_for("New password for owner@example.com: ");
+            pty.type_bytes(format!("{NEW}\r").as_bytes());
+            pty.wait_for("Again: ");
+            pty.type_bytes(b"Another-horse-8\r");
+            let (status, seen, _) = pty.finish();
+            assert_eq!(status.code(), Some(1));
+            assert!(seen.contains("deltabadger: the passwords didn't match; nothing was changed"), "{seen}");
+            assert!(!seen.contains("horse"), "{seen:?}");
+            assert_eq!(stored(dir.path()), hash);
+        }
+
+        #[test]
+        fn ctrl_c_ctrl_backslash_ctrl_z_and_sigterm_cancel_and_restore_the_terminal() {
+            let (dir, hash) = install();
+            for key in [Some(3u8), Some(0x1c), Some(0x1a), None] {
+                let pty = spawn(dir.path(), &["owner@example.com"], true);
+                let before = modes(pty.slave.as_raw_fd());
+                pty.wait_for("New password for owner@example.com: ");
+                pty.type_bytes(b"Another-");
+                match key {
+                    Some(k) => pty.type_bytes(&[k]),
+                    None => { std::thread::sleep(std::time::Duration::from_millis(200)); unsafe { libc::kill(pty.child.id() as i32, libc::SIGTERM); } }
+                }
+                let slave = pty.slave.try_clone().unwrap();
+                let (status, seen, _) = pty.finish();
+                assert_eq!(status.code(), Some(130), "{key:?}: {seen}");
+                if key.is_some() { assert!(seen.contains("cancelled; nothing was changed"), "{key:?}: {seen}") }
+                assert_eq!(modes(slave.as_raw_fd()), before, "{key:?}: the terminal is restored");
+                assert_eq!(stored(dir.path()), hash, "{key:?}");
+            }
+        }
+
+        #[test]
+        fn generate_prints_the_new_password_once_on_the_terminal() {
+            let (dir, hash) = install();
+            let pty = spawn(dir.path(), &["owner@example.com", "--generate"], true);
+            let (status, seen, _) = pty.finish();
+            assert!(status.success(), "{seen}");
+            let line = seen.lines().find_map(|l| l.strip_prefix("new password: ")).unwrap_or_else(|| panic!("{seen}")).trim().to_string();
+            assert!(line.len() >= 41, "{line}");
+            assert_eq!(seen.matches(line.as_str()).count(), 1);
+            let now = stored(dir.path());
+            assert!(deltabadger::crypto::verify_password(&line, &now));
+            assert!(!seen.contains(&now) && !seen.contains(&hash));
+            // Its stdout a pipe (docker logs, a file): refused before anything is written.
+            let pty = spawn(dir.path(), &["owner@example.com", "--generate"], false);
+            let (status, seen, piped) = pty.finish();
+            assert_eq!(status.code(), Some(1), "{seen}");
+            assert!(piped.is_empty());
+            assert_eq!(stored(dir.path()), now);
+        }
+
+        #[test]
+        fn stdin_refuses_a_terminal() {
+            let (dir, hash) = install();
+            let pty = spawn(dir.path(), &["owner@example.com", "--stdin"], true);
+            let (status, seen, _) = pty.finish();
+            assert_eq!(status.code(), Some(1));
+            assert!(seen.contains("--stdin reads a pipe; leave it off to be asked on the terminal"), "{seen}");
+            assert_eq!(stored(dir.path()), hash);
+        }
+    }
+}

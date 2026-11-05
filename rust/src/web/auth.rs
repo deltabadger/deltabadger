@@ -396,7 +396,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         PasswordStage::SignedIn(user) => Ok(continue_sign_in(&ctx, &user, true)),
         PasswordStage::SecondFactor(user) => {
             // sign_out clears the whole session; only the pending sign-in survives.
-            *ctx.session.lock() = SessionData { pending: Some(Pending { user_id: user.id, started_at: decision_now.timestamp() }), ..SessionData::default() };
+            *ctx.session.lock() = SessionData { pending: Some(Pending { user_id: user.id, started_at: decision_now.timestamp(), salt: user.salt().to_string() }), ..SessionData::default() };
             // pending_sign_in_locale: the request's locale, else the account's; a prefix only for a routable, non-default one.
             let wanted = ctx.params.locale().or(user.locale.as_deref()).and_then(locale::known).unwrap_or(locale::DEFAULT);
             Ok(layout::redirect(StatusCode::FOUND, &locale::path(wanted, "/verify_two_factor")))
@@ -476,8 +476,9 @@ enum CodeStage {
     SignedIn(User),
 }
 
-fn code_stage(c: &Connection, cipher: &Cipher, user_id: i64, code: Option<String>, now: DateTime<Utc>) -> Result<CodeStage, WebError> {
-    let Some(mut user) = User::find(c, user_id)? else { return Ok(CodeStage::Abandon) };
+fn code_stage(c: &Connection, cipher: &Cipher, pending: &Pending, code: Option<String>, now: DateTime<Utc>) -> Result<CodeStage, WebError> {
+    // The password the sign-in passed has changed since (D-PENDING-SIGN-IN-BOUND-TO-PASSWORD): abandoned, nothing written.
+    let Some(mut user) = User::find(c, pending.user_id)?.filter(|user| user.salt() == pending.salt) else { return Ok(CodeStage::Abandon) };
     if user.lock_expired(now) {
         user.unlock(c, now)?; // unlock_access_if_lock_expired!
     }
@@ -519,7 +520,7 @@ pub async fn two_factor(State(app): State<App>, Extension(ctx): Extension<Ctx>) 
         {
             return Ok(CodeStage::Abandon);
         }
-        code_stage(c, &inner.cipher, pending.user_id, code, now)
+        code_stage(c, &inner.cipher, &pending, code, now)
     })).await? {
         CodeStage::Abandon | CodeStage::WrongAndLocked => Ok(abandon(&ctx)),
         CodeStage::Form => two_factor_page(&ctx, StatusCode::OK, Vec::new()),

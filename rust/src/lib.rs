@@ -18,6 +18,7 @@ pub mod logger;
 pub mod market_data;
 pub mod mail;
 pub mod parity;
+pub mod password_input;
 pub mod ruby;
 pub mod stop;
 pub mod store;

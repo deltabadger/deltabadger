@@ -244,6 +244,11 @@ main() {
             exit 64
             ;;
 
+        reset-password)
+            # A password for an account, from the command line (manual: Account settings). Reads no secrets.
+            exec deltabadger "$@"
+            ;;
+
         shell)
             echo "Starting shell..."
             exec /bin/bash

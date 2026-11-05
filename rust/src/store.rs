@@ -359,7 +359,7 @@ const PRIMARY: &[TableContract] = &[
         ("display_currency", "varchar", true), ("hide_balances", "boolean", true), ("confirmed_at", "datetime", false),
         ("failed_attempts", "integer", true), ("locked_at", "datetime(6)", false), ("otp_module", "integer", false),
         ("otp_secret_key", "varchar", false), ("last_otp_at", "datetime", false), ("remember_created_at", "datetime", false),
-        ("updated_at", "datetime", true), ("tracker_settings", "json", false), ("mcp_settings", "json", false), ("rest_settings", "json", false),
+        ("reset_password_token", "varchar", false), ("reset_password_sent_at", "datetime", false), ("updated_at", "datetime", true), ("tracker_settings", "json", false), ("mcp_settings", "json", false), ("rest_settings", "json", false),
     ], unique_indexes: &[&["email"]] },
     // Doorkeeper's tables and the per-client grant (src/web/oauth.rs, consent.rs, bearer.rs): written as Doorkeeper writes them.
     TableContract { name: "oauth_applications", columns: &[

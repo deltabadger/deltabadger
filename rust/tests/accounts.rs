@@ -439,3 +439,150 @@ async fn saving_smtp_redraws_an_open_registrations_row() {
     let closed = browser.send(&app, "POST", "/settings/update_email_notifications", Some(&save("custom_smtp")), Csrf::Header, &stream).await;
     assert!(!closed.body.contains("registration_settings"), "{}", closed.body);
 }
+
+// A16b (PLAN-A16b-reset-password-command.md): `deltabadger reset-password`'s write, on the library operation the command
+// calls. The process behaviours (prompts, output, the lease) are in tests/cli.rs.
+mod owner_reset {
+    use super::*;
+    use deltabadger::web::password::{owner_lookup, policy_message, reset_by_owner, OwnerReset};
+
+    const SEED: &str = "JBSWY3DPEHPK3PXP";
+
+    impl Harness {
+        fn clock_now(&self) -> chrono::DateTime<chrono::Utc> { deltabadger::engine::Clock::now(&*self.clock) }
+        fn owner_reset(&self, email: &str, password: &str) -> OwnerReset {
+            let c = db(&self.dir);
+            let id = owner_lookup(&c, email).unwrap().expect("the account");
+            let hash = deltabadger::crypto::hash_password(password).unwrap();
+            reset_by_owner(&c, id, email, &hash, self.clock_now()).unwrap()
+        }
+        async fn sign_in(&self, browser: &mut Browser, password: &str) -> Answer {
+            browser.get(&self.app, "/login").await;
+            browser.post(&self.app, "/login", &[("user[email]", "owner@example.com"), ("user[password]", password)]).await
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn the_new_password_signs_in_the_old_one_no_longer_and_every_session_is_signed_out() {
+        let h = harness();
+        let mut before = Browser::default();
+        assert_eq!(h.sign_in(&mut before, PASSWORD).await.status, 303);
+        assert_eq!(before.get(&h.app, "/settings/account").await.status, 200, "signed in before");
+        // A mailed link from earlier dies with the command.
+        h.request_reset(&mut Browser::default(), "owner@example.com").await;
+        let link = h.last_token();
+        assert_eq!(h.owner_reset(" Owner@Example.com ", NEW_PASSWORD), OwnerReset::Changed { confirmed_now: false, two_factor: false });
+        let row = h.user("owner@example.com");
+        assert!(deltabadger::crypto::verify_password(NEW_PASSWORD, row[0].as_str().unwrap()));
+        assert_eq!((&row[1], &row[2]), (&Value::Null, &Value::Null), "the reset token and its time are cleared");
+        let out = before.get(&h.app, "/settings/account").await;
+        assert_eq!((out.status, out.header("location")), (302, Some("/login")), "the old session is signed out");
+        let dead = Browser::default().get(&h.app, &format!("/password/edit?reset_password_token={link}")).await;
+        assert_eq!(dead.header("location"), Some("/password/new"), "the mailed link is dead");
+        assert_ne!(h.sign_in(&mut Browser::default(), PASSWORD).await.status, 303, "the old password");
+        assert_eq!(h.sign_in(&mut Browser::default(), NEW_PASSWORD).await.status, 303, "the new password");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_locked_unconfirmed_account_is_unlocked_and_confirmed_and_its_other_columns_kept() {
+        let h = harness();
+        let c = db(&h.dir);
+        // D-RESET-COMMAND-UNLOCKS, D-RESET-COMMAND-CONFIRMS.
+        c.execute("UPDATE users SET failed_attempts = 5, locked_at = ?1, confirmed_at = NULL, unconfirmed_email = 'next@example.com', \
+                   remember_created_at = '2026-09-01 00:00:00' WHERE email = 'owner@example.com'", [AT]).unwrap();
+        assert_eq!(h.owner_reset("owner@example.com", NEW_PASSWORD), OwnerReset::Changed { confirmed_now: true, two_factor: false });
+        let (attempts, locked, confirmed, pending, remember): (i64, Option<String>, Option<String>, Option<String>, Option<String>) =
+            c.query_row("SELECT failed_attempts, locked_at, confirmed_at, unconfirmed_email, remember_created_at FROM users WHERE email = 'owner@example.com'",
+                        [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).unwrap();
+        assert_eq!((attempts, locked.as_deref()), (0, None));
+        assert!(confirmed.is_some());
+        assert_eq!((pending.as_deref(), remember.as_deref()), (Some("next@example.com"), None), "a pending address change is left; remember-me cleared");
+        assert_eq!(h.sign_in(&mut Browser::default(), NEW_PASSWORD).await.status, 303);
+        // An existing confirmation time is kept.
+        let kept: String = c.query_row("SELECT confirmed_at FROM users WHERE email = 'owner@example.com'", [], |r| r.get(0)).unwrap();
+        assert_eq!(h.owner_reset("owner@example.com", "Third-horse-11"), OwnerReset::Changed { confirmed_now: false, two_factor: false });
+        assert_eq!(c.query_row("SELECT confirmed_at FROM users WHERE email = 'owner@example.com'", [], |r| r.get::<_, String>(0)).unwrap(), kept);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn two_factor_and_credentials_are_left_as_they_are() {
+        let h = harness();
+        let c = db(&h.dir);
+        c.execute("UPDATE users SET otp_module = 1, otp_secret_key = ?1, last_otp_at = '2026-09-10 11:00:00' WHERE email = 'owner@example.com'",
+                  [h.app.cipher.encrypt_binary(SEED)]).unwrap();
+        let otp = |c: &Connection| c.query_row("SELECT otp_module, otp_secret_key, last_otp_at FROM users WHERE email = 'owner@example.com'", [],
+                                               |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))).unwrap();
+        let before = otp(&c);
+        assert_eq!(h.owner_reset("owner@example.com", NEW_PASSWORD), OwnerReset::Changed { confirmed_now: false, two_factor: true });
+        assert_eq!(otp(&c), before);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn an_address_moved_to_another_account_or_a_deleted_account_changes_nothing() {
+        let h = harness();
+        let c = db(&h.dir);
+        let hash = deltabadger::crypto::hash_password(NEW_PASSWORD).unwrap();
+        let id = owner_lookup(&c, "owner@example.com").unwrap().unwrap();
+        // While the operator types: the owner moves to another address and a second account takes the old one.
+        c.execute("UPDATE users SET email = 'moved@example.com' WHERE id = ?1", [id]).unwrap();
+        c.execute("INSERT INTO users (name, email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
+                   VALUES ('Other', 'owner@example.com', 'other-hash', 0, 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+        let hashes = |c: &Connection| c.prepare("SELECT id, encrypted_password FROM users ORDER BY id").unwrap()
+            .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        let before = hashes(&c);
+        assert_eq!(reset_by_owner(&c, id, "owner@example.com", &hash, h.clock_now()).unwrap(), OwnerReset::AccountChanged);
+        assert_eq!(hashes(&c), before);
+        c.execute("DELETE FROM users WHERE id = ?1", [id]).unwrap();
+        assert_eq!(reset_by_owner(&c, id, "moved@example.com", &hash, h.clock_now()).unwrap(), OwnerReset::AccountChanged);
+        assert_eq!(owner_lookup(&c, "nobody@example.com").unwrap(), None);
+    }
+
+    #[test]
+    fn the_rules_are_the_web_forms() {
+        assert!(policy_message("Short-1").unwrap().contains("too short"));
+        assert!(policy_message("alllowercase-and-long").is_some(), "complexity");
+        assert_eq!(policy_message(NEW_PASSWORD), None);
+        let long = format!("Aa-1{}", "ü".repeat(124)); // 128 characters, more bytes
+        assert_eq!(policy_message(&long), None);
+        assert!(policy_message(&format!("{long}x")).unwrap().contains("too long"));
+    }
+
+    /// D-PENDING-SIGN-IN-BOUND-TO-PASSWORD: a sign-in that passed the old password can't be finished with a code after the
+    /// password changes, by the command or by the web reset; the refused code is not spent and counts no failure.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_pending_second_factor_ends_with_the_password() {
+        for by_command in [true, false] {
+            let h = harness();
+            let c = db(&h.dir);
+            c.execute("UPDATE users SET otp_module = 1, otp_secret_key = ?1 WHERE email = 'owner@example.com'", [h.app.cipher.encrypt_binary(SEED)]).unwrap();
+            let mut pending = Browser::default();
+            let stage = h.sign_in(&mut pending, PASSWORD).await;
+            assert_eq!(stage.header("location"), Some("/verify_two_factor"), "{by_command}");
+            assert_eq!(pending.get(&h.app, "/verify_two_factor").await.status, 200, "{by_command}: the code form, before the reset");
+            if by_command {
+                h.owner_reset("owner@example.com", NEW_PASSWORD);
+            } else {
+                h.request_reset(&mut Browser::default(), "owner@example.com").await;
+                let token = h.last_token();
+                let code = deltabadger::crypto::totp_at(SEED, h.clock_now().timestamp() as u64).unwrap();
+                assert_eq!(h.reset(&mut Browser::default(), &token, NEW_PASSWORD, Some(&code)).await.header("location"), Some("/login"));
+                h.clock.set(h.clock_now() + chrono::Duration::seconds(30)); // the next step: that code is spent
+            }
+            let before = h.user("owner@example.com");
+            let code = deltabadger::crypto::totp_at(SEED, h.clock_now().timestamp() as u64).unwrap();
+            let answer = pending.post(&h.app, "/verify_two_factor", &[("user[otp_code_token]", &code)]).await;
+            assert_eq!(answer.header("location"), Some("/login"), "{by_command}: refused as an abandoned sign-in");
+            assert_eq!(pending.get(&h.app, "/settings/account").await.header("location"), Some("/login"), "{by_command}: not signed in");
+            assert_eq!(h.user("owner@example.com"), before, "{by_command}: no code spent, no failure counted");
+        }
+    }
+
+    #[test]
+    fn every_locale_names_the_command_on_the_no_mail_page() {
+        for locale in ["bg", "cs", "da", "de", "el", "en", "es", "fr", "it", "nl", "pl", "pt", "ru", "sk", "sv"] {
+            let text = deltabadger::web::i18n::text(locale, "devise.passwords.mail_not_set_up", &[]);
+            assert!(text.contains("deltabadger reset-password"), "{locale}: {text}");
+            assert_ne!(locale != "en", text == deltabadger::web::i18n::text("en", "devise.passwords.mail_not_set_up", &[]), "{locale}: translated");
+        }
+    }
+}
